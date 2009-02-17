@@ -1,120 +1,80 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] netlink: add NETLINK_BROADCAST_ERROR socket option
-Date: Tue, 17 Feb 2009 14:56:02 +0100
-Message-ID: <20090217135602.25864.20453.stgit@Decadence>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: [PATCH 1/1 net-next]
+Date: Tue, 17 Feb 2009 11:08:41 -0300
+Message-ID: <499AC4E9.7090307@linux.vnet.ibm.com>
+References: <1231651594.5714.65.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Roland Dreier <rdreier@cisco.com>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57163 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751224AbZBQN4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Feb 2009 08:56:11 -0500
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:53209 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941AbZBQOIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 09:08:48 -0500
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp04.br.ibm.com (8.13.1/8.13.1) with ESMTP id n1HE6sPL014275
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 11:06:54 -0300
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.18.232.46])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n1HF8Bqi3256388
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 12:08:11 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n1HE8jOb001283
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 11:08:45 -0300
+In-Reply-To: <1231651594.5714.65.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds NETLINK_BROADCAST_ERROR which is a netlink
-socket option that the listener can set to make netlink_broadcast()
-return errors in the delivery to the caller. This option is useful
-if the caller of netlink_broadcast() do something with the result
-of the message delivery, like in ctnetlink where it drops a network
-packet if the event delivery failed, this is used to enable reliable
-logging and state-synchronization. If this socket option is not set,
-netlink_broadcast() only reports ESRCH errors and silently ignore
-ENOBUFS errors, which is what most netlink_broadcast() callers
-should do.
+Commit 03080e5cbe0222744173d3e726f6ba5d13b7f04e is causing some warning
+during compilation.
 
-This socket option is based on a suggestion from Patrick McHardy.
+tmp_addr is an unused variable if CONFIG_INFINIBAND_NES_DEBUG is
+ not used. Causing the following Warning.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+drivers/infiniband/hw/nes/nes_cm.c: In function =E2=80=98find_node=E2=80=
+=99:
+drivers/infiniband/hw/nes/nes_cm.c:781: warning: unused variable =E2=80=
+=98tmp_addr=E2=80=99
+drivers/infiniband/hw/nes/nes_cm.c: In function =E2=80=98find_listener=E2=
+=80=99:
+drivers/infiniband/hw/nes/nes_cm.c:820: warning: unused variable =E2=80=
+=98tmp_addr=E2=80=99
+
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 ---
+ drivers/infiniband/hw/nes/nes_cm.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
- include/linux/netlink.h  |    1 +
- net/netlink/af_netlink.c |   26 +++++++++++++++++++++++---
- 2 files changed, 24 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 51b09a1..1e6bf99 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -103,6 +103,7 @@ struct nlmsgerr
- #define NETLINK_ADD_MEMBERSHIP	1
- #define NETLINK_DROP_MEMBERSHIP	2
- #define NETLINK_PKTINFO		3
-+#define NETLINK_BROADCAST_ERROR	4
- 
- struct nl_pktinfo
+diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw=
+/nes/nes_cm.c
+index a01b448..2b34859 100644
+--- a/drivers/infiniband/hw/nes/nes_cm.c
++++ b/drivers/infiniband/hw/nes/nes_cm.c
+@@ -778,7 +778,9 @@ static struct nes_cm_node *find_node(struct nes_cm_=
+core *cm_core,
+ 	unsigned long flags;
+ 	struct list_head *hte;
+ 	struct nes_cm_node *cm_node;
++#ifdef CONFIG_INFINIBAND_NES_DEBUG
+ 	__be32 tmp_addr =3D cpu_to_be32(loc_addr);
++#endif
+=20
+ 	/* get a handle on the hte */
+ 	hte =3D &cm_core->connected_nodes;
+@@ -817,7 +819,9 @@ static struct nes_cm_listener *find_listener(struct=
+ nes_cm_core *cm_core,
  {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 6ee69c2..f3f212e 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -85,6 +85,7 @@ struct netlink_sock {
- 
- #define NETLINK_KERNEL_SOCKET	0x1
- #define NETLINK_RECV_PKTINFO	0x2
-+#define NETLINK_BROADCAST_SEND_ERROR	0x4
- 
- static inline struct netlink_sock *nlk_sk(struct sock *sk)
- {
-@@ -973,7 +974,7 @@ static inline int do_one_broadcast(struct sock *sk,
- 	if (!net_eq(sock_net(sk), p->net))
- 		goto out;
- 
--	if (p->failure) {
-+	if ((nlk->flags & NETLINK_BROADCAST_SEND_ERROR) && p->failure) {
- 		netlink_overrun(sk);
- 		goto out;
- 	}
-@@ -994,13 +995,15 @@ static inline int do_one_broadcast(struct sock *sk,
- 	if (p->skb2 == NULL) {
- 		netlink_overrun(sk);
- 		/* Clone failed. Notify ALL listeners. */
--		p->failure = 1;
-+		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
-+			p->failure = 1;
- 	} else if (sk_filter(sk, p->skb2)) {
- 		kfree_skb(p->skb2);
- 		p->skb2 = NULL;
- 	} else if ((val = netlink_broadcast_deliver(sk, p->skb2)) < 0) {
- 		netlink_overrun(sk);
--		p->delivery_failure = 1;
-+		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
-+			p->delivery_failure = 1;
- 	} else {
- 		p->congested |= val;
- 		p->delivered = 1;
-@@ -1163,6 +1166,13 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 		err = 0;
- 		break;
- 	}
-+	case NETLINK_BROADCAST_ERROR:
-+		if (val)
-+			nlk->flags |= NETLINK_BROADCAST_SEND_ERROR;
-+		else
-+			nlk->flags &= ~NETLINK_BROADCAST_SEND_ERROR;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -1195,6 +1205,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 			return -EFAULT;
- 		err = 0;
- 		break;
-+	case NETLINK_BROADCAST_ERROR:
-+		if (len < sizeof(int))
-+			return -EINVAL;
-+		len = sizeof(int);
-+		val = nlk->flags & NETLINK_BROADCAST_SEND_ERROR ? 1 : 0;
-+		if (put_user(len, optlen) ||
-+		    put_user(val, optval))
-+			return -EFAULT;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
+ 	unsigned long flags;
+ 	struct nes_cm_listener *listen_node;
++#ifdef CONFIG_INFINIBAND_NES_DEBUG
+ 	__be32 tmp_addr =3D cpu_to_be32(dst_addr);
++#endif
+=20
+ 	/* walk list and find cm_node associated with this session ID */
+ 	spin_lock_irqsave(&cm_core->listen_list_lock, flags);
+--=20
+1.6.0.2
 
