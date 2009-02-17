@@ -1,34 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bonding-devel] 2.6.29 regression? Bonding tied to IPV6 in
- 29-rc5
-Date: Tue, 17 Feb 2009 14:54:24 -0800 (PST)
-Message-ID: <20090217.145424.49927834.davem@davemloft.net>
-References: <200902172117.22671.arvidjaar@mail.ru>
-	<499B19AF.1000003@hp.com>
-	<16929.1234904788@death.nxdomain.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: problem with IPoA (CLIP),  NAT, and VLANS
+Date: Wed, 18 Feb 2009 00:12:55 +0100
+Message-ID: <20090217231255.GA3389@ami.dom.local>
+References: <499AB345.3070904@hiramoto.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, arvidjaar@mail.ru, jamagallon@ono.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, rjw@sisk.pl,
-	bonding-devel@lists.sourceforge.net
-To: fubar@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Karl Hiramoto <karl@hiramoto.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43048
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753557AbZBQWyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 17:54:39 -0500
-In-Reply-To: <16929.1234904788@death.nxdomain.ibm.com>
+Received: from fg-out-1718.google.com ([72.14.220.155]:57754 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753843AbZBQXOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 18:14:48 -0500
+Content-Disposition: inline
+In-Reply-To: <499AB345.3070904@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Tue, 17 Feb 2009 13:06:28 -0800
+Karl Hiramoto wrote, On 02/17/2009 01:53 PM:
 
-> 	Putting the ipv6 bits into a different module might not help,
-> either, because the "core" bonding code would still have the call to the
-> ipv6 functions.  Unless there's some magic way to somehow know at
-> runtime whether or not the ipv6 module is loaded, and only try to
-> resolve those symbols if ipv6 is loaded.  That seems complicated.
+> Jarek Poplawski wrote:
+>> On Tue, Feb 17, 2009 at 12:49:07PM +0100, Karl Hiramoto wrote:
+>> ...
+>>   
+>>> A side note:  so far the original patch i sent works in all cases i have
+>>> tested, but fails with tcpdump.   I suspect its because the skb gets cloned.
+>>>     
+>> If there is something readable from this tcpdump, it should be helpful
+>> to see a packet for working and non-working case during such ping
+>> (with -nXX option).
+>> Jarek P.
+>>   
+> 
+> Note:  I have the patches i sent applied,  plus the  "skb->mac_header -=
+> VLAN_HLEN;"   patch from Jarek on 2.6.28.4
+> 
+> Doing a tcpdump simultaneously  on the atm and eth0.1 on the linux router.
 
-This is a non-starter, as I described in one of my other replies.
+Nice job. Since tcpdump sees corrupted data, and we don't know if it's
+before or after hitting the driver I'd suggest to try full skb_copy()
+yet. So could you try if with your patch + the patch below tcpdump
+still breaks these things?
+
+BTW, I wonder what IXP400 config options do you use (especially
+CONFIG_IXP400_ETH_SKB_RECYCLE)?
+
+Jarek P.
+
+--- patch #3 (for debugging only)
+
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a17e006..b822a5d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1346,7 +1346,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		if ((ptype->dev == dev || !ptype->dev) &&
+ 		    (ptype->af_packet_priv == NULL ||
+ 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
+-			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
++			struct sk_buff *skb2= skb_copy(skb, GFP_ATOMIC);
+ 			if (!skb2)
+ 				break;
+ 
