@@ -1,637 +1,559 @@
 From: Greg Ungerer <gerg@snapgear.com>
-Subject: [PATCH 2/2] fec: remove ColdFire specific setup code from FEC driver
+Subject: [PATCH 1/2] fec: add FEC platform support to ColdFire CPU's setup code
 Date: Tue, 17 Feb 2009 10:53:01 +1000
-Message-ID: <200902170053.n1H0r1Zn002066@localhost.localdomain>
+Message-ID: <200902170053.n1H0r15O002064@localhost.localdomain>
 Cc: gerg@uclinux.org, netdev@vger.kernel.org
 To: s.hauer@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:49286 "EHLO
+Received: from rex.securecomputing.com ([203.24.151.4]:49295 "EHLO
 	snapgear.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751301AbZBQAxg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Feb 2009 19:53:36 -0500
+	id S1751331AbZBQAxm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Feb 2009 19:53:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-m68knommu: remove ColdFire specific setup code from FEC driver
+m68knommu: add FEC platform support to ColdFire CPU's setup code
 
-Remove the ColdFire CPU specific setup from here. The ColdFire
-CPU platform code now sets up all this.
+Move the per-CPU FEC driver setup code into the actual platform
+setup code for each ColdFire CPU varient.
 
 Signed-off-by: Greg Ungerer <gerg@uclinux.org>
 
 
-diff a/drivers/net/fec.c b/drivers/net/fec.c
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -57,36 +57,11 @@
- #define FEC_ALIGNMENT	0x3
- #endif
+diff a/arch/m68knommu/platform/520x/config.c b/arch/m68knommu/platform/520x/config.c
+--- a/arch/m68knommu/platform/520x/config.c
++++ b/arch/m68knommu/platform/520x/config.c
+@@ -49,8 +49,39 @@ static struct platform_device m520x_uart = {
+ 	.dev.platform_data	= m520x_uart_platform,
+ };
  
--#if defined CONFIG_M5272 || defined CONFIG_M527x || defined CONFIG_M523x \
--	|| defined CONFIG_M528x || defined CONFIG_M532x || defined CONFIG_M520x
--#define FEC_LEGACY
++static struct resource m520x_fec_resources[] = {
++	{
++		.start		= MCF_MBAR + 0x30000,
++		.end		= MCF_MBAR + 0x30000 + 0x7ff,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 64 + 36,
++		.end		= 64 + 36,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 40,
++		.end		= 64 + 40,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 42,
++		.end		= 64 + 42,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device m520x_fec = {
++	.name			= "fec",
++	.id			= 0,
++	.num_resources		= ARRAY_SIZE(m520x_fec_resources),
++	.resource		= m520x_fec_resources,
++};
++
+ static struct platform_device *m520x_devices[] __initdata = {
+ 	&m520x_uart,
++	&m520x_fec,
+ };
+ 
+ /***************************************************************************/
+@@ -103,6 +134,30 @@ static void __init m520x_uarts_init(void)
+ 
+ /***************************************************************************/
+ 
++static void __init m520x_fec_init(void)
++{
++	u32 imr;
++	u8 v;
++
++	/* Unmask FEC interrupts at ColdFire interrupt controller */
++	writeb(0x4, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 36);
++	writeb(0x4, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 40);
++	writeb(0x4, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 42);
++
++	imr = readl(MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH);
++	imr &= ~0x0001FFF0;
++	writel(imr, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH);
++	
++	/* Set multi-function pins to ethernet mode */
++	v = readb(MCF_IPSBAR + MCF_GPIO_PAR_FEC);
++	writeb(v | 0xf0, MCF_IPSBAR + MCF_GPIO_PAR_FEC);
++	
++	v = readb(MCF_IPSBAR + MCF_GPIO_PAR_FECI2C);
++	writeb(v | 0x0f, MCF_IPSBAR + MCF_GPIO_PAR_FECI2C);
++}
++
++/***************************************************************************/
++
  /*
-  * Define the fixed address of the FEC hardware.
+  *  Program the vector to be an auto-vectored.
   */
- #if defined(CONFIG_M5272)
- #define HAVE_mii_link_interrupt
--#endif
--
--#if defined(CONFIG_FEC2)
--#define	FEC_MAX_PORTS	2
--#else
--#define	FEC_MAX_PORTS	1
--#endif
--
--static unsigned int fec_hw[] = {
--#if defined(CONFIG_M5272)
--	(MCF_MBAR + 0x840),
--#elif defined(CONFIG_M527x)
--	(MCF_MBAR + 0x1000),
--	(MCF_MBAR + 0x1800),
--#elif defined(CONFIG_M523x) || defined(CONFIG_M528x)
--	(MCF_MBAR + 0x1000),
--#elif defined(CONFIG_M520x)
--	(MCF_MBAR+0x30000),
--#elif defined(CONFIG_M532x)
--	(MCF_MBAR+0xfc030000),
--#endif
--};
- 
- static unsigned char	fec_mac_default[] = {
- 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-@@ -109,8 +84,7 @@ static unsigned char	fec_mac_default[] =
- #else
- #define	FEC_FLASHMAC	0
- #endif
--
--#endif /* FEC_LEGACY */
-+#endif /* CONFIG_M5272 */
- 
- /* Forward declarations of some structures to support different PHYs
- */
-@@ -1242,89 +1216,14 @@ static phy_info_t const * const phy_info
- #ifdef HAVE_mii_link_interrupt
- static irqreturn_t
- mii_link_interrupt(int irq, void * dev_id);
--#endif
- 
--#if defined(CONFIG_M5272)
- /*
-- *	Code specific to Coldfire 5272 setup.
-+ *	This is specific to the MII interrupt setup of the M5272EVB.
-  */
--static void __inline__ fec_request_intrs(struct net_device *dev)
--{
--	volatile unsigned long *icrp;
--	static const struct idesc {
--		char *name;
--		unsigned short irq;
--		irq_handler_t handler;
--	} *idp, id[] = {
--		{ "fec(RX)", 86, fec_enet_interrupt },
--		{ "fec(TX)", 87, fec_enet_interrupt },
--		{ "fec(OTHER)", 88, fec_enet_interrupt },
--		{ "fec(MII)", 66, mii_link_interrupt },
--		{ NULL },
--	};
--
--	/* Setup interrupt handlers. */
--	for (idp = id; idp->name; idp++) {
--		if (request_irq(idp->irq, idp->handler, IRQF_DISABLED, idp->name, dev) != 0)
--			printk("FEC: Could not allocate %s IRQ(%d)!\n", idp->name, idp->irq);
--	}
--
--	/* Unmask interrupt at ColdFire 5272 SIM */
--	icrp = (volatile unsigned long *) (MCF_MBAR + MCFSIM_ICR3);
--	*icrp = 0x00000ddd;
--	icrp = (volatile unsigned long *) (MCF_MBAR + MCFSIM_ICR1);
--	*icrp = 0x0d000000;
--}
--
--static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
-+static void __inline__ fec_request_mii_intr(struct net_device *dev)
+@@ -118,6 +173,7 @@ void __init config_BSP(char *commandp, int size)
  {
--	volatile fec_t *fecp;
--
--	fecp = fep->hwp;
--	fecp->fec_r_cntrl = OPT_FRAME_SIZE | 0x04;
--	fecp->fec_x_cntrl = 0x00;
--
--	/*
--	 * Set MII speed to 2.5 MHz
--	 * See 5272 manual section 11.5.8: MSCR
--	 */
--	fep->phy_speed = ((((MCF_CLK / 4) / (2500000 / 10)) + 5) / 10) * 2;
--	fecp->fec_mii_speed = fep->phy_speed;
--
--	fec_restart(dev, 0);
--}
--
--static void __inline__ fec_get_mac(struct net_device *dev)
--{
--	struct fec_enet_private *fep = netdev_priv(dev);
--	volatile fec_t *fecp;
--	unsigned char *iap, tmpaddr[ETH_ALEN];
--
--	fecp = fep->hwp;
--
--	if (FEC_FLASHMAC) {
--		/*
--		 * Get MAC address from FLASH.
--		 * If it is all 1's or 0's, use the default.
--		 */
--		iap = (unsigned char *)FEC_FLASHMAC;
--		if ((iap[0] == 0) && (iap[1] == 0) && (iap[2] == 0) &&
--		    (iap[3] == 0) && (iap[4] == 0) && (iap[5] == 0))
--			iap = fec_mac_default;
--		if ((iap[0] == 0xff) && (iap[1] == 0xff) && (iap[2] == 0xff) &&
--		    (iap[3] == 0xff) && (iap[4] == 0xff) && (iap[5] == 0xff))
--			iap = fec_mac_default;
--	} else {
--		*((unsigned long *) &tmpaddr[0]) = fecp->fec_addr_low;
--		*((unsigned short *) &tmpaddr[4]) = (fecp->fec_addr_high >> 16);
--		iap = &tmpaddr[0];
--	}
--
--	memcpy(dev->dev_addr, iap, ETH_ALEN);
--
--	/* Adjust MAC if using default MAC address */
--	if (iap == fec_mac_default)
--		 dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
-+	if (request_irq(66, mii_link_interrupt, IRQF_DISABLED, "fec(MII)", dev) != 0)
-+		printk("FEC: Could not allocate fec(MII) IRQ(66)!\n");
+ 	mach_reset = coldfire_reset;
+ 	m520x_uarts_init();
++	m520x_fec_init();
  }
  
- static void __inline__ fec_disable_phy_intr(void)
-@@ -1341,344 +1240,9 @@ static void __inline__ fec_phy_ack_intr(
- 	icrp = (volatile unsigned long *) (MCF_MBAR + MCFSIM_ICR1);
- 	*icrp = 0x0d000000;
- }
--
--/* ------------------------------------------------------------------------- */
--
--#elif defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x)
--
--/*
-- *	Code specific to Coldfire 5230/5231/5232/5234/5235,
-- *	the 5270/5271/5274/5275 and 5280/5282 setups.
-- */
--static void __inline__ fec_request_intrs(struct net_device *dev)
--{
--	struct fec_enet_private *fep;
--	int b;
--	static const struct idesc {
--		char *name;
--		unsigned short irq;
--	} *idp, id[] = {
--		{ "fec(TXF)", 23 },
--		{ "fec(RXF)", 27 },
--		{ "fec(MII)", 29 },
--		{ NULL },
--	};
--
--	fep = netdev_priv(dev);
--	b = (fep->index) ? 128 : 64;
--
--	/* Setup interrupt handlers. */
--	for (idp = id; idp->name; idp++) {
--		if (request_irq(b+idp->irq, fec_enet_interrupt, IRQF_DISABLED, idp->name, dev) != 0)
--			printk("FEC: Could not allocate %s IRQ(%d)!\n", idp->name, b+idp->irq);
--	}
--
--	/* Unmask interrupts at ColdFire 5280/5282 interrupt controller */
--	{
--		volatile unsigned char  *icrp;
--		volatile unsigned long  *imrp;
--		int i, ilip;
--
--		b = (fep->index) ? MCFICM_INTC1 : MCFICM_INTC0;
--		icrp = (volatile unsigned char *) (MCF_IPSBAR + b +
--			MCFINTC_ICR0);
--		for (i = 23, ilip = 0x28; (i < 36); i++)
--			icrp[i] = ilip--;
--
--		imrp = (volatile unsigned long *) (MCF_IPSBAR + b +
--			MCFINTC_IMRH);
--		*imrp &= ~0x0000000f;
--		imrp = (volatile unsigned long *) (MCF_IPSBAR + b +
--			MCFINTC_IMRL);
--		*imrp &= ~0xff800001;
--	}
--
--#if defined(CONFIG_M528x)
--	/* Set up gpio outputs for MII lines */
--	{
--		volatile u16 *gpio_paspar;
--		volatile u8 *gpio_pehlpar;
--
--		gpio_paspar = (volatile u16 *) (MCF_IPSBAR + 0x100056);
--		gpio_pehlpar = (volatile u16 *) (MCF_IPSBAR + 0x100058);
--		*gpio_paspar |= 0x0f00;
--		*gpio_pehlpar = 0xc0;
--	}
- #endif
+ /***************************************************************************/
+diff a/arch/m68knommu/platform/523x/config.c b/arch/m68knommu/platform/523x/config.c
+--- a/arch/m68knommu/platform/523x/config.c
++++ b/arch/m68knommu/platform/523x/config.c
+@@ -50,8 +50,39 @@ static struct platform_device m523x_uart = {
+ 	.dev.platform_data	= m523x_uart_platform,
+ };
  
--#if defined(CONFIG_M527x)
--	/* Set up gpio outputs for MII lines */
--	{
--		volatile u8 *gpio_par_fec;
--		volatile u16 *gpio_par_feci2c;
--
--		gpio_par_feci2c = (volatile u16 *)(MCF_IPSBAR + 0x100082);
--		/* Set up gpio outputs for FEC0 MII lines */
--		gpio_par_fec = (volatile u8 *)(MCF_IPSBAR + 0x100078);
--
--		*gpio_par_feci2c |= 0x0f00;
--		*gpio_par_fec |= 0xc0;
--
--#if defined(CONFIG_FEC2)
--		/* Set up gpio outputs for FEC1 MII lines */
--		gpio_par_fec = (volatile u8 *)(MCF_IPSBAR + 0x100079);
--
--		*gpio_par_feci2c |= 0x00a0;
--		*gpio_par_fec |= 0xc0;
--#endif /* CONFIG_FEC2 */
--	}
--#endif /* CONFIG_M527x */
--}
--
--static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
--{
--	volatile fec_t *fecp;
--
--	fecp = fep->hwp;
--	fecp->fec_r_cntrl = OPT_FRAME_SIZE | 0x04;
--	fecp->fec_x_cntrl = 0x00;
--
--	/*
--	 * Set MII speed to 2.5 MHz
--	 * See 5282 manual section 17.5.4.7: MSCR
--	 */
--	fep->phy_speed = ((((MCF_CLK / 2) / (2500000 / 10)) + 5) / 10) * 2;
--	fecp->fec_mii_speed = fep->phy_speed;
--
--	fec_restart(dev, 0);
--}
--
--static void __inline__ fec_get_mac(struct net_device *dev)
--{
--	struct fec_enet_private *fep = netdev_priv(dev);
--	volatile fec_t *fecp;
--	unsigned char *iap, tmpaddr[ETH_ALEN];
--
--	fecp = fep->hwp;
--
--	if (FEC_FLASHMAC) {
--		/*
--		 * Get MAC address from FLASH.
--		 * If it is all 1's or 0's, use the default.
--		 */
--		iap = FEC_FLASHMAC;
--		if ((iap[0] == 0) && (iap[1] == 0) && (iap[2] == 0) &&
--		    (iap[3] == 0) && (iap[4] == 0) && (iap[5] == 0))
--			iap = fec_mac_default;
--		if ((iap[0] == 0xff) && (iap[1] == 0xff) && (iap[2] == 0xff) &&
--		    (iap[3] == 0xff) && (iap[4] == 0xff) && (iap[5] == 0xff))
--			iap = fec_mac_default;
--	} else {
--		*((unsigned long *) &tmpaddr[0]) = fecp->fec_addr_low;
--		*((unsigned short *) &tmpaddr[4]) = (fecp->fec_addr_high >> 16);
--		iap = &tmpaddr[0];
--	}
--
--	memcpy(dev->dev_addr, iap, ETH_ALEN);
--
--	/* Adjust MAC if using default MAC address */
--	if (iap == fec_mac_default)
--		dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
--}
--
--static void __inline__ fec_disable_phy_intr(void)
--{
--}
--
--static void __inline__ fec_phy_ack_intr(void)
--{
--}
--
--/* ------------------------------------------------------------------------- */
--
--#elif defined(CONFIG_M520x)
--/*
-- *	Code specific to Coldfire 520x
-- */
--static void __inline__ fec_request_intrs(struct net_device *dev)
--{
--	struct fec_enet_private *fep;
--	int b;
--	static const struct idesc {
--		char *name;
--		unsigned short irq;
--	} *idp, id[] = {
--		{ "fec(TXF)", 23 },
--		{ "fec(RXF)", 27 },
--		{ "fec(MII)", 29 },
--		{ NULL },
--	};
--
--	fep = netdev_priv(dev);
--	b = 64 + 13;
--
--	/* Setup interrupt handlers. */
--	for (idp = id; idp->name; idp++) {
--		if (request_irq(b+idp->irq, fec_enet_interrupt, IRQF_DISABLED, idp->name,dev) != 0)
--			printk("FEC: Could not allocate %s IRQ(%d)!\n", idp->name, b+idp->irq);
--	}
--
--	/* Unmask interrupts at ColdFire interrupt controller */
--	{
--		volatile unsigned char  *icrp;
--		volatile unsigned long  *imrp;
--
--		icrp = (volatile unsigned char *) (MCF_IPSBAR + MCFICM_INTC0 +
--			MCFINTC_ICR0);
--		for (b = 36; (b < 49); b++)
--			icrp[b] = 0x04;
--		imrp = (volatile unsigned long *) (MCF_IPSBAR + MCFICM_INTC0 +
--			MCFINTC_IMRH);
--		*imrp &= ~0x0001FFF0;
--	}
--	*(volatile unsigned char *)(MCF_IPSBAR + MCF_GPIO_PAR_FEC) |= 0xf0;
--	*(volatile unsigned char *)(MCF_IPSBAR + MCF_GPIO_PAR_FECI2C) |= 0x0f;
--}
--
--static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
--{
--	volatile fec_t *fecp;
--
--	fecp = fep->hwp;
--	fecp->fec_r_cntrl = OPT_FRAME_SIZE | 0x04;
--	fecp->fec_x_cntrl = 0x00;
--
--	/*
--	 * Set MII speed to 2.5 MHz
--	 * See 5282 manual section 17.5.4.7: MSCR
--	 */
--	fep->phy_speed = ((((MCF_CLK / 2) / (2500000 / 10)) + 5) / 10) * 2;
--	fecp->fec_mii_speed = fep->phy_speed;
--
--	fec_restart(dev, 0);
--}
--
--static void __inline__ fec_get_mac(struct net_device *dev)
--{
--	struct fec_enet_private *fep = netdev_priv(dev);
--	volatile fec_t *fecp;
--	unsigned char *iap, tmpaddr[ETH_ALEN];
--
--	fecp = fep->hwp;
--
--	if (FEC_FLASHMAC) {
--		/*
--		 * Get MAC address from FLASH.
--		 * If it is all 1's or 0's, use the default.
--		 */
--		iap = FEC_FLASHMAC;
--		if ((iap[0] == 0) && (iap[1] == 0) && (iap[2] == 0) &&
--		   (iap[3] == 0) && (iap[4] == 0) && (iap[5] == 0))
--			iap = fec_mac_default;
--		if ((iap[0] == 0xff) && (iap[1] == 0xff) && (iap[2] == 0xff) &&
--		   (iap[3] == 0xff) && (iap[4] == 0xff) && (iap[5] == 0xff))
--			iap = fec_mac_default;
--	} else {
--		*((unsigned long *) &tmpaddr[0]) = fecp->fec_addr_low;
--		*((unsigned short *) &tmpaddr[4]) = (fecp->fec_addr_high >> 16);
--		iap = &tmpaddr[0];
--	}
--
--	memcpy(dev->dev_addr, iap, ETH_ALEN);
--
--	/* Adjust MAC if using default MAC address */
--	if (iap == fec_mac_default)
--		dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
--}
--
--static void __inline__ fec_disable_phy_intr(void)
--{
--}
--
--static void __inline__ fec_phy_ack_intr(void)
--{
--}
--
--/* ------------------------------------------------------------------------- */
--#elif defined(CONFIG_M532x)
--/*
-- * Code specific for M532x
-- */
--static void __inline__ fec_request_intrs(struct net_device *dev)
--{
--	struct fec_enet_private *fep;
--	int b;
--	static const struct idesc {
--		char *name;
--		unsigned short irq;
--	} *idp, id[] = {
--	    { "fec(TXF)", 36 },
--	    { "fec(RXF)", 40 },
--	    { "fec(MII)", 42 },
--	    { NULL },
--	};
--
--	fep = netdev_priv(dev);
--	b = (fep->index) ? 128 : 64;
--
--	/* Setup interrupt handlers. */
--	for (idp = id; idp->name; idp++) {
--		if (request_irq(b+idp->irq, fec_enet_interrupt, IRQF_DISABLED, idp->name,dev) != 0)
--			printk("FEC: Could not allocate %s IRQ(%d)!\n",
--				idp->name, b+idp->irq);
--	}
--
--	/* Unmask interrupts */
--	MCF_INTC0_ICR36 = 0x2;
--	MCF_INTC0_ICR37 = 0x2;
--	MCF_INTC0_ICR38 = 0x2;
--	MCF_INTC0_ICR39 = 0x2;
--	MCF_INTC0_ICR40 = 0x2;
--	MCF_INTC0_ICR41 = 0x2;
--	MCF_INTC0_ICR42 = 0x2;
--	MCF_INTC0_ICR43 = 0x2;
--	MCF_INTC0_ICR44 = 0x2;
--	MCF_INTC0_ICR45 = 0x2;
--	MCF_INTC0_ICR46 = 0x2;
--	MCF_INTC0_ICR47 = 0x2;
--	MCF_INTC0_ICR48 = 0x2;
--
--	MCF_INTC0_IMRH &= ~(
--		MCF_INTC_IMRH_INT_MASK36 |
--		MCF_INTC_IMRH_INT_MASK37 |
--		MCF_INTC_IMRH_INT_MASK38 |
--		MCF_INTC_IMRH_INT_MASK39 |
--		MCF_INTC_IMRH_INT_MASK40 |
--		MCF_INTC_IMRH_INT_MASK41 |
--		MCF_INTC_IMRH_INT_MASK42 |
--		MCF_INTC_IMRH_INT_MASK43 |
--		MCF_INTC_IMRH_INT_MASK44 |
--		MCF_INTC_IMRH_INT_MASK45 |
--		MCF_INTC_IMRH_INT_MASK46 |
--		MCF_INTC_IMRH_INT_MASK47 |
--		MCF_INTC_IMRH_INT_MASK48 );
--
--	/* Set up gpio outputs for MII lines */
--	MCF_GPIO_PAR_FECI2C |= (0 |
--		MCF_GPIO_PAR_FECI2C_PAR_MDC_EMDC |
--		MCF_GPIO_PAR_FECI2C_PAR_MDIO_EMDIO);
--	MCF_GPIO_PAR_FEC = (0 |
--		MCF_GPIO_PAR_FEC_PAR_FEC_7W_FEC |
--		MCF_GPIO_PAR_FEC_PAR_FEC_MII_FEC);
--}
--
--static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
--{
--	volatile fec_t *fecp;
--
--	fecp = fep->hwp;
--	fecp->fec_r_cntrl = OPT_FRAME_SIZE | 0x04;
--	fecp->fec_x_cntrl = 0x00;
--
--	/*
--	 * Set MII speed to 2.5 MHz
--	 */
--	fep->phy_speed = (MCF_CLK / 3) / (2500000 * 2 ) * 2;
--	fecp->fec_mii_speed = fep->phy_speed;
--
--	fec_restart(dev, 0);
--}
--
-+#ifdef CONFIG_M5272
- static void __inline__ fec_get_mac(struct net_device *dev)
++static struct resource m523x_fec_resources[] = {
++	{
++		.start		= MCF_MBAR + 0x1000,
++		.end		= MCF_MBAR + 0x1000 + 0x7ff,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 64 + 23,
++		.end		= 64 + 23,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 27,
++		.end		= 64 + 27,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 29,
++		.end		= 64 + 29,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device m523x_fec = {
++	.name			= "fec",
++	.id			= 0,
++	.num_resources		= ARRAY_SIZE(m523x_fec_resources),
++	.resource		= m523x_fec_resources,
++};
++
+ static struct platform_device *m523x_devices[] __initdata = {
+ 	&m523x_uart,
++	&m523x_fec,
+ };
+ 
+ /***************************************************************************/
+@@ -83,6 +114,25 @@ static void __init m523x_uarts_init(void)
+ 
+ /***************************************************************************/
+ 
++static void __init m523x_fec_init(void)
++{
++	u32 imr;
++
++	/* Unmask FEC interrupts at ColdFire interrupt controller */
++	writeb(0x28, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 23);
++	writeb(0x27, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 27);
++	writeb(0x26, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 29);
++
++	imr = readl(MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH);
++	imr &= ~0xf;
++	writel(imr, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH);
++	imr = readl(MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRL);
++	imr &= ~0xff800001;
++	writel(imr, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRL);
++}
++
++/***************************************************************************/
++
+ void mcf_disableall(void)
  {
- 	struct fec_enet_private *fep = netdev_priv(dev);
-@@ -1692,7 +1256,7 @@ static void __inline__ fec_get_mac(struc
- 		 * Get MAC address from FLASH.
- 		 * If it is all 1's or 0's, use the default.
- 		 */
--		iap = FEC_FLASHMAC;
-+		iap = (unsigned char *)FEC_FLASHMAC;
- 		if ((iap[0] == 0) && (iap[1] == 0) && (iap[2] == 0) &&
- 		    (iap[3] == 0) && (iap[4] == 0) && (iap[5] == 0))
- 			iap = fec_mac_default;
-@@ -1709,17 +1273,8 @@ static void __inline__ fec_get_mac(struc
- 
- 	/* Adjust MAC if using default MAC address */
- 	if (iap == fec_mac_default)
--		dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
--}
--
--static void __inline__ fec_disable_phy_intr(void)
--{
--}
--
--static void __inline__ fec_phy_ack_intr(void)
--{
-+		 dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
- }
--
- #endif
- 
- /* ------------------------------------------------------------------------- */
-@@ -1925,7 +1480,7 @@ mii_discover_phy(uint mii_reg, struct ne
- 		printk("FEC: No PHY device found.\n");
- 		/* Disable external MII interface */
- 		fecp->fec_mii_speed = fep->phy_speed = 0;
--#ifdef FREC_LEGACY
-+#ifdef HAVE_mii_link_interrupt
- 		fec_disable_phy_intr();
- #endif
- 	}
-@@ -2148,7 +1703,7 @@ int __init fec_enet_init(struct net_devi
- 	udelay(10);
- 
- 	/* Set the Ethernet address */
--#ifdef FEC_LEGACY
-+#ifdef CONFIG_M5272
- 	fec_get_mac(dev);
- #else
- 	{
-@@ -2231,11 +1786,8 @@ int __init fec_enet_init(struct net_devi
- 	fecp->fec_r_des_start = fep->bd_dma;
- 	fecp->fec_x_des_start = (unsigned long)fep->bd_dma + sizeof(cbd_t) * RX_RING_SIZE;
- 
--#ifdef FEC_LEGACY
--	/* Install our interrupt handlers. This varies depending on
--	 * the architecture.
--	*/
--	fec_request_intrs(dev);
-+#ifdef HAVE_mii_link_interrupt
-+	fec_request_mii_intr(dev);
- #endif
- 
- 	fecp->fec_grp_hash_table_high = 0;
-@@ -2261,9 +1813,6 @@ int __init fec_enet_init(struct net_devi
- 	mii_free = mii_cmds;
- 
- 	/* setup MII interface */
--#ifdef FEC_LEGACY
--	fec_set_mii(dev, fep);
--#else
- 	fecp->fec_r_cntrl = OPT_FRAME_SIZE | 0x04;
- 	fecp->fec_x_cntrl = 0x00;
- 
-@@ -2274,7 +1823,6 @@ int __init fec_enet_init(struct net_devi
- 					/ 2500000) / 2) & 0x3F) << 1;
- 	fecp->fec_mii_speed = fep->phy_speed;
- 	fec_restart(dev, 0);
--#endif
- 
- 	/* Clear and enable interrupts */
- 	fecp->fec_ievent = 0xffc00000;
-@@ -2437,36 +1985,6 @@ fec_stop(struct net_device *dev)
- 	fecp->fec_mii_speed = fep->phy_speed;
+ 	*((volatile unsigned long *) (MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH)) = 0xffffffff;
+@@ -103,6 +153,7 @@ void __init config_BSP(char *commandp, int size)
+ 	mcf_disableall();
+ 	mach_reset = coldfire_reset;
+ 	m523x_uarts_init();
++	m523x_fec_init();
  }
  
--#ifdef FEC_LEGACY
--static int __init fec_enet_module_init(void)
--{
--	struct net_device *dev;
--	int i, err;
--
--	printk("FEC ENET Version 0.2\n");
--
--	for (i = 0; (i < FEC_MAX_PORTS); i++) {
--		dev = alloc_etherdev(sizeof(struct fec_enet_private));
--		if (!dev)
--			return -ENOMEM;
--		dev->base_addr = (unsigned long)fec_hw[i];
--		err = fec_enet_init(dev, i);
--		if (err) {
--			free_netdev(dev);
--			continue;
--		}
--		if (register_netdev(dev) != 0) {
--			/* XXX: missing cleanup here */
--			free_netdev(dev);
--			return -EIO;
--		}
--
--		printk("%s: ethernet %pM\n", dev->name, dev->dev_addr);
--	}
--	return 0;
--}
--#else
--
- static int __devinit
- fec_probe(struct platform_device *pdev)
+ /***************************************************************************/
+diff a/arch/m68knommu/platform/5272/config.c b/arch/m68knommu/platform/5272/config.c
+--- a/arch/m68knommu/platform/5272/config.c
++++ b/arch/m68knommu/platform/5272/config.c
+@@ -55,8 +55,39 @@ static struct platform_device m5272_uart = {
+ 	.dev.platform_data	= m5272_uart_platform,
+ };
+ 
++static struct resource m5272_fec_resources[] = {
++	{
++		.start		= MCF_MBAR + 0x840,
++		.end		= MCF_MBAR + 0x840 + 0x1cf,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 86,
++		.end		= 86,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 87,
++		.end		= 87,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 88,
++		.end		= 88,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device m5272_fec = {
++	.name			= "fec",
++	.id			= 0,
++	.num_resources		= ARRAY_SIZE(m5272_fec_resources),
++	.resource		= m5272_fec_resources,
++};
++
+ static struct platform_device *m5272_devices[] __initdata = {
+ 	&m5272_uart,
++	&m5272_fec,
+ };
+ 
+ /***************************************************************************/
+@@ -91,6 +122,22 @@ static void __init m5272_uarts_init(void)
+ 
+ /***************************************************************************/
+ 
++static void __init m5272_fec_init(void)
++{
++	u32 imr;
++
++	/* Unmask FEC interrupts at ColdFire interrupt controller */
++	imr = readl(MCF_MBAR + MCFSIM_ICR3);
++	imr = (imr & ~0x00000fff) | 0x00000ddd;
++	writel(imr, MCF_MBAR + MCFSIM_ICR3);
++
++	imr = readl(MCF_MBAR + MCFSIM_ICR1);
++	imr = (imr & ~0x0f000000) | 0x0d000000;
++	writel(imr, MCF_MBAR + MCFSIM_ICR1);
++}
++
++/***************************************************************************/
++
+ void mcf_disableall(void)
  {
-@@ -2627,9 +2145,6 @@ fec_enet_cleanup(void)
+ 	volatile unsigned long	*icrp;
+@@ -155,6 +202,7 @@ void __init config_BSP(char *commandp, int size)
+ static int __init init_BSP(void)
+ {
+ 	m5272_uarts_init();
++	m5272_fec_init();
+ 	platform_add_devices(m5272_devices, ARRAY_SIZE(m5272_devices));
+ 	return 0;
+ }
+diff a/arch/m68knommu/platform/527x/config.c b/arch/m68knommu/platform/527x/config.c
+--- a/arch/m68knommu/platform/527x/config.c
++++ b/arch/m68knommu/platform/527x/config.c
+@@ -50,8 +50,73 @@ static struct platform_device m527x_uart = {
+ 	.dev.platform_data	= m527x_uart_platform,
+ };
+ 
++static struct resource m527x_fec0_resources[] = {
++	{
++		.start		= MCF_MBAR + 0x1000,
++		.end		= MCF_MBAR + 0x1000 + 0x7ff,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 64 + 23,
++		.end		= 64 + 23,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 27,
++		.end		= 64 + 27,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 29,
++		.end		= 64 + 29,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct resource m527x_fec1_resources[] = {
++	{
++		.start		= MCF_MBAR + 0x1800,
++		.end		= MCF_MBAR + 0x1800 + 0x7ff,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 128 + 23,
++		.end		= 128 + 23,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 128 + 27,
++		.end		= 128 + 27,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 128 + 29,
++		.end		= 128 + 29,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device m527x_fec[] = {
++	{
++		.name		= "fec",
++		.id		= 0,
++		.num_resources	= ARRAY_SIZE(m527x_fec0_resources),
++		.resource	= m527x_fec0_resources,
++	},
++	{
++		.name		= "fec",
++		.id		= 1,
++		.num_resources	= ARRAY_SIZE(m527x_fec1_resources),
++		.resource	= m527x_fec1_resources,
++	},
++};
++
+ static struct platform_device *m527x_devices[] __initdata = {
+ 	&m527x_uart,
++	&m527x_fec[0],
++#ifdef CONFIG_FEC2
++	&m527x_fec[1],
++#endif
+ };
+ 
+ /***************************************************************************/
+@@ -97,6 +162,51 @@ static void __init m527x_uarts_init(void)
+ 
+ /***************************************************************************/
+ 
++static void __init m527x_fec_irq_init(int nr)
++{
++	unsigned long base;
++	u32 imr;
++
++	base = MCF_IPSBAR + (nr ? MCFICM_INTC1 : MCFICM_INTC0);
++
++	writeb(0x28, base + MCFINTC_ICR0 + 23);
++	writeb(0x27, base + MCFINTC_ICR0 + 27);
++	writeb(0x26, base + MCFINTC_ICR0 + 29);
++
++	imr = readl(base + MCFINTC_IMRH);
++	imr &= ~0xf;
++	writel(imr, base + MCFINTC_IMRH);
++	imr = readl(base + MCFINTC_IMRL);
++	imr &= ~0xff800001;
++	writel(imr, base + MCFINTC_IMRL);
++}
++
++static void __init m527x_fec_init(void)
++{
++	u16 par;
++	u8 v;
++
++	m527x_fec_irq_init(0);
++
++	/* Set multi-function pins to ethernet mode for fec0 */
++	par = readw(MCF_IPSBAR + 0x100082);
++	writew(par | 0xf00, MCF_IPSBAR + 0x100082);
++	v = readb(MCF_IPSBAR + 0x100078);
++	writeb(v | 0xc0, MCF_IPSBAR + 0x100078);
++
++#ifdef CONFIG_FEC2
++	m527x_fec_irq_init(1);
++
++	/* Set multi-function pins to ethernet mode for fec1 */
++	par = readw(MCF_IPSBAR + 0x100082);
++	writew(par | 0xa0, MCF_IPSBAR + 0x100082);
++	v = readb(MCF_IPSBAR + 0x100079);
++	writeb(v | 0xc0, MCF_IPSBAR + 0x100079);
++#endif
++}
++
++/***************************************************************************/
++
+ void mcf_disableall(void)
+ {
+ 	*((volatile unsigned long *) (MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH)) = 0xffffffff;
+@@ -116,13 +226,14 @@ void __init config_BSP(char *commandp, int size)
+ {
+ 	mcf_disableall();
+ 	mach_reset = coldfire_reset;
++	m527x_uarts_init();
++	m527x_fec_init();
  }
  
- module_exit(fec_enet_cleanup);
--
--#endif /* FEC_LEGACY */
--
- module_init(fec_enet_module_init);
+ /***************************************************************************/
  
- MODULE_LICENSE("GPL");
+ static int __init init_BSP(void)
+ {
+-	m527x_uarts_init();
+ 	platform_add_devices(m527x_devices, ARRAY_SIZE(m527x_devices));
+ 	return 0;
+ }
+diff a/arch/m68knommu/platform/528x/config.c b/arch/m68knommu/platform/528x/config.c
+--- a/arch/m68knommu/platform/528x/config.c
++++ b/arch/m68knommu/platform/528x/config.c
+@@ -285,8 +284,40 @@ static struct platform_device m528x_uart = {
+ 	.dev.platform_data	= m528x_uart_platform,
+ };
+ 
++static struct resource m528x_fec_resources[] = {
++	{
++		.start		= MCF_MBAR + 0x1000,
++		.end		= MCF_MBAR + 0x1000 + 0x7ff,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 64 + 23,
++		.end		= 64 + 23,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 27,
++		.end		= 64 + 27,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 29,
++		.end		= 64 + 29,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device m528x_fec = {
++	.name			= "fec",
++	.id			= 0,
++	.num_resources		= ARRAY_SIZE(m528x_fec_resources),
++	.resource		= m528x_fec_resources,
++};
++
++
+ static struct platform_device *m528x_devices[] __initdata = {
+ 	&m528x_uart,
++	&m528x_fec,
+ };
+ 
+ /***************************************************************************/
+@@ -327,6 +358,31 @@ static void __init m528x_uarts_init(void)
+ 
+ /***************************************************************************/
+ 
++static void __init m528x_fec_init(void)
++{
++	u32 imr;
++	u16 v16;
++
++	/* Unmask FEC interrupts at ColdFire interrupt controller */
++	writeb(0x28, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 23);
++	writeb(0x27, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 27);
++	writeb(0x26, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_ICR0 + 29);
++
++	imr = readl(MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH);
++	imr &= ~0xf;
++	writel(imr, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH);
++	imr = readl(MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRL);
++	imr &= ~0xff800001;
++	writel(imr, MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRL);
++
++	/* Set multi-function pins to ethernet mode for fec0 */
++	v16 = readw(MCF_IPSBAR + 0x100056);
++	writew(v16 | 0xf00, MCF_IPSBAR + 0x100056);
++	writeb(0xc0, MCF_IPSBAR + 0x100058);
++}
++
++/***************************************************************************/
++
+ void mcf_disableall(void)
+ {
+ 	*((volatile unsigned long *) (MCF_IPSBAR + MCFICM_INTC0 + MCFINTC_IMRH)) = 0xffffffff;
+@@ -386,6 +442,7 @@ void __init config_BSP(char *commandp, int size)
+ static int __init init_BSP(void)
+ {
+ 	m528x_uarts_init();
++	m528x_fec_init();
+ 	platform_add_devices(m528x_devices, ARRAY_SIZE(m528x_devices));
+ 	return 0;
+ }
+diff a/arch/m68knommu/platform/532x/config.c b/arch/m68knommu/platform/532x/config.c
+--- a/arch/m68knommu/platform/532x/config.c
++++ b/arch/m68knommu/platform/532x/config.c
+@@ -61,8 +61,38 @@ static struct platform_device m532x_uart = {
+ 	.dev.platform_data	= m532x_uart_platform,
+ };
+ 
++static struct resource m532x_fec_resources[] = {
++	{
++		.start		= 0xfc030000,
++		.end		= 0xfc0307ff,
++		.flags		= IORESOURCE_MEM,
++	},
++	{
++		.start		= 64 + 36,
++		.end		= 64 + 36,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 40,
++		.end		= 64 + 40,
++		.flags		= IORESOURCE_IRQ,
++	},
++	{
++		.start		= 64 + 42,
++		.end		= 64 + 42,
++		.flags		= IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device m532x_fec = {
++	.name			= "fec",
++	.id			= 0,
++	.num_resources		= ARRAY_SIZE(m532x_fec_resources),
++	.resource		= m532x_fec_resources,
++};
+ static struct platform_device *m532x_devices[] __initdata = {
+ 	&m532x_uart,
++	&m532x_fec,
+ };
+ 
+ /***************************************************************************/
+@@ -93,6 +123,24 @@ static void __init m532x_uarts_init(void)
+ 	for (line = 0; (line < nrlines); line++)
+ 		m532x_uart_init_line(line, m532x_uart_platform[line].irq);
+ }
++/***************************************************************************/
++
++static void __init m532x_fec_init(void)
++{
++	/* Unmask FEC interrupts at ColdFire interrupt controller */
++	MCF_INTC0_ICR36 = 0x2;
++	MCF_INTC0_ICR40 = 0x2;
++	MCF_INTC0_ICR42 = 0x2;
++
++	MCF_INTC0_IMRH &= ~(MCF_INTC_IMRH_INT_MASK36 |
++		MCF_INTC_IMRH_INT_MASK40 | MCF_INTC_IMRH_INT_MASK42);
++
++	/* Set multi-function pins to ethernet mode for fec0 */
++	MCF_GPIO_PAR_FECI2C |= (MCF_GPIO_PAR_FECI2C_PAR_MDC_EMDC |
++		MCF_GPIO_PAR_FECI2C_PAR_MDIO_EMDIO);
++	MCF_GPIO_PAR_FEC = (MCF_GPIO_PAR_FEC_PAR_FEC_7W_FEC |
++		MCF_GPIO_PAR_FEC_PAR_FEC_MII_FEC);
++}
+ 
+ /***************************************************************************/
+ 
+@@ -150,6 +198,7 @@ void __init config_BSP(char *commandp, int size)
+ static int __init init_BSP(void)
+ {
+ 	m532x_uarts_init();
++	m532x_fec_init();
+ 	platform_add_devices(m532x_devices, ARRAY_SIZE(m532x_devices));
+ 	return 0;
+ }
