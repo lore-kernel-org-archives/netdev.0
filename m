@@ -1,30 +1,30 @@
 From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: [PATCH 1/1 net-next]
-Date: Tue, 17 Feb 2009 11:08:41 -0300
-Message-ID: <499AC4E9.7090307@linux.vnet.ibm.com>
-References: <1231651594.5714.65.camel@brick>
+Subject: Re: [PATCH 1/1 net-next] Fix infiniband warnings
+Date: Tue, 17 Feb 2009 11:13:59 -0300
+Message-ID: <499AC627.2090908@linux.vnet.ibm.com>
+References: <1231651594.5714.65.camel@brick> <499AC4E9.7090307@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
 	linux-netdev <netdev@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+To: Harvey Harrison <harvey.harrison@gmail.com>,
+	Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:53209 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941AbZBQOIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 09:08:48 -0500
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:55872 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941AbZBQOOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 09:14:08 -0500
 Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp04.br.ibm.com (8.13.1/8.13.1) with ESMTP id n1HE6sPL014275
-	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 11:06:54 -0300
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.18.232.46])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n1HF8Bqi3256388
-	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 12:08:11 -0300
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n1HE8jOb001283
-	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 11:08:45 -0300
-In-Reply-To: <1231651594.5714.65.camel@brick>
+	by e24smtp02.br.ibm.com (8.13.1/8.13.1) with ESMTP id n1HENJog007185
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 11:23:19 -0300
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n1HFDSIp3645444
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 12:13:30 -0300
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n1HEE1Ai020054
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 11:14:01 -0300
+In-Reply-To: <499AC4E9.7090307@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -44,6 +44,7 @@ drivers/infiniband/hw/nes/nes_cm.c:820: warning: unused variable =E2=80=
 =98tmp_addr=E2=80=99
 
 Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+
 ---
  drivers/infiniband/hw/nes/nes_cm.c |    4 ++++
  1 files changed, 4 insertions(+), 0 deletions(-)
@@ -61,7 +62,7 @@ core *cm_core,
 +#ifdef CONFIG_INFINIBAND_NES_DEBUG
  	__be32 tmp_addr =3D cpu_to_be32(loc_addr);
 +#endif
-=20
+
  	/* get a handle on the hte */
  	hte =3D &cm_core->connected_nodes;
 @@ -817,7 +819,9 @@ static struct nes_cm_listener *find_listener(struct=
@@ -72,9 +73,6 @@ core *cm_core,
 +#ifdef CONFIG_INFINIBAND_NES_DEBUG
  	__be32 tmp_addr =3D cpu_to_be32(dst_addr);
 +#endif
-=20
+
  	/* walk list and find cm_node associated with this session ID */
  	spin_lock_irqsave(&cm_core->listen_list_lock, flags);
---=20
-1.6.0.2
-
