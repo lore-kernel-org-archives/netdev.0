@@ -1,37 +1,65 @@
-From: =?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
-Subject: ixp4xx_hss and netif_receive_skb
-Date: Tue, 17 Feb 2009 17:02:09 +0100
-Message-ID: <b0438a630902170802i4923f131i7210425e4679d0eb@mail.gmail.com>
+From: Andrey Borzenkov <arvidjaar@mail.ru>
+Subject: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
+Date: Tue, 17 Feb 2009 20:01:38 +0300
+Message-ID: <200902172001.41804.arvidjaar@mail.ru>
+References: <alpine.LFD.2.00.0902131413120.3179@localhost.localdomain> <20090217095232.5da06b9f@werewolf.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:13187 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751756AbZBQQCL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 11:02:11 -0500
-Received: by fg-out-1718.google.com with SMTP id 16so457838fgg.17
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 08:02:09 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart1637276.dJUPc8l8uO";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: "J.A. =?iso-8859-1?q?Magall=F3n?=" <jamagallon@ono.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753992AbZBQRCJ@vger.kernel.org>
+In-Reply-To: <20090217095232.5da06b9f@werewolf.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi...
+--nextPart1637276.dJUPc8l8uO
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-I have modified Krzysztof Halasa's driver ixp4xx_hss to allow 4 HLDC
-channels per HSS (if anyone is interested, I will post the changes,
-but they are not ready for main stream yet).. I am able to transmit
-and receive data using it.
+=46orward to bonding and netdev
 
-The problem is that the received data is not sent to the listening
-interface. I can see that netif_receive_skb returns a NET_RX_DROP, but
-I loose myself in that point.
+On 17 of February 2009 11:52:32 J.A. Magall=F3n wrote:
+> Hi all...
+>
+> Don't know if this is specific for -rc5, I have jumped from 28.4 to
+> 29-rc5. In this latest kernel, I can not install 'bonding' module if
+> 'ipv6' is disabled to load via modprobe.conf:
+>
+> install ipv6 /bin/true
+>
+> Trying bonding gives this dmesg:
+>
+> bonding: Unknown symbol ndisc_build_skb
+> bonding: Unknown symbol in6_dev_finish_destroy
+> bonding: Unknown symbol ndisc_send_skb
+> bonding: Unknown symbol unregister_inet6addr_notifier
+> bonding: Unknown symbol register_inet6addr_notifier
+>
+> Commenting the line in modprobe.conf makes things smooth again.
+> We can not disable ipv6 anymore ?
+>
 
-I am not sure of what is done in that function or if the desired
-behaviour is the "deliver_skb", or the pt_prev->func.
+If IPv6 is disable in kernel config bonding loads. But I think it is=20
+regression, it should be possible to disable IPv6 if not required.
 
-Any clue in where to find some explanation about this function?
+--nextPart1637276.dJUPc8l8uO
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-Thanks
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-Miguel =C1ngel =C1lvarez
+iEYEABECAAYFAkma7XUACgkQR6LMutpd94yslQCgr24HkjZ2/b6tdSdNyRDd0O+v
+TscAoJRRRG0sEQrm3ah7ckShoE5VI2gZ
+=D46+
+-----END PGP SIGNATURE-----
+
+--nextPart1637276.dJUPc8l8uO--
