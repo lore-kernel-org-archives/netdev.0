@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 31/43 v2] drivers/net/tokenring: fix sparse warning:
- cast truncates bits from const value
-Date: Tue, 17 Feb 2009 19:49:51 -0800 (PST)
-Message-ID: <20090217.194951.04719813.davem@davemloft.net>
-References: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
-	<20090215121201.26072.42971.stgit@vmbox.hanneseder.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: rt_cache leak 2.6.18
+Date: Tue, 17 Feb 2009 20:10:59 -0800
+Message-ID: <20090217201059.558411a1@extreme>
+References: <3496.64.46.62.42.1234920235.squirrel@webmail.imagen.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jjschlst@gmail.com,
-	viro@zeniv.linux.org.uk
-To: hannes@hanneseder.net
+Cc: netdev@vger.kernel.org
+To: "Hector Herrera" <mail4hh@imagen.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55697
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754929AbZBRDuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 22:50:07 -0500
-In-Reply-To: <20090215121201.26072.42971.stgit@vmbox.hanneseder.net>
+Received: from mail.vyatta.com ([76.74.103.46]:60574 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751238AbZBRELB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Feb 2009 23:11:01 -0500
+In-Reply-To: <3496.64.46.62.42.1234920235.squirrel@webmail.imagen.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Eder <hannes@hanneseder.net>
-Date: Sun, 15 Feb 2009 13:13:01 +0100
+On Tue, 17 Feb 2009 17:23:55 -0800 (PST)
+"Hector Herrera" <mail4hh@imagen.ca> wrote:
 
-> Impact: Remove the write-only field 'current_ring_status' completely.
+> Hello,
 > 
-> Fix this sparse warnings:
->   drivers/net/tokenring/smctr.c:4410:52: warning: cast truncates bits from constant value (100 becomes 0)
->   drivers/net/tokenring/smctr.c:4415:52: warning: cast truncates bits from constant value (400 becomes 0)
->   drivers/net/tokenring/smctr.c:4420:52: warning: cast truncates bits from constant value (800 becomes 0)
->   drivers/net/tokenring/smctr.c:4425:52: warning: cast truncates bits from constant value (1000 becomes 0)
->   drivers/net/tokenring/smctr.c:4430:52: warning: cast truncates bits from constant value (2000 becomes 0)
->   drivers/net/tokenring/smctr.c:4435:52: warning: cast truncates bits from constant value (4000 becomes 0)
->   drivers/net/tokenring/smctr.c:4440:52: warning: cast truncates bits from constant value (8000 becomes 0)
+> I'm debugging an rt_cache leak in 2.6.18 and I would like to view the
+> memory contents of the leaked memory slab with the hopes that if I knew
+> which routes are being leaked then I would know which network traffic to
+> collect to be able to reproduce the leak in a test environment.
 > 
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> I would appreciate any suggestions you could give me with regards to how
+> to go about doing this (searching google didn't turn out anything too
+> helpful).
+> 
+> Thank you,
+> 
+> Hector
+> 
 
-Applied.
+That was 2 1/2 years ago! If you want to do software archeology, they you
+really have to do it yourself. Otherwise, please confirm problem on more
+recent version.
