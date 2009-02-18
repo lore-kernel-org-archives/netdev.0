@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 24/43] drivers/net/ixgbe: fix sparse warning: Should it
- be static?
-Date: Tue, 17 Feb 2009 17:39:10 -0800 (PST)
-Message-ID: <20090217.173910.117584785.davem@davemloft.net>
+Subject: Re: [PATCH 26/43] drivers/net/sfc: fix sparse warning: symbol
+ shadows an earlier one
+Date: Tue, 17 Feb 2009 17:39:32 -0800 (PST)
+Message-ID: <20090217.173932.176817674.davem@davemloft.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-	<20090214213822.24377.64757.stgit@vmbox.hanneseder.net>
-	<Pine.WNT.4.64.0902152248180.31128@ppwaskie-MOBL2.amr.corp.intel.com>
+	<20090214213932.24377.94262.stgit@vmbox.hanneseder.net>
+	<20090216003820.GO15266@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: hannes@hanneseder.net, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: peter.p.waskiewicz.jr@intel.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47203
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47210
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754253AbZBRBj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:39:26 -0500
-In-Reply-To: <Pine.WNT.4.64.0902152248180.31128@ppwaskie-MOBL2.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1756146AbZBRBjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:39:48 -0500
+In-Reply-To: <20090216003820.GO15266@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Sun, 15 Feb 2009 22:48:51 -0800 (Pacific Standard Time)
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 16 Feb 2009 00:38:20 +0000
 
-> > Impact: Make symbol static.
+> Hannes Eder wrote:
+> > Impact: Move variable declaration as close to their usage as possible.
 > > 
 > > Fix this sparse warning:
-> >   drivers/net/ixgbe/ixgbe_82598.c:59:5: warning: symbol 'ixgbe_get_pcie_msix_count_82598' was not declared. Should it be static?
+> >   drivers/net/sfc/tenxpress.c:589:22: warning: symbol 'link_ok' shadows an earlier one
+> >   drivers/net/sfc/tenxpress.c:575:30: originally declared here
 > > 
 > > Signed-off-by: Hannes Eder <hannes@hanneseder.net>
-> 
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
 Applied.
