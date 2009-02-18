@@ -1,38 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 30/43] drivers/net/tokenring: fix sparse warning:
- symbol shadows an earlier one
-Date: Tue, 17 Feb 2009 17:41:12 -0800 (PST)
-Message-ID: <20090217.174112.80573704.davem@davemloft.net>
-References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-	<20090214214426.24377.61106.stgit@vmbox.hanneseder.net>
+From: "Hector Herrera" <mail4hh@imagen.ca>
+Subject: rt_cache leak 2.6.18
+Date: Tue, 17 Feb 2009 17:23:55 -0800 (PST)
+Message-ID: <3496.64.46.62.42.1234920235.squirrel@webmail.imagen.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hannes@hanneseder.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47224
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756230AbZBRBl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:41:27 -0500
-In-Reply-To: <20090214214426.24377.61106.stgit@vmbox.hanneseder.net>
+Received: from mail2.imagen.ca ([208.181.178.12]:50687 "EHLO mail2.imagen.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757225AbZBRBmb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Feb 2009 20:42:31 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail2.imagen.ca (Postfix) with ESMTP id 49BAC1EF924A
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 17:24:01 -0800 (PST)
+Received: from mail2.imagen.ca ([127.0.0.1])
+	by localhost (mail2.imagen.ca [127.0.0.1]) (amavisd-new, port 10027)
+	with ESMTP id GnZt5QWzotP6 for <netdev@vger.kernel.org>;
+	Tue, 17 Feb 2009 17:23:55 -0800 (PST)
+Received: from webmail.imagen.ca (mailout.lgisp.net [208.181.178.28])
+	by mail2.imagen.ca (Postfix) with ESMTP id 5A6081EF9284
+	for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 17:23:55 -0800 (PST)
+References: In-Reply-To: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Eder <hannes@hanneseder.net>
-Date: Sat, 14 Feb 2009 22:44:44 +0100
+Hello,
 
-> Impact: Remove redundant variables.
-> 
-> Fix this sparse warnings:
->   drivers/net/tokenring/lanstreamer.c:619:21: warning: symbol 'i' shadows an earlier one
->   drivers/net/tokenring/lanstreamer.c:589:13: originally declared here
->   drivers/net/tokenring/madgemc.c:695:34: warning: symbol 'tp' shadows an earlier one
->   drivers/net/tokenring/madgemc.c:689:26: originally declared here
->   drivers/net/tokenring/olympic.c:702:21: warning: symbol 'i' shadows an earlier one
->   drivers/net/tokenring/olympic.c:440:13: originally declared here
-> 
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+I'm debugging an rt_cache leak in 2.6.18 and I would like to view the
+memory contents of the leaked memory slab with the hopes that if I knew
+which routes are being leaked then I would know which network traffic to
+collect to be able to reproduce the leak in a test environment.
 
-Applied.
+I would appreciate any suggestions you could give me with regards to how
+to go about doing this (searching google didn't turn out anything too
+helpful).
+
+Thank you,
+
+Hector
+
+
+
+
