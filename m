@@ -1,160 +1,124 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] netfilter: unfold two critical loops in ip_packet_match()
-Date: Wed, 18 Feb 2009 17:33:53 +0100
-Message-ID: <499C3871.4030600@cosmosbay.com>
-References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <499032A4.9090301@trash.net> <499C24FF.90302@cosmosbay.com> <499C2766.5090904@trash.net>
+From: Ira Snyder <iws@ovro.caltech.edu>
+Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
+Date: Wed, 18 Feb 2009 08:38:35 -0800
+Message-ID: <20090218163835.GA29728@ovro.caltech.edu>
+References: <20090217222425.GA18801@ovro.caltech.edu> <200902181713.03820.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <andi@firstfloor.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	Jan-Bernd Themann <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38834 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbZBRQeF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 11:34:05 -0500
-In-Reply-To: <499C2766.5090904@trash.net>
+Received: from ovro.ovro.caltech.edu ([192.100.16.2]:59533 "EHLO
+	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754270AbZBRQih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 11:38:37 -0500
+Content-Disposition: inline
+In-Reply-To: <200902181713.03820.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy a =E9crit :
-> Eric Dumazet wrote:
->> Patrick McHardy a =E9crit :
->>> The interface name matching has shown up in profiles forever
->>> though and we've actually already tried to optimize it IIRC.
->>>
->>> Eric, I'm trying to keep all the *tables files synchronized,
->>> could you send me a patch updating the other ones as well
->>> please?
->>
->> While doing this, I found arp_tables is still using loop using
->> byte operations.
->>
->> Also, I could not find how iniface_mask[], outiface_mask[], iniface[=
-]
->> and outiface[] were forced to long word alignment ...
->> (in struct ipt_ip, struct ip6t_ip6, struct arpt_arp)
->=20
-> In case of IPv4 and IPv6 they are already suitable aligned, it
-> simply performing the comparison in unsigned long quantities.
-> struct arpt_arp unfortunately doesn't properly align the interface
-> names, so we need to continue to do byte-wise comparisons.
->=20
->=20
+On Wed, Feb 18, 2009 at 05:13:03PM +1030, Rusty Russell wrote:
+> On Wednesday 18 February 2009 08:54:25 Ira Snyder wrote:
+> > This adds support to Linux for using virtio between two computers linked by
+> > a PCI interface. This allows the use of virtio_net to create a familiar,
+> > fast interface for communication. It should be possible to use other virtio
+> > devices in the future, but this has not been tested.
+> 
+> Hi Ira,
+> 
+>   It's only first glance, but this looks sane.  Two things on first note:
+> don't restrict yourself to 32 feature bits (only PCI does this, and they're
+> going to have to hack when we reach feature 32).
+> 
 
-I see, but #ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS can help here =
-;)
+There isn't any problem adding more feature bits. Do you think 128 bits
+is enough?
 
-ifname_compare() should be static in three files (ipv4_ip_tables, ipv6_=
-ip_tables and arp_tables),
-since only arp_tables variant has the alignement problem.
+>   Secondly:
+> > +You will notice that the algorithm has no way of handling chains that are
+> > +not exactly the same on the host and guest system. Without setting any of
+> > +the fancier virtio_net features, this is the case.
+> 
+> Hmm, I think we can do slightly better than this.
+> 
 
-[PATCH] netfilter: unfold two critical loops in arp_packet_match()
+I think so too :) I just wasn't able to come up with an algorithm to
+make it work. And I wanted input from more experienced people.
 
-x86 and powerpc can perform long word accesses in an efficient maner.
-We can use this to unroll two loops in arp_packet_match(), to
-perform arithmetic on long words instead of bytes. This is a win
-on x86_64 for example.
+> How about prepending a 4 byte length on the host buffers?  Allows host to
+> specify length (for host->guest), and guest writes it to allow truncated
+> buffers on guest->host.
+> 
+> That won't allow you to transfer *more* than one buffersize to the host, but
+> you could use a different method (perhaps the 4 bytes indicates the *total*
+> length?).
+> 
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- net/ipv4/netfilter/arp_tables.c |   44 +++++++++++++++++++++++-------
- 1 files changed, 34 insertions(+), 10 deletions(-)
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_t=
-ables.c
-index 7ea88b6..b5db463 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -73,6 +73,36 @@ static inline int arp_devaddr_compare(const struct a=
-rpt_devaddr_info *ap,
- 	return (ret !=3D 0);
- }
-=20
-+/*
-+ * Unfortunatly, _b and _mask are not aligned to an int (or long int)
-+ * Some arches dont care, unrolling the loop is a win on them.
-+ */
-+static unsigned long ifname_compare(const char *_a, const char *_b, co=
-nst char *_mask)
-+{
-+#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	const unsigned long *a =3D (const unsigned long *)_a;
-+	const unsigned long *b =3D (const unsigned long *)_b;
-+	const unsigned long *mask =3D (const unsigned long *)_mask;
-+	unsigned long ret;
-+
-+	ret =3D (a[0] ^ b[0]) & mask[0];
-+	if (IFNAMSIZ > sizeof(unsigned long))
-+		ret |=3D (a[1] ^ b[1]) & mask[1];
-+	if (IFNAMSIZ > 2 * sizeof(unsigned long))
-+		ret |=3D (a[2] ^ b[2]) & mask[2];
-+	if (IFNAMSIZ > 3 * sizeof(unsigned long))
-+		ret |=3D (a[3] ^ b[3]) & mask[3];
-+	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
-+#else
-+	unsigned long ret =3D 0;
-+	int i;
-+
-+	for (i =3D 0; i < IFNAMSIZ; i++)
-+		ret |=3D (_a[i] ^ _b[i]) & _mask[i];
-+#endif
-+	return ret;
-+}
-+
- /* Returns whether packet matches rule or not. */
- static inline int arp_packet_match(const struct arphdr *arphdr,
- 				   struct net_device *dev,
-@@ -83,7 +113,7 @@ static inline int arp_packet_match(const struct arph=
-dr *arphdr,
- 	const char *arpptr =3D (char *)(arphdr + 1);
- 	const char *src_devaddr, *tgt_devaddr;
- 	__be32 src_ipaddr, tgt_ipaddr;
--	int i, ret;
-+	long ret;
-=20
- #define FWINV(bool, invflg) ((bool) ^ !!(arpinfo->invflags & (invflg))=
-)
-=20
-@@ -156,10 +186,7 @@ static inline int arp_packet_match(const struct ar=
-phdr *arphdr,
- 	}
-=20
- 	/* Look for ifname matches.  */
--	for (i =3D 0, ret =3D 0; i < IFNAMSIZ; i++) {
--		ret |=3D (indev[i] ^ arpinfo->iniface[i])
--			& arpinfo->iniface_mask[i];
--	}
-+	ret =3D ifname_compare(indev, arpinfo->iniface, arpinfo->iniface_mask=
-);
-=20
- 	if (FWINV(ret !=3D 0, ARPT_INV_VIA_IN)) {
- 		dprintf("VIA in mismatch (%s vs %s).%s\n",
-@@ -168,10 +195,7 @@ static inline int arp_packet_match(const struct ar=
-phdr *arphdr,
- 		return 0;
- 	}
-=20
--	for (i =3D 0, ret =3D 0; i < IFNAMSIZ; i++) {
--		ret |=3D (outdev[i] ^ arpinfo->outiface[i])
--			& arpinfo->outiface_mask[i];
--	}
-+	ret =3D ifname_compare(outdev, arpinfo->outiface, arpinfo->outiface_m=
-ask);
-=20
- 	if (FWINV(ret !=3D 0, ARPT_INV_VIA_OUT)) {
- 		dprintf("VIA out mismatch (%s vs %s).%s\n",
-@@ -221,7 +245,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
- 			   const struct net_device *out,
- 			   struct xt_table *table)
- {
--	static const char nulldevname[IFNAMSIZ];
-+	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof=
-(long))));
- 	unsigned int verdict =3D NF_DROP;
- 	const struct arphdr *arp;
- 	bool hotdrop =3D false;
+I don't understand how this will help.
+
+I looked at virtio_net's implemention with VIRTIO_NET_F_MRG_RXBUF, which
+seems like it could really help performance. The problems with that are:
+1) virtio_net doesn't write the merged header's num_buffers field
+2) virtio_net doesn't actually split packets in xmit
+
+The problem with 1 is that one instance of virtio_net cannot talk to
+another, if they're using that feature. The sender never sets the field,
+so the receiver doesn't know how many buffers to expect.
+
+I'm using two instances of virtio_net to talk to each other, rather than
+a special userspace implementation like lguest and kvm use. Is this a
+good approach?
+
+The problem with 2 is that xmit may add the following to the
+descriptors: (the network stack doesn't have to split the packet)
+
+idx address  len flags next
+0   XXXXXXX   12     N    1
+1   XXXXXXX 8000     -    2
+
+With VIRTIO_NET_F_MRG_RXBUF, the other side's recv ring will look like
+the following:
+
+idx address  len flags next
+0   YYYYYYY 4096     -    1
+1   YYYYYYY 4096     -    2
+2   YYYYYYY 4096     -    3
+....
+
+So how do we pair up buffers to do DMA? Do I munge the header from
+virtio_net to set the num_headers field, and split the 8000 bytes of
+data into two parts? (Giving 12 bytes in desc 0, 4096 bytes in desc 1,
+and 3904 bytes in desc 2)
 
 
+The current implementation only handles something like the following,
+which would be an ARP:
+
+xmit descriptors:
+idx address  len flags next
+0   XXXXXXX   10     N    1
+1   XXXXXXX   42     -    2
+
+
+recv descriptors:
+idx address  len flags next
+0   YYYYYYY   10     N    1
+1   YYYYYYY 1518     -    2
+....
+
+Then the algorithm is simple, no munging necessary. All chains are the
+same length (2 entries) and the length of each buffer is suffient to
+handle the data. The network stack splits the packets into <= 1518 byte
+chunks for us (as long as MTU isn't changed).
+
+> Do 4-byte DMA's suck for some reason?
+> 
+
+I don't think it would hurt much. Some of the fancier features might
+offset any overhead that is added.
+
+
+Thanks, I appreciate the feedback.
+Ira
