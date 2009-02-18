@@ -1,44 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Simplify skb_tx_hash()
-Date: Tue, 17 Feb 2009 22:53:55 -0800 (PST)
-Message-ID: <20090217.225355.184526778.davem@davemloft.net>
-References: <20090218053211.16619.33544.sendpatchset@localhost.localdomain>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
+Date: Wed, 18 Feb 2009 07:55:45 +0100
+Message-ID: <499BB0F1.50507@linux.vnet.ibm.com>
+References: <alpine.LFD.2.00.0902131413120.3179@localhost.localdomain> <20090217095232.5da06b9f@werewolf.home> <200902172001.41804.arvidjaar@mail.ru> <20090217.142946.232071526.davem@davemloft.net> <25143.1234932076@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
+Cc: David Miller <davem@davemloft.net>, arvidjaar@mail.ru, rjw@sisk.pl,
+	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	jamagallon@ono.com, linux-kernel@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50110
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751773AbZBRGyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 01:54:11 -0500
-In-Reply-To: <20090218053211.16619.33544.sendpatchset@localhost.localdomain>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:49258 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752042AbZBRGzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 01:55:47 -0500
+In-Reply-To: <25143.1234932076@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Date: Wed, 18 Feb 2009 11:02:11 +0530
+We have the same issue with the qeth_l3 driver (it requires IPv6 symbols).
+Distributors compile with IPv6 but some customes want to disable IPv6 without
+building a custom kernel. If there would be a generic solution to address
+this kind of runtime IPv6 dependencies this would be creat.  
 
-> From: Krishna Kumar <krkumar2@in.ibm.com>
+Valdis.Kletnieks@vt.edu schrieb:
+> On Tue, 17 Feb 2009 14:29:46 PST, David Miller said:
+>> Don't configure ipv6 into your kernel, really.
+>>
+>> There is no other way to handle this.  If we want to support
+>> IPV6 layer things in the bonding driver, it is going to
+>> call helper functions in the ipv6 module and therefore must
+>> be able to load it and use functions in it.
 > 
-> The initialization of skb_tx_hashrnd is moved so that it gets called
-> after "random" driver is initialized. Random numbers generated at this
-> point are different across 3 immediate reboots:
-> 	(reboot1) Random number: 0xd52f08b6
-> 	(reboot2) Random number: 0x8beeef46
-> 	(reboot3) Random number: 0x7d60a4b6
+> What does a poor corporate user do if they're running a distro kernel that
+> was built with CONFIG_IPV6, but local security policy says "Disable IPv6
+> because we don't do it yet, or because it breaks mission-critical software
+> package XYZ?"  There's a *lot* of people who implement that by the "block
+> the ipv6 module from loading" trick.  And building a kernel that doesn't
+> include IPv6 may not be feasible due to vendor certification issues...
 > 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> Heck, *I*'m almost in that boat - probably need to use bonded ethernet on some
+> servers because we can't get 10GigE, but the software used in the project the
+> servers were bought for blows chunks if it gets a whiff of an IPv6 address.
+> Ended up spending 3 weeks doing a massive kludgery of one sort in DNS for the
+> rest of the world, and equally massive lying in /etc/hosts for the hosts...
+> (Don't ask - it was long and ugly, and just disabling the module would have
+> saved me about 2.95 weeks of work, so I know where those people are coming
+> from...)
+> 
 
-Well, two questions:
 
-1) How in the world are you getting a packet transmitted
-   before the random driver initializes?
-
-2) How can an initcall be more random than when the first
-   packet is transmitted by the system?
-
-A patch like this needs justification, so in your commit
-logs you shouldn't just list out mechanically what your
-patch is doing, but rather explain "why".
