@@ -1,120 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] netlink: add NETLINK_BROADCAST_ERROR socket option
-Date: Wed, 18 Feb 2009 12:40:43 +0100
-Message-ID: <20090218114042.7060.54127.stgit@Decadence>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netlink: add NETLINK_BROADCAST_ERROR socket option
+Date: Wed, 18 Feb 2009 12:43:36 +0100
+Message-ID: <499BF468.5010406@trash.net>
+References: <20090218114042.7060.54127.stgit@Decadence>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59716 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751453AbZBRLkw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 06:40:52 -0500
+Received: from stinky.trash.net ([213.144.137.162]:50205 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbZBRLnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 06:43:40 -0500
+In-Reply-To: <20090218114042.7060.54127.stgit@Decadence>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds NETLINK_BROADCAST_ERROR which is a netlink
-socket option that the listener can set to make netlink_broadcast()
-return errors in the delivery to the caller. This option is useful
-if the caller of netlink_broadcast() do something with the result
-of the message delivery, like in ctnetlink where it drops a network
-packet if the event delivery failed, this is used to enable reliable
-logging and state-synchronization. If this socket option is not set,
-netlink_broadcast() only reports ESRCH errors and silently ignore
-ENOBUFS errors, which is what most netlink_broadcast() callers
-should do.
+Pablo Neira Ayuso wrote:
+> This patch adds NETLINK_BROADCAST_ERROR which is a netlink
+> socket option that the listener can set to make netlink_broadcast()
+> return errors in the delivery to the caller. This option is useful
+> if the caller of netlink_broadcast() do something with the result
+> of the message delivery, like in ctnetlink where it drops a network
+> packet if the event delivery failed, this is used to enable reliable
+> logging and state-synchronization. If this socket option is not set,
+> netlink_broadcast() only reports ESRCH errors and silently ignore
+> ENOBUFS errors, which is what most netlink_broadcast() callers
+> should do.
+> 
+> This socket option is based on a suggestion from Patrick McHardy.
+> Patrick McHardy can exchange this patch for a beer from me ;).
 
-This socket option is based on a suggestion from Patrick McHardy.
-Patrick McHardy can exchange this patch for a beer from me ;).
+I'd accept that offer, but it needs to go through Dave :)
+Anyways, the patch looks good.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
- include/linux/netlink.h  |    1 +
- net/netlink/af_netlink.c |   25 +++++++++++++++++++++++--
- 2 files changed, 24 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 51b09a1..1e6bf99 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -103,6 +103,7 @@ struct nlmsgerr
- #define NETLINK_ADD_MEMBERSHIP	1
- #define NETLINK_DROP_MEMBERSHIP	2
- #define NETLINK_PKTINFO		3
-+#define NETLINK_BROADCAST_ERROR	4
- 
- struct nl_pktinfo
- {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 6ee69c2..ed587be 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -85,6 +85,7 @@ struct netlink_sock {
- 
- #define NETLINK_KERNEL_SOCKET	0x1
- #define NETLINK_RECV_PKTINFO	0x2
-+#define NETLINK_BROADCAST_SEND_ERROR	0x4
- 
- static inline struct netlink_sock *nlk_sk(struct sock *sk)
- {
-@@ -995,12 +996,15 @@ static inline int do_one_broadcast(struct sock *sk,
- 		netlink_overrun(sk);
- 		/* Clone failed. Notify ALL listeners. */
- 		p->failure = 1;
-+		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
-+			p->delivery_failure = 1;
- 	} else if (sk_filter(sk, p->skb2)) {
- 		kfree_skb(p->skb2);
- 		p->skb2 = NULL;
- 	} else if ((val = netlink_broadcast_deliver(sk, p->skb2)) < 0) {
- 		netlink_overrun(sk);
--		p->delivery_failure = 1;
-+		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
-+			p->delivery_failure = 1;
- 	} else {
- 		p->congested |= val;
- 		p->delivered = 1;
-@@ -1048,7 +1052,7 @@ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
- 	if (info.skb2)
- 		kfree_skb(info.skb2);
- 
--	if (info.delivery_failure || info.failure)
-+	if (info.delivery_failure)
- 		return -ENOBUFS;
- 
- 	if (info.delivered) {
-@@ -1163,6 +1167,13 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 		err = 0;
- 		break;
- 	}
-+	case NETLINK_BROADCAST_ERROR:
-+		if (val)
-+			nlk->flags |= NETLINK_BROADCAST_SEND_ERROR;
-+		else
-+			nlk->flags &= ~NETLINK_BROADCAST_SEND_ERROR;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -1195,6 +1206,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 			return -EFAULT;
- 		err = 0;
- 		break;
-+	case NETLINK_BROADCAST_ERROR:
-+		if (len < sizeof(int))
-+			return -EINVAL;
-+		len = sizeof(int);
-+		val = nlk->flags & NETLINK_BROADCAST_SEND_ERROR ? 1 : 0;
-+		if (put_user(len, optlen) ||
-+		    put_user(val, optval))
-+			return -EFAULT;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-
+Acked-by: Patrick McHardy <kaber@trash.net>
