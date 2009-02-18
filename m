@@ -1,39 +1,160 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: xt_physdev fixes
-Date: Wed, 18 Feb 2009 19:14:03 +0100
-Message-ID: <499C4FEB.7040706@trash.net>
-References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <499032A4.9090301@trash.net> <499C24FF.90302@cosmosbay.com> <499C2766.5090904@trash.net> <499C3871.4030600@cosmosbay.com> <499C4739.3000800@cosmosbay.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch] timers: add mod_timer_pending()
+Date: Wed, 18 Feb 2009 19:23:11 +0100
+Message-ID: <20090218182311.GC26802@elte.hu>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com> <20090218092041.GC3294@elte.hu> <499BDDFE.5010101@trash.net> <20090218120508.GB4100@elte.hu> <20090218170057.GA28825@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Rick Jones <rick.jones2@hp.com>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
+	Martin Josefsson <gandalf@wlug.westbo.se>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59445 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbZBRSOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 13:14:06 -0500
-In-Reply-To: <499C4739.3000800@cosmosbay.com>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:56525 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753307AbZBRSXh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2009 13:23:37 -0500
+Content-Disposition: inline
+In-Reply-To: <20090218170057.GA28825@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Hi Patrick
-> 
-> Please find following patch to prepare next one (loop unrolling)
-> 
-> I am not sure xt_physdev_info is aligned, either on an int or a long,
-> so please check my assertion before applying :)
 
-Yes, the private structures can assume alignment suitable for
-pointers and unsigned longs.
+* Oleg Nesterov <oleg@redhat.com> wrote:
 
-> [PATCH] netfilter: xt_physdev fixes
+> On 02/18, Ingo Molnar wrote:
+> >
+> > Based on an idea from Stephen Hemminger: introduce
+> >  mod_timer_pending() which is a mod_timer() offspring
+> > that is an invariant on already removed timers.
 > 
-> 1) physdev_mt() incorrectly assumes nulldevname[] is aligned on an int
+> This also can be used by workqueues, see
 > 
-> 2) It also uses word comparisons, while it could use long word ones.
+> 	http://marc.info/?l=linux-kernel&m=122209752020413
+> 
+> but can't we add another helper? Because,
+> 
+> > +static inline int
+> > +__mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
+> >  {
+> >  	struct tvec_base *base, *new_base;
+> >  	unsigned long flags;
+> > -	int ret = 0;
+> > +	int ret;
+> > +
+> > +	ret = 0;
+> >
+> >  	timer_stats_timer_set_start_info(timer);
+> >  	BUG_ON(!timer->function);
+> > @@ -614,6 +617,9 @@ int __mod_timer(struct timer_list *timer
+> >  	if (timer_pending(timer)) {
+> >  		detach_timer(timer, 0);
+> >  		ret = 1;
+> > +	} else {
+> > +		if (pending_only)
+> > +			goto out_unlock;
+> 
+> This can change the base (CPU) of the pending timer.
+> 
+> How about
+> 
+> 	int __update_timer(struct timer_list *timer, unsigned long expires)
+> 	{
+> 		struct tvec_base *base;
+> 		unsigned long flags;
+> 		int ret = 0;
+> 
+> 		base = lock_timer_base(timer, &flags);
+> 		if (timer_pending(timer)) {
+> 			detach_timer(timer, 0);
+> 			timer->expires = expires;
+> 			internal_add_timer(base, timer);
+> 			ret = 1;
+> 		}
+> 		spin_unlock_irqrestore(&base->lock, flags);
+> 
+> 		return ret;
+> 	}
+> 
+> ?
+> 
+> Unlike __mod_timer(..., bool pending_only), it preserves the CPU on
+> which the timer is pending.
+> 
+> Or, perhaps, we can modify __mod_timer() further,
+> 
+> 	static inline int
+> 	__mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
+> 	{
+> 		struct tvec_base *base;
+> 		unsigned long flags;
+> 		int ret;
+> 
+> 		ret = 0;
+> 
+> 		timer_stats_timer_set_start_info(timer);
+> 		BUG_ON(!timer->function);
+> 
+> 		base = lock_timer_base(timer, &flags);
+> 
+> 		if (timer_pending(timer)) {
+> 			detach_timer(timer, 0);
+> 			ret = 1;
+> 		} else if (pending_only)
+> 			goto out_unlock;
+> 		}
+> 
+> 		debug_timer_activate(timer);
+> 
+> 		if (!pending_only) {
+> 			struct tvec_base *new_base = __get_cpu_var(tvec_bases);
+> 
+> 			if (base != new_base) {
+> 				/*
+> 				 * We are trying to schedule the timer on the local CPU.
+> 				 * However we can't change timer's base while it is running,
+> 				 * otherwise del_timer_sync() can't detect that the timer's
+> 				 * handler yet has not finished. This also guarantees that
+> 				 * the timer is serialized wrt itself.
+> 				 */
+> 				if (likely(base->running_timer != timer)) {
+> 					/* See the comment in lock_timer_base() */
+> 					timer_set_base(timer, NULL);
+> 					spin_unlock(&base->lock);
+> 					base = new_base;
+> 					spin_lock(&base->lock);
+> 					timer_set_base(timer, base);
+> 				}
+> 			}
+> 		}
+> 
+> 		timer->expires = expires;
+> 		internal_add_timer(base, timer);
+> 
+> 	out_unlock:
+> 		spin_unlock_irqrestore(&base->lock, flags);
+> 
+> 		return ret;
+> 	}
+> 
+> What do you all think?
 
-Applied, thanks.
+if then i'd put it into a separate commit.
+
+I think the auto-migration of all the mod_timer() variants is a 
+scalability feature: if for example a networking socket's main 
+user migrates to another CPU, then the timer 'follows' it - even 
+if the timer never actually expires (which is quite common for 
+high-speed high-reliability networking transports).
+
+By keeping it on the same CPU we'd allow the timer's and the 
+task's affinity to differ.
+
+Agreed?
+
+	Ingo
