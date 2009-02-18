@@ -1,56 +1,78 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: PF_PACKET or nfnetlink logging of skb->priority
-Date: Wed, 18 Feb 2009 15:51:48 -0500
-Message-ID: <1234990308.18165.68.camel@ragnarok>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: problem with IPoA (CLIP),  NAT, and VLANS
+Date: Wed, 18 Feb 2009 22:05:07 +0100
+Message-ID: <20090218210507.GA2698@ami.dom.local>
+References: <20090217231255.GA3389@ami.dom.local> <499C49CD.3000709@hiramoto.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from titan.coplanar.net ([70.47.139.2]:48773 "EHLO
-	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbZBRUv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 15:51:59 -0500
-Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
-	(authenticated bits=0)
-	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id n1IKpu4O017425
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 15:51:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Karl Hiramoto <karl@hiramoto.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752967AbZBRVG6@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <499C49CD.3000709@hiramoto.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It seems that there is nothing that can capture the skb->priority
-outside the kernel. 
+On Wed, Feb 18, 2009 at 06:47:57PM +0100, Karl Hiramoto wrote:
+...
+> Thanks for the replies.  Jarek, the last debugging patch you sent did
+> not work.  It did give me a good hint though.  The attached patch in for
+> AF_PACKET   receive in the when tcpdump is active and which calls
+> skb_clone() did fix my issue.
 
-There is an iptables *target* "CLASSIFY", which can *set* skb->priority,
-but there is no iptables *match* based on it.
+Yes, good point!
 
-tcpdump/pcap/PF_PACKET are oblivious to skb->priority.
+> CONFIG_IXP400_ETH_SKB_RECYCLE does not exist in the code i have..  From
+> what i downloaded from intel,  i stripped out all the stuff that is not
+> having to do with ATM.  The functionalities of ixp4xx_qmgr ixp4xx_npe
+> and ixp4xx_eth  are now in the mainline kernel.    Ideally it would be
+> nice to get what this library does with the atm hardware into the
+> mainline, however the code in it's current state would not meet kernel
+> standards, and is quite a mess.
+> 
+> 
+> But yes,  the skb->data is   recycled  in a memory pool,   and i think i
+> noticed a few times packets that were corrupt, were really pointing to
+> old recycled packets.   I haven't confirmed this yet though.
+> 
+> 
+> I did eliminate the first  patch i sent 
+> http://lkml.org/lkml/2009/2/16/163    to  __vlan_put_tag()
+> 
+> And now only use the patch Jarek sent:  http://lkml.org/lkml/2009/2/17/104
 
-netfilter netlink queue can export the skb->mark like the right
-mechanism, but it doesn't touch skb->priority anywhere.   Perhaps there
-needs to be a another one in include/linux/netfilter/nfnetlink_queue.h:
+Yes, this patch looks like formally needed, but I guess currently it
+isn't used by any path: otherwise we would know about it earlier.
 
-enum nfqnl_attr_type {
-        NFQA_UNSPEC,
-        NFQA_PACKET_HDR,
-        NFQA_VERDICT_HDR,               /* nfqnl_msg_verdict_hrd */
-        NFQA_MARK,   
-... etc
-	NFQA_SKBPRIORITY
+> 
+> Now i don't have any problems with the vlan tags after changing my atm
+> driver to do skb_reserve() like:
+> 
+> skb = dev_alloc_skb(size + NET_SKB_PAD);
+> 
+> skb_reserve(skb, NET_SKB_PAD);
+> 
+> 
+> So something with my driver causes skb_clone() to corrupt the packet
+> but  calling skb_copy() instead  keeps everything working.   There are
+> definitely other cases where skb_clone() is called so really have to fix
+> this in the atm_dev, but not really sure at the moment where to look next.
 
-The specific use I'm thinking of now, is troubleshooting priority
-queueing with "tc" by being able to log or tcpdump traffic for a
-specific qdisc/class.
+Alas I've been mostly interested in verifying your first suspicion of
+skb_cow_head() bug, and not so much in this driver ;-) IMHO after your
+current findings the driver definitely looks like the main sinner. I'm
+glad you found these hacks to make it workable, but I hope you realize
+your data could be still corrupted in more or less visible way.
 
-It might also be nice to be able to tcpdump and/or log packets going
-into or out of a specific qdisc/class, but I'd settle for dumping
-packets based on skb->priority.
+I looked only a bit into ixp400_eth.c without tracking libraries and
+there are some rather strange things I didn't found in other drivers
+like skb->truesize use. It looks like both skb and skb->header could
+be used together for this recycling without respect for clones. If
+so, this could still break in many places e.g.: if it affected you in
+__vlan_put_tag() it seems this dev_queue_xmit_nit() could hit you too,
+depending on your config or even size of packets. So I guess, knowing
+this all, you should better try to hack this driver more yet.
 
--- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
-
+Cheers,
+Jarek P.
