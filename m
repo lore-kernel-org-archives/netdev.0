@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/43] drivers/net/cxgb3: fix sparse warning: symbol
- shadows an earlier one
-Date: Tue, 17 Feb 2009 17:27:15 -0800 (PST)
-Message-ID: <20090217.172715.248316017.davem@davemloft.net>
+Subject: Re: [PATCH 19/43] drivers/net/hamradio: fix warning: format not a
+ string literal and no ...
+Date: Tue, 17 Feb 2009 17:27:49 -0800 (PST)
+Message-ID: <20090217.172749.224722175.davem@davemloft.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-	<20090214211557.23489.75670.stgit@vmbox.hanneseder.net>
-	<4998897A.3030904@chelsio.com>
+	<20090214213243.24377.94508.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@hanneseder.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: divy@chelsio.com
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: hannes@hanneseder.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54469
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49810
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753026AbZBRB1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:27:31 -0500
-In-Reply-To: <4998897A.3030904@chelsio.com>
+	by vger.kernel.org with ESMTP id S1756230AbZBRB2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:28:05 -0500
+In-Reply-To: <20090214213243.24377.94508.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Sun, 15 Feb 2009 13:30:34 -0800
+From: Hannes Eder <hannes@hanneseder.net>
+Date: Sat, 14 Feb 2009 22:33:21 +0100
 
-> Hannes Eder wrote:
-> > Impact: Move variable declaration as close to usage as possible.
-> >
-> > Fix this sparse warning:
-> >   drivers/net/cxgb3/cxgb3_main.c:1586:21: warning: symbol 'cap' shadows an earlier one
-> >
-> > Signed-off-by: Hannes Eder <hannes@hanneseder.net>
-> >   
-> Acked-by: Divy Le Ray <divy@chelsio.com>
+> Impact: Use 'static const char[]' instead of 'static char[]' and while
+> being at it fix an issue in 'mkiss_init_driver', where in case of an
+> error the status code was not passed to printk.
+> 
+> Fix this warnings:
+>   drivers/net/hamradio/6pack.c: In function 'sixpack_init_driver':
+>   drivers/net/hamradio/6pack.c:802: warning: format not a string literal and no format arguments
+>   drivers/net/hamradio/bpqether.c: In function 'bpq_init_driver':
+>   drivers/net/hamradio/bpqether.c:609: warning: format not a string literal and no format arguments
+>   drivers/net/hamradio/mkiss.c: In function 'mkiss_init_driver':
+>   drivers/net/hamradio/mkiss.c:988: warning: format not a string literal and no format arguments
+>   drivers/net/hamradio/mkiss.c:991: warning: format not a string literal and no format arguments
+>   drivers/net/hamradio/scc.c: In function 'scc_init_driver':
+>   drivers/net/hamradio/scc.c:2109: warning: format not a string literal and no format arguments
+>   drivers/net/hamradio/yam.c: In function 'yam_init_driver':
+>   drivers/net/hamradio/yam.c:1094: warning: format not a string literal and no format arguments
+> 
+> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 
 Applied.
