@@ -1,54 +1,74 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
-Date: Wed, 18 Feb 2009 17:13:03 +1030
-Message-ID: <200902181713.03820.rusty@rustcorp.com.au>
-References: <20090217222425.GA18801@ovro.caltech.edu>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-	"Jan-Bernd Themann" <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Ira Snyder <iws@ovro.caltech.edu>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] net: Simplify skb_tx_hash()
+Date: Wed, 18 Feb 2009 11:02:11 +0530
+Message-ID: <20090218053211.16619.33544.sendpatchset@localhost.localdomain>
+Cc: davem@davemloft.net, Krishna Kumar <krkumar2@in.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:52076 "EHLO ozlabs.org"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:52135 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559AbZBRGnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 01:43:10 -0500
-In-Reply-To: <20090217222425.GA18801@ovro.caltech.edu>
-Content-Disposition: inline
+	id S1752382AbZBRGnt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2009 01:43:49 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e6.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n1I6iZ1N004487
+	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 01:44:35 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n1I6hmRk187134
+	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 01:43:48 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n1I6faqJ014295
+	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 01:42:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 18 February 2009 08:54:25 Ira Snyder wrote:
-> This adds support to Linux for using virtio between two computers linked by
-> a PCI interface. This allows the use of virtio_net to create a familiar,
-> fast interface for communication. It should be possible to use other virtio
-> devices in the future, but this has not been tested.
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Hi Ira,
+The initialization of skb_tx_hashrnd is moved so that it gets called
+after "random" driver is initialized. Random numbers generated at this
+point are different across 3 immediate reboots:
+	(reboot1) Random number: 0xd52f08b6
+	(reboot2) Random number: 0x8beeef46
+	(reboot3) Random number: 0x7d60a4b6
 
-  It's only first glance, but this looks sane.  Two things on first note:
-don't restrict yourself to 32 feature bits (only PCI does this, and they're
-going to have to hack when we reach feature 32).
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
 
-  Secondly:
-> +You will notice that the algorithm has no way of handling chains that are
-> +not exactly the same on the host and guest system. Without setting any of
-> +the fancier virtio_net features, this is the case.
+ net/core/dev.c |   14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-Hmm, I think we can do slightly better than this.
-
-How about prepending a 4 byte length on the host buffers?  Allows host to
-specify length (for host->guest), and guest writes it to allow truncated
-buffers on guest->host.
-
-That won't allow you to transfer *more* than one buffersize to the host, but
-you could use a different method (perhaps the 4 bytes indicates the *total*
-length?).
-
-Do 4-byte DMA's suck for some reason?
-
-Cheers,
-Rusty.
+diff -ruNp net-next-2.6.org/net/core/dev.c net-next-2.6.new/net/core/dev.c
+--- net-next-2.6.org/net/core/dev.c	2009-02-17 18:57:15.000000000 +0530
++++ net-next-2.6.new/net/core/dev.c	2009-02-17 19:00:23.000000000 +0530
+@@ -1745,17 +1745,11 @@ out_kfree_skb:
+ }
+ 
+ static u32 skb_tx_hashrnd;
+-static int skb_tx_hashrnd_initialized = 0;
+ 
+ static u16 skb_tx_hash(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	u32 hash;
+ 
+-	if (unlikely(!skb_tx_hashrnd_initialized)) {
+-		get_random_bytes(&skb_tx_hashrnd, 4);
+-		skb_tx_hashrnd_initialized = 1;
+-	}
+-
+ 	if (skb_rx_queue_recorded(skb)) {
+ 		hash = skb_get_rx_queue(skb);
+ 	} else if (skb->sk && skb->sk->sk_hash) {
+@@ -5291,6 +5285,14 @@ out:
+ 
+ subsys_initcall(net_dev_init);
+ 
++static int __init initialize_hashrnd(void)
++{
++	get_random_bytes(&skb_tx_hashrnd, sizeof(skb_tx_hashrnd));
++	return 0;
++}
++
++late_initcall_sync(initialize_hashrnd);
++
+ EXPORT_SYMBOL(__dev_get_by_index);
+ EXPORT_SYMBOL(__dev_get_by_name);
+ EXPORT_SYMBOL(__dev_remove_pack);
