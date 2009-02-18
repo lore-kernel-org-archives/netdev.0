@@ -1,29 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Why linux keeps connected routes when link goes down
-Date: Wed, 18 Feb 2009 15:52:07 -0800 (PST)
-Message-ID: <20090218.155207.139931991.davem@davemloft.net>
-References: <200902190203.41497.homecreate@list.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: PF_PACKET or nfnetlink logging of skb->priority
+Date: Thu, 19 Feb 2009 00:57:56 +0100
+Message-ID: <499CA084.30209@trash.net>
+References: <1234990308.18165.68.camel@ragnarok>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: homecreate@list.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43874
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752308AbZBRXwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 18:52:23 -0500
-In-Reply-To: <200902190203.41497.homecreate@list.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Jeremy Jackson <jerj@coplanar.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1234990308.18165.68.camel@ragnarok>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTog0KXQsNC90LrQuNC9INCa0L7QvdGB0YLQsNC90YLQuNC9IDxob21lY3JlYXRlQGxpc3Qu
-cnU+DQpEYXRlOiBUaHUsIDE5IEZlYiAyMDA5IDAyOjAzOjQwICswNTAwDQoNCj4gU28gdGhlIG1h
-aW4gcXVlc3Rpb24gaXM6IHdoeSBsaW51eCBrZWVwcyBjb25uZWN0ZWQgcm91dGVzIHdoZW4gbGlu
-aw0KPiBnb2VzIGRvd24/DQoNCkJlY2F1c2UgdGhlIElQIGFkZHJlc3NlcyBhcmUgc3RpbGwgYXNz
-aWduZWQgdG8gdGhlIGludGVyZmFjZS4NCg0KSVAgYWRkcmVzc2VzIGFyZSBvd25lZCBieSB0aGUg
-Imhvc3QiIHJhdGhlciB0aGFuIHNwZWNpZmljIGludGVyZmFjZXMNCnVuZGVyIExpbnV4LiAgU28g
-anVzdCBicmluZ2luZyBhbiBpbnRlcmZhY2UgZG93biBkb2VzIG5vdCBkaXNhYmxlDQpJUCBhZGRy
-ZXNzZXMgY29uZmlndXJlZCB0byB0aGF0IGludGVyZmFjZS4NCg0KSWYgeW91IHdhbnQgYWxsIHRo
-ZSByb3V0ZXMgdG8gZ28gYXdheSwgZXhwbGljaXRseSBkZWxldGUgdGhlIElQDQphZGRyZXNzZXMu
-DQoNCg==
+Jeremy Jackson wrote:
+> It seems that there is nothing that can capture the skb->priority
+> outside the kernel. 
+>
+> There is an iptables *target* "CLASSIFY", which can *set* skb->priority,
+> but there is no iptables *match* based on it.
+>
+> tcpdump/pcap/PF_PACKET are oblivious to skb->priority.
+>
+> netfilter netlink queue can export the skb->mark like the right
+> mechanism, but it doesn't touch skb->priority anywhere.   Perhaps there
+> needs to be a another one in include/linux/netfilter/nfnetlink_queue.h:
+>
+> enum nfqnl_attr_type {
+>         NFQA_UNSPEC,
+>         NFQA_PACKET_HDR,
+>         NFQA_VERDICT_HDR,               /* nfqnl_msg_verdict_hrd */
+>         NFQA_MARK,   
+> ... etc
+> 	NFQA_SKBPRIORITY
+>
+> The specific use I'm thinking of now, is troubleshooting priority
+> queueing with "tc" by being able to log or tcpdump traffic for a
+> specific qdisc/class.
+>
+> It might also be nice to be able to tcpdump and/or log packets going
+> into or out of a specific qdisc/class, but I'd settle for dumping
+> packets based on skb->priority.
+>   
+
+I think this makes a lot of sense for nfnetlink_queue/log, I'll
+gladly take patches :) It should also support changing the priority
+using nfnetlink_queue, that would simplify userspace classification
+since you don't need to map to mark values, just to have the
+classifier map it back to classes.
+
+For libpcap the main problem will probably be that its meta data
+that needs to be stored in the pseudo header and you'll need to
+keep the format compatible and the tools need to be changed to
+interpret it. Using netfilter definitely looks like the easier
+route :)
+
+
