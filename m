@@ -1,145 +1,86 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [patch] timers: add mod_timer_pending()
-Date: Wed, 18 Feb 2009 18:00:57 +0100
-Message-ID: <20090218170057.GA28825@redhat.com>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com> <20090218092041.GC3294@elte.hu> <499BDDFE.5010101@trash.net> <20090218120508.GB4100@elte.hu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] netfilter: xt_physdev fixes
+Date: Wed, 18 Feb 2009 18:36:57 +0100
+Message-ID: <499C4739.3000800@cosmosbay.com>
+References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <499032A4.9090301@trash.net> <499C24FF.90302@cosmosbay.com> <499C2766.5090904@trash.net> <499C3871.4030600@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
-	Martin Josefsson <gandalf@wlug.westbo.se>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:43215 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751404AbZBRREQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 12:04:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20090218120508.GB4100@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <499C3871.4030600@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/18, Ingo Molnar wrote:
->
-> Based on an idea from Stephen Hemminger: introduce
->  mod_timer_pending() which is a mod_timer() offspring
-> that is an invariant on already removed timers.
+Hi Patrick
 
-This also can be used by workqueues, see
+Please find following patch to prepare next one (loop unrolling)
 
-	http://marc.info/?l=linux-kernel&m=122209752020413
+I am not sure xt_physdev_info is aligned, either on an int or a long,
+so please check my assertion before applying :)
 
-but can't we add another helper? Because,
 
-> +static inline int
-> +__mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
->  {
->  	struct tvec_base *base, *new_base;
->  	unsigned long flags;
-> -	int ret = 0;
-> +	int ret;
-> +
-> +	ret = 0;
->
->  	timer_stats_timer_set_start_info(timer);
->  	BUG_ON(!timer->function);
-> @@ -614,6 +617,9 @@ int __mod_timer(struct timer_list *timer
->  	if (timer_pending(timer)) {
->  		detach_timer(timer, 0);
->  		ret = 1;
-> +	} else {
-> +		if (pending_only)
-> +			goto out_unlock;
 
-This can change the base (CPU) of the pending timer.
+Thank you
 
-How about
+[PATCH] netfilter: xt_physdev fixes
 
-	int __update_timer(struct timer_list *timer, unsigned long expires)
-	{
-		struct tvec_base *base;
-		unsigned long flags;
-		int ret = 0;
+1) physdev_mt() incorrectly assumes nulldevname[] is aligned on an int
 
-		base = lock_timer_base(timer, &flags);
-		if (timer_pending(timer)) {
-			detach_timer(timer, 0);
-			timer->expires = expires;
-			internal_add_timer(base, timer);
-			ret = 1;
-		}
-		spin_unlock_irqrestore(&base->lock, flags);
+2) It also uses word comparisons, while it could use long word ones.
 
-		return ret;
-	}
-
-?
-
-Unlike __mod_timer(..., bool pending_only), it preserves the CPU on
-which the timer is pending.
-
-Or, perhaps, we can modify __mod_timer() further,
-
-	static inline int
-	__mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
-	{
-		struct tvec_base *base;
-		unsigned long flags;
-		int ret;
-
-		ret = 0;
-
-		timer_stats_timer_set_start_info(timer);
-		BUG_ON(!timer->function);
-
-		base = lock_timer_base(timer, &flags);
-
-		if (timer_pending(timer)) {
-			detach_timer(timer, 0);
-			ret = 1;
-		} else if (pending_only)
-			goto out_unlock;
-		}
-
-		debug_timer_activate(timer);
-
-		if (!pending_only) {
-			struct tvec_base *new_base = __get_cpu_var(tvec_bases);
-
-			if (base != new_base) {
-				/*
-				 * We are trying to schedule the timer on the local CPU.
-				 * However we can't change timer's base while it is running,
-				 * otherwise del_timer_sync() can't detect that the timer's
-				 * handler yet has not finished. This also guarantees that
-				 * the timer is serialized wrt itself.
-				 */
-				if (likely(base->running_timer != timer)) {
-					/* See the comment in lock_timer_base() */
-					timer_set_base(timer, NULL);
-					spin_unlock(&base->lock);
-					base = new_base;
-					spin_lock(&base->lock);
-					timer_set_base(timer, base);
-				}
-			}
-		}
-
-		timer->expires = expires;
-		internal_add_timer(base, timer);
-
-	out_unlock:
-		spin_unlock_irqrestore(&base->lock, flags);
-
-		return ret;
-	}
-
-What do you all think?
-
-Oleg.
-
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
+index 1bcdfc1..4b13ef7 100644
+--- a/net/netfilter/xt_physdev.c
++++ b/net/netfilter/xt_physdev.c
+@@ -24,9 +24,9 @@ static bool
+ physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ {
+ 	int i;
+-	static const char nulldevname[IFNAMSIZ];
++	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	const struct xt_physdev_info *info = par->matchinfo;
+-	bool ret;
++	unsigned long ret;
+ 	const char *indev, *outdev;
+ 	const struct nf_bridge_info *nf_bridge;
+ 
+@@ -68,10 +68,10 @@ physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
+ 		goto match_outdev;
+ 	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
+-	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
+-		ret |= (((const unsigned int *)indev)[i]
+-			^ ((const unsigned int *)info->physindev)[i])
+-			& ((const unsigned int *)info->in_mask)[i];
++	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
++		ret |= (((const unsigned long *)indev)[i]
++			^ ((const unsigned long *)info->physindev)[i])
++			& ((const unsigned long *)info->in_mask)[i];
+ 	}
+ 
+ 	if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
+@@ -82,13 +82,12 @@ match_outdev:
+ 		return true;
+ 	outdev = nf_bridge->physoutdev ?
+ 		 nf_bridge->physoutdev->name : nulldevname;
+-	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
+-		ret |= (((const unsigned int *)outdev)[i]
+-			^ ((const unsigned int *)info->physoutdev)[i])
+-			& ((const unsigned int *)info->out_mask)[i];
++	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
++		ret |= (((const unsigned long *)outdev)[i]
++			^ ((const unsigned long *)info->physoutdev)[i])
++			& ((const unsigned long *)info->out_mask)[i];
+ 	}
+-
+-	return ret ^ !(info->invert & XT_PHYSDEV_OP_OUT);
++	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
+ }
+ 
+ static bool physdev_mt_check(const struct xt_mtchk_param *par)
