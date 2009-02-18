@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Simplify skb_tx_hash()
-Date: Tue, 17 Feb 2009 23:41:58 -0800 (PST)
-Message-ID: <20090217.234158.156650176.davem@davemloft.net>
-References: <20090218053211.16619.33544.sendpatchset@localhost.localdomain>
-	<20090217.225355.184526778.davem@davemloft.net>
-	<OF35128638.A15DA997-ON65257561.00265DD2-65257561.0028F5BC@in.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFT 0/4] Netfilter/iptables performance improvements
+Date: Wed, 18 Feb 2009 09:30:08 +0100
+Message-ID: <499BC710.2010906@cosmosbay.com>
+References: <20090218051906.174295181@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42968
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751670AbZBRHmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 02:42:14 -0500
-In-Reply-To: <OF35128638.A15DA997-ON65257561.00265DD2-65257561.0028F5BC@in.ibm.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60567 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618AbZBRIag convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 03:30:36 -0500
+In-Reply-To: <20090218051906.174295181@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Wed, 18 Feb 2009 12:57:23 +0530
+Stephen Hemminger a =E9crit :
+> Bring together the three performance improvements suggested.
+>   1) RCU for ip_tables entries
+>   2) mod_timer_noact for conntrack timer
+>   3) eliminate tcp_lock
+>=20
+> I took the patches for 2 & 3 and made them build and basically work.
+>=20
+> This patch set is against Patrick's netfilter next tree since
+> it is where it should end up.
+> 	git.kernel.org:/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
+>=20
 
-> > David Miller <davem@davemloft.net>
-> > A patch like this needs justification, so in your commit
-> > logs you shouldn't just list out mechanically what your
-> > patch is doing, but rather explain "why".
-> 
-> Please let me know if I should give a better text for justification?
-
-Even after reading all of this I still don't understand why
-you're making the change.
-
-Is it to eliminate the comparison every packet in skb_tx_hash()?
-
-If so, say that in the commit message so nobody has to
-guess.  Saying just "simplify" doesn't express that at all.
+Excellent Stephen, I'll give some time today to review this and test it
+on my lab machines.
 
