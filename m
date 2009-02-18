@@ -1,105 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net_device_ops support in bridging and fec_mpc52xx.c
-Date: Wed, 18 Feb 2009 13:48:52 -0800 (PST)
-Message-ID: <20090218.134852.118040610.davem__2300.45906869254$1234994179$gmane$org@davemloft.net>
-References: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
+Subject: Re: [RFT 4/4] netfilter: Get rid of central rwlock in tcp
+ conntracking
+Date: Wed, 18 Feb 2009 13:55:12 -0800 (PST)
+Message-ID: <20090218.135512.104648058.davem@davemloft.net>
+References: <20090218051906.174295181@vyatta.com>
+	<20090218052747.679540125@vyatta.com>
+	<499BDB5D.2050105@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, bridge@osdl.org, netdev@vger.kernel.org
-To: henk.stegeman@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: shemminger@vyatta.com, rick.jones2@hp.com, dada1@cosmosbay.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <499BDB5D.2050105@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Henk Stegeman <henk.stegeman@gmail.com>
-Date: Wed, 18 Feb 2009 11:41:14 +0100
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 18 Feb 2009 10:56:45 +0100
 
-Please CC: netdev, now added, on all networking reports and patches.
+> Stephen Hemminger wrote:
+> 
+> > @@ -50,6 +50,7 @@ struct ip_ct_tcp_state {
+> >  struct ip_ct_tcp
+> >  {
+> > +	spinlock_t	lock;
+> >  	struct ip_ct_tcp_state seen[2];	/* connection parameters per direction */
+> >  	u_int8_t	state;		/* state of the connection (enum tcp_conntrack) */
+> >  	/* For detecting stale connections */
+> 
+> Eric already posted a patch to use an array of locks, which is
+> a better approach IMO since it keeps the size of the conntrack
+> entries down.
 
-Thank you.
+Just as a side note, we generally frown upon the
+hash-array-of-spinlocks approach to scalability.
 
-> I discovered the hard way that because linux bridging uses
-> net_device_ops, bridging only works with network drivers that publish
-> their device operations trough net_device_ops.
-> 
-> In my case running:
-> 
-> brctl addif br0 eth0 (where eth0 fec_mpc52xx.c did not yet support
-> net_device_ops) gave me a:
-> 
-> Unable to handle kernel paging request...
-> 
-> After changing fec_mpc52xx.c to support net_device_ops the problem was fixed.
-> 
-> If possible some kind of detection in the bridging software is i think
-> mostly appreciated for early detection of this problem, as it is
-> pretty hard to relate the error message to a not updated driver.
-> 
-> cheers,
-> 
-> Henk
-> 
-> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-> index cd8e98b..a2841eb 100644
-> --- a/drivers/net/fec_mpc52xx.c
-> +++ b/drivers/net/fec_mpc52xx.c
-> @@ -888,6 +888,22 @@ static int mpc52xx_fec_ioctl(struct net_device
-> *dev, struct ifreq *rq, int cmd)
->  /* ======================================================================== */
->  /* OF Driver                                                                */
->  /* ======================================================================== */
-> +static const struct net_device_ops mpc52xx_fec_netdev_ops = {
-> +       .ndo_open               = mpc52xx_fec_open,
-> +       .ndo_stop               = mpc52xx_fec_close,
-> +       .ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
-> +       .ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
-> +       .ndo_get_stats          = mpc52xx_fec_get_stats,
-> +       .ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
-> +       .ndo_validate_addr      = eth_validate_addr,
-> +       .ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
-> +       .ndo_do_ioctl           = mpc52xx_fec_ioctl,
-> +
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +       .ndo_poll_controller     = mpc52xx_fec_poll_controller,
-> +#endif
-> +};
-> +
-> 
->  static int __devinit
->  mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
-> @@ -929,20 +945,7 @@ mpc52xx_fec_probe(struct of_device *op, const
-> struct of_device_id *match)
->  		return -EBUSY;
-> 
->  	/* Init ether ndev with what we have */
-> -	ndev->open		= mpc52xx_fec_open;
-> -	ndev->stop		= mpc52xx_fec_close;
-> -	ndev->hard_start_xmit	= mpc52xx_fec_hard_start_xmit;
-> -	ndev->do_ioctl		= mpc52xx_fec_ioctl;
-> -	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
-> -	ndev->get_stats		= mpc52xx_fec_get_stats;
-> -	ndev->set_mac_address	= mpc52xx_fec_set_mac_address;
-> -	ndev->set_multicast_list = mpc52xx_fec_set_multicast_list;
-> -	ndev->tx_timeout	= mpc52xx_fec_tx_timeout;
-> -	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
-> -	ndev->base_addr		= mem.start;
-> -#ifdef CONFIG_NET_POLL_CONTROLLER
-> -	ndev->poll_controller = mpc52xx_fec_poll_controller;
-> -#endif
-> +	ndev->netdev_ops = &mpc52xx_fec_netdev_ops;
-> 
->  	priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+If you need proof that in the long term it's suboptimal, note that:
+
+1) this is Solaris's approach to locking scalability :-)
+
+2) every such case in the kernel eventually gets transformed into
+   RCU, a tree/trie based scheme, or some combination of the two
+
+So maybe for now it's ok, but keep in mind that eventually
+this is certain to change. :)
