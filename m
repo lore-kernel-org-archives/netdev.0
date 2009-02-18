@@ -1,60 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH] e1000e: remove workaround for e1000 hardware
-Date: Wed, 18 Feb 2009 01:24:51 -0800
-Message-ID: <20090218092451.21312.80460.stgit@lost.foo-projects.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFT 2/4] Add mod_timer_noact
+Date: Wed, 18 Feb 2009 01:30:07 -0800 (PST)
+Message-ID: <20090218.013007.117003889.davem@davemloft.net>
+References: <20090218051906.174295181@vyatta.com>
+	<20090218052747.437271195@vyatta.com>
+	<20090218092041.GC3294@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: shemminger@vyatta.com, kaber@trash.net, rick.jones2@hp.com,
+	dada1@cosmosbay.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
+	gandalf@wlug.westbo.se
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:56892
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751372AbZBRJZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 04:25:14 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45420
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751582AbZBRJaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 04:30:23 -0500
+In-Reply-To: <20090218092041.GC3294@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 18 Feb 2009 10:20:41 +0100
 
-During the move of support for PCIe devices from e1000 to e1000e, this workaround necessary only for older non-PCIe devices was mistakenly copied into e1000e.  Remove it.
+> Why dont you use something like this instead:
+> 
+> 	if (del_timer(timer))
+> 		add_timer(timer);
+> 
+> ?
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Why don't you read his commit message?
 
- drivers/net/e1000e/netdev.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 04e007d..1b5a0c8 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3831,11 +3831,6 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 		buffer_info = &tx_ring->buffer_info[i];
- 		size = min(len, max_per_txd);
- 
--		/* Workaround for premature desc write-backs
--		 * in TSO mode.  Append 4-byte sentinel desc */
--		if (mss && !nr_frags && size == len && size > 8)
--			size -= 4;
--
- 		buffer_info->length = size;
- 		/* set time_stamp *before* dma to help avoid a possible race */
- 		buffer_info->time_stamp = jiffies;
-@@ -3869,10 +3864,6 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 		while (len) {
- 			buffer_info = &tx_ring->buffer_info[i];
- 			size = min(len, max_per_txd);
--			/* Workaround for premature desc write-backs
--			 * in TSO mode.  Append 4-byte sentinel desc */
--			if (mss && f == (nr_frags-1) && size == len && size > 8)
--				size -= 4;
- 
- 			buffer_info->length = size;
- 			buffer_info->time_stamp = jiffies;
-
+At least show him that much respect if you're going to
+be against his patch.
