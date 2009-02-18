@@ -1,21 +1,25 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: net_device_ops support in bridging and fec_mpc52xx.c
 Date: Wed, 18 Feb 2009 13:48:52 -0800 (PST)
-Message-ID: <20090218.134852.118040610.davem__29353.1294017614$1234993883$gmane$org@davemloft.net>
+Message-ID: <20090218.134852.118040610.davem__27195.3812487938$1234993883$gmane$org@davemloft.net>
 References: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: linuxppc-dev@ozlabs.org, bridge@osdl.org, netdev@vger.kernel.org
 To: henk.stegeman@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55592
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757691AbZBRVtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 16:49:09 -0500
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 In-Reply-To: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
 From: Henk Stegeman <henk.stegeman@gmail.com>
 Date: Wed, 18 Feb 2009 11:41:14 +0100
