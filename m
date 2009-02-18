@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 23/43] drivers/net/igb: fix sparse warning: symbol
- shadows an earlier one
-Date: Tue, 17 Feb 2009 17:39:03 -0800 (PST)
-Message-ID: <20090217.173903.121180042.davem@davemloft.net>
-References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-	<20090214213628.24377.69119.stgit@vmbox.hanneseder.net>
+Subject: Re: [PATCH 27/43] drivers/net/sfc: fix sparse warnings: Should it
+ be static?
+Date: Tue, 17 Feb 2009 17:39:57 -0800 (PST)
+Message-ID: <20090217.173957.140516246.davem@davemloft.net>
+References: <20090214214111.24377.87888.stgit@vmbox.hanneseder.net>
+	<20090216003718.GN15266@solarflare.com>
+	<154e089b0902160138n255616a0xb963dfd990d912b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: hannes@hanneseder.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47214
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755795AbZBRBjS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:39:18 -0500
-In-Reply-To: <20090214213628.24377.69119.stgit@vmbox.hanneseder.net>
+	by vger.kernel.org with ESMTP id S1756489AbZBRBkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:40:13 -0500
+In-Reply-To: <154e089b0902160138n255616a0xb963dfd990d912b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hannes Eder <hannes@hanneseder.net>
-Date: Sat, 14 Feb 2009 22:38:08 +0100
+Date: Mon, 16 Feb 2009 10:38:26 +0100
 
-> Impact: Move variable declaration as far inner as possible.
+> On Mon, Feb 16, 2009 at 1:37 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > This is wrong.  The entire file is conditional on CONFIG_SFC_MTD.
 > 
-> Fix this sparse warning:
->   drivers/net/igb/igb_main.c:1895:21: warning: symbol 'j' shadows an earlier one
->   drivers/net/igb/igb_main.c:1855:16: originally declared here
-> 
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> Even better than. It's actually not wrong, just done twice, so we can
+> omit it, thank you Ben. I'll send an update.
 
-There have been some changes recently to the igb driver so
-this patch no longer applies.
+Ok, I'll skip over this patch.
