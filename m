@@ -1,64 +1,101 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 23/43 v2] drivers/net/igb: fix sparse warning: symbol shadows
-	an earlier one
-Date: Wed, 18 Feb 2009 22:49:20 +0100
-Message-ID: <20090218214705.8438.48732.stgit@vmbox.hanneseder.net>
-References: <20090217.173903.121180042.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net_device_ops support in bridging and fec_mpc52xx.c
+Date: Wed, 18 Feb 2009 13:48:52 -0800 (PST)
+Message-ID: <20090218.134852.118040610.davem__29353.1294017614$1234993883$gmane$org@davemloft.net>
+References: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, bridge@osdl.org, netdev@vger.kernel.org
+To: henk.stegeman@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:64282 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760790AbZBRVt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 16:49:27 -0500
-In-Reply-To: <20090217.173903.121180042.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55592
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757691AbZBRVtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 16:49:09 -0500
+In-Reply-To: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: Move variable declaration as far inner as possible.
+From: Henk Stegeman <henk.stegeman@gmail.com>
+Date: Wed, 18 Feb 2009 11:41:14 +0100
 
-Fix this sparse warning:
-  drivers/net/igb/igb_main.c:1895:21: warning: symbol 'j' shadows an earlier one
-  drivers/net/igb/igb_main.c:1855:16: originally declared here
+Please CC: netdev, now added, on all networking reports and patches.
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
----
+Thank you.
 
-On Wed, Feb 18, 2009 at 2:39 AM, David Miller <davem@davemloft.net> wrote:
-> There have been some changes recently to the igb driver so
-> this patch no longer applies.
-
-Conflict resolved, should apply now.
-
-Best, -Hannes
-
- drivers/net/igb/igb_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 43f489a..23431d8 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1973,7 +1973,7 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl, rxcsum;
- 	u32 rxdctl;
--	int i, j;
-+	int i;
- 
- 	/* disable receives while setting up the descriptors */
- 	rctl = rd32(E1000_RCTL);
-@@ -1988,7 +1988,7 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 	 * the Base and Length of the Rx Descriptor Ring */
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		struct igb_ring *ring = &adapter->rx_ring[i];
--		j = ring->reg_idx;
-+		int j = ring->reg_idx;
- 		rdba = ring->dma;
- 		wr32(E1000_RDBAL(j),
- 		     rdba & 0x00000000ffffffffULL);
-
+> I discovered the hard way that because linux bridging uses
+> net_device_ops, bridging only works with network drivers that publish
+> their device operations trough net_device_ops.
+> 
+> In my case running:
+> 
+> brctl addif br0 eth0 (where eth0 fec_mpc52xx.c did not yet support
+> net_device_ops) gave me a:
+> 
+> Unable to handle kernel paging request...
+> 
+> After changing fec_mpc52xx.c to support net_device_ops the problem was fixed.
+> 
+> If possible some kind of detection in the bridging software is i think
+> mostly appreciated for early detection of this problem, as it is
+> pretty hard to relate the error message to a not updated driver.
+> 
+> cheers,
+> 
+> Henk
+> 
+> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> index cd8e98b..a2841eb 100644
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -888,6 +888,22 @@ static int mpc52xx_fec_ioctl(struct net_device
+> *dev, struct ifreq *rq, int cmd)
+>  /* ======================================================================== */
+>  /* OF Driver                                                                */
+>  /* ======================================================================== */
+> +static const struct net_device_ops mpc52xx_fec_netdev_ops = {
+> +       .ndo_open               = mpc52xx_fec_open,
+> +       .ndo_stop               = mpc52xx_fec_close,
+> +       .ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
+> +       .ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
+> +       .ndo_get_stats          = mpc52xx_fec_get_stats,
+> +       .ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
+> +       .ndo_validate_addr      = eth_validate_addr,
+> +       .ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
+> +       .ndo_do_ioctl           = mpc52xx_fec_ioctl,
+> +
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +       .ndo_poll_controller     = mpc52xx_fec_poll_controller,
+> +#endif
+> +};
+> +
+> 
+>  static int __devinit
+>  mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+> @@ -929,20 +945,7 @@ mpc52xx_fec_probe(struct of_device *op, const
+> struct of_device_id *match)
+>  		return -EBUSY;
+> 
+>  	/* Init ether ndev with what we have */
+> -	ndev->open		= mpc52xx_fec_open;
+> -	ndev->stop		= mpc52xx_fec_close;
+> -	ndev->hard_start_xmit	= mpc52xx_fec_hard_start_xmit;
+> -	ndev->do_ioctl		= mpc52xx_fec_ioctl;
+> -	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
+> -	ndev->get_stats		= mpc52xx_fec_get_stats;
+> -	ndev->set_mac_address	= mpc52xx_fec_set_mac_address;
+> -	ndev->set_multicast_list = mpc52xx_fec_set_multicast_list;
+> -	ndev->tx_timeout	= mpc52xx_fec_tx_timeout;
+> -	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
+> -	ndev->base_addr		= mem.start;
+> -#ifdef CONFIG_NET_POLL_CONTROLLER
+> -	ndev->poll_controller = mpc52xx_fec_poll_controller;
+> -#endif
+> +	ndev->netdev_ops = &mpc52xx_fec_netdev_ops;
+> 
+>  	priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
