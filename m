@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/43] drivers/net/atlx: fix sparse warnings: fix
- signedness
-Date: Tue, 17 Feb 2009 17:26:54 -0800 (PST)
-Message-ID: <20090217.172654.50571162.davem@davemloft.net>
+Subject: Re: [PATCH 16/43] drivers/net/cxgb3: fix sparse warning: symbol
+ shadows an earlier one
+Date: Tue, 17 Feb 2009 17:27:15 -0800 (PST)
+Message-ID: <20090217.172715.248316017.davem@davemloft.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-	<20090214211508.23489.57841.stgit@vmbox.hanneseder.net>
+	<20090214211557.23489.75670.stgit@vmbox.hanneseder.net>
+	<4998897A.3030904@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hannes@hanneseder.net
+Cc: hannes@hanneseder.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54460
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54469
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755877AbZBRB1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:27:10 -0500
-In-Reply-To: <20090214211508.23489.57841.stgit@vmbox.hanneseder.net>
+	by vger.kernel.org with ESMTP id S1753026AbZBRB1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 20:27:31 -0500
+In-Reply-To: <4998897A.3030904@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Eder <hannes@hanneseder.net>
-Date: Sat, 14 Feb 2009 22:15:17 +0100
+From: Divy Le Ray <divy@chelsio.com>
+Date: Sun, 15 Feb 2009 13:30:34 -0800
 
-> Impact: While being at it: statics do not need to be initialized with 0.
-> 
-> Fix this sparse warnings:
->   drivers/net/atlx/atl1.c:109:1: warning: incorrect type in initializer (different signedness)
->   drivers/net/atlx/atl2.c:2870:1: warning: incorrect type in initializer (different signedness)
->   drivers/net/atlx/atl2.c:2880:1: warning: incorrect type in initializer (different signedness)
->   drivers/net/atlx/atl2.c:2894:1: warning: incorrect type in initializer (different signedness)
->   drivers/net/atlx/atl2.c:2904:1: warning: incorrect type in initializer (different signedness)
->   drivers/net/atlx/atl2.c:2913:1: warning: incorrect type in initializer (different signedness)
-> 
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> Hannes Eder wrote:
+> > Impact: Move variable declaration as close to usage as possible.
+> >
+> > Fix this sparse warning:
+> >   drivers/net/cxgb3/cxgb3_main.c:1586:21: warning: symbol 'cap' shadows an earlier one
+> >
+> > Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> >   
+> Acked-by: Divy Le Ray <divy@chelsio.com>
 
 Applied.
