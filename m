@@ -1,41 +1,41 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Wed, 18 Feb 2009 18:07:42 +0300
-Message-ID: <20090218150742.GA30490@ioremap.net>
-References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121900520.20367@fbirervta.pbzchgretzou.qr> <20090212185729.GA17896@ioremap.net> <alpine.LSU.2.00.0902122045080.670@fbirervta.pbzchgretzou.qr> <20090213130347.GD23879@ioremap.net> <499C2308.2000109@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter: unfold two critical loops in ip_packet_match()
+Date: Wed, 18 Feb 2009 16:10:55 +0100
+Message-ID: <499C24FF.90302@cosmosbay.com>
+References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <499032A4.9090301@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@medozas.de>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Linux Network Development list <netdev@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <499C2308.2000109@trash.net>
+In-Reply-To: <499032A4.9090301@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 18, 2009 at 04:02:32PM +0100, Patrick McHardy (kaber@trash.net) wrote:
-> Evgeniy Polyakov wrote:
-> >But I placed OSF into net/ipv4/netfilter/ipt_osf.c, should it be moved
-> >into different location?
-> 
-> Not necessarily as long as it only supports IPv4, but it would be
-> good to have the API flexible enough from the start to also support
-> IPv6. But I don't see a problem with this in the current patchset.
+Patrick McHardy a =E9crit :
+>=20
+> The interface name matching has shown up in profiles forever
+> though and we've actually already tried to optimize it IIRC.
+>=20
+> Eric, I'm trying to keep all the *tables files synchronized,
+> could you send me a patch updating the other ones as well
+> please?
 
-I've already moved it in the my testing tree as long as incorporate all
-other changes, I will run it for some time and resubmit tomorrow or so
-:)
+While doing this, I found arp_tables is still using loop using
+byte operations.
 
-As of IPv6 support - it could be fairly trivial, the only thing we need
-is to dereference TCP header with the appropriate offset anf get don't
-fragment bit (ipv6 does not have it, so we could check both entries).
+Also, I could not find how iniface_mask[], outiface_mask[], iniface[]
+and outiface[] were forced to long word alignment ...=20
 
-But... I do not have IPv6 network to test the changes (and definitely
-did not have it 6 years ago), so it was never implemented :)
+(in struct ipt_ip, struct ip6t_ip6, struct arpt_arp)
 
--- 
-	Evgeniy Polyakov
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
