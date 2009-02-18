@@ -1,53 +1,56 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
-Date: Wed, 18 Feb 2009 07:55:45 +0100
-Message-ID: <499BB0F1.50507@linux.vnet.ibm.com>
-References: <alpine.LFD.2.00.0902131413120.3179@localhost.localdomain> <20090217095232.5da06b9f@werewolf.home> <200902172001.41804.arvidjaar@mail.ru> <20090217.142946.232071526.davem@davemloft.net> <25143.1234932076@turing-police.cc.vt.edu>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] net: Simplify skb_tx_hash()
+Date: Wed, 18 Feb 2009 12:57:23 +0530
+Message-ID: <OF35128638.A15DA997-ON65257561.00265DD2-65257561.0028F5BC@in.ibm.com>
+References: <20090218053211.16619.33544.sendpatchset@localhost.localdomain> <20090217.225355.184526778.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, arvidjaar@mail.ru, rjw@sisk.pl,
-	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	jamagallon@ono.com, linux-kernel@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:49258 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbZBRGzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 01:55:47 -0500
-In-Reply-To: <25143.1234932076@turing-police.cc.vt.edu>
+Received: from e28smtp06.in.ibm.com ([59.145.155.6]:49006 "EHLO
+	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740AbZBRH2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 02:28:08 -0500
+Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
+	by e28smtp06.in.ibm.com (8.13.1/8.13.1) with ESMTP id n1I7S33D018347
+	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 12:58:03 +0530
+Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
+	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n1I7SAjj4505804
+	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 12:58:10 +0530
+Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
+	by d28av06.in.ibm.com (8.13.1/8.13.3) with ESMTP id n1I7Sw6H001958
+	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 12:58:58 +0530
+In-Reply-To: <20090217.225355.184526778.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have the same issue with the qeth_l3 driver (it requires IPv6 symbols).
-Distributors compile with IPv6 but some customes want to disable IPv6 without
-building a custom kernel. If there would be a generic solution to address
-this kind of runtime IPv6 dependencies this would be creat.  
+Hi Dave,
 
-Valdis.Kletnieks@vt.edu schrieb:
-> On Tue, 17 Feb 2009 14:29:46 PST, David Miller said:
->> Don't configure ipv6 into your kernel, really.
->>
->> There is no other way to handle this.  If we want to support
->> IPV6 layer things in the bonding driver, it is going to
->> call helper functions in the ipv6 module and therefore must
->> be able to load it and use functions in it.
-> 
-> What does a poor corporate user do if they're running a distro kernel that
-> was built with CONFIG_IPV6, but local security policy says "Disable IPv6
-> because we don't do it yet, or because it breaks mission-critical software
-> package XYZ?"  There's a *lot* of people who implement that by the "block
-> the ipv6 module from loading" trick.  And building a kernel that doesn't
-> include IPv6 may not be feasible due to vendor certification issues...
-> 
-> Heck, *I*'m almost in that boat - probably need to use bonded ethernet on some
-> servers because we can't get 10GigE, but the software used in the project the
-> servers were bought for blows chunks if it gets a whiff of an IPv6 address.
-> Ended up spending 3 weeks doing a massive kludgery of one sort in DNS for the
-> rest of the world, and equally massive lying in /etc/hosts for the hosts...
-> (Don't ask - it was long and ugly, and just disabling the module would have
-> saved me about 2.95 weeks of work, so I know where those people are coming
-> from...)
-> 
+> David Miller <davem@davemloft.net>
+> 1) How in the world are you getting a packet transmitted
+>    before the random driver initializes?
 
+(I am not sure I understood the question) Since the device is
+activated after late_initcalls startup sequence (during /etc/rc
+stage), no packets should get sent out before that. In any case,
+packets can be sent out earlier since skb_tx_hashrnd is set to 0.
+
+> 2) How can an initcall be more random than when the first
+>    packet is transmitted by the system?
+
+initcall doesn't give more random, sorry if my mail suggested that any
+where. I merely mentioned that the numbers generated at this stage are
+different at 3 successive boots (as is the case for the existing code)
+and hence is not broken by giving the same random numbers at each boot.
+
+> A patch like this needs justification, so in your commit
+> logs you shouldn't just list out mechanically what your
+> patch is doing, but rather explain "why".
+
+Please let me know if I should give a better text for justification?
+
+Thanks,
+
+- KK
 
