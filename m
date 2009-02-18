@@ -1,60 +1,54 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch] timers: add mod_timer_pending()
-Date: Wed, 18 Feb 2009 20:24:58 +0100
-Message-ID: <20090218192458.GG8889@elte.hu>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com> <20090218092041.GC3294@elte.hu> <499BDDFE.5010101@trash.net> <20090218120508.GB4100@elte.hu> <20090218170057.GA28825@redhat.com> <20090218182311.GC26802@elte.hu> <20090218185850.GA2494@redhat.com>
+From: James Huang <jamesclhuang@gmail.com>
+Subject: Re: LRO restructuring?
+Date: Wed, 18 Feb 2009 19:25:49 +0000 (UTC)
+Message-ID: <loom.20090218T192451-89@post.gmane.org>
+References: <20080811.175434.215224347.davem@davemloft.net> <20080812010004.GD18547@gondor.apana.org.au> <48A0E7A3.6030200@hp.com> <20080811.183913.09225669.davem@davemloft.net> <20080812015321.GA19011@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
-	Martin Josefsson <gandalf@wlug.westbo.se>
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090218185850.GA2494@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:41724 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752097AbZBRTaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2009 14:30:09 -0500
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1LZs7O-0000Ux-9o
+	for netdev@vger.kernel.org; Wed, 18 Feb 2009 19:30:02 +0000
+Received: from 66.151.55.131 ([66.151.55.131])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 19:30:02 +0000
+Received: from jamesclhuang by 66.151.55.131 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 19:30:02 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Herbert,
+
+    Any idea when this LRO restructuring work will be done? 
+Making LRO available even when ip forwarding is enabled will significantly 
+improve performace of network appliances in the data path.  
+
+I have some questions on this: 
+(1) Based on the emails in this thread, I suppose you are going to keep the 
+original length of each segment you coalesced into the big packet and use that 
+info to segment the big packet on the output path.  In case the packet was 
+modified by an appliance in the path and the total length is changed (e.g. NAT 
+on ftp control packets), should the corresponding segment length info also get 
+updated?  This same question also applies to the checksums.
+
+(2) Do you make sure all of the segments to be coalesced have the same DF bit?
+
+(3) I think bridged packets should not be LROed. Whether a packet is bridged 
+or not can be based on the L2 MAC destination address.  Is this how it is done?
+
+(4) Does LRO work only for IPv4?  Any plan to extend it to support IPv6?
+
+Thanks,
+James Huang
 
 
-* Oleg Nesterov <oleg@redhat.com> wrote:
 
-> On 02/18, Ingo Molnar wrote:
-> >
-> > * Oleg Nesterov <oleg@redhat.com> wrote:
-> >
-> > > Unlike __mod_timer(..., bool pending_only), it preserves the CPU on
-> > > which the timer is pending.
-> > >
-> > > Or, perhaps, we can modify __mod_timer() further,
-> >
-> > if then i'd put it into a separate commit.
-> >
-> > I think the auto-migration of all the mod_timer() variants is a
-> > scalability feature: if for example a networking socket's main
-> > user migrates to another CPU, then the timer 'follows' it - even
-> > if the timer never actually expires (which is quite common for
-> > high-speed high-reliability networking transports).
-> 
-> OK.
-> 
-> But sometimes it is better (or necessary) to prevent the 
-> migration. Since you already are changed __mod_timer() it 
-> would be ugly to add yet another helper. Perhaps we should 
-> turn "bool pending_only" into "int flags" right now?
-> 
-> This is minor, and perhaps we will never need the 
-> TIMER_DONT_MIGRATE flag. But if ever need, then we have to 
-> audit all callers.
 
-hm, dunno - such unused flags are generally frowned upon, 
-especially if they influence the code flow in a dynamic way. In 
-fact i tried to avoid this flag here too - but __mod_timer() is 
-too small, the flag is used in the middle, and two separate 
-helpers would have made the code look worse.
-
-	Ingo
