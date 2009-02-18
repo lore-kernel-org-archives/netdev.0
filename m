@@ -1,60 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Reboot Hangs When R8169 Loaded, Intel D945GCLF Atom Board With
-	Anything in PCI Slot, 2.6.28-6 Vanilla Kernel  & Debian Etch
-Date: Thu, 19 Feb 2009 00:50:06 +0100
-Message-ID: <20090218235006.GA20512@electric-eye.fr.zoreil.com>
-References: <499C8570.5080606@nscus.com>
+From: =?utf-8?b?0KXQsNC90LrQuNC9INCa0L7QvdGB0YLQsNC90YLQuNC9?=
+	<homecreate@list.ru>
+Subject: Why linux keeps connected routes when link goes down
+Date: Thu, 19 Feb 2009 02:03:40 +0500
+Message-ID: <200902190203.41497.homecreate@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Michael Grollman <mgrollman@nscus.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45612 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751706AbZBRXrl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 18:47:41 -0500
+Received: from mx4.mail.ru ([94.100.176.18]:5684 "EHLO mx4.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753246AbZBRXtM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2009 18:49:12 -0500
+Received: from mx39.mail.ru (mx39.mail.ru [94.100.176.53])
+	by mx4.mail.ru (mPOP.Fallback_MX) with ESMTP id 3563D51BC20
+	for <netdev@vger.kernel.org>; Thu, 19 Feb 2009 00:04:17 +0300 (MSK)
+Received: from [78.29.50.71] (port=6577 helo=mini.localnet)
+	by mx39.mail.ru with asmtp
+	id 1LZta5-000Ivw-00
+	for netdev@vger.kernel.org; Thu, 19 Feb 2009 00:03:45 +0300
 Content-Disposition: inline
-In-Reply-To: <499C8570.5080606@nscus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Grollman <mgrollman@nscus.com> :
-[...]
-> I do know truly that the r8169 module is the culprit, but since r8169  
-> has fingerprints on the problem (see below), and I have had several  
-> issues with the D945GCLF before for me with this driver, I figured might  
-> as well start there, and report it as such.  If I am filing this in the  
-> wrong place, please direct me to a better one.
+Hello!
+Why kernel keeps connected routes when link is not in RUNNING state? It's not 
+only linux behavior, some other OSes do so, but why?
+It's interesting for me because I have a problem with setting up Quagga for 
+OSPF support. When link goes down (!IFF_RUNNING), Quagga updates only its own 
+routing table. I must use ifplugd to update routes in kernel (actually to 
+delete connected route), but I think it is not a right way.
+So the main question is: why linux keeps connected routes when link goes down?
+PS: ``ip monitor'' reports about link fail after a minute or longer (on 
+8139too and 3c905x). On some Acorp cards it doesn't notice link failure. Is it 
+a bad driver or crappy cards? On r8169 I have no problems
 
-Your report is fine. 
-
-Can you send a complete 'dmesg' from boot before the problem happens
-then try the patch below ?
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 0771eb6..fe5b99c 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3847,11 +3847,6 @@ out:
- 	return 0;
- }
- 
--static void rtl_shutdown(struct pci_dev *pdev)
--{
--	rtl8169_suspend(pdev, PMSG_SUSPEND);
--}
--
- #endif /* CONFIG_PM */
- 
- static struct pci_driver rtl8169_pci_driver = {
-@@ -3862,7 +3857,6 @@ static struct pci_driver rtl8169_pci_driver = {
- #ifdef CONFIG_PM
- 	.suspend	= rtl8169_suspend,
- 	.resume		= rtl8169_resume,
--	.shutdown	= rtl_shutdown,
- #endif
- };
- 
-
--- 
-Ueimor
+--
+Konstantin
+E-mail homecreate@list.ru
+Jabber homecreate@jabber.ru
