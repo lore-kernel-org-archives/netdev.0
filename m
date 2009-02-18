@@ -1,48 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFT 4/4] netfilter: Get rid of central rwlock in tcp
- conntracking
-Date: Wed, 18 Feb 2009 13:55:12 -0800 (PST)
-Message-ID: <20090218.135512.104648058.davem@davemloft.net>
-References: <20090218051906.174295181@vyatta.com>
-	<20090218052747.679540125@vyatta.com>
-	<499BDB5D.2050105@trash.net>
+Subject: Re: [RFT 2/4] Add mod_timer_noact
+Date: Wed, 18 Feb 2009 14:04:55 -0800 (PST)
+Message-ID: <20090218.140455.142445208.davem@davemloft.net>
+References: <20090218110144.GA4100@elte.hu>
+	<20090218.133959.193699273.davem@davemloft.net>
+	<20090218215140.GA3505@elte.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, rick.jones2@hp.com, dada1@cosmosbay.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <499BDB5D.2050105@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, kaber@trash.net, rick.jones2@hp.com,
+	dada1@cosmosbay.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
+	gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org
+To: mingo@elte.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752230AbZBRWFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 17:05:10 -0500
+In-Reply-To: <20090218215140.GA3505@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 18 Feb 2009 10:56:45 +0100
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 18 Feb 2009 22:51:40 +0100
 
-> Stephen Hemminger wrote:
-> 
-> > @@ -50,6 +50,7 @@ struct ip_ct_tcp_state {
-> >  struct ip_ct_tcp
-> >  {
-> > +	spinlock_t	lock;
-> >  	struct ip_ct_tcp_state seen[2];	/* connection parameters per direction */
-> >  	u_int8_t	state;		/* state of the connection (enum tcp_conntrack) */
-> >  	/* For detecting stale connections */
-> 
-> Eric already posted a patch to use an array of locks, which is
-> a better approach IMO since it keeps the size of the conntrack
-> entries down.
+> Anyway, it's all handled, you just need to read the rest of the 
+> thread.
 
-Just as a side note, we generally frown upon the
-hash-array-of-spinlocks approach to scalability.
+I did read the entire thread before replying, my objection
+to your original posting still standed.
 
-If you need proof that in the long term it's suboptimal, note that:
+And as others have pointed out you also failed to recognize
+the context of the patch posting.  It was part of a sequence
+of patches for people to test some experimental netfilter
+performance optimizations.  "RFT" was prefixed to every patch
+subject line, if any more indication was necessary.
 
-1) this is Solaris's approach to locking scalability :-)
+Yet you object that the patches are against the networking
+and netfilter trees.
 
-2) every such case in the kernel eventually gets transformed into
-   RCU, a tree/trie based scheme, or some combination of the two
+Again, your reactions were knee-jerk, by every definition of the
+term.
 
-So maybe for now it's ok, but keep in mind that eventually
-this is certain to change. :)
+I know how you work Ingo, you want to be fast and efficient.
+But often, your "fast and efficient" is "careless", and this
+wastes everyone elses time and in the final analysis makes
+you "slow".
