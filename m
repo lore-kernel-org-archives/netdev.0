@@ -1,34 +1,55 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Wed, 18 Feb 2009 15:41:44 +1030
-Message-ID: <200902181541.45159.rusty@rustcorp.com.au>
-References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu> <f73f7ab80902120546w2ac30501v10fc55b9c8270be9@mail.gmail.com> <alpine.DEB.2.00.0902171723330.27283@blackhole.kfki.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
+Date: Tue, 17 Feb 2009 21:29:19 -0800 (PST)
+Message-ID: <20090217.212919.259912220.davem@davemloft.net>
+References: <200902172001.41804.arvidjaar@mail.ru>
+	<20090217.142946.232071526.davem@davemloft.net>
+	<25143.1234932076@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kyle Moffett <kyle@moffetthome.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: arvidjaar@mail.ru, rjw@sisk.pl, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
+	linux-kernel@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37152 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753868AbZBRFLu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 00:11:50 -0500
-In-Reply-To: <alpine.DEB.2.00.0902171723330.27283@blackhole.kfki.hu>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43445
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750891AbZBRF3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 00:29:35 -0500
+In-Reply-To: <25143.1234932076@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 18 February 2009 03:43:04 Jozsef Kadlecsik wrote:
-> On Thu, 12 Feb 2009, Rusty Russell wrote:
-> > Any stats on code size changes?
-> compiled with -Os, then stripped, give:
+From: Valdis.Kletnieks@vt.edu
+Date: Tue, 17 Feb 2009 23:41:16 -0500
+
+> What does a poor corporate user do if they're running a distro kernel that
+> was built with CONFIG_IPV6, but local security policy says "Disable IPv6
+> because we don't do it yet, or because it breaks mission-critical software
+> package XYZ?"  There's a *lot* of people who implement that by the "block
+> the ipv6 module from loading" trick.  And building a kernel that doesn't
+> include IPv6 may not be feasible due to vendor certification issues...
 > 
-> -rw-r--r-- 1 kadlec kadlec 1080 2009-02-17 14:10 lookup2.o
-> -rw-r--r-- 1 kadlec kadlec 1024 2009-02-17 14:10 lookup3.o
+> Heck, *I*'m almost in that boat - probably need to use bonded ethernet on some
+> servers because we can't get 10GigE, but the software used in the project the
+> servers were bought for blows chunks if it gets a whiff of an IPv6 address.
+> Ended up spending 3 weeks doing a massive kludgery of one sort in DNS for the
+> rest of the world, and equally massive lying in /etc/hosts for the hosts...
+> (Don't ask - it was long and ugly, and just disabling the module would have
+> saved me about 2.95 weeks of work, so I know where those people are coming
+> from...)
 
-The "size" command is more usual.  This looks like a total win to me.
+Well, first of all, if you keep trying to push the box into the round
+hole you get what you ask for :-)
 
-Thanks for being so thorough!
-Rusty.
+Next, if it's just an issue of IPV6 traffic, install a packet
+scheduler rule that rejects all packets with ethernet proto
+ETH_P_IPV6
+
+If openning up ipv6 sockets is problematic, that can be blocked
+using the security layer, which your super-duper distro kernel
+is guarenteed to have enabled. :-)
+
+I'm sure there is someone who has legacy problems with ipv4
+and that can't be disabled, and somehow people cope.  Amazing.
