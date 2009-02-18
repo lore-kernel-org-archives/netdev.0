@@ -1,73 +1,61 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [RFT 2/4] Add mod_timer_noact
-Date: Wed, 18 Feb 2009 10:20:41 +0100
-Message-ID: <20090218092041.GC3294@elte.hu>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH] igb: remove LRO Kconfig option
+Date: Wed, 18 Feb 2009 01:23:27 -0800
+Message-ID: <20090218092323.21256.81827.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
-	Martin Josefsson <gandalf@wlug.westbo.se>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:60771 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752892AbZBRJU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 04:20:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20090218052747.437271195@vyatta.com>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:58645
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751826AbZBRJXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 04:23:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+To match ixgbe GRO functionality, we remove the LRO (which is now GRO) Kconfig option which enables GRO by default.
 
-* Stephen Hemminger <shemminger@vyatta.com> wrote:
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-> Introduce mod_timer_noact() which for example is to replace the calls to
-> del_timer()/add_timer() in __nf_ct_refresh_acct(). It works like mod_timer()
-> but doesn't activate or modify the timeout of an inactive timer which is the
-> behaviour we want in order to be able to use timers as a means of
-> synchronization in nf_conntrack.
-> 
-> A later patch will modify __nf_ct_refresh_acct() to use mod_timer_noact()
-> which will then save one spin_lock_irqsave() / spin_lock_irqrestore() pair per
-> conntrack timer update. This will also get rid of the race we currently have
-> without adding more locking in nf_conntrack.
-> 
-> Signed-off-by: Martin Josefsson <gandalf@wlug.westbo.se>
-> 
-> ---
->  include/linux/timer.h |    8 ++++++--
->  kernel/relay.c        |    2 +-
->  kernel/timer.c        |   40 +++++++++++++++++++++++++++++++++++-----
->  3 files changed, 42 insertions(+), 8 deletions(-)
-> 
-> --- a/include/linux/timer.h	2009-02-17 10:55:33.427785986 -0800
-> +++ b/include/linux/timer.h	2009-02-17 11:04:10.291844534 -0800
-> @@ -25,6 +25,9 @@ struct timer_list {
->  
->  extern struct tvec_base boot_tvec_bases;
->  
-> +#define TIMER_ACT	1
-> +#define TIMER_NOACT	0
+ drivers/net/Kconfig        |    8 --------
+ drivers/net/igb/igb_main.c |    2 --
+ 2 files changed, 0 insertions(+), 10 deletions(-)
 
-Ugly flaggery.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 3fed334..683a5ac 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2019,14 +2019,6 @@ config IGB
+          To compile this driver as a module, choose M here. The module
+          will be called igb.
+ 
+-config IGB_LRO 
+-	bool "Use software LRO"
+-	depends on IGB && INET
+-	---help---
+-	  Say Y here if you want to use large receive offload. 
+-
+-	  If in doubt, say N.
+-
+ config IGB_DCA
+ 	bool "Direct Cache Access (DCA) Support"
+ 	default y
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 43f489a..457f12e 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1248,9 +1248,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	netdev->features |= NETIF_F_TSO;
+ 	netdev->features |= NETIF_F_TSO6;
+ 
+-#ifdef CONFIG_IGB_LRO
+ 	netdev->features |= NETIF_F_GRO;
+-#endif
+ 
+ 	netdev->vlan_features |= NETIF_F_TSO;
+ 	netdev->vlan_features |= NETIF_F_TSO6;
 
-> -extern int __mod_timer(struct timer_list *timer, unsigned long expires);
-> +extern int __mod_timer(struct timer_list *timer, unsigned long expires, int activate);
-
-This is not really acceptable, it slows down every single 
-add_timer() and mod_timer() call in the kernel with a flag that 
-has one specific value in all but your case. There's more than 
-2000 such callsites in the kernel.
-
-Why dont you use something like this instead:
-
-	if (del_timer(timer))
-		add_timer(timer);
-
-?
-
-	Ingo
