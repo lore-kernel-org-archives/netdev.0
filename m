@@ -1,67 +1,73 @@
-From: Krishna Kumar <krikku@gmail.com>
-Subject: [PATCH] net: Optimize skb_tx_hash() by eliminating a comparison
-Date: Wed, 18 Feb 2009 14:50:16 +0530
-Message-ID: <20090218092016.25153.14234.sendpatchset@localhost.localdomain>
-Cc: davem@davemloft.net, Krishna Kumar <krkumar2@in.ibm.com>
-To: netdev@vger.kernel.org
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [RFT 2/4] Add mod_timer_noact
+Date: Wed, 18 Feb 2009 10:20:41 +0100
+Message-ID: <20090218092041.GC3294@elte.hu>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Rick Jones <rick.jones2@hp.com>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
+	Martin Josefsson <gandalf@wlug.westbo.se>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.188]:28652 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753415AbZBRJUe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 04:20:34 -0500
-Received: by ti-out-0910.google.com with SMTP id d10so2338946tib.23
-        for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 01:20:32 -0800 (PST)
+Received: from mx2.mail.elte.hu ([157.181.151.9]:60771 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752892AbZBRJU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2009 04:20:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20090218052747.437271195@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Optimize skb_tx_hash() by eliminating a comparison that executes for
-every packet. skb_tx_hashrnd initialization is moved to a later part of
-the startup sequence, namely after the "random" driver is initialized.
+* Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-Rebooted the system three times and verified that the code generates
-different random numbers each time.
+> Introduce mod_timer_noact() which for example is to replace the calls to
+> del_timer()/add_timer() in __nf_ct_refresh_acct(). It works like mod_timer()
+> but doesn't activate or modify the timeout of an inactive timer which is the
+> behaviour we want in order to be able to use timers as a means of
+> synchronization in nf_conntrack.
+> 
+> A later patch will modify __nf_ct_refresh_acct() to use mod_timer_noact()
+> which will then save one spin_lock_irqsave() / spin_lock_irqrestore() pair per
+> conntrack timer update. This will also get rid of the race we currently have
+> without adding more locking in nf_conntrack.
+> 
+> Signed-off-by: Martin Josefsson <gandalf@wlug.westbo.se>
+> 
+> ---
+>  include/linux/timer.h |    8 ++++++--
+>  kernel/relay.c        |    2 +-
+>  kernel/timer.c        |   40 +++++++++++++++++++++++++++++++++++-----
+>  3 files changed, 42 insertions(+), 8 deletions(-)
+> 
+> --- a/include/linux/timer.h	2009-02-17 10:55:33.427785986 -0800
+> +++ b/include/linux/timer.h	2009-02-17 11:04:10.291844534 -0800
+> @@ -25,6 +25,9 @@ struct timer_list {
+>  
+>  extern struct tvec_base boot_tvec_bases;
+>  
+> +#define TIMER_ACT	1
+> +#define TIMER_NOACT	0
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
+Ugly flaggery.
 
- net/core/dev.c |   14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+> -extern int __mod_timer(struct timer_list *timer, unsigned long expires);
+> +extern int __mod_timer(struct timer_list *timer, unsigned long expires, int activate);
 
-diff -ruNp net-next-2.6.org/net/core/dev.c net-next-2.6.new/net/core/dev.c
---- net-next-2.6.org/net/core/dev.c	2009-02-17 18:57:15.000000000 +0530
-+++ net-next-2.6.new/net/core/dev.c	2009-02-17 19:00:23.000000000 +0530
-@@ -1745,17 +1745,11 @@ out_kfree_skb:
- }
- 
- static u32 skb_tx_hashrnd;
--static int skb_tx_hashrnd_initialized = 0;
- 
- static u16 skb_tx_hash(struct net_device *dev, struct sk_buff *skb)
- {
- 	u32 hash;
- 
--	if (unlikely(!skb_tx_hashrnd_initialized)) {
--		get_random_bytes(&skb_tx_hashrnd, 4);
--		skb_tx_hashrnd_initialized = 1;
--	}
--
- 	if (skb_rx_queue_recorded(skb)) {
- 		hash = skb_get_rx_queue(skb);
- 	} else if (skb->sk && skb->sk->sk_hash) {
-@@ -5291,6 +5285,14 @@ out:
- 
- subsys_initcall(net_dev_init);
- 
-+static int __init initialize_hashrnd(void)
-+{
-+	get_random_bytes(&skb_tx_hashrnd, sizeof(skb_tx_hashrnd));
-+	return 0;
-+}
-+
-+late_initcall_sync(initialize_hashrnd);
-+
- EXPORT_SYMBOL(__dev_get_by_index);
- EXPORT_SYMBOL(__dev_get_by_name);
- EXPORT_SYMBOL(__dev_remove_pack);
+This is not really acceptable, it slows down every single 
+add_timer() and mod_timer() call in the kernel with a flag that 
+has one specific value in all but your case. There's more than 
+2000 such callsites in the kernel.
+
+Why dont you use something like this instead:
+
+	if (del_timer(timer))
+		add_timer(timer);
+
+?
+
+	Ingo
