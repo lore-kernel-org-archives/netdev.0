@@ -1,86 +1,51 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] netfilter: xt_physdev fixes
-Date: Wed, 18 Feb 2009 18:36:57 +0100
-Message-ID: <499C4739.3000800@cosmosbay.com>
-References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <499032A4.9090301@trash.net> <499C24FF.90302@cosmosbay.com> <499C2766.5090904@trash.net> <499C3871.4030600@cosmosbay.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [BUG] SNAT sometimes allows packets to pass through unchanged
+Date: Wed, 18 Feb 2009 12:41:52 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.0902181235520.17341-100000@iolanthe.rowland.org>
+References: <499C3E34.7080405@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <499C3871.4030600@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from iolanthe.rowland.org ([192.131.102.54]:50094 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752296AbZBRRlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 12:41:53 -0500
+In-Reply-To: <499C3E34.7080405@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick
+On Wed, 18 Feb 2009, Patrick McHardy wrote:
 
-Please find following patch to prepare next one (loop unrolling)
+> Alan Stern wrote:
+> > On Mon, 16 Feb 2009, Patrick McHardy wrote:
+> > 
+> >> The NAT table only sees the first packet of every connection
+> >> and never INVALID packets. The mangle table should work fine.
+> > 
+> > I ended up adding a rule to the FORWARD chain of the filter table.  
+> > The trick was to select based on the state.  That worked; it saw all
+> > those un-NATed packets and was able to eliminate them.  In case you're
+> > curious, the rule was essentially this:
+> > 
+> > iptables -A FORWARD -o eth1 -s 10.0.0.0/8 -m state --state INVALID -j DROP
+>  >
+> > Ideally, the rule should select all the packets which haven't been
+> > altered by SNAT, not just the ones marked INVALID.  Is there any way to
+> > do this?
+> 
+> Not in the sense that you could somehow catch valid packets "missed"
+> by SNAT, that would be a bug. The conntrack match supports matching
+> on whether the state says that a packet should be NATed.
 
-I am not sure xt_physdev_info is aligned, either on an int or a long,
-so please check my assertion before applying :)
+You mean I should do something like this?
 
+iptables -A FORWARD -o eth1 -s 10.0.0.0/8 -m conntrack --ctstate ! SNAT -j DROP
 
+The man page says that --ctstate doesn't support using ! for negation,
+but that detail is easily worked around.
 
-Thank you
+Alan Stern
 
-[PATCH] netfilter: xt_physdev fixes
-
-1) physdev_mt() incorrectly assumes nulldevname[] is aligned on an int
-
-2) It also uses word comparisons, while it could use long word ones.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
-diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-index 1bcdfc1..4b13ef7 100644
---- a/net/netfilter/xt_physdev.c
-+++ b/net/netfilter/xt_physdev.c
-@@ -24,9 +24,9 @@ static bool
- physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
- 	int i;
--	static const char nulldevname[IFNAMSIZ];
-+	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
- 	const struct xt_physdev_info *info = par->matchinfo;
--	bool ret;
-+	unsigned long ret;
- 	const char *indev, *outdev;
- 	const struct nf_bridge_info *nf_bridge;
- 
-@@ -68,10 +68,10 @@ physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
- 		goto match_outdev;
- 	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
--	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
--		ret |= (((const unsigned int *)indev)[i]
--			^ ((const unsigned int *)info->physindev)[i])
--			& ((const unsigned int *)info->in_mask)[i];
-+	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
-+		ret |= (((const unsigned long *)indev)[i]
-+			^ ((const unsigned long *)info->physindev)[i])
-+			& ((const unsigned long *)info->in_mask)[i];
- 	}
- 
- 	if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
-@@ -82,13 +82,12 @@ match_outdev:
- 		return true;
- 	outdev = nf_bridge->physoutdev ?
- 		 nf_bridge->physoutdev->name : nulldevname;
--	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
--		ret |= (((const unsigned int *)outdev)[i]
--			^ ((const unsigned int *)info->physoutdev)[i])
--			& ((const unsigned int *)info->out_mask)[i];
-+	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
-+		ret |= (((const unsigned long *)outdev)[i]
-+			^ ((const unsigned long *)info->physoutdev)[i])
-+			& ((const unsigned long *)info->out_mask)[i];
- 	}
--
--	return ret ^ !(info->invert & XT_PHYSDEV_OP_OUT);
-+	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
- }
- 
- static bool physdev_mt_check(const struct xt_mtchk_param *par)
