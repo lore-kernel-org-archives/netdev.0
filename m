@@ -1,54 +1,105 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH 0/2] fec: move ColdFire setup code out of FEC driver
-Date: Thu, 19 Feb 2009 07:53:49 +1000
-Message-ID: <499C836D.6060202@snapgear.com>
-References: <200902170053.n1H0r1WP002062@localhost.localdomain> <20090218164257.GI2089@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net_device_ops support in bridging and fec_mpc52xx.c
+Date: Wed, 18 Feb 2009 13:48:52 -0800 (PST)
+Message-ID: <20090218.134852.118040610.davem__2300.45906869254$1234994179$gmane$org@davemloft.net>
+References: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: gerg@uclinux.org, netdev@vger.kernel.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:48653 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752871AbZBRVxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 16:53:52 -0500
-In-Reply-To: <20090218164257.GI2089@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, bridge@osdl.org, netdev@vger.kernel.org
+To: henk.stegeman@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <ae4f76fd0902180241s28458450hd91ebf8da94ceb53@mail.gmail.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sacha,
+From: Henk Stegeman <henk.stegeman@gmail.com>
+Date: Wed, 18 Feb 2009 11:41:14 +0100
 
-Sascha Hauer wrote:
-> On Tue, Feb 17, 2009 at 10:53:01AM +1000, Greg Ungerer wrote:
->> Hi Sascha,
->>
->> The following 2 patches move the ColdFire specific FEC setup code
->> into the ColdFire CPU platform setup code.
+Please CC: netdev, now added, on all networking reports and patches.
+
+Thank you.
+
+> I discovered the hard way that because linux bridging uses
+> net_device_ops, bridging only works with network drivers that publish
+> their device operations trough net_device_ops.
 > 
-> Looks good to me, though I can't apply them. To which tree should
-> they apply?
-
-They would go on top of your last FEC patch sets.
-(At least that is what I used as the base).
-
-
->> There is still a little remaining legacy code that needs taking
->> care of in fec.c. The flash reading MAC setup code and the MII
->> link interrupts of the 5272 are still in there.
+> In my case running:
 > 
-> maybe the board setup code could copy the MAC Address from the
-> flash directly to the device. The driver will pick it up from
-> there.
-
-Yes, that could work.
-
-Thanks
-Greg
-
-
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
-825 Stanley St,                             FAX:         +61 7 3891 3630
-Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
+> brctl addif br0 eth0 (where eth0 fec_mpc52xx.c did not yet support
+> net_device_ops) gave me a:
+> 
+> Unable to handle kernel paging request...
+> 
+> After changing fec_mpc52xx.c to support net_device_ops the problem was fixed.
+> 
+> If possible some kind of detection in the bridging software is i think
+> mostly appreciated for early detection of this problem, as it is
+> pretty hard to relate the error message to a not updated driver.
+> 
+> cheers,
+> 
+> Henk
+> 
+> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> index cd8e98b..a2841eb 100644
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -888,6 +888,22 @@ static int mpc52xx_fec_ioctl(struct net_device
+> *dev, struct ifreq *rq, int cmd)
+>  /* ======================================================================== */
+>  /* OF Driver                                                                */
+>  /* ======================================================================== */
+> +static const struct net_device_ops mpc52xx_fec_netdev_ops = {
+> +       .ndo_open               = mpc52xx_fec_open,
+> +       .ndo_stop               = mpc52xx_fec_close,
+> +       .ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
+> +       .ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
+> +       .ndo_get_stats          = mpc52xx_fec_get_stats,
+> +       .ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
+> +       .ndo_validate_addr      = eth_validate_addr,
+> +       .ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
+> +       .ndo_do_ioctl           = mpc52xx_fec_ioctl,
+> +
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +       .ndo_poll_controller     = mpc52xx_fec_poll_controller,
+> +#endif
+> +};
+> +
+> 
+>  static int __devinit
+>  mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+> @@ -929,20 +945,7 @@ mpc52xx_fec_probe(struct of_device *op, const
+> struct of_device_id *match)
+>  		return -EBUSY;
+> 
+>  	/* Init ether ndev with what we have */
+> -	ndev->open		= mpc52xx_fec_open;
+> -	ndev->stop		= mpc52xx_fec_close;
+> -	ndev->hard_start_xmit	= mpc52xx_fec_hard_start_xmit;
+> -	ndev->do_ioctl		= mpc52xx_fec_ioctl;
+> -	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
+> -	ndev->get_stats		= mpc52xx_fec_get_stats;
+> -	ndev->set_mac_address	= mpc52xx_fec_set_mac_address;
+> -	ndev->set_multicast_list = mpc52xx_fec_set_multicast_list;
+> -	ndev->tx_timeout	= mpc52xx_fec_tx_timeout;
+> -	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
+> -	ndev->base_addr		= mem.start;
+> -#ifdef CONFIG_NET_POLL_CONTROLLER
+> -	ndev->poll_controller = mpc52xx_fec_poll_controller;
+> -#endif
+> +	ndev->netdev_ops = &mpc52xx_fec_netdev_ops;
+> 
+>  	priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
