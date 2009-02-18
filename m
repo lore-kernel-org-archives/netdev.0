@@ -1,59 +1,91 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch] timers: add mod_timer_pending()
-Date: Wed, 18 Feb 2009 14:47:38 +0100
-Message-ID: <20090218134738.GD1300@elte.hu>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com> <20090218092041.GC3294@elte.hu> <499BDDFE.5010101@trash.net> <20090218120508.GB4100@elte.hu> <499C000A.4040205@trash.net> <20090218125049.GA28791@elte.hu> <499C0519.2050204@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFT 3/4] Use mod_timer_noact to remove nf_conntrack_lock
+Date: Wed, 18 Feb 2009 15:01:19 +0100
+Message-ID: <499C14AF.60704@cosmosbay.com>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.555811553@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
-	Martin Josefsson <gandalf@wlug.westbo.se>,
-	linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <499C0519.2050204@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	tglx@linutronix.de, netfilter-devel@vger.kernel.org,
+	Martin Josefsson <gandalf@wlug.westbo.se>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36266 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793AbZBROBd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 09:01:33 -0500
+In-Reply-To: <20090218052747.555811553@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Stephen Hemminger a =E9crit :
+> Now that we are using mod_timer_noact() for timer updates there's no =
+need to
+> hold the global lock during the timer update since the actual timeout=
+ update
+> is now protected by the timer locking.
+>=20
+> Signed-off-by: Martin Josefsson <gandalf@wlug.westbo.se>
+>=20
+> ---
+>  net/netfilter/nf_conntrack_core.c |    9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
+>=20
+> --- a/net/netfilter/nf_conntrack_core.c	2009-02-17 10:55:33.370882059=
+ -0800
+> +++ b/net/netfilter/nf_conntrack_core.c	2009-02-17 13:48:25.080060712=
+ -0800
+> @@ -793,13 +793,12 @@ void __nf_ct_refresh_acct(struct nf_conn
+>  	NF_CT_ASSERT(ct->timeout.data =3D=3D (unsigned long)ct);
+>  	NF_CT_ASSERT(skb);
+> =20
+> -	spin_lock_bh(&nf_conntrack_lock);
+> -
+>  	/* Only update if this is not a fixed timeout */
+>  	if (test_bit(IPS_FIXED_TIMEOUT_BIT, &ct->status))
+>  		goto acct;
+> =20
+> -	/* If not in hash table, timer will not be active yet */
+> +	/* If not in hash table, timer will not be active yet,
+> +	   we are the only one able to see it. */
+>  	if (!nf_ct_is_confirmed(ct)) {
+>  		ct->timeout.expires =3D extra_jiffies;
+>  		event =3D IPCT_REFRESH;
+> @@ -821,16 +820,16 @@ acct:
+>  	if (do_acct) {
+>  		struct nf_conn_counter *acct;
+> =20
+> +		spin_lock_bh(&nf_conntrack_lock);
+>  		acct =3D nf_conn_acct_find(ct);
+>  		if (acct) {
+>  			acct[CTINFO2DIR(ctinfo)].packets++;
+>  			acct[CTINFO2DIR(ctinfo)].bytes +=3D
+>  				skb->len - skb_network_offset(skb);
+>  		}
+> +		spin_unlock_bh(&nf_conntrack_lock);
+>  	}
+> =20
+> -	spin_unlock_bh(&nf_conntrack_lock);
+> -
+>  	/* must be unlocked when calling event cache */
+>  	if (event)
+>  		nf_conntrack_event_cache(event, ct);
+>=20
 
-* Patrick McHardy <kaber@trash.net> wrote:
+Unfortunatly, this patch changes nothing, as most of the time, do_acct =
+is true.
 
-> Ingo Molnar wrote:
->> To accelerate matters i've committed the new API patch into a new 
->> standalone topic branch: tip:timers/new-apis.
->>
->> Unless there are objections or test failures, you (or Stephen or  
->> David) can then git-pull it into the networking tree via the Git  
->> coordinates below - and you'll get this single commit in a surgical 
->> manner - no other timer changes are included.
->>
->> Doing so has the advantage of:
->>
->> - You not having to wait a kernel cycle for the API to go
->>   upstream.
->>
->> - You can also push it upstream without waiting for the timer   tree. 
->> (the timer tree and the networking tree will share the   exact same 
->> commit)
->>
->> - It will also all merge cleanly with the timer tree in   linux-next, 
->> etc.
->>
->> I'd suggest to do it in about a week, to make sure any after effects 
->> have trickled down and to make sure the topic has become append-only. 
->> You can ping Thomas and me about testing/review status then, whenever 
->> you want to do the pull.
->
-> Thanks Ingo. I'll wait for Stephen to rebase his patches on 
-> top of your change and the test results and will let you know.
+We also need to fine lock the accounting part as well.
 
-Stress-testing here in the last ~2 hours on eight x86 test-boxes 
-showed no problems so far.
+	spin_lock_bh(&ct->some_lock);
+	acct =3D nf_conn_acct_find(ct);
+	if (acct) {
+		acct[CTINFO2DIR(ctinfo)].packets++;
+		acct[CTINFO2DIR(ctinfo)].bytes +=3D
+			skb->len - skb_network_offset(skb);
+	}
+	spin_unlock_bh(&ct->some_lock);
 
-	Ingo
