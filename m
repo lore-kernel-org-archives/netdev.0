@@ -1,55 +1,40 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFT 1/4] iptables: lock free counters
-Date: Wed, 18 Feb 2009 11:02:11 +0100
-Message-ID: <499BDCA3.8020604@trash.net>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.321329022@vyatta.com>
+Subject: Re: [RFT 2/4] Add mod_timer_noact
+Date: Wed, 18 Feb 2009 11:07:58 +0100
+Message-ID: <499BDDFE.5010101@trash.net>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.437271195@vyatta.com> <20090218092041.GC3294@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
 	Rick Jones <rick.jones2@hp.com>,
 	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47717 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751420AbZBRKCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 05:02:14 -0500
-In-Reply-To: <20090218052747.321329022@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
+	Martin Josefsson <gandalf@wlug.westbo.se>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090218092041.GC3294@elte.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+Ingo Molnar wrote:
+>> -extern int __mod_timer(struct timer_list *timer, unsigned long expires);
+>> +extern int __mod_timer(struct timer_list *timer, unsigned long expires, int activate);
+> 
+> This is not really acceptable, it slows down every single 
+> add_timer() and mod_timer() call in the kernel with a flag that 
+> has one specific value in all but your case. There's more than 
+> 2000 such callsites in the kernel.
+> 
+> Why dont you use something like this instead:
+> 
+> 	if (del_timer(timer))
+> 		add_timer(timer);
 
-> @@ -1148,13 +1206,14 @@ static int do_add_counters(struct net *n
->  		goto free;
->  	}
->  
-> -	write_lock_bh(&t->lock);
-> +	mutex_lock(&t->lock);
->  	private = t->private;
->  	if (private->number != num_counters) {
->  		ret = -EINVAL;
->  		goto unlock_up_free;
->  	}
->  
-> +	preempt_disable();
->  	i = 0;
->  	/* Choose the copy that is on our node */
->  	loc_cpu_entry = private->entries[smp_processor_id()];
-> @@ -1164,7 +1223,8 @@ static int do_add_counters(struct net *n
->  			   paddc,
->  			   &i);
->   unlock_up_free:
-> -	write_unlock_bh(&t->lock);
-> +	mutex_unlock(&t->lock);
-> +
->  	xt_table_unlock(t);
->  	module_put(t->me);
->   free:
-
-This part (arptables.c) seems to be missing a preempt_enable().
-
-Other than this, the patch looks good to me, if you want I can
-already apply this one.
+We need to avoid having a timer that was deleted by one CPU
+getting re-added by another, but want to avoid taking the
+conntrack lock for every timer update. The timer-internal
+locking is enough for this as long as we have a mod_timer
+variant that forwards a timer, but doesn't activate it in
+case it isn't active already.
