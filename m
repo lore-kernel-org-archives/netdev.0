@@ -1,112 +1,58 @@
-From: Michael Grollman <mgrollman@nscus.com>
-Subject: Reboot Hangs When R8169 Loaded, Intel D945GCLF Atom Board With Anything
- in PCI Slot, 2.6.28-6 Vanilla Kernel  & Debian Etch
-Date: Wed, 18 Feb 2009 15:02:24 -0700
-Message-ID: <499C8570.5080606@nscus.com>
-Reply-To: mgrollman@nscus.com
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [RFT 2/4] Add mod_timer_noact
+Date: Wed, 18 Feb 2009 23:42:27 +0100
+Message-ID: <1234996947.4799.29.camel@laptop>
+References: <20090218110144.GA4100@elte.hu>
+	 <20090218.133959.193699273.davem@davemloft.net>
+	 <20090218215140.GA3505@elte.hu>
+	 <20090218.140455.142445208.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: mingo@elte.hu, shemminger@vyatta.com, kaber@trash.net,
+	rick.jones2@hp.com, dada1@cosmosbay.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
+	gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp151.sat.emailsrvr.com ([66.216.121.151]:48769 "EHLO
-	smtp151.sat.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760119AbZBRWj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 17:39:59 -0500
-Received: from relay5.relay.sat.mlsrvr.com (localhost [127.0.0.1])
-	by relay5.relay.sat.mlsrvr.com (SMTP Server) with ESMTP id 2F5D3DB48F
-	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 17:04:31 -0500 (EST)
-Received: from smtp191.sat.emailsrvr.com (unknown [192.168.21.191])
-	by relay5.relay.sat.mlsrvr.com (SMTP Server) with ESMTPS id 2B20CDA7C7
-	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 17:04:31 -0500 (EST)
-Received: from relay29.relay.sat.mlsrvr.com (localhost [127.0.0.1])
-	by relay29.relay.sat.mlsrvr.com (SMTP Server) with ESMTP id 9D24E1B406A
-	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 17:02:25 -0500 (EST)
-Received: by relay29.relay.sat.mlsrvr.com (Authenticated sender: mgrollman-AT-nscus.com) with ESMTPA id 67CD41B400A
-	for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 17:02:25 -0500 (EST)
+Received: from bombadil.infradead.org ([18.85.46.34]:53516 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754612AbZBRWmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 17:42:43 -0500
+In-Reply-To: <20090218.140455.142445208.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2009-02-18 at 14:04 -0800, David Miller wrote:
 
-(This is a newbie reporting the problem, so take it with a grain of 
-salt, to be sure.)
+> And as others have pointed out you also failed to recognize
+> the context of the patch posting.  It was part of a sequence
+> of patches for people to test some experimental netfilter
+> performance optimizations.  "RFT" was prefixed to every patch
+> subject line, if any more indication was necessary.
 
-Reboot hangs when R8169 loaded, Intel D945GCLF Atom MB, 2.6.28-6 vanilla 
-kernel on Debian etch if any card is in PCI slot.
+Be that as it may, its a maintainer seeing a patch against his
+subsystem, reviewing it (albeit early -- we should all want to get
+around to reviewing that early) and asking for some clarification.
 
-I do know truly that the r8169 module is the culprit, but since r8169 
-has fingerprints on the problem (see below), and I have had several 
-issues with the D945GCLF before for me with this driver, I figured might 
-as well start there, and report it as such.  If I am filing this in the 
-wrong place, please direct me to a better one.
+The fact is, Steve's changelog was very unclear to people not intimately
+familiar with the problem space. Asking some clarification just isn't
+weird in any way.
 
-Tested 2.6.28-5 and 2.6.28-6 on the D945GCLF.  With no devices in the 
-PCI slot, and r8169 enabled, unit will shutdown -h and showdown -r just 
-fine, and r8169 working in practice.
+> Yet you object that the patches are against the networking
+> and netfilter trees.
+> 
+> Again, your reactions were knee-jerk, by every definition of the
+> term.
+> 
+> I know how you work Ingo, you want to be fast and efficient.
+> But often, your "fast and efficient" is "careless", and this
+> wastes everyone elses time and in the final analysis makes
+> you "slow".
 
-However, when any PCI device, and I tried video capture cards, USB port 
-expander cards, unrelated network cards using different chip sets, WiFi 
-PCI cards, any card I tried, shutdown -h continued to work fine, but any 
-attempt at reboot with either reboot command or shutdown -r  resulted in 
-a system that did not reboot, just displayed the message as follows:
-
-<snip>
-Will now restart
-r8169 0000:00:00.0: PME# enable
-Restarting system
-machine restart
-
-And then it just sits there.
-
-I did not have this issue with this Motherboard D945GCLF with 2.6.26.
-
-Here is what makes me think the r8169 might be involved:
-
-* When I ifdown eth0, reboot still does not work;
-* When I rmmod r8169 just prior to reboot, then reboot works fine (and 
-there is then no r8169  in the Restart message) ;
-* When I disable the r8169 in BIOS, the reboot function works fine again 
-(obviously not the Ethernet port then)
-
-I include an excerpted  lspic -v and dmesg below, for reference.  I can 
-live with the rmmod r8169 just prior to reboot as a work-around, but it 
-seems like there must be a cleaner fix somewhere.
-
-Cheers,
-
-- Michael
-
-
-lspic -v:
-
-<snip>
-01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8101E 
-PCI Express Fast Ethernet controller (rev 02)
-    Subsystem: Intel Corporation Unknown device 0001
-    Flags: bus master, fast devsel, latency 0, IRQ 508
-    I/O ports at 1000 [size=256]
-    Memory at 30200000 (64-bit, non-prefetchable) [size=4K]
-    Memory at 30000000 (64-bit, prefetchable) [size=64K]
-    Expansion ROM at 30020000 [disabled] [size=128K]
-    Capabilities: [40] Power Management version 3
-    Capabilities: [50] Message Signalled Interrupts: Mask- 64bit+ 
-Queue=0/0 Enable+
-    Capabilities: [70] Express Endpoint IRQ 1
-    Capabilities: [ac] MSI-X: Enable- Mask- TabSize=2
-    Capabilities: [cc] Vital Product Data
-<snip>
-
-
-dmesg:
-<snip>
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:01:00.0: found PCI INT A -> IRQ 11
-r8169 0000:01:00.0: sharing IRQ 11 with 0000:00:02.0
-r8169 0000:01:00.0: sharing IRQ 11 with 0000:00:1d.3
-r8169 0000:01:00.0: setting latency timer to 64
-r8169 0000:01:00.0: irq 508 for MSI/MSI-X
-<snip>
-
-
-
+Can we please leave it at this, the technical issue seems to be delt
+with. You and Ingo seems to have a gift to rub each other the wrong way,
+it would be grand if you could both try to be a little forgiving and
+just focus on the code/technical issues which makes Linux to what it is,
+technically excellent ;-)
 
