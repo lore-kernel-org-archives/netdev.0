@@ -1,77 +1,54 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [RFT 2/4] Add mod_timer_noact
-Date: Wed, 18 Feb 2009 22:51:40 +0100
-Message-ID: <20090218215140.GA3505@elte.hu>
-References: <20090218092041.GC3294@elte.hu> <20090218.013007.117003889.davem@davemloft.net> <20090218110144.GA4100@elte.hu> <20090218.133959.193699273.davem@davemloft.net>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 0/2] fec: move ColdFire setup code out of FEC driver
+Date: Thu, 19 Feb 2009 07:53:49 +1000
+Message-ID: <499C836D.6060202@snapgear.com>
+References: <200902170053.n1H0r1WP002062@localhost.localdomain> <20090218164257.GI2089@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, kaber@trash.net, rick.jones2@hp.com,
-	dada1@cosmosbay.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, tglx@linutronix.de,
-	gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gerg@uclinux.org, netdev@vger.kernel.org
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:39150 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755335AbZBRVvz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 16:51:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20090218.133959.193699273.davem@davemloft.net>
+Received: from rex.securecomputing.com ([203.24.151.4]:48653 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752871AbZBRVxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 16:53:52 -0500
+In-Reply-To: <20090218164257.GI2089@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Sacha,
 
-* David Miller <davem@davemloft.net> wrote:
+Sascha Hauer wrote:
+> On Tue, Feb 17, 2009 at 10:53:01AM +1000, Greg Ungerer wrote:
+>> Hi Sascha,
+>>
+>> The following 2 patches move the ColdFire specific FEC setup code
+>> into the ColdFire CPU platform setup code.
+> 
+> Looks good to me, though I can't apply them. To which tree should
+> they apply?
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Wed, 18 Feb 2009 12:01:44 +0100
-> 
-> > * David Miller <davem@davemloft.net> wrote:
-> > 
-> > | Introduce mod_timer_noact() which for example is to replace 
-> > | the calls to del_timer()/add_timer() in 
-> > | __nf_ct_refresh_acct(). It works like mod_timer() but doesn't 
-> > | activate or modify the timeout of an inactive timer which is 
-> > | the behaviour we want in order to be able to use timers as a 
-> > | means of synchronization in nf_conntrack.
-> > 
-> > It does not mention the overhead to the regular timer interfaces 
-> > at all, nor does it explain the reasons for this change 
-> > adequately.
-> 
-> You (conveniently) skipped this part of his commit message, so
-> I guess this is the part you didn't read very carefully:
-> 
-> 	A later patch will modify __nf_ct_refresh_acct() to use
-> 	mod_timer_noact() which will then save one spin_lock_irqsave()
-> 	/ spin_lock_irqrestore() pair per conntrack timer update. This
-> 	will also get rid of the race we currently have without adding
-> 	more locking in nf_conntrack.
-> 
-> The whole point is to avoid two spin_lock_irqsave() sequences, thus
-> taking the timer locks twice.
-> 
-> So Ingo, when you say in response:
-> 
-> 	Why don't you use?
-> 
-> 		if (del_timer())
-> 			add_timer();
-> 
-> you really look foolish and, in fact, disrespectful to Stephen.
-> 
-> This was my objection to your email, it proved that you didn't
-> really read his changelog message.  He explained perfectly well
-> what the final goal was of his changes.
-> 
-> And you have this knee-jerk reaction quite often.
+They would go on top of your last FEC patch sets.
+(At least that is what I used as the base).
 
-You accusing me of knee-jerk reaction is the joke of the century 
-;-)
 
-Anyway, it's all handled, you just need to read the rest of the 
-thread.
+>> There is still a little remaining legacy code that needs taking
+>> care of in fec.c. The flash reading MAC setup code and the MII
+>> link interrupts of the 5272 are still in there.
+> 
+> maybe the board setup code could copy the MAC Address from the
+> flash directly to the device. The driver will pick it up from
+> there.
 
-Thanks,
+Yes, that could work.
 
-	Ingo
+Thanks
+Greg
+
+
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
