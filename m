@@ -1,40 +1,51 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] ISDN: fix sc/shmem printk format warning
-Date: Thu, 19 Feb 2009 13:47:40 -0800
-Message-ID: <20090219134740.4dff14c2.randy.dunlap@oracle.com>
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [PATCH 6/7] fcoe: remove ETH_P_FCOE from fc_fcoe.h
+Date: Thu, 19 Feb 2009 13:49:24 -0800
+Message-ID: <7C88852EF6F99F4EB538472FCFEBE2222427B862@orsmsx509.amr.corp.intel.com>
+References: <20090219194734.22270.8445.stgit@zychengdu.jf.intel.com>
+	<20090219195022.22270.8543.stgit.yi.zou@intel.com>
+ <20090219132517.08bb6f51@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kkeil@suse.de, davem@davemloft.net,
-	akpm <akpm@linux-foundation.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet13.oracle.com ([148.87.113.125]:45495 "EHLO
-	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756827AbZBSVsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 16:48:06 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090219132517.08bb6f51@extreme>
+Content-Language: en-US
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+>On Thu, 19 Feb 2009 12:50:23 -0700
+>Yi Zou <yi.zou@intel.com> wrote:
+>
+>> No need to have ETH_P_FCOE in fc_fcoe.h as it is now defined in
+>if_ether.h
+>>
+>> Signed-off-by: Yi Zou <yi.zou@intel.com>
+>> ---
+>>
+>>  include/scsi/fc/fc_fcoe.h |    7 -------
+>>  1 files changed, 0 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/include/scsi/fc/fc_fcoe.h b/include/scsi/fc/fc_fcoe.h
+>> index f271d9c..ccb3dbe 100644
+>> --- a/include/scsi/fc/fc_fcoe.h
+>> +++ b/include/scsi/fc/fc_fcoe.h
+>> @@ -25,13 +25,6 @@
+>>   */
+>>
+>>  /*
+>> - * The FCoE ethertype eventually goes in net/if_ether.h.
+>> - */
+>> -#ifndef ETH_P_FCOE
+>> -#define     ETH_P_FCOE      0x8906          /* FCOE ether type */
+>> -#endif
+>> -
+>>
+>Just do the move from fc_fcoe.h to if_ether.h in one patch.
+Good point, I'll fix that.
 
-Fix isdn/sc/shmem.c printk format warning:
-
-drivers/isdn/sc/shmem.c:57: warning: format '%d' expects type 'int', but argument 3 has type 'size_t'
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/isdn/sc/shmem.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2.6.29-rc5-git3.orig/drivers/isdn/sc/shmem.c
-+++ linux-2.6.29-rc5-git3/drivers/isdn/sc/shmem.c
-@@ -54,7 +54,7 @@ void memcpy_toshmem(int card, void *dest
- 	spin_unlock_irqrestore(&sc_adapter[card]->lock, flags);
- 	pr_debug("%s: set page to %#x\n",sc_adapter[card]->devicename,
- 		((sc_adapter[card]->shmem_magic + ch * SRAM_PAGESIZE)>>14)|0x80);
--	pr_debug("%s: copying %d bytes from %#lx to %#lx\n",
-+	pr_debug("%s: copying %zu bytes from %#lx to %#lx\n",
- 		sc_adapter[card]->devicename, n,
- 		(unsigned long) src,
- 		sc_adapter[card]->rambase + ((unsigned long) dest %0x4000));
+Thanks.
+yi
