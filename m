@@ -1,58 +1,35 @@
-From: "Zang Roy-R61911" <tie-fei.zang@freescale.com>
-Subject: RE: [RFC v1] virtio: add virtio-over-PCI driver
-Date: Thu, 19 Feb 2009 14:13:54 +0800
-Message-ID: <7DF0AF56456B8F4081E3C44CCCE311DE1519A3@zch01exm23.fsl.freescale.net>
-References: <20090217222425.GA18801@ovro.caltech.edu> <D999D051-E5A2-4915-893D-E3384EC312A4@kernel.crashing.org>
+From: =?utf-8?b?0KXQsNC90LrQuNC9INCa0L7QvdGB0YLQsNC90YLQuNC9?=
+	<homecreate@list.ru>
+Subject: Re: Why linux keeps connected routes when link goes down
+Date: Thu, 19 Feb 2009 11:22:12 +0500
+Message-ID: <200902191122.13106.homecreate@list.ru>
+References: <200902190203.41497.homecreate@list.ru> <20090218.155207.139931991.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Arnd Bergmann" <arnd@arndb.de>,
-	"Jan-Bernd Themann" <THEMANN@de.ibm.com>, <netdev@vger.kernel.org>,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: "Kumar Gala" <galak@kernel.crashing.org>,
-	"Ira Snyder" <iws@ovro.caltech.edu>
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:38113 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbZBSGOG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 01:14:06 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <D999D051-E5A2-4915-893D-E3384EC312A4@kernel.crashing.org>
+Received: from mx30.mail.ru ([94.100.176.44]:18003 "EHLO mx30.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752193AbZBSGWT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 01:22:19 -0500
+In-Reply-To: <20090218.155207.139931991.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+> IP addresses are owned by the "host" rather than specific interfaces
+> under Linux.  So just bringing an interface down does not disable
+> IP addresses configured to that interface.
+Well. Why routes are not in kernel table when interface is DOWN? And why 
+routes are still alive if interface is UP, but not RUNNING?
+I think it's right when I can't send anything through interface when there is 
+no link. But now I have no link and a route to some network with the highest 
+metric
 
-> -----Original Message-----
-> From: 
-> linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs.org 
-> [mailto:linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs
-> .org] On Behalf Of Kumar Gala
-> Sent: Thursday, February 19, 2009 0:47 AM
-> To: Ira Snyder
-> Cc: Arnd Bergmann; Jan-Bernd Themann; netdev@vger.kernel.org; 
-> Rusty Russell; linux-kernel@vger.kernel.org; linuxppc-dev@ozlabs.org
-> Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
-> 
-> 
-> On Feb 17, 2009, at 4:24 PM, Ira Snyder wrote:
-> 
-> >
-> > Documentation/virtio-over-PCI.txt     |   61 ++
-> > arch/powerpc/boot/dts/mpc834x_mds.dts |    7 +
-> 
-> we'll have to review the .dts and expect a documentation update for  
-> the node.  But that's pretty minor at this point.
-> 
-> > drivers/virtio/Kconfig                |   22 +
-> > drivers/virtio/Makefile               |    2 +
-> > drivers/virtio/vop.h                  |  119 ++
-> > drivers/virtio/vop_fsl.c              | 1911 
-> ++++++++++++++++++++++++ 
-> > +++++++++
-> 
-> make this vop_fsl_mpc83xx.c or something along those lines.
-why?
-Roy
+--
+Konstantin
+E-mail homecreate@list.ru
+Jabber homecreate@jabber.ru
