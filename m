@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: fix typo && -> || in drivers/net/tg3.c
-Date: Wed, 18 Feb 2009 17:44:11 -0800 (PST)
-Message-ID: <20090218.174411.61922725.davem@davemloft.net>
-References: <499A56EC.2020106@cn.fujitsu.com>
+Subject: Re: [PATCH] tcp: remove obsoleted comment about different passes
+Date: Wed, 18 Feb 2009 17:45:53 -0800 (PST)
+Message-ID: <20090218.174553.134784925.davem@davemloft.net>
+References: <Pine.LNX.4.64.0902181937470.31742@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org
-To: yjwei@cn.fujitsu.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33131
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33135
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751954AbZBSBo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:44:27 -0500
-In-Reply-To: <499A56EC.2020106@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1752614AbZBSBqJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2009 20:46:09 -0500
+In-Reply-To: <Pine.LNX.4.64.0902181937470.31742@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Date: Tue, 17 Feb 2009 14:19:24 +0800
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 18 Feb 2009 19:50:20 +0200 (EET)
 
-> Fix the typo && -> ||
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> This is obsolete since the passes got combined.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Roel Kluin already posted a fix for this, thank you.
+Applied, thanks Ilpo.
