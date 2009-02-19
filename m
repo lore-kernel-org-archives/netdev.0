@@ -1,54 +1,70 @@
 From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH 0/7] Add support to FCoE offload through net_device
-Date: Thu, 19 Feb 2009 12:49:32 -0700
-Message-ID: <20090219194734.22270.8445.stgit.yi.zou@intel.com>
+Subject: [PATCH 3/7] fcoe: check offload features from LLD through netdev
+Date: Thu, 19 Feb 2009 12:49:57 -0700
+Message-ID: <20090219194957.22270.6428.stgit.yi.zou@intel.com>
+References: <20090219194734.22270.8445.stgit@zychengdu.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:28180 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754632AbZBSU5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 15:57:06 -0500
+In-Reply-To: <20090219194734.22270.8445.stgit@zychengdu.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I am working on to support offload for Fiber Channel over Ethernet (FCoE) for
-the Open-FCoE project maintained at http://www.open-fcoe.org.
+This checkes if net_devices supports net_fcoe_ops, if it does, then sets up
+the corresponding flags in the associated fc_lport.
 
-I would like to propose adding FCoE offload support through the net_device
-struct as shown in the series of patches followed here. The general idea is to
-add "struct net_fcoe_ops *fcoe_ops" to net_device, so any network adapter driver
-that wants to provides FCoE offload can use fcoe_ops through net_device.
+Note that large sequence offload is already supported in the current
+libfc/fcoe, only thing needed is to tell the corresponding fc_lport that LLD
+is capabale of doing so by using fcoe_ops->features.
 
-The following patches touch both netdev and libfc/fcoe, where the first two
-patches touch netdev, and the rest patches show how the proposed net_fcoe_ops
-struct is used in fcoe/libfc through net_deivce to support FCoE offload.
-
-Thanks.
-
-yi
+Signed-off-by: Yi Zou <yi.zou@intel.com>
 ---
 
-Yi Zou (7):
-      fcoe: fcoe fc crc offload indication by skb->ip_summed
-      fcoe: remove ETH_P_FCOE from fc_fcoe.h
-      fcoe: add support to net_fcoe_ops in fcoe_sw
-      libfc: add support of large receive offload by ddp in fc_fcp
-      fcoe: check offload features from LLD through netdev
-      net: add FCoE offload support through net_device
-      net: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
+ drivers/scsi/fcoe/fcoe_sw.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/scsi/fcoe/fcoe_sw.c b/drivers/scsi/fcoe/fcoe_sw.c
+index fe1bcaa..7632d7e 100644
+--- a/drivers/scsi/fcoe/fcoe_sw.c
++++ b/drivers/scsi/fcoe/fcoe_sw.c
+@@ -188,6 +188,33 @@ static int fcoe_sw_netdev_config(struct fc_lport *lp, struct net_device *netdev)
+ 	if (fc->real_dev->features & NETIF_F_SG)
+ 		lp->sg_supp = 1;
+ 
++	lp->crc_offload = 0;
++	lp->seq_offload = 0;
++	lp->lro_enabled = 0;
++	if (netdev->fcoe_ops) {
++		struct net_fcoe_ops *fops = netdev->fcoe_ops;
++
++		if (fops->features & NET_FCOE_CRC) {
++			lp->crc_offload = 1;
++			FCOE_DBG("%s supports FCoE FCCRC offload\n",
++				 netdev->name);
++		}
++
++		if (fops->features & NET_FCOE_LSO) {
++			lp->seq_offload = 1;
++			FCOE_DBG("%s supports FCoE large send offload\n",
++				 netdev->name);
++		}
++
++		if ((fops->features & NET_FCOE_LRO) &&
++		    (fops->lro_xid)) {
++			lp->lro_enabled = 1;
++			lp->lro_xid = fops->lro_xid;
++			FCOE_DBG("%s supports FCoE large receive offload "
++				 "with max read exchange id for ddp %d\n",
++				 netdev->name, lp->lro_xid);
++		}
++	}
+ 
+ 	skb_queue_head_init(&fc->fcoe_pending_queue);
+ 
 
- drivers/scsi/fcoe/fcoe_sw.c  |   64 ++++++++++++++++++++++++++++++++++++++++++
- drivers/scsi/fcoe/libfcoe.c  |    2 +
- drivers/scsi/libfc/fc_exch.c |   46 ++++++++++++++++++++----------
- drivers/scsi/libfc/fc_fcp.c  |   36 ++++++++++++++++++++++--
- include/linux/if_ether.h     |    1 +
- include/linux/netdevice.h    |    8 +++++
- include/linux/netfcoe.h      |   36 ++++++++++++++++++++++++
- include/scsi/fc/fc_fcoe.h    |    7 -----
- include/scsi/libfc.h         |   46 ++++++++++++++++++++++++++++++
- 9 files changed, 220 insertions(+), 26 deletions(-)
- create mode 100644 include/linux/netfcoe.h
-
--- 
-Signature: Yi Zou <yi.zou@intel.com>
