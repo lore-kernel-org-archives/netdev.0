@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] niu: improve ethtool support for gigabit copper
- cards
-Date: Wed, 18 Feb 2009 17:53:41 -0800 (PST)
-Message-ID: <20090218.175341.142384927.davem@davemloft.net>
-References: <20090217103852.48b110af.baranov@mercdev.com>
+Subject: Re: [PATCH] net: Optimize skb_tx_hash() by eliminating a comparison
+Date: Wed, 18 Feb 2009 17:55:13 -0800 (PST)
+Message-ID: <20090218.175513.255155958.davem@davemloft.net>
+References: <20090218092016.25153.14234.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: baranov@mercdev.com
+Cc: netdev@vger.kernel.org, krkumar2@in.ibm.com
+To: krikku@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54150
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54152
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751954AbZBSBx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:53:57 -0500
-In-Reply-To: <20090217103852.48b110af.baranov@mercdev.com>
+	by vger.kernel.org with ESMTP id S1756073AbZBSBz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:55:29 -0500
+In-Reply-To: <20090218092016.25153.14234.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Constantin Baranov <baranov@mercdev.com>
-Date: Tue, 17 Feb 2009 10:38:52 +0400
+From: Krishna Kumar <krikku@gmail.com>
+Date: Wed, 18 Feb 2009 14:50:16 +0530
 
-> Introduced support for link speed and duplex setting (ethtool -s),
-> link advertising parameters and autonegotiation (ethtool -r):
-> - struct niu_link_config: split advertising and autoneg
->   fields into active and target values (similar to speed
->   and duplex fields)
-> - mii_init_common(): rewrite function to actually apply
->   requested niu_link_config parameters instead of providing
->   default initialization
-> - link_status_1g(): move parsing of MII registers into
->   new link_status_mii() function (link_status_1g_rgmii()
->   could possibly use this new implementation too)
-> - introduce simple nway_reset method
-> - fix incorrect XMAC_CONFIG_MODE selection for 10Mbps case
+> Optimize skb_tx_hash() by eliminating a comparison that executes for
+> every packet. skb_tx_hashrnd initialization is moved to a later part of
+> the startup sequence, namely after the "random" driver is initialized.
 > 
-> Signed-off-by: Constantin Baranov <baranov@mercdev.com>
+> Rebooted the system three times and verified that the code generates
+> different random numbers each time.
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
-Looks good, patch applied, thanks.
+Applied to net-next-2.6, thank you!
