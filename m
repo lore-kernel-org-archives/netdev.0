@@ -1,92 +1,79 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] iptables: lock free counters
-Date: Thu, 19 Feb 2009 15:56:18 -0800
-Message-ID: <499DF1A2.1030405@hp.com>
-References: <20090218051906.174295181@vyatta.com>	<20090218052747.321329022@vyatta.com>	<20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <499DEF49.3040602@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH 2/2] netfilter: fix hardcoded size assumptions
+Date: Fri, 20 Feb 2009 00:43:42 +0100
+Message-ID: <1235087023-30451-3-git-send-email-hagen@jauu.net>
+References: <1235087023-30451-1-git-send-email-hagen@jauu.net>
+Cc: netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:39701 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754919AbZBTABX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 19:01:23 -0500
+In-Reply-To: <1235087023-30451-1-git-send-email-hagen@jauu.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Stephen Hemminger a =E9crit :
->=20
->>The reader/writer lock in ip_tables is acquired in the critical path =
-of
->>processing packets and is one of the reasons just loading iptables ca=
-n cause
->>a 20% performance loss. The rwlock serves two functions:
->>
->>1) it prevents changes to table state (xt_replace) while table is in =
-use.
->>   This is now handled by doing rcu on the xt_table. When table is
->>   replaced, the new table(s) are put in and the old one table(s) are=
- freed
->>   after RCU period.
->>
->>2) it provides synchronization when accesing the counter values.
->>   This is now handled by swapping in new table_info entries for each=
- cpu
->>   then summing the old values, and putting the result back onto one
->>   cpu.  On a busy system it may cause sampling to occur at different
->>   times on each cpu, but no packet/byte counts are lost in the proce=
-ss.
->>
->>Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
->=20
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
-> Sucessfully tested on my dual quad core machine too, but iptables onl=
-y (no
-> ipv6 here)
->=20
-> BTW, my new "tbench 8" result is 2450 MB/s, (it was 2150 MB/s not so =
-long ago)
->=20
-> Thanks Stephen, thats very cool stuff, yet another rwlock out of kern=
-el :)
+get_random_bytes() is sometimes called with a hard coded size assumption
+of an integer. This could not be true for next centuries. This patch
+replace it with a compile time statement.
 
-Do you folks need/want further testing against the 32-core setup?
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ net/netfilter/nf_conntrack_core.c   |    5 +++--
+ net/netfilter/nf_conntrack_expect.c |    2 +-
+ net/netfilter/xt_hashlimit.c        |    2 +-
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-rick jones
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index f3aa4e6..2235432 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -472,7 +472,8 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
+ 	struct nf_conn *ct;
+ 
+ 	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+-		get_random_bytes(&nf_conntrack_hash_rnd, 4);
++		get_random_bytes(&nf_conntrack_hash_rnd,
++				sizeof(nf_conntrack_hash_rnd));
+ 		nf_conntrack_hash_rnd_initted = 1;
+ 	}
+ 
+@@ -1103,7 +1104,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ 
+ 	/* We have to rehahs for the new table anyway, so we also can
+ 	 * use a newrandom seed */
+-	get_random_bytes(&rnd, 4);
++	get_random_bytes(&rnd, sizeof(rnd));
+ 
+ 	/* Lookups in the old hash might happen in parallel, which means we
+ 	 * might get false negatives during connection lookup. New connections
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 3a8a34a..19b4779 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -72,7 +72,7 @@ static unsigned int nf_ct_expect_dst_hash(const struct nf_conntrack_tuple *tuple
+ 	unsigned int hash;
+ 
+ 	if (unlikely(!nf_ct_expect_hash_rnd_initted)) {
+-		get_random_bytes(&nf_ct_expect_hash_rnd, 4);
++		get_random_bytes(&nf_ct_expect_hash_rnd, sizeof(nf_ct_expect_hash_rnd));
+ 		nf_ct_expect_hash_rnd_initted = 1;
+ 	}
+ 
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index f97fded..2482055 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -149,7 +149,7 @@ dsthash_alloc_init(struct xt_hashlimit_htable *ht,
+ 	/* initialize hash with random val at the time we allocate
+ 	 * the first hashtable entry */
+ 	if (!ht->rnd_initialized) {
+-		get_random_bytes(&ht->rnd, 4);
++		get_random_bytes(&ht->rnd, sizeof(ht->rnd));
+ 		ht->rnd_initialized = 1;
+ 	}
+ 
+-- 
+1.5.6.5
 
->=20
->=20
->>---
->>Added missing preempt_enable.  Patch against nf-next-2.6 git tree.
->>
->> include/linux/netfilter/x_tables.h |    6 +
->> net/ipv4/netfilter/arp_tables.c    |  115 ++++++++++++++++++++++++++=
-+--------
->> net/ipv4/netfilter/ip_tables.c     |  120 ++++++++++++++++++++++++++=
------------
->> net/ipv6/netfilter/ip6_tables.c    |  119 +++++++++++++++++++++++++-=
-----------
->> net/netfilter/x_tables.c           |   26 ++++++--
->> 5 files changed, 284 insertions(+), 102 deletions(-)
->>
->=20
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
-evel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
