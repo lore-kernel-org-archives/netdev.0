@@ -1,68 +1,55 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: [PATCH 11/12]Remove defines of DMA_XXBIT_MASK micro
-Date: Thu, 19 Feb 2009 14:54:25 +0800
-Message-ID: <499D0221.9090407@cn.fujitsu.com>
-References: <499CFDC8.1070600@cn.fujitsu.com>
+From: "Srivats P" <Srivats.P@conexant.com>
+Subject: [PATCH] iproute2: Fix no default display of ip4ip6 tunnels
+Date: Thu, 19 Feb 2009 12:06:33 +0530
+Message-ID: <F33E0C3C2876A544ABD34CFBE345A4A40211E426D0@NDMBX01.bbnet.ad>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Borislav Petkov <petkovbb@googlemail.com>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54346 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751659AbZBSGw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2009 01:52:58 -0500
-In-Reply-To: <499CFDC8.1070600@cn.fujitsu.com>
+Received: from cnxtsmtp4.conexant.com ([198.62.9.251]:41214 "EHLO
+	cnxtsmtp4.conexant.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896AbZBSGxn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 01:53:43 -0500
+Received: from CPS (wsmx1.nb.conexant.com [157.152.185.16]) (using TLSv1 with cipher RC4-MD5 (
+ 128/128 bits)) (No client certificate requested) by cnxtsmtp4.conexant.com (Tumbleweed MailGate
+ 3.6.1) with ESMTP id 2DE89197F05E for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 22:36:12 -0800 (
+ PST)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove defines of DMA_XXBIT_MASK micro
+From: Srivats P. <srivats.p@conexant.com>
 
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+"ip -6 tunnel show" displays only ip6ip6 tunnels not ip4ip6 tunnels - it should display all irrespective of proto.
 
+This is because the default tunnel proto is initialized to IPPROTO_IPV6 in ip6_tnl_parm_init() which is fine for a 'add' command but not for 'show'. This patch overrides proto with 0 signifying 'mode any' as the default in case of a 'show'.
+
+Signed-off-by: Srivats P. <srivats.p@conexant.com>
 ---
- include/linux/dma-mapping.h |   20 +-------------------
- 1 files changed, 1 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index f238c7e..70f9c63 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -13,27 +13,9 @@ enum dma_data_direction {
- 	DMA_NONE = 3,
- };
- 
-+/*use DMA_BIT_MASK(n) within your driver instead of DMA_xxBIT_MASK*/
- #define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
- 
--/*
-- * NOTE: do not use the below macros in new code and do not add new definitions
-- * here.
-- *
-- * Instead, just open-code DMA_BIT_MASK(n) within your driver
-- */
--#define DMA_64BIT_MASK	DMA_BIT_MASK(64)
--#define DMA_48BIT_MASK	DMA_BIT_MASK(48)
--#define DMA_47BIT_MASK	DMA_BIT_MASK(47)
--#define DMA_40BIT_MASK	DMA_BIT_MASK(40)
--#define DMA_39BIT_MASK	DMA_BIT_MASK(39)
--#define DMA_35BIT_MASK	DMA_BIT_MASK(35)
--#define DMA_32BIT_MASK	DMA_BIT_MASK(32)
--#define DMA_31BIT_MASK	DMA_BIT_MASK(31)
--#define DMA_30BIT_MASK	DMA_BIT_MASK(30)
--#define DMA_29BIT_MASK	DMA_BIT_MASK(29)
--#define DMA_28BIT_MASK	DMA_BIT_MASK(28)
--#define DMA_24BIT_MASK	DMA_BIT_MASK(24)
--
- #define DMA_MASK_NONE	0x0ULL
- 
- static inline int valid_dma_direction(int dma_direction)
--- 
-1.6.0.3
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index 8421983..0122974 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -335,6 +335,7 @@ static int do_show(int argc, char **argv)
+         struct ip6_tnl_parm p;
 
--- 
-Regards
-Yang Hongyang
+        ip6_tnl_parm_init(&p, 0);
++       p.proto = 0;
+
+         if (parse_args(argc, argv, &p) < 0)
+                 return -1;
+
+Conexant E-mail Firewall (Conexant.Com) made the following annotations
+---------------------------------------------------------------------
+********************** Legal Disclaimer **************************** 
+
+"This email may contain confidential and privileged material for the sole use of the intended recipient. Any unauthorized review, use or distribution by others is strictly prohibited. If you have received the message in error, please advise the sender by reply email and delete the message. Thank you." 
+
+********************************************************************** 
+
+---------------------------------------------------------------------
+
