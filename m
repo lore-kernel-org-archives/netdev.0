@@ -1,42 +1,53 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Thu, 19 Feb 2009 14:56:13 +0300
-Message-ID: <20090219115613.GB4551@ioremap.net>
-References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121900520.20367@fbirervta.pbzchgretzou.qr> <20090212185729.GA17896@ioremap.net> <alpine.LSU.2.00.0902122045080.670@fbirervta.pbzchgretzou.qr> <20090213130347.GD23879@ioremap.net> <499C2308.2000109@trash.net> <20090218150742.GA30490@ioremap.net> <alpine.LSU.2.00.0902181629300.8034@fbirervta.pbzchgretzou.qr>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCHv2 00/11]Get rid of all the old macro DMA_nBIT_MASK and
+ use DMA_BIT_MASK(n) instead
+Date: Thu, 19 Feb 2009 13:47:50 +0100
+Message-ID: <499D54F6.7000108@s5r6.in-berlin.de>
+References: <499CFDC8.1070600@cn.fujitsu.com> <499D0221.9090407@cn.fujitsu.com> <20090219081403.GA5400@elte.hu> <499D1ED9.4040005@cn.fujitsu.com> <499D2728.1080208@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Borislav Petkov <petkovbb@googlemail.com>
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cs-studio.ru ([195.178.208.66]:54935 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751826AbZBSL4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2009 06:56:22 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.00.0902181629300.8034@fbirervta.pbzchgretzou.qr>
+Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:40623 "EHLO
+	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020AbZBSMr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 07:47:59 -0500
+In-Reply-To: <499D2728.1080208@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 18, 2009 at 04:30:03PM +0100, Jan Engelhardt (jengelh@medozas.de) wrote:
-> >As of IPv6 support - it could be fairly trivial, the only thing we need
-> >is to dereference TCP header with the appropriate offset anf get don't
-> >fragment bit (ipv6 does not have it, so we could check both entries).
+Yang Hongyang wrote:
+> v1->v2:fix s/micro/macro typo and keep the old defines
+>             of DMA_nBIT_MASK
+> ----------------------
+> Replace all DMA_nBIT_MASK macro with the new DMA_BIT_MASK(n) macro
 > 
-> But IPv6 can have Fragment Headers, serving about the same purpose.
+> 01:Replace all DMA_64BIT_MASK macro with DMA_BIT_MASK(64)
+> 02:Replace all DMA_48BIT_MASK macro with DMA_BIT_MASK(48)
+> 03:Replace all DMA_40BIT_MASK macro with DMA_BIT_MASK(40)
+> 04:Replace all DMA_39BIT_MASK macro with DMA_BIT_MASK(39)
+> 05:Replace all DMA_35BIT_MASK macro with DMA_BIT_MASK(35)
+> 06:Replace all DMA_32BIT_MASK macro with DMA_BIT_MASK(32)
+> 07:Replace all DMA_31BIT_MASK macro with DMA_BIT_MASK(31)
+> 08:Replace all DMA_30BIT_MASK macro with DMA_BIT_MASK(30)
+> 09:Replace all DMA_28BIT_MASK macro with DMA_BIT_MASK(28)
+> 10:Replace all DMA_24BIT_MASK macro with DMA_BIT_MASK(24)
+> 11:Update the old macro DMA_nBIT_MASK related documentations
 > 
-> >But... I do not have IPv6 network to test the changes (and definitely
-> >did not have it 6 years ago), so it was never implemented :)
-> 
-> There exist lots of free VM solutions - and I think UML existed
-> 6 years ago, too.
 
-It is not that simple. IPv6 was never a out-of-the-box solution, and in
-case of this module we either need to setup a router, or use ipv6-aware
-application (fortunately telnet knows that in the recent distros).
+Shouldn't you organize the patch series per subsystem, not per old
+macro?  And then Cc the respective maintainers?
 
+As it stands, the patches cannot be routed through the normal channels;
+yet there is no fundamental reason to handle these patches differently
+from normal patches.
 -- 
-	Evgeniy Polyakov
+Stefan Richter
+-=====-==--= --=- =--==
+http://arcgraph.de/sr/
