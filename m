@@ -1,489 +1,1320 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH 7/8] can: SJA1000 driver for Kvaser PCI cards
-Date: Thu, 19 Feb 2009 20:01:21 +0100
-Message-ID: <1235070082-7069-8-git-send-email-wg@grandegger.com>
+Subject: [PATCH 3/8] can: CAN Network device driver and SYSFS interface
+Date: Thu, 19 Feb 2009 20:01:17 +0100
+Message-ID: <1235070082-7069-4-git-send-email-wg@grandegger.com>
 References: <1235070082-7069-1-git-send-email-wg@grandegger.com>
  <1235070082-7069-2-git-send-email-wg@grandegger.com>
  <1235070082-7069-3-git-send-email-wg@grandegger.com>
- <1235070082-7069-4-git-send-email-wg@grandegger.com>
- <1235070082-7069-5-git-send-email-wg@grandegger.com>
- <1235070082-7069-6-git-send-email-wg@grandegger.com>
- <1235070082-7069-7-git-send-email-wg@grandegger.com>
 Cc: linux-kernel@vger.kernel.org,
 	Wolfgang Grandegger <wg@grandegger.com>,
-	Per Dalen <per.dalen@cnw.se>
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:42783 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:54983 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753635AbZBSTBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 14:01:34 -0500
-In-Reply-To: <1235070082-7069-7-git-send-email-wg@grandegger.com>
+	with ESMTP id S1754128AbZBSTBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 14:01:31 -0500
+In-Reply-To: <1235070082-7069-3-git-send-email-wg@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds support for the PCI cards: PCIcan and PCIcanx
-(1, 2 or 4 channel) from Kvaser (http://www.kvaser.com).
+The CAN network device driver interface provides a generic interface to
+setup, configure and monitor CAN network devices. It exports a set of
+common data structures and functions, which all real CAN network device
+drivers should use. Please have a look to the SJA1000 or MSCAN driver
+to understand how to use them. The name of the module is can-dev.ko.
 
-Signed-off-by: Per Dalen <per.dalen@cnw.se>
+Furthermore adds a SYSFS interface to set and get CAN device properties.
+When the CAN device is registered, a set of SYSFS files is created in
+"/sys/class/net/canX/". These files allow to set and get device
+properties like bit-timing parameters, state, controller mode and CAN
+statistics.
+
+For further information please check "Documentation/networking/can.txt"
+
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 ---
- drivers/net/can/Kconfig              |    7 +
- drivers/net/can/sja1000/Makefile     |    1 +
- drivers/net/can/sja1000/kvaser_pci.c |  415 ++++++++++++++++++++++++++++++++++
- 3 files changed, 423 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/sja1000/kvaser_pci.c
+ drivers/net/can/Kconfig  |   23 ++
+ drivers/net/can/Makefile |    5 +
+ drivers/net/can/dev.c    |  528 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/sysfs.c  |  509 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/sysfs.h  |   24 ++
+ include/linux/can/dev.h  |  136 ++++++++++++
+ 6 files changed, 1225 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/dev.c
+ create mode 100644 drivers/net/can/sysfs.c
+ create mode 100644 drivers/net/can/sysfs.h
+ create mode 100644 include/linux/can/dev.h
 
 diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index 4e6887e..b1c4ae5 100644
+index 57def0d..d609895 100644
 --- a/drivers/net/can/Kconfig
 +++ b/drivers/net/can/Kconfig
-@@ -63,6 +63,13 @@ config CAN_EMS_PCI
- 	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
- 	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+@@ -12,6 +12,29 @@ config CAN_VCAN
+ 	  This driver can also be built as a module.  If so, the module
+ 	  will be called vcan.
  
-+config CAN_KVASER_PCI
-+	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
-+	depends on PCI && CAN_SJA1000
++config CAN_DEV
++	tristate "Platform CAN drivers with SYSFS support"
++	depends on CAN && SYSFS
++	default Y
 +	---help---
-+	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
-+	  4 channel) from Kvaser (http://www.kvaser.com).
++	  Enables the common framework for platform CAN drivers with SYSFS
++	  support. This is the standard library for CAN drivers.
++	  If unsure, say Y.
++
++config CAN_CALC_BITTIMING
++	bool "CAN bit-timing calculation"
++	depends on CAN_DEV
++	default Y
++	---help---
++	  If enabled, CAN bit-timing parameters will be calculated for the
++	  bit-rate specified via SYSFS file "bitrate" when the device gets
++	  started. This works fine for the most common CAN controllers
++	  with standard bit-rates but may fail for exotic bit-rates or CAN
++	  source clock frequencies. Disabling saves some space, but then the
++	  bit-timing parameters must be specified directly using the SYSFS
++	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
++	  If unsure, say Y.
 +
  config CAN_DEBUG_DEVICES
  	bool "CAN devices debugging messages"
  	depends on CAN
-diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
-index 7772dd2..d6c631f 100644
---- a/drivers/net/can/sja1000/Makefile
-+++ b/drivers/net/can/sja1000/Makefile
-@@ -5,5 +5,6 @@
- obj-$(CONFIG_CAN_SJA1000) += sja1000.o
- obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
- obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
-+obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
+diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+index c4bead7..557114b 100644
+--- a/drivers/net/can/Makefile
++++ b/drivers/net/can/Makefile
+@@ -3,3 +3,8 @@
+ #
  
- ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/sja1000/kvaser_pci.c b/drivers/net/can/sja1000/kvaser_pci.c
+ obj-$(CONFIG_CAN_VCAN)		+= vcan.o
++
++obj-$(CONFIG_CAN_DEV)		+= can-dev.o
++can-dev-y			:= dev.o sysfs.o
++
++ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
 new file mode 100644
-index 0000000..0b01ea3
+index 0000000..faa75d1
 --- /dev/null
-+++ b/drivers/net/can/sja1000/kvaser_pci.c
-@@ -0,0 +1,415 @@
++++ b/drivers/net/can/dev.c
+@@ -0,0 +1,528 @@
 +/*
-+ * Copyright (C) 2008 Per Dalen <per.dalen@cnw.se>
-+ *
-+ * Parts of this software are based on (derived) the following:
-+ *
-+ * - Kvaser linux driver, version 4.72 BETA
-+ *   Copyright (C) 2002-2007 KVASER AB
-+ *
-+ * - Lincan driver, version 0.3.3, OCERA project
-+ *   Copyright (C) 2004 Pavel Pisa
-+ *   Copyright (C) 2001 Arnaud Westenberg
-+ *
-+ * - Socketcan SJA1000 drivers
-+ *   Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
-+ *   Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ *   Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
-+ *   38106 Braunschweig, GERMANY
++ * Copyright (C) 2005 Marc Kleine-Budde, Pengutronix
++ * Copyright (C) 2006 Andrey Volkov, Varma Electronics
++ * Copyright (C) 2008 Wolfgang Grandegger <wg@grandegger.com>
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the version 2 of the GNU General Public License
 + * as published by the Free Software Foundation
 + *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
 + *
 + * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + */
 +
-+#include <linux/kernel.h>
 +#include <linux/module.h>
-+#include <linux/interrupt.h>
 +#include <linux/netdevice.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
++#include <linux/if_arp.h>
 +#include <linux/can.h>
 +#include <linux/can/dev.h>
-+#include <linux/io.h>
++#include <net/rtnetlink.h>
 +
-+#include "sja1000.h"
++#include "sysfs.h"
 +
-+#define DRV_NAME  "kvaser_pci"
++#define MOD_DESC "CAN device driver interface"
 +
-+MODULE_AUTHOR("Per Dalen <per.dalen@cnw.se>");
-+MODULE_DESCRIPTION("Socket-CAN driver for KVASER PCAN PCI cards");
-+MODULE_SUPPORTED_DEVICE("KVASER PCAN PCI CAN card");
++MODULE_DESCRIPTION(MOD_DESC);
 +MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
 +
-+#define MAX_NO_OF_CHANNELS        4 /* max no of channels on
-+				       a single card */
-+
-+struct kvaser_pci {
-+	int channel;
-+	struct pci_dev *pci_dev;
-+	struct net_device *slave_dev[MAX_NO_OF_CHANNELS-1];
-+	void __iomem *conf_addr;
-+	void __iomem *res_addr;
-+	int no_channels;
-+	u8 xilinx_ver;
-+};
-+
-+#define KVASER_PCI_CAN_CLOCK      (16000000 / 2)
++#ifdef CONFIG_CAN_CALC_BITTIMING
++#define CAN_CALC_MAX_ERROR 50 /* in one-tenth of a percent */
 +
 +/*
-+ * The board configuration is probably following:
-+ * RX1 is connected to ground.
-+ * TX1 is not connected.
-+ * CLKO is not connected.
-+ * Setting the OCR register to 0xDA is a good idea.
-+ * This means  normal output mode , push-pull and the correct polarity.
++ * Bit-timing calculation derived from:
++ *
++ * Code based on LinCAN sources and H8S2638 project
++ * Copyright 2004-2006 Pavel Pisa - DCE FELK CVUT cz
++ * Copyright 2005      Stanislav Marek
++ * email: pisa@cmp.felk.cvut.cz
 + */
-+#define KVASER_PCI_OCR            (OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
-+
-+/*
-+ * In the CDR register, you should set CBP to 1.
-+ * You will probably also want to set the clock divider value to 0
-+ * (meaning divide-by-2), the Pelican bit, and the clock-off bit
-+ * (you will have no need for CLKOUT anyway).
-+ */
-+#define KVASER_PCI_CDR            (CDR_CBP | CDR_CLKOUT_MASK)
-+
-+/*
-+ * These register values are valid for revision 14 of the Xilinx logic.
-+ */
-+#define XILINX_VERINT             7   /* Lower nibble simulate interrupts,
-+					 high nibble version number. */
-+
-+#define XILINX_PRESUMED_VERSION   14
-+
-+/*
-+ * Important S5920 registers
-+ */
-+#define S5920_INTCSR              0x38
-+#define S5920_PTCR                0x60
-+#define INTCSR_ADDON_INTENABLE_M  0x2000
-+
-+
-+#define KVASER_PCI_PORT_BYTES     0x20
-+
-+#define PCI_CONFIG_PORT_SIZE      0x80      /* size of the config io-memory */
-+#define PCI_PORT_SIZE             0x80      /* size of a channel io-memory */
-+#define PCI_PORT_XILINX_SIZE      0x08      /* size of a xilinx io-memory */
-+
-+#define KVASER_PCI_VENDOR_ID1     0x10e8    /* the PCI device and vendor IDs */
-+#define KVASER_PCI_DEVICE_ID1     0x8406
-+
-+#define KVASER_PCI_VENDOR_ID2     0x1a07    /* the PCI device and vendor IDs */
-+#define KVASER_PCI_DEVICE_ID2     0x0008
-+
-+static struct pci_device_id kvaser_pci_tbl[] = {
-+	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
-+	{KVASER_PCI_VENDOR_ID2, KVASER_PCI_DEVICE_ID2, PCI_ANY_ID, PCI_ANY_ID,},
-+	{ 0,}
-+};
-+
-+MODULE_DEVICE_TABLE(pci, kvaser_pci_tbl);
-+
-+static u8 kvaser_pci_read_reg(struct net_device *dev, int port)
++static int can_update_spt(const struct can_bittiming_const *btc,
++			  int sampl_pt, int tseg, int *tseg1, int *tseg2)
 +{
-+	return ioread8((void __iomem *)(dev->base_addr + port));
++	*tseg2 = tseg + 1 - (sampl_pt * (tseg + 1)) / 1000;
++	if (*tseg2 < btc->tseg2_min)
++		*tseg2 = btc->tseg2_min;
++	if (*tseg2 > btc->tseg2_max)
++		*tseg2 = btc->tseg2_max;
++	*tseg1 = tseg - *tseg2;
++	if (*tseg1 > btc->tseg1_max) {
++		*tseg1 = btc->tseg1_max;
++		*tseg2 = tseg - *tseg1;
++	}
++	return 1000 * (tseg + 1 - *tseg2) / (tseg + 1);
 +}
 +
-+static void kvaser_pci_write_reg(struct net_device *dev, int port, u8 val)
++static int can_calc_bittiming(struct net_device *dev)
 +{
-+	iowrite8(val, (void __iomem *)(dev->base_addr + port));
-+}
++	struct can_priv *priv = netdev_priv(dev);
++	struct can_bittiming *bt = &priv->bittiming;
++	const struct can_bittiming_const *btc = priv->bittiming_const;
++	long rate, best_rate = 0;
++	long best_error = 1000000000, error = 0;
++	int best_tseg = 0, best_brp = 0, brp = 0;
++	int tsegall, tseg = 0, tseg1 = 0, tseg2 = 0;
++	int spt_error = 1000, spt = 0, sampl_pt;
++	u64 v64;
 +
-+static void kvaser_pci_disable_irq(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct kvaser_pci *board = priv->priv;
-+	u32 tmp;
++	if (!priv->bittiming_const)
++		return -ENOTSUPP;
 +
-+	/* Disable interrupts from card */
-+	tmp = ioread32(board->conf_addr + S5920_INTCSR);
-+	tmp &= ~INTCSR_ADDON_INTENABLE_M;
-+	iowrite32(tmp, board->conf_addr + S5920_INTCSR);
-+}
++	/* Use CIA recommended sample points */
++	if (bt->sample_point) {
++		sampl_pt = bt->sample_point;
++	} else {
++		if (bt->bitrate > 800000)
++			sampl_pt = 750;
++		else if (bt->bitrate > 500000)
++			sampl_pt = 800;
++		else
++			sampl_pt = 875;
++	}
 +
-+static void kvaser_pci_enable_irq(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct kvaser_pci *board = priv->priv;
-+	u32 tmp;
-+
-+	/* Enable interrupts from card */
-+	tmp = ioread32(board->conf_addr + S5920_INTCSR);
-+	tmp |= INTCSR_ADDON_INTENABLE_M;
-+	iowrite32(tmp, board->conf_addr + S5920_INTCSR);
-+}
-+
-+static int number_of_sja1000_chip(void __iomem *base_addr)
-+{
-+	u8 status;
-+	int i;
-+
-+	for (i = 0; i < MAX_NO_OF_CHANNELS; i++) {
-+		/* reset chip */
-+		iowrite8(MOD_RM, base_addr +
-+			 (i * KVASER_PCI_PORT_BYTES) + REG_MOD);
-+		status = ioread8(base_addr +
-+				 (i * KVASER_PCI_PORT_BYTES) + REG_MOD);
-+		udelay(10);
-+		/* check reset bit */
-+		if (!(status & MOD_RM))
++	/* tseg even = round down, odd = round up */
++	for (tseg = (btc->tseg1_max + btc->tseg2_max) * 2 + 1;
++	     tseg >= (btc->tseg1_min + btc->tseg2_min) * 2; tseg--) {
++		tsegall = 1 + tseg / 2;
++		/* Compute all possible tseg choices (tseg=tseg1+tseg2) */
++		brp = bt->clock / (tsegall * bt->bitrate) + tseg % 2;
++		/* chose brp step which is possible in system */
++		brp = (brp / btc->brp_inc) * btc->brp_inc;
++		if ((brp < btc->brp_min) || (brp > btc->brp_max))
++			continue;
++		rate = bt->clock / (brp * tsegall);
++		error = bt->bitrate - rate;
++		/* tseg brp biterror */
++		if (error < 0)
++			error = -error;
++		if (error > best_error)
++			continue;
++		best_error = error;
++		if (error == 0) {
++			spt = can_update_spt(btc, sampl_pt, tseg / 2,
++					     &tseg1, &tseg2);
++			error = sampl_pt - spt;
++			if (error < 0)
++				error = -error;
++			if (error > spt_error)
++				continue;
++			spt_error = error;
++		}
++		best_tseg = tseg / 2;
++		best_brp = brp;
++		best_rate = rate;
++		if (error == 0)
 +			break;
 +	}
 +
-+	return i;
-+}
-+
-+static void kvaser_pci_del_chan(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv;
-+	struct kvaser_pci *board;
-+	int i;
-+
-+	if (!dev)
-+		return;
-+	priv = netdev_priv(dev);
-+	if (!priv)
-+		return;
-+	board = priv->priv;
-+	if (!board)
-+		return;
-+
-+	dev_info(&board->pci_dev->dev, "Removing device %s\n",
-+		 dev->name);
-+
-+	for (i = 0; i < board->no_channels - 1; i++) {
-+		if (board->slave_dev[i]) {
-+			dev_info(&board->pci_dev->dev, "Removing device %s\n",
-+				 board->slave_dev[i]->name);
-+			unregister_sja1000dev(board->slave_dev[i]);
-+			free_sja1000dev(board->slave_dev[i]);
++	if (best_error) {
++		/* Error in one-tenth of a percent */
++		error = (best_error * 1000) / bt->bitrate;
++		if (error > CAN_CALC_MAX_ERROR) {
++			dev_err(ND2D(dev), "bitrate error %ld.%ld%% too high\n",
++				error / 10, error % 10);
++			return -EDOM;
++		} else {
++			dev_warn(ND2D(dev), "bitrate error %ld.%ld%%\n",
++				 error / 10, error % 10);
 +		}
 +	}
-+	unregister_sja1000dev(dev);
 +
-+	/* Disable PCI interrupts */
-+	kvaser_pci_disable_irq(dev);
++	spt = can_update_spt(btc, sampl_pt, best_tseg, &tseg1, &tseg2);
 +
-+	pci_iounmap(board->pci_dev, (void __iomem *)dev->base_addr);
-+	pci_iounmap(board->pci_dev, board->conf_addr);
-+	pci_iounmap(board->pci_dev, board->res_addr);
++	v64 = (u64)best_brp * 1000000000UL;
++	do_div(v64, bt->clock);
++	bt->tq = (u32)v64;
++	bt->prop_seg = tseg1 / 2;
++	bt->phase_seg1 = tseg1 - bt->prop_seg;
++	bt->phase_seg2 = tseg2;
++	bt->sjw = 1;
++	bt->brp = best_brp;
 +
-+	free_sja1000dev(dev);
++	return 0;
++}
++#else /* !CONFIG_CAN_CALC_BITTIMING */
++static int can_calc_bittiming(struct net_device *dev)
++{
++	dev_err(ND2D(dev), "bit-timing calculation not available\n");
++	return -EINVAL;
++}
++#endif /* CONFIG_CAN_CALC_BITTIMING */
++
++int can_sample_point(struct can_bittiming *bt)
++{
++	return ((bt->prop_seg + bt->phase_seg1 + 1) * 1000) /
++		(bt->prop_seg + bt->phase_seg1 + bt->phase_seg2 + 1);
 +}
 +
-+static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
-+			       struct net_device **master_dev,
-+			       void __iomem *conf_addr,
-+			       void __iomem *res_addr,
-+			       unsigned long base_addr)
++static int can_fixup_bittiming(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++	struct can_bittiming *bt = &priv->bittiming;
++	const struct can_bittiming_const *btc = priv->bittiming_const;
++	int tseg1, alltseg;
++	u32 bitrate;
++	u64 brp64;
++
++	if (!priv->bittiming_const)
++		return -ENOTSUPP;
++
++	tseg1 = bt->prop_seg + bt->phase_seg1;
++	if (bt->sjw > btc->sjw_max ||
++	    tseg1 < btc->tseg1_min || tseg1 > btc->tseg1_max ||
++	    bt->phase_seg2 < btc->tseg2_min || bt->phase_seg2 > btc->tseg2_max)
++		return -EINVAL;
++
++	brp64 = (u64)bt->clock * (u64)bt->tq;
++	if (btc->brp_inc > 1)
++		do_div(brp64, btc->brp_inc);
++	brp64 += 500000000UL - 1;
++	do_div(brp64, 1000000000UL); /* the practicable BRP */
++	if (btc->brp_inc > 1)
++		brp64 *= btc->brp_inc;
++	bt->brp = (u32)brp64;
++
++	if (bt->brp < btc->brp_min || bt->brp > btc->brp_max)
++		return -EINVAL;
++
++	alltseg = bt->prop_seg + bt->phase_seg1 + bt->phase_seg2 + 1;
++	bitrate = bt->clock / (bt->brp * alltseg);
++	bt->bitrate = bitrate;
++
++	return 0;
++}
++
++/*
++ * Set CAN bit-timing for the device
++ *
++ * This functions should be called in the open function of the device
++ * driver to determine, check and set appropriate bit-timing parameters.
++ */
++int can_set_bittiming(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++	int err;
++
++	/* Check if bit-timing parameters have been pre-defined */
++	if (!priv->bittiming.tq && !priv->bittiming.bitrate) {
++		dev_err(ND2D(dev), "bit-timing not yet defined\n");
++		return -EINVAL;
++	}
++
++	/* Check if the CAN device has bit-timing parameters */
++	if (priv->bittiming_const) {
++
++		/* Check if bit-timing parameters have already been set */
++		if (priv->bittiming.tq && priv->bittiming.bitrate)
++			return 0;
++
++		/* Non-expert mode? Check if the bitrate has been pre-defined */
++		if (!priv->bittiming.tq)
++			/* Determine bit-timing parameters */
++			err = can_calc_bittiming(dev);
++		else
++			/* Check bit-timing params and calculate proper brp */
++			err = can_fixup_bittiming(dev);
++		if (err)
++			return err;
++	}
++
++	if (priv->do_set_bittiming) {
++		/* Finally, set the bit-timing registers */
++		err = priv->do_set_bittiming(dev);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(can_set_bittiming);
++
++static void can_setup(struct net_device *dev)
++{
++	dev->type = ARPHRD_CAN;
++	dev->mtu = sizeof(struct can_frame);
++	dev->hard_header_len = 0;
++	dev->addr_len = 0;
++	dev->tx_queue_len = 10;
++
++	/* New-style flags. */
++	dev->flags = IFF_NOARP;
++	dev->features = NETIF_F_NO_CSUM;
++}
++
++/*
++ * Allocate and setup space for the CAN network device
++ */
++struct net_device *alloc_candev(int sizeof_priv)
 +{
 +	struct net_device *dev;
-+	struct sja1000_priv *priv;
-+	struct kvaser_pci *board;
-+	int err, init_step;
++	struct can_priv *priv;
 +
-+	dev = alloc_sja1000dev(sizeof(struct kvaser_pci));
-+	if (dev == NULL)
-+		return -ENOMEM;
++	dev = alloc_netdev(sizeof_priv, "can%d", can_setup);
++	if (!dev)
++		return NULL;
 +
 +	priv = netdev_priv(dev);
-+	board = priv->priv;
 +
-+	board->pci_dev = pdev;
-+	board->channel = channel;
++	priv->state = CAN_STATE_STOPPED;
++	spin_lock_init(&priv->irq_lock);
 +
-+	/*S5920*/
-+	board->conf_addr = conf_addr;
++	init_timer(&priv->timer);
++	priv->timer.expires = 0;
 +
-+	/*XILINX board wide address*/
-+	board->res_addr = res_addr;
-+
-+	if (channel == 0) {
-+		board->xilinx_ver =
-+			ioread8(board->res_addr + XILINX_VERINT) >> 4;
-+		init_step = 2;
-+
-+		/* Assert PTADR# - we're in passive mode so the other bits are
-+		   not important */
-+		iowrite32(0x80808080UL, board->conf_addr + S5920_PTCR);
-+
-+		/* Disable interrupts from card */
-+		kvaser_pci_disable_irq(dev);
-+		/* Enable interrupts from card */
-+		kvaser_pci_enable_irq(dev);
-+	} else {
-+		struct sja1000_priv *master_priv = netdev_priv(*master_dev);
-+		struct kvaser_pci *master_board = master_priv->priv;
-+		master_board->slave_dev[channel - 1] = dev;
-+		master_board->no_channels = channel + 1;
-+		board->xilinx_ver = master_board->xilinx_ver;
-+	}
-+
-+	dev->base_addr = base_addr + channel * KVASER_PCI_PORT_BYTES;
-+
-+	priv->read_reg = kvaser_pci_read_reg;
-+	priv->write_reg = kvaser_pci_write_reg;
-+
-+	priv->can.bittiming.clock = KVASER_PCI_CAN_CLOCK;
-+
-+	priv->ocr = KVASER_PCI_OCR;
-+	priv->cdr = KVASER_PCI_CDR;
-+
-+	/* Register and setup interrupt handling */
-+	dev->irq = pdev->irq;
-+	init_step = 4;
-+
-+	dev_info(&pdev->dev, "base_addr=%#lx conf_addr=%p irq=%d\n",
-+		 dev->base_addr, board->conf_addr, dev->irq);
-+
-+	SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+	/* Register SJA1000 device */
-+	err = register_sja1000dev(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Registering device failed (err=%d)\n",
-+			err);
-+		goto failure;
-+	}
-+
-+	if (channel == 0)
-+		*master_dev = dev;
-+
-+	return 0;
-+
-+failure:
-+	kvaser_pci_del_chan(dev);
-+	return err;
++	return dev;
 +}
++EXPORT_SYMBOL_GPL(alloc_candev);
 +
-+static int __devinit kvaser_pci_init_one(struct pci_dev *pdev,
-+					 const struct pci_device_id *ent)
++/*
++ * Allocate space of the CAN network device
++ */
++void free_candev(struct net_device *dev)
++{
++	free_netdev(dev);
++}
++EXPORT_SYMBOL_GPL(free_candev);
++
++/*
++ * Register the CAN network device
++ */
++int register_candev(struct net_device *dev)
 +{
 +	int err;
-+	struct net_device *master_dev = NULL;
-+	struct sja1000_priv *priv;
-+	struct kvaser_pci *board;
-+	int no_channels;
-+	void __iomem *base_addr = NULL;
-+	void __iomem *conf_addr = NULL;
-+	void __iomem *res_addr = NULL;
++
++	err = register_netdev(dev);
++	if (err)
++		return err;
++
++	can_create_sysfs(dev);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(register_candev);
++
++/*
++ * Unregister the CAN network device
++ */
++void unregister_candev(struct net_device *dev)
++{
++	can_remove_sysfs(dev);
++	unregister_netdev(dev);
++}
++EXPORT_SYMBOL_GPL(unregister_candev);
++
++/*
++ * Local echo of CAN messages
++ *
++ * CAN network devices *should* support a local echo functionality
++ * (see Documentation/networking/can.txt). To test the handling of CAN
++ * interfaces that do not support the local echo both driver types are
++ * implemented. In the case that the driver does not support the echo
++ * the IFF_ECHO remains clear in dev->flags. This causes the PF_CAN core
++ * to perform the echo as a fallback solution.
++ */
++
++static void can_flush_echo_skb(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++	struct net_device_stats *stats = &dev->stats;
 +	int i;
 +
-+	dev_info(&pdev->dev, "initializing device %04x:%04x\n",
-+		 pdev->vendor, pdev->device);
-+
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		goto failure;
-+
-+	err = pci_request_regions(pdev, DRV_NAME);
-+	if (err)
-+		goto failure_release_pci;
-+
-+	/*S5920*/
-+	conf_addr = pci_iomap(pdev, 0, PCI_CONFIG_PORT_SIZE);
-+	if (conf_addr == NULL) {
-+		err = -ENODEV;
-+		goto failure_iounmap;
++	for (i = 0; i < CAN_ECHO_SKB_MAX; i++) {
++		if (priv->echo_skb[i]) {
++			kfree_skb(priv->echo_skb[i]);
++			priv->echo_skb[i] = NULL;
++			stats->tx_dropped++;
++			stats->tx_aborted_errors++;
++		}
 +	}
-+
-+	/*XILINX board wide address*/
-+	res_addr = pci_iomap(pdev, 2, PCI_PORT_XILINX_SIZE);
-+	if (res_addr == NULL) {
-+		err = -ENOMEM;
-+		goto failure_iounmap;
-+	}
-+
-+	base_addr = pci_iomap(pdev, 1, PCI_PORT_SIZE);
-+	if (base_addr == NULL) {
-+		err = -ENOMEM;
-+		goto failure_iounmap;
-+	}
-+
-+	no_channels = number_of_sja1000_chip(base_addr);
-+	if (no_channels == 0) {
-+		err = -ENOMEM;
-+		goto failure_iounmap;
-+	}
-+
-+	for (i = 0; i < no_channels; i++) {
-+		err = kvaser_pci_add_chan(pdev, i, &master_dev,
-+					  conf_addr, res_addr,
-+					  (unsigned long)base_addr);
-+		if (err)
-+			goto failure_cleanup;
-+	}
-+
-+	priv = netdev_priv(master_dev);
-+	board = priv->priv;
-+
-+	dev_info(&pdev->dev, "xilinx version=%d number of channels=%d\n",
-+		 board->xilinx_ver, board->no_channels);
-+
-+	pci_set_drvdata(pdev, master_dev);
-+	return 0;
-+
-+failure_cleanup:
-+	kvaser_pci_del_chan(master_dev);
-+
-+failure_iounmap:
-+	if (conf_addr == NULL)
-+		pci_iounmap(pdev, conf_addr);
-+	if (res_addr == NULL)
-+		pci_iounmap(pdev, res_addr);
-+	if (base_addr == NULL)
-+		pci_iounmap(pdev, base_addr);
-+
-+	pci_release_regions(pdev);
-+
-+failure_release_pci:
-+	pci_disable_device(pdev);
-+
-+failure:
-+	return err;
-+
 +}
 +
-+static void __devexit kvaser_pci_remove_one(struct pci_dev *pdev)
++/*
++ * Put the skb on the stack to be looped backed locally lateron
++ *
++ * The function is typically called in the start_xmit function
++ * of the device driver.
++ */
++void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
 +{
-+	struct net_device *dev = pci_get_drvdata(pdev);
++	struct can_priv *priv = netdev_priv(dev);
 +
-+	kvaser_pci_del_chan(dev);
++	/* set flag whether this packet has to be looped back */
++	if (!(dev->flags & IFF_ECHO) || skb->pkt_type != PACKET_LOOPBACK) {
++		kfree_skb(skb);
++		return;
++	}
 +
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+	pci_set_drvdata(pdev, NULL);
++	if (!priv->echo_skb[idx]) {
++		struct sock *srcsk = skb->sk;
++
++		if (atomic_read(&skb->users) != 1) {
++			struct sk_buff *old_skb = skb;
++
++			skb = skb_clone(old_skb, GFP_ATOMIC);
++			kfree_skb(old_skb);
++			if (!skb)
++				return;
++		} else
++			skb_orphan(skb);
++
++		skb->sk = srcsk;
++
++		/* make settings for echo to reduce code in irq context */
++		skb->protocol = htons(ETH_P_CAN);
++		skb->pkt_type = PACKET_BROADCAST;
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		skb->dev = dev;
++
++		/* save this skb for tx interrupt echo handling */
++		priv->echo_skb[idx] = skb;
++	} else {
++		/* locking problem with netif_stop_queue() ?? */
++		printk(KERN_ERR "%s: %s: BUG! echo_skb is occupied!\n",
++		       dev->name, __func__);
++		kfree_skb(skb);
++	}
++}
++EXPORT_SYMBOL_GPL(can_put_echo_skb);
++
++/*
++ * Get the skb from the stack and loop it back locally
++ *
++ * The function is typically called when the TX done interrupt
++ * is handled in the device driver.
++ */
++void can_get_echo_skb(struct net_device *dev, int idx)
++{
++	struct can_priv *priv = netdev_priv(dev);
++
++	if ((dev->flags & IFF_ECHO) && priv->echo_skb[idx]) {
++		netif_rx(priv->echo_skb[idx]);
++		priv->echo_skb[idx] = NULL;
++	}
++}
++EXPORT_SYMBOL_GPL(can_get_echo_skb);
++
++/*
++ * CAN device restart for bus-off recovery
++ */
++int can_restart_now(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++	struct net_device_stats *stats = &dev->stats;
++	struct sk_buff *skb;
++	struct can_frame *cf;
++	int err;
++
++	if (netif_carrier_ok(dev))
++		netif_carrier_off(dev);
++
++	/* Cancel restart in progress */
++	if (priv->timer.expires) {
++		del_timer(&priv->timer);
++		priv->timer.expires = 0; /* mark inactive timer */
++	}
++
++	can_flush_echo_skb(dev);
++
++	err = priv->do_set_mode(dev, CAN_MODE_START);
++	if (err)
++		return err;
++
++	netif_carrier_on(dev);
++
++	dev_dbg(ND2D(dev), "restarted\n");
++	priv->can_stats.restarts++;
++
++	/* send restart message upstream */
++	skb = dev_alloc_skb(sizeof(struct can_frame));
++	if (skb == NULL)
++		return -ENOMEM;
++	skb->dev = dev;
++	skb->protocol = htons(ETH_P_CAN);
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	memset(cf, 0, sizeof(struct can_frame));
++	cf->can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
++	cf->can_dlc = CAN_ERR_DLC;
++
++	netif_rx(skb);
++
++	dev->last_rx = jiffies;
++	stats->rx_packets++;
++	stats->rx_bytes += cf->can_dlc;
++
++	return 0;
 +}
 +
-+static struct pci_driver kvaser_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = kvaser_pci_tbl,
-+	.probe = kvaser_pci_init_one,
-+	.remove = __devexit_p(kvaser_pci_remove_one),
++static void can_restart_after(unsigned long data)
++{
++	struct net_device *dev = (struct net_device *)data;
++	struct can_priv *priv = netdev_priv(dev);
++
++	priv->timer.expires = 0; /* mark inactive timer */
++	can_restart_now(dev);
++}
++
++/*
++ * CAN bus-off
++ *
++ * This functions should be called when the device goes bus-off to
++ * tell the netif layer that no more packets can be sent or received.
++ * If enabled, a timer is started to trigger bus-off recovery.
++ */
++void can_bus_off(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++
++	dev_dbg(ND2D(dev), "bus-off\n");
++
++	netif_carrier_off(dev);
++
++	if (priv->restart_ms > 0 && !priv->timer.expires) {
++
++		priv->timer.function = can_restart_after;
++		priv->timer.data = (unsigned long)dev;
++		priv->timer.expires =
++			jiffies + (priv->restart_ms * HZ) / 1000;
++		add_timer(&priv->timer);
++	}
++}
++EXPORT_SYMBOL_GPL(can_bus_off);
++
++/*
++ * Cleanup function before the device gets closed.
++ *
++ * This functions should be called in the close function of the device
++ * driver.
++ */
++void can_close_cleanup(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++
++	if (priv->timer.expires) {
++		del_timer(&priv->timer);
++		priv->timer.expires = 0;
++	}
++
++	can_flush_echo_skb(dev);
++}
++EXPORT_SYMBOL_GPL(can_close_cleanup);
++
++static __init int can_dev_init(void)
++{
++	printk(KERN_INFO MOD_DESC "\n");
++
++	return 0;
++}
++module_init(can_dev_init);
++
++static __exit void can_dev_exit(void)
++{
++}
++module_exit(can_dev_exit);
+diff --git a/drivers/net/can/sysfs.c b/drivers/net/can/sysfs.c
+new file mode 100644
+index 0000000..746f641
+--- /dev/null
++++ b/drivers/net/can/sysfs.c
+@@ -0,0 +1,509 @@
++/*
++ * Copyright (C) 2007-2008 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/capability.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/if_arp.h>
++#include <net/sock.h>
++#include <linux/rtnetlink.h>
++
++#include <linux/can.h>
++#include <linux/can/dev.h>
++
++#include "sysfs.h"
++
++#ifdef CONFIG_SYSFS
++
++/*
++ * SYSFS access functions and attributes. Use same locking as
++ * net/core/net-sysfs.c does.
++ */
++static inline int dev_isalive(const struct net_device *dev)
++{
++	return dev->reg_state <= NETREG_REGISTERED;
++}
++
++/* use same locking rules as GIF* ioctl's */
++static ssize_t can_dev_show(struct device *d,
++			    struct device_attribute *attr, char *buf,
++			    ssize_t (*fmt)(struct net_device *, char *))
++{
++	struct net_device *dev = to_net_dev(d);
++	ssize_t ret = -EINVAL;
++
++	read_lock(&dev_base_lock);
++	if (dev_isalive(dev))
++		ret = (*fmt)(dev, buf);
++	read_unlock(&dev_base_lock);
++
++	return ret;
++}
++
++/* generate a show function for simple field */
++#define CAN_DEV_SHOW(field, fmt_string)					\
++static ssize_t fmt_can_##field(struct net_device *dev, char *buf)	\
++{									\
++	struct can_priv *priv = netdev_priv(dev);			\
++	return sprintf(buf, fmt_string, priv->field);			\
++}									\
++static ssize_t show_can_##field(struct device *d,			\
++				struct device_attribute *attr,		\
++				char *buf)				\
++{									\
++	return can_dev_show(d, attr, buf, fmt_can_##field);		\
++}
++
++/* use same locking and permission rules as SIF* ioctl's */
++static ssize_t can_dev_store(struct device *d, struct device_attribute *attr,
++			     const char *buf, size_t len,
++			     int (*set)(struct net_device *, unsigned long))
++{
++	struct net_device *dev = to_net_dev(d);
++	unsigned long new;
++	int ret = -EINVAL;
++
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	ret = strict_strtoul(buf, 0, &new);
++	if (ret)
++		goto out;
++
++	rtnl_lock();
++	if (dev_isalive(dev)) {
++		ret = (*set)(dev, new);
++		if (!ret)
++			ret = len;
++	}
++	rtnl_unlock();
++out:
++	return ret;
++}
++
++#define CAN_CREATE_FILE(_dev, _name)					\
++	if (device_create_file(&_dev->dev, &dev_attr_##_name))		\
++		dev_err(ND2D(_dev),					\
++			"Couldn't create device file for ##_name\n")
++
++#define CAN_REMOVE_FILE(_dev, _name)					\
++	device_remove_file(&_dev->dev, &dev_attr_##_name)		\
++
++CAN_DEV_SHOW(ctrlmode, "0x%x\n");
++
++static int change_can_ctrlmode(struct net_device *dev, unsigned long ctrlmode)
++{
++	struct can_priv *priv = netdev_priv(dev);
++	int err = 0;
++
++	if (priv->state != CAN_STATE_STOPPED)
++		return -EBUSY;
++
++	if (priv->do_set_ctrlmode)
++		err = priv->do_set_ctrlmode(dev, ctrlmode);
++
++	if (!err)
++		priv->ctrlmode = ctrlmode;
++
++	return err;
++}
++
++static ssize_t store_can_ctrlmode(struct device *dev,
++				  struct device_attribute *attr,
++				  const char *buf, size_t len)
++{
++	return can_dev_store(dev, attr, buf, len, change_can_ctrlmode);
++}
++
++static DEVICE_ATTR(can_ctrlmode, S_IRUGO | S_IWUSR,
++		   show_can_ctrlmode, store_can_ctrlmode);
++
++static const char *can_state_names[] = {
++	"active", "bus-warn", "bus-pass" , "bus-off",
++	"stopped", "sleeping", "unkown"
 +};
 +
-+static int __init kvaser_pci_init(void)
++static ssize_t printf_can_state(struct net_device *dev, char *buf)
 +{
-+	return pci_register_driver(&kvaser_pci_driver);
++	struct can_priv *priv = netdev_priv(dev);
++	enum can_state state;
++	int err = 0;
++
++	if (priv->do_get_state) {
++		err = priv->do_get_state(dev, &state);
++		if (err)
++			goto out;
++		priv->state = state;
++	} else
++		state = priv->state;
++
++	if (state >= ARRAY_SIZE(can_state_names))
++		state = ARRAY_SIZE(can_state_names) - 1;
++	err = sprintf(buf, "%s\n", can_state_names[state]);
++out:
++	return err;
 +}
 +
-+static void __exit kvaser_pci_exit(void)
++static ssize_t show_can_state(struct device *d,
++			      struct device_attribute *attr, char *buf)
 +{
-+	pci_unregister_driver(&kvaser_pci_driver);
++	return can_dev_show(d, attr, buf, printf_can_state);
 +}
 +
-+module_init(kvaser_pci_init);
-+module_exit(kvaser_pci_exit);
++static DEVICE_ATTR(can_state, S_IRUGO, show_can_state, NULL);
++
++CAN_DEV_SHOW(restart_ms, "%d\n");
++
++static int change_can_restart_ms(struct net_device *dev, unsigned long ms)
++{
++	struct can_priv *priv = netdev_priv(dev);
++
++	if (priv->restart_ms < 0)
++		return -EOPNOTSUPP;
++	priv->restart_ms = ms;
++	return 0;
++}
++
++static ssize_t store_can_restart_ms(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t len)
++{
++	return can_dev_store(dev, attr, buf, len, change_can_restart_ms);
++}
++
++static DEVICE_ATTR(can_restart_ms, S_IRUGO | S_IWUSR,
++		   show_can_restart_ms, store_can_restart_ms);
++
++static ssize_t printf_can_echo(struct net_device *dev, char *buf)
++{
++	return sprintf(buf, "%d\n", dev->flags & IFF_ECHO ? 1 : 0);
++}
++
++static ssize_t show_can_echo(struct device *d,
++			  struct device_attribute *attr, char *buf)
++{
++	return can_dev_show(d, attr, buf, printf_can_echo);
++}
++
++static int change_can_echo(struct net_device *dev, unsigned long on)
++{
++	if (on)
++		dev->flags |= IFF_ECHO;
++	else
++		dev->flags &= ~IFF_ECHO;
++	return 0;
++}
++
++static ssize_t store_can_echo(struct device *dev,
++			      struct device_attribute *attr,
++			      const char *buf, size_t len)
++{
++	return can_dev_store(dev, attr, buf, len, change_can_echo);
++}
++
++static DEVICE_ATTR(can_echo, S_IRUGO | S_IWUSR, show_can_echo, store_can_echo);
++
++static int change_can_restart(struct net_device *dev, unsigned long on)
++{
++	return can_restart_now(dev);
++}
++
++static ssize_t store_can_restart(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t len)
++{
++	return can_dev_store(dev, attr, buf, len, change_can_restart);
++}
++
++static DEVICE_ATTR(can_restart, S_IWUSR, NULL, store_can_restart);
++
++/* Show a given attribute if the CAN bittiming group */
++static ssize_t can_btc_show(const struct device *d,
++			    struct device_attribute *attr, char *buf,
++			    unsigned long offset)
++{
++	struct net_device *dev = to_net_dev(d);
++	struct can_priv *priv = netdev_priv(dev);
++	struct can_bittiming_const *btc = priv->bittiming_const;
++	ssize_t ret = -EINVAL;
++
++	WARN_ON(offset >= sizeof(struct can_bittiming_const) ||
++		offset % sizeof(u32) != 0);
++
++	read_lock(&dev_base_lock);
++	if (dev_isalive(dev) && btc)
++		ret = sprintf(buf, "%d\n",
++			      *(u32 *)(((u8 *)btc) + offset));
++
++	read_unlock(&dev_base_lock);
++	return ret;
++}
++
++/* Generate a read-only bittiming const attribute */
++#define CAN_BT_CONST_ENTRY(name)					\
++static ssize_t show_##name(struct device *d,				\
++			   struct device_attribute *attr, char *buf) 	\
++{									\
++	return can_btc_show(d, attr, buf,				\
++			    offsetof(struct can_bittiming_const, name));\
++}									\
++static DEVICE_ATTR(hw_##name, S_IRUGO, show_##name, NULL)
++
++CAN_BT_CONST_ENTRY(tseg1_min);
++CAN_BT_CONST_ENTRY(tseg1_max);
++CAN_BT_CONST_ENTRY(tseg2_min);
++CAN_BT_CONST_ENTRY(tseg2_max);
++CAN_BT_CONST_ENTRY(sjw_max);
++CAN_BT_CONST_ENTRY(brp_min);
++CAN_BT_CONST_ENTRY(brp_max);
++CAN_BT_CONST_ENTRY(brp_inc);
++
++static ssize_t can_bt_show(const struct device *d,
++			   struct device_attribute *attr, char *buf,
++			   unsigned long offset)
++{
++	struct net_device *dev = to_net_dev(d);
++	struct can_priv *priv = netdev_priv(dev);
++	struct can_bittiming *bt = &priv->bittiming;
++	ssize_t ret = -EINVAL;
++	u32 *ptr, val;
++
++	WARN_ON(offset >= sizeof(struct can_bittiming) ||
++		offset % sizeof(u32) != 0);
++
++	read_lock(&dev_base_lock);
++	if (dev_isalive(dev)) {
++		ptr = (u32 *)(((u8 *)bt) + offset);
++		if (ptr == &bt->sample_point &&
++		    priv->state != CAN_STATE_STOPPED)
++			val = can_sample_point(bt);
++		else
++			val = *ptr;
++		ret = sprintf(buf, "%d\n", val);
++	}
++	read_unlock(&dev_base_lock);
++	return ret;
++}
++
++static ssize_t can_bt_store(const struct device *d,
++			    struct device_attribute *attr,
++			    const char *buf, size_t count,
++			    unsigned long offset)
++{
++	struct net_device *dev = to_net_dev(d);
++	struct can_priv *priv = netdev_priv(dev);
++	struct can_bittiming *bt = &priv->bittiming;
++	unsigned long new;
++	ssize_t ret = -EINVAL;
++	u32 *ptr;
++
++	if (priv->state != CAN_STATE_STOPPED)
++		return -EBUSY;
++
++	WARN_ON(offset >= sizeof(struct can_bittiming) ||
++		offset % sizeof(u32) != 0);
++
++	ret = strict_strtoul(buf, 0, &new);
++	if (ret)
++		goto out;
++
++	ptr = (u32 *)(((u8 *)bt) + offset);
++	rtnl_lock();
++	if (dev_isalive(dev)) {
++		*ptr = (u32)new;
++
++		if ((ptr == &bt->bitrate) || (ptr == &bt->sample_point)) {
++			bt->tq = 0;
++			bt->brp = 0;
++			bt->sjw = 0;
++			bt->prop_seg = 0;
++			bt->phase_seg1 = 0;
++			bt->phase_seg2 = 0;
++		} else {
++			bt->bitrate = 0;
++			bt->sample_point = 0;
++		}
++		ret = count;
++	}
++	rtnl_unlock();
++out:
++	return ret;
++}
++
++#define CAN_BT_ENTRY_RO(name)						\
++static ssize_t show_##name(struct device *d,				\
++			   struct device_attribute *attr, char *buf) 	\
++{									\
++	return can_bt_show(d, attr, buf,				\
++			   offsetof(struct can_bittiming, name));	\
++}									\
++static DEVICE_ATTR(hw_##name, S_IRUGO, show_##name, NULL)
++
++CAN_BT_ENTRY_RO(clock);
++
++#define CAN_BT_ENTRY(name)						\
++static ssize_t show_##name(struct device *d,				\
++			   struct device_attribute *attr, char *buf) 	\
++{									\
++	return can_bt_show(d, attr, buf,				\
++			   offsetof(struct can_bittiming, name));	\
++}									\
++static ssize_t store_##name(struct device *d,				\
++			    struct device_attribute *attr,		\
++			    const char *buf, size_t count)		\
++{									\
++	return can_bt_store(d, attr, buf, count,			\
++			    offsetof(struct can_bittiming, name));	\
++}									\
++static DEVICE_ATTR(name, S_IRUGO | S_IWUSR, show_##name, store_##name)
++
++CAN_BT_ENTRY(bitrate);
++CAN_BT_ENTRY(sample_point);
++CAN_BT_ENTRY(tq);
++CAN_BT_ENTRY(prop_seg);
++CAN_BT_ENTRY(phase_seg1);
++CAN_BT_ENTRY(phase_seg2);
++CAN_BT_ENTRY(sjw);
++
++static struct attribute *can_bittiming_attrs[] = {
++	&dev_attr_hw_tseg1_min.attr,
++	&dev_attr_hw_tseg1_max.attr,
++	&dev_attr_hw_tseg2_max.attr,
++	&dev_attr_hw_tseg2_min.attr,
++	&dev_attr_hw_sjw_max.attr,
++	&dev_attr_hw_brp_min.attr,
++	&dev_attr_hw_brp_max.attr,
++	&dev_attr_hw_brp_inc.attr,
++	&dev_attr_hw_clock.attr,
++	&dev_attr_bitrate.attr,
++	&dev_attr_sample_point.attr,
++	&dev_attr_tq.attr,
++	&dev_attr_prop_seg.attr,
++	&dev_attr_phase_seg1.attr,
++	&dev_attr_phase_seg2.attr,
++	&dev_attr_sjw.attr,
++	NULL
++};
++
++static struct attribute_group can_bittiming_group = {
++	.name = "can_bittiming",
++	.attrs = can_bittiming_attrs,
++};
++
++/* Show a given attribute in the CAN statistics group */
++static ssize_t can_stat_show(const struct device *d,
++			     struct device_attribute *attr, char *buf,
++			     unsigned long offset)
++{
++	struct net_device *dev = to_net_dev(d);
++	struct can_priv *priv = netdev_priv(dev);
++	struct can_device_stats *stats = &priv->can_stats;
++	ssize_t ret = -EINVAL;
++
++	WARN_ON(offset >= sizeof(struct can_device_stats) ||
++		offset % sizeof(unsigned long) != 0);
++
++	read_lock(&dev_base_lock);
++	if (dev_isalive(dev))
++		ret = sprintf(buf, "%ld\n",
++			      *(unsigned long *)(((u8 *)stats) + offset));
++
++	read_unlock(&dev_base_lock);
++	return ret;
++}
++
++/* Generate a read-only CAN statistics attribute */
++#define CAN_STAT_ENTRY(name)						\
++static ssize_t show_##name(struct device *d,				\
++			   struct device_attribute *attr, char *buf) 	\
++{									\
++	return can_stat_show(d, attr, buf,				\
++			     offsetof(struct can_device_stats, name));	\
++}									\
++static DEVICE_ATTR(name, S_IRUGO, show_##name, NULL)
++
++CAN_STAT_ENTRY(error_warning);
++CAN_STAT_ENTRY(error_passive);
++CAN_STAT_ENTRY(bus_error);
++CAN_STAT_ENTRY(arbitration_lost);
++CAN_STAT_ENTRY(data_overrun);
++CAN_STAT_ENTRY(wakeup);
++CAN_STAT_ENTRY(restarts);
++
++static struct attribute *can_statistics_attrs[] = {
++	&dev_attr_error_warning.attr,
++	&dev_attr_error_passive.attr,
++	&dev_attr_bus_error.attr,
++	&dev_attr_arbitration_lost.attr,
++	&dev_attr_data_overrun.attr,
++	&dev_attr_wakeup.attr,
++	&dev_attr_restarts.attr,
++	NULL
++};
++
++static struct attribute_group can_statistics_group = {
++	.name = "can_statistics",
++	.attrs = can_statistics_attrs,
++};
++
++void can_create_sysfs(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++	int err;
++
++	CAN_CREATE_FILE(dev, can_ctrlmode);
++	CAN_CREATE_FILE(dev, can_echo);
++	CAN_CREATE_FILE(dev, can_restart);
++	CAN_CREATE_FILE(dev, can_state);
++	CAN_CREATE_FILE(dev, can_restart_ms);
++
++	err = sysfs_create_group(&(dev->dev.kobj),
++				 &can_statistics_group);
++	if (err) {
++		printk(KERN_EMERG
++		       "couldn't create sysfs group for CAN statistics\n");
++	}
++
++	if (priv->bittiming_const) {
++		err = sysfs_create_group(&(dev->dev.kobj),
++					 &can_bittiming_group);
++		if (err) {
++			printk(KERN_EMERG "couldn't create sysfs "
++			       "group for CAN bittiming\n");
++		}
++	}
++}
++
++void can_remove_sysfs(struct net_device *dev)
++{
++	struct can_priv *priv = netdev_priv(dev);
++
++	CAN_REMOVE_FILE(dev, can_ctrlmode);
++	CAN_REMOVE_FILE(dev, can_echo);
++	CAN_REMOVE_FILE(dev, can_state);
++	CAN_REMOVE_FILE(dev, can_restart);
++	CAN_REMOVE_FILE(dev, can_restart_ms);
++
++	sysfs_remove_group(&(dev->dev.kobj), &can_statistics_group);
++	if (priv->bittiming_const)
++		sysfs_remove_group(&(dev->dev.kobj), &can_bittiming_group);
++}
++
++#endif /* CONFIG_SYSFS */
++
++
++
+diff --git a/drivers/net/can/sysfs.h b/drivers/net/can/sysfs.h
+new file mode 100644
+index 0000000..e21f2fa
+--- /dev/null
++++ b/drivers/net/can/sysfs.h
+@@ -0,0 +1,24 @@
++/*
++ * Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#ifndef CAN_SYSFS_H
++#define CAN_SYSFS_H
++
++void can_create_sysfs(struct net_device *dev);
++void can_remove_sysfs(struct net_device *dev);
++
++#endif /* CAN_SYSFS_H */
+diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+new file mode 100644
+index 0000000..078ac03
+--- /dev/null
++++ b/include/linux/can/dev.h
+@@ -0,0 +1,136 @@
++/*
++ * linux/can/dev.h
++ *
++ * Definitions for the CAN network device driver interface
++ *
++ * Copyright (C) 2006 Andrey Volkov <avolkov@varma-el.com>
++ *               Varma Electronics Oy
++ *
++ * Copyright (C) 2008 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ */
++
++#ifndef CAN_DEV_H
++#define CAN_DEV_H
++
++#include <linux/can/error.h>
++
++/*
++ * CAN bitrate and bit-timing
++ */
++struct can_bittiming {
++	u32 bitrate;
++	u32 sample_point;
++	u32 tq;
++	u32 prop_seg;
++	u32 phase_seg1;
++	u32 phase_seg2;
++	u32 sjw;
++	u32 clock;
++	u32 brp;
++};
++
++struct can_bittiming_const {
++	u32 tseg1_min;
++	u32 tseg1_max;
++	u32 tseg2_min;
++	u32 tseg2_max;
++	u32 sjw_max;
++	u32 brp_min;
++	u32 brp_max;
++	u32 brp_inc;
++};
++
++/*
++ * CAN mode
++ */
++enum can_mode {
++	CAN_MODE_STOP = 0,
++	CAN_MODE_START,
++	CAN_MODE_SLEEP
++};
++
++/*
++ * CAN controller mode
++ */
++#define CAN_CTRLMODE_LOOPBACK	0x1
++#define CAN_CTRLMODE_LISTENONLY	0x2
++#define CAN_CTRLMODE_3_SAMPLES	0x4 /* Triple sampling mode */
++
++/*
++ * CAN operational and error states
++ */
++enum can_state {
++	CAN_STATE_ACTIVE = 0,
++	CAN_STATE_BUS_WARNING,
++	CAN_STATE_BUS_PASSIVE,
++	CAN_STATE_BUS_OFF,
++	CAN_STATE_STOPPED,
++	CAN_STATE_SLEEPING
++};
++
++/*
++ * CAN device statistics
++ */
++struct can_device_stats {
++	unsigned long error_warning;
++	unsigned long data_overrun;
++	unsigned long wakeup;
++	unsigned long bus_error;
++	unsigned long error_passive;
++	unsigned long arbitration_lost;
++	unsigned long restarts;
++	unsigned long bus_error_at_init;
++};
++
++/*
++ * CAN common private data
++ */
++#define CAN_ECHO_SKB_MAX  4
++
++struct can_priv {
++	struct can_device_stats can_stats;
++
++	struct can_bittiming bittiming;
++	struct can_bittiming_const *bittiming_const;
++
++	spinlock_t irq_lock;
++
++	enum can_state state;
++	u32 ctrlmode;
++
++	int restart_ms;
++	struct timer_list timer;
++
++	struct sk_buff *echo_skb[CAN_ECHO_SKB_MAX];
++
++	int (*do_set_bittiming)(struct net_device *dev);
++	int (*do_get_state)(struct net_device *dev, enum can_state *state);
++	int (*do_set_mode)(struct net_device *dev, enum can_mode mode);
++	int (*do_set_ctrlmode)(struct net_device *dev, u32 ctrlmode);
++	int (*do_get_ctrlmode)(struct net_device *dev, u32 *ctrlmode);
++};
++
++#define ND2D(_ndev)	(_ndev->dev.parent)
++
++
++struct net_device *alloc_candev(int sizeof_priv);
++void free_candev(struct net_device *dev);
++int register_candev(struct net_device *dev);
++void unregister_candev(struct net_device *dev);
++
++int can_set_bittiming(struct net_device *dev);
++
++int can_restart_now(struct net_device *dev);
++
++void can_bus_off(struct net_device *dev);
++
++void can_close_cleanup(struct net_device *dev);
++
++void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx);
++void can_get_echo_skb(struct net_device *dev, int idx);
++
++int can_sample_point(struct can_bittiming *bt);
++
++#endif /* CAN_DEV_H */
 -- 
 1.5.6.6
 
