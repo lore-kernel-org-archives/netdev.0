@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: remove obsoleted comment about different passes
-Date: Wed, 18 Feb 2009 17:45:53 -0800 (PST)
-Message-ID: <20090218.174553.134784925.davem@davemloft.net>
-References: <Pine.LNX.4.64.0902181937470.31742@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH 2.6.30] cxgb3: Add support for PCI ID 0x35.
+Date: Wed, 18 Feb 2009 17:48:35 -0800 (PST)
+Message-ID: <20090218.174835.12982157.davem@davemloft.net>
+References: <20090216044615.24884.9331.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33135
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41246
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752614AbZBSBqJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2009 20:46:09 -0500
-In-Reply-To: <Pine.LNX.4.64.0902181937470.31742@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1751381AbZBSBsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:48:51 -0500
+In-Reply-To: <20090216044615.24884.9331.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 18 Feb 2009 19:50:20 +0200 (EET)
+From: Divy Le Ray <divy@chelsio.com>
+Date: Sun, 15 Feb 2009 20:46:15 -0800
 
-> This is obsolete since the passes got combined.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Add support for adapters with a PCI id equal to 0x35.
+> 
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-Applied, thanks Ilpo.
+Adding new IDs is something we can do in net-2.6, so I'm
+going to add this patch there.
+
+Let me know if you don't want me to do that, or if there
+is some dependency with net-next-2.6 that I'm not seeing.
+
+Thanks!
