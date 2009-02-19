@@ -1,77 +1,384 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCHv2 00/11]Get rid of all the old macro DMA_nBIT_MASK and
- use DMA_BIT_MASK(n) instead
-Date: Thu, 19 Feb 2009 15:14:09 -0800
-Message-ID: <20090219151409.0d61de2a.akpm@linux-foundation.org>
-References: <499CFDC8.1070600@cn.fujitsu.com>
-	<499D0221.9090407@cn.fujitsu.com>
-	<20090219081403.GA5400@elte.hu>
-	<499D1ED9.4040005@cn.fujitsu.com>
-	<499D2728.1080208@cn.fujitsu.com>
-	<499D54F6.7000108@s5r6.in-berlin.de>
-	<20090219150851.GC22611@elte.hu>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: [PATCH 3/8] can: CAN Network device driver and SYSFS interface
+Date: Thu, 19 Feb 2009 16:49:32 -0700
+Message-ID: <20090219164932.63420915@bike.lwn.net>
+References: <1235070082-7069-1-git-send-email-wg@grandegger.com>
+	<1235070082-7069-2-git-send-email-wg@grandegger.com>
+	<1235070082-7069-3-git-send-email-wg@grandegger.com>
+	<1235070082-7069-4-git-send-email-wg@grandegger.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: stefanr@s5r6.in-berlin.de, yanghy@cn.fujitsu.com,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, petkovbb@googlemail.com
-To: Ingo Molnar <mingo@elte.hu>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35615 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755349AbZBSXPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 18:15:20 -0500
-In-Reply-To: <20090219150851.GC22611@elte.hu>
+Received: from vena.lwn.net ([206.168.112.25]:38068 "EHLO vena.lwn.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754662AbZBSXtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 18:49:35 -0500
+In-Reply-To: <1235070082-7069-4-git-send-email-wg@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Feb 2009 16:08:51 +0100
-Ingo Molnar <mingo@elte.hu> wrote:
+On Thu, 19 Feb 2009 20:01:17 +0100
+Wolfgang Grandegger <wg@grandegger.com> wrote:
 
-> 
-> * Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
-> 
-> > Yang Hongyang wrote:
-> > > v1->v2:fix s/micro/macro typo and keep the old defines
-> > >             of DMA_nBIT_MASK
-> > > ----------------------
-> > > Replace all DMA_nBIT_MASK macro with the new DMA_BIT_MASK(n) macro
-> > > 
-> > > 01:Replace all DMA_64BIT_MASK macro with DMA_BIT_MASK(64)
-> > > 02:Replace all DMA_48BIT_MASK macro with DMA_BIT_MASK(48)
-> > > 03:Replace all DMA_40BIT_MASK macro with DMA_BIT_MASK(40)
-> > > 04:Replace all DMA_39BIT_MASK macro with DMA_BIT_MASK(39)
-> > > 05:Replace all DMA_35BIT_MASK macro with DMA_BIT_MASK(35)
-> > > 06:Replace all DMA_32BIT_MASK macro with DMA_BIT_MASK(32)
-> > > 07:Replace all DMA_31BIT_MASK macro with DMA_BIT_MASK(31)
-> > > 08:Replace all DMA_30BIT_MASK macro with DMA_BIT_MASK(30)
-> > > 09:Replace all DMA_28BIT_MASK macro with DMA_BIT_MASK(28)
-> > > 10:Replace all DMA_24BIT_MASK macro with DMA_BIT_MASK(24)
-> > > 11:Update the old macro DMA_nBIT_MASK related documentations
-> > > 
-> > 
-> > Shouldn't you organize the patch series per subsystem, not per old
-> > macro?  And then Cc the respective maintainers?
-> > 
-> > As it stands, the patches cannot be routed through the normal channels;
-> > yet there is no fundamental reason to handle these patches differently
-> > from normal patches.
-> 
-> Traditionally such trivially correct convert-it-all patches 
-> lived in -mm and were merged upstream in one go, near the end of 
-> the merge window.
-> 
-> Sprinkling it into dozens of subsystem channels (some of which 
-> are very unreliable) is neither good nor an economic use of our 
-> resources.
-> 
-> Patches that can potentially cause trouble should go via the 
-> usual channels.
-> 
+> +/*
+> + * Bit-timing calculation derived from:
+> + *
+> + * Code based on LinCAN sources and H8S2638 project
+> + * Copyright 2004-2006 Pavel Pisa - DCE FELK CVUT cz
+> + * Copyright 2005      Stanislav Marek
+> + * email: pisa@cmp.felk.cvut.cz
+> + */
+> +static int can_update_spt(const struct can_bittiming_const *btc,
+> +			  int sampl_pt, int tseg, int *tseg1, int *tseg2)
+> +{
+> +	*tseg2 = tseg + 1 - (sampl_pt * (tseg + 1)) / 1000;
+> +	if (*tseg2 < btc->tseg2_min)
+> +		*tseg2 = btc->tseg2_min;
+> +	if (*tseg2 > btc->tseg2_max)
+> +		*tseg2 = btc->tseg2_max;
+> +	*tseg1 = tseg - *tseg2;
+> +	if (*tseg1 > btc->tseg1_max) {
+> +		*tseg1 = btc->tseg1_max;
+> +		*tseg2 = tseg - *tseg1;
+> +	}
+> +	return 1000 * (tseg + 1 - *tseg2) / (tseg + 1);
+> +}
 
-yes, fun.
+I can only assume that this calculation means something to somebody.  I
+guess there's no hope for those of use too lazy to go read the Bosch spec,
+where, I assume, this kind of stuff is described.
 
-I hit several rejects merging these, easily fixed.  After this lot is
-merged there will probably be a few unconverted sites which will need a
-second pass.  After that we can think about removing the old #defines.
+> +static int can_calc_bittiming(struct net_device *dev)
+
+This function, too, is pretty well impenetrable.  I couldn't possibly try
+to tell you if it's even remotely correct.  Some comments might be nice.
+
+> +/*
+> + * Allocate and setup space for the CAN network device
+> + */
+> +struct net_device *alloc_candev(int sizeof_priv)
+> +{
+> +	struct net_device *dev;
+> +	struct can_priv *priv;
+> +
+> +	dev = alloc_netdev(sizeof_priv, "can%d", can_setup);
+> +	if (!dev)
+> +		return NULL;
+> +
+> +	priv = netdev_priv(dev);
+> +
+> +	priv->state = CAN_STATE_STOPPED;
+> +	spin_lock_init(&priv->irq_lock);
+
+This is the first mention I see of a lock in this file.  What are your
+locking rules?  There doesn't seem to be a lot of locking going on...  In
+particular, nothing in this file uses irq_lock.
+
+> +	init_timer(&priv->timer);
+> +	priv->timer.expires = 0;
+> +
+> +	return dev;
+> +}
+> +EXPORT_SYMBOL_GPL(alloc_candev);
+
+> +/*
+> + * Allocate space of the CAN network device
+> + */
+> +void free_candev(struct net_device *dev)
+> +{
+> +	free_netdev(dev);
+> +}
+> +EXPORT_SYMBOL_GPL(free_candev);
+
+I do believe that function is *freeing* space...?  
+
+The allocation function initializes a timer, but here we do nothing to
+ensure that the timer is not running.  Is there a rule somewhere that I
+missed?
+
+> +/*
+> + * Local echo of CAN messages
+> + *
+> + * CAN network devices *should* support a local echo functionality
+> + * (see Documentation/networking/can.txt). To test the handling of CAN
+> + * interfaces that do not support the local echo both driver types are
+> + * implemented. In the case that the driver does not support the echo
+> + * the IFF_ECHO remains clear in dev->flags. This causes the PF_CAN core
+> + * to perform the echo as a fallback solution.
+> + */
+> +
+> +static void can_flush_echo_skb(struct net_device *dev)
+> +{
+> +	struct can_priv *priv = netdev_priv(dev);
+> +	struct net_device_stats *stats = &dev->stats;
+> +	int i;
+> +
+> +	for (i = 0; i < CAN_ECHO_SKB_MAX; i++) {
+> +		if (priv->echo_skb[i]) {
+> +			kfree_skb(priv->echo_skb[i]);
+> +			priv->echo_skb[i] = NULL;
+> +			stats->tx_dropped++;
+> +			stats->tx_aborted_errors++;
+> +		}
+> +	}
+> +}
+
+What lock is protecting priv->echo_skb?
+
+> +/*
+> + * Put the skb on the stack to be looped backed locally lateron
+> + *
+> + * The function is typically called in the start_xmit function
+> + * of the device driver.
+> + */
+> +void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev, int idx)
+> +{
+> +	struct can_priv *priv = netdev_priv(dev);
+> +
+> +	/* set flag whether this packet has to be looped back */
+> +	if (!(dev->flags & IFF_ECHO) || skb->pkt_type != PACKET_LOOPBACK) {
+> +		kfree_skb(skb);
+> +		return;
+> +	}
+
+The comment says "set flag", but the code potentially frees the skb and aborts.
+
+[...]
+
+> +/*
+> + * CAN device restart for bus-off recovery
+> + */
+> +int can_restart_now(struct net_device *dev)
+> +{
+> +	struct can_priv *priv = netdev_priv(dev);
+> +	struct net_device_stats *stats = &dev->stats;
+> +	struct sk_buff *skb;
+> +	struct can_frame *cf;
+> +	int err;
+> +
+> +	if (netif_carrier_ok(dev))
+> +		netif_carrier_off(dev);
+> +
+> +	/* Cancel restart in progress */
+> +	if (priv->timer.expires) {
+> +		del_timer(&priv->timer);
+> +		priv->timer.expires = 0; /* mark inactive timer */
+> +	}
+
+Are you sure you don't want del_timer_sync() there?  What keeps you from
+racing with the timer?
+
+[...]
+
+> +/*
+> + * Cleanup function before the device gets closed.
+> + *
+> + * This functions should be called in the close function of the device
+> + * driver.
+> + */
+> +void can_close_cleanup(struct net_device *dev)
+> +{
+> +	struct can_priv *priv = netdev_priv(dev);
+> +
+> +	if (priv->timer.expires) {
+> +		del_timer(&priv->timer);
+> +		priv->timer.expires = 0;
+> +	}
+> +
+> +	can_flush_echo_skb(dev);
+> +}
+> +EXPORT_SYMBOL_GPL(can_close_cleanup);
+
+You definitely want del_timer_sync() here.  You could potentially return
+with the timer still running.
+
+> diff --git a/drivers/net/can/sysfs.c b/drivers/net/can/sysfs.c
+> new file mode 100644
+> index 0000000..746f641
+> --- /dev/null
+> +++ b/drivers/net/can/sysfs.c
+
+Most of this file looks like typical sysfs cruft.  Again, though, I wonder
+about your locking...
+
+> +/* use same locking rules as GIF* ioctl's */
+> +static ssize_t can_dev_show(struct device *d,
+> +			    struct device_attribute *attr, char *buf,
+> +			    ssize_t (*fmt)(struct net_device *, char *))
+> +{
+> +	struct net_device *dev = to_net_dev(d);
+> +	ssize_t ret = -EINVAL;
+> +
+> +	read_lock(&dev_base_lock);
+> +	if (dev_isalive(dev))
+> +		ret = (*fmt)(dev, buf);
+> +	read_unlock(&dev_base_lock);
+> +
+> +	return ret;
+> +}
+
+I'm not sure what the GIF* ioctl() locking rules are, but do they really
+give you properly-serialized access to your device?  dev_base_lock seems
+like an unlikely choice, somehow, but maybe I'm missing something.
+
+[...]
+
+> +/* use same locking and permission rules as SIF* ioctl's */
+> +static ssize_t can_dev_store(struct device *d, struct device_attribute *attr,
+> +			     const char *buf, size_t len,
+> +			     int (*set)(struct net_device *, unsigned long))
+> +{
+> +	struct net_device *dev = to_net_dev(d);
+> +	unsigned long new;
+> +	int ret = -EINVAL;
+> +
+> +	if (!capable(CAP_NET_ADMIN))
+> +		return -EPERM;
+> +
+> +	ret = strict_strtoul(buf, 0, &new);
+> +	if (ret)
+> +		goto out;
+> +
+> +	rtnl_lock();
+> +	if (dev_isalive(dev)) {
+> +		ret = (*set)(dev, new);
+> +		if (!ret)
+> +			ret = len;
+> +	}
+> +	rtnl_unlock();
+> +out:
+> +	return ret;
+> +}
+
+Here we're using a different (global) lock?  Me confused...
+
+[...]
+
+> diff --git a/drivers/net/can/sysfs.h b/drivers/net/can/sysfs.h
+> new file mode 100644
+> index 0000000..e21f2fa
+> --- /dev/null
+> +++ b/drivers/net/can/sysfs.h
+> @@ -0,0 +1,24 @@
+> +/*
+> + * Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the version 2 of the GNU General Public License
+> + * as published by the Free Software Foundation
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+> + */
+> +
+> +#ifndef CAN_SYSFS_H
+> +#define CAN_SYSFS_H
+> +
+> +void can_create_sysfs(struct net_device *dev);
+> +void can_remove_sysfs(struct net_device *dev);
+> +
+> +#endif /* CAN_SYSFS_H */
+> diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+> new file mode 100644
+> index 0000000..078ac03
+> --- /dev/null
+> +++ b/include/linux/can/dev.h
+> @@ -0,0 +1,136 @@
+> +/*
+> + * linux/can/dev.h
+> + *
+> + * Definitions for the CAN network device driver interface
+> + *
+> + * Copyright (C) 2006 Andrey Volkov <avolkov@varma-el.com>
+> + *               Varma Electronics Oy
+> + *
+> + * Copyright (C) 2008 Wolfgang Grandegger <wg@grandegger.com>
+
+Nothing in 2009? :)
+
+> + *
+> + * Send feedback to <socketcan-users@lists.berlios.de>
+> + */
+> +
+> +#ifndef CAN_DEV_H
+> +#define CAN_DEV_H
+> +
+> +#include <linux/can/error.h>
+> +
+> +/*
+> + * CAN bitrate and bit-timing
+> + */
+> +struct can_bittiming {
+> +	u32 bitrate;
+> +	u32 sample_point;
+> +	u32 tq;
+> +	u32 prop_seg;
+> +	u32 phase_seg1;
+> +	u32 phase_seg2;
+> +	u32 sjw;
+> +	u32 clock;
+> +	u32 brp;
+> +};
+
+It sure would be nice (again) to know what all these parameters are.
+
+> +struct can_bittiming_const {
+> +	u32 tseg1_min;
+> +	u32 tseg1_max;
+> +	u32 tseg2_min;
+> +	u32 tseg2_max;
+> +	u32 sjw_max;
+> +	u32 brp_min;
+> +	u32 brp_max;
+> +	u32 brp_inc;
+> +};
+
+Ditto.
+
+[...]
+
+> +/*
+> + * CAN common private data
+> + */
+> +#define CAN_ECHO_SKB_MAX  4
+> +
+> +struct can_priv {
+> +	struct can_device_stats can_stats;
+> +
+> +	struct can_bittiming bittiming;
+> +	struct can_bittiming_const *bittiming_const;
+> +
+> +	spinlock_t irq_lock;
+
+...protecting what...?
+
+> +	enum can_state state;
+> +	u32 ctrlmode;
+> +
+> +	int restart_ms;
+> +	struct timer_list timer;
+> +
+> +	struct sk_buff *echo_skb[CAN_ECHO_SKB_MAX];
+> +
+> +	int (*do_set_bittiming)(struct net_device *dev);
+> +	int (*do_get_state)(struct net_device *dev, enum can_state *state);
+> +	int (*do_set_mode)(struct net_device *dev, enum can_mode mode);
+> +	int (*do_set_ctrlmode)(struct net_device *dev, u32 ctrlmode);
+> +	int (*do_get_ctrlmode)(struct net_device *dev, u32 *ctrlmode);
+> +};
+> +
+> +#define ND2D(_ndev)	(_ndev->dev.parent)
+
+Does this macro really improve the clarity of the code?
+
