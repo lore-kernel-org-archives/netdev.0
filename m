@@ -1,55 +1,125 @@
-From: "Srivats P" <Srivats.P@conexant.com>
-Subject: [PATCH] iproute2: Fix no default display of ip4ip6 tunnels
-Date: Thu, 19 Feb 2009 12:06:33 +0530
-Message-ID: <F33E0C3C2876A544ABD34CFBE345A4A40211E426D0@NDMBX01.bbnet.ad>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH 12/12]Update related documentations
+Date: Thu, 19 Feb 2009 14:55:37 +0800
+Message-ID: <499D0269.8080900@cn.fujitsu.com>
+References: <499CFDC8.1070600@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Borislav Petkov <petkovbb@googlemail.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnxtsmtp4.conexant.com ([198.62.9.251]:41214 "EHLO
-	cnxtsmtp4.conexant.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896AbZBSGxn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 01:53:43 -0500
-Received: from CPS (wsmx1.nb.conexant.com [157.152.185.16]) (using TLSv1 with cipher RC4-MD5 (
- 128/128 bits)) (No client certificate requested) by cnxtsmtp4.conexant.com (Tumbleweed MailGate
- 3.6.1) with ESMTP id 2DE89197F05E for <netdev@vger.kernel.org>; Wed, 18 Feb 2009 22:36:12 -0800 (
- PST)
-Content-Language: en-US
+Received: from cn.fujitsu.com ([222.73.24.84]:53054 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754095AbZBSGyM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 01:54:12 -0500
+In-Reply-To: <499CFDC8.1070600@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srivats P. <srivats.p@conexant.com>
+Update related documentations
 
-"ip -6 tunnel show" displays only ip6ip6 tunnels not ip4ip6 tunnels - it should display all irrespective of proto.
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-This is because the default tunnel proto is initialized to IPPROTO_IPV6 in ip6_tnl_parm_init() which is fine for a 'add' command but not for 'show'. This patch overrides proto with 0 signifying 'mode any' as the default in case of a 'show'.
-
-Signed-off-by: Srivats P. <srivats.p@conexant.com>
 ---
+ Documentation/DMA-mapping.txt                      |   18 +++++++++---------
+ .../sound/alsa/DocBook/writing-an-alsa-driver.tmpl |    8 ++++----
+ 2 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
-index 8421983..0122974 100644
---- a/ip/ip6tunnel.c
-+++ b/ip/ip6tunnel.c
-@@ -335,6 +335,7 @@ static int do_show(int argc, char **argv)
-         struct ip6_tnl_parm p;
+diff --git a/Documentation/DMA-mapping.txt b/Documentation/DMA-mapping.txt
+index b2a4d6d..01f24e9 100644
+--- a/Documentation/DMA-mapping.txt
++++ b/Documentation/DMA-mapping.txt
+@@ -136,7 +136,7 @@ exactly why.
+ The standard 32-bit addressing PCI device would do something like
+ this:
+ 
+-	if (pci_set_dma_mask(pdev, DMA_32BIT_MASK)) {
++	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
+ 		printk(KERN_WARNING
+ 		       "mydev: No suitable DMA available.\n");
+ 		goto ignore_this_device;
+@@ -155,9 +155,9 @@ all 64-bits when accessing streaming DMA:
+ 
+ 	int using_dac;
+ 
+-	if (!pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
++	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
+ 		using_dac = 1;
+-	} else if (!pci_set_dma_mask(pdev, DMA_32BIT_MASK)) {
++	} else if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
+ 		using_dac = 0;
+ 	} else {
+ 		printk(KERN_WARNING
+@@ -170,14 +170,14 @@ the case would look like this:
+ 
+ 	int using_dac, consistent_using_dac;
+ 
+-	if (!pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
++	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
+ 		using_dac = 1;
+ 	   	consistent_using_dac = 1;
+-		pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK);
+-	} else if (!pci_set_dma_mask(pdev, DMA_32BIT_MASK)) {
++		pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
++	} else if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
+ 		using_dac = 0;
+ 		consistent_using_dac = 0;
+-		pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK);
++		pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	} else {
+ 		printk(KERN_WARNING
+ 		       "mydev: No suitable DMA available.\n");
+@@ -192,7 +192,7 @@ check the return value from pci_set_consistent_dma_mask().
+ Finally, if your device can only drive the low 24-bits of
+ address during PCI bus mastering you might do something like:
+ 
+-	if (pci_set_dma_mask(pdev, DMA_24BIT_MASK)) {
++	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(24))) {
+ 		printk(KERN_WARNING
+ 		       "mydev: 24-bit DMA addressing not available.\n");
+ 		goto ignore_this_device;
+@@ -213,7 +213,7 @@ most specific mask.
+ 
+ Here is pseudo-code showing how this might be done:
+ 
+-	#define PLAYBACK_ADDRESS_BITS	DMA_32BIT_MASK
++	#define PLAYBACK_ADDRESS_BITS	DMA_BIT_MASK(32)
+ 	#define RECORD_ADDRESS_BITS	0x00ffffff
+ 
+ 	struct my_sound_card *card;
+diff --git a/Documentation/sound/alsa/DocBook/writing-an-alsa-driver.tmpl b/Documentation/sound/alsa/DocBook/writing-an-alsa-driver.tmpl
+index 87a7c07..282891c 100644
+--- a/Documentation/sound/alsa/DocBook/writing-an-alsa-driver.tmpl
++++ b/Documentation/sound/alsa/DocBook/writing-an-alsa-driver.tmpl
+@@ -1133,8 +1133,8 @@
+           if (err < 0)
+                   return err;
+           /* check PCI availability (28bit DMA) */
+-          if (pci_set_dma_mask(pci, DMA_28BIT_MASK) < 0 ||
+-              pci_set_consistent_dma_mask(pci, DMA_28BIT_MASK) < 0) {
++          if (pci_set_dma_mask(pci, DMA_BIT_MASK(28)) < 0 ||
++              pci_set_consistent_dma_mask(pci, DMA_BIT_MASK(28)) < 0) {
+                   printk(KERN_ERR "error to set 28bit mask DMA\n");
+                   pci_disable_device(pci);
+                   return -ENXIO;
+@@ -1248,8 +1248,8 @@
+   err = pci_enable_device(pci);
+   if (err < 0)
+           return err;
+-  if (pci_set_dma_mask(pci, DMA_28BIT_MASK) < 0 ||
+-      pci_set_consistent_dma_mask(pci, DMA_28BIT_MASK) < 0) {
++  if (pci_set_dma_mask(pci, DMA_BIT_MASK(28)) < 0 ||
++      pci_set_consistent_dma_mask(pci, DMA_BIT_MASK(28)) < 0) {
+           printk(KERN_ERR "error to set 28bit mask DMA\n");
+           pci_disable_device(pci);
+           return -ENXIO;
+-- 
+1.6.0.3
 
-        ip6_tnl_parm_init(&p, 0);
-+       p.proto = 0;
 
-         if (parse_args(argc, argv, &p) < 0)
-                 return -1;
-
-Conexant E-mail Firewall (Conexant.Com) made the following annotations
----------------------------------------------------------------------
-********************** Legal Disclaimer **************************** 
-
-"This email may contain confidential and privileged material for the sole use of the intended recipient. Any unauthorized review, use or distribution by others is strictly prohibited. If you have received the message in error, please advise the sender by reply email and delete the message. Thank you." 
-
-********************************************************************** 
-
----------------------------------------------------------------------
-
+-- 
+Regards
+Yang Hongyang
