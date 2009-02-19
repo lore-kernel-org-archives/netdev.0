@@ -1,63 +1,29 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
-Date: Thu, 19 Feb 2009 10:51:43 -0600
-Message-ID: <C04B22C6-BCE8-4D99-A160-22F8846C8209@kernel.crashing.org>
-References: <20090217222425.GA18801@ovro.caltech.edu> <D999D051-E5A2-4915-893D-E3384EC312A4@kernel.crashing.org> <7DF0AF56456B8F4081E3C44CCCE311DE1519A3@zch01exm23.fsl.freescale.net>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: 0 out memory for tc_skbedit struct prior to
+ using it.
+Date: Thu, 19 Feb 2009 09:00:24 -0800
+Message-ID: <20090219090024.035fdfeb@extreme>
+References: <20090127032028.26631.27015.stgit@lost.foo-projects.org>
+	<9929d2390902091702m1a78acf7oa33ab99092c4ca12@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Ira Snyder" <iws@ovro.caltech.edu>,
-	"Arnd Bergmann" <arnd@arndb.de>,
-	"Jan-Bernd Themann" <THEMANN@de.ibm.com>, <netdev@vger.kernel.org>,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: Zang Roy-R61911 <tie-fei.zang@freescale.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:43469 "EHLO gate.crashing.org"
+Received: from mail.vyatta.com ([76.74.103.46]:39701 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752292AbZBSQxb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2009 11:53:31 -0500
-In-Reply-To: <7DF0AF56456B8F4081E3C44CCCE311DE1519A3@zch01exm23.fsl.freescale.net>
+	id S1752230AbZBSRA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 12:00:26 -0500
+In-Reply-To: <9929d2390902091702m1a78acf7oa33ab99092c4ca12@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 9 Feb 2009 17:02:48 -0800
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-On Feb 19, 2009, at 12:13 AM, Zang Roy-R61911 wrote:
-
->
->
->> -----Original Message-----
->> From:
->> linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs.org
->> [mailto:linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs
->> .org] On Behalf Of Kumar Gala
->> Sent: Thursday, February 19, 2009 0:47 AM
->> To: Ira Snyder
->> Cc: Arnd Bergmann; Jan-Bernd Themann; netdev@vger.kernel.org;
->> Rusty Russell; linux-kernel@vger.kernel.org; linuxppc-dev@ozlabs.org
->> Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
->>
->>
->> On Feb 17, 2009, at 4:24 PM, Ira Snyder wrote:
->>
->>>
->>> Documentation/virtio-over-PCI.txt     |   61 ++
->>> arch/powerpc/boot/dts/mpc834x_mds.dts |    7 +
->>
->> we'll have to review the .dts and expect a documentation update for
->> the node.  But that's pretty minor at this point.
->>
->>> drivers/virtio/Kconfig                |   22 +
->>> drivers/virtio/Makefile               |    2 +
->>> drivers/virtio/vop.h                  |  119 ++
->>> drivers/virtio/vop_fsl.c              | 1911
->> ++++++++++++++++++++++++
->>> +++++++++
->>
->> make this vop_fsl_mpc83xx.c or something along those lines.
-> why?
-
-so we can deal with 85xx as well.  We just need to isolate the 83xx  
-specific bits (message usage)
-
-- k
+> Stephen - what is the status of this?
+> 
+Similar fix just applied
