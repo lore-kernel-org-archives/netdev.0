@@ -1,51 +1,54 @@
-From: Tony Asleson <linux.netdev.list@gmail.com>
-Subject: Kernel behavior when returning NETDEV_TX_BUSY from hard_start_xmit
-Date: Thu, 19 Feb 2009 14:19:10 -0600
-Message-ID: <587a3eeb0902191219r1c3e61dbkee1a5b45dceacc1b@mail.gmail.com>
+From: Yi Zou <yi.zou@intel.com>
+Subject: [PATCH 0/7] Add support to FCoE offload through net_device
+Date: Thu, 19 Feb 2009 12:49:32 -0700
+Message-ID: <20090219194734.22270.8445.stgit.yi.zou@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:37477 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751680AbZBSUTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 15:19:11 -0500
-Received: by yw-out-2324.google.com with SMTP id 5so236530ywh.1
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2009 12:19:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am running into the following scenario and I wanted to verify that it is
-expected.
+Hi,
+I am working on to support offload for Fiber Channel over Ethernet (FCoE) for
+the Open-FCoE project maintained at http://www.open-fcoe.org.
 
-A user application does a single 8k UDP send.  While the Ethernet device
-driver is accepting each skb via hard_start_xmit it temporarily runs out
-of resources and calls netif_stop_queue and returns NETDEV_TX_BUSY.
-When the driver catches up it does a netif_wake_queue to resume skb
-transmission.  When this occurs during the UDP send, the Ethernet driver
-does not get any of the remaining skb buffers and the UDP send is
-incomplete.  However, the user application returns from the sendto
-with success.
+I would like to propose adding FCoE offload support through the net_device
+struct as shown in the series of patches followed here. The general idea is to
+add "struct net_fcoe_ops *fcoe_ops" to net_device, so any network adapter driver
+that wants to provides FCoE offload can use fcoe_ops through net_device.
 
-Because UDP has no guaranteed delivery this seems like an acceptable thing.
-However, if a device driver imposes a limit to the number of skb buffers
-it can handle in flight which is < the total number of skb buffers it takes
-to complete.  The operation will never be successful.
+The following patches touch both netdev and libfc/fcoe, where the first two
+patches touch netdev, and the rest patches show how the proposed net_fcoe_ops
+struct is used in fcoe/libfc through net_deivce to support FCoE offload.
 
-For example, to support a single 64k UDP send, the device driver must be
-able to accept ~45 skb buffers (1500 MTU) without returning NETDEV_TX_BUSY.
-If the Ethernet device is unable to transmit faster than the arrival rate
-of skb buffers the driver then needs to queue them up.
+Thanks.
 
-Is this expected behavior or am I missing something in my driver?  How
-much should a device driver be expected to queue before calling
-netif_stop_queue and ensure normal packet transmission?  Why doesn't
-the network stack continue after the queue has been stopped?
+yi
+---
 
-Notes:
--Linux 2.6.16.21 kernel (sles 10) embedded PPC platform.
--Pseudo Ethernet device in question has ~2.8 MiB bandwidth.
+Yi Zou (7):
+      fcoe: fcoe fc crc offload indication by skb->ip_summed
+      fcoe: remove ETH_P_FCOE from fc_fcoe.h
+      fcoe: add support to net_fcoe_ops in fcoe_sw
+      libfc: add support of large receive offload by ddp in fc_fcp
+      fcoe: check offload features from LLD through netdev
+      net: add FCoE offload support through net_device
+      net: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
 
-Many thanks!
--Tony
+
+ drivers/scsi/fcoe/fcoe_sw.c  |   64 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/scsi/fcoe/libfcoe.c  |    2 +
+ drivers/scsi/libfc/fc_exch.c |   46 ++++++++++++++++++++----------
+ drivers/scsi/libfc/fc_fcp.c  |   36 ++++++++++++++++++++++--
+ include/linux/if_ether.h     |    1 +
+ include/linux/netdevice.h    |    8 +++++
+ include/linux/netfcoe.h      |   36 ++++++++++++++++++++++++
+ include/scsi/fc/fc_fcoe.h    |    7 -----
+ include/scsi/libfc.h         |   46 ++++++++++++++++++++++++++++++
+ 9 files changed, 220 insertions(+), 26 deletions(-)
+ create mode 100644 include/linux/netfcoe.h
+
+-- 
+Signature: Yi Zou <yi.zou@intel.com>
