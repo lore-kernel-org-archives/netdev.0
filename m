@@ -1,58 +1,42 @@
-From: Thomas Klein <tklein@de.ibm.com>
-Subject: [PATCH] ehea: Fix memory hotplug handling
-Date: Thu, 19 Feb 2009 12:32:11 +0100
-Message-ID: <200902191232.12152.tklein@de.ibm.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Thu, 19 Feb 2009 14:56:13 +0300
+Message-ID: <20090219115613.GB4551@ioremap.net>
+References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121900520.20367@fbirervta.pbzchgretzou.qr> <20090212185729.GA17896@ioremap.net> <alpine.LSU.2.00.0902122045080.670@fbirervta.pbzchgretzou.qr> <20090213130347.GD23879@ioremap.net> <499C2308.2000109@trash.net> <20090218150742.GA30490@ioremap.net> <alpine.LSU.2.00.0902181629300.8034@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	Hannes Hering <hering2@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:34966 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752934AbZBSLcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 06:32:19 -0500
+Received: from cs-studio.ru ([195.178.208.66]:54935 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751826AbZBSL4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 06:56:22 -0500
 Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.00.0902181629300.8034@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added missing set_bit() to disable data transfer when a memchange notification is handled
+On Wed, Feb 18, 2009 at 04:30:03PM +0100, Jan Engelhardt (jengelh@medozas.de) wrote:
+> >As of IPv6 support - it could be fairly trivial, the only thing we need
+> >is to dereference TCP header with the appropriate offset anf get don't
+> >fragment bit (ipv6 does not have it, so we could check both entries).
+> 
+> But IPv6 can have Fragment Headers, serving about the same purpose.
+> 
+> >But... I do not have IPv6 network to test the changes (and definitely
+> >did not have it 6 years ago), so it was never implemented :)
+> 
+> There exist lots of free VM solutions - and I think UML existed
+> 6 years ago, too.
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
----
-diff -Nurp -X dontdiff linux-2.6.29-rc4/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
---- linux-2.6.29-rc4/drivers/net/ehea/ehea.h	2009-02-18 16:59:54.000000000 +0100
-+++ patched_kernel/drivers/net/ehea/ehea.h	2009-02-18 17:01:12.000000000 +0100
-@@ -40,7 +40,7 @@
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0098"
-+#define DRV_VERSION	"EHEA_0099"
- 
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff -Nurp -X dontdiff linux-2.6.29-rc4/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
---- linux-2.6.29-rc4/drivers/net/ehea/ehea_main.c	2009-02-18 16:59:54.000000000 +0100
-+++ patched_kernel/drivers/net/ehea/ehea_main.c	2009-02-18 17:01:12.000000000 +0100
-@@ -3517,12 +3517,14 @@ static int ehea_mem_notifier(struct noti
- 		/* Readd canceled memory block */
- 	case MEM_ONLINE:
- 		ehea_info("memory is going online");
-+		set_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
- 		if (ehea_add_sect_bmap(arg->start_pfn, arg->nr_pages))
- 			return NOTIFY_BAD;
- 		ehea_rereg_mrs(NULL);
- 		break;
- 	case MEM_GOING_OFFLINE:
- 		ehea_info("memory is going offline");
-+		set_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
- 		if (ehea_rem_sect_bmap(arg->start_pfn, arg->nr_pages))
- 			return NOTIFY_BAD;
- 		ehea_rereg_mrs(NULL);
+It is not that simple. IPv6 was never a out-of-the-box solution, and in
+case of this module we either need to setup a router, or use ipv6-aware
+application (fortunately telnet knows that in the recent distros).
+
+-- 
+	Evgeniy Polyakov
