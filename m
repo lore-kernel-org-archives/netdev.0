@@ -1,94 +1,78 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] netfilter: unfold two loops in ip6_packet_match()
-Date: Thu, 19 Feb 2009 09:14:14 +0100
-Message-ID: <499D14D6.7020005@cosmosbay.com>
-References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <499032A4.9090301@trash.net> <499C24FF.90302@cosmosbay.com> <499C2766.5090904@trash.net> <499C3871.4030600@cosmosbay.com> <499C4739.3000800@cosmosbay.com> <499C4FEB.7040706@trash.net> <499D118B.1040309@cosmosbay.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 11/12]Remove defines of DMA_XXBIT_MASK micro
+Date: Thu, 19 Feb 2009 09:14:03 +0100
+Message-ID: <20090219081403.GA5400@elte.hu>
+References: <499CFDC8.1070600@cn.fujitsu.com> <499D0221.9090407@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Borislav Petkov <petkovbb@googlemail.com>
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50284 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903AbZBSIOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 03:14:24 -0500
-In-Reply-To: <499D118B.1040309@cosmosbay.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:38876 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751911AbZBSIOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 03:14:33 -0500
+Content-Disposition: inline
+In-Reply-To: <499D0221.9090407@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip6_tables netfilter module can use an ifname_compare() helper
-so that two loops are unfolded.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- net/ipv6/netfilter/ip6_tables.c |   33 +++++++++++++++++++-----------
- 1 files changed, 21 insertions(+), 12 deletions(-)
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index a33485d..d64594b 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -89,6 +89,25 @@ ip6t_ext_hdr(u8 nexthdr)
- 		 (nexthdr == IPPROTO_DSTOPTS) );
- }
- 
-+static unsigned long ifname_compare(const char *_a, const char *_b,
-+				    const unsigned char *_mask)
-+{
-+	const unsigned long *a = (const unsigned long *)_a;
-+	const unsigned long *b = (const unsigned long *)_b;
-+	const unsigned long *mask = (const unsigned long *)_mask;
-+	unsigned long ret;
-+
-+	ret = (a[0] ^ b[0]) & mask[0];
-+	if (IFNAMSIZ > sizeof(unsigned long))
-+		ret |= (a[1] ^ b[1]) & mask[1];
-+	if (IFNAMSIZ > 2 * sizeof(unsigned long))
-+		ret |= (a[2] ^ b[2]) & mask[2];
-+	if (IFNAMSIZ > 3 * sizeof(unsigned long))
-+		ret |= (a[3] ^ b[3]) & mask[3];
-+	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
-+	return ret;
-+}
-+
- /* Returns whether matches rule or not. */
- /* Performance critical - called for every packet */
- static inline bool
-@@ -99,7 +118,6 @@ ip6_packet_match(const struct sk_buff *skb,
- 		 unsigned int *protoff,
- 		 int *fragoff, bool *hotdrop)
- {
--	size_t i;
- 	unsigned long ret;
- 	const struct ipv6hdr *ipv6 = ipv6_hdr(skb);
- 
-@@ -120,12 +138,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 		return false;
- 	}
- 
--	/* Look for ifname matches; this should unroll nicely. */
--	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
--		ret |= (((const unsigned long *)indev)[i]
--			^ ((const unsigned long *)ip6info->iniface)[i])
--			& ((const unsigned long *)ip6info->iniface_mask)[i];
--	}
-+	ret = ifname_compare(indev, ip6info->iniface, ip6info->iniface_mask);
- 
- 	if (FWINV(ret != 0, IP6T_INV_VIA_IN)) {
- 		dprintf("VIA in mismatch (%s vs %s).%s\n",
-@@ -134,11 +147,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 		return false;
- 	}
- 
--	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
--		ret |= (((const unsigned long *)outdev)[i]
--			^ ((const unsigned long *)ip6info->outiface)[i])
--			& ((const unsigned long *)ip6info->outiface_mask)[i];
--	}
-+	ret = ifname_compare(outdev, ip6info->outiface, ip6info->outiface_mask);
- 
- 	if (FWINV(ret != 0, IP6T_INV_VIA_OUT)) {
- 		dprintf("VIA out mismatch (%s vs %s).%s\n",
+* Yang Hongyang <yanghy@cn.fujitsu.com> wrote:
 
+> Remove defines of DMA_XXBIT_MASK micro
+> 
+> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+> 
+> ---
+>  include/linux/dma-mapping.h |   20 +-------------------
+>  1 files changed, 1 insertions(+), 19 deletions(-)
+> 
+> diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+> index f238c7e..70f9c63 100644
+> --- a/include/linux/dma-mapping.h
+> +++ b/include/linux/dma-mapping.h
+> @@ -13,27 +13,9 @@ enum dma_data_direction {
+>  	DMA_NONE = 3,
+>  };
+>  
+> +/*use DMA_BIT_MASK(n) within your driver instead of DMA_xxBIT_MASK*/
+>  #define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
+>  
+> -/*
+> - * NOTE: do not use the below macros in new code and do not add new definitions
+> - * here.
+> - *
+> - * Instead, just open-code DMA_BIT_MASK(n) within your driver
+> - */
+> -#define DMA_64BIT_MASK	DMA_BIT_MASK(64)
+> -#define DMA_48BIT_MASK	DMA_BIT_MASK(48)
+> -#define DMA_47BIT_MASK	DMA_BIT_MASK(47)
+> -#define DMA_40BIT_MASK	DMA_BIT_MASK(40)
+> -#define DMA_39BIT_MASK	DMA_BIT_MASK(39)
+> -#define DMA_35BIT_MASK	DMA_BIT_MASK(35)
+> -#define DMA_32BIT_MASK	DMA_BIT_MASK(32)
+> -#define DMA_31BIT_MASK	DMA_BIT_MASK(31)
+> -#define DMA_30BIT_MASK	DMA_BIT_MASK(30)
+> -#define DMA_29BIT_MASK	DMA_BIT_MASK(29)
+> -#define DMA_28BIT_MASK	DMA_BIT_MASK(28)
+> -#define DMA_24BIT_MASK	DMA_BIT_MASK(24)
+
+Looks good beyond the s/micro/macro typo fix, but i'd suggest to 
+keep these old defines for one more kernel cycle, then do a 
+final removal of all remaining uses, in a single patch.
+
+That way we'll save ourselves from quite a bit of unnecessary 
+build breakages (as your patchset shows there's still a lot of 
+users of the old macros), as these definitions get moved around, 
+reintroduced, etc.
+
+Conflict resolution becomes easier as well - if such a patch 
+conflicts with some ongoing work then we can by avoid the 
+conflict by just dropping that hunk and delaying that particular 
+conversion to the 'final' stage.
+
+	Ingo
