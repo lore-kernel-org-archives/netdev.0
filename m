@@ -1,39 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] e1000: Removing the unused macro
- PAGE_USE_COUNT()
-Date: Thu, 19 Feb 2009 14:39:02 -0800 (PST)
-Message-ID: <20090219.143902.191292595.davem@davemloft.net>
-References: <499AD0D4.2000504@linux.vnet.ibm.com>
-	<9929d2390902171527q62af2fdcnb99a9dd45e2b13bb@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH] wimax/i2400m: driver loads firmware v1.4 instead of v1.3
+Date: Thu, 19 Feb 2009 14:40:29 -0800
+Message-ID: <1235083229-25620-1-git-send-email-inaky@linux.intel.com>
+Cc: netdev@vger.kernel.org
+To: wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32988
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750794AbZBTCRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 21:17:52 -0500
-In-Reply-To: <9929d2390902171527q62af2fdcnb99a9dd45e2b13bb@mail.gmail.com>
+Received: from 076-076-148-181.pdx.net ([76.76.148.181]:48206 "EHLO
+	inaky-mobl3" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751191AbZBTCal (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 21:30:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 17 Feb 2009 15:27:01 -0800
+This is a one liner change to have the driver use by default the v1.4
+of the i2400m firmware instead of v1.3. The v1.4 version of the
+firmware has been submitted to David Woodhouse for inclusion in the
+linux-firmware tree and it is already available at
+http://linuxwimax.org/Download.
 
-> On Tue, Feb 17, 2009 at 6:59 AM, Breno Leitao <leitao@linux.vnet.ibm.com> wrote:
-> > Removing the unused macro PAGE_USE_COUNT(), since there is no more reference
-> > to it. The last reference was removed by Jesse's commit number
-> > 630b25cdf4e3f8c0a11eb04fc8436cc36653cd58.
-> >
-> > Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-> > ---
-> >  drivers/net/e1000/e1000_main.c |    2 --
-> >  1 files changed, 0 insertions(+), 2 deletions(-)
-> >
-> 
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+The reason for this change is that the 1.3 release of the user space
+software and firmware has a few issues that will make it difficult to
+use with currently deployed commercial networks such as Xohm and
+Clearwire.
 
-Applied, thanks everyone.
+As well, the new 1.4 release of the user space software (which matches
+the 1.4 firmware) has intermitent issues with the 1.3 firmware.
+
+The 1.4 release in http://linuxwimax.org/Download has been widely
+deployed and tested with the codebase in 2.6.29-rc, the 1.4 firmware
+and the 1.4 user space components.
+
+We understand it is quite late in the rc process for such a change,
+but would like to ask for the change to be taken into consideration.
+
+Alternatively, a user could always force feed a 1.4 firmware into a
+driver that doesn't have this modification by:
+
+$ cd /lib/firmware
+$ mv i2400m-fw-usb-1.3.sbcf i2400m-fw-usb-1.3.real.sbcf
+$ ln -sf i2400m-fw-usb-1.4.sbc i2400m-fw-usb-1.3.sbcf
+
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ drivers/net/wimax/i2400m/i2400m.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
+index 067c871..3b9d27e 100644
+--- a/drivers/net/wimax/i2400m/i2400m.h
++++ b/drivers/net/wimax/i2400m/i2400m.h
+@@ -157,7 +157,7 @@ enum {
+ 
+ 
+ /* Firmware version we request when pulling the fw image file */
+-#define I2400M_FW_VERSION "1.3"
++#define I2400M_FW_VERSION "1.4"
+ 
+ 
+ /**
+-- 
+1.5.6.5
+
