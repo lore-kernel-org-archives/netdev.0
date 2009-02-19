@@ -1,78 +1,55 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
-Date: Thu, 19 Feb 2009 09:03:14 -0800
-Message-ID: <20090219170313.GC12795@ovro.caltech.edu>
-References: <20090217222425.GA18801@ovro.caltech.edu> <D999D051-E5A2-4915-893D-E3384EC312A4@kernel.crashing.org> <7DF0AF56456B8F4081E3C44CCCE311DE1519A3@zch01exm23.fsl.freescale.net> <C04B22C6-BCE8-4D99-A160-22F8846C8209@kernel.crashing.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
+Date: Thu, 19 Feb 2009 10:15:07 -0800
+Message-ID: <499DA1AB.7040903@oracle.com>
+References: <alpine.LFD.2.00.0902131413120.3179@localhost.localdomain> <20090217095232.5da06b9f@werewolf.home> <200902172001.41804.arvidjaar@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zang Roy-R61911 <tie-fei.zang@freescale.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net,
+	=?ISO-8859-1?Q?=22J=2EA=2E_Magall?= =?ISO-8859-1?Q?=F3n=22?=
+	<jamagallon@ono.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Andrey Borzenkov <arvidjaar@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:44124 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752997AbZBSRDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 12:03:16 -0500
-Content-Disposition: inline
-In-Reply-To: <C04B22C6-BCE8-4D99-A160-22F8846C8209@kernel.crashing.org>
+Received: from rcsinet13.oracle.com ([148.87.113.125]:32044 "EHLO
+	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752791AbZBSSOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 13:14:53 -0500
+In-Reply-To: <200902172001.41804.arvidjaar@mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 19, 2009 at 10:51:43AM -0600, Kumar Gala wrote:
->
-> On Feb 19, 2009, at 12:13 AM, Zang Roy-R61911 wrote:
->
+Andrey Borzenkov wrote:
+> Forward to bonding and netdev
+>=20
+> On 17 of February 2009 11:52:32 J.A. Magall=F3n wrote:
+>> Hi all...
 >>
+>> Don't know if this is specific for -rc5, I have jumped from 28.4 to
+>> 29-rc5. In this latest kernel, I can not install 'bonding' module if
+>> 'ipv6' is disabled to load via modprobe.conf:
 >>
->>> -----Original Message-----
->>> From:
->>> linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs.org
->>> [mailto:linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs
->>> .org] On Behalf Of Kumar Gala
->>> Sent: Thursday, February 19, 2009 0:47 AM
->>> To: Ira Snyder
->>> Cc: Arnd Bergmann; Jan-Bernd Themann; netdev@vger.kernel.org;
->>> Rusty Russell; linux-kernel@vger.kernel.org; linuxppc-dev@ozlabs.org
->>> Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
->>>
->>>
->>> On Feb 17, 2009, at 4:24 PM, Ira Snyder wrote:
->>>
->>>>
->>>> Documentation/virtio-over-PCI.txt     |   61 ++
->>>> arch/powerpc/boot/dts/mpc834x_mds.dts |    7 +
->>>
->>> we'll have to review the .dts and expect a documentation update for
->>> the node.  But that's pretty minor at this point.
->>>
->>>> drivers/virtio/Kconfig                |   22 +
->>>> drivers/virtio/Makefile               |    2 +
->>>> drivers/virtio/vop.h                  |  119 ++
->>>> drivers/virtio/vop_fsl.c              | 1911
->>> ++++++++++++++++++++++++
->>>> +++++++++
->>>
->>> make this vop_fsl_mpc83xx.c or something along those lines.
->> why?
->
-> so we can deal with 85xx as well.  We just need to isolate the 83xx  
-> specific bits (message usage)
->
+>> install ipv6 /bin/true
+>>
+>> Trying bonding gives this dmesg:
+>>
+>> bonding: Unknown symbol ndisc_build_skb
+>> bonding: Unknown symbol in6_dev_finish_destroy
+>> bonding: Unknown symbol ndisc_send_skb
+>> bonding: Unknown symbol unregister_inet6addr_notifier
+>> bonding: Unknown symbol register_inet6addr_notifier
+>>
+>> Commenting the line in modprobe.conf makes things smooth again.
+>> We can not disable ipv6 anymore ?
+>>
+>=20
+> If IPv6 is disable in kernel config bonding loads. But I think it is=20
+> regression, it should be possible to disable IPv6 if not required.
 
-In fact, most of the driver has nothing to do with hardware, and
-everything to do with managing memory.
+Just for clarification, is this a run-time (module load-time) error
+but not a build error?
 
-Most of the driver could be shared between implementations. The only
-things that would be hardware specific are setting up the descriptor
-memory, and raising/handling interrupts.
-
-I just wanted to get something working and out here to discuss. I
-figured that more hardware support, features, etc. could come later.
-Just like everything else in the kernel, I'm sure this will have to
-evolve over time as well.
-
-Thanks,
-Ira
+--=20
+~Randy
