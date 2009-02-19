@@ -1,35 +1,49 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH v2] net/mv643xx: don't disable the mib timer too early and lock properly
-Date: Thu, 19 Feb 2009 02:05:29 +0100
-Message-ID: <20090219010529.GA17914@xi.wantstofly.org>
-References: <20090215092719.GB12280@Chamillionaire.breakpoint.cc> <20090216082922.GA18030@Chamillionaire.breakpoint.cc> <20090216145610.GX17914@xi.wantstofly.org> <20090216212815.GA21732@Chamillionaire.breakpoint.cc>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
+Date: Wed, 18 Feb 2009 20:11:06 -0500
+Message-ID: <499CB1AA.70801@hp.com>
+References: <20090218135537.GF3600@mini-me.lan>	<06F54D7E-EE07-49C9-AD8F-B46BD6B02ABA@oracle.com>	<499C5486.5020807@hp.com> <20090218.141431.103832064.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
-	jeff@garzik.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: chuck.lever@oracle.com, tytso@mit.edu, Valdis.Kletnieks@vt.edu,
+	arvidjaar@mail.ru, rjw@sisk.pl, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:40453 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131AbZBSBFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:05:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20090216212815.GA21732@Chamillionaire.breakpoint.cc>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:11817 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbZBSBLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:11:10 -0500
+In-Reply-To: <20090218.141431.103832064.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 16, 2009 at 10:28:15PM +0100, Sebastian Andrzej Siewior wrote:
-
-> mib_counters_update() also restarts the timer.
-> So the timer is dequeued, the stats are read and then the timer is
-> enqueued again. This is "okay" unless someone unloads the module.
-> The locking here is also broken:
-> mib_counters_update() grabs just a simple spinlock. The only thing the
-> lock is good for is to protect the timer func against other callers
-> namely mv643xx_eth_stop() && mv643xx_eth_get_ethtool_stats(). That means
-> if the spinlock is taken via the ethtool path and than the timer kicks
-> in then the box will lock up.
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Wed, 18 Feb 2009 13:33:42 -0500
 > 
-> Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+>> Would a module parameter that disables ipv6 or at least addrconf be
+>> enough of a solution?
+> 
+> We have it, it's just that (as others have stated) it doesn't
+> prevent IPV6 sockets from being openned by applications.
+> 
 
-Acked-by: Lennert Buytenhek <buytenh@marvell.com>
+Is that what people really want to block?
+
+Or do they want to prevent the use of IPv6 in environments where
+IPv6 is not supported?  If it's this case, then simply not configuring
+any IPv6 addresses on the system interfaces will make it seem as if
+IPv6 is not there.
+
+Without IPv6 addresses, AF_INET6 sockets are the same as AF_INET.
+I really see no reason to block them.  Any legacy apps that people
+might worry about don't use this type socket any way.
+
+One doesn't even need to worry about processing IPv6 traffic,
+since the system would never join any IPv6 multicast groups and thus
+would never see 99% of the traffic.
+
+-vlad
