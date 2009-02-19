@@ -1,30 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] iptables: lock free counters
-Date: Thu, 19 Feb 2009 17:18:01 -0800
-Message-ID: <499E04C9.4020308@hp.com>
-References: <20090218051906.174295181@vyatta.com>	<20090218052747.321329022@vyatta.com>	<20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com>	<499DF1A2.1030405@hp.com> <20090219170318.3f7d54f2@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] e1000: Removing the unused macro
+ PAGE_USE_COUNT()
+Date: Thu, 19 Feb 2009 14:39:02 -0800 (PST)
+Message-ID: <20090219.143902.191292595.davem@davemloft.net>
+References: <499AD0D4.2000504@linux.vnet.ibm.com>
+	<9929d2390902171527q62af2fdcnb99a9dd45e2b13bb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090219170318.3f7d54f2@extreme>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32988
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750794AbZBTCRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 21:17:52 -0500
+In-Reply-To: <9929d2390902171527q62af2fdcnb99a9dd45e2b13bb@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>>Thanks Stephen, thats very cool stuff, yet another rwlock out of kernel :)
->>
->>Do you folks need/want further testing against the 32-core setup?
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 17 Feb 2009 15:27:01 -0800
+
+> On Tue, Feb 17, 2009 at 6:59 AM, Breno Leitao <leitao@linux.vnet.ibm.com> wrote:
+> > Removing the unused macro PAGE_USE_COUNT(), since there is no more reference
+> > to it. The last reference was removed by Jesse's commit number
+> > 630b25cdf4e3f8c0a11eb04fc8436cc36653cd58.
+> >
+> > Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> > ---
+> >  drivers/net/e1000/e1000_main.c |    2 --
+> >  1 files changed, 0 insertions(+), 2 deletions(-)
+> >
 > 
-> 
-> It would be good to combine all 3 (iptables-rcu, timer change, and conntrack lock)
-> to see what the overhead change is.
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Fair enough. Is there a tree somewhere I can pull with all those in it, or do I 
-need to go back through the emails and apply patches?
-
-rick jones
+Applied, thanks everyone.
