@@ -1,403 +1,279 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH 6/8] can: SJA1000 driver for EMS PCI cards
-Date: Thu, 19 Feb 2009 20:01:20 +0100
-Message-ID: <1235070082-7069-7-git-send-email-wg@grandegger.com>
+Subject: [PATCH 1/8] can: Documentation for the CAN device driver interface
+Date: Thu, 19 Feb 2009 20:01:15 +0100
+Message-ID: <1235070082-7069-2-git-send-email-wg@grandegger.com>
 References: <1235070082-7069-1-git-send-email-wg@grandegger.com>
- <1235070082-7069-2-git-send-email-wg@grandegger.com>
- <1235070082-7069-3-git-send-email-wg@grandegger.com>
- <1235070082-7069-4-git-send-email-wg@grandegger.com>
- <1235070082-7069-5-git-send-email-wg@grandegger.com>
- <1235070082-7069-6-git-send-email-wg@grandegger.com>
 Cc: linux-kernel@vger.kernel.org,
 	Wolfgang Grandegger <wg@grandegger.com>,
-	Sebastian Haas <haas@ems-wuensche.com>,
-	Markus Plessing <plessing@ems-wuensche.com>
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:36626 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:35520 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753562AbZBSTBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 14:01:33 -0500
-In-Reply-To: <1235070082-7069-6-git-send-email-wg@grandegger.com>
+	with ESMTP id S1753579AbZBSTBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 14:01:30 -0500
+In-Reply-To: <1235070082-7069-1-git-send-email-wg@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds support for the one or two channel CPC-PCI and CPC-PCIe
-cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+This patch documents the CAN netowrk device drivers interface, removes
+obsolete documentation and adds some useful links to CAN resources.
 
-Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
-Signed-off-by: Markus Plessing <plessing@ems-wuensche.com>
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 ---
- drivers/net/can/Kconfig           |    7 +
- drivers/net/can/sja1000/Makefile  |    1 +
- drivers/net/can/sja1000/ems_pci.c |  328 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 336 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/sja1000/ems_pci.c
+ Documentation/networking/can.txt |  214 ++++++++++++++++++++++++++++++-------
+ 1 files changed, 173 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index d6dee40..4e6887e 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -56,6 +56,13 @@ config CAN_SJA1000_PLATFORM
- 	  boards from Phytec (http://www.phytec.de) like the PCM027,
- 	  PCM038.
+diff --git a/Documentation/networking/can.txt b/Documentation/networking/can.txt
+index 2035bc4..d2cc3de 100644
+--- a/Documentation/networking/can.txt
++++ b/Documentation/networking/can.txt
+@@ -36,10 +36,15 @@ This file contains
+     6.2 local loopback of sent frames
+     6.3 CAN controller hardware filters
+     6.4 The virtual CAN driver (vcan)
+-    6.5 currently supported CAN hardware
+-    6.6 todo
++    6.5 The CAN network device driver interface
++      6.5.1 SYSFS files to set and get devices properties
++      6.5.2 Setting the CAN bit-timing
++      6.5.3 Starting and stopping the CAN network device
++    6.6 supported CAN hardware
  
-+config CAN_EMS_PCI
-+	tristate "EMS CPC-PCI and CPC-PCIe Card"
-+	depends on PCI && CAN_SJA1000
-+	---help---
-+	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
-+	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+-  7 Credits
++  7 Socket CAN resources
 +
- config CAN_DEBUG_DEVICES
- 	bool "CAN devices debugging messages"
- 	depends on CAN
-diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
-index 5115cc9..7772dd2 100644
---- a/drivers/net/can/sja1000/Makefile
-+++ b/drivers/net/can/sja1000/Makefile
-@@ -4,5 +4,6 @@
++  8 Credits
  
- obj-$(CONFIG_CAN_SJA1000) += sja1000.o
- obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
-+obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+ ============================================================================
  
- ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
-new file mode 100644
-index 0000000..6076375
---- /dev/null
-+++ b/drivers/net/can/sja1000/ems_pci.c
-@@ -0,0 +1,328 @@
-+/*
-+ * Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
-+ * Copyright (C) 2008 Markus Plessing <plessing@ems-wuensche.com>
-+ * Copyright (C) 2008 Sebastian Haas <haas@ems-wuensche.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+#include <linux/can.h>
-+#include <linux/can/dev.h>
-+#include <linux/io.h>
-+
-+#include "sja1000.h"
-+
-+#define DRV_NAME  "ems_pci"
-+
-+MODULE_AUTHOR("Sebastian Haas <haas@ems-wuenche.com>");
-+MODULE_DESCRIPTION("Socket-CAN driver for EMS CPC-PCI/PCIe CAN cards");
-+MODULE_SUPPORTED_DEVICE("EMS CPC-PCI/PCIe CAN card");
-+MODULE_LICENSE("GPL v2");
-+
-+#define EMS_PCI_MAX_CHAN 2
-+
-+struct ems_pci_card {
-+	int channels;
-+
-+	struct pci_dev *pci_dev;
-+	struct net_device *net_dev[EMS_PCI_MAX_CHAN];
-+
-+	void __iomem *conf_addr;
-+	void __iomem *base_addr;
-+};
-+
-+#define EMS_PCI_CAN_CLOCK (16000000 / 2)
-+
-+/*
-+ * Register definitions and descriptions are from LinCAN 0.3.3.
-+ *
-+ * PSB4610 PITA-2 bridge control registers
-+ */
-+#define PITA2_ICR           0x00	/* Interrupt Control Register */
-+#define PITA2_ICR_INT0      0x00000002	/* [RC] INT0 Active/Clear */
-+#define PITA2_ICR_INT0_EN   0x00020000	/* [RW] Enable INT0 */
-+
-+#define PITA2_MISC          0x1c	/* Miscellaneous Register */
-+#define PITA2_MISC_CONFIG   0x04000000	/* Multiplexed parallel interface */
-+
-+/*
-+ * The board configuration is probably following:
-+ * RX1 is connected to ground.
-+ * TX1 is not connected.
-+ * CLKO is not connected.
-+ * Setting the OCR register to 0xDA is a good idea.
-+ * This means  normal output mode , push-pull and the correct polarity.
-+ */
-+#define EMS_PCI_OCR         (OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
-+
-+/*
-+ * In the CDR register, you should set CBP to 1.
-+ * You will probably also want to set the clock divider value to 7
-+ * (meaning direct oscillator output) because the second SJA1000 chip
-+ * is driven by the first one CLKOUT output.
-+ */
-+#define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
-+#define EMS_PCI_MEM_SIZE        4096  /* Size of the remapped io-memory */
-+#define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
-+#define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
-+
-+#define EMS_PCI_PORT_BYTES  0x4     /* Each register occupies 4 bytes */
-+
-+#define EMS_PCI_VENDOR_ID   0x110a  /* PCI device and vendor ID */
-+#define EMS_PCI_DEVICE_ID   0x2104
-+
-+static struct pci_device_id ems_pci_tbl[] = {
-+	{EMS_PCI_VENDOR_ID, EMS_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-+	{0,}
-+};
-+MODULE_DEVICE_TABLE(pci, ems_pci_tbl);
-+
-+/*
-+ * Helper to read internal registers from card logic (not CAN)
-+ */
-+static u8 ems_pci_readb(struct ems_pci_card *card, unsigned int port)
-+{
-+	return readb((void __iomem *)card->base_addr
-+			+ (port * EMS_PCI_PORT_BYTES));
-+}
-+
-+static u8 ems_pci_read_reg(struct net_device *dev, int port)
-+{
-+	return readb((void __iomem *)dev->base_addr
-+			+ (port * EMS_PCI_PORT_BYTES));
-+}
-+
-+static void ems_pci_write_reg(struct net_device *dev, int port, u8 val)
-+{
-+	writeb(val, (void __iomem *)dev->base_addr
-+		+ (port * EMS_PCI_PORT_BYTES));
-+}
-+
-+static void ems_pci_post_irq(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct ems_pci_card *card = (struct ems_pci_card *)priv->priv;
-+
-+	/* reset int flag of pita */
-+	writel(PITA2_ICR_INT0_EN | PITA2_ICR_INT0, card->conf_addr
-+		+ PITA2_ICR);
-+}
-+
-+/*
-+ * Check if a CAN controller is present at the specified location
-+ * by trying to set 'em into the PeliCAN mode
-+ */
-+static inline int ems_pci_check_chan(struct net_device *dev)
-+{
-+	unsigned char res;
-+
-+	/* Make sure SJA1000 is in reset mode */
-+	ems_pci_write_reg(dev, REG_MOD, 1);
-+
-+	ems_pci_write_reg(dev, REG_CDR, CDR_PELICAN);
-+
-+	/* read reset-values */
-+	res = ems_pci_read_reg(dev, REG_CDR);
-+
-+	if (res == CDR_PELICAN)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static void ems_pci_del_card(struct pci_dev *pdev)
-+{
-+	struct ems_pci_card *card = pci_get_drvdata(pdev);
-+	struct net_device *dev;
-+	int i = 0;
-+
-+	for (i = 0; i < card->channels; i++) {
-+		dev = card->net_dev[i];
-+
-+		if (!dev)
-+			continue;
-+
-+		dev_info(&pdev->dev, "Removing %s.\n", dev->name);
-+		unregister_sja1000dev(dev);
-+		free_sja1000dev(dev);
-+	}
-+
-+	if (card->base_addr != NULL)
-+		pci_iounmap(card->pci_dev, card->base_addr);
-+
-+	if (card->conf_addr != NULL)
-+		pci_iounmap(card->pci_dev, card->conf_addr);
-+
-+	kfree(card);
-+
-+	pci_disable_device(pdev);
-+	pci_set_drvdata(pdev, NULL);
-+}
-+
-+static void ems_pci_card_reset(struct ems_pci_card *card)
-+{
-+	/* Request board reset */
-+	writeb(0, card->base_addr);
-+}
-+
-+/*
-+ * Probe PCI device for EMS CAN signature and register each available
-+ * CAN channel to SJA1000 Socket-CAN subsystem.
-+ */
-+static int __devinit ems_pci_add_card(struct pci_dev *pdev,
-+					const struct pci_device_id *ent)
-+{
-+	struct sja1000_priv *priv;
-+	struct net_device *dev;
-+	struct ems_pci_card *card;
-+	int err, i;
-+
-+	/* Enabling PCI device */
-+	if (pci_enable_device(pdev) < 0) {
-+		dev_err(&pdev->dev, "Enabling PCI device failed\n");
-+		return -ENODEV;
-+	}
-+
-+	/* Allocating card structures to hold addresses, ... */
-+	card = kzalloc(sizeof(struct ems_pci_card), GFP_KERNEL);
-+	if (card == NULL) {
-+		dev_err(&pdev->dev, "Unable to allocate memory\n");
-+		pci_disable_device(pdev);
-+		return -ENOMEM;
-+	}
-+
-+	pci_set_drvdata(pdev, card);
-+
-+	card->pci_dev = pdev;
-+
-+	card->channels = 0;
-+
-+	/* Remap PITA configuration space, and controller memory area */
-+	card->conf_addr = pci_iomap(pdev, 0, EMS_PCI_MEM_SIZE);
-+	if (card->conf_addr == NULL) {
-+		err = -ENOMEM;
-+
-+		goto failure_cleanup;
-+	}
-+
-+	card->base_addr = pci_iomap(pdev, 1, EMS_PCI_MEM_SIZE);
-+	if (card->base_addr == NULL) {
-+		err = -ENOMEM;
-+
-+		goto failure_cleanup;
-+	}
-+
-+	/* Configure PITA-2 parallel interface (enable MUX) */
-+	writel(PITA2_MISC_CONFIG, card->conf_addr + PITA2_MISC);
-+
-+	/* Check for unique EMS CAN signature */
-+	if (ems_pci_readb(card, 0) != 0x55 ||
-+	    ems_pci_readb(card, 1) != 0xAA ||
-+	    ems_pci_readb(card, 2) != 0x01 ||
-+	    ems_pci_readb(card, 3) != 0xCB ||
-+	    ems_pci_readb(card, 4) != 0x11) {
-+		dev_err(&pdev->dev, "Not EMS Dr. Thomas Wuensche interface\n");
-+
-+		err = -ENODEV;
-+		goto failure_cleanup;
-+	}
-+
-+	ems_pci_card_reset(card);
-+
-+	/* Detect available channels */
-+	for (i = 0; i < EMS_PCI_MAX_CHAN; i++) {
-+		dev = alloc_sja1000dev(0);
-+		if (dev == NULL) {
-+			err = -ENOMEM;
-+			goto failure_cleanup;
-+		}
-+
-+		card->net_dev[i] = dev;
-+		priv = netdev_priv(dev);
-+		priv->priv = card;
-+
-+		dev->irq = pdev->irq;
-+		dev->base_addr = (unsigned long)(card->base_addr
-+						+ EMS_PCI_CAN_BASE_OFFSET
-+						+ (i * EMS_PCI_CAN_CTRL_SIZE));
-+
-+		/* Check if channel is present */
-+		if (ems_pci_check_chan(dev)) {
-+			priv->read_reg  = ems_pci_read_reg;
-+			priv->write_reg = ems_pci_write_reg;
-+			priv->post_irq  = ems_pci_post_irq;
-+			priv->can.bittiming.clock = EMS_PCI_CAN_CLOCK;
-+			priv->ocr = EMS_PCI_OCR;
-+			priv->cdr = EMS_PCI_CDR;
-+
-+			SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+			/* Enable interrupts from card */
-+			writel(PITA2_ICR_INT0_EN, card->conf_addr + PITA2_ICR);
-+
-+			/* Register SJA1000 device */
-+			err = register_sja1000dev(dev);
-+			if (err) {
-+				dev_err(&pdev->dev, "Registering device failed "
-+							"(err=%d)\n", err);
-+				free_sja1000dev(dev);
-+				goto failure_cleanup;
-+			}
-+
-+			card->channels++;
-+
-+			dev_info(&pdev->dev, "Channel #%d at %#lX, irq %d\n",
-+						i + 1, dev->base_addr,
-+						dev->irq);
-+		} else {
-+			free_sja1000dev(dev);
-+		}
-+	}
-+
-+	return 0;
-+
-+failure_cleanup:
-+	dev_err(&pdev->dev, "Error: %d. Cleaning Up.\n", err);
-+
-+	ems_pci_del_card(pdev);
-+
-+	return err;
-+}
-+
-+static struct pci_driver ems_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = ems_pci_tbl,
-+	.probe = ems_pci_add_card,
-+	.remove = ems_pci_del_card,
-+};
-+
-+static int __init ems_pci_init(void)
-+{
-+	return pci_register_driver(&ems_pci_driver);
-+}
-+
-+static void __exit ems_pci_exit(void)
-+{
-+	pci_unregister_driver(&ems_pci_driver);
-+}
-+
-+module_init(ems_pci_init);
-+module_exit(ems_pci_exit);
-+
+@@ -234,6 +239,8 @@ solution for a couple of reasons:
+   the user application using the common CAN filter mechanisms. Inside
+   this filter definition the (interested) type of errors may be
+   selected. The reception of error frames is disabled by default.
++  The format of the CAN error frame is briefly decribed in the Linux
++  header file "include/linux/can/error.h".
+ 
+ 4. How to use Socket CAN
+ ------------------------
+@@ -613,53 +620,178 @@ solution for a couple of reasons:
+   - Remove a (virtual CAN) network interface 'vcan42':
+        ip link del vcan42
+ 
+-  The tool 'vcan' from the SocketCAN SVN repository on BerliOS is obsolete.
+-
+-  Virtual CAN network device creation in older Kernels:
+-  In Linux Kernel versions < 2.6.24 the vcan driver creates 4 vcan
+-  netdevices at module load time by default. This value can be changed
+-  with the module parameter 'numdev'. E.g. 'modprobe vcan numdev=8'
+-
+-  6.5 currently supported CAN hardware
+-
+-  On the project website http://developer.berlios.de/projects/socketcan
+-  there are different drivers available:
+-
+-    vcan:    Virtual CAN interface driver (if no real hardware is available)
+-    sja1000: Philips SJA1000 CAN controller (recommended)
+-    i82527:  Intel i82527 CAN controller
+-    mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
+-    ccan:    CCAN controller core (e.g. inside SOC h7202)
+-    slcan:   For a bunch of CAN adaptors that are attached via a
+-             serial line ASCII protocol (for serial / USB adaptors)
+-
+-  Additionally the different CAN adaptors (ISA/PCI/PCMCIA/USB/Parport)
+-  from PEAK Systemtechnik support the CAN netdevice driver model
+-  since Linux driver v6.0: http://www.peak-system.com/linux/index.htm
+-
+-  Please check the Mailing Lists on the berlios OSS project website.
+-
+-  6.6 todo
+-
+-  The configuration interface for CAN network drivers is still an open
+-  issue that has not been finalized in the socketcan project. Also the
+-  idea of having a library module (candev.ko) that holds functions
+-  that are needed by all CAN netdevices is not ready to ship.
+-  Your contribution is welcome.
+-
+-7. Credits
++  6.5 The CAN network device driver interface
++
++  The CAN network device driver interface provides a generic interface
++  to setup, configure and monitor CAN network devices. The user can then
++  configure CAN devices, like setting the bit-timing parameters, through
++  SYSFS files. They are described in the following chapter. Furthermore,
++  the interface uses a common data structure and exports a set of common
++  functions, which all real CAN network device drivers should use.
++  Please have a look to the SJA1000 or MSCAN driver to understand how to
++  use them. The name of the module is can-dev.ko.
++
++  6.5.1 SYSFS files to set and get devices properties
++
++  When the CAN device is registered, a set of SYSFS files is created in
++  "/sys/class/net/canX/". These files allow to set and get device
++  properties. Here is a list of the files and a brief explanation for
++  what they are good for:
++
++    can_state:
++	Returns the current state of the CAN controller: "active",
++	"stopped" or "sleeping" or the bus error states "bus-warn",
++	"bus-pass" or "bus-off". Please do not read it frequently.
++	State changes are also reported via CAN error frames and the
++	application should monitor and handle them instead (see also
++	chapter 3.4).
++
++    can_ctrlmode:
++	Allows to set various CAN controller modes like loop-back (0x1),
++	listen-only (0x2) or triple-sampling (0x4) by writing the
++	corresponding bit mask to this file. Please use the prefix "0x"
++	for hexadecimal values.
++
++    can_echo:
++	Allows to read and toggle the local loop-back functionality of
++	the device. See chapter 6.2 for further information.
++
++    can_restart:
++	Writing "1" to this file allows to manually trigger a restart of
++	the CAN controller in case of a bus-off condition. This file is
++	not readable.
++
++    can_restart_ms:
++	Allows to set and get the automatic restart delay time. If set to
++	a value greater than 0, a restart of the CAN controller will be
++	triggered automatically in case of a bus-off condition after the
++	specified delay time in milliseconds. By default it's off.
++
++    can_bittiming:
++	Sub-directory with files to set and get CAN bit-timing
++	parameters.
++
++    can_bittiming/bitrate
++    can_bittiming/sample_point:
++	If calculation of CAN bit-timing parameters is enabled in the
++	kernel (CONFIG_CAN_CALC_BITTIMING=y), the bit-timing can be
++	defined by writing the bit-rate in bits/sec to "bitrate".
++	Otherwise the file is read-only and returns the actual bit-rate.
++	Accordingly the sample-point in one-tenth of a percent can be
++	set or read. By default it's set to 0 using CIA-recommended
++	sample-points.
++
++    can_bittiming/tq
++    can_bittiming/prop_seg
++    can_bittiming/phase_seg1
++    can_bittiming/phase_seg2
++    can_bittiming/sjw:
++	These files allow to define the CAN bit-timing in a hardware
++	independent format as proposed by the Bosch CAN 2.0
++	specification.
++
++    can_bittiming/hw_clock
++    can_bittiming/hw_brp_inc
++    can_bittiming/hw_brp_max
++    can_bittiming/hw_brp_min
++    can_bittiming/hw_sjw_max
++    can_bittiming/hw_tseg1_max
++    can_bittiming/hw_tseg1_min
++    can_bittiming/hw_tseg2_max
++    can_bittiming/hw_tseg2_min:
++	These read-only files list the bit-timing constants for this
++	device. They are provided by the CAN controller driver and are
++	used to calculate and check CAN bit-timing parameters.
++	Furthermore, these values can be used for user-defined
++	(non-standard) bit-timing calculation algorithms in userspace.
++
++    can_statistics
++    can_statistics/arbitration_lost
++    can_statistics/bus_error
++    can_statistics/data_overrun
++    can_statistics/error_passive
++    can_statistics/error_warning
++    can_statistics/restarts
++    can_statistics/wakeup:
++	These read-only files list CAN specific statistics values.
++
++  6.5.2 Setting the CAN bit-timing
++
++  The CAN bit-timing parameters can always be specified in a hardware
++  independent format as proposed in the Bosch CAN 2.0 specification
++  using the SYSFS files "tq", "prop_seg", "phase_seg1", "phase_seg2"
++  and "sjw". The SYSFS files are described in the previous chapter.
++
++  If the kernel option CONFIG_CAN_CALC_BITTIMING is enabled, CIA
++  recommended CAN bit-timing parameters will be calculated for the bit-
++  rate written to the SYSFS file "bitrate" when the device gets started.
++  Note that this works fine for the most common CAN controllers with
++  standard bit-rates but may *fail* for exotic bit-rates or CAN source
++  clock frequencies. Disabling CONFIG_CAN_CALC_BITTIMING saves some
++  space and allows user space tools to solely determine and set the
++  bit-timing parameters. The CAN controller specific bit-timing
++  constants can be used for that purpose. They are available in the
++  SYSFS directory "can_bittiming" as well with the name prefix "hw_".
++
++  6.5.3 Starting and stopping the CAN network device
++
++  A CAN network device is started and stopped as usual with the command
++  "ifconfig canX up" and "ifconfig canX down". Be aware that you *must*
++  define proper bit-timing parameters for real CAN devices before you
++  can start it to avoid error-prone default settings:
++
++    # echo 125000 > /sys/class/net/can0/can_bittiming/bitrate
++    # ifconfig can0 up
++
++  A device may enter "bus-off" state if too much errors occurred on the
++  CAN bus. Then no more messages can be received or sent. The SYSFS file
++  "/sys/class/net/can0/can_state" then reports "bus-off". An automatic
++  bus-off recovery can be enabled by writing the desired restart delay
++  in milliseconds to "/sys/class/net/canX/can_restart_ms".
++  Alternatively, the application may realize the "bus-off" condition
++  by monitoring CAN error frames and do a restart when appropriate by
++  writing to the SYSFS file /sys/class/net/canX/can_restart. Note that
++  a restart will also create a CAN error frame (see also chapter 3.4).
++
++  6.6 Supported CAN hardware
++
++  Please check the "Kconfig" file in "drivers/net/can" to get an actual
++  list of the support CAN hardware. On the Socket CAN project website
++  (see chapter 7) there might be further drivers available, also for
++  older kernel versions.
++
++7. Socket CAN resources
++-----------------------
++
++  You can find further resources for Socket CAN like user space tools,
++  support for old kernel versions, more drivers, mailing lists, etc.
++  at the BerliOS OSS project website for Socket CAN:
++
++    http://developer.berlios.de/projects/socketcan
++
++  If you have questions, bug fixes, etc., don't hesitate to post them to
++  the Socketcan-Users mailing list. But please search the archives first.
++
++8. Credits
+ ----------
+ 
+-  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm)
++  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm, SJA1000 driver)
+   Urs Thuermann (PF_CAN core, kernel integration, socket interfaces, raw, vcan)
+   Jan Kizka (RT-SocketCAN core, Socket-API reconciliation)
+-  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews)
++  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews,
++                       CAN device driver interface, MSCAN driver)
+   Robert Schwebel (design reviews, PTXdist integration)
+   Marc Kleine-Budde (design reviews, Kernel 2.6 cleanups, drivers)
+   Benedikt Spranger (reviews)
+   Thomas Gleixner (LKML reviews, coding style, posting hints)
+-  Andrey Volkov (kernel subtree structure, ioctls, mscan driver)
++  Andrey Volkov (kernel subtree structure, ioctls, MSCAN driver)
+   Matthias Brukner (first SJA1000 CAN netdevice implementation Q2/2003)
+   Klaus Hitschler (PEAK driver integration)
+   Uwe Koppe (CAN netdevices with PF_PACKET approach)
+   Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
++  Pavel Pisa (Bit-timing calculation)
++  Sascha Hauer (SJA1000 platform driver)
++  Sebastian Haas (SJA1000 EMS PCI driver)
++  Markus Plessing (SJA1000 EMS PCI driver)
++  Per Dalen (SJA1000 Kvaser PCI driver)
++  Sam Ravnborg (reviews, coding style, kbuild help)
 -- 
 1.5.6.6
 
