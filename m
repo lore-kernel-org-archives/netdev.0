@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1c:Atheros L1C Gigabit Ethernet driver
-Date: Wed, 18 Feb 2009 17:30:52 -0800 (PST)
-Message-ID: <20090218.173052.261399179.davem@davemloft.net>
-References: <12348515723015-git-send-email-jie.yang@atheros.com>
+Subject: Re: [PATCH] genetlink: introduce pre/post methods
+Date: Wed, 18 Feb 2009 17:33:34 -0800 (PST)
+Message-ID: <20090218.173334.110224475.davem@davemloft.net>
+References: <1234515865.4204.16.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, jirislaby@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@redhat.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36724
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48756
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752379AbZBSBbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:31:08 -0500
-In-Reply-To: <12348515723015-git-send-email-jie.yang@atheros.com>
+	by vger.kernel.org with ESMTP id S1751372AbZBSBdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:33:50 -0500
+In-Reply-To: <1234515865.4204.16.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <jie.yang@atheros.com>
-Date: Tue, 17 Feb 2009 14:19:32 +0800
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Fri, 13 Feb 2009 10:04:25 +0100
 
-> Supporting AR8131, and AR8132.
+> Sometimes doit/dumpit callbacks for a given family consist
+> of quite a bit of boilerplate code, for example locking or
+> generic sanity checks on messages.
 > 
-> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+> These methods allow writing the boilerplate code just once
+> instead of copying it into all handlers.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Patch applied, thank you very much.
+I'm fine with this:
+
+Acked-by: David S. Miller <davem@davemloft.net>
+
+Feel free to toss it into the wireless tree.
