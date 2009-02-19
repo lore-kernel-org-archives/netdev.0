@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] genetlink: introduce pre/post methods
-Date: Wed, 18 Feb 2009 17:33:34 -0800 (PST)
-Message-ID: <20090218.173334.110224475.davem@davemloft.net>
-References: <1234515865.4204.16.camel@johannes.local>
+Subject: Re: [PATCH] net/mv643xx: use GFP_ATOMIC while atomic
+Date: Wed, 18 Feb 2009 17:37:35 -0800 (PST)
+Message-ID: <20090218.173735.219377998.davem@davemloft.net>
+References: <20090215092618.GA12280@Chamillionaire.breakpoint.cc>
+	<20090216145430.GW17914@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, tgraf@redhat.com
-To: johannes@sipsolutions.net
+Cc: sebastian@breakpoint.cc, jeff@garzik.org, netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48756
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47604
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751372AbZBSBdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:33:50 -0500
-In-Reply-To: <1234515865.4204.16.camel@johannes.local>
+	by vger.kernel.org with ESMTP id S1751891AbZBSBhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 20:37:51 -0500
+In-Reply-To: <20090216145430.GW17914@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 13 Feb 2009 10:04:25 +0100
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Mon, 16 Feb 2009 15:54:30 +0100
 
-> Sometimes doit/dumpit callbacks for a given family consist
-> of quite a bit of boilerplate code, for example locking or
-> generic sanity checks on messages.
+> On Sun, Feb 15, 2009 at 01:26:18AM -0800, Sebastian Andrzej Siewior wrote:
 > 
-> These methods allow writing the boilerplate code just once
-> instead of copying it into all handlers.
+> > dev_set_rx_mode() grabs netif_addr_lock_bh():
+> > 
+ ...
+> > Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Acked-by: Lennert Buytenhek <buytenh@marvell.com>
 
-I'm fine with this:
-
-Acked-by: David S. Miller <davem@davemloft.net>
-
-Feel free to toss it into the wireless tree.
+Applied.
