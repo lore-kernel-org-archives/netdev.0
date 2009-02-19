@@ -1,60 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: PF_PACKET or nfnetlink logging of skb->priority
-Date: Thu, 19 Feb 2009 00:57:56 +0100
-Message-ID: <499CA084.30209@trash.net>
-References: <1234990308.18165.68.camel@ragnarok>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Why linux keeps connected routes when link goes down
+Date: Wed, 18 Feb 2009 16:04:36 -0800
+Message-ID: <20090218160436.44f19ea0@extreme>
+References: <200902190203.41497.homecreate@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jeremy Jackson <jerj@coplanar.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1234990308.18165.68.camel@ragnarok>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?0KXQsNC90LrQuNC9INCa0L7QvdGB0YLQsNC90YLQuNC9?=
+	<homecreate@list.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:55263 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751180AbZBSAEj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2009 19:04:39 -0500
+In-Reply-To: <200902190203.41497.homecreate@list.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeremy Jackson wrote:
-> It seems that there is nothing that can capture the skb->priority
-> outside the kernel. 
->
-> There is an iptables *target* "CLASSIFY", which can *set* skb->priority,
-> but there is no iptables *match* based on it.
->
-> tcpdump/pcap/PF_PACKET are oblivious to skb->priority.
->
-> netfilter netlink queue can export the skb->mark like the right
-> mechanism, but it doesn't touch skb->priority anywhere.   Perhaps there
-> needs to be a another one in include/linux/netfilter/nfnetlink_queue.h:
->
-> enum nfqnl_attr_type {
->         NFQA_UNSPEC,
->         NFQA_PACKET_HDR,
->         NFQA_VERDICT_HDR,               /* nfqnl_msg_verdict_hrd */
->         NFQA_MARK,   
-> ... etc
-> 	NFQA_SKBPRIORITY
->
-> The specific use I'm thinking of now, is troubleshooting priority
-> queueing with "tc" by being able to log or tcpdump traffic for a
-> specific qdisc/class.
->
-> It might also be nice to be able to tcpdump and/or log packets going
-> into or out of a specific qdisc/class, but I'd settle for dumping
-> packets based on skb->priority.
->   
+On Thu, 19 Feb 2009 02:03:40 +0500
+=D0=A5=D0=B0=D0=BD=D0=BA=D0=B8=D0=BD =D0=9A=D0=BE=D0=BD=D1=81=D1=82=D0=B0=
+=D0=BD=D1=82=D0=B8=D0=BD  <homecreate@list.ru> wrote:
 
-I think this makes a lot of sense for nfnetlink_queue/log, I'll
-gladly take patches :) It should also support changing the priority
-using nfnetlink_queue, that would simplify userspace classification
-since you don't need to map to mark values, just to have the
-classifier map it back to classes.
+> Hello!
+> Why kernel keeps connected routes when link is not in RUNNING state? =
+It's not=20
+> only linux behavior, some other OSes do so, but why?
+> It's interesting for me because I have a problem with setting up Quag=
+ga for=20
+> OSPF support. When link goes down (!IFF_RUNNING), Quagga updates only=
+ its own=20
+> routing table. I must use ifplugd to update routes in kernel (actuall=
+y to=20
+> delete connected route), but I think it is not a right way.
+> So the main question is: why linux keeps connected routes when link g=
+oes down?
+> PS: ``ip monitor'' reports about link fail after a minute or longer (=
+on=20
+> 8139too and 3c905x). On some Acorp cards it doesn't notice link failu=
+re. Is it=20
+> a bad driver or crappy cards? On r8169 I have no problems
 
-For libpcap the main problem will probably be that its meta data
-that needs to be stored in the pseudo header and you'll need to
-keep the format compatible and the tools need to be changed to
-interpret it. Using netfilter definitely looks like the easier
-route :)
-
-
+There are patches in Vyatta version of Quagga to what you want.
+They have been submitted to quagga-developers but the community
+process on quagga is much slower than the kernel.
