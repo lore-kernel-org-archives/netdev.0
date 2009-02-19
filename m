@@ -1,171 +1,472 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH 4/8] can: Driver for the SJA1000 CAN controller
-Date: Thu, 19 Feb 2009 20:01:18 +0100
-Message-ID: <1235070082-7069-5-git-send-email-wg@grandegger.com>
+Subject: [PATCH 8/8] can: Driver for the Freescale MSCAN controller
+Date: Thu, 19 Feb 2009 20:01:22 +0100
+Message-ID: <1235070082-7069-9-git-send-email-wg@grandegger.com>
 References: <1235070082-7069-1-git-send-email-wg@grandegger.com>
  <1235070082-7069-2-git-send-email-wg@grandegger.com>
  <1235070082-7069-3-git-send-email-wg@grandegger.com>
  <1235070082-7069-4-git-send-email-wg@grandegger.com>
+ <1235070082-7069-5-git-send-email-wg@grandegger.com>
+ <1235070082-7069-6-git-send-email-wg@grandegger.com>
+ <1235070082-7069-7-git-send-email-wg@grandegger.com>
+ <1235070082-7069-8-git-send-email-wg@grandegger.com>
 Cc: linux-kernel@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+	Wolfgang Grandegger <wg@grandegger.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-out.m-online.net ([212.18.0.9]:36420 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754245AbZBSTBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 14:01:32 -0500
-In-Reply-To: <1235070082-7069-4-git-send-email-wg@grandegger.com>
+	with ESMTP id S1755749AbZBSTBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 14:01:36 -0500
+In-Reply-To: <1235070082-7069-8-git-send-email-wg@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the generic Socket-CAN driver for the Philips SJA1000
-full CAN controller.
+This patch adds the generic Socket-CAN driver for the MSCAN controller
+available on some Freescale processor chips like the PowerPC MPC5200,
+MPC512x or the m86k MC68HC12. It also includes an OF platform driver
+for the MPC5200.
 
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 ---
- drivers/net/can/Kconfig           |   11 +
- drivers/net/can/Makefile          |    2 +
- drivers/net/can/sja1000/Makefile  |    7 +
- drivers/net/can/sja1000/sja1000.c |  681 +++++++++++++++++++++++++++++++++++++
- drivers/net/can/sja1000/sja1000.h |  177 ++++++++++
- 5 files changed, 878 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/sja1000/Makefile
- create mode 100644 drivers/net/can/sja1000/sja1000.c
- create mode 100644 drivers/net/can/sja1000/sja1000.h
+ drivers/net/can/Kconfig             |   20 +
+ drivers/net/can/Makefile            |    1 +
+ drivers/net/can/mscan/Makefile      |    9 +
+ drivers/net/can/mscan/mpc52xx_can.c |  293 +++++++++++++++
+ drivers/net/can/mscan/mscan.c       |  681 +++++++++++++++++++++++++++++++++++
+ drivers/net/can/mscan/mscan.h       |  237 ++++++++++++
+ 6 files changed, 1241 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/mscan/Makefile
+ create mode 100644 drivers/net/can/mscan/mpc52xx_can.c
+ create mode 100644 drivers/net/can/mscan/mscan.c
+ create mode 100644 drivers/net/can/mscan/mscan.h
 
 diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index d609895..78a412b 100644
+index b1c4ae5..ac5ff41 100644
 --- a/drivers/net/can/Kconfig
 +++ b/drivers/net/can/Kconfig
-@@ -35,6 +35,17 @@ config CAN_CALC_BITTIMING
- 	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
- 	  If unsure, say Y.
+@@ -70,6 +70,26 @@ config CAN_KVASER_PCI
+ 	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
+ 	  4 channel) from Kvaser (http://www.kvaser.com).
  
-+config CAN_SJA1000
-+	depends on CAN_DEV
-+	tristate "Philips SJA1000"
++config CAN_MSCAN
++	depends on CAN_DEV && (PPC || M68K || M68KNOMMU)
++	tristate "Freescale MSCAN based chips"
 +	---help---
-+	  The SJA1000 is one of the top CAN controllers out there. As it
-+	  has a multiplexed interface it fits directly to 8051
-+	  microcontrollers or into the PC I/O port space. The SJA1000
-+	  is a full CAN controller, with shadow registers for RX and TX.
-+	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
-+	  with a single (simple) filter setup.
++	  The Motorola Scalable Controller Area Network (MSCAN) definition
++	  is based on the MSCAN12 definition which is the specific
++	  implementation of the Motorola Scalable CAN concept targeted for
++	  the Motorola MC68HC12 Microcontroller Family.
++
++config CAN_MPC52XX
++	tristate "Freescale MPC5200 onboard CAN controller"
++	depends on CAN_MSCAN && PPC_MPC52xx
++	default N
++	---help---
++	  If you say yes here you get support for Freescale MPC5200
++	  onboard dualCAN controller.
++
++	  This driver can also be built as a module.  If so, the module
++	  will be called mpc52xx_can.
 +
  config CAN_DEBUG_DEVICES
  	bool "CAN devices debugging messages"
  	depends on CAN
 diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-index 557114b..728d83f 100644
+index 728d83f..fc2010f 100644
 --- a/drivers/net/can/Makefile
 +++ b/drivers/net/can/Makefile
-@@ -7,4 +7,6 @@ obj-$(CONFIG_CAN_VCAN)		+= vcan.o
- obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+@@ -8,5 +8,6 @@ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
  can-dev-y			:= dev.o sysfs.o
  
-+obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
-+
+ obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
++obj-$(CONFIG_CAN_MSCAN)		+= mscan/
+ 
  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
+diff --git a/drivers/net/can/mscan/Makefile b/drivers/net/can/mscan/Makefile
 new file mode 100644
-index 0000000..893ab2c
+index 0000000..b90890f
 --- /dev/null
-+++ b/drivers/net/can/sja1000/Makefile
-@@ -0,0 +1,7 @@
++++ b/drivers/net/can/mscan/Makefile
+@@ -0,0 +1,9 @@
 +#
-+#  Makefile for the SJA1000 CAN controller drivers.
++#  Makefile for the MSCAN controller drivers.
 +#
 +
-+obj-$(CONFIG_CAN_SJA1000) += sja1000.o
++obj-$(CONFIG_CAN_MPC52XX)	+= mscan-mpc52xx.o
++
++mscan-mpc52xx-y	:= mscan.o mpc52xx_can.o
 +
 +ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+diff --git a/drivers/net/can/mscan/mpc52xx_can.c b/drivers/net/can/mscan/mpc52xx_can.c
 new file mode 100644
-index 0000000..6fe516d
+index 0000000..8878a59
 --- /dev/null
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -0,0 +1,681 @@
++++ b/drivers/net/can/mscan/mpc52xx_can.c
+@@ -0,0 +1,293 @@
 +/*
-+ * sja1000.c -  Philips SJA1000 network device driver
++ * CAN bus driver for the Freescale MPC52xx embedded CPU.
 + *
-+ * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
-+ * 38106 Braunschweig, GERMANY
++ * Copyright (C) 2004-2005 Andrey Volkov <avolkov@varma-el.com>,
++ *                         Varma Electronics Oy
++ * Copyright (C) 2008-2009 Wolfgang Grandegger <wg@grandegger.com>
 + *
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
 + *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the name of Volkswagen nor the names of its contributors
-+ *    may be used to endorse or promote products derived from this software
-+ *    without specific prior written permission.
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
 + *
-+ * Alternatively, provided that this notice is retained in full, this
-+ * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2, in which case the provisions of the
-+ * GPL apply INSTEAD OF those given above.
-+ *
-+ * The provided data structures and external interfaces from this code
-+ * are not restricted to be used by modules with a GPL compatible license.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-+ * DAMAGE.
-+ *
-+ * Send feedback to <socketcan-users@lists.berlios.de>
-+ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + */
 +
-+#include <linux/module.h>
-+#include <linux/init.h>
 +#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/types.h>
-+#include <linux/fcntl.h>
++#include <linux/module.h>
 +#include <linux/interrupt.h>
-+#include <linux/ptrace.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
++#include <linux/platform_device.h>
++#include <linux/netdevice.h>
++#include <linux/can.h>
++#include <linux/can/dev.h>
++#include <linux/of_platform.h>
++#include <sysdev/fsl_soc.h>
++#include <linux/io.h>
++#include <asm/mpc52xx.h>
++
++#include "mscan.h"
++
++
++#define DRV_NAME "mpc52xx_can"
++
++static struct of_device_id mpc52xx_cdm_ids[] __devinitdata = {
++	{ .compatible = "fsl,mpc5200-cdm", },
++	{ .compatible = "fsl,mpc5200b-cdm", },
++	{}
++};
++
++/*
++ * Get the frequency of the external oscillator clock connected
++ * to the SYS_XTAL_IN pin, or retrun 0 if it cannot be determined.
++ */
++static unsigned int  __devinit mpc52xx_can_xtal_freq(struct device_node *np)
++{
++	struct mpc52xx_cdm  __iomem *cdm;
++	struct device_node *np_cdm;
++	unsigned int freq;
++	u32 val;
++
++	freq = mpc52xx_find_ipb_freq(np);
++	if (!freq)
++		return 0;
++
++	/*
++	 * Detemine SYS_XTAL_IN frequency from the clock domain settings
++	 */
++	np_cdm = of_find_matching_node(NULL, mpc52xx_cdm_ids);
++	cdm = of_iomap(np_cdm, 0);
++	of_node_put(np_cdm);
++	if (!np_cdm) {
++		printk(KERN_ERR "%s() failed abnormally\n", __func__);
++		return 0;
++	}
++
++	if (in_8(&cdm->ipb_clk_sel) & 0x1)
++		freq *= 2;
++	val  = in_be32(&cdm->rstcfg);
++	if (val & (1 << 5))
++		freq *= 8;
++	else
++		freq *= 4;
++	if (val & (1 << 6))
++		freq /= 12;
++	else
++		freq /= 16;
++
++	iounmap(cdm);
++
++	return freq;
++}
++
++/*
++ * Get frequency of the MSCAN clock source
++ *
++ * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock (IP_CLK)
++ * can be selected. According to the MPC5200 user's manual, the oscillator
++ * clock is the better choice as it has less jitter but due to a hardware
++ * bug, it can not be selected for the old MPC5200 Rev. A chips.
++ */
++
++static unsigned int  __devinit mpc52xx_can_clock_freq(struct device_node *np,
++						      int clock_src)
++{
++	unsigned int pvr;
++
++	pvr = mfspr(SPRN_PVR);
++
++	if (clock_src == MSCAN_CLKSRC_BUS || pvr == 0x80822011)
++		return mpc52xx_find_ipb_freq(np);
++
++	return mpc52xx_can_xtal_freq(np);
++}
++
++static int __devinit mpc52xx_can_probe(struct of_device *ofdev,
++				       const struct of_device_id *id)
++{
++	struct device_node *np = ofdev->node;
++	struct net_device *dev;
++	struct can_priv *priv;
++	struct resource res;
++	void __iomem *base;
++	int err, irq, res_size, clock_src;
++
++	err = of_address_to_resource(np, 0, &res);
++	if (err) {
++		dev_err(&ofdev->dev, "invalid address\n");
++		return err;
++	}
++
++	res_size = res.end - res.start + 1;
++
++	if (!request_mem_region(res.start, res_size, DRV_NAME)) {
++		dev_err(&ofdev->dev, "couldn't request %#x..%#x\n",
++			res.start, res.end);
++		return -EBUSY;
++	}
++
++	base = ioremap_nocache(res.start, res_size);
++	if (!base) {
++		dev_err(&ofdev->dev, "couldn't ioremap %#x..%#x\n",
++			res.start, res.end);
++		err = -ENOMEM;
++		goto exit_release_mem;
++	}
++
++	irq = irq_of_parse_and_map(np, 0);
++	if (irq == NO_IRQ) {
++		dev_err(&ofdev->dev, "no irq found\n");
++		err = -ENODEV;
++		goto exit_unmap_mem;
++	}
++
++	dev = alloc_mscandev();
++	if (!dev) {
++		err = -ENOMEM;
++		goto exit_dispose_irq;
++	}
++
++	dev->base_addr = (unsigned long)base;
++	dev->irq = irq;
++
++	priv = netdev_priv(dev);
++
++	/*
++	 * Either the oscillator clock (SYS_XTAL_IN) or the IP bus clock
++	 * (IP_CLK) can be selected as MSCAN clock source. According to
++	 * the MPC5200 user's manual, the oscillator clock is the better
++	 * choice as it has less jitter. For this reason, it is selected
++	 * by default.
++	 */
++	if (of_get_property(np, "clock-ipb", NULL))
++		clock_src = MSCAN_CLKSRC_BUS;
++	else
++		clock_src = MSCAN_CLKSRC_XTAL;
++	priv->bittiming.clock = mpc52xx_can_clock_freq(np, clock_src);
++	if (!priv->bittiming.clock) {
++		dev_err(&ofdev->dev, "couldn't get MSCAN clock frequency\n");
++		err = -ENODEV;
++		goto exit_free_mscan;
++	}
++
++	SET_NETDEV_DEV(dev, &ofdev->dev);
++
++	err = register_mscandev(dev, clock_src);
++	if (err) {
++		dev_err(&ofdev->dev, "registering %s failed (err=%d)\n",
++			DRV_NAME, err);
++		goto exit_free_mscan;
++	}
++
++	dev_set_drvdata(&ofdev->dev, dev);
++
++	dev_info(&ofdev->dev, "MSCAN at 0x%lx, irq %d, clock %d Hz\n",
++		 dev->base_addr, dev->irq, priv->bittiming.clock);
++
++	return 0;
++
++exit_free_mscan:
++	free_candev(dev);
++exit_dispose_irq:
++	irq_dispose_mapping(irq);
++exit_unmap_mem:
++	iounmap(base);
++exit_release_mem:
++	release_mem_region(res.start, res_size);
++
++	return err;
++}
++
++static int __devexit mpc52xx_can_remove(struct of_device *ofdev)
++{
++	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
++	struct device_node *np = ofdev->node;
++	struct resource res;
++
++	dev_set_drvdata(&ofdev->dev, NULL);
++
++	unregister_mscandev(dev);
++	iounmap((void __iomem *)dev->base_addr);
++	irq_dispose_mapping(dev->irq);
++	free_candev(dev);
++
++	of_address_to_resource(np, 0, &res);
++	release_mem_region(res.start, res.end - res.start + 1);
++
++	return 0;
++}
++
++static struct mscan_regs saved_regs;
++static int mpc52xx_can_suspend(struct of_device *ofdev, pm_message_t state)
++{
++	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++
++	_memcpy_fromio(&saved_regs, regs, sizeof(*regs));
++
++	return 0;
++}
++
++static int mpc52xx_can_resume(struct of_device *ofdev)
++{
++	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++
++	regs->canctl0 |= MSCAN_INITRQ;
++	while ((regs->canctl1 & MSCAN_INITAK) == 0)
++		udelay(10);
++
++	regs->canctl1 = saved_regs.canctl1;
++	regs->canbtr0 = saved_regs.canbtr0;
++	regs->canbtr1 = saved_regs.canbtr1;
++	regs->canidac = saved_regs.canidac;
++
++	/* restore masks, buffers etc. */
++	_memcpy_toio(&regs->canidar1_0, (void *)&saved_regs.canidar1_0,
++		     sizeof(*regs) - offsetof(struct mscan_regs, canidar1_0));
++
++	regs->canctl0 &= ~MSCAN_INITRQ;
++	regs->cantbsel = saved_regs.cantbsel;
++	regs->canrier = saved_regs.canrier;
++	regs->cantier = saved_regs.cantier;
++	regs->canctl0 = saved_regs.canctl0;
++
++	return 0;
++}
++
++static struct of_device_id __devinitdata mpc52xx_can_table[] = {
++	{.compatible = "fsl,mpc5200-mscan"},
++	{.compatible = "fsl,mpc5200b-mscan"},
++	{},
++};
++
++static struct of_platform_driver mpc52xx_can_driver = {
++	.owner = THIS_MODULE,
++	.name = "mpc52xx_can",
++	.probe = mpc52xx_can_probe,
++	.remove = __devexit_p(mpc52xx_can_remove),
++	.suspend = mpc52xx_can_suspend,
++	.resume = mpc52xx_can_resume,
++	.match_table = mpc52xx_can_table,
++};
++
++static int __init mpc52xx_can_init(void)
++{
++	return of_register_platform_driver(&mpc52xx_can_driver);
++}
++module_init(mpc52xx_can_init);
++
++static void __exit mpc52xx_can_exit(void)
++{
++	return of_unregister_platform_driver(&mpc52xx_can_driver);
++};
++module_exit(mpc52xx_can_exit);
++
++MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
++MODULE_DESCRIPTION("Freescale MPC5200 CAN driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+new file mode 100644
+index 0000000..bb136d0
+--- /dev/null
++++ b/drivers/net/can/mscan/mscan.c
+@@ -0,0 +1,681 @@
++/*
++ * CAN bus driver for the alone generic (as possible as) MSCAN controller.
++ *
++ * Copyright (C) 2005-2006 Andrey Volkov <avolkov@varma-el.com>,
++ *                         Varma Electronics Oy
++ * Copyright (C) 2008-2009 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/delay.h>
 +#include <linux/netdevice.h>
 +#include <linux/if_arp.h>
 +#include <linux/if_ether.h>
-+#include <linux/skbuff.h>
-+#include <linux/delay.h>
-+
++#include <linux/list.h>
 +#include <linux/can.h>
 +#include <linux/can/dev.h>
 +#include <linux/can/error.h>
-+#include <linux/can/dev.h>
++#include <linux/io.h>
 +
-+#include "sja1000.h"
++#include "mscan.h"
 +
-+#define DRV_NAME "sja1000"
++#define MSCAN_NORMAL_MODE	0
++#define MSCAN_SLEEP_MODE	MSCAN_SLPRQ
++#define MSCAN_INIT_MODE		(MSCAN_INITRQ | MSCAN_SLPRQ)
++#define MSCAN_POWEROFF_MODE	(MSCAN_CSWAI | MSCAN_SLPRQ)
++#define MSCAN_SET_MODE_RETRIES	255
 +
-+MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_DESCRIPTION(DRV_NAME " CAN netdevice driver");
++#define BTR0_BRP_MASK		0x3f
++#define BTR0_SJW_SHIFT		6
++#define BTR0_SJW_MASK		(0x3 << BTR0_SJW_SHIFT)
 +
-+static struct can_bittiming_const sja1000_bittiming_const = {
-+	.tseg1_min = 1,
++#define BTR1_TSEG1_MASK 	0xf
++#define BTR1_TSEG2_SHIFT	4
++#define BTR1_TSEG2_MASK 	(0x7 << BTR1_TSEG2_SHIFT)
++#define BTR1_SAM_SHIFT  	7
++
++#define BTR0_SET_BRP(brp)	(((brp) - 1) & BTR0_BRP_MASK)
++#define BTR0_SET_SJW(sjw)	((((sjw) - 1) << BTR0_SJW_SHIFT) & \
++				 BTR0_SJW_MASK)
++
++#define BTR1_SET_TSEG1(tseg1)	(((tseg1) - 1) &  BTR1_TSEG1_MASK)
++#define BTR1_SET_TSEG2(tseg2)	((((tseg2) - 1) << BTR1_TSEG2_SHIFT) & \
++				 BTR1_TSEG2_MASK)
++#define BTR1_SET_SAM(sam)	(((sam) & 1) << BTR1_SAM_SHIFT)
++
++static struct can_bittiming_const mscan_bittiming_const = {
++	.tseg1_min = 4,
 +	.tseg1_max = 16,
-+	.tseg2_min = 1,
++	.tseg2_min = 2,
 +	.tseg2_max = 8,
 +	.sjw_max = 4,
 +	.brp_min = 1,
@@ -173,784 +474,859 @@ index 0000000..6fe516d
 +	.brp_inc = 1,
 +};
 +
-+static int sja1000_probe_chip(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
++struct mscan_state {
++	u8 mode;
++	u8 canrier;
++	u8 cantier;
++};
 +
-+	if (dev->base_addr && (priv->read_reg(dev, 0) == 0xFF)) {
-+		printk(KERN_INFO "%s: probing @0x%lX failed\n",
-+		       DRV_NAME, dev->base_addr);
-+		return 0;
-+	}
-+	return 1;
-+}
++#define TX_QUEUE_SIZE	3
 +
-+static int set_reset_mode(struct net_device *dev)
++struct tx_queue_entry {
++	struct list_head list;
++	u8 mask;
++	u8 id;
++};
++
++struct mscan_priv {
++	struct can_priv can;
++	long open_time;
++	unsigned long flags;
++	u8 shadow_statflg;
++	u8 shadow_canrier;
++	u8 cur_pri;
++	u8 tx_active;
++
++	struct list_head tx_head;
++	struct tx_queue_entry tx_queue[TX_QUEUE_SIZE];
++	struct napi_struct napi;
++};
++
++#define F_RX_PROGRESS	0
++#define F_TX_PROGRESS	1
++#define F_TX_WAIT_ALL	2
++
++static enum can_state state_map[] = {
++	CAN_STATE_ACTIVE,
++	CAN_STATE_BUS_WARNING,
++	CAN_STATE_BUS_PASSIVE,
++	CAN_STATE_BUS_OFF
++};
++
++static int mscan_set_mode(struct net_device *dev, u8 mode)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	unsigned char status = priv->read_reg(dev, REG_MOD);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	struct mscan_priv *priv = netdev_priv(dev);
++	int ret = 0;
 +	int i;
++	u8 canctl1;
 +
-+	/* disable interrupts */
-+	priv->write_reg(dev, REG_IER, IRQ_OFF);
++	if (mode != MSCAN_NORMAL_MODE) {
 +
-+	for (i = 0; i < 100; i++) {
-+		/* check reset bit */
-+		if (status & MOD_RM) {
++		if (priv->tx_active) {
++			/* Abort transfers before going to sleep */
++			out_8(&regs->cantier, 0);
++			out_8(&regs->cantarq, priv->tx_active);
++			out_8(&regs->cantier, priv->tx_active);
++		}
++
++		canctl1 = in_8(&regs->canctl1);
++		if ((mode & MSCAN_SLPRQ) && (canctl1 & MSCAN_SLPAK) == 0) {
++			out_8(&regs->canctl0,
++			      in_8(&regs->canctl0) | MSCAN_SLPRQ);
++			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
++				if (in_8(&regs->canctl1) & MSCAN_SLPAK)
++					break;
++				udelay(100);
++			}
++			if (i >= MSCAN_SET_MODE_RETRIES)
++				ret = -ENODEV;
++		}
++		if (!ret)
++			priv->can.state = CAN_STATE_SLEEPING;
++
++		if (!ret && (mode & MSCAN_INITRQ)
++		    && (canctl1 & MSCAN_INITAK) == 0) {
++			out_8(&regs->canctl0,
++			      in_8(&regs->canctl0) | MSCAN_INITRQ);
++			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
++				if (in_8(&regs->canctl1) & MSCAN_INITAK)
++					break;
++			}
++			if (i >= MSCAN_SET_MODE_RETRIES)
++				ret = -ENODEV;
++		}
++		if (!ret)
 +			priv->can.state = CAN_STATE_STOPPED;
-+			return 0;
++
++		if (!ret && (mode & MSCAN_CSWAI))
++			out_8(&regs->canctl0,
++			      in_8(&regs->canctl0) | MSCAN_CSWAI);
++
++	} else {
++		canctl1 = in_8(&regs->canctl1);
++		if (canctl1 & (MSCAN_SLPAK | MSCAN_INITAK)) {
++			out_8(&regs->canctl0, in_8(&regs->canctl0) &
++			      ~(MSCAN_SLPRQ | MSCAN_INITRQ));
++			for (i = 0; i < MSCAN_SET_MODE_RETRIES; i++) {
++				canctl1 = in_8(&regs->canctl1);
++				if (!(canctl1 & (MSCAN_INITAK | MSCAN_SLPAK)))
++					break;
++			}
++			if (i >= MSCAN_SET_MODE_RETRIES)
++				ret = -ENODEV;
++			else
++				priv->can.state = CAN_STATE_ACTIVE;
 +		}
-+
-+		priv->write_reg(dev, REG_MOD, MOD_RM);	/* reset chip */
-+		status = priv->read_reg(dev, REG_MOD);
-+		udelay(10);
 +	}
-+
-+	dev_err(ND2D(dev), "setting SJA1000 into reset mode failed!\n");
-+	return 1;
-+
++	return ret;
 +}
 +
-+static int set_normal_mode(struct net_device *dev)
++static int mscan_start(struct net_device *dev)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	unsigned char status = priv->read_reg(dev, REG_MOD);
++	struct mscan_priv *priv = netdev_priv(dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	u8 canrflg;
++	int err;
++
++	out_8(&regs->canrier, 0);
++
++	INIT_LIST_HEAD(&priv->tx_head);
++	priv->cur_pri = 0;
++	priv->tx_active = 0;
++	priv->shadow_canrier = 0;
++	priv->flags = 0;
++
++	err = mscan_set_mode(dev, MSCAN_NORMAL_MODE);
++	if (err)
++		return err;
++
++	canrflg = in_8(&regs->canrflg);
++	priv->shadow_statflg = canrflg & MSCAN_STAT_MSK;
++	priv->can.state = state_map[max(MSCAN_STATE_RX(canrflg),
++				    MSCAN_STATE_TX(canrflg))];
++	out_8(&regs->cantier, 0);
++
++	/* Enable receive interrupts. */
++	out_8(&regs->canrier, MSCAN_OVRIE | MSCAN_RXFIE | MSCAN_CSCIE |
++	      MSCAN_RSTATE1 | MSCAN_RSTATE0 | MSCAN_TSTATE1 | MSCAN_TSTATE0);
++
++	return 0;
++}
++
++static int mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct can_frame *frame = (struct can_frame *)skb->data;
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	struct mscan_priv *priv = netdev_priv(dev);
++	int i, rtr, buf_id;
++	u32 can_id;
++
++	if (frame->can_dlc > 8)
++		return -EINVAL;
++
++	out_8(&regs->cantier, 0);
++
++	i = ~priv->tx_active & MSCAN_TXE;
++	buf_id = ffs(i) - 1;
++	switch (hweight8(i)) {
++	case 0:
++		netif_stop_queue(dev);
++		dev_err(ND2D(dev), "BUG! Tx Ring full when queue awake!\n");
++		return NETDEV_TX_BUSY;
++	case 1:
++		/* if buf_id < 3, then current frame will be send out of order,
++		   since  buffer with lower id have higher priority (hell..) */
++		if (buf_id < 3)
++			priv->cur_pri++;
++		if (priv->cur_pri == 0xff)
++			set_bit(F_TX_WAIT_ALL, &priv->flags);
++		netif_stop_queue(dev);
++	case 2:
++		set_bit(F_TX_PROGRESS, &priv->flags);
++	}
++	out_8(&regs->cantbsel, i);
++
++	rtr = frame->can_id & CAN_RTR_FLAG;
++
++	if (frame->can_id & CAN_EFF_FLAG) {
++		can_id = (frame->can_id & CAN_EFF_MASK) << 1;
++		if (rtr)
++			can_id |= 1;
++		out_be16(&regs->tx.idr3_2, can_id);
++
++		can_id >>= 16;
++		can_id = (can_id & 0x7) | ((can_id << 2) & 0xffe0) | (3 << 3);
++	} else {
++		can_id = (frame->can_id & CAN_SFF_MASK) << 5;
++		if (rtr)
++			can_id |= 1 << 4;
++	}
++	out_be16(&regs->tx.idr1_0, can_id);
++
++	if (!rtr) {
++		void __iomem *data = &regs->tx.dsr1_0;
++		u16 *payload = (u16 *) frame->data;
++		/*Its safe to write into dsr[dlc+1] */
++		for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
++			out_be16(data, *payload++);
++			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
++		}
++	}
++
++	out_8(&regs->tx.dlr, frame->can_dlc);
++	out_8(&regs->tx.tbpr, priv->cur_pri);
++
++	/* Start transmission. */
++	out_8(&regs->cantflg, 1 << buf_id);
++
++	if (!test_bit(F_TX_PROGRESS, &priv->flags))
++		dev->trans_start = jiffies;
++
++	list_add_tail(&priv->tx_queue[buf_id].list, &priv->tx_head);
++
++	can_put_echo_skb(skb, dev, buf_id);
++
++	/* Enable interrupt. */
++	priv->tx_active |= 1 << buf_id;
++	out_8(&regs->cantier, priv->tx_active);
++
++	return NETDEV_TX_OK;
++}
++
++static inline int check_set_state(struct net_device *dev, u8 canrflg)
++{
++	struct mscan_priv *priv = netdev_priv(dev);
++	enum can_state state;
++	int ret = 0;
++
++	if (!(canrflg & MSCAN_CSCIF) || priv->can.state > CAN_STATE_BUS_OFF)
++		return 0;
++
++	state = state_map[max(MSCAN_STATE_RX(canrflg),
++			      MSCAN_STATE_TX(canrflg))];
++	if (priv->can.state < state)
++		ret = 1;
++	if (state == CAN_STATE_BUS_OFF)
++		can_bus_off(dev);
++	priv->can.state = state;
++	return ret;
++}
++
++static int mscan_rx_poll(struct napi_struct *napi, int quota)
++{
++	struct mscan_priv *priv = container_of(napi, struct mscan_priv, napi);
++	struct net_device *dev = napi->dev;
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	struct net_device_stats *stats = &dev->stats;
++	int npackets = 0;
++	int ret = 1;
++	struct sk_buff *skb;
++	struct can_frame *frame;
++	u32 can_id;
++	u8 canrflg;
 +	int i;
 +
-+	for (i = 0; i < 100; i++) {
-+		/* check reset bit */
-+		if ((status & MOD_RM) == 0) {
-+			priv->can.state = CAN_STATE_ACTIVE;
-+			/* enable all interrupts */
-+			priv->write_reg(dev, REG_IER, IRQ_ALL);
++	while (npackets < quota && ((canrflg = in_8(&regs->canrflg)) &
++				    (MSCAN_RXF | MSCAN_ERR_IF))) {
 +
-+			return 0;
++		skb = dev_alloc_skb(sizeof(struct can_frame));
++		if (!skb) {
++			if (printk_ratelimit())
++				dev_notice(ND2D(dev), "packet dropped\n");
++			stats->rx_dropped++;
++			out_8(&regs->canrflg, canrflg);
++			continue;
 +		}
 +
-+		/* set chip to normal mode */
-+		priv->write_reg(dev, REG_MOD, 0x00);
-+		status = priv->read_reg(dev, REG_MOD);
-+		udelay(10);
++		frame = (struct can_frame *)skb_put(skb, sizeof(*frame));
++		memset(frame, 0, sizeof(*frame));
++
++		if (canrflg & MSCAN_RXF) {
++			can_id = in_be16(&regs->rx.idr1_0);
++			if (can_id & (1 << 3)) {
++				frame->can_id = CAN_EFF_FLAG;
++				can_id = ((can_id << 16) |
++					  in_be16(&regs->rx.idr3_2));
++				can_id = ((can_id & 0xffe00000) |
++					  ((can_id & 0x7ffff) << 2)) >> 2;
++			} else {
++				can_id >>= 4;
++				frame->can_id = 0;
++			}
++
++			frame->can_id |= can_id >> 1;
++			if (can_id & 1)
++				frame->can_id |= CAN_RTR_FLAG;
++			frame->can_dlc = in_8(&regs->rx.dlr) & 0xf;
++
++			if (!(frame->can_id & CAN_RTR_FLAG)) {
++				void __iomem *data = &regs->rx.dsr1_0;
++				u16 *payload = (u16 *) frame->data;
++				for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
++					*payload++ = in_be16(data);
++					data += 2 + _MSCAN_RESERVED_DSR_SIZE;
++				}
++			}
++
++			out_8(&regs->canrflg, MSCAN_RXF);
++			dev->last_rx = jiffies;
++			stats->rx_packets++;
++			stats->rx_bytes += frame->can_dlc;
++		} else if (canrflg & MSCAN_ERR_IF) {
++			dev_dbg(ND2D(dev), "error interrupt (canrflg=%#x)\n",
++				canrflg);
++			frame->can_id = CAN_ERR_FLAG;
++
++			if (canrflg & MSCAN_OVRIF) {
++				frame->can_id |= CAN_ERR_CRTL;
++				frame->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
++				stats->rx_over_errors++;
++			} else
++				frame->data[1] = 0;
++
++			if (check_set_state(dev, canrflg)) {
++				frame->can_id |= CAN_ERR_CRTL;
++				switch (priv->can.state) {
++				case CAN_STATE_BUS_WARNING:
++					if ((priv->shadow_statflg &
++					     MSCAN_RSTAT_MSK) <
++					    (canrflg & MSCAN_RSTAT_MSK))
++						frame->data[1] |=
++						    CAN_ERR_CRTL_RX_WARNING;
++
++					if ((priv->shadow_statflg &
++					     MSCAN_TSTAT_MSK) <
++					    (canrflg & MSCAN_TSTAT_MSK))
++						frame->data[1] |=
++							CAN_ERR_CRTL_TX_WARNING;
++					break;
++				case CAN_STATE_BUS_PASSIVE:
++					frame->data[1] |=
++					    CAN_ERR_CRTL_RX_PASSIVE;
++					break;
++				case CAN_STATE_BUS_OFF:
++					frame->can_id |= CAN_ERR_BUSOFF;
++					frame->can_id &= ~CAN_ERR_CRTL;
++					break;
++				default:
++					break;
++				}
++			}
++			priv->shadow_statflg = canrflg & MSCAN_STAT_MSK;
++			frame->can_dlc = CAN_ERR_DLC;
++			out_8(&regs->canrflg, MSCAN_ERR_IF);
++		}
++
++		npackets++;
++		skb->dev = dev;
++		skb->protocol = __constant_htons(ETH_P_CAN);
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		netif_receive_skb(skb);
 +	}
 +
-+	dev_err(ND2D(dev), "setting SJA1000 into normal mode failed!\n");
-+	return 1;
-+
++	if (!(in_8(&regs->canrflg) & (MSCAN_RXF | MSCAN_ERR_IF))) {
++		napi_complete(&priv->napi);
++		clear_bit(F_RX_PROGRESS, &priv->flags);
++		if (priv->can.state < CAN_STATE_BUS_OFF)
++			out_8(&regs->canrier, priv->shadow_canrier);
++		ret = 0;
++	}
++	return ret;
 +}
 +
-+static void sja1000_start(struct net_device *dev)
++static irqreturn_t mscan_isr(int irq, void *dev_id)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
++	struct net_device *dev = (struct net_device *)dev_id;
++	struct mscan_priv *priv = netdev_priv(dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	struct net_device_stats *stats = &dev->stats;
++	u8 cantier, cantflg, canrflg;
++	irqreturn_t ret = IRQ_NONE;
 +
-+	/* leave reset mode */
-+	if (priv->can.state != CAN_STATE_STOPPED)
-+		set_reset_mode(dev);
++	cantier = in_8(&regs->cantier) & MSCAN_TXE;
++	cantflg = in_8(&regs->cantflg) & cantier;
 +
-+	/* Clear error counters and error code capture */
-+	priv->write_reg(dev, REG_TXERR, 0x0);
-+	priv->write_reg(dev, REG_RXERR, 0x0);
-+	priv->read_reg(dev, REG_ECC);
++	if (cantier && cantflg) {
 +
-+	/* leave reset mode */
-+	set_normal_mode(dev);
++		struct list_head *tmp, *pos;
++
++		list_for_each_safe(pos, tmp, &priv->tx_head) {
++			struct tx_queue_entry *entry =
++			    list_entry(pos, struct tx_queue_entry, list);
++			u8 mask = entry->mask;
++
++			if (!(cantflg & mask))
++				continue;
++
++			out_8(&regs->cantbsel, mask);
++			stats->tx_bytes += in_8(&regs->tx.dlr);
++			stats->tx_packets++;
++			can_get_echo_skb(dev, entry->id);
++			priv->tx_active &= ~mask;
++			list_del(pos);
++		}
++
++		if (list_empty(&priv->tx_head)) {
++			clear_bit(F_TX_WAIT_ALL, &priv->flags);
++			clear_bit(F_TX_PROGRESS, &priv->flags);
++			priv->cur_pri = 0;
++		} else
++			dev->trans_start = jiffies;
++
++		if (!test_bit(F_TX_WAIT_ALL, &priv->flags))
++			netif_wake_queue(dev);
++
++		out_8(&regs->cantier, priv->tx_active);
++		ret = IRQ_HANDLED;
++	}
++
++	canrflg = in_8(&regs->canrflg);
++	if ((canrflg & ~MSCAN_STAT_MSK) &&
++	    !test_and_set_bit(F_RX_PROGRESS, &priv->flags)) {
++		if (canrflg & ~MSCAN_STAT_MSK) {
++			priv->shadow_canrier = in_8(&regs->canrier);
++			out_8(&regs->canrier, 0);
++			napi_schedule(&priv->napi);
++			ret = IRQ_HANDLED;
++		} else
++			clear_bit(F_RX_PROGRESS, &priv->flags);
++	}
++	return ret;
 +}
 +
-+static int sja1000_set_mode(struct net_device *dev, enum can_mode mode)
++static int mscan_do_set_mode(struct net_device *dev, enum can_mode mode)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
++
++	struct mscan_priv *priv = netdev_priv(dev);
++	int ret = 0;
++
++	if (!priv->open_time)
++		return -EINVAL;
 +
 +	switch (mode) {
++	case CAN_MODE_SLEEP:
++	case CAN_MODE_STOP:
++		netif_stop_queue(dev);
++		mscan_set_mode(dev,
++			       (mode ==
++				CAN_MODE_STOP) ? MSCAN_INIT_MODE :
++			       MSCAN_SLEEP_MODE);
++		break;
 +	case CAN_MODE_START:
-+		if (!priv->open_time)
-+			return -EINVAL;
-+
-+		sja1000_start(dev);
++		if (priv->can.state <= CAN_STATE_BUS_OFF)
++			mscan_set_mode(dev, MSCAN_INIT_MODE);
++		ret = mscan_start(dev);
++		if (ret)
++			break;
 +		if (netif_queue_stopped(dev))
 +			netif_wake_queue(dev);
 +		break;
 +
 +	default:
-+		return -EOPNOTSUPP;
++		ret = -EOPNOTSUPP;
++		break;
 +	}
-+
-+	return 0;
++	return ret;
 +}
 +
-+static int sja1000_get_state(struct net_device *dev, enum can_state *state)
++static int mscan_do_set_bittiming(struct net_device *dev)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	u8 status;
-+
-+	/* FIXME: inspecting the status register to get the current state
-+	 * is not really necessary, because state changes are handled by
-+	 * in the ISR and the variable priv->can.state gets updated. The
-+	 * CAN devicde interface needs fixing!
-+	 */
-+
-+	spin_lock_irq(&priv->can.irq_lock);
-+
-+	if (priv->can.state == CAN_STATE_STOPPED) {
-+		*state =  CAN_STATE_STOPPED;
-+	} else {
-+		status = priv->read_reg(dev, REG_SR);
-+		if (status & SR_BS)
-+			*state = CAN_STATE_BUS_OFF;
-+		else if (status & SR_ES) {
-+			if (priv->read_reg(dev, REG_TXERR) > 127 ||
-+			    priv->read_reg(dev, REG_RXERR) > 127)
-+				*state = CAN_STATE_BUS_PASSIVE;
-+			else
-+				*state = CAN_STATE_BUS_WARNING;
-+		} else
-+			*state = CAN_STATE_ACTIVE;
-+	}
-+	/* Check state */
-+	if (*state != priv->can.state)
-+		dev_err(ND2D(dev),
-+			"Oops, state mismatch: hard %d != soft %d\n",
-+			*state, priv->can.state);
-+	spin_unlock_irq(&priv->can.irq_lock);
-+	return 0;
-+}
-+
-+static int sja1000_set_bittiming(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	struct mscan_priv *priv = netdev_priv(dev);
 +	struct can_bittiming *bt = &priv->can.bittiming;
 +	u8 btr0, btr1;
 +
-+	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
-+	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
-+		(((bt->phase_seg2 - 1) & 0x7) << 4) |
-+	  ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) << 7);
++	btr0 = BTR0_SET_BRP(bt->brp) | BTR0_SET_SJW(bt->sjw);
++	btr1 = (BTR1_SET_TSEG1(bt->prop_seg + bt->phase_seg1) |
++		BTR1_SET_TSEG2(bt->phase_seg2) |
++		BTR1_SET_SAM(priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES));
 +
 +	dev_info(ND2D(dev), "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 +
-+	priv->write_reg(dev, REG_BTR0, btr0);
-+	priv->write_reg(dev, REG_BTR1, btr1);
++	out_8(&regs->canbtr0, btr0);
++	out_8(&regs->canbtr1, btr1);
 +
 +	return 0;
 +}
 +
-+/*
-+ * initialize SJA1000 chip:
-+ *   - reset chip
-+ *   - set output mode
-+ *   - set baudrate
-+ *   - enable interrupts
-+ *   - start operating mode
-+ */
-+static void chipset_init(struct net_device *dev)
++static int mscan_open(struct net_device *dev)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+
-+	/* set clock divider and output control register */
-+	priv->write_reg(dev, REG_CDR, priv->cdr | CDR_PELICAN);
-+
-+	/* set acceptance filter (accept all) */
-+	priv->write_reg(dev, REG_ACCC0, 0x00);
-+	priv->write_reg(dev, REG_ACCC1, 0x00);
-+	priv->write_reg(dev, REG_ACCC2, 0x00);
-+	priv->write_reg(dev, REG_ACCC3, 0x00);
-+
-+	priv->write_reg(dev, REG_ACCM0, 0xFF);
-+	priv->write_reg(dev, REG_ACCM1, 0xFF);
-+	priv->write_reg(dev, REG_ACCM2, 0xFF);
-+	priv->write_reg(dev, REG_ACCM3, 0xFF);
-+
-+	priv->write_reg(dev, REG_OCR, priv->ocr | OCR_MODE_NORMAL);
-+}
-+
-+/*
-+ * transmit a CAN message
-+ * message layout in the sk_buff should be like this:
-+ * xx xx xx xx	 ff	 ll   00 11 22 33 44 55 66 77
-+ * [  can-id ] [flags] [len] [can data (up to 8 bytes]
-+ */
-+static int sja1000_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
-+	uint8_t fi;
-+	uint8_t dlc;
-+	canid_t id;
-+	uint8_t dreg;
-+	int i;
-+
-+	netif_stop_queue(dev);
-+
-+	fi = dlc = cf->can_dlc;
-+	id = cf->can_id;
-+
-+	if (id & CAN_RTR_FLAG)
-+		fi |= FI_RTR;
-+
-+	if (id & CAN_EFF_FLAG) {
-+		fi |= FI_FF;
-+		dreg = EFF_BUF;
-+		priv->write_reg(dev, REG_FI, fi);
-+		priv->write_reg(dev, REG_ID1, (id & 0x1fe00000) >> (5 + 16));
-+		priv->write_reg(dev, REG_ID2, (id & 0x001fe000) >> (5 + 8));
-+		priv->write_reg(dev, REG_ID3, (id & 0x00001fe0) >> 5);
-+		priv->write_reg(dev, REG_ID4, (id & 0x0000001f) << 3);
-+	} else {
-+		dreg = SFF_BUF;
-+		priv->write_reg(dev, REG_FI, fi);
-+		priv->write_reg(dev, REG_ID1, (id & 0x000007f8) >> 3);
-+		priv->write_reg(dev, REG_ID2, (id & 0x00000007) << 5);
-+	}
-+
-+	for (i = 0; i < dlc; i++)
-+		priv->write_reg(dev, dreg++, cf->data[i]);
-+
-+	stats->tx_bytes += dlc;
-+	dev->trans_start = jiffies;
-+
-+	can_put_echo_skb(skb, dev, 0);
-+
-+	priv->write_reg(dev, REG_CMR, CMD_TR);
-+
-+	return 0;
-+}
-+
-+static void sja1000_rx(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	struct can_frame *cf;
-+	struct sk_buff *skb;
-+	uint8_t fi;
-+	uint8_t dreg;
-+	canid_t id;
-+	uint8_t dlc;
-+	int i;
-+
-+	skb = dev_alloc_skb(sizeof(struct can_frame));
-+	if (skb == NULL)
-+		return;
-+	skb->dev = dev;
-+	skb->protocol = htons(ETH_P_CAN);
-+
-+	fi = priv->read_reg(dev, REG_FI);
-+	dlc = fi & 0x0F;
-+
-+	if (fi & FI_FF) {
-+		/* extended frame format (EFF) */
-+		dreg = EFF_BUF;
-+		id = (priv->read_reg(dev, REG_ID1) << (5 + 16))
-+		    | (priv->read_reg(dev, REG_ID2) << (5 + 8))
-+		    | (priv->read_reg(dev, REG_ID3) << 5)
-+		    | (priv->read_reg(dev, REG_ID4) >> 3);
-+		id |= CAN_EFF_FLAG;
-+	} else {
-+		/* standard frame format (SFF) */
-+		dreg = SFF_BUF;
-+		id = (priv->read_reg(dev, REG_ID1) << 3)
-+		    | (priv->read_reg(dev, REG_ID2) >> 5);
-+	}
-+
-+	if (fi & FI_RTR)
-+		id |= CAN_RTR_FLAG;
-+
-+	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-+	memset(cf, 0, sizeof(struct can_frame));
-+	cf->can_id = id;
-+	cf->can_dlc = dlc;
-+	for (i = 0; i < dlc; i++)
-+		cf->data[i] = priv->read_reg(dev, dreg++);
-+
-+	while (i < 8)
-+		cf->data[i++] = 0;
-+
-+	/* release receive buffer */
-+	priv->write_reg(dev, REG_CMR, CMD_RRB);
-+
-+	netif_rx(skb);
-+
-+	dev->last_rx = jiffies;
-+	stats->rx_packets++;
-+	stats->rx_bytes += dlc;
-+}
-+
-+static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	struct can_frame *cf;
-+	struct sk_buff *skb;
-+	enum can_state state = priv->can.state;
-+	uint8_t ecc, alc;
-+
-+	skb = dev_alloc_skb(sizeof(struct can_frame));
-+	if (skb == NULL)
-+		return -ENOMEM;
-+	skb->dev = dev;
-+	skb->protocol = htons(ETH_P_CAN);
-+	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-+	memset(cf, 0, sizeof(struct can_frame));
-+	cf->can_id = CAN_ERR_FLAG;
-+	cf->can_dlc = CAN_ERR_DLC;
-+
-+	if (isrc & IRQ_DOI) {
-+		/* data overrun interrupt */
-+		dev_dbg(ND2D(dev), "data overrun interrupt\n");
-+		cf->can_id |= CAN_ERR_CRTL;
-+		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
-+		priv->can.can_stats.data_overrun++;
-+		priv->write_reg(dev, REG_CMR, CMD_CDO);	/* clear bit */
-+	}
-+
-+	if (isrc & IRQ_EI) {
-+		/* error warning interrupt */
-+		priv->can.can_stats.error_warning++;
-+		dev_dbg(ND2D(dev), "error warning interrupt\n");
-+
-+		if (status & SR_BS) {
-+			state = CAN_STATE_BUS_OFF;
-+			cf->can_id |= CAN_ERR_BUSOFF;
-+			can_bus_off(dev);
-+		} else if (status & SR_ES) {
-+			state = CAN_STATE_BUS_WARNING;
-+		} else
-+			state = CAN_STATE_ACTIVE;
-+	}
-+	if (isrc & IRQ_BEI) {
-+		/* bus error interrupt */
-+		priv->can.can_stats.bus_error++;
-+		ecc = priv->read_reg(dev, REG_ECC);
-+
-+		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
-+
-+		switch (ecc & ECC_MASK) {
-+		case ECC_BIT:
-+			cf->data[2] |= CAN_ERR_PROT_BIT;
-+			break;
-+		case ECC_FORM:
-+			cf->data[2] |= CAN_ERR_PROT_FORM;
-+			break;
-+		case ECC_STUFF:
-+			cf->data[2] |= CAN_ERR_PROT_STUFF;
-+			break;
-+		default:
-+			cf->data[2] |= CAN_ERR_PROT_UNSPEC;
-+			cf->data[3] = ecc & ECC_SEG;
-+			break;
-+		}
-+		/* Error occured during transmission? */
-+		if ((ecc & ECC_DIR) == 0)
-+			cf->data[2] |= CAN_ERR_PROT_TX;
-+	}
-+	if (isrc & IRQ_EPI) {
-+		/* error passive interrupt */
-+		dev_dbg(ND2D(dev), "error passive interrupt\n");
-+		priv->can.can_stats.error_passive++;
-+		if (status & SR_ES)
-+			state = CAN_STATE_BUS_PASSIVE;
-+		else
-+			state = CAN_STATE_ACTIVE;
-+	}
-+	if (isrc & IRQ_ALI) {
-+		/* arbitration lost interrupt */
-+		dev_dbg(ND2D(dev), "arbitration lost interrupt\n");
-+		alc = priv->read_reg(dev, REG_ALC);
-+		priv->can.can_stats.arbitration_lost++;
-+		cf->can_id |= CAN_ERR_LOSTARB;
-+		cf->data[0] = alc & 0x1f;
-+	}
-+
-+	if (state != priv->can.state && (state == CAN_STATE_BUS_WARNING ||
-+					 state == CAN_STATE_BUS_PASSIVE)) {
-+		uint8_t rxerr = priv->read_reg(dev, REG_RXERR);
-+		uint8_t txerr = priv->read_reg(dev, REG_TXERR);
-+		cf->can_id |= CAN_ERR_CRTL;
-+		if (state == CAN_STATE_BUS_WARNING)
-+			cf->data[1] = (txerr > rxerr) ?
-+				CAN_ERR_CRTL_TX_WARNING :
-+				CAN_ERR_CRTL_RX_WARNING;
-+		else
-+			cf->data[1] = (txerr > rxerr) ?
-+				CAN_ERR_CRTL_TX_PASSIVE :
-+				CAN_ERR_CRTL_RX_PASSIVE;
-+	}
-+
-+	priv->can.state = state;
-+
-+	netif_rx(skb);
-+
-+	dev->last_rx = jiffies;
-+	stats->rx_packets++;
-+	stats->rx_bytes += cf->can_dlc;
-+
-+	return 0;
-+}
-+
-+irqreturn_t sja1000_interrupt(int irq, void *dev_id)
-+{
-+	struct net_device *dev = (struct net_device *)dev_id;
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	uint8_t isrc, status;
-+	int n = 0;
-+
-+	/* Shared interrupts and IRQ off? */
-+	if (priv->read_reg(dev, REG_IER) == IRQ_OFF)
-+		return IRQ_NONE;
-+
-+	if (priv->pre_irq)
-+		priv->pre_irq(dev);
-+
-+	while ((isrc = priv->read_reg(dev, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
-+		n++;
-+		status = priv->read_reg(dev, REG_SR);
-+
-+		if (isrc & IRQ_WUI) {
-+			/* wake-up interrupt */
-+			priv->can.can_stats.wakeup++;
-+		}
-+		if (isrc & IRQ_TI) {
-+			/* transmission complete interrupt */
-+			stats->tx_packets++;
-+			can_get_echo_skb(dev, 0);
-+			netif_wake_queue(dev);
-+		}
-+		if (isrc & IRQ_RI) {
-+			/* receive interrupt */
-+			while (status & SR_RBS) {
-+				sja1000_rx(dev);
-+				status = priv->read_reg(dev, REG_SR);
-+			}
-+		}
-+		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
-+			/* error interrupt */
-+			if (sja1000_err(dev, isrc, status))
-+				break;
-+		}
-+	}
-+
-+	if (priv->post_irq)
-+		priv->post_irq(dev);
-+
-+	if (n >= SJA1000_MAX_IRQ)
-+		dev_dbg(ND2D(dev), "%d messages handled in ISR", n);
-+
-+	return (n) ? IRQ_HANDLED : IRQ_NONE;
-+}
-+EXPORT_SYMBOL_GPL(sja1000_interrupt);
-+
-+static int sja1000_open(struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	int err;
-+
-+	/* set chip into reset mode */
-+	set_reset_mode(dev);
++	int ret;
++	struct mscan_priv *priv = netdev_priv(dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
 +
 +	/* determine and set bittime */
-+	err = can_set_bittiming(dev);
-+	if (err)
-+		return err;
++	ret = can_set_bittiming(dev);
++	if (ret)
++		return ret;
 +
-+	/* register interrupt handler, if not done by the device driver */
-+	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
-+		err = request_irq(dev->irq, &sja1000_interrupt, IRQF_SHARED,
-+				  dev->name, (void *)dev);
-+		if (err)
-+			return -EAGAIN;
++	napi_enable(&priv->napi);
++	ret = request_irq(dev->irq, mscan_isr, 0, dev->name, dev);
++
++	if (ret < 0) {
++		napi_disable(&priv->napi);
++		printk(KERN_ERR "%s - failed to attach interrupt\n",
++		       dev->name);
++		return ret;
 +	}
 +
-+	/* init and start chi */
-+	sja1000_start(dev);
 +	priv->open_time = jiffies;
++
++	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_LISTEN);
++
++	ret = mscan_start(dev);
++	if (ret)
++		return ret;
 +
 +	netif_start_queue(dev);
 +
 +	return 0;
 +}
 +
-+static int sja1000_close(struct net_device *dev)
++static int mscan_close(struct net_device *dev)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	struct mscan_priv *priv = netdev_priv(dev);
 +
-+	set_reset_mode(dev);
++	napi_disable(&priv->napi);
++
++	out_8(&regs->cantier, 0);
++	out_8(&regs->canrier, 0);
++	free_irq(dev->irq, dev);
++	mscan_set_mode(dev, MSCAN_INIT_MODE);
++	can_close_cleanup(dev);
 +	netif_stop_queue(dev);
 +	priv->open_time = 0;
-+	can_close_cleanup(dev);
-+
-+	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER))
-+		free_irq(dev->irq, (void *)dev);
 +
 +	return 0;
 +}
 +
-+struct net_device *alloc_sja1000dev(int sizeof_priv)
-+{
-+	struct net_device *dev;
-+	struct sja1000_priv *priv;
-+
-+	dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv);
-+	if (!dev)
-+		return NULL;
-+
-+	priv = netdev_priv(dev);
-+	priv->dev = dev;
-+
-+	if (sizeof_priv)
-+		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
-+
-+	return dev;
-+}
-+EXPORT_SYMBOL_GPL(alloc_sja1000dev);
-+
-+void free_sja1000dev(struct net_device *dev)
-+{
-+	free_candev(dev);
-+}
-+EXPORT_SYMBOL_GPL(free_sja1000dev);
-+
-+static const struct net_device_ops sja1000_netdev_ops = {
-+       .ndo_open               = sja1000_open,
-+       .ndo_stop               = sja1000_close,
-+       .ndo_start_xmit         = sja1000_start_xmit,
++static const struct net_device_ops mscan_netdev_ops = {
++       .ndo_open               = mscan_open,
++       .ndo_stop               = mscan_close,
++       .ndo_start_xmit         = mscan_start_xmit,
 +};
 +
-+int register_sja1000dev(struct net_device *dev)
++int register_mscandev(struct net_device *dev, int clock_src)
 +{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	int err;
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	u8 ctl1;
 +
-+	if (!sja1000_probe_chip(dev))
-+		return -ENODEV;
++	ctl1 = in_8(&regs->canctl1);
++	if (clock_src)
++		ctl1 |= MSCAN_CLKSRC;
++	else
++		ctl1 &= ~MSCAN_CLKSRC;
++
++	ctl1 |= MSCAN_CANE;
++	out_8(&regs->canctl1, ctl1);
++	udelay(100);
++
++	/* acceptance mask/acceptance code (accept everything) */
++	out_be16(&regs->canidar1_0, 0);
++	out_be16(&regs->canidar3_2, 0);
++	out_be16(&regs->canidar5_4, 0);
++	out_be16(&regs->canidar7_6, 0);
++
++	out_be16(&regs->canidmr1_0, 0xffff);
++	out_be16(&regs->canidmr3_2, 0xffff);
++	out_be16(&regs->canidmr5_4, 0xffff);
++	out_be16(&regs->canidmr7_6, 0xffff);
++	/* Two 32 bit Acceptance Filters */
++	out_8(&regs->canidac, MSCAN_AF_32BIT);
++
++	mscan_set_mode(dev, MSCAN_INIT_MODE);
++
++	return register_candev(dev);
++}
++EXPORT_SYMBOL_GPL(register_mscandev);
++
++void unregister_mscandev(struct net_device *dev)
++{
++	struct mscan_regs *regs = (struct mscan_regs *)dev->base_addr;
++	mscan_set_mode(dev, MSCAN_INIT_MODE);
++	out_8(&regs->canctl1, in_8(&regs->canctl1) & ~MSCAN_CANE);
++	unregister_candev(dev);
++}
++EXPORT_SYMBOL_GPL(unregister_mscandev);
++
++struct net_device *alloc_mscandev(void)
++{
++	struct net_device *dev;
++	struct mscan_priv *priv;
++	int i;
++
++	dev = alloc_candev(sizeof(struct mscan_priv));
++	if (!dev)
++		return NULL;
++	priv = netdev_priv(dev);
++
++	dev->netdev_ops = &mscan_netdev_ops;
 +
 +	dev->flags |= IFF_ECHO;	/* we support local echo */
 +
-+	dev->netdev_ops = &sja1000_netdev_ops;
++	netif_napi_add(dev, &priv->napi, mscan_rx_poll, 8);
 +
-+	priv->can.bittiming_const = &sja1000_bittiming_const;
-+	priv->can.do_set_bittiming = sja1000_set_bittiming;
-+	priv->can.do_get_state = sja1000_get_state;
-+	priv->can.do_set_mode = sja1000_set_mode;
-+	priv->dev = dev;
++	priv->can.bittiming_const = &mscan_bittiming_const;
++	priv->can.do_set_bittiming = mscan_do_set_bittiming;
++	priv->can.do_set_mode = mscan_do_set_mode;
 +
-+	err = register_candev(dev);
-+	if (err) {
-+		printk(KERN_INFO
-+		       "%s: registering netdev failed\n", DRV_NAME);
-+		free_netdev(dev);
-+		return err;
++	for (i = 0; i < TX_QUEUE_SIZE; i++) {
++		priv->tx_queue[i].id = i;
++		priv->tx_queue[i].mask = 1 << i;
 +	}
 +
-+	set_reset_mode(dev);
-+	chipset_init(dev);
-+	return 0;
++	return dev;
 +}
-+EXPORT_SYMBOL_GPL(register_sja1000dev);
++EXPORT_SYMBOL_GPL(alloc_mscandev);
 +
-+void unregister_sja1000dev(struct net_device *dev)
-+{
-+	set_reset_mode(dev);
-+	unregister_candev(dev);
-+}
-+EXPORT_SYMBOL_GPL(unregister_sja1000dev);
-+
-+static __init int sja1000_init(void)
-+{
-+	printk(KERN_INFO "%s CAN netdevice driver\n", DRV_NAME);
-+
-+	return 0;
-+}
-+
-+module_init(sja1000_init);
-+
-+static __exit void sja1000_exit(void)
-+{
-+	printk(KERN_INFO "%s: driver removed\n", DRV_NAME);
-+}
-+
-+module_exit(sja1000_exit);
-diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
++MODULE_AUTHOR("Andrey Volkov <avolkov@varma-el.com>");
++MODULE_LICENSE("GPL v2");
++MODULE_DESCRIPTION("CAN port driver for a MSCAN based chips");
+diff --git a/drivers/net/can/mscan/mscan.h b/drivers/net/can/mscan/mscan.h
 new file mode 100644
-index 0000000..60d4cd6
+index 0000000..81a2eb5
 --- /dev/null
-+++ b/drivers/net/can/sja1000/sja1000.h
-@@ -0,0 +1,177 @@
++++ b/drivers/net/can/mscan/mscan.h
+@@ -0,0 +1,237 @@
 +/*
-+ * sja1000.h -  Philips SJA1000 network device driver
++ * Definitions of consts/structs to drive the Freescale MSCAN.
 + *
-+ * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
-+ * 38106 Braunschweig, GERMANY
++ * Copyright (C) 2005-2006 Andrey Volkov <avolkov@varma-el.com>,
++ *                         Varma Electronics Oy
 + *
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
 + *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the name of Volkswagen nor the names of its contributors
-+ *    may be used to endorse or promote products derived from this software
-+ *    without specific prior written permission.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
 + *
-+ * Alternatively, provided that this notice is retained in full, this
-+ * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2, in which case the provisions of the
-+ * GPL apply INSTEAD OF those given above.
-+ *
-+ * The provided data structures and external interfaces from this code
-+ * are not restricted to be used by modules with a GPL compatible license.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-+ * DAMAGE.
-+ *
-+ * Send feedback to <socketcan-users@lists.berlios.de>
-+ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + */
 +
-+#ifndef SJA1000_DEV_H
-+#define SJA1000_DEV_H
++#ifndef __MSCAN_H__
++#define __MSCAN_H__
 +
-+#include <linux/can/dev.h>
-+#include <linux/can/platform/sja1000.h>
++#include <linux/types.h>
 +
-+#define SJA1000_MAX_IRQ 20	/* max. number of interrupts handled in ISR */
++/* MSCAN control register 0 (CANCTL0) bits */
++#define MSCAN_RXFRM		0x80
++#define MSCAN_RXACT		0x40
++#define MSCAN_CSWAI		0x20
++#define MSCAN_SYNCH		0x10
++#define MSCAN_TIME		0x08
++#define MSCAN_WUPE		0x04
++#define MSCAN_SLPRQ		0x02
++#define MSCAN_INITRQ		0x01
 +
-+/* SJA1000 registers - manual section 6.4 (Pelican Mode) */
-+#define REG_MOD		0x00
-+#define REG_CMR		0x01
-+#define REG_SR		0x02
-+#define REG_IR		0x03
-+#define REG_IER		0x04
-+#define REG_ALC		0x0B
-+#define REG_ECC		0x0C
-+#define REG_EWL		0x0D
-+#define REG_RXERR	0x0E
-+#define REG_TXERR	0x0F
-+#define REG_ACCC0	0x10
-+#define REG_ACCC1	0x11
-+#define REG_ACCC2	0x12
-+#define REG_ACCC3	0x13
-+#define REG_ACCM0	0x14
-+#define REG_ACCM1	0x15
-+#define REG_ACCM2	0x16
-+#define REG_ACCM3	0x17
-+#define REG_RMC		0x1D
-+#define REG_RBSA	0x1E
++/* MSCAN control register 1 (CANCTL1) bits */
++#define MSCAN_CANE		0x80
++#define MSCAN_CLKSRC		0x40
++#define MSCAN_LOOPB		0x20
++#define MSCAN_LISTEN		0x10
++#define MSCAN_WUPM		0x04
++#define MSCAN_SLPAK		0x02
++#define MSCAN_INITAK		0x01
 +
-+/* Common registers - manual section 6.5 */
-+#define REG_BTR0	0x06
-+#define REG_BTR1	0x07
-+#define REG_OCR		0x08
-+#define REG_CDR		0x1F
++/* Use the MPC5200 MSCAN variant? */
++#ifdef CONFIG_PPC
++#define MSCAN_FOR_MPC5200
++#endif
 +
-+#define REG_FI		0x10
-+#define SFF_BUF		0x13
-+#define EFF_BUF		0x15
++#ifdef MSCAN_FOR_MPC5200
++#define MSCAN_CLKSRC_BUS	0
++#define MSCAN_CLKSRC_XTAL	MSCAN_CLKSRC
++#else
++#define MSCAN_CLKSRC_BUS	MSCAN_CLKSRC
++#define MSCAN_CLKSRC_XTAL	0
++#endif
 +
-+#define FI_FF		0x80
-+#define FI_RTR		0x40
++/* MSCAN receiver flag register (CANRFLG) bits */
++#define MSCAN_WUPIF		0x80
++#define MSCAN_CSCIF		0x40
++#define MSCAN_RSTAT1		0x20
++#define MSCAN_RSTAT0		0x10
++#define MSCAN_TSTAT1		0x08
++#define MSCAN_TSTAT0		0x04
++#define MSCAN_OVRIF		0x02
++#define MSCAN_RXF		0x01
++#define MSCAN_ERR_IF 		(MSCAN_OVRIF | MSCAN_CSCIF)
++#define MSCAN_RSTAT_MSK		(MSCAN_RSTAT1 | MSCAN_RSTAT0)
++#define MSCAN_TSTAT_MSK		(MSCAN_TSTAT1 | MSCAN_TSTAT0)
++#define MSCAN_STAT_MSK		(MSCAN_RSTAT_MSK | MSCAN_TSTAT_MSK)
 +
-+#define REG_ID1		0x11
-+#define REG_ID2		0x12
-+#define REG_ID3		0x13
-+#define REG_ID4		0x14
++#define MSCAN_STATE_BUS_OFF	(MSCAN_RSTAT1 | MSCAN_RSTAT0 | \
++				 MSCAN_TSTAT1 | MSCAN_TSTAT0)
++#define MSCAN_STATE_TX(canrflg)	(((canrflg)&MSCAN_TSTAT_MSK)>>2)
++#define MSCAN_STATE_RX(canrflg)	(((canrflg)&MSCAN_RSTAT_MSK)>>4)
++#define MSCAN_STATE_ACTIVE	0
++#define MSCAN_STATE_WARNING	1
++#define MSCAN_STATE_PASSIVE	2
++#define MSCAN_STATE_BUSOFF	3
 +
-+#define CAN_RAM		0x20
++/* MSCAN receiver interrupt enable register (CANRIER) bits */
++#define MSCAN_WUPIE		0x80
++#define MSCAN_CSCIE		0x40
++#define MSCAN_RSTATE1		0x20
++#define MSCAN_RSTATE0		0x10
++#define MSCAN_TSTATE1		0x08
++#define MSCAN_TSTATE0		0x04
++#define MSCAN_OVRIE		0x02
++#define MSCAN_RXFIE		0x01
 +
-+/* mode register */
-+#define MOD_RM		0x01
-+#define MOD_LOM		0x02
-+#define MOD_STM		0x04
-+#define MOD_AFM		0x08
-+#define MOD_SM		0x10
++/* MSCAN transmitter flag register (CANTFLG) bits */
++#define MSCAN_TXE2		0x04
++#define MSCAN_TXE1		0x02
++#define MSCAN_TXE0		0x01
++#define MSCAN_TXE		(MSCAN_TXE2 | MSCAN_TXE1 | MSCAN_TXE0)
 +
-+/* commands */
-+#define CMD_SRR		0x10
-+#define CMD_CDO		0x08
-+#define CMD_RRB		0x04
-+#define CMD_AT		0x02
-+#define CMD_TR		0x01
++/* MSCAN transmitter interrupt enable register (CANTIER) bits */
++#define MSCAN_TXIE2		0x04
++#define MSCAN_TXIE1		0x02
++#define MSCAN_TXIE0		0x01
++#define MSCAN_TXIE		(MSCAN_TXIE2 | MSCAN_TXIE1 | MSCAN_TXIE0)
 +
-+/* interrupt sources */
-+#define IRQ_BEI		0x80
-+#define IRQ_ALI		0x40
-+#define IRQ_EPI		0x20
-+#define IRQ_WUI		0x10
-+#define IRQ_DOI		0x08
-+#define IRQ_EI		0x04
-+#define IRQ_TI		0x02
-+#define IRQ_RI		0x01
-+#define IRQ_ALL		0xFF
-+#define IRQ_OFF		0x00
++/* MSCAN transmitter message abort request (CANTARQ) bits */
++#define MSCAN_ABTRQ2		0x04
++#define MSCAN_ABTRQ1		0x02
++#define MSCAN_ABTRQ0		0x01
 +
-+/* status register content */
-+#define SR_BS		0x80
-+#define SR_ES		0x40
-+#define SR_TS		0x20
-+#define SR_RS		0x10
-+#define SR_TCS		0x08
-+#define SR_TBS		0x04
-+#define SR_DOS		0x02
-+#define SR_RBS		0x01
++/* MSCAN transmitter message abort ack (CANTAAK) bits */
++#define MSCAN_ABTAK2		0x04
++#define MSCAN_ABTAK1		0x02
++#define MSCAN_ABTAK0		0x01
 +
-+#define SR_CRIT (SR_BS|SR_ES)
++/* MSCAN transmit buffer selection (CANTBSEL) bits */
++#define MSCAN_TX2		0x04
++#define MSCAN_TX1		0x02
++#define MSCAN_TX0		0x01
 +
-+/* ECC register */
-+#define ECC_SEG		0x1F
-+#define ECC_DIR		0x20
-+#define ECC_ERR		6
-+#define ECC_BIT		0x00
-+#define ECC_FORM	0x40
-+#define ECC_STUFF	0x80
-+#define ECC_MASK	0xc0
++/* MSCAN ID acceptance control register (CANIDAC) bits */
++#define MSCAN_IDAM1		0x20
++#define MSCAN_IDAM0		0x10
++#define MSCAN_IDHIT2		0x04
++#define MSCAN_IDHIT1		0x02
++#define MSCAN_IDHIT0		0x01
 +
-+/*
-+ * Flags for sja1000priv.flags
++#define MSCAN_AF_32BIT		0x00
++#define MSCAN_AF_16BIT		MSCAN_IDAM0
++#define MSCAN_AF_8BIT		MSCAN_IDAM1
++#define MSCAN_AF_CLOSED		(MSCAN_IDAM0|MSCAN_IDAM1)
++#define MSCAN_AF_MASK		(~(MSCAN_IDAM0|MSCAN_IDAM1))
++
++/* MSCAN Miscellaneous Register (CANMISC) bits */
++#define MSCAN_BOHOLD		0x01
++
++#ifdef MSCAN_FOR_MPC5200
++#define _MSCAN_RESERVED_(n, num) u8 _res##n[num]
++#define _MSCAN_RESERVED_DSR_SIZE	2
++#else
++#define _MSCAN_RESERVED_(n, num)
++#define _MSCAN_RESERVED_DSR_SIZE	0
++#endif
++
++/* Structure of the hardware registers */
++struct mscan_regs {
++	/* (see doco S12MSCANV3/D)		  MPC5200    MSCAN */
++	u8 canctl0;				/* + 0x00     0x00 */
++	u8 canctl1;				/* + 0x01     0x01 */
++	_MSCAN_RESERVED_(1, 2);			/* + 0x02          */
++	u8 canbtr0;				/* + 0x04     0x02 */
++	u8 canbtr1;				/* + 0x05     0x03 */
++	_MSCAN_RESERVED_(2, 2);			/* + 0x06          */
++	u8 canrflg;				/* + 0x08     0x04 */
++	u8 canrier;				/* + 0x09     0x05 */
++	_MSCAN_RESERVED_(3, 2);			/* + 0x0a          */
++	u8 cantflg;				/* + 0x0c     0x06 */
++	u8 cantier;				/* + 0x0d     0x07 */
++	_MSCAN_RESERVED_(4, 2);			/* + 0x0e          */
++	u8 cantarq;				/* + 0x10     0x08 */
++	u8 cantaak;				/* + 0x11     0x09 */
++	_MSCAN_RESERVED_(5, 2);			/* + 0x12          */
++	u8 cantbsel;				/* + 0x14     0x0a */
++	u8 canidac;				/* + 0x15     0x0b */
++	u8 reserved;				/* + 0x16     0x0c */
++	_MSCAN_RESERVED_(6, 5);			/* + 0x17          */
++#ifndef MSCAN_FOR_MPC5200
++	u8 canmisc;				/*            0x0d */
++#endif
++	u8 canrxerr;				/* + 0x1c     0x0e */
++	u8 cantxerr;				/* + 0x1d     0x0f */
++	_MSCAN_RESERVED_(7, 2);			/* + 0x1e          */
++	u16 canidar1_0;				/* + 0x20     0x10 */
++	_MSCAN_RESERVED_(8, 2);			/* + 0x22          */
++	u16 canidar3_2;				/* + 0x24     0x12 */
++	_MSCAN_RESERVED_(9, 2);			/* + 0x26          */
++	u16 canidmr1_0;				/* + 0x28     0x14 */
++	_MSCAN_RESERVED_(10, 2);		/* + 0x2a          */
++	u16 canidmr3_2;				/* + 0x2c     0x16 */
++	_MSCAN_RESERVED_(11, 2);		/* + 0x2e          */
++	u16 canidar5_4;				/* + 0x30     0x18 */
++	_MSCAN_RESERVED_(12, 2);		/* + 0x32          */
++	u16 canidar7_6;				/* + 0x34     0x1a */
++	_MSCAN_RESERVED_(13, 2);		/* + 0x36          */
++	u16 canidmr5_4;				/* + 0x38     0x1c */
++	_MSCAN_RESERVED_(14, 2);		/* + 0x3a          */
++	u16 canidmr7_6;				/* + 0x3c     0x1e */
++	_MSCAN_RESERVED_(15, 2);		/* + 0x3e          */
++	struct {
++		u16 idr1_0;			/* + 0x40     0x20 */
++		 _MSCAN_RESERVED_(16, 2);	/* + 0x42          */
++		u16 idr3_2;			/* + 0x44     0x22 */
++		 _MSCAN_RESERVED_(17, 2);	/* + 0x46          */
++		u16 dsr1_0;			/* + 0x48     0x24 */
++		 _MSCAN_RESERVED_(18, 2);	/* + 0x4a          */
++		u16 dsr3_2;			/* + 0x4c     0x26 */
++		 _MSCAN_RESERVED_(19, 2);	/* + 0x4e          */
++		u16 dsr5_4;			/* + 0x50     0x28 */
++		 _MSCAN_RESERVED_(20, 2);	/* + 0x52          */
++		u16 dsr7_6;			/* + 0x54     0x2a */
++		 _MSCAN_RESERVED_(21, 2);	/* + 0x56          */
++		u8 dlr;				/* + 0x58     0x2c */
++		 u8:8;				/* + 0x59     0x2d */
++		 _MSCAN_RESERVED_(22, 2);	/* + 0x5a          */
++		u16 time;			/* + 0x5c     0x2e */
++	} rx;
++	 _MSCAN_RESERVED_(23, 2);		/* + 0x5e          */
++	struct {
++		u16 idr1_0;			/* + 0x60     0x30 */
++		 _MSCAN_RESERVED_(24, 2);	/* + 0x62          */
++		u16 idr3_2;			/* + 0x64     0x32 */
++		 _MSCAN_RESERVED_(25, 2);	/* + 0x66          */
++		u16 dsr1_0;			/* + 0x68     0x34 */
++		 _MSCAN_RESERVED_(26, 2);	/* + 0x6a          */
++		u16 dsr3_2;			/* + 0x6c     0x36 */
++		 _MSCAN_RESERVED_(27, 2);	/* + 0x6e          */
++		u16 dsr5_4;			/* + 0x70     0x38 */
++		 _MSCAN_RESERVED_(28, 2);	/* + 0x72          */
++		u16 dsr7_6;			/* + 0x74     0x3a */
++		 _MSCAN_RESERVED_(29, 2);	/* + 0x76          */
++		u8 dlr;				/* + 0x78     0x3c */
++		u8 tbpr;			/* + 0x79     0x3d */
++		 _MSCAN_RESERVED_(30, 2);	/* + 0x7a          */
++		u16 time;			/* + 0x7c     0x3e */
++	} tx;
++	 _MSCAN_RESERVED_(31, 2);		/* + 0x7e          */
++} __attribute__ ((packed));
++
++#undef _MSCAN_RESERVED_
++#define MSCAN_REGION 	sizeof(struct mscan)
++
++struct net_device *alloc_mscandev(void);
++/* clock_src:
++ *	1 = The MSCAN clock source is the onchip Bus Clock.
++ *	0 = The MSCAN clock source is the chip Oscillator Clock.
 + */
-+#define SJA1000_CUSTOM_IRQ_HANDLER 0x1
++extern int register_mscandev(struct net_device *dev, int clock_src);
++extern void unregister_mscandev(struct net_device *dev);
 +
-+/*
-+ * SJA1000 private data structure
-+ */
-+struct sja1000_priv {
-+	struct can_priv can;	/* must be the first member! */
-+	long open_time;
-+	struct sk_buff *echo_skb;
-+
-+	u8 (*read_reg) (struct net_device *dev, int reg);
-+	void (*write_reg) (struct net_device *dev, int reg, u8 val);
-+	void (*pre_irq) (struct net_device *dev);
-+	void (*post_irq) (struct net_device *dev);
-+
-+	void *priv;		/* for board-specific data */
-+	struct net_device *dev;
-+
-+	u8 ocr;
-+	u8 cdr;
-+	u32 flags;
-+};
-+
-+struct net_device *alloc_sja1000dev(int sizeof_priv);
-+void free_sja1000dev(struct net_device *dev);
-+int register_sja1000dev(struct net_device *dev);
-+void unregister_sja1000dev(struct net_device *dev);
-+
-+irqreturn_t sja1000_interrupt(int irq, void *dev_id);
-+
-+#endif /* SJA1000_DEV_H */
++#endif /* __MSCAN_H__ */
 -- 
 1.5.6.6
 
