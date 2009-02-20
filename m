@@ -1,131 +1,75 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 3/3] netns: Remove net_alive
-Date: Fri, 20 Feb 2009 08:02:57 -0800
-Message-ID: <m1zlghgkpa.fsf_-_@fess.ebiederm.org>
-References: <m1ocwxi00a.fsf@fess.ebiederm.org>
-	<m1bpsxhzqz.fsf@fess.ebiederm.org>
-	<m163j5hzow.fsf_-_@fess.ebiederm.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: 2.6.29-rc5-git3 Leak r=1 3
+Date: Fri, 20 Feb 2009 18:09:54 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0902201805400.31742@wrl-59.cs.helsinki.fi>
+References: <200902192304.35547.denys@visp.net.lb>
+ <Pine.LNX.4.64.0902201006110.31742@wrl-59.cs.helsinki.fi>
+ <200902201349.47984.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers@lists.osdl.org>,
-	<netdev@vger.kernel.org>, Alexey Dobriyan <adobriyan@gmail.com>,
-	"Denis V. Lunev" <den@openvz.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-666534967-1235146194=:31742"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:45845 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876AbZBTQCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 11:02:35 -0500
-In-Reply-To: <m163j5hzow.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's message of "Fri\, 20 Feb 2009 07\:53\:51 -0800")
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40878 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752301AbZBTQJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 11:09:56 -0500
+In-Reply-To: <200902201349.47984.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It turns out that net_alive is unnecessary, and the original problem
-that led to it being added was simply that the icmp code thought
-it was a network device and wound up being unable to handle packets
-while there were still packets in the network namespace.
+---696208474-666534967-1235146194=:31742
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Now that icmp and tcp have been fixed to properly register themselves
-this problem is no longer present and we have a stronger guarantee
-that packets will not arrive in a network namespace then that provided
-by net_alive in netif_receive_skb.  So remove net_alive allowing
-packet reception run a little faster.
+On Fri, 20 Feb 2009, Denys Fedoryschenko wrote:
 
-Additionally document the strong reason why network namespace cleanup
-is safe so that if something happens again someone else will have
-a chance of figuring it out.
+> On Friday 20 February 2009 10:09:51 Ilpo Järvinen wrote:
+> > On Thu, 19 Feb 2009, Denys Fedoryschenko wrote:
+> > > If it is interesting for anybody, on loaded proxy server, at beginning:
+> > >
+> > > [   21.587816] netconsole: remote ethernet address 00:04:23:af:02:ca
+> > > [   21.591028] console [netcon0] enabled
+> > > [   21.591486] netconsole: network logging started
+> > > [   23.942232] sd 11:0:0:0: [sda] 1146040320 512-byte hardware sectors:
+> > > (586 GB/546 GiB)
+> > > [   23.943077] sd 11:0:0:0: [sda] Write Protect is off
+> > > [   23.943138] sd 11:0:0:0: [sda] Mode Sense: 06 00 10 00
+> > > [   23.943182] sd 11:0:0:0: [sda] Write cache: enabled, read cache:
+> > > enabled, supports DPO and FUA
+> > > [  239.315726] Leak r=1 3
+> >
+> > This is a local tcp sender counting retrans_out incorrectly. I'll try to
+> > go through the recent changes as soon as I get some free time.
+> 
+> Here is few more appearing, maybe will be useful in future.
+> 
+> [43028.945806] Leak r=1 3
+> [43249.983868] Leak r=1 3
+> [44459.941476] Leak r=1 3
+> [45853.641072] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk window 
+> 1905466446:1905480750 (repaired)
 
-Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
----
- include/net/net_namespace.h |   27 +++++++++++++++++----------
- net/core/dev.c              |    6 ------
- net/core/net_namespace.c    |    3 ---
- 3 files changed, 17 insertions(+), 19 deletions(-)
+Hmm, we might have sent past our allowed window due to some bug. ...Or 
+combined some segments in the new shifting code incorrectly past the 
+right edge of the window though I quickly checked and we do check for 
+tcp_send_head there so it should be right.
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 6fc13d9..ded434b 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -109,11 +109,6 @@ extern struct list_head net_namespace_list;
- #ifdef CONFIG_NET_NS
- extern void __put_net(struct net *net);
- 
--static inline int net_alive(struct net *net)
--{
--	return net && atomic_read(&net->count);
--}
--
- static inline struct net *get_net(struct net *net)
- {
- 	atomic_inc(&net->count);
-@@ -145,11 +140,6 @@ int net_eq(const struct net *net1, const struct net *net2)
- }
- #else
- 
--static inline int net_alive(struct net *net)
--{
--	return 1;
--}
--
- static inline struct net *get_net(struct net *net)
- {
- 	return net;
-@@ -234,6 +224,23 @@ struct pernet_operations {
- 	void (*exit)(struct net *net);
- };
- 
-+/*
-+ * Use these carefully.  If you implement a network device and it
-+ * needs per network namespace operations use device pernet operations,
-+ * otherwise use pernet subsys operations.
-+ *
-+ * This is critically important.  Most of the network code cleanup
-+ * runs with the assumption that dev_remove_pack has been called so no
-+ * new packets will arrive during and after the cleanup functions have
-+ * been called.  dev_remove_pack is not per namespace so instead the
-+ * guarantee of no more packets arriving in a network namespace is
-+ * provided by ensuring that all network devices and all sockets have
-+ * left the network namespace before the cleanup methods are called.
-+ *
-+ * For the longest time the ipv4 icmp code was registered as a pernet
-+ * device which caused kernel oops, and panics during network
-+ * namespace cleanup.   So please don't get this wrong.
-+ */
- extern int register_pernet_subsys(struct pernet_operations *);
- extern void unregister_pernet_subsys(struct pernet_operations *);
- extern int register_pernet_gen_subsys(int *id, struct pernet_operations *);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5493394..fd1712d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2267,12 +2267,6 @@ int netif_receive_skb(struct sk_buff *skb)
- 
- 	rcu_read_lock();
- 
--	/* Don't receive packets in an exiting network namespace */
--	if (!net_alive(dev_net(skb->dev))) {
--		kfree_skb(skb);
--		goto out;
--	}
--
- #ifdef CONFIG_NET_CLS_ACT
- 	if (skb->tc_verd & TC_NCLS) {
- 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 55151fa..516c7b1 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -140,9 +140,6 @@ static void cleanup_net(struct work_struct *work)
- 	struct pernet_operations *ops;
- 	struct net *net;
- 
--	/* Be very certain incoming network packets will not find us */
--	rcu_barrier();
--
- 	net = container_of(work, struct net, work);
- 
- 	mutex_lock(&net_mutex);
+> [45854.477072] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk window 
+> 1905466446:1905480750 (repaired)
+> [45856.149072] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk window 
+> 1905466446:1905480750 (repaired)
+> [45859.493081] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk window 
+> 1905466446:1905480750 (repaired)
+> [48607.714833] Leak r=3 1
+> [48936.032533] Leak r=1 3
+> [52018.429549] Leak r=1 1
+> 
+> 
+
 -- 
-1.6.1.2.350.g88cc
-
+ i.
+---696208474-666534967-1235146194=:31742--
