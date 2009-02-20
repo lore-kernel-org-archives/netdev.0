@@ -1,39 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/6] mv643xx_eth updates
-Date: Fri, 20 Feb 2009 16:22:09 +0800
-Message-ID: <20090220082209.GA18560@gondor.apana.org.au>
-References: <20090219.235856.233995387.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/5] igb: update napi polling to consolidate
+ function and return correct values
+Date: Fri, 20 Feb 2009 00:23:18 -0800 (PST)
+Message-ID: <20090220.002318.13922558.davem@davemloft.net>
+References: <20090220043902.29650.35055.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: buytenh@wantstofly.org, jeff@garzik.org, netdev@vger.kernel.org,
-	nico@cam.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59787 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752388AbZBTIW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:22:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20090219.235856.233995387.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49546
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753533AbZBTIXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:23:36 -0500
+In-Reply-To: <20090220043902.29650.35055.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
->
-> I've already told you what I think.
-> 
-> Kill the kconfig option and try to help us make LRO have
-> less of an impact in your tests.
-> 
-> You can throw a ton of numbers at me again, and I'll just
-> say the same thing a third time.  And I'm OK with that :-)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 19 Feb 2009 20:39:04 -0800
 
-Oh and if you're going to spend time optimising it please do so
-with GRO instead of LRO which is going away.
+> igb is currently not returning the correct values for napi.  In addition it
+> is doing more work than necessary since it will not exit polling until
+> work_done is equal to zero.
+> 
+> This patch makes the following changes:
+> 1.  Consolidates msi-x and non-msi polling routines.
+> 2.  Corrects return values for polling routines.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
