@@ -1,81 +1,54 @@
-From: "Zang Roy-R61911" <tie-fei.zang@freescale.com>
-Subject: RE: [RFC v1] virtio: add virtio-over-PCI driver
-Date: Fri, 20 Feb 2009 11:44:53 +0800
-Message-ID: <7DF0AF56456B8F4081E3C44CCCE311DE151B67@zch01exm23.fsl.freescale.net>
-References: <20090217222425.GA18801@ovro.caltech.edu> <D999D051-E5A2-4915-893D-E3384EC312A4@kernel.crashing.org> <7DF0AF56456B8F4081E3C44CCCE311DE1519A3@zch01exm23.fsl.freescale.net> <C04B22C6-BCE8-4D99-A160-22F8846C8209@kernel.crashing.org>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH 1/3] gre: used time_before for comparing jiffies
+Date: Fri, 20 Feb 2009 12:06:44 +0800
+Message-ID: <499E2C54.9000409@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ira Snyder" <iws@ovro.caltech.edu>,
-	"Arnd Bergmann" <arnd@arndb.de>,
-	"Jan-Bernd Themann" <THEMANN@de.ibm.com>, <netdev@vger.kernel.org>,
-	"Rusty Russell" <rusty@rustcorp.com.au>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: "Kumar Gala" <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:60347 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751506AbZBTDo7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 22:44:59 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <C04B22C6-BCE8-4D99-A160-22F8846C8209@kernel.crashing.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:58294 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752215AbZBTEHN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2009 23:07:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The functions time_before is more robust for comparing
+jiffies against other values.
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/ipv4/ip_gre.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 0101521..811bef7 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -432,7 +432,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
+ 	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
+ 		goto out;
  
+-	if (jiffies - t->err_time < IPTUNNEL_ERR_TIMEO)
++	if (time_before(jiffies, t->err_time + IPTUNNEL_ERR_TIMEO))
+ 		t->err_count++;
+ 	else
+ 		t->err_count = 1;
+@@ -744,7 +744,8 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ #endif
+ 
+ 	if (tunnel->err_count > 0) {
+-		if (jiffies - tunnel->err_time < IPTUNNEL_ERR_TIMEO) {
++		if (time_before(jiffies,
++				tunnel->err_time + IPTUNNEL_ERR_TIMEO)) {
+ 			tunnel->err_count--;
+ 
+ 			dst_link_failure(skb);
+-- 
+1.5.3.8
 
-> -----Original Message-----
-> From: Kumar Gala [mailto:galak@kernel.crashing.org] 
-> Sent: Friday, February 20, 2009 0:52 AM
-> To: Zang Roy-R61911
-> Cc: Ira Snyder; Arnd Bergmann; Jan-Bernd Themann; 
-> netdev@vger.kernel.org; Rusty Russell; 
-> linux-kernel@vger.kernel.org; linuxppc-dev@ozlabs.org
-> Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
-> 
-> 
-> On Feb 19, 2009, at 12:13 AM, Zang Roy-R61911 wrote:
-> 
-> >
-> >
-> >> -----Original Message-----
-> >> From:
-> >> linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs.org
-> >> [mailto:linuxppc-dev-bounces+tie-fei.zang=freescale.com@ozlabs
-> >> .org] On Behalf Of Kumar Gala
-> >> Sent: Thursday, February 19, 2009 0:47 AM
-> >> To: Ira Snyder
-> >> Cc: Arnd Bergmann; Jan-Bernd Themann; netdev@vger.kernel.org;
-> >> Rusty Russell; linux-kernel@vger.kernel.org; 
-> linuxppc-dev@ozlabs.org
-> >> Subject: Re: [RFC v1] virtio: add virtio-over-PCI driver
-> >>
-> >>
-> >> On Feb 17, 2009, at 4:24 PM, Ira Snyder wrote:
-> >>
-> >>>
-> >>> Documentation/virtio-over-PCI.txt     |   61 ++
-> >>> arch/powerpc/boot/dts/mpc834x_mds.dts |    7 +
-> >>
-> >> we'll have to review the .dts and expect a documentation update for
-> >> the node.  But that's pretty minor at this point.
-> >>
-> >>> drivers/virtio/Kconfig                |   22 +
-> >>> drivers/virtio/Makefile               |    2 +
-> >>> drivers/virtio/vop.h                  |  119 ++
-> >>> drivers/virtio/vop_fsl.c              | 1911
-> >> ++++++++++++++++++++++++
-> >>> +++++++++
-> >>
-> >> make this vop_fsl_mpc83xx.c or something along those lines.
-> > why?
-> 
-> so we can deal with 85xx as well. 
-After some modificaiton, the driver should be used on 85xx.
-For 85xx, most of the cases are for pci express.
 
->  We just need to isolate the 83xx  
-> specific bits (message usage)
-Yes.
-Roy
+
+
