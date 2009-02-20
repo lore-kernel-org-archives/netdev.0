@@ -1,63 +1,60 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: 2.6.29-rc5-git3 Leak r=1 3
-Date: Fri, 20 Feb 2009 13:49:47 +0200
-Message-ID: <200902201349.47984.denys@visp.net.lb>
-References: <200902192304.35547.denys@visp.net.lb> <Pine.LNX.4.64.0902201006110.31742@wrl-59.cs.helsinki.fi>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: PROBLEM: a trivial bug in __copy_skb_header() ?
+Date: Fri, 20 Feb 2009 09:59:42 -0300
+Message-ID: <20090220125942.GA16897@ghostprotocols.net>
+References: <85a560bb0902200045t1412c662k9b8ec337020e154f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Chu XJ <zhuxjc@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:50106 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbZBTLtz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 06:49:55 -0500
-In-Reply-To: <Pine.LNX.4.64.0902201006110.31742@wrl-59.cs.helsinki.fi>
+Received: from mx2.redhat.com ([66.187.237.31]:38248 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754529AbZBTM7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2009 07:59:46 -0500
+Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
+	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n1KCxk7R007429
+	for <netdev@vger.kernel.org>; Fri, 20 Feb 2009 07:59:46 -0500
+Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
+	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id n1KCxkPO006313
+	for <netdev@vger.kernel.org>; Fri, 20 Feb 2009 07:59:46 -0500
+Received: from doppio.ghostprotocols.net (vpn-13-32.rdu.redhat.com [10.11.13.32])
+	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id n1KCxiT2007358
+	for <netdev@vger.kernel.org>; Fri, 20 Feb 2009 07:59:45 -0500
 Content-Disposition: inline
+In-Reply-To: <85a560bb0902200045t1412c662k9b8ec337020e154f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 20 February 2009 10:09:51 Ilpo J=E4rvinen wrote:
-> On Thu, 19 Feb 2009, Denys Fedoryschenko wrote:
-> > If it is interesting for anybody, on loaded proxy server, at beginn=
-ing:
-> >
-> > [   21.587816] netconsole: remote ethernet address 00:04:23:af:02:c=
-a
-> > [   21.591028] console [netcon0] enabled
-> > [   21.591486] netconsole: network logging started
-> > [   23.942232] sd 11:0:0:0: [sda] 1146040320 512-byte hardware sect=
-ors:
-> > (586 GB/546 GiB)
-> > [   23.943077] sd 11:0:0:0: [sda] Write Protect is off
-> > [   23.943138] sd 11:0:0:0: [sda] Mode Sense: 06 00 10 00
-> > [   23.943182] sd 11:0:0:0: [sda] Write cache: enabled, read cache:
-> > enabled, supports DPO and FUA
-> > [  239.315726] Leak r=3D1 3
->
-> This is a local tcp sender counting retrans_out incorrectly. I'll try=
- to
-> go through the recent changes as soon as I get some free time.
+Em Fri, Feb 20, 2009 at 04:45:33PM +0800, Chu XJ escreveu:
+> Hi, all
+> 
+>      I'm just a newbie of Linux kernel from China. I just wonder
+> whether it should be "#ifdef CONFIG_XFRM" at the 504th line of
+> net/core/skbuff.c in the V2.6.28 source tree and previous version.
 
-Here is few more appearing, maybe will be useful in future.
+Fairly recent code:
 
-[43028.945806] Leak r=3D1 3
-[43249.983868] Leak r=3D1 3
-[44459.941476] Leak r=3D1 3
-[45853.641072] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk wi=
-ndow=20
-1905466446:1905480750 (repaired)
-[45854.477072] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk wi=
-ndow=20
-1905466446:1905480750 (repaired)
-[45856.149072] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk wi=
-ndow=20
-1905466446:1905480750 (repaired)
-[45859.493081] TCP: Peer 172.16.193.87:1259/8080 unexpectedly shrunk wi=
-ndow=20
-1905466446:1905480750 (repaired)
-[48607.714833] Leak r=3D3 1
-[48936.032533] Leak r=3D1 3
-[52018.429549] Leak r=3D1 1
+static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+{
+        new->tstamp             = old->tstamp;
+        new->dev                = old->dev;
+        new->transport_header   = old->transport_header;
+        new->network_header     = old->network_header;
+        new->mac_header         = old->mac_header;
+        new->dst                = dst_clone(old->dst);
+#ifdef CONFIG_XFRM
+        new->sp                 = secpath_get(old->sp);
+#endif
+        memcpy(new->cb, old->cb, sizeof(old->cb));
+        new->csum_start         = old->csum_start;
+        new->csum_offset        = old->csum_offset;
+        new->local_df           = old->local_df;
+        new->pkt_type           = old->pkt_type;
+        new->ip_summed          = old->ip_summed;
+        skb_copy_queue_mapping(new, old);
+        new->priority           = old->priority;
 
+Where do you think there is a problem?
+
+- Arnaldo
