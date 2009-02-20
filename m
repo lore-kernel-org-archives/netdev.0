@@ -1,40 +1,39 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.29-rc5-git3 Leak r=1 3
-Date: Fri, 20 Feb 2009 10:09:51 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0902201006110.31742@wrl-59.cs.helsinki.fi>
-References: <200902192304.35547.denys@visp.net.lb>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/6] mv643xx_eth updates
+Date: Fri, 20 Feb 2009 16:22:09 +0800
+Message-ID: <20090220082209.GA18560@gondor.apana.org.au>
+References: <20090219.235856.233995387.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Cc: buytenh@wantstofly.org, jeff@garzik.org, netdev@vger.kernel.org,
+	nico@cam.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60407 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746AbZBTIJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:09:54 -0500
-In-Reply-To: <200902192304.35547.denys@visp.net.lb>
+Received: from rhun.apana.org.au ([64.62.148.172]:59787 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752388AbZBTIW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:22:26 -0500
+Content-Disposition: inline
+In-Reply-To: <20090219.235856.233995387.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Feb 2009, Denys Fedoryschenko wrote:
-
-> If it is interesting for anybody, on loaded proxy server, at beginning:
+David Miller <davem@davemloft.net> wrote:
+>
+> I've already told you what I think.
 > 
-> [   21.587816] netconsole: remote ethernet address 00:04:23:af:02:ca
-> [   21.591028] console [netcon0] enabled
-> [   21.591486] netconsole: network logging started
-> [   23.942232] sd 11:0:0:0: [sda] 1146040320 512-byte hardware sectors: (586 
-> GB/546 GiB)
-> [   23.943077] sd 11:0:0:0: [sda] Write Protect is off
-> [   23.943138] sd 11:0:0:0: [sda] Mode Sense: 06 00 10 00
-> [   23.943182] sd 11:0:0:0: [sda] Write cache: enabled, read cache: enabled, 
-> supports DPO and FUA
-> [  239.315726] Leak r=1 3
+> Kill the kconfig option and try to help us make LRO have
+> less of an impact in your tests.
+> 
+> You can throw a ton of numbers at me again, and I'll just
+> say the same thing a third time.  And I'm OK with that :-)
 
-This is a local tcp sender counting retrans_out incorrectly. I'll try to 
-go through the recent changes as soon as I get some free time.
+Oh and if you're going to spend time optimising it please do so
+with GRO instead of LRO which is going away.
 
-
+Thanks,
 -- 
- i.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
