@@ -1,40 +1,40 @@
-From: =?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
-Subject: NAPI of many interfaces with just an interruption source
-Date: Fri, 20 Feb 2009 19:33:23 +0100
-Message-ID: <b0438a630902201033l395edc7ck4a2749e239797445@mail.gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] iptables: xt_hashlimit fix
+Date: Fri, 20 Feb 2009 19:33:43 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902201919390.5911@fbirervta.pbzchgretzou.qr>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.321329022@vyatta.com> <20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com> <499EF222.3060507@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org,
-	=?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:22207 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081AbZBTSd0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 13:33:26 -0500
-Received: by fg-out-1718.google.com with SMTP id 16so2043356fgg.17
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2009 10:33:23 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <499EF222.3060507@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi
 
-I have four interfaces that share the same interruption source (four
-hdlc channels in ixp4xx that share the same rx queue... but I am
-trying to do the question generic).
+On Friday 2009-02-20 19:10, Eric Dumazet wrote:
+>
+>Damned this broke xt_hashlimit, version=0
+>Look file "net/netfilter/xt_hashlimit.c" line 706
+>
+>    /* Ugly hack: For SMP, we only want to use one set */
+>    r->u.master = r;
+>
+>So, it appears some modules are using pointers to themselves, what a hack :(
+>We probably need an audit of other modules.
 
-My first approach was to declare a napi interface for each device.
-When I detected the first interrupt, I determine the correct net
-interface, and schedule a poll for it.
+xt_limit and xt_statistic are affected; I'll happily fix that up.
 
-The question is that there is no warranty that the data received in
-the polling belongs to the same interface, so...
+>Commit 784544739a25c30637397ace5489eeb6e15d7d49
+>(netfilter: iptables: lock free counters) broke xt_hashlimit netfilter module :
+>
+>This module was storing a pointer inside its xt_hashlimit_info, and 
+>this pointer is not relocated when we temporarly switch tables 
+>(iptables -L).
 
-- It is correct to do like this, and just analyse the data to check to
-which net interface should the data be sent.
-- Or NAPI is not correct for this case and we should just use the
-simple interruption mechanism?
-
-Thanks
-
-Miguel =C1ngel =C1lvarez
+Patch ok.
