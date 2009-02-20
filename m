@@ -1,38 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Why linux keeps connected routes when link goes down
-Date: Fri, 20 Feb 2009 12:15:08 -0800 (PST)
-Message-ID: <20090220.121508.252047266.davem@davemloft.net>
-References: <200902190203.41497.homecreate@list.ru>
-	<20090218.155207.139931991.davem@davemloft.net>
-	<20090220171912.GA7315@csclub.uwaterloo.ca>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: [RFC][PATCH] neigh: Allow for user space users of the neighbour table
+Date: Fri, 20 Feb 2009 12:23:43 -0800
+Message-ID: <m11vtshn74.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: homecreate@list.ru, netdev@vger.kernel.org
-To: lsorense@csclub.uwaterloo.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57444
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751814AbZBTUP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 15:15:26 -0500
-In-Reply-To: <20090220171912.GA7315@csclub.uwaterloo.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Gautam Kachroo <gk-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+	<linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Date: Fri, 20 Feb 2009 12:19:12 -0500
 
-> By elliminating the route to stuff you can no longer reach, quagga can
-> do its job to provide an alternative way to reach the subnet.
+Currently it is possible to do just about everything with the arp table
+from user space except treat an entry like you are using it.  To that end
+implement and a flag NTF_USE that when set in a netwlink update request
+treats the neighbour table entry like the kernel does on the output path.
 
-This is not necessarily true.
+This allows user space applications to share the kernel's arp cache.
 
-The subnet might be reachable by one of the other interfaces.
-Just the same as someone might be able to reach the down
-interface's IP address via another one of our interfaces.
+Signed-off-by: Eric Biederman <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+---
+ include/linux/neighbour.h |    1 +
+ net/core/neighbour.c      |    6 +++++-
+ 2 files changed, 6 insertions(+), 1 deletions(-)
 
-The route is tied to the IP address, and the route is therefore
-created and destroyed alongside the IP address.
+diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+index 8730d5d..12c9de1 100644
+--- a/include/linux/neighbour.h
++++ b/include/linux/neighbour.h
+@@ -31,6 +31,7 @@ enum
+  *	Neighbor Cache Entry Flags
+  */
+ 
++#define NTF_USE		0x01
+ #define NTF_PROXY	0x08	/* == ATF_PUBL */
+ #define NTF_ROUTER	0x80
+ 
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 278a142..0fc92ed 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1656,7 +1656,11 @@ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 				flags &= ~NEIGH_UPDATE_F_OVERRIDE;
+ 		}
+ 
+-		err = neigh_update(neigh, lladdr, ndm->ndm_state, flags);
++		if (ndm->ndm_flags & NTF_USE) {
++			neigh_event_send(neigh, NULL);
++			err = 0;
++		} else
++			err = neigh_update(neigh, lladdr, ndm->ndm_state, flags);
+ 		neigh_release(neigh);
+ 		goto out_dev_put;
+ 	}
+-- 
+1.6.1.2.350.g88cc
 
-As long as the IP address is active and associated with the
-system, so is the route.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-api" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
