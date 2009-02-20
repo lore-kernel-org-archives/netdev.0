@@ -1,139 +1,155 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] iptables: xt_hashlimit fix
-Date: Fri, 20 Feb 2009 19:10:42 +0100
-Message-ID: <499EF222.3060507@cosmosbay.com>
-References: <20090218051906.174295181@vyatta.com>	<20090218052747.321329022@vyatta.com> <20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
+ 2.6.24?
+Date: Fri, 20 Feb 2009 13:10:46 -0500
+Message-ID: <20090220131046.46e3af16.billfink@mindspring.com>
+References: <20090111212303.GA8612@outpost.ds9a.nl>
+	<175f5a0f0901111408s7905e5d9l2155b841f1ac054d@mail.gmail.com>
+	<20090111224541.GA10848@outpost.ds9a.nl>
+	<20090111225427.GA7004@ioremap.net>
+	<20090111230824.GB10848@outpost.ds9a.nl>
+	<20090111231859.GA8309@ioremap.net>
+	<20090111235001.536a858d.billfink@mindspring.com>
+	<Pine.LNX.4.64.0901121111420.24748@wrl-59.cs.helsinki.fi>
+	<20090113003108.72860b5c.billfink@mindspring.com>
+	<1234544555.28913.451.camel@ragnarok>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: ilpo.jarvinen@helsinki.fi, Evgeniy Polyakov <zbr@ioremap.net>,
+	bert hubert <bert.hubert@netherlabs.nl>,
+	"H. Willstrand" <h.willstrand@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Jeremy Jackson <jerj@coplanar.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45978 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbZBTSKy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 13:10:54 -0500
-In-Reply-To: <499DEF49.3040602@cosmosbay.com>
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:34541 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751765AbZBTSLI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2009 13:11:08 -0500
+In-Reply-To: <1234544555.28913.451.camel@ragnarok>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Stephen Hemminger a =E9crit :
->> The reader/writer lock in ip_tables is acquired in the critical path=
- of
->> processing packets and is one of the reasons just loading iptables c=
-an cause
->> a 20% performance loss. The rwlock serves two functions:
->>
->> 1) it prevents changes to table state (xt_replace) while table is in=
- use.
->>    This is now handled by doing rcu on the xt_table. When table is
->>    replaced, the new table(s) are put in and the old one table(s) ar=
-e freed
->>    after RCU period.
->>
->> 2) it provides synchronization when accesing the counter values.
->>    This is now handled by swapping in new table_info entries for eac=
-h cpu
->>    then summing the old values, and putting the result back onto one
->>    cpu.  On a busy system it may cause sampling to occur at differen=
+On Fri, 13 Feb 2009, Jeremy Jackson wrote:
+
+> On Tue, 2009-01-13 at 00:31 -0500, Bill Fink wrote:
+> > On Mon, 12 Jan 2009, Ilpo J=E4rvinen wrote:
+> >=20
+> > > On Sun, 11 Jan 2009, Bill Fink wrote:
+> > >=20
+> > > > On Mon, 12 Jan 2009, Evgeniy Polyakov wrote:
+> > > >=20
+> > > > > On Mon, Jan 12, 2009 at 12:08:24AM +0100, bert hubert (bert.h=
+ubert@netherlabs.nl) wrote:
+> > > > > > I fully understand. Sometimes I have to talk to stupid devi=
+ces though. What
+>=20
+> An excellent article on this subject:
+>=20
+> http://ds9a.nl/the-ultimate-so_linger-page-or-why-is-my-tcp-not-relia=
+ble.txt
+>=20
+> "Luckily, it turns out that Linux keeps track of the amount of
+> unacknowledged
+> data, which can be queried using the SIOCOUTQ ioctl(). Once we see th=
+is
+> number hit 0, we can be reasonably sure our data reached at least the
+> remote
+> operating system."
+>=20
+> is this the same as the TCP_INFO getsockopt() ?
+
+If you mean the tcpinfo_unacked variable, then no it is not the same
+as the SIOCOUTQ info.
+
+> if you follow the progression from write(socket_fd, ) ... the data si=
+ts
+> in
+> the socket buffer, and SIOCOUTQ is initially zero.  If the connection
+> started with a zero window,
+> it could sit like that for a while (sometimes called a "tarpit ?).  B=
+ut,
+> you should still see the data in your socket buffer, yes?
+>=20
+> So, I think you want to make sure your socket write buffer is empty
+> (converted to unacked data), *then* make sure your unacked data is 0.
+>=20
+> 	write(sock, buffer, 1000000);             // returns 1000000
+> 	shutdown(sock, SHUT_WR);
+> 	now wait for SIOCOUTQ to hit 0.
+>=20
+> if window is 0, shutdown() would wait until show device sets window >=
+ 0
+> again, or forever on a tarpitted connection.  Either way, when if/whe=
+n
+> it finishes, you know all data was transmitted, now wait for all of i=
 t
->>    times on each cpu, but no packet/byte counts are lost in the proc=
-ess.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> to be ACKed with SIOCOUTQ.
+
+While the "shutdown(sock, SHUT_WR)" might be useful, it isn't actually
+necessary, since the SIOCOUTQ info includes both unACKed data (reported
+by tcpinfo_unacked variable) and never sent data (written by app but
+outside of receiver's allowed window).
+
+						-Bill
+
+
+
+> > > > > > I do find is the TCP_INFO ioctl, which offers this field in=
+ struct tcp_info:
+> > > > > >=20
+> > > > > >         __u32   tcpi_unacked;
+> > > > > >=20
+> > > > > > Which comes from:
+> > > > > >=20
+> > > > > > struct tcp_sock {
+> > > > > > ...
+> > > > > >         u32     packets_out;    /* Packets which are "in fl=
+ight"        */
+> > > > > > ...
+> > > > > > }
+> > > > > >=20
+> > > > > > If this becomes 0, perhaps this might tell me everything I =
+sent was acked?
+> > > > >=20
+> > > > > 0 means that there are noin-flight packets, which is effectiv=
+ely number
+> > > > > of unacked packets. So if your application waits for this fie=
+ld to
+> > > > > become zero, it will wait for all sent packets to be acked.
+> > > >=20
+> > > > I use this type of strategy in nuttcp, and it seems to work fin=
+e.
+> > > > I have a loop with a small delay and a check of tcpi_unacked, a=
+nd
+> > > > break out of the loop if tcpi_unacked becomes 0 or a defined ti=
+meout
+> > > > period has passed.
+> > >=20
+> > > Checking tcpi_unacked alone won't be reliable. The peer might be =
+slow=20
+> > > enough to advertize zero window for a short period of time and du=
+ring=20
+> > > that period you would have packets_out zero...
+> >=20
+> > I'll keep this in mind for the future, although it doesn't seem to
+> > be a significant issue in practice.  I use this scheme to try and
+> > account for the tcpi_total_retrans for the data stream, so if this
+> > corner case was hit, it would mean an under reporting of the total
+> > TCP retransmissions for the nuttcp test.
+> >=20
+> > If I understand you correctly, to hit this corner case, just after
+> > the final TCP write, there would have to be no packets in flight
+> > together with a zero TCP window.  To make it more bullet-proof, I
+> > guess after seeing a zero tcpi_unacked, an additional small delay
+> > should be performed, and then rechecking for a zero tcpi_unacked.
+> > I don't see anything else obvious (to me anyway) in the tcp_info
+> > that would be particularly helpful in handling this.
 >=20
->=20
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
-> Sucessfully tested on my dual quad core machine too, but iptables onl=
-y (no ipv6 here)
->=20
-> BTW, my new "tbench 8" result is 2450 MB/s, (it was 2150 MB/s not so =
-long ago)
->=20
-> Thanks Stephen, thats very cool stuff, yet another rwlock out of kern=
-el :)
-
-Damned this broke xt_hashlimit, version=3D0
-
-Look file "net/netfilter/xt_hashlimit.c" line 706
-
-    /* Ugly hack: For SMP, we only want to use one set */
-    r->u.master =3D r;
-
-=46ile "include/linux/netfilter/xt_hashlimit.h"
-
-struct xt_hashlimit_info {
-        char name [IFNAMSIZ];           /* name */
-        struct hashlimit_cfg cfg;
-
-        /* Used internally by the kernel */
-        struct xt_hashlimit_htable *hinfo;
-        union {
-                void *ptr;
-                struct xt_hashlimit_info *master;
-        } u;
-};
-
-
-So, it appears some modules are using pointers to themselves, what a ha=
-ck :(
-
-We probably need an audit of other modules.
-
-(net/netfilter/xt_statistic.c, net/netfilter/xt_quota.c,
-net/netfilter/xt_limit.c ...)
-
-Unfortunatly I wont have time to do this in following days, any volunte=
-er ?
-
-Thank you
-
-[PATCH] netfilter: xt_hashlimit fix
-
-Commit 784544739a25c30637397ace5489eeb6e15d7d49
-(netfilter: iptables: lock free counters) broke xt_hashlimit netfilter =
-module :
-
-This module was storing a pointer inside its xt_hashlimit_info, and thi=
-s pointer
-is not relocated when we temporarly switch tables (iptables -L).
-
-This hack is not not needed at all (probably a leftover from
-ancient time), as each cpu should and can access to its own copy.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
-
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.=
-c
-index 2482055..a5b5369 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -565,8 +565,7 @@ hashlimit_init_dst(const struct xt_hashlimit_htable=
- *hinfo,
- static bool
- hashlimit_mt_v0(const struct sk_buff *skb, const struct xt_match_param=
- *par)
- {
--	const struct xt_hashlimit_info *r =3D
--		((const struct xt_hashlimit_info *)par->matchinfo)->u.master;
-+	const struct xt_hashlimit_info *r =3D par->matchinfo;
- 	struct xt_hashlimit_htable *hinfo =3D r->hinfo;
- 	unsigned long now =3D jiffies;
- 	struct dsthash_ent *dh;
-@@ -702,8 +701,6 @@ static bool hashlimit_mt_check_v0(const struct xt_m=
-tchk_param *par)
- 	}
- 	mutex_unlock(&hlimit_mutex);
-=20
--	/* Ugly hack: For SMP, we only want to use one set */
--	r->u.master =3D r;
- 	return true;
- }
-=20
-
+> --=20
+> Jeremy Jackson
+> Coplanar Networks
+> (519)489-4903
+> http://www.coplanar.net
+> jerj@coplanar.net
