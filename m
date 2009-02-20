@@ -1,155 +1,75 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
- 2.6.24?
-Date: Fri, 20 Feb 2009 13:10:46 -0500
-Message-ID: <20090220131046.46e3af16.billfink@mindspring.com>
-References: <20090111212303.GA8612@outpost.ds9a.nl>
-	<175f5a0f0901111408s7905e5d9l2155b841f1ac054d@mail.gmail.com>
-	<20090111224541.GA10848@outpost.ds9a.nl>
-	<20090111225427.GA7004@ioremap.net>
-	<20090111230824.GB10848@outpost.ds9a.nl>
-	<20090111231859.GA8309@ioremap.net>
-	<20090111235001.536a858d.billfink@mindspring.com>
-	<Pine.LNX.4.64.0901121111420.24748@wrl-59.cs.helsinki.fi>
-	<20090113003108.72860b5c.billfink@mindspring.com>
-	<1234544555.28913.451.camel@ragnarok>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ip: add loose reverse path filtering
+Date: Fri, 20 Feb 2009 10:25:36 -0800
+Message-ID: <20090220102536.2d39ddb9@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, Evgeniy Polyakov <zbr@ioremap.net>,
-	bert hubert <bert.hubert@netherlabs.nl>,
-	"H. Willstrand" <h.willstrand@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jeremy Jackson <jerj@coplanar.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:34541 "EHLO
-	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751765AbZBTSLI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Feb 2009 13:11:08 -0500
-In-Reply-To: <1234544555.28913.451.camel@ragnarok>
+Received: from mail.vyatta.com ([76.74.103.46]:46666 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752747AbZBTSZj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2009 13:25:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Feb 2009, Jeremy Jackson wrote:
+Extend existing reverse path filter option to allow strict or loose
+filtering. (See http://en.wikipedia.org/wiki/Reverse_path_filtering).
 
-> On Tue, 2009-01-13 at 00:31 -0500, Bill Fink wrote:
-> > On Mon, 12 Jan 2009, Ilpo J=E4rvinen wrote:
-> >=20
-> > > On Sun, 11 Jan 2009, Bill Fink wrote:
-> > >=20
-> > > > On Mon, 12 Jan 2009, Evgeniy Polyakov wrote:
-> > > >=20
-> > > > > On Mon, Jan 12, 2009 at 12:08:24AM +0100, bert hubert (bert.h=
-ubert@netherlabs.nl) wrote:
-> > > > > > I fully understand. Sometimes I have to talk to stupid devi=
-ces though. What
->=20
-> An excellent article on this subject:
->=20
-> http://ds9a.nl/the-ultimate-so_linger-page-or-why-is-my-tcp-not-relia=
-ble.txt
->=20
-> "Luckily, it turns out that Linux keeps track of the amount of
-> unacknowledged
-> data, which can be queried using the SIOCOUTQ ioctl(). Once we see th=
-is
-> number hit 0, we can be reasonably sure our data reached at least the
-> remote
-> operating system."
->=20
-> is this the same as the TCP_INFO getsockopt() ?
+For compatibility with existing usage, the value 1 is chosen for strict mode
+and 2 for loose mode.
 
-If you mean the tcpinfo_unacked variable, then no it is not the same
-as the SIOCOUTQ info.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> if you follow the progression from write(socket_fd, ) ... the data si=
-ts
-> in
-> the socket buffer, and SIOCOUTQ is initially zero.  If the connection
-> started with a zero window,
-> it could sit like that for a while (sometimes called a "tarpit ?).  B=
-ut,
-> you should still see the data in your socket buffer, yes?
->=20
-> So, I think you want to make sure your socket write buffer is empty
-> (converted to unacked data), *then* make sure your unacked data is 0.
->=20
-> 	write(sock, buffer, 1000000);             // returns 1000000
-> 	shutdown(sock, SHUT_WR);
-> 	now wait for SIOCOUTQ to hit 0.
->=20
-> if window is 0, shutdown() would wait until show device sets window >=
- 0
-> again, or forever on a tarpitted connection.  Either way, when if/whe=
-n
-> it finishes, you know all data was transmitted, now wait for all of i=
-t
-> to be ACKed with SIOCOUTQ.
+---
+ Documentation/networking/ip-sysctl.txt |   22 ++++++++++++++--------
+ net/ipv4/fib_frontend.c                |    2 +-
+ 2 files changed, 15 insertions(+), 9 deletions(-)
 
-While the "shutdown(sock, SHUT_WR)" might be useful, it isn't actually
-necessary, since the SIOCOUTQ info includes both unACKed data (reported
-by tcpinfo_unacked variable) and never sent data (written by app but
-outside of receiver's allowed window).
-
-						-Bill
-
-
-
-> > > > > > I do find is the TCP_INFO ioctl, which offers this field in=
- struct tcp_info:
-> > > > > >=20
-> > > > > >         __u32   tcpi_unacked;
-> > > > > >=20
-> > > > > > Which comes from:
-> > > > > >=20
-> > > > > > struct tcp_sock {
-> > > > > > ...
-> > > > > >         u32     packets_out;    /* Packets which are "in fl=
-ight"        */
-> > > > > > ...
-> > > > > > }
-> > > > > >=20
-> > > > > > If this becomes 0, perhaps this might tell me everything I =
-sent was acked?
-> > > > >=20
-> > > > > 0 means that there are noin-flight packets, which is effectiv=
-ely number
-> > > > > of unacked packets. So if your application waits for this fie=
-ld to
-> > > > > become zero, it will wait for all sent packets to be acked.
-> > > >=20
-> > > > I use this type of strategy in nuttcp, and it seems to work fin=
-e.
-> > > > I have a loop with a small delay and a check of tcpi_unacked, a=
-nd
-> > > > break out of the loop if tcpi_unacked becomes 0 or a defined ti=
-meout
-> > > > period has passed.
-> > >=20
-> > > Checking tcpi_unacked alone won't be reliable. The peer might be =
-slow=20
-> > > enough to advertize zero window for a short period of time and du=
-ring=20
-> > > that period you would have packets_out zero...
-> >=20
-> > I'll keep this in mind for the future, although it doesn't seem to
-> > be a significant issue in practice.  I use this scheme to try and
-> > account for the tcpi_total_retrans for the data stream, so if this
-> > corner case was hit, it would mean an under reporting of the total
-> > TCP retransmissions for the nuttcp test.
-> >=20
-> > If I understand you correctly, to hit this corner case, just after
-> > the final TCP write, there would have to be no packets in flight
-> > together with a zero TCP window.  To make it more bullet-proof, I
-> > guess after seeing a zero tcpi_unacked, an additional small delay
-> > should be performed, and then rechecking for a zero tcpi_unacked.
-> > I don't see anything else obvious (to me anyway) in the tcp_info
-> > that would be particularly helpful in handling this.
->=20
-> --=20
-> Jeremy Jackson
-> Coplanar Networks
-> (519)489-4903
-> http://www.coplanar.net
-> jerj@coplanar.net
+--- a/Documentation/networking/ip-sysctl.txt	2009-02-20 10:24:04.128692016 -0800
++++ b/Documentation/networking/ip-sysctl.txt	2009-02-20 10:24:09.733192268 -0800
+@@ -699,16 +699,22 @@ accept_source_route - BOOLEAN
+ 	default TRUE (router)
+ 		FALSE (host)
+ 
+-rp_filter - BOOLEAN
+-	1 - do source validation by reversed path, as specified in RFC1812
+-	    Recommended option for single homed hosts and stub network
+-	    routers. Could cause troubles for complicated (not loop free)
+-	    networks running a slow unreliable protocol (sort of RIP),
+-	    or using static routes.
+-
++rp_filter - INTEGER
+ 	0 - No source validation.
++	1 - Strict mode as defined in RFC3704 Strict Reverse Path
++	    Each incoming packet is tested against the FIB and if the interface
++	    is not the best reverse path the packet check will fail.
++	    By default failed packets are discarded.
++	2 - Loose mode as defined in RFC3704 Loose Reverse Path
++	    Each incoming packet's source address is also tested against the FIB
++	    and if the source address is not reachable via any interface
++	    the packet check will fail.
++
++        Current recommended practice in RFC3704 is to enable strict mode
++	to prevent IP spoofin from DDos attacks. If using asymmetric routing
++        or other complicated routing,t hen loose mode is recommended.
+ 
+-	conf/all/rp_filter must also be set to TRUE to do source validation
++	conf/all/rp_filter must also be set to non-zero to do source validation
+ 	on the interface
+ 
+ 	Default value is 0. Note that some distributions enable it
+--- a/net/ipv4/fib_frontend.c	2009-02-20 10:24:04.140692744 -0800
++++ b/net/ipv4/fib_frontend.c	2009-02-20 10:24:09.733192268 -0800
+@@ -275,7 +275,7 @@ int fib_validate_source(__be32 src, __be
+ 	fib_res_put(&res);
+ 	if (no_addr)
+ 		goto last_resort;
+-	if (rpf)
++	if (rpf == 1)
+ 		goto e_inval;
+ 	fl.oif = dev->ifindex;
+ 
