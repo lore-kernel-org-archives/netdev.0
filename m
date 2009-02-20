@@ -1,64 +1,40 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH] iptables: lock free counters
-Date: Fri, 20 Feb 2009 10:37:45 +0100
-Message-ID: <499E79E9.1000905@trash.net>
-References: <20090218051906.174295181@vyatta.com>	<20090218052747.321329022@vyatta.com> <20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com>
+Date: Fri, 20 Feb 2009 10:42:27 +0100
+Message-ID: <499E7B03.9090409@trash.net>
+References: <20090218051906.174295181@vyatta.com>	<20090218052747.321329022@vyatta.com>	<20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com>	<499DF1A2.1030405@hp.com> <20090219170318.3f7d54f2@extreme> <499E04C9.4020308@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <499DEF49.3040602@cosmosbay.com>
+In-Reply-To: <499E04C9.4020308@hp.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Stephen Hemminger a =E9crit :
->> The reader/writer lock in ip_tables is acquired in the critical path=
- of
->> processing packets and is one of the reasons just loading iptables c=
-an cause
->> a 20% performance loss. The rwlock serves two functions:
+Rick Jones wrote:
+>>>> Thanks Stephen, thats very cool stuff, yet another rwlock out of 
+>>>> kernel :)
+>>>
+>>> Do you folks need/want further testing against the 32-core setup?
 >>
->> 1) it prevents changes to table state (xt_replace) while table is in=
- use.
->>    This is now handled by doing rcu on the xt_table. When table is
->>    replaced, the new table(s) are put in and the old one table(s) ar=
-e freed
->>    after RCU period.
 >>
->> 2) it provides synchronization when accesing the counter values.
->>    This is now handled by swapping in new table_info entries for eac=
-h cpu
->>    then summing the old values, and putting the result back onto one
->>    cpu.  On a busy system it may cause sampling to occur at differen=
-t
->>    times on each cpu, but no packet/byte counts are lost in the proc=
-ess.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
-> Sucessfully tested on my dual quad core machine too, but iptables onl=
-y (no ipv6 here)
->=20
-> BTW, my new "tbench 8" result is 2450 MB/s, (it was 2150 MB/s not so =
-long ago)
->=20
-> Thanks Stephen, thats very cool stuff, yet another rwlock out of kern=
-el :)
+>> It would be good to combine all 3 (iptables-rcu, timer change, and 
+>> conntrack lock)
+>> to see what the overhead change is.
+> 
+> Fair enough. Is there a tree somewhere I can pull with all those in it, 
+> or do I need to go back through the emails and apply patches?
 
-Applied, thanks everyone. I've also addes Eric's tbench results
-to the changelog.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can use my nf-next.git tree from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
+
+It contains the lock free counters, as well as smaller optimizations
+from Eric. The last timer patch I've seen missed the actual conversion
+to use mod_timer_pending(), but it would be great to have some numbers
+on the conntrack lock changes. Thanks Rick!
