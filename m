@@ -1,88 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12743] New: Oops when renaming interfaces
- added to a bridge
-Date: Fri, 20 Feb 2009 09:45:19 -0800
-Message-ID: <20090220094519.d8ad0496.akpm@linux-foundation.org>
-References: <bug-12743-10286@http.bugzilla.kernel.org/>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/2] snap: handle registration error and compile warning
+Date: Fri, 20 Feb 2009 10:03:02 -0800
+Message-ID: <20090220100302.561dcfab@extreme>
+References: <20090220100206.533d59d4@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	enrico.scholz@informatik.tu-chemnitz.de
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50988 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752870AbZBTRpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 12:45:32 -0500
-In-Reply-To: <bug-12743-10286@http.bugzilla.kernel.org/>
+Received: from mail.vyatta.com ([76.74.103.46]:45522 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753311AbZBTSDJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2009 13:03:09 -0500
+In-Reply-To: <20090220100206.533d59d4@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If this module can't load, it is almost certainly because something else
+is already bound to that SAP. So in that case, return the same error code
+as other SAP usage, and fail the module load.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Also fixes a compiler warning about printk of non const.
 
-On Fri, 20 Feb 2009 04:01:27 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12743
-> 
->            Summary: Oops when renaming interfaces added to a bridge
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.27.18
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: enrico.scholz@informatik.tu-chemnitz.de
-> 
-> 
-> Distribution: custom 
-> Hardware Environment: ARM PXA320
-> [reproduced on Fedora 10 with 2.6.27.15-170.2.24.fc10.x86_64 too]
-> 
-> Problem Description:
-> 
-> When renaming an interface which was added to a bridge, its name won't
-> be changed in the bridge setup.  Adding another interface which was
-> created later with the original name,  kernel oopses
-> 
-> A 'find /sys -name dummy*' between step 4 and 5 reports
-> 
-> /sys/devices/virtual/net/br0/brif/dummy0
-> /sys/devices/virtual/net/dummy100
-> /sys/bus/i2c/drivers/dummy
-> /sys/class/net/dummy100
-> 
-> 
-> Although it is only a WARNING, system goes havoc because whole
-> networking stack seems to be unusable then.
-> 
-> 
-> 
-> Steps to reproduce:
-> 
-> 1. brctl addbr br0
-> 
-> 2. modprobe -o d0 dummy
-> 3. brctl addif br0 dummy0
-> 
-> 4. ifrename -i dummy0 -n dummy100
-> 
-> 5. modprobe -o d1 dummy
-> 6. brctl addif br0 dummy0
-> 
-> 
-> device dummy0 entered promiscuous mode
-> ------------[ cut here ]------------
-> WARNING: at fs/sysfs/dir.c:463 sysfs_add_one+0x34/0x48()
-> ....
-> 
-> 
 
+--- a/net/802/psnap.c	2009-02-20 08:38:04.545372306 -0800
++++ b/net/802/psnap.c	2009-02-20 08:39:16.394961522 -0800
+@@ -95,15 +95,16 @@ static int snap_request(struct datalink_
+ EXPORT_SYMBOL(register_snap_client);
+ EXPORT_SYMBOL(unregister_snap_client);
+ 
+-static char snap_err_msg[] __initdata =
++static const char snap_err_msg[] __initconst =
+ 	KERN_CRIT "SNAP - unable to register with 802.2\n";
+ 
+ static int __init snap_init(void)
+ {
+ 	snap_sap = llc_sap_open(0xAA, snap_rcv);
+-
+-	if (!snap_sap)
++	if (!snap_sap) {
+ 		printk(snap_err_msg);
++		return -EBUSY;
++	}
+ 
+ 	return 0;
+ }
