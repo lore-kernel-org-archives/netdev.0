@@ -1,40 +1,53 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] iptables: xt_hashlimit fix
-Date: Fri, 20 Feb 2009 19:33:43 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0902201919390.5911@fbirervta.pbzchgretzou.qr>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.321329022@vyatta.com> <20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com> <499EF222.3060507@cosmosbay.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: NAPI of many interfaces with just an interruption source
+Date: Fri, 20 Feb 2009 10:54:13 -0800
+Message-ID: <20090220105413.55e4f5f6@extreme>
+References: <b0438a630902201033l395edc7ck4a2749e239797445@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <499EF222.3060507@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Miguel =?UTF-8?B?w4FuZ2VsIMOBbHZhcmV6?= <gotzoncabanes@gmail.com>
+To: Miguel =?UTF-8?B?w4FuZ2VsIMOBbHZhcmV6?= <gotzoncabanes@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:48042 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752957AbZBTSyP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 13:54:15 -0500
+In-Reply-To: <b0438a630902201033l395edc7ck4a2749e239797445@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 20 Feb 2009 19:33:23 +0100
+Miguel =C3=81ngel =C3=81lvarez <gotzoncabanes@gmail.com> wrote:
 
-On Friday 2009-02-20 19:10, Eric Dumazet wrote:
->
->Damned this broke xt_hashlimit, version=0
->Look file "net/netfilter/xt_hashlimit.c" line 706
->
->    /* Ugly hack: For SMP, we only want to use one set */
->    r->u.master = r;
->
->So, it appears some modules are using pointers to themselves, what a hack :(
->We probably need an audit of other modules.
+> Hi
+>=20
+> I have four interfaces that share the same interruption source (four
+> hdlc channels in ixp4xx that share the same rx queue... but I am
+> trying to do the question generic).
+>=20
+> My first approach was to declare a napi interface for each device.
+> When I detected the first interrupt, I determine the correct net
+> interface, and schedule a poll for it.
+>=20
+> The question is that there is no warranty that the data received in
+> the polling belongs to the same interface, so...
+>=20
+> - It is correct to do like this, and just analyse the data to check t=
+o
+> which net interface should the data be sent.
+> - Or NAPI is not correct for this case and we should just use the
+> simple interruption mechanism?
+>=20
+> Thanks
+>=20
+> Miguel =C3=81ngel =C3=81lvarez
 
-xt_limit and xt_statistic are affected; I'll happily fix that up.
+Several other devices have this (like sky2).  Since NAPI needs
+to control irq, you need to have 1 NAPI instance per IRQ, so for
+these type of drivers there is 1 NAPI in hardware structure
+and multiple network devices.
 
->Commit 784544739a25c30637397ace5489eeb6e15d7d49
->(netfilter: iptables: lock free counters) broke xt_hashlimit netfilter module :
->
->This module was storing a pointer inside its xt_hashlimit_info, and 
->this pointer is not relocated when we temporarly switch tables 
->(iptables -L).
-
-Patch ok.
+Note: netconsole/netpoll will only work on a single channel,
+but usually a big issue.
