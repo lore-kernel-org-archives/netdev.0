@@ -1,51 +1,39 @@
-From: "Srivats P" <Srivats.P@conexant.com>
-Subject: RE: [PATCH] iproute2: Fix no default display of ip4ip6 tunnels
-Date: Fri, 20 Feb 2009 10:19:54 +0530
-Message-ID: <F33E0C3C2876A544ABD34CFBE345A4A40211E42726@NDMBX01.bbnet.ad>
-References: <F33E0C3C2876A544ABD34CFBE345A4A40211E426D0@NDMBX01.bbnet.ad>
- <20090219085209.4dc6bce5@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] mv643xx_eth updates
+Date: Thu, 19 Feb 2009 23:58:56 -0800 (PST)
+Message-ID: <20090219.235856.233995387.davem@davemloft.net>
+References: <20090213000615.GJ17914@xi.wantstofly.org>
+	<20090215.234630.202443700.davem@davemloft.net>
+	<20090219224318.GH17914@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, nico@cam.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnxtsmtp5.conexant.com ([198.62.9.40]:39265 "EHLO
-	cnxtsmtp5.conexant.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753106AbZBTEt2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2009 23:49:28 -0500
-Received: from CPS (wsmx2.nb.conexant.com [157.152.185.17]) (using TLSv1 with cipher RC4-MD5 (
- 128/128 bits)) (No client certificate requested) by cnxtsmtp5.conexant.com (Tumbleweed MailGate
- 3.6.1) with ESMTP id 2D3C1184AAA for <netdev@vger.kernel.org>; Thu, 19 Feb 2009 20:49:32 -0800 (
- PST)
-In-Reply-To: <20090219085209.4dc6bce5@extreme>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58477
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751752AbZBTH7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 02:59:14 -0500
+In-Reply-To: <20090219224318.GH17914@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Thu, 19 Feb 2009 23:43:19 +0100
 
->it is possible to see all with
->	ip -6 tunnel show mode all
+> On Sun, Feb 15, 2009 at 11:46:30PM -0800, David Miller wrote:
+> 
+> > And furthermore, if it is worse in some cases that is
+> > a bug that we should fix rather than ignore while hiding
+> > behind some Kconfig option.
+ ...
+> What do you think?
 
-I guess you meant "mode any" instead of "mode all". And yes, you are right - "mode any" does display all tunnels.
+I've already told you what I think.
 
-However the equivalent INET4 command - "ip tunnel show" displays all tunnels (gre/ipip/sit) irrespective of mode and from a end user point of view he would probably expect the same behaviour with the INET6 tunnels without having to specify "mode any"
+Kill the kconfig option and try to help us make LRO have
+less of an impact in your tests.
 
-If you agree, I'll submit a replacement patch for my earlier one which does the same thing.
-
-Regards,
-Srivats
-
-
-Conexant E-mail Firewall (Conexant.Com) made the following annotations
----------------------------------------------------------------------
-********************** Legal Disclaimer **************************** 
-
-"This email may contain confidential and privileged material for the sole use of the intended recipient. Any unauthorized review, use or distribution by others is strictly prohibited. If you have received the message in error, please advise the sender by reply email and delete the message. Thank you." 
-
-********************************************************************** 
-
----------------------------------------------------------------------
-
+You can throw a ton of numbers at me again, and I'll just
+say the same thing a third time.  And I'm OK with that :-)
