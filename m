@@ -1,45 +1,67 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCHv3 00/10] convert arm platforms to smsc911x
-Date: Fri, 20 Feb 2009 09:19:41 -0800
-Message-ID: <20090220171941.GQ7414@atomide.com>
-References: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com> <20090201.003824.20277745.davem@davemloft.net>
+From: Santwona.Behera@Sun.COM
+Subject: Re: [gkernel-commit] [PATCH 2/3] [kernel] Add support for RX packet
+ classification in a network device
+Date: Fri, 20 Feb 2009 09:19:29 -0800
+Message-ID: <499EE621.6000605@Sun.COM>
+References: <49999FA3.7040300@Sun.COM>
+ <20090217.202838.66382200.davem@davemloft.net>
+ <20090220.005532.166859047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steve.glendinning@smsc.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	linux@arm.linux.org.uk, stanley.miao@windriver.com,
-	ian.saturley@smsc.com, broonie@opensource.wolfsonmicro.com,
-	catalin.marinas@arm.com
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, gkernel-commit@lists.sourceforge.net,
+	Matheos.Worku@Sun.COM, jeff@garzik.org, Mehdi.Bonyadi@Sun.COM
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-01-bos.mailhop.org ([63.208.196.178]:64813 "EHLO
-	mho-01-bos.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752388AbZBTRTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 12:19:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20090201.003824.20277745.davem@davemloft.net>
+Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:50843 "EHLO
+	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753657AbZBTRUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 12:20:25 -0500
+Received: from fe-sfbay-10.sun.com ([192.18.43.129])
+	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id n1KHJf1C001957
+	for <netdev@vger.kernel.org>; Fri, 20 Feb 2009 09:19:54 -0800 (PST)
+Received: from conversion-daemon.fe-sfbay-10.sun.com by fe-sfbay-10.sun.com
+ (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec 23 2008))
+ id <0KFD00K00J54ZB00@fe-sfbay-10.sun.com> for netdev@vger.kernel.org; Fri,
+ 20 Feb 2009 09:19:41 -0800 (PST)
+In-reply-to: <20090220.005532.166859047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Miller <davem@davemloft.net> [090201 00:47]:
-> From: Steve Glendinning <steve.glendinning@smsc.com>
-> Date: Tue, 27 Jan 2009 16:51:08 +0000
+Hi Dave,
+
+I actually did make the changes and compile with sparse (without any 
+warnings, at least for the access of these fields), but I haven't had 
+the time to test it yet, which is why I did not post the new patches.
+
+Thanks for taking care of it.
+
+--santwona
+
+On 02/20/09 12:55 AM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 17 Feb 2009 20:28:38 -0800 (PST)
 > 
-> > This patchset, intended for 2.6.30, converts in-tree arm platforms from
-> > smc911x to the actively maintained smsc911x driver.
-> > 
-> > The platform updates (5-7) depend on the driver updates (1-4) for 
-> > correct operation, so David Miller is planning to take these via the 
-> > net-2.6 tree.  Defconfig updates have been split out (8-10) for merging 
-> > via the arm tree.
+>> From: Santwona.Behera@Sun.COM
+>> Date: Mon, 16 Feb 2009 09:17:23 -0800
+>>
+>>> -struct ethtool_rxnfc {
+>>> -	__u32		cmd;
+>>> +/* The following structures are for supporting RX network flow
+>>> + * classification configuration. Note, all multibyte fields, e.g.,
+>>> + * ip4src, ip4dst, psrc, pdst, spi, etc. are expected to be in network
+>>> + * byte order.
+>>> + */
+>>> +struct ethtool_tcpip4_spec {
+>>> +	__u32	ip4src;
+>>> +	__u32	ip4dst;
+>>> +	__u16	psrc;
+>>> +	__u16	pdst;
+>>> +	__u8    tos;
+>>> +};
+>> We have specific types for this, "__be32" et al.
 > 
-> I've applied patches 1-4 to net-next-2.6, thanks a lot Steve!
+> Nevermind, you obviously don't have time to get to this quickly
+> so I'll take care of it while checking this stuff in...
+> 
 
-Just for the reference, I'm assuming all the arm related patches will
-go via Russell after the net updates are in. So not picking up any of
-the omap related patches.
-
-Also turns out I don't even currently have any omap boards with
-smc911x/smsc911x on them, they all still have the old smc91x :)
-
-Tony
