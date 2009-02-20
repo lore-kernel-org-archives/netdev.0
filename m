@@ -1,28 +1,51 @@
-From: Chu XJ <zhuxjc@gmail.com>
-Subject: PROBLEM: a trivial bug in __copy_skb_header() ?
-Date: Fri, 20 Feb 2009 16:45:33 +0800
-Message-ID: <85a560bb0902200045t1412c662k9b8ec337020e154f@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/8] can: Driver for the SJA1000 CAN controller
+Date: Fri, 20 Feb 2009 00:46:32 -0800 (PST)
+Message-ID: <20090220.004632.226039985.davem@davemloft.net>
+References: <1235070082-7069-4-git-send-email-wg@grandegger.com>
+	<1235070082-7069-5-git-send-email-wg@grandegger.com>
+	<20090219171440.0c8286a1@bike.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: wg@grandegger.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, oliver.hartkopp@volkswagen.de
+To: corbet@lwn.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.168]:64241 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753709AbZBTIpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:45:34 -0500
-Received: by wf-out-1314.google.com with SMTP id 28so1038570wfa.4
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2009 00:45:33 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32983
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752790AbZBTIqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:46:51 -0500
+In-Reply-To: <20090219171440.0c8286a1@bike.lwn.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, all
+From: Jonathan Corbet <corbet@lwn.net>
+Date: Thu, 19 Feb 2009 17:14:40 -0700
 
-     I'm just a newbie of Linux kernel from China. I just wonder
-whether it should be "#ifdef CONFIG_XFRM" at the 504th line of
-net/core/skbuff.c in the V2.6.28 source tree and previous version.
+> I won't be able to look at all of these...
+> 
+> > diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+> > index d609895..78a412b 100644
+> > --- a/drivers/net/can/Kconfig
+> > +++ b/drivers/net/can/Kconfig
+> > @@ -35,6 +35,17 @@ config CAN_CALC_BITTIMING
+> >  	  files "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
+> >  	  If unsure, say Y.
+> >  
+> > +config CAN_SJA1000
+> > +	depends on CAN_DEV
+> > +	tristate "Philips SJA1000"
+> > +	---help---
+> > +	  The SJA1000 is one of the top CAN controllers out there. As it
+> > +	  has a multiplexed interface it fits directly to 8051
+> > +	  microcontrollers or into the PC I/O port space. The SJA1000
+> > +	  is a full CAN controller, with shadow registers for RX and TX.
+> > +	  It can send and receive any kinds of CAN frames (SFF/EFF/RTR)
+> > +	  with a single (simple) filter setup.
+> 
+> This sounds more like advertising text.  But what people need to know is
+> whether they should enable it or not.
 
-     PS: Sorry for not using the standard format, my question is too trivial.
-
-Regards
-Chu XJ
+Totally agreed, this Kconfig help text is inappropriate
+at best.
