@@ -1,29 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ISDN: fix sc/shmem printk format warning
-Date: Fri, 20 Feb 2009 00:54:52 -0800 (PST)
-Message-ID: <20090220.005452.213401495.davem@davemloft.net>
-References: <20090219134740.4dff14c2.randy.dunlap@oracle.com>
+Subject: Re: [PATCH 2/3] [kernel] Add support for RX packet classification
+ in a network device
+Date: Fri, 20 Feb 2009 00:55:32 -0800 (PST)
+Message-ID: <20090220.005532.166859047.davem@davemloft.net>
+References: <49999FA3.7040300@Sun.COM>
+	<20090217.202838.66382200.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kkeil@suse.de, akpm@linux-foundation.org
-To: randy.dunlap@oracle.com
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	gkernel-commit@lists.sourceforge.net, Matheos.Worku@Sun.COM,
+	Mehdi.Bonyadi@Sun.COM
+To: Santwona.Behera@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34916
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752561AbZBTIzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:55:11 -0500
-In-Reply-To: <20090219134740.4dff14c2.randy.dunlap@oracle.com>
+	by vger.kernel.org with ESMTP id S1752742AbZBTIzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:55:50 -0500
+In-Reply-To: <20090217.202838.66382200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Thu, 19 Feb 2009 13:47:40 -0800
+From: David Miller <davem@davemloft.net>
+Date: Tue, 17 Feb 2009 20:28:38 -0800 (PST)
 
-> Fix isdn/sc/shmem.c printk format warning:
+> From: Santwona.Behera@Sun.COM
+> Date: Mon, 16 Feb 2009 09:17:23 -0800
 > 
-> drivers/isdn/sc/shmem.c:57: warning: format '%d' expects type 'int', but argument 3 has type 'size_t'
+> > -struct ethtool_rxnfc {
+> > -	__u32		cmd;
+> > +/* The following structures are for supporting RX network flow
+> > + * classification configuration. Note, all multibyte fields, e.g.,
+> > + * ip4src, ip4dst, psrc, pdst, spi, etc. are expected to be in network
+> > + * byte order.
+> > + */
+> > +struct ethtool_tcpip4_spec {
+> > +	__u32	ip4src;
+> > +	__u32	ip4dst;
+> > +	__u16	psrc;
+> > +	__u16	pdst;
+> > +	__u8    tos;
+> > +};
 > 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> We have specific types for this, "__be32" et al.
 
-Applied, thanks Randy.
+Nevermind, you obviously don't have time to get to this quickly
+so I'll take care of it while checking this stuff in...
