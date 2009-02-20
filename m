@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SMSC: timeout reaches -1
-Date: Fri, 20 Feb 2009 00:52:30 -0800 (PST)
-Message-ID: <20090220.005230.197696135.davem@davemloft.net>
-References: <49993E2D.4030103@gmail.com>
-	<20090220.004114.239993457.davem@davemloft.net>
-	<499E6F18.4080503@gmail.com>
+Subject: Re: [PATCH] ISDN: fix sc/shmem printk format warning
+Date: Fri, 20 Feb 2009 00:54:52 -0800 (PST)
+Message-ID: <20090220.005452.213401495.davem@davemloft.net>
+References: <20090219134740.4dff14c2.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: roel.kluin@gmail.com
+Cc: netdev@vger.kernel.org, kkeil@suse.de, akpm@linux-foundation.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34900
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34916
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752081AbZBTIws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:52:48 -0500
-In-Reply-To: <499E6F18.4080503@gmail.com>
+	by vger.kernel.org with ESMTP id S1752561AbZBTIzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2009 03:55:11 -0500
+In-Reply-To: <20090219134740.4dff14c2.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Fri, 20 Feb 2009 09:51:36 +0100
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Thu, 19 Feb 2009 13:47:40 -0800
 
-> With a postfix decrement timeouts will reach -1 rather than 0, so
-> the error path does not appear.
+> Fix isdn/sc/shmem.c printk format warning:
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> drivers/isdn/sc/shmem.c:57: warning: format '%d' expects type 'int', but argument 3 has type 'size_t'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Applied, thanks.
+Applied, thanks Randy.
