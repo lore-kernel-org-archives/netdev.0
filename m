@@ -1,54 +1,34 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: Greg Lindahl <greg@blekko.com>
 Subject: Re: Treason uncloaked / Broken peer again
-Date: Sat, 21 Feb 2009 23:34:54 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0902212317410.20526@wrl-59.cs.helsinki.fi>
-References: <20090221195829.GA14779@bx9.net>
+Date: Sat, 21 Feb 2009 13:50:30 -0800
+Message-ID: <20090221215030.GA8543@bx9.net>
+References: <20090221195829.GA14779@bx9.net> <Pine.LNX.4.64.0902212317410.20526@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Netdev <netdev@vger.kernel.org>
-To: Greg Lindahl <greg@blekko.com>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:32863 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753527AbZBUVe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2009 16:34:56 -0500
-In-Reply-To: <20090221195829.GA14779@bx9.net>
+Received: from rc.bx9.net ([64.13.160.15]:50572 "EHLO rc.bx9.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753746AbZBUVub (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Feb 2009 16:50:31 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0902212317410.20526@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 21 Feb 2009, Greg Lindahl wrote:
+On Sat, Feb 21, 2009 at 11:34:54PM +0200, Ilpo J=E4rvinen wrote:
 
-> A recent set of fiddling to our web crawler has resulted in crawled
-> Linux hosts frequently getting "Treason uncloaked" messages in their
-> dmesg. This has resulted in a modest amount of hate mail, surprisingly
-> little given that we crawl millions of hosts per day.
-> 
-> We're running the RHEL 5.2's kernel, and I have a remote webserver of
-> my own running RHEL 5.2 that's getting the messages. If you look in
-> your own webserver dmesg and see treason emanating from
-> 38.108.180.XXX/24, that's me.
->
-> Unfortunately, I haven't made the thing deterministic. My suspicion is
-> that there's another bug similar to:
-> 
-> http://github.com/github/linux-2.6/commit/2ad41065d9fe518759b695fc2640cf9c07261dd2
-> 
-> Any advice on how to narrow down the bug? I was hoping I could get a
-> tcpdump of a treasonous conversation and hand it over to you guys.
+> A case I remember top of the hat is related to shrinking of=20
+> advertized window due to granularity steps because of window
+> scaling. Fixed 2.6.22-26 timeframe iirc.
 
-A case I remember top of the hat is related to shrinking of 
-advertized window due to granularity steps because of window
-scaling. Fixed 2.6.22-26 timeframe iirc.
+I have a dozen hosts running 2.6.24.7, and 1 has some treason
+complaining about a RHEL 5.2 host (2.6.18+redhat). Of course, it could
+be a different bug, or caused by the other side. I'm a bit weak
+at understanding which side is guilty in your explanation.
 
-Besides actually shrinking the window, it has is often proved to be so 
-that TCP sent past the advertized window (which is a bug in itself) and 
-then if the peer (in here, us) shrinks its window to zero at that point, 
-the message gets triggered at the remote end (and will blame the wrong end 
-:-)). So to avoid this your application must avoid causing zero window to 
-prevent a fulfilment of the second requirement since you don't know if the 
-remote end has that bug or not.
+-- greg
 
 
--- 
- i.
