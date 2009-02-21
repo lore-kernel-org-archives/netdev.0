@@ -1,39 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 12743] New: Oops when renaming interfaces
-	added to a bridge
-Date: Sat, 21 Feb 2009 21:06:13 +0800
-Message-ID: <20090221130612.GA28711@gondor.apana.org.au>
-References: <20090220094519.d8ad0496.akpm@linux-foundation.org>
+Subject: Re: [PATCH] ip: add loose reverse path filtering
+Date: Sat, 21 Feb 2009 21:09:07 +0800
+Message-ID: <20090221130907.GA28765@gondor.apana.org.au>
+References: <20090220102536.2d39ddb9@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	shemminger@linux-foundation.org,
-	enrico.scholz@informatik.tu-chemnitz.de
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: davem@davemloft.net, hawk@diku.dk, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33815 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:34157 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752902AbZBUNGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2009 08:06:20 -0500
+	with ESMTP id S1751587AbZBUNJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2009 08:09:16 -0500
 Content-Disposition: inline
-In-Reply-To: <20090220094519.d8ad0496.akpm@linux-foundation.org>
+In-Reply-To: <20090220102536.2d39ddb9@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> wrote:
->
->> When renaming an interface which was added to a bridge, its name won't
->> be changed in the bridge setup.  Adding another interface which was
->> created later with the original name,  kernel oopses
+Stephen Hemminger <shemminger@vyatta.com> wrote:
+> Extend existing reverse path filter option to allow strict or loose
+> filtering. (See http://en.wikipedia.org/wiki/Reverse_path_filtering).
+> 
+> For compatibility with existing usage, the value 1 is chosen for strict mode
+> and 2 for loose mode.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Looks like we screwed up when designing the sysfs interface.
-The port name really shouldn't show up at all as a file name.
-
-Now we'll have to either add a nasty hack to locate all these
-sysfs objects and rename them, or figure out a way to phase this
-out.
-
-I really hate sysfs!
+Rather than extending the rp_filter stuff any further, I'd prefer
+to see this replaced with netfilter plugin.
 
 Cheers,
 -- 
