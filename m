@@ -1,83 +1,72 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: Re: [PATCH NET-NEXT 0/10] hardware time stamping with new fields
-	in shinfo
-Date: Sat, 21 Feb 2009 10:15:40 +0100
-Message-ID: <1235207740.22598.26.camel@pohly-MOBL>
-References: <1234450670.5914.9.camel@ecld0pohly>
-	 <1234450981.5914.11.camel@ecld0pohly>
-	 <20090215.231626.160752710.davem@davemloft.net>
-	 <1234770294.10885.24.camel@pohly-MOBL>
+Subject: [BUG PATCH NET-NEXT-2.6] kernel panic in dev_hard_start_xmit:
+	remove faulty software TX time stamping
+Date: Sat, 21 Feb 2009 10:28:08 +0100
+Message-ID: <1235208488.22598.40.camel@pohly-MOBL>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "johnstul@us.ibm.com" <johnstul@us.ibm.com>,
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
 	"Ronciak, John" <john.ronciak@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
-To: David Miller <davem@davemloft.net>
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:22246 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:49697 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752647AbZBUJPq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Feb 2009 04:15:46 -0500
-In-Reply-To: <1234770294.10885.24.camel@pohly-MOBL>
+	id S1751547AbZBUJ2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Feb 2009 04:28:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-02-16 at 07:44 +0000, Patrick Ohly wrote:
-> On Mon, 2009-02-16 at 09:16 +0200, David Miller wrote:
-> > That TX clone wrt. skb_orphan() issue will need a happier solution.
-> > 
-> > Can you describe that problem in detail?  Maybe someone can come
-> > up with a way to avoid that stuff.
-> 
-> Bouncing information about a sent packet back to the sender (in
-> skb_tstamp_tx()) requires access to the socket via which the packet was
-> sent (orig_skb->sk).
-> 
-> This information must be available after the packet was handed to
-> ops->ndo_start_xmit() in order to implement the TX time stamping
-> software fallback for devices which don't implement hardware time
-> stamping (not enabled and/or not implemented at all).
+The current implementation of the TX software time stamping fallback is
+faulty because it accesses the skb after ndo_start_xmit() returns
+successfully. This patch removes the fallback, which fixes kernel panics
+seen during stress tests. Hardware time stamping is not affected by this
+removal.
 
-There's an even more fundamental problem: the TX software fallback in
-net_dev_hard_start_xmit() has to access the skb after ndo_start_xmit()
-has returned successfully.
+Signed-Off: Patrick Ohly <patrick.ohly@intel.com>
+Signed-Off: Emil Tantilov <emil.s.tantilov@intel.com>
 
-During stress tests LAD colleagues at Intel ran into kernel panics that
-pointed to net_dev_hard_start_xmit() as the culprit. Removing the
-current TX software fallback code solved this. My apologies for not
-realizing earlier that this code is violating skb ownership rules.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d393fc9..1dcace3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1672,16 +1672,6 @@ static int dev_gso_segment(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static void tstamp_tx(struct sk_buff *skb)
+-{
+-	union skb_shared_tx *shtx =
+-		skb_tx(skb);
+-	if (unlikely(shtx->software &&
+-			!shtx->in_progress)) {
+-		skb_tstamp_tx(skb, NULL);
+-	}
+-}
+-
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			struct netdev_queue *txq)
+ {
+@@ -1715,8 +1705,6 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		 * the skb destructor before the call and restoring it
+ 		 * afterwards, then doing the skb_orphan() ourselves?
+ 		 */
+-		if (likely(!rc))
+-			tstamp_tx(skb);
+ 		return rc;
+ 	}
+ 
+@@ -1732,7 +1720,6 @@ gso:
+ 			skb->next = nskb;
+ 			return rc;
+ 		}
+-		tstamp_tx(skb);
+ 		if (unlikely(netif_tx_queue_stopped(txq) && skb->next))
+ 			return NETDEV_TX_BUSY;
+ 	} while (skb->next);
 
-We propose to remove the faulty code and then solve it in a proper way
-later on. Hardware time stamping will work fine without it. I will
-forward the patch separately.
-
-> I see several ways to solve this:
->       * Always create another reference to skb->sk before
->         ops->ndo_start_xmit() if TX time stamping is requested.
->         Drawback: performance penalty for drivers which support TX time
->         stamping or don't call skb_orphan().
-[...]
->       * Extend the driver API + another reference. Let drivers which
->         implement TX time stamping (and thus know when to avoid
->         skb_orphan()) signal that. dev_hard_start_xmit() then can avoid
->         the "additional sk reference" thing for these drivers. Drawback:
->         requires analyzing and potentially flagging all drivers to have
->         a real effect (as for bnx2).
-
-Something along these lines with an additional reference to the skb
-might work.
-
--- 
-Best Regards, Patrick Ohly
-
-The content of this message is my personal opinion only and although
-I am an employee of Intel, the statements I make here in no way
-represent Intel's position on the issue, nor am I authorized to speak
-on behalf of Intel on this matter.
 
 
