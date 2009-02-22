@@ -1,44 +1,67 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: via-velocity: printk of dev->name before name has been allocated
-Date: Sun, 22 Feb 2009 09:43:05 +0100
-Message-ID: <49A11019.6050400@computer.org>
-References: <49A04E4B.7080207@computer.org> <20090221.235152.144560236.davem@davemloft.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Yet more fixes to etherh.c
+Date: Sun, 22 Feb 2009 08:45:58 +0000
+Message-ID: <20090222084558.GH16596@n2100.arm.linux.org.uk>
+References: <20090221193633.GD16596@n2100.arm.linux.org.uk> <20090221.234448.26454123.davem@davemloft.net> <20090222081947.GF16596@n2100.arm.linux.org.uk> <20090222.002414.146849186.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	shemminger@vyatta.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay004.isp.belgacom.be ([195.238.6.170]:57433 "EHLO
-	mailrelay004.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751771AbZBVIoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2009 03:44:38 -0500
-In-Reply-To: <20090221.235152.144560236.davem@davemloft.net>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:52030 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752531AbZBVIqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2009 03:46:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20090222.002414.146849186.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
->> I have the following in dmesg:
->>
->> [   21.212838] VIA Networking Velocity Family Gigabit Ethernet Adapter Driver Ver. 1.14
->> [   21.212847] Copyright (c) 2002, 2003 VIA Networking Technologies, Inc.
->> [   21.212852] Copyright (c) 2004 Red Hat Inc.
->> [   21.212885] ACPI: PCI Interrupt 0000:00:0e.0[A] -> GSI 18 (level, low) -> IRQ 17
->> [   21.212937] eth%d: set value of parameter Interrupt service works to 64
->> [   21.213684] eth0: VIA Networking Velocity Family Gigabit Ethernet Adapter
->> [   21.213691] eth0: Ethernet Address: 00:40:63:F4:AF:DE
+On Sun, Feb 22, 2009 at 12:24:14AM -0800, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Sun, 22 Feb 2009 08:19:47 +0000
 > 
-> This is already fixed in current kernels.
+> > On Sat, Feb 21, 2009 at 11:44:48PM -0800, David Miller wrote:
+> > > From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> > > Date: Sat, 21 Feb 2009 19:36:33 +0000
+> > > 
+> > > > Further to a71558d, this is round five of fixes to make etherh work
+> > > > again. As mainline kernels stand, the fixes in b9a9b4b were the wrong
+> > > > approach.
+> > >  ...
+> > > > Fix up b9a9b4b by making etherh's net_device_ops refer to the internal
+> > > > lib8390 functions, and remove the build of the ISA 8390.c driver.
+> > > > 
+> > > > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> > > 
+> > > Applied to net-next-2.6, thanks Russell.
+> > > 
+> > > You mention this as a fix against mainline, but your patch
+> > > only applied to net-next-2.6 because the "eth_set_mac_addr"
+> > > fix to this driver only exists there.
+> > 
+> > Hmm, I don't see the problem.  What's currently in mainline is:
+> > 
+> >         .ndo_set_mac_address    = eth_mac_addr,
 > 
-> Reporting such things against 6 release old kernels is very near to
-> pointless, please check against current releases first next time.
+> Which didn't go in via the net-2.6 tree, sigh... :-/
+> 
+> Russell, pick your transport medium, either send ARM network driver
+> fixes via me or straight to Linus.
+> 
+> Not some mixture of both, that's only going to lead to confusion,
+> just like it did here.
+> 
+> I put that "eth_mac_addr" fix into net-next-2.6, and you then sent it
+> straight to Linus.
 
-Ooh, excuse me!
+Hmm, so someone else submitted the same fix for that regression caused
+by fe96aaa.
 
-As I wrote I did look at current git net-2.6 and thought the issue was 
-still there. That was based on looking at the code though; I can't run a 
-current kernel on that machine.
+Given that the eth_mac_addr change is a regression fix, the question has
+to be asked: why is it queued for the next merge window?
 
-You guys ar going to have to get better at communicating with your user 
-base...
-
+In any case, I'm more than willing to push this through the ARM tree, but
+at the same time I'm aware that people get upset if they're not copied on
+the patches.  That's why I CC'd you with it.
