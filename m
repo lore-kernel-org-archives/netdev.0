@@ -1,44 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] netns: Remove net_alive
-Date: Sun, 22 Feb 2009 00:11:17 -0800 (PST)
-Message-ID: <20090222.001117.21723003.davem@davemloft.net>
-References: <m1bpsxhzqz.fsf@fess.ebiederm.org>
-	<m163j5hzow.fsf_-_@fess.ebiederm.org>
-	<m1zlghgkpa.fsf_-_@fess.ebiederm.org>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Yet more fixes to etherh.c
+Date: Sun, 22 Feb 2009 08:19:47 +0000
+Message-ID: <20090222081947.GF16596@n2100.arm.linux.org.uk>
+References: <20090221193633.GD16596@n2100.arm.linux.org.uk> <20090221.234448.26454123.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	adobriyan@gmail.com, den@openvz.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59818
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752454AbZBVILf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2009 03:11:35 -0500
-In-Reply-To: <m1zlghgkpa.fsf_-_@fess.ebiederm.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:49294 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbZBVIUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2009 03:20:02 -0500
+Content-Disposition: inline
+In-Reply-To: <20090221.234448.26454123.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 20 Feb 2009 08:02:57 -0800
+On Sat, Feb 21, 2009 at 11:44:48PM -0800, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Sat, 21 Feb 2009 19:36:33 +0000
+> 
+> > Further to a71558d, this is round five of fixes to make etherh work
+> > again. As mainline kernels stand, the fixes in b9a9b4b were the wrong
+> > approach.
+>  ...
+> > Fix up b9a9b4b by making etherh's net_device_ops refer to the internal
+> > lib8390 functions, and remove the build of the ISA 8390.c driver.
+> > 
+> > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> 
+> Applied to net-next-2.6, thanks Russell.
+> 
+> You mention this as a fix against mainline, but your patch
+> only applied to net-next-2.6 because the "eth_set_mac_addr"
+> fix to this driver only exists there.
 
-> 
-> It turns out that net_alive is unnecessary, and the original problem
-> that led to it being added was simply that the icmp code thought
-> it was a network device and wound up being unable to handle packets
-> while there were still packets in the network namespace.
-> 
-> Now that icmp and tcp have been fixed to properly register themselves
-> this problem is no longer present and we have a stronger guarantee
-> that packets will not arrive in a network namespace then that provided
-> by net_alive in netif_receive_skb.  So remove net_alive allowing
-> packet reception run a little faster.
-> 
-> Additionally document the strong reason why network namespace cleanup
-> is safe so that if something happens again someone else will have
-> a chance of figuring it out.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+Hmm, I don't see the problem.  What's currently in mainline is:
 
-Also applied, thanks Eric.
+        .ndo_set_mac_address    = eth_mac_addr,
+
+which is what's in the context lines of this patch.  I pushed this
+myself in a71558d.
+
+> Let me know if you want me to propagate both changes to net-2.6
+> and push to Linus.
+
+Definitely, these patches are fixing regressions, so should be submitted
+to Linus for 2.6.29.
