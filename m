@@ -1,31 +1,28 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Yet more fixes to etherh.c
-Date: Sun, 22 Feb 2009 12:39:38 +0000
-Message-ID: <20090222123938.GG28025@n2100.arm.linux.org.uk>
-References: <20090222114601.GD28025@n2100.arm.linux.org.uk> <20090222.042952.02957933.davem@davemloft.net> <20090222123458.GF28025@n2100.arm.linux.org.uk> <20090222.043647.50635031.davem@davemloft.net>
+From: Online Notification <nigadoov@nbnet.nb.ca>
+Subject: Award
+Date: Sun, 22 Feb 2009 11:20:29 -0500
+Message-ID: <20090222162029.EZSV1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: drmark.stone@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@win.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:57948 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755239AbZBVMjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2009 07:39:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20090222.043647.50635031.davem@davemloft.net>
+Received: from simmts6-qfe0.srvr.bell.ca ([206.47.199.164]:56226 "EHLO
+	simmts6-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751191AbZBVQUa convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2009 11:20:30 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts6-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090222162029.EZSV1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Sun, 22 Feb 2009 11:20:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 22, 2009 at 04:36:47AM -0800, David Miller wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> Date: Sun, 22 Feb 2009 12:34:58 +0000
-> > I don't mind how it gets in, as long as it does.  Since you seem happy
-> > for it to propagate via mine, can I assume you're acking it?
-> 
-> Yep
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+You are a winner of =A3750,000.00
+Please acknowledge the receipt of this mail with the details below to D=
+r M Stone,
+drmarkstone@msn.com.
 
-Thanks, applied.  Should hit Linus' tree around Thursday.
