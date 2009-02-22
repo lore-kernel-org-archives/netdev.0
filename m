@@ -1,39 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip: add loose reverse path filtering
-Date: Sat, 21 Feb 2009 23:56:01 -0800 (PST)
-Message-ID: <20090221.235601.92406212.davem@davemloft.net>
-References: <20090220102536.2d39ddb9@extreme>
-	<20090221130907.GA28765@gondor.apana.org.au>
+Subject: Re: 2.6.29-rc5-git3 Leak r=1 3
+Date: Sat, 21 Feb 2009 23:57:24 -0800 (PST)
+Message-ID: <20090221.235724.207966342.davem@davemloft.net>
+References: <Pine.LNX.4.64.0902201805400.31742@wrl-59.cs.helsinki.fi>
+	<200902201812.47205.denys@visp.net.lb>
+	<Pine.LNX.4.64.0902211324460.20284@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, hawk@diku.dk, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45532
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40465
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751969AbZBVH4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2009 02:56:20 -0500
-In-Reply-To: <20090221130907.GA28765@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752355AbZBVH5n convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2009 02:57:43 -0500
+In-Reply-To: <Pine.LNX.4.64.0902211324460.20284@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 21 Feb 2009 21:09:07 +0800
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sat, 21 Feb 2009 13:44:27 +0200 (EET)
 
-> Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > Extend existing reverse path filter option to allow strict or loose
-> > filtering. (See http://en.wikipedia.org/wiki/Reverse_path_filtering).
-> > 
-> > For compatibility with existing usage, the value 1 is chosen for strict mode
-> > and 2 for loose mode.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> Rather than extending the rp_filter stuff any further, I'd prefer
-> to see this replaced with netfilter plugin.
+> [PATCH] tcp: fix retrans_out leaks in shifting code
+>=20
+> There's conflicting assumptions in shifting, the caller assumes
+> that dupsack results in S'ed skbs (or a part of it) for sure but
+> never gave a hint to tcp_sacktag_one when dsack is actually in
+> use. Thus DSACK retrans_out -=3D pcount was not taken and the
+> counter became out of sync. Remove obstacle from that information
+> flow to get DSACKs accounted in tcp_sacktag_one as expected.
+>=20
+> Compile tested only.
+>=20
+> In general the call to tcp_sacktag_one with the later full shift
+> from already SACKed skb should not be there, it's just doing
+> duplicating work already done earlier so it just wastes cycles and
+> also seems to duplicate small amount of code unnecessarily :-/.
+> However, moving tcp_sacktag_one call one level up is not what I want
+> to do in mainline -rc5, the counting & seqno state manipulation that
+> is going on there is just too hairy to get right in a hurry (order
+> is very significant there as the state transition is in progress
+> making normal invariants are not to be trusted). Luckily
+> tcp_sacktag_one is effectively a no-op atm with dup_sack set to 0
+> for already SACKed skb.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Normally I would agree, but in this case the cost is exactly
-zero for the added flexibility.
-
-So I'll apply this to net-next-2.6
+Can you do some testing on this before I toss it into
+net-next-2.6? :-)  It looks fine to be, but... so did
+Herbert's URG change :)
