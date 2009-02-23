@@ -1,58 +1,81 @@
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Subject: [PATCH] hso: remove claiming and releasing of USB interface
-Date: Mon, 23 Feb 2009 17:39:34 +0200
-Message-ID: <20090223153932.8953.70790.stgit@Programuotojas>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: [PATCH] hso: remove hso_free_device()
+Date: Mon, 23 Feb 2009 17:58:27 +0200
+Message-ID: <20090223155827.10185.48514.stgit@Programuotojas>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: D.Barow@option.com
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:37985 "EHLO
-	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754928AbZBWPjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2009 10:39:39 -0500
-Received: from unknown (HELO [127.0.0.1]) (paulius.zaleckas@[217.147.39.138])
-          (envelope-sender <paulius.zaleckas@teltonika.lt>)
-          by teltonika.lt (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 23 Feb 2009 15:39:34 -0000
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-No need to reclaim the same USB interface beeing probed.
-Releasing interface does nothing also.
+There is really no need for function just doing simple kfree()
 
-This is already in for a long time in off-kernel hso driver
-and no regresions were noticed for this change.
-
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Cc: Denis Joseph Barrow <D.Barow@option.com>
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Cc: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
 ---
 
- drivers/net/usb/hso.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/net/usb/hso.c |   14 ++++----------
+ 1 files changed, 4 insertions(+), 10 deletions(-)
 
 
 diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index fe98aca..a6bf488 100644
+index a6bf488..f5e4912 100644
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -2979,8 +2979,6 @@ static int hso_probe(struct usb_interface *interface,
- 		goto exit;
- 	}
- 
--	usb_driver_claim_interface(&hso_driver, interface, hso_dev);
--
- 	/* save our data pointer in this device */
- 	usb_set_intfdata(interface, hso_dev);
- 
-@@ -2998,8 +2996,6 @@ static void hso_disconnect(struct usb_interface *interface)
- 
- 	/* remove reference of our private data */
- 	usb_set_intfdata(interface, NULL);
--
--	usb_driver_release_interface(&hso_driver, interface);
+@@ -2364,12 +2364,6 @@ exit:
+ 	return -1;
  }
  
- static void async_get_intf(struct work_struct *data)
+-/* Frees a general hso device */
+-static void hso_free_device(struct hso_device *hso_dev)
+-{
+-	kfree(hso_dev);
+-}
+-
+ /* Creates a general hso device */
+ static struct hso_device *hso_create_device(struct usb_interface *intf,
+ 					    int port_spec)
+@@ -2432,7 +2426,7 @@ static void hso_free_net_device(struct hso_device *hso_dev)
+ 		free_netdev(hso_net->net);
+ 	}
+ 
+-	hso_free_device(hso_dev);
++	kfree(hso_dev);
+ }
+ 
+ /* initialize the network interface */
+@@ -2646,7 +2640,7 @@ static void hso_free_serial_device(struct hso_device *hso_dev)
+ 	}
+ 	hso_free_tiomget(serial);
+ 	kfree(serial);
+-	hso_free_device(hso_dev);
++	kfree(hso_dev);
+ }
+ 
+ /* Creates a bulk AT channel */
+@@ -2727,7 +2721,7 @@ exit2:
+ exit:
+ 	hso_free_tiomget(serial);
+ 	kfree(serial);
+-	hso_free_device(hso_dev);
++	kfree(hso_dev);
+ 	return NULL;
+ }
+ 
+@@ -2786,7 +2780,7 @@ exit:
+ 		kfree(serial);
+ 	}
+ 	if (hso_dev)
+-		hso_free_device(hso_dev);
++		kfree(hso_dev);
+ 	return NULL;
+ 
+ }
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
