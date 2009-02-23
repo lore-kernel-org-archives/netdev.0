@@ -1,40 +1,61 @@
-From: Eugene Teo <eugeneteo@kernel.sg>
-Subject: net: amend the fix for SO_BSDCOMPAT gsopt infoleak
-Date: Tue, 24 Feb 2009 00:41:12 +0800
-Message-ID: <20090223164112.GA29425@kernel.sg>
-Reply-To: Eugene Teo <eugeneteo@kernel.sg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mpatocka@redhat.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Clemens Noss <cnoss@gmx.de>
+Subject: [PATCH] netns: build fix for net_alloc_generic
+Date: Mon, 23 Feb 2009 16:33:08 +0100
+Message-ID: <200902231757.n1NHv1Ae012899@laptop10.darmstadt.cn-net.local>
+References: <20090222.000801.250934892.davem@davemloft.net>
+Cc: davem@davemloft.net, daniel.lezcano@free.fr
+To: linux-netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:57946 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754541AbZBWQlT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2009 11:41:19 -0500
-Content-Disposition: inline
+Received: from mail.gmx.net ([213.165.64.20]:34526 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752131AbZBWR5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2009 12:57:07 -0500
+Received: from laptop10.darmstadt.cn-net.local ([192.168.10.169])
+	by server.darmstadt.cn-net.local (8.13.7/8.11.2) with ESMTP id n1NHv1FX027069
+	for <netdev@vger.kernel.org>; Mon, 23 Feb 2009 18:57:01 +0100
+Received: from laptop10.darmstadt.cn-net.local (localhost [127.0.0.1])
+	by laptop10.darmstadt.cn-net.local (8.14.0/8.14.0) with ESMTP id n1NHv1Us012902
+	for <netdev@vger.kernel.org>; Mon, 23 Feb 2009 18:57:01 +0100
+Received: (from cn@localhost)
+	by laptop10.darmstadt.cn-net.local (8.14.0/8.14.0/Submit) id n1NHv1Ae012899
+	for netdev@vger.kernel.org; Mon, 23 Feb 2009 18:57:01 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fix for CVE-2009-0676 (upstream commit df0bca04) is incomplete. Note
-that the same problem of leaking kernel memory will reappear if someone
-on some architecture uses struct timeval with some internal padding (for
-example tv_sec 64-bit and tv_usec 32-bit) --- then, you are going to
-leak the padded bytes to userspace.
+net_alloc_generic was defined in #ifdef CONFIG_NET_NS, but used
+unconditionally. Move net_alloc_generic out of #ifdef.
 
-Signed-off-by: Eugene Teo <eugeneteo@kernel.sg>
-Reported-by: Mikulas Patocka <mpatocka@redhat.com>
+Signed-off-by: Clemens Noss <cnoss@gmx.de>
+---
+ net/core/net_namespace.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 6f2e133..913c95f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -696,7 +696,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 	if (len < 0)
- 		return -EINVAL;
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index b0767ab..2adb1a7 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -63,10 +63,6 @@ out_undo:
+ 	goto out;
+ }
  
--	v.val = 0;
-+	memset(&v, 0, sizeof(v));
+-#ifdef CONFIG_NET_NS
+-static struct kmem_cache *net_cachep;
+-static struct workqueue_struct *netns_wq;
+-
+ static struct net_generic *net_alloc_generic(void)
+ {
+ 	struct net_generic *ng;
+@@ -80,6 +76,10 @@ static struct net_generic *net_alloc_generic(void)
+ 	return ng;
+ }
  
- 	switch(optname) {
- 	case SO_DEBUG:
++#ifdef CONFIG_NET_NS
++static struct kmem_cache *net_cachep;
++static struct workqueue_struct *netns_wq;
++
+ static struct net *net_alloc(void)
+ {
+ 	struct net *net = NULL;
+-- 
+1.6.1.3
+
