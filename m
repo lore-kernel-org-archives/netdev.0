@@ -1,833 +1,146 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 4/5] netxen: cleanup unused code
-Date: Sun, 22 Feb 2009 23:42:15 -0800
-Message-ID: <1235374936-28778-4-git-send-email-dhananjay@netxen.com>
-References: <1235374936-28778-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: "Sachin P. Sant" <sachinp@in.ibm.com>
+Subject: [Powerpc / eHEA] Circular dependency with 2.6.29-rc6
+Date: Mon, 23 Feb 2009 14:17:12 +0530
+Message-ID: <49A26290.60607@in.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: TKLEIN@de.ibm.com, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Mel Gorman <mel@csn.ul.ie>,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+To: linuxppc-dev@ozlabs.org, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:42588 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752860AbZBWHmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2009 02:42:21 -0500
-In-Reply-To: <1235374936-28778-1-git-send-email-dhananjay@netxen.com>
+Received: from e28smtp01.in.ibm.com ([59.145.155.1]:56800 "EHLO
+	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753897AbZBWIrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2009 03:47:48 -0500
+Received: from d28relay02.in.ibm.com (d28relay02.in.ibm.com [9.184.220.59])
+	by e28smtp01.in.ibm.com (8.13.1/8.13.1) with ESMTP id n1N8lExs015864
+	for <netdev@vger.kernel.org>; Mon, 23 Feb 2009 14:17:14 +0530
+Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
+	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n1N8iR8K4206844
+	for <netdev@vger.kernel.org>; Mon, 23 Feb 2009 14:14:27 +0530
+Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
+	by d28av04.in.ibm.com (8.13.1/8.13.3) with ESMTP id n1N8lDoe018867
+	for <netdev@vger.kernel.org>; Mon, 23 Feb 2009 19:47:14 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_ethtool.c |   75 -------
- drivers/net/netxen/netxen_nic_hw.c      |   13 --
- drivers/net/netxen/netxen_nic_hw.h      |   27 ---
- drivers/net/netxen/netxen_nic_init.c    |  360 -------------------------------
- drivers/net/netxen/netxen_nic_niu.c     |  219 -------------------
- 5 files changed, 0 insertions(+), 694 deletions(-)
+While booting 2.6.29-rc6 on a powerpc box came across this
+circular dependency with eHEA driver.
 
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 0012b31..87803f1 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -473,78 +473,6 @@ netxen_nic_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 	return 0;
- }
- 
--#if 0
--static int
--netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
--			u8 * bytes)
--{
--	struct netxen_adapter *adapter = netdev_priv(dev);
--	int offset = eeprom->offset;
--	static int flash_start;
--	static int ready_to_flash;
--	int ret;
--
--	if (flash_start == 0) {
--		netxen_halt_pegs(adapter);
--		ret = netxen_flash_unlock(adapter);
--		if (ret < 0) {
--			printk(KERN_ERR "%s: Flash unlock failed.\n",
--				netxen_nic_driver_name);
--			return ret;
--		}
--		printk(KERN_INFO "%s: flash unlocked. \n",
--			netxen_nic_driver_name);
--		ret = netxen_flash_erase_secondary(adapter);
--		if (ret != FLASH_SUCCESS) {
--			printk(KERN_ERR "%s: Flash erase failed.\n",
--				netxen_nic_driver_name);
--			return ret;
--		}
--		printk(KERN_INFO "%s: secondary flash erased successfully.\n",
--			netxen_nic_driver_name);
--		flash_start = 1;
--		return 0;
--	}
--
--	if (offset == NETXEN_BOOTLD_START) {
--		ret = netxen_flash_erase_primary(adapter);
--		if (ret != FLASH_SUCCESS) {
--			printk(KERN_ERR "%s: Flash erase failed.\n",
--				netxen_nic_driver_name);
--			return ret;
--		}
--
--		ret = netxen_rom_se(adapter, NETXEN_USER_START);
--		if (ret != FLASH_SUCCESS)
--			return ret;
--		ret = netxen_rom_se(adapter, NETXEN_FIXED_START);
--		if (ret != FLASH_SUCCESS)
--			return ret;
--
--		printk(KERN_INFO "%s: primary flash erased successfully\n",
--			netxen_nic_driver_name);
--
--		ret = netxen_backup_crbinit(adapter);
--		if (ret != FLASH_SUCCESS) {
--			printk(KERN_ERR "%s: CRBinit backup failed.\n",
--				netxen_nic_driver_name);
--			return ret;
--		}
--		printk(KERN_INFO "%s: CRBinit backup done.\n",
--			netxen_nic_driver_name);
--		ready_to_flash = 1;
--	}
--
--	if (!ready_to_flash) {
--		printk(KERN_ERR "%s: Invalid write sequence, returning...\n",
--			netxen_nic_driver_name);
--		return -EINVAL;
--	}
--
--	return netxen_rom_fast_write_words(adapter, offset, bytes, eeprom->len);
--}
--#endif /* 0 */
--
- static void
- netxen_nic_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
- {
-@@ -953,9 +881,6 @@ struct ethtool_ops netxen_nic_ethtool_ops = {
- 	.get_link = ethtool_op_get_link,
- 	.get_eeprom_len = netxen_nic_get_eeprom_len,
- 	.get_eeprom = netxen_nic_get_eeprom,
--#if 0
--	.set_eeprom = netxen_nic_set_eeprom,
--#endif
- 	.get_ringparam = netxen_nic_get_ringparam,
- 	.get_pauseparam = netxen_nic_get_pauseparam,
- 	.set_pauseparam = netxen_nic_set_pauseparam,
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index aef39e7..b6b777e 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -2077,19 +2077,6 @@ u32 netxen_nic_pci_read_normalize_2M(struct netxen_adapter *adapter, u64 off)
- 	return temp;
- }
- 
--#if 0
--int
--netxen_nic_erase_pxe(struct netxen_adapter *adapter)
--{
--	if (netxen_rom_fast_write(adapter, NETXEN_PXE_START, 0) == -1) {
--		printk(KERN_ERR "%s: erase pxe failed\n",
--			netxen_nic_driver_name);
--		return -1;
--	}
--	return 0;
--}
--#endif  /*  0  */
--
- int netxen_nic_get_board_info(struct netxen_adapter *adapter)
- {
- 	int rv = 0;
-diff --git a/drivers/net/netxen/netxen_nic_hw.h b/drivers/net/netxen/netxen_nic_hw.h
-index 70238bf..9dcfb32 100644
---- a/drivers/net/netxen/netxen_nic_hw.h
-+++ b/drivers/net/netxen/netxen_nic_hw.h
-@@ -124,33 +124,6 @@ typedef enum {
- #define netxen_gb_get_soft_reset(config_word)	\
- 		_netxen_crb_get_bit((config_word), 31)
- 
--/*
-- * NIU GB MAC Config Register 1 (applies to GB0, GB1, GB2, GB3)
-- *
-- *	Bit 0	    : duplex => 1:full duplex mode, 0:half duplex
-- *	Bit 1	    : crc_enable => 1:append CRC to xmit frames, 0:dont append
-- *	Bit 2	    : padshort => 1:pad short frames and add CRC, 0:dont pad
-- *	Bit 4	    : checklength => 1:check framelen with actual,0:dont check
-- *	Bit 5	    : hugeframes => 1:allow oversize xmit frames, 0:dont allow
-- *	Bits 8-9    : intfmode => 01:nibble (10/100), 10:byte (1000)
-- *	Bits 12-15  : preamblelen => preamble field length in bytes, default 7
-- */
--
--#define netxen_gb_set_duplex(config_word)	\
--		((config_word) |= 1 << 0)
--#define netxen_gb_set_crc_enable(config_word)	\
--		((config_word) |= 1 << 1)
--#define netxen_gb_set_padshort(config_word)	\
--		((config_word) |= 1 << 2)
--#define netxen_gb_set_checklength(config_word)	\
--		((config_word) |= 1 << 4)
--#define netxen_gb_set_hugeframes(config_word)	\
--		((config_word) |= 1 << 5)
--#define netxen_gb_set_preamblelen(config_word, val)	\
--		((config_word) |= ((val) << 12) & 0xF000)
--#define netxen_gb_set_intfmode(config_word, val)		\
--		((config_word) |= ((val) << 8) & 0x300)
--
- #define netxen_gb_get_stationaddress_low(config_word) ((config_word) >> 16)
- 
- #define netxen_gb_set_mii_mgmt_clockselect(config_word, val)	\
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index ffd37be..688f880 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -55,15 +55,6 @@ static unsigned int crb_addr_xform[NETXEN_MAX_CRB_XFORM];
- static void netxen_post_rx_buffers_nodb(struct netxen_adapter *adapter,
- 					uint32_t ctx, uint32_t ringid);
- 
--#if 0
--static void netxen_nic_locked_write_reg(struct netxen_adapter *adapter,
--					unsigned long off, int *data)
--{
--	void __iomem *addr = pci_base_offset(adapter, off);
--	writel(*data, addr);
--}
--#endif  /*  0  */
--
- static void crb_addr_transform_setup(void)
- {
- 	crb_addr_transform(XDMA);
-@@ -399,9 +390,6 @@ static u32 netxen_decode_crb_addr(u32 addr)
- 
- static long rom_max_timeout = 100;
- static long rom_lock_timeout = 10000;
--#if 0
--static long rom_write_timeout = 700;
--#endif
- 
- static int rom_lock(struct netxen_adapter *adapter)
- {
-@@ -452,38 +440,6 @@ static int netxen_wait_rom_done(struct netxen_adapter *adapter)
- 	return 0;
- }
- 
--#if 0
--static int netxen_rom_wren(struct netxen_adapter *adapter)
--{
--	/* Set write enable latch in ROM status register */
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 0);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_INSTR_OPCODE,
--			     M25P_INSTR_WREN);
--	if (netxen_wait_rom_done(adapter)) {
--		return -1;
--	}
--	return 0;
--}
--
--static unsigned int netxen_rdcrbreg(struct netxen_adapter *adapter,
--				    unsigned int addr)
--{
--	unsigned int data = 0xdeaddead;
--	data = netxen_nic_reg_read(adapter, addr);
--	return data;
--}
--
--static int netxen_do_rom_rdsr(struct netxen_adapter *adapter)
--{
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_INSTR_OPCODE,
--			     M25P_INSTR_RDSR);
--	if (netxen_wait_rom_done(adapter)) {
--		return -1;
--	}
--	return netxen_rdcrbreg(adapter, NETXEN_ROMUSB_ROM_RDATA);
--}
--#endif
--
- static void netxen_rom_unlock(struct netxen_adapter *adapter)
- {
- 	u32 val;
-@@ -493,44 +449,6 @@ static void netxen_rom_unlock(struct netxen_adapter *adapter)
- 
- }
- 
--#if 0
--static int netxen_rom_wip_poll(struct netxen_adapter *adapter)
--{
--	long timeout = 0;
--	long wip = 1;
--	int val;
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 0);
--	while (wip != 0) {
--		val = netxen_do_rom_rdsr(adapter);
--		wip = val & 1;
--		timeout++;
--		if (timeout > rom_max_timeout) {
--			return -1;
--		}
--	}
--	return 0;
--}
--
--static int do_rom_fast_write(struct netxen_adapter *adapter, int addr,
--			     int data)
--{
--	if (netxen_rom_wren(adapter)) {
--		return -1;
--	}
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_WDATA, data);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ADDRESS, addr);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_INSTR_OPCODE,
--			     M25P_INSTR_PP);
--	if (netxen_wait_rom_done(adapter)) {
--		netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 0);
--		return -1;
--	}
--
--	return netxen_rom_wip_poll(adapter);
--}
--#endif
--
- static int do_rom_fast_read(struct netxen_adapter *adapter,
- 			    int addr, int *valp)
- {
-@@ -597,284 +515,6 @@ int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
- 	return ret;
- }
- 
--#if 0
--int netxen_rom_fast_write(struct netxen_adapter *adapter, int addr, int data)
--{
--	int ret = 0;
--
--	if (rom_lock(adapter) != 0) {
--		return -1;
--	}
--	ret = do_rom_fast_write(adapter, addr, data);
--	netxen_rom_unlock(adapter);
--	return ret;
--}
--
--static int do_rom_fast_write_words(struct netxen_adapter *adapter,
--				   int addr, u8 *bytes, size_t size)
--{
--	int addridx = addr;
--	int ret = 0;
--
--	while (addridx < (addr + size)) {
--		int last_attempt = 0;
--		int timeout = 0;
--		int data;
--
--		data = le32_to_cpu((*(__le32*)bytes));
--		ret = do_rom_fast_write(adapter, addridx, data);
--		if (ret < 0)
--			return ret;
--
--		while(1) {
--			int data1;
--
--			ret = do_rom_fast_read(adapter, addridx, &data1);
--			if (ret < 0)
--				return ret;
--
--			if (data1 == data)
--				break;
--
--			if (timeout++ >= rom_write_timeout) {
--				if (last_attempt++ < 4) {
--					ret = do_rom_fast_write(adapter,
--								addridx, data);
--					if (ret < 0)
--						return ret;
--				}
--				else {
--					printk(KERN_INFO "Data write did not "
--					   "succeed at address 0x%x\n", addridx);
--					break;
--				}
--			}
--		}
--
--		bytes += 4;
--		addridx += 4;
--	}
--
--	return ret;
--}
--
--int netxen_rom_fast_write_words(struct netxen_adapter *adapter, int addr,
--					u8 *bytes, size_t size)
--{
--	int ret = 0;
--
--	ret = rom_lock(adapter);
--	if (ret < 0)
--		return ret;
--
--	ret = do_rom_fast_write_words(adapter, addr, bytes, size);
--	netxen_rom_unlock(adapter);
--
--	return ret;
--}
--
--static int netxen_rom_wrsr(struct netxen_adapter *adapter, int data)
--{
--	int ret;
--
--	ret = netxen_rom_wren(adapter);
--	if (ret < 0)
--		return ret;
--
--	netxen_crb_writelit_adapter(adapter, NETXEN_ROMUSB_ROM_WDATA, data);
--	netxen_crb_writelit_adapter(adapter,
--					NETXEN_ROMUSB_ROM_INSTR_OPCODE, 0x1);
--
--	ret = netxen_wait_rom_done(adapter);
--	if (ret < 0)
--		return ret;
--
--	return netxen_rom_wip_poll(adapter);
--}
--
--static int netxen_rom_rdsr(struct netxen_adapter *adapter)
--{
--	int ret;
--
--	ret = rom_lock(adapter);
--	if (ret < 0)
--		return ret;
--
--	ret = netxen_do_rom_rdsr(adapter);
--	netxen_rom_unlock(adapter);
--	return ret;
--}
--
--int netxen_backup_crbinit(struct netxen_adapter *adapter)
--{
--	int ret = FLASH_SUCCESS;
--	int val;
--	char *buffer = kmalloc(NETXEN_FLASH_SECTOR_SIZE, GFP_KERNEL);
--
--	if (!buffer)
--		return -ENOMEM;
--	/* unlock sector 63 */
--	val = netxen_rom_rdsr(adapter);
--	val = val & 0xe3;
--	ret = netxen_rom_wrsr(adapter, val);
--	if (ret != FLASH_SUCCESS)
--		goto out_kfree;
--
--	ret = netxen_rom_wip_poll(adapter);
--	if (ret != FLASH_SUCCESS)
--		goto out_kfree;
--
--	/* copy  sector 0 to sector 63 */
--	ret = netxen_rom_fast_read_words(adapter, NETXEN_CRBINIT_START,
--					buffer, NETXEN_FLASH_SECTOR_SIZE);
--	if (ret != FLASH_SUCCESS)
--		goto out_kfree;
--
--	ret = netxen_rom_fast_write_words(adapter, NETXEN_FIXED_START,
--					buffer, NETXEN_FLASH_SECTOR_SIZE);
--	if (ret != FLASH_SUCCESS)
--		goto out_kfree;
--
--	/* lock sector 63 */
--	val = netxen_rom_rdsr(adapter);
--	if (!(val & 0x8)) {
--		val |= (0x1 << 2);
--		/* lock sector 63 */
--		if (netxen_rom_wrsr(adapter, val) == 0) {
--			ret = netxen_rom_wip_poll(adapter);
--			if (ret != FLASH_SUCCESS)
--				goto out_kfree;
--
--			/* lock SR writes */
--			ret = netxen_rom_wip_poll(adapter);
--			if (ret != FLASH_SUCCESS)
--				goto out_kfree;
--		}
--	}
--
--out_kfree:
--	kfree(buffer);
--	return ret;
--}
--
--static int netxen_do_rom_se(struct netxen_adapter *adapter, int addr)
--{
--	netxen_rom_wren(adapter);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ADDRESS, addr);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_INSTR_OPCODE,
--			     M25P_INSTR_SE);
--	if (netxen_wait_rom_done(adapter)) {
--		netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 0);
--		return -1;
--	}
--	return netxen_rom_wip_poll(adapter);
--}
--
--static void check_erased_flash(struct netxen_adapter *adapter, int addr)
--{
--	int i;
--	int val;
--	int count = 0, erased_errors = 0;
--	int range;
--
--	range = (addr == NETXEN_USER_START) ?
--		NETXEN_FIXED_START : addr + NETXEN_FLASH_SECTOR_SIZE;
--
--	for (i = addr; i < range; i += 4) {
--		netxen_rom_fast_read(adapter, i, &val);
--		if (val != 0xffffffff)
--			erased_errors++;
--		count++;
--	}
--
--	if (erased_errors)
--		printk(KERN_INFO "0x%x out of 0x%x words fail to be erased "
--			"for sector address: %x\n", erased_errors, count, addr);
--}
--
--int netxen_rom_se(struct netxen_adapter *adapter, int addr)
--{
--	int ret = 0;
--	if (rom_lock(adapter) != 0) {
--		return -1;
--	}
--	ret = netxen_do_rom_se(adapter, addr);
--	netxen_rom_unlock(adapter);
--	msleep(30);
--	check_erased_flash(adapter, addr);
--
--	return ret;
--}
--
--static int netxen_flash_erase_sections(struct netxen_adapter *adapter,
--				       int start, int end)
--{
--	int ret = FLASH_SUCCESS;
--	int i;
--
--	for (i = start; i < end; i++) {
--		ret = netxen_rom_se(adapter, i * NETXEN_FLASH_SECTOR_SIZE);
--		if (ret)
--			break;
--		ret = netxen_rom_wip_poll(adapter);
--		if (ret < 0)
--			return ret;
--	}
--
--	return ret;
--}
--
--int
--netxen_flash_erase_secondary(struct netxen_adapter *adapter)
--{
--	int ret = FLASH_SUCCESS;
--	int start, end;
--
--	start = NETXEN_SECONDARY_START / NETXEN_FLASH_SECTOR_SIZE;
--	end   = NETXEN_USER_START / NETXEN_FLASH_SECTOR_SIZE;
--	ret = netxen_flash_erase_sections(adapter, start, end);
--
--	return ret;
--}
--
--int
--netxen_flash_erase_primary(struct netxen_adapter *adapter)
--{
--	int ret = FLASH_SUCCESS;
--	int start, end;
--
--	start = NETXEN_PRIMARY_START / NETXEN_FLASH_SECTOR_SIZE;
--	end   = NETXEN_SECONDARY_START / NETXEN_FLASH_SECTOR_SIZE;
--	ret = netxen_flash_erase_sections(adapter, start, end);
--
--	return ret;
--}
--
--void netxen_halt_pegs(struct netxen_adapter *adapter)
--{
--	 netxen_crb_writelit_adapter(adapter, NETXEN_CRB_PEG_NET_0 + 0x3c, 1);
--	 netxen_crb_writelit_adapter(adapter, NETXEN_CRB_PEG_NET_1 + 0x3c, 1);
--	 netxen_crb_writelit_adapter(adapter, NETXEN_CRB_PEG_NET_2 + 0x3c, 1);
--	 netxen_crb_writelit_adapter(adapter, NETXEN_CRB_PEG_NET_3 + 0x3c, 1);
--}
--
--int netxen_flash_unlock(struct netxen_adapter *adapter)
--{
--	int ret = 0;
--
--	ret = netxen_rom_wrsr(adapter, 0);
--	if (ret < 0)
--		return ret;
--
--	ret = netxen_rom_wren(adapter);
--	if (ret < 0)
--		return ret;
--
--	return ret;
--}
--#endif  /*  0  */
--
- #define NETXEN_BOARDTYPE		0x4008
- #define NETXEN_BOARDNUM 		0x400c
- #define NETXEN_CHIPNUM			0x4010
-diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
-index c3b9c83..3851a67 100644
---- a/drivers/net/netxen/netxen_nic_niu.c
-+++ b/drivers/net/netxen/netxen_nic_niu.c
-@@ -299,14 +299,6 @@ int netxen_niu_gbe_disable_phy_interrupts(struct netxen_adapter *adapter)
- 	return result;
- }
- 
--#if 0
--int netxen_niu_xgbe_clear_phy_interrupts(struct netxen_adapter *adapter)
--{
--	netxen_crb_writelit_adapter(adapter, NETXEN_NIU_ACTIVE_INT, -1);
--	return 0;
--}
--#endif  /*  0  */
--
- static int netxen_niu_gbe_clear_phy_interrupts(struct netxen_adapter *adapter)
- {
- 	int result = 0;
-@@ -467,104 +459,6 @@ int netxen_niu_xg_init_port(struct netxen_adapter *adapter, int port)
- 	return 0;
- }
- 
--#if 0
--/*
-- * netxen_niu_gbe_handle_phy_interrupt - Handles GbE PHY interrupts
-- * @param enable 0 means don't enable the port
-- *		 1 means enable (or re-enable) the port
-- */
--int netxen_niu_gbe_handle_phy_interrupt(struct netxen_adapter *adapter,
--					int port, long enable)
--{
--	int result = 0;
--	__u32 int_src;
--
--	printk(KERN_INFO PFX "NETXEN: Handling PHY interrupt on port %d"
--	       " (device enable = %d)\n", (int)port, (int)enable);
--
--	/*
--	 * The read of the PHY INT status will clear the pending
--	 * interrupt status
--	 */
--	if (netxen_niu_gbe_phy_read(adapter,
--				    NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS,
--				    &int_src) != 0)
--		result = -EINVAL;
--	else {
--		printk(KERN_INFO PFX "PHY Interrupt source = 0x%x \n", int_src);
--		if (netxen_get_phy_int_jabber(int_src))
--			printk(KERN_INFO PFX "jabber Interrupt ");
--		if (netxen_get_phy_int_polarity_changed(int_src))
--			printk(KERN_INFO PFX "polarity changed ");
--		if (netxen_get_phy_int_energy_detect(int_src))
--			printk(KERN_INFO PFX "energy detect \n");
--		if (netxen_get_phy_int_downshift(int_src))
--			printk(KERN_INFO PFX "downshift \n");
--		if (netxen_get_phy_int_mdi_xover_changed(int_src))
--			printk(KERN_INFO PFX "mdi_xover_changed ");
--		if (netxen_get_phy_int_fifo_over_underflow(int_src))
--			printk(KERN_INFO PFX "fifo_over_underflow ");
--		if (netxen_get_phy_int_false_carrier(int_src))
--			printk(KERN_INFO PFX "false_carrier ");
--		if (netxen_get_phy_int_symbol_error(int_src))
--			printk(KERN_INFO PFX "symbol_error ");
--		if (netxen_get_phy_int_autoneg_completed(int_src))
--			printk(KERN_INFO PFX "autoneg_completed ");
--		if (netxen_get_phy_int_page_received(int_src))
--			printk(KERN_INFO PFX "page_received ");
--		if (netxen_get_phy_int_duplex_changed(int_src))
--			printk(KERN_INFO PFX "duplex_changed ");
--		if (netxen_get_phy_int_autoneg_error(int_src))
--			printk(KERN_INFO PFX "autoneg_error ");
--		if ((netxen_get_phy_int_speed_changed(int_src))
--		    || (netxen_get_phy_int_link_status_changed(int_src))) {
--			__u32 status;
--
--			printk(KERN_INFO PFX
--			       "speed_changed or link status changed");
--			if (netxen_niu_gbe_phy_read
--			    (adapter,
--			     NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
--			     &status) == 0) {
--				if (netxen_get_phy_speed(status) == 2) {
--					printk
--					    (KERN_INFO PFX "Link speed changed"
--					     " to 1000 Mbps\n");
--					netxen_niu_gbe_set_gmii_mode(adapter,
--								     port,
--								     enable);
--				} else if (netxen_get_phy_speed(status) == 1) {
--					printk
--					    (KERN_INFO PFX "Link speed changed"
--					     " to 100 Mbps\n");
--					netxen_niu_gbe_set_mii_mode(adapter,
--								    port,
--								    enable);
--				} else if (netxen_get_phy_speed(status) == 0) {
--					printk
--					    (KERN_INFO PFX "Link speed changed"
--					     " to 10 Mbps\n");
--					netxen_niu_gbe_set_mii_mode(adapter,
--								    port,
--								    enable);
--				} else {
--					printk(KERN_ERR PFX "ERROR reading "
--					       "PHY status. Invalid speed.\n");
--					result = -1;
--				}
--			} else {
--				printk(KERN_ERR PFX
--				       "ERROR reading PHY status.\n");
--				result = -1;
--			}
--
--		}
--		printk(KERN_INFO "\n");
--	}
--	return result;
--}
--#endif  /*  0  */
--
- /*
-  * Return the current station MAC address.
-  * Note that the passed-in value must already be in network byte order.
-@@ -641,86 +535,6 @@ int netxen_niu_macaddr_set(struct netxen_adapter *adapter,
- 	return 0;
- }
- 
--#if 0
--/* Enable a GbE interface */
--int netxen_niu_enable_gbe_port(struct netxen_adapter *adapter,
--			       int port, netxen_niu_gbe_ifmode_t mode)
--{
--	__u32 mac_cfg0;
--	__u32 mac_cfg1;
--	__u32 mii_cfg;
--
--	if ((port < 0) || (port > NETXEN_NIU_MAX_GBE_PORTS))
--		return -EINVAL;
--
--	mac_cfg0 = 0;
--	netxen_gb_soft_reset(mac_cfg0);
--	if (adapter->hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
--				   &mac_cfg0, 4))
--		return -EIO;
--	mac_cfg0 = 0;
--	netxen_gb_enable_tx(mac_cfg0);
--	netxen_gb_enable_rx(mac_cfg0);
--	netxen_gb_unset_rx_flowctl(mac_cfg0);
--	netxen_gb_tx_reset_pb(mac_cfg0);
--	netxen_gb_rx_reset_pb(mac_cfg0);
--	netxen_gb_tx_reset_mac(mac_cfg0);
--	netxen_gb_rx_reset_mac(mac_cfg0);
--
--	if (adapter->hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
--				   &mac_cfg0, 4))
--		return -EIO;
--	mac_cfg1 = 0;
--	netxen_gb_set_preamblelen(mac_cfg1, 0xf);
--	netxen_gb_set_duplex(mac_cfg1);
--	netxen_gb_set_crc_enable(mac_cfg1);
--	netxen_gb_set_padshort(mac_cfg1);
--	netxen_gb_set_checklength(mac_cfg1);
--	netxen_gb_set_hugeframes(mac_cfg1);
--
--	if (mode == NETXEN_NIU_10_100_MB) {
--		netxen_gb_set_intfmode(mac_cfg1, 1);
--		if (adapter->hw_write_wx(adapter,
--					   NETXEN_NIU_GB_MAC_CONFIG_1(port),
--					   &mac_cfg1, 4))
--			return -EIO;
--
--		/* set mii mode */
--		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_GMII_MODE +
--					    (port << 3), 0);
--		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_MII_MODE +
--					    (port << 3), 1);
--
--	} else if (mode == NETXEN_NIU_1000_MB) {
--		netxen_gb_set_intfmode(mac_cfg1, 2);
--		if (adapter->hw_write_wx(adapter,
--					   NETXEN_NIU_GB_MAC_CONFIG_1(port),
--					   &mac_cfg1, 4))
--			return -EIO;
--		/* set gmii mode */
--		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_MII_MODE +
--					    (port << 3), 0);
--		netxen_crb_writelit_adapter(adapter, NETXEN_NIU_GB0_GMII_MODE +
--					    (port << 3), 1);
--	}
--	mii_cfg = 0;
--	netxen_gb_set_mii_mgmt_clockselect(mii_cfg, 7);
--	if (adapter->hw_write_wx(adapter, NETXEN_NIU_GB_MII_MGMT_CONFIG(port),
--				   &mii_cfg, 4))
--		return -EIO;
--	mac_cfg0 = 0;
--	netxen_gb_enable_tx(mac_cfg0);
--	netxen_gb_enable_rx(mac_cfg0);
--	netxen_gb_unset_rx_flowctl(mac_cfg0);
--	netxen_gb_unset_tx_flowctl(mac_cfg0);
--
--	if (adapter->hw_write_wx(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(port),
--				   &mac_cfg0, 4))
--		return -EIO;
--	return 0;
--}
--#endif  /*  0  */
--
- /* Disable a GbE interface */
- int netxen_niu_disable_gbe_port(struct netxen_adapter *adapter)
- {
-@@ -869,39 +683,6 @@ int netxen_niu_xg_macaddr_set(struct netxen_adapter *adapter,
- 	return 0;
- }
- 
--#if 0
--/*
-- * Return the current station MAC address.
-- * Note that the passed-in value must already be in network byte order.
-- */
--int netxen_niu_xg_macaddr_get(struct netxen_adapter *adapter,
--			      netxen_ethernet_macaddr_t * addr)
--{
--	int phy = adapter->physical_port;
--	u32 stationhigh;
--	u32 stationlow;
--	u8 val[8];
--
--	if (addr == NULL)
--		return -EINVAL;
--	if (phy != 0)
--		return -EINVAL;
--
--	if (adapter->hw_read_wx(adapter, NETXEN_NIU_XGE_STATION_ADDR_0_HI,
--				  &stationhigh, 4))
--		return -EIO;
--	if (adapter->hw_read_wx(adapter, NETXEN_NIU_XGE_STATION_ADDR_0_1,
--				  &stationlow, 4))
--		return -EIO;
--	((__le32 *)val)[1] = cpu_to_le32(stationhigh);
--	((__le32 *)val)[0] = cpu_to_le32(stationlow);
--
--	memcpy(addr, val + 2, 6);
--
--	return 0;
--}
--#endif  /*  0  */
--
- int netxen_niu_xg_set_promiscuous_mode(struct netxen_adapter *adapter,
- 		u32 mode)
- {
+=======================================================
+[ INFO: possible circular locking dependency detected ]
+2.6.29-rc6 #2
+-------------------------------------------------------
+ip/2174 is trying to acquire lock:
+ (&ehea_fw_handles.lock){--..}, at: [<d000000002a13e30>] .ehea_up+0x64/0x6e0
+[ehea]
+
+but task is already holding lock:
+ (&port->port_lock){--..}, at: [<d000000002a1533c>] .ehea_open+0x3c/0xc4 [ehea]
+
+which lock already depends on the new lock.
+
+
+the existing dependency chain (in reverse order) is:
+
+-> #2 (&port->port_lock){--..}:
+ [<c0000000000a8590>] .__lock_acquire+0x7e0/0x8a8
+       [<c0000000000a86ac>] .lock_acquire+0x54/0x80
+       [<c0000000005d7564>] .mutex_lock_nested+0x190/0x46c
+       [<d000000002a1533c>] .ehea_open+0x3c/0xc4 [ehea]
+       [<c000000000537834>] .dev_open+0xf4/0x168
+       [<c000000000535780>] .dev_change_flags+0xe4/0x1e8
+       [<c000000000597bfc>] .devinet_ioctl+0x2c4/0x750
+       [<c0000000005997a8>] .inet_ioctl+0xcc/0x11c
+       [<c000000000523400>] .sock_ioctl+0x2f0/0x34c
+       [<c0000000001380ec>] .vfs_ioctl+0x5c/0xf0
+       [<c000000000138810>] .do_vfs_ioctl+0x690/0x70c
+       [<c000000000138900>] .SyS_ioctl+0x74/0xb8
+       [<c00000000016fb08>] .dev_ifsioc+0x210/0x4b8
+       [<c00000000016ef18>] .compat_sys_ioctl+0x3f4/0x488
+       [<c00000000000855c>] syscall_exit+0x0/0x40
+
+-> #1 (rtnl_mutex){--..}:
+       [<c0000000000a8590>] .__lock_acquire+0x7e0/0x8a8
+       [<c0000000000a86ac>] .lock_acquire+0x54/0x80
+       [<c0000000005d7564>] .mutex_lock_nested+0x190/0x46c
+       [<c0000000005430a8>] .rtnl_lock+0x20/0x38
+       [<c00000000053677c>] .register_netdev+0x1c/0x80
+       [<d000000002a12714>] .ehea_setup_single_port+0x2c8/0x3d0 [ehea]
+       [<d000000002a19da8>] .ehea_probe_adapter+0x288/0x394 [ehea]
+       [<c00000000051f034>] .of_platform_device_probe+0x78/0x86c
+       [<c00000000047faec>] .driver_probe_device+0x13c/0x200
+       [<c00000000047fc44>] .__driver_attach+0x94/0xd8
+       [<c00000000047eab4>] .bus_for_each_dev+0x80/0xd8
+       [<c00000000047f850>] .driver_attach+0x28/0x40
+       [<c00000000047f23c>] .bus_add_driver+0xd4/0x284
+       [<c00000000047ff7c>] .driver_register+0xc4/0x198
+       [<c00000000051eeec>] .of_register_driver+0x4c/0x60
+       [<c000000000024da4>] .ibmebus_register_driver+0x30/0x4c
+       [<d000000002a1a090>] .ehea_module_init+0x1dc/0x234c [ehea]
+       [<c000000000009368>] .do_one_initcall+0x90/0x1b0
+       [<c0000000000b2f24>] .SyS_init_module+0xc8/0x220
+       [<c00000000000855c>] syscall_exit+0x0/0x40
+
+-> #0 (&ehea_fw_handles.lock){--..}:
+       [<c0000000000a8590>] .__lock_acquire+0x7e0/0x8a8
+       [<c0000000000a86ac>] .lock_acquire+0x54/0x80
+       [<c0000000005d7564>] .mutex_lock_nested+0x190/0x46c
+       [<d000000002a13e30>] .ehea_up+0x64/0x6e0 [ehea]
+       [<d000000002a15364>] .ehea_open+0x64/0xc4 [ehea]
+       [<c000000000537834>] .dev_open+0xf4/0x168
+       [<c000000000535780>] .dev_change_flags+0xe4/0x1e8
+       [<c000000000597bfc>] .devinet_ioctl+0x2c4/0x750
+       [<c0000000005997a8>] .inet_ioctl+0xcc/0x11c
+       [<c000000000523400>] .sock_ioctl+0x2f0/0x34c
+       [<c0000000001380ec>] .vfs_ioctl+0x5c/0xf0
+       [<c000000000138810>] .do_vfs_ioctl+0x690/0x70c
+       [<c000000000138900>] .SyS_ioctl+0x74/0xb8
+       [<c00000000016fb08>] .dev_ifsioc+0x210/0x4b8
+       [<c00000000016ef18>] .compat_sys_ioctl+0x3f4/0x488
+       [<c00000000000855c>] syscall_exit+0x0/0x40
+
+other info that might help us debug this:
+
+2 locks held by ip/2174:
+ #0:  (rtnl_mutex){--..}, at: [<c0000000005430a8>] .rtnl_lock+0x20/0x38
+ #1:  (&port->port_lock){--..}, at: [<d000000002a1533c>] .ehea_open+0x3c/0xc4
+[ehea]
+
+stack backtrace:
+Call Trace:
+[c00000004246b070] [c00000000001154c] .show_stack+0x70/0x184 (unreliable)
+[c00000004246b120] [c0000000000a6ee4] .print_circular_bug_tail+0xd8/0xfc
+[c00000004246b1f0] [c0000000000a76ec] .validate_chain+0x7e4/0xea8
+[c00000004246b2b0] [c0000000000a8590] .__lock_acquire+0x7e0/0x8a8
+[c00000004246b3a0] [c0000000000a86ac] .lock_acquire+0x54/0x80
+[c00000004246b430] [c0000000005d7564] .mutex_lock_nested+0x190/0x46c
+[c00000004246b510] [d000000002a13e30] .ehea_up+0x64/0x6e0 [ehea]
+[c00000004246b610] [d000000002a15364] .ehea_open+0x64/0xc4 [ehea]
+[c00000004246b6b0] [c000000000537834] .dev_open+0xf4/0x168
+[c00000004246b740] [c000000000535780] .dev_change_flags+0xe4/0x1e8
+[c00000004246b7f0] [c000000000597bfc] .devinet_ioctl+0x2c4/0x750
+[c00000004246b8f0] [c0000000005997a8] .inet_ioctl+0xcc/0x11c
+[c00000004246b960] [c000000000523400] .sock_ioctl+0x2f0/0x34c
+[c00000004246ba00] [c0000000001380ec] .vfs_ioctl+0x5c/0xf0
+[c00000004246baa0] [c000000000138810] .do_vfs_ioctl+0x690/0x70c
+[c00000004246bb80] [c000000000138900] .SyS_ioctl+0x74/0xb8
+[c00000004246bc30] [c00000000016fb08] .dev_ifsioc+0x210/0x4b8
+[c00000004246bd40] [c00000000016ef18] .compat_sys_ioctl+0x3f4/0x488
+[c00000004246be30] [c00000000000855c] syscall_exit+0x0/0x40
+ehea: eth2: Physical port up
+
+Thanks
+-Sachin
+
 -- 
-1.6.0.2
+
+---------------------------------
+Sachin Sant
+IBM Linux Technology Center
+India Systems and Technology Labs
+Bangalore, India
+---------------------------------
 
