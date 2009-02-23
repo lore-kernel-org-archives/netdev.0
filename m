@@ -1,65 +1,43 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Why linux keeps connected routes when link goes down
-Date: Mon, 23 Feb 2009 13:38:15 -0800
-Message-ID: <20090223133815.6acd817d@extreme>
-References: <200902190203.41497.homecreate@list.ru>
-	<20090220.121508.252047266.davem@davemloft.net>
-	<20090223143830.GA23244@csclub.uwaterloo.ca>
-	<200902232302.56819.homecreate@list.ru>
-	<20090223211411.GI23244@csclub.uwaterloo.ca>
+Subject: Re: [PATCH] ip: add loose reverse path filtering
+Date: Mon, 23 Feb 2009 13:46:46 -0800
+Message-ID: <20090223134646.655abc1a@extreme>
+References: <20090220102536.2d39ddb9@extreme>
+	<20090221130907.GA28765@gondor.apana.org.au>
+	<20090221.235601.92406212.davem@davemloft.net>
+	<20090222083436.GA1975@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ???????????? ???????????????????? <homecreate@list.ru>,
+Cc: David Miller <davem@davemloft.net>, hawk@diku.dk,
 	netdev@vger.kernel.org
-To: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45152 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:45627 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752600AbZBWViT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2009 16:38:19 -0500
-In-Reply-To: <20090223211411.GI23244@csclub.uwaterloo.ca>
+	id S1751979AbZBWVqu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2009 16:46:50 -0500
+In-Reply-To: <20090222083436.GA1975@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Feb 2009 16:14:11 -0500
-lsorense@csclub.uwaterloo.ca (Lennart Sorensen) wrote:
+On Sun, 22 Feb 2009 16:34:36 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Mon, Feb 23, 2009 at 11:02:55PM +0500, ???????????? ???????????????????? wrote:
-> > Can I hope that it will be done some day?
-> 
-> I don't have much hope that the kernel will ever be changed to behave
-> as desired for a router.
-> 
-> > Linux is used as router in many places, such behavior is a suicide. Of course, 
-> > one can use ifplugd (so do I), but it's a crap for network OS, don't you think 
-> > so?
-> 
-> Well you will need some user space support to handle static routes,
-> unless you want to make major changes to the kernel route management.
-> We use zebra to manage static routes when the link goes up or down, with
-> the kernel simply patched to delete the subnet route when an interface
-> goes down, and re add it when it comes back up.  All other routes are
-> handled by zebra.
-> 
-> With the current patch I am using all routes assigned to an interface goes
-> away when the link goes down, but the kernel only recreates the directly
-> connected network's route when it comes up.  Any other static routes
-> have to be recreated by user space, hence the user of zebra for that.
-> 
-> Better and more friendly would be if routes could be marked inactive
-> and ignored by the kernel for routing decisions when a link went down.
-> That way multiple routes with different metrics could be used with the
-> best one who's link is up would be in use.  I find this too much to try
-> and put into the kernel though, so I will stick to zebra for that task.
-> 
-> > Who made linux network subsystem? Can Linus Torvalds say some words about this 
-> > problem?
+> On Sat, Feb 21, 2009 at 11:56:01PM -0800, David Miller wrote:
+> >
+> > > Rather than extending the rp_filter stuff any further, I'd prefer
+> > > to see this replaced with netfilter plugin.
 > > 
-> > I'm not a developer, but network administrator. So I can't make a patch. I can 
-> > only find a solution or make it. So please make my work a bit easier
+> > Normally I would agree, but in this case the cost is exactly
+> > zero for the added flexibility.
 > 
+> Ah I thought there was another patch coming :) But obviously as
+> this is all that's needed for it sure it looks good to me too.
+> 
+> Cheers,
 
-Like I said already, it is possible to fix Quagga; we have done it the
-patches are available. unfortunately quagga is without a real
-software maintenance infrastructure at this point.
+Also, the purpose of reverse path filtering is to block Dos attacks.
+So it is important to do any rejection with least overhead. If the
+filter is iptables rules, it takes longer and requires another route
+lookup.
