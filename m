@@ -1,211 +1,228 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2009-02-23
-Date: Mon, 23 Feb 2009 14:26:17 -0500
-Message-ID: <20090223192617.GA3553@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 2/5] [net-next] qlge: Increase MAC addr hw sem granularity.
+Date: Mon, 23 Feb 2009 12:42:14 -0800
+Message-ID: <1235421737-32296-2-git-send-email-ron.mercer@qlogic.com>
+References: <1235421737-32296-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:3006 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751680AbZBWUpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2009 15:45:39 -0500
+In-Reply-To: <1235421737-32296-1-git-send-email-ron.mercer@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Instead of taking/giving the semaphore repeatedly when iterating over
+several adderesses, we have the caller hold it until all are done.  This
+reduces PCI bus chatter and possible waits.
 
-Here are a couple of fixes, one for an oops and one for a warning.  Also
-included is a PCI ID addition.  These are intended for 2.6.29.
-
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
-P.S.  This causes some conflicts with -next.  The ath9k conflict is
-simple.  The orinoco conflict involves moving some code from orinoco.c
-to orinoco/main.c in -next (where orinoco.c no longer exists).  I have
-included a "merge-test" branch in the wireless-next-2.6 tree to provide
-and example for the merge when you get to it.
-
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
+ drivers/net/qlge/qlge_dbg.c  |    9 +++++++
+ drivers/net/qlge/qlge_main.c |   51 ++++++++++++++++++++++++++++--------------
+ 2 files changed, 43 insertions(+), 17 deletions(-)
 
-Individual patches are available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit 486a87f1e5624096bd1c09e9e716239597d48dca:
-  Daniel Lezcano (1):
-        netns: fix double free at netns creation
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Andrey Borzenkov (1):
-      orinoco: do not resgister NULL pm_notifier function
-
-Larry Finger (1):
-      rtl8187: New USB ID's for RTL8187L
-
-Vasanthakumar Thiagarajan (1):
-      ath9k: Fix panic upon attach failure
-
- drivers/net/wireless/ath9k/main.c          |   24 +++++++++++++++++-------
- drivers/net/wireless/orinoco/orinoco.c     |   19 +++++++++++++++----
- drivers/net/wireless/rtl818x/rtl8187_dev.c |   12 ++++++++++++
- 3 files changed, 44 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/wireless/ath9k/main.c b/drivers/net/wireless/ath9k/main.c
-index 727f067..0e80990 100644
---- a/drivers/net/wireless/ath9k/main.c
-+++ b/drivers/net/wireless/ath9k/main.c
-@@ -1538,6 +1538,7 @@ bad2:
- bad:
- 	if (ah)
- 		ath9k_hw_detach(ah);
-+	ath9k_exit_debug(sc);
- 
- 	return error;
- }
-@@ -1545,7 +1546,7 @@ bad:
- static int ath_attach(u16 devid, struct ath_softc *sc)
+diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/qlge/qlge_dbg.c
+index 379b895..40a70c3 100644
+--- a/drivers/net/qlge/qlge_dbg.c
++++ b/drivers/net/qlge/qlge_dbg.c
+@@ -83,6 +83,10 @@ static void ql_dump_cam_entries(struct ql_adapter *qdev)
  {
- 	struct ieee80211_hw *hw = sc->hw;
--	int error = 0;
-+	int error = 0, i;
- 
- 	DPRINTF(sc, ATH_DBG_CONFIG, "Attach ATH hw\n");
- 
-@@ -1589,11 +1590,11 @@ static int ath_attach(u16 devid, struct ath_softc *sc)
- 	/* initialize tx/rx engine */
- 	error = ath_tx_init(sc, ATH_TXBUF);
- 	if (error != 0)
--		goto detach;
-+		goto error_attach;
- 
- 	error = ath_rx_init(sc, ATH_RXBUF);
- 	if (error != 0)
--		goto detach;
-+		goto error_attach;
- 
- #if defined(CONFIG_RFKILL) || defined(CONFIG_RFKILL_MODULE)
- 	/* Initialze h/w Rfkill */
-@@ -1601,8 +1602,9 @@ static int ath_attach(u16 devid, struct ath_softc *sc)
- 		INIT_DELAYED_WORK(&sc->rf_kill.rfkill_poll, ath_rfkill_poll);
- 
- 	/* Initialize s/w rfkill */
--	if (ath_init_sw_rfkill(sc))
--		goto detach;
-+	error = ath_init_sw_rfkill(sc);
-+	if (error)
-+		goto error_attach;
- #endif
- 
- 	error = ieee80211_register_hw(hw);
-@@ -1611,8 +1613,16 @@ static int ath_attach(u16 devid, struct ath_softc *sc)
- 	ath_init_leds(sc);
- 
- 	return 0;
--detach:
--	ath_detach(sc);
+ 	int i;
+ 	u32 value[3];
 +
-+error_attach:
-+	/* cleanup tx queues */
-+	for (i = 0; i < ATH9K_NUM_TX_QUEUES; i++)
-+		if (ATH_TXQ_SETUP(sc, i))
-+			ath_tx_cleanupq(sc, &sc->tx.txq[i]);
-+
-+	ath9k_hw_detach(sc->sc_ah);
-+	ath9k_exit_debug(sc);
-+
- 	return error;
++	i = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++	if (i)
++		return;
+ 	for (i = 0; i < 4; i++) {
+ 		if (ql_get_mac_addr_reg(qdev, MAC_ADDR_TYPE_CAM_MAC, i, value)) {
+ 			printk(KERN_ERR PFX
+@@ -111,12 +115,16 @@ static void ql_dump_cam_entries(struct ql_adapter *qdev)
+ 				       qdev->ndev->name, i, value[1], value[0]);
+ 		}
+ 	}
++	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
  }
  
-diff --git a/drivers/net/wireless/orinoco/orinoco.c b/drivers/net/wireless/orinoco/orinoco.c
-index 45a04fa..067d1a9 100644
---- a/drivers/net/wireless/orinoco/orinoco.c
-+++ b/drivers/net/wireless/orinoco/orinoco.c
-@@ -3157,8 +3157,20 @@ static int orinoco_pm_notifier(struct notifier_block *notifier,
- 
- 	return NOTIFY_DONE;
+ void ql_dump_routing_entries(struct ql_adapter *qdev)
+ {
+ 	int i;
+ 	u32 value;
++	i = ql_sem_spinlock(qdev, SEM_RT_IDX_MASK);
++	if (i)
++		return;
+ 	for (i = 0; i < 16; i++) {
+ 		value = 0;
+ 		if (ql_get_routing_reg(qdev, i, &value)) {
+@@ -131,6 +139,7 @@ void ql_dump_routing_entries(struct ql_adapter *qdev)
+ 				       qdev->ndev->name, i, value);
+ 		}
+ 	}
++	ql_sem_unlock(qdev, SEM_RT_IDX_MASK);
  }
-+
-+static void orinoco_register_pm_notifier(struct orinoco_private *priv)
-+{
-+	priv->pm_notifier.notifier_call = orinoco_pm_notifier;
-+	register_pm_notifier(&priv->pm_notifier);
-+}
-+
-+static void orinoco_unregister_pm_notifier(struct orinoco_private *priv)
-+{
-+	unregister_pm_notifier(&priv->pm_notifier);
-+}
- #else /* !PM_SLEEP || HERMES_CACHE_FW_ON_INIT */
--#define orinoco_pm_notifier NULL
-+#define orinoco_register_pm_notifier(priv) do { } while(0)
-+#define orinoco_unregister_pm_notifier(priv) do { } while(0)
- #endif
  
- /********************************************************************/
-@@ -3648,8 +3660,7 @@ struct net_device
- 	priv->cached_fw = NULL;
+ void ql_dump_regs(struct ql_adapter *qdev)
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 3a041b6..d316e50 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -247,9 +247,6 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
+ 	u32 offset = 0;
+ 	int status;
  
- 	/* Register PM notifiers */
--	priv->pm_notifier.notifier_call = orinoco_pm_notifier;
--	register_pm_notifier(&priv->pm_notifier);
-+	orinoco_register_pm_notifier(priv);
- 
- 	return dev;
+-	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
+-	if (status)
+-		return status;
+ 	switch (type) {
+ 	case MAC_ADDR_TYPE_MULTI_MAC:
+ 	case MAC_ADDR_TYPE_CAM_MAC:
+@@ -308,7 +305,6 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
+ 		status = -EPERM;
+ 	}
+ exit:
+-	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ 	return status;
  }
-@@ -3673,7 +3684,7 @@ void free_orinocodev(struct net_device *dev)
- 		kfree(rx_data);
+ 
+@@ -321,9 +317,6 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
+ 	u32 offset = 0;
+ 	int status = 0;
+ 
+-	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
+-	if (status)
+-		return status;
+ 	switch (type) {
+ 	case MAC_ADDR_TYPE_MULTI_MAC:
+ 	case MAC_ADDR_TYPE_CAM_MAC:
+@@ -415,7 +408,6 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
+ 		status = -EPERM;
+ 	}
+ exit:
+-	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ 	return status;
+ }
+ 
+@@ -1690,19 +1682,29 @@ static void ql_vlan_rx_add_vid(struct net_device *ndev, u16 vid)
+ {
+ 	struct ql_adapter *qdev = netdev_priv(ndev);
+ 	u32 enable_bit = MAC_ADDR_E;
++	int status;
+ 
++	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++	if (status)
++		return;
+ 	spin_lock(&qdev->hw_lock);
+ 	if (ql_set_mac_addr_reg
+ 	    (qdev, (u8 *) &enable_bit, MAC_ADDR_TYPE_VLAN, vid)) {
+ 		QPRINTK(qdev, IFUP, ERR, "Failed to init vlan address.\n");
+ 	}
+ 	spin_unlock(&qdev->hw_lock);
++	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ }
+ 
+ static void ql_vlan_rx_kill_vid(struct net_device *ndev, u16 vid)
+ {
+ 	struct ql_adapter *qdev = netdev_priv(ndev);
+ 	u32 enable_bit = 0;
++	int status;
++
++	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++	if (status)
++		return;
+ 
+ 	spin_lock(&qdev->hw_lock);
+ 	if (ql_set_mac_addr_reg
+@@ -1710,6 +1712,7 @@ static void ql_vlan_rx_kill_vid(struct net_device *ndev, u16 vid)
+ 		QPRINTK(qdev, IFUP, ERR, "Failed to clear vlan address.\n");
+ 	}
+ 	spin_unlock(&qdev->hw_lock);
++	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ 
+ }
+ 
+@@ -2962,8 +2965,12 @@ static int ql_cam_route_initialize(struct ql_adapter *qdev)
+ {
+ 	int status;
+ 
++	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++	if (status)
++		return status;
+ 	status = ql_set_mac_addr_reg(qdev, (u8 *) qdev->ndev->perm_addr,
+ 			     MAC_ADDR_TYPE_CAM_MAC, qdev->func * MAX_CQ);
++	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ 	if (status) {
+ 		QPRINTK(qdev, IFUP, ERR, "Failed to init mac address.\n");
+ 		return status;
+@@ -3428,8 +3435,11 @@ static void qlge_set_multicast_list(struct net_device *ndev)
+ {
+ 	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
+ 	struct dev_mc_list *mc_ptr;
+-	int i;
++	int i, status;
+ 
++	status = ql_sem_spinlock(qdev, SEM_RT_IDX_MASK);
++	if (status)
++		return;
+ 	spin_lock(&qdev->hw_lock);
+ 	/*
+ 	 * Set or clear promiscuous mode if a
+@@ -3485,14 +3495,19 @@ static void qlge_set_multicast_list(struct net_device *ndev)
  	}
  
--	unregister_pm_notifier(&priv->pm_notifier);
-+	orinoco_unregister_pm_notifier(priv);
- 	orinoco_uncache_fw(priv);
+ 	if (ndev->mc_count) {
++		status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++		if (status)
++			goto exit;
+ 		for (i = 0, mc_ptr = ndev->mc_list; mc_ptr;
+ 		     i++, mc_ptr = mc_ptr->next)
+ 			if (ql_set_mac_addr_reg(qdev, (u8 *) mc_ptr->dmi_addr,
+ 						MAC_ADDR_TYPE_MULTI_MAC, i)) {
+ 				QPRINTK(qdev, HW, ERR,
+ 					"Failed to loadmulticast address.\n");
++				ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ 				goto exit;
+ 			}
++		ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
+ 		if (ql_set_routing_reg
+ 		    (qdev, RT_IDX_MCAST_MATCH_SLOT, RT_IDX_MCAST_MATCH, 1)) {
+ 			QPRINTK(qdev, HW, ERR,
+@@ -3509,7 +3524,7 @@ static int qlge_set_mac_address(struct net_device *ndev, void *p)
+ {
+ 	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
+ 	struct sockaddr *addr = p;
+-	int ret = 0;
++	int status;
  
- 	priv->wpa_ie_len = 0;
-diff --git a/drivers/net/wireless/rtl818x/rtl8187_dev.c b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-index 22bc07e..f4747a1 100644
---- a/drivers/net/wireless/rtl818x/rtl8187_dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-@@ -48,6 +48,10 @@ static struct usb_device_id rtl8187_table[] __devinitdata = {
- 	{USB_DEVICE(0x0bda, 0x8189), .driver_info = DEVICE_RTL8187B},
- 	{USB_DEVICE(0x0bda, 0x8197), .driver_info = DEVICE_RTL8187B},
- 	{USB_DEVICE(0x0bda, 0x8198), .driver_info = DEVICE_RTL8187B},
-+	/* Surecom */
-+	{USB_DEVICE(0x0769, 0x11F2), .driver_info = DEVICE_RTL8187},
-+	/* Logitech */
-+	{USB_DEVICE(0x0789, 0x010C), .driver_info = DEVICE_RTL8187},
- 	/* Netgear */
- 	{USB_DEVICE(0x0846, 0x6100), .driver_info = DEVICE_RTL8187},
- 	{USB_DEVICE(0x0846, 0x6a00), .driver_info = DEVICE_RTL8187},
-@@ -57,8 +61,16 @@ static struct usb_device_id rtl8187_table[] __devinitdata = {
- 	/* Sitecom */
- 	{USB_DEVICE(0x0df6, 0x000d), .driver_info = DEVICE_RTL8187},
- 	{USB_DEVICE(0x0df6, 0x0028), .driver_info = DEVICE_RTL8187B},
-+	/* Sphairon Access Systems GmbH */
-+	{USB_DEVICE(0x114B, 0x0150), .driver_info = DEVICE_RTL8187},
-+	/* Dick Smith Electronics */
-+	{USB_DEVICE(0x1371, 0x9401), .driver_info = DEVICE_RTL8187},
- 	/* Abocom */
- 	{USB_DEVICE(0x13d1, 0xabe6), .driver_info = DEVICE_RTL8187},
-+	/* Qcom */
-+	{USB_DEVICE(0x18E8, 0x6232), .driver_info = DEVICE_RTL8187},
-+	/* AirLive */
-+	{USB_DEVICE(0x1b75, 0x8187), .driver_info = DEVICE_RTL8187},
- 	{}
- };
+ 	if (netif_running(ndev))
+ 		return -EBUSY;
+@@ -3518,15 +3533,17 @@ static int qlge_set_mac_address(struct net_device *ndev, void *p)
+ 		return -EADDRNOTAVAIL;
+ 	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
  
++	status = ql_sem_spinlock(qdev, SEM_MAC_ADDR_MASK);
++	if (status)
++		return status;
+ 	spin_lock(&qdev->hw_lock);
+-	if (ql_set_mac_addr_reg(qdev, (u8 *) ndev->dev_addr,
+-			MAC_ADDR_TYPE_CAM_MAC, qdev->func)) {/* Unicast */
+-		QPRINTK(qdev, HW, ERR, "Failed to load MAC address.\n");
+-		ret = -1;
+-	}
++	status = ql_set_mac_addr_reg(qdev, (u8 *) ndev->dev_addr,
++			MAC_ADDR_TYPE_CAM_MAC, qdev->func * MAX_CQ);
+ 	spin_unlock(&qdev->hw_lock);
+-
+-	return ret;
++	if (status)
++		QPRINTK(qdev, HW, ERR, "Failed to load MAC address.\n");
++	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
++	return status;
+ }
+ 
+ static void qlge_tx_timeout(struct net_device *ndev)
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.6.0.2
+
