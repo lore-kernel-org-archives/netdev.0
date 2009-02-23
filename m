@@ -1,86 +1,58 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH 3/8] can: CAN Network device driver and SYSFS interface
-Date: Mon, 23 Feb 2009 15:57:13 +0100
-Message-ID: <49A2B949.7060909@grandegger.com>
-References: <1235070082-7069-1-git-send-email-wg@grandegger.com> <1235070082-7069-2-git-send-email-wg@grandegger.com> <1235070082-7069-3-git-send-email-wg@grandegger.com> <1235070082-7069-4-git-send-email-wg@grandegger.com> <499E7B9B.6030603@trash.net> <49A01932.4090004@grandegger.com> <49A272A3.5040405@trash.net>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: [PATCH] hso: remove claiming and releasing of USB interface
+Date: Mon, 23 Feb 2009 17:39:34 +0200
+Message-ID: <20090223153932.8953.70790.stgit@Programuotojas>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Patrick McHardy <kaber@trash.net>
+Cc: D.Barow@option.com
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:60065 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755859AbZBWO5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2009 09:57:16 -0500
-In-Reply-To: <49A272A3.5040405@trash.net>
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:37985 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754928AbZBWPjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2009 10:39:39 -0500
+Received: from unknown (HELO [127.0.0.1]) (paulius.zaleckas@[217.147.39.138])
+          (envelope-sender <paulius.zaleckas@teltonika.lt>)
+          by teltonika.lt (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 23 Feb 2009 15:39:34 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Wolfgang Grandegger wrote:
->> Patrick McHardy wrote:
->>> Is sysfs really the best choice for this? It has the usual problems,
->>> you can't change multiple parameters at once atomically. Now, I don't
->>> know whether this is actually (and currently) a problem for CAN, but
->>> given that we already have a generic netlink interface for creating
->>> network interfaces that can easily support this, what are the reasons
->>> for adding a new interface instead of using the existing one?
->>
->> You refer to the API described at http://lwn.net/Articles/236919/, I
->> assume.
-> 
-> Exactly.
-> 
->> Well, I know that netlink is used to define routes in the kernel
->> or VLANs but I was not aware that it can also be used to configure real
->> network devices. What a pity. At a first glance, I could also be used
->> for CAN, of course. There are the following requirements:
->>
->> 1. Set and get CAN device properties like bit-rate and controller mode.
->> 2. Show CAN bus state (active, error-passive or bus-off).
->> 3. Get device constants like clock frequency and bit-timing parameters.
->> 4. Dump CAN device statistics.
->> 5. Trigger device restart if CAN bus-off state has been detected.
->>
->> Not sure yet, if the interface if good for all purposes. Especially
->> point 5. might be better handled by an IOCTL.
-> 
-> The first points sound pretty regular. The last one - just triggering
-> it is no problem of course, but since I don't know how the detection
-> works, I can't really tell whether its suitable.
+No need to reclaim the same USB interface beeing probed.
+Releasing interface does nothing also.
 
-CAN errors and state changes might be delivered as CAN error messages to
-the receiving socket/application, like normal messages. When the
-application realizes the state change to CAN bus-off, it may want to
-trigger a bus-off recovery (controller restart). The CAN controller HW
-enters bus-off, when too much errors occurred on the bus. No more
-messages can then be sent of received and therefore the driver calls
-netif_carrier_off(). Is there already an interface for the user to
-restart? An appropriate IOCTL request would be a simply option, but they
-are generally deprecated, AFAIK. Using netlink would be more cumbersome,
-as with SYSFS.
+This is already in for a long time in off-kernel hso driver
+and no regresions were noticed for this change.
 
->> And we need a user space
->> tool, e.g. canconfig, to handle the user requests and communicate with
->> the kernel side.
-> 
-> Thats pretty standard :)
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Cc: Denis Joseph Barrow <D.Barow@option.com>
+---
 
-For the iproute2 utility "ip", mainliy a netlink_can.c would be
-required. But a dedicated tool for CAN seems more appropriate to me.
+ drivers/net/usb/hso.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
->> We will follow that promising route. Any further help
->> or link is appreciated. Thanks.
-> 
-> It should be quite easy to move your interface on top. A few examples
-> that might be useful are vlan, ip_gre and macvlan.
 
-Also the drivers dummy and ipb are quite useful. Using netlink seems
-straight-forward, indeed, but it requires still some effort. Hope to
-find some time soon.
-
-Wolfgang.
-
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index fe98aca..a6bf488 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2979,8 +2979,6 @@ static int hso_probe(struct usb_interface *interface,
+ 		goto exit;
+ 	}
+ 
+-	usb_driver_claim_interface(&hso_driver, interface, hso_dev);
+-
+ 	/* save our data pointer in this device */
+ 	usb_set_intfdata(interface, hso_dev);
+ 
+@@ -2998,8 +2996,6 @@ static void hso_disconnect(struct usb_interface *interface)
+ 
+ 	/* remove reference of our private data */
+ 	usb_set_intfdata(interface, NULL);
+-
+-	usb_driver_release_interface(&hso_driver, interface);
+ }
+ 
+ static void async_get_intf(struct work_struct *data)
 
