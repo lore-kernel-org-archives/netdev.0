@@ -1,40 +1,73 @@
-From: =?utf-8?b?0KXQsNC90LrQuNC9INCa0L7QvdGB0YLQsNC90YLQuNC9?=
-	<homecreate@list.ru>
-Subject: Re: Why linux keeps connected routes when link goes down
-Date: Mon, 23 Feb 2009 23:02:55 +0500
-Message-ID: <200902232302.56819.homecreate@list.ru>
-References: <200902190203.41497.homecreate@list.ru> <20090220.121508.252047266.davem@davemloft.net> <20090223143830.GA23244@csclub.uwaterloo.ca>
+From: Ben McKeegan <ben@netservers.co.uk>
+Subject: [PATCH] ppp_generic: fix multilink fragment MTU calculation
+Date: Mon, 23 Feb 2009 17:31:35 +0000
+Message-ID: <49A2DD77.10400@netservers.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx33.mail.ru ([94.100.176.47]:23719 "EHLO mx33.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752444AbZBWSDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2009 13:03:04 -0500
-In-Reply-To: <20090223143830.GA23244@csclub.uwaterloo.ca>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Fortunately patching some sense into the linux kernel isn't very hard.
 
-Can I hope that it will be done some day?
+When using MLPPP, the maximum size of a fragment is incorrectly 
+calculated with an offset of +2.  When the MTU of underlying channels 
+minus the multilink overhead is less than the MTU of the MLPPP bundle 
+divided by the number of channels, the fragmentation algorithm is 
+supposed to send maximally sized fragments down the channels and 
+generate additional fragment(s) for the remainder, but due to the error 
+in the fragment size calculation the earlier fragments exceed the 
+underlying MTU and are lost.   This patch reduces the maximum fragment 
+size by 2.
 
-Linux is used as router in many places, such behavior is a suicide. Of course, 
-one can use ifplugd (so do I), but it's a crap for network OS, don't you think 
-so?
+Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
+---
 
-Who made linux network subsystem? Can Linus Torvalds say some words about this 
-problem?
+We have successfully been running this patch on production routers for 
+several months now using PPPoE as an underlying channel.  We are 
+configuring a high MTU on a multilink enabled PPP device with a single 
+underlying PPPoE channel running over an Ethernet device with a much 
+lower MTU.  Thus our larger PPP frames get ML-fragmented with all 
+fragments being sent down the same channel.  Without this patch the link 
+does not work correctly, and tcpdump shows the kernel generating PPPoE 
+frames 2 bytes longer than the MTU of the Ethernet which obviously do 
+not make it out.  With this patch, the maximum size of the PPPoE frames 
+correctly matches the Ethernet MTU and the link works correctly.
 
-I'm not a developer, but network administrator. So I can't make a patch. I can 
-only find a solution or make it. So please make my work a bit easier
+We believe this issue should affect other types of underlying channel in 
+the same way, and more usually causing problems when a multilink bundle 
+is running in a degraded state (i.e. with fewer than normal channels). 
+I cannot see why the '+2' was put in the MTU calculation in the original 
+code, but it looks like this feature might have always been broken.
 
---
-Konstantin
-E-mail homecreate@list.ru
-Jabber homecreate@jabber.ru
+
+--- linux-2.6.27.7.orig/drivers/net/ppp_generic.c       2008-11-20 
+23:02:37.000000000 +0000
++++ linux-2.6.27.7/drivers/net/ppp_generic.c    2008-12-03 
+14:43:21.000000000 +0000
+@@ -1342,14 +1342,14 @@
+
+                 /*
+                  * Create a fragment for this channel of
+-                * min(max(mtu+2-hdrlen, 4), fragsize, len) bytes.
+-                * If mtu+2-hdrlen < 4, that is a ridiculously small
++                * min(max(mtu-hdrlen, 4), fragsize, len) bytes.
++                * If mtu-hdrlen < 4, that is a ridiculously small
+                  * MTU, so we use mtu = 2 + hdrlen.
+                  */
+                 if (fragsize > len)
+                         fragsize = len;
+                 flen = fragsize;
+-               mtu = pch->chan->mtu + 2 - hdrlen;
++               mtu = pch->chan->mtu - hdrlen;
+                 if (mtu < 4)
+                         mtu = 4;
+                 if (flen > mtu)
+
+
+-- 
+Ben McKeegan
+Netservers Limited
+
+
