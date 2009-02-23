@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Why linux keeps connected routes when link goes down
-Date: Mon, 23 Feb 2009 15:33:53 -0800 (PST)
-Message-ID: <20090223.153353.237733933.davem@davemloft.net>
-References: <20090220171912.GA7315@csclub.uwaterloo.ca>
-	<20090220.121508.252047266.davem@davemloft.net>
-	<20090223143830.GA23244@csclub.uwaterloo.ca>
+From: Brent Cook <bcook@bpointsys.com>
+Subject: Re: Ethernet Hubs -- OBE?
+Date: Mon, 23 Feb 2009 17:23:06 -0600
+Message-ID: <200902231723.07101.bcook@bpointsys.com>
+References: <gnkn9f$1un$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: homecreate@list.ru, netdev@vger.kernel.org
-To: lsorense@csclub.uwaterloo.ca
+Cc: netdev@vger.kernel.org
+To: "Mike -- EMAIL IGNORED" <m_d_berger_1900@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38134
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751023AbZBWXeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2009 18:34:13 -0500
-In-Reply-To: <20090223143830.GA23244@csclub.uwaterloo.ca>
+Received: from smtp.bpointsys.com ([70.253.197.130]:4344 "EHLO bpointsys.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751143AbZBWXiq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2009 18:38:46 -0500
+In-Reply-To: <gnkn9f$1un$1@ger.gmane.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Date: Mon, 23 Feb 2009 09:38:30 -0500
+On Thursday 19 February 2009 16:42:55 Mike -- EMAIL IGNORED wrote:
+> My Netgear DS104 is OBE; it stops every few days
+> pending a power cycle.  I need a hub, rather than
+> a switch because I have one box promiscuously
+> sniffing all my Linux boxes.  Some shopping
+> seems to suggest that hubs are no longer available.
+> I did find some used on the web but none new.
+>
+> I heard a rumor that some switches can have their
+> switching switched off so they function as hubs.
+> Does anyone know anything about this?
+>
+> Thanks,
+> Mike.
 
-> On Fri, Feb 20, 2009 at 12:15:08PM -0800, David Miller wrote:
-> > The route is tied to the IP address, and the route is therefore
-> > created and destroyed alongside the IP address.
-> 
-> That's how it works now.  It wasn't how it worked in linux a long
-> time ago.  Long ago you had to create the route yourself in userspace
-> (which was actually to some extent better than the current setup).
-> The current method is simpler to understand for your typical user though.
+Get a managed switch that supports port mirroring. Just about any Dell 
+PowerConnect 2000, 5000 or 6000 series will do it, as well as many 
+others from other vendors.
 
-I don't remember Linux ever not creating a subnet route when an IP
-address was added to an interface.  And I also don't remember Linux
-ever deleting an IP address on interface down.
-
-Maybe it happened back in 0.99pl5 times, but we're talking at least
-10 years ago.
+ - Brent
