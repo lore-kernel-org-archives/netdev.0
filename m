@@ -1,81 +1,40 @@
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Subject: [PATCH] hso: remove hso_free_device()
-Date: Mon, 23 Feb 2009 17:58:27 +0200
-Message-ID: <20090223155827.10185.48514.stgit@Programuotojas>
+From: Eugene Teo <eugeneteo@kernel.sg>
+Subject: net: amend the fix for SO_BSDCOMPAT gsopt infoleak
+Date: Tue, 24 Feb 2009 00:41:12 +0800
+Message-ID: <20090223164112.GA29425@kernel.sg>
+Reply-To: Eugene Teo <eugeneteo@kernel.sg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mpatocka@redhat.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:57946 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754541AbZBWQlT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2009 11:41:19 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is really no need for function just doing simple kfree()
+The fix for CVE-2009-0676 (upstream commit df0bca04) is incomplete. Note
+that the same problem of leaking kernel memory will reappear if someone
+on some architecture uses struct timeval with some internal padding (for
+example tv_sec 64-bit and tv_usec 32-bit) --- then, you are going to
+leak the padded bytes to userspace.
 
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Cc: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
+Signed-off-by: Eugene Teo <eugeneteo@kernel.sg>
+Reported-by: Mikulas Patocka <mpatocka@redhat.com>
 
- drivers/net/usb/hso.c |   14 ++++----------
- 1 files changed, 4 insertions(+), 10 deletions(-)
-
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index a6bf488..f5e4912 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2364,12 +2364,6 @@ exit:
- 	return -1;
- }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 6f2e133..913c95f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -696,7 +696,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 	if (len < 0)
+ 		return -EINVAL;
  
--/* Frees a general hso device */
--static void hso_free_device(struct hso_device *hso_dev)
--{
--	kfree(hso_dev);
--}
--
- /* Creates a general hso device */
- static struct hso_device *hso_create_device(struct usb_interface *intf,
- 					    int port_spec)
-@@ -2432,7 +2426,7 @@ static void hso_free_net_device(struct hso_device *hso_dev)
- 		free_netdev(hso_net->net);
- 	}
+-	v.val = 0;
++	memset(&v, 0, sizeof(v));
  
--	hso_free_device(hso_dev);
-+	kfree(hso_dev);
- }
- 
- /* initialize the network interface */
-@@ -2646,7 +2640,7 @@ static void hso_free_serial_device(struct hso_device *hso_dev)
- 	}
- 	hso_free_tiomget(serial);
- 	kfree(serial);
--	hso_free_device(hso_dev);
-+	kfree(hso_dev);
- }
- 
- /* Creates a bulk AT channel */
-@@ -2727,7 +2721,7 @@ exit2:
- exit:
- 	hso_free_tiomget(serial);
- 	kfree(serial);
--	hso_free_device(hso_dev);
-+	kfree(hso_dev);
- 	return NULL;
- }
- 
-@@ -2786,7 +2780,7 @@ exit:
- 		kfree(serial);
- 	}
- 	if (hso_dev)
--		hso_free_device(hso_dev);
-+		kfree(hso_dev);
- 	return NULL;
- 
- }
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	switch(optname) {
+ 	case SO_DEBUG:
