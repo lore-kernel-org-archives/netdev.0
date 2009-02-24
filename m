@@ -1,25 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Tue, 24 Feb 2009 14:44:23 +0800
-Message-ID: <20090224064423.GA20706@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0902091513190.31742@wrl-59.cs.helsinki.fi> <20090221132424.GA28861@gondor.apana.org.au> <Pine.LNX.4.64.0902212042420.20526@wrl-59.cs.helsinki.fi> <20090221.235308.172360407.davem@davemloft.net> <b6a2187b0902232240m6f2347efs84639bb59a19269e@mail.gmail.com>
+Date: Mon, 23 Feb 2009 22:46:52 -0800 (PST)
+Message-ID: <20090223.224652.121864647.davem@davemloft.net>
+References: <Pine.LNX.4.64.0902212042420.20526@wrl-59.cs.helsinki.fi>
+	<20090221.235308.172360407.davem@davemloft.net>
+	<b6a2187b0902232240m6f2347efs84639bb59a19269e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, herbert@gondor.apana.org.au,
 	rjw@sisk.pl, torvalds@linux-foundation.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Chua <jeff.chua.linux@gmail.com>
+To: jeff.chua.linux@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34263 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751476AbZBXGot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 01:44:49 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38774
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751476AbZBXGrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 01:47:12 -0500
 In-Reply-To: <b6a2187b0902232240m6f2347efs84639bb59a19269e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 24, 2009 at 02:40:30PM +0800, Jeff Chua wrote:
+From: Jeff Chua <jeff.chua.linux@gmail.com>
+Date: Tue, 24 Feb 2009 14:40:30 +0800
+
 > On Sun, Feb 22, 2009 at 3:53 PM, David Miller <davem@davemloft.net> wrote:
 > 
 > > Sure, but I'll give Herbert one more chance :-)
@@ -28,17 +32,7 @@ On Tue, Feb 24, 2009 at 02:40:30PM +0800, Jeff Chua wrote:
 > 
 > I see that this is already in linux-2.6.29-rc6. Tested and working fine.
 
-Are you sure? It's not in my copy of rc6 :)
+Actually, it isn't.
 
-net-next-2.6 is for the release after the current one so the
-earliest you're going to see this is in 2.6.30.
-
-For now you'll either need to pull net-next-2.6 directly, use
-linux-next, or apply the patch by hand.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Herbert's change is in net-next-2.6 which will show up in linux-next
+rather than Linus's 2.6.29-rcX tree.
