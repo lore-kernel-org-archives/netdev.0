@@ -1,38 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Mon, 23 Feb 2009 22:46:52 -0800 (PST)
-Message-ID: <20090223.224652.121864647.davem@davemloft.net>
-References: <Pine.LNX.4.64.0902212042420.20526@wrl-59.cs.helsinki.fi>
-	<20090221.235308.172360407.davem@davemloft.net>
-	<b6a2187b0902232240m6f2347efs84639bb59a19269e@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: VM_BUG_ON triggered with udp6fuzz
+Date: Tue, 24 Feb 2009 15:12:28 +0800
+Message-ID: <20090224071227.GA20887@gondor.apana.org.au>
+References: <20090223142213.GA22327@alice>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, herbert@gondor.apana.org.au,
-	rjw@sisk.pl, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jeff.chua.linux@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Sesterhenn <snakebyte@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38774
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751476AbZBXGrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 01:47:12 -0500
-In-Reply-To: <b6a2187b0902232240m6f2347efs84639bb59a19269e@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:49268 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752190AbZBXHMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 02:12:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20090223142213.GA22327@alice>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Chua <jeff.chua.linux@gmail.com>
-Date: Tue, 24 Feb 2009 14:40:30 +0800
-
-> On Sun, Feb 22, 2009 at 3:53 PM, David Miller <davem@davemloft.net> wrote:
+Eric Sesterhenn <snakebyte@gmx.de> wrote:
+> hi,
 > 
-> > Sure, but I'll give Herbert one more chance :-)
-> >
-> > Applied to net-next-2.6
-> 
-> I see that this is already in linux-2.6.29-rc6. Tested and working fine.
+> first of all, i am not able to replicate this after a clean boot,
+> running the command sudo -u snakebyte lf6/udp6fuzz -n 100 -r 9343
+> produced the following BUG on my test box
+> Not sure where the get_page was triggered from, could not 
+> find it in udp6.c ...
 
-Actually, it isn't.
+It's a weird crash.  The stuff that we do with sk_sndmsg_page on
+the UDP path is nonstandard to say the least.  However, it does
+look kosher.
 
-Herbert's change is in net-next-2.6 which will show up in linux-next
-rather than Linus's 2.6.29-rcX tree.
+So please let us know if you can reproduce this again.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
