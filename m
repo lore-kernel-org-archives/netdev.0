@@ -1,44 +1,94 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH 0/8] l2tp: introduce L2TPv3 support
-Date: Tue, 24 Feb 2009 10:24:31 +0100
-Message-ID: <49A3BCCF.9040203@trash.net>
-References: <20090224063908.GA20652@gondor.apana.org.au> <49A3BB1E.8040005@katalix.com>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: Remove some pointless conditionals before kfree_skb()
+Date: Tue, 24 Feb 2009 17:33:37 +0800
+Message-ID: <49A3BEF1.4030802@cn.fujitsu.com>
+References: <49A3A59D.9090102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58425 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754070AbZBXJYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 04:24:36 -0500
-In-Reply-To: <49A3BB1E.8040005@katalix.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:59042 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752881AbZBXJcM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2009 04:32:12 -0500
+In-Reply-To: <49A3A59D.9090102@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Chapman wrote:
-> Herbert Xu wrote:
->> James Chapman <jchapman@katalix.com> wrote:
->>> This patch series implements L2TPv3. It replaces the existing pppol2tp
->>> driver with a number of separate drivers, namely:-
->>>
->>> l2tp_core    - L2TP driver core. Always required.
->>> l2tp_ppp     - L2TP PPP
->>> l2tp_eth     - L2TPv3 ethernet pseudowire
->>> l2tp_ip      - L2TPv3 IP encapsulation
->>> l2tp_netlink - L2TPv3 netlink API
->> Have you thought by using the rtnl_link_ops interface instead
->> of your own netlink API?
+Wei Yongjun wrote:
+> Remove some pointless conditionals before kfree_skb().
 > 
-> I did, yes. I decided against it only because I didn't want to cause
-> confusion with what I perhaps wrongly perceive as an API for managing
-> net devices. In the L2TPv3 case, there might not be a netdev directly
-> associated with a newlink API call, for example. I've no problem with
-> switching the code to use it if it is preferred.
+> The semantic match that finds the problem is as follows:
+> (http://www.emn.fr/x-info/coccinelle/)
+> 
+> // <smpl>
+> @@
+> expression E;
+> @@
+> - if (E)
+> - 	kfree_skb(E);
+> + kfree_skb(E);
+> // </smpl>
 
- From a quick look, it seems you're (also) managing sessions, for
-which rtnl_link might not be the best choice. Could you give a
-short overview of the operations you need to be able to perform?
+I think kfree_skb() suppose that you have handled NULL pointer 
+because it uses `unlikely` to check the pointer.
+So I don't think these conditions are pointless...
+ 437 void kfree_skb(struct sk_buff *skb)
+ 438 {
+ 439         if (unlikely(!skb))
+ 440                 return;
 
 
+
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> ---
+>  net/ipv6/ipv6_sockglue.c |    3 +--
+>  net/ipv6/tcp_ipv6.c      |    6 ++----
+>  2 files changed, 3 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index 40f3246..d31df0f 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -218,8 +218,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  			if (opt)
+>  				sock_kfree_s(sk, opt, opt->tot_len);
+>  			pktopt = xchg(&np->pktoptions, NULL);
+> -			if (pktopt)
+> -				kfree_skb(pktopt);
+> +			kfree_skb(pktopt);
+>  
+>  			sk->sk_destruct = inet_sock_destruct;
+>  			/*
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index e5b85d4..273a5dd 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -533,8 +533,7 @@ static inline void syn_flood_warning(struct sk_buff *skb)
+>  
+>  static void tcp_v6_reqsk_destructor(struct request_sock *req)
+>  {
+> -	if (inet6_rsk(req)->pktopts)
+> -		kfree_skb(inet6_rsk(req)->pktopts);
+> +	kfree_skb(inet6_rsk(req)->pktopts);
+>  }
+>  
+>  #ifdef CONFIG_TCP_MD5SIG
+> @@ -1611,8 +1610,7 @@ ipv6_pktoptions:
+>  		}
+>  	}
+>  
+> -	if (opt_skb)
+> -		kfree_skb(opt_skb);
+> +	kfree_skb(opt_skb);
+>  	return 0;
+>  }
+>  
+
+
+-- 
+Regards
+Yang Hongyang
