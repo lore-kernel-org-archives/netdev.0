@@ -1,53 +1,70 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] iptables: xt_hashlimit fix
-Date: Tue, 24 Feb 2009 15:31:35 +0100
-Message-ID: <49A404C7.1010900@trash.net>
-References: <20090218051906.174295181@vyatta.com>	<20090218052747.321329022@vyatta.com> <20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com> <499EF222.3060507@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+Subject: netfilter 00/06: netfilter fixes
+Date: Tue, 24 Feb 2009 15:52:44 +0100 (MET)
+Message-ID: <20090224145243.9789.60678.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <499EF222.3060507@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34667 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756685AbZBXOwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 09:52:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Damned this broke xt_hashlimit, version=0
-> 
-> ...
-> So, it appears some modules are using pointers to themselves, what a hack :(
+Hi Dave,
 
-Indeed. This is unfortunately necessary in some cases to make sure
-that modules using global state actually use global state instead
-of the per-CPU copies.
+the following patches contain netfilter fixes for 2.6.29:
 
-> We probably need an audit of other modules.
-> 
-> (net/netfilter/xt_statistic.c, net/netfilter/xt_quota.c,
-> net/netfilter/xt_limit.c ...)
+- a typo fix in a ICMPv6 conntrack log message from Eric Leblond
 
-This seems fine in case of hashlimit since it the match data
-is read-only. In case of statistic and quota I think we still
-need it I think.
+- a fix for nfnetlink_log per-rule threshold overrides. Currently the
+  rule always wins because of the defaults, which is not intended.
+  Also from Eric.
 
-> Unfortunatly I wont have time to do this in following days, any volunteer ?
-> 
-> Thank you
-> 
-> [PATCH] netfilter: xt_hashlimit fix
-> 
-> Commit 784544739a25c30637397ace5489eeb6e15d7d49
-> (netfilter: iptables: lock free counters) broke xt_hashlimit netfilter module :
-> 
-> This module was storing a pointer inside its xt_hashlimit_info, and this pointer
-> is not relocated when we temporarly switch tables (iptables -L).
-> 
-> This hack is not not needed at all (probably a leftover from
-> ancient time), as each cpu should and can access to its own copy.
+- a fix for the nfnetlink_log default timeout units from Eric. The
+  kernel uses 10ms units, the default is specified in HZ.
 
-Applied, thanks.
+- a fix to avoid conntrack event delivery for untracked connections
+
+- a regression fix from Jan for a problem introduced in 2.6.28: the
+  /proc/net/ip_tables_matches and similar files don't include any
+  module registered with NFPROTO_UNSPEC. Unfortunately quite large.
+
+- another regression fix from the kernel.org bugzilla: proc file
+  addition and removal of IPv4 addresses in recent match have ben
+  broken since the addition of IPv6 support.
+
+The patches are also available in my nf-2.6.git tree at:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+
+I've created it according to your suggestions, I hope everything is fine.
+A small warning though: since its based on Linus' tree, it contains a lot
+of commits not in net-2.6.git yet.
+
+Please apply or pull, thanks.
+
+
+ include/linux/netfilter/xt_NFLOG.h             |    2 +-
+ include/net/netfilter/nf_conntrack_core.h      |    2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    5 +-
+ net/netfilter/nfnetlink_log.c                  |    8 +-
+ net/netfilter/x_tables.c                       |  199 +++++++++++++++++-------
+ net/netfilter/xt_recent.c                      |    2 +-
+ 6 files changed, 153 insertions(+), 65 deletions(-)
+
+Eric Leblond (3):
+      netfilter: nf_conntrack_ipv6: fix nf_log_packet message in icmpv6 conntrack
+      netfilter: nfnetlink_log: fix per-rule qthreshold override
+      netfilter: nfnetlink_log: fix timeout handling
+
+Jan Engelhardt (1):
+      netfilter: make proc/net/ip* print names from foreign NFPROTO
+
+Josef Drexler (1):
+      netfilter: xt_recent: fix proc-file addition/removal of IPv4 addresses
+
+Patrick McHardy (1):
+      netfilter: nf_conntrack: don't try to deliver events for untracked connections
