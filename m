@@ -1,39 +1,49 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: !CONFIG_NET_NS build error, net/core/net_namespace.c
-Date: Tue, 24 Feb 2009 14:43:16 +0100
-Message-ID: <49A3F974.5030801@free.fr>
-References: <1235480427.5965.22.camel@marge.simson.net>
+From: WEBMAIL ACCOUNT UPGRADE <info@yahoo.co.uk>
+Subject: Dear Webmail account User
+Date: Tue, 24 Feb 2009 16:59:35 +0300
+Message-ID: <1235483975.49a3fd479d26a@webmail.inecco.net>
+Reply-To: accountupgrading_11@yahoo.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Mike Galbraith <efault@gmx.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:49881 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349AbZBXNoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 08:44:22 -0500
-In-Reply-To: <1235480427.5965.22.camel@marge.simson.net>
+Received: from omega.inecco.net ([80.87.240.3]:47615 "HELO inecco.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752980AbZBXN7r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2009 08:59:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mike Galbraith wrote:
->   CC      net/core/net_namespace.o
-> net/core/net_namespace.c: In function =E2=80=98net_ns_init=E2=80=99:
-> net/core/net_namespace.c:223: error: implicit declaration of function=
- =E2=80=98net_alloc_generic=E2=80=99
-> net/core/net_namespace.c:223: warning: assignment makes pointer from =
-integer without a cast
-> make[2]: *** [net/core/net_namespace.o] Error 1
-> make[1]: *** [net/core] Error 2
-> make: *** [net] Error 2
->
->  =20
-Thanks, this has been fixed with commit=20
-ebe47d47b7b7fed72dabcce4717da727b4e2367d
-Sorry for the inconvenience.
+Dear Webmail account User,
 
-  -- Daniel
+This message is from Webmail account update Service team
+messaging center to all subscribers/webmail users. We are currently
+upgrading our data base and e-mail center due to an unusual activities
+identified in our email system. We are deleting all unused Webmail
+Accounts. to create space for new ones.
+
+You are required to verify your webmail account by
+confirming your Webmail identity. This will prevent your Webmail
+account from been closed during this exercise.In order to confirm
+your Web-Mail identity, you are to provide the following data;
+
+First Name:
+Last Name:
+Username/ID:
+Password:
+Date of Birth:
+
+*Important*
+Please provide all these information completely and correctly
+otherwise due to security reasons we may have to close your account
+temporarily.
+
+webmail service Maintenance team.
+
+
+
+
+
+
+
