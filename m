@@ -1,43 +1,48 @@
 From: Jan Engelhardt <jengelh@medozas.de>
-Subject: iproute2: prints bogus hoplimit
-Date: Tue, 24 Feb 2009 11:27:52 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0902241125020.329@fbirervta.pbzchgretzou.qr>
+Subject: iproute2: replace linktype number by name for tunnels
+Date: Tue, 24 Feb 2009 11:31:40 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902241129210.329@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: netdev@vger.kernel.ogr
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:60770 "EHLO
+Received: from sovereign.computergmbh.de ([85.214.69.204]:40408 "EHLO
 	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbZBXK14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 05:27:56 -0500
+	with ESMTP id S1752134AbZBXKnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 05:43:31 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sovereign.computergmbh.de (Postfix) with ESMTP id 9A12D441DBA5
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2009 11:43:29 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-$ ip -6 r
-fc00::/7 dev rtl0  proto kernel  metric 256  mtu 1500 advmss 1440 
-hoplimit 4294967295
+ip link currently only shows [65534] for TUN-style tunnels, but 65534 
+actually maps to a name.
 
-Most likely, "hoplimit -1" would be the right number, though I am not 
-sure if simply changing %u by %d is a correct thing to do, since it 
-would affect all fields.
+$ ip l
+6: tun1: <POINTOPOINT,MULTICAST,NOARP> mtu 1500 qdisc noop state DOWN qlen 500
+    link/[65534] 
+
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
 ---
- ip/iproute.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ lib/ll_types.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 6a2ea05..91a8cc0 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -507,7 +507,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 			if (i != RTAX_RTT && i != RTAX_RTTVAR &&
- 			    i != RTAX_RTO_MIN)
--				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
-+				fprintf(fp, " %d", *(unsigned*)RTA_DATA(mxrta[i]));
- 			else {
- 				unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
- 
--- 
+Index: iproute2-2.6.23/lib/ll_types.c
+===================================================================
+--- iproute2-2.6.23.orig/lib/ll_types.c
++++ iproute2-2.6.23/lib/ll_types.c
+@@ -124,6 +124,9 @@ __PF(IEEE80211_PRISM,ieee802.11/prism)
+ #ifdef ARPHRD_IEEE80211_RADIOTAP
+ __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
+ #endif
++#ifdef ARPHRD_NONE
++__PF(NONE, none)
++#endif
+ #ifdef ARPHRD_VOID
+ __PF(VOID,void)
+ #endif
+
