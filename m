@@ -1,50 +1,50 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 1/2] netxen: fix physical port mapping
-Date: Tue, 24 Feb 2009 00:16:58 -0800
-Message-ID: <1235463419-25146-2-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 2/2] netxen: handle pci bar 0 mapping failure
+Date: Tue, 24 Feb 2009 00:16:59 -0800
+Message-ID: <1235463419-25146-3-git-send-email-dhananjay@netxen.com>
 References: <1235463419-25146-1-git-send-email-dhananjay@netxen.com>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:48596 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:48598 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752803AbZBXIRB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752328AbZBXIRB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 24 Feb 2009 03:17:01 -0500
 In-Reply-To: <1235463419-25146-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PCI function to physical port mapping is valid only for
-old firmware. New firmware (4.0.0+) abstracts this.
-So driver should never try to access phy using invalid
-mapping. The behavior is unpredictable when PCI functions
-4-7 are enabled on the same NIC.
+PCI bar 0 is used for memory mapped register access.
+If ioremap fails (returns NULL), register access results
+in crash.
+
+Use pci_ioremap_bar() instead of ioremap(), the latter
+fails on on 32 bit powerpc where pci resource address is
+> 32 bits.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_main.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/netxen/netxen_nic_main.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 9f33e44..f425811 100644
+index f425811..1308778 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -795,9 +795,12 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * See if the firmware gave us a virtual-physical port mapping.
- 	 */
- 	adapter->physical_port = adapter->portnum;
--	i = adapter->pci_read_normalize(adapter, CRB_V2P(adapter->portnum));
--	if (i != 0x55555555)
--		adapter->physical_port = i;
-+	if (adapter->fw_major < 4) {
-+		i = adapter->pci_read_normalize(adapter,
-+				CRB_V2P(adapter->portnum));
-+		if (i != 0x55555555)
-+			adapter->physical_port = i;
-+	}
+@@ -588,7 +588,12 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		adapter->pci_mem_read = netxen_nic_pci_mem_read_2M;
+ 		adapter->pci_mem_write = netxen_nic_pci_mem_write_2M;
  
- 	adapter->flags &= ~(NETXEN_NIC_MSI_ENABLED | NETXEN_NIC_MSIX_ENABLED);
- 
+-		mem_ptr0 = ioremap(mem_base, mem_len);
++		mem_ptr0 = pci_ioremap_bar(pdev, 0);
++		if (mem_ptr0 == NULL) {
++			dev_err(&pdev->dev, "failed to map PCI bar 0\n");
++			return -EIO;
++		}
++
+ 		pci_len0 = mem_len;
+ 		first_page_group_start = 0;
+ 		first_page_group_end   = 0;
 -- 
 1.6.0.2
 
