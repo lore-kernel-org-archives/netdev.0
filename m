@@ -1,47 +1,103 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: oops / null deref in __inet6_check_established(), kernel
- 2.6.29-rc6
-Date: Tue, 24 Feb 2009 18:35:54 -0500
-Message-ID: <20090224183554.330eb308@dhcp-100-2-144.bos.redhat.com>
-References: <20090224182147.2150468e@dhcp-100-2-144.bos.redhat.com>
-	<20090224.152704.210992553.davem@davemloft.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: ixp4xx_hss modifications for 2x4 HDLC
+Date: Wed, 25 Feb 2009 00:38:42 +0100
+Message-ID: <m33ae3h0cd.fsf@intrepid.localdomain>
+References: <b0438a630902240447y7afe5510u7465804f94c0e22b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
+	netdev@vger.kernel.org
+To: Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez?=
+	<gotzoncabanes@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:49020 "EHLO mx2.redhat.com"
+Received: from khc.piap.pl ([195.187.100.11]:37053 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754156AbZBXXgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2009 18:36:05 -0500
-In-Reply-To: <20090224.152704.210992553.davem@davemloft.net>
+	id S1754016AbZBXXiq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 18:38:46 -0500
+In-Reply-To: <b0438a630902240447y7afe5510u7465804f94c0e22b@mail.gmail.com>
+ ("Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez=22's?= message of "Tue\, 24 Feb
+ 2009 13\:47\:27 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Feb 2009 15:27:04 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Hi,
 
-> From: Chuck Ebbert <cebbert@redhat.com>
-> Date: Tue, 24 Feb 2009 18:21:47 -0500
-> 
-> > (This doesn't happen on 2.6.27/28)
-> > 
-> > tw is NULL at net/ipv6/inet6_hashtables.c:261:
-> > 
-> > 	if (twp != NULL) {
-> > 		*twp = tw;
-> > ===>		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
-> > 	} else if (tw != NULL) {
-> > 
-> > I can reproduce this on real hardware on x86_64 too...
-> 
-> How? :-)
+Miguel =C1ngel =C1lvarez <gotzoncabanes@gmail.com> writes:
 
-Oops, forgot to add the bug URL:
+> I would appreciate your comments very much, because I think this
+> functionallity is quite usefull and I would like to add it to the mai=
+n
+> kernel stream.
 
-https://bugzilla.redhat.com/show_bug.cgi?id=486889
+Well, I guess it's a bit like a proof of concept rather than
+an applicable patch? :-)
 
-Steps to Reproduce:
-1. Get minirpc 0.3.2 [http://minirpc.cs.cmu.edu/download/minirpc-0.3.2.tar.gz]
-2. Run ./configure ; make ; make check
+And it's based on "chan" branch. This isn't good, the "chan" isn't yet
+ready to go upstream, the interface isn't yet stable. It's really
+experimental, based on undocumented behaviour etc. Do you need the
+"channelized" feature? If not, perhaps you should stick to HDLC-only
+David's net-next?
+
+Ok. The following doesn't IMHO make sense:
+
+> @@ -349,12 +294,58 @@
+>  		.set_clock	=3D hss_set_clock,
+>  		.open		=3D hss_open,
+>  		.close		=3D hss_close,
+> -		.txreadyq	=3D 2,
+> +		.txreadyq	=3D 32,
+> +		.hss        =3D 0,
+> +		.hdlc       =3D 0,
+>  	}, {
+>  		.set_clock	=3D hss_set_clock,
+>  		.open		=3D hss_open,
+>  		.close		=3D hss_close,
+> -		.txreadyq	=3D 19,
+> +		.txreadyq	=3D 36,
+> +		.hss        =3D 1,
+> +		.hdlc       =3D 0,
+> +	}, {
+> +		.set_clock	=3D hss_set_clock,
+> +		.open		=3D hss_open,
+> +		.close		=3D hss_close,
+
+There are only two HSS devices on the chip. Not 8 :-)
+
+> @@ -367,6 +358,30 @@
+>  		.name			=3D "ixp4xx_hss",
+>  		.id			=3D 1,
+>  		.dev.platform_data	=3D hss_plat + 1,
+> +	}, {
+> +		.name			=3D "ixp4xx_hss",
+> +		.id			=3D 2,
+> +		.dev.platform_data	=3D hss_plat + 2,
+> +	}, {
+> +		.name			=3D "ixp4xx_hss",
+> +		.id			=3D 3,
+> +		.dev.platform_data	=3D hss_plat + 3,
+
+Same here.
+
+This only needs a tiny change, increasing the number of HDLC devices
+to 2 or 4 (for each HSS), adding the extra queue numbers etc.
+
+This is completely orthogonal to:
+a) clocks
+b) channelized "services"
+c) sync options (excluding 1024-bit max length).
+
+The clock generator is a different thing and needs to be investigated.
+Copying Intel's table doesn't make sense here (especially given the
+internal clocks are rarely used). Do you need internal clocks?
+
+Channelized thing needs a stable userspace interface first, it really
+have to be discussed on netdev.
+
+Sync options are simply independent.
+
+I know I promised you I'll look at this stuff soon. Unfortunately, that
+"soon" is a bit less "soon" than I though. Will look when able,
+currently I'm really overwhelmed.
+--=20
+Krzysztof Halasa
