@@ -1,60 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/8] can: CAN Network device driver and SYSFS interface
-Date: Tue, 24 Feb 2009 10:38:43 +0100
-Message-ID: <49A3C023.90001@trash.net>
-References: <1235070082-7069-1-git-send-email-wg@grandegger.com> <1235070082-7069-2-git-send-email-wg@grandegger.com> <1235070082-7069-3-git-send-email-wg@grandegger.com> <1235070082-7069-4-git-send-email-wg@grandegger.com> <499E7B9B.6030603@trash.net> <49A01932.4090004@grandegger.com> <49A272A3.5040405@trash.net> <49A2B949.7060909@grandegger.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 0/8] l2tp: introduce L2TPv3 support
+Date: Tue, 24 Feb 2009 17:45:57 +0800
+Message-ID: <20090224094557.GA21905@gondor.apana.org.au>
+References: <49A3BB1E.8040005@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755474AbZBXJi5@vger.kernel.org>
-In-Reply-To: <49A2B949.7060909@grandegger.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:59770 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752190AbZBXJqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 04:46:03 -0500
+Content-Disposition: inline
+In-Reply-To: <49A3BB1E.8040005@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
->>> 1. Set and get CAN device properties like bit-rate and controller mode.
->>> 2. Show CAN bus state (active, error-passive or bus-off).
->>> 3. Get device constants like clock frequency and bit-timing parameters.
->>> 4. Dump CAN device statistics.
->>> 5. Trigger device restart if CAN bus-off state has been detected.
->>>
->>> Not sure yet, if the interface if good for all purposes. Especially
->>> point 5. might be better handled by an IOCTL.
->> The first points sound pretty regular. The last one - just triggering
->> it is no problem of course, but since I don't know how the detection
->> works, I can't really tell whether its suitable.
+James Chapman <jchapman@katalix.com> wrote:
 > 
-> CAN errors and state changes might be delivered as CAN error messages to
-> the receiving socket/application, like normal messages. When the
-> application realizes the state change to CAN bus-off, it may want to
-> trigger a bus-off recovery (controller restart). The CAN controller HW
-> enters bus-off, when too much errors occurred on the bus. No more
-> messages can then be sent of received and therefore the driver calls
-> netif_carrier_off(). Is there already an interface for the user to
-> restart? An appropriate IOCTL request would be a simply option, but they
-> are generally deprecated, AFAIK. Using netlink would be more cumbersome,
-> as with SYSFS.
+> I did, yes. I decided against it only because I didn't want to cause
+> confusion with what I perhaps wrongly perceive as an API for managing
+> net devices. In the L2TPv3 case, there might not be a netdev directly
+> associated with a newlink API call, for example. I've no problem with
+> switching the code to use it if it is preferred.
 
-You could consider triggering the restart automatically, similar
-to the netdev watchdog. In fact, you could simply use that one.
-If you really want to trigger this from userspace, setting the
-device DOWN and UP again seems like the most appropriate way to
-me (even though not very nice to use from an application POV).
-
->>> And we need a user space
->>> tool, e.g. canconfig, to handle the user requests and communicate with
->>> the kernel side.
->> Thats pretty standard :)
-> 
-> For the iproute2 utility "ip", mainliy a netlink_can.c would be
-> required. But a dedicated tool for CAN seems more appropriate to me.
-
-I don't know the CAN specifics. One goal of the rtnl_link API
-was to reduce to amount of userspace tools for link configuration
-though, so please only create a new tool if there's really a good
-reason. From my POV it would be preferrable to have link configuration
-in iproute for direct use by users and possibly also support in
-libnl for use by other applications.
+Fair enough, just making sure that it was considered at least :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
