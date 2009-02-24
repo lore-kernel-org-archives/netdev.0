@@ -1,43 +1,42 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 03/06: nfnetlink_log: fix timeout handling
-Date: Tue, 24 Feb 2009 15:52:47 +0100 (MET)
-Message-ID: <20090224145247.9789.79931.sendpatchset@x2.localnet>
+Subject: netfilter 04/06: nf_conntrack: don't try to deliver events for untracked connections
+Date: Tue, 24 Feb 2009 15:52:49 +0100 (MET)
+Message-ID: <20090224145248.9789.33395.sendpatchset@x2.localnet>
 References: <20090224145243.9789.60678.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34679 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756904AbZBXOwv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 09:52:51 -0500
 In-Reply-To: <20090224145243.9789.60678.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 2c6764b743f9d25dd0806a417f06920dcbd0f599
-Author: Eric Leblond <eric@inl.fr>
-Date:   Wed Feb 18 15:29:49 2009 +0100
+commit 5962fc6d5fff09c8e6fb8cadcb18327a0f4277f7
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Wed Feb 18 15:30:34 2009 +0100
 
-    netfilter: nfnetlink_log: fix timeout handling
+    netfilter: nf_conntrack: don't try to deliver events for untracked connections
     
-    NFLOG timeout was computed in timer by doing:
+    The untracked conntrack actually does usually have events marked for
+    delivery as its not special-cased in that part of the code. Skip the
+    actual delivery since it impacts performance noticeably.
     
-        flushtimeout*HZ/100
-    
-    Default value of flushtimeout was HZ (for 1 second delay). This was
-    wrong for non 100HZ computer. This patch modify the default delay by
-    using 100 instead of HZ.
-    
-    Signed-off-by: Eric Leblond <eric@inl.fr>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 580b837..c712e9f 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -39,7 +39,7 @@
- #endif
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index e78afe7..c25068e 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -59,7 +59,7 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)
+ 	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
+ 	int ret = NF_ACCEPT;
  
- #define NFULNL_NLBUFSIZ_DEFAULT	NLMSG_GOODSIZE
--#define NFULNL_TIMEOUT_DEFAULT 	HZ	/* every second */
-+#define NFULNL_TIMEOUT_DEFAULT 	100	/* every second */
- #define NFULNL_QTHRESH_DEFAULT 	100	/* 100 packets */
- #define NFULNL_COPY_RANGE_MAX	0xFFFF	/* max packet size is limited by 16-bit struct nfattr nfa_len field */
- 
+-	if (ct) {
++	if (ct && ct != &nf_conntrack_untracked) {
+ 		if (!nf_ct_is_confirmed(ct) && !nf_ct_is_dying(ct))
+ 			ret = __nf_conntrack_confirm(skb);
+ 		nf_ct_deliver_cached_events(ct);
