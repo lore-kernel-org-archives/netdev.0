@@ -1,62 +1,38 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-02-23
-Date: Mon, 23 Feb 2009 22:31:53 -0800
-Message-ID: <1235457113.4455.89.camel@johannes.local>
-References: <20090223192659.GB3553@tuxdriver.com>
-	 (sfid-20090223_203027_265294_231D2366)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 0/8] l2tp: introduce L2TPv3 support
+Date: Tue, 24 Feb 2009 14:39:08 +0800
+Message-ID: <20090224063908.GA20652@gondor.apana.org.au>
+References: <200902221752.n1MHqK2b006531@bert.katalix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-vpFpMKN3DZUuZOMiaCd/"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090223192659.GB3553-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (sfid-20090223_203027_265294_231D2366)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:60692 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753429AbZBXGjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 01:39:15 -0500
+Content-Disposition: inline
+In-Reply-To: <200902221752.n1MHqK2b006531@bert.katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+James Chapman <jchapman@katalix.com> wrote:
+> This patch series implements L2TPv3. It replaces the existing pppol2tp
+> driver with a number of separate drivers, namely:-
+> 
+> l2tp_core    - L2TP driver core. Always required.
+> l2tp_ppp     - L2TP PPP
+> l2tp_eth     - L2TPv3 ethernet pseudowire
+> l2tp_ip      - L2TPv3 IP encapsulation
+> l2tp_netlink - L2TPv3 netlink API
 
---=-vpFpMKN3DZUuZOMiaCd/
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Have you thought by using the rtnl_link_ops interface instead
+of your own netlink API?
 
-On Mon, 2009-02-23 at 14:26 -0500, John W. Linville wrote:
-
-> Johannes Berg (10):
->       mac80211: disallow moving netns
->       mac80211: fix aggregation for hardware with ampdu queues
->       mac80211: split IBSS/managed code
->       genetlink: introduce pre/post methods
-
-Hold off on this please, the genetlink patch here introduced a problem
-with locking and I'm going to rework/fix that.
-
-johannes
-
---=-vpFpMKN3DZUuZOMiaCd/
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJo5RXAAoJEKVg1VMiehFYmlkQALYaKEsjnHkCbd0yaDVVIHd/
-v/YLEwLICJssImgY5GvB/RASOZc7mI7jpxVWywXLuRTtkGrv4+NJWdQwIeHnx5c8
-LGgPWPBPRmvGLKg9j1E73Pg87mSCaAWOSzEFfqVkZzUxN/RRJCsjSBYcpa8eUxMo
-+OfxUbKalZSw7cXHrz+rb+bFwacUV8Ng6t2nfnfsW7VTGr5DVfGPoewrwSMUDUhu
-W2gIwqa+GAL/SFXSjy8+exCUD6DEqJw53JlQQUnvKTemekSfY0KJpzUDK9YYsA4x
-VuMoM+Ut3+BlMp13ZgAyHABg2TJ5TXjSPAEr32taiRazg3MPwTMr2b2Sy4ZdsNiI
-mn6qL0puQVzqZUAuDzksEMHNJ6OjEllb+S8RSfez3UbdDqIBS4YDKmQtf87KBvn2
-lwGZBgXuNztBXijXEvUdkbHvfcYyAXZEK3VFVDJn7YBYRYQF2EmV0cMpV7QYothw
-DB1UE3mkNypGsrr9mCbALi3JEjljC6CfXGfDt37qZRkymYxSg6uhJaZrHtpXoWbv
-j/FxbovX3syzgBR10scrIvgbPYvyAJ8Cf4Wr1yNal/GXG5LZ8s6x1UIeqHcYvFwI
-oTi8YKBnuo+FTEZyDmzIikCY7V3dmWpL0N3joz68pZ73THC22No55a5QhcTQ5J7G
-yswhwInHjtFaOVi1RwJZ
-=yL27
------END PGP SIGNATURE-----
-
---=-vpFpMKN3DZUuZOMiaCd/--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
