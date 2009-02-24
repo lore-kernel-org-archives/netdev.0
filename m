@@ -1,48 +1,32 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: iproute2: replace linktype number by name for tunnels
-Date: Tue, 24 Feb 2009 11:31:40 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0902241129210.329@fbirervta.pbzchgretzou.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] netxen: fix physical port mapping
+Date: Tue, 24 Feb 2009 03:44:30 -0800 (PST)
+Message-ID: <20090224.034430.250330119.davem@davemloft.net>
+References: <1235463419-25146-1-git-send-email-dhananjay@netxen.com>
+	<1235463419-25146-2-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.ogr
-To: shemminger@linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dhananjay@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:40408 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbZBXKnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 05:43:31 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sovereign.computergmbh.de (Postfix) with ESMTP id 9A12D441DBA5
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2009 11:43:29 +0100 (CET)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41156
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753259AbZBXLot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 06:44:49 -0500
+In-Reply-To: <1235463419-25146-2-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Tue, 24 Feb 2009 00:16:58 -0800
 
-ip link currently only shows [65534] for TUN-style tunnels, but 65534 
-actually maps to a name.
+> The PCI function to physical port mapping is valid only for
+> old firmware. New firmware (4.0.0+) abstracts this.
+> So driver should never try to access phy using invalid
+> mapping. The behavior is unpredictable when PCI functions
+> 4-7 are enabled on the same NIC.
+> 
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-$ ip l
-6: tun1: <POINTOPOINT,MULTICAST,NOARP> mtu 1500 qdisc noop state DOWN qlen 500
-    link/[65534] 
-
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-
----
- lib/ll_types.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-Index: iproute2-2.6.23/lib/ll_types.c
-===================================================================
---- iproute2-2.6.23.orig/lib/ll_types.c
-+++ iproute2-2.6.23/lib/ll_types.c
-@@ -124,6 +124,9 @@ __PF(IEEE80211_PRISM,ieee802.11/prism)
- #ifdef ARPHRD_IEEE80211_RADIOTAP
- __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
- #endif
-+#ifdef ARPHRD_NONE
-+__PF(NONE, none)
-+#endif
- #ifdef ARPHRD_VOID
- __PF(VOID,void)
- #endif
-
+Applied.
