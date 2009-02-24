@@ -1,65 +1,45 @@
-From: "Srivats P" <Srivats.P@conexant.com>
-Subject: RE: [PATCH] iproute2: Fix no default display of ip4ip6 tunnels
-Date: Tue, 24 Feb 2009 14:21:04 +0530
-Message-ID: <F33E0C3C2876A544ABD34CFBE345A4A40211E428E8@NDMBX01.bbnet.ad>
-References: <F33E0C3C2876A544ABD34CFBE345A4A40211E426D0@NDMBX01.bbnet.ad>
- <20090219085209.4dc6bce5@extreme>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [RFC PATCH 0/8] l2tp: introduce L2TPv3 support
+Date: Tue, 24 Feb 2009 09:17:18 +0000
+Message-ID: <49A3BB1E.8040005@katalix.com>
+References: <20090224063908.GA20652@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnxtsmtp5.conexant.com ([198.62.9.40]:46369 "EHLO
-	cnxtsmtp5.conexant.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048AbZBXIu1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 03:50:27 -0500
-Received: from CPS (wsmx1.nb.conexant.com [157.152.185.16]) (using TLSv1 with cipher RC4-MD5 (
- 128/128 bits)) (No client certificate requested) by cnxtsmtp5.conexant.com (Tumbleweed MailGate
- 3.6.1) with ESMTP id 2247D240DA9 for <netdev@vger.kernel.org>; Tue, 24 Feb 2009 00:50:24 -0800 (
- PST)
-Content-Language: en-US
+Received: from katalix.com ([82.103.140.233]:54755 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752881AbZBXJRb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2009 04:17:31 -0500
+In-Reply-To: <20090224063908.GA20652@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-Stephen,
+Herbert Xu wrote:
+> James Chapman <jchapman@katalix.com> wrote:
+>> This patch series implements L2TPv3. It replaces the existing pppol2tp
+>> driver with a number of separate drivers, namely:-
+>>
+>> l2tp_core    - L2TP driver core. Always required.
+>> l2tp_ppp     - L2TP PPP
+>> l2tp_eth     - L2TPv3 ethernet pseudowire
+>> l2tp_ip      - L2TPv3 IP encapsulation
+>> l2tp_netlink - L2TPv3 netlink API
+> 
+> Have you thought by using the rtnl_link_ops interface instead
+> of your own netlink API?
 
-Awaiting your response.
+I did, yes. I decided against it only because I didn't want to cause
+confusion with what I perhaps wrongly perceive as an API for managing
+net devices. In the L2TPv3 case, there might not be a netdev directly
+associated with a newlink API call, for example. I've no problem with
+switching the code to use it if it is preferred.
 
-Regards,
-Srivats
-
------Original Message-----
-From: Srivats P 
-Sent: Friday, February 20, 2009 10:20 AM
-To: 'Stephen Hemminger'
-Cc: netdev@vger.kernel.org
-Subject: RE: [PATCH] iproute2: Fix no default display of ip4ip6 tunnels
-
-Stephen,
-
->it is possible to see all with
->	ip -6 tunnel show mode all
-
-I guess you meant "mode any" instead of "mode all". And yes, you are right - "mode any" does display all tunnels.
-
-However the equivalent INET4 command - "ip tunnel show" displays all tunnels (gre/ipip/sit) irrespective of mode and from a end user point of view he would probably expect the same behaviour with the INET6 tunnels without having to specify "mode any"
-
-If you agree, I'll submit a replacement patch for my earlier one which does the same thing.
-
-Regards,
-Srivats
-
-
-Conexant E-mail Firewall (Conexant.Com) made the following annotations
----------------------------------------------------------------------
-********************** Legal Disclaimer **************************** 
-
-"This email may contain confidential and privileged material for the sole use of the intended recipient. Any unauthorized review, use or distribution by others is strictly prohibited. If you have received the message in error, please advise the sender by reply email and delete the message. Thank you." 
-
-********************************************************************** 
-
----------------------------------------------------------------------
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
