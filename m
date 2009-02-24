@@ -1,103 +1,68 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: ixp4xx_hss modifications for 2x4 HDLC
-Date: Wed, 25 Feb 2009 00:38:42 +0100
-Message-ID: <m33ae3h0cd.fsf@intrepid.localdomain>
-References: <b0438a630902240447y7afe5510u7465804f94c0e22b@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/2] ixgbe: Move ring features into an enum,
+	allowing easier future maintenance
+Date: Tue, 24 Feb 2009 15:40:37 -0800
+Message-ID: <20090224234037.29312.54427.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	netdev@vger.kernel.org
-To: Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez?=
-	<gotzoncabanes@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:37053 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754016AbZBXXiq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 18:38:46 -0500
-In-Reply-To: <b0438a630902240447y7afe5510u7465804f94c0e22b@mail.gmail.com>
- ("Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez=22's?= message of "Tue\, 24 Feb
- 2009 13\:47\:27 +0100")
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:59542
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757317AbZBXXk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 18:40:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Miguel =C1ngel =C1lvarez <gotzoncabanes@gmail.com> writes:
+The ring_feature member of ixgbe_adapter is statically allocated based on
+the supported features of the device.  When a new feature is added, we need
+to manually update the static allocation.  This patch makes the feature
+list an enum, eliminating the need for multiple updates to the code when
+adding a new feature.
 
-> I would appreciate your comments very much, because I think this
-> functionallity is quite usefull and I would like to add it to the mai=
-n
-> kernel stream.
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Well, I guess it's a bit like a proof of concept rather than
-an applicable patch? :-)
+ drivers/net/ixgbe/ixgbe.h |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
 
-And it's based on "chan" branch. This isn't good, the "chan" isn't yet
-ready to go upstream, the interface isn't yet stable. It's really
-experimental, based on undocumented behaviour etc. Do you need the
-"channelized" feature? If not, perhaps you should stick to HDLC-only
-David's net-next?
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index e98ace8..c0e56aa 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -148,9 +148,15 @@ struct ixgbe_ring {
+ 	u16 rx_buf_len;
+ };
+ 
+-#define RING_F_DCB  0
+-#define RING_F_VMDQ 1
+-#define RING_F_RSS  2
++enum ixgbe_ring_f_enum {
++	RING_F_NONE = 0,
++	RING_F_DCB,
++	RING_F_VMDQ,
++	RING_F_RSS,
++
++	RING_F_ARRAY_SIZE      /* must be last in enum set */
++};
++
+ #define IXGBE_MAX_DCB_INDICES   8
+ #define IXGBE_MAX_RSS_INDICES  16
+ #define IXGBE_MAX_VMDQ_INDICES 16
+@@ -249,7 +255,7 @@ struct ixgbe_adapter {
+ 	u64 non_eop_descs;
+ 	int num_msix_vectors;
+ 	int max_msix_q_vectors;         /* true count of q_vectors for device */
+-	struct ixgbe_ring_feature ring_feature[3];
++	struct ixgbe_ring_feature ring_feature[RING_F_ARRAY_SIZE];
+ 	struct msix_entry *msix_entries;
+ 
+ 	u64 rx_hdr_split;
 
-Ok. The following doesn't IMHO make sense:
-
-> @@ -349,12 +294,58 @@
->  		.set_clock	=3D hss_set_clock,
->  		.open		=3D hss_open,
->  		.close		=3D hss_close,
-> -		.txreadyq	=3D 2,
-> +		.txreadyq	=3D 32,
-> +		.hss        =3D 0,
-> +		.hdlc       =3D 0,
->  	}, {
->  		.set_clock	=3D hss_set_clock,
->  		.open		=3D hss_open,
->  		.close		=3D hss_close,
-> -		.txreadyq	=3D 19,
-> +		.txreadyq	=3D 36,
-> +		.hss        =3D 1,
-> +		.hdlc       =3D 0,
-> +	}, {
-> +		.set_clock	=3D hss_set_clock,
-> +		.open		=3D hss_open,
-> +		.close		=3D hss_close,
-
-There are only two HSS devices on the chip. Not 8 :-)
-
-> @@ -367,6 +358,30 @@
->  		.name			=3D "ixp4xx_hss",
->  		.id			=3D 1,
->  		.dev.platform_data	=3D hss_plat + 1,
-> +	}, {
-> +		.name			=3D "ixp4xx_hss",
-> +		.id			=3D 2,
-> +		.dev.platform_data	=3D hss_plat + 2,
-> +	}, {
-> +		.name			=3D "ixp4xx_hss",
-> +		.id			=3D 3,
-> +		.dev.platform_data	=3D hss_plat + 3,
-
-Same here.
-
-This only needs a tiny change, increasing the number of HDLC devices
-to 2 or 4 (for each HSS), adding the extra queue numbers etc.
-
-This is completely orthogonal to:
-a) clocks
-b) channelized "services"
-c) sync options (excluding 1024-bit max length).
-
-The clock generator is a different thing and needs to be investigated.
-Copying Intel's table doesn't make sense here (especially given the
-internal clocks are rarely used). Do you need internal clocks?
-
-Channelized thing needs a stable userspace interface first, it really
-have to be discussed on netdev.
-
-Sync options are simply independent.
-
-I know I promised you I'll look at this stuff soon. Unfortunately, that
-"soon" is a bit less "soon" than I though. Will look when able,
-currently I'm really overwhelmed.
---=20
-Krzysztof Halasa
