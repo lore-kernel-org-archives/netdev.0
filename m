@@ -1,40 +1,31 @@
-From: Oliver Zheng <mailinglists+netdev@oliverzheng.com>
-Subject: TCP/IP stack interpretation of acceptable packet
-Date: Tue, 24 Feb 2009 14:59:55 -0800
-Message-ID: <2ff60cd60902241459q1de39054lb3dc5233f13b69c3@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 2.6.29-rc6: Reported regressions 2.6.27 -> 2.6.28
+Date: Wed, 25 Feb 2009 00:23:23 +0100
+Message-ID: <20090224232322.GA15079@electric-eye.fr.zoreil.com>
+References: <HFSEX4uppGO.A.JSG.2yzoJB@chimera> <200902241705.33271.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Network Development <netdev@vger.kernel.org>
+To: Rolf Eike Beer <eike-kernel@sf-tec.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:61171 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760855AbZBXW77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 17:59:59 -0500
-Received: by bwz5 with SMTP id 5so6244585bwz.13
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2009 14:59:56 -0800 (PST)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49162 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753656AbZBXXVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 18:21:07 -0500
+Content-Disposition: inline
+In-Reply-To: <200902241705.33271.eike-kernel@sf-tec.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was investigating behaviour of the TCP/IP stacks and noticed that
-Linux has a peculiarity. When a packet is received with the correct
-sequence number but incorrect acknowledgement number (in my tests, it
-was higher than the correct acknowledgement number), the stack accepts
-the packet as a valid packet and passes the data up to the application
-(I do not know whether the ack information is accepted). According to
-the list of tests described here in the TCP RFC 793 [1], accepting a
-packet requires the packet to satisfy both sequence and
-acknowledgement number tests; otherwise, the entirety of the packet
-(its data and its acknowledgement information confirming reception of
-previous data) should be dropped. Is this intentional, a bug, or am I
-misinterpreting something? A nice flow chart that explains this
-procedure is here [2].
+Rolf Eike Beer <eike-kernel@sf-tec.de> :
+[...]
+> would you agree to mark both as dupe of #10109?
 
-Not to instigate flame, but Windows does this correctly, or at least
-correctly in my interpretation of the spec.
+I am not too hot. #10109 happens with a 8167.
 
-[1] http://tools.ietf.org/html/rfc793#page-69
-[2] http://www.medianet.kent.edu/techreports/TR2005-07-22-tcp-EFSM.pdf (page 17)
+We can probably mark as dupe the watchdog timeouts which happen on 
+the same hardware (XID) at boot time though.
 
-Cheers,
-Oliver
+-- 
+Ueimor
