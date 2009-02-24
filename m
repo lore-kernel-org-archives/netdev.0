@@ -1,62 +1,108 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Why linux keeps connected routes when link goes down
-Date: Tue, 24 Feb 2009 13:52:22 -0500
-Message-ID: <20090224185222.GO23244@csclub.uwaterloo.ca>
-References: <20090220171912.GA7315@csclub.uwaterloo.ca> <20090220.121508.252047266.davem@davemloft.net> <20090223143830.GA23244@csclub.uwaterloo.ca> <20090223.153353.237733933.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: homecreate@list.ru, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [patch next 2/4] netxen: advertise wake-on-lan support
+Date: Tue, 24 Feb 2009 11:39:08 -0800
+Message-ID: <1235504350-31258-2-git-send-email-dhananjay@netxen.com>
+References: <1235504350-31258-1-git-send-email-dhananjay@netxen.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:52385 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751807AbZBXSwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 13:52:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20090223.153353.237733933.davem@davemloft.net>
+Received: from nxgate.netxen.com ([38.99.60.130]:55343 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753765AbZBXTjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2009 14:39:12 -0500
+In-Reply-To: <1235504350-31258-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23, 2009 at 03:33:53PM -0800, David Miller wrote:
-> From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-> Date: Mon, 23 Feb 2009 09:38:30 -0500
-> 
-> > On Fri, Feb 20, 2009 at 12:15:08PM -0800, David Miller wrote:
-> > > The route is tied to the IP address, and the route is therefore
-> > > created and destroyed alongside the IP address.
-> > 
-> > That's how it works now.  It wasn't how it worked in linux a long
-> > time ago.  Long ago you had to create the route yourself in userspace
-> > (which was actually to some extent better than the current setup).
-> > The current method is simpler to understand for your typical user though.
-> 
-> I don't remember Linux ever not creating a subnet route when an IP
-> address was added to an interface.  And I also don't remember Linux
-> ever deleting an IP address on interface down.
+Add ethtool wake on lan support.
 
-Not IP address.  And no it never deleted the route either.
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_ethtool.c |   49 +++++++++++++++++++++++++++++++
+ drivers/net/netxen/netxen_nic_hdr.h     |    3 ++
+ 2 files changed, 52 insertions(+), 0 deletions(-)
 
-> Maybe it happened back in 0.99pl5 times, but we're talking at least
-> 10 years ago.
-
-I did run 0.99something on my first linux system, so I remember the
-transition happening at some point.  I remember distribution's network
-scripts creating routes after assigning the IP to an interface.  I don't
-remember how long ago that was though.
-
-Now it had nothing to do with link state, it was simply a matter that
-setting an ip and netmask on an interface did not create a route the
-way newer kernels have done (where newer probably covers most years of
-linux kernels).  All route management was userspace's job back then.
-In the case of running quagga and trying to do link detect and route
-management based on link state, having the one route the kernel auto
-creates there is a pain in the ass and it would be nice if it wasn't
-there based on some sysctl option.  I haven't found one though.  I would
-be happy to have zebra be responsible for the network route for all
-interfaces for consistency.  That way all route management without
-exception would be a userspace problem.  This would of course not be the
-default, since for most normal users this is not the desired behaviour,
-but for an advanced router it very much is desired behaviour.
-
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index 0894a7b..0012b31 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -810,6 +810,53 @@ static int netxen_nic_set_tso(struct net_device *dev, u32 data)
+ 	return 0;
+ }
+ 
++static void
++netxen_nic_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct netxen_adapter *adapter = netdev_priv(dev);
++	u32 wol_cfg = 0;
++
++	wol->supported = 0;
++	wol->wolopts = 0;
++
++	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
++		return;
++
++	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG_NV);
++	if (wol_cfg & (1UL << adapter->portnum))
++		wol->supported |= WAKE_MAGIC;
++
++	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG);
++	if (wol_cfg & (1UL << adapter->portnum))
++		wol->wolopts |= WAKE_MAGIC;
++}
++
++static int
++netxen_nic_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct netxen_adapter *adapter = netdev_priv(dev);
++	u32 wol_cfg = 0;
++
++	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
++		return -EOPNOTSUPP;
++
++	if (wol->wolopts & ~WAKE_MAGIC)
++		return -EOPNOTSUPP;
++
++	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG_NV);
++	if (!(wol_cfg & (1 << adapter->portnum)))
++		return -EOPNOTSUPP;
++
++	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG);
++	if (wol->wolopts & WAKE_MAGIC)
++		wol_cfg |= 1UL << adapter->portnum;
++	else
++		wol_cfg &= ~(1UL << adapter->portnum);
++	netxen_nic_reg_write(adapter, NETXEN_WOL_CONFIG, wol_cfg);
++
++	return 0;
++}
++
+ /*
+  * Set the coalescing parameters. Currently only normal is supported.
+  * If rx_coalesce_usecs == 0 or rx_max_coalesced_frames == 0 then set the
+@@ -916,6 +963,8 @@ struct ethtool_ops netxen_nic_ethtool_ops = {
+ 	.set_sg = ethtool_op_set_sg,
+ 	.get_tso = netxen_nic_get_tso,
+ 	.set_tso = netxen_nic_set_tso,
++	.get_wol = netxen_nic_get_wol,
++	.set_wol = netxen_nic_set_wol,
+ 	.self_test = netxen_nic_diag_test,
+ 	.get_strings = netxen_nic_get_strings,
+ 	.get_ethtool_stats = netxen_nic_get_ethtool_stats,
+diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+index 269a1f7..4695246 100644
+--- a/drivers/net/netxen/netxen_nic_hdr.h
++++ b/drivers/net/netxen/netxen_nic_hdr.h
+@@ -858,6 +858,9 @@ enum {
+ #define NETXEN_PORT_MODE_ADDR		(NETXEN_CAM_RAM(0x24))
+ #define NETXEN_WOL_PORT_MODE		(NETXEN_CAM_RAM(0x198))
+ 
++#define NETXEN_WOL_CONFIG_NV		(NETXEN_CAM_RAM(0x184))
++#define NETXEN_WOL_CONFIG		(NETXEN_CAM_RAM(0x188))
++
+ #define NX_PEG_TUNE_MN_PRESENT		0x1
+ #define NX_PEG_TUNE_CAPABILITY		(NETXEN_CAM_RAM(0x02c))
+ 
 -- 
-Len Sorensen
+1.6.0.2
+
