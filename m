@@ -1,59 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: [PATCH] cdc_ether: add usb id for Ericsson F3507g
-Date: Wed, 25 Feb 2009 15:33:58 +0100
-Message-ID: <87ocwqsi09.fsf@nemi.mork.no>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: Documentation:Update the INDEX of the documents
+Date: Wed, 25 Feb 2009 09:59:50 -0500
+Message-ID: <20090225145950.GJ7064@mit.edu>
+References: <49A4F06B.6030205@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-doc@vger.kernel.org, mtk.manpages@gmail.com,
+	rdunlap@xenotime.net
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:36950 "EHLO ciao.gmane.org"
+Received: from THUNK.ORG ([69.25.196.29]:52107 "EHLO thunker.thunk.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754621AbZBYOkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 09:40:06 -0500
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1LcKva-0007cb-OI
-	for netdev@vger.kernel.org; Wed, 25 Feb 2009 14:40:02 +0000
-Received: from 193.160.199.2 ([193.160.199.2])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2009 14:40:02 +0000
-Received: from bjorn by 193.160.199.2 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2009 14:40:02 +0000
+	id S1754166AbZBYPAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 10:00:00 -0500
+Content-Disposition: inline
+In-Reply-To: <49A4F06B.6030205@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Ericsson F3507g wireless broadband module provides a CDC Ethernet
-compliant interface, but identifies it as a "Mobile Direct Line" CDC
-subclass, thereby preventing the CDC Ethernet class driver from picking
-it up.  This patch adds the device id to cdc_ether.c as a workaround.
+On Wed, Feb 25, 2009 at 03:16:59PM +0800, Yang Hongyang wrote:
+> There are so many 00-INDEX file that are missing description of the
+> current files in the dir.  Such as 00-INDEX in
+> Documentation/x86/,Documentation/networking/,Documentation/ and so
+> on.
+> 
+> It's a large amount of work for someone to go through all these
+> documents and make summaries.
+> 
+> I'm willing to do some of the work but if someone else pick these
+> up(especially the authors of these new files) it will be a great
+> help.^_^
 
-Ericsson has provided a "class" driver for this device:
-http://kerneltrap.org/mailarchive/linux-net/2008/10/28/3832094
-But closer inspection of that driver reveals that it adds little more
-than duplication of code from cdc_ether.c.  See also
-http://marc.info/?l=3Dlinux-usb&m=3D123334979706403&w=3D2
+Before you embark on this large amount of work, we should probably ask
+a question first --- how useful are the 00-INDEX files?  I don't find
+them particularly interesting, given that my normal way of finding
+documentation in the Documentation directory is:
 
+find . -type f | xargs grep <keyword>
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Or, if I have a git tree of the Linux sources handy:
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 0e061df..55e8ecc 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -559,6 +559,11 @@ static const struct usb_device_id	products [] =3D =
-{
- 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
- 			USB_CDC_PROTO_NONE),
- 	.driver_info =3D (unsigned long) &cdc_info,
-+}, {
-+	/* Ericsson F3507g */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1900, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info =3D (unsigned long) &cdc_info,
- },
- 	{ },		// END
- };
+git grep <keyword> -- Documentation
 
+If folks do find the 00-INDEX files useful, my suggestion would be to
+make a way of automatically extracting them from the individual files
+and/or directories, and then making the 00-INDEX files to be
+automatically generated.
 
+						- Ted
