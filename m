@@ -1,41 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] addition of a dropped packet notification service
-Date: Wed, 25 Feb 2009 16:16:24 +0800
-Message-ID: <20090225081624.GA809@gondor.apana.org.au>
-References: <20090206165736.295ec007@extreme> <20090207174931.GA10247@localhost.localdomain> <20090209102134.GA8492@gondor.apana.org.au> <20090224.234840.93952093.davem@davemloft.net>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Wed, 25 Feb 2009 16:25:43 +0800
+Message-ID: <20090225082543.GB809@gondor.apana.org.au>
+References: <20090206.030716.136181382.davem@davemloft.net> <20090209050354.GA3548@gondor.apana.org.au> <20090224.234401.257258567.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: nhorman@tuxdriver.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
+Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35001 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:42377 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755525AbZBYIQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 03:16:42 -0500
+	with ESMTP id S1751163AbZBYIZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 03:25:59 -0500
 Content-Disposition: inline
-In-Reply-To: <20090224.234840.93952093.davem@davemloft.net>
+In-Reply-To: <20090224.234401.257258567.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 24, 2009 at 11:48:40PM -0800, David Miller wrote:
+On Tue, Feb 24, 2009 at 11:44:01PM -0800, David Miller wrote:
 >
-> Here's an idea that doesn't use tracepoints (I really don't like
-> them, to be honest):
+> Actually it turns out we can't do that here.  This flow label object
+> is global, rather than specifically associated with a given socket.
 > 
-> 1) Isolate the normal packet freeing contexts, have them call
->    kfree_skb_clean() or something like that.
-> 
-> 2) What remains are the abnormal drop cases.  They still call
->    plain kfree_skb() which records __builtin_return_address(0)
->    and builds a hash table of counts call sites.
-> 
-> Then you just dump the table via some user visible interface.
+> See net/ipv6/ip6_flowlabel.c:fl_{create,intern}() and how those
+> are used.
 
-This sounds like a great idea to me.
+They're global but that doesn't stop us from charging it once
+for each socket that uses it (isn't that what Microsoft does
+for Windows :)
 
-Thanks,
+The fact is right now we have an entity that a user can create
+willy nilly with no limits.  That can't be good.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
