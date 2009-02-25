@@ -1,37 +1,41 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 03/26] RDS: Congestion-handling code
-Date: Tue, 24 Feb 2009 17:30:20 -0800
-Message-ID: <1235525443-9007-4-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 09/26] RDS: Message parsing
+Date: Tue, 24 Feb 2009 17:30:26 -0800
+Message-ID: <1235525443-9007-10-git-send-email-andy.grover@oracle.com>
 References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
 Cc: rds-devel@oss.oracle.com, general@lists.openfabrics.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:48845 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755481AbZBYBbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 20:31:01 -0500
+Received: from rcsinet11.oracle.com ([148.87.113.123]:27773 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755771AbZBYBbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 20:31:12 -0500
 In-Reply-To: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RDS handles per-socket congestion by updating peers with a complete
-congestion map (8KB). This code keeps track of these maps for itself
-and ones received from peers.
+Parsing of newly-received RDS message headers (including ext.
+headers) and copy-to/from-user routines.
+
+page.c implements a per-cpu page remainder cache, to reduce the
+number of allocations needed for small datagrams.
 
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- net/rds/cong.c |  402 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 402 insertions(+), 0 deletions(-)
- create mode 100644 net/rds/cong.c
+ net/rds/message.c |  402 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/rds/page.c    |  221 +++++++++++++++++++++++++++++
+ 2 files changed, 623 insertions(+), 0 deletions(-)
+ create mode 100644 net/rds/message.c
+ create mode 100644 net/rds/page.c
 
-diff --git a/net/rds/cong.c b/net/rds/cong.c
+diff --git a/net/rds/message.c b/net/rds/message.c
 new file mode 100644
-index 0000000..90e6b31
+index 0000000..5a15dc8
 --- /dev/null
-+++ b/net/rds/cong.c
++++ b/net/rds/message.c
 @@ -0,0 +1,402 @@
 +/*
-+ * Copyright (c) 2007 Oracle.  All rights reserved.
++ * Copyright (c) 2006 Oracle.  All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -62,375 +66,602 @@ index 0000000..90e6b31
 + * SOFTWARE.
 + *
 + */
-+#include <linux/types.h>
-+#include <linux/rbtree.h>
++#include <linux/kernel.h>
 +
 +#include "rds.h"
++#include "rdma.h"
 +
-+/*
-+ * This file implements the receive side of the unconventional congestion
-+ * management in RDS.
-+ *
-+ * Messages waiting in the receive queue on the receiving socket are accounted
-+ * against the sockets SO_RCVBUF option value.  Only the payload bytes in the
-+ * message are accounted for.  If the number of bytes queued equals or exceeds
-+ * rcvbuf then the socket is congested.  All sends attempted to this socket's
-+ * address should return block or return -EWOULDBLOCK.
-+ *
-+ * Applications are expected to be reasonably tuned such that this situation
-+ * very rarely occurs.  An application encountering this "back-pressure" is
-+ * considered a bug.
-+ *
-+ * This is implemented by having each node maintain bitmaps which indicate
-+ * which ports on bound addresses are congested.  As the bitmap changes it is
-+ * sent through all the connections which terminate in the local address of the
-+ * bitmap which changed.
-+ *
-+ * The bitmaps are allocated as connections are brought up.  This avoids
-+ * allocation in the interrupt handling path which queues messages on sockets.
-+ * The dense bitmaps let transports send the entire bitmap on any bitmap change
-+ * reasonably efficiently.  This is much easier to implement than some
-+ * finer-grained communication of per-port congestion.  The sender does a very
-+ * inexpensive bit test to test if the port it's about to send to is congested
-+ * or not.
-+ */
++static DECLARE_WAIT_QUEUE_HEAD(rds_message_flush_waitq);
 +
-+/*
-+ * Interaction with poll is a tad tricky. We want all processes stuck in
-+ * poll to wake up and check whether a congested destination became uncongested.
-+ * The really sad thing is we have no idea which destinations the application
-+ * wants to send to - we don't even know which rds_connections are involved.
-+ * So until we implement a more flexible rds poll interface, we have to make
-+ * do with this:
-+ * We maintain a global counter that is incremented each time a congestion map
-+ * update is received. Each rds socket tracks this value, and if rds_poll
-+ * finds that the saved generation number is smaller than the global generation
-+ * number, it wakes up the process.
-+ */
-+static atomic_t		rds_cong_generation = ATOMIC_INIT(0);
++static unsigned int	rds_exthdr_size[__RDS_EXTHDR_MAX] = {
++[RDS_EXTHDR_NONE]	= 0,
++[RDS_EXTHDR_VERSION]	= sizeof(struct rds_ext_header_version),
++[RDS_EXTHDR_RDMA]	= sizeof(struct rds_ext_header_rdma),
++[RDS_EXTHDR_RDMA_DEST]	= sizeof(struct rds_ext_header_rdma_dest),
++};
 +
-+/*
-+ * Congestion monitoring
-+ */
-+static LIST_HEAD(rds_cong_monitor);
-+static DEFINE_RWLOCK(rds_cong_monitor_lock);
 +
-+/*
-+ * Yes, a global lock.  It's used so infrequently that it's worth keeping it
-+ * global to simplify the locking.  It's only used in the following
-+ * circumstances:
-+ *
-+ *  - on connection buildup to associate a conn with its maps
-+ *  - on map changes to inform conns of a new map to send
-+ *
-+ *  It's sadly ordered under the socket callback lock and the connection lock.
-+ *  Receive paths can mark ports congested from interrupt context so the
-+ *  lock masks interrupts.
-+ */
-+static DEFINE_SPINLOCK(rds_cong_lock);
-+static struct rb_root rds_cong_tree = RB_ROOT;
-+
-+static struct rds_cong_map *rds_cong_tree_walk(__be32 addr,
-+					       struct rds_cong_map *insert)
++void rds_message_addref(struct rds_message *rm)
 +{
-+	struct rb_node **p = &rds_cong_tree.rb_node;
-+	struct rb_node *parent = NULL;
-+	struct rds_cong_map *map;
-+
-+	while (*p) {
-+		parent = *p;
-+		map = rb_entry(parent, struct rds_cong_map, m_rb_node);
-+
-+		if (addr < map->m_addr)
-+			p = &(*p)->rb_left;
-+		else if (addr > map->m_addr)
-+			p = &(*p)->rb_right;
-+		else
-+			return map;
-+	}
-+
-+	if (insert) {
-+		rb_link_node(&insert->m_rb_node, parent, p);
-+		rb_insert_color(&insert->m_rb_node, &rds_cong_tree);
-+	}
-+	return NULL;
++	rdsdebug("addref rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
++	atomic_inc(&rm->m_refcount);
 +}
 +
 +/*
-+ * There is only ever one bitmap for any address.  Connections try and allocate
-+ * these bitmaps in the process getting pointers to them.  The bitmaps are only
-+ * ever freed as the module is removed after all connections have been freed.
++ * This relies on dma_map_sg() not touching sg[].page during merging.
 + */
-+static struct rds_cong_map *rds_cong_from_addr(__be32 addr)
++static void rds_message_purge(struct rds_message *rm)
 +{
-+	struct rds_cong_map *map;
-+	struct rds_cong_map *ret = NULL;
-+	unsigned long zp;
 +	unsigned long i;
-+	unsigned long flags;
 +
-+	map = kzalloc(sizeof(struct rds_cong_map), GFP_KERNEL);
-+	if (map == NULL)
-+		return NULL;
++	if (unlikely(test_bit(RDS_MSG_PAGEVEC, &rm->m_flags)))
++		return;
 +
-+	map->m_addr = addr;
-+	init_waitqueue_head(&map->m_waitq);
-+	INIT_LIST_HEAD(&map->m_conn_list);
-+
-+	for (i = 0; i < RDS_CONG_MAP_PAGES; i++) {
-+		zp = get_zeroed_page(GFP_KERNEL);
-+		if (zp == 0)
-+			goto out;
-+		map->m_page_addrs[i] = zp;
++	for (i = 0; i < rm->m_nents; i++) {
++		rdsdebug("putting data page %p\n", (void *)sg_page(&rm->m_sg[i]));
++		/* XXX will have to put_page for page refs */
++		__free_page(sg_page(&rm->m_sg[i]));
 +	}
++	rm->m_nents = 0;
 +
-+	spin_lock_irqsave(&rds_cong_lock, flags);
-+	ret = rds_cong_tree_walk(addr, map);
-+	spin_unlock_irqrestore(&rds_cong_lock, flags);
-+
-+	if (ret == NULL) {
-+		ret = map;
-+		map = NULL;
-+	}
-+
-+out:
-+	if (map) {
-+		for (i = 0; i < RDS_CONG_MAP_PAGES && map->m_page_addrs[i]; i++)
-+			free_page(map->m_page_addrs[i]);
-+		kfree(map);
-+	}
-+
-+	rdsdebug("map %p for addr %x\n", ret, be32_to_cpu(addr));
-+
-+	return ret;
++	if (rm->m_rdma_op)
++		rds_rdma_free_op(rm->m_rdma_op);
++	if (rm->m_rdma_mr)
++		rds_mr_put(rm->m_rdma_mr);
 +}
 +
-+/*
-+ * Put the conn on its local map's list.  This is called when the conn is
-+ * really added to the hash.  It's nested under the rds_conn_lock, sadly.
-+ */
-+void rds_cong_add_conn(struct rds_connection *conn)
++void rds_message_inc_purge(struct rds_incoming *inc)
 +{
-+	unsigned long flags;
-+
-+	rdsdebug("conn %p now on map %p\n", conn, conn->c_lcong);
-+	spin_lock_irqsave(&rds_cong_lock, flags);
-+	list_add_tail(&conn->c_map_item, &conn->c_lcong->m_conn_list);
-+	spin_unlock_irqrestore(&rds_cong_lock, flags);
++	struct rds_message *rm = container_of(inc, struct rds_message, m_inc);
++	rds_message_purge(rm);
 +}
 +
-+void rds_cong_remove_conn(struct rds_connection *conn)
++void rds_message_put(struct rds_message *rm)
 +{
-+	unsigned long flags;
++	rdsdebug("put rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
 +
-+	rdsdebug("removing conn %p from map %p\n", conn, conn->c_lcong);
-+	spin_lock_irqsave(&rds_cong_lock, flags);
-+	list_del_init(&conn->c_map_item);
-+	spin_unlock_irqrestore(&rds_cong_lock, flags);
-+}
++	if (atomic_dec_and_test(&rm->m_refcount)) {
++		BUG_ON(!list_empty(&rm->m_sock_item));
++		BUG_ON(!list_empty(&rm->m_conn_item));
++		rds_message_purge(rm);
 +
-+int rds_cong_get_maps(struct rds_connection *conn)
-+{
-+	conn->c_lcong = rds_cong_from_addr(conn->c_laddr);
-+	conn->c_fcong = rds_cong_from_addr(conn->c_faddr);
-+
-+	if (conn->c_lcong == NULL || conn->c_fcong == NULL)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void rds_cong_queue_updates(struct rds_cong_map *map)
-+{
-+	struct rds_connection *conn;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&rds_cong_lock, flags);
-+
-+	list_for_each_entry(conn, &map->m_conn_list, c_map_item) {
-+		if (!test_and_set_bit(0, &conn->c_map_queued)) {
-+			rds_stats_inc(s_cong_update_queued);
-+			queue_delayed_work(rds_wq, &conn->c_send_w, 0);
-+		}
-+	}
-+
-+	spin_unlock_irqrestore(&rds_cong_lock, flags);
-+}
-+
-+void rds_cong_map_updated(struct rds_cong_map *map, uint64_t portmask)
-+{
-+	rdsdebug("waking map %p for %pI4\n",
-+	  map, &map->m_addr);
-+	rds_stats_inc(s_cong_update_received);
-+	atomic_inc(&rds_cong_generation);
-+	if (waitqueue_active(&map->m_waitq))
-+		wake_up(&map->m_waitq);
-+	if (waitqueue_active(&rds_poll_waitq))
-+		wake_up_all(&rds_poll_waitq);
-+
-+	if (portmask && !list_empty(&rds_cong_monitor)) {
-+		unsigned long flags;
-+		struct rds_sock *rs;
-+
-+		read_lock_irqsave(&rds_cong_monitor_lock, flags);
-+		list_for_each_entry(rs, &rds_cong_monitor, rs_cong_list) {
-+			spin_lock(&rs->rs_lock);
-+			rs->rs_cong_notify |= (rs->rs_cong_mask & portmask);
-+			rs->rs_cong_mask &= ~portmask;
-+			spin_unlock(&rs->rs_lock);
-+			if (rs->rs_cong_notify)
-+				rds_wake_sk_sleep(rs);
-+		}
-+		read_unlock_irqrestore(&rds_cong_monitor_lock, flags);
++		kfree(rm);
 +	}
 +}
 +
-+int rds_cong_updated_since(unsigned long *recent)
++void rds_message_inc_free(struct rds_incoming *inc)
 +{
-+	unsigned long gen = atomic_read(&rds_cong_generation);
++	struct rds_message *rm = container_of(inc, struct rds_message, m_inc);
++	rds_message_put(rm);
++}
 +
-+	if (likely(*recent == gen))
++void rds_message_populate_header(struct rds_header *hdr, __be16 sport,
++				 __be16 dport, u64 seq)
++{
++	hdr->h_flags = 0;
++	hdr->h_sport = sport;
++	hdr->h_dport = dport;
++	hdr->h_sequence = cpu_to_be64(seq);
++	hdr->h_exthdr[0] = RDS_EXTHDR_NONE;
++}
++
++int rds_message_add_extension(struct rds_header *hdr,
++		unsigned int type, const void *data, unsigned int len)
++{
++	unsigned int ext_len = sizeof(u8) + len;
++	unsigned char *dst;
++
++	/* For now, refuse to add more than one extension header */
++	if (hdr->h_exthdr[0] != RDS_EXTHDR_NONE)
 +		return 0;
-+	*recent = gen;
++
++	if (type >= __RDS_EXTHDR_MAX
++	 || len != rds_exthdr_size[type])
++		return 0;
++
++	if (ext_len >= RDS_HEADER_EXT_SPACE)
++		return 0;
++	dst = hdr->h_exthdr;
++
++	*dst++ = type;
++	memcpy(dst, data, len);
++
++	dst[len] = RDS_EXTHDR_NONE;
 +	return 1;
 +}
 +
 +/*
-+ * We're called under the locking that protects the sockets receive buffer
-+ * consumption.  This makes it a lot easier for the caller to only call us
-+ * when it knows that an existing set bit needs to be cleared, and vice versa.
-+ * We can't block and we need to deal with concurrent sockets working against
-+ * the same per-address map.
++ * If a message has extension headers, retrieve them here.
++ * Call like this:
++ *
++ * unsigned int pos = 0;
++ *
++ * while (1) {
++ *	buflen = sizeof(buffer);
++ *	type = rds_message_next_extension(hdr, &pos, buffer, &buflen);
++ *	if (type == RDS_EXTHDR_NONE)
++ *		break;
++ *	...
++ * }
 + */
-+void rds_cong_set_bit(struct rds_cong_map *map, __be16 port)
++int rds_message_next_extension(struct rds_header *hdr,
++		unsigned int *pos, void *buf, unsigned int *buflen)
 +{
-+	unsigned long i;
-+	unsigned long off;
++	unsigned int offset, ext_type, ext_len;
++	u8 *src = hdr->h_exthdr;
 +
-+	rdsdebug("setting congestion for %pI4:%u in map %p\n",
-+	  &map->m_addr, ntohs(port), map);
++	offset = *pos;
++	if (offset >= RDS_HEADER_EXT_SPACE)
++		goto none;
 +
-+	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
-+	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
++	/* Get the extension type and length. For now, the
++	 * length is implied by the extension type. */
++	ext_type = src[offset++];
 +
-+	generic___set_le_bit(off, (void *)map->m_page_addrs[i]);
++	if (ext_type == RDS_EXTHDR_NONE || ext_type >= __RDS_EXTHDR_MAX)
++		goto none;
++	ext_len = rds_exthdr_size[ext_type];
++	if (offset + ext_len > RDS_HEADER_EXT_SPACE)
++		goto none;
++
++	*pos = offset + ext_len;
++	if (ext_len < *buflen)
++		*buflen = ext_len;
++	memcpy(buf, src + offset, *buflen);
++	return ext_type;
++
++none:
++	*pos = RDS_HEADER_EXT_SPACE;
++	*buflen = 0;
++	return RDS_EXTHDR_NONE;
 +}
 +
-+void rds_cong_clear_bit(struct rds_cong_map *map, __be16 port)
++int rds_message_add_version_extension(struct rds_header *hdr, unsigned int version)
 +{
-+	unsigned long i;
-+	unsigned long off;
++	struct rds_ext_header_version ext_hdr;
 +
-+	rdsdebug("clearing congestion for %pI4:%u in map %p\n",
-+	  &map->m_addr, ntohs(port), map);
-+
-+	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
-+	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
-+
-+	generic___clear_le_bit(off, (void *)map->m_page_addrs[i]);
++	ext_hdr.h_version = cpu_to_be32(version);
++	return rds_message_add_extension(hdr, RDS_EXTHDR_VERSION, &ext_hdr, sizeof(ext_hdr));
 +}
 +
-+static int rds_cong_test_bit(struct rds_cong_map *map, __be16 port)
++int rds_message_get_version_extension(struct rds_header *hdr, unsigned int *version)
 +{
-+	unsigned long i;
-+	unsigned long off;
++	struct rds_ext_header_version ext_hdr;
++	unsigned int pos = 0, len = sizeof(ext_hdr);
 +
-+	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
-+	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
-+
-+	return generic_test_le_bit(off, (void *)map->m_page_addrs[i]);
-+}
-+
-+void rds_cong_add_socket(struct rds_sock *rs)
-+{
-+	unsigned long flags;
-+
-+	write_lock_irqsave(&rds_cong_monitor_lock, flags);
-+	if (list_empty(&rs->rs_cong_list))
-+		list_add(&rs->rs_cong_list, &rds_cong_monitor);
-+	write_unlock_irqrestore(&rds_cong_monitor_lock, flags);
-+}
-+
-+void rds_cong_remove_socket(struct rds_sock *rs)
-+{
-+	unsigned long flags;
-+	struct rds_cong_map *map;
-+
-+	write_lock_irqsave(&rds_cong_monitor_lock, flags);
-+	list_del_init(&rs->rs_cong_list);
-+	write_unlock_irqrestore(&rds_cong_monitor_lock, flags);
-+
-+	/* update congestion map for now-closed port */
-+	spin_lock_irqsave(&rds_cong_lock, flags);
-+	map = rds_cong_tree_walk(rs->rs_bound_addr, NULL);
-+	spin_unlock_irqrestore(&rds_cong_lock, flags);
-+
-+	if (map && rds_cong_test_bit(map, rs->rs_bound_port)) {
-+		rds_cong_clear_bit(map, rs->rs_bound_port);
-+		rds_cong_queue_updates(map);
-+	}
-+}
-+
-+int rds_cong_wait(struct rds_cong_map *map, __be16 port, int nonblock,
-+		  struct rds_sock *rs)
-+{
-+	if (!rds_cong_test_bit(map, port))
++	/* We assume the version extension is the only one present */
++	if (rds_message_next_extension(hdr, &pos, &ext_hdr, &len) != RDS_EXTHDR_VERSION)
 +		return 0;
-+	if (nonblock) {
-+		if (rs && rs->rs_cong_monitor) {
-+			unsigned long flags;
-+
-+			/* It would have been nice to have an atomic set_bit on
-+			 * a uint64_t. */
-+			spin_lock_irqsave(&rs->rs_lock, flags);
-+			rs->rs_cong_mask |= RDS_CONG_MONITOR_MASK(ntohs(port));
-+			spin_unlock_irqrestore(&rs->rs_lock, flags);
-+
-+			/* Test again - a congestion update may have arrived in
-+			 * the meantime. */
-+			if (!rds_cong_test_bit(map, port))
-+				return 0;
-+		}
-+		rds_stats_inc(s_cong_send_error);
-+		return -ENOBUFS;
-+	}
-+
-+	rds_stats_inc(s_cong_send_blocked);
-+	rdsdebug("waiting on map %p for port %u\n", map, be16_to_cpu(port));
-+
-+	return wait_event_interruptible(map->m_waitq,
-+					!rds_cong_test_bit(map, port));
++	*version = be32_to_cpu(ext_hdr.h_version);
++	return 1;
 +}
 +
-+void rds_cong_exit(void)
++int rds_message_add_rdma_dest_extension(struct rds_header *hdr, u32 r_key, u32 offset)
 +{
-+	struct rb_node *node;
-+	struct rds_cong_map *map;
-+	unsigned long i;
++	struct rds_ext_header_rdma_dest ext_hdr;
 +
-+	while ((node = rb_first(&rds_cong_tree))) {
-+		map = rb_entry(node, struct rds_cong_map, m_rb_node);
-+		rdsdebug("freeing map %p\n", map);
-+		rb_erase(&map->m_rb_node, &rds_cong_tree);
-+		for (i = 0; i < RDS_CONG_MAP_PAGES && map->m_page_addrs[i]; i++)
-+			free_page(map->m_page_addrs[i]);
-+		kfree(map);
++	ext_hdr.h_rdma_rkey = cpu_to_be32(r_key);
++	ext_hdr.h_rdma_offset = cpu_to_be32(offset);
++	return rds_message_add_extension(hdr, RDS_EXTHDR_RDMA_DEST, &ext_hdr, sizeof(ext_hdr));
++}
++
++struct rds_message *rds_message_alloc(unsigned int nents, gfp_t gfp)
++{
++	struct rds_message *rm;
++
++	rm = kzalloc(sizeof(struct rds_message) +
++		     (nents * sizeof(struct scatterlist)), gfp);
++	if (!rm)
++		goto out;
++
++	if (nents)
++		sg_init_table(rm->m_sg, nents);
++	atomic_set(&rm->m_refcount, 1);
++	INIT_LIST_HEAD(&rm->m_sock_item);
++	INIT_LIST_HEAD(&rm->m_conn_item);
++	spin_lock_init(&rm->m_rs_lock);
++
++out:
++	return rm;
++}
++
++struct rds_message *rds_message_map_pages(unsigned long *page_addrs, unsigned int total_len)
++{
++	struct rds_message *rm;
++	unsigned int i;
++
++	rm = rds_message_alloc(ceil(total_len, PAGE_SIZE), GFP_KERNEL);
++	if (rm == NULL)
++		return ERR_PTR(-ENOMEM);
++
++	set_bit(RDS_MSG_PAGEVEC, &rm->m_flags);
++	rm->m_inc.i_hdr.h_len = cpu_to_be32(total_len);
++	rm->m_nents = ceil(total_len, PAGE_SIZE);
++
++	for (i = 0; i < rm->m_nents; ++i) {
++		sg_set_page(&rm->m_sg[i],
++				virt_to_page(page_addrs[i]),
++				PAGE_SIZE, 0);
 +	}
++
++	return rm;
++}
++
++struct rds_message *rds_message_copy_from_user(struct iovec *first_iov,
++					       size_t total_len)
++{
++	unsigned long to_copy;
++	unsigned long iov_off;
++	unsigned long sg_off;
++	struct rds_message *rm;
++	struct iovec *iov;
++	struct scatterlist *sg;
++	int ret;
++
++	rm = rds_message_alloc(ceil(total_len, PAGE_SIZE), GFP_KERNEL);
++	if (rm == NULL) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	rm->m_inc.i_hdr.h_len = cpu_to_be32(total_len);
++
++	/*
++	 * now allocate and copy in the data payload.
++	 */
++	sg = rm->m_sg;
++	iov = first_iov;
++	iov_off = 0;
++	sg_off = 0; /* Dear gcc, sg->page will be null from kzalloc. */
++
++	while (total_len) {
++		if (sg_page(sg) == NULL) {
++			ret = rds_page_remainder_alloc(sg, total_len,
++						       GFP_HIGHUSER);
++			if (ret)
++				goto out;
++			rm->m_nents++;
++			sg_off = 0;
++		}
++
++		while (iov_off == iov->iov_len) {
++			iov_off = 0;
++			iov++;
++		}
++
++		to_copy = min(iov->iov_len - iov_off, sg->length - sg_off);
++		to_copy = min_t(size_t, to_copy, total_len);
++
++		rdsdebug("copying %lu bytes from user iov [%p, %zu] + %lu to "
++			 "sg [%p, %u, %u] + %lu\n",
++			 to_copy, iov->iov_base, iov->iov_len, iov_off,
++			 (void *)sg_page(sg), sg->offset, sg->length, sg_off);
++
++		ret = rds_page_copy_from_user(sg_page(sg), sg->offset + sg_off,
++					      iov->iov_base + iov_off,
++					      to_copy);
++		if (ret)
++			goto out;
++
++		iov_off += to_copy;
++		total_len -= to_copy;
++		sg_off += to_copy;
++
++		if (sg_off == sg->length)
++			sg++;
++	}
++
++	ret = 0;
++out:
++	if (ret) {
++		if (rm)
++			rds_message_put(rm);
++		rm = ERR_PTR(ret);
++	}
++	return rm;
++}
++
++int rds_message_inc_copy_to_user(struct rds_incoming *inc,
++				 struct iovec *first_iov, size_t size)
++{
++	struct rds_message *rm;
++	struct iovec *iov;
++	struct scatterlist *sg;
++	unsigned long to_copy;
++	unsigned long iov_off;
++	unsigned long vec_off;
++	int copied;
++	int ret;
++	u32 len;
++
++	rm = container_of(inc, struct rds_message, m_inc);
++	len = be32_to_cpu(rm->m_inc.i_hdr.h_len);
++
++	iov = first_iov;
++	iov_off = 0;
++	sg = rm->m_sg;
++	vec_off = 0;
++	copied = 0;
++
++	while (copied < size && copied < len) {
++		while (iov_off == iov->iov_len) {
++			iov_off = 0;
++			iov++;
++		}
++
++		to_copy = min(iov->iov_len - iov_off, sg->length - vec_off);
++		to_copy = min_t(size_t, to_copy, size - copied);
++		to_copy = min_t(unsigned long, to_copy, len - copied);
++
++		rdsdebug("copying %lu bytes to user iov [%p, %zu] + %lu to "
++			 "sg [%p, %u, %u] + %lu\n",
++			 to_copy, iov->iov_base, iov->iov_len, iov_off,
++			 sg_page(sg), sg->offset, sg->length, vec_off);
++
++		ret = rds_page_copy_to_user(sg_page(sg), sg->offset + vec_off,
++					    iov->iov_base + iov_off,
++					    to_copy);
++		if (ret) {
++			copied = ret;
++			break;
++		}
++
++		iov_off += to_copy;
++		vec_off += to_copy;
++		copied += to_copy;
++
++		if (vec_off == sg->length) {
++			vec_off = 0;
++			sg++;
++		}
++	}
++
++	return copied;
 +}
 +
 +/*
-+ * Allocate a RDS message containing a congestion update.
++ * If the message is still on the send queue, wait until the transport
++ * is done with it. This is particularly important for RDMA operations.
 + */
-+struct rds_message *rds_cong_update_alloc(struct rds_connection *conn)
++void rds_message_wait(struct rds_message *rm)
 +{
-+	struct rds_cong_map *map = conn->c_lcong;
-+	struct rds_message *rm;
++	wait_event(rds_message_flush_waitq,
++			!test_bit(RDS_MSG_MAPPED, &rm->m_flags));
++}
 +
-+	rm = rds_message_map_pages(map->m_page_addrs, RDS_CONG_MAP_BYTES);
-+	if (!IS_ERR(rm))
-+		rm->m_inc.i_hdr.h_flags = RDS_FLAG_CONG_BITMAP;
++void rds_message_unmapped(struct rds_message *rm)
++{
++	clear_bit(RDS_MSG_MAPPED, &rm->m_flags);
++	if (waitqueue_active(&rds_message_flush_waitq))
++		wake_up(&rds_message_flush_waitq);
++}
 +
-+	return rm;
+diff --git a/net/rds/page.c b/net/rds/page.c
+new file mode 100644
+index 0000000..c460743
+--- /dev/null
++++ b/net/rds/page.c
+@@ -0,0 +1,221 @@
++/*
++ * Copyright (c) 2006 Oracle.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++#include <linux/highmem.h>
++
++#include "rds.h"
++
++struct rds_page_remainder {
++	struct page	*r_page;
++	unsigned long	r_offset;
++};
++
++DEFINE_PER_CPU(struct rds_page_remainder, rds_page_remainders) ____cacheline_aligned;
++
++/*
++ * returns 0 on success or -errno on failure.
++ *
++ * We don't have to worry about flush_dcache_page() as this only works
++ * with private pages.  If, say, we were to do directed receive to pinned
++ * user pages we'd have to worry more about cache coherence.  (Though
++ * the flush_dcache_page() in get_user_pages() would probably be enough).
++ */
++int rds_page_copy_user(struct page *page, unsigned long offset,
++		       void __user *ptr, unsigned long bytes,
++		       int to_user)
++{
++	unsigned long ret;
++	void *addr;
++
++	if (to_user)
++		rds_stats_add(s_copy_to_user, bytes);
++	else
++		rds_stats_add(s_copy_from_user, bytes);
++
++	addr = kmap_atomic(page, KM_USER0);
++	if (to_user)
++		ret = __copy_to_user_inatomic(ptr, addr + offset, bytes);
++	else
++		ret = __copy_from_user_inatomic(addr + offset, ptr, bytes);
++	kunmap_atomic(addr, KM_USER0);
++
++	if (ret) {
++		addr = kmap(page);
++		if (to_user)
++			ret = copy_to_user(ptr, addr + offset, bytes);
++		else
++			ret = copy_from_user(addr + offset, ptr, bytes);
++		kunmap(page);
++		if (ret)
++			return -EFAULT;
++	}
++
++	return 0;
++}
++
++/*
++ * Message allocation uses this to build up regions of a message.
++ *
++ * @bytes - the number of bytes needed.
++ * @gfp - the waiting behaviour of the allocation
++ *
++ * @gfp is always ored with __GFP_HIGHMEM.  Callers must be prepared to
++ * kmap the pages, etc.
++ *
++ * If @bytes is at least a full page then this just returns a page from
++ * alloc_page().
++ *
++ * If @bytes is a partial page then this stores the unused region of the
++ * page in a per-cpu structure.  Future partial-page allocations may be
++ * satisfied from that cached region.  This lets us waste less memory on
++ * small allocations with minimal complexity.  It works because the transmit
++ * path passes read-only page regions down to devices.  They hold a page
++ * reference until they are done with the region.
++ */
++int rds_page_remainder_alloc(struct scatterlist *scat, unsigned long bytes,
++			     gfp_t gfp)
++{
++	struct rds_page_remainder *rem;
++	unsigned long flags;
++	struct page *page;
++	int ret;
++
++	gfp |= __GFP_HIGHMEM;
++
++	/* jump straight to allocation if we're trying for a huge page */
++	if (bytes >= PAGE_SIZE) {
++		page = alloc_page(gfp);
++		if (page == NULL) {
++			ret = -ENOMEM;
++		} else {
++			sg_set_page(scat, page, PAGE_SIZE, 0);
++			ret = 0;
++		}
++		goto out;
++	}
++
++	rem = &per_cpu(rds_page_remainders, get_cpu());
++	local_irq_save(flags);
++
++	while (1) {
++		/* avoid a tiny region getting stuck by tossing it */
++		if (rem->r_page && bytes > (PAGE_SIZE - rem->r_offset)) {
++			rds_stats_inc(s_page_remainder_miss);
++			__free_page(rem->r_page);
++			rem->r_page = NULL;
++		}
++
++		/* hand out a fragment from the cached page */
++		if (rem->r_page && bytes <= (PAGE_SIZE - rem->r_offset)) {
++			sg_set_page(scat, rem->r_page, bytes, rem->r_offset);
++			get_page(sg_page(scat));
++
++			if (rem->r_offset != 0)
++				rds_stats_inc(s_page_remainder_hit);
++
++			rem->r_offset += bytes;
++			if (rem->r_offset == PAGE_SIZE) {
++				__free_page(rem->r_page);
++				rem->r_page = NULL;
++			}
++			ret = 0;
++			break;
++		}
++
++		/* alloc if there is nothing for us to use */
++		local_irq_restore(flags);
++		put_cpu();
++
++		page = alloc_page(gfp);
++
++		rem = &per_cpu(rds_page_remainders, get_cpu());
++		local_irq_save(flags);
++
++		if (page == NULL) {
++			ret = -ENOMEM;
++			break;
++		}
++
++		/* did someone race to fill the remainder before us? */
++		if (rem->r_page) {
++			__free_page(page);
++			continue;
++		}
++
++		/* otherwise install our page and loop around to alloc */
++		rem->r_page = page;
++		rem->r_offset = 0;
++	}
++
++	local_irq_restore(flags);
++	put_cpu();
++out:
++	rdsdebug("bytes %lu ret %d %p %u %u\n", bytes, ret,
++		 ret ? NULL : sg_page(scat), ret ? 0 : scat->offset,
++		 ret ? 0 : scat->length);
++	return ret;
++}
++
++static int rds_page_remainder_cpu_notify(struct notifier_block *self,
++					 unsigned long action, void *hcpu)
++{
++	struct rds_page_remainder *rem;
++	long cpu = (long)hcpu;
++
++	rem = &per_cpu(rds_page_remainders, cpu);
++
++	rdsdebug("cpu %ld action 0x%lx\n", cpu, action);
++
++	switch (action) {
++	case CPU_DEAD:
++		if (rem->r_page)
++			__free_page(rem->r_page);
++		rem->r_page = NULL;
++		break;
++	}
++
++	return 0;
++}
++
++static struct notifier_block rds_page_remainder_nb = {
++	.notifier_call = rds_page_remainder_cpu_notify,
++};
++
++void rds_page_exit(void)
++{
++	int i;
++
++	for_each_possible_cpu(i)
++		rds_page_remainder_cpu_notify(&rds_page_remainder_nb,
++					      (unsigned long)CPU_DEAD,
++					      (void *)(long)i);
 +}
 -- 
 1.5.6.3
