@@ -1,85 +1,90 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: xfrm selector generating IKE
-Date: Tue, 24 Feb 2009 18:07:06 -0800
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02C5BC01@exch-one.centrify.com>
-References: <BB7E16A14DE689469A181EC770AFBF4D02A7775E@exch-one.centrify.com> <20090130063048.GA4702@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BA6E@exch-one.centrify.com> <20090224020839.GC18696@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BAE1@exch-one.centrify.com> <20090225003330.GA29906@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC v1] hand off skb list to other cpu to submit to upper
+ layer
+Date: Tue, 24 Feb 2009 18:11:53 -0800
+Message-ID: <20090224181153.06aa1fbd@nehalam>
+References: <1235525270.2604.483.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, jesse.brandeburg@intel.com
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:20540 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753011AbZBYCHJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 21:07:09 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20090225003330.GA29906@gondor.apana.org.au>
+Received: from mail.vyatta.com ([76.74.103.46]:34225 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752340AbZBYCL5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 21:11:57 -0500
+In-Reply-To: <1235525270.2604.483.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You seem to be saying that that if I explicitly set the policy reqids
-that it should work. 
+On Wed, 25 Feb 2009 09:27:49 +0800
+"Zhang, Yanmin" <yanmin_zhang@linux.intel.com> wrote:
 
-I had experimented with that a lot 
+> =EF=BB=BFSubject: hand off skb list to other cpu to submit to upper l=
+ayer
+> From: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
+>=20
+> Recently, I am investigating an ip_forward performance issue with 10G=
+ IXGBE NIC.
+> I start the testing on 2 machines. Every machine has 2 10G NICs. The =
+1st one seconds
+> packets by pktgen. The 2nd receives the packets from one NIC and forw=
+ards them out
+> from the 2nd NIC. As NICs supports multi-queue, I bind the queues to =
+different logical
+> cpu of different physical cpu while considering cache sharing careful=
+ly.
+>=20
+> Comparing with sending speed on the 1st machine, the forward speed is=
+ not good, only
+> about 60% of sending speed. As a matter of fact, IXGBE driver starts =
+NAPI when interrupt
+> arrives. When ip_forward=3D1, receiver collects a packet and forwards=
+ it out immediately.
+> So although IXGBE collects packets with NAPI, the forwarding really h=
+as much impact on
+> collection. As IXGBE runs very fast, it drops packets quickly. The be=
+tter way for
+> receiving cpu is doing nothing than just collecting packets.
+>=20
+> Currently kernel has backlog to support a similar capability, but pro=
+cess_backlog still
+> runs on the receiving cpu. I enhance backlog by adding a new input_pk=
+t_alien_queue to
+> softnet_data. Receving cpu collects packets and link them into skb li=
+st, then delivers
+> the list to the =EF=BB=BFinput_pkt_alien_queue of other cpu. process_=
+backlog picks up the skb list
+> from =EF=BB=BFinput_pkt_alien_queue when =EF=BB=BFinput_pkt_queue is =
+empty.
+>=20
+> NIC driver could use this capability like below step in NAPI RX clean=
+up function.
+> 1) Initiate a local var struct sk_buff_head skb_head;
+> 2) In the packet collection loop, just calls netif_rx_queue or __skb_=
+queue_tail(skb_head, skb)
+> to add skb to the list;
+> 3) Before exiting, calls raise_netif_irq to submit the skb list to sp=
+ecific cpu.
+>=20
+> Enlarge /proc/sys/net/core/netdev_max_backlog and netdev_budget befor=
+e testing.
+>=20
+> I tested my patch on top of 2.6.28.5. The improvement is about 43%.
+>=20
+> Signed-off-by: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
+>=20
+> ---
 
-The problem is that I cannot find a good combination of reqids 
+You can't safely put packets on another CPU queue without adding a spin=
+lock.
+And if you add the spinlock, you drop the performance back down for you=
+r
+device and all the other devices. Also, you will end up reordering
+packets which hurts single stream TCP performance.
 
-I want to say - "for this subnet all ftp auth (port 21)  traffic is
-encrypted"
-I am testing between RedHat 5 and Windows
-
-So I have 4 rules (all specifying esp transport mode)
-
-
-// for outbound connections
-subnet -> subnet[21] out
-subnet[21] -> subnet in
-// for inbound connections
-subnet[21] -> subnet out
-subnet -> subnet[21] in
-
-
-So how to set the reqids - what would you suggest I set?
-
-a) just say unique and let the kernel allocate a new reqid each time (or
-explicitly put different reqid on each rule)
-you would think that this would work but it does not
-outbound connection works
-inbound connection does not - see below for why it fails
-even when the inbound connection is the first thing you do
-I can fix this behavior by reordering the SPD
-If I move the last 'in' to be before the first 'in' then inbound
-connection works
-There is no logical reason why I should have to reorder the rules like
-that
-and it doesn't feel very deterministic to me. 
-
-why does it fail, because __xfrm_policy_check does
-xfrm_sk_policy_lookup. This matches the flow to a policy, since the SAs
-making up the flow do not have selectors then ports are ignored in the
-lookup. So the lookup matches the first one with matching dir and
-addresses. In the initial ordering of rules it returns #2 but the SPI it
-is checking against was built using #4 - xfrm_state_ok rejects it -> SOL
-If I reorder the rules then its OK.
-However the inverse case must also exist, where it needs to find other
-inbound policy. I just cant find the test case yet
-
-b) set both in rules to 1 (say) and both out rules to 2 (say)
-inbound connection works because both inbound rules have same reqid and
-so we avoid (a) case
-outbound connection after inbound connection done fails because it tries
-to reuse the outbound SA setup by the inbound connection (both have the
-same reqid) but the remote system (windows) thinks that that SA is for
-inbound traffic from 21 (which it is) and so discards the packets
-
-c) set both port src 21 rules to 1 and both dest 21 rules to 2
-this fails like (a) 
-
-
-
-BTW all works fine after I change af_key.c to accept port numbers from
-sadb_address and copy to SA selector - dont need any reqids
-
-
+Is this all because the hardware doesn't do MSI-X or are you testing on=
+ly
+a single flow.=20
