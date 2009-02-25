@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 0/26] Reliable Datagram Sockets (RDS),
-	take 2
-Date: Wed, 25 Feb 2009 13:45:12 -0800 (PST)
-Message-ID: <20090225.134512.90879325.davem@davemloft.net>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
-	<20090224.232814.227017310.davem@davemloft.net>
-	<c0a09e5c0902251043x576e7066kb7aa76fc148a6f76@mail.gmail.com>
+Subject: Re: [PATCH 1/6] netlink: Move netlink attribute parsing support to
+ lib/
+Date: Wed, 25 Feb 2009 13:59:41 -0800 (PST)
+Message-ID: <20090225.135941.33443374.davem@davemloft.net>
+References: <1235569394-15217-1-git-send-email-Geert.Uytterhoeven@sonycom.com>
+	<1235569394-15217-2-git-send-email-Geert.Uytterhoeven@sonycom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org
-To: andy.grover@gmail.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <c0a09e5c0902251043x576e7066kb7aa76fc148a6f76@mail.gmail.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Geert.Uytterhoeven@sonycom.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1235569394-15217-2-git-send-email-Geert.Uytterhoeven@sonycom.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Grover <andy.grover@gmail.com>
-Date: Wed, 25 Feb 2009 10:43:27 -0800
+From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Date: Wed, 25 Feb 2009 14:43:09 +0100
 
-> RDS's reliable-datagram socket implementation has a modular interface
-> to the transport (e.g. tcp, udp, or ib) and works fine over transports
-> that do not support RDMA. (Most users also do not use RDMA.)
+> Netlink attribute parsing may be used even if CONFIG_NET is not set.
+> Move it from net/netlink to lib and control its inclusion based on the new
+> config symbol CONFIG_NLATTR, which is selected by CONFIG_NET.
+> 
+> Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 
-Ok, let me look over the patches again.
+Acked-by: David S. Miller <davem@davemloft.net>
