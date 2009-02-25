@@ -1,49 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 23/26] RDS: Add AF and PF #defines for RDS sockets
-Date: Wed, 25 Feb 2009 03:58:43 -0800 (PST)
-Message-ID: <20090225.035843.143817933.davem@davemloft.net>
-References: <1235525443-9007-24-git-send-email-andy.grover@oracle.com>
-	<20090224.232648.84203571.davem@davemloft.net>
-	<200902251336.36461.remi.denis-courmont@nokia.com>
+Subject: Re: [RFC] addition of a dropped packet notification service
+Date: Wed, 25 Feb 2009 04:01:30 -0800 (PST)
+Message-ID: <20090225.040130.169376412.davem@davemloft.net>
+References: <20090209102134.GA8492@gondor.apana.org.au>
+	<20090224.234840.93952093.davem@davemloft.net>
+	<20090225115419.GA16150@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andy.grover@oracle.com, netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, shemminger@vyatta.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54820
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54829
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752868AbZBYL7C convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 06:59:02 -0500
-In-Reply-To: <200902251336.36461.remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1757532AbZBYMBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 07:01:49 -0500
+In-Reply-To: <20090225115419.GA16150@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-Date: Wed, 25 Feb 2009 13:36:36 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 25 Feb 2009 06:54:19 -0500
 
-> On Wednesday 25 February 2009 09:26:48 ext David Miller, you wrote:
-> > From: Andy Grover <andy.grover@oracle.com>
-> > Date: Tue, 24 Feb 2009 17:30:40 -0800
-> >
-> > > @@ -191,7 +191,8 @@ struct ucred {
-> > >  #define AF_RXRPC     33      /* RxRPC sockets                */
-> > >  #define AF_ISDN              34      /* mISDN sockets           =
-     */
-> > >  #define AF_PHONET    35      /* Phonet sockets               */
-> > > -#define AF_MAX               36      /* For now.. */
-> > > +#define AF_RDS               36      /* RDS sockets             =
-     */
-> > > +#define AF_MAX               37      /* For now.. */
-> > >
-> > >  /* Protocol families, same as address families. */
-> > >  #define PF_UNSPEC    AF_UNSPEC
-> >
-> > Pick an unused number, you don't have to increment AF_MAX
-> > to allocate a value.
->=20
-> But that patch is also allocating a PF value and net/socket.c has:
+> I had actually started down this road for awhile, and liked it for
+> its low maintenence overhead (as you mentioned, less to annotate),
+> but I balked at it after a bit, mostly for its increased ambiguity.
+> By catching the drop where the packet is freed, we lose information
+> about the exact point at which we decided to drop it.  As such,
+> users of said dumped table loose (or potentially lose) the ability
+> to correlate the saved stack pointer with an exact point in the code
+> where a corresponding statistic was incremented, as well as the
+> correlation to a specific point in the code (they just get the
+> calling function program counter rather than file, funciton and line
+> number).
 
-I'm saying to use a lower number, like 21, 27, 28, etc.
+Userland tools can extract this information from a non-stripped
+kernel image file, given just a kernel PC value.
 
+And you need the same thing to extract the same information
+if you used tracepoints.
