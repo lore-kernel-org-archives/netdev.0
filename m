@@ -1,53 +1,67 @@
-From: Theodore Tso <tytso@mit.edu>
+From: Yang Hongyang <imhy.yang@gmail.com>
 Subject: Re: Documentation:Update the INDEX of the documents
-Date: Wed, 25 Feb 2009 09:59:50 -0500
-Message-ID: <20090225145950.GJ7064@mit.edu>
-References: <49A4F06B.6030205@cn.fujitsu.com>
+Date: Wed, 25 Feb 2009 23:05:57 +0800
+Message-ID: <a669f14b0902250705x4895b4b3sc9843d03466405bf@mail.gmail.com>
+References: <49A4F06B.6030205@cn.fujitsu.com> <20090225145950.GJ7064@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Theodore Tso <tytso@mit.edu>,
+	Yang Hongyang <yanghy@cn.fujitsu.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-doc@vger.kernel.org, mtk.manpages@gmail.com,
-	rdunlap@xenotime.net
-To: Yang Hongyang <yanghy@cn.fujitsu.com>
+	Andrew Morton <akp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from THUNK.ORG ([69.25.196.29]:52107 "EHLO thunker.thunk.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754166AbZBYPAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 10:00:00 -0500
-Content-Disposition: inline
-In-Reply-To: <49A4F06B.6030205@cn.fujitsu.com>
+Received: from mail-gx0-f174.google.com ([209.85.217.174]:50501 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900AbZBYPGA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 10:06:00 -0500
+In-Reply-To: <20090225145950.GJ7064@mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2009 at 03:16:59PM +0800, Yang Hongyang wrote:
-> There are so many 00-INDEX file that are missing description of the
-> current files in the dir.  Such as 00-INDEX in
-> Documentation/x86/,Documentation/networking/,Documentation/ and so
-> on.
-> 
-> It's a large amount of work for someone to go through all these
-> documents and make summaries.
-> 
-> I'm willing to do some of the work but if someone else pick these
-> up(especially the authors of these new files) it will be a great
-> help.^_^
+On Wed, Feb 25, 2009 at 10:59 PM, Theodore Tso <tytso@mit.edu> wrote:
+> On Wed, Feb 25, 2009 at 03:16:59PM +0800, Yang Hongyang wrote:
+>> There are so many 00-INDEX file that are missing description of the
+>> current files in the dir. =A0Such as 00-INDEX in
+>> Documentation/x86/,Documentation/networking/,Documentation/ and so
+>> on.
+>>
+>> It's a large amount of work for someone to go through all these
+>> documents and make summaries.
+>>
+>> I'm willing to do some of the work but if someone else pick these
+>> up(especially the authors of these new files) it will be a great
+>> help.^_^
+>
+> Before you embark on this large amount of work, we should probably as=
+k
+> a question first --- how useful are the 00-INDEX files? =A0I don't fi=
+nd
+> them particularly interesting, given that my normal way of finding
+> documentation in the Documentation directory is:
+>
+> find . -type f | xargs grep <keyword>
+>
+> Or, if I have a git tree of the Linux sources handy:
+>
+> git grep <keyword> -- Documentation
+>
+> If folks do find the 00-INDEX files useful, my suggestion would be to
+> make a way of automatically extracting them from the individual files
+> and/or directories, and then making the 00-INDEX files to be
+> automatically generated.
 
-Before you embark on this large amount of work, we should probably ask
-a question first --- how useful are the 00-INDEX files?  I don't find
-them particularly interesting, given that my normal way of finding
-documentation in the Documentation directory is:
+Sounds a good idea to me.If nobody interested in the 00-INDEX files,
+just remove it.
 
-find . -type f | xargs grep <keyword>
-
-Or, if I have a git tree of the Linux sources handy:
-
-git grep <keyword> -- Documentation
-
-If folks do find the 00-INDEX files useful, my suggestion would be to
-make a way of automatically extracting them from the individual files
-and/or directories, and then making the 00-INDEX files to be
-automatically generated.
-
-						- Ted
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0- Ted
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
