@@ -1,109 +1,302 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 6/8] decnet: fix sparse warnings: symbol shadows an earlier one
-Date: Wed, 25 Feb 2009 21:32:39 +0100
-Message-ID: <20090225203233.6251.92817.stgit@vmbox.hanneseder.net>
-References: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH v2] bonding: move IPv6 support into a separate kernel module
+Date: Wed, 25 Feb 2009 15:44:35 -0500
+Message-ID: <49A5ADB3.2010709@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: Andrey Borzenkov <arvidjaar@mail.ru>,
+	Vladislav Yasevich <vladislav.yasevich@hp.com>,
+	Chuck Lever <chuck.lever@oracle.com>,
+	Theodore Tso <tytso@mit.edu>, Valdis.Kletnieks@vt.edu,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bonding-devel@lists.sourceforge.net,
+	=?ISO-8859-1?Q?=22J=2EA=2E_Magall?= =?ISO-8859-1?Q?=F3n=22?=
+	<jamagallon@ono.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f176.google.com ([209.85.220.176]:43098 "EHLO
-	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755978AbZBYUkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 15:40:47 -0500
-Received: by fxm24 with SMTP id 24so177988fxm.37
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2009 12:40:44 -0800 (PST)
-In-Reply-To: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:16591 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755708AbZBYUol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 15:44:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: Remove redundant variable declarations, resp. rename
-inner scope variable.
+[Possible fix v2 for bonding IPv6 regression reported by Andrey Borzenkov, added 
+automatic loading of bonding_ipv6]
 
-Fix this sparse warnings:
-  net/decnet/af_decnet.c:1252:40: warning: symbol 'skb' shadows an earlier one
-  net/decnet/af_decnet.c:1223:24: originally declared here
-  net/decnet/af_decnet.c:1582:29: warning: symbol 'val' shadows an earlier one
-  net/decnet/af_decnet.c:1527:22: originally declared here
-  net/decnet/dn_dev.c:687:21: warning: symbol 'err' shadows an earlier one
-  net/decnet/dn_dev.c:670:13: originally declared here
-  net/decnet/sysctl_net_decnet.c:182:21: warning: symbol 'len' shadows an earlier one
-  net/decnet/sysctl_net_decnet.c:173:16: originally declared here
+This patch moves the IPv6 bonding code into a separate kernel module
+called bonding_ipv6 if either bonding or IPv6 are built as modules.
+If both are built into the kernel then this is as well.  Bonding_ipv6.ko
+registers an "send_unsol_na" function pointer for the unsolicited
+advertisement function to be called on a failover - the default action
+is to do nothing.  The notifier callbacks are now registered in this
+module and not in the base bonding module.
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+Also, have the IPv6 address notifier request that the bonding_ipv6
+module be loaded when an IFF_MASTER device is first brought-up.
+This avoids users from having to do this explicitly with modprobe.
+
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 ---
- net/decnet/af_decnet.c         |   17 +++++++++--------
- net/decnet/dn_dev.c            |    1 -
- net/decnet/sysctl_net_decnet.c |    2 +-
- 3 files changed, 10 insertions(+), 10 deletions(-)
+  Documentation/networking/bonding.txt |    3 ++
+  drivers/net/bonding/Makefile         |    5 ++-
+  drivers/net/bonding/bond_ipv6.c      |   13 +++++++-
+  drivers/net/bonding/bond_main.c      |   52 ++++++++++++++++++++++++++++++---
+  drivers/net/bonding/bonding.h        |    9 +++--
+  net/ipv6/addrconf.c                  |    6 ++++++
+  6 files changed, 75 insertions(+), 13 deletions(-)
 
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 12bf7d4..b66fb84 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -1246,11 +1246,12 @@ static int dn_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 
- 	case TIOCINQ:
- 		lock_sock(sk);
--		if ((skb = skb_peek(&scp->other_receive_queue)) != NULL) {
-+		skb = skb_peek(&scp->other_receive_queue);
-+		if (skb) {
- 			amount = skb->len;
- 		} else {
--			struct sk_buff *skb = sk->sk_receive_queue.next;
--			for(;;) {
-+			skb = sk->sk_receive_queue.next;
-+			for (;;) {
- 				if (skb ==
- 				    (struct sk_buff *)&sk->sk_receive_queue)
- 					break;
-@@ -1579,16 +1580,16 @@ static int __dn_getsockopt(struct socket *sock, int level,int optname, char __us
- 		default:
- #ifdef CONFIG_NETFILTER
- 		{
--			int val, len;
-+			int ret, len;
- 
- 			if(get_user(len, optlen))
- 				return -EFAULT;
- 
--			val = nf_getsockopt(sk, PF_DECnet, optname,
-+			ret = nf_getsockopt(sk, PF_DECnet, optname,
- 							optval, &len);
--			if (val >= 0)
--				val = put_user(len, optlen);
--			return val;
-+			if (ret >= 0)
-+				ret = put_user(len, optlen);
-+			return ret;
- 		}
- #endif
- 		case DSO_STREAM:
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index 5e21a2f..31c37ac 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -684,7 +684,6 @@ static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		return -ENODEV;
- 
- 	if ((dn_db = dev->dn_ptr) == NULL) {
--		int err;
- 		dn_db = dn_dev_create(dev, &err);
- 		if (!dn_db)
- 			return err;
-diff --git a/net/decnet/sysctl_net_decnet.c b/net/decnet/sysctl_net_decnet.c
-index 965397a..5bcd592 100644
---- a/net/decnet/sysctl_net_decnet.c
-+++ b/net/decnet/sysctl_net_decnet.c
-@@ -179,7 +179,7 @@ static int dn_node_address_handler(ctl_table *table, int write,
- 	}
- 
- 	if (write) {
--		int len = (*lenp < DN_ASCBUF_LEN) ? *lenp : (DN_ASCBUF_LEN-1);
-+		len = (*lenp < DN_ASCBUF_LEN) ? *lenp : (DN_ASCBUF_LEN-1);
- 
- 		if (copy_from_user(addr, buffer, len))
- 			return -EFAULT;
+diff --git a/Documentation/networking/bonding.txt 
+b/Documentation/networking/bonding.txt
+index 5ede747..c8b1c1f 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -603,6 +603,9 @@ num_unsol_na
+  	affects only the active-backup mode.  This option was added for
+  	bonding version 3.4.0.
+
++	In order to get this functionality, you will need to load the
++	Bonding IPv6 module with 'modprobe bonding_ipv6'.
++
+  primary
+
+  	A string (eth0, eth2, etc) specifying which slave is the
+diff --git a/drivers/net/bonding/Makefile b/drivers/net/bonding/Makefile
+index 6f9c6fa..d4f6338 100644
+--- a/drivers/net/bonding/Makefile
++++ b/drivers/net/bonding/Makefile
+@@ -6,6 +6,7 @@ obj-$(CONFIG_BONDING) += bonding.o
+
+  bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o
+
+-ipv6-$(subst m,y,$(CONFIG_IPV6)) += bond_ipv6.o
+-bonding-objs += $(ipv6-y)
++# build bonding_ipv6 as module whenever either IPv6 or Bonding is a module
++obj-$(subst y,$(CONFIG_BONDING),$(CONFIG_IPV6)) += bonding_ipv6.o
++bonding_ipv6-y := bond_ipv6.o
+
+diff --git a/drivers/net/bonding/bond_ipv6.c b/drivers/net/bonding/bond_ipv6.c
+index 0d73bf5..2f10514 100644
+--- a/drivers/net/bonding/bond_ipv6.c
++++ b/drivers/net/bonding/bond_ipv6.c
+@@ -20,6 +20,9 @@
+   *
+   */
+
++#include <linux/module.h>
++#include <linux/init.h>
++
+  #include <linux/types.h>
+  #include <linux/if_vlan.h>
+  #include <net/ipv6.h>
+@@ -204,13 +207,19 @@ static struct notifier_block bond_inet6addr_notifier = {
+  	.notifier_call = bond_inet6addr_event,
+  };
+
+-void bond_register_ipv6_notifier(void)
++static int __init bonding_ipv6_init(void)
+  {
++	bond_register_ipv6_na(bond_send_unsolicited_na);
+  	register_inet6addr_notifier(&bond_inet6addr_notifier);
++	return 0;
+  }
+
+-void bond_unregister_ipv6_notifier(void)
++static void __exit bonding_ipv6_exit(void)
+  {
+  	unregister_inet6addr_notifier(&bond_inet6addr_notifier);
++	bond_unregister_ipv6_na();
+  }
+
++module_init(bonding_ipv6_init)
++module_exit(bonding_ipv6_exit)
++MODULE_LICENSE("GPL");
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2c96b93..ff61add 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -149,6 +149,12 @@ static const char * const version =
+  	DRV_DESCRIPTION ": v" DRV_VERSION " (" DRV_RELDATE ")\n";
+
+  LIST_HEAD(bond_dev_list);
++EXPORT_SYMBOL(bond_dev_list);
++
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static DEFINE_SPINLOCK(bond_v6_na_lock);
++#endif
++static void (*bond_send_unsol_na)(struct bonding *bond);
+
+  #ifdef CONFIG_PROC_FS
+  static struct proc_dir_entry *bond_proc_dir = NULL;
+@@ -1201,6 +1207,8 @@ void bond_change_active_slave(struct bonding *bond, struct 
+slave *new_active)
+  		}
+
+  		if (new_active) {
++			void (*send_unsol_na)(struct bonding *bond);
++
+  			bond_set_slave_active_flags(new_active);
+
+  			if (bond->params.fail_over_mac)
+@@ -1211,7 +1219,11 @@ void bond_change_active_slave(struct bonding *bond, 
+struct slave *new_active)
+  			bond_send_gratuitous_arp(bond);
+
+  			bond->send_unsol_na = bond->params.num_unsol_na;
+-			bond_send_unsolicited_na(bond);
++			rcu_read_lock();
++			send_unsol_na = rcu_dereference(bond_send_unsol_na);
++			if (send_unsol_na)
++				send_unsol_na(bond);
++			rcu_read_unlock();
+
+  			write_unlock_bh(&bond->curr_slave_lock);
+  			read_unlock(&bond->lock);
+@@ -2464,8 +2476,14 @@ void bond_mii_monitor(struct work_struct *work)
+  	}
+
+  	if (bond->send_unsol_na) {
++		void (*send_unsol_na)(struct bonding *bond);
++
+  		read_lock(&bond->curr_slave_lock);
+-		bond_send_unsolicited_na(bond);
++		rcu_read_lock();
++		send_unsol_na = rcu_dereference(bond_send_unsol_na);
++		if (send_unsol_na)
++			send_unsol_na(bond);
++		rcu_read_unlock();
+  		read_unlock(&bond->curr_slave_lock);
+  	}
+
+@@ -3165,8 +3183,14 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+  	}
+
+  	if (bond->send_unsol_na) {
++		void (*send_unsol_na)(struct bonding *bond);
++
+  		read_lock(&bond->curr_slave_lock);
+-		bond_send_unsolicited_na(bond);
++		rcu_read_lock();
++		send_unsol_na = rcu_dereference(bond_send_unsol_na);
++		if (send_unsol_na)
++			send_unsol_na(bond);
++		rcu_read_unlock();
+  		read_unlock(&bond->curr_slave_lock);
+  	}
+
+@@ -5203,6 +5227,26 @@ out_rtnl:
+  	return res;
+  }
+
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++void bond_register_ipv6_na(void (*send_unsol_na) (struct bonding *bond))
++{
++	spin_lock_bh(&bond_v6_na_lock);
++	rcu_assign_pointer(bond_send_unsol_na, send_unsol_na);
++	spin_unlock_bh(&bond_v6_na_lock);
++	synchronize_rcu();
++}
++EXPORT_SYMBOL_GPL(bond_register_ipv6_na);
++
++void bond_unregister_ipv6_na(void)
++{
++	spin_lock_bh(&bond_v6_na_lock);
++	rcu_assign_pointer(bond_send_unsol_na, NULL);
++	spin_unlock_bh(&bond_v6_na_lock);
++	synchronize_rcu();
++}
++EXPORT_SYMBOL(bond_unregister_ipv6_na);
++#endif
++
+  static int __init bonding_init(void)
+  {
+  	int i;
+@@ -5234,7 +5278,6 @@ static int __init bonding_init(void)
+
+  	register_netdevice_notifier(&bond_netdev_notifier);
+  	register_inetaddr_notifier(&bond_inetaddr_notifier);
+-	bond_register_ipv6_notifier();
+
+  	goto out;
+  err:
+@@ -5257,7 +5300,6 @@ static void __exit bonding_exit(void)
+  {
+  	unregister_netdevice_notifier(&bond_netdev_notifier);
+  	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
+-	bond_unregister_ipv6_notifier();
+
+  	bond_destroy_sysfs();
+
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ca849d2..9e5e092 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -23,15 +23,13 @@
+  #include "bond_3ad.h"
+  #include "bond_alb.h"
+
+-#define DRV_VERSION	"3.5.0"
+-#define DRV_RELDATE	"November 4, 2008"
++#define DRV_VERSION	"3.6.0"
++#define DRV_RELDATE	"February 20, 2009"
+  #define DRV_NAME	"bonding"
+  #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
+
+  #define BOND_MAX_ARP_TARGETS	16
+
+-extern struct list_head bond_dev_list;
+-
+  #define IS_UP(dev)					   \
+  	      ((((dev)->flags & IFF_UP) == IFF_UP)	&& \
+  	       netif_running(dev)			&& \
+@@ -360,6 +358,9 @@ extern struct rw_semaphore bonding_rwsem;
+  void bond_send_unsolicited_na(struct bonding *bond);
+  void bond_register_ipv6_notifier(void);
+  void bond_unregister_ipv6_notifier(void);
++
++void bond_register_ipv6_na(void (*send_unsol_na) (struct bonding *bond));
++void bond_unregister_ipv6_na(void);
+  #else
+  static inline void bond_send_unsolicited_na(struct bonding *bond)
+  {
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f8f76d6..ec24e0e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -59,6 +59,7 @@
+  #include <linux/delay.h>
+  #include <linux/notifier.h>
+  #include <linux/string.h>
++#include <linux/kmod.h>
+
+  #include <net/net_namespace.h>
+  #include <net/sock.h>
+@@ -2452,6 +2453,7 @@ static int addrconf_notify(struct notifier_block *this, 
+unsigned long event,
+  	struct inet6_dev *idev = __in6_dev_get(dev);
+  	int run_pending = 0;
+  	int err;
++	static int bond_ipv6 = 0;
+
+  	switch(event) {
+  	case NETDEV_REGISTER:
+@@ -2519,6 +2521,10 @@ static int addrconf_notify(struct notifier_block *this, 
+unsigned long event,
+  			break;
+
+  		default:
++			if ((dev->flags & IFF_MASTER) && !bond_ipv6) {
++				request_module("bonding_ipv6");
++				bond_ipv6 = 1;
++			}
+  			addrconf_dev_config(dev);
+  			break;
+  		}
+-- 
+1.5.4.3
 
