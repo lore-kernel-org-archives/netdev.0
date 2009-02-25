@@ -1,67 +1,53 @@
-From: Wei Yongjun <yjwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH] bluetooth: remove some pointless conditionals before kfree_skb()
-Date: Wed, 25 Feb 2009 18:29:52 +0800
-Message-ID: <49A51DA0.8030003@cn.fujitsu.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] af_key: remove some pointless conditionals before kfree_skb()
+Date: Wed, 25 Feb 2009 18:31:04 +0800
+Message-ID: <49A51DE8.406@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:64191 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1762611AbZBYKbh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 05:31:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Remove some pointless conditionals before kfree_skb().
 
-Signed-off-by: Wei Yongjun <yjwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 ---
- net/bluetooth/cmtp/core.c |    3 +--
- net/bluetooth/hci_core.c  |    3 +--
- net/bluetooth/l2cap.c     |    3 +--
- 3 files changed, 3 insertions(+), 6 deletions(-)
+ net/key/af_key.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
-index c9cac77..0073ec8 100644
---- a/net/bluetooth/cmtp/core.c
-+++ b/net/bluetooth/cmtp/core.c
-@@ -126,8 +126,7 @@ static inline void cmtp_add_msgpart(struct cmtp_session *session, int id, const
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 7dcbde3..643c1be 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -313,8 +313,7 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
+ 	if (one_sk != NULL)
+ 		err = pfkey_broadcast_one(skb, &skb2, allocation, one_sk);
  
- 	session->reassembly[id] = nskb;
- 
+-	if (skb2)
+-		kfree_skb(skb2);
++	kfree_skb(skb2);
+ 	kfree_skb(skb);
+ 	return err;
+ }
+@@ -3573,8 +3572,7 @@ static int pfkey_sendmsg(struct kiocb *kiocb,
+ out:
+ 	if (err && hdr && pfkey_error(hdr, err, sk) == 0)
+ 		err = 0;
 -	if (skb)
 -		kfree_skb(skb);
 +	kfree_skb(skb);
+ 
+ 	return err ? : len;
  }
- 
- static inline int cmtp_recv_frame(struct cmtp_session *session, struct sk_buff *skb)
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index ba78cc1..cd06151 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -1565,8 +1565,7 @@ static void hci_cmd_task(unsigned long arg)
- 
- 	/* Send queued commands */
- 	if (atomic_read(&hdev->cmd_cnt) && (skb = skb_dequeue(&hdev->cmd_q))) {
--		if (hdev->sent_cmd)
--			kfree_skb(hdev->sent_cmd);
-+		kfree_skb(hdev->sent_cmd);
- 
- 		if ((hdev->sent_cmd = skb_clone(skb, GFP_ATOMIC))) {
- 			atomic_dec(&hdev->cmd_cnt);
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index b93748e..04057db 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -483,8 +483,7 @@ static void l2cap_conn_del(struct hci_conn *hcon, int err)
- 
- 	BT_DBG("hcon %p conn %p, err %d", hcon, conn, err);
- 
--	if (conn->rx_skb)
--		kfree_skb(conn->rx_skb);
-+	kfree_skb(conn->rx_skb);
- 
- 	/* Kill channels */
- 	while ((sk = conn->chan_list.head)) {
 -- 
 1.5.3.8
+
+
+
+
