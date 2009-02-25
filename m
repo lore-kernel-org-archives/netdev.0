@@ -1,17 +1,17 @@
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] decnet: remove some pointless conditionals before kfree_skb()
-Date: Wed, 25 Feb 2009 18:39:01 +0800
-Message-ID: <49A51FC5.9000600@cn.fujitsu.com>
+Subject: [PATCH] iucv: remove some pointless conditionals before kfree_skb()
+Date: Wed, 25 Feb 2009 18:41:03 +0800
+Message-ID: <49A5203F.5060009@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
-To: Christine Caulfield <christine.caulfield@googlemail.com>
+Cc: linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: Ursula Braun <ursula.braun@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54672 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:50472 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752211AbZBYKjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 05:39:33 -0500
+	id S1756207AbZBYKlf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 05:41:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -19,22 +19,22 @@ Remove some pointless conditionals before kfree_skb().
 
 Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 ---
- net/decnet/af_decnet.c |    3 +--
+ net/iucv/af_iucv.c |    3 +--
  1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index 12bf7d4..963da86 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -2071,8 +2071,7 @@ static int dn_sendmsg(struct kiocb *iocb, struct socket *sock,
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index eb8a2a0..49e7865 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1171,8 +1171,7 @@ static void iucv_callback_txdone(struct iucv_path *path,
+ 
+ 		spin_unlock_irqrestore(&list->lock, flags);
+ 
+-		if (this)
+-			kfree_skb(this);
++		kfree_skb(this);
  	}
- out:
- 
--	if (skb)
--		kfree_skb(skb);
-+	kfree_skb(skb);
- 
- 	release_sock(sk);
+ 	BUG_ON(!this);
  
 -- 
 1.5.3.8
