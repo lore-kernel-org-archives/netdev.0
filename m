@@ -1,83 +1,69 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] pcmcia: worklimit reaches -1
-Date: Wed, 25 Feb 2009 13:26:19 +0100
-Message-ID: <49A538EB.8080008@gmail.com>
+From: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: Re: [Ipw2100-devel] ipw2100: race between isr_indicate_associated and rx path
+Date: Wed, 25 Feb 2009 13:39:59 +0100
+Message-ID: <200902251340.02010.helmut.schaa@gmail.com>
+References: <200901211734.48625.helmut.schaa@gmail.com> <200902241315.43128.helmut.schaa@gmail.com> <1235524696.6354.562.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:11719 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbZBYM0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 07:26:22 -0500
-Received: by yw-out-2324.google.com with SMTP id 5so1325555ywh.1
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2009 04:26:20 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jouni Malinen <j@w1.fi>
+To: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1235524696.6354.562.camel@debian>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------------------------------->8-------------8<---------------------------------
-with while (--worklimit >= 0); worklimit reaches -1 after the loop. In
-3c589_cs.c this caused a warning not to be printed.
+Am Mittwoch, 25. Februar 2009 schrieb Zhu Yi:
+> Make sense. Whatever there is race here but either the driver or the
+> user space is able to control and avoid it.
+> 
+> BTW, does wpa_supplicant start to receive EAPOL frames after it gets the
+> association event?
 
-In 3c574_cs.c contrastingly, el3_rx() treats worklimit differently:
+Yep.
 
-static int el3_rx(struct net_device *dev, int worklimit)
-{
-	while (--worklimit >= 0) { ... }
-	return worklimit;
-}
+> [...]
+> 
+> > > But in wireless, 
+> > > netif_carrier_on() is usually called after an association is succeeded.
+> > > The driver has already some management frames transfered with AP. Now
+> > > it's the time to open the data frame transmission. The driver requires
+> > > to get the activate_dev() result (synchronously or via callback) because
+> > > otherwise the driver has no idea when the Qdisc is ready and then it can
+> > > start to deliver data frames to network stack and user space.
+> > 
+> > Exactly.
+> 
+> Looks like we didn't bring enough attention for netdev people on this.
+> Should you change the title to remove ipw2100? It should be a generic
+> issue for the current netif_carrier_on/dev_activate() implementation.
 
-el3_rx() is only called by function el3_interrupt(): twice:
+Argh! Just found out why dev_activate is called such late after
+netif_carrier_on:
 
-static irqreturn_t el3_interrupt(int irq, void *dev_id)
-{
-        int work_budget = max_interrupt_work;
-	while(...) {
-		if (...)
-			work_budget = el3_rx(dev, work_budget);
-		if (...)
-			work_budget = el3_rx(dev, work_budget);
-		if (--work_budget < 0) {
-		        ...
-		        break;
-		}
-	}
-}
-The error path can occur 2 too early.
+ipw2100 calls netif_carrier_on followed by netif_wake_queue when the driver
+moves from associating to associated state. netif_carrier_on will then
+call linkwatch_fire_event. However the carrier_on event is not treated as
+urgent and as such the event is delayed (and thus dev_activate too).
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-el3_rx() calls: lines 839 and 856
-el3_interrupt(): line 810
+An event is considered urgent if the netdev is running, has a carrier
+_and_ any of the TX qdiscs changed. Since ipw2100 first calls carrier_on,
+the last condition is not met and thus the event is not considered urgent
+and gets delayed.
 
-diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
-index e5cb6b1..2404a83 100644
---- a/drivers/net/pcmcia/3c574_cs.c
-+++ b/drivers/net/pcmcia/3c574_cs.c
-@@ -1035,7 +1035,8 @@ static int el3_rx(struct net_device *dev, int worklimit)
- 	DEBUG(3, "%s: in rx_packet(), status %4.4x, rx_status %4.4x.\n",
- 		  dev->name, inw(ioaddr+EL3_STATUS), inw(ioaddr+RxStatus));
- 	while (!((rx_status = inw(ioaddr + RxStatus)) & 0x8000) &&
--		   (--worklimit >= 0)) {
-+			worklimit > 0) {
-+		worklimit--;
- 		if (rx_status & 0x4000) { /* Error, update stats. */
- 			short error = rx_status & 0x3800;
- 			dev->stats.rx_errors++;
-diff --git a/drivers/net/pcmcia/3c589_cs.c b/drivers/net/pcmcia/3c589_cs.c
-index 73ecc65..1e01b8a 100644
---- a/drivers/net/pcmcia/3c589_cs.c
-+++ b/drivers/net/pcmcia/3c589_cs.c
-@@ -857,7 +857,8 @@ static int el3_rx(struct net_device *dev)
-     DEBUG(3, "%s: in rx_packet(), status %4.4x, rx_status %4.4x.\n",
- 	  dev->name, inw(ioaddr+EL3_STATUS), inw(ioaddr+RX_STATUS));
-     while (!((rx_status = inw(ioaddr + RX_STATUS)) & 0x8000) &&
--	   (--worklimit >= 0)) {
-+		    worklimit > 0) {
-+	worklimit--;
- 	if (rx_status & 0x4000) { /* Error, update stats. */
- 	    short error = rx_status & 0x3800;
- 	    dev->stats.rx_errors++;
+Just changing the order to first wake up the queues followed by the
+carrier_on results in an urgent event. I ran a few tests with that change
+(+ frame buffering patch) and wasn't able to trigger the race again.
+
+I'll fold that into the frame buffer patch and send it to ipw2100-devel
+once I finished the tests.
+
+Helmut
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
