@@ -1,36 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: xfrm selector generating IKE
-Date: Wed, 25 Feb 2009 08:33:30 +0800
-Message-ID: <20090225003330.GA29906@gondor.apana.org.au>
-References: <BB7E16A14DE689469A181EC770AFBF4D02A7775E@exch-one.centrify.com> <20090130063048.GA4702@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BA6E@exch-one.centrify.com> <20090224020839.GC18696@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BAE1@exch-one.centrify.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/2] ixgbe: Move ring features into an enum,
+ allowing easier future maintenance
+Date: Tue, 24 Feb 2009 16:37:01 -0800 (PST)
+Message-ID: <20090224.163701.238043822.davem@davemloft.net>
+References: <20090224234037.29312.54427.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@centrify.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60143 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752014AbZBYAdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 19:33:40 -0500
-Content-Disposition: inline
-In-Reply-To: <BB7E16A14DE689469A181EC770AFBF4D02C5BAE1@exch-one.centrify.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59805
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752692AbZBYAhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 19:37:17 -0500
+In-Reply-To: <20090224234037.29312.54427.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 24, 2009 at 09:23:39AM -0800, Paul Moore wrote:
-> are you sure that works. the xfrm code in the kernel does not look at
-> the policy selector when checking port numbers to see if it should reuse
-> an existing SA. It only looks at the selector on the SA - this is why
-> racoon has a problem. The policy selector has the correct portness in it
-> but the SA does not. I have not tested it but I suspect openswan has the
-> same issue since it passes in an empty SA selector
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 24 Feb 2009 15:40:37 -0800
 
-Yes I'm sure it works :) It uses the reqid field to tie policies
-to the SAs.
+> From: Shannon Nelson <shannon.nelson@intel.com>
+> 
+> The ring_feature member of ixgbe_adapter is statically allocated based on
+> the supported features of the device.  When a new feature is added, we need
+> to manually update the static allocation.  This patch makes the feature
+> list an enum, eliminating the need for multiple updates to the code when
+> adding a new feature.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
+
+I would appreciate it if, in the future, Shannon would signoff his
+patches :-)
