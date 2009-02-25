@@ -1,31 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Wed, 25 Feb 2009 07:23:52 +0100
-Message-ID: <49A4E3F8.4050406@trash.net>
-References: <49A4D5D5.5090602@trash.net> <20090225061902.GA32430@gondor.apana.org.au>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: Marvell 88E609x switch?
+Date: Wed, 25 Feb 2009 07:31:45 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0902250727520.28163@ask.diku.dk>
+References: <49A49C06.90908@mlbassoc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Gary Thomas <gary@mlbassoc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52491 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbZBYGXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 01:23:55 -0500
-In-Reply-To: <20090225061902.GA32430@gondor.apana.org.au>
+Received: from mgw2.diku.dk ([130.225.96.92]:41525 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752735AbZBYGbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 01:31:50 -0500
+In-Reply-To: <49A49C06.90908@mlbassoc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Wed, Feb 25, 2009 at 06:23:33AM +0100, Patrick McHardy wrote:
->> An easy fix would be to keep track of whether sysctl unregistration
->> is in progress in IPv4/IPv6 and ignore new requests from that point
->> on. Its not very elegant though, so I was wondering whether anyone
->> has a better suggestion.
-> 
-> We could make the unregistration asynchronous and invoke a callback
-> when it's done.  Then we can simply hold a net_device refcount and
-> relinquish it in the callback
+On Tue, 24 Feb 2009, Gary Thomas wrote:
 
-That sounds simple enough. I'll see if I can come up with a patch, thanks.
+> Is there support for this device anywhere?  In particular,
+> the M88E6095 switch.
+
+I have written a driver for the M88E6095F and M88E6097F switch, but only 
+for an embedded 2.4.20 kernel device.  I have written it from scratch, so 
+its not covered by Marvell license.  Although lately different marvell DSA 
+support was added to kernel 2.6.
+
+Whats you usage?
+
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
