@@ -1,86 +1,37 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 8/8] wanrouter: fix sparse warnings: context imbalance
-Date: Wed, 25 Feb 2009 21:33:06 +0100
-Message-ID: <20090225203301.6251.49315.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 4/8] [NET] sysctl: fix sparse warning: Should it be static?
+Date: Wed, 25 Feb 2009 21:32:14 +0100
+Message-ID: <20090225203208.6251.48572.stgit@vmbox.hanneseder.net>
 References: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:54804 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760841AbZBYUdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 15:33:12 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760079AbZBYUiD@vger.kernel.org>
 In-Reply-To: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Impact: Attribute functions with __acquires(...) resp. __releases(...).
+Impact: Include header file.
 
-Fix this sparse warnings:
-  net/wanrouter/wanproc.c:82:13: warning: context imbalance in 'r_start' - wrong count at exit
-  net/wanrouter/wanproc.c:103:13: warning: context imbalance in 'r_stop' - unexpected unlock
-  net/wanrouter/wanmain.c:765:13: warning: context imbalance in 'lock_adapter_irq' - wrong count at exit
-  net/wanrouter/wanmain.c:771:13: warning: context imbalance in 'unlock_adapter_irq' - unexpected unlock
+Fix this sparse warning:
+  net/core/sysctl_net_core.c:123:32: warning: symbol 'net_core_path' was not declared. Should it be static?
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- net/wanrouter/wanmain.c |    8 ++++++--
- net/wanrouter/wanproc.c |    2 ++
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ net/core/sysctl_net_core.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/wanrouter/wanmain.c b/net/wanrouter/wanmain.c
-index 39701de..466e2d2 100644
---- a/net/wanrouter/wanmain.c
-+++ b/net/wanrouter/wanmain.c
-@@ -86,8 +86,10 @@ static int wanrouter_device_del_if(struct wan_device *wandev,
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 83d3398..7db1de0 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -11,6 +11,7 @@
+ #include <linux/socket.h>
+ #include <linux/netdevice.h>
+ #include <linux/init.h>
++#include <net/ip.h>
+ #include <net/sock.h>
  
- static struct wan_device *wanrouter_find_device(char *name);
- static int wanrouter_delete_interface(struct wan_device *wandev, char *name);
--static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
--static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
-+static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-+	__acquires(lock);
-+static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-+	__releases(lock);
- 
- 
- 
-@@ -763,12 +765,14 @@ static int wanrouter_delete_interface(struct wan_device *wandev, char *name)
- }
- 
- static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-+	__acquires(lock)
- {
- 	spin_lock_irqsave(lock, *smp_flags);
- }
- 
- 
- static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-+	__releases(lock)
- {
- 	spin_unlock_irqrestore(lock, *smp_flags);
- }
-diff --git a/net/wanrouter/wanproc.c b/net/wanrouter/wanproc.c
-index 267f7ff..c44d96b 100644
---- a/net/wanrouter/wanproc.c
-+++ b/net/wanrouter/wanproc.c
-@@ -80,6 +80,7 @@ static struct proc_dir_entry *proc_router;
-  *	Iterator
-  */
- static void *r_start(struct seq_file *m, loff_t *pos)
-+	__acquires(kernel_lock)
- {
- 	struct wan_device *wandev;
- 	loff_t l = *pos;
-@@ -101,6 +102,7 @@ static void *r_next(struct seq_file *m, void *v, loff_t *pos)
- }
- 
- static void r_stop(struct seq_file *m, void *v)
-+	__releases(kernel_lock)
- {
- 	unlock_kernel();
- }
-
+ static struct ctl_table net_core_table[] = {
