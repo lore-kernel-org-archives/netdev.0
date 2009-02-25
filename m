@@ -1,39 +1,67 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: Marvell 88E609x switch?
-Date: Wed, 25 Feb 2009 07:31:45 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0902250727520.28163@ask.diku.dk>
-References: <49A49C06.90908@mlbassoc.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC v1] hand off skb list to other cpu to submit to upper
+	layer
+Date: Wed, 25 Feb 2009 14:36:56 +0800
+Message-ID: <20090225063656.GA32635@gondor.apana.org.au>
+References: <1235525270.2604.483.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Gary Thomas <gary@mlbassoc.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse.brandeburg@intel.com
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:41525 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752735AbZBYGbu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 01:31:50 -0500
-In-Reply-To: <49A49C06.90908@mlbassoc.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:49252 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752846AbZBYGhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 01:37:01 -0500
+Content-Disposition: inline
+In-Reply-To: <1235525270.2604.483.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Feb 2009, Gary Thomas wrote:
+Zhang, Yanmin <yanmin_zhang@linux.intel.com> wrote:
+> =EF=BB=BFSubject: hand off skb list to other cpu to submit to upper l=
+ayer
+> From: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
+>=20
+> Recently, I am investigating an ip_forward performance issue with 10G=
+ IXGBE NIC.
+> I start the testing on 2 machines. Every machine has 2 10G NICs. The =
+1st one seconds
+> packets by pktgen. The 2nd receives the packets from one NIC and forw=
+ards them out
+> from the 2nd NIC. As NICs supports multi-queue, I bind the queues to =
+different logical
+> cpu of different physical cpu while considering cache sharing careful=
+ly.
+>=20
+> Comparing with sending speed on the 1st machine, the forward speed is=
+ not good, only
+> about 60% of sending speed. As a matter of fact, IXGBE driver starts =
+NAPI when interrupt
+> arrives. When ip_forward=3D1, receiver collects a packet and forwards=
+ it out immediately.
+> So although IXGBE collects packets with NAPI, the forwarding really h=
+as much impact on
+> collection. As IXGBE runs very fast, it drops packets quickly. The be=
+tter way for
+> receiving cpu is doing nothing than just collecting packets.
 
-> Is there support for this device anywhere?  In particular,
-> the M88E6095 switch.
+This doesn't make sense.  With multiqueue RX, every core should be
+working to receive its fraction of the traffic and forwarding them
+out.  So you shouldn't have any idle cores to begin with.  The fact
+that you do means that multiqueue RX hasn't maximised its utility,
+so you should tackle that instead of trying redirect traffic away
+from the cores that are receiving.
 
-I have written a driver for the M88E6095F and M88E6097F switch, but only 
-for an embedded 2.4.20 kernel device.  I have written it from scratch, so 
-its not covered by Marvell license.  Although lately different marvell DSA 
-support was added to kernel 2.6.
+Of course for NICs that don't support multiqueue RX, or where the
+number of RX queues is less than the number of cores, then a scheme
+like yours may be useful.
 
-Whats you usage?
-
-Hilsen
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
