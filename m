@@ -1,44 +1,71 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] ns83820: remove some pointless conditionals before kfree_skb()
-Date: Wed, 25 Feb 2009 18:47:26 +0800
-Message-ID: <49A521BE.4050301@cn.fujitsu.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] net: more timeouts that reach -1
+Date: Wed, 25 Feb 2009 12:15:57 +0100
+Message-ID: <49A5286D.80304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49576 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752211AbZBYKr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 05:47:58 -0500
+Received: from qw-out-2122.google.com ([74.125.92.24]:28945 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760728AbZBYLQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 06:16:01 -0500
+Received: by qw-out-2122.google.com with SMTP id 5so2637772qwi.37
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2009 03:15:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove some pointless conditionals before kfree_skb().
+These were not previously reported by me.
+------------------------------>8-------------8<---------------------------------
+with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
+below are off by one.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
- drivers/net/ns83820.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/arm/ks8695net.c |    2 +-
+ drivers/net/jme.c           |    3 ++-
+ drivers/net/ucc_geth_mii.c  |    2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ns83820.c b/drivers/net/ns83820.c
-index 9266502..221b0c4 100644
---- a/drivers/net/ns83820.c
-+++ b/drivers/net/ns83820.c
-@@ -822,8 +822,7 @@ static void ns83820_cleanup_rx(struct ns83820 *dev)
- 		struct sk_buff *skb = dev->rx_info.skbs[i];
- 		dev->rx_info.skbs[i] = NULL;
- 		clear_rx_desc(dev, i);
--		if (skb)
--			kfree_skb(skb);
-+		kfree_skb(skb);
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
+index 1cf2f94..f3a1274 100644
+--- a/drivers/net/arm/ks8695net.c
++++ b/drivers/net/arm/ks8695net.c
+@@ -560,7 +560,7 @@ ks8695_reset(struct ks8695_priv *ksp)
+ 		msleep(1);
  	}
- }
  
--- 
-1.5.3.8
-
-
-
-
+-	if (reset_timeout == 0) {
++	if (reset_timeout < 0) {
+ 		dev_crit(ksp->dev,
+ 			 "Timeout waiting for DMA engines to reset\n");
+ 		/* And blithely carry on */
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 08b3405..0173ed0 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -957,7 +957,8 @@ jme_process_receive(struct jme_adapter *jme, int limit)
+ 		goto out_inc;
+ 
+ 	i = atomic_read(&rxring->next_to_clean);
+-	while (limit-- > 0) {
++	while (limit > 0) {
++		limit--;
+ 		rxdesc = rxring->desc;
+ 		rxdesc += i;
+ 
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index 5463591..7b1b46c 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -123,7 +123,7 @@ static int uec_mdio_reset(struct mii_bus *bus)
+ 
+ 	mutex_unlock(&bus->mdio_lock);
+ 
+-	if (timeout <= 0) {
++	if (timeout < 0) {
+ 		printk(KERN_ERR "%s: The MII Bus is stuck!\n", bus->name);
+ 		return -EBUSY;
+ 	}
