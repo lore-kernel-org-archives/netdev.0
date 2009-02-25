@@ -1,35 +1,28 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Kernel problem
-Date: Thu, 26 Feb 2009 10:56:16 +0000
-Message-ID: <20090226105616.GA5754@ff.dom.local>
-References: <20090226093902.GA12753@gondor.apana.org.au>
+From: =?iso-8859-1?q?I=F1aky_P=E9rez-Gonz=E1lez?=
+	<inaky.perez-gonzalez@intel.com>
+Subject: Re: [PATCH] i2400m: remove some pointless conditionals before kfree_skb()
+Date: Wed, 25 Feb 2009 09:56:56 -0800
+Message-ID: <200902250956.57394.inaky.perez-gonzalez@intel.com>
+References: <49A51B6D.2070107@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denis Romanenko <ash@sevsky.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+  charset="gb2312"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-wimax@intel.com,
+	netdev@vger.kernel.org, wimax@linuxwimax.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f176.google.com ([209.85.220.176]:46308 "EHLO
-	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753595AbZBZK40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:56:26 -0500
-Received: by fxm24 with SMTP id 24so441688fxm.37
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 02:56:23 -0800 (PST)
+Received: from 076-076-148-181.pdx.net ([76.76.148.181]:45177 "EHLO
+	inaky-mobl3" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753622AbZBZLU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2009 06:20:26 -0500
+In-Reply-To: <49A51B6D.2070107@cn.fujitsu.com>
 Content-Disposition: inline
-In-Reply-To: <20090226093902.GA12753@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26-02-2009 10:39, Herbert Xu wrote:
-> Denis Romanenko <ash@sevsky.net> wrote:
->> I have high loaded router - about 1.2 Gbps
->>
->> after reboot on new kernel - 2.6.27.17 i have messages in dmesg
->>
->> WARNING: at kernel/softirq.c:136 local_bh_enable+0x36/0xab()
-> 
-> So somebody disabled the IRQs on us, the question is who?
+On Wednesday 25 February 2009, Wei Yongjun wrote:
+> Remove some pointless conditionals before kfree_skb().
+>
 
-netconsole. It's a known issue, btw.
-
-Cheers,
-Jarek P.
+Applied to the wimax-next tree, thank you.
