@@ -1,34 +1,68 @@
-From: Or Gerlitz <ogerlitz@Voltaire.com>
-Subject: Re: [ofa-general] Re: [PATCH 0/26] Reliable Datagram Sockets (RDS),
-	take 2
-Date: Wed, 25 Feb 2009 11:46:00 +0200
-Message-ID: <49A51358.4080408@Voltaire.com>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>	<20090224.232814.227017310.davem@davemloft.net>	<49A4FB79.1090809@voltaire.com>
-	<20090225.000628.108688119.davem@davemloft.net>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] isdn: remove some pointless conditionals before kfree_skb()
+Date: Wed, 25 Feb 2009 18:12:09 +0800
+Message-ID: <49A51979.80409@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20090225.000628.108688119.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Karsten Keil <kkeil@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:50342 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753988AbZBYKMm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 05:12:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> It's making real sockets, using the real networking stack,
-> using up real IP port/address pairs recognized by the rest
-> of the real networking stack, and doing RDMA over that connection.
+Remove some pointless conditionals before kfree_skb().
 
-The only usage of the network stack done by the RDMA stack (at its rdma connection manager) on behalf of protocols such as RDS is for address resolution. This practice of sending ARPs is supported by the mainline kernel for long time and common also among other technologies / drivers.
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ drivers/isdn/capi/capi.c    |    2 +-
+ drivers/isdn/pcbit/layer2.c |    6 ++----
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-Or.
+diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
+index 1b5bf87..3e468d2 100644
+--- a/drivers/isdn/capi/capi.c
++++ b/drivers/isdn/capi/capi.c
+@@ -277,7 +277,7 @@ static void capiminor_free(struct capiminor *mp)
+ 	list_del(&mp->list);
+ 	write_unlock_irqrestore(&capiminor_list_lock, flags);
+ 
+-	if (mp->ttyskb) kfree_skb(mp->ttyskb);
++	kfree_skb(mp->ttyskb);
+ 	mp->ttyskb = NULL;
+ 	skb_queue_purge(&mp->inqueue);
+ 	skb_queue_purge(&mp->outqueue);
+diff --git a/drivers/isdn/pcbit/layer2.c b/drivers/isdn/pcbit/layer2.c
+index 5ba2a87..e075e8d 100644
+--- a/drivers/isdn/pcbit/layer2.c
++++ b/drivers/isdn/pcbit/layer2.c
+@@ -347,8 +347,7 @@ pcbit_receive(struct pcbit_dev *dev)
+ 		if (dev->read_frame) {
+ 			printk(KERN_DEBUG "pcbit_receive: Type 0 frame and read_frame != NULL\n");
+ 			/* discard previous queued frame */
+-			if (dev->read_frame->skb)
+-				kfree_skb(dev->read_frame->skb);
++			kfree_skb(dev->read_frame->skb);
+ 			kfree(dev->read_frame);
+ 			dev->read_frame = NULL;
+ 		}
+@@ -601,8 +600,7 @@ pcbit_l2_err_recover(unsigned long data)
+ 	dev->w_busy = dev->r_busy = 1;
+ 
+ 	if (dev->read_frame) {
+-		if (dev->read_frame->skb)
+-			kfree_skb(dev->read_frame->skb);
++		kfree_skb(dev->read_frame->skb);
+ 		kfree(dev->read_frame);
+ 		dev->read_frame = NULL;
+ 	}
+-- 
+1.5.3.8
+
+
+
+
