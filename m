@@ -1,60 +1,132 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: xfrm selector generating IKE
-Date: Tue, 24 Feb 2009 18:30:41 -0800
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02C5BC08@exch-one.centrify.com>
-References: <BB7E16A14DE689469A181EC770AFBF4D02A7775E@exch-one.centrify.com> <20090130063048.GA4702@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BA6E@exch-one.centrify.com> <20090224020839.GC18696@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BAE1@exch-one.centrify.com> <20090225003330.GA29906@gondor.apana.org.au> <BB7E16A14DE689469A181EC770AFBF4D02C5BC01@exch-one.centrify.com> <20090225022745.GA30643@gondor.apana.org.au>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: [RFC v1] hand off skb list to other cpu to submit to upper
+	layer
+Date: Wed, 25 Feb 2009 10:35:43 +0800
+Message-ID: <1235529343.2604.499.camel@ymzhang>
+References: <1235525270.2604.483.camel@ymzhang>
+	 <20090224181153.06aa1fbd@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, jesse.brandeburg@intel.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:22291 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755482AbZBYCao convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 21:30:44 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20090225022745.GA30643@gondor.apana.org.au>
+Received: from mga12.intel.com ([143.182.124.36]:15125 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753060AbZBYCgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 21:36:06 -0500
+In-Reply-To: <20090224181153.06aa1fbd@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-could u suggest a numbering for my 4 rules - as I said , no combination
-I have tried works
+On Tue, 2009-02-24 at 18:11 -0800, Stephen Hemminger wrote:
+> On Wed, 25 Feb 2009 09:27:49 +0800
+> "Zhang, Yanmin" <yanmin_zhang@linux.intel.com> wrote:
+>=20
+> > =EF=BB=BFSubject: hand off skb list to other cpu to submit to upper=
+ layer
+> > From: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
+> >=20
+> > Recently, I am investigating an ip_forward performance issue with 1=
+0G IXGBE NIC.
+> > I start the testing on 2 machines. Every machine has 2 10G NICs. Th=
+e 1st one seconds
+> > packets by pktgen. The 2nd receives the packets from one NIC and fo=
+rwards them out
+> > from the 2nd NIC. As NICs supports multi-queue, I bind the queues t=
+o different logical
+> > cpu of different physical cpu while considering cache sharing caref=
+ully.
+> >=20
+> > Comparing with sending speed on the 1st machine, the forward speed =
+is not good, only
+> > about 60% of sending speed. As a matter of fact, IXGBE driver start=
+s NAPI when interrupt
+> > arrives. When ip_forward=3D1, receiver collects a packet and forwar=
+ds it out immediately.
+> > So although IXGBE collects packets with NAPI, the forwarding really=
+ has much impact on
+> > collection. As IXGBE runs very fast, it drops packets quickly. The =
+better way for
+> > receiving cpu is doing nothing than just collecting packets.
+> >=20
+> > Currently kernel has backlog to support a similar capability, but p=
+rocess_backlog still
+> > runs on the receiving cpu. I enhance backlog by adding a new input_=
+pkt_alien_queue to
+> > softnet_data. Receving cpu collects packets and link them into skb =
+list, then delivers
+> > the list to the =EF=BB=BFinput_pkt_alien_queue of other cpu. proces=
+s_backlog picks up the skb list
+> > from =EF=BB=BFinput_pkt_alien_queue when =EF=BB=BFinput_pkt_queue i=
+s empty.
+> >=20
+> > NIC driver could use this capability like below step in NAPI RX cle=
+anup function.
+> > 1) Initiate a local var struct sk_buff_head skb_head;
+> > 2) In the packet collection loop, just calls netif_rx_queue or __sk=
+b_queue_tail(skb_head, skb)
+> > to add skb to the list;
+> > 3) Before exiting, calls raise_netif_irq to submit the skb list to =
+specific cpu.
+> >=20
+> > Enlarge /proc/sys/net/core/netdev_max_backlog and netdev_budget bef=
+ore testing.
+> >=20
+> > I tested my patch on top of 2.6.28.5. The improvement is about 43%.
+> >=20
+> > Signed-off-by: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
+> >=20
+> > ---
+Thanks for your comments.
 
-// for outbound connections
-subnet -> subnet[21] out
-subnet[21] -> subnet in
-// for inbound connections
-subnet[21] -> subnet out
-subnet -> subnet[21] in
+>=20
+> You can't safely put packets on another CPU queue without adding a sp=
+inlock.
+=EF=BB=BFinput_pkt_alien_queue is a struct sk_buff_head which has a spi=
+nlock. We use
+that lock to protect the queue.
 
------Original Message-----
-From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
-Sent: Tuesday, February 24, 2009 6:28 PM
-To: Paul Moore
-Cc: kaber@trash.net; davem@davemloft.net; netdev@vger.kernel.org
-Subject: Re: xfrm selector generating IKE
+> And if you add the spinlock, you drop the performance back down for y=
+our
+> device and all the other devices.
+My testing shows 43% improvement. As multi-core machines are becoming
+popular, we can allocate some core for packet collection only.
 
-On Tue, Feb 24, 2009 at 06:07:06PM -0800, Paul Moore wrote:
-> You seem to be saying that that if I explicitly set the policy reqids
-> that it should work. 
-> 
-> I had experimented with that a lot 
-> 
-> The problem is that I cannot find a good combination of reqids 
+I use the spinlock carefully. The deliver cpu locks it only when =EF=BB=
+=BFinput_pkt_queue
+is empty, and just merges the list to =EF=BB=BFinput_pkt_queue. Later s=
+kb dequeue needn't
+hold the spinlock. In the other hand, the original receving cpu dispatc=
+hes a batch
+of skb (64 packets with IXGBE default) when holding the lock once.
 
-It's very simple, you want each equivalent class of SAs (i.e.,
-SAs where any one can replace the other) to be assigned a unique
-reqid.
+>  Also, you will end up reordering
+> packets which hurts single stream TCP performance.
+Would you like to elaborate the scenario? Does your speaking mean multi=
+-queue
+also hurts =EF=BB=BFsingle stream TCP performance when we bind multi-qu=
+eue(interrupt) to
+different cpu?
 
-The Openswan algorithm simply assigns an ID to each policy (or
-connection as it stores them internally), and then uses that ID
-as the reqid.
+>=20
+> Is this all because the hardware doesn't do MSI-X
+IXGBE supports MSI-X and I enables it when testing. =EF=BB=BF The recei=
+ver has 16 multi-queue,
+so 16 irq numbers. I bind 2 irq numbers per logical cpu of one physical=
+ cpu.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>  or are you testing only
+> a single flow.=20
+What does a single flow mean here? One sender? I do start one sender fo=
+r testing because
+I couldn't get enough hardware.
+
+In addition, my patch doesn't change old interface, so there would be n=
+o performance
+hurt to old drivers.
+
+yanmin
+
+
