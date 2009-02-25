@@ -1,142 +1,71 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 1/4] mv643xx_eth: make LRO unconditional
-Date: Wed, 25 Feb 2009 02:41:32 +0100
-Message-ID: <20090225014132.GW17040@xi.wantstofly.org>
+Subject: [PATCH 2/4] mv643xx_eth: convert to net_device_ops
+Date: Wed, 25 Feb 2009 02:41:40 +0100
+Message-ID: <20090225014140.GX17040@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: nico@cam.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:53051 "EHLO
+Received: from xi.wantstofly.org ([80.101.37.227]:53057 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753195AbZBYBlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 20:41:35 -0500
+	with ESMTP id S1753234AbZBYBln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 20:41:43 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 ---
- drivers/net/Kconfig       |   11 +----------
- drivers/net/mv643xx_eth.c |   12 ------------
- 2 files changed, 1 insertions(+), 22 deletions(-)
+ drivers/net/mv643xx_eth.c |   29 +++++++++++++++++------------
+ 1 files changed, 17 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index fa20751..6367567 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2301,6 +2301,7 @@ config UGETH_TX_ON_DEMAND
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
- 	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32) || PLAT_ORION
-+	select INET_LRO
- 	select PHYLIB
- 	help
- 	  This driver supports the gigabit ethernet MACs in the
-@@ -2310,16 +2311,6 @@ config MV643XX_ETH
- 	  Some boards that use the Discovery chipset are the Momenco
- 	  Ocelot C and Jaguar ATX and Pegasos II.
- 
--config MV643XX_ETH_LRO
--	tristate "Marvell 643XX ethernet driver LRO support"
--	depends on MV643XX_ETH
--	select INET_LRO
--	help
--	  Say y here if you want to use Large Receive Offload for the
--	  mv643xx_eth driver.
--
--	  If in doubt, say N.
--
- config QLA3XXX
- 	tristate "QLogic QLA3XXX Network Driver Support"
- 	depends on PCI
 diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 8e86d3a..5736dcd 100644
+index 5736dcd..b711404 100644
 --- a/drivers/net/mv643xx_eth.c
 +++ b/drivers/net/mv643xx_eth.c
-@@ -351,10 +351,8 @@ struct rx_queue {
- 	int rx_desc_area_size;
- 	struct sk_buff **rx_skb;
- 
--#ifdef CONFIG_MV643XX_ETH_LRO
- 	struct net_lro_mgr lro_mgr;
- 	struct net_lro_desc lro_arr[8];
--#endif
- };
- 
- struct tx_queue {
-@@ -516,7 +514,6 @@ static void txq_maybe_wake(struct tx_queue *txq)
- 
- 
- /* rx napi ******************************************************************/
--#ifdef CONFIG_MV643XX_ETH_LRO
- static int
- mv643xx_get_skb_header(struct sk_buff *skb, void **iphdr, void **tcph,
- 		       u64 *hdr_flags, void *priv)
-@@ -542,7 +539,6 @@ mv643xx_get_skb_header(struct sk_buff *skb, void **iphdr, void **tcph,
- 
- 	return 0;
+@@ -2862,6 +2862,21 @@ static void init_pscr(struct mv643xx_eth_private *mp, int speed, int duplex)
+ 	wrlp(mp, PORT_SERIAL_CONTROL, pscr);
  }
--#endif
  
- static int rxq_process(struct rx_queue *rxq, int budget)
++static const struct net_device_ops mv643xx_eth_netdev_ops = {
++	.ndo_open		= mv643xx_eth_open,
++	.ndo_stop		= mv643xx_eth_stop,
++	.ndo_start_xmit		= mv643xx_eth_xmit,
++	.ndo_set_rx_mode	= mv643xx_eth_set_rx_mode,
++	.ndo_set_mac_address	= mv643xx_eth_set_mac_address,
++	.ndo_do_ioctl		= mv643xx_eth_ioctl,
++	.ndo_change_mtu		= mv643xx_eth_change_mtu,
++	.ndo_tx_timeout		= mv643xx_eth_tx_timeout,
++	.ndo_get_stats		= mv643xx_eth_get_stats,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= mv643xx_eth_netpoll,
++#endif
++};
++
+ static int mv643xx_eth_probe(struct platform_device *pdev)
  {
-@@ -612,13 +608,11 @@ static int rxq_process(struct rx_queue *rxq, int budget)
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		skb->protocol = eth_type_trans(skb, mp->dev);
+ 	struct mv643xx_eth_platform_data *pd;
+@@ -2933,18 +2948,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	BUG_ON(!res);
+ 	dev->irq = res->start;
  
--#ifdef CONFIG_MV643XX_ETH_LRO
- 		if (skb->dev->features & NETIF_F_LRO &&
- 		    skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 			lro_receive_skb(&rxq->lro_mgr, skb, (void *)cmd_sts);
- 			lro_flush_needed = 1;
- 		} else
+-	dev->get_stats = mv643xx_eth_get_stats;
+-	dev->hard_start_xmit = mv643xx_eth_xmit;
+-	dev->open = mv643xx_eth_open;
+-	dev->stop = mv643xx_eth_stop;
+-	dev->set_rx_mode = mv643xx_eth_set_rx_mode;
+-	dev->set_mac_address = mv643xx_eth_set_mac_address;
+-	dev->do_ioctl = mv643xx_eth_ioctl;
+-	dev->change_mtu = mv643xx_eth_change_mtu;
+-	dev->tx_timeout = mv643xx_eth_tx_timeout;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = mv643xx_eth_netpoll;
 -#endif
- 			netif_receive_skb(skb);
- 
- 		continue;
-@@ -640,10 +634,8 @@ err:
- 		dev_kfree_skb(skb);
- 	}
- 
--#ifdef CONFIG_MV643XX_ETH_LRO
- 	if (lro_flush_needed)
- 		lro_flush_all(&rxq->lro_mgr);
--#endif
- 
- 	if (rx < budget)
- 		mp->work_rx &= ~(1 << rxq->index);
-@@ -1231,7 +1223,6 @@ static void mv643xx_eth_grab_lro_stats(struct mv643xx_eth_private *mp)
- 	u32 lro_no_desc = 0;
- 	int i;
- 
--#ifdef CONFIG_MV643XX_ETH_LRO
- 	for (i = 0; i < mp->rxq_count; i++) {
- 		struct rx_queue *rxq = mp->rxq + i;
- 
-@@ -1239,7 +1230,6 @@ static void mv643xx_eth_grab_lro_stats(struct mv643xx_eth_private *mp)
- 		lro_flushed += rxq->lro_mgr.stats.flushed;
- 		lro_no_desc += rxq->lro_mgr.stats.no_desc;
- 	}
--#endif
- 
- 	mp->lro_counters.lro_aggregated = lro_aggregated;
- 	mp->lro_counters.lro_flushed = lro_flushed;
-@@ -1939,7 +1929,6 @@ static int rxq_init(struct mv643xx_eth_private *mp, int index)
- 					nexti * sizeof(struct rx_desc);
- 	}
- 
--#ifdef CONFIG_MV643XX_ETH_LRO
- 	rxq->lro_mgr.dev = mp->dev;
- 	memset(&rxq->lro_mgr.stats, 0, sizeof(rxq->lro_mgr.stats));
- 	rxq->lro_mgr.features = LRO_F_NAPI;
-@@ -1952,7 +1941,6 @@ static int rxq_init(struct mv643xx_eth_private *mp, int index)
- 	rxq->lro_mgr.get_skb_header = mv643xx_get_skb_header;
- 
- 	memset(&rxq->lro_arr, 0, sizeof(rxq->lro_arr));
--#endif
- 
- 	return 0;
++	dev->netdev_ops = &mv643xx_eth_netdev_ops;
++
+ 	dev->watchdog_timeo = 2 * HZ;
+ 	dev->base_addr = 0;
  
 -- 
 1.5.6.4
