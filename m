@@ -1,87 +1,66 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: [PATCH 1/6] netlink: Move netlink attribute parsing support to lib/
-Date: Wed, 25 Feb 2009 14:43:09 +0100
-Message-ID: <1235569394-15217-2-git-send-email-Geert.Uytterhoeven@sonycom.com>
-References: <1235569394-15217-1-git-send-email-Geert.Uytterhoeven@sonycom.com>
-Cc: linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1235569394-15217-1-git-send-email-Geert.Uytterhoeven@sonycom.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC] addition of a dropped packet notification service
+Date: Wed, 25 Feb 2009 09:18:41 -0500
+Message-ID: <20090225141841.GD16150@hmsreliant.think-freely.org>
+References: <20090209102134.GA8492@gondor.apana.org.au> <20090224.234840.93952093.davem@davemloft.net> <20090225115419.GA16150@hmsreliant.think-freely.org> <20090225.040130.169376412.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, shemminger@vyatta.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46490 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752868AbZBYOS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 09:18:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20090225.040130.169376412.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Netlink attribute parsing may be used even if CONFIG_NET is not set.
-Move it from net/netlink to lib and control its inclusion based on the new
-config symbol CONFIG_NLATTR, which is selected by CONFIG_NET.
+On Wed, Feb 25, 2009 at 04:01:30AM -0800, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Wed, 25 Feb 2009 06:54:19 -0500
+> 
+> > I had actually started down this road for awhile, and liked it for
+> > its low maintenence overhead (as you mentioned, less to annotate),
+> > but I balked at it after a bit, mostly for its increased ambiguity.
+> > By catching the drop where the packet is freed, we lose information
+> > about the exact point at which we decided to drop it.  As such,
+> > users of said dumped table loose (or potentially lose) the ability
+> > to correlate the saved stack pointer with an exact point in the code
+> > where a corresponding statistic was incremented, as well as the
+> > correlation to a specific point in the code (they just get the
+> > calling function program counter rather than file, funciton and line
+> > number).
+> 
+> Userland tools can extract this information from a non-stripped
+> kernel image file, given just a kernel PC value.
+> 
+Sure, they can, but my origional post had this information captured at the drop
+point (using __func__, __file__ and __LINE__).  My intent was that no debuginfo
+package should be needed for a user to determine the point of the drop, just the
+source tree (which can be consolidated to one location for multiple hosts, via
+lxer, etc.), rather than installed on each individual machine.
 
-Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- lib/Kconfig                        |    6 ++++++
- lib/Makefile                       |    2 ++
- net/netlink/attr.c => lib/nlattr.c |    0
- net/Kconfig                        |    1 +
- net/netlink/Makefile               |    2 +-
- 5 files changed, 10 insertions(+), 1 deletions(-)
- rename net/netlink/attr.c => lib/nlattr.c (100%)
+Although as I think about it, theres no reason that a user space utility can't
+use a symboled kernel to translate pc values if available, and do a reduced
+symbol+offset translation using /proc/kallsyms in its absence.
 
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 03c2c24..cea9e30 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -174,4 +174,10 @@ config DISABLE_OBSOLETE_CPUMASK_FUNCTIONS
-        bool "Disable obsolete cpumask functions" if DEBUG_PER_CPU_MAPS
-        depends on EXPERIMENTAL && BROKEN
- 
-+#
-+# Netlink attribute parsing support is select'ed if needed
-+#
-+config NLATTR
-+	bool
-+
- endmenu
-diff --git a/lib/Makefile b/lib/Makefile
-index 32b0e64..b2c09da 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -84,6 +84,8 @@ obj-$(CONFIG_HAVE_ARCH_TRACEHOOK) += syscall.o
- 
- obj-$(CONFIG_DYNAMIC_PRINTK_DEBUG) += dynamic_printk.o
- 
-+obj-$(CONFIG_NLATTR) += nlattr.o
-+
- hostprogs-y	:= gen_crc32table
- clean-files	:= crc32table.h
- 
-diff --git a/net/netlink/attr.c b/lib/nlattr.c
-similarity index 100%
-rename from net/netlink/attr.c
-rename to lib/nlattr.c
-diff --git a/net/Kconfig b/net/Kconfig
-index cdb8fde..eab40a4 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -4,6 +4,7 @@
- 
- menuconfig NET
- 	bool "Networking support"
-+	select NLATTR
- 	---help---
- 	  Unless you really know what you are doing, you should say Y here.
- 	  The reason is that some programs need kernel networking support even
-diff --git a/net/netlink/Makefile b/net/netlink/Makefile
-index e3589c2..bdd6ddf 100644
---- a/net/netlink/Makefile
-+++ b/net/netlink/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for the netlink driver.
- #
- 
--obj-y  				:= af_netlink.o attr.o genetlink.o
-+obj-y  				:= af_netlink.o genetlink.o
--- 
-1.6.0.4
+> And you need the same thing to extract the same information
+> if you used tracepoints.
+> 
+Well, I think the above implementation can be done with or without tracepoints.
+The mechanism by which we get the drop information is orthogonal to what we do
+with it.
+
+Thanks for the feedback guys.  I'll start modifying my kernel changes to reflect
+this striaght away.  If you'd like to see something in the interim, let me know
+and I'll send you what I have.  Currently I've got the user space delivery
+mechanism working as a Netlink protocol, and with your above suggestions, I
+expect to have the drop capture piece recode and working in the next few weeks.
+
+Best
+Neil
 
