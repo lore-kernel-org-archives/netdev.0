@@ -1,52 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] addition of a dropped packet notification service
-Date: Wed, 25 Feb 2009 14:07:01 -0800 (PST)
-Message-ID: <20090225.140701.42567297.davem@davemloft.net>
-References: <20090225115419.GA16150@hmsreliant.think-freely.org>
-	<20090225.040130.169376412.davem@davemloft.net>
-	<20090225141841.GD16150@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, shemminger@vyatta.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: nhorman@tuxdriver.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH v2] bonding: move IPv6 support into a separate kernel module
+Date: Wed, 25 Feb 2009 14:10:58 -0800
+Message-ID: <28797.1235599858@death.nxdomain.ibm.com>
+References: <49A5ADB3.2010709@hp.com>
+Cc: David Miller <davem@davemloft.net>,
+	Andrey Borzenkov <arvidjaar@mail.ru>,
+	Vladislav Yasevich <vladislav.yasevich@hp.com>,
+	Chuck Lever <chuck.lever@oracle.com>,
+	Theodore Tso <tytso@mit.edu>, Valdis.Kletnieks@vt.edu,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bonding-devel@lists.sourceforge.net,
+	=?ISO-8859-1?Q?=22J=2EA=2E_Magall?= =?ISO-8859-1?Q?=F3n=22?=
+	<jamagallon@ono.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43194
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751916AbZBYWHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 17:07:18 -0500
-In-Reply-To: <20090225141841.GD16150@hmsreliant.think-freely.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:42026 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753200AbZBYWLG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 17:11:06 -0500
+In-reply-to: <49A5ADB3.2010709@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 25 Feb 2009 09:18:41 -0500
-
-> On Wed, Feb 25, 2009 at 04:01:30AM -0800, David Miller wrote:
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Wed, 25 Feb 2009 06:54:19 -0500
-> > 
-> > And you need the same thing to extract the same information
-> > if you used tracepoints.
+Brian Haley <brian.haley@hp.com> wrote:
+[...]
+>This patch moves the IPv6 bonding code into a separate kernel module
+>called bonding_ipv6 if either bonding or IPv6 are built as modules.
+>If both are built into the kernel then this is as well.  Bonding_ipv6.ko
+>registers an "send_unsol_na" function pointer for the unsolicited
+>advertisement function to be called on a failover - the default action
+>is to do nothing.  The notifier callbacks are now registered in this
+>module and not in the base bonding module.
 >
-> Well, I think the above implementation can be done with or without
-> tracepoints.  The mechanism by which we get the drop information is
-> orthogonal to what we do with it.
-> 
-> Thanks for the feedback guys.  I'll start modifying my kernel
-> changes to reflect this striaght away.  If you'd like to see
-> something in the interim, let me know and I'll send you what I have.
-> Currently I've got the user space delivery mechanism working as a
-> Netlink protocol, and with your above suggestions, I expect to have
-> the drop capture piece recode and working in the next few weeks.
+>Also, have the IPv6 address notifier request that the bonding_ipv6
+>module be loaded when an IFF_MASTER device is first brought-up.
+>This avoids users from having to do this explicitly with modprobe.
 
-Don't get me wrong.
+	I'm not entirely sure what the right solution for all of this
+is, but it doesn't seem to me that cranking on bonding and adding a
+special case to ipv6 is the best way to go.
 
-If tracepoint annotations can be manageable (Herbert's concern), and
-solve multiple useful problems in practice rather than just
-theoretically (my concern), then that's what we should use for this
-kind of stuff.
+	This patch won't resolve the reported similar (but presumably
+lower profile) issues with SCTP or qeth, and it seems unlikely that this
+is the last time some driver will gain a run time dependence on ipv6
+after being compiled with CONFIG_IPV6.
 
-I just personally haven't been convinced of that yet.
+Theodore Tso <tytso@mit.edu> wrote (in a different thread):
+>I think I can pretty much guarantee that distro users will be
+>clamoring for a quick and easy way to block ipv6, and it's in our
+>interest to document the recomended way to block it that doesn't cause
+>weird problems with bonding, etc.
+
+	I agree with this.  
+
+	I've been fooling with the disable_ipv6 sysctl, and one issue is
+that, at least on the distro I'm testing on (SLES), it's not picked up
+from /etc/sysctl.conf at boot time (presumably because ipv6 isn't loaded
+yet, although I haven't really checked).
+
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
