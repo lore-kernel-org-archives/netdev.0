@@ -1,287 +1,391 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 20/26] RDS: Common RDMA transport code
-Date: Tue, 24 Feb 2009 17:30:37 -0800
-Message-ID: <1235525443-9007-21-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 21/26] RDS: Documentation
+Date: Tue, 24 Feb 2009 17:30:38 -0800
+Message-ID: <1235525443-9007-22-git-send-email-andy.grover@oracle.com>
 References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
 Cc: rds-devel@oss.oracle.com, general@lists.openfabrics.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:59705 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755832AbZBYBbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 20:31:35 -0500
+Received: from rcsinet12.oracle.com ([148.87.113.124]:49056 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752731AbZBYBbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2009 20:31:37 -0500
 In-Reply-To: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although most of IB and iWARP are separated from each other,
-there is some common code required to handle their shared
-CM listen port. This code listens for CM events and then
-dispatches the event to the appropriate transport, either
-IB or iWARP.
+This file documents the specifics of the RDS sockets API,
+as well as covering some of the details of its internal
+implementation.
 
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- net/rds/rdma_transport.c |  214 ++++++++++++++++++++++++++++++++++++++++++++++
- net/rds/rdma_transport.h |   28 ++++++
- 2 files changed, 242 insertions(+), 0 deletions(-)
- create mode 100644 net/rds/rdma_transport.c
- create mode 100644 net/rds/rdma_transport.h
+ Documentation/networking/rds.txt |  356 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 356 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/rds.txt
 
-diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
+diff --git a/Documentation/networking/rds.txt b/Documentation/networking/rds.txt
 new file mode 100644
-index 0000000..7b19024
+index 0000000..c67077c
 --- /dev/null
-+++ b/net/rds/rdma_transport.c
-@@ -0,0 +1,214 @@
-+/*
-+ * Copyright (c) 2009 Oracle.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+#include <rdma/rdma_cm.h>
++++ b/Documentation/networking/rds.txt
+@@ -0,0 +1,356 @@
 +
-+#include "rdma_transport.h"
++Overview
++========
 +
-+static struct rdma_cm_id *rds_iw_listen_id;
++This readme tries to provide some background on the hows and whys of RDS,
++and will hopefully help you find your way around the code.
 +
-+int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
-+			      struct rdma_cm_event *event)
-+{
-+	/* this can be null in the listening path */
-+	struct rds_connection *conn = cm_id->context;
-+	struct rds_transport *trans;
-+	int ret = 0;
++In addition, please see this email about RDS origins:
++http://oss.oracle.com/pipermail/rds-devel/2007-November/000228.html
 +
-+	rdsdebug("conn %p id %p handling event %u\n", conn, cm_id,
-+		 event->event);
++RDS Architecture
++================
 +
-+	if (cm_id->device->node_type == RDMA_NODE_RNIC)
-+		trans = &rds_iw_transport;
-+	else
-+		trans = &rds_ib_transport;
++RDS provides reliable, ordered datagram delivery by using a single
++reliable connection between any two nodes in the cluster. This allows
++applications to use a single socket to talk to any other process in the
++cluster - so in a cluster with N processes you need N sockets, in contrast
++to N*N if you use a connection-oriented socket transport like TCP.
 +
-+	/* Prevent shutdown from tearing down the connection
-+	 * while we're executing. */
-+	if (conn) {
-+		mutex_lock(&conn->c_cm_lock);
++RDS is not Infiniband-specific; it was designed to support different
++transports.  The current implementation used to support RDS over TCP as well
++as IB. Work is in progress to support RDS over iWARP, and using DCE to
++guarantee no dropped packets on Ethernet, it may be possible to use RDS over
++UDP in the future.
 +
-+		/* If the connection is being shut down, bail out
-+		 * right away. We return 0 so cm_id doesn't get
-+		 * destroyed prematurely */
-+		if (rds_conn_state(conn) == RDS_CONN_DISCONNECTING) {
-+			/* Reject incoming connections while we're tearing
-+			 * down an existing one. */
-+			if (event->event == RDMA_CM_EVENT_CONNECT_REQUEST)
-+				ret = 1;
-+			goto out;
-+		}
-+	}
++The high-level semantics of RDS from the application's point of view are
 +
-+	switch (event->event) {
-+	case RDMA_CM_EVENT_CONNECT_REQUEST:
-+		ret = trans->cm_handle_connect(cm_id, event);
-+		break;
++ *	Addressing
++        RDS uses IPv4 addresses and 16bit port numbers to identify
++        the end point of a connection. All socket operations that involve
++        passing addresses between kernel and user space generally
++        use a struct sockaddr_in.
 +
-+	case RDMA_CM_EVENT_ADDR_RESOLVED:
-+		/* XXX do we need to clean up if this fails? */
-+		ret = rdma_resolve_route(cm_id,
-+					 RDS_RDMA_RESOLVE_TIMEOUT_MS);
-+		break;
++        The fact that IPv4 addresses are used does not mean the underlying
++        transport has to be IP-based. In fact, RDS over IB uses a
++        reliable IB connection; the IP address is used exclusively to
++        locate the remote node's GID (by ARPing for the given IP).
 +
-+	case RDMA_CM_EVENT_ROUTE_RESOLVED:
-+		/* XXX worry about racing with listen acceptance */
-+		ret = trans->cm_initiate_connect(cm_id);
-+		break;
++        The port space is entirely independent of UDP, TCP or any other
++        protocol.
 +
-+	case RDMA_CM_EVENT_ESTABLISHED:
-+		trans->cm_connect_complete(conn, event);
-+		break;
++ *	Socket interface
++        RDS sockets work *mostly* as you would expect from a BSD
++        socket. The next section will cover the details. At any rate,
++        all I/O is performed through the standard BSD socket API.
++        Some additions like zerocopy support are implemented through
++        control messages, while other extensions use the getsockopt/
++        setsockopt calls.
 +
-+	case RDMA_CM_EVENT_ADDR_ERROR:
-+	case RDMA_CM_EVENT_ROUTE_ERROR:
-+	case RDMA_CM_EVENT_CONNECT_ERROR:
-+	case RDMA_CM_EVENT_UNREACHABLE:
-+	case RDMA_CM_EVENT_REJECTED:
-+	case RDMA_CM_EVENT_DEVICE_REMOVAL:
-+	case RDMA_CM_EVENT_ADDR_CHANGE:
-+		if (conn)
-+			rds_conn_drop(conn);
-+		break;
++        Sockets must be bound before you can send or receive data.
++        This is needed because binding also selects a transport and
++        attaches it to the socket. Once bound, the transport assignment
++        does not change. RDS will tolerate IPs moving around (eg in
++        a active-active HA scenario), but only as long as the address
++        doesn't move to a different transport.
 +
-+	case RDMA_CM_EVENT_DISCONNECTED:
-+		printk(KERN_WARNING "RDS/IW: DISCONNECT event - dropping connection "
-+			"%pI4->%pI4\n", &conn->c_laddr,
-+			 &conn->c_faddr);
-+		rds_conn_drop(conn);
-+		break;
++ *	sysctls
++        RDS supports a number of sysctls in /proc/sys/net/rds
 +
-+	default:
-+		/* things like device disconnect? */
-+		printk(KERN_ERR "unknown event %u\n", event->event);
-+		BUG();
-+		break;
-+	}
 +
-+out:
-+	if (conn)
-+		mutex_unlock(&conn->c_cm_lock);
++Socket Interface
++================
 +
-+	rdsdebug("id %p event %u handling ret %d\n", cm_id, event->event, ret);
++  AF_RDS, PF_RDS, SOL_RDS
++        These constants haven't been assigned yet, because RDS isn't in
++        mainline yet. Currently, the kernel module assigns some constant
++        and publishes it to user space through two sysctl files
++                /proc/sys/net/rds/pf_rds
++                /proc/sys/net/rds/sol_rds
 +
-+	return ret;
-+}
++  fd = socket(PF_RDS, SOCK_SEQPACKET, 0);
++        This creates a new, unbound RDS socket.
 +
-+static int __init rds_rdma_listen_init(void)
-+{
-+	struct sockaddr_in sin;
-+	struct rdma_cm_id *cm_id;
-+	int ret;
++  setsockopt(SOL_SOCKET): send and receive buffer size
++        RDS honors the send and receive buffer size socket options.
++        You are not allowed to queue more than SO_SNDSIZE bytes to
++        a socket. A message is queued when sendmsg is called, and
++        it leaves the queue when the remote system acknowledges
++        its arrival.
 +
-+	cm_id = rdma_create_id(rds_rdma_cm_event_handler, NULL, RDMA_PS_TCP);
-+	if (IS_ERR(cm_id)) {
-+		ret = PTR_ERR(cm_id);
-+		printk(KERN_ERR "RDS/IW: failed to setup listener, "
-+		       "rdma_create_id() returned %d\n", ret);
-+		goto out;
-+	}
++        The SO_RCVSIZE option controls the maximum receive queue length.
++        This is a soft limit rather than a hard limit - RDS will
++        continue to accept and queue incoming messages, even if that
++        takes the queue length over the limit. However, it will also
++        mark the port as "congested" and send a congestion update to
++        the source node. The source node is supposed to throttle any
++        processes sending to this congested port.
 +
-+	sin.sin_family = PF_INET,
-+	sin.sin_addr.s_addr = (__force u32)htonl(INADDR_ANY);
-+	sin.sin_port = (__force u16)htons(RDS_PORT);
++  bind(fd, &sockaddr_in, ...)
++        This binds the socket to a local IP address and port, and a
++        transport.
 +
-+	/*
-+	 * XXX I bet this binds the cm_id to a device.  If we want to support
-+	 * fail-over we'll have to take this into consideration.
-+	 */
-+	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&sin);
-+	if (ret) {
-+		printk(KERN_ERR "RDS/IW: failed to setup listener, "
-+		       "rdma_bind_addr() returned %d\n", ret);
-+		goto out;
-+	}
++  sendmsg(fd, ...)
++        Sends a message to the indicated recipient. The kernel will
++        transparently establish the underlying reliable connection
++        if it isn't up yet.
 +
-+	ret = rdma_listen(cm_id, 128);
-+	if (ret) {
-+		printk(KERN_ERR "RDS/IW: failed to setup listener, "
-+		       "rdma_listen() returned %d\n", ret);
-+		goto out;
-+	}
++        An attempt to send a message that exceeds SO_SNDSIZE will
++        return with -EMSGSIZE
 +
-+	rdsdebug("cm %p listening on port %u\n", cm_id, RDS_PORT);
++        An attempt to send a message that would take the total number
++        of queued bytes over the SO_SNDSIZE threshold will return
++        EAGAIN.
 +
-+	rds_iw_listen_id = cm_id;
-+	cm_id = NULL;
-+out:
-+	if (cm_id)
-+		rdma_destroy_id(cm_id);
-+	return ret;
-+}
++        An attempt to send a message to a destination that is marked
++        as "congested" will return ENOBUFS.
 +
-+static void rds_rdma_listen_stop(void)
-+{
-+	if (rds_iw_listen_id) {
-+		rdsdebug("cm %p\n", rds_iw_listen_id);
-+		rdma_destroy_id(rds_iw_listen_id);
-+		rds_iw_listen_id = NULL;
-+	}
-+}
++  recvmsg(fd, ...)
++        Receives a message that was queued to this socket. The sockets
++        recv queue accounting is adjusted, and if the queue length
++        drops below SO_SNDSIZE, the port is marked uncongested, and
++        a congestion update is sent to all peers.
 +
-+int __init rds_rdma_init(void)
-+{
-+	int ret;
++        Applications can ask the RDS kernel module to receive
++        notifications via control messages (for instance, there is a
++        notification when a congestion update arrived, or when a RDMA
++        operation completes). These notifications are received through
++        the msg.msg_control buffer of struct msghdr. The format of the
++        messages is described in manpages.
 +
-+	ret = rds_rdma_listen_init();
-+	if (ret)
-+		goto out;
++  poll(fd)
++        RDS supports the poll interface to allow the application
++        to implement async I/O.
 +
-+	ret = rds_iw_init();
-+	if (ret)
-+		goto err_iw_init;
++        POLLIN handling is pretty straightforward. When there's an
++        incoming message queued to the socket, or a pending notification,
++        we signal POLLIN.
 +
-+	ret = rds_ib_init();
-+	if (ret)
-+		goto err_ib_init;
++        POLLOUT is a little harder. Since you can essentially send
++        to any destination, RDS will always signal POLLOUT as long as
++        there's room on the send queue (ie the number of bytes queued
++        is less than the sendbuf size).
 +
-+	goto out;
++        However, the kernel will refuse to accept messages to
++        a destination marked congested - in this case you will loop
++        forever if you rely on poll to tell you what to do.
++        This isn't a trivial problem, but applications can deal with
++        this - by using congestion notifications, and by checking for
++        ENOBUFS errors returned by sendmsg.
 +
-+err_ib_init:
-+	rds_iw_exit();
-+err_iw_init:
-+	rds_rdma_listen_stop();
-+out:
-+	return ret;
-+}
++  setsockopt(SOL_RDS, RDS_CANCEL_SENT_TO, &sockaddr_in)
++        This allows the application to discard all messages queued to a
++        specific destination on this particular socket.
 +
-+void rds_rdma_exit(void)
-+{
-+	/* stop listening first to ensure no new connections are attempted */
-+	rds_rdma_listen_stop();
-+	rds_ib_exit();
-+	rds_iw_exit();
-+}
++        This allows the application to cancel outstanding messages if
++        it detects a timeout. For instance, if it tried to send a message,
++        and the remote host is unreachable, RDS will keep trying forever.
++        The application may decide it's not worth it, and cancel the
++        operation. In this case, it would use RDS_CANCEL_SENT_TO to
++        nuke any pending messages.
 +
-diff --git a/net/rds/rdma_transport.h b/net/rds/rdma_transport.h
-new file mode 100644
-index 0000000..2f2c7d9
---- /dev/null
-+++ b/net/rds/rdma_transport.h
-@@ -0,0 +1,28 @@
-+#ifndef _RDMA_TRANSPORT_H
-+#define _RDMA_TRANSPORT_H
 +
-+#include <rdma/ib_verbs.h>
-+#include <rdma/rdma_cm.h>
-+#include "rds.h"
++RDMA for RDS
++============
 +
-+#define RDS_RDMA_RESOLVE_TIMEOUT_MS     5000
++  see rds-rdma(7) manpage (available in rds-tools)
 +
-+int rds_rdma_conn_connect(struct rds_connection *conn);
-+int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
-+			      struct rdma_cm_event *event);
 +
-+/* from rdma_transport.c */
-+int rds_rdma_init(void);
-+void rds_rdma_exit(void);
++Congestion Notifications
++========================
 +
-+/* from ib.c */
-+extern struct rds_transport rds_ib_transport;
-+int rds_ib_init(void);
-+void rds_ib_exit(void);
++  see rds(7) manpage
 +
-+/* from iw.c */
-+extern struct rds_transport rds_iw_transport;
-+int rds_iw_init(void);
-+void rds_iw_exit(void);
 +
-+#endif
++RDS Protocol
++============
++
++  Message header
++
++    The message header is a 'struct rds_header' (see rds.h):
++    Fields:
++      h_sequence:
++          per-packet sequence number
++      h_ack:
++          piggybacked acknowledgment of last packet received
++      h_len:
++          length of data, not including header
++      h_sport:
++          source port
++      h_dport:
++          destination port
++      h_flags:
++          CONG_BITMAP - this is a congestion update bitmap
++          ACK_REQUIRED - receiver must ack this packet
++          RETRANSMITTED - packet has previously been sent
++      h_credit:
++          indicate to other end of connection that
++          it has more credits available (i.e. there is
++          more send room)
++      h_padding[4]:
++          unused, for future use
++      h_csum:
++          header checksum
++      h_exthdr:
++          optional data can be passed here. This is currently used for
++          passing RDMA-related information.
++
++  ACK and retransmit handling
++
++      One might think that with reliable IB connections you wouldn't need
++      to ack messages that have been received.  The problem is that IB
++      hardware generates an ack message before it has DMAed the message
++      into memory.  This creates a potential message loss if the HCA is
++      disabled for any reason between when it sends the ack and before
++      the message is DMAed and processed.  This is only a potential issue
++      if another HCA is available for fail-over.
++
++      Sending an ack immediately would allow the sender to free the sent
++      message from their send queue quickly, but could cause excessive
++      traffic to be used for acks. RDS piggybacks acks on sent data
++      packets.  Ack-only packets are reduced by only allowing one to be
++      in flight at a time, and by the sender only asking for acks when
++      its send buffers start to fill up. All retransmissions are also
++      acked.
++
++  Flow Control
++
++      RDS's IB transport uses a credit-based mechanism to verify that
++      there is space in the peer's receive buffers for more data. This
++      eliminates the need for hardware retries on the connection.
++
++  Congestion
++
++      Messages waiting in the receive queue on the receiving socket
++      are accounted against the sockets SO_RCVBUF option value.  Only
++      the payload bytes in the message are accounted for.  If the
++      number of bytes queued equals or exceeds rcvbuf then the socket
++      is congested.  All sends attempted to this socket's address
++      should return block or return -EWOULDBLOCK.
++
++      Applications are expected to be reasonably tuned such that this
++      situation very rarely occurs.  An application encountering this
++      "back-pressure" is considered a bug.
++
++      This is implemented by having each node maintain bitmaps which
++      indicate which ports on bound addresses are congested.  As the
++      bitmap changes it is sent through all the connections which
++      terminate in the local address of the bitmap which changed.
++
++      The bitmaps are allocated as connections are brought up.  This
++      avoids allocation in the interrupt handling path which queues
++      sages on sockets.  The dense bitmaps let transports send the
++      entire bitmap on any bitmap change reasonably efficiently.  This
++      is much easier to implement than some finer-grained
++      communication of per-port congestion.  The sender does a very
++      inexpensive bit test to test if the port it's about to send to
++      is congested or not.
++
++
++RDS Transport Layer
++==================
++
++  As mentioned above, RDS is not IB-specific. Its code is divided
++  into a general RDS layer and a transport layer.
++
++  The general layer handles the socket API, congestion handling,
++  loopback, stats, usermem pinning, and the connection state machine.
++
++  The transport layer handles the details of the transport. The IB
++  transport, for example, handles all the queue pairs, work requests,
++  CM event handlers, and other Infiniband details.
++
++
++RDS Kernel Structures
++=====================
++
++  struct rds_message
++    aka possibly "rds_outgoing", the generic RDS layer copies data to
++    be sent and sets header fields as needed, based on the socket API.
++    This is then queued for the individual connection and sent by the
++    connection's transport.
++  struct rds_incoming
++    a generic struct referring to incoming data that can be handed from
++    the transport to the general code and queued by the general code
++    while the socket is awoken. It is then passed back to the transport
++    code to handle the actual copy-to-user.
++  struct rds_socket
++    per-socket information
++  struct rds_connection
++    per-connection information
++  struct rds_transport
++    pointers to transport-specific functions
++  struct rds_statistics
++    non-transport-specific statistics
++  struct rds_cong_map
++    wraps the raw congestion bitmap, contains rbnode, waitq, etc.
++
++Connection management
++=====================
++
++  Connections may be in UP, DOWN, CONNECTING, DISCONNECTING, and
++  ERROR states.
++
++  The first time an attempt is made by an RDS socket to send data to
++  a node, a connection is allocated and connected. That connection is
++  then maintained forever -- if there are transport errors, the
++  connection will be dropped and re-established.
++
++  Dropping a connection while packets are queued will cause queued or
++  partially-sent datagrams to be retransmitted when the connection is
++  re-established.
++
++
++The send path
++=============
++
++  rds_sendmsg()
++    struct rds_message built from incoming data
++    CMSGs parsed (e.g. RDMA ops)
++    transport connection alloced and connected if not already
++    rds_message placed on send queue
++    send worker awoken
++  rds_send_worker()
++    calls rds_send_xmit() until queue is empty
++  rds_send_xmit()
++    transmits congestion map if one is pending
++    may set ACK_REQUIRED
++    calls transport to send either non-RDMA or RDMA message
++    (RDMA ops never retransmitted)
++  rds_ib_xmit()
++    allocs work requests from send ring
++    adds any new send credits available to peer (h_credits)
++    maps the rds_message's sg list
++    piggybacks ack
++    populates work requests
++    post send to connection's queue pair
++
++The recv path
++=============
++
++  rds_ib_recv_cq_comp_handler()
++    looks at write completions
++    unmaps recv buffer from device
++    no errors, call rds_ib_process_recv()
++    refill recv ring
++  rds_ib_process_recv()
++    validate header checksum
++    copy header to rds_ib_incoming struct if start of a new datagram
++    add to ibinc's fraglist
++    if competed datagram:
++      update cong map if datagram was cong update
++      call rds_recv_incoming() otherwise
++      note if ack is required
++  rds_recv_incoming()
++    drop duplicate packets
++    respond to pings
++    find the sock associated with this datagram
++    add to sock queue
++    wake up sock
++    do some congestion calculations
++  rds_recvmsg
++    copy data into user iovec
++    handle CMSGs
++    return to application
++
++
 -- 
 1.5.6.3
 
