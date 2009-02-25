@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bonding: move IPv6 support into a separate kernel
- module
-Date: Wed, 25 Feb 2009 14:14:30 -0800 (PST)
-Message-ID: <20090225.141430.166906161.davem@davemloft.net>
-References: <49A5ADB3.2010709@hp.com>
-	<28797.1235599858@death.nxdomain.ibm.com>
+From: Hannes Eder <hannes@hanneseder.net>
+Subject: [PATCH 0/5] drivers/isdn: fix sparse warnings
+Date: Thu, 26 Feb 2009 00:08:20 +0100
+Message-ID: <20090225230737.5377.31370.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, arvidjaar@mail.ru, vladislav.yasevich@hp.com,
-	chuck.lever@oracle.com, tytso@mit.edu, Valdis.Kletnieks@vt.edu,
-	rjw@sisk.pl, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
-	linux-kernel@vger.kernel.org
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34697
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759718AbZBYWOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 17:14:46 -0500
-In-Reply-To: <28797.1235599858@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761559AbZBYXIp@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Wed, 25 Feb 2009 14:10:58 -0800
+The following series fixes some sparse warnings in drivers/isdn.
 
-> 	I've been fooling with the disable_ipv6 sysctl, and one issue is
-> that, at least on the distro I'm testing on (SLES), it's not picked up
-> from /etc/sysctl.conf at boot time (presumably because ipv6 isn't loaded
-> yet, although I haven't really checked).
+---
 
-Correct, that's the problem.
+Hannes Eder (5):
+      drivers/isdn/hardware/eicon: fix sparse warnings: Should it be static?
+      drivers/isdn/hardware/icon: fix sparse warning: cast truncates bits
+      drivers/isdn/hisax: fix sparse warning: Should it be static?
+      drivers/isdn/act2000: fix sparse warning: symbol shadows an earlier one
+      drivers/isdn/capi: fix sparse warning: context imbalance
 
-We could create a blocker bitmap.  Two sysctls, "block_af" and
-"unblock_af".  You write the AF_foo value for the protocol there and
-it sets or clears the assosciated bit in the internal blocker bitmap.
 
-Things like sys_socket() et al. key off of this.
+ drivers/isdn/act2000/act2000_isa.c    |    6 +--
+ drivers/isdn/capi/kcapi_proc.c        |    2 +
+ drivers/isdn/hardware/eicon/debug.c   |    2 -
+ drivers/isdn/hardware/eicon/message.c |   70 ++++++++++++++++++++++-----------
+ drivers/isdn/hisax/callc.c            |    1 
+ drivers/isdn/hisax/config.c           |    6 ---
+ drivers/isdn/hisax/hfcscard.c         |    2 -
+ drivers/isdn/hisax/hisax.h            |    9 ++++
+ drivers/isdn/hisax/isdnl1.c           |    4 +-
+ drivers/isdn/hisax/sedlbauer.c        |    2 -
+ drivers/isdn/hisax/teles0.c           |    2 -
+ drivers/isdn/hisax/teles3.c           |    1 
+ 12 files changed, 63 insertions(+), 44 deletions(-)
