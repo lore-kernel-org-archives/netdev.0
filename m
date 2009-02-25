@@ -1,103 +1,46 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: [RFC v1] hand off skb list to other cpu to submit to upper
-	layer
-Date: Wed, 25 Feb 2009 15:20:23 +0800
-Message-ID: <1235546423.2604.556.camel@ymzhang>
-References: <20090225063656.GA32635@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 23/26] RDS: Add AF and PF #defines for RDS
+	sockets
+Date: Tue, 24 Feb 2009 23:26:48 -0800 (PST)
+Message-ID: <20090224.232648.84203571.davem@davemloft.net>
+References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
+	<1235525443-9007-24-git-send-email-andy.grover@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:43362 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751767AbZBYHUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 02:20:44 -0500
-In-Reply-To: <20090225063656.GA32635@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: andy.grover@oracle.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1235525443-9007-24-git-send-email-andy.grover@oracle.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-02-25 at 14:36 +0800, Herbert Xu wrote:
-> Zhang, Yanmin <yanmin_zhang@linux.intel.com> wrote:
-> > =EF=BB=BFSubject: hand off skb list to other cpu to submit to upper=
- layer
-> > From: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
-> >=20
-> > Recently, I am investigating an ip_forward performance issue with 1=
-0G IXGBE NIC.
-> > I start the testing on 2 machines. Every machine has 2 10G NICs. Th=
-e 1st one seconds
-> > packets by pktgen. The 2nd receives the packets from one NIC and fo=
-rwards them out
-> > from the 2nd NIC. As NICs supports multi-queue, I bind the queues t=
-o different logical
-> > cpu of different physical cpu while considering cache sharing caref=
-ully.
-> >=20
-> > Comparing with sending speed on the 1st machine, the forward speed =
-is not good, only
-> > about 60% of sending speed. As a matter of fact, IXGBE driver start=
-s NAPI when interrupt
-> > arrives. When ip_forward=3D1, receiver collects a packet and forwar=
-ds it out immediately.
-> > So although IXGBE collects packets with NAPI, the forwarding really=
- has much impact on
-> > collection. As IXGBE runs very fast, it drops packets quickly. The =
-better way for
-> > receiving cpu is doing nothing than just collecting packets.
->=20
-Thanks for your comments.
+From: Andy Grover <andy.grover@oracle.com>
+Date: Tue, 24 Feb 2009 17:30:40 -0800
 
-> This doesn't make sense.  With multiqueue RX, every core should be
-> working to receive its fraction of the traffic and forwarding them
-> out.
-I never say the core can't receive and forward packets at the same time=
-=2E
-I mean the performance isn't good.
+> @@ -191,7 +191,8 @@ struct ucred {
+>  #define AF_RXRPC	33	/* RxRPC sockets 		*/
+>  #define AF_ISDN		34	/* mISDN sockets 		*/
+>  #define AF_PHONET	35	/* Phonet sockets		*/
+> -#define AF_MAX		36	/* For now.. */
+> +#define AF_RDS		36	/* RDS sockets 			*/
+> +#define AF_MAX		37	/* For now.. */
+>  
+>  /* Protocol families, same as address families. */
+>  #define PF_UNSPEC	AF_UNSPEC
 
->   So you shouldn't have any idle cores to begin with.  The fact
-> that you do means that multiqueue RX hasn't maximised its utility,
-> so you should tackle that instead of trying redirect traffic away
-> from the cores that are receiving.
->From Stephen's explanation, =EF=BB=BFthe packets are being sent with d=
-ifferent SRC/DST address
-pairs by which harware delivers packets to different queues. we couldn'=
-t expect
-NIC always puts packets into queues evenly.
+Pick an unused number, you don't have to increment AF_MAX
+to allocate a value.
 
-The behavior is IXGBE is very fast and cpu couldn't collect packets in =
-time if it
-collects packets and forwards them at the same time. That causes IXGBE =
-drops packets.
-
->=20
-> Of course for NICs that don't support multiqueue RX, or where the
-> number of RX queues is less than the number of cores, then a scheme
-> like yours may be useful.
-IXGBE NIC does support a large number of RX queues. By default, it crea=
-tes
-CPU_NUM queues. But the performance is not good when we bind queues to
-cpu evenly. One reason is cache miss/ping-pong. The forwarder machine h=
-as
-2 physical cpu and every cpu has 8 logical threads. All 8 logical cpu s=
-hare
-the last level cache. With my ip_forward testing by pktgen, binding que=
-ues
-to 8 logical cpu of a physical cpu could have 40% improvement than bind=
-ing
-queues to 16 logical cpu. So the optimization scenario just needs IXGBE=
- drivers
-create 8 queues.
-
-If the machines might have a couple of NICs and every NIC has CPU_NUM q=
-ueues,
-binding them evenly might cause more cache-miss/ping-pong. I didn't tes=
-t
-multiple receiving NICs scenario as I couldn't get enough hardware.
-
-Yanmin
-
-
+And I don't want to hear any whining about how you've
+used this value of 36 internally for a long time or
+anything like that.
