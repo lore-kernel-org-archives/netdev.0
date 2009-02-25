@@ -1,44 +1,52 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 0/8] net: fix (sparse) warnings
-Date: Wed, 25 Feb 2009 21:31:10 +0100
-Message-ID: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 7/8] inet fragments: fix sparse warning: context imbalance
+Date: Wed, 25 Feb 2009 21:32:52 +0100
+Message-ID: <20090225203247.6251.30496.stgit@vmbox.hanneseder.net>
+References: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.186]:23314 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867AbZBYUbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 15:31:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760498AbZBYUd0@vger.kernel.org>
+In-Reply-To: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The following series fixes some (sparse) warnings in net/.
+Impact: Attribute function with __releases(...)
 
+Fix this sparse warning:
+  net/ipv4/inet_fragment.c:276:35: warning: context imbalance in 'inet_frag_find' - unexpected unlock
+
+Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
+ include/net/inet_frag.h  |    3 ++-
+ net/ipv4/inet_fragment.c |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-Hannes Eder (8):
-      wanrouter: fix sparse warnings: context imbalance
-      inet fragments: fix sparse warning: context imbalance
-      decnet: fix sparse warnings: symbol shadows an earlier one
-      decnet: fix sparse warnings: context imbalance
-      [NET] sysctl: fix sparse warning: Should it be static?
-      appletalk: fix warning: format not a string literal and no ...
-      9p: fix sparse warning: cast adds address space
-      net/802: fix sparse warnings: context imbalance
-
-
- include/net/inet_frag.h        |    3 ++-
- net/802/tr.c                   |    2 ++
- net/9p/trans_fd.c              |    2 +-
- net/appletalk/ddp.c            |    2 +-
- net/core/sysctl_net_core.c     |    1 +
- net/decnet/af_decnet.c         |   17 +++++++++--------
- net/decnet/dn_dev.c            |    3 ++-
- net/decnet/sysctl_net_decnet.c |    2 +-
- net/ipv4/inet_fragment.c       |    1 +
- net/wanrouter/wanmain.c        |    8 ++++++--
- net/wanrouter/wanproc.c        |    2 ++
- 11 files changed, 28 insertions(+), 15 deletions(-)
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index e081eef..39f2dc9 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -61,7 +61,8 @@ void inet_frag_destroy(struct inet_frag_queue *q,
+ 				struct inet_frags *f, int *work);
+ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f);
+ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+-		struct inet_frags *f, void *key, unsigned int hash);
++		struct inet_frags *f, void *key, unsigned int hash)
++	__releases(&f->lock);
+ 
+ static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
+ {
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 6c52e08..eaf3e2c 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -267,6 +267,7 @@ static struct inet_frag_queue *inet_frag_create(struct netns_frags *nf,
+ 
+ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 		struct inet_frags *f, void *key, unsigned int hash)
++	__releases(&f->lock)
+ {
+ 	struct inet_frag_queue *q;
+ 	struct hlist_node *n;
