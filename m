@@ -1,52 +1,38 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 7/8] inet fragments: fix sparse warning: context imbalance
-Date: Wed, 25 Feb 2009 21:32:52 +0100
-Message-ID: <20090225203247.6251.30496.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 2/8] 9p: fix sparse warning: cast adds address space
+Date: Wed, 25 Feb 2009 21:31:37 +0100
+Message-ID: <20090225203132.6251.63332.stgit@vmbox.hanneseder.net>
 References: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760498AbZBYUd0@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759821AbZBYUcE@vger.kernel.org>
 In-Reply-To: <20090225203012.6251.32002.stgit@vmbox.hanneseder.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Impact: Attribute function with __releases(...)
+Impact: Trust in the comment and add '__force' to the cast.
 
 Fix this sparse warning:
-  net/ipv4/inet_fragment.c:276:35: warning: context imbalance in 'inet_frag_find' - unexpected unlock
+  net/9p/trans_fd.c:420:34: warning: cast adds address space to expression (<asn:1>)
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- include/net/inet_frag.h  |    3 ++-
- net/ipv4/inet_fragment.c |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ net/9p/trans_fd.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index e081eef..39f2dc9 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -61,7 +61,8 @@ void inet_frag_destroy(struct inet_frag_queue *q,
- 				struct inet_frags *f, int *work);
- int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f);
- struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
--		struct inet_frags *f, void *key, unsigned int hash);
-+		struct inet_frags *f, void *key, unsigned int hash)
-+	__releases(&f->lock);
+diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+index 1df0356..c613ed0 100644
+--- a/net/9p/trans_fd.c
++++ b/net/9p/trans_fd.c
+@@ -417,7 +417,7 @@ static int p9_fd_write(struct p9_client *client, void *v, int len)
+ 	oldfs = get_fs();
+ 	set_fs(get_ds());
+ 	/* The cast to a user pointer is valid due to the set_fs() */
+-	ret = vfs_write(ts->wr, (void __user *)v, len, &ts->wr->f_pos);
++	ret = vfs_write(ts->wr, (__force void __user *)v, len, &ts->wr->f_pos);
+ 	set_fs(oldfs);
  
- static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f)
- {
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 6c52e08..eaf3e2c 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -267,6 +267,7 @@ static struct inet_frag_queue *inet_frag_create(struct netns_frags *nf,
- 
- struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 		struct inet_frags *f, void *key, unsigned int hash)
-+	__releases(&f->lock)
- {
- 	struct inet_frag_queue *q;
- 	struct hlist_node *n;
+ 	if (ret <= 0 && ret != -ERESTARTSYS && ret != -EAGAIN)
