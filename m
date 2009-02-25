@@ -1,67 +1,75 @@
-From: Jan Yenya Kasprzak <kas@fi.muni.cz>
-Subject: Re: [PATCH] wan: remove some pointless conditionals before kfree_skb()
-Date: Wed, 25 Feb 2009 16:42:09 +0100
-Message-ID: <20090225154202.GX10622@fi.muni.cz>
-References: <49A51BF1.2030503@cn.fujitsu.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [Powerpc / eHEA] Circular dependency with 2.6.29-rc6
+Date: Wed, 25 Feb 2009 16:50:13 +0100
+Message-ID: <1235577013.4645.3548.camel@laptop>
+References: <49A26290.60607@in.ibm.com>  <49A55E54.4080304@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.ics.muni.cz ([147.251.4.40]:48388 "EHLO minas.ics.muni.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760105AbZBYPmi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 10:42:38 -0500
-Content-Disposition: inline
-In-Reply-To: <49A51BF1.2030503@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: TKLEIN@de.ibm.com, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Mel Gorman <mel@csn.ul.ie>, netdev <netdev@vger.kernel.org>,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
+	linuxppc-dev@ozlabs.org, Ingo Molnar <mingo@elte.hu>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <49A55E54.4080304@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Wei Yongjun wrote:
-: Remove some pointless conditionals before kfree_skb().
-:=20
-: Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+On Wed, 2009-02-25 at 16:05 +0100, Jan-Bernd Themann wrote:
 
-Acked-by: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
+> - When "open" is called for a registered network device, port->port_lock
+> is taken first,
+>   then ehea_fw_handles.lock
+> - When "open" is left these locks are released in a proper way (inverse
+> order)
 
-Thanks,
+So this has:
 
--Yenya
+  port->port_lock
+    ehea_fw_handles.lock
 
-: ---
-:  drivers/net/wan/cosa.c |    3 +--
-:  1 files changed, 1 insertions(+), 2 deletions(-)
-:=20
-: diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-: index 0d7ba11..d276d72 100644
-: --- a/drivers/net/wan/cosa.c
-: +++ b/drivers/net/wan/cosa.c
-: @@ -731,8 +731,7 @@ static char *cosa_net_setup_rx(struct channel_dat=
-a *chan, int size)
-:  	 * We can safely fall back to non-dma-able memory, because we have
-:  	 * the cosa->bouncebuf pre-allocated.
-:  	 */
-: -	if (chan->rx_skb)
-: -		kfree_skb(chan->rx_skb);
-: +	kfree_skb(chan->rx_skb);
-:  	chan->rx_skb =3D dev_alloc_skb(size);
-:  	if (chan->rx_skb =3D=3D NULL) {
-:  		printk(KERN_NOTICE "%s: Memory squeeze, dropping packet\n",
-: --=20
-: 1.5.3.8
-:=20
-:=20
-:=20
+This would be the case that is generating the warning.
 
---=20
-| Jan "Yenya" Kasprzak  <kas at {fi.muni.cz - work | yenya.net - privat=
-e}> |
-| GPG: ID 1024/D3498839      Fingerprint 0D99A7FB206605D7 8B35FCDE05B18=
-A5E |
-| http://www.fi.muni.cz/~kas/    Journal: http://www.fi.muni.cz/~kas/bl=
-og/ |
->>  If you find yourself arguing with Alan Cox, you=E2=80=99re _probabl=
-y_ wrong.  <<
->>     --James Morris in "How and Why You Should Become a Kernel Hacker=
-"  <<
+> - In addition: ehea_fw_handles.lock is held by the function
+> "driver_probe_device"
+>   that registers all available network devices (register_netdev)
+> - When multiple network devices are registered, it is possible that
+> "open" is
+>   called on an already registered network device while further
+> netdevices are still registered
+>   in "driver_probe_device". ---> "open" will take port->port_lock, but
+> won't get ehea_fw_handles.lock
+
+Right, so here you have 
+
+  ehea_fw_handles.lock
+    port->port_lock
+
+Overlay these two cases and you have AB-BA deadlocks.
+
+> - However, ehea_fw_handles.lock is freed once all netdevices are registered.
+> - When the second netdevice is registered in "driver_probe_device", it
+> will also try to get
+>   the port->port_lock (which in fact is a different one, as there is one
+> per netdevice).
+> - Does the mutex debug mechanism distinguish between the different
+> port->port_lock instances?
+
+Not unless you tell it to.
+
+Are you really sure the port->port_lock in this AB-BA scenario are never
+the same? The above explanation didn't convince me (also very hard to
+read due to funny wrapping).
+
+Suppose you do an open concurrently with a re-probe, which apparently
+takes port->port_lock's of existing devices, in the above scenario that
+deadlocks.
