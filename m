@@ -1,41 +1,22 @@
-From: Rob Landley <rob@landley.net>
-Subject: Re: Documentation:Update the INDEX of the documents
-Date: Thu, 26 Feb 2009 00:04:11 -0600
-Message-ID: <200902260004.13382.rob@landley.net>
-References: <49A4F06B.6030205@cn.fujitsu.com> <49A5E72C.1080804@cn.fujitsu.com> <20090226023714.GH1363@mit.edu>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
+Date: Wed, 25 Feb 2009 22:06:14 -0800
+Message-ID: <m1bpspka09.fsf@fess.ebiederm.org>
+References: <49A4D5D5.5090602@trash.net>
+	<20090225061902.GA32430@gondor.apana.org.au>
+	<49A4E3F8.4050406@trash.net> <49A4F0D7.20304@trash.net>
+	<20090225084321.GA1101@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Hongyang <yanghy@cn.fujitsu.com>,
-	Yang Hongyang <imhy.yang@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-doc@vger.kernel.org, mtk.manpages@gmail.com,
-	rdunlap@xenotime.net
-To: Theodore Tso <tytso@mit.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:56071
-	"EHLO grelber.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752672AbZBZGEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 01:04:16 -0500
-In-Reply-To: <20090226023714.GH1363@mit.edu>
-Content-Disposition: inline
+Received: from out02.mta.xmission.com ([166.70.13.232]:39569 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752557AbZBZGFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 01:05:44 -0500
+In-Reply-To: <20090225084321.GA1101@gondor.apana.org.au> (Herbert Xu's message of "Wed\, 25 Feb 2009 16\:43\:21 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 25 February 2009 20:37:14 Theodore Tso wrote:
-> On Thu, Feb 26, 2009 at 08:49:48AM +0800, Yang Hongyang wrote:
-> > Yeah ,if we do this one-line summary thing,we still have to go through
-> > all these documents. So why not just update the 00-INDEX and then tell
-> > the authors that will add docs to the kernel do the "00-INDEX work"
-> >  themselves?
->
-> The difference is that if we go through the documents, it's something
-> we do *once*.  And after the convention has been established, in the
-> long term, it should be less work for all concerned.
-
-I envy your optimisim.
-
-Rob
