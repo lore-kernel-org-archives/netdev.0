@@ -1,62 +1,94 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Thu, 26 Feb 2009 11:01:41 -0800
-Message-ID: <m1ab89m38q.fsf@fess.ebiederm.org>
-References: <49A4D5D5.5090602@trash.net>
-	<20090225061902.GA32430@gondor.apana.org.au>
-	<49A4E3F8.4050406@trash.net> <49A4F0D7.20304@trash.net>
-	<20090225084321.GA1101@gondor.apana.org.au>
-	<m163ixk9t2.fsf@fess.ebiederm.org>
-	<20090226062257.GA11511@gondor.apana.org.au>
-	<m14oyhis31.fsf@fess.ebiederm.org> <20090226084924.16cb3e08@nehalam>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH v2] bonding: move IPv6 support into a separate kernel
+ module
+Date: Thu, 26 Feb 2009 14:28:45 -0500
+Message-ID: <49A6ED6D.3090508@hp.com>
+References: <49A5ADB3.2010709@hp.com> <28797.1235599858@death.nxdomain.ibm.com> <20090225.141430.166906161.davem@davemloft.net> <49A6C6ED.3070801@hp.com> <22876.1235672073@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: multipart/mixed;
+ boundary="------------080805060702040309020702"
+Cc: David Miller <davem@davemloft.net>, arvidjaar@mail.ru,
+	vladislav.yasevich@hp.com, chuck.lever@oracle.com, tytso@mit.edu,
+	Valdis.Kletnieks@vt.edu, rjw@sisk.pl, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
+	linux-kernel@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:33575 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757372AbZBZTBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 14:01:12 -0500
-In-Reply-To: <20090226084924.16cb3e08@nehalam> (Stephen Hemminger's message of "Thu\, 26 Feb 2009 08\:49\:24 -0800")
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:7400 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751679AbZBZT2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 14:28:55 -0500
+In-Reply-To: <22876.1235672073@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+This is a multi-part message in MIME format.
+--------------080805060702040309020702
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> What about something like this:
->
-> Subject: [PATCH] Avoid race between network down and sysfs
+Jay Vosburgh wrote:
+>>>> 	I've been fooling with the disable_ipv6 sysctl, and one issue is
+>>>> that, at least on the distro I'm testing on (SLES), it's not picked up
+>>>> from /etc/sysctl.conf at boot time (presumably because ipv6 isn't loaded
+>>>> yet, although I haven't really checked).
+>>> Correct, that's the problem.
+>>>
+>>> We could create a blocker bitmap.  Two sysctls, "block_af" and
+>>> "unblock_af".  You write the AF_foo value for the protocol there and
+>>> it sets or clears the assosciated bit in the internal blocker bitmap.
+>>>
+>>> Things like sys_socket() et al. key off of this.
+>> I'm open to suggestions at this point in time, I just don't see how this
+>> will solve the bonding problem since it still wouldn't load, right?
+> 
+> 	It would permit users to load ipv6 (thus allowing bonding to
+> load), but prevent ipv6 from actually doing anything.  (because
+> sys_socket, e.g., won't open an ipv6 socket if block_af includes ipv6).
 
-As far as solutions go.  That looks like the easiest correct solution.
-So.  
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Right, but it doesn't help someone that changed /etc/modprobe.conf to have 
+"install ipv6 /bin/true" - they'll have to stop doing that.
+
+I think changing ipv6 to support a disable_ipv6 module parameter like Vlad 
+suggested would work, as long as we're not worried about someone opening an 
+AF_INET6 socket - even if they do they won't get anywhere.  That, along with the 
+patch below to actually not add the addresses, would work (sorry in advance for 
+using an attachment).  I'll get started on that...
+
+-Brian
 
 
-Will -ERESTARTSYS trigger the in kernel restart logic in this case?
+--
 
-There are a lot more cases to cover, and I don't I like it long
-term.  Spinning waiting for rtnl_lock feels wrong.  Plus it does
-not help with discovering the problem in new sysfs, sysctl, or
-proc files.
+The disable_ipv6 knob was meant to be used for the kernel to disable IPv6 on an 
+interface when DAD failed for the link-local address based on the MAC, but we 
+should also be able to administratively disable it on an interface, or the 
+entire system.  This patch fixes the per-interface problem.
 
-It has the major advantage that we can fix things now.
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
-> --- a/net/core/net-sysfs.c	2009-02-26 08:36:18.000000000 -0800
-> +++ b/net/core/net-sysfs.c	2009-02-26 08:37:51.000000000 -0800
-> @@ -77,7 +77,9 @@ static ssize_t netdev_store(struct devic
->  	if (endp == buf)
->  		goto err;
->  
-> -	rtnl_lock();
-> +	if (!rtnl_trylock())
-> +		return -ERESTARTSYS;
-> +
->  	if (dev_isalive(net)) {
->  		if ((ret = (*set)(net, new)) == 0)
->  			ret = len;
+--------------080805060702040309020702
+Content-Type: text/x-diff;
+ name="noipv6.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="noipv6.patch"
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f8f76d6..90f2a81 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -603,6 +603,11 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 		goto out2;
+ 	}
+ 
++	if (idev->cnf.disable_ipv6) {
++		err = -EPERM;
++		goto out2;
++	}
++
+ 	write_lock(&addrconf_hash_lock);
+ 
+ 	/* Ignore adding duplicate addresses on an interface */
+
+--------------080805060702040309020702--
