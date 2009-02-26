@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 03/14] tg3: Update ethtool set_settings error checks
-Date: Wed, 25 Feb 2009 16:23:01 -0800
-Message-ID: <1235616369.16001@xw6200>
+Subject: [PATCH 09/14] tg3: Refactor firmware version routines
+Date: Wed, 25 Feb 2009 16:26:33 -0800
+Message-ID: <1235616376.16019@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,114 +9,160 @@ Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
 	"Benjamin Li" <benli@broadcom.com>, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1837 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3026 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753545AbZBZCqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 21:46:20 -0500
+	id S1753918AbZBZCq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 21:46:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool interface has acquired some new enumerations since the
-tg3 driver's tg3_set_settings() error checking code was written.  The
-error checking code is no longer complete.  This patch rewrites the
-error checking so that it is future-proofed.
+This patch reorganizes the firmware version routines in preparation for
+the following patches.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   68 +++++++++++++++++++++++++++++++++++++++--------------
- 1 files changed, 50 insertions(+), 18 deletions(-)
+ drivers/net/tg3.c |   98 +++++++++++++++++++++++++++++-----------------------
+ 1 files changed, 55 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 774a01a..0ea61f7 100644
+index 9453918..2e83755 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -8552,7 +8552,7 @@ static int tg3_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		cmd->duplex = tp->link_config.active_duplex;
- 	}
- 	cmd->phy_address = PHY_ADDR;
--	cmd->transceiver = 0;
-+	cmd->transceiver = XCVR_INTERNAL;
- 	cmd->autoneg = tp->link_config.autoneg;
- 	cmd->maxtxpkt = 0;
- 	cmd->maxrxpkt = 0;
-@@ -8569,26 +8569,58 @@ static int tg3_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		return phy_ethtool_sset(tp->mdio_bus->phy_map[PHY_ADDR], cmd);
- 	}
+@@ -11461,6 +11461,31 @@ static int __devinit tg3_fw_img_is_valid(struct tg3 *tp, u32 offset)
+ 	return 1;
+ }
  
--	if (tp->tg3_flags2 & TG3_FLG2_ANY_SERDES) {
--		/* These are the only valid advertisement bits allowed.  */
--		if (cmd->autoneg == AUTONEG_ENABLE &&
--		    (cmd->advertising & ~(ADVERTISED_1000baseT_Half |
--					  ADVERTISED_1000baseT_Full |
--					  ADVERTISED_Autoneg |
--					  ADVERTISED_FIBRE)))
--			return -EINVAL;
--		/* Fiber can only do SPEED_1000.  */
--		else if ((cmd->autoneg != AUTONEG_ENABLE) &&
--			 (cmd->speed != SPEED_1000))
--			return -EINVAL;
--	/* Copper cannot force SPEED_1000.  */
--	} else if ((cmd->autoneg != AUTONEG_ENABLE) &&
--		   (cmd->speed == SPEED_1000))
-+	if (cmd->autoneg != AUTONEG_ENABLE &&
-+	    cmd->autoneg != AUTONEG_DISABLE)
- 		return -EINVAL;
--	else if ((cmd->speed == SPEED_1000) &&
--		 (tp->tg3_flags & TG3_FLAG_10_100_ONLY))
++static void __devinit tg3_read_bc_ver(struct tg3 *tp)
++{
++	u32 offset, start, ver_offset;
++	int i;
 +
-+	if (cmd->autoneg == AUTONEG_DISABLE &&
-+	    cmd->duplex != DUPLEX_FULL &&
-+	    cmd->duplex != DUPLEX_HALF)
- 		return -EINVAL;
- 
-+	if (cmd->autoneg == AUTONEG_ENABLE) {
-+		u32 mask = ADVERTISED_Autoneg |
-+			   ADVERTISED_Pause |
-+			   ADVERTISED_Asym_Pause;
++	if (tg3_nvram_read(tp, 0xc, &offset) ||
++	    tg3_nvram_read(tp, 0x4, &start))
++		return;
 +
-+		if (!(tp->tg3_flags2 & TG3_FLAG_10_100_ONLY))
-+			mask |= ADVERTISED_1000baseT_Half |
-+				ADVERTISED_1000baseT_Full;
++	offset = tg3_nvram_logical_addr(tp, offset);
 +
-+		if (!(tp->tg3_flags2 & TG3_FLG2_ANY_SERDES))
-+			mask |= ADVERTISED_100baseT_Half |
-+				ADVERTISED_100baseT_Full |
-+				ADVERTISED_10baseT_Half |
-+				ADVERTISED_10baseT_Full |
-+				ADVERTISED_TP;
-+		else
-+			mask |= ADVERTISED_FIBRE;
++	if (!tg3_fw_img_is_valid(tp, offset) ||
++	    tg3_nvram_read(tp, offset + 8, &ver_offset))
++		return;
 +
-+		if (cmd->advertising & ~mask)
-+			return -EINVAL;
++	offset = offset + ver_offset - start;
++	for (i = 0; i < 16; i += 4) {
++		__be32 v;
++		if (tg3_nvram_read_be32(tp, offset + i, &v))
++			return;
 +
-+		mask &= (ADVERTISED_1000baseT_Half |
-+			 ADVERTISED_1000baseT_Full |
-+			 ADVERTISED_100baseT_Half |
-+			 ADVERTISED_100baseT_Full |
-+			 ADVERTISED_10baseT_Half |
-+			 ADVERTISED_10baseT_Full);
-+
-+		cmd->advertising &= mask;
-+	} else {
-+		if (tp->tg3_flags2 & TG3_FLG2_ANY_SERDES) {
-+			if (cmd->speed != SPEED_1000)
-+				return -EINVAL;
-+
-+			if (cmd->duplex != DUPLEX_FULL)
-+				return -EINVAL;
-+		} else {
-+			if (cmd->speed != SPEED_100 &&
-+			    cmd->speed != SPEED_10)
-+				return -EINVAL;
-+		}
++		memcpy(tp->fw_ver + i, &v, sizeof(v));
 +	}
++}
 +
- 	tg3_full_lock(tp, 0);
+ static void __devinit tg3_read_sb_ver(struct tg3 *tp, u32 val)
+ {
+ 	u32 offset, major, minor, build;
+@@ -11506,44 +11531,10 @@ static void __devinit tg3_read_sb_ver(struct tg3 *tp, u32 val)
+ 	}
+ }
  
- 	tp->link_config.autoneg = cmd->autoneg;
+-static void __devinit tg3_read_fw_ver(struct tg3 *tp)
++static void __devinit tg3_read_mgmtfw_ver(struct tg3 *tp)
+ {
+ 	u32 val, offset, start;
+-	u32 ver_offset;
+-	int i, bcnt;
+-
+-	if (tg3_nvram_read(tp, 0, &val))
+-		return;
+-
+-	if (val != TG3_EEPROM_MAGIC) {
+-		if ((val & TG3_EEPROM_MAGIC_FW_MSK) == TG3_EEPROM_MAGIC_FW)
+-			tg3_read_sb_ver(tp, val);
+-
+-		return;
+-	}
+-
+-	if (tg3_nvram_read(tp, 0xc, &offset) ||
+-	    tg3_nvram_read(tp, 0x4, &start))
+-		return;
+-
+-	offset = tg3_nvram_logical_addr(tp, offset);
+-
+-	if (!tg3_fw_img_is_valid(tp, offset) ||
+-	    tg3_nvram_read(tp, offset + 8, &ver_offset))
+-		return;
+-
+-	offset = offset + ver_offset - start;
+-	for (i = 0; i < 16; i += 4) {
+-		__be32 v;
+-		if (tg3_nvram_read_be32(tp, offset + i, &v))
+-			return;
+-
+-		memcpy(tp->fw_ver + i, &v, 4);
+-	}
+-
+-	if (!(tp->tg3_flags & TG3_FLAG_ENABLE_ASF) ||
+-	     (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE))
+-		return;
++	int i, vlen;
+ 
+ 	for (offset = TG3_NVM_DIR_START;
+ 	     offset < TG3_NVM_DIR_END;
+@@ -11570,10 +11561,10 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
+ 
+ 	offset += val - start;
+ 
+-	bcnt = strlen(tp->fw_ver);
++	vlen = strlen(tp->fw_ver);
+ 
+-	tp->fw_ver[bcnt++] = ',';
+-	tp->fw_ver[bcnt++] = ' ';
++	tp->fw_ver[vlen++] = ',';
++	tp->fw_ver[vlen++] = ' ';
+ 
+ 	for (i = 0; i < 4; i++) {
+ 		__be32 v;
+@@ -11582,14 +11573,35 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
+ 
+ 		offset += sizeof(v);
+ 
+-		if (bcnt > TG3_VER_SIZE - sizeof(v)) {
+-			memcpy(&tp->fw_ver[bcnt], &v, TG3_VER_SIZE - bcnt);
++		if (vlen > TG3_VER_SIZE - sizeof(v)) {
++			memcpy(&tp->fw_ver[vlen], &v, TG3_VER_SIZE - vlen);
+ 			break;
+ 		}
+ 
+-		memcpy(&tp->fw_ver[bcnt], &v, sizeof(v));
+-		bcnt += sizeof(v);
++		memcpy(&tp->fw_ver[vlen], &v, sizeof(v));
++		vlen += sizeof(v);
+ 	}
++}
++
++static void __devinit tg3_read_fw_ver(struct tg3 *tp)
++{
++	u32 val;
++
++	if (tg3_nvram_read(tp, 0, &val))
++		return;
++
++	if (val == TG3_EEPROM_MAGIC)
++		tg3_read_bc_ver(tp);
++	else if ((val & TG3_EEPROM_MAGIC_FW_MSK) == TG3_EEPROM_MAGIC_FW)
++		tg3_read_sb_ver(tp, val);
++	else
++		return;
++
++	if (!(tp->tg3_flags & TG3_FLAG_ENABLE_ASF) ||
++	     (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE))
++		return;
++
++	tg3_read_mgmtfw_ver(tp);
+ 
+ 	tp->fw_ver[TG3_VER_SIZE - 1] = 0;
+ }
 -- 
 1.6.0.6
 
