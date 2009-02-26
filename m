@@ -1,54 +1,320 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: Documentation:Update the INDEX of the documents
-Date: Thu, 26 Feb 2009 08:59:43 +0800
-Message-ID: <49A5E97F.3070807@cn.fujitsu.com>
-References: <49A4F06B.6030205@cn.fujitsu.com> <20090225145950.GJ7064@mit.edu> <a669f14b0902250725j4c21463eqc1b88092486f38ad@mail.gmail.com> <20090225155628.GM7064@mit.edu> <49A5E72C.1080804@cn.fujitsu.com> <49A5E7CA.8020905@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Theodore Tso <tytso@mit.edu>, Yang Hongyang <imhy.yang@gmail.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-doc@vger.kernel.org, mtk.manpages@gmail.com
-To: Randy Dunlap <randy.dunlap@oracle.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [patch next] netxen: update copyright
+Date: Wed, 25 Feb 2009 17:57:56 -0800
+Message-ID: <1235613476-28334-1-git-send-email-dhananjay@netxen.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63686 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752642AbZBZA6F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 19:58:05 -0500
-In-Reply-To: <49A5E7CA.8020905@oracle.com>
+Received: from nxgate.netxen.com ([38.99.60.130]:33800 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751435AbZBZB6F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 20:58:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Randy Dunlap wrote:
-> Yang Hongyang wrote:
->> Theodore Tso wrote:
->>> On Wed, Feb 25, 2009 at 11:25:08PM +0800, Yang Hongyang wrote:
->>>>> If folks do find the 00-INDEX files useful, my suggestion would be to
->>>>> make a way of automatically extracting them from the individual files
->>>>> and/or directories, and then making the 00-INDEX files to be
->>>>> automatically generated.
->>>> Sounds like a good idea but How to automatically generate
->>>>  the summaries then?
->>> Well, for text files (including subdirectory's 00-INDEX files) we
->>> could have a convention which is the first line of the file should be
->>> a (max 60 characters) one-line summary of the file.
->>>
->>> We would probably have to do something special with non-free-form-text
->>> files, including structured text files like Docbook files.  So it's
->>> not quite so straightforward, but it should be doable.
->> Yeah,if we do this one-line summary thing,we still have to go through
->> all these documents.So why not just update the 00-INDEX and then tell
->> the authors that will add docs to the kernel do the "00-INDEX work"
->>  themselves?
-> 
-> I doubt that the 00-INDEX files are that useful...
-> 
-> 
+Extend copyright into 2009 and update address.
 
-I think it depends on the individual^_^
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/Makefile              |    9 ++++-----
+ drivers/net/netxen/netxen_nic.h          |    9 +++++----
+ drivers/net/netxen/netxen_nic_ctx.c      |    8 ++++----
+ drivers/net/netxen/netxen_nic_ethtool.c  |   11 ++++-------
+ drivers/net/netxen/netxen_nic_hdr.h      |    9 +++++----
+ drivers/net/netxen/netxen_nic_hw.c       |   11 ++++-------
+ drivers/net/netxen/netxen_nic_hw.h       |   11 ++++-------
+ drivers/net/netxen/netxen_nic_init.c     |   11 ++++-------
+ drivers/net/netxen/netxen_nic_main.c     |   11 ++++-------
+ drivers/net/netxen/netxen_nic_niu.c      |   11 ++++-------
+ drivers/net/netxen/netxen_nic_phan_reg.h |    9 +++++----
+ 11 files changed, 47 insertions(+), 63 deletions(-)
 
+diff --git a/drivers/net/netxen/Makefile b/drivers/net/netxen/Makefile
+index 8e7c4c9..cf01a91 100644
+--- a/drivers/net/netxen/Makefile
++++ b/drivers/net/netxen/Makefile
+@@ -1,4 +1,4 @@
+-# Copyright (C) 2003 - 2006 NetXen, Inc.
++# Copyright (C) 2003 - 2009 NetXen, Inc.
+ # All rights reserved.
+ # 
+ # This program is free software; you can redistribute it and/or
+@@ -21,11 +21,10 @@
+ # 
+ # Contact Information:
+ #    info@netxen.com
+-# NetXen,
+-# 3965 Freedom Circle, Fourth floor,
+-# Santa Clara, CA 95054
++# NetXen Inc,
++# 18922 Forge Drive
++# Cupertino, CA 95014-0701
+ #
+-# Makefile for the NetXen NIC Driver
+ #
+ 
+ 
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index b726182..bbdd8f2 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,9 +22,10 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
++ *
+  */
+ 
+ #ifndef _NETXEN_NIC_H_
+diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
+index 746bdb4..3e43706 100644
+--- a/drivers/net/netxen/netxen_nic_ctx.c
++++ b/drivers/net/netxen/netxen_nic_ctx.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2008 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,9 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index 87803f1..6b25121 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,12 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- *
+- *
+- * ethtool support for netxen nic
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+index 4695246..e589d4b 100644
+--- a/drivers/net/netxen/netxen_nic_hdr.h
++++ b/drivers/net/netxen/netxen_nic_hdr.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,9 +22,10 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
++ *
+  */
+ 
+ #ifndef __NETXEN_NIC_HDR_H_
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index b6b777e..b15246c 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,12 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- *
+- *
+- * Source file for NIC routines to access the Phantom hardware
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_hw.h b/drivers/net/netxen/netxen_nic_hw.h
+index 9dcfb32..9fb5162 100644
+--- a/drivers/net/netxen/netxen_nic_hw.h
++++ b/drivers/net/netxen/netxen_nic_hw.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,12 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- *
+- *
+- * Structures, enums, and macros for the MAC
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 688f880..f323cee 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,12 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- *
+- *
+- * Source file for NIC routines to initialize the Phantom Hardware
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index c2b551f..02f5240 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,12 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- *
+- *
+- *  Main source file for NetXen NIC Driver on Linux
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
+index 3851a67..d852032 100644
+--- a/drivers/net/netxen/netxen_nic_niu.c
++++ b/drivers/net/netxen/netxen_nic_niu.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,12 +22,9 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
+- *
+- *
+- * Provides access to the Network Interface Unit h/w block.
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
+  *
+  */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_phan_reg.h b/drivers/net/netxen/netxen_nic_phan_reg.h
+index b293adc..2a368f2 100644
+--- a/drivers/net/netxen/netxen_nic_phan_reg.h
++++ b/drivers/net/netxen/netxen_nic_phan_reg.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2003 - 2006 NetXen, Inc.
++ * Copyright (C) 2003 - 2009 NetXen, Inc.
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+@@ -22,9 +22,10 @@
+  *
+  * Contact Information:
+  *    info@netxen.com
+- * NetXen,
+- * 3965 Freedom Circle, Fourth floor,
+- * Santa Clara, CA 95054
++ * NetXen Inc,
++ * 18922 Forge Drive
++ * Cupertino, CA 95014-0701
++ *
+  */
+ 
+ #ifndef __NIC_PHAN_REG_H_
 -- 
-Regards
-Yang Hongyang
+1.6.0.2
+
