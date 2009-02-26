@@ -1,38 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] tehuti: Use request_firmware()
-Date: Wed, 25 Feb 2009 21:31:14 -0800 (PST)
-Message-ID: <20090225.213114.227259583.davem@davemloft.net>
-References: <1235324041.2832.45.camel@hashbaz.i.decadent.org.uk>
-	<20090225.000809.74281540.davem@davemloft.net>
-	<1235619983.8683.16.camel@hashbaz.i.decadent.org.uk>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 1/2] veth:  Fix carrier detect
+Date: Wed, 25 Feb 2009 21:47:29 -0800
+Message-ID: <m1ljrtkavi.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, baum@tehutinetworks.net, andy@greyhouse.net
-To: ben@decadent.org.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56791
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751524AbZBZFbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 00:31:31 -0500
-In-Reply-To: <1235619983.8683.16.camel@hashbaz.i.decadent.org.uk>
+Received: from out02.mta.xmission.com ([166.70.13.232]:44689 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751316AbZBZFrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 00:47:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Thu, 26 Feb 2009 03:46:23 +0000
 
-> On Wed, 2009-02-25 at 00:08 -0800, David Miller wrote:
-> > Ben your two patches are HTML damanged, I see "=20" sequences
-> > all over the place.  That could be my mailer, but...
-> 
-> I just tested with both mutt and Evolution, and they use quoted-
-> printable for the body of signed messages (perhaps to avoid the risk of
-> whitespace loss invalidating the signature).  So I suppose I'll have to
-> leave patches unsigned.  Which sucks, frankly.
+The current implementation of carrier detect in veth is broken.
+It reports the link is down until both sides of the veth pair
+are administatively up and then forever after it reports link up.
 
-I don't care about the body, I can work around the commit
-message text, it's just the patch.
+So fix veth so that it only reports link up when both interfaces
+of the pair are administratively up.
 
-Make it a binary attachment, surely mutt and Crapolution let
-you do that?
+Signed-off-by: Eric Biederman <ebiederm@aristanetworks.com>
+---
+ drivers/net/veth.c |   51 +++++++++++----------------------------------------
+ 1 files changed, 11 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 108bbbe..124fe75 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -239,6 +239,16 @@ static int veth_open(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int veth_close(struct net_device *dev)
++{
++	struct veth_priv *priv = netdev_priv(dev);
++
++	netif_carrier_off(dev);
++	netif_carrier_off(priv->peer);
++
++	return 0;
++}
++
+ static int veth_dev_init(struct net_device *dev)
+ {
+ 	struct veth_net_stats *stats;
+@@ -265,6 +275,7 @@ static void veth_dev_free(struct net_device *dev)
+ static const struct net_device_ops veth_netdev_ops = {
+ 	.ndo_init            = veth_dev_init,
+ 	.ndo_open            = veth_open,
++	.ndo_stop            = veth_close,
+ 	.ndo_start_xmit      = veth_xmit,
+ 	.ndo_get_stats       = veth_get_stats,
+ 	.ndo_set_mac_address = eth_mac_addr,
+@@ -280,44 +291,6 @@ static void veth_setup(struct net_device *dev)
+ 	dev->destructor = veth_dev_free;
+ }
+ 
+-static void veth_change_state(struct net_device *dev)
+-{
+-	struct net_device *peer;
+-	struct veth_priv *priv;
+-
+-	priv = netdev_priv(dev);
+-	peer = priv->peer;
+-
+-	if (netif_carrier_ok(peer)) {
+-		if (!netif_carrier_ok(dev))
+-			netif_carrier_on(dev);
+-	} else {
+-		if (netif_carrier_ok(dev))
+-			netif_carrier_off(dev);
+-	}
+-}
+-
+-static int veth_device_event(struct notifier_block *unused,
+-			     unsigned long event, void *ptr)
+-{
+-	struct net_device *dev = ptr;
+-
+-	if (dev->netdev_ops->ndo_open != veth_open)
+-		goto out;
+-
+-	switch (event) {
+-	case NETDEV_CHANGE:
+-		veth_change_state(dev);
+-		break;
+-	}
+-out:
+-	return NOTIFY_DONE;
+-}
+-
+-static struct notifier_block veth_notifier_block __read_mostly = {
+-	.notifier_call	= veth_device_event,
+-};
+-
+ /*
+  * netlink interface
+  */
+@@ -468,14 +441,12 @@ static struct rtnl_link_ops veth_link_ops = {
+ 
+ static __init int veth_init(void)
+ {
+-	register_netdevice_notifier(&veth_notifier_block);
+ 	return rtnl_link_register(&veth_link_ops);
+ }
+ 
+ static __exit void veth_exit(void)
+ {
+ 	rtnl_link_unregister(&veth_link_ops);
+-	unregister_netdevice_notifier(&veth_notifier_block);
+ }
+ 
+ module_init(veth_init);
+-- 
+1.6.1.2.350.g88cc
+
