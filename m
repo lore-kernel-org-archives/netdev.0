@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] I/OAT update
-Date: Thu, 26 Feb 2009 02:48:45 -0800 (PST)
-Message-ID: <20090226.024845.10059946.davem@davemloft.net>
-References: <20090226100327.3615.21419.stgit@linux.site>
-	<9929d2390902260231p72aacdf3j489a8a9e67dbb659@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Kernel problem
+Date: Thu, 26 Feb 2009 10:56:16 +0000
+Message-ID: <20090226105616.GA5754@ff.dom.local>
+References: <20090226093902.GA12753@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maciej.sosnowski@intel.com, dan.j.williams@intel.com,
-	snakebyte@gmx.de, shannon.nelson@intel.com,
-	jeffrey.t.krisher@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Denis Romanenko <ash@sevsky.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57005
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754291AbZBZKtE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:49:04 -0500
-In-Reply-To: <9929d2390902260231p72aacdf3j489a8a9e67dbb659@mail.gmail.com>
+Received: from mail-fx0-f176.google.com ([209.85.220.176]:46308 "EHLO
+	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753595AbZBZK40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:56:26 -0500
+Received: by fxm24 with SMTP id 24so441688fxm.37
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 02:56:23 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20090226093902.GA12753@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 26 Feb 2009 02:31:24 -0800
+On 26-02-2009 10:39, Herbert Xu wrote:
+> Denis Romanenko <ash@sevsky.net> wrote:
+>> I have high loaded router - about 1.2 Gbps
+>>
+>> after reboot on new kernel - 2.6.27.17 i have messages in dmesg
+>>
+>> WARNING: at kernel/softirq.c:136 local_bh_enable+0x36/0xab()
+> 
+> So somebody disabled the IRQs on us, the question is who?
 
-> Dave - FYI, my Acked-by email on this patch series is incorrect.  It
-> should be jeffrey.t.kirsher@intel.com not "krisher".
+netconsole. It's a known issue, btw.
 
-I'm actually not the one who will apply this stuff, so...
+Cheers,
+Jarek P.
