@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gianfar : Do right check on num_txbdfree
-Date: Thu, 26 Feb 2009 02:03:18 -0800 (PST)
-Message-ID: <20090226.020318.50178027.davem@davemloft.net>
-References: <49A6595A.9000405@arvoo.nl>
+From: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Subject: [PATCH 0/7] I/OAT update
+Date: Thu, 26 Feb 2009 11:04:00 +0100
+Message-ID: <20090226100327.3615.21419.stgit@linux.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	afleming@freescale.com
-To: rini@arvoo.nl
+Cc: snakebyte@gmx.de, shannon.nelson@intel.com,
+	jeffrey.t.krisher@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dan.j.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49198
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754912AbZBZKDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:03:51 -0500
-In-Reply-To: <49A6595A.9000405@arvoo.nl>
+Received: from mga01.intel.com ([192.55.52.88]:37824 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753462AbZBZKMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2009 05:12:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rini van Zetten <rini@arvoo.nl>
-Date: Thu, 26 Feb 2009 09:56:58 +0100
+This patch series updates ioatdma driver
+with a couple of fixes and workarounds,
+including copybreak modification,
+plus some cleanup like copyright dates update.
 
-> This patch fixes a wrong check on num_txbdfree. It could lead to
-> num_txbdfree become nagative.  Result was that the gianfar stops
-> sending data.
-> 
-> Signed-off-by: Rini van Zetten <rini at arvoo dot nl
+Maciej Sosnowski (6):
+    I/OAT: add verification for proper APICID_TAG_MAP setting by BIOS
+    I/OAT: do not set DCACTRL_CMPL_WRITE_ENABLE for I/OAT ver.3
+    I/OAT: fail initialization on zero channels detection
+    I/OAT: cancel watchdog before dma remove
+    I/OAT: set tcp_dma_copybreak to 256k for I/OAT ver.3
+    I/OAT: update driver version and copyright dates
 
-Please use rini@arvoo.nl in your signoffs, you cannot
-hide on the inna-net.
+Eric Sesterhenn (1):
+    I/OAT: list usage cleanup
 
-> -	if (nr_frags > priv->num_txbdfree) {
-> +	if ( (nr_frags+1) > priv->num_txbdfree) {
+ drivers/dca/dca-core.c          |    2 -
+ drivers/dma/ioat.c              |    2 -
+ drivers/dma/ioat_dca.c          |   26 ++++++++++++++++++++++++-
+ drivers/dma/ioat_dma.c          |   31 ++++++++++++++++++------------
+ drivers/dma/ioatdma.h           |    8 ++++---
+ drivers/dma/ioatdma_hw.h        |    2 -
+ drivers/dma/ioatdma_registers.h |    2 -
+ 7 files changed, 53 insertions(+), 20 deletions(-)
 
-Please don't put a space between the parens there "( (", like
-that.
+--
+Maciej
