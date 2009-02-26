@@ -1,80 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC] addition of a dropped packet notification service
-Date: Wed, 25 Feb 2009 19:01:17 -0500
-Message-ID: <20090226000117.GA6970@hmsreliant.think-freely.org>
-References: <20090225115419.GA16150@hmsreliant.think-freely.org> <20090225.040130.169376412.davem@davemloft.net> <20090225141841.GD16150@hmsreliant.think-freely.org> <20090225.140701.42567297.davem@davemloft.net>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: Documentation:Update the INDEX of the documents
+Date: Thu, 26 Feb 2009 08:49:48 +0800
+Message-ID: <49A5E72C.1080804@cn.fujitsu.com>
+References: <49A4F06B.6030205@cn.fujitsu.com> <20090225145950.GJ7064@mit.edu> <a669f14b0902250725j4c21463eqc1b88092486f38ad@mail.gmail.com> <20090225155628.GM7064@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, shemminger@vyatta.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Theodore Tso <tytso@mit.edu>, Yang Hongyang <imhy.yang@gmail.com>,
+	Yang Hongyang <yanghy@cn.fujitsu.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57084 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753219AbZBZABc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 19:01:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20090225.140701.42567297.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:64006 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751629AbZBZAsR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 19:48:17 -0500
+In-Reply-To: <20090225155628.GM7064@mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2009 at 02:07:01PM -0800, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Wed, 25 Feb 2009 09:18:41 -0500
+Theodore Tso wrote:
+> On Wed, Feb 25, 2009 at 11:25:08PM +0800, Yang Hongyang wrote:
+>>> If folks do find the 00-INDEX files useful, my suggestion would be to
+>>> make a way of automatically extracting them from the individual files
+>>> and/or directories, and then making the 00-INDEX files to be
+>>> automatically generated.
+>> Sounds like a good idea but How to automatically generate
+>>  the summaries then?
 > 
-> > On Wed, Feb 25, 2009 at 04:01:30AM -0800, David Miller wrote:
-> > > From: Neil Horman <nhorman@tuxdriver.com>
-> > > Date: Wed, 25 Feb 2009 06:54:19 -0500
-> > > 
-> > > And you need the same thing to extract the same information
-> > > if you used tracepoints.
-> >
-> > Well, I think the above implementation can be done with or without
-> > tracepoints.  The mechanism by which we get the drop information is
-> > orthogonal to what we do with it.
-> > 
-> > Thanks for the feedback guys.  I'll start modifying my kernel
-> > changes to reflect this striaght away.  If you'd like to see
-> > something in the interim, let me know and I'll send you what I have.
-> > Currently I've got the user space delivery mechanism working as a
-> > Netlink protocol, and with your above suggestions, I expect to have
-> > the drop capture piece recode and working in the next few weeks.
+> Well, for text files (including subdirectory's 00-INDEX files) we
+> could have a convention which is the first line of the file should be
+> a (max 60 characters) one-line summary of the file.
 > 
-> Don't get me wrong.
+> We would probably have to do something special with non-free-form-text
+> files, including structured text files like Docbook files.  So it's
+> not quite so straightforward, but it should be doable.
+
+Yeah,if we do this one-line summary thing,we still have to go through
+all these documents.So why not just update the 00-INDEX and then tell
+the authors that will add docs to the kernel do the "00-INDEX work"
+ themselves?
+
 > 
-> If tracepoint annotations can be manageable (Herbert's concern), and
-> solve multiple useful problems in practice rather than just
-> theoretically (my concern), then that's what we should use for this
-> kind of stuff.
+>     	     		      	     	       - Ted
 > 
-> I just personally haven't been convinced of that yet.
 > 
 
-Well, I think the manageablity issue is acceptable using multiple tracepoints at
-the various locations where we increment corresponding statistics (either
-visible via /proc/net/[snmp|snmpv6|etc], or another tool, like tc or netstat).
-By wrapping the tracepoints in the macros they are fairly scalable and invisible
-to other coders.
 
-That said, I think marking drops at kfree_skb can also be made manageable, as
-long as the assumption that the set of points in which we free without dropping
-(kfree_skb_clean as you called it) is small.  I'm not 100% sure of that at the
-moment, given that right now it looks like there might be a few hunder places in
-various net drivers that I need to modify a call (but a sed script can handle
-that I think).
-
-In the end, I'm going to guess that the ability to solve multiple useful
-problems will make the kfree solution win out.  I can see alot more potential
-for noting when an skb is freed than just marking a statistic (tracing skbs
-through the kernel for instance).
-
-Now that I've got the netlink delivery working and a userspace app put together
-(it'll be on fedorahosted soon) its pretty easy to play with both solutions.
-I'll post a status update here in a few days letting you know how the kfree
-solution works (I should have some inital thoughts by friday I think).
-
-Thanks again for the thoughts, I owe you a beer at OLS (assuming my paper get
-accepted) :)
-Neil
-
+-- 
+Regards
+Yang Hongyang
