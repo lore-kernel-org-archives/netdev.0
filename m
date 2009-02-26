@@ -1,116 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Thu, 26 Feb 2009 08:55:31 -0800
-Message-ID: <20090226085531.5d124843@nehalam>
-References: <49A4D5D5.5090602@trash.net>
-	<20090225061902.GA32430@gondor.apana.org.au>
-	<49A4E3F8.4050406@trash.net>
-	<49A4F0D7.20304@trash.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [net-next PATCH] igb: remove skb_orphan calls
+Date: Thu, 26 Feb 2009 09:03:39 -0800
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F283B6220@orsmsx501.amr.corp.intel.com>
+References: <20090226104621.10407.46879.stgit@lost.foo-projects.org>
+	 <20090226.041412.18567576.davem@davemloft.net>
+ <9929d2390902260424i5406e2a1r6c4fbdaaca7d9e6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Ohly, Patrick" <patrick.ohly@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41931 "EHLO mail.vyatta.com"
+Received: from mga14.intel.com ([143.182.124.37]:50072 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755612AbZBZQze (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2009 11:55:34 -0500
-In-Reply-To: <49A4F0D7.20304@trash.net>
+	id S1755467AbZBZRDp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2009 12:03:45 -0500
+In-Reply-To: <9929d2390902260424i5406e2a1r6c4fbdaaca7d9e6@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Feb 2009 08:18:47 +0100
-Patrick McHardy <kaber@trash.net> wrote:
-
-> Patrick McHardy wrote:
-> > Herbert Xu wrote:
-> >> On Wed, Feb 25, 2009 at 06:23:33AM +0100, Patrick McHardy wrote:
-> >>> An easy fix would be to keep track of whether sysctl unregistration
-> >>> is in progress in IPv4/IPv6 and ignore new requests from that point
-> >>> on. Its not very elegant though, so I was wondering whether anyone
-> >>> has a better suggestion.
-> >>
-> >> We could make the unregistration asynchronous and invoke a callback
-> >> when it's done.  Then we can simply hold a net_device refcount and
-> >> relinquish it in the callback
-> > 
-> > That sounds simple enough. I'll see if I can come up with a patch, thanks.
-> 
-> Unfortunately its more complicated than I thought because of
-> device renames, where the sysctl pointer is reused after
-> unregistration and the rename/unregistration/re-registration
-> should be atomic. Deferring unregistration means we can't perform
-> the new registration immediately unless we allow multiple
-> registrations for a single device to be active simulaneously,
-> which introduces a whole new set of problems.
-> 
-> Simply ignoring the request during unregistration doesn't seem
-> so bad after all, the main problem is that it intoduces a different
-> race on renames where a write to the "forwarding" file returns
-> success, but the change doesn't take effect. We could return
-> -ENOENT, but that seems a bit strange after open() returned success.
-> Maybe -EBUSY, although I would prefer to make this transparent
-> to userspace.
-> 
-> Another alternative would be to simply not take the RTNL in
-> the sysctl handler since we're already taking dev_base_lock
-> before performing any forwaring changes. But in case of IPv4
-> we need it for disabling LRO.
-> 
-> I think I'm stuck. Will rethink it after some coffee :)
-
-Will the following help? It punts the problem back out to VFS which
-will restart.
-
---- a/net/ipv6/addrconf.c	2009-02-26 08:51:09.000000000 -0800
-+++ b/net/ipv6/addrconf.c	2009-02-26 08:54:08.000000000 -0800
-@@ -493,15 +493,17 @@ static void addrconf_forward_change(stru
- 	read_unlock(&dev_base_lock);
- }
- 
--static void addrconf_fixup_forwarding(struct ctl_table *table, int *p, int old)
-+static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int old)
- {
- 	struct net *net;
- 
- 	net = (struct net *)table->extra2;
- 	if (p == &net->ipv6.devconf_dflt->forwarding)
--		return;
-+		return 0;
-+
-+	if (!rtnl_trylock())
-+		return -ERESTARTSYS;
- 
--	rtnl_lock();
- 	if (p == &net->ipv6.devconf_all->forwarding) {
- 		__s32 newf = net->ipv6.devconf_all->forwarding;
- 		net->ipv6.devconf_dflt->forwarding = newf;
-@@ -512,6 +514,7 @@ static void addrconf_fixup_forwarding(st
- 
- 	if (*p)
- 		rt6_purge_dflt_routers(net);
-+	return 1;
- }
- #endif
- 
-@@ -3977,7 +3980,7 @@ int addrconf_sysctl_forward(ctl_table *c
- 	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
- 
- 	if (write)
--		addrconf_fixup_forwarding(ctl, valp, val);
-+		ret = addrconf_fixup_forwarding(ctl, valp, val);
- 	return ret;
- }
- 
-@@ -4013,8 +4016,7 @@ static int addrconf_sysctl_forward_strat
- 	}
- 
- 	*valp = new;
--	addrconf_fixup_forwarding(table, valp, val);
--	return 1;
-+	return addrconf_fixup_forwarding(table, valp, val);
- }
- 
- static struct addrconf_sysctl_table
+SmVmZiBLaXJzaGVyIHdyb3RlOg0KPiBPbiBUaHUsIEZlYiAyNiwgMjAwOSBhdCA0OjE0IEFNLCBE
+YXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+IHdyb3RlOiANCj4+IEZyb206IEpl
+ZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPj4gRGF0ZTogVGh1LCAy
+NiBGZWIgMjAwOSAwMjo0NjoyMyAtMDgwMA0KPj4gDQo+Pj4gRnJvbTogQWxleGFuZGVyIER1eWNr
+IDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+DQo+Pj4gDQo+Pj4gVGhlIHNrYl9vcnBoYW4g
+Y2FsbCBpbiB0aGUgdHggcGF0aCBoYXMgYmVlbiBzaG93biB0byBjYXVzZSBpc3N1ZXMNCj4+PiBh
+cyBzZWVuIHdpdGggdGhlIHdvcmthcm91bmRzIHJlcXVpcmVkIGZvciB0aW1lc3RhbXBpbmcuDQo+
+Pj4gDQo+Pj4gSW4gb3JkZXIgdG8gYXZvaWQgdGhpcyBpdCBpcyBlYXNpZXN0IGp1c3QgdG8gcmVt
+b3ZlIHRoZSBza2Jfb3JwaGFuDQo+Pj4gY2FsbCBhcyB0aGUgbW90aXZhdGlvbiBmb3IgaW5jbHVk
+aW5nIGl0IHdhcyBwdXJlbHkgcGVyZm9ybWFuY2UNCj4+PiBiYXNlZCwgYW5kIHRoZSBvdmVyYWxs
+IGdhaW4gZnJvbSBoYXZpbmcgdGhlIGNhbGwgd2FzIG1pbmltYWwuDQo+Pj4gDQo+Pj4gU2lnbmVk
+LW9mZi1ieTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+DQo+
+Pj4gQWNrZWQtYnk6IE1pdGNoIFdpbGxpYW1zIDxtaXRjaC5hLndpbGxpYW1zQGludGVsLmNvbT4N
+Cj4+PiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVs
+LmNvbT4NCj4+IA0KPj4gV2hpbGUgSSdtIGhhcHB5IHRvIGFwcGx5IHRoaXMsIEkgZG9uJ3Qgc2Vl
+IGl0IGFzIGhlbHBpbmcgdGhlDQo+PiB0aW1lc3RhbXBpbmcgc2l0dWF0aW9uLiANCj4+IA0KPj4g
+QWxsIHNvbWVvbmUgaGFzIHRvIGRvIGlzIGVuYWJsZSB0aGUgbmV3IHRpbWVzdGFtcGluZyBvbiBs
+b29wYmFjayB0bw0KPj4gdHJpZ2dlciB0aGUgcHJvYmxlbSwgdGhlIGxvb3BiYWNrIE1VU1Qgb3Jw
+aGFuIFNLQnMgYmVmb3JlIGl0IHB1c2hlcw0KPj4gdGhlbSBiYWNrIGludG8gdGhlIHN0YWNrIGZv
+ciByZWNlaXZlLg0KPj4gDQo+PiBBbHNvLCBIZXJiZXJ0IGFuZCBJIGhhdmUgdGFsa2VkIGFib3V0
+IG9ycGhhbmluZyBTS0JzIGV2ZW4gZWFybGllcg0KPj4gdGhhbiBkZXZfcXVldWVfeG1pdCgpIA0K
+Pj4gDQo+PiBUaGlzIHBvc3Qtc2VuZCB0aW1lc3RhbXBpbmcgc2NoZW1lIGlzIG5vdCBnb2luZyB0
+byB3b3JrLCBpcyBwb29ybHkNCj4+IGRlc2lnbmVkLCBhbmQgbmVlZHMgdG8gYmUgY29tcGxldGVs
+eSByZWFyY2hpdGVjdGVkLg0KPj4gDQo+PiBJZiBpdCBpc24ndCBmaXhlZCBzb29uLCBJJ2xsIGhh
+dmUgbm8gY2hvaWNlIGJ1dCB0byBjb21wbGV0ZWx5IHJldmVydA0KPj4gYWxsIG9mIHRoZSB0aW1l
+c3RhbXBpbmcgc3R1ZmYuDQo+PiAtLQ0KPj4gDQo+IA0KPiBBZGRpbmcgRW1pbCBhbmQgUGF0cmlj
+ay4NCj4gDQo+IFdoaWxlIG5vIGlzc3VlcyB3ZXJlIHNlZW4gaW4gdGVzdGluZywgSSB3aWxsIHZl
+cmlmeSB3aXRoIEVtaWwgdGhhdA0KPiBsb29wYmFjayB0ZXN0aW5nIHdhcyBkb25lLiAgQWxzbyBJ
+IHdpbGwgd29yayB3aXRoIFBhdHJpY2sgdG8gZW5zdXJlDQo+IHRoYXQgd2UgcmVzb2x2ZSBhbnkg
+aXNzdWVzIHdpdGggbG9va2JhY2sgYW5kIHRpbWVzdGFtcGluZy4NCg0KVGhpcyBwYXRjaCB3YXMg
+bWVhbnQgdG8gYmUgbW9yZSBnZW5lcmFsIHRoYW4ganVzdCB0aW1lc3RhbXBpbmcuICBJIHdhcyBq
+dXN0IHVzaW5nIHRpbWVzdGFtcGluZyBhcyBvbmUgZXhhbXBsZSBvZiB3aGVyZSB0aGluZ3MgY2Fu
+IGdvIHdyb25nIGR1ZSB0byB0aGUgc2tiX29ycGhhbiBjYWxsLiAgVGhlIG1haW4gcHJvYmxlbSBp
+cyB0cmlnZ2VyaW5nIGRlc2N0cnVjdG9ycyBhbmQgcmVtb3ZpbmcgdGhlIHNrIGNhbiBjYXVzZSBt
+dWx0aXBsZSBpc3N1ZXMgd2l0aCBhbnkgY3VzdG9tIHVzZSBvZiB0aGUgc2tiLiAgSXQgaXMgZWFz
+aWVzdCB0byBhdm9pZCB0aG9zZSBieSBub3QgY2FsbGluZyBza2Jfb3JwaGFuIGluIHRoZSBmaXJz
+dCBwbGFjZS4NCg0KVGhhbmtzLA0KDQpBbGV4
