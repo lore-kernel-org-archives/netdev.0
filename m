@@ -1,37 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Kernel problem
-Date: Thu, 26 Feb 2009 13:19:48 +0000
-Message-ID: <20090226131948.GB6294@ff.dom.local>
-References: <20090226093902.GA12753@gondor.apana.org.au> <20090226105616.GA5754@ff.dom.local> <20090226115604.GA13592@gondor.apana.org.au> <20090226.041037.134928084.davem@davemloft.net> <20090226130631.GA14125@gondor.apana.org.au>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: unloading the ipv6 module
+Date: Thu, 26 Feb 2009 14:22:12 +0100
+Message-ID: <49A69784.6070204@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ash@sevsky.net,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f178.google.com ([209.85.218.178]:49526 "EHLO
-	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbZBZNT4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 08:19:56 -0500
-Received: by bwz26 with SMTP id 26so497730bwz.37
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 05:19:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20090226130631.GA14125@gondor.apana.org.au>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:65524 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753414AbZBZNWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 08:22:31 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.14.3/8.13.8) with ESMTP id n1QDMT3l153252
+	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 13:22:29 GMT
+Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n1QDMNW71200282
+	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 14:22:24 +0100
+Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n1QDMDaP007024
+	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 14:22:13 +0100
+Received: from mai-009101017029.toulouse-stg.fr.ibm.com (dhcp0.lab.toulouse-stg.fr.ibm.com [9.101.4.200])
+	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id n1QDMB8D007002
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 14:22:13 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2009 at 09:06:31PM +0800, Herbert Xu wrote:
-> On Thu, Feb 26, 2009 at 04:10:37AM -0800, David Miller wrote:
-> > 
-> > netpoll supports receiving packets and has a trap handler to eat them
-> > to avoid packets it is interested in going into the real stack.
-> > (netpoll_receive_skb, netpoll_rx_skb, etc.)
-> 
-> OK after much head scratching and staring, it turns out that
-> this is caused by the VLAN path not doing the netpoll check
-> which would normally drop the packets when a printk is active.
+Hi,
 
-Yes, nice catch/scratch!
+I saw in net/ipv6/Kconfig a comment saying
+"IPv6 as module will cause a CRASH if you try to unload it".
 
-Cheers,
-Jarek P.
+If I refer to this comment, that means unloading of ipv6 is not 
+supported (which makes sense),
+will it be one day supported?
+
+ -- Daniel
