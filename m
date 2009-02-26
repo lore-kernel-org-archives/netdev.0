@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 11/14] tg3: Add DASH firmware version reporting
-Date: Wed, 25 Feb 2009 16:27:20 -0800
-Message-ID: <1235616378.16025@xw6200>
+Subject: [PATCH 02/14] tg3: Drop non-VLAN rx pkts larger than the MTU
+Date: Wed, 25 Feb 2009 16:21:52 -0800
+Message-ID: <1235616368.15998@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -11,89 +11,52 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:3710 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754005AbZBZCqf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 21:46:35 -0500
+	id S1753716AbZBZCqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 21:46:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds code to report the DASH firmware version.
+The hardware's MTU is configured so that it will accept packets whose
+VLAN tag is left inline.  This means that the hardware will also accept
+other packets larger than the desired MTU size.  This patch checks for
+and discards packets that are larger than the requested MTU but are not
+VLAN tagged frames.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   31 +++++++++++++++++++++++++++++++
- drivers/net/tg3.h |    8 ++++++++
- 2 files changed, 39 insertions(+), 0 deletions(-)
+ drivers/net/tg3.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 43859e4..bbf5fe3 100644
+index c7bbbb1..774a01a 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -11606,6 +11606,34 @@ static void __devinit tg3_read_mgmtfw_ver(struct tg3 *tp)
- 	}
- }
+@@ -4339,6 +4339,13 @@ static int tg3_rx(struct tg3 *tp, int budget)
+ 			skb->ip_summed = CHECKSUM_NONE;
  
-+static void __devinit tg3_read_dash_ver(struct tg3 *tp)
-+{
-+	int vlen;
-+	u32 apedata;
+ 		skb->protocol = eth_type_trans(skb, tp->dev);
 +
-+	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) ||
-+	    !(tp->tg3_flags  & TG3_FLAG_ENABLE_ASF))
-+		return;
++		if (len > (tp->dev->mtu + ETH_HLEN) &&
++		    skb->protocol != htons(ETH_P_8021Q)) {
++			dev_kfree_skb(skb);
++			goto next_pkt;
++		}
 +
-+	apedata = tg3_ape_read32(tp, TG3_APE_SEG_SIG);
-+	if (apedata != APE_SEG_SIG_MAGIC)
-+		return;
-+
-+	apedata = tg3_ape_read32(tp, TG3_APE_FW_STATUS);
-+	if (!(apedata & APE_FW_STATUS_READY))
-+		return;
-+
-+	apedata = tg3_ape_read32(tp, TG3_APE_FW_VERSION);
-+
-+	vlen = strlen(tp->fw_ver);
-+
-+	snprintf(&tp->fw_ver[vlen], TG3_VER_SIZE - vlen, " DASH v%d.%d.%d.%d",
-+		 (apedata & APE_FW_VERSION_MAJMSK) >> APE_FW_VERSION_MAJSFT,
-+		 (apedata & APE_FW_VERSION_MINMSK) >> APE_FW_VERSION_MINSFT,
-+		 (apedata & APE_FW_VERSION_REVMSK) >> APE_FW_VERSION_REVSFT,
-+		 (apedata & APE_FW_VERSION_BLDMSK));
-+}
-+
- static void __devinit tg3_read_fw_ver(struct tg3 *tp)
- {
- 	u32 val;
-@@ -13279,6 +13307,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		}
+ #if TG3_VLAN_TAG_USED
+ 		if (tp->vlgrp != NULL &&
+ 		    desc->type_flags & RXD_FLAG_VLAN) {
+@@ -6824,7 +6831,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	__tg3_set_mac_addr(tp, 0);
  
- 		tg3_ape_lock_init(tp);
-+
-+		if (tp->tg3_flags & TG3_FLAG_ENABLE_ASF)
-+			tg3_read_dash_ver(tp);
- 	}
+ 	/* MTU + ethernet header + FCS + optional VLAN tag */
+-	tw32(MAC_RX_MTU_SIZE, tp->dev->mtu + ETH_HLEN + 8);
++	tw32(MAC_RX_MTU_SIZE,
++	     tp->dev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
  
- 	/*
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 34dfaaa..2a75a60 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -1971,6 +1971,14 @@
- /* APE shared memory.  Accessible through BAR1 */
- #define TG3_APE_FW_STATUS		0x400c
- #define  APE_FW_STATUS_READY		 0x00000100
-+#define TG3_APE_FW_VERSION		0x4018
-+#define  APE_FW_VERSION_MAJMSK		 0xff000000
-+#define  APE_FW_VERSION_MAJSFT		 24
-+#define  APE_FW_VERSION_MINMSK		 0x00ff0000
-+#define  APE_FW_VERSION_MINSFT		 16
-+#define  APE_FW_VERSION_REVMSK		 0x0000ff00
-+#define  APE_FW_VERSION_REVSFT		 8
-+#define  APE_FW_VERSION_BLDMSK		 0x000000ff
- #define TG3_APE_HOST_SEG_SIG		0x4200
- #define  APE_HOST_SEG_SIG_MAGIC		 0x484f5354
- #define TG3_APE_HOST_SEG_LEN		0x4204
+ 	/* The slot time is changed by tg3_setup_phy if we
+ 	 * run at gigabit with half duplex.
 -- 
 1.6.0.6
 
