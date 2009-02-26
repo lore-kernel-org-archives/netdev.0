@@ -1,54 +1,60 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 13/14] tg3: Update copyright and version
-Date: Wed, 25 Feb 2009 16:40:42 -0800
-Message-ID: <1235616380.16031@xw6200>
+Subject: [PATCH 04/14] tg3: Refine tg3_vlan_rx_register()
+Date: Wed, 25 Feb 2009 16:23:56 -0800
+Message-ID: <1235616370.16004@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	andy@greyhouse.net
+	"Benjamin Li" <benli@broadcom.com>, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3031 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2998 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753709AbZBZCq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753890AbZBZCq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 25 Feb 2009 21:46:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the copyright to 2009 and updates the version number
-to 3.98.
+tg3_vlan_rx_register() touches the hardware if netif_running() returns
+false.  This patch fixes the problem.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/tg3.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index d12338f..f7efcec 100644
+index 0ea61f7..ce29097 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4,7 +4,7 @@
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-  * Copyright (C) 2001, 2002, 2003 Jeff Garzik (jgarzik@pobox.com)
-  * Copyright (C) 2004 Sun Microsystems Inc.
-- * Copyright (C) 2005-2007 Broadcom Corporation.
-+ * Copyright (C) 2005-2009 Broadcom Corporation.
-  *
-  * Firmware is:
-  *	Derived from proprietary unpublished source code,
-@@ -68,8 +68,8 @@
+@@ -9896,8 +9896,12 @@ static void tg3_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
  
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.97"
--#define DRV_MODULE_RELDATE	"December 10, 2008"
-+#define DRV_MODULE_VERSION	"3.98"
-+#define DRV_MODULE_RELDATE	"February 25, 2009"
+-	if (netif_running(dev))
+-		tg3_netif_stop(tp);
++	if (!netif_running(dev)) {
++		tp->vlgrp = grp;
++		return;
++	}
++
++	tg3_netif_stop(tp);
  
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+ 	tg3_full_lock(tp, 0);
+ 
+@@ -9906,8 +9910,7 @@ static void tg3_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
+ 	/* Update RX_MODE_KEEP_VLAN_TAG bit in RX_MODE register. */
+ 	__tg3_set_rx_mode(dev);
+ 
+-	if (netif_running(dev))
+-		tg3_netif_start(tp);
++	tg3_netif_start(tp);
+ 
+ 	tg3_full_unlock(tp);
+ }
 -- 
 1.6.0.6
 
