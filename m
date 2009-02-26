@@ -1,62 +1,54 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 02/14] tg3: Drop non-VLAN rx pkts larger than the MTU
-Date: Wed, 25 Feb 2009 16:21:52 -0800
-Message-ID: <1235616368.15998@xw6200>
+Subject: [PATCH 13/14] tg3: Update copyright and version
+Date: Wed, 25 Feb 2009 16:40:42 -0800
+Message-ID: <1235616380.16031@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>, andy@greyhouse.net
+	andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3710 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3031 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753716AbZBZCqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 21:46:25 -0500
+	id S1753709AbZBZCq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2009 21:46:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware's MTU is configured so that it will accept packets whose
-VLAN tag is left inline.  This means that the hardware will also accept
-other packets larger than the desired MTU size.  This patch checks for
-and discards packets that are larger than the requested MTU but are not
-VLAN tagged frames.
+This patch updates the copyright to 2009 and updates the version number
+to 3.98.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/net/tg3.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index c7bbbb1..774a01a 100644
+index d12338f..f7efcec 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4339,6 +4339,13 @@ static int tg3_rx(struct tg3 *tp, int budget)
- 			skb->ip_summed = CHECKSUM_NONE;
+@@ -4,7 +4,7 @@
+  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
+  * Copyright (C) 2001, 2002, 2003 Jeff Garzik (jgarzik@pobox.com)
+  * Copyright (C) 2004 Sun Microsystems Inc.
+- * Copyright (C) 2005-2007 Broadcom Corporation.
++ * Copyright (C) 2005-2009 Broadcom Corporation.
+  *
+  * Firmware is:
+  *	Derived from proprietary unpublished source code,
+@@ -68,8 +68,8 @@
  
- 		skb->protocol = eth_type_trans(skb, tp->dev);
-+
-+		if (len > (tp->dev->mtu + ETH_HLEN) &&
-+		    skb->protocol != htons(ETH_P_8021Q)) {
-+			dev_kfree_skb(skb);
-+			goto next_pkt;
-+		}
-+
- #if TG3_VLAN_TAG_USED
- 		if (tp->vlgrp != NULL &&
- 		    desc->type_flags & RXD_FLAG_VLAN) {
-@@ -6824,7 +6831,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	__tg3_set_mac_addr(tp, 0);
+ #define DRV_MODULE_NAME		"tg3"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"3.97"
+-#define DRV_MODULE_RELDATE	"December 10, 2008"
++#define DRV_MODULE_VERSION	"3.98"
++#define DRV_MODULE_RELDATE	"February 25, 2009"
  
- 	/* MTU + ethernet header + FCS + optional VLAN tag */
--	tw32(MAC_RX_MTU_SIZE, tp->dev->mtu + ETH_HLEN + 8);
-+	tw32(MAC_RX_MTU_SIZE,
-+	     tp->dev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
- 
- 	/* The slot time is changed by tg3_setup_phy if we
- 	 * run at gigabit with half duplex.
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
 -- 
 1.6.0.6
 
