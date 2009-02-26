@@ -1,67 +1,30 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH] igb: remove skb_orphan calls
-Date: Thu, 26 Feb 2009 02:46:23 -0800
-Message-ID: <20090226104621.10407.46879.stgit@lost.foo-projects.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] I/OAT update
+Date: Thu, 26 Feb 2009 02:48:45 -0800 (PST)
+Message-ID: <20090226.024845.10059946.davem@davemloft.net>
+References: <20090226100327.3615.21419.stgit@linux.site>
+	<9929d2390902260231p72aacdf3j489a8a9e67dbb659@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: maciej.sosnowski@intel.com, dan.j.williams@intel.com,
+	snakebyte@gmx.de, shannon.nelson@intel.com,
+	jeffrey.t.krisher@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:34135
-	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755926AbZBZKqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:46:46 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57005
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754291AbZBZKtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:49:04 -0500
+In-Reply-To: <9929d2390902260231p72aacdf3j489a8a9e67dbb659@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 26 Feb 2009 02:31:24 -0800
 
-The skb_orphan call in the tx path has been shown to cause issues as seen
-with the workarounds required for timestamping.
+> Dave - FYI, my Acked-by email on this patch series is incorrect.  It
+> should be jeffrey.t.kirsher@intel.com not "krisher".
 
-In order to avoid this it is easiest just to remove the skb_orphan call as
-the motivation for including it was purely performance based, and the
-overall gain from having the call was minimal.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/igb/igb_main.c |   11 -----------
- 1 files changed, 0 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 6cae258..78558f8 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3258,14 +3258,6 @@ static int igb_xmit_frame_ring_adv(struct sk_buff *skb,
- 	if (unlikely(shtx->hardware)) {
- 		shtx->in_progress = 1;
- 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
--	} else if (likely(!shtx->software)) {
--		/*
--		 * TODO: can this be solved in dev.c:dev_hard_start_xmit()?
--		 * There are probably unmodified driver which do something
--		 * like this and thus don't work in combination with
--		 * SOF_TIMESTAMPING_TX_SOFTWARE.
--		 */
--		skb_orphan(skb);
- 	}
- 
- 	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
-@@ -4253,9 +4245,6 @@ static void igb_tx_hwtstamp(struct igb_adapter *adapter, struct sk_buff *skb)
- 				timecompare_transform(&adapter->compare, ns);
- 			skb_tstamp_tx(skb, &shhwtstamps);
- 		}
--
--		/* delayed orphaning: skb_tstamp_tx() needs the socket */
--		skb_orphan(skb);
- 	}
- }
- 
-
+I'm actually not the one who will apply this stuff, so...
