@@ -1,65 +1,50 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-02-23
-Date: Thu, 26 Feb 2009 08:47:34 -0800
-Message-ID: <1235666854.4099.0.camel@johannes.local>
-References: <20090223192659.GB3553@tuxdriver.com>
-	 <1235457113.4455.89.camel@johannes.local>
-	 <20090224.235510.30497146.davem@davemloft.net>
-	 <1235637360.29050.16.camel@johannes.local>
-	 <20090226161340.GA4430@tuxdriver.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: pkt_sched: add DRR scheduler, any idea how to use it?
+Date: Thu, 26 Feb 2009 18:26:17 +0200
+Message-ID: <200902261826.17228.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-RUEAbgC57+vrXkf8xh9R"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090226161340.GA4430-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:38896 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754963AbZBZQwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 11:52:21 -0500
+Received: from adminos.visp.net.lb (unknown [195.69.208.252])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: denys@visp.net.lb)
+	by hosting.visp.net.lb (Postfix) with ESMTPSA id 4EC6A1A44AE
+	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 18:52:14 +0200 (EET)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+I tried
+
+c qdisc add dev ifb0 handle 1 root htb
+
+tc class add dev ifb0 classid 1:100 parent 1:0 htb rate 100Kbit ceil 100Kbit
+tc qdisc add dev ifb0 parent 1:100 handle 2 drr
+
+Packets directed by filter to 1:100, all gots dropped. And even i am adding
+tc class add dev ifb0 parent 2:0 classid 2:1 drr quantum 16384
+
+or 
+
+tc class add dev ifb0 parent 2:0 classid 2:0 drr quantum 16384
+
+or 
+
+tc class add dev ifb0 parent 2:0 classid 2:1 drr quantum 16384
+tc qdisc add dev ifb0 parent 2:1 handle 3 bfifo limit 10000
 
 
---=-RUEAbgC57+vrXkf8xh9R
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Always it is 
+qdisc drr 2: parent 1:100
+ Sent 0 bytes 0 pkt (dropped 32, overlimits 0 requeues 0)
+ rate 0bit 0pps backlog 0b 0p requeues 0
 
-On Thu, 2009-02-26 at 11:13 -0500, John W. Linville wrote:
-
-> > Now I just have to get around to fixing it, it's proving to be harder
-> > than I thought, and I don't have much time right now.
->=20
-> I suppose I could just drop that one.  IIRC there was another patch
-> from you that depended upon that one as well?
-
-Yes, that's true, but then we'll be back at the wext vs. nl80211
-deadlock problem...
-
-johannes
-
---=-RUEAbgC57+vrXkf8xh9R
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJpsejAAoJEKVg1VMiehFYGJ4P/RYU/PhoIwaX0D6QyrHY5500
-/JXlj2/yv9E4zRMV6ItydsS/ipNBkNDATUsREWZEGsYLL29m4RYKlTDTuk61XHI0
-9wl1mvhK7H8kMpnVarPHtRCerB+PbDFx7Pawkx8Y3dhQStOJfBZMBCUKrjJljN/Y
-BWsqsGuh/Poz33mrFCTN2LAk4AQxomonIQ2TLrjLfgaAVwMgzdU8pZr4o4N4o59N
-oSOSADtzLba59Vr/fPcdPNMYfRKU4qy+PxbWde8JV7cO7fdi7GNxjD2uBCoY5e04
-oX5ek81WJT6xwheaixqPtYxeFsFnBLLRHY4DINeaxjE8TJKmNpgWnoOgqTM+2J45
-O3CNvJzfDK1xosdt5TkF6X+Li4fFMfX892JZx8W6Mc+8Jn8YR9HLSV2pJlE+KMSE
-PQLUxPI9GGfCNba1afVkOgsWSY+ADLwdFL1paoyfFDWfNUnxAcEBGMnjYm71x0Ru
-pveNUC0w0tMbET0ppoIvHsJb8sdC6bzHFD7Mgs8A2PVX64WW7tHOborvl4KCQTT0
-TpW4sNOOA/dfe/1F1PtiPeslVc2u5bbgJabW9SutRMP0Fwf1TvVqBV9pKeHYWwoW
-ShAK7wWCish9bVK/FMDgf8alVECsiybLsl7I3iZTJKDuRlgFdeJMnLv7RrCQ9ETS
-3KU7GEaq27NfdGDV8Pht
-=0e2K
------END PGP SIGNATURE-----
-
---=-RUEAbgC57+vrXkf8xh9R--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Any simple example how to use it?
