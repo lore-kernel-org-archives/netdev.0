@@ -1,32 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Kernel problem
-Date: Thu, 26 Feb 2009 12:00:52 +0000
-Message-ID: <20090226120052.GB5754@ff.dom.local>
-References: <1FD907E1-25F5-4E3E-B58F-5596C2144A2E@sevsky.net>
+Date: Thu, 26 Feb 2009 04:10:37 -0800 (PST)
+Message-ID: <20090226.041037.134928084.davem@davemloft.net>
+References: <20090226093902.GA12753@gondor.apana.org.au>
+	<20090226105616.GA5754@ff.dom.local>
+	<20090226115604.GA13592@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denis Romanenko <ash@sevsky.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, ash@sevsky.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f176.google.com ([209.85.220.176]:32976 "EHLO
-	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312AbZBZMBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 07:01:00 -0500
-Received: by fxm24 with SMTP id 24so470602fxm.37
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 04:00:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1FD907E1-25F5-4E3E-B58F-5596C2144A2E@sevsky.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41361
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754804AbZBZMKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 07:10:55 -0500
+In-Reply-To: <20090226115604.GA13592@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26-02-2009 12:24, Denis Romanenko wrote:
-...
-> hmm - for stabibility can i disable netconsole ? Or this bug is not  
-> give my resutlts (reboot of router after 1-2 weeks of work )?
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 26 Feb 2009 19:56:04 +0800
 
-Yes, if you don't have to use this to track some more serious problem,
-IMHO it's better to disable netconsole.
+> On Thu, Feb 26, 2009 at 10:56:16AM +0000, Jarek Poplawski wrote:
+> > 
+> > netconsole. It's a known issue, btw.
+> 
+> I see.  So the problem in this case appears to be that we're
+> processing incoming packets in netpoll_poll.  So the obvious
+> question can we just not do that since all we need to do is
+> transmit packets?
 
-Jarek P.
+netpoll supports receiving packets and has a trap handler to eat them
+to avoid packets it is interested in going into the real stack.
+(netpoll_receive_skb, netpoll_rx_skb, etc.)
 
-PS: don't forget to "Reply All" next time ;-)
+I'm pretty sure this has been discussed before. :-)
+
+If I'm not mistaken, we only see this with certain drivers, and the
+issue therefore likely has to do with how such drivers implement their
+poll handler.
+
+If you do your ->poll_controller() handler without taking IRQ locks,
+you're fine.  Or something like that...
