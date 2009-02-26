@@ -1,59 +1,80 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-rc6: Reported regressions from 2.6.28
-Date: Thu, 26 Feb 2009 00:12:17 +0100
-Message-ID: <200902260012.19083.rjw@sisk.pl>
-References: <GVhknozYwrL.A.hiC.rozoJB@chimera> <20090224071550.GA10436@elte.hu>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC] addition of a dropped packet notification service
+Date: Wed, 25 Feb 2009 19:01:17 -0500
+Message-ID: <20090226000117.GA6970@hmsreliant.think-freely.org>
+References: <20090225115419.GA16150@hmsreliant.think-freely.org> <20090225.040130.169376412.davem@davemloft.net> <20090225141841.GD16150@hmsreliant.think-freely.org> <20090225.140701.42567297.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Adam J. Richter" <adam@yggdrasil.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, shemminger@vyatta.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:58730 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762979AbZBYXMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2009 18:12:40 -0500
-In-Reply-To: <20090224071550.GA10436@elte.hu>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57084 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753219AbZBZABc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2009 19:01:32 -0500
 Content-Disposition: inline
+In-Reply-To: <20090225.140701.42567297.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 24 February 2009, Ingo Molnar wrote:
+On Wed, Feb 25, 2009 at 02:07:01PM -0800, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Wed, 25 Feb 2009 09:18:41 -0500
 > 
-> (note, the standalone mail of this bug entry did not make it out 
-> for some reason.)
-
-Hm, strange.  I certainly received it from one of the lists.
-
-> * Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> > On Wed, Feb 25, 2009 at 04:01:30AM -0800, David Miller wrote:
+> > > From: Neil Horman <nhorman@tuxdriver.com>
+> > > Date: Wed, 25 Feb 2009 06:54:19 -0500
+> > > 
+> > > And you need the same thing to extract the same information
+> > > if you used tracepoints.
+> >
+> > Well, I think the above implementation can be done with or without
+> > tracepoints.  The mechanism by which we get the drop information is
+> > orthogonal to what we do with it.
+> > 
+> > Thanks for the feedback guys.  I'll start modifying my kernel
+> > changes to reflect this striaght away.  If you'd like to see
+> > something in the interim, let me know and I'll send you what I have.
+> > Currently I've got the user space delivery mechanism working as a
+> > Netlink protocol, and with your above suggestions, I expect to have
+> > the drop capture piece recode and working in the next few weeks.
 > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12760
-> > Subject		: 2.6.29-rc5 hanging at boot when CONFIG_LOCK_STAT=y
-> > Submitter	: Adam J. Richter <adam@yggdrasil.com>
-> > Date		: 2009-02-16 6:50 (8 days old)
-> > References	: http://marc.info/?l=linux-kernel&m=123476768023893&w=4
-> > Handled-By	: Ingo Molnar <mingo@elte.hu>
+> Don't get me wrong.
 > 
-> Here we came to the conclusion that this is some LILO bug with a 
-> too large BSS section - that's one thing that CONFIG_LOCK_STAT 
-> causes. Under Grub the same kernel image boots fine. So unless 
-> Adam has new data that contradicts this i think we can close 
-> this bug.
+> If tracepoint annotations can be manageable (Herbert's concern), and
+> solve multiple useful problems in practice rather than just
+> theoretically (my concern), then that's what we should use for this
+> kind of stuff.
+> 
+> I just personally haven't been convinced of that yet.
+> 
 
-Thanks, closed.
+Well, I think the manageablity issue is acceptable using multiple tracepoints at
+the various locations where we increment corresponding statistics (either
+visible via /proc/net/[snmp|snmpv6|etc], or another tool, like tc or netstat).
+By wrapping the tracepoints in the macros they are fairly scalable and invisible
+to other coders.
 
-Rafael
+That said, I think marking drops at kfree_skb can also be made manageable, as
+long as the assumption that the set of points in which we free without dropping
+(kfree_skb_clean as you called it) is small.  I'm not 100% sure of that at the
+moment, given that right now it looks like there might be a few hunder places in
+various net drivers that I need to modify a call (but a sed script can handle
+that I think).
+
+In the end, I'm going to guess that the ability to solve multiple useful
+problems will make the kfree solution win out.  I can see alot more potential
+for noting when an skb is freed than just marking a statistic (tracing skbs
+through the kernel for instance).
+
+Now that I've got the netlink delivery working and a userspace app put together
+(it'll be on fedorahosted soon) its pretty easy to play with both solutions.
+I'll post a status update here in a few days letting you know how the kfree
+solution works (I should have some inital thoughts by friday I think).
+
+Thanks again for the thoughts, I owe you a beer at OLS (assuming my paper get
+accepted) :)
+Neil
+
