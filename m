@@ -1,108 +1,62 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH v2] bonding: move IPv6 support into a separate kernel
- module
-Date: Thu, 26 Feb 2009 13:38:52 -0500
-Message-ID: <49A6E1BC.4020209@hp.com>
-References: <49A5ADB3.2010709@hp.com> <28797.1235599858@death.nxdomain.ibm.com> <20090225.141430.166906161.davem@davemloft.net> <49A6C6ED.3070801@hp.com> <22876.1235672073@death.nxdomain.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
+Date: Thu, 26 Feb 2009 11:01:41 -0800
+Message-ID: <m1ab89m38q.fsf@fess.ebiederm.org>
+References: <49A4D5D5.5090602@trash.net>
+	<20090225061902.GA32430@gondor.apana.org.au>
+	<49A4E3F8.4050406@trash.net> <49A4F0D7.20304@trash.net>
+	<20090225084321.GA1101@gondor.apana.org.au>
+	<m163ixk9t2.fsf@fess.ebiederm.org>
+	<20090226062257.GA11511@gondor.apana.org.au>
+	<m14oyhis31.fsf@fess.ebiederm.org> <20090226084924.16cb3e08@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>, arvidjaar@mail.ru,
-	chuck.lever@oracle.com, tytso@mit.edu, Valdis.Kletnieks@vt.edu,
-	rjw@sisk.pl, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
-	linux-kernel@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:34048 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941AbZBZSjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 13:39:00 -0500
-In-Reply-To: <22876.1235672073@death.nxdomain.ibm.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:33575 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757372AbZBZTBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 14:01:12 -0500
+In-Reply-To: <20090226084924.16cb3e08@nehalam> (Stephen Hemminger's message of "Thu\, 26 Feb 2009 08\:49\:24 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> Brian Haley <brian.haley@hp.com> wrote:
-> 
->> David Miller wrote:
->>> From: Jay Vosburgh <fubar@us.ibm.com>
->>> Date: Wed, 25 Feb 2009 14:10:58 -0800
->>>
->>>> 	I've been fooling with the disable_ipv6 sysctl, and one issue is
->>>> that, at least on the distro I'm testing on (SLES), it's not picked up
->>>> from /etc/sysctl.conf at boot time (presumably because ipv6 isn't loaded
->>>> yet, although I haven't really checked).
->>> Correct, that's the problem.
->>>
->>> We could create a blocker bitmap.  Two sysctls, "block_af" and
->>> "unblock_af".  You write the AF_foo value for the protocol there and
->>> it sets or clears the assosciated bit in the internal blocker bitmap.
->>>
->>> Things like sys_socket() et al. key off of this.
->> I'm open to suggestions at this point in time, I just don't see how this
->> will solve the bonding problem since it still wouldn't load, right?
-> 
-> 	It would permit users to load ipv6 (thus allowing bonding to
-> load), but prevent ipv6 from actually doing anything.  (because
-> sys_socket, e.g., won't open an ipv6 socket if block_af includes ipv6).
-> 
-> 	Actually, __sock_create might be the better place to put the
-> hook for "create a socket"; there would probably need to be a check
-> within the protocol code as well, so that, e.g., ipv6 addrconf won't run
-> if AF_INET6 is disabled.
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-But addrconf_init doesn't care about AF_INET6 sockets...
+> What about something like this:
+>
+> Subject: [PATCH] Avoid race between network down and sysfs
 
-Additionally, why is it absolutely necessary to block AF_INET6 sockets.
-I never understood that requirement?
+As far as solutions go.  That looks like the easiest correct solution.
+So.  
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-I can see people blocking IPv6 from loading because the module automatically
-configures IPv6 addresses and thus opens another communication channel that
-may not be monitored/controlled.  AF_INET6 sockets, on the other hand, are
-simply relegated to IPv4 protocol, when there are no IPv6 addresses.
 
-> 
->> Dave - do you feel I need to fix this regression?  If not I can try to
->> work on this AF blocker thing.  My only other thought if we want to fix
->> this is to have the IPv6 module register these five functions into an ops
->> structure that bonding can call.  It doesn't fix SCTP, qeth, etc, but it
->> gets these "blacklist ipv6" configs working again, and gets me out of the
->> crosshairs :)
-> 
-> 	I think the problem (customers want to disable ipv6 and use
-> bonding, sctp, qeth, whatever) needs to be fixed.  If it's not, I'm sure
-> I'll be getting lots of cards and letters from customers.
-> 
-> 	I don't think the solution needs to preserve the current
-> solution (preventing the ipv6 module from loading).  Ipv6 being unusable
-> should be sufficient.  Except perhaps in an embedded environment, but
-> they're probably in a position to compile their kernel without ipv6.
+Will -ERESTARTSYS trigger the in kernel restart logic in this case?
 
-Yes.  The system must not be reachable using IPv6.
+There are a lot more cases to cover, and I don't I like it long
+term.  Spinning waiting for rtnl_lock feels wrong.  Plus it does
+not help with discovering the problem in new sysfs, sysctl, or
+proc files.
 
-> 
-> 	Another possible resolution is to modify the initscripts in the
-> distros to perform sysctl -p (read sysctls from /etc/sysctl.conf) after
-> ipv6 is loaded, so that the disable_ipv6 sysctl can be set.  That seems
-> like more work, and is limited to ipv6, so I don't see it as being
-> better than a "kernel shut off AF_xxx" type of solution.
+It has the major advantage that we can fix things now.
 
-This not enough.  You need to disable parts of IPv6 at module initiation
-time and the only way to do that is with a parameter.  Otherwise, you will
-have a small window of time when the system has ipv6 configured and is potentially
-vulnerable.
-
-We can have our own sysfs parameter calls that can turn the functionality
-back on to get back to a fully functional ipv6 implementation.
-
--vlad
-
-> 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
-
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+> --- a/net/core/net-sysfs.c	2009-02-26 08:36:18.000000000 -0800
+> +++ b/net/core/net-sysfs.c	2009-02-26 08:37:51.000000000 -0800
+> @@ -77,7 +77,9 @@ static ssize_t netdev_store(struct devic
+>  	if (endp == buf)
+>  		goto err;
+>  
+> -	rtnl_lock();
+> +	if (!rtnl_trylock())
+> +		return -ERESTARTSYS;
+> +
+>  	if (dev_isalive(net)) {
+>  		if ((ret = (*set)(net, new)) == 0)
+>  			ret = len;
