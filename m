@@ -1,48 +1,67 @@
-From: Rini van Zetten <rini@arvoo.nl>
-Subject: [PATCH v2 net] gianfar : Do right check on num_txbdfree
-Date: Thu, 26 Feb 2009 11:25:49 +0100
-Message-ID: <49A66E2D.3060204@arvoo.nl>
-References: <49A6595A.9000405@arvoo.nl> <20090226.020318.50178027.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/7] I/OAT update
+Date: Thu, 26 Feb 2009 02:31:24 -0800
+Message-ID: <9929d2390902260231p72aacdf3j489a8a9e67dbb659@mail.gmail.com>
+References: <20090226100327.3615.21419.stgit@linux.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linuxppc-dev@ozlabs.org, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dan.j.williams@intel.com, snakebyte@gmx.de,
+	shannon.nelson@intel.com, jeffrey.t.krisher@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Maciej Sosnowski <maciej.sosnowski@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.euronet.nl ([194.134.35.173]:35309 "EHLO smtp3.euronet.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751634AbZBZKZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2009 05:25:58 -0500
-In-Reply-To: <20090226.020318.50178027.davem@davemloft.net>
+Received: from an-out-0708.google.com ([209.85.132.244]:35101 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753730AbZBZKb2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 05:31:28 -0500
+In-Reply-To: <20090226100327.3615.21419.stgit@linux.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a wrong check on num_txbdfree. It could lead to num_txbdfree become nagative.
-Result was that the gianfar stops sending data.
+On Thu, Feb 26, 2009 at 2:04 AM, Maciej Sosnowski
+<maciej.sosnowski@intel.com> wrote:
+> This patch series updates ioatdma driver
+> with a couple of fixes and workarounds,
+> including copybreak modification,
+> plus some cleanup like copyright dates update.
+>
+> Maciej Sosnowski (6):
+> =C2=A0 =C2=A0I/OAT: add verification for proper APICID_TAG_MAP settin=
+g by BIOS
+> =C2=A0 =C2=A0I/OAT: do not set DCACTRL_CMPL_WRITE_ENABLE for I/OAT ve=
+r.3
+> =C2=A0 =C2=A0I/OAT: fail initialization on zero channels detection
+> =C2=A0 =C2=A0I/OAT: cancel watchdog before dma remove
+> =C2=A0 =C2=A0I/OAT: set tcp_dma_copybreak to 256k for I/OAT ver.3
+> =C2=A0 =C2=A0I/OAT: update driver version and copyright dates
+>
+> Eric Sesterhenn (1):
+> =C2=A0 =C2=A0I/OAT: list usage cleanup
+>
+> =C2=A0drivers/dca/dca-core.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
+ =C2=A02 -
+> =C2=A0drivers/dma/ioat.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0| =C2=A0 =C2=A02 -
+> =C2=A0drivers/dma/ioat_dca.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
+ 26 ++++++++++++++++++++++++-
+> =C2=A0drivers/dma/ioat_dma.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
+ 31 ++++++++++++++++++------------
+> =C2=A0drivers/dma/ioatdma.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ =C2=A08 ++++---
+> =C2=A0drivers/dma/ioatdma_hw.h =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=
+=A02 -
+> =C2=A0drivers/dma/ioatdma_registers.h | =C2=A0 =C2=A02 -
+> =C2=A07 files changed, 53 insertions(+), 20 deletions(-)
+>
+> --
+> Maciej
+> --
+>
 
-Changes from first version :
-- removed a space between parens (David Millers comment)
-- full email address in signed off line
+Dave - FYI, my Acked-by email on this patch series is incorrect.  It
+should be jeffrey.t.kirsher@intel.com not "krisher".
 
-
-Signed-off-by: Rini van Zetten <rini@arvoo.nl>
----
-  drivers/net/gianfar.c |    2 +-
-  1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 7ef1ffd..2dc3bd3 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1284,9 +1284,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
-      spin_lock_irqsave(&priv->txlock, flags);
-
-      /* check if there is space to queue this packet */
--    if (nr_frags > priv->num_txbdfree) {
-+    if ((nr_frags+1) > priv->num_txbdfree) {
-          /* no space, stop the queue */
-          netif_stop_queue(dev);
-          dev->stats.tx_fifo_errors++;
-          spin_unlock_irqrestore(&priv->txlock, flags);
--- 
+--=20
+Cheers,
+Jeff
