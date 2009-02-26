@@ -1,47 +1,35 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] sungem: another error printed one too early
-Date: Thu, 26 Feb 2009 13:55:43 +0100
-Message-ID: <49A6914F.6070301@gmail.com>
-References: <499971DC.4070406@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel problem
+Date: Thu, 26 Feb 2009 21:06:31 +0800
+Message-ID: <20090226130631.GA14125@gondor.apana.org.au>
+References: <20090226093902.GA12753@gondor.apana.org.au> <20090226105616.GA5754@ff.dom.local> <20090226115604.GA13592@gondor.apana.org.au> <20090226.041037.134928084.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Walker <dwalker@fifo99.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, ash@sevsky.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:22064 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbZBZMzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 07:55:48 -0500
-Received: by ey-out-2122.google.com with SMTP id 25so132621eya.37
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 04:55:45 -0800 (PST)
-In-Reply-To: <499971DC.4070406@gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:51109 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751291AbZBZNGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 08:06:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20090226.041037.134928084.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roel Kluin wrote:
-> Another error was printed one too early.
+On Thu, Feb 26, 2009 at 04:10:37AM -0800, David Miller wrote:
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
+> netpoll supports receiving packets and has a trap handler to eat them
+> to avoid packets it is interested in going into the real stack.
+> (netpoll_receive_skb, netpoll_rx_skb, etc.)
 
-I am not sure why my script didn't report this earlier.
------------------------------------------------------
-Another error was printed one too early.
+OK after much head scratching and staring, it turns out that
+this is caused by the VLAN path not doing the netpoll check
+which would normally drop the packets when a printk is active.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
-index 8d64b1d..0fcb750 100644
---- a/drivers/net/sungem.c
-+++ b/drivers/net/sungem.c
-@@ -1229,7 +1229,7 @@ static void gem_reset(struct gem *gp)
- 			break;
- 	} while (val & (GREG_SWRST_TXRST | GREG_SWRST_RXRST));
- 
--	if (limit <= 0)
-+	if (limit < 0)
- 		printk(KERN_ERR "%s: SW reset is ghetto.\n", gp->dev->name);
- 
- 	if (gp->phy_type == phy_serialink || gp->phy_type == phy_serdes)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
