@@ -1,94 +1,41 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/2] veth: Configurable nterface MTU
-Date: Wed, 25 Feb 2009 21:49:04 -0800
-Message-ID: <m1fxi1kasv.fsf@fess.ebiederm.org>
-References: <m1ljrtkavi.fsf@fess.ebiederm.org>
+From: Rob Landley <rob@landley.net>
+Subject: Re: Documentation:Update the INDEX of the documents
+Date: Thu, 26 Feb 2009 00:04:11 -0600
+Message-ID: <200902260004.13382.rob@landley.net>
+References: <49A4F06B.6030205@cn.fujitsu.com> <49A5E72C.1080804@cn.fujitsu.com> <20090226023714.GH1363@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Yang Hongyang <yanghy@cn.fujitsu.com>,
+	Yang Hongyang <imhy.yang@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-doc@vger.kernel.org, mtk.manpages@gmail.com,
+	rdunlap@xenotime.net
+To: Theodore Tso <tytso@mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59346 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874AbZBZFsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 00:48:33 -0500
-In-Reply-To: <m1ljrtkavi.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Wed\, 25 Feb 2009 21\:47\:29 -0800")
+Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:56071
+	"EHLO grelber.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752672AbZBZGEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 01:04:16 -0500
+In-Reply-To: <20090226023714.GH1363@mit.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wednesday 25 February 2009 20:37:14 Theodore Tso wrote:
+> On Thu, Feb 26, 2009 at 08:49:48AM +0800, Yang Hongyang wrote:
+> > Yeah ,if we do this one-line summary thing,we still have to go through
+> > all these documents. So why not just update the 00-INDEX and then tell
+> > the authors that will add docs to the kernel do the "00-INDEX work"
+> >  themselves?
+>
+> The difference is that if we go through the documents, it's something
+> we do *once*.  And after the convention has been established, in the
+> long term, it should be less work for all concerned.
 
-The limitation to only 1500 byte mtu's limits the utility of the veth
-device for testing routing.
+I envy your optimisim.
 
-Signed-off-by: Eric Biederman <ebiederm@aristanetworks.com>
----
- drivers/net/veth.c |   24 +++++++++++++++++++++++-
- 1 files changed, 23 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 124fe75..88778bb 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -19,6 +19,10 @@
- #define DRV_NAME	"veth"
- #define DRV_VERSION	"1.0"
- 
-+#define MIN_MTU 68		/* Min L3 MTU */
-+#define MAX_MTU 65535		/* Max L3 MTU (arbitrary) */
-+#define MTU_PAD (ETH_HLEN + 4)  /* Max difference between L2 and L3 size MTU */
-+
- struct veth_net_stats {
- 	unsigned long	rx_packets;
- 	unsigned long	tx_packets;
-@@ -159,7 +163,7 @@ static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	cpu = smp_processor_id();
- 	stats = per_cpu_ptr(priv->stats, cpu);
- 
--	if (!(rcv->flags & IFF_UP))
-+	if (!(rcv->flags & IFF_UP) || (skb->len > (rcv->mtu + MTU_PAD)))
- 		goto outf;
- 
- 	skb->pkt_type = PACKET_HOST;
-@@ -249,6 +253,19 @@ static int veth_close(struct net_device *dev)
- 	return 0;
- }
- 
-+static int is_valid_veth_mtu(int new_mtu)
-+{
-+	return (new_mtu >= MIN_MTU && new_mtu <= MAX_MTU);
-+}
-+
-+static int veth_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if (is_valid_veth_mtu(new_mtu))
-+		return -EINVAL;
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
- static int veth_dev_init(struct net_device *dev)
- {
- 	struct veth_net_stats *stats;
-@@ -277,6 +294,7 @@ static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_open            = veth_open,
- 	.ndo_stop            = veth_close,
- 	.ndo_start_xmit      = veth_xmit,
-+	.ndo_change_mtu      = veth_change_mtu,
- 	.ndo_get_stats       = veth_get_stats,
- 	.ndo_set_mac_address = eth_mac_addr,
- };
-@@ -303,6 +321,10 @@ static int veth_validate(struct nlattr *tb[], struct nlattr *data[])
- 		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
- 			return -EADDRNOTAVAIL;
- 	}
-+	if (tb[IFLA_MTU]) {
-+		if (is_valid_veth_mtu(nla_get_u32(tb[IFLA_MTU])))
-+			return -EINVAL;
-+	}
- 	return 0;
- }
- 
--- 
-1.6.1.2.350.g88cc
-
+Rob
