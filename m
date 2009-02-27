@@ -1,28 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] hso: remove hso_free_device()
-Date: Thu, 26 Feb 2009 23:05:38 -0800 (PST)
-Message-ID: <20090226.230538.228511315.davem@davemloft.net>
-References: <20090223155827.10185.48514.stgit@Programuotojas>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] isdn: remove some pointless conditionals before
+ kfree_skb()
+Date: Thu, 26 Feb 2009 23:07:50 -0800 (PST)
+Message-ID: <20090226.230750.73866814.davem@davemloft.net>
+References: <49A51979.80409@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-To: paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090223155827.10185.48514.stgit@Programuotojas>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kkeil@suse.de, netdev@vger.kernel.org
+To: yjwei@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53445
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753193AbZB0HII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:08:08 -0500
+In-Reply-To: <49A51979.80409@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
-Date: Mon, 23 Feb 2009 17:58:27 +0200
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Date: Wed, 25 Feb 2009 18:12:09 +0800
 
-> There is really no need for function just doing simple kfree()
+> Remove some pointless conditionals before kfree_skb().
 > 
-> Signed-off-by: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
