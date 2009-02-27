@@ -1,60 +1,37 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Ipw2100-devel] ipw2100: race between isr_indicate_associated
- and rx path
-Date: Fri, 27 Feb 2009 08:55:39 +0800
-Message-ID: <1235696139.6354.584.camel@debian>
-References: <200901211734.48625.helmut.schaa@gmail.com>
-	 <200902241315.43128.helmut.schaa@gmail.com>
-	 <1235524696.6354.562.camel@debian>
-	 <200902251340.02010.helmut.schaa@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
+Date: Fri, 27 Feb 2009 08:59:45 +0800
+Message-ID: <20090227005945.GB20081@gondor.apana.org.au>
+References: <49A4D5D5.5090602@trash.net> <20090225061902.GA32430@gondor.apana.org.au> <49A4E3F8.4050406@trash.net> <49A4F0D7.20304@trash.net> <20090225084321.GA1101@gondor.apana.org.au> <m163ixk9t2.fsf@fess.ebiederm.org> <20090226062257.GA11511@gondor.apana.org.au> <m14oyhis31.fsf@fess.ebiederm.org> <20090226084924.16cb3e08@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jouni Malinen <j@w1.fi>
-To: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200902251340.02010.helmut.schaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:42314 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752634AbZB0A75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 19:59:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20090226084924.16cb3e08@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-02-25 at 20:39 +0800, Helmut Schaa wrote:
-> Argh! Just found out why dev_activate is called such late after
-> netif_carrier_on:
-> 
-> ipw2100 calls netif_carrier_on followed by netif_wake_queue when the
-> driver
-> moves from associating to associated state. netif_carrier_on will then
-> call linkwatch_fire_event. However the carrier_on event is not treated
-> as
-> urgent and as such the event is delayed (and thus dev_activate too).
-> 
-> An event is considered urgent if the netdev is running, has a carrier
-> _and_ any of the TX qdiscs changed. Since ipw2100 first calls
-> carrier_on,
-> the last condition is not met and thus the event is not considered
-> urgent and gets delayed.
+On Thu, Feb 26, 2009 at 08:49:24AM -0800, Stephen Hemminger wrote:
+>
+> -	rtnl_lock();
+> +	if (!rtnl_trylock())
+> +		return -ERESTARTSYS;
 
-Calling netif_wake_queue() before netif_carrier_on() is not correct in
-semantics. Even it works, it looks like a workaround hack. I still think
-making a sync version of netif_carrier_on is the way to go.
+This is going to spin instead of sleep on contention, is that
+intended?
 
-> Just changing the order to first wake up the queues followed by the
-> carrier_on results in an urgent event. I ran a few tests with that
-> change
-> (+ frame buffering patch) and wasn't able to trigger the race again.
-> 
-> I'll fold that into the frame buffer patch and send it to
-> ipw2100-devel
-> once I finished the tests.
-
-Sounds good.
-
-Thanks,
--yi
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
