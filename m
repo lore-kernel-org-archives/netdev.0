@@ -1,47 +1,92 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Thu, 26 Feb 2009 17:25:07 -0800
-Message-ID: <20090226172507.4b1f90c2@nehalam>
-References: <49A4D5D5.5090602@trash.net>
-	<20090225061902.GA32430@gondor.apana.org.au>
-	<49A4E3F8.4050406@trash.net>
-	<49A4F0D7.20304@trash.net>
-	<20090225084321.GA1101@gondor.apana.org.au>
-	<m163ixk9t2.fsf@fess.ebiederm.org>
-	<20090226062257.GA11511@gondor.apana.org.au>
-	<m14oyhis31.fsf@fess.ebiederm.org>
-	<20090226084924.16cb3e08@nehalam>
-	<20090227005945.GB20081@gondor.apana.org.au>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-02-23
+Date: Thu, 26 Feb 2009 17:37:20 -0800
+Message-ID: <1235698640.4936.6.camel@johannes.local>
+References: <20090223192659.GB3553@tuxdriver.com>
+	 <1235457113.4455.89.camel@johannes.local>
+	 <20090224.235510.30497146.davem@davemloft.net>
+	 <1235637360.29050.16.camel@johannes.local>
+	 <20090226161340.GA4430@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36216 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751300AbZB0BZM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2009 20:25:12 -0500
-In-Reply-To: <20090227005945.GB20081@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-kbKDvDmrKJf/QQRDVtBM"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mcgrof <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090226161340.GA4430-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Feb 2009 08:59:45 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Thu, Feb 26, 2009 at 08:49:24AM -0800, Stephen Hemminger wrote:
-> >
-> > -	rtnl_lock();
-> > +	if (!rtnl_trylock())
-> > +		return -ERESTARTSYS;
-> 
-> This is going to spin instead of sleep on contention, is that
-> intended?
-> 
-> Cheers,
+--=-kbKDvDmrKJf/QQRDVtBM
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-It walks all the way back out to VFS, which is what you have to
-do since the sysctl may move.
+On Thu, 2009-02-26 at 11:13 -0500, John W. Linville wrote:
+
+> > Now I just have to get around to fixing it, it's proving to be harder
+> > than I thought, and I don't have much time right now.
+>=20
+> I suppose I could just drop that one.  IIRC there was another patch
+> from you that depended upon that one as well?
+
+Ok, so I looked into this, and it turns out that it's harder to fix than
+I thought. Fixing the genl code to call the pre_dumpit at the right
+place is hard and requires netlink (not genl) changes. I'm not in a
+position to do such changes right now, so I would suggest to revert it,
+and for now take the easy way of restructuring nl80211 to take, in each
+operation, the rtnl before any other locks instead of trying to do this
+generically.
+
+Luis, would you be up to that? Basically go from
+
+        mutex_lock(&cfg80211_mtx)
+        ...
+        rtnl_lock()
+        ...
+        rtnl_unlock()
+        ...
+        mutex_unlock(&cfg80211_mtx)
+       =20
+to
+       =20
+        rtnl_lock()
+        ...
+        mutex_lock(&cfg80211_mtx)
+        ...
+        mutex_unlock(&cfg80211_mtx)
+        ...
+        rtnl_unlock()
+       =20
+everywhere.
+
+johannes
+
+--=-kbKDvDmrKJf/QQRDVtBM
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJp0PNAAoJEKVg1VMiehFY050P/0O8hIUYTp+lHmBSKjlDPm7b
+j1fqf2KnMO32TYGicxQ4vYlydUH6WoM30U7VKNgwjdittXGg0ABB4jrej7q6QaWw
+fCngP2Z3BTnr3odXiZnEyCR7iw56wEOXEPHySR2gX2McOYMYJ9J3SV/cuQt8Dguk
+1aYjohbhT4AbAwtxZuYBuhZAzZm0L9giqKKgF+HiZmtT/0ywwyqdePY3qU7o0WFd
+sxgYxJyaLHAv6YOS01bGd54L/d2sKw5TzfIasn3cXj3hnFiuyWM6hfuDyfNW4MZR
+2a57P54WWQm3KlRszkZJq6TvNVTRSDcjk+TfhZFeCpkA4nKbDGTS2/5H0s3fflTD
+XmtxF4Mj5Tt42ySV72mY1nGLlasmEyX8PevSGnJKBVNsPpT1E0KaSAs/uPofRH/3
+8DDAcLllTkWF4+dCEP0O13waKEwzED8H5Citpe59dB+np7WpN3+jNKXi8yB/PR7Y
+oTJJvTb5ontRd0WKlyft7yHs/2ySwuHkpyU0HjZhYfXINSvzTr9uUEWBDR4GaLcK
+qrlXIZyNXFtiGzvBmV3ik4ACjbtLeZetpmMmghE5vNYAlZRcyUAk9NzUP28iWrOR
+zPBTSqrMmnDQiFBbl2qYmoCOfudUXYem5Eo4s7+2Y/ZfQYiQpjqSQ+DeiG8pdedK
+p+mDwx03XMSc1oQ61aXF
+=Yjqh
+-----END PGP SIGNATURE-----
+
+--=-kbKDvDmrKJf/QQRDVtBM--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
