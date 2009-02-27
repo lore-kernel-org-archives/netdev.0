@@ -1,42 +1,57 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: Re: [PATCH 0/26] Reliable Datagram Sockets (RDS), take 2
-Date: Fri, 27 Feb 2009 10:21:30 -0800
-Message-ID: <c0a09e5c0902271021y3ba0f3b9r34e696e1e657cc61@mail.gmail.com>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
-	 <20090224.232814.227017310.davem@davemloft.net>
-	 <c0a09e5c0902251043x576e7066kb7aa76fc148a6f76@mail.gmail.com>
-	 <20090227.000150.177646700.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
+Date: Fri, 27 Feb 2009 10:26:43 -0800
+Message-ID: <49A83063.2060600@candelatech.com>
+References: <49A4D5D5.5090602@trash.net>	<20090225061902.GA32430@gondor.apana.org.au>	<49A4E3F8.4050406@trash.net>	<49A4F0D7.20304@trash.net>	<20090225084321.GA1101@gondor.apana.org.au>	<m163ixk9t2.fsf@fess.ebiederm.org>	<20090226062257.GA11511@gondor.apana.org.au>	<m14oyhis31.fsf@fess.ebiederm.org> <20090226084924.16cb3e08@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:5800 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752956AbZB0SVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 13:21:32 -0500
-Received: by wf-out-1314.google.com with SMTP id 28so1387981wfa.4
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 10:21:30 -0800 (PST)
-In-Reply-To: <20090227.000150.177646700.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:34238 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754200AbZB0S1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 13:27:01 -0500
+In-Reply-To: <20090226084924.16cb3e08@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 12:01 AM, David Miller <davem@davemloft.net> wrote:
-> From: Andrew Grover <andy.grover@gmail.com>
-> Date: Wed, 25 Feb 2009 10:43:27 -0800
->
->> On Tue, Feb 24, 2009 at 11:28 PM, David Miller <davem@davemloft.net> wrote:
->> > Furthermore the port you've choosen for the protocol is arbitrary, not
->> > properly allocated with the appropriate standards committee, and
->> > therefore could conflict with something other people are using.
->>
->> I'm sure allocating the port won't be too big an issue.
->
-> Ok, I added the RDS code to the net-next-2.6 tree, changing
-> AF_RDS to be 21
+Stephen Hemminger wrote:
 
-Thanks much!
+> Subject: [PATCH] Avoid race between network down and sysfs
+> 
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> --- a/net/core/net-sysfs.c	2009-02-26 08:36:18.000000000 -0800
+> +++ b/net/core/net-sysfs.c	2009-02-26 08:37:51.000000000 -0800
+> @@ -77,7 +77,9 @@ static ssize_t netdev_store(struct devic
+>  	if (endp == buf)
+>  		goto err;
+>  
+> -	rtnl_lock();
+> +	if (!rtnl_trylock())
+> +		return -ERESTARTSYS;
+> +
+>  	if (dev_isalive(net)) {
+>  		if ((ret = (*set)(net, new)) == 0)
+>  			ret = len;
 
--- Andy
+I can test this to see if it fixes my problem.  Are the above lines the
+entirety of the patch?
+
+I think I'll add a printk if we do the ERESTARTSYS to make sure that I
+hit the race (but still recover).
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
