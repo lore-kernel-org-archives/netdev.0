@@ -1,85 +1,70 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
-Date: Fri, 27 Feb 2009 08:28:39 -0800
-Message-ID: <16084.1235752119@death.nxdomain.ibm.com>
-References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
-To: Jesper Krogh <jesper@krogh.cc>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] sfc: mdio_clause45_read errors go unnoticed
+Date: Fri, 27 Feb 2009 17:31:33 +0100
+Message-ID: <49A81565.3030004@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: linux-net-drivers@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:44689 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754097AbZB0Q2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 11:28:55 -0500
-In-reply-to: <49A7B17F.2020408@krogh.cc>
+Received: from mail-gx0-f174.google.com ([209.85.217.174]:40688 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753096AbZB0Qbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 11:31:36 -0500
+Received: by gxk22 with SMTP id 22so2785294gxk.13
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 08:31:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Krogh <jesper@krogh.cc> wrote:
-[...]
->The offending commit seems to be:
->
->bonding: refactor mii monitor
->
->Refactor mii monitor.  As with the previous ARP monitor refactor,
->the motivation for this is to handle locking rationally (in this case,
->removing conditional locking) and generally clean up the code.
->
->This patch breaks up the monolithic mii monitor into two phases:
->an inspection phase, followed by an optional commit phase.  The commit phase
->is the only portion that requires RTNL or makes changes to state, and is
->only called when inspection finds something to change.
->
->Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
->Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
->
->
->A test with a fresh 2.6.29-rc6 revealed that the problem has been fixed
->subsequently.. but still exists in 2.6.27-newest.  (havent tested
->2.6.28-newest yet).
->
->Any ideas of what the "fixing" commit is .. or should that also be
->bisected?
+This patch was not tested in any way, but:
 
-	I went back and looked at your earlier mail.  Since you're using
-802.3ad mode, my first guess would be this commit:
+since commit 27dd2caca4eabe7c13a052b7456495ba75535e6a
+------------------------------>8-------------8<---------------------------------
+mdio_clause45_read may return -ERR, but since 'devices' is unsigned, this is not
+noticed.
 
-commit fd989c83325cb34795bc4d4aa6b13c06f90eac99
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Tue Nov 4 17:51:16 2008 -0800
-
-    bonding: alternate agg selection policies for 802.3ad
-    
-        This patch implements alternative aggregator selection policies
-    for 802.3ad.  The existing policy, now termed "stable," selects the active
-    aggregator by greatest bandwidth, and only reselects a new aggregator
-    if the active aggregator is entirely disabled (no more ports or all ports
-    down).
-    
-        This patch adds two new policies: bandwidth and count, selecting
-    the active aggregator by total bandwidth (like the stable policy) or by
-    the number of ports in the aggregator, respectively.  These two policies
-    also differ from the stable policy in that they will reselect the active
-    aggregator when availability-related changes occur in the bond (e.g.,
-    link state change).
-    
-        This permits "gang failover" within 802.3ad, allowing redundant
-    aggregators along parallel paths to always maintain the "best" aggregator
-    as the active aggregator (rather than having to wait for the active to
-    entirely fail).
-    
-        This patch also updates the driver version to 3.5.0.
-    
-    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-
-
-	This changed or refactored a great deal of the aggregator
-selection logic, and it might be that it also fixed your problem by mere
-happenstance.
-
-	-J
-
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
+index f9e2f95..bcb5ddc 100644
+--- a/drivers/net/sfc/mdio_10g.c
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -126,23 +126,29 @@ int mdio_clause45_check_mmds(struct efx_nic *efx,
+ 			     unsigned int mmd_mask, unsigned int fatal_mask)
+ {
+ 	u32 devices;
+-	int mmd = 0, probe_mmd;
++	int ret, mmd = 0, probe_mmd;
+ 
+ 	/* Historically we have probed the PHYXS to find out what devices are
+ 	 * present,but that doesn't work so well if the PHYXS isn't expected
+ 	 * to exist, if so just find the first item in the list supplied. */
+ 	probe_mmd = (mmd_mask & MDIO_MMDREG_DEVS_PHYXS) ? MDIO_MMD_PHYXS :
+ 	    __ffs(mmd_mask);
+-	devices = (mdio_clause45_read(efx, efx->mii.phy_id,
+-				      probe_mmd, MDIO_MMDREG_DEVS0) |
+-		   mdio_clause45_read(efx, efx->mii.phy_id,
+-				      probe_mmd, MDIO_MMDREG_DEVS1) << 16);
+ 
+-	/* Check all the expected MMDs are present */
+-	if (devices < 0) {
++	ret = mdio_clause45_read(efx, efx->mii.phy_id, probe_mmd,
++			MDIO_MMDREG_DEVS0);
++	if (ret >= 0) {
++		devices = ret;
++		ret = mdio_clause45_read(efx, efx->mii.phy_id, probe_mmd,
++				MDIO_MMDREG_DEVS1);
++	}
++
++	/* Check all the expected MMDs were present */
++	if (ret < 0) {
+ 		EFX_ERR(efx, "failed to read devices present\n");
+ 		return -EIO;
+ 	}
++	devices |= ret << 16;
++
+ 	if ((devices & mmd_mask) != mmd_mask) {
+ 		EFX_ERR(efx, "required MMDs not present: got %x, "
+ 			"wanted %x\n", devices, mmd_mask);
