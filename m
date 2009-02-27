@@ -1,25 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] chelsio: remove some pointless conditionals before
+Subject: Re: [PATCH] llc: remove some pointless conditionals before
  kfree_skb()
-Date: Thu, 26 Feb 2009 23:10:01 -0800 (PST)
-Message-ID: <20090226.231001.258335751.davem@davemloft.net>
-References: <49A52135.30603@cn.fujitsu.com>
+Date: Thu, 26 Feb 2009 23:09:56 -0800 (PST)
+Message-ID: <20090226.230956.22391254.davem@davemloft.net>
+References: <49A5208E.3050302@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
 To: yjwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53511
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53507
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755660AbZB0HKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:10:17 -0500
-In-Reply-To: <49A52135.30603@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1755661AbZB0HKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:10:13 -0500
+In-Reply-To: <49A5208E.3050302@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Date: Wed, 25 Feb 2009 18:45:09 +0800
+Date: Wed, 25 Feb 2009 18:42:22 +0800
 
 > Remove some pointless conditionals before kfree_skb().
 > 
