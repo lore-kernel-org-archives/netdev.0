@@ -1,96 +1,86 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell 88E609x switch?
-Date: Fri, 27 Feb 2009 16:14:41 +0100
-Message-ID: <20090227151441.GE17040@xi.wantstofly.org>
-References: <20090227125305.GW17040@xi.wantstofly.org> <49A7E87D.5090203@mlbassoc.com> <20090227132319.GY17040@xi.wantstofly.org> <49A7EA3D.8070800@mlbassoc.com> <20090227142754.GB17040@xi.wantstofly.org> <49A7FA57.7030504@mlbassoc.com> <20090227144004.GC17040@xi.wantstofly.org> <49A7FEE1.2020705@mlbassoc.com> <20090227145746.GD17040@xi.wantstofly.org> <49A801E6.1040502@mlbassoc.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH v2] net: more timeouts that reach -1
+Date: Fri, 27 Feb 2009 16:16:18 +0100
+Message-ID: <49A803C2.4070702@gmail.com>
+References: <49A5286D.80304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Gary Thomas <gary@mlbassoc.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:43656 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611AbZB0POo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:14:44 -0500
-Content-Disposition: inline
-In-Reply-To: <49A801E6.1040502@mlbassoc.com>
+Received: from yw-out-2324.google.com ([74.125.46.30]:11102 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753429AbZB0PQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:16:21 -0500
+Received: by yw-out-2324.google.com with SMTP id 5so843998ywh.1
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 07:16:19 -0800 (PST)
+In-Reply-To: <49A5286D.80304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 08:08:22AM -0700, Gary Thomas wrote:
-
-> >> OK, I did that:
-> >>   Sending discover...
-> >>   PHY: 0:01 - Link is Up - 1000/Full
-> >>
-> >> I now see the fixed PHY (pretender, configured at build time)
-> >> and the 8 LAN sockets:
-> >>   root@ppc_target:~ ls /sys/bus/mdio_bus/devices/
-> >>   0:01         24520:01:01  24520:01:03  24520:01:05  24520:01:07
-> >>   24520:01:00  24520:01:02  24520:01:04  24520:01:06
-> >>
-> >> But nothing seems to get through the switch.  Of course, I
-> >> know that the switch and connections are working because that's
-> >> the path I downloaded/booted the kernel from.
-> >>
-> >> Getting closer :-) Any ideas?
-> > 
-> > :-)  Do you see messages in your syslog about the lan interfaces
-> > being up, full duplex, etc?  Something a la (from one of my boards):
-> > 
-> > 	lan1: link up, 1000 Mb/s, full duplex, flow control disabled
-> > 	lan2: link up, 1000 Mb/s, full duplex, flow control disabled
-> 
-> This does seem to work:
->   root@ppc_target:~ ifconfig lan1.1 up
->   root@ppc_target:~ lan1.1: link up, 100 Mb/s, full duplex, flow control disabled
-> 
-> When I try it on other ports:
->   root@ppc_target:~ ifconfig lan1.2 up
->   root@ppc_target:~ ifconfig lan1.3 up
-> Those ports aren't plugged (and I'm 6000 miles from them, literally,
-> so I can't change that)
-
-OK, that makes sense then.
+Roel Kluin wrote:
+> These were not previously reported by me.
+> ------------------------------>8-------------8<---------------------------------
+> with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
+> below are off by one.
 
 
-> > If yes, can you up the interfaces, and send some packets over them
-> > and see if the TX counters on eth0 increase?  If yes, can you dump
-> > the packets sent out over eth0 using tcpdump?
-> 
-> I tried to ping out and into the box.  Nothing seems to go anywhere:
-> 
-> root@ppc_target:~ ifconfig
-> eth0      Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
->           inet addr:192.168.12.189  Bcast:192.168.12.255  Mask:255.255.255.0
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:17 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000
->           RX bytes:0 (0.0 B)  TX bytes:1810 (1.7 KiB)
->           Base address:0x6000
-> 
-> lan1.1    Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:0
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-> 
-> Running tcpdump on the external network (192.168.12.x), I saw
-> no activity.
->
-> Do I need to do anything more than "ifconfig lan1.1 up"?
+I just noticed that in drivers/net/ucc_geth_mii.c after my patch this still
+won't give an err, because timeout is unsigned
+------------------------------>8-------------8<---------------------------------
+with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
+below are off by one. also don't do an '< 0' test on an unsigned.
 
-IP addresses should be attached to the lanX.X interfaces, not to eth0
--- eth0 will only be carrying specially tagged (DSA/EDSA) packets.
-So you should move the IP address to lan1.1.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
+index 1cf2f94..f3a1274 100644
+--- a/drivers/net/arm/ks8695net.c
++++ b/drivers/net/arm/ks8695net.c
+@@ -560,7 +560,7 @@ ks8695_reset(struct ks8695_priv *ksp)
+ 		msleep(1);
+ 	}
+ 
+-	if (reset_timeout == 0) {
++	if (reset_timeout < 0) {
+ 		dev_crit(ksp->dev,
+ 			 "Timeout waiting for DMA engines to reset\n");
+ 		/* And blithely carry on */
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 08b3405..0173ed0 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -957,7 +957,8 @@ jme_process_receive(struct jme_adapter *jme, int limit)
+ 		goto out_inc;
+ 
+ 	i = atomic_read(&rxring->next_to_clean);
+-	while (limit-- > 0) {
++	while (limit > 0) {
++		limit--;
+ 		rxdesc = rxring->desc;
+ 		rxdesc += i;
+ 
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index 5463591..0ada4ed 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -107,7 +107,7 @@ int uec_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ static int uec_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct ucc_mii_mng __iomem *regs = (void __iomem *)bus->priv;
+-	unsigned int timeout = PHY_INIT_TIMEOUT;
++	int timeout = PHY_INIT_TIMEOUT;
+ 
+ 	mutex_lock(&bus->mdio_lock);
+ 
+@@ -123,7 +123,7 @@ static int uec_mdio_reset(struct mii_bus *bus)
+ 
+ 	mutex_unlock(&bus->mdio_lock);
+ 
+-	if (timeout <= 0) {
++	if (timeout < 0) {
+ 		printk(KERN_ERR "%s: The MII Bus is stuck!\n", bus->name);
+ 		return -EBUSY;
+ 	}
 
-Can you trying pinging via lan1.1 and then seeing if there are
-packets transmitted out over eth0, and dump those packets with tcpdump?
-
-
-> Maybe the "." is confusing things?  I was just trying to
-> look ahead when I have 3 switches running.
-
-That shouldn't be causing trouble as far as I can see.
