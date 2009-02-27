@@ -1,140 +1,59 @@
-From: Gary Thomas <gary@mlbassoc.com>
-Subject: Re: Marvell 88E609x switch?
-Date: Fri, 27 Feb 2009 06:22:40 -0700
-Message-ID: <49A7E920.2020601@mlbassoc.com>
-References: <49A49C06.90908@mlbassoc.com> <20090225131550.GA24996@xi.wantstofly.org> <49A5B877.8080403@mlbassoc.com> <20090226151107.GN17040@xi.wantstofly.org> <49A6B991.2090703@mlbassoc.com> <20090226155726.GO17040@xi.wantstofly.org> <49A73E00.7050406@mlbassoc.com> <20090227011903.GS17040@xi.wantstofly.org> <49A7DBA2.8060605@mlbassoc.com> <20090227125211.GV17040@xi.wantstofly.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] veth: Configurable nterface MTU
+Date: Fri, 27 Feb 2009 05:22:46 -0800 (PST)
+Message-ID: <20090227.052246.177817156.davem@davemloft.net>
+References: <m1fxi1kasv.fsf@fess.ebiederm.org>
+	<20090227.024916.184944062.davem@davemloft.net>
+	<m163iwf3w3.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 137-67-76-76.skybeam.com ([76.76.67.137]:2790 "EHLO
-	mail.chez-thomas.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753204AbZB0NWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 08:22:55 -0500
-In-Reply-To: <20090227125211.GV17040@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <m163iwf3w3.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Fri, Feb 27, 2009 at 05:25:06AM -0700, Gary Thomas wrote:
-> 
->>>>>>>>>> Is there support for this device anywhere?  In particular,
->>>>>>>>>> the M88E6095 switch.
->>>>>>>>> Not at the moment, but it should be easy enough to add.  If your
->>>>>>>>> board already runs on 2.6.28+, I can whip up some patches for you
->>>>>>>>> to try from the docs I have for that part.
->>>>>>>> That would be much appreciated, thanks.
->>>>>>> I noticed that the 6095/6095F are quite similar to the 6131 as far
->>>>>>> as the register set goes.  So something along these lines (hacky
->>>>>>> patch, breaks 6131, not for mainline) might just work to detect
->>>>>>> single 6095s (cascading DSA chips is something that needs more work,
->>>>>>> let's get the single-chip case working first).
->>>>>>>
->>>>>>> The other thing you'll need to do is create dsa platform devices
->>>>>>> for your switch chips, a la how it's done in arch/arm/mach-orion5x/
->>>>>>> or arch/arm/mach-kirkwood/ for example -- you need to pass in a struct
->>>>>>> device * for your network device, a struct device * for your mii bus,
->>>>>>> the switch MII address on the MII bus, and names of the individual
->>>>>>> ports (where you'll specify "cpu" for the port on the switch chip that
->>>>>>> the CPU is connected to).
->>>>>>>
->>>>>>> Let me know if this works.
->>>>>> Thanks, I'll give it a try.  It will take a little effort
->>>>>> to get setup as I have to work within the open firmware
->>>>>> structure (that's how all the various components are
->>>>>> specified).
->>>>> Right, we don't have OF bindings yet.  I guess this would make sense
->>>>> to do generically at some point, since there are quite a few PPC
->>>>> platforms with DSA switch chips.
->>>> Here's what I tried - (patch attached) - a trulyhorrible hack,
->>>> but I've not figured out how to get the correct device pointers
->>>> from the OF world yet.  The boot log shows that it's trying, but
->>>> I don't see the DSA layer (M88E690x driver) doing the MII indirection
->>>> that's needed for this device.
->>>>
->>>> I'm probably not starting it up correctly, but I think I followed
->>>> the examples you cited.  Any ideas?
->>> "indirection needed for this device" -- does that mean that your
->>> switch chip is configured to use the multi-chip addressing mode?
->>> (It looks like it, as most of the MII addresses return ffff in
->>> their ID registers.)  If yes, you should set ->sw_addr to whatever
->>> MII address the chip has been assigned.
->> Much better, my switch seems to be found now.
->>
->>   Distributed Switch Architecture driver version 0.1
->>   gfar_mdio_read(cf9db400, 1, 0) = 1811
->>   gfar_mdio_write(cf9db400, 1, 0, 9a03) = 0
->>   gfar_mdio_read(cf9db400, 1, 0) = 1a03
->>   gfar_mdio_read(cf9db400, 1, 1) = 953
->>   mv88e6131_probe(cf9db400, 1) = 2387
-> 
-> That looks like the proper indirect access sequence.
-> 
-> 
->>   eth0: detected a Marvell 88E6095/88E6095F switch
-> 
-> Yay.
-> 
-> 
->>   root@ppc_target:~ ls /sys/bus/mdio_bus/devices/
->>   24520:01:00  24520:01:02  24520:01:04  24520:01:06
->>   24520:01:01  24520:01:03  24520:01:05  24520:01:07
-> 
-> That looks good too.
-> 
-> 
->> However, the network subsystem still can't locate it.  It may be
->> a complication of the OF stuff and how the [gianfar] network
->> device knows what PHY to look at.
->>
->>   starting network interfaces...
->>   24520:01 not found
->>   eth0: Could not attach to PHY
-> 
-> It's correct that eth0 should not associate with a PHY -- since the
-> MAC connects to the switch chip over GMII/RGMII/SGMII, there is no
-> PHY involved.
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Date: Fri, 27 Feb 2009 04:41:48 -0800
 
-Yes, but it's expecting to be able to talk to the PHYLIB layer
-and ask things like speed, duplex, link state, etc.
-
-> Is the gianfar driver refusing to up the interface without a PHY?
-> It shouldn't do that -- IMHO it's perfectly fine to not have a PHY
-> on your ethernet MAC.
+> David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 > 
-
-It seems so, yes.  I tried disabling the PHY connection in the OF
-tree and now eth0 doesn't even try to come up :-(
-
+> > From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+> > Date: Wed, 25 Feb 2009 21:49:04 -0800
+> >
+> >> @@ -249,6 +253,19 @@ static int veth_close(struct net_device *dev)
+> >>  	return 0;
+> >>  }
+> >>  
+> >> +static int is_valid_veth_mtu(int new_mtu)
+> >> +{
+> >> +	return (new_mtu >= MIN_MTU && new_mtu <= MAX_MTU);
+> >> +}
+> >> +
+> >> +static int veth_change_mtu(struct net_device *dev, int new_mtu)
+> >> +{
+> >> +	if (is_valid_veth_mtu(new_mtu))
+> >> +		return -EINVAL;
+> >> +	dev->mtu = new_mtu;
+> >> +	return 0;
+> >> +}
+> >> +
+> >
+> > This validity test seems to be reversed?
 > 
->> Also, how do I specify the [implicit] route within the switch
->> that connects '24520:01:00' to the CPU port '24520:01:0A' (if
->> there was such a thing)?  My boot loader has configured the
->> switch for this path - I've not looked through the log to see
->> what the DSA layer did.
-> 
-> Just specify "cpu" as the port name of port 10 in your dsa platform
-> data (assuming that there's where your CPU is), that'll take care of
-> it.
-> 
-> Does it give you Linux network interfaces for the other switch chip
-> ports (1-8)?
+> Crap.  You are correct. I will respin.
 
-Not sure I understand this question, there are no other network
-interfaces listed:
+Please test your patches.
 
-root@ppc_target:~ cat /proc/net/dev
-Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compresse
-d
-    lo:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0
-0
-
-
--- 
-------------------------------------------------------------
-Gary Thomas                 |  Consulting for the
-MLB Associates              |    Embedded world
-------------------------------------------------------------
+This one obviously didn't get even one single "ifconfig x mtu y" type
+test.  It would have failed on any in-range value.
