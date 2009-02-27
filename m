@@ -1,78 +1,94 @@
 From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH 00/11] Add support to FCoE offload through net_device (v2)
-Date: Fri, 27 Feb 2009 14:06:32 -0800
-Message-ID: <20090227220034.4987.50755.stgit.yi.zou@intel.com>
+Subject: [PATCH 06/11] fcoe,
+	libfc: check offload features from LLD through netdev
+Date: Fri, 27 Feb 2009 14:07:04 -0800
+Message-ID: <20090227220704.4987.98233.stgit.yi.zou@intel.com>
+References: <20090227220034.4987.50755.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: yi.zou@intel.com
 To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19948 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:48449 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754533AbZB0XOV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 18:14:21 -0500
+	id S1758610AbZB0XOl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 18:14:41 -0500
+In-Reply-To: <20090227220034.4987.50755.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is set of revised patches for adding offload support of
-Fiber Channel over Ethernet (FCoE) offload support through net_device
-for the Open-FCoE project maintained at http://www.open-fcoe.org.
+This checks if net_devices supports FCoE offload ops in netdev_ops and it
+if it does, then sets up the corresponding flags in the associated fc_lport.
 
-The original submission can be found at:
-http://marc.info/?l=linux-scsi&m=123507707821705&w=2
+For large send offload, the maximum length supported in one large send is now
+described by the added lso_max in fc_lport, which is setup initially from
+netdev->gso_max_size.
 
-The included patches would add FCoE offload support through the net_device
-struct as shown in the series of patches followed here. This is achieved
-by adding nedev feature flags for FCoE FC CRC offload and large send offload
-through gso. The large receive offload by direct data placement (ddp) is
-achieved by the two function pointers to net_device_ops, to setup and release
-ddp context, ndo_fcoe_ddp_setup and ndo_fcoe_ddp_done. One data member is
-added to net_device strut, namely fcoe_ddp_xid, which inidates the maximum
-exchange id allowed by LLD to perform ddp on the read I/O request.
-
-As the following patches touch both netdev and libfc/fcoe, and they are
-applicable to the current tip at www.open-fcoe.org w/ patches available at:
-http://marc.info/?l=linux-scsi&m=123576089125544&w=2 If they look alright,
-I will rework them later to be directly applicable to net-next, where the
-aforementioned fcoe/libfc fix patches are expected to be in kernel already
-through scsi-fixes.
-
-Thanks.
-
-yi
+Signed-off-by: Yi Zou <yi.zou@intel.com>
 ---
 
-Chris Leech (2):
-      net: define feature flags for FCoE offloads
-      net: reclaim 8 upper bits of the netdev->features from GSO
+ drivers/scsi/fcoe/fcoe_sw.c |   29 ++++++++++++++++++++++++++++-
+ include/scsi/libfc.h        |    1 +
+ 2 files changed, 29 insertions(+), 1 deletions(-)
 
-Yi Zou (9):
-      fcoe: fcoe fc crc offload indication by skb->ip_summed
-      fcoe: add support to FCoE offload support in fcoe_sw through net_device
-      libfc: add support of large receive offload by ddp in fc_fcp
-      fcoe: add support to large send by gso through net_device for fcoe_sw
-      libfc: use lso_max for sequence offload
-      fcoe,libfc: check offload features from LLD through netdev
-      net: add FCoE offload support through net_device
-      net: add NETIF_F_FCOE_CRC to can_checksum_protocol
-      net,fcoe: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
+diff --git a/drivers/scsi/fcoe/fcoe_sw.c b/drivers/scsi/fcoe/fcoe_sw.c
+index da210eb..d99217d 100644
+--- a/drivers/scsi/fcoe/fcoe_sw.c
++++ b/drivers/scsi/fcoe/fcoe_sw.c
+@@ -133,6 +133,13 @@ static int fcoe_sw_lport_config(struct fc_lport *lp)
+ 	/* lport fc_lport related configuration */
+ 	fc_lport_config(lp);
+ 
++	/* offload related configuration */
++	lp->crc_offload = 0;
++	lp->seq_offload = 0;
++	lp->lro_enabled = 0;
++	lp->lro_xid = 0;
++	lp->lso_max = 0;
++
+ 	return 0;
+ }
+ 
+@@ -186,7 +193,27 @@ static int fcoe_sw_netdev_config(struct fc_lport *lp, struct net_device *netdev)
+ 	if (fc->real_dev->features & NETIF_F_SG)
+ 		lp->sg_supp = 1;
+ 
+-
++#ifdef NETIF_F_FCOE_CRC
++	if (netdev->features & NETIF_F_FCOE_CRC) {
++		lp->crc_offload = 1;
++		printk(KERN_DEBUG "fcoe:%s supports FCCRC offload\n",
++		       netdev->name);
++	}
++#endif
++#ifdef NETIF_F_FSO
++	if (netdev->features & NETIF_F_FSO) {
++		lp->seq_offload = 1;
++		lp->lso_max = netdev->gso_max_size;
++		printk(KERN_DEBUG "fcoe:%s supports LSO for max len 0x%x\n",
++		       netdev->name, lp->lso_max);
++	}
++#endif
++	if (netdev->fcoe_ddp_xid) {
++		lp->lro_enabled = 1;
++		lp->lro_xid = netdev->fcoe_ddp_xid;
++		printk(KERN_DEBUG "fcoe:%s supports LRO for max xid 0x%x\n",
++		       netdev->name, lp->lro_xid);
++	}
+ 	skb_queue_head_init(&fc->fcoe_pending_queue);
+ 	fc->fcoe_pending_queue_active = 0;
+ 
+diff --git a/include/scsi/libfc.h b/include/scsi/libfc.h
+index a2e126b..61c746c 100644
+--- a/include/scsi/libfc.h
++++ b/include/scsi/libfc.h
+@@ -654,6 +654,7 @@ struct fc_lport {
+ 	u16			link_speed;
+ 	u16			link_supported_speeds;
+ 	u16			lro_xid;	/* max xid for fcoe lro */
++	unsigned int		lso_max;	/* max large send size */
+ 	struct fc_ns_fts	fcts;	        /* FC-4 type masks */
+ 	struct fc_els_rnid_gen	rnid_gen;	/* RNID information */
+ 
 
-
- drivers/net/xen-netfront.c   |    2 +
- drivers/scsi/fcoe/fcoe_sw.c  |   67 ++++++++++++++++++++++++++++++++++++++++-
- drivers/scsi/fcoe/libfcoe.c  |   16 ++++++++--
- drivers/scsi/libfc/fc_exch.c |    4 ++
- drivers/scsi/libfc/fc_fcp.c  |   69 +++++++++++++++++++++++++++++++++++++++++-
- include/linux/if_ether.h     |    1 +
- include/linux/netdevice.h    |   18 ++++++++++-
- include/linux/skbuff.h       |    2 +
- include/scsi/fc/fc_fcoe.h    |    7 ----
- include/scsi/fc_frame.h      |   19 +-----------
- include/scsi/libfc.h         |   31 +++++++++++++++++++
- include/scsi/libfcoe.h       |   18 -----------
- net/core/dev.c               |    4 ++
- 13 files changed, 206 insertions(+), 52 deletions(-)
-
--- 
-Signature: Yi Zou <yi.zou@intel.com>
