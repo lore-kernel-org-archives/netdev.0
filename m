@@ -1,98 +1,270 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
-Date: Fri, 27 Feb 2009 12:35:43 -0800
-Message-ID: <30478.1235766943@death.nxdomain.ibm.com>
-References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc> <16084.1235752119@death.nxdomain.ibm.com> <49A84802.7030502@krogh.cc>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
-To: Jesper Krogh <jesper@krogh.cc>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next-2.6 2009-02-23
+Date: Fri, 27 Feb 2009 15:40:02 -0500
+Message-ID: <20090227204002.GI3687@tuxdriver.com>
+References: <20090223192659.GB3553@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:51327 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760184AbZB0Ufo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 15:35:44 -0500
-In-reply-to: <49A84802.7030502@krogh.cc>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39409 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756398AbZB0Ukm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 15:40:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20090223192659.GB3553@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Krogh <jesper@krogh.cc> wrote:
+Consider this withdrawn.  I'm sending a new request momentarily.
 
->Jay Vosburgh wrote:
->> Jesper Krogh <jesper@krogh.cc> wrote:
->> [...]
->>> The offending commit seems to be:
->>>
->>> A test with a fresh 2.6.29-rc6 revealed that the problem has been fixed
->>> subsequently.. but still exists in 2.6.27-newest.  (havent tested
->>> 2.6.28-newest yet).
->>>
->>> Any ideas of what the "fixing" commit is .. or should that also be
->>> bisected?
->>
->> 	I went back and looked at your earlier mail.  Since you're using
->> 802.3ad mode, my first guess would be this commit:
->>
->> commit fd989c83325cb34795bc4d4aa6b13c06f90eac99
->> Author: Jay Vosburgh <fubar@us.ibm.com>
->> Date:   Tue Nov 4 17:51:16 2008 -0800
->>
->>     bonding: alternate agg selection policies for 802.3ad
->
->That didn't do it.. I applied it to 2.6.27.19 but it didnt make that work.
->dmesg | grep bond (2.6.27.19 + above patch).
+John
 
-	That was the only real functional change to 802.3ad, there are a
-lot of other commits, but they're all style or cleanup sorts of things.
+On Mon, Feb 23, 2009 at 02:26:59PM -0500, John W. Linville wrote:
+> Dave,
+> 
+> Here is a big batch of changes intended for 2.6.30.  They run the usual
+> gamut of wireless driver and mac80211 changes...
+> 
+> There is an ugly one from me.  It is a kluge but it prevents a crash on
+> my Lenovo T400.  I bisected the crash down to "mac80211: use cfg80211s
+> BSS infrastructure", which is already in net-next-2.6.  Still, if it is
+> too ugly then let me know and I'll reformulate without it.
+> 
+> Please let me know if there are problems!
+> 
+> Thanks,
+> 
+> John
+> 
+> ---
+> 
+> Individual patches are available here:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
+> 
+> ---
+> 
+> The following changes since commit ce16c5337ab0d165f95c88aa857207efd7c01139:
+>   Eric W. Biederman (1):
+>         netns: Remove net_alive
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+> 
+> Bing Zhao (1):
+>       libertas: fix power save issue in libertas_sdio module
+> 
+> Bob Copeland (10):
+>       ath9k: remove write-only current_rd_inuse
+>       ath9k: save a few calls to ath9k_regd_get_eepromRD
+>       ath9k: convert isWwrSKU macro into C code
+>       ath9k: remove ath9k_regd_get_rd()
+>       ath9k: remove prototype for ath9k_regd_get_current_country
+>       ath9k: move common regulatory code out of if() branches
+>       ath5k: don't mask off interrupt bits
+>       ath5k: use spin_lock_irqsave for beacon lock
+>       ath5k: move beacon processing to a tasklet
+>       ath5k: compute rts/cts duration after computing full pktlen
+> 
+> Dan Williams (4):
+>       hostap: convert usage of net/ieee80211.h to linux/ieee80211.h
+>       make net/ieee80211.h private to ipw2x00
+>       cfg80211: age scan results on resume
+>       ipw2x00: age scan results on resume
+> 
+> Helmut Schaa (1):
+>       iwlagn: clean up error path in iwl_pci_probe
+> 
+> Ivo van Doorn (4):
+>       rt2x00: uncomment get_tsf
+>       rt2x00: Remove check for rf word 0
+>       rt2x00: Add various new USB IDs for rt73usb
+>       rt2x00: Fix RF offset
+> 
+> Jiri Slaby (1):
+>       ipw2200, fix ipw io functions
+> 
+> Johannes Berg (10):
+>       mac80211: disallow moving netns
+>       mac80211: fix aggregation for hardware with ampdu queues
+>       mac80211: split IBSS/managed code
+>       genetlink: introduce pre/post methods
+>       nl80211: lock rtnl around all operations
+>       cfg80211/mac80211: fill qual.qual value/adjust max_qual.qual
+>       mac80211: add missing kernel-doc
+>       nl80211: remove admin requirement from station get
+>       cfg80211: clean up signal type
+>       mac80211/cfg80211: move iwrange handler to cfg80211
+> 
+> John W. Linville (2):
+>       airo: correct improper initialization of local variable
+>       iwlagn: default to MAX_UCODE_BEACON_INTERVAL in iwl_adjust_beacon_interval
+> 
+> Jouni Malinen (2):
+>       nl80211: Optional IEs into scan request
+>       nl80211: Provide access to STA TX/RX packet counters
+> 
+> Randy Dunlap (1):
+>       wireless: fix for CONFIG_NL80211=n
+> 
+> Reinette Chatre (2):
+>       iwlwifi: use singlethread workqueue
+>       iwlwifi: Fix and rework Kconfig file
+> 
+> Roel Kluin (3):
+>       wavelan: Test arraysize before an element of the array.
+>       p54: misplaced parentheses
+>       b43: Fix LO calibration txctl reg value
+> 
+> Senthil Balasubramanian (1):
+>       ath9k: Add open loop control support
+> 
+> Sujith (16):
+>       ath9k: Store the correct max TX power level
+>       ath9k: Fix rd_ext EEPROM capability for AR9285
+>       ath9k: Enable Fractional N mode
+>       ath9k: Enable TSF Out of Range Interrupt
+>       ath9k: Initialize AGC calibration properly
+>       ath9k: Fix bug in disabling MIB counters
+>       ath9k: Fix incorrect noise floor reading for 4k EEPROM
+>       ath9k: Decrease minimum NF threshold
+>       mac80211: Extend the rate control API with an update callback
+>       ath9k: Program the RTC registers correctly
+>       ath9k: Fix HW wait timeout
+>       ath9k: Fix antenna assignment bug in TX status processing
+>       ath9k: Initialize channel change time
+>       ath9k: Remove a few unused capability macros
+>       ath9k: Remove ath_txq_depth and get the queue depth directly
+>       ath9k: Use beacon interval directly
+> 
+> Vasanthakumar Thiagarajan (2):
+>       mac80211: Make sure non-HT connection when IEEE80211_STA_TKIP_WEP_USED is set
+>       ath9k: Fix PTK/GTK handshake timeout
+> 
+> Wu, Fengguang (1):
+>       iwlwifi: report correct and detailed values about requested txpower
+> 
+>  drivers/net/wireless/airo.c                        |    3 +-
+>  drivers/net/wireless/ath5k/base.c                  |   84 +-
+>  drivers/net/wireless/ath5k/base.h                  |    1 +
+>  drivers/net/wireless/ath9k/ani.c                   |    7 +-
+>  drivers/net/wireless/ath9k/beacon.c                |    3 +
+>  drivers/net/wireless/ath9k/calib.c                 |   66 +-
+>  drivers/net/wireless/ath9k/calib.h                 |    2 +-
+>  drivers/net/wireless/ath9k/eeprom.c                |  234 +++-
+>  drivers/net/wireless/ath9k/eeprom.h                |   34 +-
+>  drivers/net/wireless/ath9k/hw.c                    |  106 +-
+>  drivers/net/wireless/ath9k/hw.h                    |   20 +-
+>  drivers/net/wireless/ath9k/mac.c                   |   30 +-
+>  drivers/net/wireless/ath9k/main.c                  |   36 +-
+>  drivers/net/wireless/ath9k/pci.c                   |    3 +-
+>  drivers/net/wireless/ath9k/phy.c                   |   19 +-
+>  drivers/net/wireless/ath9k/phy.h                   |   29 +
+>  drivers/net/wireless/ath9k/rc.c                    |    7 +-
+>  drivers/net/wireless/ath9k/recv.c                  |    1 -
+>  drivers/net/wireless/ath9k/reg.h                   |   12 +-
+>  drivers/net/wireless/ath9k/regd.c                  |   28 +-
+>  drivers/net/wireless/ath9k/regd.h                  |    9 -
+>  drivers/net/wireless/ath9k/xmit.c                  |   28 +-
+>  drivers/net/wireless/b43/lo.c                      |    2 +-
+>  drivers/net/wireless/hostap/hostap.h               |    2 +-
+>  drivers/net/wireless/hostap/hostap_80211.h         |    2 +-
+>  drivers/net/wireless/hostap/hostap_80211_rx.c      |   88 +-
+>  drivers/net/wireless/hostap/hostap_80211_tx.c      |   51 +-
+>  drivers/net/wireless/hostap/hostap_ap.c            |  138 +-
+>  drivers/net/wireless/hostap/hostap_ap.h            |    6 +-
+>  drivers/net/wireless/hostap/hostap_hw.c            |   24 +-
+>  drivers/net/wireless/hostap/hostap_info.c          |    1 +
+>  drivers/net/wireless/hostap/hostap_ioctl.c         |    1 +
+>  drivers/net/wireless/hostap/hostap_main.c          |   38 +-
+>  drivers/net/wireless/ipw2x00/Kconfig               |    2 +-
+>  .../net/wireless/ipw2x00}/ieee80211.h              |    3 +
+>  drivers/net/wireless/ipw2x00/ipw2100.c             |   12 +-
+>  drivers/net/wireless/ipw2x00/ipw2100.h             |    8 +-
+>  drivers/net/wireless/ipw2x00/ipw2200.c             |  116 +-
+>  drivers/net/wireless/ipw2x00/ipw2200.h             |    7 +-
+>  drivers/net/wireless/ipw2x00/libipw_geo.c          |    2 +-
+>  drivers/net/wireless/ipw2x00/libipw_module.c       |   17 +-
+>  drivers/net/wireless/ipw2x00/libipw_rx.c           |    5 +-
+>  drivers/net/wireless/ipw2x00/libipw_tx.c           |    2 +-
+>  drivers/net/wireless/ipw2x00/libipw_wx.c           |   27 +-
+>  drivers/net/wireless/iwlwifi/Kconfig               |   56 +-
+>  drivers/net/wireless/iwlwifi/Makefile              |    4 +-
+>  drivers/net/wireless/iwlwifi/iwl-agn.c             |   13 +-
+>  drivers/net/wireless/iwlwifi/iwl-core.c            |   10 +-
+>  drivers/net/wireless/iwlwifi/iwl-core.h            |    2 +-
+>  drivers/net/wireless/iwlwifi/iwl-dev.h             |    4 +-
+>  drivers/net/wireless/iwlwifi/iwl3945-base.c        |    2 +-
+>  drivers/net/wireless/libertas/defs.h               |    1 +
+>  drivers/net/wireless/libertas/if_sdio.c            |    6 +
+>  drivers/net/wireless/p54/p54common.c               |    4 +-
+>  drivers/net/wireless/rt2x00/rt2400pci.c            |    3 -
+>  drivers/net/wireless/rt2x00/rt2400pci.h            |    4 +-
+>  drivers/net/wireless/rt2x00/rt2500pci.c            |    3 -
+>  drivers/net/wireless/rt2x00/rt2500pci.h            |    4 +-
+>  drivers/net/wireless/rt2x00/rt2500usb.c            |    3 -
+>  drivers/net/wireless/rt2x00/rt2500usb.h            |    4 +-
+>  drivers/net/wireless/rt2x00/rt2x00debug.c          |   10 +-
+>  drivers/net/wireless/rt2x00/rt61pci.c              |    3 -
+>  drivers/net/wireless/rt2x00/rt61pci.h              |    4 +-
+>  drivers/net/wireless/rt2x00/rt73usb.c              |   19 +-
+>  drivers/net/wireless/rt2x00/rt73usb.h              |    4 +-
+>  drivers/net/wireless/wavelan.c                     |    3 +-
+>  include/linux/nl80211.h                            |    5 +
+>  include/net/cfg80211.h                             |   23 +-
+>  include/net/genetlink.h                            |   47 +-
+>  include/net/mac80211.h                             |   18 +-
+>  include/net/wireless.h                             |    3 +
+>  net/mac80211/Makefile                              |    1 +
+>  net/mac80211/agg-rx.c                              |    6 +-
+>  net/mac80211/agg-tx.c                              |  191 ++-
+>  net/mac80211/cfg.c                                 |   49 +-
+>  net/mac80211/debugfs_netdev.c                      |   48 +-
+>  net/mac80211/ht.c                                  |   19 +-
+>  net/mac80211/ibss.c                                |  888 +++++++++++
+>  net/mac80211/ieee80211_i.h                         |  138 ++-
+>  net/mac80211/iface.c                               |   77 +-
+>  net/mac80211/key.c                                 |    2 +-
+>  net/mac80211/main.c                                |   24 +-
+>  net/mac80211/mlme.c                                | 1648 +++++---------------
+>  net/mac80211/rate.h                                |   12 +
+>  net/mac80211/rx.c                                  |   37 +-
+>  net/mac80211/scan.c                                |   57 +-
+>  net/mac80211/spectmgmt.c                           |   26 +-
+>  net/mac80211/sta_info.c                            |   15 +-
+>  net/mac80211/sta_info.h                            |    5 +-
+>  net/mac80211/tx.c                                  |   29 +-
+>  net/mac80211/util.c                                |  254 +++-
+>  net/mac80211/wext.c                                |  262 ++--
+>  net/mac80211/wme.c                                 |  161 +--
+>  net/mac80211/wme.h                                 |    6 -
+>  net/netlink/genetlink.c                            |   19 +-
+>  net/wireless/core.h                                |    3 +
+>  net/wireless/nl80211.c                             |  124 +-
+>  net/wireless/nl80211.h                             |    4 +
+>  net/wireless/scan.c                                |   61 +-
+>  net/wireless/sysfs.c                               |    7 +
+>  net/wireless/wext-compat.c                         |   97 ++
+>  101 files changed, 3315 insertions(+), 2533 deletions(-)
+>  rename {include/net => drivers/net/wireless/ipw2x00}/ieee80211.h (99%)
+>  create mode 100644 net/mac80211/ibss.c
+> 
+> Omnibus patch is available here:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2009-02-23.patch.bz2
+> 
+> -- 
+> John W. Linville		Someday the world will need a hero, and you
+> linville@tuxdriver.com			might be all we have.  Be ready.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
->[   13.643301] bonding: MII link monitoring set to 100 ms
->[   13.730455] bonding: bond0: enslaving eth0 as a backup interface with
->an up link.
->[   13.781934] bonding: bond0: enslaving eth1 as a backup interface with
->an up link.
->[   13.904665] bonding: bond0: enslaving eth2 as a backup interface with a
->down link.
->[   16.945264] bonding: bond0: link status definitely up for interface eth2.
->[   75.040290] bond0: no IPv6 routers present
->
->dmesg | grep bond (2.6.29-rc6)
->
->$ ssh quad02 dmesg | grep bond
->[   27.437877] bonding: MII link monitoring set to 100 ms
->[   27.445246] ADDRCONF(NETDEV_UP): bond0: link is not ready
->[   27.493260] bonding: bond0: enslaving eth0 as a backup interface with a
->down link.
->[   27.521397] bonding: bond0: enslaving eth1 as a backup interface with a
->down link.
->[   27.542332] bonding: bond0: Warning: No 802.3ad response from the link
->partner for any adapters in the bond
->[   27.611509] bonding: bond0: enslaving eth2 as a backup interface with a
->down link.
->[   27.617017] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
->[   27.642330] bonding: bond0: Warning: No 802.3ad response from the link
->partner for any adapters in the bond
->[   30.042501] bonding: bond0: link status definitely up for interface eth1.
->[   30.142505] bonding: bond0: link status definitely up for interface eth0.
->[   30.742547] bonding: bond0: link status definitely up for interface eth2.
->[   37.875044] bond0: no IPv6 routers present
->
->I just tested 2.6.28.7.. it still broken. So the fix probably has to be
->somewhere in the post 2.6.28 sets.
-
-	It looks like the above two tests are on different machines, or
-were at least done with different network cards.  Is that the case?
-
-	I'm just wondering if what you're seeing is somehow tied to the
-network devices' respective autonegotiation speeds, or some difference
-in the device drivers.  The first dmesg looks to have one slow (3 sec)
-and two fast ones; the second dmesg looks to have all slow devices.
-
-	Have you tried the kernels the other way around (the first
-kernel on the second machine, and vice versa)?
-
-	I'll compile 2.6.28.7 here and see if it works for me.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
