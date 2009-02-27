@@ -1,40 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Kernel problem
-Date: Fri, 27 Feb 2009 19:45:50 +0800
-Message-ID: <20090227114550.GC24024@gondor.apana.org.au>
-References: <20090226.041037.134928084.davem@davemloft.net> <20090226130631.GA14125@gondor.apana.org.au> <20090227041136.GA21468@gondor.apana.org.au> <20090227.000350.107894710.davem@davemloft.net>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH] net: more timeouts that reach -1
+Date: Fri, 27 Feb 2009 19:43:44 +0800
+Message-ID: <20090227114015.M80857@cooldavid.org>
+References: <49A5286D.80304@gmail.com>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, ash@sevsky.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=big5
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: Roel Kluin <roel.kluin@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43080 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752659AbZB0LqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 06:46:02 -0500
-Content-Disposition: inline
-In-Reply-To: <20090227.000350.107894710.davem@davemloft.net>
+Received: from cooldavid.org ([220.133.139.86]:34184 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754706AbZB0Lxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 06:53:55 -0500
+In-Reply-To: <49A5286D.80304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 12:03:50AM -0800, David Miller wrote:
+On Wed, 25 Feb 2009 12:15:57 +0100, Roel Kluin wrote
+> These were not previously reported by me.
+> ------------------------------>8-------------8<---------------------------------
+> with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
+> below are off by one.
 > 
-> This case should use netpoll_rx().
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+>  drivers/net/arm/ks8695net.c |    2 +-
+>  drivers/net/jme.c           |    3 ++-
+>  drivers/net/ucc_geth_mii.c  |    2 +-
+>  3 files changed, 4 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
+> index 1cf2f94..f3a1274 100644
+> --- a/drivers/net/arm/ks8695net.c
+> +++ b/drivers/net/arm/ks8695net.c
+> @@ -560,7 +560,7 @@ ks8695_reset(struct ks8695_priv *ksp)
+>  		msleep(1);
+>  	}
+> 
+> -	if (reset_timeout == 0) {
+> +	if (reset_timeout < 0) {
+>  		dev_crit(ksp->dev,
+>  			 "Timeout waiting for DMA engines to reset\n");
+>  		/* And blithely carry on */
+> diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+> index 08b3405..0173ed0 100644
+> --- a/drivers/net/jme.c
+> +++ b/drivers/net/jme.c
+> @@ -957,7 +957,8 @@ jme_process_receive(struct jme_adapter *jme, int limit)
+>  		goto out_inc;
+> 
+>  	i = atomic_read(&rxring->next_to_clean);
+> -	while (limit-- > 0) {
+> +	while (limit > 0) {
+> +		limit--;
+>  		rxdesc = rxring->desc;
+>  		rxdesc += i;
+> 
+There should be no difference after this modification.
+The return value of this function is: "limit > 0 ? limit : 0;"
+> diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+> index 5463591..7b1b46c 100644
+> --- a/drivers/net/ucc_geth_mii.c
+> +++ b/drivers/net/ucc_geth_mii.c
+> @@ -123,7 +123,7 @@ static int uec_mdio_reset(struct mii_bus *bus)
+> 
+>  	mutex_unlock(&bus->mdio_lock);
+> 
+> -	if (timeout <= 0) {
+> +	if (timeout < 0) {
+>  		printk(KERN_ERR "%s: The MII Bus is stuck!\n", bus->name);
+>  		return -EBUSY;
+>  	}
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Good point.
 
-> netif_rx_skb() --> netpoll_rx()
-> netif_receive_skb() --> netpoll_receive_skb()
+Guo-Fu Tseng
 
-Actually I think we could just use netpoll_rx as netpoll_receive_skb
-is just an optimisation that skips the test if we've already done it.
-
-I'll do another version with combining the bonding check as you
-suggested.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
