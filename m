@@ -1,70 +1,76 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell 88E609x switch?
-Date: Fri, 27 Feb 2009 15:40:04 +0100
-Message-ID: <20090227144004.GC17040@xi.wantstofly.org>
-References: <49A73E00.7050406@mlbassoc.com> <20090227011903.GS17040@xi.wantstofly.org> <49A7DBA2.8060605@mlbassoc.com> <49A7DFC0.9050601@mlbassoc.com> <20090227125305.GW17040@xi.wantstofly.org> <49A7E87D.5090203@mlbassoc.com> <20090227132319.GY17040@xi.wantstofly.org> <49A7EA3D.8070800@mlbassoc.com> <20090227142754.GB17040@xi.wantstofly.org> <49A7FA57.7030504@mlbassoc.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: ip_nonlocal_bind and sendto (fwd)
+Date: Fri, 27 Feb 2009 11:50:15 -0300
+Message-ID: <20090227145015.GG22152@ghostprotocols.net>
+References: <alpine.DEB.1.10.0902270119060.7158@asgard.lang.hm>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Gary Thomas <gary@mlbassoc.com>
+To: david@lang.hm
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:53432 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755487AbZB0OkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 09:40:07 -0500
+Received: from mx2.redhat.com ([66.187.237.31]:33705 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754753AbZB0OuU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 09:50:20 -0500
 Content-Disposition: inline
-In-Reply-To: <49A7FA57.7030504@mlbassoc.com>
+In-Reply-To: <alpine.DEB.1.10.0902270119060.7158@asgard.lang.hm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 07:36:07AM -0700, Gary Thomas wrote:
+Em Fri, Feb 27, 2009 at 01:20:07AM -0800, david@lang.hm escreveu:
+> I've got a need to forge the source IP of UDP packets (a stupid syslog 
+> receiver app that I need to deal with)
+>
+> I know that this can be done with raw sockets, but with the 
+> IP_nonlocal_bind option I thought that it may be possible to do this 
+> without dealing with raw sockets
+>
+> so I have an app that does the socket call, followed by the bind call 
+> without any errors, but when I issue the sendto call it generates error 
+> 22 (invalid parameter) if the source IP doesn't exist on the local box 
+> somewhere.
+>
+> is this the kernel that is doing whatever check is failing? or is glibc  
+> wrapping the kernel syscall and doing some additional checking?
+>
+> if it is the kernel that's throwing the error, is there some way of 
+> disabling this check? or do I have to go to raw sockets?
 
-> >>>>> Also, can you show me what you're filling the dsa platform data
-> >>>>> structure with?
-> >>>> struct dsa_platform_data _switch_data = {
-> >>>>     .port_names[0]  = "lan1.1",
-> >>>>     .port_names[1]  = "lan1.2",
-> >>>>     .port_names[2]  = "lan1.3",
-> >>>>     .port_names[3]  = "lan1.4",
-> >>>>     .port_names[4]  = "lan1.5",
-> >>>>     .port_names[5]  = "lan1.6",
-> >>>>     .port_names[6]  = "lan1.7",
-> >>>>     .port_names[7]  = "lan1.8",
-> >>>>     .port_names[10]  = "cpu",
-> >>>>     .sw_addr = 1,
-> >>>> };
-> >>> Just this should do the trick.  So what's not working -- are the
-> >>> interfaces not showing up?  Or packet RX/TX isn't working?  Or
-> >>> something else?
-> >> It won't let me bring up eth0 (my scripts try to run DHCP):
-> >>   starting network interfaces...
-> >>   24520:01 not found
-> >>   eth0: Could not attach to PHY
-> >>   ip: SIOCSIFFLAGS: No such device
-> >>
-> >> As for the other devices, they do show up if I let eth0 try to
-> >> attach to the PHY:
-> > 
-> > OK.  If you try to cheat the gianfar driver by having it attach to
-> > the PHY for lan1.1, and plug a network cable into lan1.1 so that the
-> > link goes up and gianfar thinks that the link on eth0 is up, does that
-> > enable you to pass packets over any of the switch interfaces?  That
-> > should be working now in this stage.
-> 
-> So, what name do I use when the gianfar is trying to attach?
-> It makes this call:
->   phydev = phy_connect(dev, phy_id, &adjust_link, 0, interface);
-> where phy_id="24520:01".
-> 
-> Using "24520:01:00" gets an error:
->   eth0: 24520:01:00 already attached
-> 
-> Maybe the DSA layer/driver needs to export a device "24520:01"
-> which pretends all of the things that the gianfar wants (1000Mb/Full/Link)?
+Follow:
 
-Well, this isn't DSA-specific -- e.g. if you'd hook your CPU's
-ethernet MAC up to an FPGA, you'd be in the same situation.
+udp_sendmsg
+    ip_route_output_flow
+        __ip_route_output_key
 
-Maybe there is some fake PHY you can instantiate -- the "Fixed"
-MDIO bus maybe?  Can you try enabling CONFIG_FIXED_PHY and pointing
-it to that?
+And then look at this line:
+
+	rth->fl.fl4_src == flp->fl4_src &&
+
+It'll fail and so another function will be called:
+
+	    ip_route_output_slow
+
+Many, many details later, this comment:
+
+                           Because we are allowed to send to iface
+                           even if it has NO routes and NO assigned
+                           addresses. When oif is specified, routing
+                           tables are looked up with only one purpose:
+                           to catch if destination is gatewayed, rather than
+                           direct. Moreover, if MSG_DONTROUTE is set,
+                           we send packet, ignoring both routing tables
+                           and ifaddr state. --ANK
+
+So try using:
+
+setsockopt(udp_sock, SOL_SOCKET, SO_BINDTODEVICE, "eth0", 5);
+
+Replacing "eth0" with the interface you want your forged packets to fly by.
+
+The device name will be transformed into an index and stored in
+sk->sk_bound_dev_if, that later, at udp_sendmsg time, will get stashed into
+that oif field and then that comment will hold.
+
+Caveat emptor: I never tried this, this is just after 5 minutes code inspection 8)
+
+- Arnaldo
