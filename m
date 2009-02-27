@@ -1,71 +1,89 @@
-From: Chris Stromsoe <cbs@cts.ucla.edu>
-Subject: WARNING: at net/core/dev.c:1505 skb_gso_segment+0x6e/0x156()
-Date: Thu, 26 Feb 2009 23:16:16 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0902262309380.4261@potato.cts.ucla.edu>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: [PATCH v2] bonding: move IPv6 support into a separate kernel
+	module
+Date: Fri, 27 Feb 2009 02:25:54 -0500
+Message-ID: <f73f7ab80902262325q2779f3f5y4870bc30a062971d@mail.gmail.com>
+References: <49A5ADB3.2010709@hp.com> <28797.1235599858@death.nxdomain.ibm.com>
+	 <20090225.141430.166906161.davem@davemloft.net>
+	 <49A6C6ED.3070801@hp.com> <22876.1235672073@death.nxdomain.ibm.com>
+	 <49A6ED6D.3090508@hp.com> <7418.1235679608@death.nxdomain.ibm.com>
+	 <49A70245.9010405@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Brian Haley <brian.haley@hp.com>,
+	David Miller <davem@davemloft.net>, arvidjaar@mail.ru,
+	chuck.lever@oracle.com, tytso@mit.edu, Valdis.Kletnieks@vt.edu,
+	rjw@sisk.pl, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out-66.smtp.ucla.edu ([169.232.46.167]:55061 "EHLO
-	out-66.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753051AbZB0HXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:23:06 -0500
-Received: from potato.cts.ucla.edu (potato.cts.ucla.edu [128.97.128.80])
-	by smtp-13.smtp.ucla.edu (8.14.3/8.14.3) with ESMTP id n1R7GHpg004538
-	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 23:16:17 -0800
-Received: from potato.cts.ucla.edu (localhost [127.0.0.1])
-	by potato.cts.ucla.edu (8.13.8/8.13.8/Debian-3) with ESMTP id n1R7GHjY004791
-	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 23:16:17 -0800
-Received: from localhost (cbs@localhost)
-	by potato.cts.ucla.edu (8.13.8/8.13.8/Submit) with ESMTP id n1R7GH2K004788
-	for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 23:16:17 -0800
+Received: from an-out-0708.google.com ([209.85.132.251]:62058 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757406AbZB0HZ4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:25:56 -0500
+In-Reply-To: <49A70245.9010405@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm seeing these show up pretty regularly on several Dell 1750s running 
-2.6.27.19, with both tg3 ports bonded together in an active-backup 
-configuration.
+On Thu, Feb 26, 2009 at 3:57 PM, Vlad Yasevich
+<vladislav.yasevich@hp.com> wrote:
+>
+> Yes. =C2=A0The bitmask to disable certain family can be useful, but i=
+t's orthogonal
+> the issue of IPv6 support. =C2=A0As you said, it can be used to disab=
+le
+> any address family that user wishes. =C2=A0The slight issue with this=
+ might
+> be, should the settings affect already create sockets?
+>
+> I guess it comes down how many levels of control to do we want to pro=
+vide.
+> Things that have been suggested so far:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A01) Global on/off switch (i.e module parame=
+ter)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A02) Per interface on/off switch (currently =
+exists, but has bugs).
+> =C2=A0 =C2=A0 =C2=A0 =C2=A03) Socket on/off switch (i.e blocker bitma=
+sk)
+>
+> I think numbers 1 and 2 turn off the IPv6 protocol on the wire, while=
+ number
+> 3 turns off the interface to the user. =C2=A0The two can be done inde=
+pendent.
 
--Chris
+I feel extremely nervous about people discussing disabling IPv6 going
+forward.  Current estimates are that the first RIRs will begin to
+exhaust their address spaces (after IANA's address space is exhausted)
+early in 2011.  If you consider that any change probably won't be in a
+released kernel until June or so, there would be all of 18 months left
+until IPv6 is *required* to contact some hosts on the internet.
 
-------------[ cut here ]------------
-WARNING: at net/core/dev.c:1505 skb_gso_segment+0x6e/0x156()
-Modules linked in: dm_snapshot dm_mirror dm_log dm_mod ipmi_devintf ipmi_si ipmi_msghandler tg3 bonding
-Pid: 1635, comm: apache2 Tainted: G        W 2.6.27.19 #4
-  [<c011ebf6>] warn_on_slowpath+0x41/0x65
-  [<c035f1a1>] ? _read_unlock_bh+0xe/0x10
-  [<c01307c2>] ? notifier_call_chain+0x2b/0x4a
-  [<c01307f2>] ? __atomic_notifier_call_chain+0x11/0x13
-  [<c0130800>] ? atomic_notifier_call_chain+0xc/0xe
-  [<c02de148>] ? nf_ct_deliver_cached_events+0x67/0x6b
-  [<c02c1754>] skb_gso_segment+0x6e/0x156
-  [<c02c1a06>] dev_hard_start_xmit+0x1ca/0x25a
-  [<c02c3cf8>] dev_queue_xmit+0x376/0x436
-  [<c0329267>] ip6_output_finish+0x79/0xd1
-  [<c0329731>] ip6_output2+0x1c3/0x1cb
-  [<c032a441>] ip6_output+0xa76/0xa91
-  [<c03290e4>] ? dst_output+0x0/0xb
-  [<c02d71f6>] ? nf_hook_slow+0x38/0x8e
-  [<c03290e4>] ? dst_output+0x0/0xb
-  [<c032bac9>] ip6_xmit+0x2ce/0x395
-  [<c0347f00>] inet6_csk_xmit+0x1b6/0x1cb
-  [<c02fc356>] tcp_transmit_skb+0x556/0x589
-  [<c02fd9c3>] __tcp_push_pending_frames+0x623/0x6c2
-  [<c01cdcc2>] ? copy_from_user+0x2c/0x4f
-  [<c02f445f>] tcp_sendmsg+0x7e1/0x8e4
-  [<c02b7965>] sock_aio_write+0xc3/0xd0
-  [<c015875d>] do_sync_readv_writev+0xa1/0xdf
-  [<c012d871>] ? autoremove_wake_function+0x0/0x33
-  [<c01cdcc2>] ? copy_from_user+0x2c/0x4f
-  [<c0158622>] ? rw_copy_check_uvector+0x58/0xbf
-  [<c0158d51>] do_readv_writev+0x85/0x140
-  [<c02b78a2>] ? sock_aio_write+0x0/0xd0
-  [<c0121a23>] ? do_setitimer+0x297/0x2f6
-  [<c016abbf>] ? mntput_no_expire+0x18/0xc9
-  [<c0158e45>] vfs_writev+0x39/0x49
-  [<c01591dd>] sys_writev+0x3b/0x60
-  [<c0102b52>] syscall_call+0x7/0xb
-  [<c0350000>] ? ipip6_tunnel_xmit+0x381/0x4d7
-  =======================
----[ end trace b985ccce15b7cbae ]---
+At this point in time, anyone looking at "disabling" IPv6 should be
+doing so with standard firewall rules *exactly* the same way that they
+would disable IPv4 traffic; adding rules using ip6tables or ebtables
+is easy.
 
+You could simply drop all IPv6 ethernet frames:
+  ebtables -P INPUT ACCEPT
+  ebtables -A INPUT -p IPv6 -j DROP
+  ebtables -P FORWARD ACCEPT
+  ebtables -A FORWARD -p IPv6 -j DROP
+  ebtables -P OUTPUT ACCEPT
+  ebtables -A OUTPUT -p IPv6 -j DROP
+
+Alternatively for a per-interface switch you could "ebtables -A INPUT
+-i eth4 -p IPv6 -j DROP", etc...
+
+You could also do this instead (this includes IPv6 tunnels and whatnot)=
+:
+  ip6tables -t raw -P INPUT DROP
+  ip6tables -t raw -P OUTPUT DROP
+
+This allows programs which have been written to use AF_INET6 even for
+IPv4 sockets to continue to function appropriately (and there are at
+least a few).
+
+Cheers,
+Kyle Moffett
