@@ -1,32 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hso: remove claiming and releasing of USB interface
-Date: Thu, 26 Feb 2009 23:05:09 -0800 (PST)
-Message-ID: <20090226.230509.198414661.davem@davemloft.net>
-References: <20090223153932.8953.70790.stgit@Programuotojas>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] hso: remove hso_free_device()
+Date: Thu, 26 Feb 2009 23:05:38 -0800 (PST)
+Message-ID: <20090226.230538.228511315.davem@davemloft.net>
+References: <20090223155827.10185.48514.stgit@Programuotojas>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	D.Barow@option.com
-To: paulius.zaleckas@teltonika.lt
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59230
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753939AbZB0HFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:05:25 -0500
-In-Reply-To: <20090223153932.8953.70790.stgit@Programuotojas>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+To: paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090223155827.10185.48514.stgit@Programuotojas>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Date: Mon, 23 Feb 2009 17:39:34 +0200
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Date: Mon, 23 Feb 2009 17:58:27 +0200
 
-> No need to reclaim the same USB interface beeing probed.
-> Releasing interface does nothing also.
+> There is really no need for function just doing simple kfree()
 > 
-> This is already in for a long time in off-kernel hso driver
-> and no regresions were noticed for this change.
-> 
-> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> Signed-off-by: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
