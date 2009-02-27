@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/26] Reliable Datagram Sockets (RDS), take 2
-Date: Fri, 27 Feb 2009 00:01:50 -0800 (PST)
-Message-ID: <20090227.000150.177646700.davem@davemloft.net>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
-	<20090224.232814.227017310.davem@davemloft.net>
-	<c0a09e5c0902251043x576e7066kb7aa76fc148a6f76@mail.gmail.com>
+Subject: Re: Kernel problem
+Date: Fri, 27 Feb 2009 00:03:50 -0800 (PST)
+Message-ID: <20090227.000350.107894710.davem@davemloft.net>
+References: <20090226.041037.134928084.davem@davemloft.net>
+	<20090226130631.GA14125@gondor.apana.org.au>
+	<20090227041136.GA21468@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, general@lists.openfabrics.org
-To: andy.grover@gmail.com
+Cc: jarkao2@gmail.com, ash@sevsky.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51230
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43239
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753142AbZB0ICG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 03:02:06 -0500
-In-Reply-To: <c0a09e5c0902251043x576e7066kb7aa76fc148a6f76@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754247AbZB0IEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 03:04:07 -0500
+In-Reply-To: <20090227041136.GA21468@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Grover <andy.grover@gmail.com>
-Date: Wed, 25 Feb 2009 10:43:27 -0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 27 Feb 2009 12:11:36 +0800
 
-> On Tue, Feb 24, 2009 at 11:28 PM, David Miller <davem@davemloft.net> wrote:
-> > Furthermore the port you've choosen for the protocol is arbitrary, not
-> > properly allocated with the appropriate standards committee, and
-> > therefore could conflict with something other people are using.
-> 
-> I'm sure allocating the port won't be too big an issue.
+>  /* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
+>  int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+>  		      u16 vlan_tci, int polling)
+>  {
+> +	if (netpoll_receive_skb(skb))
+> +		return NET_RX_DROP;
+> +
+>  	if (skb_bond_should_drop(skb))
+>  		goto drop;
+>  
 
-Ok, I added the RDS code to the net-next-2.6 tree, changing
-AF_RDS to be 21
+This case should use netpoll_rx().
+
+netif_rx_skb() --> netpoll_rx()
+netif_receive_skb() --> netpoll_receive_skb()
