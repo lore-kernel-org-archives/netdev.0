@@ -1,37 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Fri, 27 Feb 2009 08:59:45 +0800
-Message-ID: <20090227005945.GB20081@gondor.apana.org.au>
-References: <49A4D5D5.5090602@trash.net> <20090225061902.GA32430@gondor.apana.org.au> <49A4E3F8.4050406@trash.net> <49A4F0D7.20304@trash.net> <20090225084321.GA1101@gondor.apana.org.au> <m163ixk9t2.fsf@fess.ebiederm.org> <20090226062257.GA11511@gondor.apana.org.au> <m14oyhis31.fsf@fess.ebiederm.org> <20090226084924.16cb3e08@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: unloading the ipv6 module
+Date: Thu, 26 Feb 2009 17:06:23 -0800 (PST)
+Message-ID: <20090226.170623.247704052.davem@davemloft.net>
+References: <49A69784.6070204@free.fr>
+	<20090226.052411.77955912.davem@davemloft.net>
+	<20090226180920.GO28512@mea-ext.zmailer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel.lezcano@free.fr, netdev@vger.kernel.org
+To: matti.aarnio@zmailer.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42314 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752634AbZB0A75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 19:59:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20090226084924.16cb3e08@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35401
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751236AbZB0BGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 20:06:42 -0500
+In-Reply-To: <20090226180920.GO28512@mea-ext.zmailer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2009 at 08:49:24AM -0800, Stephen Hemminger wrote:
->
-> -	rtnl_lock();
-> +	if (!rtnl_trylock())
-> +		return -ERESTARTSYS;
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Date: Thu, 26 Feb 2009 20:09:20 +0200
 
-This is going to spin instead of sleep on contention, is that
-intended?
+> On Thu, Feb 26, 2009 at 05:24:11AM -0800, David Miller wrote:
+> > It's just such an enormous set of problems to solve to make it work,
+> > and there are so many more urgent issues to work on.
+> 
+> Like refactoring the system to have IPv4 specific codes,
+> IPv6 specific codes, and common codes...   But DaveM has
+> probably other items in mind.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The biggest problem is the reference counting of objects.
+
+And if you make ipv6 sockets grab references to the ipv6 module,
+the ipv6 module itself creates a few for ICMP6 processing, so
+you somehow have to get rid of those in order for the module
+unload to be invokable at all.
+
+There are hundreds of cases like that you have to find solutions for
+before you can cleanly unload ipv6.
