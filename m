@@ -1,194 +1,100 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH] r8169: read MAC address from EEPROM on init (2nd attempt)
-Date: Fri, 27 Feb 2009 13:13:10 +0100
-Message-ID: <1235736790-11408-1-git-send-email-ivecera@redhat.com>
-Cc: romieu@fr.zoreil.com, davem@davemloft.net,
-	bhutchings@solarflare.com, Ivan Vecera <ivecera@redhat.com>
-To: netdev@vger.kernel.org
+From: Gary Thomas <gary@mlbassoc.com>
+Subject: Re: Marvell 88E609x switch?
+Date: Fri, 27 Feb 2009 05:25:06 -0700
+Message-ID: <49A7DBA2.8060605@mlbassoc.com>
+References: <49A49C06.90908@mlbassoc.com> <20090225131550.GA24996@xi.wantstofly.org> <49A5B877.8080403@mlbassoc.com> <20090226151107.GN17040@xi.wantstofly.org> <49A6B991.2090703@mlbassoc.com> <20090226155726.GO17040@xi.wantstofly.org> <49A73E00.7050406@mlbassoc.com> <20090227011903.GS17040@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:34132 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753782AbZB0MNW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 07:13:22 -0500
+Received: from 137-67-76-76.skybeam.com ([76.76.67.137]:5994 "EHLO
+	mail.chez-thomas.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbZB0MZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 07:25:21 -0500
+In-Reply-To: <20090227011903.GS17040@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is 2nd attempt to implement the initialization/reading of MAC address
-from EEPROM. The first used PCI's VPD and there were some problems, some
-devices are not able to read EEPROM content by VPD. The 2nd one uses direct
-access to EEPROM through bit-banging interface and my testing results seem
-to be much better.
+Lennert Buytenhek wrote:
+> On Thu, Feb 26, 2009 at 06:12:32PM -0700, Gary Thomas wrote:
+> 
+>>>>>>>> Is there support for this device anywhere?  In particular,
+>>>>>>>> the M88E6095 switch.
+>>>>>>> Not at the moment, but it should be easy enough to add.  If your
+>>>>>>> board already runs on 2.6.28+, I can whip up some patches for you
+>>>>>>> to try from the docs I have for that part.
+>>>>>> That would be much appreciated, thanks.
+>>>>> I noticed that the 6095/6095F are quite similar to the 6131 as far
+>>>>> as the register set goes.  So something along these lines (hacky
+>>>>> patch, breaks 6131, not for mainline) might just work to detect
+>>>>> single 6095s (cascading DSA chips is something that needs more work,
+>>>>> let's get the single-chip case working first).
+>>>>>
+>>>>> The other thing you'll need to do is create dsa platform devices
+>>>>> for your switch chips, a la how it's done in arch/arm/mach-orion5x/
+>>>>> or arch/arm/mach-kirkwood/ for example -- you need to pass in a struct
+>>>>> device * for your network device, a struct device * for your mii bus,
+>>>>> the switch MII address on the MII bus, and names of the individual
+>>>>> ports (where you'll specify "cpu" for the port on the switch chip that
+>>>>> the CPU is connected to).
+>>>>>
+>>>>> Let me know if this works.
+>>>> Thanks, I'll give it a try.  It will take a little effort
+>>>> to get setup as I have to work within the open firmware
+>>>> structure (that's how all the various components are
+>>>> specified).
+>>> Right, we don't have OF bindings yet.  I guess this would make sense
+>>> to do generically at some point, since there are quite a few PPC
+>>> platforms with DSA switch chips.
+>> Here's what I tried - (patch attached) - a trulyhorrible hack,
+>> but I've not figured out how to get the correct device pointers
+>> from the OF world yet.  The boot log shows that it's trying, but
+>> I don't see the DSA layer (M88E690x driver) doing the MII indirection
+>> that's needed for this device.
+>>
+>> I'm probably not starting it up correctly, but I think I followed
+>> the examples you cited.  Any ideas?
+> 
+> "indirection needed for this device" -- does that mean that your
+> switch chip is configured to use the multi-chip addressing mode?
+> (It looks like it, as most of the MII addresses return ffff in
+> their ID registers.)  If yes, you should set ->sw_addr to whatever
+> MII address the chip has been assigned.
 
-I tested 5 systems each with different Realtek NICs and I didn't find any
-problem. AFAIK Francois's NICs also works fine.
+Much better, my switch seems to be found now.
 
-Original description:
-This fixes the problem when MAC address is set by ifconfig or by
-ip link commands and this address is stored in the device after
-reboot. The power-off is needed to get right MAC address.
-This is problem when Xen daemon is running because it renames the device
-name from ethX to pethX and sets its MAC address to FE:FF:FF:FF:FF:FF.
-After reboot the device is still using FE:FF:FF:FF:FF:FF.
+  Distributed Switch Architecture driver version 0.1
+  gfar_mdio_read(cf9db400, 1, 0) = 1811
+  gfar_mdio_write(cf9db400, 1, 0, 9a03) = 0
+  gfar_mdio_read(cf9db400, 1, 0) = 1a03
+  gfar_mdio_read(cf9db400, 1, 1) = 953
+  mv88e6131_probe(cf9db400, 1) = 2387
+  eth0: detected a Marvell 88E6095/88E6095F switch
+     ...
+  root@ppc_target:~ ls /sys/bus/mdio_bus/devices/
+  24520:01:00  24520:01:02  24520:01:04  24520:01:06
+  24520:01:01  24520:01:03  24520:01:05  24520:01:07
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/r8169.c |  114 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 112 insertions(+), 2 deletions(-)
+However, the network subsystem still can't locate it.  It may be
+a complication of the OF stuff and how the [gianfar] network
+device knows what PHY to look at.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 0771eb6..b347340 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -81,9 +81,9 @@ static const int multicast_filter_limit = 32;
- #define RTL8169_TX_TIMEOUT	(6*HZ)
- #define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
--#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
--#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
-+#define RTL_EEPROM_SIG		0x8129
- #define RTL_EEPROM_SIG_ADDR	0x0000
-+#define RTL_EEPROM_MAC_ADDR	0x0007
- 
- /* write/read MMIO register */
- #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
-@@ -293,6 +293,11 @@ enum rtl_register_content {
- 	/* Cfg9346Bits */
- 	Cfg9346_Lock	= 0x00,
- 	Cfg9346_Unlock	= 0xc0,
-+	Cfg9346_Program	= 0x80,		/* Programming mode */
-+	Cfg9346_EECS	= 0x08,		/* Chip select */
-+	Cfg9346_EESK	= 0x04,		/* Serial data clock */
-+	Cfg9346_EEDI	= 0x02,		/* Data input */
-+	Cfg9346_EEDO	= 0x01,		/* Data output */
- 
- 	/* rx_mode_bits */
- 	AcceptErr	= 0x20,
-@@ -305,6 +310,7 @@ enum rtl_register_content {
- 	/* RxConfigBits */
- 	RxCfgFIFOShift	= 13,
- 	RxCfgDMAShift	=  8,
-+	RxCfg9356SEL	=  6, 		/* EEPROM type: 0 = 9346, 1 = 9356 */
- 
- 	/* TxConfigBits */
- 	TxInterFrameGapShift = 24,
-@@ -1963,6 +1969,108 @@ static const struct net_device_ops rtl8169_netdev_ops = {
- 
- };
- 
-+/* Delay between EEPROM clock transitions. Force out buffered PCI writes. */
-+#define RTL_EEPROM_DELAY()	RTL_R8(Cfg9346)
-+#define RTL_EEPROM_READ_CMD	6
-+
-+/* read 16bit word stored in EEPROM. EEPROM is addressed by words. */
-+static u16 rtl_eeprom_read(void __iomem *ioaddr, int addr)
-+{
-+	u16 result = 0;
-+	int cmd, cmd_len, i;
-+
-+	/* check for EEPROM address size (in bits) */
-+	if (RTL_R32(RxConfig) & (1 << RxCfg9356SEL)) {
-+		/* EEPROM is 93C56 */
-+		cmd_len = 3 + 8; /* 3 bits for command id and 8 for address */
-+		cmd = (RTL_EEPROM_READ_CMD << 8) | (addr & 0xff);
-+	} else {
-+		/* EEPROM is 93C46 */
-+		cmd_len = 3 + 6; /* 3 bits for command id and 6 for address */
-+		cmd = (RTL_EEPROM_READ_CMD << 6) | (addr & 0x3f);
-+	}
-+
-+	/* enter programming mode */
-+	RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS);
-+	RTL_EEPROM_DELAY();
-+
-+	/* write command and requested address */
-+	while (cmd_len--) {
-+		u8 x = Cfg9346_Program | Cfg9346_EECS;
-+
-+		x |= (cmd & (1 << cmd_len)) ? Cfg9346_EEDI : 0;
-+
-+		/* write a bit */
-+		RTL_W8(Cfg9346, x);
-+		RTL_EEPROM_DELAY();
-+
-+		/* raise clock */
-+		RTL_W8(Cfg9346, x | Cfg9346_EESK);
-+		RTL_EEPROM_DELAY();
-+	}
-+
-+	/* lower clock */
-+	RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS);
-+	RTL_EEPROM_DELAY();
-+
-+	/* read back 16bit value */
-+	for (i = 16; i > 0; i--) {
-+		/* raise clock */
-+		RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS | Cfg9346_EESK);
-+		RTL_EEPROM_DELAY();
-+
-+		result <<= 1;
-+		result |= (RTL_R8(Cfg9346) & Cfg9346_EEDO) ? 1 : 0;
-+
-+		/* lower clock */
-+		RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS);
-+		RTL_EEPROM_DELAY();
-+	}
-+
-+	RTL_W8(Cfg9346, Cfg9346_Program);
-+	/* leave programming mode */
-+	RTL_W8(Cfg9346, Cfg9346_Lock);
-+
-+	return result;
-+}
-+
-+static void rtl_init_mac_address(struct rtl8169_private *tp,
-+				 void __iomem *ioaddr)
-+{
-+	struct pci_dev *pdev = tp->pci_dev;
-+	u16 x;
-+	u8 mac[8];
-+
-+	/* read EEPROM signature */
-+	x = rtl_eeprom_read(ioaddr, RTL_EEPROM_SIG_ADDR);
-+
-+	if (x != RTL_EEPROM_SIG) {
-+		dev_info(&pdev->dev, "Missing EEPROM signature: %04x\n", x);
-+		return;
-+	}
-+
-+	/* read MAC address */
-+	x = rtl_eeprom_read(ioaddr, RTL_EEPROM_MAC_ADDR);
-+	mac[0] = x & 0xff;
-+	mac[1] = x >> 8;
-+	x = rtl_eeprom_read(ioaddr, RTL_EEPROM_MAC_ADDR + 1);
-+	mac[2] = x & 0xff;
-+	mac[3] = x >> 8;
-+	x = rtl_eeprom_read(ioaddr, RTL_EEPROM_MAC_ADDR + 2);
-+	mac[4] = x & 0xff;
-+	mac[5] = x >> 8;
-+
-+	if (netif_msg_probe(tp)) {
-+		DECLARE_MAC_BUF(buf);
-+
-+		dev_info(&pdev->dev, "MAC address found in EEPROM: %s\n",
-+			 print_mac(buf, mac));
-+	}
-+
-+	if (is_valid_ether_addr(mac))
-+		rtl_rar_set(tp, mac);
-+}
-+
- static int __devinit
- rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
-@@ -2141,6 +2249,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	tp->mmio_addr = ioaddr;
- 
-+	rtl_init_mac_address(tp, ioaddr);
-+
- 	/* Get MAC address */
- 	for (i = 0; i < MAC_ADDR_LEN; i++)
- 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
+  starting network interfaces...
+  24520:01 not found
+  eth0: Could not attach to PHY
+
+Also, how do I specify the [implicit] route within the switch
+that connects '24520:01:00' to the CPU port '24520:01:0A' (if
+there was such a thing)?  My boot loader has configured the
+switch for this path - I've not looked through the log to see
+what the DSA layer did.
+
+Thanks for your help
+
 -- 
-1.6.0.4
-
+------------------------------------------------------------
+Gary Thomas                 |  Consulting for the
+MLB Associates              |    Embedded world
+------------------------------------------------------------
