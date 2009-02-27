@@ -1,37 +1,107 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell 88E609x switch?
-Date: Fri, 27 Feb 2009 23:28:02 +0100
-Message-ID: <20090227222802.GZ17040@xi.wantstofly.org>
-References: <20090227145746.GD17040@xi.wantstofly.org> <49A801E6.1040502@mlbassoc.com> <20090227151441.GE17040@xi.wantstofly.org> <49A80606.1040508@mlbassoc.com> <20090227152721.GG17040@xi.wantstofly.org> <49A806C5.1010200@mlbassoc.com> <20090227153102.GH17040@xi.wantstofly.org> <49A80A75.8000101@mlbassoc.com> <20090227155224.GK17040@xi.wantstofly.org> <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/9] sfc: SFT9001: Include non-breaking cable diagnostics
+	in online self-tests
+Date: Fri, 27 Feb 2009 23:04:07 +0000
+Message-ID: <1235775847.3164.6.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gary Thomas <gary@mlbassoc.com>, netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <jdb@comx.dk>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:56428 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755434AbZB0W2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 17:28:07 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:46132 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752882AbZB0XET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 18:04:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 10:12:52PM +0100, Jesper Dangaard Brouer wrote:
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/tenxpress.c |   45 ++++++++++++++++++++++--------------------
+ 1 files changed, 24 insertions(+), 21 deletions(-)
 
-> >Perhaps we should take this off-list..
-> 
-> I'm still interrested... please Cc. me at jdb@comx.dk.
+diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
+index 5b0f451..23583ba 100644
+--- a/drivers/net/sfc/tenxpress.c
++++ b/drivers/net/sfc/tenxpress.c
+@@ -679,12 +679,10 @@ static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
+ {
+ 	struct ethtool_cmd ecmd;
+ 	int phy_id = efx->mii.phy_id;
+-	int rc = 0, rc2, i, res_reg;
++	int rc = 0, rc2, i, ctrl_reg, res_reg;
+ 
+-	if (!(flags & ETH_TEST_FL_OFFLINE))
+-		return 0;
+-
+-	efx->phy_op->get_settings(efx, &ecmd);
++	if (flags & ETH_TEST_FL_OFFLINE)
++		efx->phy_op->get_settings(efx, &ecmd);
+ 
+ 	/* Initialise cable diagnostic results to unknown failure */
+ 	for (i = 1; i < 9; ++i)
+@@ -692,18 +690,22 @@ static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
+ 
+ 	/* Run cable diagnostics; wait up to 5 seconds for them to complete.
+ 	 * A cable fault is not a self-test failure, but a timeout is. */
++	ctrl_reg = ((1 << CDIAG_CTRL_IMMED_LBN) |
++		    (CDIAG_CTRL_LEN_METRES << CDIAG_CTRL_LEN_UNIT_LBN));
++	if (flags & ETH_TEST_FL_OFFLINE) {
++		/* Break the link in order to run full diagnostics.  We
++		 * must reset the PHY to resume normal service. */
++		ctrl_reg |= (1 << CDIAG_CTRL_BRK_LINK_LBN);
++	}
+ 	mdio_clause45_write(efx, phy_id, MDIO_MMD_PMAPMD,
+-			    PMA_PMD_CDIAG_CTRL_REG,
+-			    (1 << CDIAG_CTRL_IMMED_LBN) |
+-			    (1 << CDIAG_CTRL_BRK_LINK_LBN) |
+-			    (CDIAG_CTRL_LEN_METRES << CDIAG_CTRL_LEN_UNIT_LBN));
++			    PMA_PMD_CDIAG_CTRL_REG, ctrl_reg);
+ 	i = 0;
+ 	while (mdio_clause45_read(efx, phy_id, MDIO_MMD_PMAPMD,
+ 				  PMA_PMD_CDIAG_CTRL_REG) &
+ 	       (1 << CDIAG_CTRL_IN_PROG_LBN)) {
+ 		if (++i == 50) {
+ 			rc = -ETIMEDOUT;
+-			goto reset;
++			goto out;
+ 		}
+ 		msleep(100);
+ 	}
+@@ -728,17 +730,18 @@ static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
+ 			results[5 + i] = len_reg;
+ 	}
+ 
+-	/* We must reset to exit cable diagnostic mode.  The BIST will
+-	 * also run when we do this. */
+-reset:
+-	rc2 = tenxpress_special_reset(efx);
+-	results[0] = rc2 ? -1 : 1;
+-	if (!rc)
+-		rc = rc2;
+-
+-	rc2 = efx->phy_op->set_settings(efx, &ecmd);
+-	if (!rc)
+-		rc = rc2;
++out:
++	if (flags & ETH_TEST_FL_OFFLINE) {
++		/* Reset, running the BIST and then resuming normal service. */
++		rc2 = tenxpress_special_reset(efx);
++		results[0] = rc2 ? -1 : 1;
++		if (!rc)
++			rc = rc2;
++
++		rc2 = efx->phy_op->set_settings(efx, &ecmd);
++		if (!rc)
++			rc = rc2;
++	}
+ 
+ 	return rc;
+ }
 
-The main conclusion so far is that this write (net/dsa/mv88e6131.c):
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-	/*
-	 * MAC Forcing register: don't force link, speed, duplex
-	 * or flow control state to any particular values.
-	 */
-	REG_WRITE(addr, 0x01, 0x0003);
-
-isn't correct on ports that can either be CPU ports or external ports.
-Forcing the link up on the CPU port helps somewhat, but things aren't
-100% working yet.
