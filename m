@@ -1,80 +1,34 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: correct locking in softirq
-Date: Fri, 27 Feb 2009 08:59:42 -0800
-Message-ID: <20090227165942.GC6758@linux.vnet.ibm.com>
-References: <885896af0902262354v47ddf79ch3d62edaeb1e940bd@mail.gmail.com> <1235723346.4948.1352.camel@laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [ofa-general] [PATCH 0/26] Reliable Datagram Sockets (RDS), take 2
+Date: Fri, 27 Feb 2009 18:08:34 +0100
+Message-ID: <87myc73izx.fsf@basil.nowhere.org>
+References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Giacomo <delleceste@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: Andy Grover <andy.grover@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:50435 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756004AbZB0Q7o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 11:59:44 -0500
-Content-Disposition: inline
-In-Reply-To: <1235723346.4948.1352.camel@laptop>
+Received: from one.firstfloor.org ([213.235.205.2]:54711 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753063AbZB0RK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 12:10:26 -0500
+In-Reply-To: <1235525443-9007-1-git-send-email-andy.grover@oracle.com> (Andy Grover's message of "Tue, 24 Feb 2009 17:30:17 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 09:29:06AM +0100, Peter Zijlstra wrote:
-> On Fri, 2009-02-27 at 08:54 +0100, Giacomo wrote:
-> > Good morning
-> > 
-> > Harald Welte's "The journey of a packet through the Linux 2.6.10
-> > network stack" article says that packet travelling inside
-> > linux kernel 2.6 (the receive / input part) runs in softirq context.
-> > 
-> > Hooking with netfilter's hooks in a kernel module, i need to read for
-> > each packet received a list of rules.
-> > 
-> > Since in input and prerouting hooks the context is softirq (perhaps
-> > also in forward?), I need some read lock
-> > feature.
-> > 
-> > I currently use RCU lists and, while reading lists I use
-> > 
-> > READ
-> > 
-> > read_lock_bh()
-> > 
-> > together with list_for_each_rcu()
-> > 
-> > When changing, or flushing, rules, I use
-> > 
-> > WRITE
-> > 
-> > spin_lock() + list_add_tail_rcu() (adding)
-> > 
-> > or spin_lock() + list_for_each_entry() (for listing and then freeing
-> > with list_del_rcu() and call_rcu() )
-> > 
-> > The question is:
-> > 
-> > - is the read part above correct? - do I really need _bh()? or should
-> > I use simply read_lock() ?
-> > 
-> > Thanks in advance
-> 
-> rcu_read_lock() + call_rcu() are correct, even from softirq context, and
-> mandatory if anything is exposed to anything other than softirq context.
-> 
-> rcu_read_lock_bh() + call_rcu_bh() is usable IFF the data is only ever
-> used from softirq.
+Andy Grover <andy.grover@oracle.com> writes:
 
-If "softirq" also includes sections of local_bh_disable()ed code in
-process context, also including irq-disabled code, agreed!
+> This patchset against net-next adds support for RDS sockets. RDS is an
+> Oracle-originated protocol used to send IPC datagrams (up to 1MB)
+> reliably, and is used currently in Oracle RAC and Exadata products. 
 
-> The distinction between the two RCU variants is that the _bh variant can
-> have a slightly faster quiescent cycle.
+Perhaps I missed it earlier, but what is the rationale for putting 
+this as a socket type into the kernel? I assume they also work
+directly as implemented in user space using raw sockets or similar, 
+don't they?
 
-Especially when under heavy interrupt/softirq load.  If a given
-CPU is totally consumed handling interrupts and softirqs in a
-non-CONFIG_PREEMPT_RT kernel, then the call_rcu() variant might never
-invoke its callback, while the call_rcu_bh() variant would still be
-able to do so in a timely fashion.  The _bh() variant was inspired by
-simulate DoS attacks, work by Robert Olsson and Dipankar Sarma.
+-Andi
 
-							Thanx, Paul
+-- 
+ak@linux.intel.com -- Speaking for myself only.
