@@ -1,38 +1,60 @@
-From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH] net headers: export dcbnl.h
-Date: Thu, 26 Feb 2009 16:54:35 -0800
-Message-ID: <20090227005435.10551.85504.stgit@localhost.localdomain>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Ipw2100-devel] ipw2100: race between isr_indicate_associated
+ and rx path
+Date: Fri, 27 Feb 2009 08:55:39 +0800
+Message-ID: <1235696139.6354.584.camel@debian>
+References: <200901211734.48625.helmut.schaa@gmail.com>
+	 <200902241315.43128.helmut.schaa@gmail.com>
+	 <1235524696.6354.562.camel@debian>
+	 <200902251340.02010.helmut.schaa@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61601 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753140AbZB0Ayh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2009 19:54:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jouni Malinen <j@w1.fi>
+To: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200902251340.02010.helmut.schaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The DCB netlink interface is required for building the userspace tools
-available at e1000.sourceforge.net
+On Wed, 2009-02-25 at 20:39 +0800, Helmut Schaa wrote:
+> Argh! Just found out why dev_activate is called such late after
+> netif_carrier_on:
+> 
+> ipw2100 calls netif_carrier_on followed by netif_wake_queue when the
+> driver
+> moves from associating to associated state. netif_carrier_on will then
+> call linkwatch_fire_event. However the carrier_on event is not treated
+> as
+> urgent and as such the event is delayed (and thus dev_activate too).
+> 
+> An event is considered urgent if the netdev is running, has a carrier
+> _and_ any of the TX qdiscs changed. Since ipw2100 first calls
+> carrier_on,
+> the last condition is not met and thus the event is not considered
+> urgent and gets delayed.
 
-Signed-off-by: Chris Leech <christopher.leech@intel.com>
----
+Calling netif_wake_queue() before netif_carrier_on() is not correct in
+semantics. Even it works, it looks like a workaround hack. I still think
+making a sync version of netif_carrier_on is the way to go.
 
- include/linux/Kbuild |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> Just changing the order to first wake up the queues followed by the
+> carrier_on results in an urgent event. I ran a few tests with that
+> change
+> (+ frame buffering patch) and wasn't able to trigger the race again.
+> 
+> I'll fold that into the frame buffer patch and send it to
+> ipw2100-devel
+> once I finished the tests.
 
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index b97cdc5..106c3ba 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -52,6 +52,7 @@ header-y += const.h
- header-y += cgroupstats.h
- header-y += cramfs_fs.h
- header-y += cycx_cfm.h
-+header-y += dcbnl.h
- header-y += dlmconstants.h
- header-y += dlm_device.h
- header-y += dlm_netlink.h
+Sounds good.
 
+Thanks,
+-yi
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
