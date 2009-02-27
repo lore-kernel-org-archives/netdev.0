@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] phylib: Basic support for the M88E1121R Marvell
- chip
-Date: Thu, 26 Feb 2009 22:39:28 -0800 (PST)
-Message-ID: <20090226.223928.217227256.davem@davemloft.net>
-References: <1234817631-7981-1-git-send-email-agust@denx.de>
+Subject: Re: [PATCH 1/2] fec: add FEC platform support to ColdFire CPU's
+ setup code
+Date: Thu, 26 Feb 2009 22:40:52 -0800 (PST)
+Message-ID: <20090226.224052.186466825.davem@davemloft.net>
+References: <200902170053.n1H0r15O002064@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sposelenov@emcraft.com, yur@emcraft.com
-To: agust@denx.de
+Cc: s.hauer@pengutronix.de, gerg@uclinux.org, netdev@vger.kernel.org
+To: gerg@snapgear.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41095
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41102
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753647AbZB0Gjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 01:39:44 -0500
-In-Reply-To: <1234817631-7981-1-git-send-email-agust@denx.de>
+	by vger.kernel.org with ESMTP id S1752883AbZB0GlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 01:41:08 -0500
+In-Reply-To: <200902170053.n1H0r15O002064@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anatolij Gustschin <agust@denx.de>
-Date: Mon, 16 Feb 2009 21:53:49 +0100
+From: Greg Ungerer <gerg@snapgear.com>
+Date: Tue, 17 Feb 2009 10:53:01 +1000
 
-> From: Sergei Poselenov <sposelenov@emcraft.com>
+> m68knommu: add FEC platform support to ColdFire CPU's setup code
 > 
-> Signed-off-by: Yuri Tikhonov <yur@emcraft.com>
-> Signed-off-by: Sergei Poselenov <sposelenov@emcraft.com>
-> Signed-off-by: Anatolij Gustschin <agust@denx.de>
+> Move the per-CPU FEC driver setup code into the actual platform
+> setup code for each ColdFire CPU varient.
+> 
+> Signed-off-by: Greg Ungerer <gerg@uclinux.org>
 
-This patch doesn't apply, and patches 2 and 3 are still under
-discussion.
-
-So I'm dropping all of them.
+Applied to net-next-2.6, with trailing whitespace errors fixed
+up.
