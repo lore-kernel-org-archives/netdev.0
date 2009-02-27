@@ -1,39 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: mdio_clause45_read errors go unnoticed
-Date: Fri, 27 Feb 2009 16:45:17 +0000
-Message-ID: <1235753117.3164.2.camel@achroite>
-References: <49A81565.3030004@gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: correct locking in softirq
+Date: Fri, 27 Feb 2009 08:59:42 -0800
+Message-ID: <20090227165942.GC6758@linux.vnet.ibm.com>
+References: <885896af0902262354v47ddf79ch3d62edaeb1e940bd@mail.gmail.com> <1235723346.4948.1352.camel@laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Giacomo <delleceste@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:45447 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756013AbZB0Qpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 11:45:31 -0500
-In-Reply-To: <49A81565.3030004@gmail.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:50435 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756004AbZB0Q7o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 11:59:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1235723346.4948.1352.camel@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-02-27 at 17:31 +0100, Roel Kluin wrote:
-> This patch was not tested in any way, but:
+On Fri, Feb 27, 2009 at 09:29:06AM +0100, Peter Zijlstra wrote:
+> On Fri, 2009-02-27 at 08:54 +0100, Giacomo wrote:
+> > Good morning
+> > 
+> > Harald Welte's "The journey of a packet through the Linux 2.6.10
+> > network stack" article says that packet travelling inside
+> > linux kernel 2.6 (the receive / input part) runs in softirq context.
+> > 
+> > Hooking with netfilter's hooks in a kernel module, i need to read for
+> > each packet received a list of rules.
+> > 
+> > Since in input and prerouting hooks the context is softirq (perhaps
+> > also in forward?), I need some read lock
+> > feature.
+> > 
+> > I currently use RCU lists and, while reading lists I use
+> > 
+> > READ
+> > 
+> > read_lock_bh()
+> > 
+> > together with list_for_each_rcu()
+> > 
+> > When changing, or flushing, rules, I use
+> > 
+> > WRITE
+> > 
+> > spin_lock() + list_add_tail_rcu() (adding)
+> > 
+> > or spin_lock() + list_for_each_entry() (for listing and then freeing
+> > with list_del_rcu() and call_rcu() )
+> > 
+> > The question is:
+> > 
+> > - is the read part above correct? - do I really need _bh()? or should
+> > I use simply read_lock() ?
+> > 
+> > Thanks in advance
 > 
-> since commit 27dd2caca4eabe7c13a052b7456495ba75535e6a
-> ------------------------------>8-------------8<---------------------------------
-> mdio_clause45_read may return -ERR, but since 'devices' is unsigned, this is not
-> noticed.
+> rcu_read_lock() + call_rcu() are correct, even from softirq context, and
+> mandatory if anything is exposed to anything other than softirq context.
+> 
+> rcu_read_lock_bh() + call_rcu_bh() is usable IFF the data is only ever
+> used from softirq.
 
-I already submitted a fix for this.  I do need to resubmit it for
-net-next-2.6 though.  Thanks for the reminder.
+If "softirq" also includes sections of local_bh_disable()ed code in
+process context, also including irq-disabled code, agreed!
 
-Ben.
+> The distinction between the two RCU variants is that the _bh variant can
+> have a slightly faster quiescent cycle.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Especially when under heavy interrupt/softirq load.  If a given
+CPU is totally consumed handling interrupts and softirqs in a
+non-CONFIG_PREEMPT_RT kernel, then the call_rcu() variant might never
+invoke its callback, while the call_rcu_bh() variant would still be
+able to do so in a timely fashion.  The _bh() variant was inspired by
+simulate DoS attacks, work by Robert Olsson and Dipankar Sarma.
 
+							Thanx, Paul
