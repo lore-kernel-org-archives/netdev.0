@@ -1,59 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel problem
-Date: Fri, 27 Feb 2009 01:16:15 -0800 (PST)
-Message-ID: <20090227.011615.104197338.davem@davemloft.net>
-References: <20090227084109.GA4156@ff.dom.local>
-	<20090227.005907.94994126.davem@davemloft.net>
-	<20090227091216.GB4156@ff.dom.local>
+From: david@lang.hm
+Subject: ip_nonlocal_bind and sendto (fwd)
+Date: Fri, 27 Feb 2009 01:20:07 -0800 (PST)
+Message-ID: <alpine.DEB.1.10.0902270119060.7158@asgard.lang.hm>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ash@sevsky.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752600AbZB0JQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 04:16:35 -0500
-In-Reply-To: <20090227091216.GB4156@ff.dom.local>
+Received: from mail.lang.hm ([64.81.33.126]:58746 "EHLO bifrost.lang.hm"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753823AbZB0JUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 04:20:09 -0500
+Received: from asgard.lang.hm (asgard.lang.hm [10.0.0.100])
+	by bifrost.lang.hm (8.13.4/8.13.4/Debian-3) with ESMTP id n1R9K7qE031660
+	for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 01:20:07 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 27 Feb 2009 09:12:16 +0000
+I initially sent this to lkml, but then realized I should have tried here
 
-> On Fri, Feb 27, 2009 at 12:59:07AM -0800, David Miller wrote:
-> > From: Jarek Poplawski <jarkao2@gmail.com>
-> > Date: Fri, 27 Feb 2009 08:41:10 +0000
-> > 
-> > > Probably I miss something, but I'm not sure it's really necessary in
-> > > all (non-VLAN) entry points. Of course it's an optimization to drop
-> > > these things early, but there is a lot off mess with replicating
-> > > various parts of netif_receive_skb() in so many places.
-> > > 
-> > > As a matter of fact, I wonder why it can't be done in one place, e.g.
-> > > netif_nit_deliver(), which was created partly for similar problems.
-> > 
-> > I think we do need to hit all possible entry points.
-> > 
-> > How would you be able to handle it in netif_nit_deliver()?
-> > Functions like netif_receive_skb() open-code the delivery to
-> > network taps, they don't actually call netif_receive_skb().
-> 
-> netif_nit_deliver() is a place called by vlan with orig skb->dev, so
-> it could be reused to check for netpoll btw. Of course, return value
-> should be added etc. and maybe name changed too. It could be
-> something like this:
+---------- Forwarded message ----------
+Date: Fri, 27 Feb 2009 01:10:24 -0800 (PST)
+From: david@lang.hm
+To: linux-kernel <linux-kernel@vger.kernel.org>
+Subject: ip_nonlocal_bind and sendto
 
-Note there is already a function that could do this and which needs to
-hit all the same RX entrypoints just like this check would.
+I've got a need to forge the source IP of UDP packets (a stupid syslog receiver 
+app that I need to deal with)
 
-And that is skb_bond_should_drop().
+I know that this can be done with raw sockets, but with the IP_nonlocal_bind 
+option I thought that it may be possible to do this without dealing with raw 
+sockets
 
-We could rename that to skb_rx_should_drop() and put the netpoll
-checks there.
+so I have an app that does the socket call, followed by the bind call without 
+any errors, but when I issue the sendto call it generates error 22 (invalid 
+parameter) if the source IP doesn't exist on the local box somewhere.
 
-There is some weird conditinalization of skb_bond_should_drop()'s call
-in netif_receive_skb() but that should be easy to change to suit our
-needs.  Perhaps by putting the calculation of the netdevice bonding
-pointers into that function.
+is this the kernel that is doing whatever check is failing? or is glibc 
+wrapping the kernel syscall and doing some additional checking?
+
+if it is the kernel that's throwing the error, is there some way of disabling 
+this check? or do I have to go to raw sockets?
+
+David Lang
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
