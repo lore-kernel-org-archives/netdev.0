@@ -1,86 +1,44 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH v2] net: more timeouts that reach -1
-Date: Fri, 27 Feb 2009 16:16:18 +0100
-Message-ID: <49A803C2.4070702@gmail.com>
-References: <49A5286D.80304@gmail.com>
+From: Pascal GREGIS <pgs@synerway.com>
+Subject: Connection reset by peer - need a patch
+Date: Fri, 27 Feb 2009 16:07:55 +0100
+Message-ID: <20090227150755.GE2796@venus.synerway.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.30]:11102 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753429AbZB0PQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:16:21 -0500
-Received: by yw-out-2324.google.com with SMTP id 5so843998ywh.1
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 07:16:19 -0800 (PST)
-In-Reply-To: <49A5286D.80304@gmail.com>
+Received: from stargate.synerway.com ([84.14.10.249]:41505 "EHLO
+	kamino.synerway.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753000AbZB0PXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:23:12 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roel Kluin wrote:
-> These were not previously reported by me.
-> ------------------------------>8-------------8<---------------------------------
-> with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
-> below are off by one.
+Hi people,
 
+I have a very annoying bug that seems to be well known today.
+It happens on a backup server that issue a "Connection reset by peer" while the other side does not reset or stop the connection.
 
-I just noticed that in drivers/net/ucc_geth_mii.c after my patch this still
-won't give an err, because timeout is unsigned
------------------------------->8-------------8<---------------------------------
-with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
-below are off by one. also don't do an '< 0' test on an unsigned.
+I have found a report that seems very similar on this mailing list :
+http://kerneltrap.org/index.php?q=mailarchive/linux-netdev/2008/4/28/1628834
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
-index 1cf2f94..f3a1274 100644
---- a/drivers/net/arm/ks8695net.c
-+++ b/drivers/net/arm/ks8695net.c
-@@ -560,7 +560,7 @@ ks8695_reset(struct ks8695_priv *ksp)
- 		msleep(1);
- 	}
- 
--	if (reset_timeout == 0) {
-+	if (reset_timeout < 0) {
- 		dev_crit(ksp->dev,
- 			 "Timeout waiting for DMA engines to reset\n");
- 		/* And blithely carry on */
-diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-index 08b3405..0173ed0 100644
---- a/drivers/net/jme.c
-+++ b/drivers/net/jme.c
-@@ -957,7 +957,8 @@ jme_process_receive(struct jme_adapter *jme, int limit)
- 		goto out_inc;
- 
- 	i = atomic_read(&rxring->next_to_clean);
--	while (limit-- > 0) {
-+	while (limit > 0) {
-+		limit--;
- 		rxdesc = rxring->desc;
- 		rxdesc += i;
- 
-diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-index 5463591..0ada4ed 100644
---- a/drivers/net/ucc_geth_mii.c
-+++ b/drivers/net/ucc_geth_mii.c
-@@ -107,7 +107,7 @@ int uec_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- static int uec_mdio_reset(struct mii_bus *bus)
- {
- 	struct ucc_mii_mng __iomem *regs = (void __iomem *)bus->priv;
--	unsigned int timeout = PHY_INIT_TIMEOUT;
-+	int timeout = PHY_INIT_TIMEOUT;
- 
- 	mutex_lock(&bus->mdio_lock);
- 
-@@ -123,7 +123,7 @@ static int uec_mdio_reset(struct mii_bus *bus)
- 
- 	mutex_unlock(&bus->mdio_lock);
- 
--	if (timeout <= 0) {
-+	if (timeout < 0) {
- 		printk(KERN_ERR "%s: The MII Bus is stuck!\n", bus->name);
- 		return -EBUSY;
- 	}
+this sends to the commit 7951f0b03a63d657c72c7d54d306ef3357e7e604
+Author: Daniel Lezcano <...
+Date: Thu Apr 10 20:53:10 2008 -0700
+    [NETNS][IPV6] tcp - assign the netns for timewait sockets
+
+and gives a simple patch that adds the line 
+    tw->tw_net = sk->sk_net;
+somewhere in the function inet_twsk_alloc (in the file net/ipv4/inet_timewait_sock.c).
+
+Right, but the problem is that I use a kernel 2.6.21.1 and cannot upgrade my whole kernel easily.
+And in the kernel 2.6.21.1, network namespaces don't seem to exist, so I cannot apply this simple patch.
+
+I am in a very uncomfortable situation because this bug is causing harmfull problems on all the backup servers of my company and as I said above, upgrading the kernel is not really possible at this time.
+
+Does anyone know what I could do to solve this ?
+
+Thanks a lot
+
+Pascal
 
