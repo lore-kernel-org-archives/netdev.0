@@ -1,57 +1,42 @@
-From: "Srivats P" <Srivats.P@conexant.com>
-Subject: RE: Question about IP-in-IP tunneling
-Date: Fri, 27 Feb 2009 09:45:21 +0530
-Message-ID: <F33E0C3C2876A544ABD34CFBE345A4A4027BC08A94@NDMBX01.bbnet.ad>
-References: <49A70476.8050300@Sun.COM>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] net: fix hp-plus build error
+Date: Thu, 26 Feb 2009 20:22:03 -0800
+Message-ID: <49A76A6B.7020709@oracle.com>
+References: <20090224212949.0dacb59f.sfr@canb.auug.org.au> <49A4248F.6090202@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Santwona.Behera@Sun.COM" <Santwona.Behera@Sun.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnxtsmtp4.conexant.com ([198.62.9.251]:57180 "EHLO
-	cnxtsmtp4.conexant.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754066AbZB0EO7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2009 23:14:59 -0500
-Received: from CPS (wsmx2.nb.conexant.com [157.152.185.17]) (using TLSv1 with cipher RC4-MD5 (
- 128/128 bits)) (No client certificate requested) by cnxtsmtp4.conexant.com (Tumbleweed MailGate
- 3.6.1) with ESMTP id 239B419806BC for <netdev@vger.kernel.org>; Thu, 26 Feb 2009 20:15:01 -0800 (
- PST)
-In-Reply-To: <49A70476.8050300@Sun.COM>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	akpm <akpm@linux-foundation.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <49A4248F.6090202@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Assuming the outer IP header is a IPv4 header, the protocol field of this IPv4 header has IPROTO_IPIP (4) when the inner header is IPv4 and IPPROTO_IPV6 (41) when the inner header is IPv6
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Is that what you asked?
+hp-plus needs to call __alloc_eip_netdev() instead of
+__alloc_ei_netdev() since it is linked with 8390p.o.
 
-- Srivats
+Fixes this build error:
+ERROR: "__alloc_ei_netdev" [drivers/net/hp-plus.ko] undefined!
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Santwona.Behera@Sun.COM
-Sent: Friday, February 27, 2009 2:37 AM
-To: netdev@vger.kernel.org
-Subject: Question about IP-in-IP tunneling
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/hp-plus.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-A question for the IP tunneling experts:
-
-For IP-in-IP tunneling, what are the cases when IPROTO_IPIP (4) is used in the protocol field of the outer IP header and the cases when
-IPPROTO_IPV6 (41) is used instead?
-
-thanks,
---santwona
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Conexant E-mail Firewall (Conexant.Com) made the following annotations
----------------------------------------------------------------------
-********************** Legal Disclaimer **************************** 
-
-"This email may contain confidential and privileged material for the sole use of the intended recipient. Any unauthorized review, use or distribution by others is strictly prohibited. If you have received the message in error, please advise the sender by reply email and delete the message. Thank you." 
-
-********************************************************************** 
-
----------------------------------------------------------------------
-
+--- mmotm-2009-0226-1658.orig/drivers/net/hp-plus.c
++++ mmotm-2009-0226-1658/drivers/net/hp-plus.c
+@@ -467,7 +467,7 @@ init_module(void)
+ 			if (this_dev != 0) break; /* only autoprobe 1st one */
+ 			printk(KERN_NOTICE "hp-plus.c: Presently autoprobing (not recommended) for a single card.\n");
+ 		}
+-		dev = alloc_ei_netdev();
++		dev = alloc_eip_netdev();
+ 		if (!dev)
+ 			break;
+ 		dev->irq = irq[this_dev];
