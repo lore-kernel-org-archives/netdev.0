@@ -1,76 +1,78 @@
 From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH 01/11] net,
-	fcoe: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
-Date: Fri, 27 Feb 2009 14:06:37 -0800
-Message-ID: <20090227220637.4987.6729.stgit.yi.zou@intel.com>
-References: <20090227220034.4987.50755.stgit@localhost.localdomain>
+Subject: [PATCH 00/11] Add support to FCoE offload through net_device (v2)
+Date: Fri, 27 Feb 2009 14:06:32 -0800
+Message-ID: <20090227220034.4987.50755.stgit.yi.zou@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: yi.zou@intel.com
 To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:47666 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:19948 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754600AbZB0XOX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 18:14:23 -0500
-In-Reply-To: <20090227220034.4987.50755.stgit@localhost.localdomain>
+	id S1754533AbZB0XOV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 18:14:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds eth type ETH_P_FCOE for Fibre Channel over Ethernet (FCoE),
-consequently, the ETH_P_FCOE from fc_fcoe.h and fcoe skb->protocol
-is not set as ETH_P_FCOE.
+This is set of revised patches for adding offload support of
+Fiber Channel over Ethernet (FCoE) offload support through net_device
+for the Open-FCoE project maintained at http://www.open-fcoe.org.
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
+The original submission can be found at:
+http://marc.info/?l=linux-scsi&m=123507707821705&w=2
+
+The included patches would add FCoE offload support through the net_device
+struct as shown in the series of patches followed here. This is achieved
+by adding nedev feature flags for FCoE FC CRC offload and large send offload
+through gso. The large receive offload by direct data placement (ddp) is
+achieved by the two function pointers to net_device_ops, to setup and release
+ddp context, ndo_fcoe_ddp_setup and ndo_fcoe_ddp_done. One data member is
+added to net_device strut, namely fcoe_ddp_xid, which inidates the maximum
+exchange id allowed by LLD to perform ddp on the read I/O request.
+
+As the following patches touch both netdev and libfc/fcoe, and they are
+applicable to the current tip at www.open-fcoe.org w/ patches available at:
+http://marc.info/?l=linux-scsi&m=123576089125544&w=2 If they look alright,
+I will rework them later to be directly applicable to net-next, where the
+aforementioned fcoe/libfc fix patches are expected to be in kernel already
+through scsi-fixes.
+
+Thanks.
+
+yi
 ---
 
- drivers/scsi/fcoe/libfcoe.c |    2 +-
- include/linux/if_ether.h    |    1 +
- include/scsi/fc/fc_fcoe.h   |    7 -------
- 3 files changed, 2 insertions(+), 8 deletions(-)
+Chris Leech (2):
+      net: define feature flags for FCoE offloads
+      net: reclaim 8 upper bits of the netdev->features from GSO
 
-diff --git a/drivers/scsi/fcoe/libfcoe.c b/drivers/scsi/fcoe/libfcoe.c
-index 5548bf3..a99a428 100644
---- a/drivers/scsi/fcoe/libfcoe.c
-+++ b/drivers/scsi/fcoe/libfcoe.c
-@@ -460,7 +460,7 @@ int fcoe_xmit(struct fc_lport *lp, struct fc_frame *fp)
- 	skb_reset_mac_header(skb);
- 	skb_reset_network_header(skb);
- 	skb->mac_len = elen;
--	skb->protocol = htons(ETH_P_802_3);
-+	skb->protocol = htons(ETH_P_FCOE);
- 	skb->dev = fc->real_dev;
- 
- 	/* fill up mac and fcoe headers */
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 7f3c735..59d197c 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -78,6 +78,7 @@
- #define ETH_P_PAE	0x888E		/* Port Access Entity (IEEE 802.1X) */
- #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
- #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
-+#define ETH_P_FCOE	0x8906		/* Fibre Channel over Ethernet  */
- #define ETH_P_EDSA	0xDADA		/* Ethertype DSA [ NOT AN OFFICIALLY REGISTERED ID ] */
- 
- /*
-diff --git a/include/scsi/fc/fc_fcoe.h b/include/scsi/fc/fc_fcoe.h
-index f271d9c..ccb3dbe 100644
---- a/include/scsi/fc/fc_fcoe.h
-+++ b/include/scsi/fc/fc_fcoe.h
-@@ -25,13 +25,6 @@
-  */
- 
- /*
-- * The FCoE ethertype eventually goes in net/if_ether.h.
-- */
--#ifndef ETH_P_FCOE
--#define	ETH_P_FCOE	0x8906		/* FCOE ether type */
--#endif
--
--/*
-  * FC_FCOE_OUI hasn't been standardized yet.   XXX TBD.
-  */
- #ifndef FC_FCOE_OUI
+Yi Zou (9):
+      fcoe: fcoe fc crc offload indication by skb->ip_summed
+      fcoe: add support to FCoE offload support in fcoe_sw through net_device
+      libfc: add support of large receive offload by ddp in fc_fcp
+      fcoe: add support to large send by gso through net_device for fcoe_sw
+      libfc: use lso_max for sequence offload
+      fcoe,libfc: check offload features from LLD through netdev
+      net: add FCoE offload support through net_device
+      net: add NETIF_F_FCOE_CRC to can_checksum_protocol
+      net,fcoe: add ETH_P_FCOE for Fibre Channel over Ethernet (FCoE)
 
+
+ drivers/net/xen-netfront.c   |    2 +
+ drivers/scsi/fcoe/fcoe_sw.c  |   67 ++++++++++++++++++++++++++++++++++++++++-
+ drivers/scsi/fcoe/libfcoe.c  |   16 ++++++++--
+ drivers/scsi/libfc/fc_exch.c |    4 ++
+ drivers/scsi/libfc/fc_fcp.c  |   69 +++++++++++++++++++++++++++++++++++++++++-
+ include/linux/if_ether.h     |    1 +
+ include/linux/netdevice.h    |   18 ++++++++++-
+ include/linux/skbuff.h       |    2 +
+ include/scsi/fc/fc_fcoe.h    |    7 ----
+ include/scsi/fc_frame.h      |   19 +-----------
+ include/scsi/libfc.h         |   31 +++++++++++++++++++
+ include/scsi/libfcoe.h       |   18 -----------
+ net/core/dev.c               |    4 ++
+ 13 files changed, 206 insertions(+), 52 deletions(-)
+
+-- 
+Signature: Yi Zou <yi.zou@intel.com>
