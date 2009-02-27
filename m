@@ -1,7 +1,8 @@
 From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH 05/11] net: add FCoE offload support through net_device
-Date: Fri, 27 Feb 2009 14:06:59 -0800
-Message-ID: <20090227220659.4987.48034.stgit.yi.zou@intel.com>
+Subject: [PATCH 08/11] fcoe: add support to large send by gso through
+	net_device for fcoe_sw
+Date: Fri, 27 Feb 2009 14:07:15 -0800
+Message-ID: <20090227220715.4987.56986.stgit.yi.zou@intel.com>
 References: <20090227220034.4987.50755.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,45 +14,42 @@ In-Reply-To: <20090227220034.4987.50755.stgit@localhost.localdomain>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds support to provide Fiber Channel over Ethernet (FCoE) offload
-through net_device's net_device_ops struct. The offload through net_device
-for FCoE is enabled in kernel as built-in or module driver.
+Change fcoe_xmit to setup gso for LLD LSO offload as well as CRC offload
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
 ---
 
- include/linux/netdevice.h |   13 +++++++++++++
- 1 files changed, 13 insertions(+), 0 deletions(-)
+ drivers/scsi/fcoe/libfcoe.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5c40557..7ed49f5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -582,6 +582,14 @@ struct net_device_ops {
- #define HAVE_NETDEV_POLL
- 	void                    (*ndo_poll_controller)(struct net_device *dev);
- #endif
-+#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+	int			(*ndo_fcoe_ddp_setup)(struct net_device *dev,
-+						      u16 xid,
-+						      struct scatterlist *sgl,
-+						      unsigned int sgc);
-+	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
-+						     u16 xid);
-+#endif
- };
+diff --git a/drivers/scsi/fcoe/libfcoe.c b/drivers/scsi/fcoe/libfcoe.c
+index a99a428..5dae823 100644
+--- a/drivers/scsi/fcoe/libfcoe.c
++++ b/drivers/scsi/fcoe/libfcoe.c
+@@ -423,7 +423,7 @@ int fcoe_xmit(struct fc_lport *lp, struct fc_frame *fp)
  
- /*
-@@ -843,6 +851,11 @@ struct net_device
- 	struct dcbnl_rtnl_ops *dcbnl_ops;
- #endif
+ 	/* crc offload */
+ 	if (likely(lp->crc_offload)) {
+-		skb->ip_summed = CHECKSUM_COMPLETE;
++		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum_start = skb_headroom(skb);
+ 		skb->csum_offset = skb->len;
+ 		crc = 0;
+@@ -483,6 +483,16 @@ int fcoe_xmit(struct fc_lport *lp, struct fc_frame *fp)
+ 		FC_FCOE_ENCAPS_VER(hp, FC_FCOE_VER);
+ 	hp->fcoe_sof = sof;
  
-+#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+	/* max exchange id for FCoE LRO by ddp */
-+	unsigned int		fcoe_ddp_xid;
++#ifdef NETIF_F_FSO
++	/* fcoe lso, mss is in max_payload which is non-zero for FCP data */
++	if (lp->seq_offload && fr_max_payload(fp)) {
++		skb_shinfo(skb)->gso_type = SKB_GSO_FCOE;
++		skb_shinfo(skb)->gso_size = fr_max_payload(fp);
++	} else {
++		skb_shinfo(skb)->gso_type = 0;
++		skb_shinfo(skb)->gso_size = 0;
++	}
 +#endif
-+
- #ifdef CONFIG_COMPAT_NET_DEV_OPS
- 	struct {
- 		int			(*init)(struct net_device *dev);
+ 	/* update tx stats: regardless if LLD fails */
+ 	stats = lp->dev_stats[smp_processor_id()];
+ 	if (stats) {
 
