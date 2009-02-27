@@ -1,104 +1,70 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 1/9] sfc: SFT9001: Include non-breaking cable diagnostics
-	in online self-tests
-Date: Fri, 27 Feb 2009 23:04:07 +0000
-Message-ID: <1235775847.3164.6.camel@achroite>
+Subject: [PATCH 2/9] sfc: Fix test for MDIO read failure
+Date: Fri, 27 Feb 2009 23:06:12 +0000
+Message-ID: <1235775972.3164.17.camel@achroite>
+References: <1235775847.3164.6.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: Roel Kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:46132 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752882AbZB0XET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 18:04:19 -0500
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:38497 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759357AbZB0XGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 18:06:18 -0500
+In-Reply-To: <1235775847.3164.6.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Commit 27dd2caca4eabe7c13a052b7456495ba75535e6a changed
+mdio_clause45_check_mmds() to read both DEVS0 and DEVS1 registers and
+to combine their values into an unsigned 32-bit mask.  This made the
+following test for a negative (failure) value useless.  Fix it to
+check whether either read failed.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/tenxpress.c |   45 ++++++++++++++++++++++--------------------
- 1 files changed, 24 insertions(+), 21 deletions(-)
+ drivers/net/sfc/mdio_10g.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index 5b0f451..23583ba 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -679,12 +679,10 @@ static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
+index f9e2f95..4462fb5 100644
+--- a/drivers/net/sfc/mdio_10g.c
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -125,24 +125,25 @@ int mdio_clause45_wait_reset_mmds(struct efx_nic *efx,
+ int mdio_clause45_check_mmds(struct efx_nic *efx,
+ 			     unsigned int mmd_mask, unsigned int fatal_mask)
  {
- 	struct ethtool_cmd ecmd;
- 	int phy_id = efx->mii.phy_id;
--	int rc = 0, rc2, i, res_reg;
-+	int rc = 0, rc2, i, ctrl_reg, res_reg;
++	int mmd = 0, probe_mmd, devs0, devs1;
+ 	u32 devices;
+-	int mmd = 0, probe_mmd;
  
--	if (!(flags & ETH_TEST_FL_OFFLINE))
--		return 0;
--
--	efx->phy_op->get_settings(efx, &ecmd);
-+	if (flags & ETH_TEST_FL_OFFLINE)
-+		efx->phy_op->get_settings(efx, &ecmd);
+ 	/* Historically we have probed the PHYXS to find out what devices are
+ 	 * present,but that doesn't work so well if the PHYXS isn't expected
+ 	 * to exist, if so just find the first item in the list supplied. */
+ 	probe_mmd = (mmd_mask & MDIO_MMDREG_DEVS_PHYXS) ? MDIO_MMD_PHYXS :
+ 	    __ffs(mmd_mask);
+-	devices = (mdio_clause45_read(efx, efx->mii.phy_id,
+-				      probe_mmd, MDIO_MMDREG_DEVS0) |
+-		   mdio_clause45_read(efx, efx->mii.phy_id,
+-				      probe_mmd, MDIO_MMDREG_DEVS1) << 16);
  
- 	/* Initialise cable diagnostic results to unknown failure */
- 	for (i = 1; i < 9; ++i)
-@@ -692,18 +690,22 @@ static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
- 
- 	/* Run cable diagnostics; wait up to 5 seconds for them to complete.
- 	 * A cable fault is not a self-test failure, but a timeout is. */
-+	ctrl_reg = ((1 << CDIAG_CTRL_IMMED_LBN) |
-+		    (CDIAG_CTRL_LEN_METRES << CDIAG_CTRL_LEN_UNIT_LBN));
-+	if (flags & ETH_TEST_FL_OFFLINE) {
-+		/* Break the link in order to run full diagnostics.  We
-+		 * must reset the PHY to resume normal service. */
-+		ctrl_reg |= (1 << CDIAG_CTRL_BRK_LINK_LBN);
-+	}
- 	mdio_clause45_write(efx, phy_id, MDIO_MMD_PMAPMD,
--			    PMA_PMD_CDIAG_CTRL_REG,
--			    (1 << CDIAG_CTRL_IMMED_LBN) |
--			    (1 << CDIAG_CTRL_BRK_LINK_LBN) |
--			    (CDIAG_CTRL_LEN_METRES << CDIAG_CTRL_LEN_UNIT_LBN));
-+			    PMA_PMD_CDIAG_CTRL_REG, ctrl_reg);
- 	i = 0;
- 	while (mdio_clause45_read(efx, phy_id, MDIO_MMD_PMAPMD,
- 				  PMA_PMD_CDIAG_CTRL_REG) &
- 	       (1 << CDIAG_CTRL_IN_PROG_LBN)) {
- 		if (++i == 50) {
- 			rc = -ETIMEDOUT;
--			goto reset;
-+			goto out;
- 		}
- 		msleep(100);
+ 	/* Check all the expected MMDs are present */
+-	if (devices < 0) {
++	devs0 = mdio_clause45_read(efx, efx->mii.phy_id,
++				   probe_mmd, MDIO_MMDREG_DEVS0);
++	devs1 = mdio_clause45_read(efx, efx->mii.phy_id,
++				   probe_mmd, MDIO_MMDREG_DEVS1);
++	if (devs0 < 0 || devs1 < 0) {
+ 		EFX_ERR(efx, "failed to read devices present\n");
+ 		return -EIO;
  	}
-@@ -728,17 +730,18 @@ static int sft9001_run_tests(struct efx_nic *efx, int *results, unsigned flags)
- 			results[5 + i] = len_reg;
- 	}
- 
--	/* We must reset to exit cable diagnostic mode.  The BIST will
--	 * also run when we do this. */
--reset:
--	rc2 = tenxpress_special_reset(efx);
--	results[0] = rc2 ? -1 : 1;
--	if (!rc)
--		rc = rc2;
--
--	rc2 = efx->phy_op->set_settings(efx, &ecmd);
--	if (!rc)
--		rc = rc2;
-+out:
-+	if (flags & ETH_TEST_FL_OFFLINE) {
-+		/* Reset, running the BIST and then resuming normal service. */
-+		rc2 = tenxpress_special_reset(efx);
-+		results[0] = rc2 ? -1 : 1;
-+		if (!rc)
-+			rc = rc2;
-+
-+		rc2 = efx->phy_op->set_settings(efx, &ecmd);
-+		if (!rc)
-+			rc = rc2;
-+	}
- 
- 	return rc;
- }
++	devices = devs0 | (devs1 << 16);
+ 	if ((devices & mmd_mask) != mmd_mask) {
+ 		EFX_ERR(efx, "required MMDs not present: got %x, "
+ 			"wanted %x\n", devices, mmd_mask);
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
