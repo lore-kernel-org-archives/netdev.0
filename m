@@ -1,62 +1,84 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: 2.6.29-rc5-git3 Leak r=1 3
-Date: Fri, 27 Feb 2009 17:04:11 +0200
-Message-ID: <200902271704.11449.denys@visp.net.lb>
-References: <Pine.LNX.4.64.0902201805400.31742@wrl-59.cs.helsinki.fi> <Pine.LNX.4.64.0902211324460.20284@wrl-59.cs.helsinki.fi> <20090221.235724.207966342.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: Marvell 88E609x switch?
+Date: Fri, 27 Feb 2009 16:31:02 +0100
+Message-ID: <20090227153102.GH17040@xi.wantstofly.org>
+References: <20090227142754.GB17040@xi.wantstofly.org> <49A7FA57.7030504@mlbassoc.com> <20090227144004.GC17040@xi.wantstofly.org> <49A7FEE1.2020705@mlbassoc.com> <20090227145746.GD17040@xi.wantstofly.org> <49A801E6.1040502@mlbassoc.com> <20090227151441.GE17040@xi.wantstofly.org> <49A80606.1040508@mlbassoc.com> <20090227152721.GG17040@xi.wantstofly.org> <49A806C5.1010200@mlbassoc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Gary Thomas <gary@mlbassoc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:55883 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754396AbZB0PaP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:30:15 -0500
-In-Reply-To: <20090221.235724.207966342.davem@davemloft.net>
+Received: from xi.wantstofly.org ([80.101.37.227]:56914 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755395AbZB0PbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:31:04 -0500
 Content-Disposition: inline
+In-Reply-To: <49A806C5.1010200@mlbassoc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 22 February 2009 09:57:24 David Miller wrote:
-> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Sat, 21 Feb 2009 13:44:27 +0200 (EET)
->
-> > [PATCH] tcp: fix retrans_out leaks in shifting code
-> >
-> > There's conflicting assumptions in shifting, the caller assumes
-> > that dupsack results in S'ed skbs (or a part of it) for sure but
-> > never gave a hint to tcp_sacktag_one when dsack is actually in
-> > use. Thus DSACK retrans_out -=3D pcount was not taken and the
-> > counter became out of sync. Remove obstacle from that information
-> > flow to get DSACKs accounted in tcp_sacktag_one as expected.
-> >
-> > Compile tested only.
-> >
-> > In general the call to tcp_sacktag_one with the later full shift
-> > from already SACKed skb should not be there, it's just doing
-> > duplicating work already done earlier so it just wastes cycles and
-> > also seems to duplicate small amount of code unnecessarily :-/.
-> > However, moving tcp_sacktag_one call one level up is not what I wan=
-t
-> > to do in mainline -rc5, the counting & seqno state manipulation tha=
-t
-> > is going on there is just too hairy to get right in a hurry (order
-> > is very significant there as the state transition is in progress
-> > making normal invariants are not to be trusted). Luckily
-> > tcp_sacktag_one is effectively a no-op atm with dup_sack set to 0
-> > for already SACKed skb.
-> >
-> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
->
-> Can you do some testing on this before I toss it into
-> net-next-2.6? :-)  It looks fine to be, but... so did
-> Herbert's URG change :)
-Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
+On Fri, Feb 27, 2009 at 08:29:09AM -0700, Gary Thomas wrote:
 
-No crashes for sure, running for 5 hours, no Leak messages appearing to=
-o.
-Test will continue more, after 20 hours more i can tell for sure, if it=
- helps=20
-or not.
+> >>>>> If yes, can you up the interfaces, and send some packets over them
+> >>>>> and see if the TX counters on eth0 increase?  If yes, can you dump
+> >>>>> the packets sent out over eth0 using tcpdump?
+> >>>> I tried to ping out and into the box.  Nothing seems to go anywhere:
+> >>>>
+> >>>> root@ppc_target:~ ifconfig
+> >>>> eth0      Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
+> >>>>           inet addr:192.168.12.189  Bcast:192.168.12.255  Mask:255.255.255.0
+> >>>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >>>>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+> >>>>           TX packets:17 errors:0 dropped:0 overruns:0 carrier:0
+> >>>>           collisions:0 txqueuelen:1000
+> >>>>           RX bytes:0 (0.0 B)  TX bytes:1810 (1.7 KiB)
+> >>>>           Base address:0x6000
+> >>>>
+> >>>> lan1.1    Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
+> >>>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >>>>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+> >>>>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+> >>>>           collisions:0 txqueuelen:0
+> >>>>           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+> >>>>
+> >>>> Running tcpdump on the external network (192.168.12.x), I saw
+> >>>> no activity.
+> >>>>
+> >>>> Do I need to do anything more than "ifconfig lan1.1 up"?
+> >>> IP addresses should be attached to the lanX.X interfaces, not to eth0
+> >>> -- eth0 will only be carrying specially tagged (DSA/EDSA) packets.
+> >>> So you should move the IP address to lan1.1.
+> >>>
+> >>> Can you trying pinging via lan1.1 and then seeing if there are
+> >>> packets transmitted out over eth0, and dump those packets with tcpdump?
+> >> It looks like the packets are going out, but I don't see anything
+> >> on the wire.  After a few ping attempts:
+> >>
+> >> root@ppc_target:~ ifconfig
+> >> eth0      Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
+> >>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+> >>           TX packets:41 errors:0 dropped:0 overruns:0 carrier:0
+> >>           collisions:0 txqueuelen:1000
+> >>           RX bytes:0 (0.0 B)  TX bytes:2974 (2.9 KiB)
+> >>           Base address:0x6000
+> >>
+> >> lan1.1    Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
+> >>           inet addr:192.168.12.189  Bcast:192.168.12.255  Mask:255.255.255.0
+> >>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+> >>           TX packets:39 errors:0 dropped:0 overruns:0 carrier:0
+> >>           collisions:0 txqueuelen:0
+> >>           RX bytes:0 (0.0 B)  TX bytes:1638 (1.5 KiB)
+> >>
+> >> The eth0 and lan1.1 counters are going up at more or less the
+> >> same rate.
+> > 
+> > Can you run tcpdump on eth0 to see what the packets look like?
+> 
+> Locally (on the board with the switch)?  That will take a while to
+> set up as it's a 100% embedded system, runs from FLASH, etc.
 
+OK, do you have ethtool then?  If yes, can you run ethtool on the
+lan1.1 interface to see if any of the hardware (switch chip) TX
+counters are increasing?
