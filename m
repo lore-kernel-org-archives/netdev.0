@@ -1,48 +1,139 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [net-next PATCH] igb: remove skb_orphan calls
-Date: Fri, 27 Feb 2009 08:39:30 -0800
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F283B712F@orsmsx501.amr.corp.intel.com>
-References: <80769D7B14936844A23C0C43D9FBCF0F283B6220@orsmsx501.amr.corp.intel.com>
- <20090227031421.GA21036@gondor.apana.org.au>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH v3] net: more timeouts that reach -1
+Date: Fri, 27 Feb 2009 17:43:06 +0100
+Message-ID: <49A8181A.5030106@gmail.com>
+References: <49A5286D.80304@gmail.com> <20090227114015.M80857@cooldavid.org> <25e057c00902270737x529fb5b8m2fdbb044fa75ab0d@mail.gmail.com> <20090227154440.M53654@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Ohly, Patrick" <patrick.ohly@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: cooldavid@cooldavid.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47360 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752665AbZB0Qjd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 11:39:33 -0500
-In-Reply-To: <20090227031421.GA21036@gondor.apana.org.au>
-Content-Language: en-US
+Received: from an-out-0708.google.com ([209.85.132.243]:55365 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755126AbZB0QnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 11:43:09 -0500
+Received: by an-out-0708.google.com with SMTP id c2so925145anc.1
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 08:43:06 -0800 (PST)
+In-Reply-To: <20090227154440.M53654@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> Duyck, Alexander H <alexander.h.duyck@intel.com> wrote:
->> 
->> This patch was meant to be more general than just timestamping.  I
->> was just using timestamping as one example of where things can go
->> wrong due to the skb_orphan call.  The main problem is triggering
->> desctructors and removing the sk can cause multiple issues with any
->> custom use of the skb.  It is easiest to avoid those by not calling
->> skb_orphan in the first place.     
+Guo-Fu Tseng wrote:
+> On Fri, 27 Feb 2009 16:37:30 +0100, roel kluin wrote
+>> On Fri, Feb 27, 2009 at 12:43 PM, Guo-Fu Tseng <cooldavid@cooldavid.org> wrote:
+>>> There should be no difference after this modification.
+>>> The return value of this function is: "limit > 0 ? limit : 0;"
+>> There is:
+>> In the last iteration limit is 1 during the test before it is decremented to 0.
+>>
+>> rxdesc = rxring->desc;
+>> rxdesc += i;
+>>
+>> If then we break out of the loop by the 'goto out;', we continue with:
+>>
+>> out:
+>>         atomic_set(&rxring->next_to_clean, i);
+>>
+>> out_inc:
+>>         atomic_inc(&jme->rx_cleaning);
+>>
+>> but since limit is already decremented, 0 is returned.
+>>
+>>> Guo-Fu Tseng
+>>>
+>> Roel
+> I see.
+> But the correct patch should be following one, right?
 > 
-> It doesn't matter what those custom uses are, what Dave was saying
-> is that we're thinking of killing skb->sk before it even gets to
-> the driver.  So even if such custom uses existed (which AFAIK do
-> not), we'd been looking at killing them as well.
+> ===================================================================
+> --- jme.c	(revision 580)
+> +++ jme.c	(working copy)
+> @@ -958,13 +958,14 @@
+>  		goto out_inc;
+>  
+>  	i = atomic_read(&rxring->next_to_clean);
+> -	while (limit-- > 0) {
+> +	while (limit > 0) {
+>  		rxdesc = rxring->desc;
+>  		rxdesc += i;
+>  
+>  		if ((rxdesc->descwb.flags & RXWBFLAG_OWN) ||
+>  		!(rxdesc->descwb.desccnt & RXWBDCNT_WBCPL))
+>  			goto out;
+> +		--limit;
+>  
+>  		desccnt = rxdesc->descwb.desccnt & RXWBDCNT_DCNT;
+>  
+> 
+> 
+> 
+> Guo-Fu Tseng
 
-The fact is, if you are planning to kill it further up the stack, you can put that down as another reason for removing the call.  The timesync / killing skb->sk is a separate discussion that I don't know if I even really need to be involved in.  The patch doesn't break anything, and removes a call to skb_orphan that shouldn't really be there in the first place.
+Correct, thanks.
+Here are all three patches again with another issue I spotted in 
+drivers/net/ucc_geth_mii.c:
 
-Thanks,
+After my patch it still wouldn't err, because timeout was unsigned.
+------------------------------>8-------------8<---------------------------------
+with while (timeout-- > 0); timeout reaches -1 after the loop, so the tests
+below are off by one. also don't do an '< 0' test on an unsigned.
 
-Alex
-
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
+index 1cf2f94..f3a1274 100644
+--- a/drivers/net/arm/ks8695net.c
++++ b/drivers/net/arm/ks8695net.c
+@@ -560,7 +560,7 @@ ks8695_reset(struct ks8695_priv *ksp)
+ 		msleep(1);
+ 	}
+ 
+-	if (reset_timeout == 0) {
++	if (reset_timeout < 0) {
+ 		dev_crit(ksp->dev,
+ 			 "Timeout waiting for DMA engines to reset\n");
+ 		/* And blithely carry on */
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 08b3405..a6e1a35 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -957,13 +957,14 @@ jme_process_receive(struct jme_adapter *jme, int limit)
+ 		goto out_inc;
+ 
+ 	i = atomic_read(&rxring->next_to_clean);
+-	while (limit-- > 0) {
++	while (limit > 0) {
+ 		rxdesc = rxring->desc;
+ 		rxdesc += i;
+ 
+ 		if ((rxdesc->descwb.flags & cpu_to_le16(RXWBFLAG_OWN)) ||
+ 		!(rxdesc->descwb.desccnt & RXWBDCNT_WBCPL))
+ 			goto out;
++		--limit;
+ 
+ 		desccnt = rxdesc->descwb.desccnt & RXWBDCNT_DCNT;
+ 
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index 5463591..0ada4ed 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -107,7 +107,7 @@ int uec_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ static int uec_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct ucc_mii_mng __iomem *regs = (void __iomem *)bus->priv;
+-	unsigned int timeout = PHY_INIT_TIMEOUT;
++	int timeout = PHY_INIT_TIMEOUT;
+ 
+ 	mutex_lock(&bus->mdio_lock);
+ 
+@@ -123,7 +123,7 @@ static int uec_mdio_reset(struct mii_bus *bus)
+ 
+ 	mutex_unlock(&bus->mdio_lock);
+ 
+-	if (timeout <= 0) {
++	if (timeout < 0) {
+ 		printk(KERN_ERR "%s: The MII Bus is stuck!\n", bus->name);
+ 		return -EBUSY;
+ 	}
