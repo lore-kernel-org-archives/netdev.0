@@ -1,36 +1,122 @@
-From: Greg Lindahl <greg@blekko.com>
-Subject: Re: Treason uncloaked / Broken peer again
-Date: Fri, 27 Feb 2009 13:27:19 -0800
-Message-ID: <20090227212719.GD25573@bx9.net>
-References: <20090226085826.GA12498@gondor.apana.org.au> <Pine.LNX.4.64.0902261105030.31742@wrl-59.cs.helsinki.fi> <20090227212234.GB25573@bx9.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Multicast packet loss
+Date: Fri, 27 Feb 2009 22:36:21 +0100
+Message-ID: <49A85CD5.40404@cosmosbay.com>
+References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <alpine.DEB.1.10.0902271340320.9381@qirst.com> <49A8375A.6000006@cosmosbay.com> <alpine.DEB.1.10.0902271441220.9381@qirst.com> <49A84916.9090106@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kenny Chang <kchang@athenacr.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rc.bx9.net ([64.13.160.15]:44620 "EHLO rc.bx9.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755979AbZB0V1V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 16:27:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20090227212234.GB25573@bx9.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48986 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754185AbZB0VhZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 16:37:25 -0500
+In-Reply-To: <49A84916.9090106@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 01:22:34PM -0800, Greg Lindahl wrote:
+Eric Dumazet a =E9crit :
+> Christoph Lameter a =E9crit :
+>> On Fri, 27 Feb 2009, Eric Dumazet wrote:
+>>
+>>> Christoph Lameter a ?crit :
+>>>> On Fri, 30 Jan 2009, Eric Dumazet wrote:
+>>>>> 2.6.29-rc contains UDP receive improvements (lockless)
+>>>>> Problem is multicast handling was not yet updated, but could be :=
+)
+>>>> When will that happen?
+>>> When proven necessary :)
+>>>
+>>> Kenny problem is about scheduling storm. The extra spin_lock() in U=
+DP
+>>> multicast receive is not a problem.
+>> My tests here show that 2.6.29-rc5 still looses ~5usec vs. 2.6.22 vi=
+a
+>> UDP. This would fix a regression.....
+>>
+>=20
+> Could you elaborate ?
+>=20
+> I just retried Kenny test here. As one cpu is looping in ksoftirqd, o=
+nly this cpu
+> touches the spin_lock, so spin_lock()/spin_unlock() is free.
+>=20
+> oprofile shows that udp stack is lightweight in this case. Problem is=
+ about wakeing up
+> so many threads...
+>=20
+> CPU: Core 2, speed 3000.16 MHz (estimated)
+> Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a=
+ unit mask of 0x00 (Unhalted core cycles) count 100000
+> samples  cum. samples  %        cum. %     symbol name
+> 356857   356857        15.1789  15.1789    schedule
+> 274028   630885        11.6557  26.8346    mwait_idle
+> 189218   820103         8.0484  34.8829    __skb_recv_datagram
+> 116903   937006         4.9725  39.8554    skb_release_data
+> 103152   1040158        4.3876  44.2430    lock_sock_nested
+> 89600    1129758        3.8111  48.0541    udp_recvmsg
+> 74171    1203929        3.1549  51.2089    copy_to_user
+> 72299    1276228        3.0752  54.2842    set_next_entity
+> 60392    1336620        2.5688  56.8529    sched_clock_cpu
+> 54026    1390646        2.2980  59.1509    __slab_free
+> 50212    1440858        2.1358  61.2867    prepare_to_wait_exclusive
+> 38689    1479547        1.6456  62.9323    cpu_idle
+> 38142    1517689        1.6224  64.5547    __switch_to
+> 36701    1554390        1.5611  66.1157    hrtick_start_fair
+> 36673    1591063        1.5599  67.6756    dst_release
+> 36268    1627331        1.5427  69.2183    sys_recvfrom
+> 35052    1662383        1.4909  70.7092    kmem_cache_free
+> 32680    1695063        1.3900  72.0992    pick_next_task_fair
+> 31209    1726272        1.3275  73.4267    try_to_wake_up
+> 30382    1756654        1.2923  74.7190    dequeue_task_fair
+> 29048    1785702        1.2356  75.9545    __copy_skb_header
+> 28801    1814503        1.2250  77.1796    sock_def_readable
+> 28655    1843158        1.2188  78.3984    enqueue_task_fair
+> 27232    1870390        1.1583  79.5567    update_curr
+> 21688    1892078        0.9225  80.4792    copy_from_user
+> 18832    1910910        0.8010  81.2802    sysenter_past_esp
+> 17732    1928642        0.7542  82.0345    finish_task_switch
+> 17583    1946225        0.7479  82.7824    resched_task
+> 17367    1963592        0.7387  83.5211    native_sched_clock
+> 15691    1979283        0.6674  84.1885    task_rq_lock
+> 15352    1994635        0.6530  84.8415    sock_queue_rcv_skb
+> 15022    2009657        0.6390  85.4804    udp_queue_rcv_skb
+> 13999    2023656        0.5954  86.0759    __update_sched_clock
+> 12284    2035940        0.5225  86.5984    skb_copy_datagram_iovec
+> 11869    2047809        0.5048  87.1032    release_sock
+> 10986    2058795        0.4673  87.5705    __wake_up_sync
+> 10488    2069283        0.4461  88.0166    sock_recvmsg
+> 9686     2078969        0.4120  88.4286    skb_queue_tail
+> 9425     2088394        0.4009  88.8295    sys_socketcall
+>=20
+>=20
 
-> One of the people who complained to me is running 2.4.26, so the bug
-> in TSO that you fixed in 2.6.25 is not the last bug at issue.
+My guess is commit 95766fff6b9a78d11fc2d3812dd035381690b55d
+(UDP: Add memory accounting)
+Hideo Aoki [Mon, 31 Dec 2007 08:29:24 +0000 (00:29 -0800)]
 
-Sorry, I was confused, he really did say 2.4.26, so it's really old.
+and 3ab224be6d69de912ee21302745ea45a99274dbc
+[NET] CORE: Introducing new memory accounting interface.
+Date:   Mon Dec 31 00:11:19 2007 -0800
 
-But, my experiment turning off TSO on 2.6.18+redhat shows that the
-TSO bug fixed in 2.6.25 isn't the only bug.
+are responsible for slowdown, because they add some
+lock_sock()/release_sock() pairs.
 
-> I was
-> also able to turn off TSO on all my 2.6.18+redhat systems and quickly
-> got Treason, so this bug is not the only one. But still, I can't cause
-> the bug often enough to get a tcpdump of it in action.
+function udp_recvmsg()
 
--- greg
+out_free:
++       lock_sock(sk);
+        skb_free_datagram(sk, skb);
++       release_sock(sk);
+ out:
+
+I wonder why we can call __sk_mem_reclaim() when dequeing *one* UDP
+frame in queue, while many others can still be in sk_receive_queue.
+This defeats memory accounting, no ?
+
+We should avoid lock_sock() if possible, or risk delaying
+softirq RX in udp_queue_rcv_skb()
+
+
