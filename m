@@ -1,38 +1,85 @@
-From: Webmail Help Team <help_team@8u8.com>
-Subject: Maintenance Notice
-Date: Fri, 27 Feb 2009 12:57:23 -0300
-Message-ID: <20090227155012.E886C1CF155@gopher.cchen.cl>
-Reply-To: help_team@8u8.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
+Date: Fri, 27 Feb 2009 08:28:39 -0800
+Message-ID: <16084.1235752119@death.nxdomain.ibm.com>
+References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
+To: Jesper Krogh <jesper@krogh.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gopher.cchen.cl ([200.72.15.218]:24723 "EHLO gopher.cchen.cl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752752AbZB0QW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 11:22:29 -0500
-Received: from gopher.cchen.cl (localhost [127.0.0.1])
-	by localhost.localdomain (Postfix) with ESMTP id 089A91CF18F
-	for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 12:50:14 -0300 (CLST)
-Received: from cchen.cl (unknown [192.168.10.9])by gopher.cchen.cl (Postfix)
-	 with ESMTP id E886C1CF155for <netdev@vger.kernel.org>; Fri, 27 Feb 2009
-	12:50:12 -0300 (CLST)
+Received: from e35.co.us.ibm.com ([32.97.110.153]:44689 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754097AbZB0Q2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 11:28:55 -0500
+In-reply-to: <49A7B17F.2020408@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WEBMAIL USERS Maintenance Notice
+Jesper Krogh <jesper@krogh.cc> wrote:
+[...]
+>The offending commit seems to be:
+>
+>bonding: refactor mii monitor
+>
+>Refactor mii monitor.  As with the previous ARP monitor refactor,
+>the motivation for this is to handle locking rationally (in this case,
+>removing conditional locking) and generally clean up the code.
+>
+>This patch breaks up the monolithic mii monitor into two phases:
+>an inspection phase, followed by an optional commit phase.  The commit phase
+>is the only portion that requires RTNL or makes changes to state, and is
+>only called when inspection finds something to change.
+>
+>Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+>Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+>
+>
+>A test with a fresh 2.6.29-rc6 revealed that the problem has been fixed
+>subsequently.. but still exists in 2.6.27-newest.  (havent tested
+>2.6.28-newest yet).
+>
+>Any ideas of what the "fixing" commit is .. or should that also be
+>bisected?
 
-This message was sent automatically by a program on Webmail which periodically checks the size of inboxes, where new messages are received.The program is run weekly to ensure no one's inbox grows too large. If your inbox becomes too large, you will be unable to receive new email.Just before this message was sent, you had 25 Megabytes (MB) or more of messages stored in your inbox on your Webmail To help us re-set your SPACE on our database prior to maintain your INBOX,you must reply to thise-mail and enter your:
+	I went back and looked at your earlier mail.  Since you're using
+802.3ad mode, my first guess would be this commit:
 
-Current User name:{ } and
-Password: { }
+commit fd989c83325cb34795bc4d4aa6b13c06f90eac99
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Tue Nov 4 17:51:16 2008 -0800
 
-You will continue toreceive this warning message periodically if your inbox size continues to be between 25 and 30 MB. If your inbox size grows to 25 MB, then a program on Bates Webmail will move your oldest email to a folder in your home directory to ensure that you will continue to be able to receive incoming email. You will be notified by email that this has taken place. If your inbox grows to 25 MB, you will be unable to receive new email as it will be returned to the sender.After you read a message, itis best to REPLY and SAVE a copy.
+    bonding: alternate agg selection policies for 802.3ad
+    
+        This patch implements alternative aggregator selection policies
+    for 802.3ad.  The existing policy, now termed "stable," selects the active
+    aggregator by greatest bandwidth, and only reselects a new aggregator
+    if the active aggregator is entirely disabled (no more ports or all ports
+    down).
+    
+        This patch adds two new policies: bandwidth and count, selecting
+    the active aggregator by total bandwidth (like the stable policy) or by
+    the number of ports in the aggregator, respectively.  These two policies
+    also differ from the stable policy in that they will reselect the active
+    aggregator when availability-related changes occur in the bond (e.g.,
+    link state change).
+    
+        This permits "gang failover" within 802.3ad, allowing redundant
+    aggregators along parallel paths to always maintain the "best" aggregator
+    as the active aggregator (rather than having to wait for the active to
+    entirely fail).
+    
+        This patch also updates the driver version to 3.5.0.
+    
+    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-Thank you for your cooperation.
-Webmail Help team.
 
+	This changed or refactored a great deal of the aggregator
+selection logic, and it might be that it also fixed your problem by mere
+happenstance.
 
+	-J
 
-
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
