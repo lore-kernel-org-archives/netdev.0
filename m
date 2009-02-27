@@ -1,84 +1,75 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell 88E609x switch?
-Date: Fri, 27 Feb 2009 16:31:02 +0100
-Message-ID: <20090227153102.GH17040@xi.wantstofly.org>
-References: <20090227142754.GB17040@xi.wantstofly.org> <49A7FA57.7030504@mlbassoc.com> <20090227144004.GC17040@xi.wantstofly.org> <49A7FEE1.2020705@mlbassoc.com> <20090227145746.GD17040@xi.wantstofly.org> <49A801E6.1040502@mlbassoc.com> <20090227151441.GE17040@xi.wantstofly.org> <49A80606.1040508@mlbassoc.com> <20090227152721.GG17040@xi.wantstofly.org> <49A806C5.1010200@mlbassoc.com>
+From: roel kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] net: more timeouts that reach -1
+Date: Fri, 27 Feb 2009 16:37:30 +0100
+Message-ID: <25e057c00902270737x529fb5b8m2fdbb044fa75ab0d@mail.gmail.com>
+References: <49A5286D.80304@gmail.com> <20090227114015.M80857@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Gary Thomas <gary@mlbassoc.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: cooldavid@cooldavid.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:56914 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755395AbZB0PbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:31:04 -0500
-Content-Disposition: inline
-In-Reply-To: <49A806C5.1010200@mlbassoc.com>
+Received: from mail-bw0-f178.google.com ([209.85.218.178]:52771 "EHLO
+	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754633AbZB0Phe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 10:37:34 -0500
+Received: by bwz26 with SMTP id 26so1079174bwz.37
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 07:37:30 -0800 (PST)
+In-Reply-To: <20090227114015.M80857@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 08:29:09AM -0700, Gary Thomas wrote:
+On Fri, Feb 27, 2009 at 12:43 PM, Guo-Fu Tseng <cooldavid@cooldavid.org=
+> wrote:
+> On Wed, 25 Feb 2009 12:15:57 +0100, Roel Kluin wrote
+>> These were not previously reported by me.
+>> ------------------------------>8-------------8<---------------------=
+------------
+>> with while (timeout-- > 0); timeout reaches -1 after the loop, so th=
+e tests
+>> below are off by one.
+>>
+>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+>> ---
 
-> >>>>> If yes, can you up the interfaces, and send some packets over them
-> >>>>> and see if the TX counters on eth0 increase?  If yes, can you dump
-> >>>>> the packets sent out over eth0 using tcpdump?
-> >>>> I tried to ping out and into the box.  Nothing seems to go anywhere:
-> >>>>
-> >>>> root@ppc_target:~ ifconfig
-> >>>> eth0      Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
-> >>>>           inet addr:192.168.12.189  Bcast:192.168.12.255  Mask:255.255.255.0
-> >>>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> >>>>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-> >>>>           TX packets:17 errors:0 dropped:0 overruns:0 carrier:0
-> >>>>           collisions:0 txqueuelen:1000
-> >>>>           RX bytes:0 (0.0 B)  TX bytes:1810 (1.7 KiB)
-> >>>>           Base address:0x6000
-> >>>>
-> >>>> lan1.1    Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
-> >>>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> >>>>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-> >>>>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-> >>>>           collisions:0 txqueuelen:0
-> >>>>           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-> >>>>
-> >>>> Running tcpdump on the external network (192.168.12.x), I saw
-> >>>> no activity.
-> >>>>
-> >>>> Do I need to do anything more than "ifconfig lan1.1 up"?
-> >>> IP addresses should be attached to the lanX.X interfaces, not to eth0
-> >>> -- eth0 will only be carrying specially tagged (DSA/EDSA) packets.
-> >>> So you should move the IP address to lan1.1.
-> >>>
-> >>> Can you trying pinging via lan1.1 and then seeing if there are
-> >>> packets transmitted out over eth0, and dump those packets with tcpdump?
-> >> It looks like the packets are going out, but I don't see anything
-> >> on the wire.  After a few ping attempts:
-> >>
-> >> root@ppc_target:~ ifconfig
-> >> eth0      Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
-> >>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> >>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-> >>           TX packets:41 errors:0 dropped:0 overruns:0 carrier:0
-> >>           collisions:0 txqueuelen:1000
-> >>           RX bytes:0 (0.0 B)  TX bytes:2974 (2.9 KiB)
-> >>           Base address:0x6000
-> >>
-> >> lan1.1    Link encap:Ethernet  HWaddr 00:1D:11:81:00:00
-> >>           inet addr:192.168.12.189  Bcast:192.168.12.255  Mask:255.255.255.0
-> >>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> >>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-> >>           TX packets:39 errors:0 dropped:0 overruns:0 carrier:0
-> >>           collisions:0 txqueuelen:0
-> >>           RX bytes:0 (0.0 B)  TX bytes:1638 (1.5 KiB)
-> >>
-> >> The eth0 and lan1.1 counters are going up at more or less the
-> >> same rate.
-> > 
-> > Can you run tcpdump on eth0 to see what the packets look like?
-> 
-> Locally (on the board with the switch)?  That will take a while to
-> set up as it's a 100% embedded system, runs from FLASH, etc.
+>> diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+>> index 08b3405..0173ed0 100644
+>> --- a/drivers/net/jme.c
+>> +++ b/drivers/net/jme.c
+>> @@ -957,7 +957,8 @@ jme_process_receive(struct jme_adapter *jme, int=
+ limit)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_inc;
+>>
+>> =A0 =A0 =A0 i =3D atomic_read(&rxring->next_to_clean);
+>> - =A0 =A0 while (limit-- > 0) {
+>> + =A0 =A0 while (limit > 0) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 limit--;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 rxdesc =3D rxring->desc;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 rxdesc +=3D i;
+>>
+> There should be no difference after this modification.
+> The return value of this function is: "limit > 0 ? limit : 0;"
 
-OK, do you have ethtool then?  If yes, can you run ethtool on the
-lan1.1 interface to see if any of the hardware (switch chip) TX
-counters are increasing?
+There is:
+In the last iteration limit is 1 during the test before it is decrement=
+ed to 0.
+
+rxdesc =3D rxring->desc;
+rxdesc +=3D i;
+
+If then we break out of the loop by the 'goto out;', we continue with:
+
+out:
+        atomic_set(&rxring->next_to_clean, i);
+
+out_inc:
+        atomic_inc(&jme->rx_cleaning);
+
+but since limit is already decremented, 0 is returned.
+
+>
+> Guo-Fu Tseng
+>
+
+Roel
