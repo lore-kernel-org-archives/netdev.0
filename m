@@ -1,92 +1,138 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-02-23
-Date: Thu, 26 Feb 2009 17:37:20 -0800
-Message-ID: <1235698640.4936.6.camel@johannes.local>
-References: <20090223192659.GB3553@tuxdriver.com>
-	 <1235457113.4455.89.camel@johannes.local>
-	 <20090224.235510.30497146.davem@davemloft.net>
-	 <1235637360.29050.16.camel@johannes.local>
-	 <20090226161340.GA4430@tuxdriver.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] iptables: new strict host model match
+Date: Thu, 26 Feb 2009 17:52:47 -0800
+Message-ID: <20090226175247.5e56910f@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-kbKDvDmrKJf/QQRDVtBM"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mcgrof <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090226161340.GA4430-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37413 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751929AbZB0Bwv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2009 20:52:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a simple little iptables match that can be used to create the Strong
+End System model, that router and other non-Linux customers expect. There
+are management and other applications that use ping and expect to only get
+a response when the interface with that address is up. Normally, a Linux
+system will respond to a packet that arrives for any of the system addresses
+independent of which link it arrives on.
+
+The module can be used on the INPUT chain like:
+
+# iptables -P INPUT DROP
+# iptables -A INPUT -m strict -j ACCEPT
 
 
---=-kbKDvDmrKJf/QQRDVtBM
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+---
+ net/ipv4/devinet.c              |    1 
+ net/ipv4/netfilter/Kconfig      |   12 ++++++++
+ net/ipv4/netfilter/Makefile     |    1 
+ net/ipv4/netfilter/ipt_strict.c |   56 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 70 insertions(+)
 
-On Thu, 2009-02-26 at 11:13 -0500, John W. Linville wrote:
-
-> > Now I just have to get around to fixing it, it's proving to be harder
-> > than I thought, and I don't have much time right now.
->=20
-> I suppose I could just drop that one.  IIRC there was another patch
-> from you that depended upon that one as well?
-
-Ok, so I looked into this, and it turns out that it's harder to fix than
-I thought. Fixing the genl code to call the pre_dumpit at the right
-place is hard and requires netlink (not genl) changes. I'm not in a
-position to do such changes right now, so I would suggest to revert it,
-and for now take the easy way of restructuring nl80211 to take, in each
-operation, the rtnl before any other locks instead of trying to do this
-generically.
-
-Luis, would you be up to that? Basically go from
-
-        mutex_lock(&cfg80211_mtx)
-        ...
-        rtnl_lock()
-        ...
-        rtnl_unlock()
-        ...
-        mutex_unlock(&cfg80211_mtx)
-       =20
-to
-       =20
-        rtnl_lock()
-        ...
-        mutex_lock(&cfg80211_mtx)
-        ...
-        mutex_unlock(&cfg80211_mtx)
-        ...
-        rtnl_unlock()
-       =20
-everywhere.
-
-johannes
-
---=-kbKDvDmrKJf/QQRDVtBM
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJp0PNAAoJEKVg1VMiehFY050P/0O8hIUYTp+lHmBSKjlDPm7b
-j1fqf2KnMO32TYGicxQ4vYlydUH6WoM30U7VKNgwjdittXGg0ABB4jrej7q6QaWw
-fCngP2Z3BTnr3odXiZnEyCR7iw56wEOXEPHySR2gX2McOYMYJ9J3SV/cuQt8Dguk
-1aYjohbhT4AbAwtxZuYBuhZAzZm0L9giqKKgF+HiZmtT/0ywwyqdePY3qU7o0WFd
-sxgYxJyaLHAv6YOS01bGd54L/d2sKw5TzfIasn3cXj3hnFiuyWM6hfuDyfNW4MZR
-2a57P54WWQm3KlRszkZJq6TvNVTRSDcjk+TfhZFeCpkA4nKbDGTS2/5H0s3fflTD
-XmtxF4Mj5Tt42ySV72mY1nGLlasmEyX8PevSGnJKBVNsPpT1E0KaSAs/uPofRH/3
-8DDAcLllTkWF4+dCEP0O13waKEwzED8H5Citpe59dB+np7WpN3+jNKXi8yB/PR7Y
-oTJJvTb5ontRd0WKlyft7yHs/2ySwuHkpyU0HjZhYfXINSvzTr9uUEWBDR4GaLcK
-qrlXIZyNXFtiGzvBmV3ik4ACjbtLeZetpmMmghE5vNYAlZRcyUAk9NzUP28iWrOR
-zPBTSqrMmnDQiFBbl2qYmoCOfudUXYem5Eo4s7+2Y/ZfQYiQpjqSQ+DeiG8pdedK
-p+mDwx03XMSc1oQ61aXF
-=Yjqh
------END PGP SIGNATURE-----
-
---=-kbKDvDmrKJf/QQRDVtBM--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/net/ipv4/netfilter/Kconfig	2009-02-26 17:47:03.000000000 -0800
++++ b/net/ipv4/netfilter/Kconfig	2009-02-26 17:47:08.000000000 -0800
+@@ -92,6 +92,18 @@ config IP_NF_MATCH_ECN
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config IP_NF_MATCH_STRICT
++       tristate '"strict end system" match support'
++	depends on NETFILTER_ADVANCED
++	help
++	  This option adds a 'strict' match, which allows you to
++	  match only packets that arrive with the destinaton address matching
++	  an IP address on the incoming interface. This can be used to implement
++	  Strong End System model as defined in Internet Host Requirements
++	  (RFC1122).
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config IP_NF_MATCH_TTL
+ 	tristate '"ttl" match support'
+ 	depends on NETFILTER_ADVANCED
+--- a/net/ipv4/netfilter/Makefile	2009-02-26 17:46:37.000000000 -0800
++++ b/net/ipv4/netfilter/Makefile	2009-02-26 17:47:08.000000000 -0800
+@@ -51,6 +51,7 @@ obj-$(CONFIG_IP_NF_SECURITY) += iptable_
+ obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
+ obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
+ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
++obj-$(CONFIG_IP_NF_MATCH_STRICT) += ipt_strict.o
+ 
+ # targets
+ obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
+--- a/net/ipv4/devinet.c	2009-02-26 17:46:37.000000000 -0800
++++ b/net/ipv4/devinet.c	2009-02-26 17:47:08.000000000 -0800
+@@ -230,6 +230,7 @@ int inet_addr_onlink(struct in_device *i
+ 	rcu_read_unlock();
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(inet_addr_onlink);
+ 
+ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 			 int destroy, struct nlmsghdr *nlh, u32 pid)
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/net/ipv4/netfilter/ipt_strict.c	2009-02-26 17:52:19.000000000 -0800
+@@ -0,0 +1,56 @@
++/* IP tables module for matching packets not routed to incoming interface
++ *
++ * (C) 2009 by Stephen Hemminger <shemminger@vyatta.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/in.h>
++#include <linux/ip.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/if.h>
++#include <linux/inetdevice.h>
++
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter_ipv4/ip_tables.h>
++
++MODULE_AUTHOR("Stephen Hemminger <shemminger@vyatta.com>");
++MODULE_DESCRIPTION("Xtables: Strict End System match");
++MODULE_LICENSE("GPL");
++
++static bool strict_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++{
++	struct in_device *in_dev;
++	bool ret;
++
++	rcu_read_lock();
++	in_dev = __in_dev_get_rcu(skb->dev);
++	ret = (in_dev && inet_addr_onlink(in_dev, ip_hdr(skb)->daddr, 0));
++	rcu_read_unlock();
++
++	return ret;
++}
++
++static struct xt_match strict_mt_reg __read_mostly = {
++	.name		= "strict",
++	.family		= NFPROTO_IPV4,
++	.match		= strict_mt,
++	.matchsize	= 0,
++	.me		= THIS_MODULE,
++};
++
++static int __init strict_mt_init(void)
++{
++	return xt_register_match(&strict_mt_reg);
++}
++
++static void __exit strict_mt_exit(void)
++{
++	xt_unregister_match(&strict_mt_reg);
++}
++
++module_init(strict_mt_init);
++module_exit(strict_mt_exit);
