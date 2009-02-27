@@ -1,48 +1,65 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Kernel problem
-Date: Fri, 27 Feb 2009 09:29:12 +0000
-Message-ID: <20090227092912.GC4156@ff.dom.local>
-References: <20090227084109.GA4156@ff.dom.local> <20090227.005907.94994126.davem@davemloft.net> <20090227091216.GB4156@ff.dom.local> <20090227.011615.104197338.davem@davemloft.net>
+Subject: [PATCH] Re: probably bug in drr scheduler, 2.6.29-rc5
+Date: Fri, 27 Feb 2009 10:16:34 +0000
+Message-ID: <20090227101634.GD4156@ff.dom.local>
+References: <200902261745.28952.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, ash@sevsky.net, netdev@vger.kernel.org
+Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f178.google.com ([209.85.218.178]:60339 "EHLO
-	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756890AbZB0J3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 04:29:21 -0500
-Received: by bwz26 with SMTP id 26so926398bwz.37
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 01:29:17 -0800 (PST)
+Received: from fk-out-0910.google.com ([209.85.128.187]:48644 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754628AbZB0KQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 05:16:41 -0500
+Received: by fk-out-0910.google.com with SMTP id f33so485099fkf.5
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2009 02:16:38 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20090227.011615.104197338.davem@davemloft.net>
+In-Reply-To: <200902261745.28952.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2009 at 01:16:15AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Fri, 27 Feb 2009 09:12:16 +0000
+On 26-02-2009 16:45, Denys Fedoryschenko wrote:
+> Hi, triggered a bug in DRR seems
 ...
-> > netif_nit_deliver() is a place called by vlan with orig skb->dev, so
-> > it could be reused to check for netpoll btw. Of course, return value
-> > should be added etc. and maybe name changed too. It could be
-> > something like this:
-> 
-> Note there is already a function that could do this and which needs to
-> hit all the same RX entrypoints just like this check would.
-> 
-> And that is skb_bond_should_drop().
-> 
-> We could rename that to skb_rx_should_drop() and put the netpoll
-> checks there.
-> 
-> There is some weird conditinalization of skb_bond_should_drop()'s call
-> in netif_receive_skb() but that should be easy to change to suit our
-> needs.  Perhaps by putting the calculation of the netdevice bonding
-> pointers into that function.
+> [65298.391392] BUG: unable to handle kernel NULL pointer dereference at (null)
+> [65298.391397] IP: [<ffffffffa0021700>] drr_change_class+0x39/0x2de [sch_drr]
+...
 
-Yes, it would be nice to have it in this one place, but I guess
-currently for vlans we depend on vlan_hwaccel_do_receive(), and there
-are probably some reasons it's so far from the bond check.
-
+Thanks for the report,
 Jarek P.
+----------->
+pkt_sched: sch_drr: Fix oops in drr_change_class.
+
+drr_change_class lacks a check for NULL of tca[TCA_OPTIONS], so oops
+is possible.
+
+Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ net/sched/sch_drr.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index f6b4fa9..e36e94a 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -66,11 +66,15 @@ static int drr_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ {
+ 	struct drr_sched *q = qdisc_priv(sch);
+ 	struct drr_class *cl = (struct drr_class *)*arg;
++	struct nlattr *opt = tca[TCA_OPTIONS];
+ 	struct nlattr *tb[TCA_DRR_MAX + 1];
+ 	u32 quantum;
+ 	int err;
+ 
+-	err = nla_parse_nested(tb, TCA_DRR_MAX, tca[TCA_OPTIONS], drr_policy);
++	if (!opt)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_DRR_MAX, opt, drr_policy);
+ 	if (err < 0)
+ 		return err;
+ 
