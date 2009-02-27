@@ -1,22 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: remove some pointless conditionals before
+Subject: Re: [PATCH] irda: remove some pointless conditionals before
  kfree_skb()
-Date: Thu, 26 Feb 2009 23:08:03 -0800 (PST)
-Message-ID: <20090226.230803.51086676.davem@davemloft.net>
-References: <49A51A68.3000509@cn.fujitsu.com>
+Date: Thu, 26 Feb 2009 23:07:58 -0800 (PST)
+Message-ID: <20090226.230758.169018188.davem@davemloft.net>
+References: <49A51A03.1010201@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, jgarzik@pobox.com, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: samuel@sortiz.org, jgarzik@pobox.com, netdev@vger.kernel.org
 To: yjwei@cn.fujitsu.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <49A51A68.3000509@cn.fujitsu.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53448
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754602AbZB0HIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 02:08:14 -0500
+In-Reply-To: <49A51A03.1010201@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Date: Wed, 25 Feb 2009 18:16:08 +0800
+Date: Wed, 25 Feb 2009 18:14:27 +0800
 
 > Remove some pointless conditionals before kfree_skb().
 > 
