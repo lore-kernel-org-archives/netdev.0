@@ -1,39 +1,51 @@
 From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] iptables: xt_hashlimit fix
-Date: Sat, 28 Feb 2009 09:22:58 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0902280920260.7746@fbirervta.pbzchgretzou.qr>
-References: <20090218051906.174295181@vyatta.com> <20090218052747.321329022@vyatta.com> <20090219114719.560999b5@extreme> <499DEF49.3040602@cosmosbay.com> <499EF222.3060507@cosmosbay.com> <alpine.LSU.2.00.0902201919390.5911@fbirervta.pbzchgretzou.qr>
- <alpine.LSU.2.00.0902280253370.20614@fbirervta.pbzchgretzou.qr> <49A8E036.5090802@cosmosbay.com>
+Subject: Re: [PATCH] iptables: new strict host model match
+Date: Sat, 28 Feb 2009 09:27:04 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902280923090.7746@fbirervta.pbzchgretzou.qr>
+References: <20090226175247.5e56910f@nehalam> <alpine.LSU.2.00.0902270414290.14912@fbirervta.pbzchgretzou.qr> <20090226192353.2b6dea9f@nehalam> <alpine.LSU.2.00.0902280253030.20614@fbirervta.pbzchgretzou.qr> <20090227181009.5b53f4c8@nehalam>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
 	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:36000 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbZB1IXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 03:23:03 -0500
-In-Reply-To: <49A8E036.5090802@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090227181009.5b53f4c8@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Saturday 2009-02-28 07:56, Eric Dumazet wrote:
->> commit 3e7ee1dcc808b8eec82eddfa0436f78e31d2004a
->> Author: Jan Engelhardt <jengelh@medozas.de>
->> Date:   Sat Feb 28 02:49:28 2009 +0100
+On Saturday 2009-02-28 03:10, Stephen Hemminger wrote:
+>> On Friday 2009-02-27 04:23, Stephen Hemminger wrote:
+>> >> >+static struct xt_match strict_mt_reg __read_mostly = {
+>> >> >+	.name		= "strict",
+>> >> >+	.family		= NFPROTO_IPV4,
+>> >> >+	.match		= strict_mt,
+>> >> >+	.matchsize	= 0,
+>> >> >+	.me		= THIS_MODULE,
+>> >> >+};
+>> >> 
+>> >> The match seems to make the most sense where an input device
+>> >> is available, so
+>> >> 
+>> >> 	.hooks = (1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_IN) |
+>> >> 	         (1 << NF_INET_FORWARD)
+>> >> 
+>> >> should probably be added.
+>> >
+>> >Then routing wouldn't work...
 >> 
->> netfilter: xtables: avoid pointer to self
+>I suppose it could be useful to to different chains for routed vs non-routed
+>packets on pre-routing chain, but on forward chain it wouldn't really
+>do anything useful.
 >
->Seems good to me ! Thanks Jan !
->
->Reviewed-by: Eric Dumazet <dada1@cosmosbay.com>
->
->Are you sure xt_quota doesnt need some tweak, or should we not care of changes
->done in quota while temporary tables are installed (iptables -L) ?
+...Ok? The hooks mask limits the use of the match to - true to its name -
+hooks, so it is implies permitting the use of the match in the
+PREROUTING/INPUT/FORWARD chain and chains called from it, as long as
+no unlisted chain has a reference to it too. This is how most other
+modules, e.g. xt_mac, act too.
 
-Oh right, xt_quota.. thanks for noticing! Patch will follow.
+Since xt_strict inspects in_dev, and in_dev is not available in
+OUTPUT/POSTROUTING, I was suggesting to just limit its use to the
+chains where in_dev != NULL.
+Or did I misunderstood you?
