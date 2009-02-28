@@ -1,52 +1,52 @@
-From: Kyle McMartin <kyle@infradead.org>
-Subject: Re: oops / null deref in __inet6_check_established(), kernel
-	2.6.29-rc6
-Date: Fri, 27 Feb 2009 22:16:18 -0500
-Message-ID: <20090228031618.GB28503@bombadil.infradead.org>
-References: <20090224182147.2150468e@dhcp-100-2-144.bos.redhat.com> <20090224.152704.210992553.davem@davemloft.net> <20090224183554.330eb308@dhcp-100-2-144.bos.redhat.com>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH net-next-2.6 1/4] jme: Modifies messages to display correct hardware version
+Date: Sat, 28 Feb 2009 11:54:07 +0800
+Message-ID: <20090228035408.M42101@cooldavid.org>
+References: <20080915165101.M68109@cooldavid.org> <48D27CDA.50501@pobox.com> <20081008215853.M53590@cooldavid.org>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Chuck Ebbert <cebbert@redhat.com>
+Content-Type: text/plain;
+	charset=big5
+Cc: netdev@vger.kernel.org, Ethan <ethanhsiao@jmicron.com>
+To: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:32791 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbZB1DQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 22:16:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20090224183554.330eb308@dhcp-100-2-144.bos.redhat.com>
+Received: from cooldavid.org ([220.133.139.86]:33366 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752912AbZB1DzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2009 22:55:20 -0500
+In-Reply-To: <20081008215853.M53590@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kyle McMartin <kyle@redhat.com>
 
-This only seems to show up when CONFIG_NET_NS is enabled. (Reproduced on
-git HEAD with that option on, doesn't occur with the option off.)
+This patch modifies messages to display correct hardware version.
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-I will confess complete ignorance to the network stack, but this patch
-fixes things... ipv4 seems to have the same namespace support, but
-increments the sock_net, not the twsk_net.
-
-I'll probably put this patch into Fedora, if only to prevent this from
-being used as a local DoS by an unprivileged user.
-
-Signed-off-by: Kyle McMartin <kyle@redhat.com>
-
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 8fe267f..1bcc343 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -258,11 +258,11 @@ unique:
- 
- 	if (twp != NULL) {
- 		*twp = tw;
--		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
-+		NET_INC_STATS_BH(net, LINUX_MIB_TIMEWAITRECYCLED);
- 	} else if (tw != NULL) {
- 		/* Silly. Should hash-dance instead... */
- 		inet_twsk_deschedule(tw, death_row);
--		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
-+		NET_INC_STATS_BH(net, LINUX_MIB_TIMEWAITRECYCLED);
- 
- 		inet_twsk_put(tw);
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 08b3405..60cb997 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -2856,7 +2856,11 @@ jme_init_one(struct pci_dev *pdev,
+ 		goto err_out_free_shadow;
  	}
+ 
+-	msg_probe(jme, "JMC250 gigabit%s ver:%x rev:%x macaddr:%pM\n",
++	msg_probe(jme, "%s%s ver:%x rev:%x macaddr:%pM\n",
++		(jme->pdev->device == PCI_DEVICE_ID_JMICRON_JMC250) ?
++			"JMC250 Gigabit Ethernet" :
++			(jme->pdev->device == PCI_DEVICE_ID_JMICRON_JMC260) ?
++				"JMC260 Fast Ethernet" : "Unknown",
+ 		(jme->fpgaver != 0) ? " (FPGA)" : "",
+ 		(jme->fpgaver != 0) ? jme->fpgaver : jme->chiprev,
+ 		jme->rev, netdev->dev_addr);
+@@ -3002,7 +3006,7 @@ static struct pci_driver jme_driver = {
+ static int __init
+ jme_init_module(void)
+ {
+-	printk(KERN_INFO PFX "JMicron JMC250 gigabit ethernet "
++	printk(KERN_INFO PFX "JMicron JMC2XX ethernet "
+ 	       "driver version %s\n", DRV_VERSION);
+ 	return pci_register_driver(&jme_driver);
+ }
+
+
