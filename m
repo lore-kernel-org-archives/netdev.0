@@ -1,42 +1,51 @@
-From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH 11/11] fcoe: fcoe fc crc offload indication by skb->ip_summed
-Date: Fri, 27 Feb 2009 14:07:31 -0800
-Message-ID: <20090227220731.4987.84514.stgit.yi.zou@intel.com>
-References: <20090227220034.4987.50755.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] igb: remove skb_orphan calls
+Date: Fri, 27 Feb 2009 16:10:11 -0800 (PST)
+Message-ID: <20090227.161011.220557653.davem@davemloft.net>
+References: <80769D7B14936844A23C0C43D9FBCF0F283B6220@orsmsx501.amr.corp.intel.com>
+	<20090227031421.GA21036@gondor.apana.org.au>
+	<80769D7B14936844A23C0C43D9FBCF0F283B712F@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yi.zou@intel.com
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, jeffrey.t.kirsher@intel.com,
+	emil.s.tantilov@intel.com, patrick.ohly@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	mitch.a.williams@intel.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:32993 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759212AbZB0XPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2009 18:15:08 -0500
-In-Reply-To: <20090227220034.4987.50755.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39562
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751902AbZB1AKb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 19:10:31 -0500
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F283B712F@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If LLD supports FCCRC offload, it should set ip_summed to be
-CHECKSUM_UNNECESSARY so we don't have to do CRC check again.
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Date: Fri, 27 Feb 2009 08:39:30 -0800
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
----
+> The fact is, if you are planning to kill it further up the stack,
+> you can put that down as another reason for removing the call.  The
+> timesync / killing skb->sk is a separate discussion that I don't
+> know if I even really need to be involved in.  The patch doesn't
+> break anything, and removes a call to skb_orphan that shouldn't
+> really be there in the first place.
 
- drivers/scsi/fcoe/libfcoe.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+That's not true at all.
 
-diff --git a/drivers/scsi/fcoe/libfcoe.c b/drivers/scsi/fcoe/libfcoe.c
-index 5dae823..0d6f5be 100644
---- a/drivers/scsi/fcoe/libfcoe.c
-+++ b/drivers/scsi/fcoe/libfcoe.c
-@@ -633,7 +633,7 @@ int fcoe_percpu_receive_thread(void *arg)
- 		 * it's solicited data, in which case, the FCP layer would
- 		 * check it during the copy.
- 		 */
--		if (lp->crc_offload)
-+		if (lp->crc_offload && skb->ip_summed == CHECKSUM_UNNECESSARY)
- 			fr_flags(fp) &= ~FCPHF_CRC_UNCHECKED;
- 		else
- 			fr_flags(fp) |= FCPHF_CRC_UNCHECKED;
+One reason we haven't removed it yet is because there are some
+semantic issues to address, which are also effected by drivers
+doing this kind of by-hand skb_orphan()'ing.
 
+For one thing, if you skb_orphan() in your transmit handler,
+a UDP application can take over your network card by just
+transmitting in an endless tight loop.  It would be able to
+nearly keep all other users from using the card.
+
+That happens because if you skb_orphan(), nothing controls the
+pace at which datagram applications can send.  Currently
+we need the socket send buffer limits to help us out here,
+but if you skb_orphan() you completely subvert that proptection.
+
+So I will not apply this patch.
