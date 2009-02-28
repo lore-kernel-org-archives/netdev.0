@@ -1,110 +1,46 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
-Date: Sat, 28 Feb 2009 18:21:55 +0100
-Message-ID: <49A972B3.8020309@krogh.cc>
-References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc> <16084.1235752119@death.nxdomain.ibm.com> <49A84802.7030502@krogh.cc> <30478.1235766943@death.nxdomain.ibm.com>
+From: Gary Thomas <gary@mlbassoc.com>
+Subject: Re: Marvell 88E609x switch?
+Date: Sat, 28 Feb 2009 10:37:45 -0700
+Message-ID: <49A97669.80309@mlbassoc.com>
+References: <20090227144004.GC17040@xi.wantstofly.org> <49A7FEE1.2020705@mlbassoc.com> <20090227145746.GD17040@xi.wantstofly.org> <49A801E6.1040502@mlbassoc.com> <20090227151441.GE17040@xi.wantstofly.org> <49A80606.1040508@mlbassoc.com> <20090227152721.GG17040@xi.wantstofly.org> <49A806C5.1010200@mlbassoc.com> <20090227153102.GH17040@xi.wantstofly.org> <49A80A75.8000101@mlbassoc.com> <20090227155224.GK17040@xi.wantstofly.org> <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jesper Dangaard Brouer <jdb@comx.dk>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:46092 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752071AbZB1RWG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Feb 2009 12:22:06 -0500
-In-Reply-To: <30478.1235766943@death.nxdomain.ibm.com>
+Received: from 137-67-76-76.skybeam.com ([76.76.67.137]:3204 "EHLO
+	mail.chez-thomas.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751791AbZB1RiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 12:38:05 -0500
+In-Reply-To: <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> Jesper Krogh <jesper@krogh.cc> wrote:
+Jesper Dangaard Brouer wrote:
 > 
->> Jay Vosburgh wrote:
->>> Jesper Krogh <jesper@krogh.cc> wrote:
->>> [...]
->>>> The offending commit seems to be:
->>>>
->>>> A test with a fresh 2.6.29-rc6 revealed that the problem has been fixed
->>>> subsequently.. but still exists in 2.6.27-newest.  (havent tested
->>>> 2.6.28-newest yet).
->>>>
->>>> Any ideas of what the "fixing" commit is .. or should that also be
->>>> bisected?
->>> 	I went back and looked at your earlier mail.  Since you're using
->>> 802.3ad mode, my first guess would be this commit:
->>>
->>> commit fd989c83325cb34795bc4d4aa6b13c06f90eac99
->>> Author: Jay Vosburgh <fubar@us.ibm.com>
->>> Date:   Tue Nov 4 17:51:16 2008 -0800
->>>
->>>     bonding: alternate agg selection policies for 802.3ad
->> That didn't do it.. I applied it to 2.6.27.19 but it didnt make that work.
->> dmesg | grep bond (2.6.27.19 + above patch).
-> 
-> 	That was the only real functional change to 802.3ad, there are a
-> lot of other commits, but they're all style or cleanup sorts of things.
-> 
->> [   13.643301] bonding: MII link monitoring set to 100 ms
->> [   13.730455] bonding: bond0: enslaving eth0 as a backup interface with
->> an up link.
->> [   13.781934] bonding: bond0: enslaving eth1 as a backup interface with
->> an up link.
->> [   13.904665] bonding: bond0: enslaving eth2 as a backup interface with a
->> down link.
->> [   16.945264] bonding: bond0: link status definitely up for interface eth2.
->> [   75.040290] bond0: no IPv6 routers present
+> On Fri, 27 Feb 2009, Lennert Buytenhek wrote:
+>> On Fri, Feb 27, 2009 at 08:44:53AM -0700, Gary Thomas wrote:
 >>
->> dmesg | grep bond (2.6.29-rc6)
->>
->> $ ssh quad02 dmesg | grep bond
->> [   27.437877] bonding: MII link monitoring set to 100 ms
->> [   27.445246] ADDRCONF(NETDEV_UP): bond0: link is not ready
->> [   27.493260] bonding: bond0: enslaving eth0 as a backup interface with a
->> down link.
->> [   27.521397] bonding: bond0: enslaving eth1 as a backup interface with a
->> down link.
->> [   27.542332] bonding: bond0: Warning: No 802.3ad response from the link
->> partner for any adapters in the bond
->> [   27.611509] bonding: bond0: enslaving eth2 as a backup interface with a
->> down link.
->> [   27.617017] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
->> [   27.642330] bonding: bond0: Warning: No 802.3ad response from the link
->> partner for any adapters in the bond
->> [   30.042501] bonding: bond0: link status definitely up for interface eth1.
->> [   30.142505] bonding: bond0: link status definitely up for interface eth0.
->> [   30.742547] bonding: bond0: link status definitely up for interface eth2.
->> [   37.875044] bond0: no IPv6 routers present
->>
->> I just tested 2.6.28.7.. it still broken. So the fix probably has to be
->> somewhere in the post 2.6.28 sets.
+>> Perhaps we should take this off-list..
 > 
-> 	It looks like the above two tests are on different machines, or
-> were at least done with different network cards.  Is that the case?
+> I'm still interrested... please Cc. me at jdb@comx.dk.
 
-There is 12 Sun Fire X2200 in the rack, they are fully identical (some 
-with a small difference in memory configuration as the only difference.
+Hi Jesper,
 
-So yes, different machines, but same hardware (bought in the same 
-shipment, etc. etc).
+Lennert and I have been working on this and we have parts of
+it working (PowerPC GIANFAR 1000Mb driver).  I can get the
+basic switch recognized and packets go out, but nothing seems
+to come back in.
 
-> 	I'm just wondering if what you're seeing is somehow tied to the
-> network devices' respective autonegotiation speeds, or some difference
-> in the device drivers.  The first dmesg looks to have one slow (3 sec)
-> and two fast ones; the second dmesg looks to have all slow devices.
-> 
-> 	Have you tried the kernels the other way around (the first
-> kernel on the second machine, and vice versa)?
+I'll continue to work on this and let you know of the progress.
+Lennert is away for a few days, so the actual progress may be
+a bit slow...
 
-Yes, I've randomly picked a machine in the set to do the test, they all 
-falls out as "predicted".
-
-> 	I'll compile 2.6.28.7 here and see if it works for me.
-
-
-
-Jesper
 -- 
-Jesper
+------------------------------------------------------------
+Gary Thomas                 |  Consulting for the
+MLB Associates              |    Embedded world
+------------------------------------------------------------
