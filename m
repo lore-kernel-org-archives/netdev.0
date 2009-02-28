@@ -1,72 +1,39 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-next 16/17] tcp: in sendmsg/pages open code the real goto target
-Date: Sat, 28 Feb 2009 16:44:41 +0200
-Message-ID: <12358322833023-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <12358322821815-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322821434-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1235832282317-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322823783-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322821182-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322832831-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322831953-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322831147-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322833102-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322832711-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322834113-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1235832283214-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322831599-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322832879-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322831019-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12358322831223-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: TCP/IP stack interpretation of acceptable packet
+Date: Sat, 28 Feb 2009 16:50:46 +0100
+Message-ID: <87iqmu36i1.fsf@basil.nowhere.org>
+References: <2ff60cd60902241459q1de39054lb3dc5233f13b69c3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"=?utf-8?q?Ilpo=20J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Oliver Zheng <mailinglists+netdev@oliverzheng.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58368 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583AbZB1Ooz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 09:44:55 -0500
-In-Reply-To: <12358322831223-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from one.firstfloor.org ([213.235.205.2]:49202 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934AbZB1Pwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 10:52:43 -0500
+In-Reply-To: <2ff60cd60902241459q1de39054lb3dc5233f13b69c3@mail.gmail.com> (Oliver Zheng's message of "Tue, 24 Feb 2009 14:59:55 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+Oliver Zheng <mailinglists+netdev@oliverzheng.com> writes:
 
-copied was assigned zero right before the goto, so if (copied)
-cannot ever be true.
+> I was investigating behaviour of the TCP/IP stacks and noticed that
+> Linux has a peculiarity. When a packet is received with the correct
+> sequence number but incorrect acknowledgement number (in my tests, it
+> was higher than the correct acknowledgement number), the stack accepts
+> the packet as a valid packet and passes the data up to the application
+> (I do not know whether the ack information is accepted). According to
+> the list of tests described here in the TCP RFC 793 [1], accepting a
+> packet requires the packet to satisfy both sequence and
+> acknowledgement number tests; otherwise, the entirety of the packet
+> (its data and its acknowledgement information confirming reception of
+> previous data) should be dropped. Is this intentional, a bug, or am I
+> misinterpreting something? A nice flow chart that explains this
+> procedure is here [2].
 
-Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Sounds like a bug to me, when the ack is outside the window.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 90b2f3c..d3f9bee 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -683,7 +683,7 @@ static ssize_t do_tcp_sendpages(struct sock *sk, st=
-ruct page **pages, int poffse
-=20
- 	err =3D -EPIPE;
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
--		goto do_error;
-+		goto out_err;
-=20
- 	while (psize > 0) {
- 		struct sk_buff *skb =3D tcp_write_queue_tail(sk);
-@@ -854,7 +854,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *=
-sock, struct msghdr *msg,
-=20
- 	err =3D -EPIPE;
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
--		goto do_error;
-+		goto out_err;
-=20
- 	while (--iovlen >=3D 0) {
- 		int seglen =3D iov->iov_len;
---=20
-1.5.6.5
-
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
