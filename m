@@ -1,41 +1,37 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: ***SPAM*** Re: [ofa-general] [PATCH 0/26] Reliable Datagram Sockets
-	(RDS), take 2
-Date: Fri, 27 Feb 2009 17:53:19 -0800
-Message-ID: <c0a09e5c0902271753n1a522647g6e7ac5465149c5a4@mail.gmail.com>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
-	<87myc73izx.fsf@basil.nowhere.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] iptables: new strict host model match
+Date: Sat, 28 Feb 2009 02:53:10 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902280253030.20614@fbirervta.pbzchgretzou.qr>
+References: <20090226175247.5e56910f@nehalam> <alpine.LSU.2.00.0902270414290.14912@fbirervta.pbzchgretzou.qr> <20090226192353.2b6dea9f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <87myc73izx.fsf@basil.nowhere.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090226192353.2b6dea9f@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 27, 2009 at 9:08 AM, Andi Kleen <andi@firstfloor.org> wrote:
->> This patchset against net-next adds support for RDS sockets. RDS is an
->> Oracle-originated protocol used to send IPC datagrams (up to 1MB)
->> reliably, and is used currently in Oracle RAC and Exadata products.
+
+On Friday 2009-02-27 04:23, Stephen Hemminger wrote:
+>> >+static struct xt_match strict_mt_reg __read_mostly = {
+>> >+	.name		= "strict",
+>> >+	.family		= NFPROTO_IPV4,
+>> >+	.match		= strict_mt,
+>> >+	.matchsize	= 0,
+>> >+	.me		= THIS_MODULE,
+>> >+};
+>> 
+>> The match seems to make the most sense where an input device
+>> is available, so
+>> 
+>> 	.hooks = (1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_IN) |
+>> 	         (1 << NF_INET_FORWARD)
+>> 
+>> should probably be added.
 >
-> Perhaps I missed it earlier, but what is the rationale for putting
-> this as a socket type into the kernel? I assume they also work
-> directly as implemented in user space using raw sockets or similar,
-> don't they?
+>Then routing wouldn't work...
 
-You want me to implement my fancy protocol in userspace???
-
-Do I even get to write it in C or do I need to use Ruby?
-
-Regards -- Andy
+How so?
