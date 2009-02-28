@@ -1,46 +1,85 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iptables: new strict host model match
-Date: Fri, 27 Feb 2009 18:10:09 -0800
-Message-ID: <20090227181009.5b53f4c8@nehalam>
-References: <20090226175247.5e56910f@nehalam>
-	<alpine.LSU.2.00.0902270414290.14912@fbirervta.pbzchgretzou.qr>
-	<20090226192353.2b6dea9f@nehalam>
-	<alpine.LSU.2.00.0902280253030.20614@fbirervta.pbzchgretzou.qr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH 1/3] ixgbe: Add hardware specific
+	initialization code for 82599 devices
+Date: Sat, 28 Feb 2009 02:37:27 +0000
+Message-ID: <1235788647.3576.4.camel@hashbaz.i.decadent.org.uk>
+References: <20090228013916.22664.54781.stgit@lost.foo-projects.org>
+	 <20090228014430.22664.79867.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0902280253030.20614@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:3818 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752196AbZB1Chg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2009 21:37:36 -0500
+In-Reply-To: <20090228014430.22664.79867.stgit@lost.foo-projects.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 Feb 2009 02:53:10 +0100 (CET)
-Jan Engelhardt <jengelh@medozas.de> wrote:
+On Fri, 2009-02-27 at 17:44 -0800, Jeff Kirsher wrote:
+[...]
+> diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
+> index 77ec26f..14e9606 100644
+> --- a/drivers/net/ixgbe/ixgbe_phy.c
+> +++ b/drivers/net/ixgbe/ixgbe_phy.c
+[...]
+> @@ -688,6 +755,501 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+>  }
+>  
+>  /**
+> + *  ixgbe_read_i2c_eeprom_generic - Reads 8 bit EEPROM word over I2C interface
+> + *  @hw: pointer to hardware structure
+> + *  @byte_offset: EEPROM byte offset to read
+> + *  @eeprom_data: value read
+> + *
+> + *  Performs byte read operation to SFP module's EEPROM over I2C interface.
+> + **/
+> +s32 ixgbe_read_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
+> +                                  u8 *eeprom_data)
+> +{
+> +	return hw->phy.ops.read_i2c_byte(hw, byte_offset,
+> +	                                 IXGBE_I2C_EEPROM_DEV_ADDR,
+> +	                                 eeprom_data);
+> +}
+> +
+> +/**
+> + *  ixgbe_write_i2c_eeprom_generic - Writes 8 bit EEPROM word over I2C interface
+> + *  @hw: pointer to hardware structure
+> + *  @byte_offset: EEPROM byte offset to write
+> + *  @eeprom_data: value to write
+> + *
+> + *  Performs byte write operation to SFP module's EEPROM over I2C interface.
+> + **/
+> +s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
+> +                                   u8 eeprom_data)
+> +{
+> +	return hw->phy.ops.write_i2c_byte(hw, byte_offset,
+> +	                                  IXGBE_I2C_EEPROM_DEV_ADDR,
+> +	                                  eeprom_data);
+> +}
+> +
+> +/**
+> + *  ixgbe_read_i2c_byte_generic - Reads 8 bit word over I2C
+> + *  @hw: pointer to hardware structure
+> + *  @byte_offset: byte offset to read
+> + *  @data: value read
+> + *
+> + *  Performs byte read operation to SFP module's EEPROM over I2C interface at
+> + *  a specified deivce address.
+> + **/
+[...]
 
-> 
-> On Friday 2009-02-27 04:23, Stephen Hemminger wrote:
-> >> >+static struct xt_match strict_mt_reg __read_mostly = {
-> >> >+	.name		= "strict",
-> >> >+	.family		= NFPROTO_IPV4,
-> >> >+	.match		= strict_mt,
-> >> >+	.matchsize	= 0,
-> >> >+	.me		= THIS_MODULE,
-> >> >+};
-> >> 
-> >> The match seems to make the most sense where an input device
-> >> is available, so
-> >> 
-> >> 	.hooks = (1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_IN) |
-> >> 	         (1 << NF_INET_FORWARD)
-> >> 
-> >> should probably be added.
-> >
-> >Then routing wouldn't work...
-> 
-I suppose it could be useful to to different chains for routed vs non-routed
-packets on pre-routing chain, but on forward chain it wouldn't really
-do anything useful.
+You should be registering an I2C adapter and using the I2C bit-bang
+algorithm for this.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
