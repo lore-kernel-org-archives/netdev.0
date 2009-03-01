@@ -1,30 +1,57 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [ofa-general] [PATCH 0/26] Reliable Datagram Sockets (RDS), take 2
-Date: Sun, 1 Mar 2009 02:50:20 +0100
-Message-ID: <20090301015020.GH26292@one.firstfloor.org>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com> <87myc73izx.fsf@basil.nowhere.org> <c0a09e5c0902271753n1a522647g6e7ac5465149c5a4@mail.gmail.com> <20090228055608.GB26292@one.firstfloor.org> <c0a09e5c0902281244u356acbecn98f37ac3abd5ebc0@mail.gmail.com> <20090228223653.GD26292@one.firstfloor.org> <c0a09e5c0902281658v48084cd8w8f95871395020e20@mail.gmail.com>
+Subject: Re: [PATCH net-next 17/17] tcp: get rid of two unnecessary u16s in TCP skb flags copying
+Date: Sun, 01 Mar 2009 03:39:02 +0100
+Message-ID: <87ocwm0xx5.fsf@basil.nowhere.org>
+References: <12358322821815-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322821434-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1235832282317-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322823783-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322821182-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322832831-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322831953-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322831147-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322833102-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322832711-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322834113-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1235832283214-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322831599-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322832879-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322831019-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322831223-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322833023-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12358322832837-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Andy Grover <andy.grover@oracle.com>, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, general@lists.openfabrics.org
-To: Andrew Grover <andy.grover@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:55444 "EHLO
+Received: from one.firstfloor.org ([213.235.205.2]:37673 "EHLO
 	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897AbZCABbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 20:31:52 -0500
-Content-Disposition: inline
-In-Reply-To: <c0a09e5c0902281658v48084cd8w8f95871395020e20@mail.gmail.com>
+	with ESMTP id S1756335AbZCACk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 21:40:56 -0500
+In-Reply-To: <12358322832837-git-send-email-ilpo.jarvinen@helsinki.fi> (Ilpo
+ =?iso-8859-1?Q?J=E4rvinen's?= message of "Sat, 28 Feb 2009 16:44:42 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Higher load -> more time before a process runs -> rcvbuf overfills ->
+"Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
 
-How can the rcvbuf overfill if the sender doesn't run?
+> From: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+>
+> I guess these fields were one day 16-bit in the struct but
+> nowadays they're just using 8 bits anyway.
+>
+> This is just a precaution, didn't result any change in my
+> case but who knows what all those varying gcc versions &
+> options do. I've been told that 16-bit is not so nice with
+> some cpus.
 
-> ACKs dropped -> timeouts -> more retransmissions -> even higher load.
-> 
-> Things are fine until they hit a point where everything goes to hell.
+Typically when 16bit is not nice, 8bit isn't nice either.
+=46or general flags the most save in terms of uniform performance
+is "int"
 
 -Andi
+
+--=20
+ak@linux.intel.com -- Speaking for myself only.
