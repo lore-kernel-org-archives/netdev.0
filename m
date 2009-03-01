@@ -1,44 +1,43 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] tcp: '< 0' test on unsigned
-Date: Sun, 01 Mar 2009 22:09:29 +0100
-Message-ID: <49AAF989.8070000@gmail.com>
+From: Andreas Mohr <andim2@users.sourceforge.net>
+Subject: Re: 2.6.29 e100.c non-MII support status? (Re: [GIT]: Networking)
+Date: Sun, 1 Mar 2009 22:24:12 +0100
+Message-ID: <20090301212412.GA13210@rhlx01.hs-esslingen.de>
+References: <20081228.000118.121541932.davem@davemloft.net> <20081229102515.GA17171@rhlx01.hs-esslingen.de> <20081229091728.d869f1c1.akpm@linux-foundation.org> <9929d2390812291515y623d6a51yed1bef021ab6847e@mail.gmail.com> <20081230120756.GA5393@rhlx01.hs-esslingen.de> <20090228203757.GA18850@rhlx01.hs-esslingen.de> <9929d2390903010257p7c6fb367ga974767605033bc9@mail.gmail.com>
+Reply-To: andi@lisas.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@lisas.de, Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, bunk@kernel.org,
+	auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:34896 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754785AbZCAVJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 16:09:31 -0500
-Received: by nf-out-0910.google.com with SMTP id d21so463102nfb.21
-        for <netdev@vger.kernel.org>; Sun, 01 Mar 2009 13:09:27 -0800 (PST)
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:34505 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754360AbZCAVYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 16:24:15 -0500
+Content-Disposition: inline
+In-Reply-To: <9929d2390903010257p7c6fb367ga974767605033bc9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-or should this be fixed, with
+Hi,
 
-        if (!buf || len > x)
+On Sun, Mar 01, 2009 at 02:57:46AM -0800, Jeff Kirsher wrote:
+> I am personally sorry that nothing has been done regarding this patch.
+>  I still have this patch in my local tree.  I admit that this patch
+> has been on the low priority list, so I will make sure the patch is
+> current this week and respond accordingly this week.
 
-if so, what should x be?
+The whole thing has been somewhat low-priority indeed
+given the probable age of some non-MII contenders. OTOH it would be quite sad
+(and locally problematic) to see support for those non-MII cards vanish
+come 2.6.29.
+Subsequently it would then be nice to devise non-MII support
+in some structured way that enables us to support them without
+much burden (code-wise) on proper standards-supporting MII cards.
 
-This patch wasn't tested in any way.
------------------------------->8-------------8<---------------------------------
-len is unsigned, so the '< 0' test won't work.
+Thank you,
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index 25524d4..0b9d63f 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -167,7 +167,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
- {
- 	int error = 0, cnt = 0;
- 
--	if (!buf || len < 0)
-+	if (!buf || (ssize_t)len < 0)
- 		return -EINVAL;
- 
- 	while (cnt < len) {
+Andreas Mohr
