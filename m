@@ -1,51 +1,52 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: mmotm 2009-02-27-13-54 uploaded
-Date: Sat, 28 Feb 2009 22:13:27 -0500
-Message-ID: <16888.1235877207@turing-police.cc.vt.edu>
-References: <200902272212.n1RMClcN007585@imap1.linux-foundation.org>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
+Date: Sun, 01 Mar 2009 07:21:39 +0100
+Message-ID: <49AA2973.7040209@krogh.cc>
+References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc> <16084.1235752119@death.nxdomain.ibm.com> <49A84802.7030502@krogh.cc> <30478.1235766943@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1235877207_4195P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mm-commits@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:51774 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755276AbZCADNe (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 22:13:34 -0500
-In-Reply-To: Your message of "Fri, 27 Feb 2009 13:55:15 PST."
-             <200902272212.n1RMClcN007585@imap1.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756006AbZCAGV7@vger.kernel.org>
+In-Reply-To: <30478.1235766943@death.nxdomain.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---==_Exmh_1235877207_4195P
-Content-Type: text/plain; charset=us-ascii
-
-On Fri, 27 Feb 2009 13:55:15 PST, akpm@linux-foundation.org said:
-> The mm-of-the-moment snapshot 2009-02-27-13-54 has been uploaded to
+Jay Vosburgh wrote:
+> Jesper Krogh <jesper@krogh.cc> wrote:
 > 
->    http://userweb.kernel.org/~akpm/mmotm/
+>> Jay Vosburgh wrote:
+>>> Jesper Krogh <jesper@krogh.cc> wrote:
+>>> [...]
+>>>> The offending commit seems to be:
+>>>>
+>>>> A test with a fresh 2.6.29-rc6 revealed that the problem has been fixed
+>>>> subsequently.. but still exists in 2.6.27-newest.  (havent tested
+>>>> 2.6.28-newest yet).
+>>>>
+>>>> Any ideas of what the "fixing" commit is .. or should that also be
+>>>> bisected?
+>>> 	I went back and looked at your earlier mail.  Since you're using
+>>> 802.3ad mode, my first guess would be this commit:
+>>>
+>>> commit fd989c83325cb34795bc4d4aa6b13c06f90eac99
+ >
+> 	I'll compile 2.6.28.7 here and see if it works for me.
 
-Something in (apparently) linux-next.patch is breaking networking big time
-on my laptop - iptables and ip6tables won't initialize, interfaces won't
-ifconfig up.  Doing some digging backwards, the problem hit sometime between
-mmotm-0129 and mmotm-0214.
+I appreciate that you spend time on it, but my feeling is that it 
+definately isn't reproducible in all environments (otherwise we would
+probably have seen a large cry by now).
 
-Wish I could be more specific - I've been too busy with other stuff this
-month to test more -mm kernels and narrow down the problem. Any suggestions?
+I'm trying to bisect the "fix" down and hope that'll tell us something 
+more.
 
---==_Exmh_1235877207_4195P
-Content-Type: application/pgp-signature
+If you do the test, remember, that it is not like "bonding isn't 
+working". It just fails to initialize correctly at bootup and doesnt get 
+  the link state by itself. Subsequently doing a /etc/init.d/networking 
+restart brigs it correct up.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFJqf1WcC3lWbTT17ARAr6ZAJwKehTwkjmGWaLpzSlxpcMOEtefVwCfelhE
-bWzDLt4UsFCmDf0CS4+O04o=
-=JMks
------END PGP SIGNATURE-----
-
---==_Exmh_1235877207_4195P--
+-- 
+Jesper
