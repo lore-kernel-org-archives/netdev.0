@@ -1,50 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 17/17] tcp: get rid of two unnecessary u16s in
- TCP skb flags copying
-Date: Sat, 28 Feb 2009 19:08:45 -0800 (PST)
-Message-ID: <20090228.190845.137313353.davem@davemloft.net>
-References: <12358322833023-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<12358322832837-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<87ocwm0xx5.fsf@basil.nowhere.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: mmotm 2009-02-27-13-54 uploaded
+Date: Sat, 28 Feb 2009 22:13:27 -0500
+Message-ID: <16888.1235877207@turing-police.cc.vt.edu>
+References: <200902272212.n1RMClcN007585@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: andi@firstfloor.org
+Content-Type: multipart/signed; boundary="==_Exmh_1235877207_4195P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: mm-commits@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57480
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755251AbZCADJE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Feb 2009 22:09:04 -0500
-In-Reply-To: <87ocwm0xx5.fsf@basil.nowhere.org>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:51774 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755276AbZCADNe (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Sat, 28 Feb 2009 22:13:34 -0500
+In-Reply-To: Your message of "Fri, 27 Feb 2009 13:55:15 PST."
+             <200902272212.n1RMClcN007585@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Andi Kleen <andi@firstfloor.org>
-Date: Sun, 01 Mar 2009 03:39:02 +0100
+--==_Exmh_1235877207_4195P
+Content-Type: text/plain; charset=us-ascii
 
-> "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
->=20
-> > From: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-> >
-> > I guess these fields were one day 16-bit in the struct but
-> > nowadays they're just using 8 bits anyway.
-> >
-> > This is just a precaution, didn't result any change in my
-> > case but who knows what all those varying gcc versions &
-> > options do. I've been told that 16-bit is not so nice with
-> > some cpus.
->=20
-> Typically when 16bit is not nice, 8bit isn't nice either.
-> For general flags the most save in terms of uniform performance
-> is "int"
+On Fri, 27 Feb 2009 13:55:15 PST, akpm@linux-foundation.org said:
+> The mm-of-the-moment snapshot 2009-02-27-13-54 has been uploaded to
+> 
+>    http://userweb.kernel.org/~akpm/mmotm/
 
-It's really only the truly ancient alpha cpus where this is
-a measurable issue.  Those chips only have 32-bit loads
-and stores, so ever sub-32-bit access involves a 32-bit
-load/store and a bunch of byte extraction instructions.
+Something in (apparently) linux-next.patch is breaking networking big time
+on my laptop - iptables and ip6tables won't initialize, interfaces won't
+ifconfig up.  Doing some digging backwards, the problem hit sometime between
+mmotm-0129 and mmotm-0214.
 
-I don't think it's a relevant concern today.  Especially
-on x86 if that's why you are alluding to Andi.
+Wish I could be more specific - I've been too busy with other stuff this
+month to test more -mm kernels and narrow down the problem. Any suggestions?
 
+--==_Exmh_1235877207_4195P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFJqf1WcC3lWbTT17ARAr6ZAJwKehTwkjmGWaLpzSlxpcMOEtefVwCfelhE
+bWzDLt4UsFCmDf0CS4+O04o=
+=JMks
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1235877207_4195P--
