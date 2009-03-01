@@ -1,42 +1,44 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH v2] typhoon: Use request_firmware()
-Date: Sun, 01 Mar 2009 15:38:36 -0500
-Message-ID: <1235939916.22828.7.camel@localhost.localdomain>
-References: <1235324217.2832.49.camel@hashbaz.i.decadent.org.uk>
-	 <20090226134950.GA975@decadentplace.org.uk>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] tcp: '< 0' test on unsigned
+Date: Sun, 01 Mar 2009 22:09:29 +0100
+Message-ID: <49AAF989.8070000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:53517 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753718AbZCAUqE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Mar 2009 15:46:04 -0500
-In-Reply-To: <20090226134950.GA975@decadentplace.org.uk>
+Received: from nf-out-0910.google.com ([64.233.182.191]:34896 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754785AbZCAVJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 16:09:31 -0500
+Received: by nf-out-0910.google.com with SMTP id d21so463102nfb.21
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2009 13:09:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-02-26 at 13:49 +0000, Ben Hutchings wrote:
-> Based on a patch by Jaswinder Singh <jaswinder@infradead.org>.
-> 
-> Compile-tested only.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+or should this be fixed, with
 
-I suppose it's my fault for not getting around to this sooner, but I've
-been waiting for the fallout to settle with tg3 and follow the leader.
+        if (!buf || len > x)
 
-Anyways, is it too much to ask for you to CC the maintainer? Hell, you
-added a line right above my email address, so it wouldn't have been hard
-for you to find...
+if so, what should x be?
 
-I suppose I better test this sooner rather than later, because I think
-you've broken it. The firmware gets vmalloc'd, which means it is not
-necessarily physically contiguous, and I don't think pci_map_single() is
-going to like that since the firmware is always larger than a page. But
-I may be wrong on this.
+This patch wasn't tested in any way.
+------------------------------>8-------------8<---------------------------------
+len is unsigned, so the '< 0' test won't work.
 
-Dave
-
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 25524d4..0b9d63f 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -167,7 +167,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
+ {
+ 	int error = 0, cnt = 0;
+ 
+-	if (!buf || len < 0)
++	if (!buf || (ssize_t)len < 0)
+ 		return -EINVAL;
+ 
+ 	while (cnt < len) {
