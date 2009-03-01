@@ -1,52 +1,44 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-next PATCH 0/3] Introduce the Intel 82599 10 Gigabit Network
- 	Adapter family
-Date: Sun, 1 Mar 2009 10:34:39 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0903011032310.28208@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090228013916.22664.54781.stgit@lost.foo-projects.org>
- <20090301.002515.46575653.davem@davemloft.net>
- <9929d2390903010230k7ed97b3du45e37c51ec742d37@mail.gmail.com>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] wimax: replace uses of __constant_{endian}
+Date: Sun, 01 Mar 2009 11:06:58 -0800
+Message-ID: <1235934418.5627.0.camel@brick>
+References: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
+	<1235900574-15319-2-git-send-email-inaky@linux.intel.com>
+	<1235900574-15319-3-git-send-email-inaky@linux.intel.com>
+	<1235900574-15319-4-git-send-email-inaky@linux.intel.com>
+	<1235900574-15319-5-git-send-email-inaky@linux.intel.com>
+	<1235900574-15319-6-git-send-email-inaky@linux.intel.com>
+	<1235900574-15319-7-git-send-email-inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60085 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752725AbZCASen (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Mar 2009 13:34:43 -0500
-In-Reply-To: <9929d2390903010230k7ed97b3du45e37c51ec742d37@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <1235900574-15319-7-git-send-email-inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 1 Mar 2009, Jeff Kirsher wrote:
-
-> On Sun, Mar 1, 2009 at 12:25 AM, David Miller <davem@davemloft.net> wrote:
-> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date: Fri, 27 Feb 2009 17:44:16 -0800
-> >
-> >> The following series implements basic support for the new Intel 82599 10 Gigabit Network adapter.  Contained in this patchset is:
-> >>
-> >>       1) Hardware specific code to initialize the 82599 device
-> >>       2) Include Data Center Bridging support for 82599
-> >>       3) Add the current device ID's for 82599, including a fully pluggable 1G/10G SFP+ NIC, and a KX/KX4 mezzanine card
-> >
-> > All applied.
-> >
-> > I look forward to seeing you guys followup on the I2C usage
-> > stuff Ben pointed out :-)
-> > --
+On Sun, 2009-03-01 at 01:42 -0800, Inaky Perez-Gonzalez wrote:
+> From: Harvey Harrison <harvey.harrison@gmail.com>
 > 
-> Thanks Dave.
+> Base versions handle constant folding now.
 > 
-> I know that PJ is actively working with Ben to see how we can
-> implement the in kernel I2C interface into the driver.
+> Edited by Inaky to fix conflicts due to changes in netdev.c
+> 
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+> ---
 
-Yes, Ben has helped quite a bit pointing me in the right direction.  I'll 
-be cleaning up both the 82599 I2C usage, and I'll try and clean up the 
-existing 82598 I2C usage at the same time.
+I'm not sure the description matches the patch...or the rest of the
+patch is missing.
 
-Cheers,
--PJ
+Harvey
