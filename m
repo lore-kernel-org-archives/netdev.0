@@ -1,44 +1,42 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] wimax: replace uses of __constant_{endian}
-Date: Sun, 01 Mar 2009 11:06:58 -0800
-Message-ID: <1235934418.5627.0.camel@brick>
-References: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-2-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-3-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-4-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-5-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-6-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-7-git-send-email-inaky@linux.intel.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH v2] typhoon: Use request_firmware()
+Date: Sun, 01 Mar 2009 15:38:36 -0500
+Message-ID: <1235939916.22828.7.camel@localhost.localdomain>
+References: <1235324217.2832.49.camel@hashbaz.i.decadent.org.uk>
+	 <20090226134950.GA975@decadentplace.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <1235900574-15319-7-git-send-email-inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.knology.net ([24.214.63.101]:53517 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753718AbZCAUqE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Mar 2009 15:46:04 -0500
+In-Reply-To: <20090226134950.GA975@decadentplace.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-03-01 at 01:42 -0800, Inaky Perez-Gonzalez wrote:
-> From: Harvey Harrison <harvey.harrison@gmail.com>
+On Thu, 2009-02-26 at 13:49 +0000, Ben Hutchings wrote:
+> Based on a patch by Jaswinder Singh <jaswinder@infradead.org>.
 > 
-> Base versions handle constant folding now.
+> Compile-tested only.
 > 
-> Edited by Inaky to fix conflicts due to changes in netdev.c
-> 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-> ---
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-I'm not sure the description matches the patch...or the rest of the
-patch is missing.
+I suppose it's my fault for not getting around to this sooner, but I've
+been waiting for the fallout to settle with tg3 and follow the leader.
 
-Harvey
+Anyways, is it too much to ask for you to CC the maintainer? Hell, you
+added a line right above my email address, so it wouldn't have been hard
+for you to find...
+
+I suppose I better test this sooner rather than later, because I think
+you've broken it. The firmware gets vmalloc'd, which means it is not
+necessarily physically contiguous, and I don't think pci_map_single() is
+going to like that since the firmware is always larger than a page. But
+I may be wrong on this.
+
+Dave
+
