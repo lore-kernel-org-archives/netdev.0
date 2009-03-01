@@ -1,67 +1,62 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH net-next 17/17] tcp: get rid of two unnecessary u16s in TCP skb flags copying
-Date: Sun, 1 Mar 2009 22:44:41 +0100
-Message-ID: <20090301214441.GJ26292@one.firstfloor.org>
-References: <12358322833023-git-send-email-ilpo.jarvinen@helsinki.fi> <12358322832837-git-send-email-ilpo.jarvinen@helsinki.fi> <87ocwm0xx5.fsf@basil.nowhere.org> <20090228.190845.137313353.davem@davemloft.net>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] [SK_BUFF]: '< 0' and '>= 0' test on unsigned
+Date: Sun, 01 Mar 2009 23:00:57 +0100
+Message-ID: <49AB0599.4010008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andi@firstfloor.org, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:59330 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754956AbZCAV0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 16:26:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20090228.190845.137313353.davem@davemloft.net>
+Received: from mail-ew0-f177.google.com ([209.85.219.177]:43804 "EHLO
+	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755488AbZCAWA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 17:00:58 -0500
+Received: by ewy25 with SMTP id 25so1878565ewy.37
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2009 14:00:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 28, 2009 at 07:08:45PM -0800, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Sun, 01 Mar 2009 03:39:02 +0100
->=20
-> > "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi> writes:
-> >=20
-> > > From: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-> > >
-> > > I guess these fields were one day 16-bit in the struct but
-> > > nowadays they're just using 8 bits anyway.
-> > >
-> > > This is just a precaution, didn't result any change in my
-> > > case but who knows what all those varying gcc versions &
-> > > options do. I've been told that 16-bit is not so nice with
-> > > some cpus.
-> >=20
-> > Typically when 16bit is not nice, 8bit isn't nice either.
-> > For general flags the most save in terms of uniform performance
-> > is "int"
->=20
-> It's really only the truly ancient alpha cpus where this is
-> a measurable issue.  Those chips only have 32-bit loads
-> and stores, so ever sub-32-bit access involves a 32-bit
-> load/store and a bunch of byte extraction instructions.
+struct sk_buff is located at vi include/linux/skbuff.h +357: 
+maybe a different test is needed in x25_rx_call_request()?
 
-Yes old Alpha is the only one I know, although I don't claim to know ev=
-ery=20
-weirdness of every embedded CPU out there.
+This patch wasn't tested in any way.
+------------------------------>8-------------8<---------------------------------
+skb->len is an unsigned int, so the test in x25_rx_call_request() always
+evaluates to true.
 
-My point was merely that 16bit is not in any way better than 8 bit.
->=20
-> I don't think it's a relevant concern today.  Especially
-> on x86 if that's why you are alluding to Andi.
+len in x25_sendmsg() is unsigned as well. so -ERRORS returned by x25_output()
+are not noticed.
 
-x86 normally[1] doesn't care, but it also doesn't save anything normall=
-y
-for a on stack (or in register) variable because there's typically
-padding anyways.
-
-[1] there are some issues on older Intel CPUs with partial register
-stall in a few cases.
-
--Andi
-
---=20
-ak@linux.intel.com -- Speaking for myself only.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 9fc5b02..c57a09f 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -951,10 +951,8 @@ int x25_rx_call_request(struct sk_buff *skb, struct x25_neigh *nb,
+ 	/*
+ 	 *	Incoming Call User Data.
+ 	 */
+-	if (skb->len >= 0) {
+-		skb_copy_from_linear_data(skb, makex25->calluserdata.cuddata, skb->len);
+-		makex25->calluserdata.cudlength = skb->len;
+-	}
++	skb_copy_from_linear_data(skb, makex25->calluserdata.cuddata, skb->len);
++	makex25->calluserdata.cudlength = skb->len;
+ 
+ 	sk->sk_ack_backlog++;
+ 
+@@ -1122,8 +1120,9 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (msg->msg_flags & MSG_OOB)
+ 		skb_queue_tail(&x25->interrupt_out_queue, skb);
+ 	else {
+-		len = x25_output(sk, skb);
+-		if (len < 0)
++		rc = x25_output(sk, skb);
++		len = rc;
++		if (rc < 0)
+ 			kfree_skb(skb);
+ 		else if (x25->qbitincl)
+ 			len++;
