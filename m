@@ -1,15 +1,11 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] wimax/i2400m: allow control of the base-station idle mode
-	timeout
-Date: Sun,  1 Mar 2009 01:42:50 -0800
-Message-ID: <1235900574-15319-4-git-send-email-inaky@linux.intel.com>
-References: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-2-git-send-email-inaky@linux.intel.com>
-	<1235900574-15319-3-git-send-email-inaky@linux.intel.com>
+Subject: [PATCH] wimax/i2400m: add the ability to fallback to other firmware
+	files if the default is not there
+Date: Sun,  1 Mar 2009 01:42:47 -0800
+Message-ID: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
 Cc: netdev@vger.kernel.org
 To: wimax@linuxwimax.org
 Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <1235900574-15319-3-git-send-email-inaky@linux.intel.com>
 List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
 	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
 List-Archive: <http://lists.moblin.org/pipermail/wimax>
@@ -21,387 +17,317 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-For power saving reasons, WiMAX links can be put in idle mode while
-connected after a certain time of the link not being used for tx or
-rx. In this mode, the device pages the base-station regularly and when
-data is ready to be transmitted, the link is revived.
+In order to support backwards compatibility with older firmwares when
+a driver is updated by a new kernel release, the i2400m bus drivers
+can declare a list of firmware files they can work with (in general
+these will be each a different version). The firmware loader will try
+them in sequence until one loads.
 
-This patch allows the user to control the time the device has to be
-idle before it decides to go to idle mode from a sysfs
-interace.
+Thus, if a user doesn't have the latest and greatest firmware that a
+newly installed kernel would require, the driver would fall back to
+the firmware from a previous release.
 
-It also updates the initialization code to acknowledge the module
-variable 'idle_mode_disabled' when the firmware is a newer version
-(upcoming 1.4 vs 2.6.29's v1.3).
+To support this, the i2400m->bus_fw_name is changed to be a NULL
+terminated array firmware file names (and renamed to bus_fw_names) and
+we add a new entry (i2400m->fw_name) that points to the name of the
+firmware being currently used. All code that needs to print the
+firmware file name uses i2400m->fw_name instead of the old
+i2400m->bus_fw_name.
 
-The method for setting the idle mode timeout in the older firmwares is
-much more limited and can be only done at initialization time. Thus,
-the sysfs file will return -ENOSYS on older ones.
+The code in i2400m_dev_bootstrap() that loads the firmware is changed
+with an iterator over the firmware file name list that tries to load
+each form user space, using the first one that succeeds in
+request_firmware() (and thus stopping the iteration).
+
+The USB and SDIO bus drivers are updated to take advantage of this and
+reflect which firmwares they support.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/Makefile       |    1 +
- drivers/net/wimax/i2400m/control.c      |   98 ++++++++++++++++++++++++++++---
- drivers/net/wimax/i2400m/debug-levels.h |    1 +
- drivers/net/wimax/i2400m/driver.c       |   10 +++
- drivers/net/wimax/i2400m/i2400m.h       |   29 +++++++++
- drivers/net/wimax/i2400m/sysfs.c        |   80 +++++++++++++++++++++++++
- include/linux/wimax/i2400m.h            |   10 +++
- 7 files changed, 221 insertions(+), 8 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sysfs.c
+ drivers/net/wimax/i2400m/fw.c     |   53 +++++++++++++++++++++++--------------
+ drivers/net/wimax/i2400m/i2400m.h |   21 ++++++++------
+ drivers/net/wimax/i2400m/sdio.c   |   11 +++++--
+ drivers/net/wimax/i2400m/usb.c    |   14 +++++++--
+ 4 files changed, 64 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
-index 1696e93..5d9e018 100644
---- a/drivers/net/wimax/i2400m/Makefile
-+++ b/drivers/net/wimax/i2400m/Makefile
-@@ -8,6 +8,7 @@ i2400m-y :=		\
- 	driver.o	\
- 	fw.o		\
- 	op-rfkill.o	\
-+	sysfs.o		\
- 	netdev.o	\
- 	tx.o		\
- 	rx.o
-diff --git a/drivers/net/wimax/i2400m/control.c b/drivers/net/wimax/i2400m/control.c
-index c8b3a68..c3968b2 100644
---- a/drivers/net/wimax/i2400m/control.c
-+++ b/drivers/net/wimax/i2400m/control.c
-@@ -1222,6 +1222,77 @@ EXPORT_SYMBOL_GPL(i2400m_set_init_config);
- 
- 
- /**
-+ * i2400m_set_idle_timeout - Set the device's idle mode timeout
-+ *
-+ * @i2400m: i2400m device descriptor
-+ *
-+ * @msecs: milliseconds for the timeout to enter idle mode. Between
-+ *     100 to 300000 (5m); 0 to disable. In increments of 100.
-+ *
-+ * After this @msecs of the link being idle (no data being sent or
-+ * received), the device will negotiate with the basestation entering
-+ * idle mode for saving power. The connection is maintained, but
-+ * getting out of it (done in tx.c) will require some negotiation,
-+ * possible crypto re-handshake and a possible DHCP re-lease.
-+ *
-+ * Only available if fw_version >= 0x00090002.
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error.
-+ */
-+int i2400m_set_idle_timeout(struct i2400m *i2400m, unsigned msecs)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *ack_skb;
-+	struct {
-+		struct i2400m_l3l4_hdr hdr;
-+		struct i2400m_tlv_config_idle_timeout cit;
-+	} *cmd;
-+	const struct i2400m_l3l4_hdr *ack;
-+	size_t ack_len;
-+	char strerr[32];
-+
-+	result = -ENOSYS;
-+	if (i2400m_le_v1_3(i2400m))
-+		goto error_alloc;
-+	result = -ENOMEM;
-+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-+	if (cmd == NULL)
-+		goto error_alloc;
-+	cmd->hdr.type = cpu_to_le16(I2400M_MT_GET_STATE);
-+	cmd->hdr.length = cpu_to_le16(sizeof(*cmd) - sizeof(cmd->hdr));
-+	cmd->hdr.version = cpu_to_le16(I2400M_L3L4_VERSION);
-+
-+	cmd->cit.hdr.type =
-+		cpu_to_le16(I2400M_TLV_CONFIG_IDLE_TIMEOUT);
-+	cmd->cit.hdr.length = cpu_to_le16(sizeof(cmd->cit.timeout));
-+	cmd->cit.timeout = cpu_to_le32(msecs);
-+
-+	ack_skb = i2400m_msg_to_dev(i2400m, cmd, sizeof(*cmd));
-+	if (IS_ERR(ack_skb)) {
-+		dev_err(dev, "Failed to issue 'set idle timeout' command: "
-+			"%ld\n", PTR_ERR(ack_skb));
-+		result = PTR_ERR(ack_skb);
-+		goto error_msg_to_dev;
-+	}
-+	ack = wimax_msg_data_len(ack_skb, &ack_len);
-+	result = i2400m_msg_check_status(ack, strerr, sizeof(strerr));
-+	if (result < 0) {
-+		dev_err(dev, "'set idle timeout' (0x%04x) command failed: "
-+			"%d - %s\n", I2400M_MT_GET_STATE, result, strerr);
-+		goto error_cmd_failed;
-+	}
-+	result = 0;
-+	kfree_skb(ack_skb);
-+error_cmd_failed:
-+error_msg_to_dev:
-+	kfree(cmd);
-+error_alloc:
-+	return result;
-+}
-+
-+
-+/**
-  * i2400m_dev_initialize - Initialize the device once communications are ready
-  *
-  * @i2400m: device descriptor
-@@ -1239,19 +1310,28 @@ int i2400m_dev_initialize(struct i2400m *i2400m)
- 	int result;
- 	struct device *dev = i2400m_dev(i2400m);
- 	struct i2400m_tlv_config_idle_parameters idle_params;
-+	struct i2400m_tlv_config_idle_timeout idle_timeout;
- 	const struct i2400m_tlv_hdr *args[9];
- 	unsigned argc = 0;
- 
- 	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
--	/* Useless for now...might change */
- 	if (i2400m_idle_mode_disabled) {
--		idle_params.hdr.type =
--			cpu_to_le16(I2400M_TLV_CONFIG_IDLE_PARAMETERS);
--		idle_params.hdr.length = cpu_to_le16(
--			sizeof(idle_params) - sizeof(idle_params.hdr));
--		idle_params.idle_timeout = 0;
--		idle_params.idle_paging_interval = 0;
--		args[argc++] = &idle_params.hdr;
-+		if (i2400m_le_v1_3(i2400m)) {
-+			idle_params.hdr.type =
-+				cpu_to_le16(I2400M_TLV_CONFIG_IDLE_PARAMETERS);
-+			idle_params.hdr.length = cpu_to_le16(
-+				sizeof(idle_params) - sizeof(idle_params.hdr));
-+			idle_params.idle_timeout = 0;
-+			idle_params.idle_paging_interval = 0;
-+			args[argc++] = &idle_params.hdr;
-+		} else {
-+			idle_timeout.hdr.type =
-+				cpu_to_le16(I2400M_TLV_CONFIG_IDLE_TIMEOUT);
-+			idle_timeout.hdr.length = cpu_to_le16(
-+				sizeof(idle_timeout) - sizeof(idle_timeout.hdr));
-+			idle_timeout.timeout = 0;
-+			args[argc++] = &idle_timeout.hdr;
-+		}
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index ecd0cfa..675c6ce 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -483,7 +483,7 @@ ssize_t i2400m_dnload_bcf(struct i2400m *i2400m,
+ 		if (offset + section_size > bcf_len) {
+ 			dev_err(dev, "fw %s: bad section #%zu, "
+ 				"end (@%zu) beyond EOF (@%zu)\n",
+-				i2400m->bus_fw_name, section,
++				i2400m->fw_name, section,
+ 				offset + section_size,  bcf_len);
+ 			ret = -EINVAL;
+ 			goto error_section_beyond_eof;
+@@ -493,7 +493,7 @@ ssize_t i2400m_dnload_bcf(struct i2400m *i2400m,
+ 				    &ack, sizeof(ack), I2400M_BM_CMD_RAW);
+ 		if (ret < 0) {
+ 			dev_err(dev, "fw %s: section #%zu (@%zu %zu B) "
+-				"failed %d\n", i2400m->bus_fw_name, section,
++				"failed %d\n", i2400m->fw_name, section,
+ 				offset, sizeof(*bh) + data_size, (int) ret);
+ 			goto error_send;
+ 		}
+@@ -874,7 +874,7 @@ int i2400m_dnload_init(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf)
+ 		if (result < 0)
+ 			dev_err(dev, "fw %s: non-signed download "
+ 				"initialization failed: %d\n",
+-				i2400m->bus_fw_name, result);
++				i2400m->fw_name, result);
+ 	} else if (i2400m->sboot == 0
+ 		 && (module_id & I2400M_BCF_MOD_ID_POKES)) {
+ 		/* non-signed boot process with pokes, nothing to do */
+@@ -886,7 +886,7 @@ int i2400m_dnload_init(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf)
+ 		if (result < 0)
+ 			dev_err(dev, "fw %s: signed boot download "
+ 				"initialization failed: %d\n",
+-				i2400m->bus_fw_name, result);
++				i2400m->fw_name, result);
  	}
- 	result = i2400m_set_init_config(i2400m, args, argc);
- 	if (result < 0)
-@@ -1264,6 +1344,8 @@ int i2400m_dev_initialize(struct i2400m *i2400m)
- 	 */
- 	result = i2400m_cmd_get_state(i2400m);
- error:
-+	if (result < 0)
-+		dev_err(dev, "failed to initialize the device: %d\n", result);
- 	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
  	return result;
  }
-diff --git a/drivers/net/wimax/i2400m/debug-levels.h b/drivers/net/wimax/i2400m/debug-levels.h
-index 3183baa..48fbfaa 100644
---- a/drivers/net/wimax/i2400m/debug-levels.h
-+++ b/drivers/net/wimax/i2400m/debug-levels.h
-@@ -38,6 +38,7 @@ enum d_module {
- 	D_SUBMODULE_DECLARE(netdev),
- 	D_SUBMODULE_DECLARE(rfkill),
- 	D_SUBMODULE_DECLARE(rx),
-+	D_SUBMODULE_DECLARE(sysfs),
- 	D_SUBMODULE_DECLARE(tx),
- };
+@@ -915,7 +915,7 @@ int i2400m_fw_check(struct i2400m *i2400m,
+ 	if (bcf_size < sizeof(*bcf)) {	/* big enough header? */
+ 		dev_err(dev, "firmware %s too short: "
+ 			"%zu B vs %zu (at least) expected\n",
+-			i2400m->bus_fw_name, bcf_size, sizeof(*bcf));
++			i2400m->fw_name, bcf_size, sizeof(*bcf));
+ 		goto error;
+ 	}
  
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 69a816e..f988771 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -662,6 +662,11 @@ int i2400m_setup(struct i2400m *i2400m, enum i2400m_bri bm_flags)
- 	wimax_state_change(wimax_dev, WIMAX_ST_UNINITIALIZED);
+@@ -931,7 +931,7 @@ int i2400m_fw_check(struct i2400m *i2400m,
+ 	if (bcf_size != size) {		/* annoyingly paranoid */
+ 		dev_err(dev, "firmware %s: bad size, got "
+ 			"%zu B vs %u expected\n",
+-			i2400m->bus_fw_name, bcf_size, size);
++			i2400m->fw_name, bcf_size, size);
+ 		goto error;
+ 	}
  
- 	/* Now setup all that requires a registered net and wimax device. */
-+	result = sysfs_create_group(&net_dev->dev.kobj, &i2400m_dev_attr_group);
-+	if (result < 0) {
-+		dev_err(dev, "cannot setup i2400m's sysfs: %d\n", result);
-+		goto error_sysfs_setup;
-+	}
- 	result = i2400m_debugfs_add(i2400m);
- 	if (result < 0) {
- 		dev_err(dev, "cannot setup i2400m's debugfs: %d\n", result);
-@@ -671,6 +676,9 @@ int i2400m_setup(struct i2400m *i2400m, enum i2400m_bri bm_flags)
+@@ -943,7 +943,7 @@ int i2400m_fw_check(struct i2400m *i2400m,
+ 
+ 	if (module_type != 6) {		/* built for the right hardware? */
+ 		dev_err(dev, "bad fw %s: unexpected module type 0x%x; "
+-			"aborting\n", i2400m->bus_fw_name, module_type);
++			"aborting\n", i2400m->fw_name, module_type);
+ 		goto error;
+ 	}
+ 
+@@ -951,10 +951,10 @@ int i2400m_fw_check(struct i2400m *i2400m,
+ 	result = 0;
+ 	if (module_vendor != 0x8086)
+ 		dev_err(dev, "bad fw %s? unexpected vendor 0x%04x\n",
+-			i2400m->bus_fw_name, module_vendor);
++			i2400m->fw_name, module_vendor);
+ 	if (date < 0x20080300)
+ 		dev_err(dev, "bad fw %s? build date too old %08x\n",
+-			i2400m->bus_fw_name, date);
++			i2400m->fw_name, date);
+ error:
  	return result;
+ }
+@@ -1016,7 +1016,7 @@ hw_reboot:
+ 		goto error_dev_rebooted;
+ 	if (ret < 0) {
+ 		dev_err(dev, "fw %s: download failed: %d\n",
+-			i2400m->bus_fw_name, ret);
++			i2400m->fw_name, ret);
+ 		goto error_dnload_bcf;
+ 	}
  
- error_debugfs_setup:
-+	sysfs_remove_group(&i2400m->wimax_dev.net_dev->dev.kobj,
-+			   &i2400m_dev_attr_group);
-+error_sysfs_setup:
- 	wimax_dev_rm(&i2400m->wimax_dev);
- error_wimax_dev_add:
- 	i2400m_dev_stop(i2400m);
-@@ -702,6 +710,8 @@ void i2400m_release(struct i2400m *i2400m)
- 	netif_stop_queue(i2400m->wimax_dev.net_dev);
+@@ -1026,12 +1026,12 @@ hw_reboot:
+ 	if (ret < 0) {
+ 		dev_err(dev, "fw %s: "
+ 			"download finalization failed: %d\n",
+-			i2400m->bus_fw_name, ret);
++			i2400m->fw_name, ret);
+ 		goto error_dnload_finalize;
+ 	}
  
- 	i2400m_debugfs_rm(i2400m);
-+	sysfs_remove_group(&i2400m->wimax_dev.net_dev->dev.kobj,
-+			   &i2400m_dev_attr_group);
- 	wimax_dev_rm(&i2400m->wimax_dev);
- 	i2400m_dev_stop(i2400m);
- 	unregister_netdev(i2400m->wimax_dev.net_dev);
+ 	d_printf(2, dev, "fw %s successfully uploaded\n",
+-		 i2400m->bus_fw_name);
++		 i2400m->fw_name);
+ 	i2400m->boot_mode = 0;
+ error_dnload_finalize:
+ error_dnload_bcf:
+@@ -1067,28 +1067,41 @@ error_dev_rebooted:
+  */
+ int i2400m_dev_bootstrap(struct i2400m *i2400m, enum i2400m_bri flags)
+ {
+-	int ret = 0;
++	int ret = 0, itr = 0;
+ 	struct device *dev = i2400m_dev(i2400m);
+ 	const struct firmware *fw;
+ 	const struct i2400m_bcf_hdr *bcf;	/* Firmware data */
++	const char *fw_name;
+ 
+ 	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
++
+ 	/* Load firmware files to memory. */
+-	ret = request_firmware(&fw, i2400m->bus_fw_name, dev);
+-	if (ret) {
+-		dev_err(dev, "fw %s: request failed: %d\n",
+-			i2400m->bus_fw_name, ret);
+-		goto error_fw_req;
++	itr = 0;
++	while(1) {
++		fw_name = i2400m->bus_fw_names[itr];
++		if (fw_name == NULL) {
++			dev_err(dev, "Could not find a usable firmware image\n");
++			ret = -ENOENT;
++			goto error_no_fw;
++		}
++		ret = request_firmware(&fw, fw_name, dev);
++		if (ret == 0)
++			break;		/* got it */
++		if (ret < 0)
++			dev_err(dev, "fw %s: cannot load file: %d\n",
++				fw_name, ret);
++		itr++;
+ 	}
+-	bcf = (void *) fw->data;
+ 
++	bcf = (void *) fw->data;
++	i2400m->fw_name = fw_name;
+ 	ret = i2400m_fw_check(i2400m, bcf, fw->size);
+ 	if (ret < 0)
+ 		goto error_fw_bad;
+ 	ret = i2400m_fw_dnload(i2400m, bcf, fw->size, flags);
+ error_fw_bad:
+ 	release_firmware(fw);
+-error_fw_req:
++error_no_fw:
+ 	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
+ 	return ret;
+ }
 diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
-index 5008cdb..0c60d5c 100644
+index f9e5539..ad71ad1 100644
 --- a/drivers/net/wimax/i2400m/i2400m.h
 +++ b/drivers/net/wimax/i2400m/i2400m.h
-@@ -585,6 +585,8 @@ unsigned i2400m_brh_get_signature(const struct i2400m_bootrom_header *hdr)
-  * Driver / device setup and internal functions
+@@ -156,10 +156,6 @@ enum {
+ };
+ 
+ 
+-/* Firmware version we request when pulling the fw image file */
+-#define I2400M_FW_VERSION "1.4"
+-
+-
+ /**
+  * i2400m_reset_type - methods to reset a device
+  *
+@@ -242,10 +238,14 @@ struct i2400m_reset_ctx;
+  *     The caller to this function will check if the response is a
+  *     barker that indicates the device going into reset mode.
+  *
+- * @bus_fw_name: [fill] name of the firmware image (in most cases,
+- *     they are all the same for a single release, except that they
+- *     have the type of the bus embedded in the name (eg:
+- *     i2400m-fw-X-VERSION.sbcf, where X is the bus name).
++ * @bus_fw_names: [fill] a NULL-terminated array with the names of the
++ *     firmware images to try loading. This is made a list so we can
++ *     support backward compatibility of firmware releases (eg: if we
++ *     can't find the default v1.4, we try v1.3). In general, the name
++ *     should be i2400m-fw-X-VERSION.sbcf, where X is the bus name.
++ *     The list is tried in order and the first one that loads is
++ *     used. The fw loader will set i2400m->fw_name to point to the
++ *     active firmware image.
+  *
+  * @bus_bm_mac_addr_impaired: [fill] Set to true if the device's MAC
+  *     address provided in boot mode is kind of broken and needs to
+@@ -364,6 +364,8 @@ struct i2400m_reset_ctx;
+  *     These have to be in a separate directory, a child of
+  *     (wimax_dev->debugfs_dentry) so they can be removed when the
+  *     module unloads, as we don't keep each dentry.
++ *
++ * @fw_name: name of the firmware image that is currently being used.
   */
- extern void i2400m_netdev_setup(struct net_device *net_dev);
-+extern int i2400m_sysfs_setup(struct device_driver *);
-+extern void i2400m_sysfs_release(struct device_driver *);
- extern int i2400m_tx_setup(struct i2400m *);
- extern void i2400m_wake_tx_work(struct work_struct *);
- extern void i2400m_tx_release(struct i2400m *);
-@@ -728,6 +730,7 @@ extern struct sk_buff *i2400m_get_device_info(struct i2400m *);
- extern int i2400m_firmware_check(struct i2400m *);
- extern int i2400m_set_init_config(struct i2400m *,
- 				  const struct i2400m_tlv_hdr **, size_t);
-+extern int i2400m_set_idle_timeout(struct i2400m *, unsigned);
+ struct i2400m {
+ 	struct wimax_dev wimax_dev;	/* FIRST! See doc */
+@@ -388,7 +390,7 @@ struct i2400m {
+ 				   size_t, int flags);
+ 	ssize_t (*bus_bm_wait_for_ack)(struct i2400m *,
+ 				       struct i2400m_bootrom_header *, size_t);
+-	const char *bus_fw_name;
++	const char **bus_fw_names;
+ 	unsigned bus_bm_mac_addr_impaired:1;
  
- static inline
- struct usb_endpoint_descriptor *usb_get_epd(struct usb_interface *iface, int ep)
-@@ -740,6 +743,32 @@ extern int i2400m_op_rfkill_sw_toggle(struct wimax_dev *,
- extern void i2400m_report_tlv_rf_switches_status(
- 	struct i2400m *, const struct i2400m_tlv_rf_switches_status *);
+ 	spinlock_t tx_lock;		/* protect TX state */
+@@ -421,6 +423,7 @@ struct i2400m {
+ 	struct sk_buff *wake_tx_skb;
  
-+/*
-+ * Helpers for firmware backwards compability
-+ *
-+ * As we aim to support at least the firmware version that was
-+ * released with the previous kernel/driver release, some code will be
-+ * conditionally executed depending on the firmware version. On each
-+ * release, the code to support fw releases past the last two ones
-+ * will be purged.
-+ *
-+ * By making it depend on this macros, it is easier to keep it a tab
-+ * on what has to go and what not.
-+ */
-+static inline
-+unsigned i2400m_le_v1_3(struct i2400m *i2400m)
-+{
-+	/* running fw is lower or v1.3 */
-+	return i2400m->fw_version <= 0x00090001;
-+}
-+
-+static inline
-+unsigned i2400m_ge_v1_4(struct i2400m *i2400m)
-+{
-+	/* running fw is higher or v1.4 */
-+	return i2400m->fw_version >= 0x00090002;
-+}
+ 	struct dentry *debugfs_dentry;
++	const char *fw_name;		/* name of the current firmware image */
+ };
+ 
+ 
+diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
+index 123a5f8..5ac5e76 100644
+--- a/drivers/net/wimax/i2400m/sdio.c
++++ b/drivers/net/wimax/i2400m/sdio.c
+@@ -70,8 +70,13 @@
+ static int ioe_timeout = 2;
+ module_param(ioe_timeout, int, 0);
+ 
+-/* Our firmware file name */
+-#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-" I2400M_FW_VERSION ".sbcf"
++/* Our firmware file name list */
++static const char *i2400ms_bus_fw_names[] = {
++#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-1.3.sbcf"
++	I2400MS_FW_FILE_NAME,
++	NULL
++};
 +
  
  /*
-  * Do a millisecond-sleep for allowing wireshark to dump all the data
-diff --git a/drivers/net/wimax/i2400m/sysfs.c b/drivers/net/wimax/i2400m/sysfs.c
-new file mode 100644
-index 0000000..1237109
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/sysfs.c
-@@ -0,0 +1,80 @@
-+/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Sysfs interfaces to show driver and device information
-+ *
-+ *
-+ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ */
-+
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/spinlock.h>
-+#include <linux/device.h>
-+#include "i2400m.h"
-+
-+
-+#define D_SUBMODULE sysfs
-+#include "debug-levels.h"
-+
-+
-+/*
-+ * Set the idle timeout (msecs)
-+ *
-+ * FIXME: eventually this should be a common WiMAX stack method, but
-+ * would like to wait to see how other devices manage it.
-+ */
-+static
-+ssize_t i2400m_idle_timeout_store(struct device *dev,
-+				  struct device_attribute *attr,
-+				  const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
-+	unsigned val;
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u\n", &val) != 1)
-+		goto error_no_unsigned;
-+	if (val != 0 && (val < 100 || val > 300000 || val % 100 != 0)) {
-+		dev_err(dev, "idle_timeout: %u: invalid msecs specification; "
-+			"valid values are 0, 100-300000 in 100 increments\n",
-+			val);
-+		goto error_bad_value;
-+	}
-+	result = i2400m_set_idle_timeout(i2400m, val);
-+	if (result >= 0)
-+		result = size;
-+error_no_unsigned:
-+error_bad_value:
-+	return result;
-+}
-+
-+static
-+DEVICE_ATTR(i2400m_idle_timeout, S_IWUSR,
-+	    NULL, i2400m_idle_timeout_store);
-+
-+static
-+struct attribute *i2400m_dev_attrs[] = {
-+	&dev_attr_i2400m_idle_timeout.attr,
+  * Enable the SDIO function
+@@ -401,7 +406,7 @@ int i2400ms_probe(struct sdio_func *func,
+ 	i2400m->bus_reset = i2400ms_bus_reset;
+ 	i2400m->bus_bm_cmd_send = i2400ms_bus_bm_cmd_send;
+ 	i2400m->bus_bm_wait_for_ack = i2400ms_bus_bm_wait_for_ack;
+-	i2400m->bus_fw_name = I2400MS_FW_FILE_NAME;
++	i2400m->bus_fw_names = i2400ms_bus_fw_names;
+ 	i2400m->bus_bm_mac_addr_impaired = 1;
+ 
+ 	result = i2400ms_enable_function(i2400ms->func);
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index 7c28610..ca4151a 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -73,7 +73,14 @@
+ 
+ 
+ /* Our firmware file name */
+-#define I2400MU_FW_FILE_NAME "i2400m-fw-usb-" I2400M_FW_VERSION ".sbcf"
++static const char *i2400mu_bus_fw_names[] = {
++#define I2400MU_FW_FILE_NAME_v1_4 "i2400m-fw-usb-1.4.sbcf"
++	I2400MU_FW_FILE_NAME_v1_4,
++#define I2400MU_FW_FILE_NAME_v1_3 "i2400m-fw-usb-1.3.sbcf"
++	I2400MU_FW_FILE_NAME_v1_3,
 +	NULL,
 +};
 +
-+struct attribute_group i2400m_dev_attr_group = {
-+	.name = NULL,		/* we want them in the same directory */
-+	.attrs = i2400m_dev_attrs,
-+};
-diff --git a/include/linux/wimax/i2400m.h b/include/linux/wimax/i2400m.h
-index 74198f5..686eeb2 100644
---- a/include/linux/wimax/i2400m.h
-+++ b/include/linux/wimax/i2400m.h
-@@ -381,6 +381,7 @@ enum i2400m_tlv {
- 	I2400M_TLV_RF_STATUS = 163,
- 	I2400M_TLV_DEVICE_RESET_TYPE = 132,
- 	I2400M_TLV_CONFIG_IDLE_PARAMETERS = 601,
-+	I2400M_TLV_CONFIG_IDLE_TIMEOUT = 611,
- };
  
+ static
+ int i2400mu_bus_dev_start(struct i2400m *i2400m)
+@@ -394,7 +401,7 @@ int i2400mu_probe(struct usb_interface *iface,
+ 	i2400m->bus_reset = i2400mu_bus_reset;
+ 	i2400m->bus_bm_cmd_send = i2400mu_bus_bm_cmd_send;
+ 	i2400m->bus_bm_wait_for_ack = i2400mu_bus_bm_wait_for_ack;
+-	i2400m->bus_fw_name = I2400MU_FW_FILE_NAME;
++	i2400m->bus_fw_names = i2400mu_bus_fw_names;
+ 	i2400m->bus_bm_mac_addr_impaired = 0;
  
-@@ -509,4 +510,13 @@ struct i2400m_tlv_media_status {
- 	__le32 media_status;
- } __attribute__((packed));
- 
-+
-+/* New in v1.4 */
-+struct i2400m_tlv_config_idle_timeout {
-+	struct i2400m_tlv_hdr hdr;
-+	__le32 timeout;	/* 100 to 300000 ms [5min], 100 increments
-+			 * 0 disabled */
-+} __attribute__((packed));
-+
-+
- #endif /* #ifndef __LINUX__WIMAX__I2400M_H__ */
+ #ifdef CONFIG_PM
+@@ -594,4 +601,5 @@ module_exit(i2400mu_driver_exit);
+ MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
+ MODULE_DESCRIPTION("Intel 2400M WiMAX networking for USB");
+ MODULE_LICENSE("GPL");
+-MODULE_FIRMWARE(I2400MU_FW_FILE_NAME);
++MODULE_FIRMWARE(I2400MU_FW_FILE_NAME_v1_4);
++MODULE_FIRMWARE(I2400MU_FW_FILE_NAME_v1_3);
 -- 
 1.5.6.5
