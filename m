@@ -1,78 +1,52 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] WiMAX-next for 2.6.30
-Date: Sun, 1 Mar 2009 01:56:50 -0800
-Message-ID: <200903010156.51110.inaky@linux.intel.com>
-References: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH 0/3] Introduce the Intel 82599 10 Gigabit Network
+	Adapter family
+Date: Sun, 1 Mar 2009 02:30:42 -0800
+Message-ID: <9929d2390903010230k7ed97b3du45e37c51ec742d37@mail.gmail.com>
+References: <20090228013916.22664.54781.stgit@lost.foo-projects.org>
+	 <20090301.002515.46575653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wimax@linuxwimax.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
-Content-Disposition: inline
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.251]:59596 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbZCAKap convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 05:30:45 -0500
+Received: by an-out-0708.google.com with SMTP id c2so1392888anc.1
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2009 02:30:43 -0800 (PST)
+In-Reply-To: <20090301.002515.46575653.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Apologies, I just realized I missed sending the cover letter
+On Sun, Mar 1, 2009 at 12:25 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Fri, 27 Feb 2009 17:44:16 -0800
+>
+>> The following series implements basic support for the new Intel 8259=
+9 10 Gigabit Network adapter. =C2=A0Contained in this patchset is:
+>>
+>> =C2=A0 =C2=A0 =C2=A0 1) Hardware specific code to initialize the 825=
+99 device
+>> =C2=A0 =C2=A0 =C2=A0 2) Include Data Center Bridging support for 825=
+99
+>> =C2=A0 =C2=A0 =C2=A0 3) Add the current device ID's for 82599, inclu=
+ding a fully pluggable 1G/10G SFP+ NIC, and a KX/KX4 mezzanine card
+>
+> All applied.
+>
+> I look forward to seeing you guys followup on the I2C usage
+> stuff Ben pointed out :-)
+> --
 
-This patch series corresponds to the wimax-next tree as it stands
-today, with feature additions for the i2400m driver:
+Thanks Dave.
 
- - support extended data-RX protocol and data-RX reordering
- - ability to query for a list of firmware files if the default
-   doesn't work
- - control of base station idle mode timeout (with firmware >= 1.4).
+I know that PJ is actively working with Ben to see how we can
+implement the in kernel I2C interface into the driver.
 
-The wimax stack NAP level interface (scan, connect, disconnect, etc) 
-that has been proposed in the mailing list is still not really ready 
-for merging, so it will be kept in a branch of wimax-next.
-
-Harvey Harrison (1):
-  wimax: replace uses of __constant_{endian}
-
-Inaky Perez-Gonzalez (6):
-  wimax/i2400m: add the ability to fallback to other firmware files if
-    the default is not there
-  wimax/i2400m: drop support for deprecated major fw interface, add for
-    new minor
-  wimax/i2400m: firmware_check() encodes the firmware version in
-    i2400m->fw_version
-  wimax/i2400m: allow control of the base-station idle mode timeout
-  wimax/i2400m: support extended data RX protocol (no need to
-    reallocate skbs)
-  wimax/i2400m: implement RX reorder support
-
-Kay Sievers (1):
-  wimax: struct device - replace bus_id with dev_name(), dev_set_name()
-
- drivers/net/wimax/i2400m/Makefile       |    1 +
- drivers/net/wimax/i2400m/control.c      |  147 +++++-
- drivers/net/wimax/i2400m/debug-levels.h |    1 +
- drivers/net/wimax/i2400m/driver.c       |   28 ++-
- drivers/net/wimax/i2400m/fw.c           |   53 ++-
- drivers/net/wimax/i2400m/i2400m.h       |   75 +++-
- drivers/net/wimax/i2400m/netdev.c       |  106 ++++-
- drivers/net/wimax/i2400m/rx.c           |  746 
-++++++++++++++++++++++++++++++-
- drivers/net/wimax/i2400m/sdio.c         |   11 +-
- drivers/net/wimax/i2400m/sysfs.c        |   80 ++++
- drivers/net/wimax/i2400m/usb-notif.c    |    2 +-
- drivers/net/wimax/i2400m/usb.c          |   14 +-
- include/linux/wimax/debug.h             |    2 +-
- include/linux/wimax/i2400m.h            |   69 +++
- 14 files changed, 1240 insertions(+), 95 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sysfs.c
-
-
--- 
-Inaky
+--=20
+Cheers,
+Jeff
