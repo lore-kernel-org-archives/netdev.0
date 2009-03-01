@@ -1,153 +1,105 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 2/2] sctp: fix kernel panic with ERROR chunk containing too many error causes
-Date: Mon,  2 Mar 2009 11:46:51 -0500
-Message-ID: <1236012411-17841-3-git-send-email-vladislav.yasevich@hp.com>
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: netdev@vger.kernel.org
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Remaining bits for basic support of LDP
+Date: Sun, 1 Mar 2009 17:54:32 +0000
+Message-ID: <20090301175432.GA24384@n2100.arm.linux.org.uk>
+References: <20090210115615.GA9869@n2100.arm.linux.org.uk> <20090210210159.GK14200@atomide.com> <20090210213712.GB19041@n2100.arm.linux.org.uk> <20090210.171348.175525204.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: tony@atomide.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:1370 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754820AbZCBQrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 11:47:01 -0500
-In-Reply-To: <>
-References: <>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:58312 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753931AbZCBQtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 11:49:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20090210.171348.175525204.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+On Tue, Feb 10, 2009 at 05:13:48PM -0800, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Tue, 10 Feb 2009 21:37:12 +0000
+> 
+> > On Tue, Feb 10, 2009 at 01:02:02PM -0800, Tony Lindgren wrote:
+> > > Yeah, the smsc updates for omap might take a while longer to get going.
+> > > So here's my ack for this smc911x patch:
+> > > 
+> > > Acked-by: Tony Lindgren <tony@atomide.com>
+> > 
+> > Thanks.
+> 
+> Russell if you formally resubmit this with proper changelog, signoffs,
+> and acks I can merge it in quickly via the net-2.6 if you like.
 
-If ERROR chunk is received with too many error causes in ESTABLISHED
-state, the kernel get panic.
+Sorry for the delay.  Please find patch below.
 
-This is because sctp limit the max length of cmds to 14, but while
-ERROR chunk is received, one error cause will add around 2 cmds by
-sctp_add_cmd_sf(). So many error causes will fill the limit of cmds
-and panic.
+OMAP: enable smc911x support for LDP platform
 
-This patch fixed the problem.
+The following patch enables SMC911x support to work on the OMAP LDP
+board.  Although the SMC911x driver will eventually be obsoleted, the
+smsc911x patches are rather invasive for the -rc kernels.
 
-This bug can be test by SCTP Conformance Test Suite
-<http://networktest.sourceforge.net/>.
+Rather than risk destablising smsc911x, this simpler patch is preferred
+to allow the network interface to work.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Acked-by: Tony Lindgren <tony@atomide.com>
 ---
- net/sctp/sm_sideeffect.c |   60 +++++++++++++++++++++++++++------------------
- net/sctp/sm_statefuns.c  |   16 +----------
- 2 files changed, 38 insertions(+), 38 deletions(-)
+ arch/arm/mach-omap2/board-ldp.c |    2 +-
+ drivers/net/smc911x.h           |   12 ++++++++++++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index e1d6076..b5495ae 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -787,36 +787,48 @@ static void sctp_cmd_process_operr(sctp_cmd_seq_t *cmds,
- 				   struct sctp_association *asoc,
- 				   struct sctp_chunk *chunk)
- {
--	struct sctp_operr_chunk *operr_chunk;
- 	struct sctp_errhdr *err_hdr;
-+	struct sctp_ulpevent *ev;
- 
--	operr_chunk = (struct sctp_operr_chunk *)chunk->chunk_hdr;
--	err_hdr = &operr_chunk->err_hdr;
-+	while (chunk->chunk_end > chunk->skb->data) {
-+		err_hdr = (struct sctp_errhdr *)(chunk->skb->data);
- 
--	switch (err_hdr->cause) {
--	case SCTP_ERROR_UNKNOWN_CHUNK:
--	{
--		struct sctp_chunkhdr *unk_chunk_hdr;
-+		ev = sctp_ulpevent_make_remote_error(asoc, chunk, 0,
-+						     GFP_ATOMIC);
-+		if (!ev)
-+			return;
- 
--		unk_chunk_hdr = (struct sctp_chunkhdr *)err_hdr->variable;
--		switch (unk_chunk_hdr->type) {
--		/* ADDIP 4.1 A9) If the peer responds to an ASCONF with an
--		 * ERROR chunk reporting that it did not recognized the ASCONF
--		 * chunk type, the sender of the ASCONF MUST NOT send any
--		 * further ASCONF chunks and MUST stop its T-4 timer.
--		 */
--		case SCTP_CID_ASCONF:
--			asoc->peer.asconf_capable = 0;
--			sctp_add_cmd_sf(cmds, SCTP_CMD_TIMER_STOP,
-+		sctp_ulpq_tail_event(&asoc->ulpq, ev);
-+
-+		switch (err_hdr->cause) {
-+		case SCTP_ERROR_UNKNOWN_CHUNK:
-+		{
-+			sctp_chunkhdr_t *unk_chunk_hdr;
-+
-+			unk_chunk_hdr = (sctp_chunkhdr_t *)err_hdr->variable;
-+			switch (unk_chunk_hdr->type) {
-+			/* ADDIP 4.1 A9) If the peer responds to an ASCONF with
-+			 * an ERROR chunk reporting that it did not recognized
-+			 * the ASCONF chunk type, the sender of the ASCONF MUST
-+			 * NOT send any further ASCONF chunks and MUST stop its
-+			 * T-4 timer.
-+			 */
-+			case SCTP_CID_ASCONF:
-+				if (asoc->peer.asconf_capable == 0)
-+					break;
-+
-+				asoc->peer.asconf_capable = 0;
-+				sctp_add_cmd_sf(cmds, SCTP_CMD_TIMER_STOP,
- 					SCTP_TO(SCTP_EVENT_TIMEOUT_T4_RTO));
-+				break;
-+			default:
-+				break;
-+			}
- 			break;
-+		}
- 		default:
- 			break;
- 		}
--		break;
--	}
--	default:
--		break;
+diff --git a/arch/arm/mach-omap2/board-ldp.c b/arch/arm/mach-omap2/board-ldp.c
+index 61f7c36..d544965 100644
+--- a/arch/arm/mach-omap2/board-ldp.c
++++ b/arch/arm/mach-omap2/board-ldp.c
+@@ -81,7 +87,7 @@ static inline void __init ldp_init_smc911x(void)
  	}
- }
  
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 3a0cd07..f88dfde 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3163,7 +3163,6 @@ sctp_disposition_t sctp_sf_operr_notify(const struct sctp_endpoint *ep,
- 					sctp_cmd_seq_t *commands)
- {
- 	struct sctp_chunk *chunk = arg;
--	struct sctp_ulpevent *ev;
+ 	ldp_smc911x_resources[0].start = cs_mem_base + 0x0;
+-	ldp_smc911x_resources[0].end   = cs_mem_base + 0xf;
++	ldp_smc911x_resources[0].end   = cs_mem_base + 0xff;
+ 	udelay(100);
  
- 	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-@@ -3173,21 +3172,10 @@ sctp_disposition_t sctp_sf_operr_notify(const struct sctp_endpoint *ep,
- 		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
- 						  commands);
- 
--	while (chunk->chunk_end > chunk->skb->data) {
--		ev = sctp_ulpevent_make_remote_error(asoc, chunk, 0,
--						     GFP_ATOMIC);
--		if (!ev)
--			goto nomem;
-+	sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_OPERR,
-+			SCTP_CHUNK(chunk));
- 
--		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
--				SCTP_ULPEVENT(ev));
--		sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_OPERR,
--				SCTP_CHUNK(chunk));
--	}
- 	return SCTP_DISPOSITION_CONSUME;
--
--nomem:
--	return SCTP_DISPOSITION_NOMEM;
- }
- 
+ 	eth_gpio = LDP_SMC911X_GPIO;
+diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+index 870b4c3..a45952e 100644
+--- a/drivers/net/smc911x.h
++++ b/drivers/net/smc911x.h
+@@ -42,6 +42,16 @@
+   #define SMC_USE_16BIT		0
+   #define SMC_USE_32BIT		1
+   #define SMC_IRQ_SENSE		IRQF_TRIGGER_LOW
++#elif defined(CONFIG_ARCH_OMAP34XX)
++  #define SMC_USE_16BIT		0
++  #define SMC_USE_32BIT		1
++  #define SMC_IRQ_SENSE		IRQF_TRIGGER_LOW
++  #define SMC_MEM_RESERVED	1
++#elif defined(CONFIG_ARCH_OMAP24XX)
++  #define SMC_USE_16BIT		0
++  #define SMC_USE_32BIT		1
++  #define SMC_IRQ_SENSE		IRQF_TRIGGER_LOW
++  #define SMC_MEM_RESERVED	1
+ #else
  /*
--- 
-1.5.4.3
+  * Default configuration
+@@ -675,6 +685,7 @@ smc_pxa_dma_outsl(struct smc911x_local *lp, u_long physaddr,
+ #define CHIP_9116	0x0116
+ #define CHIP_9117	0x0117
+ #define CHIP_9118	0x0118
++#define CHIP_9211	0x9211
+ #define CHIP_9215	0x115A
+ #define CHIP_9217	0x117A
+ #define CHIP_9218	0x118A
+@@ -689,6 +700,7 @@ static const struct chip_id chip_ids[] =  {
+ 	{ CHIP_9116, "LAN9116" },
+ 	{ CHIP_9117, "LAN9117" },
+ 	{ CHIP_9118, "LAN9118" },
++	{ CHIP_9211, "LAN9211" },
+ 	{ CHIP_9215, "LAN9215" },
+ 	{ CHIP_9217, "LAN9217" },
+ 	{ CHIP_9218, "LAN9218" },
+
 
