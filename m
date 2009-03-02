@@ -1,47 +1,47 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH] wimax: replace uses of __constant_{endian}
-Date: Sun, 1 Mar 2009 16:07:58 -0800
-Message-ID: <200903011607.58333.inaky@linux.intel.com>
-References: <1235900574-15319-1-git-send-email-inaky@linux.intel.com> <1235900574-15319-7-git-send-email-inaky@linux.intel.com> <1235934418.5627.0.camel@brick>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: some tc commands fail on 2.6.29-rc6-git5, works on 2.6.28.7
+Date: Sun, 1 Mar 2009 16:57:29 -0800
+Message-ID: <20090301165729.8e08e1d7.akpm@linux-foundation.org>
+References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joao Correia <joaomiguelcorreia@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:30640 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751201AbZCBAIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 19:08:09 -0500
-In-Reply-To: <1235934418.5627.0.camel@brick>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46780 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753777AbZCBA5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 19:57:34 -0500
+In-Reply-To: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 01 March 2009, Harvey Harrison wrote:
-> On Sun, 2009-03-01 at 01:42 -0800, Inaky Perez-Gonzalez wrote:
-> > From: Harvey Harrison <harvey.harrison@gmail.com>
-> >
-> > Base versions handle constant folding now.
-> >
-> > Edited by Inaky to fix conflicts due to changes in netdev.c
-> >
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-> > ---
->
-> I'm not sure the description matches the patch...or the rest of the
-> patch is missing.
+(cc netdev)
 
-This is a conflict fix -- yours (the original) is still in the tree, (way) 
-before this series. 
+On Mon, 2 Mar 2009 00:36:03 +0000 Joao Correia <joaomiguelcorreia@gmail.com> wrote:
 
-However, some of the code merged in with my fixes conflicted with your 
-edits, so only those are changed to reflect the new code (hence the 
-"Edited" line).
+> Hello all
+> 
+> On a Fedora 9 box, with a 2.6.29-rc6-git5 compiled with the same
+> .config as the previously running 2.6.28.7, i get:
+> 
+> [root@duron ~]# /sbin/tc qdisc add dev eth2 handle ffff: ingress
+> [root@duron ~]# /sbin/tc filter add dev eth2 parent ffff: protocol ip
+> prio 50 u32 match ip src 0.0.0.0/0 police rate 30320kbit burst 500k
+> drop flowid :1
+> RTNETLINK answers: Invalid argument
+> We have an error talking to the kernel
+> [root@duron ~]# uname -a
+> Linux duron 2.6.29-rc6-git5 #3 SMP Sun Mar 1 00:02:56 WET 2009 i686
+> athlon i386 GNU/Linux
+> [root@duron ~]#
+> 
+> There is no information regarding this event on dmesg or /var/log/messages.
+> eth2 exists and is working properly, under 2.6.28.7 it works (without
+> complaints).
+> 
+> Please advise on what steps I may take to provide more information. I have
+> both kernel sources and availability to apply patches/recompile as needed.
+> 
 
-Hope this clarifies
-
--- 
-Inaky
