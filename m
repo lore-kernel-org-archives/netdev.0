@@ -1,44 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp: '< 0' test on unsigned
-Date: Mon, 2 Mar 2009 12:30:56 +0800
-Message-ID: <20090302043056.GA16090@gondor.apana.org.au>
-References: <49AAF989.8070000@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: ixgbe: Fix some compiler warnings.
+Date: Sun, 01 Mar 2009 20:33:51 -0800 (PST)
+Message-ID: <20090301.203351.249644255.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41116 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752127AbZCBEbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 23:31:07 -0500
-Content-Disposition: inline
-In-Reply-To: <49AAF989.8070000@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60924
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753821AbZCBEeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 23:34:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roel Kluin <roel.kluin@gmail.com> wrote:
->
-> diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-> index 25524d4..0b9d63f 100644
-> --- a/net/ipv4/tcp_probe.c
-> +++ b/net/ipv4/tcp_probe.c
-> @@ -167,7 +167,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
-> {
->        int error = 0, cnt = 0;
-> 
-> -       if (!buf || len < 0)
-> +       if (!buf || (ssize_t)len < 0)
->                return -EINVAL;
-> 
->        while (cnt < len) {
 
-Either cnt needs to be promoted, or you need to limit len to INT_MAX.
+[ Commited to net-next-2.6 ]
 
-Cheers,
+'pap' is never used in ixgbe_dcb_hw_config_82599()
+and 'eec' in ixgbe_acquire_eeptom() is only used when
+status == 0 but GCC has some trouble seeing that.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ixgbe/ixgbe_common.c    |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb_82599.c |    2 --
+ 2 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
+index 26ee8a0..245db0e 100644
+--- a/drivers/net/ixgbe/ixgbe_common.c
++++ b/drivers/net/ixgbe/ixgbe_common.c
+@@ -661,7 +661,7 @@ static s32 ixgbe_poll_eeprom_eerd_done(struct ixgbe_hw *hw)
+ static s32 ixgbe_acquire_eeprom(struct ixgbe_hw *hw)
+ {
+ 	s32 status = 0;
+-	u32 eec;
++	u32 eec = 0;
+ 	u32 i;
+ 
+ 	if (ixgbe_acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) != 0)
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ixgbe/ixgbe_dcb_82599.c
+index 1467d56..adcbac4 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_82599.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_82599.c
+@@ -457,8 +457,6 @@ s32 ixgbe_dcb_config_82599(struct ixgbe_hw *hw)
+ s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw,
+                               struct ixgbe_dcb_config *dcb_config)
+ {
+-	u32  pap = 0;
+-
+ 	ixgbe_dcb_config_packet_buffers_82599(hw, dcb_config);
+ 	ixgbe_dcb_config_82599(hw);
+ 	ixgbe_dcb_config_rx_arbiter_82599(hw, dcb_config);
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.1.2.253.ga34a
+
