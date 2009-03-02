@@ -1,38 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Vlan interface nuisance
-Date: Mon, 2 Mar 2009 15:39:12 +0800
-Message-ID: <20090302073912.GA17328@gondor.apana.org.au>
-References: <49AB8784.609@vyatta.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH v2] typhoon: Use request_firmware()
+Date: Mon, 02 Mar 2009 02:56:19 -0500
+Message-ID: <1235980579.23967.2.camel@localhost.localdomain>
+References: <20090301.174433.258919971.davem@davemloft.net>
+	 <1235963807.27973.1.camel@localhost.localdomain>
+	 <20090301.201123.112634333.davem@davemloft.net>
+	 <20090301.202929.81587113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, davem@davemloft.net, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44968 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750920AbZCBHjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 02:39:20 -0500
-Content-Disposition: inline
-In-Reply-To: <49AB8784.609@vyatta.com>
+Received: from smtp.knology.net ([24.214.63.101]:58644 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753428AbZCBH4X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2009 02:56:23 -0500
+In-Reply-To: <20090301.202929.81587113.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen.hemminger@vyatta.com> wrote:
->
->> In any case, ip(8) allows you to set the name to whatever you
->> want at creation time.  So for those nostalgics you can still
->> use ethX.Y through ip.
->>   
-> Yes but their is no indication as to which interface was just created.
+On Sun, 2009-03-01 at 20:29 -0800, David Miller wrote:
+> I cared enough to fix this, maybe one of you will care enough
+> to test it.
 
-You should be able to set the name at creation time.
+Like I said, I will be happy to test as soon as I can dig the hardware
+out. In any event, this is broken.
 
-The default is only used if you didn't specify an explicit name.
+>  static int
+>  typhoon_request_firmware(struct typhoon *tp)
+> @@ -1367,12 +1368,22 @@ typhoon_request_firmware(struct typhoon *tp)
+>  	    memcmp(typhoon_fw->data, "TYPHOON", 8)) {
+>  		printk(KERN_ERR "%s: Invalid firmware image\n",
+>  		       tp->name);
+> -		release_firmware(typhoon_fw);
+> -		typhoon_fw = NULL;
+> -		return -EINVAL;
+> +		err = -EINVAL;
+> +		goto out_err;
+> +	}
+> +
+> +	typhoon_fw_image = kmalloc(typhoon_fw->size, GFP_KERNEL);
+> +	if (!typhoon_fw_image) {
+> +		err = -ENOMEM;
+> +		goto out_err;
+>  	}
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You never copied the image into the kmalloc'd memory, so you upload
+garbage.
+
+Fix that and I think it will be OK.
+
