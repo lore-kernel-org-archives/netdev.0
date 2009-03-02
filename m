@@ -1,40 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 14/17] tcp: remove pointless .dsack code
-Date: Mon, 02 Mar 2009 03:57:35 -0800 (PST)
-Message-ID: <20090302.035735.240266876.davem@davemloft.net>
-References: <12358322831019-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20090302.030320.95493086.davem@davemloft.net>
-	<Pine.LNX.4.64.0903021340540.31742@wrl-59.cs.helsinki.fi>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] tcp: '< 0' test on unsigned
+Date: Mon, 02 Mar 2009 13:24:52 +0100
+Message-ID: <49ABD014.3010006@gmail.com>
+References: <49AAF989.8070000@gmail.com>	<20090302043056.GA16090@gondor.apana.org.au> <20090301.203643.105143832.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54520
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753358AbZCBL5v convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2009 06:57:51 -0500
-In-Reply-To: <Pine.LNX.4.64.0903021340540.31742@wrl-59.cs.helsinki.fi>
+Received: from mail-bw0-f178.google.com ([209.85.218.178]:48038 "EHLO
+	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbZCBMY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 07:24:56 -0500
+Received: by bwz26 with SMTP id 26so1901293bwz.37
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2009 04:24:53 -0800 (PST)
+In-Reply-To: <20090301.203643.105143832.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 2 Mar 2009 13:54:17 +0200 (EET)
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Mon, 2 Mar 2009 12:30:56 +0800
+> 
+>> Roel Kluin <roel.kluin@gmail.com> wrote:
+>>> diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+>>> index 25524d4..0b9d63f 100644
+>>> --- a/net/ipv4/tcp_probe.c
+>>> +++ b/net/ipv4/tcp_probe.c
+>>> @@ -167,7 +167,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
+>>> {
+>>>        int error = 0, cnt = 0;
+>>>
+>>> -       if (!buf || len < 0)
+>>> +       if (!buf || (ssize_t)len < 0)
+>>>                return -EINVAL;
+>>>
+>>>        while (cnt < len) {
+>> Either cnt needs to be promoted, or you need to limit len to INT_MAX.
+> 
+> Right, since the positive range of 'size_t' can exceed that of 'int'
 
-> We'll be dirty it anyway (not that I check), the first "real" stateme=
-nt
-> in tcp_rcv_established is:
->=20
-> 	tp->rx_opt.saw_tstamp =3D 0;
->=20
-> ...that'll land on the same dword. :-/
->=20
-> I suppose the blocks are there just because they had more complexity=20
-> inside when they had to calculate the eff_sacks too (maybe it would
-> have been better to just remove them in that drop-patch so you would
-> have had less head-ache :-)).
+like this then?
+------------------------------>8-------------8<---------------------------------
+promote 'cnt' to size_t, to match 'len'.
 
-That sounds like a good commit log entry for when you resubmit
-this patch :-)
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 25524d4..59f5b5e 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -165,9 +165,10 @@ static int tcpprobe_sprint(char *tbuf, int n)
+ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
+ 			     size_t len, loff_t *ppos)
+ {
+-	int error = 0, cnt = 0;
++	int error = 0;
++	size_t cnt = 0;
+ 
+-	if (!buf || len < 0)
++	if (!buf)
+ 		return -EINVAL;
+ 
+ 	while (cnt < len) {
