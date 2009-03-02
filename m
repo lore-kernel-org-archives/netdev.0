@@ -1,45 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Vlan interface nuisance
-Date: Sun, 01 Mar 2009 21:28:24 -0800 (PST)
-Message-ID: <20090301.212824.124808000.davem@davemloft.net>
-References: <20090301204731.40ce346a@nehalam>
-	<20090301.205702.81302378.davem@davemloft.net>
-	<20090301210541.4585c199@nehalam>
+Subject: Re: oops / null deref in __inet6_check_established(), kernel
+ 2.6.29-rc6
+Date: Sun, 01 Mar 2009 21:28:57 -0800 (PST)
+Message-ID: <20090301.212857.264627839.davem@davemloft.net>
+References: <20090224183554.330eb308@dhcp-100-2-144.bos.redhat.com>
+	<20090228031618.GB28503@bombadil.infradead.org>
+	<20090302050919.GJ28503@bombadil.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: cebbert@redhat.com, netdev@vger.kernel.org
+To: kyle@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51156
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51158
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750730AbZCBF2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 00:28:42 -0500
-In-Reply-To: <20090301210541.4585c199@nehalam>
+	by vger.kernel.org with ESMTP id S1751003AbZCBF3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 00:29:15 -0500
+In-Reply-To: <20090302050919.GJ28503@bombadil.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sun, 1 Mar 2009 21:05:41 -0800
+From: Kyle McMartin <kyle@infradead.org>
+Date: Mon, 2 Mar 2009 00:09:19 -0500
 
-> On Sun, 01 Mar 2009 20:57:02 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
+> On Fri, Feb 27, 2009 at 10:16:18PM -0500, Kyle McMartin wrote:
+> > This only seems to show up when CONFIG_NET_NS is enabled. (Reproduced on
+> > git HEAD with that option on, doesn't occur with the option off.)
+> > 
+> > I will confess complete ignorance to the network stack, but this patch
+> > fixes things... ipv4 seems to have the same namespace support, but
+> > increments the sock_net, not the twsk_net.
+> > 
+> > I'll probably put this patch into Fedora, if only to prevent this from
+> > being used as a local DoS by an unprivileged user.
+> > 
+> > Signed-off-by: Kyle McMartin <kyle@redhat.com>
+> > 
 > 
-> > From: Stephen Hemminger <shemminger@vyatta.com>
-> > Date: Sun, 1 Mar 2009 20:47:31 -0800
-> > 
-> > > Why is interface created through netlink named 'vlan0' and
-> > > interface created through old vconfig called 'ethX.YY'.
-> > > Seems like the interface should be consistent.
-> > 
-> > I think the netlink scheme is saner, and the idea is to
-> > transition people over to that.
-> > 
-> > We can't change what vconfig uses, so what Patrick decided
-> > to do is pretty sane if you ask me.
-> 
-> This is missing:
+> Any thoughts? This is a pretty serious issue... Granted we should
+> probably just turn CONFIG_NET_NS off entirely, since it's
+> underdocumented and should be explicitly labelled as experimental
+> instead of just depending on it...
 
-You can just say you don't think the behavior is
-intentional.... :-/
+It's in my queue, I just haven't gotten to it yet.
 
+Serious issue or not you have to be patient.
