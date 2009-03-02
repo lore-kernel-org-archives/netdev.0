@@ -1,52 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Vlan interface nuisance
-Date: Mon, 2 Mar 2009 13:51:01 -0800
-Message-ID: <20090302135101.1165f117@nehalam>
-References: <20090301204731.40ce346a@nehalam>
-	<20090302172057.GA23247@csclub.uwaterloo.ca>
-	<49AC2A9C.5090303@gmail.com>
-	<49AC545E.3090708@trash.net>
+Date: Mon, 02 Mar 2009 22:52:52 +0100
+Message-ID: <49AC5534.2090102@trash.net>
+References: <20090301204731.40ce346a@nehalam> <20090302172057.GA23247@csclub.uwaterloo.ca> <49AC2A9C.5090303@gmail.com> <49AC2BD1.4070209@candelatech.com> <49AC2E32.2020403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
+Cc: Ben Greear <greearb@candelatech.com>,
 	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49020 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752096AbZCBVvF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2009 16:51:05 -0500
-In-Reply-To: <49AC545E.3090708@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:55214 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752844AbZCBVw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 16:52:56 -0500
+In-Reply-To: <49AC2E32.2020403@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 02 Mar 2009 22:49:18 +0100
-Patrick McHardy <kaber@trash.net> wrote:
-
-> Jarek Poplawski wrote:
-> > Lennart Sorensen wrote, On 03/02/2009 06:20 PM:
-> > 
-> >> On Sun, Mar 01, 2009 at 08:47:31PM -0800, Stephen Hemminger wrote:
-> >>> Why is interface created through netlink named 'vlan0' and
-> >>> interface created through old vconfig called 'ethX.YY'.
-> >>> Seems like the interface should be consistent.
-> >> That does seem silly.
-> >>
-> >> ethX.YYYY told you which physical interface and which vlan number it was.
-> >>
-> >> vlan0 tells you nothing useful.
-> >  
-> > 
-> > Even if you have only one ethX?
+Jarek Poplawski wrote:
+> Ben Greear wrote, On 03/02/2009 07:56 PM:
 > 
-> The binding is displayed when listing interfaces. This hole
-> argument is silly, if you want a particular name, just specify
-> it. The current naming schemes are entirely based on information
-> that you have to specify anyways.
+>> Jarek Poplawski wrote:
+>>> Lennart Sorensen wrote, On 03/02/2009 06:20 PM:
+>>>
+>>>> On Sun, Mar 01, 2009 at 08:47:31PM -0800, Stephen Hemminger wrote:
+>>>>> Why is interface created through netlink named 'vlan0' and
+>>>>> interface created through old vconfig called 'ethX.YY'.
+>>>>> Seems like the interface should be consistent.
+>>>> That does seem silly.
+>>>>
+>>>> ethX.YYYY told you which physical interface and which vlan number it was.
+>>>>
+>>>> vlan0 tells you nothing useful.
+>>>  
+>>>
+>>> Even if you have only one ethX?
+>> Yes...the old way would tell you the vlan-id regardless of how
+>> many NICs you have, which is useful information for anyone
+>> actually trying to configure two boxes to talk to each other,
+>> or (god forbid), debug someone else's config.
+>>
+>> It's true you can specify the vlan-name on creation using 'ip',
+>> which is what I do, so I'm not going to argue Stephen's change
+>> either way..but I do like device names that give more info...
+> 
+> To make it clear: I don't say vlan0 is better; but IMHO it doesn't
+> have to be silly or nothing useful either.
 
-I overlooked the obvious:
- ip li add link eth1 name eth1.44 type vlan id 44
+Admittedly, this part of the rtnl_link interface could be improved.
+The names are allocated centrally when unspecified, which imposes
+this fixed naming scheme. A simple callback to choose a better
+name than just incrementally counting up interfaces types would
+allow to at least choose a default name of ethX.xyz or something
+similar. I refuse to introduce the selectable naming schemes to
+this interface though, this can easily be done in userspace.
 
-Setting the name overrides.
+
