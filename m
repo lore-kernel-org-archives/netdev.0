@@ -1,67 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Mon, 02 Mar 2009 12:21:59 +0100
-Message-ID: <49ABC157.4090801@trash.net>
-References: <49A4D5D5.5090602@trash.net>	<20090225061902.GA32430@gondor.apana.org.au>	<49A4E3F8.4050406@trash.net>	<49A4F0D7.20304@trash.net>	<20090225084321.GA1101@gondor.apana.org.au>	<m163ixk9t2.fsf@fess.ebiederm.org>	<20090226062257.GA11511@gondor.apana.org.au>	<m14oyhis31.fsf@fess.ebiederm.org>	<20090226084924.16cb3e08@nehalam>	<49A83063.2060600@candelatech.com> <20090227103812.14af52b3@nehalam> <49ABBDDF.4030805@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/9] sfc: SFT9001: Include non-breaking cable
+ diagnostics in online self-tests
+Date: Mon, 02 Mar 2009 03:26:09 -0800 (PST)
+Message-ID: <20090302.032609.152266887.davem@davemloft.net>
+References: <1235775847.3164.6.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42507 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753358AbZCBLWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:22:04 -0500
-In-Reply-To: <49ABBDDF.4030805@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37969
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752733AbZCBL01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:26:27 -0500
+In-Reply-To: <1235775847.3164.6.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Stephen Hemminger wrote:
->>>> @@ -77,7 +77,9 @@ static ssize_t netdev_store(struct devic
->>>>      if (endp == buf)
->>>>          goto err;
->>>>  
->>>> -    rtnl_lock();
->>>> +    if (!rtnl_trylock())
->>>> +        return -ERESTARTSYS;
->>>> +
->>>>      if (dev_isalive(net)) {
->>>>          if ((ret = (*set)(net, new)) == 0)
->>>>              ret = len;
->>> I can test this to see if it fixes my problem.  Are the above lines the
->>> entirety of the patch?
->>
->> yes
-> 
-> We should be able to avoid the restart looping in most cases,
-> we only need to do this while unregistration is in progress.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 27 Feb 2009 23:04:07 +0000
 
-It doesn't seem to work. The idea was something like this:
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, 
-int old)
-{
-	struct inet6_dev *idev;
-	struct net *net;
-
-	net = (struct net *)table->extra2;
-	if (p == &net->ipv6.devconf_dflt->forwarding)
-		return 0;
-
-	/* Unregistration in progress */
-	idev = table->extra1;
-	if (idev->cnf.sysctl == NULL)
-		return -ERESTARTSYS;
-
-	rtnl_lock();
-...
-
-but the process might have entered this function while the rtnl
-is already held, but the unregistration hasn't been triggered yet.
-So it would still deadlock.
+Applied.
