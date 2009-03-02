@@ -1,52 +1,38 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH net-next 3/5] sctp: fix the length check in sctp_getsockopt_maxburst()
-Date: Mon,  2 Mar 2009 14:46:12 -0500
-Message-ID: <1236023174-18314-4-git-send-email-vladislav.yasevich@hp.com>
-References: <>
- <1236023174-18314-1-git-send-email-vladislav.yasevich@hp.com>
- <1236023174-18314-2-git-send-email-vladislav.yasevich@hp.com>
- <1236023174-18314-3-git-send-email-vladislav.yasevich@hp.com>
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: netdev@vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Vlan interface nuisance
+Date: Mon, 02 Mar 2009 21:07:03 +0100
+Message-ID: <49AC3C67.9040809@gmail.com>
+References: <20090301204731.40ce346a@nehalam> <20090302172057.GA23247@csclub.uwaterloo.ca> <49AC2A9C.5090303@gmail.com> <20090302193604.GI23244@csclub.uwaterloo.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:34376 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754259AbZCBTqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 14:46:23 -0500
-In-Reply-To: <1236023174-18314-3-git-send-email-vladislav.yasevich@hp.com>
+Received: from mail-bw0-f178.google.com ([209.85.218.178]:60830 "EHLO
+	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359AbZCBUIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 15:08:41 -0500
+Received: by bwz26 with SMTP id 26so2085813bwz.37
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2009 12:08:38 -0800 (PST)
+In-Reply-To: <20090302193604.GI23244@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Lennart Sorensen wrote, On 03/02/2009 08:36 PM:
 
-The code in sctp_getsockopt_maxburst() doesn't allow len to be larger
-then struct sctp_assoc_value, which is a common case where app writers
-just pass down the sizeof(buf) or something similar.
+> On Mon, Mar 02, 2009 at 07:51:08PM +0100, Jarek Poplawski wrote:
+>> Even if you have only one ethX?
+> 
+> Yes.  What vlan number is vlan0 talking to on ethX?
+> 
+> Not that eth0 ever told you much useful, but at least eth0.0005 told
+> you something. [...]
 
-This patch fix the problem.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/socket.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+OK, you're right! More info is better. ...How about changing this
+silly "eth" thing to something really useful like BSDs do?!
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 4bc558c..bbd3cd2 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5286,7 +5286,8 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
- 		printk(KERN_WARNING
- 		   "SCTP: Use struct sctp_assoc_value instead\n");
- 		params.assoc_id = 0;
--	} else if (len == sizeof (struct sctp_assoc_value)) {
-+	} else if (len >= sizeof(struct sctp_assoc_value)) {
-+		len = sizeof(struct sctp_assoc_value);
- 		if (copy_from_user(&params, optval, len))
- 			return -EFAULT;
- 	} else
--- 
-1.5.4.3
+Jarek P.
 
