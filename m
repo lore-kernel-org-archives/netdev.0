@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: '< 0' test on unsigned
-Date: Sun, 01 Mar 2009 20:36:43 -0800 (PST)
-Message-ID: <20090301.203643.105143832.davem@davemloft.net>
-References: <49AAF989.8070000@gmail.com>
-	<20090302043056.GA16090@gondor.apana.org.au>
+Subject: Re: [PATCH] cdc_ether: add usb id for Ericsson F3507g
+Date: Sun, 01 Mar 2009 20:44:36 -0800 (PST)
+Message-ID: <20090301.204436.47090886.davem@davemloft.net>
+References: <87ocwqsi09.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60934
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46141
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752127AbZCBEhC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 23:37:02 -0500
-In-Reply-To: <20090302043056.GA16090@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752127AbZCBEoz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Mar 2009 23:44:55 -0500
+In-Reply-To: <87ocwqsi09.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 2 Mar 2009 12:30:56 +0800
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Wed, 25 Feb 2009 15:33:58 +0100
 
-> Roel Kluin <roel.kluin@gmail.com> wrote:
-> >
-> > diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-> > index 25524d4..0b9d63f 100644
-> > --- a/net/ipv4/tcp_probe.c
-> > +++ b/net/ipv4/tcp_probe.c
-> > @@ -167,7 +167,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
-> > {
-> >        int error = 0, cnt = 0;
-> > 
-> > -       if (!buf || len < 0)
-> > +       if (!buf || (ssize_t)len < 0)
-> >                return -EINVAL;
-> > 
-> >        while (cnt < len) {
-> 
-> Either cnt needs to be promoted, or you need to limit len to INT_MAX.
+> The Ericsson F3507g wireless broadband module provides a CDC Ethernet
+> compliant interface, but identifies it as a "Mobile Direct Line" CDC
+> subclass, thereby preventing the CDC Ethernet class driver from picki=
+ng
+> it up.  This patch adds the device id to cdc_ether.c as a workaround.
+>=20
+> Ericsson has provided a "class" driver for this device:
+> http://kerneltrap.org/mailarchive/linux-net/2008/10/28/3832094
+> But closer inspection of that driver reveals that it adds little more
+> than duplication of code from cdc_ether.c.  See also
+> http://marc.info/?l=3Dlinux-usb&m=3D123334979706403&w=3D2
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Right, since the positive range of 'size_t' can exceed that of 'int'
+Applied, thanks.
