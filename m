@@ -1,66 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] dccp: Do not let initial option overhead shrink
- the MPS
-Date: Mon, 02 Mar 2009 03:08:10 -0800 (PST)
-Message-ID: <20090302.030810.243875852.davem@davemloft.net>
-References: <1235810309-10256-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1235810309-10256-2-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1235810309-10256-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH] WiMAX-next for 2.6.30
+Date: Mon, 02 Mar 2009 03:12:22 -0800 (PST)
+Message-ID: <20090302.031222.147565849.davem@davemloft.net>
+References: <1235900574-15319-1-git-send-email-inaky@linux.intel.com>
+	<200903010156.51110.inaky@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
+To: inaky@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46032
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33664
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752624AbZCBLIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:08:31 -0500
-In-Reply-To: <1235810309-10256-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1752126AbZCBLMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:12:41 -0500
+In-Reply-To: <200903010156.51110.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat, 28 Feb 2009 09:38:29 +0100
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Date: Sun, 1 Mar 2009 01:56:50 -0800
 
-> This fixes a problem caused by the overlap of the connection-setup and
-> established-state phases of DCCP connections.
+> Apologies, I just realized I missed sending the cover letter
 > 
-> During connection setup, the client retransmits Confirm Feature-Negotiation
-> options until a response from the server signals that it can move from the
-> half-established PARTOPEN into the OPEN state, whereupon the connection is
-> fully established on both ends (RFC 4340, 8.1.5).
+> This patch series corresponds to the wimax-next tree as it stands
+> today, with feature additions for the i2400m driver:
 > 
-> However, since the client may already send data while it is in the PARTOPEN
-> state, consequences arise for the Maximum Packet Size: the problem is that the
-> initial option overhead is much higher than for the subsequent established
-> phase, as it involves potentially many variable-length list-type options
-> (server-priority options, RFC 4340, 6.4).
+>  - support extended data-RX protocol and data-RX reordering
+>  - ability to query for a list of firmware files if the default
+>    doesn't work
+>  - control of base station idle mode timeout (with firmware >= 1.4).
 > 
-> Applying the standard MPS is insufficient here: especially with larger
-> payloads this can lead to annoying, counter-intuitive EMSGSIZE errors.
-> 
-> On the other hand, reducing the MPS available for the established phase by
-> the added initial overhead is highly wasteful and inefficient.
-> 
-> The solution chosen therefore is a two-phase strategy:
-> 
->    If the payload length of the DataAck in PARTOPEN is too large, an Ack is sent
->    to carry the options, and the feature-negotiation list is then flushed.
-> 
->    This means that the server gets two Acks for one Response. If both Acks get
->    lost, it is probably better to restart the connection anyway and devising yet
->    another special-case does not seem worth the extra complexity.
-> 
-> The result is a higher utilisation of the available packet space for the data
-> transmission phase (established state) of a connection.
-> 
-> The patch (over-)estimates the initial overhead to be 32*4 bytes -- commonly
-> seen values were around 90 bytes for initial feature-negotiation options.
-> 
-> It uses sizeof(u32) to mean "aligned units of 4 bytes".
-> For consistency, another use of 4-byte alignment is adapted.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> The wimax stack NAP level interface (scan, connect, disconnect, etc) 
+> that has been proposed in the mailing list is still not really ready 
+> for merging, so it will be kept in a branch of wimax-next.
 
-Applied.
+All applied to net-next-2.6, thanks!
