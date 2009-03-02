@@ -1,7 +1,8 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 03/18] bnx2x: Reduce the likelihood of smb_mb
-Date: Mon, 02 Mar 2009 19:59:24 +0200
-Message-ID: <1236016764.7723.74.camel@lb-tlvb-eliezer>
+Subject: [PATCH 04/18] bnx2x: Add rmb to read status block indices on
+ load
+Date: Mon, 02 Mar 2009 19:59:27 +0200
+Message-ID: <1236016767.7723.75.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,52 +11,35 @@ To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:2320 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755602AbZCBSAO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2009 13:00:14 -0500
+	id S1755653AbZCBSA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2009 13:00:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 03/18] bnx2x: Reduce the likelihood of smb_mb
+Subject: [PATCH 04/18] bnx2x: Add rmb to read status block indices on load
 
-As the comment explains, this smb_mb is needed only if the queue is stopped
-(which is unlikely) so the barrier can be moved to that location
+Add rmb to read status block indices on load
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/bnx2x_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 5954bed..fbd0f88 100644
+index fbd0f88..e4d54e1 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -916,18 +916,19 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
- 	fp->tx_pkt_cons = sw_cons;
- 	fp->tx_bd_cons = bd_cons;
+@@ -5154,6 +5154,10 @@ static void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
+ 		bnx2x_update_fpsb_idx(fp);
+ 	}
  
--	/* Need to make the tx_bd_cons update visible to start_xmit()
--	 * before checking for netif_tx_queue_stopped().  Without the
--	 * memory barrier, there is a small possibility that start_xmit()
--	 * will miss it and cause the queue to be stopped forever.
--	 */
--	smp_mb();
--
- 	/* TBD need a thresh? */
- 	if (unlikely(netif_tx_queue_stopped(txq))) {
- 
- 		__netif_tx_lock(txq, smp_processor_id());
- 
-+		/* Need to make the tx_bd_cons update visible to start_xmit()
-+		 * before checking for netif_tx_queue_stopped().  Without the
-+		 * memory barrier, there is a small possibility that
-+		 * start_xmit() will miss it and cause the queue to be stopped
-+		 * forever.
-+		 */
-+		smp_mb();
++	/* ensure status block indices were read */
++	rmb();
 +
- 		if ((netif_tx_queue_stopped(txq)) &&
- 		    (bp->state == BNX2X_STATE_OPEN) &&
- 		    (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3))
++
+ 	bnx2x_init_def_sb(bp, bp->def_status_blk, bp->def_status_blk_mapping,
+ 			  DEF_SB_ID);
+ 	bnx2x_update_dsb_idx(bp);
 -- 
 1.5.4.3
 
