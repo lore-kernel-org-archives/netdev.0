@@ -1,38 +1,32 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: Vlan interface nuisance
-Date: Mon, 02 Mar 2009 21:07:03 +0100
-Message-ID: <49AC3C67.9040809@gmail.com>
-References: <20090301204731.40ce346a@nehalam> <20090302172057.GA23247@csclub.uwaterloo.ca> <49AC2A9C.5090303@gmail.com> <20090302193604.GI23244@csclub.uwaterloo.ca>
+Date: Mon, 2 Mar 2009 21:24:30 +0100
+Message-ID: <20090302202430.GA3211@ami.dom.local>
+References: <20090301204731.40ce346a@nehalam> <49AC2BD1.4070209@candelatech.com> <49AC2E32.2020403@gmail.com> <200903022123.16032.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f178.google.com ([209.85.218.178]:60830 "EHLO
-	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752359AbZCBUIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 15:08:41 -0500
-Received: by bwz26 with SMTP id 26so2085813bwz.37
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2009 12:08:38 -0800 (PST)
-In-Reply-To: <20090302193604.GI23244@csclub.uwaterloo.ca>
+Received: from mail-fx0-f176.google.com ([209.85.220.176]:37296 "EHLO
+	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359AbZCBUYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 15:24:48 -0500
+Received: by fxm24 with SMTP id 24so2153071fxm.37
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2009 12:24:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <200903022123.16032.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennart Sorensen wrote, On 03/02/2009 08:36 PM:
+On Mon, Mar 02, 2009 at 09:23:15PM +0200, Denys Fedoryschenko wrote:
+...
+> But IMHO ethN.Y more intuitive understandable.
 
-> On Mon, Mar 02, 2009 at 07:51:08PM +0100, Jarek Poplawski wrote:
->> Even if you have only one ethX?
-> 
-> Yes.  What vlan number is vlan0 talking to on ethX?
-> 
-> Not that eth0 ever told you much useful, but at least eth0.0005 told
-> you something. [...]
-
-
-OK, you're right! More info is better. ...How about changing this
-silly "eth" thing to something really useful like BSDs do?!
+Happily there is a choice. On the other hand, I guess the main question
+here is if it's OK to use different defaults depending on a config tool.
 
 Jarek P.
-
