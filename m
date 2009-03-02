@@ -1,53 +1,37 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH v2] typhoon: Use request_firmware()
-Date: Mon, 02 Mar 2009 02:56:19 -0500
-Message-ID: <1235980579.23967.2.camel@localhost.localdomain>
-References: <20090301.174433.258919971.davem@davemloft.net>
-	 <1235963807.27973.1.camel@localhost.localdomain>
-	 <20090301.201123.112634333.davem@davemloft.net>
-	 <20090301.202929.81587113.davem@davemloft.net>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH net-next] jme: Advance version number after previous changes
+Date: Mon, 2 Mar 2009 16:39:25 +0800
+Message-ID: <20090302083926.M60833@cooldavid.org>
+References: <20080915165101.M68109@cooldavid.org> <48D27CDA.50501@pobox.com> <20081008215853.M53590@cooldavid.org>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=big5
+Cc: netdev@vger.kernel.org, Ethan <ethanhsiao@jmicron.com>
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:58644 "EHLO smtp.knology.net"
+Received: from cooldavid.org ([220.133.139.86]:51031 "EHLO cooldavid.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753428AbZCBH4X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2009 02:56:23 -0500
-In-Reply-To: <20090301.202929.81587113.davem@davemloft.net>
+	id S1751873AbZCBIkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2009 03:40:40 -0500
+In-Reply-To: <20081008215853.M53590@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-03-01 at 20:29 -0800, David Miller wrote:
-> I cared enough to fix this, maybe one of you will care enough
-> to test it.
+Advance version number after previous changes.
+Sorry for not come along with previous patch series.
 
-Like I said, I will be happy to test as soon as I can dig the hardware
-out. In any event, this is broken.
-
->  static int
->  typhoon_request_firmware(struct typhoon *tp)
-> @@ -1367,12 +1368,22 @@ typhoon_request_firmware(struct typhoon *tp)
->  	    memcmp(typhoon_fw->data, "TYPHOON", 8)) {
->  		printk(KERN_ERR "%s: Invalid firmware image\n",
->  		       tp->name);
-> -		release_firmware(typhoon_fw);
-> -		typhoon_fw = NULL;
-> -		return -EINVAL;
-> +		err = -EINVAL;
-> +		goto out_err;
-> +	}
-> +
-> +	typhoon_fw_image = kmalloc(typhoon_fw->size, GFP_KERNEL);
-> +	if (!typhoon_fw_image) {
-> +		err = -ENOMEM;
-> +		goto out_err;
->  	}
-
-You never copied the image into the kmalloc'd memory, so you upload
-garbage.
-
-Fix that and I think it will be OK.
+diff --git a/drivers/net/jme.h b/drivers/net/jme.h
+index e321c67..0996a06 100644
+--- a/drivers/net/jme.h
++++ b/drivers/net/jme.h
+@@ -25,7 +25,7 @@
+ #define __JME_H_INCLUDED__
+ 
+ #define DRV_NAME	"jme"
+-#define DRV_VERSION	"1.0.3"
++#define DRV_VERSION	"1.0.4"
+ #define PFX		DRV_NAME ": "
+ 
+ #define PCI_DEVICE_ID_JMICRON_JMC250	0x0250
 
