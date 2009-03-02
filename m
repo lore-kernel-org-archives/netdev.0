@@ -1,7 +1,7 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 3/3] qlge: Add support for getting/setting port config.
-Date: Mon,  2 Mar 2009 10:07:32 -0800
-Message-ID: <1236017252-6867-4-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-next PATCH 2/3] qlge: Add support for device ID 8000.
+Date: Mon,  2 Mar 2009 10:07:31 -0800
+Message-ID: <1236017252-6867-3-git-send-email-ron.mercer@qlogic.com>
 References: <1236017252-6867-1-git-send-email-ron.mercer@qlogic.com>
 Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
 	ron.mercer@qlogic.com
@@ -9,351 +9,188 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:2875 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbZCBSKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 13:10:46 -0500
+	with ESMTP id S1751103AbZCBSKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 13:10:47 -0500
 In-Reply-To: <1236017252-6867-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds functionality to get and set port parameters.
-Currently it is used to set maximum TX/RX frame sizes. This process is
-also capable of setting:
-1) Pause type: Standard or Priority based.
-2) Loop back mode.
-3) Enable Jumbo frame mode (included here...)
+This device has more firmware support for link management, setting
+TX and RX maximum frame sizes.
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge.h      |    6 +
- drivers/net/qlge/qlge_main.c |   14 +++-
- drivers/net/qlge/qlge_mpi.c  |  209 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 228 insertions(+), 1 deletions(-)
+ drivers/net/qlge/qlge.h      |   37 +++++++++++++++++++++++-
+ drivers/net/qlge/qlge_main.c |   64 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 100 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 5f60ec4..6f9fd24 100644
+index 7bf18c6..5f60ec4 100644
 --- a/drivers/net/qlge/qlge.h
 +++ b/drivers/net/qlge/qlge.h
-@@ -1450,6 +1450,7 @@ struct ql_adapter {
+@@ -29,7 +29,7 @@
  
- 	u32 mailbox_in;
- 	u32 mailbox_out;
-+	struct mbox_params idc_mbc;
- 	struct mutex	mpi_mutex;
- 
- 	int tx_ring_size;
-@@ -1486,6 +1487,8 @@ struct ql_adapter {
- 	u32 port_link_up;
- 	u32 port_init;
- 	u32 link_status;
-+	u32 link_config;
-+	u32 max_frame_size;
- 
- 	union flash_params flash;
- 
-@@ -1495,6 +1498,8 @@ struct ql_adapter {
- 	struct delayed_work asic_reset_work;
- 	struct delayed_work mpi_reset_work;
- 	struct delayed_work mpi_work;
-+	struct delayed_work mpi_port_cfg_work;
-+	struct completion ide_completion;
- 	struct nic_operations *nic_ops;
- 	u16 device_id;
+ #define QLGE_VENDOR_ID    0x1077
+ #define QLGE_DEVICE_ID_8012	0x8012
+-
++#define QLGE_DEVICE_ID_8000	0x8000
+ #define MAX_CPUS 8
+ #define MAX_TX_RINGS MAX_CPUS
+ #define MAX_RX_RINGS ((MAX_CPUS * 2) + 1)
+@@ -808,8 +808,42 @@ struct flash_params_8012 {
+ 	__le16 res;
  };
-@@ -1569,6 +1574,7 @@ void ql_queue_asic_error(struct ql_adapter *qdev);
+ 
++/* 8000 device's flash is a different structure
++ * at a different offset in flash.
++ */
++#define FUNC0_FLASH_OFFSET 0x140200
++#define FUNC1_FLASH_OFFSET 0x140600
++
++/* Flash related data structures. */
++struct flash_params_8000 {
++	u8 dev_id_str[4];	/* "8000" */
++	__le16 ver;
++	__le16 size;
++	__le16 csum;
++	__le16 reserved0;
++	__le16 total_size;
++	__le16 entry_count;
++	u8 data_type0;
++	u8 data_size0;
++	u8 mac_addr[6];
++	u8 data_type1;
++	u8 data_size1;
++	u8 mac_addr1[6];
++	u8 data_type2;
++	u8 data_size2;
++	__le16 vlan_id;
++	u8 data_type3;
++	u8 data_size3;
++	__le16 last;
++	u8 reserved1[464];
++	__le16	subsys_ven_id;
++	__le16	subsys_dev_id;
++	u8 reserved2[4];
++};
++
+ union flash_params {
+ 	struct flash_params_8012 flash_params_8012;
++	struct flash_params_8000 flash_params_8000;
+ };
+ 
+ /*
+@@ -1535,6 +1569,7 @@ void ql_queue_asic_error(struct ql_adapter *qdev);
  u32 ql_enable_completion_interrupt(struct ql_adapter *qdev, u32 intr);
  void ql_set_ethtool_ops(struct net_device *ndev);
  int ql_read_xgmac_reg64(struct ql_adapter *qdev, u32 reg, u64 *data);
-+void ql_mpi_port_cfg_work(struct work_struct *work);
- int ql_mb_get_fw_state(struct ql_adapter *qdev);
++int ql_mb_get_fw_state(struct ql_adapter *qdev);
  
  #if 1
+ #define QL_ALL_DUMP
 diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 29334d9..7c1ce57 100644
+index b4c6fd7..29334d9 100644
 --- a/drivers/net/qlge/qlge_main.c
 +++ b/drivers/net/qlge/qlge_main.c
-@@ -837,7 +837,14 @@ exit:
+@@ -76,6 +76,7 @@ MODULE_PARM_DESC(irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
  
- static int ql_8000_port_initialize(struct ql_adapter *qdev)
- {
--	return ql_mb_get_fw_state(qdev);
-+	int status;
-+	status = ql_mb_get_fw_state(qdev);
-+	if (status)
-+		goto exit;
-+	/* Wake up a worker to get/set the TX/RX frame sizes. */
-+	queue_delayed_work(qdev->workqueue, &qdev->mpi_port_cfg_work, 0);
-+exit:
-+	return status;
- }
- 
- /* Take the MAC Core out of reset.
-@@ -3188,6 +3195,7 @@ static int ql_adapter_down(struct ql_adapter *qdev)
- 		cancel_delayed_work_sync(&qdev->asic_reset_work);
- 	cancel_delayed_work_sync(&qdev->mpi_reset_work);
- 	cancel_delayed_work_sync(&qdev->mpi_work);
-+	cancel_delayed_work_sync(&qdev->mpi_port_cfg_work);
- 
- 	/* The default queue at index 0 is always processed in
- 	 * a workqueue.
-@@ -3462,6 +3470,8 @@ static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
- 
- 	if (ndev->mtu == 1500 && new_mtu == 9000) {
- 		QPRINTK(qdev, IFUP, ERR, "Changing to jumbo MTU.\n");
-+		queue_delayed_work(qdev->workqueue,
-+				&qdev->mpi_port_cfg_work, 0);
- 	} else if (ndev->mtu == 9000 && new_mtu == 1500) {
- 		QPRINTK(qdev, IFUP, ERR, "Changing to normal MTU.\n");
- 	} else if ((ndev->mtu == 1500 && new_mtu == 1500) ||
-@@ -3771,7 +3781,9 @@ static int __devinit ql_init_device(struct pci_dev *pdev,
- 	INIT_DELAYED_WORK(&qdev->asic_reset_work, ql_asic_reset_work);
- 	INIT_DELAYED_WORK(&qdev->mpi_reset_work, ql_mpi_reset_work);
- 	INIT_DELAYED_WORK(&qdev->mpi_work, ql_mpi_work);
-+	INIT_DELAYED_WORK(&qdev->mpi_port_cfg_work, ql_mpi_port_cfg_work);
- 	mutex_init(&qdev->mpi_mutex);
-+	init_completion(&qdev->ide_completion);
- 
- 	if (!cards_found) {
- 		dev_info(&pdev->dev, "%s\n", DRV_STRING);
-diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
-index 11102be..ef610c6 100644
---- a/drivers/net/qlge/qlge_mpi.c
-+++ b/drivers/net/qlge/qlge_mpi.c
-@@ -138,6 +138,27 @@ end:
+ static struct pci_device_id qlge_pci_tbl[] __devinitdata = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, QLGE_DEVICE_ID_8012)},
++	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, QLGE_DEVICE_ID_8000)},
+ 	/* required last entry */
+ 	{0,}
+ };
+@@ -669,6 +670,57 @@ exit:
  	return status;
  }
  
-+/* Process an inter-device event completion.
-+ * If good, signal the caller's completion.
-+ */
-+static int ql_idc_cmplt_aen(struct ql_adapter *qdev)
++static int ql_get_8000_flash_params(struct ql_adapter *qdev)
 +{
++	u32 i, size;
 +	int status;
-+	struct mbox_params *mbcp = &qdev->idc_mbc;
-+	mbcp->out_count = 4;
-+	status = ql_get_mb_sts(qdev, mbcp);
-+	if (status) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Could not read MPI, resetting RISC!\n");
-+		ql_queue_fw_error(qdev);
-+	} else
-+		/* Wake up the sleeping mpi_idc_work thread that is
-+		 * waiting for this event.
-+		 */
-+		complete(&qdev->ide_completion);
++	__le32 *p = (__le32 *)&qdev->flash;
++	u32 offset;
 +
-+	return status;
-+}
- static void ql_link_up(struct ql_adapter *qdev, struct mbox_params *mbcp)
- {
- 	mbcp->out_count = 2;
-@@ -241,6 +262,16 @@ static int ql_mpi_handler(struct ql_adapter *qdev, struct mbox_params *mbcp)
- 		status = ql_get_mb_sts(qdev, mbcp);
- 		return status;
- 
-+	/* Process and inbound IDC event.
-+	 * This will happen when we're trying to
-+	 * change tx/rx max frame size, change pause
-+	 * paramters or loopback mode.
++	/* Get flash offset for function and adjust
++	 * for dword access.
 +	 */
-+	case AEN_IDC_CMPLT:
-+	case AEN_IDC_EXT:
-+		status = ql_idc_cmplt_aen(qdev);
-+		break;
++	if (!qdev->func)
++		offset = FUNC0_FLASH_OFFSET / sizeof(u32);
++	else
++		offset = FUNC1_FLASH_OFFSET / sizeof(u32);
 +
- 	case AEN_LINK_UP:
- 		ql_link_up(qdev, mbcp);
- 		break;
-@@ -391,6 +422,182 @@ int ql_mb_get_fw_state(struct ql_adapter *qdev)
++	if (ql_sem_spinlock(qdev, SEM_FLASH_MASK))
++		return -ETIMEDOUT;
++
++	size = sizeof(struct flash_params_8000) / sizeof(u32);
++	for (i = 0; i < size; i++, p++) {
++		status = ql_read_flash_word(qdev, i+offset, p);
++		if (status) {
++			QPRINTK(qdev, IFUP, ERR, "Error reading flash.\n");
++			goto exit;
++		}
++	}
++
++	status = ql_validate_flash(qdev,
++			sizeof(struct flash_params_8000) / sizeof(u16),
++			"8000");
++	if (status) {
++		QPRINTK(qdev, IFUP, ERR, "Invalid flash.\n");
++		status = -EINVAL;
++		goto exit;
++	}
++
++	if (!is_valid_ether_addr(qdev->flash.flash_params_8000.mac_addr)) {
++		QPRINTK(qdev, IFUP, ERR, "Invalid MAC address.\n");
++		status = -EINVAL;
++		goto exit;
++	}
++
++	memcpy(qdev->ndev->dev_addr,
++		qdev->flash.flash_params_8000.mac_addr,
++		qdev->ndev->addr_len);
++
++exit:
++	ql_sem_unlock(qdev, SEM_FLASH_MASK);
++	return status;
++}
++
+ static int ql_get_8012_flash_params(struct ql_adapter *qdev)
+ {
+ 	int i;
+@@ -783,6 +835,11 @@ exit:
  	return status;
  }
  
-+/* Get link settings and maximum frame size settings
-+ * for the current port.
-+ * Most likely will block.
-+ */
-+static int ql_mb_set_port_cfg(struct ql_adapter *qdev)
++static int ql_8000_port_initialize(struct ql_adapter *qdev)
 +{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	int status = 0;
-+
-+	memset(mbcp, 0, sizeof(struct mbox_params));
-+
-+	mbcp->in_count = 3;
-+	mbcp->out_count = 1;
-+
-+	mbcp->mbox_in[0] = MB_CMD_SET_PORT_CFG;
-+	mbcp->mbox_in[1] = qdev->link_config;
-+	mbcp->mbox_in[2] = qdev->max_frame_size;
-+
-+
-+	status = ql_mailbox_command(qdev, mbcp);
-+	if (status)
-+		return status;
-+
-+	if (mbcp->mbox_out[0] == MB_CMD_STS_INTRMDT) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Port Config sent, wait for IDC.\n");
-+	} else	if (mbcp->mbox_out[0] != MB_CMD_STS_GOOD) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Failed Set Port Configuration.\n");
-+		status = -EIO;
-+	}
-+	return status;
++	return ql_mb_get_fw_state(qdev);
 +}
 +
-+/* Get link settings and maximum frame size settings
-+ * for the current port.
-+ * Most likely will block.
-+ */
-+static int ql_mb_get_port_cfg(struct ql_adapter *qdev)
-+{
-+	struct mbox_params mbc;
-+	struct mbox_params *mbcp = &mbc;
-+	int status = 0;
+ /* Take the MAC Core out of reset.
+  * Enable statistics counting.
+  * Take the transmitter/receiver out of reset.
+@@ -3557,6 +3614,11 @@ static struct nic_operations qla8012_nic_ops = {
+ 	.port_initialize	= ql_8012_port_initialize,
+ };
+ 
++static struct nic_operations qla8000_nic_ops = {
++	.get_flash		= ql_get_8000_flash_params,
++	.port_initialize	= ql_8000_port_initialize,
++};
 +
-+	memset(mbcp, 0, sizeof(struct mbox_params));
-+
-+	mbcp->in_count = 1;
-+	mbcp->out_count = 3;
-+
-+	mbcp->mbox_in[0] = MB_CMD_GET_PORT_CFG;
-+
-+	status = ql_mailbox_command(qdev, mbcp);
-+	if (status)
-+		return status;
-+
-+	if (mbcp->mbox_out[0] != MB_CMD_STS_GOOD) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Failed Get Port Configuration.\n");
-+		status = -EIO;
-+	} else	{
-+		QPRINTK(qdev, DRV, DEBUG,
-+			"Passed Get Port Configuration.\n");
-+		qdev->link_config = mbcp->mbox_out[1];
-+		qdev->max_frame_size = mbcp->mbox_out[2];
-+	}
-+	return status;
-+}
-+
-+/* IDC - Inter Device Communication...
-+ * Some firmware commands require consent of adjacent FCOE
-+ * function.  This function waits for the OK, or a
-+ * counter-request for a little more time.i
-+ * The firmware will complete the request if the other
-+ * function doesn't respond.
-+ */
-+static int ql_idc_wait(struct ql_adapter *qdev)
-+{
-+	int status = -ETIMEDOUT;
-+	long wait_time = 1 * HZ;
-+	struct mbox_params *mbcp = &qdev->idc_mbc;
-+	do {
-+		/* Wait here for the command to complete
-+		 * via the IDC process.
-+		 */
-+		wait_time =
-+			wait_for_completion_timeout(&qdev->ide_completion,
-+							wait_time);
-+		if (!wait_time) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"IDC Timeout.\n");
-+			break;
-+		}
-+		/* Now examine the response from the IDC process.
-+		 * We might have a good completion or a request for
-+		 * more wait time.
-+		 */
-+		if (mbcp->mbox_out[0] == AEN_IDC_EXT) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"IDC Time Extension from function.\n");
-+			wait_time += (mbcp->mbox_out[1] >> 8) & 0x0000000f;
-+		} else if (mbcp->mbox_out[0] == AEN_IDC_CMPLT) {
-+			QPRINTK(qdev, DRV, ERR,
-+				"IDC Success.\n");
-+			status = 0;
-+			break;
-+		} else {
-+			QPRINTK(qdev, DRV, ERR,
-+				"IDC: Invalid State 0x%.04x.\n",
-+				mbcp->mbox_out[0]);
-+			status = -EIO;
-+			break;
-+		}
-+	} while (wait_time);
-+
-+	return status;
-+}
-+
-+/* API called in work thread context to set new TX/RX
-+ * maximum frame size values to match MTU.
-+ */
-+static int ql_set_port_cfg(struct ql_adapter *qdev)
-+{
-+	int status;
-+	status = ql_mb_set_port_cfg(qdev);
-+	if (status)
-+		return status;
-+	status = ql_idc_wait(qdev);
-+	return status;
-+}
-+
-+/* The following routines are worker threads that process
-+ * events that may sleep waiting for completion.
-+ */
-+
-+/* This thread gets the maximum TX and RX frame size values
-+ * from the firmware and, if necessary, changes them to match
-+ * the MTU setting.
-+ */
-+void ql_mpi_port_cfg_work(struct work_struct *work)
-+{
-+	struct ql_adapter *qdev =
-+	    container_of(work, struct ql_adapter, mpi_port_cfg_work.work);
-+	struct net_device *ndev = qdev->ndev;
-+	int status;
-+
-+	status = ql_mb_get_port_cfg(qdev);
-+	if (status) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Bug: Failed to get port config data.\n");
-+		goto err;
-+	}
-+
-+	if (ndev->mtu <= 2500)
-+		goto end;
-+	else if (qdev->link_config & CFG_JUMBO_FRAME_SIZE &&
-+			qdev->max_frame_size ==
-+			CFG_DEFAULT_MAX_FRAME_SIZE)
-+		goto end;
-+
-+	qdev->link_config |=	CFG_JUMBO_FRAME_SIZE;
-+	qdev->max_frame_size = CFG_DEFAULT_MAX_FRAME_SIZE;
-+	status = ql_set_port_cfg(qdev);
-+	if (status) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Bug: Failed to set port config data.\n");
-+		goto err;
-+	}
-+end:
-+	clear_bit(QL_PORT_CFG, &qdev->flags);
-+	return;
-+err:
-+	ql_queue_fw_error(qdev);
-+	goto end;
-+}
-+
- void ql_mpi_work(struct work_struct *work)
+ 
+ static void ql_get_board_info(struct ql_adapter *qdev)
  {
- 	struct ql_adapter *qdev =
-@@ -414,5 +621,7 @@ void ql_mpi_reset_work(struct work_struct *work)
- {
- 	struct ql_adapter *qdev =
- 	    container_of(work, struct ql_adapter, mpi_reset_work.work);
-+	cancel_delayed_work_sync(&qdev->mpi_work);
-+	cancel_delayed_work_sync(&qdev->mpi_port_cfg_work);
- 	ql_soft_reset_mpi_risc(qdev);
+@@ -3579,6 +3641,8 @@ static void ql_get_board_info(struct ql_adapter *qdev)
+ 	qdev->device_id = qdev->pdev->device;
+ 	if (qdev->device_id == QLGE_DEVICE_ID_8012)
+ 		qdev->nic_ops = &qla8012_nic_ops;
++	else if (qdev->device_id == QLGE_DEVICE_ID_8000)
++		qdev->nic_ops = &qla8000_nic_ops;
  }
+ 
+ static void ql_release_all(struct pci_dev *pdev)
 -- 
 1.6.0.2
 
