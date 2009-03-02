@@ -1,26 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 9/9] sfc: Add support for SFN4112F SFP+ reference design
-Date: Mon, 02 Mar 2009 03:26:54 -0800 (PST)
-Message-ID: <20090302.032654.61901737.davem@davemloft.net>
-References: <1235775847.3164.6.camel@achroite>
-	<1235776098.3164.30.camel@achroite>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH net-next 14/17] tcp: remove pointless .dsack code
+Date: Mon, 2 Mar 2009 13:54:17 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0903021340540.31742@wrl-59.cs.helsinki.fi>
+References: <12358322831599-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12358322832879-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <12358322831019-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20090302.030320.95493086.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1780423684-1235994857=:31742"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37994
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754575AbZCBL1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:27:12 -0500
-In-Reply-To: <1235776098.3164.30.camel@achroite>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45544 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752126AbZCBLyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:54:21 -0500
+In-Reply-To: <20090302.030320.95493086.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 27 Feb 2009 23:08:18 +0000
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---696208474-1780423684-1235994857=:31742
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Applied.
+On Mon, 2 Mar 2009, David Miller wrote:
+
+> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Sat, 28 Feb 2009 16:44:39 +0200
+> 
+> > From: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > 
+> > In the pure assignment case, the earlier zeroing is
+> > still in effect.
+> > 
+> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> 
+> I skipped this one.
+> 
+> These tests could be there to avoid dirtying a cacheline
+> when unnecessary.  And so unless we can prove the condition
+> always hits and we always do the write, we should keep
+> the tests there.
+
+We'll be dirty it anyway (not that I check), the first "real" statement
+in tcp_rcv_established is:
+
+	tp->rx_opt.saw_tstamp = 0;
+
+...that'll land on the same dword. :-/
+
+I suppose the blocks are there just because they had more complexity 
+inside when they had to calculate the eff_sacks too (maybe it would
+have been better to just remove them in that drop-patch so you would
+have had less head-ache :-)).
+
+Besides, it isn't very nice to have tx/rx or rx'es on different cpus 
+anyway, no? 
+
+
+-- 
+ i.
+---696208474-1780423684-1235994857=:31742--
