@@ -1,47 +1,74 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: some tc commands fail on 2.6.29-rc6-git5, works on 2.6.28.7
-Date: Sun, 1 Mar 2009 16:57:29 -0800
-Message-ID: <20090301165729.8e08e1d7.akpm@linux-foundation.org>
-References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v2] typhoon: Use request_firmware()
+Date: Mon, 02 Mar 2009 01:02:54 +0000
+Message-ID: <1235955774.3251.6.camel@bunthorne.i.decadent.org.uk>
+References: <1235324217.2832.49.camel@hashbaz.i.decadent.org.uk>
+	 <20090226134950.GA975@decadentplace.org.uk>
+	 <1235939916.22828.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joao Correia <joaomiguelcorreia@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Uveh489crA5Ram5KRdUi"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Dillow <dave@thedillows.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:46780 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753777AbZCBA5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 19:57:34 -0500
-In-Reply-To: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:1157 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751475AbZCBBDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2009 20:03:04 -0500
+In-Reply-To: <1235939916.22828.7.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(cc netdev)
 
-On Mon, 2 Mar 2009 00:36:03 +0000 Joao Correia <joaomiguelcorreia@gmail.com> wrote:
+--=-Uveh489crA5Ram5KRdUi
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> Hello all
-> 
-> On a Fedora 9 box, with a 2.6.29-rc6-git5 compiled with the same
-> .config as the previously running 2.6.28.7, i get:
-> 
-> [root@duron ~]# /sbin/tc qdisc add dev eth2 handle ffff: ingress
-> [root@duron ~]# /sbin/tc filter add dev eth2 parent ffff: protocol ip
-> prio 50 u32 match ip src 0.0.0.0/0 police rate 30320kbit burst 500k
-> drop flowid :1
-> RTNETLINK answers: Invalid argument
-> We have an error talking to the kernel
-> [root@duron ~]# uname -a
-> Linux duron 2.6.29-rc6-git5 #3 SMP Sun Mar 1 00:02:56 WET 2009 i686
-> athlon i386 GNU/Linux
-> [root@duron ~]#
-> 
-> There is no information regarding this event on dmesg or /var/log/messages.
-> eth2 exists and is working properly, under 2.6.28.7 it works (without
-> complaints).
-> 
-> Please advise on what steps I may take to provide more information. I have
-> both kernel sources and availability to apply patches/recompile as needed.
-> 
+On Sun, 2009-03-01 at 15:38 -0500, David Dillow wrote:
+> On Thu, 2009-02-26 at 13:49 +0000, Ben Hutchings wrote:
+> > Based on a patch by Jaswinder Singh <jaswinder@infradead.org>.
+> >=20
+> > Compile-tested only.
+> >=20
+> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+>=20
+> I suppose it's my fault for not getting around to this sooner, but I've
+> been waiting for the fallout to settle with tg3 and follow the leader.
+>=20
+> Anyways, is it too much to ask for you to CC the maintainer? Hell, you
+> added a line right above my email address, so it wouldn't have been hard
+> for you to find...
 
+Sorry about that - I looked for a maintainer but there was no listing
+for "typhoon" in MAINTAINERS nor any recent change to the driver that
+was not part of a general API change.  Email addresses in source files
+tend to be outdated, so I didn't look for them.  I see now that you have
+an entry under "3CR990" in MAINTAINERS, but that isn't the driver name.
+Please could you change that so that it's easier for people to find you?
+
+> I suppose I better test this sooner rather than later, because I think
+> you've broken it. The firmware gets vmalloc'd, which means it is not
+> necessarily physically contiguous, and I don't think pci_map_single() is
+> going to like that since the firmware is always larger than a page. But
+> I may be wrong on this.
+
+You could well be right.
+
+Ben.
+
+--=20
+Ben Hutchings
+In a hierarchy, every employee tends to rise to his level of incompetence.
+
+--=-Uveh489crA5Ram5KRdUi
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iD8DBQBJqzA579ZNCRIGYgcRAkStAJ9S3KukDU5TRm9bY0SyLf3H2OG4CQCdGBhk
+fJw8D37wR7/3y1uawShzqqY=
+=WUP7
+-----END PGP SIGNATURE-----
+
+--=-Uveh489crA5Ram5KRdUi--
