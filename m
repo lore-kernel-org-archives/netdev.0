@@ -1,43 +1,55 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: Marvell 88E609x switch?
-Date: Mon, 02 Mar 2009 12:05:37 +0100
-Message-ID: <1235991937.30736.65.camel@localhost.localdomain>
-References: <20090227145746.GD17040@xi.wantstofly.org>
-	 <49A801E6.1040502@mlbassoc.com> <20090227151441.GE17040@xi.wantstofly.org>
-	 <49A80606.1040508@mlbassoc.com> <20090227152721.GG17040@xi.wantstofly.org>
-	 <49A806C5.1010200@mlbassoc.com> <20090227153102.GH17040@xi.wantstofly.org>
-	 <49A80A75.8000101@mlbassoc.com> <20090227155224.GK17040@xi.wantstofly.org>
-	 <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk>
-	 <20090227222802.GZ17040@xi.wantstofly.org>
-	 <1235991382.30736.62.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
+Date: Mon, 02 Mar 2009 12:07:11 +0100
+Message-ID: <49ABBDDF.4030805@trash.net>
+References: <49A4D5D5.5090602@trash.net>	<20090225061902.GA32430@gondor.apana.org.au>	<49A4E3F8.4050406@trash.net>	<49A4F0D7.20304@trash.net>	<20090225084321.GA1101@gondor.apana.org.au>	<m163ixk9t2.fsf@fess.ebiederm.org>	<20090226062257.GA11511@gondor.apana.org.au>	<m14oyhis31.fsf@fess.ebiederm.org>	<20090226084924.16cb3e08@nehalam>	<49A83063.2060600@candelatech.com> <20090227103812.14af52b3@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Gary Thomas <gary@mlbassoc.com>,
-	netdev <netdev@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Ben Greear <greearb@candelatech.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:43142 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbZCBLFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:05:41 -0500
-In-Reply-To: <1235991382.30736.62.camel@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:42146 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752415AbZCBLHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:07:15 -0500
+In-Reply-To: <20090227103812.14af52b3@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-03-02 at 11:56 +0100, Jesper Dangaard Brouer wrote:
+Stephen Hemminger wrote:
+> On Fri, 27 Feb 2009 10:26:43 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
+> 
+>> Stephen Hemminger wrote:
+>>
+>>> Subject: [PATCH] Avoid race between network down and sysfs
+>>>
+>>>
+>>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>>
+>>> --- a/net/core/net-sysfs.c	2009-02-26 08:36:18.000000000 -0800
+>>> +++ b/net/core/net-sysfs.c	2009-02-26 08:37:51.000000000 -0800
+>>> @@ -77,7 +77,9 @@ static ssize_t netdev_store(struct devic
+>>>  	if (endp == buf)
+>>>  		goto err;
+>>>  
+>>> -	rtnl_lock();
+>>> +	if (!rtnl_trylock())
+>>> +		return -ERESTARTSYS;
+>>> +
+>>>  	if (dev_isalive(net)) {
+>>>  		if ((ret = (*set)(net, new)) == 0)
+>>>  			ret = len;
+>> I can test this to see if it fixes my problem.  Are the above lines the
+>> entirety of the patch?
+> 
+> yes
 
-> You should write 0x003E ... see attached patch
+We should be able to avoid the restart looping in most cases,
+we only need to do this while unregistration is in progress.
 
-Ups, I see (from the thread) that you have already done/tried this...
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
