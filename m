@@ -1,27 +1,27 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Vlan interface nuisance
-Date: Mon, 02 Mar 2009 22:52:52 +0100
-Message-ID: <49AC5534.2090102@trash.net>
-References: <20090301204731.40ce346a@nehalam> <20090302172057.GA23247@csclub.uwaterloo.ca> <49AC2A9C.5090303@gmail.com> <49AC2BD1.4070209@candelatech.com> <49AC2E32.2020403@gmail.com>
+Date: Mon, 02 Mar 2009 22:54:38 +0100
+Message-ID: <49AC559E.80101@trash.net>
+References: <20090301204731.40ce346a@nehalam>	<20090302172057.GA23247@csclub.uwaterloo.ca>	<49AC2A9C.5090303@gmail.com>	<49AC545E.3090708@trash.net> <20090302135101.1165f117@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
 	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55214 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:55247 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752844AbZCBVw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 16:52:56 -0500
-In-Reply-To: <49AC2E32.2020403@gmail.com>
+	with ESMTP id S1753087AbZCBVyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 16:54:43 -0500
+In-Reply-To: <20090302135101.1165f117@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> Ben Greear wrote, On 03/02/2009 07:56 PM:
+Stephen Hemminger wrote:
+> On Mon, 02 Mar 2009 22:49:18 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
 >> Jarek Poplawski wrote:
 >>> Lennart Sorensen wrote, On 03/02/2009 06:20 PM:
@@ -38,24 +38,17 @@ Jarek Poplawski wrote:
 >>>  
 >>>
 >>> Even if you have only one ethX?
->> Yes...the old way would tell you the vlan-id regardless of how
->> many NICs you have, which is useful information for anyone
->> actually trying to configure two boxes to talk to each other,
->> or (god forbid), debug someone else's config.
->>
->> It's true you can specify the vlan-name on creation using 'ip',
->> which is what I do, so I'm not going to argue Stephen's change
->> either way..but I do like device names that give more info...
+>> The binding is displayed when listing interfaces. This hole
+>> argument is silly, if you want a particular name, just specify
+>> it. The current naming schemes are entirely based on information
+>> that you have to specify anyways.
 > 
-> To make it clear: I don't say vlan0 is better; but IMHO it doesn't
-> have to be silly or nothing useful either.
+> I overlooked the obvious:
+>  ip li add link eth1 name eth1.44 type vlan id 44
+> 
+> Setting the name overrides.
 
-Admittedly, this part of the rtnl_link interface could be improved.
-The names are allocated centrally when unspecified, which imposes
-this fixed naming scheme. A simple callback to choose a better
-name than just incrementally counting up interfaces types would
-allow to at least choose a default name of ethX.xyz or something
-similar. I refuse to introduce the selectable naming schemes to
-this interface though, this can easily be done in userspace.
-
+Finally someone realizes it :) As stated before, there is room
+for improvement, but please no selectable naming schemes when
+userspace is ulitimatively responsible anyways :)
 
