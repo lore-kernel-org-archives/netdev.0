@@ -1,55 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPv4/IPv6 sysctl unregistration deadlock
-Date: Mon, 02 Mar 2009 12:07:11 +0100
-Message-ID: <49ABBDDF.4030805@trash.net>
-References: <49A4D5D5.5090602@trash.net>	<20090225061902.GA32430@gondor.apana.org.au>	<49A4E3F8.4050406@trash.net>	<49A4F0D7.20304@trash.net>	<20090225084321.GA1101@gondor.apana.org.au>	<m163ixk9t2.fsf@fess.ebiederm.org>	<20090226062257.GA11511@gondor.apana.org.au>	<m14oyhis31.fsf@fess.ebiederm.org>	<20090226084924.16cb3e08@nehalam>	<49A83063.2060600@candelatech.com> <20090227103812.14af52b3@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] dccp: Minimise header option overhead in setting
+ the MPS
+Date: Mon, 02 Mar 2009 03:08:03 -0800 (PST)
+Message-ID: <20090302.030803.184649276.davem@davemloft.net>
+References: <dccp_setting_MPS_based_on_negotiated_features>
+	<1235810309-10256-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1235810309-10256-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42146 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752415AbZCBLHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:07:15 -0500
-In-Reply-To: <20090227103812.14af52b3@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46029
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752658AbZCBLIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2009 06:08:22 -0500
+In-Reply-To: <1235810309-10256-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Fri, 27 Feb 2009 10:26:43 -0800
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
->> Stephen Hemminger wrote:
->>
->>> Subject: [PATCH] Avoid race between network down and sysfs
->>>
->>>
->>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>>
->>> --- a/net/core/net-sysfs.c	2009-02-26 08:36:18.000000000 -0800
->>> +++ b/net/core/net-sysfs.c	2009-02-26 08:37:51.000000000 -0800
->>> @@ -77,7 +77,9 @@ static ssize_t netdev_store(struct devic
->>>  	if (endp == buf)
->>>  		goto err;
->>>  
->>> -	rtnl_lock();
->>> +	if (!rtnl_trylock())
->>> +		return -ERESTARTSYS;
->>> +
->>>  	if (dev_isalive(net)) {
->>>  		if ((ret = (*set)(net, new)) == 0)
->>>  			ret = len;
->> I can test this to see if it fixes my problem.  Are the above lines the
->> entirety of the patch?
-> 
-> yes
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Sat, 28 Feb 2009 09:38:28 +0100
 
-We should be able to avoid the restart looping in most cases,
-we only need to do this while unregistration is in progress.
+> This patch resolves a long-standing FIXME to dynamically update the Maximum
+> Packet Size depending on actual options usage.
+> 
+> It uses the flags set by the feature-negotiation infrastructure to compute
+> the required header option size.
+> 
+> Most options are fixed-size, a notable exception are Ack Vectors (required
+> currently only by CCID-2). These can have any length between 3 and 1020
+> bytes. As a result of testing, 16 bytes (2 bytes for type/length plus 14 Ack
+> Vector cells) have been found to be sufficient for loss-free situations.
+> 
+> There are currently no CCID-specific header options which may appear on data
+> packets, thus it is not necessary to define a corresponding CCID field as
+> suggested in the old comment.
+> 
+> Further changes:
+> ----------------
+>  Adjusted the type of 'cur_mps' to match the unsigned return type of the
+>  function.
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
+Applied.
