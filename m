@@ -1,12 +1,13 @@
-From: Christoph Hellwig <hch@infradead.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
 Subject: Re: 2.6.29-rc6: Reported regressions from 2.6.28
-Date: Tue, 3 Mar 2009 14:45:13 -0500
-Message-ID: <20090303194513.GA10548@infradead.org>
+Date: Tue, 3 Mar 2009 20:56:19 +0100
+Message-ID: <200903032056.20437.rjw@sisk.pl>
 References: <GVhknozYwrL.A.hiC.rozoJB@chimera> <20090303193609.GE27178@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Adrian Bunk <bunk@kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -17,13 +18,13 @@ Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Linux PM List <linux-pm@lists.linux-foundation.org>,
 	Linux SCSI List <linux-scsi@vger.kernel.org>
 To: Jan Kara <jack@suse.cz>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20090303193609.GE27178@atrey.karlin.mff.cuni.cz>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 03, 2009 at 08:36:10PM +0100, Jan Kara wrote:
+On Tuesday 03 March 2009, Jan Kara wrote:
 >   Hi,
 > 
 > > Unresolved regressions
@@ -43,6 +44,7 @@ On Tue, Mar 03, 2009 at 08:36:10PM +0100, Jan Kara wrote:
 >   I've just noticed that the above two reports are probably the same bug...
 > Just that we don't duplicate the effort.
 
-At least on the XFS side it's fixed now.  The block layer gets the
-initial detection right without warning, and a patch to fix the
-unconditional cache flush on unmount is on it's way.
+Thanks, I closed 12551 as a duplicate of 12497 .
+
+Best,
+Rafael
