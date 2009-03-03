@@ -1,50 +1,67 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-rc6: Reported regressions from 2.6.28
-Date: Tue, 3 Mar 2009 20:56:19 +0100
-Message-ID: <200903032056.20437.rjw@sisk.pl>
-References: <GVhknozYwrL.A.hiC.rozoJB@chimera> <20090303193609.GE27178@atrey.karlin.mff.cuni.cz>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 01/14] tg3: Fix 5906 link problems
+Date: Tue, 3 Mar 2009 12:17:39 -0800
+Message-ID: <20090303201739.GD21611@xw6200.broadcom.net>
+References: <1235616367.15995@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: Jan Kara <jack@suse.cz>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20090303193609.GE27178@atrey.karlin.mff.cuni.cz>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+To: "Matt Carlson" <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3854 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750915AbZCCUSY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2009 15:18:24 -0500
+In-Reply-To: <1235616367.15995@xw6200>
 Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 03 March 2009, Jan Kara wrote:
->   Hi,
+Hi David.  Can we also apply this patch into net-2.6?  It fixes a
+regression that was introduced during the 2.6.29 development cycle.
+
+On Wed, Feb 25, 2009 at 04:21:20PM -0800, Matt Carlson wrote:
+> Commit 6833c043f9fc03696fde623914c4a0277df2a0bc introduced the phy
+> auto-powerdown capability.  While the APD feature only works for 5761
+> and 5784 asic revisions, the (harmless portion of the) code was applied
+> to all 5705 and newer devices.  However, the 5906 phy departs from the
+> usual design.  This commit was interfering with the 5906's ability to
+> negotiate link against some switches.  This patch corrects the problem.
 > 
-> > Unresolved regressions
-> > ----------------------
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12551
-> > Subject		: end_request: I/O error, dev cciss/c0d0, sector 87435720
-> > Submitter	: Ralf Hildebrandt <ralf.hildebrandt@charite.de>
-> > Date		: 2009-01-27 06:51 (28 days old)
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12497
-> > Subject		: new barrier warnings in 2.6.29-rc1
-> > Submitter	: Christoph Hellwig <hch@lst.de>
-> > Date		: 2009-01-12 15:46 (43 days old)
-> > References	: http://marc.info/?l=linux-kernel&m=123177528217154&w=4
-> > Handled-By	: Jens Axboe <jens.axboe@oracle.com>
->   I've just noticed that the above two reports are probably the same bug...
-> Just that we don't duplicate the effort.
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Benjamin Li <benli@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/tg3.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 67630fb..c7bbbb1 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -1473,7 +1473,8 @@ static void tg3_phy_toggle_apd(struct tg3 *tp, bool enable)
+>  {
+>  	u32 reg;
+>  
+> -	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS))
+> +	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
+> +	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
+>  		return;
+>  
+>  	reg = MII_TG3_MISC_SHDW_WREN |
+> -- 
+> 1.6.0.6
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Thanks, I closed 12551 as a duplicate of 12497 .
-
-Best,
-Rafael
