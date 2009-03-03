@@ -1,39 +1,63 @@
-From: "Deep Datta" <ddatta@ixiacom.com>
-Subject: is it proper to do sk->sk_prot->unhash(sk) on a socket from a kernel module?
-Date: Tue, 3 Mar 2009 02:09:33 -0800
-Message-ID: <4C3C777A1128A74BA27FECF4E421BCBE0503F13D@IXCA-EXCHANGE.ixiacom.com>
+From: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: Re: ipw2100: race between isr_indicate_associated and rx path
+Date: Tue, 3 Mar 2009 12:33:23 +0100
+Message-ID: <200903031233.23702.helmut.schaa@gmail.com>
+References: <200901211734.48625.helmut.schaa@gmail.com> <200902251340.02010.helmut.schaa@gmail.com> <1235696139.6354.584.camel@debian>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixqw-mail-out.ixiacom.com ([66.77.12.12]:4152 "EHLO
-	IXCA-EXCHANGE.ixiacom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750734AbZCCKYo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2009 05:24:44 -0500
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jouni Malinen <j@w1.fi>
+To: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1235696139.6354.584.camel@debian>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Am Freitag, 27. Februar 2009 schrieb Zhu Yi:
+> On Wed, 2009-02-25 at 20:39 +0800, Helmut Schaa wrote:
+> > Argh! Just found out why dev_activate is called such late after
+> > netif_carrier_on:
+> > 
+> > ipw2100 calls netif_carrier_on followed by netif_wake_queue when the
+> > driver
+> > moves from associating to associated state. netif_carrier_on will then
+> > call linkwatch_fire_event. However the carrier_on event is not treated
+> > as
+> > urgent and as such the event is delayed (and thus dev_activate too).
+> > 
+> > An event is considered urgent if the netdev is running, has a carrier
+> > _and_ any of the TX qdiscs changed. Since ipw2100 first calls
+> > carrier_on,
+> > the last condition is not met and thus the event is not considered
+> > urgent and gets delayed.
+> 
+> Calling netif_wake_queue() before netif_carrier_on() is not correct in
+> semantics. Even it works, it looks like a workaround hack. I still think
+> making a sync version of netif_carrier_on is the way to go.
 
-I want to have a set of send-only UDP sockets in my kernel module (The
-receives will all be handled by a single socket bound to port n &
-INADDR_ANY). 
+Hmm, we could use register_netdevice_notifier to get notified when the
+carrier event is sent out and thus the tx queues are available.
 
-So I did a bind(), connect()and sk->sk_prot->unhash(sk) on the sockets 
-such that udp_rcv()/udpv6_rcv() will not find these socket when it does
-a udp_vx_lookup(), instead pushing all the packets into the single
-receive socket.
-These unhashed sockets are only used to do udp_sendpage().
+The flow in ipw2100 would then be:
 
-My questions are:
-Are there any issues with this approach? 
-Can this design break with changes in future kernel?
-Are there any other proper ways to have a send-only UDP socket?
+1) isr_indicate_associated:
+- move to ASSOCIATING state
+- start buffering incoming frames
 
-Thanks in advance,
-Deep
+2) ipw2100_ex_event_work:
+- call carrier_on and wake_queues
 
+3) netdevice_notification:
+- move to ASSOCIATED state and replay buffered frames
+
+I hope I'll find some time to try that soon.
+
+Helmut
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
