@@ -1,69 +1,43 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] RDMA/cxgb3: test before subtraction on unsigned
-Date: Tue, 03 Mar 2009 14:38:35 +0100
-Message-ID: <49AD32DB.20407@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: general@lists.openfabrics.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: swise@chelsio.com
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] dm9601: new vendor/product IDs
+Date: Tue,  3 Mar 2009 16:22:59 +0100
+Message-ID: <1236093779-27089-1-git-send-email-jacmet@sunsite.dk>
+Cc: eric@linux.ca, Peter Korsgaard <jacmet@sunsite.dk>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f177.google.com ([209.85.219.177]:53199 "EHLO
+Received: from mail-ew0-f177.google.com ([209.85.219.177]:54849 "EHLO
 	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753910AbZCCNij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 08:38:39 -0500
-Received: by ewy25 with SMTP id 25so2323564ewy.37
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2009 05:38:36 -0800 (PST)
+	with ESMTP id S1756742AbZCCPXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 10:23:06 -0500
+Received: by ewy25 with SMTP id 25so2357767ewy.37
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2009 07:23:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think there's someting wrong in iwch_post_send():
+Add vendor/product IDs for new no name dm9601 compatible usb ethernet
+adaptors.
 
-// vi drivers/infiniband/hw/cxgb3/iwch_qp.c +353
-int iwch_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
-                      struct ib_send_wr **bad_wr)
-{
-	...
-        u32 num_wrs;
-	...
-        num_wrs = Q_FREECNT(qhp->wq.sq_rptr, qhp->wq.sq_wptr,
-                  qhp->wq.sq_size_log2);
-        if (num_wrs <= 0) {
-                spin_unlock_irqrestore(&qhp->lock, flag);
-                return -ENOMEM;
-        }
-
-// vi drivers/infiniband/hw/cxgb3/cxio_wr.h +50
-#define Q_FREECNT(rptr,wptr,size_log2) ((1UL<<size_log2)-((wptr)-(rptr)))
-
-Since num_wrs is unsigned, I think the test should occur before the subtraction,
-right? please review.
------------------------------->8-------------8<---------------------------------
-num_wrs is unsigned so test before the subtraction.
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Reported-by: Eric Lauriault <eric@linux.ca>
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 ---
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_qp.c b/drivers/infiniband/hw/cxgb3/iwch_qp.c
-index 19661b2..1c6ebaf 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_qp.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_qp.c
-@@ -369,12 +369,13 @@ int iwch_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 		spin_unlock_irqrestore(&qhp->lock, flag);
- 		return -EINVAL;
- 	}
--	num_wrs = Q_FREECNT(qhp->wq.sq_rptr, qhp->wq.sq_wptr,
--		  qhp->wq.sq_size_log2);
--	if (num_wrs <= 0) {
-+	if ((1UL << qhp->wq.sq_size_log2) + qhp->wq.sq_rptr <=
-+			qhp->wq.sq_wptr) {
- 		spin_unlock_irqrestore(&qhp->lock, flag);
- 		return -ENOMEM;
- 	}
-+	num_wrs = Q_FREECNT(qhp->wq.sq_rptr, qhp->wq.sq_wptr,
-+		  qhp->wq.sq_size_log2);
- 	while (wr) {
- 		if (num_wrs == 0) {
- 			err = -ENOMEM;
+ drivers/net/usb/dm9601.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 5b67bbf..81682c6 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -635,6 +635,10 @@ static const struct usb_device_id products[] = {
+ 	USB_DEVICE(0x0a47, 0x9601),	/* Hirose USB-100 */
+ 	.driver_info = (unsigned long)&dm9601_info,
+ 	 },
++	{
++	USB_DEVICE(0x0fe6, 0x8101),	/* DM9601 USB to Fast Ethernet Adapter */
++	.driver_info = (unsigned long)&dm9601_info,
++	 },
+ 	{},			// END
+ };
+ 
+-- 
+1.5.6.5
 
