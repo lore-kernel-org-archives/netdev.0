@@ -1,41 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH tcp_init_wl / tcp_update_wl argument cleanup
-Date: Mon, 02 Mar 2009 22:43:33 -0800 (PST)
-Message-ID: <20090302.224333.03623374.davem@davemloft.net>
-References: <49AA657B.5030904@gmail.com>
-	<20090302.031401.177327405.davem@davemloft.net>
-	<49AC1E03.2000900@ceid.upatras.gr>
+Subject: Re: [net-next PATCH 0/3] Add Device ID 8000.
+Date: Mon, 02 Mar 2009 22:47:34 -0800 (PST)
+Message-ID: <20090302.224734.80768595.davem@davemloft.net>
+References: <1236017252-6867-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xantzis@ceid.upatras.gr
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60680
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34456
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753095AbZCCGnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 01:43:51 -0500
-In-Reply-To: <49AC1E03.2000900@ceid.upatras.gr>
+	by vger.kernel.org with ESMTP id S1754161AbZCCGrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 01:47:52 -0500
+In-Reply-To: <1236017252-6867-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hantzis Fotis <xantzis@ceid.upatras.gr>
-Date: Mon, 02 Mar 2009 19:57:23 +0200
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Mon,  2 Mar 2009 10:07:29 -0800
 
-> David Miller wrote:
-> > From: "ithilgore.ryu.L@gmail.com" <ithilgore.ryu.l@gmail.com>
-> > Date: Sun, 01 Mar 2009 12:37:47 +0200
-> >
-> >   
-> >> The above functions from include/net/tcp.h have been defined with an
-> >> argument that they never use. The argument is 'u32 ack' which is never
-> >> used inside the function body, and thus it can be removed. The rest of
-> >> the patch involves the necessary changes to the function callers of the
-> >> above two functions.
-...
-> Sorry for not complying with the guidelines on the previous submission.
-> I am resending the patch properly this time:
-> 
-> Signed-off-by: Hantzis Fotis <xantzis@ceid.upatras.gr>
+> Attached are 3 patches that add Device ID 8000 and some supporting
+> functionality that is required by this ID.
 
-Applied, thanks.
+All applied to net-next-2.6, thanks Ron.
