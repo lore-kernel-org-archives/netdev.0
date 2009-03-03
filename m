@@ -1,44 +1,48 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch 1/5] Network Drop Monitor: Add netlink protocol
-	identifer
-Date: Tue, 3 Mar 2009 14:41:54 -0500
-Message-ID: <20090303194154.GK1480@hmsreliant.think-freely.org>
-References: <20090303170014.GB1480@hmsreliant.think-freely.org> <20090303182006.GB29236@ioremap.net> <20090303190054.GI1480@hmsreliant.think-freely.org> <20090303190457.GA8006@ioremap.net>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: 2.6.29-rc6: Reported regressions from 2.6.28
+Date: Tue, 3 Mar 2009 14:45:13 -0500
+Message-ID: <20090303194513.GA10548@infradead.org>
+References: <GVhknozYwrL.A.hiC.rozoJB@chimera> <20090303193609.GE27178@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40398 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752804AbZCCTmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 14:42:03 -0500
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: Jan Kara <jack@suse.cz>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090303190457.GA8006@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090303193609.GE27178@atrey.karlin.mff.cuni.cz>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 03, 2009 at 10:04:57PM +0300, Evgeniy Polyakov wrote:
-> On Tue, Mar 03, 2009 at 02:00:54PM -0500, Neil Horman (nhorman@tuxdriver.com) wrote:
-> > Because this is its own protocol.  I could have used NETLINK_GENERIC I suppose,
-> > but this is a feature that, if used is going to be commonly built into the
-> > kernel, I see no need to add an additional step of making userspace search for a
-> > protocol registered to NETLINK_GENERIC when we dont need to.  In other words,
-> > why not define my own protocol?
+On Tue, Mar 03, 2009 at 08:36:10PM +0100, Jan Kara wrote:
+>   Hi,
 > 
-> genetlink is alwats built into the kernel, there are access libraries
-> helpers and there is really no userspace overhead. It was really
-> specially designed for this kind of the tasks to eliminate netlink
-> internal structure access and provide simple high-level interface.
-> 
-Not really about performance overhead in my view, its about programming
-overhead.  Its just more work, and without any really tangible gain IMO.  Could
-I use it?  Sure, but I don't really get any particular benefit out of doing so,
-and from the kernel standpoint, it makes no difference either, except that its
-one more header to parse before I get to my data.  I guess it just boils down to
-choice for me
-Neil
+> > Unresolved regressions
+> > ----------------------
+> > 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12551
+> > Subject		: end_request: I/O error, dev cciss/c0d0, sector 87435720
+> > Submitter	: Ralf Hildebrandt <ralf.hildebrandt@charite.de>
+> > Date		: 2009-01-27 06:51 (28 days old)
+> > 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12497
+> > Subject		: new barrier warnings in 2.6.29-rc1
+> > Submitter	: Christoph Hellwig <hch@lst.de>
+> > Date		: 2009-01-12 15:46 (43 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=123177528217154&w=4
+> > Handled-By	: Jens Axboe <jens.axboe@oracle.com>
+>   I've just noticed that the above two reports are probably the same bug...
+> Just that we don't duplicate the effort.
 
-> -- 
-> 	Evgeniy Polyakov
-> 
+At least on the XFS side it's fixed now.  The block layer gets the
+initial detection right without warning, and a patch to fix the
+unconditional cache flush on unmount is on it's way.
