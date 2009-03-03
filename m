@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch 1/5] Network Drop Monitor: Add netlink protocol
- identifer
-Date: Tue, 03 Mar 2009 14:17:49 -0800 (PST)
-Message-ID: <20090303.141749.210780391.davem@davemloft.net>
-References: <20090303170014.GB1480@hmsreliant.think-freely.org>
-	<20090303182006.GB29236@ioremap.net>
+From: Andrew Grover <andy.grover@gmail.com>
+Subject: ***SPAM*** Re: [ofa-general] [PATCH 0/26] Reliable Datagram Sockets
+	(RDS), take 2
+Date: Tue, 3 Mar 2009 14:19:34 -0800
+Message-ID: <c0a09e5c0903031419w2c90a82cn7e446dbe4f04891b@mail.gmail.com>
+References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
+	<87myc73izx.fsf@basil.nowhere.org>
+	<c0a09e5c0902271753n1a522647g6e7ac5465149c5a4@mail.gmail.com>
+	<20090228055608.GB26292@one.firstfloor.org>
+	<c0a09e5c0902281244u356acbecn98f37ac3abd5ebc0@mail.gmail.com>
+	<20090228223653.GD26292@one.firstfloor.org>
+	<c0a09e5c0902281658v48084cd8w8f95871395020e20@mail.gmail.com>
+	<20090301015020.GH26292@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: zbr@ioremap.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51070
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762196AbZCCWSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 17:18:07 -0500
-In-Reply-To: <20090303182006.GB29236@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20090301015020.GH26292@one.firstfloor.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Tue, 3 Mar 2009 21:20:06 +0300
+On Sat, Feb 28, 2009 at 5:50 PM, Andi Kleen <andi@firstfloor.org> wrote:
+>> Higher load -> more time before a process runs -> rcvbuf overfills ->
+>
+> How can the rcvbuf overfill if the sender doesn't run?
 
-> Why do you want to use own family instead of using existing netlink
-> helpers like connector or genetlink?
+rcvbuf overfill on the receiver-side.
 
-Yes, indeed, use genetlink for this.
-
-We don't add new core netlink protocols any more with it's
-fixed address space of link types.
+-- Andy
