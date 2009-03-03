@@ -1,22 +1,23 @@
 From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH v2] typhoon: Use request_firmware()
-Date: Tue, 03 Mar 2009 00:44:22 -0500
-Message-ID: <1236059062.4207.11.camel@localhost.localdomain>
+Subject: Re: [PATCH v3 checked] typhoon: Use request_firmware()
+Date: Tue, 03 Mar 2009 00:49:16 -0500
+Message-ID: <1236059356.4207.14.camel@localhost.localdomain>
 References: <20090301.201123.112634333.davem@davemloft.net>
 	 <20090301.202929.81587113.davem@davemloft.net>
 	 <1235980579.23967.2.camel@localhost.localdomain>
 	 <20090302.015315.181629191.davem@davemloft.net>
+	 <1236059062.4207.11.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: ben@decadent.org.uk, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:57787 "EHLO smtp.knology.net"
+Received: from smtp.knology.net ([24.214.63.101]:34395 "EHLO smtp.knology.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750858AbZCCFo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2009 00:44:26 -0500
-In-Reply-To: <20090302.015315.181629191.davem@davemloft.net>
+	id S1750747AbZCCFtU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2009 00:49:20 -0500
+In-Reply-To: <1236059062.4207.11.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -35,26 +36,10 @@ Signed-off-by: David Dillow <dave@thedillows.org>
  drivers/net/typhoon.c |  137 +++++++++++++++++++++++++-----------------
  2 files changed, 84 insertions(+), 55 deletions(-)
 
-I tested the version in net-next-2.6 and it wouldn't load the firmware,
-so here's my fix. It has been tested to work, and to reject images that
-fail it's cursory tests.
+I forgot to run checkpatch on it, and of course I would have some
+trailing whitespace. I've left the non-space between if and the (, as
+that is the style of the original code.
 
-Also, I added typhoon to the existing MAINTAINERS entry, since it is
-apparently too much trouble to Cc: the email address in the source file.
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e74a133..617a397 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -97,7 +97,7 @@ M:	klassert@mathematik.tu-chemnitz.de
- L:	netdev@vger.kernel.org
- S:	Maintained
- 
--3CR990 NETWORK DRIVER
-+3CR990 (typhoon) NETWORK DRIVER
- P:	David Dillow
- M:	dave@thedillows.org
- L:	netdev@vger.kernel.org
 diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
 index 9bba787..9dcd897 100644
 --- a/drivers/net/typhoon.c
@@ -94,8 +79,8 @@ index 9bba787..9dcd897 100644
 +	const struct typhoon_section_header *sHdr;
 +	const u8 *image_data;
 +	u32 numSections;
-+	u32 section_len; 
-+	u32 remaining; 
++	u32 section_len;
++	u32 remaining;
  	int err;
  
  	if (typhoon_fw)
