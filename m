@@ -1,240 +1,73 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: 2.6.29-rc6-git7: Reported regressions 2.6.27 -> 2.6.28
-Date: Tue,  3 Mar 2009 20:34:54 +0100 (CET)
-Message-ID: <r4SCKuuJK0F.A.UrB.QdarJB@chimera>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stable Kernel Team <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-next PATCH 8/8] qlge: Add support for lost firmware events.
+Date: Tue,  3 Mar 2009 14:10:37 -0800
+Message-ID: <1236118237-14483-9-git-send-email-ron.mercer@qlogic.com>
+References: <1236118237-14483-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:50781 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757449AbZCCWOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 17:14:05 -0500
+In-Reply-To: <1236118237-14483-1-git-send-email-ron.mercer@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[NOTE: I'm going to close the unresolved bugs in this list where the submitter
- has not been responding.]
+When the firmware is issuing events to the driver the events
+must be removed from the queue.  If the queue overflows, the
+firmware will build and special event that captures those that
+are lost.
 
-This message contains a list of some regressions introduced between 2.6.27 and
-2.6.28, for which there are no fixes in the mainline I know of.  If any of them
-have been fixed already, please let me know.
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_mpi.c |   25 +++++++++++++++++++++++++
+ 1 files changed, 25 insertions(+), 0 deletions(-)
 
-If you know of any other unresolved regressions introduced between 2.6.27
-and 2.6.28, please let me know either and I'll add them to the list.
-Also, please let me know if any of the entries below are invalid.
+diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
+index f9a2371..9f81b79 100644
+--- a/drivers/net/qlge/qlge_mpi.c
++++ b/drivers/net/qlge/qlge_mpi.c
+@@ -284,6 +284,27 @@ static int ql_sfp_out(struct ql_adapter *qdev, struct mbox_params *mbcp)
+ 	return status;
+ }
+ 
++static int ql_aen_lost(struct ql_adapter *qdev, struct mbox_params *mbcp)
++{
++	int status;
++
++	mbcp->out_count = 6;
++
++	status = ql_get_mb_sts(qdev, mbcp);
++	if (status)
++		QPRINTK(qdev, DRV, ERR, "Lost AEN broken!\n");
++	else {
++		int i;
++		QPRINTK(qdev, DRV, ERR, "Lost AEN detected.\n");
++		for (i = 0; i < mbcp->out_count; i++)
++			QPRINTK(qdev, DRV, ERR, "mbox_out[%d] = 0x%.08x.\n",
++					i, mbcp->mbox_out[i]);
++
++	}
++
++	return status;
++}
++
+ static void ql_init_fw_done(struct ql_adapter *qdev, struct mbox_params *mbcp)
+ {
+ 	int status;
+@@ -421,6 +442,10 @@ static int ql_mpi_handler(struct ql_adapter *qdev, struct mbox_params *mbcp)
+ 		status = -EIO;
+ 		break;
+ 
++	case AEN_AEN_LOST:
++		ql_aen_lost(qdev, mbcp);
++		break;
++
+ 	default:
+ 		QPRINTK(qdev, DRV, ERR,
+ 			"Unsupported AE %.08x.\n", mbcp->mbox_out[0]);
+-- 
+1.6.0.2
 
-Each entry from the list will be sent additionally in an automatic reply to
-this message with CCs to the people involved in reporting and handling the
-issue.
-
-
-Listed regressions statistics:
-
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2009-03-03      153       21          16
-  2009-02-24      154       27          23
-  2009-02-15      152       30          26
-  2009-02-04      149       33          30
-  2009-01-20      144       30          27
-  2009-01-11      139       33          30
-  2008-12-21      120       19          17
-  2008-12-13      111       14          13
-  2008-12-07      106       20          17
-  2008-12-04      106       29          21
-  2008-11-22       93       25          15
-  2008-11-16       89       32          18
-  2008-11-09       73       40          27
-  2008-11-02       55       41          29
-  2008-10-25       26       25          20
-
-
-Unresolved regressions
-----------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12759
-Subject		: scsi: aic7xxx hang since v2.6.28-rc1 ...
-Submitter	: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Date		: 2009-02-15 11:44 (17 days old)
-References	: http://marc.info/?l=linux-kernel&m=123469852817058&w=4
-Handled-By	: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12690
-Subject		: DPMS (LCD powersave, poweroff) don't work
-Submitter	: Antonin Kolisek <akolisek-T3ps84XAcx36AaHJ4hbVU+3CNBr840j2@public.gmane.org>
-Date		: 2009-02-11 09:40 (21 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12645
-Subject		: DMI low-memory-protect quirk causes resume hang on Samsung NC10
-Submitter	: Patrick Walton <pcwalton-764C0pRuGfqVc3sceRu5cw@public.gmane.org>
-Date		: 2009-02-06 18:35 (26 days old)
-First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=0af40a4b1050c050e62eb1dc30b82d5ab22bf221
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12634
-Subject		: video distortion and lockup with i830 video chip and 2.6.28.3
-Submitter	: Bob Raitz <pappy_mcfae-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-Date		: 2009-02-04 21:10 (28 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12619
-Subject		: Regression 2.6.28 and last - boot failed
-Submitter	: jan sonnek <ha2nny-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-02-01 19:59 (31 days old)
-References	: http://marc.info/?l=linux-kernel&m=123351836213969&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12500
-Subject		: r8169: NETDEV WATCHDOG: eth0 (r8169): transmit timed out
-Submitter	: Justin Piszcz <jpiszcz-BP4nVm5VUdNhbmWW9KSYcQ@public.gmane.org>
-Date		: 2009-01-13 21:19 (50 days old)
-References	: http://marc.info/?l=linux-kernel&m=123188160811322&w=4
-Handled-By	: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12465
-Subject		: KVM guests stalling on 2.6.28 (bisected)
-Submitter	: Kevin Shanahan <kmshanah-biM/RbsGxha6c6uEtOJ/EA@public.gmane.org>
-Date		: 2009-01-17 03:37 (46 days old)
-Handled-By	: Avi Kivity <avi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12421
-Subject		: GPF on 2.6.28 and 2.6.28-rc9-git3, e1000e and e1000 issues
-Submitter	: Doug Bazarnic <doug-nOyj/A09A+/k1uMJSBkQmQ@public.gmane.org>
-Date		: 2009-01-09 21:26 (54 days old)
-References	: http://marc.info/?l=linux-kernel&m=123153653120204&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12411
-Subject		: 2.6.28: BUG in r8169
-Submitter	: Andrey Vul <andrey.vul-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2008-12-31 18:37 (63 days old)
-References	: http://marc.info/?l=linux-kernel&m=123074869611409&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12408
-Subject		: Funny problem with 2.6.28: Kernel stalls
-Submitter	: Michael Roth <mroth-+8Z3Oe2AQjqzQB+pC5nmwQ@public.gmane.org>
-Date		: 2008-12-25 15:14 (69 days old)
-References	: http://marc.info/?l=linux-kernel&m=123021931714282&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12405
-Subject		: oops in __bounce_end_io_read under kvm
-Submitter	: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Date		: 2008-12-26 17:36 (68 days old)
-References	: http://marc.info/?l=linux-kernel&m=123031303400676&w=4
-Handled-By	: Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12404
-Subject		: Oops in 2.6.28-rc9 and -rc8 -- mtrr issues / e1000e
-Submitter	: Kernel <kernel-nOyj/A09A+/k1uMJSBkQmQ@public.gmane.org>
-Date		: 2008-12-22 9:37 (72 days old)
-References	: http://marc.info/?l=linux-kernel&m=122993873320150&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12337
-Subject		: ~100 extra wakeups reported by powertop
-Submitter	: Alberto Gonzalez <luis6674-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-Date		: 2008-12-31 12:25 (63 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12209
-Subject		: oldish top core dumps (in its meminfo() function)
-Submitter	: Andreas Mohr <andi-5+Cda9B46AM@public.gmane.org>
-Date		: 2008-12-12 18:49 (82 days old)
-References	: http://marc.info/?l=linux-kernel&m=122910784006472&w=4
-		  http://marc.info/?l=linux-kernel&m=122907511319288&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12208
-Subject		: uml is very slow on 2.6.28 host
-Submitter	: Miklos Szeredi <miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org>
-Date		: 2008-12-12 9:35 (82 days old)
-References	: http://marc.info/?l=linux-kernel&m=122907463518593&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12061
-Subject		: snd_hda_intel: power_save: sound cracks on powerdown
-Submitter	: Jens Weibler <bugzilla-kernel-6hJTtV8wudIr9FUcG+3rRQ@public.gmane.org>
-Date		: 2008-11-18 12:07 (106 days old)
-Handled-By	: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12798
-Subject		: No wake up after suspend.
-Submitter	: Michal Graczyk <zazulas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-03-01 15:30 (3 days old)
-Handled-By	: Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Patch		: http://bugzilla.kernel.org/attachment.cgi?id=20402&action=view
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12614
-Subject		: WOL with forcedeth broken since f55c21fd9a92a444e55ad1ca4e4732d56661bf2e
-Submitter	: Philipp Matthias Hahn <pmhahn-u4khhh1J0LzF41mA0N3lWw@public.gmane.org>
-Date		: 2009-01-29 6:31 (34 days old)
-References	: http://marc.info/?l=linux-kernel&m=123321232825316&w=4
-Handled-By	: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-		  Tobias Diedrich <ranma+kernel-YxUgxmcw2FPQD6PfKP4TzA@public.gmane.org>
-Patch		: http://marc.info/?l=linux-kernel&m=123330459229248&w=4
-		  http://marc.info/?l=linux-kernel&m=123411195117835&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12612
-Subject		: hard lockup when interrupting cdda2wav
-Submitter	: Matthias Reichl <hias-vtPv7MOkFPkAvxtiuMwx3w@public.gmane.org>
-Date		: 2009-01-28 16:41 (35 days old)
-References	: http://marc.info/?l=linux-kernel&m=123316111415677&w=4
-Handled-By	: FUJITA Tomonori <fujita.tomonori-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
-Patch		: http://marc.info/?l=linux-scsi&m=123371501613019&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12406
-Subject		: 2.6.28 thinks that my PS/2 mouse is a touchpad
-Submitter	: Alexander E. Patrakov <patrakov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2008-12-27 9:06 (67 days old)
-References	: http://marc.info/?l=linux-kernel&m=123036893817280&w=4
-Handled-By	: Arjan Opmeer <arjan-OssVvNj1wBysTnJN9+BGXg@public.gmane.org>
-Patch		: http://marc.info/?l=linux-kernel&m=123092147703236&w=4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12395
-Subject		: 2.6.28-rc9: oprofile regression
-Submitter	: Tim Blechmann <tim-xpEK/MU0Hawdnm+yROfE0A@public.gmane.org>
-Date		: 2008-12-21 14:23 (73 days old)
-First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=b99170288421c79f0c2efa8b33e26e65f4bb7fb8
-References	: http://marc.info/?l=linux-kernel&m=122986946614791&w=4
-Handled-By	: Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-		  Tim Blechmann <tim-xpEK/MU0Hawdnm+yROfE0A@public.gmane.org>
-Patch		: http://marc.info/?l=linux-kernel&m=123506131927371&w=4
-
-
-For details, please visit the bug entries and follow the links given in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions introduced
-between 2.6.27 and 2.6.28, unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=11808
-
-Please let me know if there are any Bugzilla entries that should be added to
-the list in there.
-
-Thanks,
-Rafael
