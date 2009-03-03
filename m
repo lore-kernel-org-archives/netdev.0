@@ -1,80 +1,138 @@
-From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: TX time stamping
-Date: Tue, 03 Mar 2009 10:31:21 -0800
-Message-ID: <1236105081.4653.68.camel@pohly-MOBL>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Patch 0/5] Network Drop Monitor
+Date: Tue, 3 Mar 2009 13:54:43 -0500
+Message-ID: <20090303185443.GH1480@hmsreliant.think-freely.org>
+References: <20090303165747.GA1480@hmsreliant.think-freely.org> <20090303100637.31a5dac7@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38822 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752688AbZCCSbe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2009 13:31:34 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52691 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbZCCSyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 13:54:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20090303100637.31a5dac7@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Tue, Mar 03, 2009 at 10:06:37AM -0800, Stephen Hemminger wrote:
+> On Tue, 3 Mar 2009 11:57:47 -0500
+> Neil Horman <nhorman@tuxdriver.com> wrote:
+> 
+> > 
+> > Create Network Drop Monitoring service in the kernel
+> > 
+> > A few weeks ago I posted an RFC requesting some feedback on a proposal that I
+> > had to enhance our ability to monitor the Linux network stack for dropped
+> > packets.  This patchset is the result of that RFC and its feedback.
+> > 
+> > Overview:
+> > 
+> > The Linux networking stack, from a users point of view suffers from four
+> > shortcommings:
+> > 
+> > 1) Consolidation: The ability to detect dropped network packets is spread out
+> > over several proc file interfaces and various other utilities (tc,
+> > /proc/net/dev, snmp, etc)
+> > 
+> > 2) Clarity: The ability to discern which statistics reflect dropped packets is
+> > not always clear
+> > 
+> > 3) Ambiguity: The ability to understand the root cause of a lost packet is not
+> > always clear (some stats are incremented at multiple points in the kernel for
+> > subtly different reasons)
+> > 
+> > 4) Performance: Interrogating all of these interface as they currently exist
+> > requires a polling operation, and potentially requires the serialization of
+> > various kernel operations, which can result in performance degradation.
+> > 
+> > Proposed solution: dropwatch
+> > 
+> > My proposed solution consists of 4 primary aspects:
+> > 
+> > A) A hook into kfree_skb to detect dropped packets.  Based on feedback from the
+> > earlier RFC, there are relatively few places in the kernel where packets are
+> > dropped because they have been successfully received or send (for lack of a
+> > better term, end-of-line points).  The remaining calls to kfree_skb are made
+> > because there is something wrong and the packet must be discarded.  I've split
+> > kfree_skb into two calls: kfree_skb and kfree_skb_clean.  The later is simply a
+> > pass through to __kfree_skb, while the former adds a trace hook to capture a
+> > pointer to the skb and the location of the call.
+> > 
+> > B) A trace hook to monitor the trace point in (A).  this records the locations
+> > at which frames were dropped, and saves them for periodic reporting.
+> > 
+> > C) A netlink protocol to both control the enabling/disabling of the trace hook
+> > in (B) and to deliver information on drops to interested applications in user
+> > space
+> > 
+> > D) A user space application to listen for drop alerts from (C) and report them
+> > to an adminstrator/save them for later analysis/etc.  I've implmented the start
+> > of this application, which relies on this patch set here:
+> > https://fedorahosted.org/dropwatch/
+> > 
+> > 
+> > Implementation Notes:
+> > 
+> > About the only out-of the ordinary aspects I'd like to call attention to at this
+> > point are:
+> > 
+> > 1) The trace point.  I know that tracepoints are currently a controversial
+> > subject, and that their need was discussed briefly during the RFC.  I elected to
+> > use a tracepoint here, simply because I felt like I was re-inventing the wheel
+> > otherwise.  In order to implement this feature, I needed an ability to record
+> > when kfree_skb was called in certain places who's performance impact would be 0
+> > when the feature wasn't configured into the kernel, and when it was configured,
+> > but disabled.  Given that anything else I used or wrote myself to hook into this
+> > point in the kernel would be a partial approximation of what tracepoints already
+> > offer, I think its preferable to go with a tracepoint here, simply because its
+> > good use of existing function.
+> > 
+> > 2) The configuration messages in the netlink protocol are just a placeholder
+> > right now.  I'm ok with that, given that the dropwatch user app doesn't have
+> > code to configure anything yet anyway (it just turns the service off/on and
+> > listens for drops right now).  I figure I'll implment configuration messages in
+> > the app and kernel in parallel.
+> > 
+> > 3) Performance.  I'm not sure of the best way to model the performance here, but
+> > I disassembled the code in question, and the point at which we hook kfree_skb,
+> > this patch set only adds a conditional branch to the path, which is optimized
+> > for the not-taken case (the case in which the service is disabled), so adding
+> > this feature is as close to a zero impact as it can be when the service is
+> > disabled.  Likewise, when tracepoints are not configured in the kernel, the
+> > tracepoint (which is defined as a macro) is preprocessed away, making the
+> > performance impact zero.  That leave the case in which the service is enabled.
+> > While I don't have specific numbers, I can say that the trace path is lockless
+> > and per-cpu, and should run O(n) where n is the number of recordable drop points
+> > (default is 64).  Sendingi/allocation of frames to userspace is done in the 
+> > context of keventd, with a timer for hysteresis, to keep the number of sends
+> > lower and consolidate drop information.  So performance should be reasonably
+> > good there.  Again, no hard numbers, but I've monitored drops by passing udp
+> > traffic through localhost with netcat and SIGSTOP-ing the receiver.  Console and
+> > ssh access remained very responsive
+> > 
+> > 
+> > Ok, so thats it, hope it meets with everybodys approval!
+> > Regards
+> > Neil
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> It would be good to have a way to mask off certain tracepoints.
+> For example, if running performance test and after measuring number
+> of packets dropped in TX queue overflow, only see others.
+> 
+I had actually considered that, yes.  I'd like to save it for a later release,
+just to avoid adding too much into it at once, but I'll put it on the roadmap.
+I'll probably add the ability to configure a define a filter list to the
+protocol.
 
-Based on previous discussions, there are some areas of time stamping
-which could be improved or needing a fix.
-
-The first being, using skb->sk to send back TX information. The goal is
-to notify the sender, and just the sender of the packet about the time
-when the packet got transmitted.
-
-I cannot think of how this can be done without skb->sk, but I am open to
-suggestions. Without it, one would have to fall back to some kind of
-broadcasting scheme were all TX stamped packets are received by all processes
-potentially interested in them. This has security issues (packet data
-needs to be included to identify packets -> data sent by one user would
-be visible to other users; TX stamping feature would have to be
-restricted to root, which is not the case now), and potentially impacts
-performance (every process has to analyze every packet) and might not be
-reliable (depending on the packet payload, processes might not be able
-to identify their own packets when they get mixed with those of other
-processes).
-
-When an early call to skb_orphan() gets implemented, would it be
-acceptable to only do that if no TX time stamping is requested for the
-packet? This can be tested relatively fast (check one field in shinfo)?
-
-Second, loopback. I cannot see any issues with loopback, but please let
-me know if I have missed something. If I remember (and understand)
-correctly, loopback is implemented as writing to a special network
-device. Once the TX software fallback is implemented again (see third
-point below), then this case can be tested with the timestamping test
-program by selecting "lo" as device and asking for TX software time
-stamps.
-
-Third, TX software time stamping. I believe a clean solution could work
-like this:
-      * if TX time stamping is requested, then clone the skb and get a
-        reference to the socket
-      * ask driver to send packet
-      * check status of cloned skb: if TX software fallback is
-        necessary, do it using the socket reference
-      * drop the references to the cloned skb and the socket
-
-In this scenario the extra work is only done for those packets which
-need it. It will work for drivers which call skb_orphan().
-
-As an extra refinement one can later add a driver flag which tells the
-kernel that the driver will do the software TX fallback itself. In that
-case no extra work needs to be done before calling the driver.
-
-Of course, this all depends on still having the socket before calling
-the driver - see above  :-/
-
--- 
-Best Regards, Patrick Ohly
-
-The content of this message is my personal opinion only and although
-I am an employee of Intel, the statements I make here in no way
-represent Intel's position on the issue, nor am I authorized to speak
-on behalf of Intel on this matter.
-
-
+Thanks for the suggestion!
+Neil
