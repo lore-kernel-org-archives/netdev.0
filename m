@@ -1,40 +1,90 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: ***SPAM*** Re: [ofa-general] [PATCH 0/26] Reliable Datagram Sockets
-	(RDS), take 2
-Date: Tue, 3 Mar 2009 14:19:34 -0800
-Message-ID: <c0a09e5c0903031419w2c90a82cn7e446dbe4f04891b@mail.gmail.com>
-References: <1235525443-9007-1-git-send-email-andy.grover@oracle.com>
-	<87myc73izx.fsf@basil.nowhere.org>
-	<c0a09e5c0902271753n1a522647g6e7ac5465149c5a4@mail.gmail.com>
-	<20090228055608.GB26292@one.firstfloor.org>
-	<c0a09e5c0902281244u356acbecn98f37ac3abd5ebc0@mail.gmail.com>
-	<20090228223653.GD26292@one.firstfloor.org>
-	<c0a09e5c0902281658v48084cd8w8f95871395020e20@mail.gmail.com>
-	<20090301015020.GH26292@one.firstfloor.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: oops / null deref in __inet6_check_established(), kernel
+ 2.6.29-rc6
+Date: Tue, 03 Mar 2009 14:21:02 -0800 (PST)
+Message-ID: <20090303.142102.134459736.davem@davemloft.net>
+References: <20090224182147.2150468e@dhcp-100-2-144.bos.redhat.com>
+	<20090224.152704.210992553.davem@davemloft.net>
+	<20090224183554.330eb308@dhcp-100-2-144.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20090301015020.GH26292@one.firstfloor.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: cebbert@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51073
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1762715AbZCCWVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 17:21:20 -0500
+In-Reply-To: <20090224183554.330eb308@dhcp-100-2-144.bos.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 28, 2009 at 5:50 PM, Andi Kleen <andi@firstfloor.org> wrote:
->> Higher load -> more time before a process runs -> rcvbuf overfills ->
->
-> How can the rcvbuf overfill if the sender doesn't run?
+From: Chuck Ebbert <cebbert@redhat.com>
+Date: Tue, 24 Feb 2009 18:35:54 -0500
 
-rcvbuf overfill on the receiver-side.
+> On Tue, 24 Feb 2009 15:27:04 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Chuck Ebbert <cebbert@redhat.com>
+> > Date: Tue, 24 Feb 2009 18:21:47 -0500
+> > 
+> > > (This doesn't happen on 2.6.27/28)
+> > > 
+> > > tw is NULL at net/ipv6/inet6_hashtables.c:261:
+> > > 
+> > > 	if (twp != NULL) {
+> > > 		*twp = tw;
+> > > ===>		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
+> > > 	} else if (tw != NULL) {
+> > > 
+> > > I can reproduce this on real hardware on x86_64 too...
+> > 
+> > How? :-)
+> 
+> Oops, forgot to add the bug URL:
+> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=486889
+> 
+> Steps to Reproduce:
+> 1. Get minirpc 0.3.2 [http://minirpc.cs.cmu.edu/download/minirpc-0.3.2.tar.gz]
+> 2. Run ./configure ; make ; make check
 
--- Andy
+Should be fixed by:
+
+commit 3f53a38131a4e7a053c0aa060aba0411242fb6b9
+Author: Pavel Emelyanov <xemul@openvz.org>
+Date:   Thu Feb 26 03:35:13 2009 -0800
+
+    ipv6: don't use tw net when accounting for recycled tw
+    
+    We already have a valid net in that place, but this is not just a
+    cleanup - the tw pointer can be NULL there sometimes, thus causing
+    an oops in NET_NS=y case.
+    
+    The same place in ipv4 code already works correctly using existing
+    net, rather than tw's one.
+    
+    The bug exists since 2.6.27.
+    
+    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 8fe267f..1bcc343 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -258,11 +258,11 @@ unique:
+ 
+ 	if (twp != NULL) {
+ 		*twp = tw;
+-		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
++		NET_INC_STATS_BH(net, LINUX_MIB_TIMEWAITRECYCLED);
+ 	} else if (tw != NULL) {
+ 		/* Silly. Should hash-dance instead... */
+ 		inet_twsk_deschedule(tw, death_row);
+-		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
++		NET_INC_STATS_BH(net, LINUX_MIB_TIMEWAITRECYCLED);
+ 
+ 		inet_twsk_put(tw);
+ 	}
