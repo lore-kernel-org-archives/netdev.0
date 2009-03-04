@@ -1,44 +1,50 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [BUG?] iproute2/skbedit bug?
-Date: Wed, 4 Mar 2009 23:54:15 +0200
-Message-ID: <200903042354.15463.denys@visp.net.lb>
-References: <200903042146.37807.denys@visp.net.lb> <200903042342.09287.denys@visp.net.lb> <80769D7B14936844A23C0C43D9FBCF0F2C0F5D6C@orsmsx501.amr.corp.intel.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
+	non-drops and modifying end-of-line points for skbs
+Date: Wed, 4 Mar 2009 19:45:05 -0300
+Message-ID: <20090304224505.GD6392@ghostprotocols.net>
+References: <20090304135415.GB6392@ghostprotocols.net> <20090304141831.GB6139@hmsreliant.think-freely.org> <20090304161335.GC6392@ghostprotocols.net> <20090304.130614.127792905.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@osdl.org" <shemminger@osdl.org>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:39998 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756089AbZCDVy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 16:54:26 -0500
-In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F2C0F5D6C@orsmsx501.amr.corp.intel.com>
+Received: from mx2.redhat.com ([66.187.237.31]:36337 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751137AbZCDWqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2009 17:46:00 -0500
 Content-Disposition: inline
+In-Reply-To: <20090304.130614.127792905.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 04 March 2009 23:46:47 Duyck, Alexander H wrote:
-> Denys Fedoryschenko wrote:
-> > On Wednesday 04 March 2009 23:36:07 Duyck, Alexander H wrote:
-> >> Are you using the latest version off of the git tree or the version
-> >> tagged v2.6.28?  There was a fix applied 13 days ago to the git tree
-> >> version which resolves an issue with uninitialized memory being used
-> >> in configuring the skbedit action.  This was causing "File Exists"
-> >> errors similar to what you are seeing now.
-> >
-> > 2.6.29-rc6-git7
-> > I will try rc7 now
->
-> Are you talking about the kernel or the iproute package?  The git tree I
-> was referring to was the iproute tools package.
->
-> http://www.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
->
-> Thanks,
->
-> Alex
-Latest iproute2 git is fine, thank you!
+Em Wed, Mar 04, 2009 at 01:06:14PM -0800, David Miller escreveu:
+> From: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Date: Wed, 4 Mar 2009 13:13:35 -0300
+> 
+> > I wouldn't mind the churn, as I really think drop_skb() would be
+> > clearer, but then this is up to Dave.
+> 
+> I mind the churn, I have to apply this thing and deal with
+> the merge conflicts :-)
+> 
+> Why not come up with a clever alternative name for kfree_skb_clean()?
 
+Oh well, sometimes churn is inevitable, but lemme try to figure out some
+more clearer names for kfree_skb_clean:
+
+rest_in_peace_skb()
+here_lies_a_productive_skb()
+kfree_not_dropped_skb()
+kfree_worthy_skb()
+consumed_skb()
+hasta_la_vista_skbaby()
+kfree_used_skb()
+
+Perhaps the last one, huh? :-)
+
+- Arnaldo
+
+P.S.: </joke'ishy moment>
