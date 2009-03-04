@@ -1,56 +1,55 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: some tc commands fail on 2.6.29-rc6-git5, works on 2.6.28.7
-Date: Tue, 03 Mar 2009 20:50:28 -0600
-Message-ID: <1236135028.7883.44.camel@Maple>
-References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
-	 <20090301165729.8e08e1d7.akpm@linux-foundation.org>
-	 <49AC28FF.1040102@gmail.com>
-	 <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [net-next PATCH 1/2] PCI: Add PCI quirk to disable L0s ASPM state for 82575 and 82598
+Date: Tue, 3 Mar 2009 21:05:26 -0700
+Message-ID: <20090304040526.GB1884@parisc-linux.org>
+References: <20090304020308.15176.40527.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Joao Correia <joaomiguelcorreia@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.173]:28983 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405AbZCDCug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 21:50:36 -0500
-In-Reply-To: <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	linux-pci <linux-pci@vger.kernel.org>,
+	Matthew Wilcox <willy@linux.intel.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090304020308.15176.40527.stgit@lost.foo-projects.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-03-03 at 23:10 +0000, Joao Correia wrote:
-> I have confirmed again that the exact same commands (as on the
-> original message), work flawlessly on 2.6.28.7 without a hitch, and,
-> AFAIK, work as intended. I have also tried the latest 2.6.29-rc6-git7
-> and it still fails like on git6.
+On Tue, Mar 03, 2009 at 06:03:09PM -0800, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This patch is intended to disable L0s ASPM link state for 82598 (ixgbe)
+> parts due to the fact that it is possible to corrupt TX data when coming
+> back out of L0s on some systems.  The workaround had been added for 82575
+> (igb) previously, but did not use the ASPM api.  This quirk uses the ASPM
+> api to prevent the ASPM subsystem from re-enabling the L0s state.
+> 
+> Instead of adding the fix in igb to the ixgbe driver as well it was
+> decided to move it into a pci quirk.  It is necessary to move the fix out
+> of the driver and into a pci quirk in order to prevent the issue from
+> occuring prior to driver load to handle the possibility of the device being
+> passed to a VM via direct assignment.
 
-I have also reproduced this on Linus' latest 2.6.29-rc6 tree, using tc
-version iproute2-ss071016 and a kernel config with all traffic control
-features enabled.
+Thanks for the explanation, it handles my immediate question of "why do
+it in a quirk?"  It does, however, raise the very interesting question
+about what to do about other devices which have issues that are currently
+handled in the driver that can't be handled by the driver in a VM.  
+I don't have a good example to hand right now, but I bet I can spot one
+when I'm less tired.
 
-The error reported by tc comes from the kernel-level check added by:
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: linux-pci <linux-pci@vger.kernel.org>
+> CC: Matthew Wilcox <willy@linux.intel.com>
+> CC: Jesse Barnes <jbarnes@virtuousgeek.org>
 
-	commit c1b56878fb68e9c14070939ea4537ad4db79ffae
-	Author: Stephen Hemminger <shemminger@vyatta.com>
-	Date:   Tue Nov 25 21:14:06 2008 -0800
+I'm not going to ack this patch at this point, let's just give it a day.
+FWIW, Jesse is not going to be able to review patches this week.
 
-    	tc: policing requires a rate estimator
-
-    Found that while trying average rate policing, it was possible to
-    request average rate policing without a rate estimator. This results
-    in no policing which is harmless but incorrect.
-
-    Since policing could be setup in two steps, need to check
-    in the kernel.
-
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-I got the same error when using the tc version iproute2-ss090115 built
-this evening from the public git repository.
-
-  -- John
-
+-- 
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
