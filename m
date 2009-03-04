@@ -1,54 +1,80 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 2/2] smsc911x: improve EEPROM loading timeout logic in open
-Date: Wed,  4 Mar 2009 17:33:25 +0000
-Message-ID: <1236188005-14065-2-git-send-email-steve.glendinning@smsc.com>
-References: <1236188005-14065-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Roel Kluin <roel.kluin@gmail.com>,
-	Juha Leppanen <juha_motorsportcom@luukku.com>,
-	Ian Saturley <ian.saturley@smsc.com>,
-	David Miller <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Sascha Hlusiak <mail@saschahlusiak.de>
+Subject: Re: [PATCH] Assign linklocal addresses to isatap from link dev
+Date: Wed, 4 Mar 2009 18:49:41 +0100
+Message-ID: <200903041849.48474.mail@saschahlusiak.de>
+References: <200903010134.54405.mail@saschahlusiak.de> <20090304.032835.183524465.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart3081262.gppaD4HRfF";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:37269 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753514AbZCDRd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 12:33:29 -0500
-In-Reply-To: <1236188005-14065-1-git-send-email-steve.glendinning@smsc.com>
+Received: from moutng.kundenserver.de ([212.227.17.8]:59010 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415AbZCDRt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 12:49:26 -0500
+In-Reply-To: <20090304.032835.183524465.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch from Juha Leppanen suppresses a false warning if the eeprom
-load succeeds on the very last attempt.
+--nextPart3081262.gppaD4HRfF
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Juha> In function smsc911x_open smsc911x_reg_read+udelay can be run 50
-Juha> times with timeout reaching -1, and the following if statetement
-Juha> does not catch the timeout and no warning is issued. Also if the
-Juha> 50th smsc911x_reg_read is GOOD, loop is exited with timeout as 0
-Juha> and bogus warning issued.  Replace testing order and --timeout
-Juha> instead of timeout-- and now max 50 smsc911x_reg_read's are done,
-Juha> with max 49 udelays.
+> > That way stateless autoconf works with isatap tunnels and without
+> > knowledge of the local v4 address.
+>
+> Real autoconf is not performed, but rather you must configure your
+> system with a PRL (potential routers list) and these routers are
+> probed periodically in order to keep track of which of them are still
+> functioning and also to perform a sort-of unicast-only autoconf.
+Well, since ISATAP is just a SIT, it still needs a link local address for=20
+autoconf and it needs to have it's v4 Address embedded in the lowest 32 bit=
+ of=20
+the linklocal address. It will then do normal autoconf with the potential=20
+router by sending a proper router solicitation messages, either directed or=
+=20
+multicast.
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/smsc911x.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+I see that the current implementation disables sending of RS when on ISATAP=
+,=20
+which is not correct because RS are needed to do the autoconf.
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index 9a79510..ad15aab 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1162,8 +1162,8 @@ static int smsc911x_open(struct net_device *dev)
- 
- 	/* Make sure EEPROM has finished loading before setting GPIO_CFG */
- 	timeout = 50;
--	while ((timeout--) &&
--	       (smsc911x_reg_read(pdata, E2P_CMD) & E2P_CMD_EPC_BUSY_)) {
-+	while ((smsc911x_reg_read(pdata, E2P_CMD) & E2P_CMD_EPC_BUSY_) &&
-+	       --timeout) {
- 		udelay(10);
- 	}
- 
--- 
-1.6.0.6
+At least that's the way the implementation in MS Windows works.
 
+> I am pretty sure that the person who added the ISATAP code created the
+> current behavior intentionally.
+Well, the current implementation does not cover clients at all, because=20
+the ip command refuses to create tunnels without the remote parameter, whic=
+h=20
+is neccessary because it's the potential router.
+
+It then does not derive the linklocal address correctly, making it impossib=
+le=20
+to do autoconf with the server. Using SIT does work as such as you still ne=
+ed=20
+to add the correct ISATAP linklocal address to the interface.=20
+
+I think ISATAP Client support in Linux could be more automated.
+
+
+=2D Sascha
+
+--nextPart3081262.gppaD4HRfF
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.10 (GNU/Linux)
+
+iEYEABECAAYFAkmuvzwACgkQOyDtNneHFrMoOwCeJhqUs26tECjjHjUYxjGYi2kq
+m8wAoJAV4Awxb3ncRHCR01Y/iSP0uf1y
+=7D00
+-----END PGP SIGNATURE-----
+
+--nextPart3081262.gppaD4HRfF--
