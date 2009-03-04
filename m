@@ -1,37 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch 1/5] Network Drop Monitor: Add netlink protocol
-	identifer
-Date: Wed, 4 Mar 2009 10:39:51 -0500
-Message-ID: <20090304153951.GC6139@hmsreliant.think-freely.org>
-References: <20090303170014.GB1480@hmsreliant.think-freely.org> <20090303182006.GB29236@ioremap.net> <20090303.141749.210780391.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
+	non-drops and modifying end-of-line points for skbs
+Date: Wed, 4 Mar 2009 13:13:35 -0300
+Message-ID: <20090304161335.GC6392@ghostprotocols.net>
+References: <20090303170307.GD1480@hmsreliant.think-freely.org> <20090304135415.GB6392@ghostprotocols.net> <20090304141831.GB6139@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: zbr@ioremap.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50668 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753654AbZCDPkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 10:40:04 -0500
+Received: from mx2.redhat.com ([66.187.237.31]:33203 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752675AbZCDQOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2009 11:14:33 -0500
 Content-Disposition: inline
-In-Reply-To: <20090303.141749.210780391.davem@davemloft.net>
+In-Reply-To: <20090304141831.GB6139@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 03, 2009 at 02:17:49PM -0800, David Miller wrote:
-> From: Evgeniy Polyakov <zbr@ioremap.net>
-> Date: Tue, 3 Mar 2009 21:20:06 +0300
+Em Wed, Mar 04, 2009 at 09:18:31AM -0500, Neil Horman escreveu:
+> On Wed, Mar 04, 2009 at 10:54:15AM -0300, Arnaldo Carvalho de Melo wrote:
+> > Em Tue, Mar 03, 2009 at 12:03:07PM -0500, Neil Horman escreveu:
+> > > 
+> > > Network Drop Monitor: Adding kfree_skb_clean for non-drops and modifying end-of-line points for skbs
+> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > Why just not add a "drop_skb()" instead? kfree_skb_clean sounds as if we
+> > will do some cleanup on the skb being freed. "drop_skb()" seems much
+> > clearer.
+> > 
+> > - Arnaldo
+> > 
 > 
-> > Why do you want to use own family instead of using existing netlink
-> > helpers like connector or genetlink?
-> 
-> Yes, indeed, use genetlink for this.
-> 
-> We don't add new core netlink protocols any more with it's
-> fixed address space of link types.
-> 
+> Check the RFC thread.  The cases in which we are dropping far outnumber the set
+> of cases in which we free the skb simply because its the end of the line.
+> Theres far less churn this way
 
-very well, I'll make the change, and repost in a few days when I have it all
-tested.
-Neil
+I wouldn't mind the churn, as I really think drop_skb() would be
+clearer, but then this is up to Dave.
 
+- Arnaldo
