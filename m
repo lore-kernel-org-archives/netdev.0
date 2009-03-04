@@ -1,86 +1,38 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: [PATCH] tmspci: fix request_irq race
-Date: Wed, 4 Mar 2009 16:59:41 +0200 (EET)
-Message-ID: <Pine.SOC.4.64.0903041646030.12608@math.ut.ee>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 1/2] IPv6: add "disable" module parameter support to ipv6.ko
+Date: Wed, 04 Mar 2009 10:37:03 -0500
+Message-ID: <49AEA01F.8050906@hp.com>
+References: <49ADE95F.8060607@hp.com> <20090304.032145.115092643.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: arvidjaar@mail.ru, vladislav.yasevich@hp.com,
+	chuck.lever@oracle.com, tytso@mit.edu, Valdis.Kletnieks@vt.edu,
+	rjw@sisk.pl, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
+	linux-kernel@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.it.da.ut.ee ([193.40.5.67]:32953 "EHLO smtp2.it.da.ut.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753046AbZCDO7n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2009 09:59:43 -0500
-Received: from math.ut.ee (math.ut.ee [193.40.36.2])
-	by smtp2.it.da.ut.ee (Postfix) with ESMTP id A419E73DA5D
-	for <netdev@vger.kernel.org>; Wed,  4 Mar 2009 16:59:41 +0200 (EET)
-Received: from localhost (localhost [127.0.0.1])
-	by math.ut.ee (Postfix) with ESMTP id 92DDBFD79B
-	for <netdev@vger.kernel.org>; Wed,  4 Mar 2009 16:59:41 +0200 (EET)
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:33084 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753036AbZCDPhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 10:37:08 -0500
+In-Reply-To: <20090304.032145.115092643.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, tmspci tokenring driver crashes on device initialization 
-because it requests its irq before initializing corresponding data 
-structures. Fix this by moving request_irq call to a safer place.
+David Miller wrote:
+> Applied, but you have to do something about your email client
+> and what it does to patches Brian.
+> 
+> Every line that starts with a single space then TABs was
+> replaced with two space characters then the TABs.  Long
+> lines were also chopped up.
 
-Signed-off-by: Meelis Roos <mroos@linux.ee>
+Sorry, I'll blame it on git-imap-send/tbird :) - I just know how people hate 
+attachments, I can play with the settings again.  I'll send it to myself first 
+next time and see what gets corrupted, thanks for fixing it up.
 
-diff --git a/drivers/net/tokenring/tmspci.c b/drivers/net/tokenring/tmspci.c
-index 5f60177..e2150b3 100644
---- a/drivers/net/tokenring/tmspci.c
-+++ b/drivers/net/tokenring/tmspci.c
-@@ -121,11 +121,6 @@ static int __devinit tms_pci_attach(struct pci_dev *pdev, const struct pci_devic
- 		goto err_out_trdev;
- 	}
- 
--	ret = request_irq(pdev->irq, tms380tr_interrupt, IRQF_SHARED,
--			  dev->name, dev);
--	if (ret)
--		goto err_out_region;
--
- 	dev->base_addr	= pci_ioaddr;
- 	dev->irq 	= pci_irq_line;
- 	dev->dma	= 0;
-@@ -142,7 +137,7 @@ static int __devinit tms_pci_attach(struct pci_dev *pdev, const struct pci_devic
- 	ret = tmsdev_init(dev, &pdev->dev);
- 	if (ret) {
- 		printk("%s: unable to get memory for dev->priv.\n", dev->name);
--		goto err_out_irq;
-+		goto err_out_region;
- 	}
- 
- 	tp = netdev_priv(dev);
-@@ -157,6 +152,11 @@ static int __devinit tms_pci_attach(struct pci_dev *pdev, const struct pci_devic
- 
- 	tp->tmspriv = cardinfo;
- 
-+	ret = request_irq(pdev->irq, tms380tr_interrupt, IRQF_SHARED,
-+			  dev->name, dev);
-+	if (ret)
-+		goto err_out_tmsdev;
-+
- 	dev->open = tms380tr_open;
- 	dev->stop = tms380tr_close;
- 	pci_set_drvdata(pdev, dev);
-@@ -164,15 +164,15 @@ static int __devinit tms_pci_attach(struct pci_dev *pdev, const struct pci_devic
- 
- 	ret = register_netdev(dev);
- 	if (ret)
--		goto err_out_tmsdev;
-+		goto err_out_irq;
- 	
- 	return 0;
- 
-+err_out_irq:
-+	free_irq(pdev->irq, dev);
- err_out_tmsdev:
- 	pci_set_drvdata(pdev, NULL);
- 	tmsdev_term(dev);
--err_out_irq:
--	free_irq(pdev->irq, dev);
- err_out_region:
- 	release_region(pci_ioaddr, TMS_PCI_IO_EXTENT);
- err_out_trdev:
+I wish we didn't have to do this hack though...
 
--- 
-Meelis Roos (mroos@linux.ee)
+-Brian
