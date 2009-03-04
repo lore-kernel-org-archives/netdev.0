@@ -1,38 +1,37 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 1/2] IPv6: add "disable" module parameter support to ipv6.ko
-Date: Wed, 04 Mar 2009 10:37:03 -0500
-Message-ID: <49AEA01F.8050906@hp.com>
-References: <49ADE95F.8060607@hp.com> <20090304.032145.115092643.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Patch 1/5] Network Drop Monitor: Add netlink protocol
+	identifer
+Date: Wed, 4 Mar 2009 10:39:51 -0500
+Message-ID: <20090304153951.GC6139@hmsreliant.think-freely.org>
+References: <20090303170014.GB1480@hmsreliant.think-freely.org> <20090303182006.GB29236@ioremap.net> <20090303.141749.210780391.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: arvidjaar@mail.ru, vladislav.yasevich@hp.com,
-	chuck.lever@oracle.com, tytso@mit.edu, Valdis.Kletnieks@vt.edu,
-	rjw@sisk.pl, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, jamagallon@ono.com,
-	linux-kernel@vger.kernel.org, fubar@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: zbr@ioremap.net, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:33084 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753036AbZCDPhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 10:37:08 -0500
-In-Reply-To: <20090304.032145.115092643.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50668 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753654AbZCDPkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 10:40:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20090303.141749.210780391.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Applied, but you have to do something about your email client
-> and what it does to patches Brian.
+On Tue, Mar 03, 2009 at 02:17:49PM -0800, David Miller wrote:
+> From: Evgeniy Polyakov <zbr@ioremap.net>
+> Date: Tue, 3 Mar 2009 21:20:06 +0300
 > 
-> Every line that starts with a single space then TABs was
-> replaced with two space characters then the TABs.  Long
-> lines were also chopped up.
+> > Why do you want to use own family instead of using existing netlink
+> > helpers like connector or genetlink?
+> 
+> Yes, indeed, use genetlink for this.
+> 
+> We don't add new core netlink protocols any more with it's
+> fixed address space of link types.
+> 
 
-Sorry, I'll blame it on git-imap-send/tbird :) - I just know how people hate 
-attachments, I can play with the settings again.  I'll send it to myself first 
-next time and see what gets corrupted, thanks for fixing it up.
+very well, I'll make the change, and repost in a few days when I have it all
+tested.
+Neil
 
-I wish we didn't have to do this hack though...
-
--Brian
