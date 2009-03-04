@@ -1,42 +1,38 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: some tc commands fail on 2.6.29-rc6-git5, works on 2.6.28.7
-Date: Wed, 4 Mar 2009 01:06:59 +0100
-Message-ID: <20090304000659.GA4555@ami.dom.local>
-References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com> <20090301165729.8e08e1d7.akpm@linux-foundation.org> <49AC28FF.1040102@gmail.com> <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
+From: Zhang Rui <rui.zhang@intel.com>
+Subject: Re: 2.6.29-rc6-git7: Reported regressions from 2.6.28
+Date: Wed, 04 Mar 2009 09:03:46 +0800
+Message-ID: <1236128626.32297.254.camel@rzhang-dt>
+References: <KiHv0irKPzE.A.l3.hUarJB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Joao Correia <joaomiguelcorreia@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f178.google.com ([209.85.218.178]:40390 "EHLO
-	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755069AbZCDAIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 19:08:31 -0500
-Content-Disposition: inline
-In-Reply-To: <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <KiHv0irKPzE.A.l3.hUarJB@chimera>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 03, 2009 at 11:10:36PM +0000, Joao Correia wrote:
-> Hello again
+On Wed, 2009-03-04 at 03:22 +0800, Rafael J. Wysocki wrote:
 > 
-> Sorry for taking so long, been busy with some unexpected work.
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12501
+> Subject         : build bug in eeepc-laptop.c
+> Submitter       : Ingo Molnar <mingo@elte.hu>
+> Date            : 2009-01-14 17:25 (49 days old)
+> References      : http://lkml.org/lkml/2009/1/14/315
 > 
-> I have checked the .config and can not (to the extent of my not-guru
-> knowledge) find anything out of place. Excuse me if its obvious and it
-> didnt strike me yet.
-...
-> [root@duron ~]# tc -V
-> tc utility, iproute2-ss090115
-...
+the problem has already been fixed by
+3a5093ee6728c8cbe9c039e685fc1fca8f965048
 
-Joao, you don't need to be sorry at all - on the contrary I'm
-extremely sorry! I was so focused on the kernel version but ignored
-updating iproute, and it looks like this matters here.
+thanks,
+rui
 
-So you're right. Alas I'll not be able to look at it until "tomorrow"
-in the evening.
-
-Thanks for the report,
-Jarek P.
