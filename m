@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sungem: another error printed one too early
-Date: Wed, 04 Mar 2009 00:08:49 -0800 (PST)
-Message-ID: <20090304.000849.06404875.davem@davemloft.net>
-References: <499971DC.4070406@gmail.com>
-	<49A6914F.6070301@gmail.com>
+Subject: Re: [PATCH v3] net: more timeouts that reach -1
+Date: Wed, 04 Mar 2009 00:10:21 -0800 (PST)
+Message-ID: <20090304.001021.252964292.davem@davemloft.net>
+References: <25e057c00902270737x529fb5b8m2fdbb044fa75ab0d@mail.gmail.com>
+	<20090227154440.M53654@cooldavid.org>
+	<49A8181A.5030106@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dwalker@fifo99.com, netdev@vger.kernel.org,
+Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org,
 	akpm@linux-foundation.org
 To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40749
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40754
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751829AbZCDIJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 03:09:04 -0500
-In-Reply-To: <49A6914F.6070301@gmail.com>
+	by vger.kernel.org with ESMTP id S1752453AbZCDIKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 03:10:36 -0500
+In-Reply-To: <49A8181A.5030106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roel Kluin <roel.kluin@gmail.com>
-Date: Thu, 26 Feb 2009 13:55:43 +0100
+Date: Fri, 27 Feb 2009 17:43:06 +0100
 
-> Another error was printed one too early.
+> Here are all three patches again with another issue I spotted in 
+> drivers/net/ucc_geth_mii.c:
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> After my patch it still wouldn't err, because timeout was unsigned.
 
-Applied, thanks.
+I'll make sure to integrate this version of your patch instead
+of the original which I just said I applied :-)
