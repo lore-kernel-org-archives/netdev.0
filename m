@@ -1,72 +1,56 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH 2/2] SCTP: change sctp_ctl_sock_init() to try IPv4 if IPv6
- fails
-Date: Tue, 03 Mar 2009 21:38:54 -0500
-Message-ID: <49ADE9BE.2040303@hp.com>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: some tc commands fail on 2.6.29-rc6-git5, works on 2.6.28.7
+Date: Tue, 03 Mar 2009 20:50:28 -0600
+Message-ID: <1236135028.7883.44.camel@Maple>
+References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
+	 <20090301165729.8e08e1d7.akpm@linux-foundation.org>
+	 <49AC28FF.1040102@gmail.com>
+	 <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrey Borzenkov <arvidjaar@mail.ru>,
-	Vladislav Yasevich <vladislav.yasevich@hp.com>,
-	Chuck Lever <chuck.lever@oracle.com>,
-	Theodore Tso <tytso@mit.edu>, Valdis.Kletnieks@vt.edu,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bonding-devel@lists.sourceforge.net,
-	=?ISO-8859-1?Q?=22J=2EA=2E_Magall?= =?ISO-8859-1?Q?=F3n=22?=
-	<jamagallon@ono.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: David Miller <davem@davemloft.net>
+Cc: Jarek Poplawski <jarkao2@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Joao Correia <joaomiguelcorreia@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:29119 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbZCDCjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 21:39:00 -0500
+Received: from wf-out-1314.google.com ([209.85.200.173]:28983 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbZCDCug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 21:50:36 -0500
+In-Reply-To: <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2009-03-03 at 23:10 +0000, Joao Correia wrote:
+> I have confirmed again that the exact same commands (as on the
+> original message), work flawlessly on 2.6.28.7 without a hitch, and,
+> AFAIK, work as intended. I have also tried the latest 2.6.29-rc6-git7
+> and it still fails like on git6.
 
-Change sctp_ctl_sock_init() to try IPv4 if IPv6 socket registration
-fails.  Required if the IPv6 module is loaded with "disable=1",
-else SCTP will fail to load.
+I have also reproduced this on Linus' latest 2.6.29-rc6 tree, using tc
+version iproute2-ss071016 and a kernel config with all traffic control
+features enabled.
 
+The error reported by tc comes from the kernel-level check added by:
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
-  net/sctp/protocol.c |   11 ++++++++---
-  1 files changed, 8 insertions(+), 3 deletions(-)
+	commit c1b56878fb68e9c14070939ea4537ad4db79ffae
+	Author: Stephen Hemminger <shemminger@vyatta.com>
+	Date:   Tue Nov 25 21:14:06 2008 -0800
 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index c1e316e..e8c6287 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -692,15 +692,20 @@ static int sctp_inetaddr_event(struct notifier_block 
-*this, unsigned long ev,
-  static int sctp_ctl_sock_init(void)
-  {
-  	int err;
--	sa_family_t family;
-+	sa_family_t family = PF_INET;
+    	tc: policing requires a rate estimator
 
-  	if (sctp_get_pf_specific(PF_INET6))
-  		family = PF_INET6;
--	else
--		family = PF_INET;
+    Found that while trying average rate policing, it was possible to
+    request average rate policing without a rate estimator. This results
+    in no policing which is harmless but incorrect.
 
-  	err = inet_ctl_sock_create(&sctp_ctl_sock, family,
-  				   SOCK_SEQPACKET, IPPROTO_SCTP, &init_net);
-+
-+	/* If IPv6 socket could not be created, try the IPv4 socket */
-+	if (err < 0 && family == PF_INET6)
-+		err = inet_ctl_sock_create(&sctp_ctl_sock, AF_INET,
-+					   SOCK_SEQPACKET, IPPROTO_SCTP,
-+					   &init_net);
-+
-  	if (err < 0) {
-  		printk(KERN_ERR
-  		       "SCTP: Failed to create the SCTP control socket.\n");
--- 
-1.5.4.3
+    Since policing could be setup in two steps, need to check
+    in the kernel.
+
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+I got the same error when using the tc version iproute2-ss090115 built
+this evening from the public git repository.
+
+  -- John
 
