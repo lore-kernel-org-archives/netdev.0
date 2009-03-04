@@ -1,38 +1,44 @@
-From: Zhang Rui <rui.zhang@intel.com>
+From: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
 Subject: Re: 2.6.29-rc6-git7: Reported regressions from 2.6.28
-Date: Wed, 04 Mar 2009 09:03:46 +0800
-Message-ID: <1236128626.32297.254.camel@rzhang-dt>
-References: <KiHv0irKPzE.A.l3.hUarJB@chimera>
+Date: Wed, 4 Mar 2009 02:06:45 +0100
+Message-ID: <20090304010645.GA28883@elte.hu>
+References: <KiHv0irKPzE.A.l3.hUarJB@chimera> <1236128626.32297.254.camel@rzhang-dt>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <KiHv0irKPzE.A.l3.hUarJB@chimera>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1236128626.32297.254.camel@rzhang-dt>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-03-04 at 03:22 +0800, Rafael J. Wysocki wrote:
-> 
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12501
-> Subject         : build bug in eeepc-laptop.c
-> Submitter       : Ingo Molnar <mingo@elte.hu>
-> Date            : 2009-01-14 17:25 (49 days old)
-> References      : http://lkml.org/lkml/2009/1/14/315
-> 
-the problem has already been fixed by
-3a5093ee6728c8cbe9c039e685fc1fca8f965048
 
-thanks,
-rui
+* Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
 
+> On Wed, 2009-03-04 at 03:22 +0800, Rafael J. Wysocki wrote:
+> > 
+> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12501
+> > Subject         : build bug in eeepc-laptop.c
+> > Submitter       : Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
+> > Date            : 2009-01-14 17:25 (49 days old)
+> > References      : http://lkml.org/lkml/2009/1/14/315
+> > 
+> the problem has already been fixed by
+> 3a5093ee6728c8cbe9c039e685fc1fca8f965048
+
+yes - please consider it fixed.
+
+Thanks,
+
+	Ingo
