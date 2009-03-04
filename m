@@ -1,65 +1,42 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] netlink: invert error code in netlink_set_err()
-Date: Wed, 04 Mar 2009 00:35:35 +0100
-Message-ID: <20090303233535.7346.25867.stgit@Decadence>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: some tc commands fail on 2.6.29-rc6-git5, works on 2.6.28.7
+Date: Wed, 4 Mar 2009 01:06:59 +0100
+Message-ID: <20090304000659.GA4555@ami.dom.local>
+References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com> <20090301165729.8e08e1d7.akpm@linux-foundation.org> <49AC28FF.1040102@gmail.com> <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Joao Correia <joaomiguelcorreia@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46765 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750764AbZCCXfq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2009 18:35:46 -0500
+Received: from mail-bw0-f178.google.com ([209.85.218.178]:40390 "EHLO
+	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755069AbZCDAIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 19:08:31 -0500
+Content-Disposition: inline
+In-Reply-To: <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The callers of netlink_set_err() currently pass a negative value
-as parameter for the error code. However, sk->sk_err wants a
-positive error value. Without this patch, skb_recv_datagram() called
-by netlink_recvmsg() may return a positive value to report an error.
+On Tue, Mar 03, 2009 at 11:10:36PM +0000, Joao Correia wrote:
+> Hello again
+> 
+> Sorry for taking so long, been busy with some unexpected work.
+> 
+> I have checked the .config and can not (to the extent of my not-guru
+> knowledge) find anything out of place. Excuse me if its obvious and it
+> didnt strike me yet.
+...
+> [root@duron ~]# tc -V
+> tc utility, iproute2-ss090115
+...
 
-Another choice to fix this is to change callers to pass a positive
-error value, but this seems a bit inconsistent and error prone
-to me. Indeed, the callers of netlink_set_err() assumed that the
-(usual) negative value for error codes was fine before this patch :).
+Joao, you don't need to be sorry at all - on the contrary I'm
+extremely sorry! I was so focused on the kernel version but ignored
+updating iproute, and it looks like this matters here.
 
-This patch also includes some documentation in docbook format
-for netlink_set_err() to avoid this sort of confusion.
+So you're right. Alas I'll not be able to look at it until "tomorrow"
+in the evening.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
- net/netlink/af_netlink.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 2760b62..09e5008 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1092,6 +1092,13 @@ out:
- 	return 0;
- }
- 
-+/**
-+ * netlink_set_err - report error to broadcast listeners
-+ * @ssk: the kernel netlink socket, as returned by netlink_kernel_create()
-+ * @pid: the PID of a process that we want to skip (if any)
-+ * @groups: the broadcast group that will notice the error
-+ * @code: error code, must be negative (as usual in kernelspace)
-+ */
- void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
- {
- 	struct netlink_set_err_data info;
-@@ -1101,7 +1108,8 @@ void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
- 	info.exclude_sk = ssk;
- 	info.pid = pid;
- 	info.group = group;
--	info.code = code;
-+	/* sk->sk_err wants a positive error value */
-+	info.code = -code;
- 
- 	read_lock(&nl_table_lock);
- 
-
+Thanks for the report,
+Jarek P.
