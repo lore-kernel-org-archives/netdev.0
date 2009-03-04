@@ -1,96 +1,93 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 6/7] sfc: Fix search for flush completion events
-Date: Wed, 04 Mar 2009 20:01:15 +0000
-Message-ID: <1236196875.3140.32.camel@achroite>
+Subject: [PATCH 7/7] sfc: Improve NIC internal error recovery
+Date: Wed, 04 Mar 2009 20:01:57 +0000
+Message-ID: <1236196917.3140.34.camel@achroite>
 References: <1236196272.3140.15.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:54071 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754904AbZCDUBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 15:01:19 -0500
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:38228 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756461AbZCDUCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 15:02:01 -0500
 In-Reply-To: <1236196272.3140.15.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=EF=BB=BFWhen flushing queues we disable normal interrupt and event han=
-dling and
-poll event queue 0 looking for flush completions.  Unfortunately the
-flush event polling loop fails to move past any other type of event.
-This problem has not been observed in production hardware but appears t=
-o
-be a possibility.
+Make the error count a per-NIC variable.
+Reset this the count after an hour if it has not reached the critical value.
+Set the critical value back to 5.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c |   21 +++++++++------------
- 1 files changed, 9 insertions(+), 12 deletions(-)
+ drivers/net/sfc/falcon.c |   23 +++++++++++++++++++----
+ 1 files changed, 19 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index efd121c..82c10f4 100644
+index 82c10f4..2ae51fd 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -1187,31 +1187,29 @@ static void falcon_poll_flush_events(struct efx=
-_nic *efx)
- 	struct efx_channel *channel =3D &efx->channel[0];
- 	struct efx_tx_queue *tx_queue;
- 	struct efx_rx_queue *rx_queue;
--	unsigned int read_ptr, i;
-+	unsigned int read_ptr =3D channel->eventq_read_ptr;
-+	unsigned int end_ptr =3D (read_ptr - 1) & FALCON_EVQ_MASK;
-=20
--	read_ptr =3D channel->eventq_read_ptr;
--	for (i =3D 0; i < FALCON_EVQ_SIZE; ++i) {
-+	do {
- 		efx_qword_t *event =3D falcon_event(channel, read_ptr);
- 		int ev_code, ev_sub_code, ev_queue;
- 		bool ev_failed;
+@@ -39,11 +39,16 @@
+  * @next_buffer_table: First available buffer table id
+  * @pci_dev2: The secondary PCI device if present
+  * @i2c_data: Operations and state for I2C bit-bashing algorithm
++ * @int_error_count: Number of internal errors seen recently
++ * @int_error_expire: Time at which error count will be expired
+  */
+ struct falcon_nic_data {
+ 	unsigned next_buffer_table;
+ 	struct pci_dev *pci_dev2;
+ 	struct i2c_algo_bit_data i2c_data;
 +
- 		if (!falcon_event_present(event))
- 			break;
-=20
- 		ev_code =3D EFX_QWORD_FIELD(*event, EV_CODE);
--		if (ev_code !=3D DRIVER_EV_DECODE)
--			continue;
--
- 		ev_sub_code =3D EFX_QWORD_FIELD(*event, DRIVER_EV_SUB_CODE);
--		switch (ev_sub_code) {
--		case TX_DESCQ_FLS_DONE_EV_DECODE:
-+		if (ev_code =3D=3D DRIVER_EV_DECODE &&
-+		    ev_sub_code =3D=3D TX_DESCQ_FLS_DONE_EV_DECODE) {
- 			ev_queue =3D EFX_QWORD_FIELD(*event,
- 						   DRIVER_EV_TX_DESCQ_ID);
- 			if (ev_queue < EFX_TX_QUEUE_COUNT) {
- 				tx_queue =3D efx->tx_queue + ev_queue;
- 				tx_queue->flushed =3D true;
- 			}
--			break;
--		case RX_DESCQ_FLS_DONE_EV_DECODE:
-+		} else if (ev_code =3D=3D DRIVER_EV_DECODE &&
-+			   ev_sub_code =3D=3D RX_DESCQ_FLS_DONE_EV_DECODE) {
- 			ev_queue =3D EFX_QWORD_FIELD(*event,
- 						   DRIVER_EV_RX_DESCQ_ID);
- 			ev_failed =3D EFX_QWORD_FIELD(*event,
-@@ -1225,11 +1223,10 @@ static void falcon_poll_flush_events(struct efx=
-_nic *efx)
- 				else
- 					rx_queue->flushed =3D true;
- 			}
--			break;
- 		}
-=20
- 		read_ptr =3D (read_ptr + 1) & FALCON_EVQ_MASK;
--	}
-+	} while (read_ptr !=3D end_ptr);
- }
-=20
- /* Handle tx and rx flushes at the same time, since they run in
++	unsigned int_error_count;
++	unsigned long int_error_expire;
+ };
+ 
+ /**************************************************************************
+@@ -119,8 +124,12 @@ MODULE_PARM_DESC(rx_xon_thresh_bytes, "RX fifo XON threshold");
+ #define FALCON_EVQ_SIZE 4096
+ #define FALCON_EVQ_MASK (FALCON_EVQ_SIZE - 1)
+ 
+-/* Max number of internal errors. After this resets will not be performed */
+-#define FALCON_MAX_INT_ERRORS 4
++/* If FALCON_MAX_INT_ERRORS internal errors occur within
++ * FALCON_INT_ERROR_EXPIRE seconds, we consider the NIC broken and
++ * disable it.
++ */
++#define FALCON_INT_ERROR_EXPIRE 3600
++#define FALCON_MAX_INT_ERRORS 5
+ 
+ /* We poll for events every FLUSH_INTERVAL ms, and check FLUSH_POLL_COUNT times
+  */
+@@ -1374,7 +1383,6 @@ static irqreturn_t falcon_fatal_interrupt(struct efx_nic *efx)
+ 	efx_oword_t *int_ker = efx->irq_status.addr;
+ 	efx_oword_t fatal_intr;
+ 	int error, mem_perr;
+-	static int n_int_errors;
+ 
+ 	falcon_read(efx, &fatal_intr, FATAL_INTR_REG_KER);
+ 	error = EFX_OWORD_FIELD(fatal_intr, INT_KER_ERROR);
+@@ -1401,7 +1409,14 @@ static irqreturn_t falcon_fatal_interrupt(struct efx_nic *efx)
+ 		pci_clear_master(nic_data->pci_dev2);
+ 	falcon_disable_interrupts(efx);
+ 
+-	if (++n_int_errors < FALCON_MAX_INT_ERRORS) {
++	/* Count errors and reset or disable the NIC accordingly */
++	if (nic_data->int_error_count == 0 ||
++	    time_after(jiffies, nic_data->int_error_expire)) {
++		nic_data->int_error_count = 0;
++		nic_data->int_error_expire =
++			jiffies + FALCON_INT_ERROR_EXPIRE * HZ;
++	}
++	if (++nic_data->int_error_count < FALCON_MAX_INT_ERRORS) {
+ 		EFX_ERR(efx, "SYSTEM ERROR - reset scheduled\n");
+ 		efx_schedule_reset(efx, RESET_TYPE_INT_ERROR);
+ 	} else {
 
---=20
+-- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
