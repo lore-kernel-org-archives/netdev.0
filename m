@@ -1,55 +1,67 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [net-next PATCH 1/2] PCI: Add PCI quirk to disable L0s ASPM state for 82575 and 82598
-Date: Tue, 3 Mar 2009 21:05:26 -0700
-Message-ID: <20090304040526.GB1884@parisc-linux.org>
-References: <20090304020308.15176.40527.stgit@lost.foo-projects.org>
+From: Andrey Borzenkov <arvidjaar@gmail.com>
+Subject: Re: [PATCH 0/2] Bonding: fix IPv6 module requirement regression
+Date: Wed, 4 Mar 2009 07:20:30 +0300
+Message-ID: <200903040720.34497.arvidjaar@gmail.com>
+References: <49ADE956.1020702@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	Matthew Wilcox <willy@linux.intel.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart88308515.dUNc3oDlVh";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Vladislav Yasevich <vladislav.yasevich@hp.com>,
+	Chuck Lever <chuck.lever@oracle.com>,
+	Theodore Tso <tytso@mit.edu>, Valdis.Kletnieks@vt.edu,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bonding-devel@lists.sourceforge.net,
+	"J.A. =?iso-8859-1?q?Magall=F3n?=" <jamagallon@ono.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:51017 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069AbZCDEUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2009 23:20:41 -0500
+In-Reply-To: <49ADE956.1020702@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--nextPart88308515.dUNc3oDlVh
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
-In-Reply-To: <20090304020308.15176.40527.stgit@lost.foo-projects.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 03, 2009 at 06:03:09PM -0800, Jeff Kirsher wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch is intended to disable L0s ASPM link state for 82598 (ixgbe)
-> parts due to the fact that it is possible to corrupt TX data when coming
-> back out of L0s on some systems.  The workaround had been added for 82575
-> (igb) previously, but did not use the ASPM api.  This quirk uses the ASPM
-> api to prevent the ASPM subsystem from re-enabling the L0s state.
-> 
-> Instead of adding the fix in igb to the ixgbe driver as well it was
-> decided to move it into a pci quirk.  It is necessary to move the fix out
-> of the driver and into a pci quirk in order to prevent the issue from
-> occuring prior to driver load to handle the possibility of the device being
-> passed to a VM via direct assignment.
+On 4 =D0=BC=D0=B0=D1=80=D1=82=D0=B0 2009 05:37:10 Brian Haley wrote:
+> These patches fix the Bonding module's requirement to have the IPv6
+> module loaded and configured by creating a new "disable" module
+> parameter value for ipv6.ko.  This allows users who do not want any
+> IPv6 addresses or sockets to be created to disable IPv6 support,
+> while still loading the module and making it's symbols available.=20
+> This can be specified in /etc/modprobe.conf (or similar) with
+> "options ipv6 disable=3D1".
+>
 
-Thanks for the explanation, it handles my immediate question of "why do
-it in a quirk?"  It does, however, raise the very interesting question
-about what to do about other devices which have issues that are currently
-handled in the driver that can't be handled by the driver in a VM.  
-I don't have a good example to hand right now, but I bet I can spot one
-when I'm less tired.
+While this is definitely the right approach, it requires completely new=20
+infrastructure to disable IPv6 (including resolving update issues). So I=20
+guess this is post-2.6.29 material.
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: linux-pci <linux-pci@vger.kernel.org>
-> CC: Matthew Wilcox <willy@linux.intel.com>
-> CC: Jesse Barnes <jbarnes@virtuousgeek.org>
 
-I'm not going to ack this patch at this point, let's just give it a day.
-FWIW, Jesse is not going to be able to review patches this week.
 
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+
+--nextPart88308515.dUNc3oDlVh
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkmuAZIACgkQR6LMutpd94ybuwCdGcBqN36xbrE8JuhW9jt5wICZ
+nfIAnRAw0tvbiMvoJAQsPhmAUYDz0IGE
+=QJyI
+-----END PGP SIGNATURE-----
+
+--nextPart88308515.dUNc3oDlVh--
