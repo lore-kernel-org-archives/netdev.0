@@ -1,56 +1,98 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [BUG] 2.6.29-rc* QinQ vlan trunking regression
-Date: Wed, 04 Mar 2009 12:45:33 +0100
-Message-ID: <49AE69DD.80802@trash.net>
-References: <20090228180541.GA729@jukie.net>	<20090303.234327.81716668.davem@davemloft.net>	<49AE509B.3000305@trash.net> <20090304.025914.149394356.davem@davemloft.net>
+From: gerrit@erg.abdn.ac.uk
+Subject: Re: [PATCH] dccp: ensure gap does not become unsigned -1
+Date: Wed, 4 Mar 2009 11:45:39 -0000 (GMT)
+Message-ID: <35998.148.187.160.35.1236167139.squirrel@148.187.160.35>
+References: <49AD9217.8020206@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bart@jukie.net, greearb@candelatech.com, shemminger@vyatta.com,
-	dada1@cosmosbay.com, frank.blaschka@de.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net,
+	dccp@vger.kernel.org
+To: "Roel Kluin" <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33717 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755554AbZCDLpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 06:45:38 -0500
-In-Reply-To: <20090304.025914.149394356.davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58419 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756880AbZCDLpu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2009 06:45:50 -0500
+In-Reply-To: <49AD9217.8020206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Wed, 04 Mar 2009 10:57:47 +0100
-> 
->>>> I can reproduce it reliably with:
->>>>
->>>>   $ modprobe 8021q
->>>>   $ vconfig add eth1 5
->>>>   $ ifconfig eth1.5 up
->>>>   $ vconfig add eth1.5 4
->>> Stephen please fix this.
->> I'm maintaining vlan :) I haven't been able to look into this yet,
->> but I should be later today.
-> 
-> Ok, I don't actually care who fixes it :-)
-> 
-> I asked Stephen because this appears like it might be netdev_ops
-> fallout.
+[added missing copy to netdev@vger]
 
-Good point. I think I know whats happening. The VLAN devices are
-registered with vlan_netdev_ops, the ->init function then potentially
-replaces them based on whether the underlying device supports HW
-acceleration. At this point the register_netdev() function already
-has used the first netdev_ops structure to initialize the compat
-pointers, meaning the new assignment is largely without effect and
-causes incorrect ops to be used with HW acceleration
+> Is this maybe necessary?
+> ------------------------------>8-------------8<---------------------------------
+> if packets is 0, becomes -1, but since gap is unsigned, the test 'gap > 0'
+> does not work.
+>
+Thank you for looking through. It is not necessary, see below.
 
-This probably causes the slab corruption since the HW accelerated
-VLAN device doesn't increase the headroom, but the non-accelerated
-functions try to add a hard header anyways.
+> --- a/net/dccp/ackvec.c
+> +++ b/net/dccp/ackvec.c
+> @@ -207,7 +207,11 @@ static inline int
+> dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
+>  	if (av->av_vec_len + packets > DCCP_MAX_ACKVEC_LEN)
+>  		return -ENOBUFS;
+>
+> -	gap	 = packets - 1;
+> +	if (packets > 0)
 
-This is a bit tricky to fix since we actually need some valid
-ops before invoking ->init(). One way would be to move the compat
-ops initialization to a seperate function and have VLAN use it to
-switch its ops.
+Why 'gap < 0' <=> packets < 0 can not happen:
+
+/*
+ * If several packets are missing, the HC-Receiver may prefer to enter
+multiple
+ * bytes with run length 0, rather than a single byte with a larger run
+length;
+ * this simplifies table updates if one of the missing packets arrives.
+ */
+static inline int dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
+                                                 const unsigned int packets,
+                                                 const unsigned char state)
+
+This is a static routine which is called in one place only in
+net/dccp/ackvec.c, in dccp_ackvec_add():
+//...
+} else if (after48(ackno, av->av_buf_ackno)) {
+                const u64 delta = dccp_delta_seqno(av->av_buf_ackno, ackno);
+
+                /*
+                 * Look if the state of this packet is the same as the
+                 * previous ackno and if so if we can bump the head len.
+                 */
+                if (delta == 1 &&
+                    dccp_ackvec_state(av, av->av_buf_head) == state &&
+                    dccp_ackvec_len(av, av->av_buf_head) <
+DCCP_ACKVEC_LEN_MASK)
+                        av->av_buf[av->av_buf_head]++;
+                else if (dccp_ackvec_set_buf_head_state(av, delta, state))
+                        return -ENOBUFS;
+
+==> We thus have:
+ 1) after48(a, b) => sequence number `a' is `after' b
+ 2) sequence number `a' is `after' `b' =>  dccp_delta_seqno(b, a) > 0
+ 3) hence delta > 0
+ 4) hence delta - 1 = gap >= 0
+ 5) The subsequent `else' in dccp_ackvec_add() catches the case
+    of !after48(a, b), note the reversed order of arguments to
+    dccp_delta_seqno, so that a positive value is returned:
+
+    } else {
+                /*
+                 * A.1.2.  Old Packets
+                 *
+                 *      When a packet with Sequence Number S <= buf_ackno
+                 *      arrives, the HC-Receiver will scan the table for
+                 *      the byte corresponding to S. (Indexing structures
+                 *      could reduce the complexity of this scan.)
+                 */
+                u64 delta = dccp_delta_seqno(ackno, av->av_buf_ackno);
+
+
+    ==> But this is in an entirely different block of code outside the
+        one to which this patch was meant.
+
+Hence it is not necessary.
+
+
+
