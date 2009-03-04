@@ -1,98 +1,46 @@
-From: gerrit@erg.abdn.ac.uk
-Subject: Re: [PATCH] dccp: ensure gap does not become unsigned -1
-Date: Wed, 4 Mar 2009 11:45:39 -0000 (GMT)
-Message-ID: <35998.148.187.160.35.1236167139.squirrel@148.187.160.35>
-References: <49AD9217.8020206@gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [Bonding-devel] 2.6.29 regression? Bonding tied to IPV6 in
+ 29-rc5
+Date: Wed, 4 Mar 2009 12:46:37 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0903041244400.31513@fbirervta.pbzchgretzou.qr>
+References: <alpine.LFD.2.00.0902131413120.3179@localhost.localdomain> <20090217095232.5da06b9f@werewolf.home> <200902172001.41804.arvidjaar@mail.ru> <200902172117.22671.arvidjaar@mail.ru> <499B19AF.1000003@hp.com> <16929.1234904788@death.nxdomain.ibm.com>
+ <499B30DC <21405.1234909454@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, acme@ghostprotocols.net,
-	dccp@vger.kernel.org
-To: "Roel Kluin" <roel.kluin@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Brian Haley <brian.haley@hp.com>,
+	Andrey Borzenkov <arvidjaar@mail.ru>, "J.A. Magall"@us.ibm.com,
+	=?UTF-8?Q?=C3=B3n?= <jamagallon@ono.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, bonding-devel@lists.sourcefor
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:58419 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756880AbZCDLpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2009 06:45:50 -0500
-In-Reply-To: <49AD9217.8020206@gmail.com>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:57262 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753611AbZCDLql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 06:46:41 -0500
+In-Reply-To: <21405.1234909454@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[added missing copy to netdev@vger]
 
-> Is this maybe necessary?
-> ------------------------------>8-------------8<---------------------------------
-> if packets is 0, becomes -1, but since gap is unsigned, the test 'gap > 0'
-> does not work.
+On Tuesday 2009-02-17 23:24, Jay Vosburgh wrote:
+>Brian Haley <brian.haley@hp.com> wrote:
 >
-Thank you for looking through. It is not necessary, see below.
-
-> --- a/net/dccp/ackvec.c
-> +++ b/net/dccp/ackvec.c
-> @@ -207,7 +207,11 @@ static inline int
-> dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
->  	if (av->av_vec_len + packets > DCCP_MAX_ACKVEC_LEN)
->  		return -ENOBUFS;
+>	I don't see any reason to change the IPv4 bits;
 >
-> -	gap	 = packets - 1;
-> +	if (packets > 0)
+>there won't ever be a case of ipv4 not being loaded,
 
-Why 'gap < 0' <=> packets < 0 can not happen:
+I would not be so sure of that.
 
-/*
- * If several packets are missing, the HC-Receiver may prefer to enter
-multiple
- * bytes with run length 0, rather than a single byte with a larger run
-length;
- * this simplifies table updates if one of the missing packets arrives.
- */
-static inline int dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
-                                                 const unsigned int packets,
-                                                 const unsigned char state)
+>>> 	To answer your question, I have come across this (aliasing ipv6
+>>> to nothing in modprobe.conf to disable IPv6) from time to time, but
+>>> didn't think of it when the NA code was added to bonding.
+>>
+>>So I guess I'll start hacking the above, unless someone has a better
+>>suggestion.
+>
+>	Well, I think this is pretty heinous, but I don't have a better
+>idea at the moment.
 
-This is a static routine which is called in one place only in
-net/dccp/ackvec.c, in dccp_ackvec_add():
-//...
-} else if (after48(ackno, av->av_buf_ackno)) {
-                const u64 delta = dccp_delta_seqno(av->av_buf_ackno, ackno);
-
-                /*
-                 * Look if the state of this packet is the same as the
-                 * previous ackno and if so if we can bump the head len.
-                 */
-                if (delta == 1 &&
-                    dccp_ackvec_state(av, av->av_buf_head) == state &&
-                    dccp_ackvec_len(av, av->av_buf_head) <
-DCCP_ACKVEC_LEN_MASK)
-                        av->av_buf[av->av_buf_head]++;
-                else if (dccp_ackvec_set_buf_head_state(av, delta, state))
-                        return -ENOBUFS;
-
-==> We thus have:
- 1) after48(a, b) => sequence number `a' is `after' b
- 2) sequence number `a' is `after' `b' =>  dccp_delta_seqno(b, a) > 0
- 3) hence delta > 0
- 4) hence delta - 1 = gap >= 0
- 5) The subsequent `else' in dccp_ackvec_add() catches the case
-    of !after48(a, b), note the reversed order of arguments to
-    dccp_delta_seqno, so that a positive value is returned:
-
-    } else {
-                /*
-                 * A.1.2.  Old Packets
-                 *
-                 *      When a packet with Sequence Number S <= buf_ackno
-                 *      arrives, the HC-Receiver will scan the table for
-                 *      the byte corresponding to S. (Indexing structures
-                 *      could reduce the complexity of this scan.)
-                 */
-                u64 delta = dccp_delta_seqno(ackno, av->av_buf_ackno);
-
-
-    ==> But this is in an entirely different block of code outside the
-        one to which this patch was meant.
-
-Hence it is not necessary.
-
-
-
+IMO, a better solution could be to add a dummy ipv6 module that returns 
+-EOPNOTSOPP or appropriate for most calls.
