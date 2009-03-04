@@ -1,32 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netlink: invert error code in netlink_set_err()
-Date: Wed, 04 Mar 2009 11:13:50 +0100
-Message-ID: <49AE545E.8090208@trash.net>
-References: <20090303233535.7346.25867.stgit@Decadence>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] 2.6.29-rc* QinQ vlan trunking regression
+Date: Wed, 04 Mar 2009 02:59:14 -0800 (PST)
+Message-ID: <20090304.025914.149394356.davem@davemloft.net>
+References: <20090228180541.GA729@jukie.net>
+	<20090303.234327.81716668.davem@davemloft.net>
+	<49AE509B.3000305@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: bart@jukie.net, greearb@candelatech.com, shemminger@vyatta.com,
+	dada1@cosmosbay.com, frank.blaschka@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64832 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751468AbZCDKNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 05:13:53 -0500
-In-Reply-To: <20090303233535.7346.25867.stgit@Decadence>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52132
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752624AbZCDK73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 05:59:29 -0500
+In-Reply-To: <49AE509B.3000305@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso wrote:
-> The callers of netlink_set_err() currently pass a negative value
-> as parameter for the error code. However, sk->sk_err wants a
-> positive error value. Without this patch, skb_recv_datagram() called
-> by netlink_recvmsg() may return a positive value to report an error.
-> 
-> Another choice to fix this is to change callers to pass a positive
-> error value, but this seems a bit inconsistent and error prone
-> to me. Indeed, the callers of netlink_set_err() assumed that the
-> (usual) negative value for error codes was fine before this patch :).
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 04 Mar 2009 10:57:47 +0100
 
-Amazing how this kept hidden for so long. I could have sworn I've
-already seen the notification errors in userspace :)
+> David Miller wrote:
+> > From: Bart Trojanowski <bart@jukie.net>
+> > Date: Sat, 28 Feb 2009 13:05:41 -0500
+> > 
+> >> 2.6.29-rc* introduces a bug that causes a crash when a vlan is put into
+> >> another vlan, so called vlan trunking or QinQ.
+> >>
+> >> I can reproduce it reliably with:
+> >>
+> >>   $ modprobe 8021q
+> >>   $ vconfig add eth1 5
+> >>   $ ifconfig eth1.5 up
+> >>   $ vconfig add eth1.5 4
+> > Stephen please fix this.
+> 
+> I'm maintaining vlan :) I haven't been able to look into this yet,
+> but I should be later today.
+
+Ok, I don't actually care who fixes it :-)
+
+I asked Stephen because this appears like it might be netdev_ops
+fallout.
