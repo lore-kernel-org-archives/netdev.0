@@ -1,33 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] sfc: modify allocation error message
-Date: Wed, 04 Mar 2009 17:39:09 -0800 (PST)
-Message-ID: <20090304.173909.227714742.davem@davemloft.net>
-References: <200903042003.n24K3BaX028938@imap1.linux-foundation.org>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: question on netlink_overrun()
+Date: Wed, 04 Mar 2009 19:18:41 -0600
+Message-ID: <49AF2871.10804@nortel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, travis@sgi.com, bhutchings@solarflare.com
-To: akpm@linux-foundation.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Linux Network Development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51625
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752995AbZCEBjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 20:39:24 -0500
-In-Reply-To: <200903042003.n24K3BaX028938@imap1.linux-foundation.org>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:47278 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328AbZCEBxh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 20:53:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Wed, 04 Mar 2009 12:03:10 -0800
+Hi all,
 
-> From: Mike Travis <travis@sgi.com>
-> 
-> Change error message when alloc_cpumask_var fails.
-> 
-> Signed-off-by: Mike Travis <travis@sgi.com>
-> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
-> Acked-by: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Currently we set netlink_overrun() on the socket in both the unicast and 
+broadcast paths.  If I understand things correctly this should result in 
+the receiver getting ENOBUFS the next time they try a socket-related 
+syscall.
 
-Yes, please get this into the tree where it applies and is
-necessary, which as a reminder is not the networking tree :-)
+However, in the netlink_dump() code we don't call it--was this an 
+oversight or an intentional design decision?
+
+I have a userspace app that would like to know if it ran out of buffer 
+space in the receive socket (and hence lost some packets) while dumping 
+SA information in xfrm_user_rcv_msg().
+
+Thanks,
+
+Chris
