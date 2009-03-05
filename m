@@ -1,215 +1,276 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 7/13] forcedeth: napi - handle all processing
-Date: Thu, 05 Mar 2009 13:02:14 -0500
-Message-ID: <49B013A6.6020507@nvidia.com>
+Subject: [PATCH 8/13] forcedeth: add new optimization mode
+Date: Thu, 05 Mar 2009 13:02:18 -0500
+Message-ID: <49B013AA.50805@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050309080407060609070205"
+ boundary="------------040805040200000704090304"
 To: Manfred Spraul <manfred@colorfullife.com>,
 	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:8401 "EHLO
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:8415 "EHLO
 	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755433AbZCEVBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:10 -0500
+	with ESMTP id S1755465AbZCEVBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------050309080407060609070205
+--------------040805040200000704090304
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-The napi poll routine has been modified to handle all interrupt events 
-and process them accordingly. Therefore, the ISR will now only schedule 
-the napi poll and disable all interrupts instead of just disabling rx 
-interrupt.
+A new optimization mode called Dynamic has been added. This will be mode 
+where interrupt moderation logic will dynamically switch between pure 
+throughput mode and poll based (called 'cpu') mode.
+
+Also, for newer chipsets, the timer irq is not needed for throughput 
+mode. Secondly, since we are modifying the irqmask to change between 
+modes, msix is not supported.
 
 Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------050309080407060609070205
+--------------040805040200000704090304
 Content-Type: text/plain;
- name="patch-forcedeth-napi-handle-all"
+ name="patch-forcedeth-dynamic-1"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-napi-handle-all"
+ filename="patch-forcedeth-dynamic-1"
 
---- old/drivers/net/forcedeth.c	2009-03-05 10:41:51.000000000 -0800
-+++ new/drivers/net/forcedeth.c	2009-03-05 10:42:05.000000000 -0800
-@@ -3440,25 +3440,22 @@
+--- old/drivers/net/forcedeth.c	2009-03-05 10:42:27.000000000 -0800
++++ new/drivers/net/forcedeth.c	2009-03-05 10:45:07.000000000 -0800
+@@ -842,9 +842,10 @@
+  */
+ enum {
+ 	NV_OPTIMIZATION_MODE_THROUGHPUT,
+-	NV_OPTIMIZATION_MODE_CPU
++	NV_OPTIMIZATION_MODE_CPU,
++	NV_OPTIMIZATION_MODE_DYNAMIC
+ };
+-static int optimization_mode = NV_OPTIMIZATION_MODE_THROUGHPUT;
++static int optimization_mode = NV_OPTIMIZATION_MODE_DYNAMIC;
  
- 		nv_msi_workaround(np);
- 
-+#ifdef CONFIG_FORCEDETH_NAPI
- 		spin_lock(&np->lock);
--		nv_tx_done(dev, np->tx_ring_size);
--		spin_unlock(&np->lock);
-+		napi_schedule(&np->napi);
- 
--#ifdef CONFIG_FORCEDETH_NAPI
--		if (np->events & NVREG_IRQ_RX_ALL) {
--			spin_lock(&np->lock);
--			napi_schedule(&np->napi);
-+		/* Disable furthur irq's
-+		   (msix not enabled with napi) */
-+		writel(0, base + NvRegIrqMask);
- 
--			/* Disable furthur receive irq's */
--			np->irqmask &= ~NVREG_IRQ_RX_ALL;
-+		spin_unlock(&np->lock);
- 
--			if (np->msi_flags & NV_MSI_X_ENABLED)
--				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			spin_unlock(&np->lock);
--		}
-+		return IRQ_HANDLED;
- #else
-+		spin_lock(&np->lock);
-+		nv_tx_done(dev, np->tx_ring_size);
-+		spin_unlock(&np->lock);
-+
- 		if (nv_rx_process(dev, RX_WORK_PER_LOOP)) {
- 			if (unlikely(nv_alloc_rx(dev))) {
- 				spin_lock(&np->lock);
-@@ -3467,7 +3464,7 @@
- 				spin_unlock(&np->lock);
- 			}
- 		}
--#endif
-+
- 		if (unlikely(np->events & NVREG_IRQ_LINK)) {
- 			spin_lock(&np->lock);
- 			nv_link_irq(dev);
-@@ -3513,7 +3510,7 @@
- 			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq.\n", dev->name, i);
- 			break;
- 		}
--
-+#endif
+ /*
+  * Poll interval for timer irq
+@@ -5645,19 +5646,6 @@
+ 		dev->features |= NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX;
  	}
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq completed\n", dev->name);
  
-@@ -3548,25 +3545,22 @@
- 
- 		nv_msi_workaround(np);
- 
-+#ifdef CONFIG_FORCEDETH_NAPI
- 		spin_lock(&np->lock);
--		nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
--		spin_unlock(&np->lock);
-+		napi_schedule(&np->napi);
- 
--#ifdef CONFIG_FORCEDETH_NAPI
--		if (np->events & NVREG_IRQ_RX_ALL) {
--			spin_lock(&np->lock);
--			napi_schedule(&np->napi);
-+		/* Disable furthur irq's
-+		   (msix not enabled with napi) */
-+		writel(0, base + NvRegIrqMask);
- 
--			/* Disable furthur receive irq's */
--			np->irqmask &= ~NVREG_IRQ_RX_ALL;
-+		spin_unlock(&np->lock);
- 
--			if (np->msi_flags & NV_MSI_X_ENABLED)
--				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			spin_unlock(&np->lock);
--		}
-+		return IRQ_HANDLED;
- #else
-+		spin_lock(&np->lock);
-+		nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
-+		spin_unlock(&np->lock);
-+
- 		if (nv_rx_process_optimized(dev, RX_WORK_PER_LOOP)) {
- 			if (unlikely(nv_alloc_rx_optimized(dev))) {
- 				spin_lock(&np->lock);
-@@ -3575,7 +3569,7 @@
- 				spin_unlock(&np->lock);
- 			}
- 		}
+-	np->msi_flags = 0;
+-	if ((id->driver_data & DEV_HAS_MSI) && msi) {
+-		np->msi_flags |= NV_MSI_CAPABLE;
+-	}
+-	if ((id->driver_data & DEV_HAS_MSI_X) && msix) {
+-		/* msix has had reported issues when modifying irqmask
+-		   as in the case of napi, therefore, disable for now
+-		*/
+-#ifndef CONFIG_FORCEDETH_NAPI
+-		np->msi_flags |= NV_MSI_X_CAPABLE;
 -#endif
-+
- 		if (unlikely(np->events & NVREG_IRQ_LINK)) {
- 			spin_lock(&np->lock);
- 			nv_link_irq(dev);
-@@ -3622,7 +3616,7 @@
- 			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq.\n", dev->name, i);
- 			break;
- 		}
+-	}
 -
-+#endif
- 	}
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq_optimized completed\n", dev->name);
- 
-@@ -3682,9 +3676,17 @@
- 	int pkts, retcode;
- 
- 	if (!nv_optimized(np)) {
-+		spin_lock_irqsave(&np->lock, flags);
-+		nv_tx_done(dev, np->tx_ring_size);
-+		spin_unlock_irqrestore(&np->lock, flags);
-+
- 		pkts = nv_rx_process(dev, budget);
- 		retcode = nv_alloc_rx(dev);
+ 	np->pause_flags = NV_PAUSEFRAME_RX_CAPABLE | NV_PAUSEFRAME_RX_REQ | NV_PAUSEFRAME_AUTONEG;
+ 	if ((id->driver_data & DEV_HAS_PAUSEFRAME_TX_V1) ||
+ 	    (id->driver_data & DEV_HAS_PAUSEFRAME_TX_V2) ||
+@@ -5802,14 +5790,35 @@
  	} else {
-+		spin_lock_irqsave(&np->lock, flags);
-+		nv_tx_done_optimized(dev, np->tx_ring_size);
-+		spin_unlock_irqrestore(&np->lock, flags);
+ 		np->tx_flags = NV_TX2_VALID;
+ 	}
+-	if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT) {
+-		np->irqmask = NVREG_IRQMASK_THROUGHPUT;
+-		if (np->msi_flags & NV_MSI_X_CAPABLE) /* set number of vectors */
+-			np->msi_flags |= 0x0003;
+-	} else {
 +
- 		pkts = nv_rx_process_optimized(dev, budget);
- 		retcode = nv_alloc_rx_optimized(dev);
- 	}
-@@ -3696,17 +3698,37 @@
- 		spin_unlock_irqrestore(&np->lock, flags);
- 	}
- 
-+	if (unlikely(np->events & NVREG_IRQ_LINK)) {
-+		spin_lock_irqsave(&np->lock, flags);
-+		nv_link_irq(dev);
-+		spin_unlock_irqrestore(&np->lock, flags);
++	np->msi_flags = 0;
++	if ((id->driver_data & DEV_HAS_MSI) && msi) {
++		np->msi_flags |= NV_MSI_CAPABLE;
 +	}
-+	if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
-+		spin_lock_irqsave(&np->lock, flags);
-+		nv_linkchange(dev);
-+		spin_unlock_irqrestore(&np->lock, flags);
-+		np->link_timeout = jiffies + LINK_TIMEOUT;
-+	}
-+	if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
-+		spin_lock_irqsave(&np->lock, flags);
-+		if (!np->in_shutdown) {
-+			np->nic_poll_irq = np->irqmask;
-+			np->recover_error = 1;
-+			mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
-+		}
-+		spin_unlock_irqrestore(&np->lock, flags);
-+		__napi_complete(napi);
-+		return pkts;
++	if ((id->driver_data & DEV_HAS_MSI_X) && msix) {
++		/* msix has had reported issues when modifying irqmask
++		   as in the case of napi, therefore, disable for now
++		*/
++#ifndef CONFIG_FORCEDETH_NAPI
++		np->msi_flags |= NV_MSI_X_CAPABLE;
++#endif
 +	}
 +
- 	if (pkts < budget) {
--		/* re-enable receive interrupts */
-+		/* re-enable interrupts
-+		   (msix not enabled in napi) */
- 		spin_lock_irqsave(&np->lock, flags);
- 
- 		__napi_complete(napi);
- 
--		np->irqmask |= NVREG_IRQ_RX_ALL;
--		if (np->msi_flags & NV_MSI_X_ENABLED)
--			writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
--		else
--			writel(np->irqmask, base + NvRegIrqMask);
-+		writel(np->irqmask, base + NvRegIrqMask);
- 
- 		spin_unlock_irqrestore(&np->lock, flags);
++	if (optimization_mode == NV_OPTIMIZATION_MODE_CPU) {
+ 		np->irqmask = NVREG_IRQMASK_CPU;
+ 		if (np->msi_flags & NV_MSI_X_CAPABLE) /* set number of vectors */
+ 			np->msi_flags |= 0x0001;
++	} else if (optimization_mode == NV_OPTIMIZATION_MODE_DYNAMIC &&
++		   !(id->driver_data & DEV_NEED_TIMERIRQ)) {
++		/* start off in throughput mode */
++		np->irqmask = NVREG_IRQMASK_THROUGHPUT;
++		/* remove support for msix mode */
++		np->msi_flags &= ~NV_MSI_X_CAPABLE;
++	} else {
++		optimization_mode = NV_OPTIMIZATION_MODE_THROUGHPUT;
++		np->irqmask = NVREG_IRQMASK_THROUGHPUT;
++		if (np->msi_flags & NV_MSI_X_CAPABLE) /* set number of vectors */
++			np->msi_flags |= 0x0003;
  	}
+ 
+ 	if (id->driver_data & DEV_NEED_TIMERIRQ)
+@@ -6166,19 +6175,19 @@
+ 	},
+ 	{	/* MCP04 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_10),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1|DEV_NEED_TX_LIMIT,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1|DEV_NEED_TX_LIMIT,
+ 	},
+ 	{	/* MCP04 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_11),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1|DEV_NEED_TX_LIMIT,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1|DEV_NEED_TX_LIMIT,
+ 	},
+ 	{	/* MCP51 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_12),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V1,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V1,
+ 	},
+ 	{	/* MCP51 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_13),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V1,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V1,
+ 	},
+ 	{	/* MCP55 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_14),
+@@ -6190,83 +6199,83 @@
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_18),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_19),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_21),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_22),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_23),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP67 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_24),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP67 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_25),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP67 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_26),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP67 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_27),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_28),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_29),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_30),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP73 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_31),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_32),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_33),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_34),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP77 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_35),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V2|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
+@@ -6274,15 +6283,15 @@
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{0,},
+ };
+@@ -6310,7 +6319,7 @@
+ module_param(max_interrupt_work, int, 0);
+ MODULE_PARM_DESC(max_interrupt_work, "forcedeth maximum events handled per interrupt");
+ module_param(optimization_mode, int, 0);
+-MODULE_PARM_DESC(optimization_mode, "In throughput mode (0), every tx & rx packet will generate an interrupt. In CPU mode (1), interrupts are controlled by a timer.");
++MODULE_PARM_DESC(optimization_mode, "In throughput mode (0), every tx & rx packet will generate an interrupt. In CPU mode (1), interrupts are controlled by a timer. In dynamic mode (2), the mode toggles between throughput and CPU mode based on network load.");
+ module_param(poll_interval, int, 0);
+ MODULE_PARM_DESC(poll_interval, "Interval determines how frequent timer interrupt is generated by [(time_in_micro_secs * 100) / (2^10)]. Min is 0 and Max is 65535.");
+ module_param(msi, int, 0);
 
---------------050309080407060609070205--
+--------------040805040200000704090304--
