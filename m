@@ -1,37 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: question on netlink_overrun()
-Date: Thu, 05 Mar 2009 06:56:02 +0100
-Message-ID: <49AF6972.8000103@trash.net>
-References: <49AF2871.10804@nortel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] 2.6.29-rc* QinQ vlan trunking regression
+Date: Wed, 04 Mar 2009 22:57:19 -0800 (PST)
+Message-ID: <20090304.225719.159854470.davem@davemloft.net>
+References: <49AE69DD.80802@trash.net>
+	<20090304.195328.106253933.davem@davemloft.net>
+	<49AF685D.90907@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Chris Friesen <cfriesen@nortel.com>
+Cc: bart@jukie.net, greearb@candelatech.com, shemminger@vyatta.com,
+	dada1@cosmosbay.com, frank.blaschka@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58224 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750756AbZCEF4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 00:56:05 -0500
-In-Reply-To: <49AF2871.10804@nortel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50161
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750786AbZCEG5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 01:57:35 -0500
+In-Reply-To: <49AF685D.90907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen wrote:
-> Currently we set netlink_overrun() on the socket in both the unicast and 
-> broadcast paths.  If I understand things correctly this should result in 
-> the receiver getting ENOBUFS the next time they try a socket-related 
-> syscall.
-> 
-> However, in the netlink_dump() code we don't call it--was this an 
-> oversight or an intentional design decision?
-> 
-> I have a userspace app that would like to know if it ran out of buffer 
-> space in the receive socket (and hence lost some packets) while dumping 
-> SA information in xfrm_user_rcv_msg().
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 05 Mar 2009 06:51:25 +0100
 
-The dump should never overrun since it has flow control based
-on available socket memory. Once the decision has been made
-to send a dump packet and it has been sucessfully allocated,
-it is never dropped. Except when explicitly filtered.
+> David Miller wrote:
+> > From: Patrick McHardy <kaber@trash.net>
+> > Date: Wed, 04 Mar 2009 12:45:33 +0100
+> > 
+> >> This is a bit tricky to fix since we actually need some valid
+> >> ops before invoking ->init(). One way would be to move the compat
+> >> ops initialization to a seperate function and have VLAN use it to
+> >> switch its ops.
+> > Mind if I push this into net-2.6?
+> > vlan: Fix vlan-in-vlan crashes.
+> > As analyzed by Patrick McHardy, vlan needs to reset it's
+> > netdev_ops pointer in it's ->init() function but this
+> > leaves the compat method pointers stale.
+> > Add a netdev_resync_ops() and call it from the vlan code.
+> 
+> This looks fine, thanks. Even if it doesn't fix this particular
+> report, I think its appropriate for net-2.6.
+
+Thanks for looking at it, but I don't want to push it out until we
+fully resolve this bug.
