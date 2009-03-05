@@ -1,164 +1,180 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
-	non-drops and modifying end-of-line points for skbs
-Date: Thu, 5 Mar 2009 16:01:05 -0500
-Message-ID: <20090305210105.GC12835@hmsreliant.think-freely.org>
-References: <20090303170307.GD1480@hmsreliant.think-freely.org>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 4/13] forcedeth: save irq events for napi processing
+Date: Thu, 05 Mar 2009 13:02:03 -0500
+Message-ID: <49B0139B.5050405@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020503020803000004080101"
+To: Manfred Spraul <manfred@colorfullife.com>,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33647 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755504AbZCEVBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20090303170307.GD1480@hmsreliant.think-freely.org>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:8446 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755520AbZCEVBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, as requested, new version of this patch to add in bifurcation of kfree_skb
-into two versions, one for legitimate kfree's, and one for drops
+This is a multi-part message in MIME format.
+--------------020503020803000004080101
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Modification Notes:
-1) Renamed kfree_skb_clean to consume_skb, to better identify points where we
-are finished with an skb
+This patch will save the irq events in the driver's context so that the 
+napi routine knows which interrupts have occurred. Subsequent changes 
+will be moving all interrupt processing into the napi poll routine.
 
-2) checkpatch cleanups
-
-Thanks!
-
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
- include/linux/skbuff.h |    4 +++-
- net/core/datagram.c    |    2 +-
- net/core/skbuff.c      |   22 ++++++++++++++++++++++
- net/ipv4/arp.c         |    2 +-
- net/ipv4/udp.c         |    2 +-
- net/packet/af_packet.c |    2 +-
- 6 files changed, 29 insertions(+), 5 deletions(-)
+--------------020503020803000004080101
+Content-Type: text/plain;
+ name="patch-forcedeth-napi-events"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-napi-events"
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 1f659e8..1fbab2a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -421,6 +421,7 @@ extern void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
+--- old/drivers/net/forcedeth.c	2009-03-05 10:39:55.000000000 -0800
++++ new/drivers/net/forcedeth.c	2009-03-05 10:40:17.000000000 -0800
+@@ -759,6 +759,7 @@
+ 	dma_addr_t ring_addr;
+ 	struct pci_dev *pci_dev;
+ 	u32 orig_mac[2];
++	u32 events;
+ 	u32 irqmask;
+ 	u32 desc_ver;
+ 	u32 txrxctl_bits;
+@@ -3417,21 +3418,20 @@
+ 	struct net_device *dev = (struct net_device *) data;
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+-	u32 events;
+ 	int i;
+ 
+ 	dprintk(KERN_DEBUG "%s: nv_nic_irq\n", dev->name);
+ 
+ 	for (i=0; ; i++) {
+ 		if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
+-			events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
+ 		} else {
+-			events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
+ 		}
+-		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, events);
+-		if (!(events & np->irqmask))
++		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
++		if (!(np->events & np->irqmask))
+ 			break;
+ 
+ 		nv_msi_workaround(np);
+@@ -3441,7 +3441,7 @@
+ 		spin_unlock(&np->lock);
+ 
+ #ifdef CONFIG_FORCEDETH_NAPI
+-		if (events & NVREG_IRQ_RX_ALL) {
++		if (np->events & NVREG_IRQ_RX_ALL) {
+ 			spin_lock(&np->lock);
+ 			napi_schedule(&np->napi);
+ 
+@@ -3464,7 +3464,7 @@
+ 			}
+ 		}
  #endif
+-		if (unlikely(events & NVREG_IRQ_LINK)) {
++		if (unlikely(np->events & NVREG_IRQ_LINK)) {
+ 			spin_lock(&np->lock);
+ 			nv_link_irq(dev);
+ 			spin_unlock(&np->lock);
+@@ -3475,15 +3475,15 @@
+ 			spin_unlock(&np->lock);
+ 			np->link_timeout = jiffies + LINK_TIMEOUT;
+ 		}
+-		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
++		if (unlikely(np->events & (NVREG_IRQ_TX_ERR))) {
+ 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+-						dev->name, events);
++						dev->name, np->events);
+ 		}
+-		if (unlikely(events & (NVREG_IRQ_UNKNOWN))) {
++		if (unlikely(np->events & (NVREG_IRQ_UNKNOWN))) {
+ 			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
+-						dev->name, events);
++						dev->name, np->events);
+ 		}
+-		if (unlikely(events & NVREG_IRQ_RECOVER_ERROR)) {
++		if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
+ 			spin_lock(&np->lock);
+ 			/* disable interrupts on the nic */
+ 			if (!(np->msi_flags & NV_MSI_X_ENABLED))
+@@ -3534,21 +3534,20 @@
+ 	struct net_device *dev = (struct net_device *) data;
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+-	u32 events;
+ 	int i;
  
- extern void kfree_skb(struct sk_buff *skb);
-+extern void consume_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
- extern struct sk_buff *__alloc_skb(unsigned int size,
- 				   gfp_t priority, int fclone, int node);
-@@ -459,7 +460,8 @@ extern int	       skb_to_sgvec(struct sk_buff *skb,
- extern int	       skb_cow_data(struct sk_buff *skb, int tailbits,
- 				    struct sk_buff **trailer);
- extern int	       skb_pad(struct sk_buff *skb, int pad);
--#define dev_kfree_skb(a)	kfree_skb(a)
-+#define dev_kfree_skb(a)	consume_skb(a)
-+#define dev_consume_skb(a)	kfree_skb_clean(a)
- extern void	      skb_over_panic(struct sk_buff *skb, int len,
- 				     void *here);
- extern void	      skb_under_panic(struct sk_buff *skb, int len,
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 5e2ac0c..d0de644 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -208,7 +208,7 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
+ 	dprintk(KERN_DEBUG "%s: nv_nic_irq_optimized\n", dev->name);
  
- void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
- {
--	kfree_skb(skb);
-+	consume_skb(skb);
- 	sk_mem_reclaim_partial(sk);
- }
+ 	for (i=0; ; i++) {
+ 		if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
+-			events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
+ 		} else {
+-			events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
+ 		}
+-		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, events);
+-		if (!(events & np->irqmask))
++		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
++		if (!(np->events & np->irqmask))
+ 			break;
  
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e5e2111..6acbf9e 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -65,6 +65,7 @@
+ 		nv_msi_workaround(np);
+@@ -3558,7 +3557,7 @@
+ 		spin_unlock(&np->lock);
  
- #include <asm/uaccess.h>
- #include <asm/system.h>
-+#include <trace/skb.h>
+ #ifdef CONFIG_FORCEDETH_NAPI
+-		if (events & NVREG_IRQ_RX_ALL) {
++		if (np->events & NVREG_IRQ_RX_ALL) {
+ 			spin_lock(&np->lock);
+ 			napi_schedule(&np->napi);
  
- #include "kmap_skb.h"
- 
-@@ -442,11 +443,32 @@ void kfree_skb(struct sk_buff *skb)
- 		smp_rmb();
- 	else if (likely(!atomic_dec_and_test(&skb->users)))
- 		return;
-+	trace_kfree_skb(skb, __builtin_return_address(0));
- 	__kfree_skb(skb);
- }
- EXPORT_SYMBOL(kfree_skb);
- 
- /**
-+ *	consume_skb - free an skbuff
-+ *	@skb: buffer to free
-+ *
-+ *	Drop a ref to the buffer and free it if the usage count has hit zero
-+ *	Functions identically to kfree_skb, but kfree_skb assumes that the frame
-+ *	is being dropped after a failure and notes that
-+ */
-+void consume_skb(struct sk_buff *skb)
-+{
-+	if (unlikely(!skb))
-+		return;
-+	if (likely(atomic_read(&skb->users) == 1))
-+		smp_rmb();
-+	else if (likely(!atomic_dec_and_test(&skb->users)))
-+		return;
-+	__kfree_skb(skb);
-+}
-+EXPORT_SYMBOL(consume_skb);
-+
-+/**
-  *	skb_recycle_check - check if skb can be reused for receive
-  *	@skb: buffer
-  *	@skb_size: minimum receive buffer size
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 3f6b735..e89f7b7 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -892,7 +892,7 @@ static int arp_process(struct sk_buff *skb)
- out:
- 	if (in_dev)
- 		in_dev_put(in_dev);
--	kfree_skb(skb);
-+	consume_skb(skb);
- 	return 0;
- }
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4bd178a..05b7abb 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1184,7 +1184,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 			sk = sknext;
- 		} while (sknext);
- 	} else
--		kfree_skb(skb);
-+		consume_skb(skb);
- 	spin_unlock(&hslot->lock);
- 	return 0;
- }
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d8cc006..74776de 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -584,7 +584,7 @@ drop_n_restore:
- 		skb->len = skb_len;
- 	}
- drop:
--	kfree_skb(skb);
-+	consume_skb(skb);
- 	return 0;
- }
- 
+@@ -3581,7 +3580,7 @@
+ 			}
+ 		}
+ #endif
+-		if (unlikely(events & NVREG_IRQ_LINK)) {
++		if (unlikely(np->events & NVREG_IRQ_LINK)) {
+ 			spin_lock(&np->lock);
+ 			nv_link_irq(dev);
+ 			spin_unlock(&np->lock);
+@@ -3592,15 +3591,15 @@
+ 			spin_unlock(&np->lock);
+ 			np->link_timeout = jiffies + LINK_TIMEOUT;
+ 		}
+-		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
++		if (unlikely(np->events & (NVREG_IRQ_TX_ERR))) {
+ 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+-						dev->name, events);
++						dev->name, np->events);
+ 		}
+-		if (unlikely(events & (NVREG_IRQ_UNKNOWN))) {
++		if (unlikely(np->events & (NVREG_IRQ_UNKNOWN))) {
+ 			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
+-						dev->name, events);
++						dev->name, np->events);
+ 		}
+-		if (unlikely(events & NVREG_IRQ_RECOVER_ERROR)) {
++		if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
+ 			spin_lock(&np->lock);
+ 			/* disable interrupts on the nic */
+ 			if (!(np->msi_flags & NV_MSI_X_ENABLED))
+
+--------------020503020803000004080101--
