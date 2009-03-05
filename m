@@ -1,55 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: r8169 - disable flow-control?
-Date: Thu, 05 Mar 2009 21:08:48 +0000
-Message-ID: <1236287329.3202.7.camel@achroite>
-References: <1236281743.10409.17.camel@alkisg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?=CE=86=CE=BB=CE=BA=CE=B7=CF=82_?=
+From: =?UTF-8?Q?=CE=86=CE=BB=CE=BA=CE=B7=CF=82_?=
 	 =?UTF-8?Q?=CE=93=CE=B5=CF=89=CF=81=CE=B3=CF=8C=CF=80=CE=BF=CF=85=CE=BB?=
 	 =?UTF-8?Q?=CE=BF=CF=82?= <alkisg@gmail.com>
+Subject: Re: r8169 - disable flow-control?
+Date: Thu, 05 Mar 2009 23:29:07 +0200
+Message-ID: <1236288547.10409.23.camel@alkisg>
+References: <1236281743.10409.17.camel@alkisg>
+	 <1236287329.3202.7.camel@achroite>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:38090 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751101AbZCEVIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:08:53 -0500
-In-Reply-To: <1236281743.10409.17.camel@alkisg>
+Received: from mail-fx0-f176.google.com ([209.85.220.176]:62499 "EHLO
+	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868AbZCEV3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:29:12 -0500
+Received: by fxm24 with SMTP id 24so127611fxm.37
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2009 13:29:09 -0800 (PST)
+In-Reply-To: <1236287329.3202.7.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-03-05 at 21:35 +0200, =CE=86=CE=BB=CE=BA=CE=B7=CF=82 =CE=93=
-=CE=B5=CF=89=CF=81=CE=B3=CF=8C=CF=80=CE=BF=CF=85=CE=BB=CE=BF=CF=82 wrot=
-e:
-> Hello,
->=20
-> Is there any way to disable flow control for NICs using the r8169
-> driver?
->=20
-> It would be really valuable in the following (sadly very common)
-> scenario:
->  * r8169 gigabit NIC on the server
->  * unmanaged gigabit switch that supports flow control negotiation
->  * 100Mbps clients
->=20
-> E.g. in LTSP labs, the server can send data at ~900Mbps with flow
-> control off, but with flow control on the bandwidth drops to ~90Mbps.
-> Detailed explanation of the problem:
-> http://virtualthreads.blogspot.com/2006/02/beware-ethernet-flow-contr=
-ol.html
->=20
-> If the current code doesn't support it, would it be possible to add a
-> module parameter for this?
+=CE=A3=CF=84=CE=B9=CF=82 05-03-2009, =CE=B7=CE=BC=CE=AD=CF=81=CE=B1 =CE=
+=A0=CE=B5=CE=BC, =CE=BA=CE=B1=CE=B9 =CF=8E=CF=81=CE=B1 21:08 +0000, =CE=
+=BF/=CE=B7 Ben Hutchings
+=CE=AD=CE=B3=CF=81=CE=B1=CF=88=CE=B5:
+> Generally you should be able to control this using ethtool, not a mod=
+ule
+> parameter.  However r8169 does not implement this operation yet.
 
-Generally you should be able to control this using ethtool, not a modul=
-e
-parameter.  However r8169 does not implement this operation yet.
+Thanks - I just thought that supporting a module parameter (like e1000'=
+s
+=46lowControl=3D2) would be a small thing to ask, as opposed to support=
+ing
+ethtool.
 
-Ben.
+But of course if ethtool is to be eventually supported by r8169, then
+adding a parameter would be redundant.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+Kind regards,
+Alkis Georgopoulos
 
