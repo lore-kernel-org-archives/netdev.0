@@ -1,54 +1,144 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [PATCH 00/11] Add support to FCoE offload through net_device
-	(v2)
-Date: Thu, 05 Mar 2009 21:59:20 +0000
-Message-ID: <1236290360.5626.81.camel@localhost.localdomain>
-References: <20090227220034.4987.50755.stgit.yi.zou@intel.com>
-	 <20090303.235725.140764281.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: yi.zou@intel.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20090303.235725.140764281.davem@davemloft.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] IPv6: Fix incorrect disable_ipv6 behavior
+Date: Thu,  5 Mar 2009 17:28:40 -0500
+Message-ID: <1236292120-32050-1-git-send-email-brian.haley@hp.com>
+Cc: netdev@vger.kernel.org, Brian Haley <brian.haley@hp.com>
+To: davem@davemloft.net, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:42096 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbZCEW2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 17:28:43 -0500
+In-Reply-To: <>
+References: <>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-03-03 at 23:57 -0800, David Miller wrote:
-> From: Yi Zou <yi.zou@intel.com>
-> Date: Fri, 27 Feb 2009 14:06:32 -0800
-> 
-> > This is set of revised patches for adding offload support of
-> > Fiber Channel over Ethernet (FCoE) offload support through net_device
-> > for the Open-FCoE project maintained at http://www.open-fcoe.org.
-> > 
-> > The original submission can be found at:
-> > http://marc.info/?l=linux-scsi&m=123507707821705&w=2
-> > 
-> > The included patches would add FCoE offload support through the net_device
-> > struct as shown in the series of patches followed here. This is achieved
-> > by adding nedev feature flags for FCoE FC CRC offload and large send offload
-> > through gso. The large receive offload by direct data placement (ddp) is
-> > achieved by the two function pointers to net_device_ops, to setup and release
-> > ddp context, ndo_fcoe_ddp_setup and ndo_fcoe_ddp_done. One data member is
-> > added to net_device strut, namely fcoe_ddp_xid, which inidates the maximum
-> > exchange id allowed by LLD to perform ddp on the read I/O request.
-> > 
-> > As the following patches touch both netdev and libfc/fcoe, and they are
-> > applicable to the current tip at www.open-fcoe.org w/ patches available at:
-> > http://marc.info/?l=linux-scsi&m=123576089125544&w=2 If they look alright,
-> > I will rework them later to be directly applicable to net-next, where the
-> > aforementioned fcoe/libfc fix patches are expected to be in kernel already
-> > through scsi-fixes.
-> 
-> I am fine with these changes, they look good.
+It doesn't look like the disable_ipv6 devconf setting works
+as described in ip-sysctl.txt.  I think it was originally
+designed to only be set by addrconf_dad_failure(), but since
+it's mode 0644 it can be controlled through sysctl -w.
 
-Did you want to take the four pure net pieces through your tree, and
-I'll run a postmerge tree based on your net tree, or just have me take
-them through the SCSI tree?
+Here's an example:
 
-James
+# sysctl -w net.ipv6.conf.eth0.disable_ipv6=1
+net.ipv6.conf.eth0.disable_ipv6 = 1
+# sysctl -w net.ipv6.conf.eth0.accept_dad=2
+net.ipv6.conf.eth0.accept_dad = 2
 
+# ifdown eth0
+# ifup eth0
+
+Mar  5 11:23:45 titan kernel: eth0: duplicate address detected!
+
+# ip -6 a show dev eth0
+5: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+    inet6 fe80::21f:29ff:fe5a:ef04/64 scope link tentative
+       valid_lft forever preferred_lft forever
+
+The address didn't actually fail DAD, but since disable_ipv6
+was set, addrconf_dad_timer() called addrconf_dad_failure()
+before checking if it succeeded.
+
+The following patch fixes the behavior.  The other option is
+to make this value read-only, but disable_ipv6 can be useful.
+
+---
+
+Fix the behavior of allowing both sysctl and addrconf_dad_failure()
+to set the disable_ipv6 parameter without any bad side-effects.
+If DAD fails and accept_dad > 1, we will still set disable_ipv6=1,
+but then instead of allowing an RA to add an address then
+immediately fail DAD, we simply don't allow the address to be
+added in the first place.  This also lets the user set this flag
+and disable all IPv6 addresses on the interface, or on the entire
+system.
+
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
+ Documentation/networking/ip-sysctl.txt |    4 +++-
+ net/ipv6/addrconf.c                    |   21 ++++++++++++++-------
+ 2 files changed, 17 insertions(+), 8 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 7185e4c..ec5de02 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1043,7 +1043,9 @@ max_addresses - INTEGER
+ 	Default: 16
+ 
+ disable_ipv6 - BOOLEAN
+-	Disable IPv6 operation.
++	Disable IPv6 operation.  If accept_dad is set to 2, this value
++	will be dynamically set to TRUE if DAD fails for the link-local
++	address.
+ 	Default: FALSE (enable IPv6 operation)
+ 
+ accept_dad - INTEGER
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index e83852a..717584b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -590,6 +590,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ {
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
++	struct net *net = dev_net(idev->dev);
+ 	int hash;
+ 	int err = 0;
+ 	int addr_type = ipv6_addr_type(addr);
+@@ -606,6 +607,11 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 		goto out2;
+ 	}
+ 
++	if (idev->cnf.disable_ipv6 || net->ipv6.devconf_all->disable_ipv6) {
++		err = -EACCES;
++		goto out2;
++	}
++
+ 	write_lock(&addrconf_hash_lock);
+ 
+ 	/* Ignore adding duplicate addresses on an interface */
+@@ -1433,6 +1439,11 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
+ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ {
+ 	struct inet6_dev *idev = ifp->idev;
++
++	if (net_ratelimit())
++		printk(KERN_INFO "%s: IPv6 duplicate address detected!\n",
++			ifp->idev->dev->name);
++
+ 	if (idev->cnf.accept_dad > 1 && !idev->cnf.disable_ipv6) {
+ 		struct in6_addr addr;
+ 
+@@ -1443,11 +1454,12 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ 		    ipv6_addr_equal(&ifp->addr, &addr)) {
+ 			/* DAD failed for link-local based on MAC address */
+ 			idev->cnf.disable_ipv6 = 1;
++
++			printk(KERN_INFO "%s: IPv6 being disabled!\n",
++				ifp->idev->dev->name);
+ 		}
+ 	}
+ 
+-	if (net_ratelimit())
+-		printk(KERN_INFO "%s: duplicate address detected!\n", ifp->idev->dev->name);
+ 	addrconf_dad_stop(ifp);
+ }
+ 
+@@ -2823,11 +2835,6 @@ static void addrconf_dad_timer(unsigned long data)
+ 		read_unlock_bh(&idev->lock);
+ 		goto out;
+ 	}
+-	if (idev->cnf.accept_dad > 1 && idev->cnf.disable_ipv6) {
+-		read_unlock_bh(&idev->lock);
+-		addrconf_dad_failure(ifp);
+-		return;
+-	}
+ 	spin_lock_bh(&ifp->lock);
+ 	if (ifp->probes == 0) {
+ 		/*
+-- 
+1.5.4.3
 
