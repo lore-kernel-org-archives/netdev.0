@@ -1,31 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] 2.6.29-rc* QinQ vlan trunking regression
-Date: Thu, 05 Mar 2009 04:55:51 -0800 (PST)
-Message-ID: <20090305.045551.49612040.davem@davemloft.net>
-References: <49AE69DD.80802@trash.net>
-	<20090304.195328.106253933.davem@davemloft.net>
-	<1236256226.18385.30.camel@sakura.staff.proxad.net>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [i4l] stop address leakage when shutting down an i4l ppp
+	interface
+Date: Thu, 05 Mar 2009 14:00:58 +0100
+Message-ID: <1236258058.2644.25.camel@x41.thuisdomein>
+References: <1231764889.7132.23.camel@test.thuisdomein>
+	 <20090114.145035.194024897.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, bart@jukie.net, greearb@candelatech.com,
-	shemminger@vyatta.com, dada1@cosmosbay.com,
-	frank.blaschka@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mbizon@freebox.fr
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50001
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752992AbZCEM4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 07:56:06 -0500
-In-Reply-To: <1236256226.18385.30.camel@sakura.staff.proxad.net>
+Received: from smtp-out1.tiscali.nl ([195.241.79.176]:52800 "EHLO
+	smtp-out1.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753062AbZCENBC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 08:01:02 -0500
+In-Reply-To: <20090114.145035.194024897.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maxime Bizon <mbizon@freebox.fr>
-Date: Thu, 05 Mar 2009 13:30:26 +0100
+It took longer than I hoped to respond to your message.
 
-> Any reason dev->stop is not in this list ?
+On Wed, 2009-01-14 at 14:50 -0800, David Miller wrote:
+> From: Paul Bolle <pebolle@tiscali.nl>
+> > @@ -1336,6 +1336,13 @@ isdn_net_close(struct net_device *dev)
+> >  	}
+> >  	isdn_net_hangup(dev);
+> >  	isdn_unlock_drivers();
+> > +#ifdef CONFIG_ISDN_PPP
+> > +	/* make sure arp_mc_map() handles this device properly */
+> > +	if (dev->type == ARPHRD_PPP) {
+> > +		dev->type = ARPHRD_ETHER;
+> > +		dev->addr_len = ETH_ALEN;
+> > +	}
+> > +#endif
+> >  	return 0;
+> >  }
+>
+> I think it's pretty much illegal to change the device type after the
+> device has been registered.
 
-dev->stop is only called from net/core/dev.c and it is
-netdev_ops aware :-)
+But isn't that what the i4l code already does?
+
+Bringing up an i4l ppp interface will (in Fedora's ifup-ippp script) do
+(among a lot of other stuff):
+    isdnctrl addif ippp0
+and then: 
+    isdnctrl encap ippp0 syncppp
+
+On the kernel side this will result (assuming, of course, I correctly
+interpreted the relevant code) in these events: 
+    isdn_ioctl(IIOCNETAIF)
+    isdn_net_new()
+    alloc_netdev()
+    _isdn_setup()
+    ether_setup()
+        [...]
+	dev->type = ARPHRD_ETHER
+	dev->addr_len = ETH_ALEN
+        [...]
+    register_netdev() 
+    [...]
+
+followed by these events:
+    isdn_ioctl(IIOCNETSCF)
+    isdn_net_setcfg()
+        [...]
+        case ISDN_NET_ENCAP_SYNCPPP:
+	    p->dev->type = ARPHRD_PPP
+	    p->dev->addr_len = 0
+
+This looks to me like it's changing the device type after the device has
+been registered. Or were you referring to something else?
+
+
+Paul
+
