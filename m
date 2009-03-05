@@ -1,348 +1,164 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 9/13] forcedeth: remove isr processing loop
-Date: Thu, 05 Mar 2009 13:02:22 -0500
-Message-ID: <49B013AE.9000604@nvidia.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
+	non-drops and modifying end-of-line points for skbs
+Date: Thu, 5 Mar 2009 16:01:05 -0500
+Message-ID: <20090305210105.GC12835@hmsreliant.think-freely.org>
+References: <20090303170307.GD1480@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090909030706090605040303"
-To: Manfred Spraul <manfred@colorfullife.com>,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:1506 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755391AbZCEVBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:15 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33647 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755504AbZCEVBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20090303170307.GD1480@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090909030706090605040303
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Ok, as requested, new version of this patch to add in bifurcation of kfree_skb
+into two versions, one for legitimate kfree's, and one for drops
 
-This patch is only a subset of changes so that it is easier to see the 
-modifications. This patch removes the isr 'for' loop and shifts all the 
-logic to account for new tab spacing.
+Modification Notes:
+1) Renamed kfree_skb_clean to consume_skb, to better identify points where we
+are finished with an skb
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+2) checkpatch cleanups
+
+Thanks!
+
+Neil
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 
---------------090909030706090605040303
-Content-Type: text/plain;
- name="patch-forcedeth-dynamic-2"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-dynamic-2"
+ include/linux/skbuff.h |    4 +++-
+ net/core/datagram.c    |    2 +-
+ net/core/skbuff.c      |   22 ++++++++++++++++++++++
+ net/ipv4/arp.c         |    2 +-
+ net/ipv4/udp.c         |    2 +-
+ net/packet/af_packet.c |    2 +-
+ 6 files changed, 29 insertions(+), 5 deletions(-)
 
---- old/drivers/net/forcedeth.c	2009-03-05 10:45:40.000000000 -0800
-+++ new/drivers/net/forcedeth.c	2009-03-05 10:45:56.000000000 -0800
-@@ -3423,99 +3423,78 @@
- 	struct net_device *dev = (struct net_device *) data;
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
--	int i;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 1f659e8..1fbab2a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -421,6 +421,7 @@ extern void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
+ #endif
  
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq\n", dev->name);
+ extern void kfree_skb(struct sk_buff *skb);
++extern void consume_skb(struct sk_buff *skb);
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct sk_buff *__alloc_skb(unsigned int size,
+ 				   gfp_t priority, int fclone, int node);
+@@ -459,7 +460,8 @@ extern int	       skb_to_sgvec(struct sk_buff *skb,
+ extern int	       skb_cow_data(struct sk_buff *skb, int tailbits,
+ 				    struct sk_buff **trailer);
+ extern int	       skb_pad(struct sk_buff *skb, int pad);
+-#define dev_kfree_skb(a)	kfree_skb(a)
++#define dev_kfree_skb(a)	consume_skb(a)
++#define dev_consume_skb(a)	kfree_skb_clean(a)
+ extern void	      skb_over_panic(struct sk_buff *skb, int len,
+ 				     void *here);
+ extern void	      skb_under_panic(struct sk_buff *skb, int len,
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 5e2ac0c..d0de644 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -208,7 +208,7 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
  
--	for (i=0; ; i++) {
--		if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
--			np->events = readl(base + NvRegIrqStatus);
--			writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
--		} else {
--			np->events = readl(base + NvRegMSIXIrqStatus);
--			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
--		}
--		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
--		if (!(np->events & np->irqmask))
--			break;
-+	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
-+		np->events = readl(base + NvRegIrqStatus);
-+		writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
-+	} else {
-+		np->events = readl(base + NvRegMSIXIrqStatus);
-+		writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
-+	}
-+	dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
-+	if (!(np->events & np->irqmask))
-+		return IRQ_NONE;
- 
--		nv_msi_workaround(np);
-+	nv_msi_workaround(np);
- 
- #ifdef CONFIG_FORCEDETH_NAPI
--		spin_lock(&np->lock);
--		napi_schedule(&np->napi);
-+	spin_lock(&np->lock);
-+	napi_schedule(&np->napi);
- 
--		/* Disable furthur irq's
--		   (msix not enabled with napi) */
--		writel(0, base + NvRegIrqMask);
-+	/* Disable furthur irq's
-+	   (msix not enabled with napi) */
-+	writel(0, base + NvRegIrqMask);
- 
--		spin_unlock(&np->lock);
-+	spin_unlock(&np->lock);
- 
--		return IRQ_HANDLED;
-+	return IRQ_HANDLED;
- #else
--		spin_lock(&np->lock);
--		nv_tx_done(dev, np->tx_ring_size);
--		spin_unlock(&np->lock);
--
--		if (nv_rx_process(dev, RX_WORK_PER_LOOP)) {
--			if (unlikely(nv_alloc_rx(dev))) {
--				spin_lock(&np->lock);
--				if (!np->in_shutdown)
--					mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--				spin_unlock(&np->lock);
--			}
--		}
-+	spin_lock(&np->lock);
-+	nv_tx_done(dev, np->tx_ring_size);
-+	spin_unlock(&np->lock);
- 
--		if (unlikely(np->events & NVREG_IRQ_LINK)) {
--			spin_lock(&np->lock);
--			nv_link_irq(dev);
--			spin_unlock(&np->lock);
--		}
--		if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
-+	if (nv_rx_process(dev, RX_WORK_PER_LOOP)) {
-+		if (unlikely(nv_alloc_rx(dev))) {
- 			spin_lock(&np->lock);
--			nv_linkchange(dev);
-+			if (!np->in_shutdown)
-+				mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
- 			spin_unlock(&np->lock);
--			np->link_timeout = jiffies + LINK_TIMEOUT;
- 		}
--		if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
--			spin_lock(&np->lock);
--			/* disable interrupts on the nic */
--			if (!(np->msi_flags & NV_MSI_X_ENABLED))
--				writel(0, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			pci_push(base);
-+	}
- 
--			if (!np->in_shutdown) {
--				np->nic_poll_irq = np->irqmask;
--				np->recover_error = 1;
--				mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
--			}
--			spin_unlock(&np->lock);
--			break;
--		}
--		if (unlikely(i > max_interrupt_work)) {
--			spin_lock(&np->lock);
--			/* disable interrupts on the nic */
--			if (!(np->msi_flags & NV_MSI_X_ENABLED))
--				writel(0, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			pci_push(base);
-+	if (unlikely(np->events & NVREG_IRQ_LINK)) {
-+		spin_lock(&np->lock);
-+		nv_link_irq(dev);
-+		spin_unlock(&np->lock);
-+	}
-+	if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
-+		spin_lock(&np->lock);
-+		nv_linkchange(dev);
-+		spin_unlock(&np->lock);
-+		np->link_timeout = jiffies + LINK_TIMEOUT;
-+	}
-+	if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
-+		spin_lock(&np->lock);
-+		/* disable interrupts on the nic */
-+		if (!(np->msi_flags & NV_MSI_X_ENABLED))
-+			writel(0, base + NvRegIrqMask);
-+		else
-+			writel(np->irqmask, base + NvRegIrqMask);
-+		pci_push(base);
- 
--			if (!np->in_shutdown) {
--				np->nic_poll_irq = np->irqmask;
--				mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
--			}
--			spin_unlock(&np->lock);
--			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq.\n", dev->name, i);
--			break;
-+		if (!np->in_shutdown) {
-+			np->nic_poll_irq = np->irqmask;
-+			np->recover_error = 1;
-+			mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
- 		}
--#endif
-+		spin_unlock(&np->lock);
- 	}
-+#endif
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq completed\n", dev->name);
- 
--	return IRQ_RETVAL(i);
-+	return IRQ_HANDLED;
+ void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
+ {
+-	kfree_skb(skb);
++	consume_skb(skb);
+ 	sk_mem_reclaim_partial(sk);
  }
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index e5e2111..6acbf9e 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -65,6 +65,7 @@
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
++#include <trace/skb.h>
+ 
+ #include "kmap_skb.h"
+ 
+@@ -442,11 +443,32 @@ void kfree_skb(struct sk_buff *skb)
+ 		smp_rmb();
+ 	else if (likely(!atomic_dec_and_test(&skb->users)))
+ 		return;
++	trace_kfree_skb(skb, __builtin_return_address(0));
+ 	__kfree_skb(skb);
+ }
+ EXPORT_SYMBOL(kfree_skb);
  
  /**
-@@ -3528,100 +3507,79 @@
- 	struct net_device *dev = (struct net_device *) data;
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
--	int i;
- 
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq_optimized\n", dev->name);
- 
--	for (i=0; ; i++) {
--		if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
--			np->events = readl(base + NvRegIrqStatus);
--			writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
--		} else {
--			np->events = readl(base + NvRegMSIXIrqStatus);
--			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
--		}
--		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
--		if (!(np->events & np->irqmask))
--			break;
-+	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
-+		np->events = readl(base + NvRegIrqStatus);
-+		writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
-+	} else {
-+		np->events = readl(base + NvRegMSIXIrqStatus);
-+		writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
-+	}
-+	dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
-+	if (!(np->events & np->irqmask))
-+		return IRQ_NONE;
- 
--		nv_msi_workaround(np);
-+	nv_msi_workaround(np);
- 
- #ifdef CONFIG_FORCEDETH_NAPI
--		spin_lock(&np->lock);
--		napi_schedule(&np->napi);
-+	spin_lock(&np->lock);
-+	napi_schedule(&np->napi);
- 
--		/* Disable furthur irq's
--		   (msix not enabled with napi) */
--		writel(0, base + NvRegIrqMask);
-+	/* Disable furthur irq's
-+	   (msix not enabled with napi) */
-+	writel(0, base + NvRegIrqMask);
- 
--		spin_unlock(&np->lock);
-+	spin_unlock(&np->lock);
- 
--		return IRQ_HANDLED;
-+	return IRQ_HANDLED;
- #else
--		spin_lock(&np->lock);
--		nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
--		spin_unlock(&np->lock);
--
--		if (nv_rx_process_optimized(dev, RX_WORK_PER_LOOP)) {
--			if (unlikely(nv_alloc_rx_optimized(dev))) {
--				spin_lock(&np->lock);
--				if (!np->in_shutdown)
--					mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--				spin_unlock(&np->lock);
--			}
--		}
-+	spin_lock(&np->lock);
-+	nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
-+	spin_unlock(&np->lock);
- 
--		if (unlikely(np->events & NVREG_IRQ_LINK)) {
--			spin_lock(&np->lock);
--			nv_link_irq(dev);
--			spin_unlock(&np->lock);
--		}
--		if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
--			spin_lock(&np->lock);
--			nv_linkchange(dev);
--			spin_unlock(&np->lock);
--			np->link_timeout = jiffies + LINK_TIMEOUT;
--		}
--		if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
-+	if (nv_rx_process_optimized(dev, RX_WORK_PER_LOOP)) {
-+		if (unlikely(nv_alloc_rx_optimized(dev))) {
- 			spin_lock(&np->lock);
--			/* disable interrupts on the nic */
--			if (!(np->msi_flags & NV_MSI_X_ENABLED))
--				writel(0, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			pci_push(base);
--
--			if (!np->in_shutdown) {
--				np->nic_poll_irq = np->irqmask;
--				np->recover_error = 1;
--				mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
--			}
-+			if (!np->in_shutdown)
-+				mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
- 			spin_unlock(&np->lock);
--			break;
- 		}
-+	}
- 
--		if (unlikely(i > max_interrupt_work)) {
--			spin_lock(&np->lock);
--			/* disable interrupts on the nic */
--			if (!(np->msi_flags & NV_MSI_X_ENABLED))
--				writel(0, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			pci_push(base);
-+	if (unlikely(np->events & NVREG_IRQ_LINK)) {
-+		spin_lock(&np->lock);
-+		nv_link_irq(dev);
-+		spin_unlock(&np->lock);
-+	}
-+	if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
-+		spin_lock(&np->lock);
-+		nv_linkchange(dev);
-+		spin_unlock(&np->lock);
-+		np->link_timeout = jiffies + LINK_TIMEOUT;
-+	}
-+	if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
-+		spin_lock(&np->lock);
-+		/* disable interrupts on the nic */
-+		if (!(np->msi_flags & NV_MSI_X_ENABLED))
-+			writel(0, base + NvRegIrqMask);
-+		else
-+			writel(np->irqmask, base + NvRegIrqMask);
-+		pci_push(base);
- 
--			if (!np->in_shutdown) {
--				np->nic_poll_irq = np->irqmask;
--				mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
--			}
--			spin_unlock(&np->lock);
--			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq.\n", dev->name, i);
--			break;
-+		if (!np->in_shutdown) {
-+			np->nic_poll_irq = np->irqmask;
-+			np->recover_error = 1;
-+			mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
- 		}
--#endif
-+		spin_unlock(&np->lock);
- 	}
++ *	consume_skb - free an skbuff
++ *	@skb: buffer to free
++ *
++ *	Drop a ref to the buffer and free it if the usage count has hit zero
++ *	Functions identically to kfree_skb, but kfree_skb assumes that the frame
++ *	is being dropped after a failure and notes that
++ */
++void consume_skb(struct sk_buff *skb)
++{
++	if (unlikely(!skb))
++		return;
++	if (likely(atomic_read(&skb->users) == 1))
++		smp_rmb();
++	else if (likely(!atomic_dec_and_test(&skb->users)))
++		return;
++	__kfree_skb(skb);
++}
++EXPORT_SYMBOL(consume_skb);
 +
-+#endif
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq_optimized completed\n", dev->name);
- 
--	return IRQ_RETVAL(i);
-+	return IRQ_HANDLED;
++/**
+  *	skb_recycle_check - check if skb can be reused for receive
+  *	@skb: buffer
+  *	@skb_size: minimum receive buffer size
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 3f6b735..e89f7b7 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -892,7 +892,7 @@ static int arp_process(struct sk_buff *skb)
+ out:
+ 	if (in_dev)
+ 		in_dev_put(in_dev);
+-	kfree_skb(skb);
++	consume_skb(skb);
+ 	return 0;
  }
  
- static irqreturn_t nv_nic_irq_tx(int foo, void *data)
-
---------------090909030706090605040303--
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4bd178a..05b7abb 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1184,7 +1184,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 			sk = sknext;
+ 		} while (sknext);
+ 	} else
+-		kfree_skb(skb);
++		consume_skb(skb);
+ 	spin_unlock(&hslot->lock);
+ 	return 0;
+ }
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index d8cc006..74776de 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -584,7 +584,7 @@ drop_n_restore:
+ 		skb->len = skb_len;
+ 	}
+ drop:
+-	kfree_skb(skb);
++	consume_skb(skb);
+ 	return 0;
+ }
+ 
