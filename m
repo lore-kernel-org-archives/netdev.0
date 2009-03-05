@@ -1,58 +1,34 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: [RFC v1] hand off skb list to other cpu to submit to upper
-	layer
-Date: Thu, 05 Mar 2009 09:04:36 +0800
-Message-ID: <1236215076.2567.105.camel@ymzhang>
-References: <1235546423.2604.556.camel@ymzhang>
-	 <20090224.233115.240823417.davem@davemloft.net>
-	 <1236158868.2567.93.camel@ymzhang>
-	 <20090304.013937.129768263.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Re: some tc commands fail on 2.6.29-rc6-git5, works on
+ 2.6.28.7
+Date: Wed, 04 Mar 2009 17:38:39 -0800 (PST)
+Message-ID: <20090304.173839.236187904.davem@davemloft.net>
+References: <1236135028.7883.44.camel@Maple>
+	<20090304233458.GA8303@ami.dom.local>
+	<a5d9929e0903041632r56af217r3b6645d3d01c8ca5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
-	shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, john.dykstra1@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, shemminger@vyatta.com
+To: joaomiguelcorreia@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:55810 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750775AbZCEBFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 20:05:02 -0500
-In-Reply-To: <20090304.013937.129768263.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51619
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750761AbZCEBiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 20:38:54 -0500
+In-Reply-To: <a5d9929e0903041632r56af217r3b6645d3d01c8ca5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-03-04 at 01:39 -0800, David Miller wrote:
-> From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-> Date: Wed, 04 Mar 2009 17:27:48 +0800
->=20
-> > Both the new skb_record_rx_queue and current kernel have an
-> > assumption on multi-queue. The assumption is it's best to send out
-> > packets from the TX of the same number of queue like the one of RX
-> > if the receved packets are related to the out packets. Or more
-> > direct speaking is we need send packets on the same cpu on which we
-> > receive them. The start point is that could reduce skb and data
-> > cache miss.
->=20
-> We have to use the same TX queue for all packets for the same
-> connection flow (same src/dst IP address and ports) otherwise
-> we introduce reordering.
-> Herbert brought this up, now I have explicitly brought this up,
-> and you cannot ignore this issue.
-Thanks. =EF=BB=BFStephen Hemminger brought it up and explained what reo=
-rder
-is. I answered in a reply (sorry for not clear) that mostly we need spr=
-ead
-packets among RX/TX in a 1:1 mapping or N:1 mapping. For example, all p=
-ackets
-received from RX 8 will be spreaded to TX 0 always.
+From: Joao Correia <joaomiguelcorreia@gmail.com>
+Date: Thu, 5 Mar 2009 00:32:08 +0000
 
+> Confirmed working now on latest 2.6.29-rc6 git.
+> 
+> Thank you very much all for the prompt answer and solution, really impressive.
+> 
+> Back to work on the ultimate custom firewall *evil laugh*.
 
->=20
-> You must not knowingly reorder packets, and using different TX
-> queues for packets within the same flow does that.
-Thanks for you rexplanation which is really consistent with =EF=BB=BFSt=
-ephen's speaking.
-
-
+Applied, thanks everyone.
