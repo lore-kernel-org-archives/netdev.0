@@ -1,108 +1,152 @@
-From: James Huang <jamesclhuang@gmail.com>
-Subject: =?utf-8?b?c2tiX3NlZ21lbnQoKQ==?= questions
-Date: Thu, 5 Mar 2009 00:08:38 +0000 (UTC)
-Message-ID: <loom.20090305T000003-18@post.gmane.org>
+From: Joao Correia <joaomiguelcorreia@gmail.com>
+Subject: Re: [PATCH] Re: some tc commands fail on 2.6.29-rc6-git5, works on
+	2.6.28.7
+Date: Thu, 5 Mar 2009 00:32:08 +0000
+Message-ID: <a5d9929e0903041632r56af217r3b6645d3d01c8ca5@mail.gmail.com>
+References: <a5d9929e0903011636w6bff1032y28ab58c0ff8c8052@mail.gmail.com>
+	 <20090301165729.8e08e1d7.akpm@linux-foundation.org>
+	 <49AC28FF.1040102@gmail.com>
+	 <a5d9929e0903031510r7f173f5cib7bd1a2426e92473@mail.gmail.com>
+	 <1236135028.7883.44.camel@Maple> <20090304233458.GA8303@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: John Dykstra <john.dykstra1@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:37443 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753296AbZCEAI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2009 19:08:57 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Lf18t-00009v-0r
-	for netdev@vger.kernel.org; Thu, 05 Mar 2009 00:08:51 +0000
-Received: from 66.151.55.131 ([66.151.55.131])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2009 00:08:51 +0000
-Received: from jamesclhuang by 66.151.55.131 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2009 00:08:51 +0000
+Received: from mail-bw0-f178.google.com ([209.85.218.178]:62512 "EHLO
+	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753296AbZCEAcM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2009 19:32:12 -0500
+In-Reply-To: <20090304233458.GA8303@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hello
 
-    After spending hours trying to understand how GSO and GRO works in =
-the=20
-latest Linux kernel (net-next-2.6.git), I am still quite confused about=
-=20
-the implementation of skb_segment():
+Confirmed working now on latest 2.6.29-rc6 git.
 
-(1) Comments about the roles of some critical variables in the routine =
-will=20
-help. Among them, len, hsize, and offset are not as confusing and I fig=
-ured=20
-they have the following meanings:
+Thank you very much all for the prompt answer and solution, really impr=
+essive.
 
-len: amount of payload to "copy" into nskb
-hsize: amount of payload to copy into nskb's head buffer=20
-offset: offset (from L2 header) of skb's payload to start "copy" into n=
-skb
+Back to work on the ultimate custom firewall *evil laugh*.
 
-However, the variable "pos" is quite ambiguous. The value of "pos" at t=
-he=20
-beginning of each iteration of the do loop seems to depend on the curre=
-nt=20
-fragment being processed.  If current fragment is the head buffer of sk=
-b, pos=20
-is set to offset(end of the head buffer).  But if the current fragment =
-is a=20
-page entry in skb or a skb in the frag_list, then pos is set to offset
-(beginning of the current fragment).
+Cheers,
+Joao Correia
+Centro de Informatica
+Universidade da Beira Interior
+Portugal
 
-(2) What is the purpose of the following check?
-
-`    if (pos >=3D offset + len)
-        continue;
-
-     If the payload in the head buffer of skb has at least mss bytes, t=
-his=20
-check will succeed and no payload in skb=E2=80=99s head buffer will be =
-copy into nskb=20
-through a call to skb_copy_from_linear_data_offset(). Something seems t=
-o be=20
-wrong here.
-
-(3) Variable "hsize" seems to have a new meaning within the following i=
-f=20
-statement:
-
-       if (!hsize && i >=3D nfrags) {
-                      :
-                      :
-	   hsize =3D skb_end_pointer(nskb) - nskb->head;
-	   if (skb_cow_head(nskb, doffset + headroom)) {
-	 	kfree_skb(nskb);
-		goto err;
-	   }
-
-	   nskb->truesize +=3D skb_end_pointer(nskb) - nskb->head -=20
-hsize;                :
-                      :
-       }
-
-    If so, it will be better to use a different variable here.
-
-(4) When will the if condition (if (pos < offset + len)) just before=20
-skip_faglist become true?  When the if condition is true, nskb will hav=
-e a non-
-null frag_list. How do we know that the output interface's driver will =
-support=20
-such a skb?
-
-(5) There are some assumptions about the input skb. These assumptions a=
-re=20
-asserted by BUG_ON() statements throughout the routine.  It will help t=
-o list=20
-those assumptions at the very beginning of skb_segment().
-
-
-Thanks,
-James Huang
-
-
-
+On Wed, Mar 4, 2009 at 11:34 PM, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+> On Tue, Mar 03, 2009 at 08:50:28PM -0600, John Dykstra wrote:
+>> On Tue, 2009-03-03 at 23:10 +0000, Joao Correia wrote:
+>> > I have confirmed again that the exact same commands (as on the
+>> > original message), work flawlessly on 2.6.28.7 without a hitch, an=
+d,
+>> > AFAIK, work as intended. I have also tried the latest 2.6.29-rc6-g=
+it7
+>> > and it still fails like on git6.
+>>
+>> I have also reproduced this on Linus' latest 2.6.29-rc6 tree, using =
+tc
+>> version iproute2-ss071016 and a kernel config with all traffic contr=
+ol
+>> features enabled.
+>>
+>> The error reported by tc comes from the kernel-level check added by:
+>>
+>> =A0 =A0 =A0 commit c1b56878fb68e9c14070939ea4537ad4db79ffae
+>> =A0 =A0 =A0 Author: Stephen Hemminger <shemminger@vyatta.com>
+>> =A0 =A0 =A0 Date: =A0 Tue Nov 25 21:14:06 2008 -0800
+>>
+>> =A0 =A0 =A0 tc: policing requires a rate estimator
+>>
+>> =A0 =A0 Found that while trying average rate policing, it was possib=
+le to
+>> =A0 =A0 request average rate policing without a rate estimator. This=
+ results
+>> =A0 =A0 in no policing which is harmless but incorrect.
+>>
+>> =A0 =A0 Since policing could be setup in two steps, need to check
+>> =A0 =A0 in the kernel.
+>>
+>> =A0 =A0 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>> =A0 =A0 Signed-off-by: David S. Miller <davem@davemloft.net>
+>>
+>> I got the same error when using the tc version iproute2-ss090115 bui=
+lt
+>> this evening from the public git repository.
+>>
+>> =A0 -- John
+>>
+>
+> Very nice diagnose, thanks!
+> Jarek P.
+>
+> PS: after upgrading iproute I couldn't reproduce this seemingly OK
+> test with older versions anymore...
+>
+> ------------------->
+> pkt_sched: act_police: Fix a rate estimator test.
+>
+> A commit c1b56878fb68e9c14070939ea4537ad4db79ffae "tc: policing requi=
+res
+> a rate estimator" introduced a test which invalidates previously work=
+ing
+> configs, based on examples from iproute2: doc/actions/actions-general=
+=2E
+> This is too rigorous: a rate estimator is needed only when police's
+> "avrate" option is used.
+>
+> Reported-by: Joao Correia <joaomiguelcorreia@gmail.com>
+> Diagnosed-by: John Dykstra <john.dykstra1@gmail.com>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> ---
+>
+> =A0net/sched/act_police.c | =A0 13 ++++++-------
+> =A01 files changed, 6 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+> index 5c72a11..f8f047b 100644
+> --- a/net/sched/act_police.c
+> +++ b/net/sched/act_police.c
+> @@ -183,13 +183,6 @@ override:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (R_tab =3D=3D NULL)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto failure;
+>
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!est && (ret =3D=3D ACT_P_CREATED |=
+|
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!gen_estimat=
+or_active(&police->tcf_bstats,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0&police->tcf_rate_est))) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D -EINVAL;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto failure;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> -
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (parm->peakrate.rate) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0P_tab =3D qdisc_get_rt=
+ab(&parm->peakrate,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 tb[TCA_POLICE_PEAKRATE]);
+> @@ -205,6 +198,12 @@ override:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0&police->tcf_lock, est);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (err)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto failure_unlock;
+> + =A0 =A0 =A0 } else if (tb[TCA_POLICE_AVRATE] &&
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(ret =3D=3D ACT_P_CREATED ||
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 !gen_estimator_active(&police->=
+tcf_bstats,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 &police->tcf_rate_est))) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D -EINVAL;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto failure_unlock;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0/* No failure allowed after this point */
+>
