@@ -1,120 +1,132 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 12/13] forcedeth: fix irq clearing and napi spin lock changes
-Date: Thu, 05 Mar 2009 13:02:34 -0500
-Message-ID: <49B013BA.2040202@nvidia.com>
+Subject: [PATCH 5/13] forcedeth: remove overhead
+Date: Thu, 05 Mar 2009 13:02:06 -0500
+Message-ID: <49B0139E.6080109@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030607050300050808070000"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>,
+ boundary="------------060800030201060600090106"
+To: Manfred Spraul <manfred@colorfullife.com>,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:8518 "EHLO
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:8541 "EHLO
 	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755756AbZCEVBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:01:51 -0500
+	with ESMTP id S1755975AbZCEVCD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 16:02:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------030607050300050808070000
+--------------060800030201060600090106
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch clears the irqstatus register with the exact same events it 
-has read from it. Since the read-write operation is not atomic, a new 
-irqstatus bit could have been set in between these operations and would 
-then be cleared accidentally.
-
-Secondly, we now don't need any spin lock protection when 
-scheduling/completing napi poll as the isr will not execute anymore (as 
-we turn off all interrupts now).
+This patch removes unnecessary overhead code. Firstly, there is no nead 
+to mask off unwanted interrupts as we will be checking against the 
+irqmask field anyways. Secondly, there has been no value in last few 
+years from detecting error or unknown interrupts.
 
 Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------030607050300050808070000
+--------------060800030201060600090106
 Content-Type: text/plain;
- name="patch-forcedeth-irq"
+ name="patch-forcedeth-remove-overhead"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-irq"
+ filename="patch-forcedeth-remove-overhead"
 
---- old/drivers/net/forcedeth.c	2009-03-05 10:47:33.000000000 -0800
-+++ new/drivers/net/forcedeth.c	2009-03-05 10:47:45.000000000 -0800
-@@ -3464,10 +3464,10 @@
+--- old/drivers/net/forcedeth.c	2009-03-05 10:40:41.000000000 -0800
++++ new/drivers/net/forcedeth.c	2009-03-05 10:40:58.000000000 -0800
+@@ -120,10 +120,6 @@
+ #define NVREG_IRQ_RX_ALL		(NVREG_IRQ_RX_ERROR|NVREG_IRQ_RX|NVREG_IRQ_RX_NOBUF|NVREG_IRQ_RX_FORCED)
+ #define NVREG_IRQ_OTHER			(NVREG_IRQ_TIMER|NVREG_IRQ_LINK|NVREG_IRQ_RECOVER_ERROR)
  
- 	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
- 		np->events = readl(base + NvRegIrqStatus);
--		writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
-+		writel(np->events, base + NvRegIrqStatus);
- 	} else {
- 		np->events = readl(base + NvRegMSIXIrqStatus);
--		writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
-+		writel(np->events, base + NvRegMSIXIrqStatus);
- 	}
- 	dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
- 	if (!(np->events & np->irqmask))
-@@ -3476,15 +3476,12 @@
- 	nv_msi_workaround(np);
- 
- #ifdef CONFIG_FORCEDETH_NAPI
--	spin_lock(&np->lock);
- 	napi_schedule(&np->napi);
- 
- 	/* Disable furthur irq's
- 	   (msix not enabled with napi) */
- 	writel(0, base + NvRegIrqMask);
- 
--	spin_unlock(&np->lock);
+-#define NVREG_IRQ_UNKNOWN	(~(NVREG_IRQ_RX_ERROR|NVREG_IRQ_RX|NVREG_IRQ_RX_NOBUF|NVREG_IRQ_TX_ERR| \
+-					NVREG_IRQ_TX_OK|NVREG_IRQ_TIMER|NVREG_IRQ_LINK|NVREG_IRQ_RX_FORCED| \
+-					NVREG_IRQ_TX_FORCED|NVREG_IRQ_RECOVER_ERROR))
 -
- #else
- 	do
- 	{
-@@ -3568,10 +3565,10 @@
+ 	NvRegUnknownSetupReg6 = 0x008,
+ #define NVREG_UNKSETUP6_VAL		3
  
- 	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
- 		np->events = readl(base + NvRegIrqStatus);
--		writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
-+		writel(np->events, base + NvRegIrqStatus);
- 	} else {
- 		np->events = readl(base + NvRegMSIXIrqStatus);
--		writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
-+		writel(np->events, base + NvRegMSIXIrqStatus);
- 	}
- 	dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
- 	if (!(np->events & np->irqmask))
-@@ -3580,15 +3577,12 @@
- 	nv_msi_workaround(np);
+@@ -3424,10 +3420,10 @@
  
- #ifdef CONFIG_FORCEDETH_NAPI
--	spin_lock(&np->lock);
- 	napi_schedule(&np->napi);
+ 	for (i=0; ; i++) {
+ 		if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
+-			np->events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegIrqStatus);
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
+ 		} else {
+-			np->events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegMSIXIrqStatus);
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
+ 		}
+ 		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
+@@ -3475,14 +3471,6 @@
+ 			spin_unlock(&np->lock);
+ 			np->link_timeout = jiffies + LINK_TIMEOUT;
+ 		}
+-		if (unlikely(np->events & (NVREG_IRQ_TX_ERR))) {
+-			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+-						dev->name, np->events);
+-		}
+-		if (unlikely(np->events & (NVREG_IRQ_UNKNOWN))) {
+-			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
+-						dev->name, np->events);
+-		}
+ 		if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
+ 			spin_lock(&np->lock);
+ 			/* disable interrupts on the nic */
+@@ -3540,10 +3528,10 @@
  
- 	/* Disable furthur irq's
- 	   (msix not enabled with napi) */
- 	writel(0, base + NvRegIrqMask);
+ 	for (i=0; ; i++) {
+ 		if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
+-			np->events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegIrqStatus);
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
+ 		} else {
+-			np->events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
++			np->events = readl(base + NvRegMSIXIrqStatus);
+ 			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
+ 		}
+ 		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, np->events);
+@@ -3591,14 +3579,6 @@
+ 			spin_unlock(&np->lock);
+ 			np->link_timeout = jiffies + LINK_TIMEOUT;
+ 		}
+-		if (unlikely(np->events & (NVREG_IRQ_TX_ERR))) {
+-			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+-						dev->name, np->events);
+-		}
+-		if (unlikely(np->events & (NVREG_IRQ_UNKNOWN))) {
+-			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
+-						dev->name, np->events);
+-		}
+ 		if (unlikely(np->events & NVREG_IRQ_RECOVER_ERROR)) {
+ 			spin_lock(&np->lock);
+ 			/* disable interrupts on the nic */
+@@ -3663,10 +3643,6 @@
+ 		nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
+ 		spin_unlock_irqrestore(&np->lock, flags);
  
--	spin_unlock(&np->lock);
--
- #else
- 	do
- 	{
-@@ -3758,13 +3752,9 @@
- 	if (rx_work < budget) {
- 		/* re-enable interrupts
- 		   (msix not enabled in napi) */
--		spin_lock_irqsave(&np->lock, flags);
--
- 		__napi_complete(napi);
- 
- 		writel(np->irqmask, base + NvRegIrqMask);
--
--		spin_unlock_irqrestore(&np->lock, flags);
- 	}
- 	return rx_work;
- }
+-		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
+-			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+-						dev->name, events);
+-		}
+ 		if (unlikely(i > max_interrupt_work)) {
+ 			spin_lock_irqsave(&np->lock, flags);
+ 			/* disable interrupts on the nic */
+@@ -3825,10 +3801,6 @@
+ 			spin_unlock_irq(&np->lock);
+ 			break;
+ 		}
+-		if (events & (NVREG_IRQ_UNKNOWN)) {
+-			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
+-						dev->name, events);
+-		}
+ 		if (unlikely(i > max_interrupt_work)) {
+ 			spin_lock_irqsave(&np->lock, flags);
+ 			/* disable interrupts on the nic */
 
---------------030607050300050808070000--
+--------------060800030201060600090106--
