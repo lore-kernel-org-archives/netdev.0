@@ -1,385 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
-	implementation & Netlink protocol
-Date: Thu, 5 Mar 2009 14:27:06 -0500
-Message-ID: <20090305192706.GB12835@hmsreliant.think-freely.org>
-References: <20090303170435.GE1480@hmsreliant.think-freely.org>
+From: =?UTF-8?Q?=CE=86=CE=BB=CE=BA=CE=B7=CF=82_?=
+	 =?UTF-8?Q?=CE=93=CE=B5=CF=89=CF=81=CE=B3=CF=8C=CF=80=CE=BF=CF=85=CE=BB?=
+	 =?UTF-8?Q?=CE=BF=CF=82?= <alkisg@gmail.com>
+Subject: r8169 - disable flow-control?
+Date: Thu, 05 Mar 2009 21:35:43 +0200
+Message-ID: <1236281743.10409.17.camel@alkisg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37287 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754561AbZCET1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 14:27:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20090303170435.GE1480@hmsreliant.think-freely.org>
+Received: from mail-fx0-f176.google.com ([209.85.220.176]:41520 "EHLO
+	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756506AbZCETfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 14:35:47 -0500
+Received: by fxm24 with SMTP id 24so82894fxm.37
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2009 11:35:45 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, as requested new version of the patch to implement the drop monitor trace
-hook and netlink service
+Hello,
 
-Modification notes:
+Is there any way to disable flow control for NICs using the r8169
+driver?
 
-1) As requested, modified the code to use generic netlink sockets rather than
-create a new netlink protocol family.  This implies that patch 1/5 can be
-dropped from this series entirely, since all it did was add that protocol family
-identifier
+It would be really valuable in the following (sadly very common)
+scenario:
+ * r8169 gigabit NIC on the server
+ * unmanaged gigabit switch that supports flow control negotiation
+ * 100Mbps clients
 
-2) General checkpatch cleanup.
+E.g. in LTSP labs, the server can send data at ~900Mbps with flow
+control off, but with flow control on the bandwidth drops to ~90Mbps.
+Detailed explanation of the problem:
+http://virtualthreads.blogspot.com/2006/02/beware-ethernet-flow-control.html
 
-3) Fix some alignment issues in net_dropmon.h.  Note that I used an explicit
-__attribute__, rather than aligned_u64, since the later doesn't appear to be
-exposed to user space.
+If the current code doesn't support it, would it be possible to add a
+module parameter for this?
 
+Kind regards,
+Alkis Georgopoulos
 
-Let me know what you all think.  Thanks!
-
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- include/linux/net_dropmon.h |   56 +++++++++
- net/core/drop_monitor.c     |  265 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 321 insertions(+)
-
-
-Network Drop Monitor: Adding drop monitor implementation & Netlink protocol
-
-diff --git a/include/linux/net_dropmon.h b/include/linux/net_dropmon.h
-new file mode 100644
-index 0000000..7ef35cb
---- /dev/null
-+++ b/include/linux/net_dropmon.h
-@@ -0,0 +1,56 @@
-+#ifndef __NET_DROPMON_H
-+#define __NET_DROPMON_H
-+
-+#include <linux/netlink.h>
-+
-+struct net_dm_drop_point {
-+	uint8_t pc[8];
-+	uint32_t count;
-+};
-+
-+#define NET_DM_CFG_VERSION  0
-+#define NET_DM_CFG_ALERT_COUNT  1
-+#define NET_DM_CFG_ALERT_DELAY 2
-+#define NET_DM_CFG_MAX 3
-+
-+struct net_dm_config_entry {
-+	uint32_t type;
-+	uint64_t data __attribute__((aligned(8)));
-+};
-+
-+struct net_dm_config_msg {
-+	uint32_t entries;
-+	struct net_dm_config_entry options[0];
-+};
-+
-+struct net_dm_alert_msg {
-+	uint32_t entries;
-+	struct net_dm_drop_point points[0];
-+};
-+
-+struct net_dm_user_msg {
-+	union {
-+		struct net_dm_config_msg user;
-+		struct net_dm_alert_msg alert;
-+	} u;
-+};
-+
-+
-+/* These are the netlink message types for this protocol */
-+
-+enum {
-+	NET_DM_CMD_UNSPEC = 0,
-+	NET_DM_CMD_ALERT,
-+	NET_DM_CMD_CONFIG,
-+	NET_DM_CMD_START,
-+	NET_DM_CMD_STOP,
-+	_NET_DM_CMD_MAX,
-+};
-+
-+#define NET_DM_CMD_MAX (_NET_DM_CMD_MAX - 1)
-+
-+/*
-+ * Our group identifiers
-+ */
-+#define NET_DM_GRP_ALERT 1
-+#endif
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-new file mode 100644
-index 0000000..a59ba6f
---- /dev/null
-+++ b/net/core/drop_monitor.c
-@@ -0,0 +1,265 @@
-+/*
-+ * Monitoring code for network dropped packet alerts
-+ *
-+ * Copyright (C) 2009 Neil Horman <nhorman@tuxdriver.com>
-+ */
-+
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/string.h>
-+#include <linux/if_arp.h>
-+#include <linux/inetdevice.h>
-+#include <linux/inet.h>
-+#include <linux/interrupt.h>
-+#include <linux/netpoll.h>
-+#include <linux/sched.h>
-+#include <linux/delay.h>
-+#include <linux/types.h>
-+#include <linux/workqueue.h>
-+#include <linux/netlink.h>
-+#include <linux/net_dropmon.h>
-+#include <linux/percpu.h>
-+#include <linux/timer.h>
-+#include <linux/bitops.h>
-+#include <net/genetlink.h>
-+
-+#include <trace/skb.h>
-+
-+#include <asm/unaligned.h>
-+
-+#define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
-+
-+#define TRACE_ON 1
-+#define TRACE_OFF 0
-+
-+static void send_dm_alert(struct work_struct *unused);
-+
-+
-+/*
-+ * Globals, our netlink socket pointer
-+ * and the work handle that will send up
-+ * netlink alerts
-+ */
-+struct sock *dm_sock;
-+
-+struct per_cpu_dm_data {
-+	struct work_struct dm_alert_work;
-+	struct sk_buff *skb;
-+	atomic_t dm_hit_count;
-+	struct timer_list send_timer;
-+};
-+
-+static struct genl_family net_drop_monitor_family = {
-+	.id             = GENL_ID_GENERATE,
-+	.hdrsize        = 0,
-+	.name           = "NET_DM",
-+	.version        = 1,
-+	.maxattr        = NET_DM_CMD_MAX,
-+};
-+
-+static DEFINE_PER_CPU(struct per_cpu_dm_data, dm_cpu_data);
-+
-+static int dm_hit_limit = 64;
-+static int dm_delay = 1;
-+
-+
-+static void reset_per_cpu_data(struct per_cpu_dm_data *data)
-+{
-+	size_t al;
-+	struct net_dm_alert_msg *msg;
-+
-+	al = sizeof(struct net_dm_alert_msg);
-+	al += dm_hit_limit * sizeof(struct net_dm_drop_point);
-+	data->skb = genlmsg_new(al, GFP_KERNEL);
-+	genlmsg_put(data->skb, 0, 0, &net_drop_monitor_family,
-+			0, NET_DM_CMD_ALERT);
-+	msg = __nla_reserve_nohdr(data->skb, sizeof(struct net_dm_alert_msg));
-+	memset(msg, 0, al);
-+	atomic_set(&data->dm_hit_count, dm_hit_limit);
-+}
-+
-+static void send_dm_alert(struct work_struct *unused)
-+{
-+	struct sk_buff *skb;
-+	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
-+
-+	/*
-+	 * Grab the skb we're about to send
-+	 */
-+	skb = data->skb;
-+
-+	/*
-+	 * Replace it with a new one
-+	 */
-+	reset_per_cpu_data(data);
-+
-+	/*
-+	 * Ship it!
-+	 */
-+	genlmsg_multicast(skb, 0, NET_DM_GRP_ALERT, GFP_KERNEL);
-+
-+}
-+
-+/*
-+ * This is the timer function to delay the sending of an alert
-+ * in the event that more drops will arrive during the
-+ * hysteresis period.  Note that it operates under the timer interrupt
-+ * so we don't need to disable preemption here
-+ */
-+static void sched_send_work(unsigned long unused)
-+{
-+	struct per_cpu_dm_data *data =  &__get_cpu_var(dm_cpu_data);
-+
-+	schedule_work(&data->dm_alert_work);
-+}
-+
-+static void trace_kfree_skb_hit(struct sk_buff *skb, void *location)
-+{
-+	struct net_dm_alert_msg *msg;
-+	struct nlmsghdr *nlh;
-+	int i;
-+	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
-+
-+
-+	if (!atomic_add_unless(&data->dm_hit_count, -1, 0)) {
-+		/*
-+		 * we're already at zero, discard this hit
-+		 */
-+		goto out;
-+	}
-+
-+	nlh = (struct nlmsghdr *)data->skb->data;
-+	msg = genlmsg_data(nlmsg_data(nlh));
-+	for (i = 0; i < msg->entries; i++) {
-+		if (!memcmp(&location, msg->points[i].pc, sizeof(void *))) {
-+			msg->points[i].count++;
-+			goto out;
-+		}
-+	}
-+
-+	/*
-+	 * We need to create a new entry
-+	 */
-+	__nla_reserve_nohdr(data->skb, sizeof(struct net_dm_drop_point));
-+	memcpy(msg->points[msg->entries].pc, &location, sizeof(void *));
-+	msg->points[msg->entries].count = 1;
-+	msg->entries++;
-+
-+	if (!timer_pending(&data->send_timer)) {
-+		data->send_timer.expires = jiffies + dm_delay * HZ;
-+		add_timer_on(&data->send_timer, smp_processor_id());
-+	}
-+
-+out:
-+	return;
-+}
-+
-+static int set_all_monitor_traces(int state)
-+{
-+	int rc = 0;
-+
-+	switch (state) {
-+	case TRACE_ON:
-+		rc |= register_trace_kfree_skb(trace_kfree_skb_hit);
-+		break;
-+	case TRACE_OFF:
-+		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit);
-+
-+		tracepoint_synchronize_unregister();
-+		break;
-+	default:
-+		rc = 1;
-+		break;
-+	}
-+
-+	if (rc)
-+		return -EINPROGRESS;
-+	return rc;
-+}
-+
-+
-+static int net_dm_cmd_config(struct sk_buff *skb,
-+			struct genl_info *info)
-+{
-+	return -ENOTSUPP;
-+}
-+
-+static int net_dm_cmd_trace(struct sk_buff *skb,
-+			struct genl_info *info)
-+{
-+	switch (info->genlhdr->cmd) {
-+	case NET_DM_CMD_START:
-+		return set_all_monitor_traces(TRACE_ON);
-+		break;
-+	case NET_DM_CMD_STOP:
-+		return set_all_monitor_traces(TRACE_OFF);
-+		break;
-+	}
-+
-+	return -ENOTSUPP;
-+}
-+
-+
-+static struct genl_ops dropmon_ops[] = {
-+	{
-+		.cmd = NET_DM_CMD_CONFIG,
-+		.doit = net_dm_cmd_config,
-+	},
-+	{
-+		.cmd = NET_DM_CMD_START,
-+		.doit = net_dm_cmd_trace,
-+	},
-+	{
-+		.cmd = NET_DM_CMD_STOP,
-+		.doit = net_dm_cmd_trace,
-+	},
-+};
-+
-+static int __init init_net_drop_monitor(void)
-+{
-+	int cpu;
-+	int rc, i, ret;
-+	struct per_cpu_dm_data *data;
-+	printk(KERN_INFO "Initalizing network drop monitor service\n");
-+
-+	if (sizeof(void *) > 8) {
-+		printk(KERN_ERR "Unable to store program counters on this arch, Drop monitor failed\n");
-+		return -ENOSPC;
-+	}
-+
-+	if (genl_register_family(&net_drop_monitor_family) < 0) {
-+		printk(KERN_ERR "Could not create drop monitor netlink family\n");
-+		return -EFAULT;
-+	}
-+
-+	rc = -EFAULT;
-+
-+	for (i = 0; i < ARRAY_SIZE(dropmon_ops); i++) {
-+		ret = genl_register_ops(&net_drop_monitor_family,
-+					&dropmon_ops[i]);
-+		if (ret) {
-+			printk(KERN_CRIT "failed to register operation %d\n",
-+				dropmon_ops[i].cmd);
-+			goto out_unreg;
-+		}
-+	}
-+
-+	rc = 0;
-+
-+	for_each_present_cpu(cpu) {
-+		data = &per_cpu(dm_cpu_data, cpu);
-+		reset_per_cpu_data(data);
-+		INIT_WORK(&data->dm_alert_work, send_dm_alert);
-+		init_timer(&data->send_timer);
-+		data->send_timer.data = cpu;
-+		data->send_timer.function = sched_send_work;
-+	}
-+	goto out;
-+
-+out_unreg:
-+	genl_unregister_family(&net_drop_monitor_family);
-+out:
-+	return rc;
-+}
-+
-+late_initcall(init_net_drop_monitor);
