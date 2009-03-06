@@ -1,49 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/2] PCI: Add PCI quirk to disable L0s ASPM
- state for 82575 and 82598
-Date: Thu, 05 Mar 2009 17:44:03 -0800 (PST)
-Message-ID: <20090305.174403.244775692.davem@davemloft.net>
-References: <20090304040526.GB1884@parisc-linux.org>
-	<20090305.163108.70528099.davem@davemloft.net>
-	<20090306010207.GA829@parisc-linux.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, alexander.h.duyck@intel.com,
-	linux-pci@vger.kernel.org, willy@linux.intel.com,
-	jbarnes@virtuousgeek.org
-To: matthew@wil.cx
+From: Bryan Wu <cooloney@kernel.org>
+Subject: [PATCH] net: fix some trailing whitespaces
+Date: Fri,  6 Mar 2009 12:07:54 +0800
+Message-ID: <1236312474-25468-1-git-send-email-cooloney@kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Graf Yang <graf.yang@analog.com>,
+	Bryan Wu <cooloney@kernel.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43341
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751871AbZCFBoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 20:44:18 -0500
-In-Reply-To: <20090306010207.GA829@parisc-linux.org>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:54895 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662AbZCFEFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 23:05:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 5 Mar 2009 18:02:07 -0700
+From: Graf Yang <graf.yang@analog.com>
 
-> On Thu, Mar 05, 2009 at 04:31:08PM -0800, David Miller wrote:
-> > From: Matthew Wilcox <matthew@wil.cx>
-> > Date: Tue, 3 Mar 2009 21:05:26 -0700
-> > 
-> > > I'm not going to ack this patch at this point, let's just give it a day.
-> > 
-> > More than a day has passed, how long are we going to let this
-> > patch sit and rot?
-> > 
-> > Do we have to wait until Jesse gets back?  That doesn't sound
-> > reasonable to me.
-> 
-> A lot of the discussion on this happened face-to-face; Jeff, Linus and I
-> were all at the same conference this week.  I have put it in a pci fixes
-> tree, which I now have to pull apart again because one of the earlier
-> patches needs to be dropped.  I'm getting on a plane tonight and flying
-> home, so I'll be pushing this fix to Linus tomorrow.
-> 
-> Sorry for not keeping you in the loop on this one.
+Signed-off-by: Graf Yang <graf.yang@analog.com>
+Signed-off-by: Bryan Wu <cooloney@kernel.org>
+---
+ include/linux/if_ether.h  |    8 ++++----
+ include/linux/netdevice.h |   10 +++++-----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-Ok, sounds good to me.
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 7f3c735..0216e1b 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -17,7 +17,7 @@
+  *		as published by the Free Software Foundation; either version
+  *		2 of the License, or (at your option) any later version.
+  */
+- 
++
+ #ifndef _LINUX_IF_ETHER_H
+ #define _LINUX_IF_ETHER_H
+ 
+@@ -25,7 +25,7 @@
+ 
+ /*
+  *	IEEE 802.3 Ethernet magic constants.  The frame sizes omit the preamble
+- *	and FCS/CRC (frame check sequence). 
++ *	and FCS/CRC (frame check sequence).
+  */
+ 
+ #define ETH_ALEN	6		/* Octets in one ethernet addr	 */
+@@ -83,7 +83,7 @@
+ /*
+  *	Non DIX types. Won't clash for 1500 types.
+  */
+- 
++
+ #define ETH_P_802_3	0x0001		/* Dummy type for 802.3 frames  */
+ #define ETH_P_AX25	0x0002		/* Dummy protocol id for AX.25  */
+ #define ETH_P_ALL	0x0003		/* Every packet (be careful!!!) */
+@@ -109,7 +109,7 @@
+ /*
+  *	This is an Ethernet frame header.
+  */
+- 
++
+ struct ethhdr {
+ 	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
+ 	unsigned char	h_source[ETH_ALEN];	/* source ether addr	*/
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ec54785..2ddd625 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -96,7 +96,7 @@ struct wireless_dev;
+  *	Compute the worst case header length according to the protocols
+  *	used.
+  */
+- 
++
+ #if defined(CONFIG_WLAN_80211) || defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+ # if defined(CONFIG_MAC80211_MESH)
+ #  define LL_MAX_HEADER 128
+@@ -124,7 +124,7 @@ struct wireless_dev;
+  *	Network device statistics. Akin to the 2.0 ether stats but
+  *	with byte counters.
+  */
+- 
++
+ struct net_device_stats
+ {
+ 	unsigned long	rx_packets;		/* total packets received	*/
+@@ -285,7 +285,7 @@ enum netdev_state_t
+ 
+ /*
+  * This structure holds at boot time configured netdevice settings. They
+- * are then used in the device probing. 
++ * are then used in the device probing.
+  */
+ struct netdev_boot_setup {
+ 	char name[IFNAMSIZ];
+@@ -740,7 +740,7 @@ struct net_device
+ 	void			*dsa_ptr;	/* dsa specific data */
+ #endif
+ 	void 			*atalk_ptr;	/* AppleTalk link 	*/
+-	void			*ip_ptr;	/* IPv4 specific data	*/  
++	void			*ip_ptr;	/* IPv4 specific data	*/
+ 	void                    *dn_ptr;        /* DECnet specific data */
+ 	void                    *ip6_ptr;       /* IPv6 specific data */
+ 	void			*ec_ptr;	/* Econet specific data	*/
+@@ -753,7 +753,7 @@ struct net_device
+  */
+ 	unsigned long		last_rx;	/* Time of last Rx	*/
+ 	/* Interface address info used in eth_type_trans() */
+-	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast 
++	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast
+ 							   because most packets are unicast) */
+ 
+ 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+-- 
+1.5.6.3
