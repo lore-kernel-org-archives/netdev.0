@@ -1,24 +1,24 @@
 From: Nicholas Kinar <n.kinar@usask.ca>
 Subject: ENC28J60 driver causes kernel to be unresponsive
-Date: Fri, 06 Mar 2009 10:23:16 -0600
-Message-ID: <49B14DF4.7050503@usask.ca>
+Date: Fri, 06 Mar 2009 10:17:45 -0600
+Message-ID: <49B14CA9.2000400@usask.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.usask.ca ([128.233.192.40]:37868 "EHLO smtp.usask.ca"
+Received: from smtp.usask.ca ([128.233.192.40]:41251 "EHLO smtp.usask.ca"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755913AbZCFQXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2009 11:23:24 -0500
+	id S1753043AbZCFQqb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2009 11:46:31 -0500
 Received: from conversion-daemon.usask.ca by usask.ca
  (iPlanet Messaging Server 5.2 HotFix 2.18 (built Jul  3 2007))
  id <0KG300601EENNW@usask.ca> (original mail from n.kinar@usask.ca)
- for netdev@vger.kernel.org; Fri, 06 Mar 2009 10:23:22 -0600 (CST)
+ for netdev@vger.kernel.org; Fri, 06 Mar 2009 10:17:46 -0600 (CST)
 Received: from [128.233.99.188] (pp000fb06c0efa.usask.ca [128.233.99.188])
  by usask.ca (iPlanet Messaging Server 5.2 HotFix 2.18 (built Jul  3 2007))
- with ESMTPSA id <0KG300MQNEUSF8@usask.ca> for netdev@vger.kernel.org; Fri,
- 06 Mar 2009 10:23:17 -0600 (CST)
+ with ESMTPSA id <0KG300MBCELLF8@usask.ca> for netdev@vger.kernel.org; Fri,
+ 06 Mar 2009 10:17:45 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -30,21 +30,22 @@ embedded system running  Linux.  The kernel that I am using is
 setup code in my setup.c file is:
 
 static struct spi_board_info spi1_board_info[] __initdata = {
-   /*SPI Atmel dataflash*/
-   {
-       .modalias    = "mtd_dataflash",
-       .max_speed_hz    = 8000000,
-       .chip_select    = 0,
-   },
+    /*SPI Atmel dataflash*/
+    {
+        .modalias    = "mtd_dataflash",
+        .max_speed_hz    = 8000000,
+        .chip_select    = 0,
+    },
 
-   /*Ethernet controller*/
-   {
-       .modalias         = "enc28j60",
-       .controller_data    = (void*)GPIO_PIN_PB(3),
-       .mode             = SPI_MODE_0,
-       .irq            = (GPIO_PIN_PB(25) + GPIO_IRQ_BASE),
-       .max_speed_hz        = 20000000,
-       .chip_select        = 1,      },
+    /*Ethernet controller*/
+    {
+        .modalias         = "enc28j60",
+        .controller_data    = (void*)GPIO_PIN_PB(3),
+        .mode             = SPI_MODE_0,
+        .irq            = (GPIO_PIN_PB(25) + GPIO_IRQ_BASE),
+        .max_speed_hz        = 20000000,
+        .chip_select        = 1,   
+    },
 };
 
 At runtime, I load the module via modprobe, and there are no errors 
@@ -58,7 +59,8 @@ embedded system via telnet
 
 In the case of dropbear, when I try to SSH, the dropbear version is 
 sometimes displayed on the host system's telnet terminal, but the prompt 
-never appears.
+never appears. 
+
 I have noticed that the current consumption of the ENC28J60 chip goes up 
 (and remains up) when the kernel becomes unresponsive.  The lights on 
 the Ethernet connector continue to blink.  This leads me to think that 
@@ -73,7 +75,7 @@ ethtool.  I've tried to use ethtool to change the duplex from full to
 half, but the unresponsive behavior still continues.  I've tried to 
 Google for a solution to this, but I can't seem to find any setup code 
 for the spi_board_info struct, or any setup information on how to use 
-the ENC28J60 driver. 
+the ENC28J60 driver.
 
 I searched this mailing list, and I've found some patches that have been 
 submitted regarding kernel oops and problems with the ENC28J60 driver 
@@ -96,3 +98,11 @@ ENC28J60 driver?
 
 Nicholas Kinar
 n.kinar@usask.ca
+
+
+
+
+
+
+
+
