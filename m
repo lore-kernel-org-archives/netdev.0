@@ -1,116 +1,32 @@
-From: Bryan Wu <cooloney@kernel.org>
-Subject: [PATCH] net: fix some trailing whitespaces
-Date: Fri,  6 Mar 2009 12:07:54 +0800
-Message-ID: <1236312474-25468-1-git-send-email-cooloney@kernel.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Graf Yang <graf.yang@analog.com>,
-	Bryan Wu <cooloney@kernel.org>
-To: davem@davemloft.net
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] ethtool: Show short message for syntax error
+Date: Fri, 06 Mar 2009 05:59:42 -0500
+Message-ID: <49B1021E.5030309@pobox.com>
+References: <20081127041112.GK15344@decadentplace.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:54895 "EHLO
-	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751662AbZCFEFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 23:05:47 -0500
+Received: from srv5.dvmed.net ([207.36.208.214]:34462 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751038AbZCFK7t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2009 05:59:49 -0500
+In-Reply-To: <20081127041112.GK15344@decadentplace.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Graf Yang <graf.yang@analog.com>
+Ben Hutchings wrote:
+> In case of a syntax error it's likely to be more helpful to just say
+> that rather than showing the entire usage information, which is now
+> very long.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+> This change has been in Debian for some years, made in response to
+> bug report http://bugs.debian.org/256249
 
-Signed-off-by: Graf Yang <graf.yang@analog.com>
-Signed-off-by: Bryan Wu <cooloney@kernel.org>
----
- include/linux/if_ether.h  |    8 ++++----
- include/linux/netdevice.h |   10 +++++-----
- 2 files changed, 9 insertions(+), 9 deletions(-)
+applied
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 7f3c735..0216e1b 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -17,7 +17,7 @@
-  *		as published by the Free Software Foundation; either version
-  *		2 of the License, or (at your option) any later version.
-  */
-- 
-+
- #ifndef _LINUX_IF_ETHER_H
- #define _LINUX_IF_ETHER_H
- 
-@@ -25,7 +25,7 @@
- 
- /*
-  *	IEEE 802.3 Ethernet magic constants.  The frame sizes omit the preamble
-- *	and FCS/CRC (frame check sequence). 
-+ *	and FCS/CRC (frame check sequence).
-  */
- 
- #define ETH_ALEN	6		/* Octets in one ethernet addr	 */
-@@ -83,7 +83,7 @@
- /*
-  *	Non DIX types. Won't clash for 1500 types.
-  */
-- 
-+
- #define ETH_P_802_3	0x0001		/* Dummy type for 802.3 frames  */
- #define ETH_P_AX25	0x0002		/* Dummy protocol id for AX.25  */
- #define ETH_P_ALL	0x0003		/* Every packet (be careful!!!) */
-@@ -109,7 +109,7 @@
- /*
-  *	This is an Ethernet frame header.
-  */
-- 
-+
- struct ethhdr {
- 	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
- 	unsigned char	h_source[ETH_ALEN];	/* source ether addr	*/
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ec54785..2ddd625 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -96,7 +96,7 @@ struct wireless_dev;
-  *	Compute the worst case header length according to the protocols
-  *	used.
-  */
-- 
-+
- #if defined(CONFIG_WLAN_80211) || defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- # if defined(CONFIG_MAC80211_MESH)
- #  define LL_MAX_HEADER 128
-@@ -124,7 +124,7 @@ struct wireless_dev;
-  *	Network device statistics. Akin to the 2.0 ether stats but
-  *	with byte counters.
-  */
-- 
-+
- struct net_device_stats
- {
- 	unsigned long	rx_packets;		/* total packets received	*/
-@@ -285,7 +285,7 @@ enum netdev_state_t
- 
- /*
-  * This structure holds at boot time configured netdevice settings. They
-- * are then used in the device probing. 
-+ * are then used in the device probing.
-  */
- struct netdev_boot_setup {
- 	char name[IFNAMSIZ];
-@@ -740,7 +740,7 @@ struct net_device
- 	void			*dsa_ptr;	/* dsa specific data */
- #endif
- 	void 			*atalk_ptr;	/* AppleTalk link 	*/
--	void			*ip_ptr;	/* IPv4 specific data	*/  
-+	void			*ip_ptr;	/* IPv4 specific data	*/
- 	void                    *dn_ptr;        /* DECnet specific data */
- 	void                    *ip6_ptr;       /* IPv6 specific data */
- 	void			*ec_ptr;	/* Econet specific data	*/
-@@ -753,7 +753,7 @@ struct net_device
-  */
- 	unsigned long		last_rx;	/* Time of last Rx	*/
- 	/* Interface address info used in eth_type_trans() */
--	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast 
-+	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast
- 							   because most packets are unicast) */
- 
- 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
--- 
-1.5.6.3
+
