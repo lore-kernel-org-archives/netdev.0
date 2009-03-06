@@ -1,56 +1,31 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] macvlan: Support creating macvlans from macvlans
-Date: Thu, 05 Mar 2009 15:12:56 -0800
-Message-ID: <m1ocwfsgw7.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/11] Add support to FCoE offload through net_device
+ (v2)
+Date: Thu, 05 Mar 2009 16:10:38 -0800 (PST)
+Message-ID: <20090305.161038.126200218.davem@davemloft.net>
+References: <20090227220034.4987.50755.stgit.yi.zou@intel.com>
+	<20090303.235725.140764281.davem@davemloft.net>
+	<1236290360.5626.81.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:45997 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754458AbZCEXNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2009 18:13:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yi.zou@intel.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: James.Bottomley@HansenPartnership.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1236290360.5626.81.camel@localhost.localdomain>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Thu, 05 Mar 2009 21:59:20 +0000
 
-When running in a network namespace whose only link to
-the outside world is a macvlan device, not being
-able to create another macvlan is a real pain.
+> On Tue, 2009-03-03 at 23:57 -0800, David Miller wrote:
+> > I am fine with these changes, they look good.
+> 
+> Did you want to take the four pure net pieces through your tree, and
+> I'll run a postmerge tree based on your net tree, or just have me take
+> them through the SCSI tree?
 
-So modify macvlan creation to allow automatically forward
-a creation of a macvlan on a macvlan to become a creation
-of a macvlan on the underlying network device.
-
-Signed-off-by: Eric Biederman <ebiederm@aristanetworks.com>
----
- drivers/net/macvlan.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 7e24b50..b5241fc 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -461,12 +461,13 @@ static int macvlan_newlink(struct net_device *dev,
- 	if (lowerdev == NULL)
- 		return -ENODEV;
- 
--	/* Don't allow macvlans on top of other macvlans - its not really
--	 * wrong, but lockdep can't handle it and its not useful for anything
--	 * you couldn't do directly on top of the real device.
-+	/* When creating macvlans on top of other macvlans - use
-+	 * the real device as the lowerdev.
- 	 */
--	if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops)
--		return -ENODEV;
-+	if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops) {
-+		struct macvlan_dev *lowervlan = netdev_priv(lowerdev);
-+		lowerdev = lowervlan->lowerdev;
-+	}
- 
- 	if (!tb[IFLA_MTU])
- 		dev->mtu = lowerdev->mtu;
--- 
-1.6.1.2.350.g88cc
-
+You can take them all via your SCSI tree.  I think it works best
+that way.
