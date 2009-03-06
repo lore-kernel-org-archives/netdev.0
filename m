@@ -1,61 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] ethtool: Support arbitrary speeds
-Date: Fri, 06 Mar 2009 07:27:23 -0500
-Message-ID: <49B116AB.7060408@pobox.com>
-References: <200901080203.SAA19103@tardy.cup.hp.com> <1231384446.2677.32.camel@hashbaz.i.decadent.org.uk> <49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com> <1231442701.3893.4.camel@achroite>  <496658EB.1080206@hp.com> <1231506974.3006.18.camel@achroite>
+From: Ben McKeegan <ben@netservers.co.uk>
+Subject: Re: [PATCH] tulip: Fix for MTU problems with 802.1q tagged frames
+Date: Fri, 06 Mar 2009 12:48:38 +0000
+Message-ID: <49B11BA6.7060103@netservers.co.uk>
+References: <1236248494-1599-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, grundler@parisc-linux.org,
+	kyle@mcmartin.ca, Tomasz Lemiech <szpajder@staszic.waw.pl>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52954 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750769AbZCFM1a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2009 07:27:30 -0500
-In-Reply-To: <1231506974.3006.18.camel@achroite>
+Received: from mail.netservers.co.uk ([80.248.178.71]:35030 "EHLO
+	mail.netservers.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbZCFMuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 07:50:18 -0500
+In-Reply-To: <1236248494-1599-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> The speed and speed_hi fields of struct ethtool_cmd together represen=
-t
-> a value in units of Mbit/s.  The valid speed settings are hardware-
-> dependent and should be checked by the driver.  Remove our validation
-> and allow arbitrary positive values.  Continue to report 0 and -1 as
-> "Unknown!" since some drivers will report these invalid values when
-> the link is down.
->=20
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> On Thu, 2009-01-08 at 11:50 -0800, Rick Jones wrote:
->>> I think 0, (u32)(-1) and (u16)(-1) may have to be special-cased as
->>> unknown, but everything else can be treated as a number of Mbit/s. =
- I
->>> don't know what a driver should do about an interface that really r=
-uns
->>> at 65.535 Gbit/s though...
->> Something along these lines then? (assuming my mailer doesn't fubar =
-this
->> :( - I normally send matches via mailx)
->=20
-> That's kind of incomplete.  Here's my attempt.
->=20
-> In a quick test I found that the tg3 driver *doesn't* validate the sp=
-eed
-> setting if autonegotiation is off, and will accept and report back e.=
-g.
-> 99.  But this patch doesn't create a new problem as you could already
-> set it to the unsupported speeds of 2500 and 10000.
->=20
-> Ben.
-> =EF=BB=BF
->  ethtool.8 |    4 ++--
->  ethtool.c |   42 ++++++++++--------------------------------
->  2 files changed, 12 insertions(+), 34 deletions(-)
->=20
+Ivan Vecera wrote:
+> The original patch was submitted last year but wasn't discussed or applied
+> because of missing maintainer's CCs. I only fixed some formatting errors,
+> but as I saw tulip is very badly formatted and needs further work.
+> 
+> Original description:
+> This patch fixes MTU problem, which occurs when using 802.1q VLANs. We
+> should allow receiving frames of up to 1518 bytes in length, instead of
+> 1514.
+> 
+> Based on patch written by Ben McKeegan for 2.4.x kernels. It is archived
+> at http://www.candelatech.com/~greear/vlan/howto.html#tulip
+> I've adjusted a few things to make it apply on 2.6.x kernels.
+> 
+> Tested on D-Link DFE-570TX quad-fastethernet card.
+> 
+> Signed-off-by: Tomasz Lemiech <szpajder@staszic.waw.pl>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-applied
+Looks good.  FWIW:
+
+Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
+
 
 
