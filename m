@@ -1,47 +1,98 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] macvlan: Support creating macvlans from macvlans
-Date: Fri, 06 Mar 2009 16:56:23 +0100
-Message-ID: <49B147A7.7010006@trash.net>
-References: <m1ocwfsgw7.fsf@fess.ebiederm.org> <49B12B20.7000602@trash.net>	<m1sklqohw2.fsf@fess.ebiederm.org> <49B13259.9040701@trash.net>	<m14oy6n15y.fsf@fess.ebiederm.org> <49B13C7D.10308@trash.net>	<m1bpsellmv.fsf@fess.ebiederm.org> <49B14234.5030206@trash.net> <m1wsb2k5vg.fsf@fess.ebiederm.org>
+From: Nicholas Kinar <n.kinar@usask.ca>
+Subject: ENC28J60 driver causes kernel to be unresponsive
+Date: Fri, 06 Mar 2009 10:23:16 -0600
+Message-ID: <49B14DF4.7050503@usask.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33452 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754775AbZCFP42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 10:56:28 -0500
-In-Reply-To: <m1wsb2k5vg.fsf@fess.ebiederm.org>
+Received: from smtp.usask.ca ([128.233.192.40]:37868 "EHLO smtp.usask.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755913AbZCFQXY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2009 11:23:24 -0500
+Received: from conversion-daemon.usask.ca by usask.ca
+ (iPlanet Messaging Server 5.2 HotFix 2.18 (built Jul  3 2007))
+ id <0KG300601EENNW@usask.ca> (original mail from n.kinar@usask.ca)
+ for netdev@vger.kernel.org; Fri, 06 Mar 2009 10:23:22 -0600 (CST)
+Received: from [128.233.99.188] (pp000fb06c0efa.usask.ca [128.233.99.188])
+ by usask.ca (iPlanet Messaging Server 5.2 HotFix 2.18 (built Jul  3 2007))
+ with ESMTPSA id <0KG300MQNEUSF8@usask.ca> for netdev@vger.kernel.org; Fri,
+ 06 Mar 2009 10:23:17 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Patrick McHardy <kaber@trash.net> writes:
-> 
->> Eric W. Biederman wrote:
->>> Patrick McHardy <kaber@trash.net> writes:
->>>
->>>>> Hmm.  Actually that appears to be a macvlan bug.  It looks like if I
->>>>> change the macaddress on a macvlan we don't update the hash chains.
->>>>> So unless we have the same low byte we will be on the wrong hash chain
->>>>> and not receive the packets for the mac we specified.  Ouch!
->>>> The address can only be changed while the device is down and unhashed.
->>> Point.  The dev_unicast/dev_unicast_delete in macvlan_set_mac_address
->>> appears to be completely unnecessary then.
->> I think thats correct.
-> 
-> Actually it is really weird.  We can change the mac address while
-> the devices is running but the code is broken because it does
-> not update the hash table.
+Hello--
 
-Thats strange. I know the assumption was that this can't be done.
-But I can't find anything preventing it, not even in older versions.
+I am testing the new ENC28J60 SPI-to-Ethernet driver on a custom AVR32 
+embedded system running  Linux.  The kernel that I am using is 
+2.6.27.6.atmel.1, and I have compiled the ENC28J60 as a module.  The SPI 
+setup code in my setup.c file is:
 
->> Refusing duplicate MACs (on one underlying device) makes sense, the
->> results are undefined currently.
-> 
-> Then I will do that just for consistency.
+static struct spi_board_info spi1_board_info[] __initdata = {
+   /*SPI Atmel dataflash*/
+   {
+       .modalias    = "mtd_dataflash",
+       .max_speed_hz    = 8000000,
+       .chip_select    = 0,
+   },
 
-Thanks.
+   /*Ethernet controller*/
+   {
+       .modalias         = "enc28j60",
+       .controller_data    = (void*)GPIO_PIN_PB(3),
+       .mode             = SPI_MODE_0,
+       .irq            = (GPIO_PIN_PB(25) + GPIO_IRQ_BASE),
+       .max_speed_hz        = 20000000,
+       .chip_select        = 1,      },
+};
+
+At runtime, I load the module via modprobe, and there are no errors 
+written to the kernel log when the driver loads.  However, the behavior 
+of the driver is sporadic, and the embedded system often becomes 
+unresponsive when:
+
+(1) I plug in a cross-wired Ethernet cable;
+(2) I run dropbear on the embedded system and try to SSH into the 
+embedded system via telnet
+
+In the case of dropbear, when I try to SSH, the dropbear version is 
+sometimes displayed on the host system's telnet terminal, but the prompt 
+never appears.
+I have noticed that the current consumption of the ENC28J60 chip goes up 
+(and remains up) when the kernel becomes unresponsive.  The lights on 
+the Ethernet connector continue to blink.  This leads me to think that 
+something is happening in a loop, and never exits from the loop.
+
+Sometimes, I cannot ping the embedded system from the host.  The ping is 
+sporadic; sometimes it works, and sometimes it does not.
+
+I am not certain if this is a problem related to improper setup of the 
+spi_board_info struct, or whether I have to change some setting using 
+ethtool.  I've tried to use ethtool to change the duplex from full to 
+half, but the unresponsive behavior still continues.  I've tried to 
+Google for a solution to this, but I can't seem to find any setup code 
+for the spi_board_info struct, or any setup information on how to use 
+the ENC28J60 driver. 
+
+I searched this mailing list, and I've found some patches that have been 
+submitted regarding kernel oops and problems with the ENC28J60 driver 
+after entering and exiting the low power mode.
+
+I pulled the latest version of the mainstream kernel from the kernel 
+tree, but comparing the 2.6.27.6.atmel.1 version of the ENC28J60 driver 
+with the version of the ENC28J60 driver in the kernel tree, I do not see 
+some of the most recent patches.
+
+Where could I download the most up-to-date version of the ENC28J60 
+driver (including the patches on the mailing list)?  Could trying a 
+newer version of the driver help?  Or do I need to adjust my settings 
+via Ethtool?
+
+Does the configuration of the LEDs of the ENC28J60 affect the driver 
+operation?  Would I have to physically change my hardware to use the 
+ENC28J60 driver?
+
+
+Nicholas Kinar
+n.kinar@usask.ca
