@@ -1,254 +1,95 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH] tulip: Fix for MTU problems with 802.1q tagged frames
-Date: Fri, 6 Mar 2009 11:13:22 -0700
-Message-ID: <20090306181322.GA3616@colo.lackof.org>
-References: <1236248494-1599-1-git-send-email-ivecera@redhat.com>
+From: Tim Durack <tdurack@gmail.com>
+Subject: r8169 MAC problem
+Date: Fri, 6 Mar 2009 14:29:13 -0500
+Message-ID: <9e246b4d0903061129g7b66dc3bm8013b75be671ca33@mail.gmail.com>
+References: <9e246b4d0903061127q7c82103dq88c5184765f3c17a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, grundler@parisc-linux.org,
-	kyle@mcmartin.ca, Tomasz Lemiech <szpajder@staszic.waw.pl>
-To: Ivan Vecera <ivecera@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:38611 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751276AbZCFSNr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2009 13:13:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1236248494-1599-1-git-send-email-ivecera@redhat.com>
+Received: from yw-out-2324.google.com ([74.125.46.31]:50199 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754776AbZCFT3Q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 14:29:16 -0500
+In-Reply-To: <9e246b4d0903061127q7c82103dq88c5184765f3c17a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 05, 2009 at 11:21:34AM +0100, Ivan Vecera wrote:
-> The original patch was submitted last year but wasn't discussed or applied
-> because of missing maintainer's CCs. I only fixed some formatting errors,
-> but as I saw tulip is very badly formatted and needs further work.
-> 
-> Original description:
-> This patch fixes MTU problem, which occurs when using 802.1q VLANs. We
-> should allow receiving frames of up to 1518 bytes in length, instead of
-> 1514.
-> 
-> Based on patch written by Ben McKeegan for 2.4.x kernels. It is archived
-> at http://www.candelatech.com/~greear/vlan/howto.html#tulip
-> I've adjusted a few things to make it apply on 2.6.x kernels.
-> 
-> Tested on D-Link DFE-570TX quad-fastethernet card.
-> 
-> Signed-off-by: Tomasz Lemiech <szpajder@staszic.waw.pl>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Looks like the r8169 MAC bug is still lurking:
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+CFG-1:~# uname -a
+Linux CFG-1 2.6.29-rc7-686 #1 SMP Fri Mar 6 01:07:38 UTC 2009 i686 GNU/=
+Linux
 
-I reviewed this earlier in the week (offlist email) and it looks
-fine to me too.
+CFG-1:~# modprobe -r r8169
+[=A0 198.684076] r8169 0000:00:0c.0: PCI INT A disabled
+[=A0 198.944075] r8169 0000:00:0b.0: PCI INT A disabled
+[=A0 199.204080] r8169 0000:00:09.0: PCI INT A disabled
 
-And while I agree the white space isn't uhm, "optimal", I didn't
-feel it was worthwhile to generate a massive white space diff.
+CFG-1:~# modprobe -i r8169
+[=A0 202.183521] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[=A0 202.189230] r8169 0000:00:09.0: PCI INT A -> GSI 18 (level, low) -=
+> IRQ 18
+[=A0 202.197440] r8169 0000:00:09.0: no PCI Express capability
+[=A0 202.203116] r8169 0000:00:09.0: MAC address found in EEPROM:
+00:30:18:ab:f0:34
+[=A0 202.212721] eth0: RTL8169sc/8110sc at 0xf90b0000,
+00:00:00:00:f0:34, XID 18000000 IRQ 18
+[=A0 202.221555] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[=A0 202.227202] r8169 0000:00:0b.0: PCI INT A -> GSI 19 (level, low) -=
+> IRQ 19
+[=A0 202.234202] r8169 0000:00:0b.0: no PCI Express capability
+[=A0 202.239859] r8169 0000:00:0b.0: MAC address found in EEPROM:
+00:30:18:ab:f0:35
+[=A0 202.249413] eth1: RTL8169sc/8110sc at 0xf8012000,
+00:00:00:00:f0:35, XID 18000000 IRQ 19
+[=A0 202.258267] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[=A0 202.263911] r8169 0000:00:0c.0: PCI INT A -> GSI 16 (level, low) -=
+> IRQ 16
+[=A0 202.270890] r8169 0000:00:0c.0: no PCI Express capability
+[=A0 202.276551] r8169 0000:00:0c.0: MAC address found in EEPROM:
+00:30:18:ab:f0:36
+[=A0 202.286256] eth2: RTL8169sc/8110sc at 0xf8016000,
+00:30:18:ab:f0:36, XID 18000000 IRQ 16
 
-thanks,
-grant
+This obviously doesn't work very well. Full power-cycle back into
+2.6.26 fixes the problem:
 
-> ---
->  drivers/net/tulip/interrupt.c |   84 +++++++++++++++++++++++++++--------------
->  drivers/net/tulip/tulip.h     |   32 +++++++++++++++-
->  2 files changed, 86 insertions(+), 30 deletions(-)
-> 
-> diff --git a/drivers/net/tulip/interrupt.c b/drivers/net/tulip/interrupt.c
-> index 6c3428a..c21193b 100644
-> --- a/drivers/net/tulip/interrupt.c
-> +++ b/drivers/net/tulip/interrupt.c
-> @@ -140,6 +140,7 @@ int tulip_poll(struct napi_struct *napi, int budget)
->                 /* If we own the next entry, it is a new packet. Send it up. */
->                 while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
->                         s32 status = le32_to_cpu(tp->rx_ring[entry].status);
-> +		       short pkt_len;
->  
->                         if (tp->dirty_rx + RX_RING_SIZE == tp->cur_rx)
->                                 break;
-> @@ -151,8 +152,28 @@ int tulip_poll(struct napi_struct *napi, int budget)
->  		       if (++work_done >= budget)
->                                 goto not_done;
->  
-> -                       if ((status & 0x38008300) != 0x0300) {
-> -                               if ((status & 0x38000300) != 0x0300) {
-> +		       /*
-> +			* Omit the four octet CRC from the length.
-> +			* (May not be considered valid until we have
-> +			* checked status for RxLengthOver2047 bits)
-> +			*/
-> +		       pkt_len = ((status >> 16) & 0x7ff) - 4;
-> +
-> +		       /*
-> +			* Maximum pkt_len is 1518 (1514 + vlan header)
-> +			* Anything higher than this is always invalid
-> +			* regardless of RxLengthOver2047 bits
-> +			*/
-> +
-> +		       if ((status & (RxLengthOver2047 |
-> +				      RxDescCRCError |
-> +				      RxDescCollisionSeen |
-> +				      RxDescRunt |
-> +				      RxDescDescErr |
-> +				      RxWholePkt)) != RxWholePkt
-> +			   || pkt_len > 1518) {
-> +			       if ((status & (RxLengthOver2047 |
-> +					      RxWholePkt)) != RxWholePkt) {
->                                  /* Ingore earlier buffers. */
->                                         if ((status & 0xffff) != 0x7fff) {
->                                                 if (tulip_debug > 1)
-> @@ -161,30 +182,23 @@ int tulip_poll(struct napi_struct *napi, int budget)
->                                                                dev->name, status);
->                                                 tp->stats.rx_length_errors++;
->                                         }
-> -                               } else if (status & RxDescFatalErr) {
-> +			       } else {
->                                  /* There was a fatal error. */
->                                         if (tulip_debug > 2)
->                                                 printk(KERN_DEBUG "%s: Receive error, Rx status %8.8x.\n",
->                                                        dev->name, status);
->                                         tp->stats.rx_errors++; /* end of a packet.*/
-> -                                       if (status & 0x0890) tp->stats.rx_length_errors++;
-> +				       if (pkt_len > 1518 ||
-> +					   (status & RxDescRunt))
-> +					       tp->stats.rx_length_errors++;
-> +
->                                         if (status & 0x0004) tp->stats.rx_frame_errors++;
->                                         if (status & 0x0002) tp->stats.rx_crc_errors++;
->                                         if (status & 0x0001) tp->stats.rx_fifo_errors++;
->                                 }
->                         } else {
-> -                               /* Omit the four octet CRC from the length. */
-> -                               short pkt_len = ((status >> 16) & 0x7ff) - 4;
->                                 struct sk_buff *skb;
->  
-> -#ifndef final_version
-> -                               if (pkt_len > 1518) {
-> -                                       printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
-> -                                              dev->name, pkt_len, pkt_len);
-> -                                       pkt_len = 1518;
-> -                                       tp->stats.rx_length_errors++;
-> -                               }
-> -#endif
->                                 /* Check if the packet is long enough to accept without copying
->                                    to a minimally-sized skbuff. */
->                                 if (pkt_len < tulip_rx_copybreak
-> @@ -356,14 +370,35 @@ static int tulip_rx(struct net_device *dev)
->  	/* If we own the next entry, it is a new packet. Send it up. */
->  	while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
->  		s32 status = le32_to_cpu(tp->rx_ring[entry].status);
-> +		short pkt_len;
->  
->  		if (tulip_debug > 5)
->  			printk(KERN_DEBUG "%s: In tulip_rx(), entry %d %8.8x.\n",
->  				   dev->name, entry, status);
->  		if (--rx_work_limit < 0)
->  			break;
-> -		if ((status & 0x38008300) != 0x0300) {
-> -			if ((status & 0x38000300) != 0x0300) {
-> +
-> +		/*
-> +		  Omit the four octet CRC from the length.
-> +		  (May not be considered valid until we have
-> +		  checked status for RxLengthOver2047 bits)
-> +		*/
-> +		pkt_len = ((status >> 16) & 0x7ff) - 4;
-> +		/*
-> +		  Maximum pkt_len is 1518 (1514 + vlan header)
-> +		  Anything higher than this is always invalid
-> +		  regardless of RxLengthOver2047 bits
-> +		*/
-> +
-> +		if ((status & (RxLengthOver2047 |
-> +			       RxDescCRCError |
-> +			       RxDescCollisionSeen |
-> +			       RxDescRunt |
-> +			       RxDescDescErr |
-> +			       RxWholePkt))        != RxWholePkt
-> +		     || pkt_len > 1518) {
-> +			if ((status & (RxLengthOver2047 |
-> +			     RxWholePkt))         != RxWholePkt) {
->  				/* Ingore earlier buffers. */
->  				if ((status & 0xffff) != 0x7fff) {
->  					if (tulip_debug > 1)
-> @@ -372,31 +407,22 @@ static int tulip_rx(struct net_device *dev)
->  							   dev->name, status);
->  					tp->stats.rx_length_errors++;
->  				}
-> -			} else if (status & RxDescFatalErr) {
-> +			} else {
->  				/* There was a fatal error. */
->  				if (tulip_debug > 2)
->  					printk(KERN_DEBUG "%s: Receive error, Rx status %8.8x.\n",
->  						   dev->name, status);
->  				tp->stats.rx_errors++; /* end of a packet.*/
-> -				if (status & 0x0890) tp->stats.rx_length_errors++;
-> +				if (pkt_len > 1518 ||
-> +				    (status & RxDescRunt))
-> +					tp->stats.rx_length_errors++;
->  				if (status & 0x0004) tp->stats.rx_frame_errors++;
->  				if (status & 0x0002) tp->stats.rx_crc_errors++;
->  				if (status & 0x0001) tp->stats.rx_fifo_errors++;
->  			}
->  		} else {
-> -			/* Omit the four octet CRC from the length. */
-> -			short pkt_len = ((status >> 16) & 0x7ff) - 4;
->  			struct sk_buff *skb;
->  
-> -#ifndef final_version
-> -			if (pkt_len > 1518) {
-> -				printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
-> -					   dev->name, pkt_len, pkt_len);
-> -				pkt_len = 1518;
-> -				tp->stats.rx_length_errors++;
-> -			}
-> -#endif
-> -
->  			/* Check if the packet is long enough to accept without copying
->  			   to a minimally-sized skbuff. */
->  			if (pkt_len < tulip_rx_copybreak
-> diff --git a/drivers/net/tulip/tulip.h b/drivers/net/tulip/tulip.h
-> index 19abbc3..0afa2d4 100644
-> --- a/drivers/net/tulip/tulip.h
-> +++ b/drivers/net/tulip/tulip.h
-> @@ -201,8 +201,38 @@ enum desc_status_bits {
->  	DescStartPkt = 0x20000000,
->  	DescEndRing  = 0x02000000,
->  	DescUseLink  = 0x01000000,
-> -	RxDescFatalErr = 0x008000,
-> +
-> +	/*
-> +	 * Error summary flag is logical or of 'CRC Error', 'Collision Seen',
-> +	 * 'Frame Too Long', 'Runt' and 'Descriptor Error' flags generated
-> +	 * within tulip chip.
-> +	 */
-> +	RxDescErrorSummary = 0x8000,
-> +	RxDescCRCError = 0x0002,
-> +	RxDescCollisionSeen = 0x0040,
-> +
-> +	/*
-> +	 * 'Frame Too Long' flag is set if packet length including CRC exceeds
-> +	 * 1518.  However, a full sized VLAN tagged frame is 1522 bytes
-> +	 * including CRC.
-> +	 *
-> +	 * The tulip chip does not block oversized frames, and if this flag is
-> +	 * set on a receive descriptor it does not indicate the frame has been
-> +	 * truncated.  The receive descriptor also includes the actual length.
-> +	 * Therefore we can safety ignore this flag and check the length
-> +	 * ourselves.
-> +	 */
-> +	RxDescFrameTooLong = 0x0080,
-> +	RxDescRunt = 0x0800,
-> +	RxDescDescErr = 0x4000,
->  	RxWholePkt   = 0x00000300,
-> +	/*
-> +	 * Top three bits of 14 bit frame length (status bits 27-29) should
-> +	 * never be set as that would make frame over 2047 bytes. The Receive
-> +	 * Watchdog flag (bit 4) may indicate the length is over 2048 and the
-> +	 * length field is invalid.
-> +	 */
-> +	RxLengthOver2047 = 0x38000010
->  };
->  
->  
-> -- 
-> 1.6.0.4
+CFG-1:~# uname -a
+Linux CFG-1 2.6.26-1-686 #1 SMP Sun Feb 8 02:27:05 UTC 2009 i686 GNU/Li=
+nux
+
+CFG-1:~# modprobe -r r8169
+[=A0=A0 83.220122] ACPI: PCI interrupt for device 0000:00:0c.0 disabled
+[=A0=A0 83.252673] ACPI: PCI interrupt for device 0000:00:0b.0 disabled
+[=A0=A0 83.285249] ACPI: PCI interrupt for device 0000:00:09.0 disabled
+
+CFG-1:~# modprobe -i r8169
+[=A0=A0 87.454505] r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
+[=A0=A0 87.461284] ACPI: PCI Interrupt 0000:00:09.0[A] ->=A0 a future
+releasGSI 18 (level, low) -> IRQ 18
+[=A0=A0 87.476007] eth0: RTL8169sc/8110sc at 0xf8832000,
+00:30:18:ab:f0:34, XID 18000000 IRQ 18
+[=A0=A0 87.484682] r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
+[=A0=A0 87.489660] ACPI: PCI Interrupt 0000:00:0b.0[A] -> GSI 19 (level=
+,
+low) -> IRQ 19
+[=A0=A0 87.500006] eth1: RTL8169sc/8110sc at 0xf8834000,
+00:30:18:ab:f0:35, XID 18000000 IRQ 19
+[=A0=A0 87.508675] r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
+[=A0=A0 87.513633] ACPI: PCI Interrupt 0000:00:0c.0[A] -> GSI 16 (level=
+,
+low) -> IRQ 16
+[=A0=A0 87.524006] eth2: RTL8169sc/8110sc at 0xf8f88000,
+00:30:18:ab:f0:36, XID 18000000 IRQ 16
+
+Based on googling around, I'm going to guess this might be related:
+
+Ivan Vecera (1): r8169: read MAC address from EEPROM on init (2nd attem=
+pt)
+
+Any ideas?
+
+Tim:>
