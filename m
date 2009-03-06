@@ -1,96 +1,171 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 MAC problem
-Date: Fri, 6 Mar 2009 21:05:15 +0100
-Message-ID: <20090306200515.GA26365@electric-eye.fr.zoreil.com>
-References: <9e246b4d0903061127q7c82103dq88c5184765f3c17a@mail.gmail.com> <9e246b4d0903061129g7b66dc3bm8013b75be671ca33@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] macvlan:  Deterministic ingress packet delivery
+Date: Fri, 06 Mar 2009 12:16:39 -0800
+Message-ID: <m1wsb2h0ew.fsf_-_@fess.ebiederm.org>
+References: <m1ocwfsgw7.fsf@fess.ebiederm.org> <49B12B20.7000602@trash.net>
+	<m1sklqohw2.fsf@fess.ebiederm.org> <49B13259.9040701@trash.net>
+	<m14oy6n15y.fsf@fess.ebiederm.org> <49B13C7D.10308@trash.net>
+	<m1bpsellmv.fsf@fess.ebiederm.org> <49B15865.10103@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ivan Vecera <ivecera@redhat.com>
-To: Tim Durack <tdurack@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55679 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750718AbZCFUC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 15:02:29 -0500
-Content-Disposition: inline
-In-Reply-To: <9e246b4d0903061129g7b66dc3bm8013b75be671ca33@mail.gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:34002 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbZCFUQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 15:16:45 -0500
+In-Reply-To: <49B15865.10103@candelatech.com> (Ben Greear's message of "Fri\, 06 Mar 2009 09\:07\:49 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please Cc: Ivan.
+>From 22d0a3e4ffa91f85c224d171ed7cc2d64a6dda00 Mon Sep 17 00:00:00 2001
+From: Eric Biederman <ebiederm@xmission.com>
+Date: Fri, 6 Mar 2009 09:16:30 -0800
+Subject: 
 
-Tim Durack <tdurack@gmail.com> :
-[...]
-> Any ideas?
+Changing the mac address when a macvlan device is up will leave the
+device on the wrong hash chain making it impossible to receive
+packets.
 
-Damn me, I should have noticed that the delay was below spec :o(
+There is no checking of the mac address set on the macvlan.  Allowing
+a misconfiguration to grab packets from the the underlying device or
+another macvlan.
 
-Can you try the patch below on top of the current git kernel ?
+To resolve these problems I update the hash table of macvlans when the
+mac address of a macvlan changes, and when updating the hash table
+I verify that the new mac address is usable.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b347340..dfd42db 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1970,9 +1970,14 @@ static const struct net_device_ops rtl8169_netdev_ops = {
- };
+The result is well defined and predictable if not perfect handling of
+mac vlan mac addresses.
+
+To keep the code clear I have created a set of hash table maintenance
+in macvlan so I am not open coding the hash function and the logic
+needed to update the hash table all over the place.
+
+Signed-off-by: Eric Biederman <ebiederm@aristanetworks.com>
+---
+ drivers/net/macvlan.c |   73 ++++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 60 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index b5241fc..70d3ef4 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -60,6 +60,47 @@ static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
+ 	return NULL;
+ }
  
- /* Delay between EEPROM clock transitions. Force out buffered PCI writes. */
--#define RTL_EEPROM_DELAY()	RTL_R8(Cfg9346)
- #define RTL_EEPROM_READ_CMD	6
- 
-+static void rtl_eeprom_delay(void __iomem *ioaddr)
++static void macvlan_hash_add(struct macvlan_dev *vlan)
 +{
-+	RTL_R8(Cfg9346);
-+	ndelay(450);
++	struct macvlan_port *port = vlan->port;
++	const unsigned char *addr = vlan->dev->dev_addr;
++
++	hlist_add_head_rcu(&vlan->hlist, &port->vlan_hash[addr[5]]);
 +}
 +
- /* read 16bit word stored in EEPROM. EEPROM is addressed by words. */
- static u16 rtl_eeprom_read(void __iomem *ioaddr, int addr)
++static void macvlan_hash_del(struct macvlan_dev *vlan)
++{
++	hlist_del_rcu(&vlan->hlist);
++	synchronize_rcu();
++}
++
++static void macvlan_hash_change_addr(struct macvlan_dev *vlan,
++					const unsigned char *addr)
++{
++	macvlan_hash_del(vlan);
++	/* Now that we are unhashed it is safe to change the device
++	 * address without confusing packet delivery.
++	 */
++	memcpy(vlan->dev->dev_addr, addr, ETH_ALEN);
++	macvlan_hash_add(vlan);
++}
++
++static int macvlan_addr_busy(const struct macvlan_port *port,
++				const unsigned char *addr)
++{
++	/* Test to see if the specified multicast address is
++	 * currently in use by the underlying device or
++	 * another macvlan.
++	 */
++	if (memcmp(port->dev->dev_addr, addr, ETH_ALEN) == 0)
++		return 1;
++
++	if (macvlan_hash_lookup(port, addr))
++		return 1;
++
++	return 0;
++}
++
+ static void macvlan_broadcast(struct sk_buff *skb,
+ 			      const struct macvlan_port *port)
  {
-@@ -1992,7 +1997,7 @@ static u16 rtl_eeprom_read(void __iomem *ioaddr, int addr)
+@@ -184,10 +225,13 @@ static const struct header_ops macvlan_hard_header_ops = {
+ static int macvlan_open(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct macvlan_port *port = vlan->port;
+ 	struct net_device *lowerdev = vlan->lowerdev;
+ 	int err;
  
- 	/* enter programming mode */
- 	RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS);
--	RTL_EEPROM_DELAY();
-+	rtl_eeprom_delay(ioaddr);
- 
- 	/* write command and requested address */
- 	while (cmd_len--) {
-@@ -2002,29 +2007,29 @@ static u16 rtl_eeprom_read(void __iomem *ioaddr, int addr)
- 
- 		/* write a bit */
- 		RTL_W8(Cfg9346, x);
--		RTL_EEPROM_DELAY();
-+		rtl_eeprom_delay(ioaddr);
- 
- 		/* raise clock */
- 		RTL_W8(Cfg9346, x | Cfg9346_EESK);
--		RTL_EEPROM_DELAY();
-+		rtl_eeprom_delay(ioaddr);
++	err = -EBUSY;
++	if (macvlan_addr_busy(vlan->port, dev->dev_addr))
++		goto out;
++
+ 	err = dev_unicast_add(lowerdev, dev->dev_addr, ETH_ALEN);
+ 	if (err < 0)
+ 		goto out;
+@@ -196,8 +240,7 @@ static int macvlan_open(struct net_device *dev)
+ 		if (err < 0)
+ 			goto del_unicast;
  	}
+-
+-	hlist_add_head_rcu(&vlan->hlist, &port->vlan_hash[dev->dev_addr[5]]);
++	macvlan_hash_add(vlan);
+ 	return 0;
  
- 	/* lower clock */
- 	RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS);
--	RTL_EEPROM_DELAY();
-+	rtl_eeprom_delay(ioaddr);
+ del_unicast:
+@@ -217,8 +260,7 @@ static int macvlan_stop(struct net_device *dev)
  
- 	/* read back 16bit value */
- 	for (i = 16; i > 0; i--) {
- 		/* raise clock */
- 		RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS | Cfg9346_EESK);
--		RTL_EEPROM_DELAY();
-+		rtl_eeprom_delay(ioaddr);
+ 	dev_unicast_delete(lowerdev, dev->dev_addr, ETH_ALEN);
  
- 		result <<= 1;
- 		result |= (RTL_R8(Cfg9346) & Cfg9346_EEDO) ? 1 : 0;
+-	hlist_del_rcu(&vlan->hlist);
+-	synchronize_rcu();
++	macvlan_hash_del(vlan);
+ 	return 0;
+ }
  
- 		/* lower clock */
- 		RTL_W8(Cfg9346, Cfg9346_Program | Cfg9346_EECS);
--		RTL_EEPROM_DELAY();
-+		rtl_eeprom_delay(ioaddr);
- 	}
+@@ -232,16 +274,21 @@ static int macvlan_set_mac_address(struct net_device *dev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
  
- 	RTL_W8(Cfg9346, Cfg9346_Program);
+-	if (!(dev->flags & IFF_UP))
+-		goto out;
++	if (!(dev->flags & IFF_UP)) {
++		/* Just copy in the new address */
++		memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++	} else {
++		/* Rehash and update the device filters */
++		if (macvlan_addr_busy(vlan->port, addr->sa_data))
++			return -EBUSY;
+ 
+-	err = dev_unicast_add(lowerdev, addr->sa_data, ETH_ALEN);
+-	if (err < 0)
+-		return err;
+-	dev_unicast_delete(lowerdev, dev->dev_addr, ETH_ALEN);
++		if ((err = dev_unicast_add(lowerdev, addr->sa_data, ETH_ALEN)))
++			return err;
+ 
+-out:
+-	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++		dev_unicast_delete(lowerdev, dev->dev_addr, ETH_ALEN);
++
++		macvlan_hash_change_addr(vlan, addr->sa_data);
++	}
+ 	return 0;
+ }
+ 
 -- 
-Ueimor
+1.6.1.2.350.g88cc
+
