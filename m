@@ -1,7 +1,7 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH] ethtool: Support arbitrary speeds
-Date: Fri, 06 Mar 2009 06:20:53 -0500
-Message-ID: <49B10715.3050900@pobox.com>
+Date: Fri, 06 Mar 2009 07:27:23 -0500
+Message-ID: <49B116AB.7060408@pobox.com>
 References: <200901080203.SAA19103@tardy.cup.hp.com> <1231384446.2677.32.camel@hashbaz.i.decadent.org.uk> <49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com> <1231442701.3893.4.camel@achroite>  <496658EB.1080206@hp.com> <1231506974.3006.18.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40107 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52954 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754182AbZCFLVA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2009 06:21:00 -0500
+	id S1750769AbZCFM1a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2009 07:27:30 -0500
 In-Reply-To: <1231506974.3006.18.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -54,7 +54,8 @@ g.
 >  ethtool.8 |    4 ++--
 >  ethtool.c |   42 ++++++++++--------------------------------
 >  2 files changed, 12 insertions(+), 34 deletions(-)
+>=20
 
-ACK, can you rediff against current git repo?
+applied
 
 
