@@ -1,38 +1,71 @@
-From: Rahul Jain <rahul@schmizz.net>
-Subject: MAC/PHY layer implementation questions
-Date: Sun, 8 Mar 2009 00:15:22 +0100
-Message-ID: <655e2d30903071515s4a50c758j39704861499bba8e@mail.gmail.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: skbedit action chaining with other actions - will fail
+Date: Sun, 8 Mar 2009 01:15:41 +0200
+Message-ID: <200903080115.41617.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	alexander.h.duyck@intel.com, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f177.google.com ([209.85.219.177]:35643 "EHLO
-	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751046AbZCGXPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 18:15:25 -0500
-Received: by ewy25 with SMTP id 25so491987ewy.37
-        for <netdev@vger.kernel.org>; Sat, 07 Mar 2009 15:15:22 -0800 (PST)
+Received: from hosting.visp.net.lb ([194.146.153.11]:60415 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbZCGXPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 18:15:50 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am working on a related project for my Bachelor's
-thesis and would really appreciate any help that I can get in this regard. I
-am supposed to develop a device driver for the IEEE 802.15.4 nanoLOC
-transceiver (for Linux boards) and I have a few questions about how exactly to
-go about it.
+If i am chaining skbedit with other action, packets will not come in next (by 
+order) action. Here is example:
 
-As far as I understand it, I first need a kernel stack for IEEE 802.15.4 (as
-far as I understand mac80211 is the kernel stack for the IEEE 802.11 and I
-would need something similar). This Kernel stack, as I understand it, would
-then provide a common API for driver development.
+Command
+    echo "filter add dev $2 parent ffff: protocol ip prio 10 u32 \
+match u32 0 0 flowid 1:1 \
+action skbedit priority 0x${lowid} \
+action mirred egress redirect dev ifb0"
 
-So, I would really appreciate if some one could inform me as to what exactly
-does programming this stack incorporate? Do I need to implement the PHY and
-the MAC layers, and if yes, how do I go about that?
+and for ipt example
+    echo "filter add dev $2 parent ffff: protocol ip prio 10 u32 \
+match u32 0 0 flowid 1:1 \
+action ipt -j MARK --set-mark ${id} \
+action mirred egress redirect dev ifb0"
 
 
-Please Help!
+Here is skbedit (mirred will fail)
 
-Thanks
-Rahul Jain
+filter protocol ip pref 10 u32 fh 801::800 order 2048 key ht 801 bkt 0 flowid 
+1:1  (rule hit 569 success 569)
+  match 00000000/00000000 at 0 (success 569 )
+        action order 1:  skbedit priority :7 installed 121 sec used 8 sec       
+Action statistics:
+        Sent 103528 bytes 569 pkt (dropped 0, overlimits 0 requeues 0)
+        rate 0bit 0pps backlog 0b 0p requeues 0
+
+        action order 2: mirred (Egress Redirect to device ifb0) stolen
+        index 706 ref 1 bind 1 installed 121 sec used 121 sec
+        Action statistics:
+        Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+        rate 0bit 0pps backlog 0b 0p requeues 0
+
+But for example ipt works fine
+filter protocol ip pref 10 u32 fh 801::800 order 2048 key ht 801 bkt 0 flowid 
+1:1  (rule hit 5023 success 5023)
+  match 00000000/00000000 at 0 (success 5023 )
+        action order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING
+        target MARK xset 0x65/0xffffffff
+        index 190508 ref 1 bind 1 installed 792 sec used 0 sec
+        Action statistics:
+        Sent 999442 bytes 5023 pkt (dropped 0, overlimits 0 requeues 0)
+        rate 0bit 0pps backlog 0b 0p requeues 0
+
+        action order 2: mirred (Egress Redirect to device ifb0) stolen
+        index 190508 ref 1 bind 1 installed 792 sec used 0 sec
+        Action statistics:
+        Sent 999442 bytes 5023 pkt (dropped 0, overlimits 0 requeues 0)
+        rate 0bit 0pps backlog 0b 0p requeues 0
+
+
+
+
