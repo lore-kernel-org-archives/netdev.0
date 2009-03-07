@@ -1,132 +1,152 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Multicast packet loss
-Date: Sat, 07 Mar 2009 08:46:52 +0100
-Message-ID: <49B2266C.9050701@cosmosbay.com>
-References: <20090204012144.GC3650@localhost.localdomain>	<49A6CE39.5050200@athenacr.com>	<49A8FAFF.7060104@cosmosbay.com> <20090304.001646.100690134.davem@davemloft.net> <49AE3DA9.2020103@cosmosbay.com>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: Re: [PATCH] phylib: convert state_queue work to delayed_work
+Date: Sat, 7 Mar 2009 10:46:20 +0100
+Message-ID: <20090307104620.7f2aed57@hyperion.delvare>
+References: <20090306205139.GA30500@joi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	cl@linux-foundation.org, Brian Bloniarz <bmb@athenacr.com>
-To: kchang@athenacr.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
+	Trent Piepho <tpiepho@freescale.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Marcin Slusarz <marcin.slusarz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54071 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbZCGHrJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 02:47:09 -0500
-In-Reply-To: <49AE3DA9.2020103@cosmosbay.com>
+Received: from zone0.gcu-squad.org ([212.85.147.21]:14894 "EHLO
+	services.gcu-squad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752776AbZCGJqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 04:46:37 -0500
+In-Reply-To: <20090306205139.GA30500@joi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> David Miller a =E9crit :
->> From: Eric Dumazet <dada1@cosmosbay.com>
->> Date: Sat, 28 Feb 2009 09:51:11 +0100
->>
->>> David, this is a preliminary work, not meant for inclusion as is,
->>> comments are welcome.
->>>
->>> [PATCH] net: sk_forward_alloc becomes an atomic_t
->>>
->>> Commit 95766fff6b9a78d11fc2d3812dd035381690b55d
->>> (UDP: Add memory accounting) introduced a regression for high rate =
-UDP flows,
->>> because of extra lock_sock() in udp_recvmsg()
->>>
->>> In order to reduce need for lock_sock() in UDP receive path, we mig=
-ht need
->>> to declare sk_forward_alloc as an atomic_t.
->>>
->>> udp_recvmsg() can avoid a lock_sock()/release_sock() pair.
->>>
->>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->> This adds new overhead for TCP which has to hold the socket
->> lock for other reasons in these paths.
->>
->> I don't get how an atomic_t operation is cheaper than a
->> lock_sock/release_sock.  Is it the case that in many
->> executions of these paths only atomic_read()'s are necessary?
->>
->> I actually think this scheme is racy.  There is a reason we
->> have to hold the socket lock when doing memory scheduling.
->> Two threads can get in there and say "hey I have enough space
->> already" even though only enough space is allocated for one
->> of their requests.
->>
->> What did I miss? :)
->>
->=20
-> I believe you are right, and in fact was about to post a "dont look a=
-t this patch"
-> since it doesnt help the multicast reception at all, I redone tests m=
-ore carefuly=20
-> and got nothing but noise.
->=20
-> We have a cache line ping pong mess here, and need more thinking.
->=20
-> I rewrote Kenny prog to use non blocking sockets.
->=20
-> Receivers are doing :
->=20
->         int delay =3D 50;
-> 	fcntl(s, F_SETFL, O_NDELAY);
->         while(1)
->         {
->             struct sockaddr_in from;
->             socklen_t fromlen =3D sizeof(from);
->             res =3D recvfrom(s, buf, 1000, 0, (struct sockaddr*)&from=
-, &fromlen);
->             if (res =3D=3D -1) {
->                       delay++;
->                       usleep(delay);
->                       continue;
->             }
->             if (delay > 40)
->                 delay--;
->             ++npackets;
->=20
-> With this litle user space change and 8 receivers on my dual quad cor=
-e, softirqd
-> only takes 8% of one cpu and no drops at all (instead of 100% cpu and=
- 30% drops)
->=20
-> So this is definitly a problem mixing scheduler cache line ping pongs=
- with network
-> stack cache line ping pongs.
->=20
-> We could reorder fields so that fewer cache lines are touched by the =
-softirq processing,
-> I tried this but still got packet drops.
->=20
->=20
->=20
+On Fri, 6 Mar 2009 21:51:42 +0100, Marcin Slusarz wrote:
+> It closes a race in phy_stop_machine when reprogramming of phy_timer
+> (from phy_state_machine) happens between del_timer_sync and cancel_work_sync.
+> 
+> Without this change it could lead to crash if phy_device would be freed after
+> phy_stop_machine (timer would fire and schedule freed work).
+> 
+> Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+> Cc: Andy Fleming <afleming@freescale.com>
+> Cc: Trent Piepho <tpiepho@freescale.com>
+> ---
+> 
+> This patch was only compile tested.
 
-I have more questions :
+Patch looks good.
 
-What is the maximum latency you can afford on the delivery of the packe=
-t(s) ?
+Acked-by: Jean Delvare <khali@linux-fr.org>
 
-Are user apps using real time scheduling ?
+> 
+> ---
+>  drivers/net/phy/phy.c |   41 +++++++++++------------------------------
+>  include/linux/phy.h   |    3 +--
+>  2 files changed, 12 insertions(+), 32 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index e4ede60..58b73b0 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -414,7 +414,6 @@ EXPORT_SYMBOL(phy_start_aneg);
+>  
+>  static void phy_change(struct work_struct *work);
+>  static void phy_state_machine(struct work_struct *work);
+> -static void phy_timer(unsigned long data);
+>  
+>  /**
+>   * phy_start_machine - start PHY state machine tracking
+> @@ -434,11 +433,8 @@ void phy_start_machine(struct phy_device *phydev,
+>  {
+>  	phydev->adjust_state = handler;
+>  
+> -	INIT_WORK(&phydev->state_queue, phy_state_machine);
+> -	init_timer(&phydev->phy_timer);
+> -	phydev->phy_timer.function = &phy_timer;
+> -	phydev->phy_timer.data = (unsigned long) phydev;
+> -	mod_timer(&phydev->phy_timer, jiffies + HZ);
+> +	INIT_DELAYED_WORK(&phydev->state_queue, phy_state_machine);
+> +	schedule_delayed_work(&phydev->state_queue, jiffies + HZ);
+>  }
+>  
+>  /**
+> @@ -451,8 +447,7 @@ void phy_start_machine(struct phy_device *phydev,
+>   */
+>  void phy_stop_machine(struct phy_device *phydev)
+>  {
+> -	del_timer_sync(&phydev->phy_timer);
+> -	cancel_work_sync(&phydev->state_queue);
+> +	cancel_delayed_work_sync(&phydev->state_queue);
+>  
+>  	mutex_lock(&phydev->lock);
+>  	if (phydev->state > PHY_UP)
+> @@ -680,11 +675,9 @@ static void phy_change(struct work_struct *work)
+>  	if (err)
+>  		goto irq_enable_err;
+>  
+> -	/* Stop timer and run the state queue now.  The work function for
+> -	 * state_queue will start the timer up again.
+> -	 */
+> -	del_timer(&phydev->phy_timer);
+> -	schedule_work(&phydev->state_queue);
+> +	/* reschedule state queue work to run as soon as possible */
+> +	cancel_delayed_work_sync(&phydev->state_queue);
+> +	schedule_delayed_work(&phydev->state_queue, 0);
+>  
+>  	return;
+>  
+> @@ -761,14 +754,13 @@ EXPORT_SYMBOL(phy_start);
+>  /**
+>   * phy_state_machine - Handle the state machine
+>   * @work: work_struct that describes the work to be done
+> - *
+> - * Description: Scheduled by the state_queue workqueue each time
+> - *   phy_timer is triggered.
+>   */
+>  static void phy_state_machine(struct work_struct *work)
+>  {
+> +	struct delayed_work *dwork =
+> +			container_of(work, struct delayed_work, work);
+>  	struct phy_device *phydev =
+> -			container_of(work, struct phy_device, state_queue);
+> +			container_of(dwork, struct phy_device, state_queue);
+>  	int needs_aneg = 0;
+>  	int err = 0;
+>  
+> @@ -946,17 +938,6 @@ static void phy_state_machine(struct work_struct *work)
+>  	if (err < 0)
+>  		phy_error(phydev);
+>  
+> -	mod_timer(&phydev->phy_timer, jiffies + PHY_STATE_TIME * HZ);
+> -}
+> -
+> -/* PHY timer which schedules the state machine work */
+> -static void phy_timer(unsigned long data)
+> -{
+> -	struct phy_device *phydev = (struct phy_device *)data;
+> -
+> -	/*
+> -	 * PHY I/O operations can potentially sleep so we ensure that
+> -	 * it's done from a process context
+> -	 */
+> -	schedule_work(&phydev->state_queue);
+> +	schedule_delayed_work(&phydev->state_queue,
+> +				jiffies + PHY_STATE_TIME * HZ);
+>  }
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index d7e54d9..32cf14a 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -315,8 +315,7 @@ struct phy_device {
+>  
+>  	/* Interrupt and Polling infrastructure */
+>  	struct work_struct phy_queue;
+> -	struct work_struct state_queue;
+> -	struct timer_list phy_timer;
+> +	struct delayed_work state_queue;
+>  	atomic_t irq_disable;
+>  
+>  	struct mutex lock;
 
-I had an idea, that keep cpu handling NIC interrupts only delivering pa=
-ckets to
-socket queues, and not messing with scheduler : fast queueing, and wake=
-ing up
-a workqueue (on another cpu) to perform the scheduler work. But that me=
-ans
-some extra latency (in the order of 2 or 3 us I guess)
 
-We could enter in this mode automatically, if the NIC rx handler *see* =
-more than
-N packets are waiting in NIC queue : In case of moderate or light trafi=
-c, no
-extra latency would be necessary. This would mean some changes in NIC d=
-river.
-
-Hum, then, if NIC rx handler is run beside the ksoftirqd, we already kn=
-ow
-we are in a stress situation, so maybe no driver changes are necessary =
-:
-Just test if we run ksoftirqd...
-
-
+-- 
+Jean Delvare
