@@ -1,25 +1,35 @@
-From: Zhiyong Wu <zwu.kernel@gmail.com>
-Subject: Vaildate if i can use gmail to send a mail to LKML
-Date: Sun, 8 Mar 2009 12:45:23 +0800
-Message-ID: <b1e768440903072045q329f386fre0140e02d9009acb@mail.gmail.com>
+From: Nokia Electronics Award 2009 <info@nokia.com>
+Subject: Nokia Electronics Award 2009
+Date: Sat, 07 Mar 2009 02:06:16 -0500
+Message-ID: <20090307020616.ci0oimavsgs88kw8@webmail.service.emory.edu>
+Reply-To: fedexwestafrica_delivery@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.173]:18669 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754752AbZCHEpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 23:45:25 -0500
+Received: from mr4.cc.emory.edu ([170.140.52.93]:58891 "EHLO mr4.cc.emory.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750848AbZCHIFu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Mar 2009 04:05:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HI, all guys,
-
-Hope that this mail desn't disturb your work.:)
 
 
-Cheers,
+You have just been awarded of the sum of $1,000,000.00 USD in the Nokia 
+Electronics Award 2009, Anniversary Bonanza. held on February. For 
+Claims (fedexwestafrica_delivery@yahoo.com.hk )
 
-Zhyong Wu
+Names:
+Address:
+Country: Occupation:
+Age: Tel:
+Sex:
+
+Best Regards
+Mr Ruben
+
