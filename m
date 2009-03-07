@@ -1,152 +1,90 @@
-From: Jean Delvare <khali@linux-fr.org>
-Subject: Re: [PATCH] phylib: convert state_queue work to delayed_work
-Date: Sat, 7 Mar 2009 10:46:20 +0100
-Message-ID: <20090307104620.7f2aed57@hyperion.delvare>
-References: <20090306205139.GA30500@joi>
+From: Mark Smith
+	<nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
+Subject: MACVLANs really best solution? How about a bridge with multiple
+ bridge virtual interfaces? (was Re: [PATCH] macvlan: Support creating
+ macvlans from macvlans)
+Date: Sat, 7 Mar 2009 21:15:27 +1030
+Message-ID: <20090307211527.6e76d0b9.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
-	Trent Piepho <tpiepho@freescale.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Marcin Slusarz <marcin.slusarz@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	shemminger@linux-foundation.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zone0.gcu-squad.org ([212.85.147.21]:14894 "EHLO
-	services.gcu-squad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752776AbZCGJqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 04:46:37 -0500
-In-Reply-To: <20090306205139.GA30500@joi>
+Received: from smtp2.mail.adnap.net.au ([203.6.132.66]:49854 "EHLO
+	smtp2.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753560AbZCGOLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2009 09:11:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 6 Mar 2009 21:51:42 +0100, Marcin Slusarz wrote:
-> It closes a race in phy_stop_machine when reprogramming of phy_timer
-> (from phy_state_machine) happens between del_timer_sync and cancel_work_sync.
-> 
-> Without this change it could lead to crash if phy_device would be freed after
-> phy_stop_machine (timer would fire and schedule freed work).
-> 
-> Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-> Cc: Andy Fleming <afleming@freescale.com>
-> Cc: Trent Piepho <tpiepho@freescale.com>
-> ---
-> 
-> This patch was only compile tested.
+Hi,
 
-Patch looks good.
+Ben said,
+>I wouldn't deny sending with wrong source mac..ethernet interfaces can 
+>do this,
+>and mac-vlan should look as much like ethernet is possible.
 
-Acked-by: Jean Delvare <khali@linux-fr.org>
+I agree, however there's further things that mac-vlans aren't
+currently doing as virtual ethernet interfaces that real ones do.
+Unicast ethernet traffic sent out one mac-vlan interface with a
+destination address of another mac-vlan interface on the same host
+isn't delivered. mac-vlan interfaces, even though they're conceptually
+located on the same ethernet segment, are currently isolated from each
+other for unicast traffic.
 
-> 
-> ---
->  drivers/net/phy/phy.c |   41 +++++++++++------------------------------
->  include/linux/phy.h   |    3 +--
->  2 files changed, 12 insertions(+), 32 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index e4ede60..58b73b0 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -414,7 +414,6 @@ EXPORT_SYMBOL(phy_start_aneg);
->  
->  static void phy_change(struct work_struct *work);
->  static void phy_state_machine(struct work_struct *work);
-> -static void phy_timer(unsigned long data);
->  
->  /**
->   * phy_start_machine - start PHY state machine tracking
-> @@ -434,11 +433,8 @@ void phy_start_machine(struct phy_device *phydev,
->  {
->  	phydev->adjust_state = handler;
->  
-> -	INIT_WORK(&phydev->state_queue, phy_state_machine);
-> -	init_timer(&phydev->phy_timer);
-> -	phydev->phy_timer.function = &phy_timer;
-> -	phydev->phy_timer.data = (unsigned long) phydev;
-> -	mod_timer(&phydev->phy_timer, jiffies + HZ);
-> +	INIT_DELAYED_WORK(&phydev->state_queue, phy_state_machine);
-> +	schedule_delayed_work(&phydev->state_queue, jiffies + HZ);
->  }
->  
->  /**
-> @@ -451,8 +447,7 @@ void phy_start_machine(struct phy_device *phydev,
->   */
->  void phy_stop_machine(struct phy_device *phydev)
->  {
-> -	del_timer_sync(&phydev->phy_timer);
-> -	cancel_work_sync(&phydev->state_queue);
-> +	cancel_delayed_work_sync(&phydev->state_queue);
->  
->  	mutex_lock(&phydev->lock);
->  	if (phydev->state > PHY_UP)
-> @@ -680,11 +675,9 @@ static void phy_change(struct work_struct *work)
->  	if (err)
->  		goto irq_enable_err;
->  
-> -	/* Stop timer and run the state queue now.  The work function for
-> -	 * state_queue will start the timer up again.
-> -	 */
-> -	del_timer(&phydev->phy_timer);
-> -	schedule_work(&phydev->state_queue);
-> +	/* reschedule state queue work to run as soon as possible */
-> +	cancel_delayed_work_sync(&phydev->state_queue);
-> +	schedule_delayed_work(&phydev->state_queue, 0);
->  
->  	return;
->  
-> @@ -761,14 +754,13 @@ EXPORT_SYMBOL(phy_start);
->  /**
->   * phy_state_machine - Handle the state machine
->   * @work: work_struct that describes the work to be done
-> - *
-> - * Description: Scheduled by the state_queue workqueue each time
-> - *   phy_timer is triggered.
->   */
->  static void phy_state_machine(struct work_struct *work)
->  {
-> +	struct delayed_work *dwork =
-> +			container_of(work, struct delayed_work, work);
->  	struct phy_device *phydev =
-> -			container_of(work, struct phy_device, state_queue);
-> +			container_of(dwork, struct phy_device, state_queue);
->  	int needs_aneg = 0;
->  	int err = 0;
->  
-> @@ -946,17 +938,6 @@ static void phy_state_machine(struct work_struct *work)
->  	if (err < 0)
->  		phy_error(phydev);
->  
-> -	mod_timer(&phydev->phy_timer, jiffies + PHY_STATE_TIME * HZ);
-> -}
-> -
-> -/* PHY timer which schedules the state machine work */
-> -static void phy_timer(unsigned long data)
-> -{
-> -	struct phy_device *phydev = (struct phy_device *)data;
-> -
-> -	/*
-> -	 * PHY I/O operations can potentially sleep so we ensure that
-> -	 * it's done from a process context
-> -	 */
-> -	schedule_work(&phydev->state_queue);
-> +	schedule_delayed_work(&phydev->state_queue,
-> +				jiffies + PHY_STATE_TIME * HZ);
->  }
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index d7e54d9..32cf14a 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -315,8 +315,7 @@ struct phy_device {
->  
->  	/* Interrupt and Polling infrastructure */
->  	struct work_struct phy_queue;
-> -	struct work_struct state_queue;
-> -	struct timer_list phy_timer;
-> +	struct delayed_work state_queue;
->  	atomic_t irq_disable;
->  
->  	struct mutex lock;
+Thinking about the few scenarios where I've been using mac-vlans, it
+seems to me that the fundamental goal of mac-vlans is to be
+functionaly equivalent to having multiple physical ethernet network
+cards attached to the same LAN segment, with those physical
+interfaces attached together via a switch or a hub.
 
+Virtualising that scenario using mac-vlans and a single physical
+interface means that the outbound mac-vlan code on a host needs to
+replicate the functionality of a switch or a hub. Outbound unicast
+traffic from one mac-vlan interface needs to be either seen by the
+destination address matching code of all other mac-vlan interfaces (i.e.
+replicating hub functionality), or selectively forwarded to the
+intended mac-vlan interface (replicating switch functionality). If the
+unicast destination doesn't match one of the other mac-vlan interfaces,
+then it should be forwarded out the mac-vlan interfaces' parent physical
+interface, as the destination is likely to be on the physical ethernet.
+Blindly forwarding the outbound mac-vlan origin traffic out the physical
+interface doesn't solve the problem - switches (and I'm pretty sure at
+least functionaly, hubs) don't forward traffic back out the interface
+they receive it on. So the hub/switch forwarding functionality between
+mac-vlan interfaces and their parent physical interface needs to happen
+within the kernel.
 
--- 
-Jean Delvare
+I've been thinking of having a go at adding this functionality. But
+then I realised that that would just be more duplication of the
+functionality of the code that is aleady in the kernel - the bridging
+code. It does all those things already.
+
+It seems to me that the only reason the bridging code can't be used
+today for "mac-vlan" functionality is that it only allows creation of a
+single bridge virtual interface. If the bridging code and associated
+utilities were extended to support multiple virtual interfaces
+(possibly with the first interface being the "handle" interface for the
+bridge instance), then the mac-vlan code would be redundant.
+Conceptually, it'd also be more consistent with some of the other
+mechanisms that can be added to a bridge, such as adding tap, dummy or
+other virtual interfaces to a bridge in conjunction with multiple bridge
+virtual interfaces - a scenario I tried to do a while back and asked
+about in December in a post titled, "Is it valid to add a macvlan
+virtual interface to a bridge? If so, there seems to be a bug with it."
+
+Using the bridge method wouldn't allow the real physical
+interface to be used as a normal e.g. IP interface, as is allowed when
+using mac-vlans. But I don't think is much of an issue - another bridge
+virtual interface could be created to be used instead.
+
+Regards,
+Mark.
+
+(please CC me, as I'm not subscribed, although I do read the list via
+gmane. Thanks.)
+
