@@ -1,22 +1,77 @@
-From: Ronny Overstreet <dieter.woitena@t-online.de>
-Subject: =?windows-1251?B?RmluYWxseSBBdmFpbGFibGUgLSBUaGUgMjAwOSBDcmVkaXQgUmVwb3J0IEFtZXJpY2E=?=
-Date: Sat, 7 Mar 2009 09:51:59 +0700
-Message-ID: <11676.4332670302$1236395239@news.gmane.org>
-Reply-To: Ronny Overstreet <abbassigracie1205@gmail.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: [PATCH] igb: fix kexec with igb
+Date: Fri, 06 Mar 2009 20:33:56 -0800
+Message-ID: <49B1F934.5050006@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="windows-1251"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [58.137.222.2] ([58.137.222.2]:35354 "HELO
-	your.mail.server.name.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with SMTP id S1754190AbZCGDFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 22:05:50 -0500
+Received: from hera.kernel.org ([140.211.167.34]:36553 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752117AbZCGEfl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2009 23:35:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-R29vZCBkYXkhDQoNCklmIHlvdSBhcmUgaGF2aW5nIHRyb3VibGVzIHdpdGggYSBiYWQgY3JlZGl0LCBZb3UgbXVzdCBUSEFOSyBVUyBmb3IgdGFraW5nIHRoZSB0aW1lIHRvIHNlbmQgeW91IHRoaXMgaW52aXRhdGlvbiB0byBjaGVjayBhbmQgaW1wcm92ZSB5b3VyIGNyZWRpdCBzY29yZSB3aXRoIHRoZSBGcmVlIENyZWRpdCBSZXBvcnQgZm9yIFVTIENpdGl6ZW5zLCB3ZSBhcmUgaGVyZSB0byBvZmZlci4NCg0KUHJvYmFibHksIGl0IGlzIHZlcnkgZnJ1c3RyYXRpbmcgZGVhbGluZyB3aXRoIGEgbm90IHNvIHBlcmZlY3QgY3JlZGl0IHJlcG9ydCwgYW5kIHdlIGFyZSBoZXJlIHRvIGdpdmUgeW91IGhvcGUhIElmIHlvdSBhcmUgd2VsbCBrbm93biBvZiB5b3VyIGNyZWRpdCwgeW91IGNhbiBlYXNpbHkgcHJvdGVjdCB5b3VyIGZ1dHVyZS4gWW91IG11c3Qga25vdyBob3cgYm9vc3RpbmcgeW91ciBzY29yZSBjYW4gaGVscCB5b3UgdG86IDEuIEJlIFByb3RlY3RlZCBBZ2FpbnN0IElEIFRoZWZ0LCAyLiBHZXQgYSBCZXR0ZXIgSm9iLCAzLiBCdXkgQSBDYXIsIDQuIEJ1eSBhIEhvbWUgYW5kIDUuIEdldCBhIExvYW4NCg0KTGVhcm4gaG93IHRvIGdldCB5b3Vy
- IEZyZWUgMjAwOSBDcmVkaXQgUmVwb3J0ISBDaGVjayBpdCBvdXQgTk9XIC0gaWYgeW91IGFyZSBpbnRlcmVzdGVkIGluIHRoaXMgdW5pcXVlIG9mZmVyLCBzZW5kIHVzIGEgcmVwbHkgdG8gMTUxNmdsYXNzb25hYm90dEBnbWFpbC5jb20gb3IgYW5zd2VyIGRpcmVjdGx5IHRvIHRoaXMgbGV0dGVyLCBzbyB3ZSBjYW4gc2VuZCB5b3UgbW9yZSBpbnN0cnVjdGlvbnMgb24gaG93IHRvIHByb2NlZWQgZnVydGhlciBpbiBvcmRlciB0byByZWNlaXZlIHlvdXIgRlJFRSBjcmVkaXQgcmVwb3J0Lg0KDQpIdXJyeSB1cCwgYXMgdGhlIHN1cHBsaWVzIG9mIEZyZWUgQ3JlZGl0IFJlcG9ydHMgYXJlIHZlcnkgbGltaXRlZCwgYW5kIG5leHQgdGltZSB5b3Ugd2lsbCBoYXZlIHRvIHBheSBpZiB5b3Ugd2FudCB0byBjaGVjayB5b3VyIGNyZWRpdCBzY29yZSwgc28gYmUgcXVpY2shDQoNCkJlc3Qgd2hpc2hlcywNCkZyZWUgQ3JlZGl0IENoZWNrCgoKCgoKCgoKCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClRoaXMgZW1haWwgaGFzIGJlZW4gd3JpdHRlbiBhbmQgcHJvdmVkIHRvIGJlIGluIG
- NvbXBsaWFuY2Ugd2l0aCB0aGUgcmVjZW50bHkgZXN0YWJsaXNoZWQgY2FuLXNwYW0gYWN0IGxhdyBpbiBVUy4gV2UgYXJlIG5vdCBwcm92b2tpbmcgb3IgZm9yY2luZyBhbnkgcGVyc29uIGluIGFueSB3YXkgdG8gcGFydGljaXBhdGUgaW4gb3VyIHByb2dyYW1zLiBUbyBwYXJ0aWNpcGF0ZSBpcyB5b3VyIG93biBkZWNpc2lvbiBhbmQgeW91IGNhcnJ5IHRoZSByZXNwb25zaWJpbGl0eSBvZiB0YWtpbmcgZnVydGhlciBwYXJ0IGluIHRoaXMgcHJvbW90aW9uLiBBbnl3YXksIGlmIHlvdSBkb24ndCB3YW50IHRvIHJlY2VpdmUgbW9yZSBnb29kIG9mZmVycyBmcm9tIHVzLCB5b3UgY2FuIHNpbXBseSBVbnN1YnNjcmliZSBieSBzZW5kaW5nIHVzIGEgbm90aWZpY2F0aW9uIGVtYWlsIHRvIHNpZ24ub3V0X21lQHlhaG9vLmNvbSB3aXRoIGEgbWFpbC1zdWJqZWN0IGFuZCB0ZXh0ICJVbnN1YnNjcmliZSBtZSIsIGFuZCB3ZSB3aWxsIGdldCB5b3VyIGVtYWlsIG91dCBvZiBvdXIgbGlzdCB3aXRoaW4gMTAgZGF5cy4KClRoaXMgbWVzc2FnZSBpcyBTVFJJQ1RMWSBDT05GSURFTlRJQUwgYW5kIGlzIHNvbGVseSBmb3IgdGhlIGluZGl2aWR1YWwgb3Igb3JnYW5p
- c2F0aW9uIHRvIHdob20gaXQgaXMgYWRkcmVzc2VkLiBJdCBtYXkgY29udGFpbiBQUklWSUxFR0VEIGFuZCBDT05GSURFTlRJQUwgaW5mb3JtYXRpb24uIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlvdSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQgYW55IGRpc3NlbWluYXRpb24sIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBhbmQgaXRzIGNvbnRlbnRzIGlzIHN0cmljdGx5IHByb2hpYml0ZWQuIElmIHlvdSBhcmUgbm90IGludGVyZXN0ZWQgaW4gdGhlIG9mZmVyZWQgcHJvbW90aW9ucywgcGxlYXNlIGp1c3QgZG9uJ3QgYW5zd2VyLiBJZiB5b3UgdGhpbmsgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBtZXNzYWdlIGFuZCBpdHMgY29udGVudHMgaW4gZXJyb3IsIHBsZWFzZSBkZWxldGUgaXQgZnJvbSB5b3VyIGNvbXB1dGVyLCBvciBmb2xsb3cgdGhlIHVuc3Vic2NyaWJpbmcgcHJvY2VkdXJlIHNob3duIGFib3ZlLgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KCQk=
+
+Impact: could probe igb
+
+Found one system with 82575EB, in the kernel that is kexeced, probe igb
+failed with -2.
+
+it looks like the same behavior happened on forcedeth.
+
+try to check system_state to make sure if put it on D3
+
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+
+---
+ drivers/net/igb/igb_main.c |   19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+Index: linux-2.6/drivers/net/igb/igb_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/igb/igb_main.c
++++ linux-2.6/drivers/net/igb/igb_main.c
+@@ -4358,14 +4358,22 @@ static int igb_suspend(struct pci_dev *p
+ 		wr32(E1000_WUFC, 0);
+ 	}
+ 
++	/*
++	 * Apparently it is not possible to reinitialise from D3 hot,
++	 * only put the device into D3 if we really go for poweroff.
++	 */
+ 	/* make sure adapter isn't asleep if manageability/wol is enabled */
+ 	if (wufc || adapter->en_mng_pt) {
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
++		if (system_state == SYSTEM_POWER_OFF) {
++			pci_enable_wake(pdev, PCI_D3hot, 1);
++			pci_enable_wake(pdev, PCI_D3cold, 1);
++		}
+ 	} else {
+ 		igb_shutdown_fiber_serdes_link_82575(hw);
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
++		if (system_state == SYSTEM_POWER_OFF) {
++			pci_enable_wake(pdev, PCI_D3hot, 0);
++			pci_enable_wake(pdev, PCI_D3cold, 0);
++		}
+ 	}
+ 
+ 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
+@@ -4374,7 +4382,8 @@ static int igb_suspend(struct pci_dev *p
+ 
+ 	pci_disable_device(pdev);
+ 
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++	if (system_state == SYSTEM_POWER_OFF)
++		pci_set_power_state(pdev, pci_choose_state(pdev, state));
+ 
+ 	return 0;
+ }
