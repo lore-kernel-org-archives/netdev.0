@@ -1,64 +1,42 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 1/2] gigaset: return -ENOSYS for unimplemented functions
-Date: Sat,  7 Mar 2009 23:10:57 +0100 (CET)
-Message-ID: <20090307-patch-01.tilman@imap.cc>
-References: <20090307-patch-00.tilman@imap.cc>
-Cc: Paul Bolle <pebolle@tiscali.nl>, Hansjoerg Lipp <hjlipp@web.de>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756761AbZCGWLe@vger.kernel.org>
-In-Reply-To: <20090307-patch-00.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: 2.6.29-rc6-git7: Reported regressions from 2.6.28
+Date: Sat, 7 Mar 2009 23:14:40 +0100
+Message-ID: <200903072314.41814.rjw@sisk.pl>
+References: <KiHv0irKPzE.A.l3.hUarJB@chimera> <8db1092f0903041114o767d0079s4c1626dae5335d70@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8db1092f0903041114o767d0079s4c1626dae5335d70-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Bolle <pebolle@tiscali.nl>
+On Wednesday 04 March 2009, Maciej Rutecki wrote:
+> 2009/3/3 Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>:
+> 
+> >
+> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12764
+> > Subject         : Can not ioremap virtual address for G33 hw status page
+> > Submitter       : Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Date            : 2009-02-23 14:46 (9 days old)
+> > First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=6fb88588555a18792a27f483887fe1f2af5f9c9b
+> > References      : http://marc.info/?l=linux-kernel&m=123540053219505&w=4
+> 
+> Problem seems by solved in 2.6.29-rc7
 
-A number of functions in the usb_gigaset module will return -EINVAL if
-CONFIG_GIGASET_UNDOCREQ is not set. Make these return -ENOSYS as it's
-more specific and it might make it easier to see (from userspace) why
-these functions actually fail.
+Thanks, closed.
 
-Impact: some error return codes changed
-
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/isdn/gigaset/usb-gigaset.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index fba61f6..2bd6d9d 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -278,17 +278,17 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
- static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
- 				  unsigned new_state)
- {
--	return -EINVAL;
-+	return -ENOSYS;
- }
- 
- static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
- {
--	return -EINVAL;
-+	return -ENOSYS;
- }
- 
- static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
- {
--	return -EINVAL;
-+	return -ENOSYS;
- }
- #endif
- 
-@@ -577,7 +577,7 @@ static int gigaset_brkchars(struct cardstate *cs, const unsigned char buf[6])
- 	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x19, 0x41,
- 			       0, 0, &buf, 6, 2000);
- #else
--	return -EINVAL;
-+	return -ENOSYS;
- #endif
- }
- 
--- 
-1.5.4.7.gd8534-dirty
+Rafael
