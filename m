@@ -1,89 +1,22 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: remove old flash check.
-Date: Fri,  6 Mar 2009 16:52:12 -0800
-Message-ID: <1236387132-31254-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Ronny Overstreet <dieter.woitena@t-online.de>
+Subject: =?windows-1251?B?RmluYWxseSBBdmFpbGFibGUgLSBUaGUgMjAwOSBDcmVkaXQgUmVwb3J0IEFtZXJpY2E=?=
+Date: Sat, 7 Mar 2009 09:51:59 +0700
+Message-ID: <11676.4332670302$1236395239@news.gmane.org>
+Reply-To: Ronny Overstreet <abbassigracie1205@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="windows-1251"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:35406 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756397AbZCGAwT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2009 19:52:19 -0500
+Received: from [58.137.222.2] ([58.137.222.2]:35354 "HELO
+	your.mail.server.name.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1754190AbZCGDFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2009 22:05:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove flash size check which made sense only for ancient
-boards with 1MB flash. The check is based on values read
-from specific locations and fails with firmware size changes.
-
-This prevents driver from getting right mac addresses.
-
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic.h      |    1 -
- drivers/net/netxen/netxen_nic_hw.c   |   22 ----------------------
- drivers/net/netxen/netxen_nic_main.c |    3 ---
- 3 files changed, 0 insertions(+), 26 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index f4dd9ac..1ff066b 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1595,7 +1595,6 @@ dma_watchdog_wakeup(struct netxen_adapter *adapter)
- }
- 
- 
--int netxen_is_flash_supported(struct netxen_adapter *adapter);
- int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, __le64 *mac);
- int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac);
- extern void netxen_change_ringparam(struct netxen_adapter *adapter);
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 821cff6..7fea770 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -706,28 +706,6 @@ int netxen_nic_change_mtu(struct net_device *netdev, int mtu)
- 	return rc;
- }
- 
--int netxen_is_flash_supported(struct netxen_adapter *adapter)
--{
--	const int locs[] = { 0, 0x4, 0x100, 0x4000, 0x4128 };
--	int addr, val01, val02, i, j;
--
--	/* if the flash size less than 4Mb, make huge war cry and die */
--	for (j = 1; j < 4; j++) {
--		addr = j * NETXEN_NIC_WINDOW_MARGIN;
--		for (i = 0; i < ARRAY_SIZE(locs); i++) {
--			if (netxen_rom_fast_read(adapter, locs[i], &val01) == 0
--			    && netxen_rom_fast_read(adapter, (addr + locs[i]),
--						    &val02) == 0) {
--				if (val01 == val02)
--					return -1;
--			} else
--				return -1;
--		}
--	}
--
--	return 0;
--}
--
- static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
- 				  int size, __le32 * buf)
- {
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 1308778..c172b6e 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -405,9 +405,6 @@ netxen_read_mac_addr(struct netxen_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 
--	if (netxen_is_flash_supported(adapter) != 0)
--		return -EIO;
--
- 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
- 		if (netxen_p3_get_mac_addr(adapter, &mac_addr) != 0)
- 			return -EIO;
--- 
-1.6.0.2
-
+R29vZCBkYXkhDQoNCklmIHlvdSBhcmUgaGF2aW5nIHRyb3VibGVzIHdpdGggYSBiYWQgY3JlZGl0LCBZb3UgbXVzdCBUSEFOSyBVUyBmb3IgdGFraW5nIHRoZSB0aW1lIHRvIHNlbmQgeW91IHRoaXMgaW52aXRhdGlvbiB0byBjaGVjayBhbmQgaW1wcm92ZSB5b3VyIGNyZWRpdCBzY29yZSB3aXRoIHRoZSBGcmVlIENyZWRpdCBSZXBvcnQgZm9yIFVTIENpdGl6ZW5zLCB3ZSBhcmUgaGVyZSB0byBvZmZlci4NCg0KUHJvYmFibHksIGl0IGlzIHZlcnkgZnJ1c3RyYXRpbmcgZGVhbGluZyB3aXRoIGEgbm90IHNvIHBlcmZlY3QgY3JlZGl0IHJlcG9ydCwgYW5kIHdlIGFyZSBoZXJlIHRvIGdpdmUgeW91IGhvcGUhIElmIHlvdSBhcmUgd2VsbCBrbm93biBvZiB5b3VyIGNyZWRpdCwgeW91IGNhbiBlYXNpbHkgcHJvdGVjdCB5b3VyIGZ1dHVyZS4gWW91IG11c3Qga25vdyBob3cgYm9vc3RpbmcgeW91ciBzY29yZSBjYW4gaGVscCB5b3UgdG86IDEuIEJlIFByb3RlY3RlZCBBZ2FpbnN0IElEIFRoZWZ0LCAyLiBHZXQgYSBCZXR0ZXIgSm9iLCAzLiBCdXkgQSBDYXIsIDQuIEJ1eSBhIEhvbWUgYW5kIDUuIEdldCBhIExvYW4NCg0KTGVhcm4gaG93IHRvIGdldCB5b3Vy
+ IEZyZWUgMjAwOSBDcmVkaXQgUmVwb3J0ISBDaGVjayBpdCBvdXQgTk9XIC0gaWYgeW91IGFyZSBpbnRlcmVzdGVkIGluIHRoaXMgdW5pcXVlIG9mZmVyLCBzZW5kIHVzIGEgcmVwbHkgdG8gMTUxNmdsYXNzb25hYm90dEBnbWFpbC5jb20gb3IgYW5zd2VyIGRpcmVjdGx5IHRvIHRoaXMgbGV0dGVyLCBzbyB3ZSBjYW4gc2VuZCB5b3UgbW9yZSBpbnN0cnVjdGlvbnMgb24gaG93IHRvIHByb2NlZWQgZnVydGhlciBpbiBvcmRlciB0byByZWNlaXZlIHlvdXIgRlJFRSBjcmVkaXQgcmVwb3J0Lg0KDQpIdXJyeSB1cCwgYXMgdGhlIHN1cHBsaWVzIG9mIEZyZWUgQ3JlZGl0IFJlcG9ydHMgYXJlIHZlcnkgbGltaXRlZCwgYW5kIG5leHQgdGltZSB5b3Ugd2lsbCBoYXZlIHRvIHBheSBpZiB5b3Ugd2FudCB0byBjaGVjayB5b3VyIGNyZWRpdCBzY29yZSwgc28gYmUgcXVpY2shDQoNCkJlc3Qgd2hpc2hlcywNCkZyZWUgQ3JlZGl0IENoZWNrCgoKCgoKCgoKCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClRoaXMgZW1haWwgaGFzIGJlZW4gd3JpdHRlbiBhbmQgcHJvdmVkIHRvIGJlIGluIG
+ NvbXBsaWFuY2Ugd2l0aCB0aGUgcmVjZW50bHkgZXN0YWJsaXNoZWQgY2FuLXNwYW0gYWN0IGxhdyBpbiBVUy4gV2UgYXJlIG5vdCBwcm92b2tpbmcgb3IgZm9yY2luZyBhbnkgcGVyc29uIGluIGFueSB3YXkgdG8gcGFydGljaXBhdGUgaW4gb3VyIHByb2dyYW1zLiBUbyBwYXJ0aWNpcGF0ZSBpcyB5b3VyIG93biBkZWNpc2lvbiBhbmQgeW91IGNhcnJ5IHRoZSByZXNwb25zaWJpbGl0eSBvZiB0YWtpbmcgZnVydGhlciBwYXJ0IGluIHRoaXMgcHJvbW90aW9uLiBBbnl3YXksIGlmIHlvdSBkb24ndCB3YW50IHRvIHJlY2VpdmUgbW9yZSBnb29kIG9mZmVycyBmcm9tIHVzLCB5b3UgY2FuIHNpbXBseSBVbnN1YnNjcmliZSBieSBzZW5kaW5nIHVzIGEgbm90aWZpY2F0aW9uIGVtYWlsIHRvIHNpZ24ub3V0X21lQHlhaG9vLmNvbSB3aXRoIGEgbWFpbC1zdWJqZWN0IGFuZCB0ZXh0ICJVbnN1YnNjcmliZSBtZSIsIGFuZCB3ZSB3aWxsIGdldCB5b3VyIGVtYWlsIG91dCBvZiBvdXIgbGlzdCB3aXRoaW4gMTAgZGF5cy4KClRoaXMgbWVzc2FnZSBpcyBTVFJJQ1RMWSBDT05GSURFTlRJQUwgYW5kIGlzIHNvbGVseSBmb3IgdGhlIGluZGl2aWR1YWwgb3Igb3JnYW5p
+ c2F0aW9uIHRvIHdob20gaXQgaXMgYWRkcmVzc2VkLiBJdCBtYXkgY29udGFpbiBQUklWSUxFR0VEIGFuZCBDT05GSURFTlRJQUwgaW5mb3JtYXRpb24uIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlvdSBhcmUgaGVyZWJ5IG5vdGlmaWVkIHRoYXQgYW55IGRpc3NlbWluYXRpb24sIGRpc3RyaWJ1dGlvbiBvciBjb3B5aW5nIG9mIHRoaXMgY29tbXVuaWNhdGlvbiBhbmQgaXRzIGNvbnRlbnRzIGlzIHN0cmljdGx5IHByb2hpYml0ZWQuIElmIHlvdSBhcmUgbm90IGludGVyZXN0ZWQgaW4gdGhlIG9mZmVyZWQgcHJvbW90aW9ucywgcGxlYXNlIGp1c3QgZG9uJ3QgYW5zd2VyLiBJZiB5b3UgdGhpbmsgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBtZXNzYWdlIGFuZCBpdHMgY29udGVudHMgaW4gZXJyb3IsIHBsZWFzZSBkZWxldGUgaXQgZnJvbSB5b3VyIGNvbXB1dGVyLCBvciBmb2xsb3cgdGhlIHVuc3Vic2NyaWJpbmcgcHJvY2VkdXJlIHNob3duIGFib3ZlLgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KCQk=
