@@ -1,35 +1,74 @@
-From: Nokia Electronics Award 2009 <info@nokia.com>
-Subject: Nokia Electronics Award 2009
-Date: Sat, 07 Mar 2009 02:06:16 -0500
-Message-ID: <20090307020616.ci0oimavsgs88kw8@webmail.service.emory.edu>
-Reply-To: fedexwestafrica_delivery@yahoo.com.hk
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: [PATCH] pci: fix kexec with power state D3
+Date: Sun, 08 Mar 2009 00:09:28 -0800
+Message-ID: <49B37D38.7060304@kernel.org>
+References: <49B1F934.5050006@kernel.org> <4807377b0903062318q15ba52a7n82d4c9399b8a7fa8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mr4.cc.emory.edu ([170.140.52.93]:58891 "EHLO mr4.cc.emory.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750848AbZCHIFu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Mar 2009 04:05:50 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	Matthew Wilcox <matthew@wil.cx>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <4807377b0903062318q15ba52a7n82d4c9399b8a7fa8@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+Impact: second kernel by kexec will have some pci devices working
 
-You have just been awarded of the sum of $1,000,000.00 USD in the Nokia 
-Electronics Award 2009, Anniversary Bonanza. held on February. For 
-Claims (fedexwestafrica_delivery@yahoo.com.hk )
+Found one system with 82575EB, in the kernel that is kexeced, probe igb
+failed with -2.
 
-Names:
-Address:
-Country: Occupation:
-Age: Tel:
-Sex:
+it looks like the same behavior happened on forcedeth.
+try to check system_state to make sure if put it on D3
 
-Best Regards
-Mr Ruben
+Jesse Brandeburg said that we should do that check in core code instead of
+every device driver.
 
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+
+---
+ drivers/pci/pci.c |   17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+Index: linux-2.6/drivers/pci/pci.c
+===================================================================
+--- linux-2.6.orig/drivers/pci/pci.c
++++ linux-2.6/drivers/pci/pci.c
+@@ -593,6 +593,14 @@ int pci_set_power_state(struct pci_dev *
+ 	if (state == PCI_D3hot && (dev->dev_flags & PCI_DEV_FLAGS_NO_D3))
+ 		return 0;
+ 
++	/*
++	 * Apparently it is not possible to reinitialise from D3 hot,
++	 * only put the device into D3 if we really go for poweroff.
++	 */
++	if (system_state != SYSTEM_POWER_OFF &&
++	    (state == PCI_D3hot || state == PCI_D3cold))
++		return 0;
++
+ 	error = pci_raw_set_power_state(dev, state, true);
+ 
+ 	if (state > PCI_D0 && platform_pci_power_manageable(dev)) {
+@@ -1124,6 +1132,15 @@ int pci_enable_wake(struct pci_dev *dev,
+ 	int error = 0;
+ 	bool pme_done = false;
+ 
++	/*
++	 * Apparently it is not possible to reinitialise from D3 hot,
++	 * only put the device into D3 if we really go for poweroff.
++	 * we only need to enable wake when we are going to power off
++	 */
++	if (enable && system_state != SYSTEM_POWER_OFF &&
++	    (state == PCI_D3hot || state == PCI_D3cold))
++		return 0;
++
+ 	if (enable && !device_may_wakeup(&dev->dev))
+ 		return -EINVAL;
+ 
