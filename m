@@ -1,63 +1,69 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 1/2] gigaset: return -ENOSYS for unimplemented functions
-Date: Sun, 08 Mar 2009 13:26:35 +0100
-Message-ID: <49B3B97B.5090308@imap.cc>
-References: <20090307-patch-00.tilman@imap.cc>	<20090307-patch-01.tilman@imap.cc>	<20090307142609.2995bb3d@infradead.org>	<49B30FC4.5040305@imap.cc>	<20090307163522.1165494b@infradead.org>	<49B3176A.7000004@imap.cc> <20090307173819.36d352c8@infradead.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig40F7EB796403E0284CD5E062"
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Paul Bolle <pebolle@tiscali.nl>,
-	Hansjoerg Lipp <hjlipp@web.de>
-To: Arjan van de Ven <arjan@infradead.org>
+Subject: [PATCH 1/2 v2] gigaset: return -ENOTTY for unimplemented functions
+Date: Sun,  8 Mar 2009 16:23:13 +0100 (CET)
+Message-ID: <20090308-patch-01.tilman@imap.cc>
+References: <20090307-patch-01.tilman@imap.cc>
+Cc: Paul Bolle <pebolle@tiscali.nl>, Hansjoerg Lipp <hjlipp@web.de>
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:41215 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751256AbZCHM1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2009 08:27:08 -0400
-In-Reply-To: <20090307173819.36d352c8@infradead.org>
+Received: from mail.pxnet.com ([195.227.45.7]:50084 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752486AbZCHPX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Mar 2009 11:23:27 -0400
+In-Reply-To: <20090307-patch-01.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig40F7EB796403E0284CD5E062
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Paul Bolle <pebolle@tiscali.nl>
 
-Am 08.03.2009 02:38 schrieb Arjan van de Ven:
-> from the ioctl manpage:
->=20
-> ERRORS
-> 	[snip]
->=20
->        ENOTTY The specified request does not apply to the kind of
->        object that the descriptor d references.
+A number of functions in the usb_gigaset module will return -EINVAL if
+CONFIG_GIGASET_UNDOCREQ is not set. Make these return -ENOTTY as it's
+more specific and it might make it easier to see (from userspace) why
+these functions actually fail.
 
-Ok, I'm convinced. I'll redo the patch with ENOTTY instead of ENOSYS.
+Impact: some error return codes changed
 
-Thanks,
-Tilman
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/usb-gigaset.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
+index fba61f6..d783851 100644
+--- a/drivers/isdn/gigaset/usb-gigaset.c
++++ b/drivers/isdn/gigaset/usb-gigaset.c
+@@ -278,17 +278,17 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
+ static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
+ 				  unsigned new_state)
+ {
+-	return -EINVAL;
++	return -ENOTTY;
+ }
+ 
+ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
+ {
+-	return -EINVAL;
++	return -ENOTTY;
+ }
+ 
+ static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
+ {
+-	return -EINVAL;
++	return -ENOTTY;
+ }
+ #endif
+ 
+@@ -577,7 +577,7 @@ static int gigaset_brkchars(struct cardstate *cs, const unsigned char buf[6])
+ 	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x19, 0x41,
+ 			       0, 0, &buf, 6, 2000);
+ #else
+-	return -EINVAL;
++	return -ENOTTY;
+ #endif
+ }
+ 
+-- 
+1.5.4.7.gd8534-dirty
 
-
---------------enig40F7EB796403E0284CD5E062
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.4-svn0 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iD8DBQFJs7mSQ3+did9BuFsRAsXxAJ9CLmk6MvK7v9kU1MLf1ihqIAoGDgCfbK5p
-5R6NfmJYTYjA5i9j+mEUBI8=
-=TRh8
------END PGP SIGNATURE-----
-
---------------enig40F7EB796403E0284CD5E062--
