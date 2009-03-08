@@ -1,79 +1,63 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] pci: fix kexec with power state D3
-Date: Sun, 8 Mar 2009 12:08:35 +0100
-Message-ID: <20090308110835.GB27811@elte.hu>
-References: <49B1F934.5050006@kernel.org> <20090308101530.GB14133@elte.hu> <200903081128.35970.rjw@sisk.pl> <200903081133.33020.rjw@sisk.pl>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 1/2] gigaset: return -ENOSYS for unimplemented functions
+Date: Sun, 08 Mar 2009 13:26:35 +0100
+Message-ID: <49B3B97B.5090308@imap.cc>
+References: <20090307-patch-00.tilman@imap.cc>	<20090307-patch-01.tilman@imap.cc>	<20090307142609.2995bb3d@infradead.org>	<49B30FC4.5040305@imap.cc>	<20090307163522.1165494b@infradead.org>	<49B3176A.7000004@imap.cc> <20090307173819.36d352c8@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-	pm list <linux-pm@lists.linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig40F7EB796403E0284CD5E062"
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Paul Bolle <pebolle@tiscali.nl>,
+	Hansjoerg Lipp <hjlipp@web.de>
+To: Arjan van de Ven <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:40466 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751256AbZCHLJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Mar 2009 07:09:26 -0400
-Content-Disposition: inline
-In-Reply-To: <200903081133.33020.rjw@sisk.pl>
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:41215 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751256AbZCHM1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2009 08:27:08 -0400
+In-Reply-To: <20090307173819.36d352c8@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig40F7EB796403E0284CD5E062
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-* Rafael J. Wysocki <rjw@sisk.pl> wrote:
+Am 08.03.2009 02:38 schrieb Arjan van de Ven:
+> from the ioctl manpage:
+>=20
+> ERRORS
+> 	[snip]
+>=20
+>        ENOTTY The specified request does not apply to the kind of
+>        object that the descriptor d references.
 
-> On Sunday 08 March 2009, Rafael J. Wysocki wrote:
-> > On Sunday 08 March 2009, Ingo Molnar wrote:
-> > > 
-> > > * Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > > 
-> > > > On Sunday 08 March 2009, Yinghai Lu wrote:
-> > > > > 
-> > > > > Impact: second kernel by kexec will have some pci devices working
-> > > > > 
-> > > > > Found one system with 82575EB, in the kernel that is kexeced, probe igb
-> > > > > failed with -2.
-> > > > > 
-> > > > > it looks like the same behavior happened on forcedeth.
-> > > > > try to check system_state to make sure if put it on D3
-> > > > 
-> > > > This is not enough, because the PM code doesn't change 
-> > > > system_state and it uses pci_set_power_state too.
-> > > > 
-> > > > > Jesse Brandeburg said that we should do that check in core 
-> > > > > code instead of every device driver.
-> > > > 
-> > > > Well, I'm not really sure.  The drivers are where the bug is.
-> > > 
-> > > So Yinghai has now written a driver fix and a generic code fix 
-> > > as well and both are being rejected pointing to the other side? 
-> > > 
-> > > This really sucks for users (who'd be happy with any of the 
-> > > patches) and the disagreement needs to be resolved ASAP.
-> > 
-> > I hope you read my other comment (that you deleted from the reply)?
-> > 
-> > If we're going to fix this at the core level along the Yinghai's patch lines,
-> > we'll have to introduce a few additional values for system_state and make
-> > suspend and hibernation code use them.
-> > 
-> > Do you think it's worth the effort, given that only a couple of drivers have
-> > been found to be affected so far?
-> 
-> And, quite frankly, I'm not sure if users will be happy with 
-> the $subject patch, because it _really_ breaks things (well, 
-> the kexec users who don't use suspend might be, but surely 
-> suspend users who don't use kexec won't).
+Ok, I'm convinced. I'll redo the patch with ENOTTY instead of ENOSYS.
 
-Please note that i havent reviewed the patches and i did not 
-take any sides in the discussion - i just flagged the maintainer 
-ping-pong. As long as we pick one of the patches (or a third 
-one) within a bound amount of time we should be fine :)
+Thanks,
+Tilman
 
-	Ingo
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enig40F7EB796403E0284CD5E062
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iD8DBQFJs7mSQ3+did9BuFsRAsXxAJ9CLmk6MvK7v9kU1MLf1ihqIAoGDgCfbK5p
+5R6NfmJYTYjA5i9j+mEUBI8=
+=TRh8
+-----END PGP SIGNATURE-----
+
+--------------enig40F7EB796403E0284CD5E062--
