@@ -1,135 +1,96 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Mon, 9 Mar 2009 13:33:24 -0700
-Message-ID: <20090309133324.0dd56f82@nehalam>
-References: <20090309112521.GB37984@bts.sk>
-	<1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com>
-	<20090309195906.M50328@bts.sk>
-	<1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
+ - twice
+Date: Mon, 09 Mar 2009 21:53:39 +0100
+Message-ID: <49B581D3.6060807@krogh.cc>
+References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc> <16084.1235752119@death.nxdomain.ibm.com> <49A84802.7030502@krogh.cc> <30478.1235766943@death.nxdomain.ibm.com> <49AA2973.7040209@krogh.cc> <49AA8B4F.8090405@krogh.cc> <9712.1236279072@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marian =?UTF-8?B?xI51cmtvdmnEjQ==?= <md@bts.sk>,
-	netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56576 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751597AbZCIUd1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 16:33:27 -0400
-In-Reply-To: <1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:34360 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751414AbZCIUxt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2009 16:53:49 -0400
+In-Reply-To: <9712.1236279072@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 9 Mar 2009 13:23:15 -0700
-John Heffner <johnwheffner@gmail.com> wrote:
+Jay Vosburgh wrote:
+> 	However, I did find another bug I introduced during the "mii
+> refactor" patch that you mentioned as being the original source of the
+> problem.  That bug will cause 802.3ad to not notice speed changes.
+> 
+> 	Could you test the patch below on your 2.6.68.7 and/or 2.6.27.19
+> and see if it resolves your problem (without the forcedeth patch)?
 
-> On Mon, Mar 9, 2009 at 1:02 PM, Marian =C4=8Eurkovi=C4=8D <md@bts.sk>=
- wrote:
-> > On Mon, 9 Mar 2009 11:01:52 -0700, John Heffner wrote
-> >> On Mon, Mar 9, 2009 at 4:25 AM, Marian =C4=8Eurkovi=C4=8D <md@bts.=
-sk> wrote:
-> >> > =C2=A0 As rx window autotuning is enabled in all recent kernels =
-and with 1 GB
-> >> > of RAM the maximum tcp_rmem becomes 4 MB, this problem is spread=
-ing rapidly
-> >> > and we believe it needs urgent attention. As demontrated above, =
-such huge
-> >> > rx window (which is at least 100*BDP of the example above) does =
-not deliver
-> >> > any performance gain but instead it seriously harms other hosts =
-and/or
-> >> > applications. It should also be noted, that host with autotuning=
- enabled
-> >> > steals an unfair share of the total available bandwidth, which m=
-ight look
-> >> > like a "better" performing TCP stack at first sight - however su=
-ch behaviour
-> >> > is not appropriate (RFC2914, section 3.2).
-> >>
-> >> It's well known that "standard" TCP fills all available drop-tail
-> >> buffers, and that this behavior is not desirable.
-> >
-> > Well, in practice that was always limited by receive window size, w=
-hich
-> > was by default 64 kB on most operating systems. So this undesirable=
- behavior
-> > was limited to hosts where receive window was manually increased to=
- huge values.
-> >
-> > Today, the real effect of autotuning is the same as changing the re=
-ceive window
-> > size to 4 MB on *all* hosts, since there's no mechanism to prevent =
-it from
-> > growing the window to maximum even for low RTT paths.
-> >
-> >> The situation you describe is exactly what congestion control (the
-> >> topic of RFC2914) should fix. =C2=A0It is not the role of receive =
-window
-> >> (flow control). =C2=A0It is really the sender's job to detect and =
-react to
-> >> this, not the receiver's. =C2=A0(We have had this discussion befor=
-e on
-> >> netdev.)
-> >
-> > It's not of high importance whose job it is according to pure theor=
-y.
-> > What matters is, that autotuning introduced serious problem at LAN =
-context
-> > by disabling any possibility to properly react to increasing RTT. A=
-gain,
-> > it's not important whether this functionality was there by design o=
-r by
-> > coincidence, but it was holding the system well-balanced for many y=
-ears.
->=20
-> This is not a theoretical exercise, but one in good system design.
-> This "well-balanced" system was really broken all along, and
-> autotuning has exposed this.
->=20
-> A drop-tail queue size of 1000 packets on a local interface is
-> questionable, and I think this is the real source of your problem.
-> This change was introduced a few years ago on most drivers --
-> generally used to be 100 by default.  This was partly because TCP
-> slow-start has problems when a drop-tail queue is smaller than the
-> BDP.  (Limited slow-start is meant to address this problem, but
-> requires tuning to the right value.)  Again, using AQM is likely the
-> best solution.
+There was something missing from the header to make it compile.. I found 
+that in a later version. Patch below fixed the problem (without the 
+forcedeth patch).
 
-By default, sky2 queue is 511 pkts which is 6.2ms on @ 1G.
-Probably, should be half that by default. Also there is
-software transmit queue as well, which could be 0 unless some
-form of AQM is being done.
+diff --git a/drivers/net/bonding/bond_main.c 
+b/drivers/net/bonding/bond_main.c
+index 1b9c4dc..fd61dfb 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3516,11 +3516,27 @@ static int bond_slave_netdev_event(unsigned long 
+event, struct net_device *slave
+                 }
+                 break;
+         case NETDEV_CHANGE:
+-               /*
+-                * TODO: is this what we get if somebody
+-                * sets up a hierarchical bond, then rmmod's
+-                * one of the slave bonding devices?
+-                */
++               if (bond->params.mode == BOND_MODE_8023AD ||
++                   bond_is_lb(bond)) {
++                       struct slave *slave;
++
++                       slave = bond_get_slave_by_dev(bond, slave_dev);
++                       if (slave) {
++                               u16 old_speed = slave->speed;
++                               u16 old_duplex = slave->duplex;
++
++                               bond_update_speed_duplex(slave);
++
++                               if (bond_is_lb(bond))
++                                       break;
++
++                               if (old_speed != slave->speed)
++ 
+bond_3ad_adapter_speed_changed(slave);
++                               if (old_duplex != slave->duplex)
++ 
+bond_3ad_adapter_duplex_changed(slave);
++                       }
++               }
++
+                 break;
+         case NETDEV_DOWN:
+                 /*
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index fb730ec..b1315e4 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -248,6 +248,14 @@ static inline struct bonding 
+*bond_get_bond_by_slave(struct slave *slave)
+         return (struct bonding *)slave->dev->master->priv;
+  }
 
->=20
-> > Now, as autotuning is enabled by default in stock kernel, this prob=
-lem is
-> > spreading into LANs without users even knowing what's going on. The=
-refore
-> > I'd like to suggest to look for a decent fix which could be impleme=
-nted
-> > in relatively short time frame. My proposal is this:
-> >
-> > - measure RTT during the initial phase of TCP connection (first X s=
-egments)
-> > - compute maximal receive window size depending on measured RTT usi=
-ng
-> > =C2=A0configurable constant representing the bandwidth part of BDP
-> > - let autotuning do its work upto that limit.
->=20
-> Let's take this proposal, and try it instead at the sender side, as
-> part of congestion control.  Would this proposal make sense in that
-> position?  Would you seriously consider it there?
->=20
-> (As a side note, this is in fact what happens if you disable
-> timestamps, since TCP cannot get an updated measurement of RTT withou=
-t
-> timestamps, only a lower bound.  However, I consider this a limitatio=
-n
-> not a feature.)
->=20
->   -John
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
++static inline bool bond_is_lb(const struct bonding *bond)
++{
++        return bond->params.mode == BOND_MODE_TLB
++                || bond->params.mode == BOND_MODE_ALB;
++}
++
++
++
+  #define BOND_FOM_NONE                  0
+  #define BOND_FOM_ACTIVE                        1
+  #define BOND_FOM_FOLLOW                        2
+
