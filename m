@@ -1,95 +1,118 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] Doc: Fix wrong API example usage of call_rcu().
-Date: Sun, 8 Mar 2009 17:53:14 -0700
-Message-ID: <20090309005314.GA1185@linux.vnet.ibm.com>
-References: <20090306132732.15896.96543.stgit@localhost.localdomain> <20090306132738.15896.2226.stgit@localhost.localdomain> <20090307054959.GE10625@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Mark Smith
+	<nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
+Subject: Re: MACVLANs really best solution? How about a bridge with multiple
+ bridge virtual interfaces? (was Re: [PATCH] macvlan: Support creating
+ macvlans from macvlans)
+Date: Mon, 9 Mar 2009 11:44:50 +1030
+Message-ID: <20090309114450.f772b078.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
+References: <20090307211527.6e76d0b9.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
+	<49B2A139.8040507@candelatech.com>
+	<m11vt9fbgj.fsf@fess.ebiederm.org>
+	<20090308090212.651e598b.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
+	<49B3F82A.10103@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:57248 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752339AbZCIAxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Mar 2009 20:53:13 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n290oZtA009791
-	for <netdev@vger.kernel.org>; Sun, 8 Mar 2009 20:50:35 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n290rAKB182628
-	for <netdev@vger.kernel.org>; Sun, 8 Mar 2009 20:53:12 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n290r9sm032586
-	for <netdev@vger.kernel.org>; Sun, 8 Mar 2009 20:53:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20090307054959.GE10625@linux.vnet.ibm.com>
+Received: from smtp1.mail.adnap.net.au ([203.6.132.75]:53988 "EHLO
+	smtp1.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753406AbZCIBPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2009 21:15:07 -0400
+In-Reply-To: <49B3F82A.10103@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 06, 2009 at 09:49:59PM -0800, Paul E. McKenney wrote:
-> On Fri, Mar 06, 2009 at 02:27:38PM +0100, Jesper Dangaard Brouer wrote:
-> > At some point the API of call_rcu() changed from three parameters
-> > to two parameters, correct the documentation.
-> > 
-> > One confusing thing in RCU/listRCU.txt, which is NOT fixed in this patch,
-> > is that no reason or explaination is given for using call_rcu() instead of
-> > the normal synchronize_rcu() call.
-> 
-> Good catch!!!  Indeed, call_rcu() did take three arguments at one time,
-> like back in 2.5 days...
-> 
-> On the use of call_rcu() vs. synchronize_rcu(), the two possible reasons
-> called out in question 8 in Documentation/RCU/checklist.txt are:
-> 
-> 1.	Update performance is important.
-> 
-> 2.	Updaters cannot block.
+Hi Ben,
 
-And an important special case of #2 is when the update is being carried
-out within an RCU read-side critical section, FWIW.
+On Sun, 08 Mar 2009 09:54:02 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-							Thanx, Paul
+> Mark Smith wrote:
+> > On Sat, 07 Mar 2009 10:13:16 -0800
+> > ebiederm@xmission.com (Eric W. Biederman) wrote:
+> >
+> >   
+> >> Ben Greear <greearb@candelatech.com> writes:
+> >>
+> >>     
+> >>> Mark Smith wrote:
+> >>>       
+> >>>> Hi,
+> >>>>
+> >>>> Ben said,
+> >>>>   
+> >>>>         
+> >>>>> I wouldn't deny sending with wrong source mac..ethernet interfaces can do
+> >>>>> this,
+> >>>>> and mac-vlan should look as much like ethernet is possible.
+> >>>>>     
+> >>>>>           
+> >>>> I agree, however there's further things that mac-vlans aren't
+> >>>> currently doing as virtual ethernet interfaces that real ones do.
+> >>>> Unicast ethernet traffic sent out one mac-vlan interface with a
+> >>>> destination address of another mac-vlan interface on the same host
+> >>>> isn't delivered. mac-vlan interfaces, even though they're conceptually
+> >>>> located on the same ethernet segment, are currently isolated from each
+> >>>> other for unicast traffic.
+> >>>>   
 
-> I would welcome a patch to this file discussing this.
+<snip for brevity>
+
+> > So then, my question is, what are mac-vlans for i.e. what is their
+> > common use case?
+> >
+> > The problem I was trying to solve was to run up an arbitrary
+> > number of PPPoE servers on a single LAN segment. I could do that
+> > with physical interfaces, however I only had a maximum of 4 ethernet
+> > interfaces in the host. Using mac-vlans seemed to be the obvious way to
+> > eliminate the physical constraints of the host. I did expect though that
+> > the mac-vlan virtual interfaces would work the same real interfaces, so
+> > I was expecting that I could bridge them and that unicast traffic
+> > between them would work.
+> >   
+> Doesn't pppoe always talk to an upstream box (the pppoe-server)?  If 
+> that is so,
+> why would the local mac-vlans ever need to communicate directly to 
+> eachother?
 > 
-> Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
+That's true, and in that sense, I was 'lucky' that I didn't encounter
+this limitation in my test environment, but it was only because of my
+test environment (i.e. protocol), didn't require unicast communication
+between the mac-vlan interfaces on the same host. If I'd been testing
+some other protocol that did require unicast communications between
+macvlan interfaces, I would have been scratching my head, wondering
+why things weren't working correctly, and may have spent a lot of time
+thinking that my test setup was the thing that had failed, rather than
+being caused by missing functionality that I assumed was there.
+
+I think the "truth in advertising" or "principle of least surprise"
+should hold - if mac-vlans are to be seen by their users as virtual
+ethernet network cards, then they should function no differently to real
+network cards, or alternatively, if they aren't going to function that
+way, there needs to be quite obvious documentation somewhere (other
+than this thread) about their limitations, and a corresponding
+recommendation that you use bridged veth interfaces if you can't afford
+those limitations. 
+
+> We've used pppoe on mac-vlans, and it *seemed* to work, but perhaps we 
+> were missing
+> something...
 > 
-> > Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
-> > ---
-> > 
-> >  Documentation/RCU/listRCU.txt |    6 +++---
-> >  1 files changed, 3 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/Documentation/RCU/listRCU.txt b/Documentation/RCU/listRCU.txt
-> > index 1fd1753..4349c14 100644
-> > --- a/Documentation/RCU/listRCU.txt
-> > +++ b/Documentation/RCU/listRCU.txt
-> > @@ -118,7 +118,7 @@ Following are the RCU equivalents for these two functions:
-> >  		list_for_each_entry(e, list, list) {
-> >  			if (!audit_compare_rule(rule, &e->rule)) {
-> >  				list_del_rcu(&e->list);
-> > -				call_rcu(&e->rcu, audit_free_rule, e);
-> > +				call_rcu(&e->rcu, audit_free_rule);
-> >  				return 0;
-> >  			}
-> >  		}
-> > @@ -206,7 +206,7 @@ RCU ("read-copy update") its name.  The RCU code is as follows:
-> >  				ne->rule.action = newaction;
-> >  				ne->rule.file_count = newfield_count;
-> >  				list_replace_rcu(e, ne);
-> > -				call_rcu(&e->rcu, audit_free_rule, e);
-> > +				call_rcu(&e->rcu, audit_free_rule);
-> >  				return 0;
-> >  			}
-> >  		}
-> > @@ -283,7 +283,7 @@ flag under the spinlock as follows:
-> >  				list_del_rcu(&e->list);
-> >  				e->deleted = 1;
-> >  				spin_unlock(&e->lock);
-> > -				call_rcu(&e->rcu, audit_free_rule, e);
-> > +				call_rcu(&e->rcu, audit_free_rule);
-> >  				return 0;
-> >  			}
-> >  		}
-> > 
+> I think they might also be useful for adding a more realistic 'virtual 
+> ip' to an interface, perhaps
+> for interesting routing setups.
+> 
+> Thanks,
+> Ben
+> 
+> -- 
+> Ben Greear <greearb@candelatech.com> 
+> Candela Technologies Inc  http://www.candelatech.com
+> 
+> 
