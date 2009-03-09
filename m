@@ -1,96 +1,169 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: Regression in bonding between 2.6.26.8 and 2.6.27.6 - bisected
- - twice
-Date: Mon, 09 Mar 2009 21:53:39 +0100
-Message-ID: <49B581D3.6060807@krogh.cc>
-References: <491FEAD5.4090205@krogh.cc> <49A7B17F.2020408@krogh.cc> <16084.1235752119@death.nxdomain.ibm.com> <49A84802.7030502@krogh.cc> <30478.1235766943@death.nxdomain.ibm.com> <49AA2973.7040209@krogh.cc> <49AA8B4F.8090405@krogh.cc> <9712.1236279072@death.nxdomain.ibm.com>
+From: Ron Yorgason <yorgasor@gmail.com>
+Subject: Re: Kernel Oops in UDP w/ ARM architecture
+Date: Mon, 9 Mar 2009 15:57:37 -0500
+Message-ID: <93d1fdd10903091357i51d2a883r45efeb662a6859eb@mail.gmail.com>
+References: <93d1fdd10903090852g268b4141h31dc39a5848fcf32@mail.gmail.com>
+	 <49B54F00.5090706@cosmosbay.com>
+	 <93d1fdd10903091046w2d426226sfcb2a0d52c94a114@mail.gmail.com>
+	 <49B55E45.3040902@cosmosbay.com>
+	 <93d1fdd10903091218g17d65ea2r89a9b2a50fae7f11@mail.gmail.com>
+	 <49B57AEA.6000704@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@redhat.com>, aowi@novozymes.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:34360 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751414AbZCIUxt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2009 16:53:49 -0400
-In-Reply-To: <9712.1236279072@death.nxdomain.ibm.com>
+Received: from mail-qy0-f122.google.com ([209.85.221.122]:63304 "EHLO
+	mail-qy0-f122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002AbZCIU5u convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 16:57:50 -0400
+Received: by qyk28 with SMTP id 28so1330432qyk.33
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2009 13:57:47 -0700 (PDT)
+In-Reply-To: <49B57AEA.6000704@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> 	However, I did find another bug I introduced during the "mii
-> refactor" patch that you mentioned as being the original source of the
-> problem.  That bug will cause 802.3ad to not notice speed changes.
-> 
-> 	Could you test the patch below on your 2.6.68.7 and/or 2.6.27.19
-> and see if it resolves your problem (without the forcedeth patch)?
+On Mon, Mar 9, 2009 at 3:24 PM, Eric Dumazet <dada1@cosmosbay.com> wrot=
+e:
+> Ron Yorgason a =E9crit :
+> - Show quoted text -
+>> On Mon, Mar 9, 2009 at 1:21 PM, Eric Dumazet <dada1@cosmosbay.com> w=
+rote:
+>>> Please dont top post on this mailing list
+>>>
+>>> Ron Yorgason a =E9crit :
+>>>> We're using the fec driver, found in drivers/net/fec.c. =A0I modif=
+ied
+>>>> this driver slightly to get the MAC address from the redboot
+>>>> configuration stored in flash memory, but it's otherwise untouched=
+=2E =A0I
+>>>> can send my version of the file if that would help.
+>>>>
+>>>> --Ron
+>>>>
+>>>>
+>>> Given that ARM seems to be picky about non aligned accesses, you mi=
+ght
+>>> try this patch. This should force IP header to be aligned.
+>>>
+>>> diff -u linux-2.6.19/drivers/net/fec.c.old linux-2.6.19/drivers/net=
+/fec.c
+>>> --- linux-2.6.19/drivers/net/fec.c.old
+>>> +++ linux-2.6.19/drivers/net/fec.c
+>>> @@ -641,13 +641,14 @@
+>>> =A0 =A0 =A0 =A0 * include that when passing upstream as it messes u=
+p
+>>> =A0 =A0 =A0 =A0 * bridging applications.
+>>> =A0 =A0 =A0 =A0 */
+>>> - =A0 =A0 =A0 skb =3D dev_alloc_skb(pkt_len-4);
+>>> + =A0 =A0 =A0 skb =3D dev_alloc_skb((pkt_len - 4) + 2);
+>>>
+>>> =A0 =A0 =A0 =A0if (skb =3D=3D NULL) {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk("%s: Memory squeeze, dropping=
+ packet.\n", dev->name);
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fep->stats.rx_dropped++;
+>>> =A0 =A0 =A0 =A0} else {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb->dev =3D dev;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb_reserve(skb, 2); /* Align IP on 1=
+6 byte boundaries */
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_put(skb,pkt_len-4); /* Make room=
+ */
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eth_copy_and_sum(skb, data, pkt_len-=
+4, 0);
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb->protocol=3Deth_type_trans(skb,d=
+ev);
+>>>
+>>>
+>>
+>> Thanks for the patch. =A0It looks like Freescale modified this secti=
+on
+>> of the code in our BSP, so I'm looking at how to best merge things i=
+n.
+>> =A0Also, since we're allocating an extra 2 bytes in dev_alloc_skb(),=
+ do
+>> we need to account for those bytes in skb_put() and
+>> eth_copy_and_sum(), or does the skb_reserve() call handle that?
+>
+> We allocate 2 extra bytes, because skb_reserve() will advance skb->da=
+ta pointer
+> by two bytes. Those two bytes plus 14 bytes ethernet header : total 1=
+6 bytes,
+> so that IP header is aligned on 16 byte boundaries.
+>
+> No other changes are necessary.
+>
+> Then, maybe this patch is not necessary at all on your platform, sinc=
+e crash happens
+> a *long* time after boot. It may be a shoot in the dark...
+>
+>
+>
 
-There was something missing from the header to make it compile.. I found 
-that in a later version. Patch below fixed the problem (without the 
-forcedeth patch).
+The code as supplied by Freescale looks like this:
 
-diff --git a/drivers/net/bonding/bond_main.c 
-b/drivers/net/bonding/bond_main.c
-index 1b9c4dc..fd61dfb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3516,11 +3516,27 @@ static int bond_slave_netdev_event(unsigned long 
-event, struct net_device *slave
-                 }
-                 break;
-         case NETDEV_CHANGE:
--               /*
--                * TODO: is this what we get if somebody
--                * sets up a hierarchical bond, then rmmod's
--                * one of the slave bonding devices?
--                */
-+               if (bond->params.mode == BOND_MODE_8023AD ||
-+                   bond_is_lb(bond)) {
-+                       struct slave *slave;
-+
-+                       slave = bond_get_slave_by_dev(bond, slave_dev);
-+                       if (slave) {
-+                               u16 old_speed = slave->speed;
-+                               u16 old_duplex = slave->duplex;
-+
-+                               bond_update_speed_duplex(slave);
-+
-+                               if (bond_is_lb(bond))
-+                                       break;
-+
-+                               if (old_speed != slave->speed)
-+ 
-bond_3ad_adapter_speed_changed(slave);
-+                               if (old_duplex != slave->duplex)
-+ 
-bond_3ad_adapter_duplex_changed(slave);
-+                       }
-+               }
-+
-                 break;
-         case NETDEV_DOWN:
-                 /*
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index fb730ec..b1315e4 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -248,6 +248,14 @@ static inline struct bonding 
-*bond_get_bond_by_slave(struct slave *slave)
-         return (struct bonding *)slave->dev->master->priv;
-  }
+	if ((pkt_len - 4) < fec_copy_threshold) {
+		skb =3D dev_alloc_skb(pkt_len);
+	} else {
+		skb =3D dev_alloc_skb(FEC_ENET_RX_FRSIZE);
+	}
 
-+static inline bool bond_is_lb(const struct bonding *bond)
-+{
-+        return bond->params.mode == BOND_MODE_TLB
-+                || bond->params.mode == BOND_MODE_ALB;
-+}
-+
-+
-+
-  #define BOND_FOM_NONE                  0
-  #define BOND_FOM_ACTIVE                        1
-  #define BOND_FOM_FOLLOW                        2
+	if (skb =3D=3D NULL) {
+		printk("%s: Memory squeeze, dropping packet.\n", dev->name);
+		fep->stats.rx_dropped++;
+	} else {
+		if ((pkt_len - 4) < fec_copy_threshold) {
+			skb_reserve(skb, 2);    /*skip 2bytes, so ipheader is align 4bytes*/
+			skb_put(skb,pkt_len-4); /* Make room */
+			eth_copy_and_sum(skb, (unsigned char *)data,
+					pkt_len-4, 0);
+		} else {
+			struct sk_buff *pskb =3D fep->rx_skbuff[rx_index];
+		=09
+			fep->rx_skbuff[rx_index] =3D skb;
+			skb->data =3D FEC_ADDR_ALIGNMENT(skb->data);
+			bdp->cbd_bufaddr =3D __pa(skb->data);
+                        skb_put(pskb,pkt_len-4);        /* Make room */
+                        skb =3D pskb;
+                }
+		skb->dev =3D dev;
+		skb->protocol=3Deth_type_trans(skb,dev);
+		netif_rx(skb);
+	}
 
+
+fec_copy_threshold was defined with this comment:
+/*
+ *  fec_copy_threshold controls the copy when recieving ethernet frame.
+ *     If ethernet header aligns 4bytes, the ip header and upper
+header will not aligns 4bytes.
+ *     The resean is ethernet header is 14bytes.
+ *     And the max size of tcp & ip header is 128bytes. Normally it is =
+40bytes.
+ *     So I set the default value between 128 to 256.
+ */
+static int fec_copy_threshold =3D 192;
+
+
+And the FEC_ADDR_ALIGNMENT uses these definitions:
+
+=2E..
+#elif defined(CONFIG_ARCH_MXC)
+#include <asm/arch/hardware.h>
+#include <asm/arch/iim.h>
+#include "fec.h"
+#define FEC_ALIGNMENT  (0x0F)          /*FEC needs 128bits(32bytes) ali=
+gnment*/=09
+#else
+=2E..
+
+#define FEC_ADDR_ALIGNMENT(x) ((unsigned char *)(((unsigned long )(x)
++ (FEC_ALIGNMENT)) & (~FEC_ALIGNMENT)))
+
+
+It looks like for a packet smaller than 196 byes will get allocated
+with its actual size, but skb_reserve() skips 2 bytes and now it's a
+little short.  For a larger packet, they just allocate 2k, they're not
+skipping 2 bytes and they're aligning the data but not the ip headers.
+ However, everything works 99.999% of the time, so I assume there's
+just some border condition that's not being covered correctly.
