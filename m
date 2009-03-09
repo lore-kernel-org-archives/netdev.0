@@ -1,330 +1,45 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC 2/4] net: netfilter conntrack - add per-net functionality for DCCP protocol
-Date: Mon, 09 Mar 2009 21:16:30 +0300
-Message-ID: <20090309182731.762563452@gmail.com>
-References: <20090309181628.109019157@gmail.com>
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	xemul@openvz.org, adobriyan@gmail.com,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: davem@davemloft.net, kaber@trash.net
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: MACVLANs really best solution? How about a bridge with multiple
+ bridge virtual interfaces?
+Date: Mon, 09 Mar 2009 14:33:28 -0400
+Message-ID: <49B560F8.4090602@hp.com>
+References: <20090307211527.6e76d0b9.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>	<49B51A42.6050507@trash.net> <m11vt6d9t6.fsf@fess.ebiederm.org>	<49B52F73.7010508@trash.net> <m13admbsuk.fsf@fess.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Mark Smith
+	<nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>,
+	greearb@candelatech.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.190]:3336 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992AbZCIS1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 14:27:24 -0400
-Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-dccp
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:3083 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753793AbZCISdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 14:33:33 -0400
+In-Reply-To: <m13admbsuk.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Module specific data moved into per-net site and being allocated/freed
-during net namespace creation/deletion.
+Eric W. Biederman wrote:
+> There are two tricky parts.
+> 
+> One problem is that macvlans and the primary hardware device share the
+> same transmit queue.  So when I have a broadcast packet on the primary
+> devices queue I don't know if I have already sent it out to the
+> macvlan devices or not.
+> 
+> The second problem is that when I transmit a multicast packet and I
+> have a local listener.  I believe replicating the packet both at the
+> ip layer and at the ethernet layer will result in receiving the packet
+> locally twice.
 
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
----
- net/netfilter/nf_conntrack_proto_dccp.c |  148 ++++++++++++++++++++++++--------
- 1 file changed, 111 insertions(+), 37 deletions(-)
+If you want a local listener to see the packet you have to set
+IP_MULTICAST_LOOP.  A packet from a local source address coming off the "wire"
+will be dropped in fib_validate_source(), it would have to come over lo.  I'm
+not sure how that relates to how macvlan works, just something I've run into
+before (2 nics in same subnet, listener on one, sender on other,
+IP_MULTICAST_LOOP=0, no packets).
 
-Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_dccp.c
-===================================================================
---- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_dccp.c
-+++ linux-2.6.git/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -16,6 +16,9 @@
- #include <linux/skbuff.h>
- #include <linux/dccp.h>
- 
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+
- #include <linux/netfilter/nfnetlink_conntrack.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -23,8 +26,6 @@
- 
- static DEFINE_RWLOCK(dccp_lock);
- 
--static int nf_ct_dccp_loose __read_mostly = 1;
--
- /* Timeouts are based on values from RFC4340:
-  *
-  * - REQUEST:
-@@ -72,16 +73,6 @@ static int nf_ct_dccp_loose __read_mostl
- 
- #define DCCP_MSL (2 * 60 * HZ)
- 
--static unsigned int dccp_timeout[CT_DCCP_MAX + 1] __read_mostly = {
--	[CT_DCCP_REQUEST]	= 2 * DCCP_MSL,
--	[CT_DCCP_RESPOND]	= 4 * DCCP_MSL,
--	[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL,
--	[CT_DCCP_OPEN]		= 12 * 3600 * HZ,
--	[CT_DCCP_CLOSEREQ]	= 64 * HZ,
--	[CT_DCCP_CLOSING]	= 64 * HZ,
--	[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL,
--};
--
- static const char * const dccp_state_names[] = {
- 	[CT_DCCP_NONE]		= "NONE",
- 	[CT_DCCP_REQUEST]	= "REQUEST",
-@@ -393,6 +384,22 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][D
- 	},
- };
- 
-+/* this module per-net specifics */
-+static int dccp_net_id;
-+struct dccp_net {
-+	int dccp_loose;
-+	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
-+#ifdef CONFIG_SYSCTL
-+	struct ctl_table_header *sysctl_header;
-+	struct ctl_table *sysctl_table;
-+#endif
-+};
-+
-+static inline struct dccp_net *dccp_pernet(struct net *net)
-+{
-+	return net_generic(net, dccp_net_id);
-+}
-+
- static bool dccp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- 			      struct nf_conntrack_tuple *tuple)
- {
-@@ -419,6 +426,7 @@ static bool dccp_new(struct nf_conn *ct,
- 		     unsigned int dataoff)
- {
- 	struct net *net = nf_ct_net(ct);
-+	struct dccp_net *dn;
- 	struct dccp_hdr _dh, *dh;
- 	const char *msg;
- 	u_int8_t state;
-@@ -429,7 +437,8 @@ static bool dccp_new(struct nf_conn *ct,
- 	state = dccp_state_table[CT_DCCP_ROLE_CLIENT][dh->dccph_type][CT_DCCP_NONE];
- 	switch (state) {
- 	default:
--		if (nf_ct_dccp_loose == 0) {
-+		dn = dccp_pernet(net);
-+		if (dn->dccp_loose == 0) {
- 			msg = "nf_ct_dccp: not picking up existing connection ";
- 			goto out_invalid;
- 		}
-@@ -465,6 +474,7 @@ static int dccp_packet(struct nf_conn *c
- 		       u_int8_t pf, unsigned int hooknum)
- {
- 	struct net *net = nf_ct_net(ct);
-+	struct dccp_net *dn;
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
- 	struct dccp_hdr _dh, *dh;
- 	u_int8_t type, old_state, new_state;
-@@ -542,7 +552,9 @@ static int dccp_packet(struct nf_conn *c
- 	ct->proto.dccp.last_pkt = type;
- 	ct->proto.dccp.state = new_state;
- 	write_unlock_bh(&dccp_lock);
--	nf_ct_refresh_acct(ct, ctinfo, skb, dccp_timeout[new_state]);
-+
-+	dn = dccp_pernet(net);
-+	nf_ct_refresh_acct(ct, ctinfo, skb, dn->dccp_timeout[new_state]);
- 
- 	return NF_ACCEPT;
- }
-@@ -660,13 +672,14 @@ static int nlattr_to_dccp(struct nlattr 
- #endif
- 
- #ifdef CONFIG_SYSCTL
--static unsigned int dccp_sysctl_table_users;
--static struct ctl_table_header *dccp_sysctl_header;
--static ctl_table dccp_sysctl_table[] = {
-+/*
-+ * we use it as a template when create per-net syctl table
-+ * table data will be assigned later
-+ */
-+static struct ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_request",
--		.data		= &dccp_timeout[CT_DCCP_REQUEST],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -674,7 +687,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_respond",
--		.data		= &dccp_timeout[CT_DCCP_RESPOND],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -682,7 +694,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_partopen",
--		.data		= &dccp_timeout[CT_DCCP_PARTOPEN],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -690,7 +701,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_open",
--		.data		= &dccp_timeout[CT_DCCP_OPEN],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -698,7 +708,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_closereq",
--		.data		= &dccp_timeout[CT_DCCP_CLOSEREQ],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -706,7 +715,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_closing",
--		.data		= &dccp_timeout[CT_DCCP_CLOSING],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -714,7 +722,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_timewait",
--		.data		= &dccp_timeout[CT_DCCP_TIMEWAIT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -722,8 +729,7 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_loose",
--		.data		= &nf_ct_dccp_loose,
--		.maxlen		= sizeof(nf_ct_dccp_loose),
-+		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-@@ -751,11 +757,6 @@ static struct nf_conntrack_l4proto dccp_
- 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
- 	.nla_policy		= nf_ct_port_nla_policy,
- #endif
--#ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &dccp_sysctl_table_users,
--	.ctl_table_header	= &dccp_sysctl_header,
--	.ctl_table		= dccp_sysctl_table,
--#endif
- };
- 
- static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
-@@ -776,34 +777,107 @@ static struct nf_conntrack_l4proto dccp_
- 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
- 	.nla_policy		= nf_ct_port_nla_policy,
- #endif
-+};
-+
-+static __net_init int dccp_net_init(struct net *net)
-+{
-+	struct dccp_net *dn;
-+	int err;
-+
-+	dn = kmalloc(sizeof(*dn), GFP_KERNEL);
-+	if (!dn)
-+		return -ENOMEM;
-+
-+	/* default values */
-+	dn->dccp_loose = 1;
-+	dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
-+	dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
-+	dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
-+	dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
-+	dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
-+	dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
-+	dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
-+
-+	err = net_assign_generic(net, dccp_net_id, dn);
-+	if (err)
-+		goto out;
-+
- #ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &dccp_sysctl_table_users,
--	.ctl_table_header	= &dccp_sysctl_header,
--	.ctl_table		= dccp_sysctl_table,
-+	err = -ENOMEM;
-+	dn->sysctl_table = kmemdup(dccp_sysctl_table,
-+			sizeof(dccp_sysctl_table), GFP_KERNEL);
-+	if (!dn->sysctl_table)
-+		goto out;
-+
-+	dn->sysctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
-+	dn->sysctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
-+	dn->sysctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
-+	dn->sysctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
-+	dn->sysctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
-+	dn->sysctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
-+	dn->sysctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
-+	dn->sysctl_table[7].data = &dn->dccp_loose;
-+
-+	dn->sysctl_header = register_net_sysctl_table(net,
-+			nf_net_netfilter_sysctl_path, dn->sysctl_table);
-+	if (!dn->sysctl_header) {
-+		kfree(dn->sysctl_table);
-+		goto out;
-+	}
- #endif
-+
-+	return 0;
-+
-+out:
-+	kfree(dn);
-+	return err;
-+}
-+
-+static __net_exit void dccp_net_exit(struct net *net)
-+{
-+	struct dccp_net *dn = dccp_pernet(net);
-+#ifdef CONFIG_SYSCTL
-+	unregister_net_sysctl_table(dn->sysctl_header);
-+	kfree(dn->sysctl_table);
-+#endif
-+	kfree(dn);
-+
-+	net_assign_generic(net, dccp_net_id, NULL);
-+}
-+
-+static struct pernet_operations dccp_net_ops = {
-+	.init = dccp_net_init,
-+	.exit = dccp_net_exit,
- };
- 
- static int __init nf_conntrack_proto_dccp_init(void)
- {
- 	int err;
- 
--	err = nf_conntrack_l4proto_register(&dccp_proto4);
-+	err = register_pernet_gen_device(&dccp_net_id, &dccp_net_ops);
- 	if (err < 0)
- 		goto err1;
- 
--	err = nf_conntrack_l4proto_register(&dccp_proto6);
-+	err = nf_conntrack_l4proto_register(&dccp_proto4);
- 	if (err < 0)
- 		goto err2;
-+
-+	err = nf_conntrack_l4proto_register(&dccp_proto6);
-+	if (err < 0)
-+		goto err3;
- 	return 0;
- 
--err2:
-+err3:
- 	nf_conntrack_l4proto_unregister(&dccp_proto4);
-+err2:
-+	unregister_pernet_gen_device(dccp_net_id, &dccp_net_ops);
- err1:
- 	return err;
- }
- 
- static void __exit nf_conntrack_proto_dccp_fini(void)
- {
-+	unregister_pernet_gen_device(dccp_net_id, &dccp_net_ops);
- 	nf_conntrack_l4proto_unregister(&dccp_proto6);
- 	nf_conntrack_l4proto_unregister(&dccp_proto4);
- }
-
+-Brian
