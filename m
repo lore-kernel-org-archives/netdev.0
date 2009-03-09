@@ -1,117 +1,83 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Mon, 9 Mar 2009 13:23:15 -0700
-Message-ID: <1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
-References: <20090309112521.GB37984@bts.sk>
-	 <1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com>
-	 <20090309195906.M50328@bts.sk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Kernel Oops in UDP w/ ARM architecture
+Date: Mon, 09 Mar 2009 21:24:10 +0100
+Message-ID: <49B57AEA.6000704@cosmosbay.com>
+References: <93d1fdd10903090852g268b4141h31dc39a5848fcf32@mail.gmail.com>	 <49B54F00.5090706@cosmosbay.com>	 <93d1fdd10903091046w2d426226sfcb2a0d52c94a114@mail.gmail.com>	 <49B55E45.3040902@cosmosbay.com> <93d1fdd10903091218g17d65ea2r89a9b2a50fae7f11@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: =?ISO-8859-2?Q?Marian_=CFurkovi=E8?= <md@bts.sk>
+To: Ron Yorgason <yorgasor@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.250]:61594 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753691AbZCIUXS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 16:23:18 -0400
-Received: by an-out-0708.google.com with SMTP id c2so953790anc.1
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2009 13:23:15 -0700 (PDT)
-In-Reply-To: <20090309195906.M50328@bts.sk>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59568 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbZCIUYR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 16:24:17 -0400
+In-Reply-To: <93d1fdd10903091218g17d65ea2r89a9b2a50fae7f11@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 9, 2009 at 1:02 PM, Marian =CFurkovi=E8 <md@bts.sk> wrote:
-> On Mon, 9 Mar 2009 11:01:52 -0700, John Heffner wrote
->> On Mon, Mar 9, 2009 at 4:25 AM, Marian =CFurkovi=E8 <md@bts.sk> wrot=
-e:
->> > =A0 As rx window autotuning is enabled in all recent kernels and w=
-ith 1 GB
->> > of RAM the maximum tcp_rmem becomes 4 MB, this problem is spreadin=
-g rapidly
->> > and we believe it needs urgent attention. As demontrated above, su=
-ch huge
->> > rx window (which is at least 100*BDP of the example above) does no=
-t deliver
->> > any performance gain but instead it seriously harms other hosts an=
-d/or
->> > applications. It should also be noted, that host with autotuning e=
-nabled
->> > steals an unfair share of the total available bandwidth, which mig=
-ht look
->> > like a "better" performing TCP stack at first sight - however such=
- behaviour
->> > is not appropriate (RFC2914, section 3.2).
+Ron Yorgason a =E9crit :
+> On Mon, Mar 9, 2009 at 1:21 PM, Eric Dumazet <dada1@cosmosbay.com> wr=
+ote:
+>> Please dont top post on this mailing list
 >>
->> It's well known that "standard" TCP fills all available drop-tail
->> buffers, and that this behavior is not desirable.
->
-> Well, in practice that was always limited by receive window size, whi=
-ch
-> was by default 64 kB on most operating systems. So this undesirable b=
-ehavior
-> was limited to hosts where receive window was manually increased to h=
-uge values.
->
-> Today, the real effect of autotuning is the same as changing the rece=
-ive window
-> size to 4 MB on *all* hosts, since there's no mechanism to prevent it=
- from
-> growing the window to maximum even for low RTT paths.
->
->> The situation you describe is exactly what congestion control (the
->> topic of RFC2914) should fix. =A0It is not the role of receive windo=
-w
->> (flow control). =A0It is really the sender's job to detect and react=
- to
->> this, not the receiver's. =A0(We have had this discussion before on
->> netdev.)
->
-> It's not of high importance whose job it is according to pure theory.
-> What matters is, that autotuning introduced serious problem at LAN co=
-ntext
-> by disabling any possibility to properly react to increasing RTT. Aga=
-in,
-> it's not important whether this functionality was there by design or =
-by
-> coincidence, but it was holding the system well-balanced for many yea=
-rs.
+>> Ron Yorgason a =E9crit :
+>>> We're using the fec driver, found in drivers/net/fec.c.  I modified
+>>> this driver slightly to get the MAC address from the redboot
+>>> configuration stored in flash memory, but it's otherwise untouched.=
+  I
+>>> can send my version of the file if that would help.
+>>>
+>>> --Ron
+>>>
+>>>
+>> Given that ARM seems to be picky about non aligned accesses, you mig=
+ht
+>> try this patch. This should force IP header to be aligned.
+>>
+>> diff -u linux-2.6.19/drivers/net/fec.c.old linux-2.6.19/drivers/net/=
+fec.c
+>> --- linux-2.6.19/drivers/net/fec.c.old
+>> +++ linux-2.6.19/drivers/net/fec.c
+>> @@ -641,13 +641,14 @@
+>>         * include that when passing upstream as it messes up
+>>         * bridging applications.
+>>         */
+>> -       skb =3D dev_alloc_skb(pkt_len-4);
+>> +       skb =3D dev_alloc_skb((pkt_len - 4) + 2);
+>>
+>>        if (skb =3D=3D NULL) {
+>>                printk("%s: Memory squeeze, dropping packet.\n", dev-=
+>name);
+>>                fep->stats.rx_dropped++;
+>>        } else {
+>>                skb->dev =3D dev;
+>> +               skb_reserve(skb, 2); /* Align IP on 16 byte boundari=
+es */
+>>                skb_put(skb,pkt_len-4); /* Make room */
+>>                eth_copy_and_sum(skb, data, pkt_len-4, 0);
+>>                skb->protocol=3Deth_type_trans(skb,dev);
+>>
+>>
+>=20
+> Thanks for the patch.  It looks like Freescale modified this section
+> of the code in our BSP, so I'm looking at how to best merge things in=
+=2E
+>  Also, since we're allocating an extra 2 bytes in dev_alloc_skb(), do
+> we need to account for those bytes in skb_put() and
+> eth_copy_and_sum(), or does the skb_reserve() call handle that?
 
-This is not a theoretical exercise, but one in good system design.
-This "well-balanced" system was really broken all along, and
-autotuning has exposed this.
+We allocate 2 extra bytes, because skb_reserve() will advance skb->data=
+ pointer
+by two bytes. Those two bytes plus 14 bytes ethernet header : total 16 =
+bytes,
+so that IP header is aligned on 16 byte boundaries.
 
-A drop-tail queue size of 1000 packets on a local interface is
-questionable, and I think this is the real source of your problem.
-This change was introduced a few years ago on most drivers --
-generally used to be 100 by default.  This was partly because TCP
-slow-start has problems when a drop-tail queue is smaller than the
-BDP.  (Limited slow-start is meant to address this problem, but
-requires tuning to the right value.)  Again, using AQM is likely the
-best solution.
+No other changes are necessary.
+
+Then, maybe this patch is not necessary at all on your platform, since =
+crash happens
+a *long* time after boot. It may be a shoot in the dark...
 
 
-> Now, as autotuning is enabled by default in stock kernel, this proble=
-m is
-> spreading into LANs without users even knowing what's going on. There=
-fore
-> I'd like to suggest to look for a decent fix which could be implement=
-ed
-> in relatively short time frame. My proposal is this:
->
-> - measure RTT during the initial phase of TCP connection (first X seg=
-ments)
-> - compute maximal receive window size depending on measured RTT using
-> =A0configurable constant representing the bandwidth part of BDP
-> - let autotuning do its work upto that limit.
-
-Let's take this proposal, and try it instead at the sender side, as
-part of congestion control.  Would this proposal make sense in that
-position?  Would you seriously consider it there?
-
-(As a side note, this is in fact what happens if you disable
-timestamps, since TCP cannot get an updated measurement of RTT without
-timestamps, only a lower bound.  However, I consider this a limitation
-not a feature.)
-
-  -John
