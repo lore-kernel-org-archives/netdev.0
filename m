@@ -1,42 +1,28 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net: fix warning about non-const string
-Date: Mon, 9 Mar 2009 16:51:55 -0700
-Message-ID: <20090309165155.187776c0@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Mon, 09 Mar 2009 16:52:05 -0700 (PDT)
+Message-ID: <20090309.165205.11054081.davem@davemloft.net>
+References: <1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com>
+	<20090309195906.M50328@bts.sk>
+	<1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: md@bts.sk, netdev@vger.kernel.org
+To: johnwheffner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38451 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751615AbZCIXv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2009 19:51:58 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 03E464F420E
-	for <netdev@vger.kernel.org>; Mon,  9 Mar 2009 16:52:00 -0700 (PDT)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id S1UpZIE3DWOf for <netdev@vger.kernel.org>;
-	Mon,  9 Mar 2009 16:51:59 -0700 (PDT)
-Received: from nehalam (pool-71-117-208-104.ptldor.fios.verizon.net [71.117.208.104])
-	by mail.vyatta.com (Postfix) with ESMTP id A773C4F4204
-	for <netdev@vger.kernel.org>; Mon,  9 Mar 2009 16:51:59 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54417
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752395AbZCIXwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 19:52:19 -0400
+In-Reply-To: <1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since dev_set_name takes a printf style string, new gcc complains
-if arg is not const.
+From: John Heffner <johnwheffner@gmail.com>
+Date: Mon, 9 Mar 2009 13:23:15 -0700
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> A drop-tail queue size of 1000 packets on a local interface is
+> questionable, and I think this is the real source of your problem.
 
---- a/net/core/net-sysfs.c	2009-03-09 08:23:45.573308957 -0700
-+++ b/net/core/net-sysfs.c	2009-03-09 16:47:46.640356108 -0700
-@@ -498,7 +498,7 @@ int netdev_register_kobject(struct net_d
- 	dev->groups = groups;
- 
- 	BUILD_BUG_ON(BUS_ID_SIZE < IFNAMSIZ);
--	dev_set_name(dev, net->name);
-+	dev_set_name(dev, "%s", net->name);
- 
- #ifdef CONFIG_SYSFS
- 	*groups++ = &netstat_group;
+Are you suggested we decrease it? :-)
