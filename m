@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Multicast packet loss
-Date: Sun, 08 Mar 2009 19:49:22 -0700 (PDT)
-Message-ID: <20090308.194922.267426196.davem@davemloft.net>
-References: <49AE3DA9.2020103@cosmosbay.com>
-	<49B2266C.9050701@cosmosbay.com>
-	<49B3F655.6030308@cosmosbay.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-03-06
+Date: Sun, 08 Mar 2009 20:02:07 -0700 (PDT)
+Message-ID: <20090308.200207.90768249.davem@davemloft.net>
+References: <20090306212414.GG3712@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kchang@athenacr.com, netdev@vger.kernel.org,
-	cl@linux-foundation.org, bmb@athenacr.com
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56009
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753093AbZCICtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2009 22:49:36 -0400
-In-Reply-To: <49B3F655.6030308@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090306212414.GG3712-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sun, 08 Mar 2009 17:46:13 +0100
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 6 Mar 2009 16:24:14 -0500
 
-> +	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
-> +		if (in_softirq()) {
-> +			if (!softirq_del(&sk->sk_del, sock_readable_defer))
-> +				goto unlock;
-> +			return;
-> +		}
+> Here are a few small patches intended for 2.6.29.
+> 
+> Two of them add USB IDs to the Ralink drivers.  Some of those IDs are
+> already in -next, so there will be some minor conflicts.
+> 
+> The one from Roel Kluin avoids checking for <0 on an unsigned variable.
+> It seems like a very low-risk fix to a potentially hard to find
+> problem, so it seems worthwhile to me.
+> 
+> The iwlwifi fix corrects some problems with cleaning-up after
+> initialization errors, avoiding some potential resources leaks.
+> 
+> The p54 patch corrects a crash that was unveiled by applying a patch
+> headed to -next.  The problem was their all along, so it seems work
+> taking now.
 
-This is interesting.
-
-I think you should make softirq_del() more flexible.  Make it the
-socket's job to make sure it doesn't try to defer different
-functions, and put the onus on locking there as well.
-
-The cmpxchg() and all of this checking is just wasted work.
-
-I'd really like to get rid of that callback lock too, then we'd
-really be in business. :-)
-
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
