@@ -1,40 +1,65 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: Re: Multicast packet loss
-Date: Mon, 09 Mar 2009 18:56:35 -0400
-Message-ID: <49B59EA3.3000208@athenacr.com>
-References: <20090204012144.GC3650@localhost.localdomain>	<49A6CE39.5050200@athenacr.com>	<49A8FAFF.7060104@cosmosbay.com> <20090304.001646.100690134.davem@davemloft.net> <49AE3DA9.2020103@cosmosbay.com> <49B2266C.9050701@cosmosbay.com> <49B3F655.6030308@cosmosbay.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: 3c59x: shared interrupt problem
+Date: Mon, 9 Mar 2009 16:49:27 -0700
+Message-ID: <20090309164927.6eb12aff@nehalam>
+References: <20090309224253.135220@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kchang@athenacr.com, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org
+To: "Gerhard Pircher" <gerhard_pircher@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:1025 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751599AbZCIXTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 19:19:42 -0400
-In-Reply-To: <49B3F655.6030308@cosmosbay.com>
+Received: from mail.vyatta.com ([76.74.103.46]:38329 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751638AbZCIXtb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2009 19:49:31 -0400
+In-Reply-To: <20090309224253.135220@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Here is a patch that helps. It's still an RFC of course, since its somewhat ugly :)
+On Mon, 09 Mar 2009 23:42:53 +0100
+"Gerhard Pircher" <gerhard_pircher@gmx.net> wrote:
 
-Hi Eric,
+> Hi!
+> 
+> Large network transfers fail on my machine (with kernel versions
+> >v2.6.26) with the kernel oops below. eth0 (3c59x driver) normally
+> shares its IRQ line with 3 OHCI USB ports (IRQ 7), as the excerpt of
+> /proc/interrupt shows. Removing USB support from the kernel makes it
+> work again. I wasn't able to do a full git bisect run yet, as v2.6.27
+> didn't produce a bootable kernel image for my machine. The machine is
+> an AmigaOne PowerPC G4 with an onboard 3c920 network chip.
+> 
+> Any idea?
 
-I did some experimenting with this patch today -- we're users, not kernel hackers,
-but the performance looks great. We see no loss with mcasttest, and no loss with
-our internal test programs (which do much more user-space work). We're very
-encouraged :)
+Does this help, it looks like boomerang_interrupt was not doing
+shared irq stuff correctly.
 
-One thing I'm curious about: previously, setting /proc/irq/<eth0>/smp_affinity
-to one CPU made things perform better, but with this patch, performance is better
-with smp_affinity == ff than with smp_affinity == 1. Do you know why that
-is? Our tests are all with bnx2 msi_disable=1. I can investigate with oprofile
-tomorrow.
+--- a/drivers/net/3c59x.c	2009-03-09 16:07:13.372670015 -0700
++++ b/drivers/net/3c59x.c	2009-03-09 16:08:50.214357441 -0700
+@@ -2301,6 +2301,7 @@ boomerang_interrupt(int irq, void *dev_i
+ 	void __iomem *ioaddr;
+ 	int status;
+ 	int work_done = max_interrupt_work;
++	int handled = 0;
+ 
+ 	ioaddr = vp->ioaddr;
+ 
+@@ -2323,6 +2324,7 @@ boomerang_interrupt(int irq, void *dev_i
+ 			printk(KERN_DEBUG "boomerang_interrupt(1): status = 0xffff\n");
+ 		goto handler_exit;
+ 	}
++	handled = 1;
+ 
+ 	if (status & IntReq) {
+ 		status |= vp->deferred;
+@@ -2417,7 +2419,7 @@ boomerang_interrupt(int irq, void *dev_i
+ 			   dev->name, status);
+ handler_exit:
+ 	spin_unlock(&vp->lock);
+-	return IRQ_HANDLED;
++	return IRQ_RETVAL(handled);
+ }
+ 
+ static int vortex_rx(struct net_device *dev)
 
-Thank you for your continued help, we all deeply appreciate having someone
-looking at this workload.
-
-Thanks,
-Brian Bloniarz
