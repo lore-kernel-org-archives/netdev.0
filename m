@@ -1,48 +1,84 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: MACVLANs really best solution? How about a bridge with multiple
- bridge virtual interfaces?
-Date: Mon, 09 Mar 2009 11:58:39 -0700
-Message-ID: <49B566DF.3040603@candelatech.com>
-References: <20090307211527.6e76d0b9.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>	<49B51A42.6050507@trash.net> <m11vt6d9t6.fsf@fess.ebiederm.org>	<49B52F73.7010508@trash.net> <m13admbsuk.fsf@fess.ebiederm.org>	<49B53B6C.7060400@trash.net> <m1fxhm8xl1.fsf@fess.ebiederm.org> <49B5478C.4020001@trash.net>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC 0/4] netfilter conntrack sysctls pernet support
+Date: Mon, 9 Mar 2009 22:07:44 +0300
+Message-ID: <20090309190744.GA18357@localhost>
+References: <20090309181628.109019157@gmail.com> <49B56440.2010404@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Mark Smith
-	<nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, xemul@openvz.org, adobriyan@gmail.com,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:32809 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbZCIS6u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 14:58:50 -0400
-In-Reply-To: <49B5478C.4020001@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49B56440.2010404@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
+[Patrick McHardy - Mon, Mar 09, 2009 at 07:47:28PM +0100]
+> First off, *please* CC netfilter-devel on patches relating to netfilter.
+> I've said this a hundred times in direction of the container guys
+> (not sure whether you specifically) and it keeps getting ignored.
 
->> Now that I think about it we could call ndo_start_xmit directly
->> from the macvlan code, and bypass whatever hook we use to
->> intercept packets going out the normal device it should not
->> be too difficult.
-> 
-> We don't intercept packets on TX, they have to be explicitly delivered
-> to macvlan.
+Ugh... sorry Patrick, my fault, I've noticed this address in
+MAINTEINERS but NETFILTER section contains 3 list so I messed
+in which one I should choose. Sorry again.
 
-It might suck for performance, but mac-vlan could register an 'ALL' protocol
-on the physical dev, similar to tcp-dump, to grab pkts on tx and pass the
-ones it cares about back up to the vlans?
+>
+> Cyrill Gorcunov wrote:
+>> Hi here are a few patches to bring in per-net functionality
+>> for several conntrack protocols: DCCP, SCTP, UDPlite.
+>>
+>> Since these protos could be built as modules I've put
+>> per-net operations to module init/exit routines. The change
+>> I would like you point the attention is that module static
+>> variables being marked as __read_mostly become now as dynamically
+>> allocated -- is it acceptable trade off?
+>
+> Well, there's no other choice I guess.
 
-I'd want run-time control to disable any of these costly options for those that
-don't need it, however.
+Actually, the possibility I see is to make some union on _all_
+structures I put in pernet section so this union will contain
+max possible size of structure allocated and then create one
+global slab for this (HW cache aligned). But it would be ugly hack I
+believe and until we have no other choise I would prefer to not
+play with this idea :)
 
-Thanks,
-Ben
+>
+>> For protocols being built in (like TCP, UDP, ICMP) for which I made
+>> patches too but they are in a bit 'rought' state: in original
+>> code there some kind of reference counter to sysctl tables being
+>> registered (and they don't have any kind of mb, didn't check if it
+>> could be a problem for SMP since they are mostly __init functions)
+>> so I need some kind of same functionality to count per-net calls.
+>
+> The tables are shared between IPv4 and IPv6, this keeps track of the
+> number of current users to avoid unregistering it while the AF-specific
+> module for either one is loaded. This would still be a global counter
+> with containers I think since module loading is global and they should
+> be visible in all containers if IPv4 or IPv6 conntrack is loaded.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Yes, I even thought about kref usage here but kref doesn't have a few
+function I need.
 
+>
+>> Will send RFC for these protocols soon.
+>>
+>> So eventually I would like to hear some kind of feedback on this.
+>> Ideas and any kind of comments are highly appreciated.
+>
+>> +	sn->sysctl_table[0].data = &sn->sctp_timeouts[SCTP_CONNTRACK_CLOSED];
+>> +	sn->sysctl_table[1].data = &sn->sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT];
+>> +	sn->sysctl_table[2].data = &sn->sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED];
+>> +	sn->sysctl_table[3].data = &sn->sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED];
+>> +	sn->sysctl_table[4].data = &sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT];
+>> +	sn->sysctl_table[5].data = &sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD];
+>> +	sn->sysctl_table[6].data = &sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT];
+>
+> Please use an iteration to avoid these repetitve overly long lines.
+>
+
+Ah, thanks a lot! Indeed.
+
+	- Cyrill -
