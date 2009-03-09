@@ -1,38 +1,66 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: Query about skb scatter / gather
-Date: Mon, 9 Mar 2009 16:02:04 +0200
-Message-ID: <200903091602.05102.remi.denis-courmont@nokia.com>
-References: <c8028d330903060917r4af01c7ew2426bcb30af90b5e@mail.gmail.com>  <F169D4F5E1F1974DBFAFABF47F60C10A1E6EB189@orsmsx507.amr.corp.intel.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: iproute2 and regressing "ipv6: convert tunnels to
+ net_device_ops"
+Date: Mon, 9 Mar 2009 15:46:09 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0903091545430.2331@fbirervta.pbzchgretzou.qr>
+References: <alpine.LSU.2.00.0903091400200.28029@fbirervta.pbzchgretzou.qr> <200903091414.15171.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Amar Mudrankit <amar.mudrankit@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "ext Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:38913 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbZCIOCI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 10:02:08 -0400
-In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1E6EB189@orsmsx507.amr.corp.intel.com>
-Content-Disposition: inline
+Received: from sovereign.computergmbh.de ([85.214.69.204]:38875 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751062AbZCIOqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 10:46:13 -0400
+In-Reply-To: <200903091414.15171.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 06 March 2009 21:47:22 ext Brandeburg, Jesse wrote:
-> frag_list can only be safely used in rare cases where you know that
-> the ip defragmentation code will not be called.  It links multiple
-> skb's together to form one large packet (for receive)
 
-Uh? Sure, nested fragments do not work.
-But... My reading of ip_frag_reasm() is that you can always use fragmen=
-ts=20
-list. If this happens the defragmentation code will split your skb into=
- two,=20
-so as to avoid nested fragments. What's the problem with that?
+(Cc'ed netdev ml)
 
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
+On Monday 2009-03-09 14:14, Rafael J. Wysocki wrote:
 
+>Hi,
+>
+>On Monday 09 March 2009, Jan Engelhardt wrote:
+>> Hi,
+>> 
+>> 
+>> commit 1326c3d5a4b792a2b15877feb7fb691f8945d203 
+>> (v2.6.28-rc6-461-g23a12b1) broke the display of local and remote 
+>> addresses of an SIT tunnel in iproute2. Instead of the addresses 
+>> assigned, it only displays 0.0.0.0. The version of iproute2 is 2.6.25, 
+>> as shipped with openSUSE 11.1.
+>> 
+>> Before:
+>> # ip t a sit7 mode sit remote 1.2.3.4 local 5.6.7.8
+>> # ip a
+>> 7: sit7@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop stat DOWN
+>>     link/sit 5.6.7.8 peer 1.2.3.4
+>> 
+>> After:
+>> 7: sit7@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop stat DOWN
+>>     link/sit 0.0.0.0 brd 0.0.0.0
+>> 
+>> ---->
+>> commit 23a12b14715e2dcd34dc8002927263ad3437344c
+>> Author: Stephen Hemminger <shemminger@vyatta.com>
+>> Date:   Thu Nov 20 20:33:56 2008 -0800
+>> 
+>>     ipv6: convert tunnels to net_device_ops
+>>     
+>>     Like IPV4, convert the tunnel virtual devices to use net_device_ops.
+>>     
+>>     Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>> 
+>> :040000 040000 23483d156e517904d31dd7e2276a0ff8a25f2ecc 
+>> 395574b3a80869307a5e936a02598476f7e1c49b M      net
+>> <----
+>
+>If you want me to track this, please send a copy to a mailing list with
+>archives to which I can link or file a bugzilla report (with CC to me).
