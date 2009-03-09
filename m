@@ -1,57 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
 Subject: Re: HTB vs HFSC, HTB is highly inaccurate
-Date: Mon, 9 Mar 2009 08:07:00 +0000
-Message-ID: <20090309080700.GA4760@ff.dom.local>
-References: <200903082045.39083.denys@visp.net.lb>
+Date: Mon, 9 Mar 2009 10:18:00 +0200
+Message-ID: <200903091018.00180.denys@visp.net.lb>
+References: <20090309080700.GA4760@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f176.google.com ([209.85.220.176]:58877 "EHLO
-	mail-fx0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980AbZCIIHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 04:07:09 -0400
-Received: by fxm24 with SMTP id 24so1124407fxm.37
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2009 01:07:05 -0700 (PDT)
+Received: from hosting.visp.net.lb ([194.146.153.11]:38116 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbZCIISH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 04:18:07 -0400
+In-Reply-To: <20090309080700.GA4760@ff.dom.local>
 Content-Disposition: inline
-In-Reply-To: <200903082045.39083.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08-03-2009 19:45, Denys Fedoryschenko wrote:
-> Hi again
-> 
-> I test again HTB and HFSC, this time in very simple case.
-> 
-> Regarding HTB - i try without quantum, with different values, without and with 
-> cburst (big and small), with HZ=1000 and default, hysteresis on and off - it 
-> is almost same result. 
-> 
-> While i set limit at 57, it can reach 61. HFSC results is perfect.
-> 
-> Here is graph snapshopts.
-> http://www.nuclearcat.com/netdev/htb-problem.png
-> You can see points where HTB enabled. Other points if HFSC.
+On Monday 09 March 2009 10:07:00 Jarek Poplawski wrote:
+> I guess you should try with rates 40/16 or 30/26 here.
+Seems i was blind. I forgot main HTB rule - always keep sum or childs rate 
+less than parent. And i should not listen my boss, cause he dont know 
+arithmetics. (i ask him about decision, how much for what :-D ).
 
-Very nice picture, but some tc snapshot stats for qdisc and classes
-would be appreciated.
+I will try some experiments now.
 
-> 
-> Scripts source is:
-> 
-> HTB http://www.nuclearcat.com/netdev/htb-script.txt
+But at same time HFSC worked fine.
+File fixed.
 
-| echo "class add dev eth0.37 parent 1:1 classid 1:2 htb rate 40Mbit ceil 56Mbit burst 16000b cburst 16000b quantum 16000"
-| echo "class add dev eth0.37 parent 1:1 classid 1:3 htb rate 26Mbit ceil 56Mbit burst 16000b cburst 16000b quantum 16000"
+>
+> BTW, it doesn't matter here, but for various reasons it's better to
+> add classes before filters pointing these classes.
+>
+> > HFSC http://www.nuclearcat.com/netdev/hfsc-script.txt
+>
+> This link doesn't work for me.
+>
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I guess you should try with rates 40/16 or 30/26 here.
 
-BTW, it doesn't matter here, but for various reasons it's better to
-add classes before filters pointing these classes.
-
-> HFSC http://www.nuclearcat.com/netdev/hfsc-script.txt
-
-This link doesn't work for me.
-
-Jarek P.
