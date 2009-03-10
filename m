@@ -1,7 +1,7 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 2/5] phylib: rework to prepare for OF registration of PHYs
-Date: Tue, 10 Mar 2009 09:22:07 -0600
-Message-ID: <20090310152207.12455.18933.stgit@localhost.localdomain>
+Subject: [PATCH 4/5] openfirmware: Add OF phylib support code
+Date: Tue, 10 Mar 2009 09:22:19 -0600
+Message-ID: <20090310152218.12455.93700.stgit@localhost.localdomain>
 References: <20090310150751.12455.70598.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,178 +12,155 @@ To: afleming@freescale.com, linuxppc-dev@ozlabs.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wf-out-1314.google.com ([209.85.200.171]:46896 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755055AbZCJPWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 11:22:13 -0400
+	with ESMTP id S1755868AbZCJPWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 11:22:22 -0400
 In-Reply-To: <20090310150751.12455.70598.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Grant Likely <grant.likely@secretlab.ca>
 
-This patch makes changes in preparation for supporting open firmware
-device tree descriptions of MDIO busses.  Changes include:
-- Cleanup handling of phy_map[] entries; they are already NULLed when
-  registering and so don't need to be re-cleared, and it is good practice
-  to clear them out when unregistering.
-- Split phy_device registration out into a new function so that the
-  OF helpers can do two stage registration (separate allocation and
-  registration steps).
+Add support for parsing the device tree for PHY devices on an MDIO bus
+
+CC: Andy Fleming <afleming@freescale.com>
+CC: linuxppc-dev@ozlabs.org
+CC: devtree-discuss@ozlabs.org
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
-CC: linuxppc-dev@ozlabs.org
-CC: netdev@vger.kernel.org
-CC: Andy Fleming <afleming@freescale.com>
 ---
 
- drivers/net/phy/mdio_bus.c   |   29 +++-------------------------
- drivers/net/phy/phy_device.c |   43 ++++++++++++++++++++++++++++++++++++++----
- include/linux/phy.h          |    1 +
- 3 files changed, 43 insertions(+), 30 deletions(-)
+ drivers/of/Kconfig      |    6 ++++
+ drivers/of/Makefile     |    1 +
+ drivers/of/of_mdio.c    |   70 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/of_mdio.h |   20 +++++++++++++
+ 4 files changed, 97 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/of/of_mdio.c
+ create mode 100644 include/linux/of_mdio.h
 
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 811a637..3c39c7b 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -112,7 +112,6 @@ int mdiobus_register(struct mii_bus *bus)
- 		bus->reset(bus);
- 
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
--		bus->phy_map[i] = NULL;
- 		if ((bus->phy_mask & (1 << i)) == 0) {
- 			struct phy_device *phydev;
- 
-@@ -149,6 +148,7 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
- 		if (bus->phy_map[i])
- 			device_unregister(&bus->phy_map[i]->dev);
-+		bus->phy_map[i] = NULL;
- 	}
- }
- EXPORT_SYMBOL(mdiobus_unregister);
-@@ -187,35 +187,12 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
- 	if (IS_ERR(phydev) || phydev == NULL)
- 		return phydev;
- 
--	/* There's a PHY at this address
--	 * We need to set:
--	 * 1) IRQ
--	 * 2) bus_id
--	 * 3) parent
--	 * 4) bus
--	 * 5) mii_bus
--	 * And, we need to register it */
--
--	phydev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
--
--	phydev->dev.parent = bus->parent;
--	phydev->dev.bus = &mdio_bus_type;
--	dev_set_name(&phydev->dev, PHY_ID_FMT, bus->id, addr);
--
--	phydev->bus = bus;
--
--	/* Run all of the fixups for this PHY */
--	phy_scan_fixups(phydev);
--
--	err = device_register(&phydev->dev);
-+	err = phy_device_register(phydev);
- 	if (err) {
--		printk(KERN_ERR "phy %d failed to register\n", addr);
- 		phy_device_free(phydev);
--		phydev = NULL;
-+		return NULL;
- 	}
- 
--	bus->phy_map[addr] = phydev;
--
- 	return phydev;
- }
- EXPORT_SYMBOL(mdiobus_scan);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 0a06e4f..793332f 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -39,10 +39,6 @@ MODULE_DESCRIPTION("PHY library");
- MODULE_AUTHOR("Andy Fleming");
- MODULE_LICENSE("GPL");
- 
--static struct phy_driver genphy_driver;
--extern int mdio_bus_init(void);
--extern void mdio_bus_exit(void);
--
- void phy_device_free(struct phy_device *phydev)
- {
- 	kfree(phydev);
-@@ -53,6 +49,10 @@ static void phy_device_release(struct device *dev)
- 	phy_device_free(to_phy_device(dev));
- }
- 
-+static struct phy_driver genphy_driver;
-+extern int mdio_bus_init(void);
-+extern void mdio_bus_exit(void);
+diff --git a/drivers/of/Kconfig b/drivers/of/Kconfig
+index f821dbc..6fe043b 100644
+--- a/drivers/of/Kconfig
++++ b/drivers/of/Kconfig
+@@ -19,3 +19,9 @@ config OF_SPI
+ 	depends on OF && PPC_OF && SPI
+ 	help
+ 	  OpenFirmware SPI accessors
 +
- static LIST_HEAD(phy_fixup_list);
- static DEFINE_MUTEX(phy_fixup_lock);
- 
-@@ -166,6 +166,10 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
- 	dev->addr = addr;
- 	dev->phy_id = phy_id;
- 	dev->bus = bus;
-+	dev->dev.parent = bus->parent;
-+	dev->dev.bus = &mdio_bus_type;
-+	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
-+	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
- 
- 	dev->state = PHY_DOWN;
- 
-@@ -237,6 +241,37 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
- }
- 
- /**
-+ * phy_device_register - Register the phy device on the MDIO bus
-+ * @phy_device: phy_device structure to be added to the MDIO bus
++config OF_MDIO
++	def_tristate PHYLIB
++	depends on OF && PHYLIB
++	help
++	  OpenFirmware MDIO bus (Ethernet PHY) accessors
+diff --git a/drivers/of/Makefile b/drivers/of/Makefile
+index 4c3c6f8..bdfb5f5 100644
+--- a/drivers/of/Makefile
++++ b/drivers/of/Makefile
+@@ -3,3 +3,4 @@ obj-$(CONFIG_OF_DEVICE) += device.o platform.o
+ obj-$(CONFIG_OF_GPIO)   += gpio.o
+ obj-$(CONFIG_OF_I2C)	+= of_i2c.o
+ obj-$(CONFIG_OF_SPI)	+= of_spi.o
++obj-$(CONFIG_OF_MDIO)	+= of_mdio.o
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+new file mode 100644
+index 0000000..6a7d4b2
+--- /dev/null
++++ b/drivers/of/of_mdio.c
+@@ -0,0 +1,70 @@
++/*
++ * OF helpers for the MDIO (Ethernet PHY) API
++ *
++ * Copyright (c) 2009 Secret Lab Technologies, Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This file provides helper functions for extracting PHY device information
++ * out of the OpenFirmware device tree and using it to populate an mii_bus.
 + */
-+int phy_device_register(struct phy_device *phydev)
++
++#include <linux/phy.h>
++#include <linux/of.h>
++#include <linux/of_mdio.h>
++#include <linux/module.h>
++
++void of_register_phy_devices(struct mii_bus *mdio, struct device_node *np)
 +{
-+	int err;
++	struct phy_device *phy;
++	struct device_node *child;
++	int rc;
 +
-+	/* Don't register a phy if one is already registered at this
-+	 * address */
-+	if (phydev->bus->phy_map[phydev->addr])
-+		return -EINVAL;
-+	phydev->bus->phy_map[phydev->addr] = phydev;
++	for_each_child_of_node(np, child) {
++		const u32 *addr;
++		int len;
 +
-+	/* Run all of the fixups for this PHY */
-+	phy_scan_fixups(phydev);
++		addr = of_get_property(child, "reg", &len);
++		if (!addr || len < sizeof(*addr) || *addr >= 32 || *addr < 0) {
++			dev_err(&mdio->dev, "%s has invalid PHY address\n",
++				child->full_name);
++			continue;
++		}
 +
-+	err = device_register(&phydev->dev);
-+	if (err) {
-+		pr_err("phy %d failed to register\n", phydev->addr);
-+		goto out;
++		if (mdio->irq) {
++			mdio->irq[*addr] = irq_of_parse_and_map(child, 0);
++			if (!mdio->irq[*addr])
++				mdio->irq[*addr] = PHY_POLL;
++		}
++
++		phy = get_phy_device(mdio, *addr);
++		if (!phy) {
++			dev_err(&mdio->dev, "error probing PHY at address %i\n",
++				*addr);
++			continue;
++		}
++		phy_scan_fixups(phy);
++
++		/* Associate the OF node with the device structure so it
++		 * can be looked up later */
++		of_node_get(child);
++		dev_archdata_set_node(&phy->dev.archdata, child);
++
++		/* All data is now stored in the phy struct; register it */
++		rc = phy_device_register(phy);
++		if (rc) {
++			phy_device_free(phy);
++			of_node_put(child);
++			continue;
++		}
++
++		dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
++			child->name, *addr);
 +	}
-+
-+	return 0;
-+
-+ out:
-+	phydev->bus->phy_map[phydev->addr] = NULL;
-+	return err;
 +}
-+EXPORT_SYMBOL(phy_device_register);
++EXPORT_SYMBOL(of_register_phy_devices);
 +
-+/**
-  * phy_prepare_link - prepares the PHY layer to monitor link status
-  * @phydev: target phy_device struct
-  * @handler: callback function for link status change notifications
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index d7e54d9..a47d64f 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -439,6 +439,7 @@ static inline int phy_write(struct phy_device *phydev, u16 regnum, u16 val)
- 
- int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id);
- struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
-+int phy_device_register(struct phy_device *phy);
- int phy_clear_interrupt(struct phy_device *phydev);
- int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
- struct phy_device * phy_attach(struct net_device *dev,
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+new file mode 100644
+index 0000000..9ea9745
+--- /dev/null
++++ b/include/linux/of_mdio.h
+@@ -0,0 +1,20 @@
++/*
++ * OF helpers for the MDIO (Ethernet PHY) API
++ *
++ * Copyright (c) 2009 Secret Lab Technologies, Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_OF_MDIO_H
++#define __LINUX_OF_MDIO_H
++
++#include <linux/phy.h>
++#include <linux/of.h>
++
++void of_register_phy_devices(struct mii_bus *mdio, struct device_node *np);
++
++#endif /* __LINUX_OF_MDIO_H */
 
