@@ -1,66 +1,101 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [RFC 2/4] net: netfilter conntrack - add per-net functionality
- 	for DCCP protocol
-Date: Tue, 10 Mar 2009 14:35:18 +0300
-Message-ID: <49B65076.6090003@openvz.org>
-References: <20090309181628.109019157@gmail.com>	 <20090309182731.762563452@gmail.com> <49B63EA6.2060802@free.fr>	 <49B6420B.4080309@free.fr> <aa79d98a0903100359x5cba797fu9611823b91c64b42@mail.gmail.com>
+From: Gary Thomas <gary@mlbassoc.com>
+Subject: Re: Marvell 88E609x switch?
+Date: Tue, 10 Mar 2009 05:20:21 -0600
+Message-ID: <49B64CF5.9090508@mlbassoc.com>
+References: <49ABF9A9.2040608@mlbassoc.com> <Pine.LNX.4.64.0903022237580.1863@ask.diku.dk> <49AC5E6F.3010204@mlbassoc.com> <1236070372.30736.87.camel@localhost.localdomain> <49AD1C81.1020106@mlbassoc.com> <1236083560.30736.114.camel@localhost.localdomain> <49AD2FE1.60305@mlbassoc.com> <49AD30F7.4080006@mlbassoc.com> <49ADA697.3050400@mlbassoc.com> <49B145FF.5060208@mlbassoc.com> <20090310102805.GO4738@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>, davem@davemloft.net,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, adobriyan@gmail.com,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <aa79d98a0903100359x5cba797fu9611823b91c64b42@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jdb@comx.dk, Jesper Dangaard Brouer <hawk@diku.dk>,
+	netdev <netdev@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 137-67-76-76.skybeam.com ([76.76.67.137]:4599 "EHLO
+	mail.chez-thomas.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426AbZCJLjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 07:39:35 -0400
+In-Reply-To: <20090310102805.GO4738@xi.wantstofly.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cyrill Gorcunov wrote:
-> On Tue, Mar 10, 2009 at 1:33 PM, Daniel Lezcano <daniel.lezcano@free.fr> wrote:
->> Daniel Lezcano wrote:
->>> Cyrill Gorcunov wrote:
->>>> Module specific data moved into per-net site and being allocated/freed
->>>> during net namespace creation/deletion.
->>>>
->>>> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
->>>> ---
->>>>  net/netfilter/nf_conntrack_proto_dccp.c |  148
->>>> ++++++++++++++++++++++++--------
->>>>  1 file changed, 111 insertions(+), 37 deletions(-)
->>>>
->>>>
->>>>   static int __init nf_conntrack_proto_dccp_init(void)
->>>>  {
->>>>     int err;
->>>>  -    err = nf_conntrack_l4proto_register(&dccp_proto4);
->>>> +    err = register_pernet_gen_device(&dccp_net_id, &dccp_net_ops);
->>>>
->> [ cut ]
->>> Shouldn't it be register_pernet_gen_subsys ?
+Lennert Buytenhek wrote:
+> On Fri, Mar 06, 2009 at 08:49:19AM -0700, Gary Thomas wrote:
 > 
-> No, I believe. By using  register_pernet_gen_device I'm allowed to
-> not modify 'struct net' and friends and keep all I need in my own
-> pointer retrieved thru per-net gen-device id I've registered.
-
-I believe Daniel means, that we need the register_xxx_get_subsys call
-for subsystems, rather than devices, that will behave according to the
-generic net pointers.
-
-Daniel, am I right with this suggestion?
-
->> If you use register_pernet_gen_device, your subsystem will be deleted before
->> the network devices and potentially you can receive a packet even if your
->> subsystem is already freed.
->>
->> Eric did a fix for tcp and icmp a few weeks ago. I thing its explanation is
->> better than mine :)
->> it is the commit 6eb0777228f31932fc941eafe8b08848466630a1 for net-2.6
->>
->> Thanks.
->>  -- Daniel
->>
+>> After much experimentation, I finally found out what was
+>> wrong.  Basically, the trunk masks have 8 bits on the 6131,
+>> but 11 bits on the 609x and this wasn't being handled.  Once
+>> the trunk masks were reset by the init code, there was no
+>> path to the CPU port from the LAN ports :-(  The attached
+>> patch is what I've ended up with.  It works, at least for
+>> a single switch.
 > 
-> Thanks a lot Daniel, will check!
+> Cool.  How about the patch below then?
 > 
+
+This looks fine to me - is this part safe on the smaller parts
+(6131, etc)?  I wasn't sure about setting those "reserved" bits
+on other chips.
+
+> @@ -136,7 +138,7 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+>  	 * Clear all trunk masks.
+>  	 */
+>  	for (i = 0; i < 8; i++)
+> -		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0xff);
+> +		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0x7ff);
+>
+>  	/*
+>  	 * Clear all trunk mappings.
+
+> 
+>> Next, I need to get it to work with multiple switches (separate
+>> ethernet controllers, same/shared MII bus),
+> 
+> That should be easy -- the DSA driver only accesses MII buses via
+> phylib, and that does the required locking, etc.  Also, we've
+> verified that multi-chip addressing mode works.
+> 
+> 
+>> as well as a cascaded switch.
+> 
+> That's a bit trickier, but also not entirely hard:
+> - Instead of the CPU port concept, we'll have to use the port number
+>   that brings us one hop closer to the CPU (i.e. the upstream port).
+> - Assign each chip a DSA device address (instead of always setting it
+>   to zero).
+> - Populate the 'DSA device address -> port' mapping table for each
+>   switch.
+> - Enable DSA tagging and flooding of unknown unicasts and multicasts
+>   on all inter-switch links and not just on the CPU port on switch 0.
+> 
+> I don't think it makes sense to implement Dijkstra in the kernel, so
+> it's probably easiest to just pass in a precomputed NxN array of how
+> to go from which switch to which switch via which port, along with a
+> separate DSA port list for each switch chip.
+> 
+> I don't have multi-switch chip setups myself, or I would have
+> implemented this already.  But I can whip up some patches to try..
+> 
+
+That would be great.  What I'd like to figure out is a
+way to provide that mapping (static from the driver point
+of view), much like the current "port_names[]" table now.
+
+For my particular setup, there are two cases (on the same
+board):
+  Switch 1 - ports 1..8
+  Switch 2 - ports 9..16
+    Switch 3 - ports 17..24 (cascaded off of Switch 2)
+Thus, the only access to Switch 3 and its ports is indirect via
+Switch 2.
+
+Presumably, one could have a multiple cascade, so this structure
+should be considered from the start.
+
+Thanks for your help
+
+
+-- 
+------------------------------------------------------------
+Gary Thomas                 |  Consulting for the
+MLB Associates              |    Embedded world
+------------------------------------------------------------
