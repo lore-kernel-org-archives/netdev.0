@@ -1,30 +1,37 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [RFC 2/4] net: netfilter conntrack - add per-net functionality
- 	for DCCP protocol
-Date: Tue, 10 Mar 2009 14:56:37 +0300
-Message-ID: <49B65575.1050500@openvz.org>
-References: <20090309181628.109019157@gmail.com>	 <20090309182731.762563452@gmail.com> <49B63EA6.2060802@free.fr>	 <49B6420B.4080309@free.fr>	 <aa79d98a0903100359x5cba797fu9611823b91c64b42@mail.gmail.com>	 <49B65076.6090003@openvz.org> <aa79d98a0903100451r6179ca61l3573cd8ae6e171b7@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] bnx2x: net-2.6 Bug Fixes
+Date: Tue, 10 Mar 2009 05:08:36 -0700 (PDT)
+Message-ID: <20090310.050836.12868611.davem@davemloft.net>
+References: <1236595929.11030.11.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, adobriyan@gmail.com,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Cyrill Gorcunov <gorcunov@gmail.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <aa79d98a0903100451r6179ca61l3573cd8ae6e171b7@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, achiang@hp.com, bjorn.helgaas@hp.com,
+	vladz@broadcom.com
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46799
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751732AbZCJMIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 08:08:51 -0400
+In-Reply-To: <1236595929.11030.11.camel@lb-tlvb-eliezer>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> I believe Daniel means, that we need the register_xxx_get_subsys call
->> for subsystems, rather than devices, that will behave according to the
->> generic net pointers.
->>
->> Daniel, am I right with this suggestion?
->>
-> ...
-> Ah, yes, just checked register_pernet_gen_subsys -- it's what I need. Thanks!
-> 
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Mon, 09 Mar 2009 12:52:09 +0200
 
-Good. This would require some factorization work as well. Cyrill, your turn ;)
+> This patch series against net-2.6 contains critical bug fixes for the
+> bnx2x.
+
+All applied, thanks.
+
+> The first two issues manifest themselves on IA64 with 64KB pages and
+> were reported and tested by Bjorn Helgass <bjorn.helgass@hp.com>. Those
+> two do not exist in net-next. Please let me know if you want me to send
+> a patch against net-next with those fixes (or if you can apply it to
+> net-next as well).
+
+This gets taken care of this transparently when I pull net-2.6 into
+net-next-2.6, which I have to do occaisionally anyways.
+
