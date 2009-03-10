@@ -1,52 +1,93 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: RX problem in ibm_newemac driver
-Date: Wed, 11 Mar 2009 07:50:01 +1100
-Message-ID: <1236718202.7086.10.camel@pasglop>
-References: <49B6C4A2.8060302@embedded-sol.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Tue, 10 Mar 2009 22:01:30 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0903102147480.21593@ask.diku.dk>
+References: <20090310151357.GA10658@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Felix Radensky <felix@embedded-sol.com>
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>, hawk@comx.dk
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59078 "EHLO gate.crashing.org"
+Received: from mgw2.diku.dk ([130.225.96.92]:43899 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752651AbZCJUuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2009 16:50:14 -0400
-In-Reply-To: <49B6C4A2.8060302@embedded-sol.com>
+	id S1753335AbZCJVBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2009 17:01:36 -0400
+In-Reply-To: <20090310151357.GA10658@ioremap.net>
+Content-ID: <Pine.LNX.4.64.0903102147482.21593@ask.diku.dk>
+Content-Disposition: INLINE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-03-10 at 21:50 +0200, Felix Radensky wrote:
-> Hi,
-> 
-> I'm experiencing RX problem on custom board based on AMCC
-> 405EXr processor. Channel 0 of EMAC is connected to 10/100
-> Micrel KSZ8041NL PHY in MII mode. Ethernet works fine in
-> u-boot (version 2009.01). In Linux (2.6.27) Ethernet works fine
-> as well if EMAC was initialized in u-boot. It is enough to send
-> ping from u-boot (even to non-existing host) to make things work
-> in linux. But if u-boot takes kernel and ramdisk images from flash
-> and does not initialize EMAC only TX side works in linux.
+On Tue, 10 Mar 2009, Evgeniy Polyakov wrote:
 
-You should CC linuxppc-dev where you are more likely to find people to
-help here.
+> +struct ipt_osf_finger {
+> +	struct rcu_head			rcu_head;
+> +	struct list_head		finger_entry;
+> +	struct ipt_osf_user_finger	finger;
+> +};
 
-> I can see that TX counters are incremented when pinging from
-> EMAC side, but RX counters remain zero.  RX error counter
-> in PHY is zero as well.  I've enabled debugging in EMAC
-> driver and verified that RX EOB interrupt is not triggered.
-> FER register in RGMII bridge is properly configured for MII
-> mode on channel 0.  I've tried to dump EMAC registers using
-> ethtool and got machine check exception.
-> 
-> I don't know what else could be done to identify the source of
-> the problem. Any tips would be greatly appreciated.
+> +struct ipt_osf_finger_storage
+> +{
+> +	struct list_head		finger_list;
+> +	spinlock_t			finger_lock;
+> +};
+> +
+> +/*
+> + * Indexed by dont-fragment bit.
+> + * It is the only constant value in the fingerprint.
+> + */
+> +struct ipt_osf_finger_storage ipt_osf_fingers[2];
+> +
+> +static DEFINE_PER_CPU(struct ipt_osf_message, ipt_osf_mbuf);
 
-I don't have a 405EXr here, but it smells like the old reset problem
-when the link is down. Maybe we are missing code to force clocks on
-405EXr when there's no link ?
+> +static void __exit ipt_osf_fini(void)
+> +{
+> +	struct ipt_osf_finger *f;
+> +	int i;
+> +
+> +	cn_del_callback(&cn_osf_id);
+> +	xt_unregister_match(&ipt_osf_match);
+> +
+> +	rcu_read_lock();
+> +	for (i=0; i<ARRAY_SIZE(ipt_osf_fingers); ++i) {
+> +		struct ipt_osf_finger_storage *st = &ipt_osf_fingers[i];
+> +
+> +		list_for_each_entry_rcu(f, &st->finger_list, finger_entry) {
 
-Ben.
+spin_lock(&st->finger_lock); //???
+> +			list_del_rcu(&f->finger_entry);
+spin_unlock(&st->finger_lock);
+
+> +			call_rcu(&f->rcu_head, ipt_osf_finger_free_rcu);
+> +		}
+> +	}
+> +	rcu_read_unlock();
+
+Should the list_del_rcu() not be protected by a spinlock?
 
 
+> +	rcu_barrier();
+
+In some of my code I call synchronize_net(), is it enough to call 
+rcu_barrier()?
+
+What is the difference between:
+
+  synchronize_rcu()
+  synchronize_net()
+  rcu_barrier()
+
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
