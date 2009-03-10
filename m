@@ -1,51 +1,62 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Tue, 10 Mar 2009 06:19:27 +0100
-Message-ID: <49B5F85F.1080508@cosmosbay.com>
-References: <1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com>	 <20090309195906.M50328@bts.sk>	 <1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>	 <20090309.165205.11054081.davem@davemloft.net> <1e41a3230903091709i740d95ddhefc1df2c71ea60b6@mail.gmail.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 10 Mar 2009 06:28:36 +0100
+Message-ID: <49B5FA84.9000301@cosmosbay.com>
+References: <20090204012144.GC3650@localhost.localdomain>	<49A6CE39.5050200@athenacr.com>	<49A8FAFF.7060104@cosmosbay.com> <20090304.001646.100690134.davem@davemloft.net> <49AE3DA9.2020103@cosmosbay.com> <49B2266C.9050701@cosmosbay.com> <49B3F655.6030308@cosmosbay.com> <49B59EA3.3000208@athenacr.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, md@bts.sk,
-	netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
+Cc: kchang@athenacr.com, netdev@vger.kernel.org
+To: Brian Bloniarz <bmb@athenacr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53061 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44950 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752530AbZCJFTg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 01:19:36 -0400
-In-Reply-To: <1e41a3230903091709i740d95ddhefc1df2c71ea60b6@mail.gmail.com>
+	with ESMTP id S1751722AbZCJF2l convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 01:28:41 -0400
+In-Reply-To: <49B59EA3.3000208@athenacr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Heffner a =E9crit :
-> On Mon, Mar 9, 2009 at 4:52 PM, David Miller <davem@davemloft.net> wr=
-ote:
->> From: John Heffner <johnwheffner@gmail.com>
->> Date: Mon, 9 Mar 2009 13:23:15 -0700
->>
->>> A drop-tail queue size of 1000 packets on a local interface is
->>> questionable, and I think this is the real source of your problem.
->> Are you suggested we decrease it? :-)
+Brian Bloniarz a =E9crit :
+> Eric Dumazet wrote:
+>> Here is a patch that helps. It's still an RFC of course, since its
+>> somewhat ugly :)
 >=20
-> I am not so bold. :-D  (And note the drop-tail prefix.)
+> Hi Eric,
 >=20
-> A long queue with AQM would probably be best, but would require
-> careful testing before enabling by default.  It would almost certainl=
-y
-> cause pain for some.
+> I did some experimenting with this patch today -- we're users, not
+> kernel hackers,
+> but the performance looks great. We see no loss with mcasttest, and n=
+o
+> loss with
+> our internal test programs (which do much more user-space work). We'r=
+e very
+> encouraged :)
 >=20
-> And, for the vast majority of people for whom the local interface is
-> not the bottleneck, it makes no difference.  It hurts worst for
-> someone doing bulk transfer with a GigE device in 100 Mbps (or worse,
-> 10-Mbps) mode, where 1000 pkts is a long time, while simultaneously
-> doing something latency-sensitive.  I suspect this is the case Marian
-> is experiencing.
+> One thing I'm curious about: previously, setting
+> /proc/irq/<eth0>/smp_affinity
+> to one CPU made things perform better, but with this patch, performan=
+ce
+> is better
+> with smp_affinity =3D=3D ff than with smp_affinity =3D=3D 1. Do you k=
+now why that
+> is? Our tests are all with bnx2 msi_disable=3D1. I can investigate wi=
+th
+> oprofile
+> tomorrow.
 >=20
 
-Interesting stuff indeed.
+Well, smp_affinity could help in my opininon if you dedicate
+one cpu for the NIC, and others for user apps, if the average
+work done per packet is large. If load is light, its better
+to use the same cpu to perform all the work, since no expensive
+bus trafic is needed between cpu to exchange memory lines.
 
-Could you tell us more about AQM ?
+If you only change /proc/irq/<eth0>/smp_affinity, and let scheduler
+chose any cpu for your user-space work that can have long latencies,
+I would not expect better performances.
+
+Try to cpu affine your taks to 0xFE to get better determinism.
 
 
 
