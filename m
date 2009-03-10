@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 2/4] net: netfilter conntrack - add per-net functionality
- for DCCP protocol
-Date: Tue, 10 Mar 2009 04:25:37 -0700 (PDT)
-Message-ID: <20090310.042537.49464370.davem@davemloft.net>
-References: <20090309181628.109019157@gmail.com>
-	<20090309182731.762563452@gmail.com>
-	<49B63EA6.2060802@free.fr>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Tue, 10 Mar 2009 04:30:19 -0700 (PDT)
+Message-ID: <20090310.043019.132650585.davem@davemloft.net>
+References: <20090309195906.M50328@bts.sk>
+	<1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
+	<20090310104956.GA81181@bts.sk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gorcunov@gmail.com, kaber@trash.net, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, xemul@openvz.org, adobriyan@gmail.com,
-	gorcunov@openvz.org
-To: daniel.lezcano@free.fr
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <49B63EA6.2060802@free.fr>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
+To: md@bts.sk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57441
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750698AbZCJLad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 07:30:33 -0400
+In-Reply-To: <20090310104956.GA81181@bts.sk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Date: Tue, 10 Mar 2009 11:19:18 +0100
-
-> >  static int __init nf_conntrack_proto_dccp_init(void)
-> >  {
-> >  	int err;
-> >  -	err = nf_conntrack_l4proto_register(&dccp_proto4);
-> > +	err = register_pernet_gen_device(&dccp_net_id, &dccp_net_ops);
-> >   
-> 
-> Shouldn't it be register_pernet_gen_subsys ?
-
-Do I really have to carefully and meticuliously scan down
-hundreds and hundreds of irrelevant quoted patch text just
-to see what bit you're commenting on?
-
-Please, just provide the necessary context of the patch for
-your comments, don't quote the whole thing :-(
-
-Thanks.
+RnJvbTogTWFyaWFuIMSOdXJrb3ZpxI0gPG1kQGJ0cy5zaz4NCkRhdGU6IFR1ZSwgMTAgTWFyIDIw
+MDkgMTE6NDk6NTYgKzAxMDANCg0KPiBTZW5kZXIgZG9lcyBub3QgaGF2ZSB0aGUgcmVsZXZhbnQg
+aW5mbyB0byBpbXBsZW1lbnQgdGhpcyAtIGl0IG1pZ2h0IGJlDQo+IGNvbm5lY3RlZCBieSAxMCBH
+RSB0byB0aGUgaGlnaHNwZWVkIGJhY2tib25lLg0KDQpZZXMsIHRoZSBzZW5kZXIgZG9lcyBpbmRl
+ZWQgaGF2ZSB0aGlzIGluZm9ybWF0aW9uLCBhbmQgdXNpbmcgaXQgaXMNCmV4YWN0bHkgd2hhdCBj
+b25nZXN0aW9uIGNvbnRyb2wgYWxnb3JpdGhtcyBzdWNoIGFzIFZFR0FTIHRyeSB0byBkby4NCg0K
+VGhleSBsb29rIGF0IGJvdGggcm91bmQgdHJpcCB0aW1lcyBhbmQgYmFuZHdpdGggYXMgdGhleSBp
+bmNyZWFzZSB0aGUNCnNlbmQgY29uZ2VzdGlvbiB3aW5kb3cuICBBbmQgaWYgcm91bmQgdHJpcHMg
+aW5jcmVhc2Ugd2l0aG91dCBhDQpjb3JyZXNwb25kaW5nIGluY3JlYXNlIGluIGJhbmR3aWR0aCwg
+dGhleSBzdG9wIGluY3JlYXNpbmcuICBUaGlzIGlzDQpiZWNhdXNlIGluIHN1Y2ggYSBzaXR1YXRp
+b24gd2UgY2FuIGluZmVyIHRoYXQgd2UncmUganVzdCBjb25zdW1pbmcNCm1vcmUgcXVldWUgc3Bh
+Y2UgYXQgc29tZSBpbnRlcm1lZGlhdGUgcm91dGVyL3N3aXRjaCByYXRoZXIgdGhhbiB1c2luZw0K
+bW9yZSBvZiB0aGUgYXZhaWxhYmxlIGJhbmR3aWR0aC4NCg0K
