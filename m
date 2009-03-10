@@ -1,79 +1,102 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Mon, 9 Mar 2009 20:55:15 -0700
-Message-ID: <1e41a3230903092055q2317e0cas3721d18fb4cef062@mail.gmail.com>
-References: <20090309112521.GB37984@bts.sk>
-	 <1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com>
-	 <20090309200505.GA58375@bts.sk>
-	 <20090309.170927.130334650.davem@davemloft.net>
-	 <49B5B5A7.8090502@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, md@bts.sk,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+From: Stoyan Gaydarov <stoyboyker@gmail.com>
+Subject: [PATCH 03/25] [net] BUG to BUG_ON changes
+Date: Tue, 10 Mar 2009 00:10:28 -0500
+Message-ID: <1236661850-8237-4-git-send-email-stoyboyker@gmail.com>
+References: <1236661850-8237-1-git-send-email-stoyboyker@gmail.com>
+ <1236661850-8237-2-git-send-email-stoyboyker@gmail.com>
+ <1236661850-8237-3-git-send-email-stoyboyker@gmail.com>
+Cc: Stoyan Gaydarov <stoyboyker@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f167.google.com ([209.85.217.167]:32995 "EHLO
-	mail-gx0-f167.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752220AbZCJDzT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2009 23:55:19 -0400
-Received: by gxk11 with SMTP id 11so620604gxk.13
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2009 20:55:15 -0700 (PDT)
-In-Reply-To: <49B5B5A7.8090502@hp.com>
+Received: from an-out-0708.google.com ([209.85.132.247]:28246 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752465AbZCJFL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 01:11:28 -0400
+In-Reply-To: <1236661850-8237-3-git-send-email-stoyboyker@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 9, 2009 at 5:34 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> If I recall correctly, when I have asked about this behaviour in the =
-past, I
-> was told that the autotuning receiver would always try to offer the s=
-ender
-> 2X what the receiver thought the sender's cwnd happened to be. =A0Is =
-my
-> recollection incorrect, or is this then:
->
-> [root@dl5855 ~]# netperf -t omni -H sut42 -- -k foo -s 128K
-> OMNI TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to sut42.west (10.208=
-=2E0.45)
-> port 0 AF_INET
-> THROUGHPUT=3D941.30
-> LSS_SIZE_REQ=3D131072
-> LSS_SIZE=3D262142
-> LSS_SIZE_END=3D262142
-> RSR_SIZE_REQ=3D-1
-> RSR_SIZE=3D87380
-> RSR_SIZE_END=3D3900000
->
-> not intended behaviour? =A0LSS =3D=3D Local Socket Send; RSR =3D=3D R=
-emote Socket
-> Receive. =A0dl5855 is running RHEL 5.2 (2.6.18-92.el5) sut42 is runni=
-ng a
-> nf-next-2.6 about two or three weeks old with some of the 32-core sca=
-ling
-> patches applied (2.6.29-rc5-nfnextconntrack)
->
-> I'm assuming that by setting the SO_SNDBUF on the netperf (sending) s=
-ide to
-> 128K/256K that will be the limit on what it will ever put out onto th=
-e
-> connection at one time, but by the end of the 10 second test over the=
- local
-> GbE LAN the receiver's autotuned SO_RCVBUF has grown to 3900000.
+Signed-off-by: Stoyan Gaydarov <stoyboyker@gmail.com>
+---
+ drivers/net/atl1e/atl1e_main.c    |    3 +--
+ drivers/net/chelsio/sge.c         |    3 +--
+ drivers/net/ixgb/ixgb_osdep.h     |    2 +-
+ drivers/net/pppol2tp.c            |    3 +--
+ drivers/net/wireless/ath9k/core.h |    6 +-----
+ 5 files changed, 5 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index bb9094d..d089550 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1794,8 +1794,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+ 			memcpy(use_tpd, tpd, sizeof(struct atl1e_tpd_desc));
+ 
+ 			tx_buffer = atl1e_get_tx_buffer(adapter, use_tpd);
+-			if (tx_buffer->skb)
+-				BUG();
++			BUG_ON(tx_buffer->skb);
+ 
+ 			tx_buffer->skb = NULL;
+ 			tx_buffer->length =
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+index d984b79..e60f610 100644
+--- a/drivers/net/chelsio/sge.c
++++ b/drivers/net/chelsio/sge.c
+@@ -1149,8 +1149,7 @@ static inline void write_tx_desc(struct cmdQ_e *e, dma_addr_t mapping,
+ 				 unsigned int len, unsigned int gen,
+ 				 unsigned int eop)
+ {
+-	if (unlikely(len > SGE_TX_DESC_MAX_PLEN))
+-		BUG();
++	BUG_ON(len > SGE_TX_DESC_MAX_PLEN);
+ 	e->addr_lo = (u32)mapping;
+ 	e->addr_hi = (u64)mapping >> 32;
+ 	e->len_gen = V_CMD_LEN(len) | V_CMD_GEN1(gen);
+diff --git a/drivers/net/ixgb/ixgb_osdep.h b/drivers/net/ixgb/ixgb_osdep.h
+index d92e72b..371a6be 100644
+--- a/drivers/net/ixgb/ixgb_osdep.h
++++ b/drivers/net/ixgb/ixgb_osdep.h
+@@ -40,7 +40,7 @@
+ #include <linux/sched.h>
+ 
+ #undef ASSERT
+-#define ASSERT(x)	if (!(x)) BUG()
++#define ASSERT(x)	BUG_ON(!(x))
+ #define MSGOUT(S, A, B)	printk(KERN_DEBUG S "\n", A, B)
+ 
+ #ifdef DBG
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index f1a9467..97959b3 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -1222,8 +1222,7 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
+ 	struct pppol2tp_session *session;
+ 	struct sock *sk;
+ 
+-	if (tunnel == NULL)
+-		BUG();
++	BUG_ON(tunnel == NULL);
+ 
+ 	PRINTK(tunnel->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
+ 	       "%s: closing all sessions...\n", tunnel->name);
+diff --git a/drivers/net/wireless/ath9k/core.h b/drivers/net/wireless/ath9k/core.h
+index 4ca2aed..d310c68 100644
+--- a/drivers/net/wireless/ath9k/core.h
++++ b/drivers/net/wireless/ath9k/core.h
+@@ -52,11 +52,7 @@ struct ath_node;
+ 
+ #define A_MAX(a, b) ((a) > (b) ? (a) : (b))
+ 
+-#define ASSERT(exp) do {			\
+-		if (unlikely(!(exp))) {		\
+-			BUG();			\
+-		}				\
+-	} while (0)
++#define ASSERT(exp) BUG_ON(!(exp));
+ 
+ #define TSF_TO_TU(_h,_l) \
+ 	((((u32)(_h)) << 22) | (((u32)(_l)) >> 10))
+-- 
+1.6.1.3
 
-Hi Rick,
-
-(Pretty sure we went over this already, but once more..)  The receiver
-does not size to twice cwnd.  It sizes to twice the amount of data
-that the application read in one RTT.  In the common case of a path
-bottleneck and a receiving application that always keeps up, this
-equals 2*cwnd, but the distinction is very important to understanding
-its behavior in other cases.
-
-In your test where you limit sndbuf to 256k, you will find that you
-did not fill up the bottleneck queues, and you did not get a
-significantly increased RTT, which are the negative effects we want to
-avoid.  The large receive window caused no trouble at all.
-
-  -John
