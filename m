@@ -1,10 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 v2] gigaset: return -ENOTTY for unimplemented
- functions
-Date: Tue, 10 Mar 2009 05:25:04 -0700 (PDT)
-Message-ID: <20090310.052504.186614357.davem@davemloft.net>
-References: <20090307-patch-01.tilman@imap.cc>
-	<20090308-patch-01.tilman@imap.cc>
+Subject: Re: [PATCH 2/2] gigaset: Kconfig cleanup
+Date: Tue, 10 Mar 2009 05:25:13 -0700 (PDT)
+Message-ID: <20090310.052513.106958818.davem@davemloft.net>
+References: <20090307-patch-00.tilman@imap.cc>
+	<20090307-patch-02.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,27 +11,25 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	pebolle@tiscali.nl, hjlipp@web.de
 To: tilman@imap.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35879
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35885
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752268AbZCJMZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 08:25:18 -0400
-In-Reply-To: <20090308-patch-01.tilman@imap.cc>
+	by vger.kernel.org with ESMTP id S1754787AbZCJMZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 08:25:27 -0400
+In-Reply-To: <20090307-patch-02.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tilman Schmidt <tilman@imap.cc>
-Date: Sun,  8 Mar 2009 16:23:13 +0100 (CET)
+Date: Sat,  7 Mar 2009 23:11:02 +0100 (CET)
 
-> From: Paul Bolle <pebolle@tiscali.nl>
+> Streamline dependencies and remove some obsolete or redundant comments
+> in the Gigaset ISDN driver's Kconfig file. In particular, remove the
+> strong warning against the GIGASET_UNDOCREQ option, as in seven years
+> of existence, the code in question has never been reported to cause
+> any harm.
 > 
-> A number of functions in the usb_gigaset module will return -EINVAL if
-> CONFIG_GIGASET_UNDOCREQ is not set. Make these return -ENOTTY as it's
-> more specific and it might make it easier to see (from userspace) why
-> these functions actually fail.
+> Impact: Kconfig cleanup, no functional change
 > 
-> Impact: some error return codes changed
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 > Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 
-Applied.
+Also applied, thanks.
