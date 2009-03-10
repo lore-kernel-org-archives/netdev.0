@@ -1,416 +1,46 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.30 1/2] gianfar: remove gianfar_mii.c
-Date: Tue, 10 Mar 2009 17:58:27 -0500
-Message-ID: <1236725908-8943-1-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
-To: davem@davemloft.net
+From: Andy Grover <andy.grover@oracle.com>
+Subject: Re: RDS: no freely available protocol specification?
+Date: Tue, 10 Mar 2009 16:10:00 -0700
+Message-ID: <49B6F348.8010507@oracle.com>
+References: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	RDS Devel <rds-devel@oss.oracle.com>
+To: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:49522 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715AbZCJW6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 18:58:36 -0400
+Received: from acsinet11.oracle.com ([141.146.126.233]:38033 "EHLO
+	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308AbZCJXKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 19:10:20 -0400
+In-Reply-To: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 1577ecef766650a57fceb171acee2b13cbfaf1d3
-Author: Andy Fleming <afleming@freescale.com>
-Date:   Wed Feb 4 16:42:12 2009 -0800
+Juliusz Chroboczek wrote:
+> I am a little worried about the Reliable Datagram Sockets (RDS), which are
+> currently in the process of being merged into the kernel.  I've checked the
+> latest Interned-Drafts index, I've tried searching the web, and I cannot
+> find a freely available protocol specification.  (I've been unable to check
+> the documentation section of the oss.oracle.com site, which requires
+> a password with no way to register visible to my tired eyes.)
 
-    netdev: Merge UCC and gianfar MDIO bus drivers
+Look in net-next tree, Documentation/networking/rds.txt.
 
-left out the deletion of gianfar_mii.c.
+> I am wondering whether we wish to encourage the use of proprietary
+> (undocumented) protocols, and I wish that the kernel crowd should really
+> try to put some pressure on the Oracle guys to get the RDS protocol spec
+> published as an RFC, or at the very least submitted as an Internet Draft,
+> before it is released as part of the Linux kernel.
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
- drivers/net/gianfar_mii.c |  379 ---------------------------------------------
- 1 files changed, 0 insertions(+), 379 deletions(-)
- delete mode 100644 drivers/net/gianfar_mii.c
+I thought "rough consensus and running code" was the IETF credo? We've
+provided running code, some documentation, and an active maintainer and
+mailing list. If you're interested in getting an RFC drafted for RDS,
+then I invite you to start work on one. I also will accept patches to
+improve the documentation.
 
-diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
-deleted file mode 100644
-index 64e4679..0000000
---- a/drivers/net/gianfar_mii.c
-+++ /dev/null
-@@ -1,379 +0,0 @@
--/*
-- * drivers/net/gianfar_mii.c
-- *
-- * Gianfar Ethernet Driver -- MIIM bus implementation
-- * Provides Bus interface for MIIM regs
-- *
-- * Author: Andy Fleming
-- * Maintainer: Kumar Gala
-- *
-- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
-- *
-- * This program is free software; you can redistribute  it and/or modify it
-- * under  the terms of  the GNU General  Public License as published by the
-- * Free Software Foundation;  either version 2 of the  License, or (at your
-- * option) any later version.
-- *
-- */
--
--#include <linux/kernel.h>
--#include <linux/string.h>
--#include <linux/errno.h>
--#include <linux/unistd.h>
--#include <linux/slab.h>
--#include <linux/interrupt.h>
--#include <linux/init.h>
--#include <linux/delay.h>
--#include <linux/netdevice.h>
--#include <linux/etherdevice.h>
--#include <linux/skbuff.h>
--#include <linux/spinlock.h>
--#include <linux/mm.h>
--#include <linux/module.h>
--#include <linux/platform_device.h>
--#include <linux/crc32.h>
--#include <linux/mii.h>
--#include <linux/phy.h>
--#include <linux/of.h>
--#include <linux/of_platform.h>
--
--#include <asm/io.h>
--#include <asm/irq.h>
--#include <asm/uaccess.h>
--
--#include "gianfar.h"
--#include "gianfar_mii.h"
--
--/*
-- * Write value to the PHY at mii_id at register regnum,
-- * on the bus attached to the local interface, which may be different from the
-- * generic mdio bus (tied to a single interface), waiting until the write is
-- * done before returning. This is helpful in programming interfaces like
-- * the TBI which control interfaces like onchip SERDES and are always tied to
-- * the local mdio pins, which may not be the same as system mdio bus, used for
-- * controlling the external PHYs, for example.
-- */
--int gfar_local_mdio_write(struct gfar_mii __iomem *regs, int mii_id,
--			  int regnum, u16 value)
--{
--	/* Set the PHY address and the register address we want to write */
--	gfar_write(&regs->miimadd, (mii_id << 8) | regnum);
--
--	/* Write out the value we want */
--	gfar_write(&regs->miimcon, value);
--
--	/* Wait for the transaction to finish */
--	while (gfar_read(&regs->miimind) & MIIMIND_BUSY)
--		cpu_relax();
--
--	return 0;
--}
--
--/*
-- * Read the bus for PHY at addr mii_id, register regnum, and
-- * return the value.  Clears miimcom first.  All PHY operation
-- * done on the bus attached to the local interface,
-- * which may be different from the generic mdio bus
-- * This is helpful in programming interfaces like
-- * the TBI which, inturn, control interfaces like onchip SERDES
-- * and are always tied to the local mdio pins, which may not be the
-- * same as system mdio bus, used for controlling the external PHYs, for eg.
-- */
--int gfar_local_mdio_read(struct gfar_mii __iomem *regs, int mii_id, int regnum)
--{
--	u16 value;
--
--	/* Set the PHY address and the register address we want to read */
--	gfar_write(&regs->miimadd, (mii_id << 8) | regnum);
--
--	/* Clear miimcom, and then initiate a read */
--	gfar_write(&regs->miimcom, 0);
--	gfar_write(&regs->miimcom, MII_READ_COMMAND);
--
--	/* Wait for the transaction to finish */
--	while (gfar_read(&regs->miimind) & (MIIMIND_NOTVALID | MIIMIND_BUSY))
--		cpu_relax();
--
--	/* Grab the value of the register from miimstat */
--	value = gfar_read(&regs->miimstat);
--
--	return value;
--}
--
--/* Write value to the PHY at mii_id at register regnum,
-- * on the bus, waiting until the write is done before returning.
-- * All PHY configuration is done through the TSEC1 MIIM regs */
--int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
--{
--	struct gfar_mii __iomem *regs = (void __force __iomem *)bus->priv;
--
--	/* Write to the local MII regs */
--	return(gfar_local_mdio_write(regs, mii_id, regnum, value));
--}
--
--/* Read the bus for PHY at addr mii_id, register regnum, and
-- * return the value.  Clears miimcom first.  All PHY
-- * configuration has to be done through the TSEC1 MIIM regs */
--int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
--{
--	struct gfar_mii __iomem *regs = (void __force __iomem *)bus->priv;
--
--	/* Read the local MII regs */
--	return(gfar_local_mdio_read(regs, mii_id, regnum));
--}
--
--/* Reset the MIIM registers, and wait for the bus to free */
--static int gfar_mdio_reset(struct mii_bus *bus)
--{
--	struct gfar_mii __iomem *regs = (void __force __iomem *)bus->priv;
--	unsigned int timeout = PHY_INIT_TIMEOUT;
--
--	mutex_lock(&bus->mdio_lock);
--
--	/* Reset the management interface */
--	gfar_write(&regs->miimcfg, MIIMCFG_RESET);
--
--	/* Setup the MII Mgmt clock speed */
--	gfar_write(&regs->miimcfg, MIIMCFG_INIT_VALUE);
--
--	/* Wait until the bus is free */
--	while ((gfar_read(&regs->miimind) & MIIMIND_BUSY) &&
--			--timeout)
--		cpu_relax();
--
--	mutex_unlock(&bus->mdio_lock);
--
--	if(timeout == 0) {
--		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
--				bus->name);
--		return -EBUSY;
--	}
--
--	return 0;
--}
--
--/* Allocate an array which provides irq #s for each PHY on the given bus */
--static int *create_irq_map(struct device_node *np)
--{
--	int *irqs;
--	int i;
--	struct device_node *child = NULL;
--
--	irqs = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
--
--	if (!irqs)
--		return NULL;
--
--	for (i = 0; i < PHY_MAX_ADDR; i++)
--		irqs[i] = PHY_POLL;
--
--	while ((child = of_get_next_child(np, child)) != NULL) {
--		int irq = irq_of_parse_and_map(child, 0);
--		const u32 *id;
--
--		if (irq == NO_IRQ)
--			continue;
--
--		id = of_get_property(child, "reg", NULL);
--
--		if (!id)
--			continue;
--
--		if (*id < PHY_MAX_ADDR && *id >= 0)
--			irqs[*id] = irq;
--		else
--			printk(KERN_WARNING "%s: "
--					"%d is not a valid PHY address\n",
--					np->full_name, *id);
--	}
--
--	return irqs;
--}
--
--
--void gfar_mdio_bus_name(char *name, struct device_node *np)
--{
--	const u32 *reg;
--
--	reg = of_get_property(np, "reg", NULL);
--
--	snprintf(name, MII_BUS_ID_SIZE, "%s@%x", np->name, reg ? *reg : 0);
--}
--
--/* Scan the bus in reverse, looking for an empty spot */
--static int gfar_mdio_find_free(struct mii_bus *new_bus)
--{
--	int i;
--
--	for (i = PHY_MAX_ADDR; i > 0; i--) {
--		u32 phy_id;
--
--		if (get_phy_id(new_bus, i, &phy_id))
--			return -1;
--
--		if (phy_id == 0xffffffff)
--			break;
--	}
--
--	return i;
--}
--
--static int gfar_mdio_probe(struct of_device *ofdev,
--		const struct of_device_id *match)
--{
--	struct gfar_mii __iomem *regs;
--	struct gfar __iomem *enet_regs;
--	struct mii_bus *new_bus;
--	int err = 0;
--	u64 addr, size;
--	struct device_node *np = ofdev->node;
--	struct device_node *tbi;
--	int tbiaddr = -1;
--
--	new_bus = mdiobus_alloc();
--	if (NULL == new_bus)
--		return -ENOMEM;
--
--	device_init_wakeup(&ofdev->dev, 1);
--
--	new_bus->name = "Gianfar MII Bus",
--	new_bus->read = &gfar_mdio_read,
--	new_bus->write = &gfar_mdio_write,
--	new_bus->reset = &gfar_mdio_reset,
--	gfar_mdio_bus_name(new_bus->id, np);
--
--	/* Set the PHY base address */
--	addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
--	regs = ioremap(addr, size);
--
--	if (NULL == regs) {
--		err = -ENOMEM;
--		goto err_free_bus;
--	}
--
--	new_bus->priv = (void __force *)regs;
--
--	new_bus->irq = create_irq_map(np);
--
--	if (new_bus->irq == NULL) {
--		err = -ENOMEM;
--		goto err_unmap_regs;
--	}
--
--	new_bus->parent = &ofdev->dev;
--	dev_set_drvdata(&ofdev->dev, new_bus);
--
--	/*
--	 * This is mildly evil, but so is our hardware for doing this.
--	 * Also, we have to cast back to struct gfar_mii because of
--	 * definition weirdness done in gianfar.h.
--	 */
--	enet_regs = (struct gfar __force __iomem *)
--		((char __force *)regs - offsetof(struct gfar, gfar_mii_regs));
--
--	for_each_child_of_node(np, tbi) {
--		if (!strncmp(tbi->type, "tbi-phy", 8))
--			break;
--	}
--
--	if (tbi) {
--		const u32 *prop = of_get_property(tbi, "reg", NULL);
--
--		if (prop)
--			tbiaddr = *prop;
--	}
--
--	if (tbiaddr == -1) {
--		gfar_write(&enet_regs->tbipa, 0);
--
--		tbiaddr = gfar_mdio_find_free(new_bus);
--	}
--
--	/*
--	 * We define TBIPA at 0 to be illegal, opting to fail for boards that
--	 * have PHYs at 1-31, rather than change tbipa and rescan.
--	 */
--	if (tbiaddr == 0) {
--		err = -EBUSY;
--
--		goto err_free_irqs;
--	}
--
--	gfar_write(&enet_regs->tbipa, tbiaddr);
--
--	/*
--	 * The TBIPHY-only buses will find PHYs at every address,
--	 * so we mask them all but the TBI
--	 */
--	if (!of_device_is_compatible(np, "fsl,gianfar-mdio"))
--		new_bus->phy_mask = ~(1 << tbiaddr);
--
--	err = mdiobus_register(new_bus);
--
--	if (err != 0) {
--		printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
--				new_bus->name);
--		goto err_free_irqs;
--	}
--
--	return 0;
--
--err_free_irqs:
--	kfree(new_bus->irq);
--err_unmap_regs:
--	iounmap(regs);
--err_free_bus:
--	mdiobus_free(new_bus);
--
--	return err;
--}
--
--
--static int gfar_mdio_remove(struct of_device *ofdev)
--{
--	struct mii_bus *bus = dev_get_drvdata(&ofdev->dev);
--
--	mdiobus_unregister(bus);
--
--	dev_set_drvdata(&ofdev->dev, NULL);
--
--	iounmap((void __force __iomem *)bus->priv);
--	bus->priv = NULL;
--	kfree(bus->irq);
--	mdiobus_free(bus);
--
--	return 0;
--}
--
--static struct of_device_id gfar_mdio_match[] =
--{
--	{
--		.compatible = "fsl,gianfar-mdio",
--	},
--	{
--		.compatible = "fsl,gianfar-tbi",
--	},
--	{
--		.type = "mdio",
--		.compatible = "gianfar",
--	},
--	{},
--};
--
--static struct of_platform_driver gianfar_mdio_driver = {
--	.name = "fsl-gianfar_mdio",
--	.match_table = gfar_mdio_match,
--
--	.probe = gfar_mdio_probe,
--	.remove = gfar_mdio_remove,
--};
--
--int __init gfar_mdio_init(void)
--{
--	return of_register_platform_driver(&gianfar_mdio_driver);
--}
--
--void gfar_mdio_exit(void)
--{
--	of_unregister_platform_driver(&gianfar_mdio_driver);
--}
--- 
-1.6.0.6
+See how this works?
+
+Regards -- Andy
 
