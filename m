@@ -1,37 +1,70 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: net_device_ops support in bridging and fec_mpc52xx.c
-Date: Tue, 10 Mar 2009 11:36:22 -0600
-Message-ID: <fa686aa40903101036v430d968cs436902698be53c95@mail.gmail.com>
-References: <20090218.134852.118040610.davem@davemloft.net>
-	 <ae4f76fd0902190145r7ed5fadbwfca18c97dbfc9ed1@mail.gmail.com>
-	 <fa686aa40903101013j2324e8acw18830c930e12ae46@mail.gmail.com>
-	 <20090310.101959.142777275.davem@davemloft.net>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [PATCH 6/13] forcedeth: add/modify tx done with limit
+Date: Tue, 10 Mar 2009 06:17:52 -0500
+Message-ID: <49B64C60.9080903@nvidia.com>
+References: <49B013A2.8030806@nvidia.com> <20090310.053212.39968484.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: henk.stegeman@gmail.com, linuxppc-dev@ozlabs.org, bridge@osdl.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: "manfred@colorfullife.com" <manfred@colorfullife.com>,
+	"jgarzik@pobox.com" <jgarzik@pobox.com>,
+	"akpm@osdl.org" <akpm@osdl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f167.google.com ([209.85.217.167]:42236 "EHLO
-	mail-gx0-f167.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754565AbZCJRhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 13:37:12 -0400
-Received: by gxk11 with SMTP id 11so1146908gxk.13
-        for <netdev@vger.kernel.org>; Tue, 10 Mar 2009 10:36:53 -0700 (PDT)
-In-Reply-To: <20090310.101959.142777275.davem@davemloft.net>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:7737 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754631AbZCJRz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 13:55:57 -0400
+In-Reply-To: <20090310.053212.39968484.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2009 at 11:19 AM, David Miller <davem@davemloft.net> wrote:
-> Send it to netdev, CC:'d to me, Jeff hasn't been handling networking
-> driver changes for a while now.
 
-Ah, okay.  I didn't know.  I looked in MAINTAINERS today, and Jeff is
-listed there for NETWORK DEVICE DRIVERS.
 
-g.
+David Miller wrote:
+> From: Ayaz Abdulla <aabdulla@nvidia.com>
+> Date: Thu, 05 Mar 2009 13:02:10 -0500
+> 
+> 
+>>There are two tx_done routines to handle tx completion processing. Both these functions now take in a limit value and return the amount of tx completions. This will be used by a future patch to determine the total amount of work done.
+>>
+>>Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+> 
+> Applied.
+> 
+> But I would absolutely not count TX completion processing in the
+> NAPI work limit as you do in one of the subsequent patches.
+> 
 
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+I agree. However, I am counting tx work only for the purpose of 
+interrupt moderation.  The tx work count is not included in the NAPI 
+limit check.
+ie.
+
++	nv_change_interrupt_mode(dev, tx_work + rx_work);
+
+-	if (pkts < budget) {
++	if (rx_work < budget) {
+
+
+> TX completely is just buffer freeing, very cheap.
+> 
+> Whereas RX processing involves actually network stack processing
+> which is real work and is what NAPI should be limiting.
+> 
+> Also, please get rid of the NAPI config option for this driver and
+> make NAPI unconditionally enabled.
+> 
+
+Sure, I will submit a new patch for removing the config option.
+
+> Thanks.
+
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
