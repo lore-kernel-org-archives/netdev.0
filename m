@@ -1,79 +1,34 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: Passive OS fingerprint xtables match (iptables)
-Date: Tue, 10 Mar 2009 17:12:09 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0903101708150.19523@fbirervta.pbzchgretzou.qr>
-References: <20090310151357.GA10658@ioremap.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Tue, 10 Mar 2009 09:18:16 -0700 (PDT)
+Message-ID: <20090310.091816.178102814.davem@davemloft.net>
+References: <20090310114606.GA84964@bts.sk>
+	<1e41a3230903100823h5d5768d9wb9f36eb294840814@mail.gmail.com>
+	<20090310160040.GA93054@bts.sk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090310151357.GA10658@ioremap.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
+To: md@bts.sk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34732
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754112AbZCJQSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 12:18:31 -0400
+In-Reply-To: <20090310160040.GA93054@bts.sk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
->static void osf_init(struct xt_entry_match *m)
->{
->}
->
-You can remove this function, as it does no initialization.
-Implicit NULL in struct xtables_match is handled.
-
->		case '2': /* --ttl */
->			if (*flags & IPT_OSF_TTL)
->				exit_error(PARAMETER_PROBLEM, "Can't specify multiple ttl parameter");
->			*flags |= IPT_OSF_TTL;
->			info->flags |= IPT_OSF_TTL;
->			info->ttl = atoi(argv[optind-1]);
-
-This would allow specifying --ttl 12345.
-
-Use of xtables_strtoui (v1.4.3-rc1+git) for bounds checking,
-and use of optarg seem beneficial:
-
-	unsigned int num;
-
-	if (!xtables_strtoui(optarg, NULL, &num, 0, UINT8_MAX))
-		exit_error(PARAMETER_PROBLEM, "*shrug*");
-	info->ttl = num;
-
->		case '3': /* --log */
->			if (*flags & IPT_OSF_LOG)
->				exit_error(PARAMETER_PROBLEM, "Can't specify multiple log parameter");
->			*flags |= IPT_OSF_LOG;
->			info->loglevel = atoi(argv[optind-1]);
-
-similarly.
-
->			info->flags |= IPT_OSF_LOG;
->			break;
->[...]
->	return 1;
->}
->
->static void osf_final_check(unsigned int flags)
->{
->	if (!flags)
->		exit_error(PARAMETER_PROBLEM, "OS fingerprint match: You must specify `--genre'");
->}
->
->static struct xtables_match osf_match = {
->	.name		= "osf",
->	.version	= XTABLES_VERSION,
->	.size		= XT_ALIGN(sizeof(struct ipt_osf_info)),
->	.userspacesize	= XT_ALIGN(sizeof(struct ipt_osf_info)),
->	.help		= osf_help,
->	.init		= osf_init,
->	.parse		= osf_parse,
->	.print		= osf_print,
->	.final_check	= osf_final_check,
->	.save		= osf_save,
->	.extra_opts	= osf_opts
->};
-
-Needs .family = NFPROTO_IPV4.
+RnJvbTogTWFyaWFuIMSOdXJrb3ZpxI0gPG1kQGJ0cy5zaz4NCkRhdGU6IFR1ZSwgMTAgTWFyIDIw
+MDkgMTc6MDA6NDAgKzAxMDANCg0KPiBBZ2FpbiwgYXV0b3R1bmluZyBpbiBpdHMgcHJlc2VudCBm
+b3JtIHJlbW92ZXMgYWxsIHNhZmV0eSBhdCB0aGUNCj4gcmVjZWl2ZXIgc2lkZSBhbmQgYWxsb3dz
+IHNlbmRlcnMgdG8gZWFzaWx5IGJyaW5nIExBTnMgZG93bi4gSU1ITyB3ZQ0KPiBuZWVkIHRvIGZp
+eCB0aGlzIGJlZm9yZSB0aGUgcHJvYmxlbSBzcHJlYWRzIGV2ZW4gbW9yZS4NCg0KVGhlcmUgYXJl
+IGJvdGggZ2xvYmFsIHN5c3RlbS13aWRlIGFuZCBzb2NrZXQgbG9jYWwgbGltaXRzIHRvIGhvdyBt
+dWNoDQptZW1vcnkgY2FuIGJlIGNvbnN1bWVkIGJ5IFRDUCByZWNlaXZlIGRhdGEuICBJZiB0aGlu
+Z3MgZ2V0IGJleW9uZCB0aGUNCmNvbmZpZ3VyZWQgbGltaXRzLCB3ZSBiYWNrIG9mZi4gIFlvdSBj
+b3VsZCBtb2RpZnkgdGhvc2UgaWYgeW91DQpwZXJzb25hbGx5IHdpc2guDQoNCkl0J3MgcmVhbGx5
+IGdvb2QgdGhhdCB5b3UgYnJvdWdodCB1cCB0aGlzIGlzc3VlLg0KDQpBbmQgaXQncyByZWFsbHkg
+Z29vZCB0aGF0IHlvdSd2ZSBleHBsYWluZWQgeW91ciBvd24gcGVyc29uYWwNCndvcmthcm91bmQg
+Zm9yIHRoaXMgaXNzdWUuDQoNCkJ1dCBpdCdzIG5vdCBnb29kIHRoYXQgeW91IHdhbnQgdG8gaW1w
+b3NlIHlvdXIgY2hvb3NlbiB3b3JrYXJvdW5kIG9uDQpldmVyeW9uZSBlbHNlLg0KDQo=
