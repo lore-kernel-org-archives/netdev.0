@@ -1,49 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH0/12] qlge: More features and cleanup.
-Date: Tue, 10 Mar 2009 04:46:03 -0700 (PDT)
-Message-ID: <20090310.044603.190103058.davem@davemloft.net>
-References: <1236632368-22079-1-git-send-email-ron.mercer@qlogic.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC 2/4] net: netfilter conntrack - add per-net functionality
+	for DCCP protocol
+Date: Tue, 10 Mar 2009 14:51:20 +0300
+Message-ID: <aa79d98a0903100451r6179ca61l3573cd8ae6e171b7@mail.gmail.com>
+References: <20090309181628.109019157@gmail.com>
+	 <20090309182731.762563452@gmail.com> <49B63EA6.2060802@free.fr>
+	 <49B6420B.4080309@free.fr>
+	 <aa79d98a0903100359x5cba797fu9611823b91c64b42@mail.gmail.com>
+	 <49B65076.6090003@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com
-To: ron.mercer@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56571
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751749AbZCJLqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 07:46:18 -0400
-In-Reply-To: <1236632368-22079-1-git-send-email-ron.mercer@qlogic.com>
-	<1236632368-22079-6-git-send-email-ron.mercer@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>, davem@davemloft.net,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, adobriyan@gmail.com,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <49B65076.6090003@openvz.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Mon,  9 Mar 2009 13:59:16 -0700
-
-> Attached are more qlge patches for adding features such as multi TXQ and
-> LRO.
-> I've also included 4 bug fixes, 3 of which I will also post to net-2.6
-> in a separate series tomorrow.
-
-All applied, thanks Ron, although one thing I think you should
-get rid of:
-
-> @@ -3354,6 +3351,7 @@ static int ql_configure_rings(struct ql_adapter *qdev)
->  	 * completion handler rx_rings.
->  	 */
->  	qdev->rx_ring_count = qdev->tx_ring_count + qdev->rss_ring_count + 1;
-> +	netif_set_gso_max_size(qdev->ndev, 65536);
->  
->  	for (i = 0; i < qdev->tx_ring_count; i++) {
->  		tx_ring = &qdev->tx_ring[i];
-
-65536 (defined by GSO_MAX_SIZE) is the default and it's really a good
-idea to only use this override interface on chips that actaully have
-restrictions and can't use the default.
-
-I also don't see what this change had to do with adding TX
-multiqueue support :-)  It wasn't mentioned in the commit log
-message in any way either.  Please don't slip small things in
-like this.
-
+On Tue, Mar 10, 2009 at 2:35 PM, Pavel Emelyanov <xemul@openvz.org> wrote:
+...
+>>>>>   static int __init nf_conntrack_proto_dccp_init(void)
+>>>>>  {
+>>>>>     int err;
+>>>>>  -    err = nf_conntrack_l4proto_register(&dccp_proto4);
+>>>>> +    err = register_pernet_gen_device(&dccp_net_id, &dccp_net_ops);
+>>>>>
+>>> [ cut ]
+>>>> Shouldn't it be register_pernet_gen_subsys ?
+>>
+>> No, I believe. By using  register_pernet_gen_device I'm allowed to
+>> not modify 'struct net' and friends and keep all I need in my own
+>> pointer retrieved thru per-net gen-device id I've registered.
+>
+> I believe Daniel means, that we need the register_xxx_get_subsys call
+> for subsystems, rather than devices, that will behave according to the
+> generic net pointers.
+>
+> Daniel, am I right with this suggestion?
+>
+...
+Ah, yes, just checked register_pernet_gen_subsys -- it's what I need. Thanks!
