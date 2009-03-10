@@ -1,98 +1,65 @@
 From: Gary Thomas <gary@mlbassoc.com>
 Subject: Re: Marvell 88E609x switch?
-Date: Tue, 10 Mar 2009 05:20:21 -0600
-Message-ID: <49B64CF5.9090508@mlbassoc.com>
-References: <49ABF9A9.2040608@mlbassoc.com> <Pine.LNX.4.64.0903022237580.1863@ask.diku.dk> <49AC5E6F.3010204@mlbassoc.com> <1236070372.30736.87.camel@localhost.localdomain> <49AD1C81.1020106@mlbassoc.com> <1236083560.30736.114.camel@localhost.localdomain> <49AD2FE1.60305@mlbassoc.com> <49AD30F7.4080006@mlbassoc.com> <49ADA697.3050400@mlbassoc.com> <49B145FF.5060208@mlbassoc.com> <20090310102805.GO4738@xi.wantstofly.org>
+Date: Tue, 10 Mar 2009 05:20:30 -0600
+Message-ID: <49B64CFE.2000805@mlbassoc.com>
+References: <20090227151441.GE17040@xi.wantstofly.org> <49A80606.1040508@mlbassoc.com> <20090227152721.GG17040@xi.wantstofly.org> <49A806C5.1010200@mlbassoc.com> <20090227153102.GH17040@xi.wantstofly.org> <49A80A75.8000101@mlbassoc.com> <20090227155224.GK17040@xi.wantstofly.org> <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk> <20090227222802.GZ17040@xi.wantstofly.org> <1235991382.30736.62.camel@localhost.localdomain> <20090310093915.GK4738@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jdb@comx.dk, Jesper Dangaard Brouer <hawk@diku.dk>,
+Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
 	netdev <netdev@vger.kernel.org>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 137-67-76-76.skybeam.com ([76.76.67.137]:4599 "EHLO
+Received: from 137-67-76-76.skybeam.com ([76.76.67.137]:4601 "EHLO
 	mail.chez-thomas.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426AbZCJLjf (ORCPT
+	with ESMTP id S1751941AbZCJLjf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 07:39:35 -0400
-In-Reply-To: <20090310102805.GO4738@xi.wantstofly.org>
+In-Reply-To: <20090310093915.GK4738@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Lennert Buytenhek wrote:
-> On Fri, Mar 06, 2009 at 08:49:19AM -0700, Gary Thomas wrote:
+> On Mon, Mar 02, 2009 at 11:56:22AM +0100, Jesper Dangaard Brouer wrote:
 > 
->> After much experimentation, I finally found out what was
->> wrong.  Basically, the trunk masks have 8 bits on the 6131,
->> but 11 bits on the 609x and this wasn't being handled.  Once
->> the trunk masks were reset by the init code, there was no
->> path to the CPU port from the LAN ports :-(  The attached
->> patch is what I've ended up with.  It works, at least for
->> a single switch.
+>>> The main conclusion so far is that this write (net/dsa/mv88e6131.c):
+>>>
+>>> 	/*
+>>> 	 * MAC Forcing register: don't force link, speed, duplex
+>>> 	 * or flow control state to any particular values.
+>>> 	 */
+>>> 	REG_WRITE(addr, 0x01, 0x0003);
+>> This sort of enables auto-detection of speed.
+>>
+>>> isn't correct on ports that can either be CPU ports or external ports.
+>> For external ports I had to enabled the PPU to allow the external PHYs
+>> to negotiate.
 > 
-> Cool.  How about the patch below then?
-> 
-
-This looks fine to me - is this part safe on the smaller parts
-(6131, etc)?  I wasn't sure about setting those "reserved" bits
-on other chips.
-
-> @@ -136,7 +138,7 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
->  	 * Clear all trunk masks.
->  	 */
->  	for (i = 0; i < 8; i++)
-> -		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0xff);
-> +		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0x7ff);
->
->  	/*
->  	 * Clear all trunk mappings.
-
-> 
->> Next, I need to get it to work with multiple switches (separate
->> ethernet controllers, same/shared MII bus),
-> 
-> That should be easy -- the DSA driver only accesses MII buses via
-> phylib, and that does the required locking, etc.  Also, we've
-> verified that multi-chip addressing mode works.
+> The PPU should be re-enabled 10ms after the last MII access.
 > 
 > 
->> as well as a cascaded switch.
+>> Also, on external PHYs ports 8 and 9, I write 0x0403 not 0x0003 (to
+>> register 0x1, PCS Control Register).  Which also enables inband
+>> auto-negotiation, but I'm not sure this is necessary.
 > 
-> That's a bit trickier, but also not entirely hard:
-> - Instead of the CPU port concept, we'll have to use the port number
->   that brings us one hop closer to the CPU (i.e. the upstream port).
-> - Assign each chip a DSA device address (instead of always setting it
->   to zero).
-> - Populate the 'DSA device address -> port' mapping table for each
->   switch.
-> - Enable DSA tagging and flooding of unknown unicasts and multicasts
->   on all inter-switch links and not just on the CPU port on switch 0.
-> 
-> I don't think it makes sense to implement Dijkstra in the kernel, so
-> it's probably easiest to just pass in a precomputed NxN array of how
-> to go from which switch to which switch via which port, along with a
-> separate DSA port list for each switch chip.
-> 
-> I don't have multi-switch chip setups myself, or I would have
-> implemented this already.  But I can whip up some patches to try..
+> Not sure whether it is.  Gary?
 > 
 
-That would be great.  What I'd like to figure out is a
-way to provide that mapping (static from the driver point
-of view), much like the current "port_names[]" table now.
+I'm not sure either.  On my system, these ports are SERDES used to
+cascade switches.  When we get that part working, we may learn if
+these bits are important.
 
-For my particular setup, there are two cases (on the same
-board):
-  Switch 1 - ports 1..8
-  Switch 2 - ports 9..16
-    Switch 3 - ports 17..24 (cascaded off of Switch 2)
-Thus, the only access to Switch 3 and its ports is indirect via
-Switch 2.
+> 
+>>> Forcing the link up on the CPU port helps somewhat, but things aren't
+>>> 100% working yet.
+>> On the CPU port I force link-up and force speed+duplex setting.  I only
+>> got 100Mbit/s to the CPU port...
+> 
+> I suppose the cpu port speed should be made into a platform data
+> config option in case there's only a 100 Mb/s link on a gigabit
+> capable switch?
 
-Presumably, one could have a multiple cascade, so this structure
-should be considered from the start.
-
-Thanks for your help
-
+I agree.
 
 -- 
 ------------------------------------------------------------
