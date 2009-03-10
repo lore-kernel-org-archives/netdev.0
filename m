@@ -1,34 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Tue, 10 Mar 2009 04:30:19 -0700 (PDT)
-Message-ID: <20090310.043019.132650585.davem@davemloft.net>
-References: <20090309195906.M50328@bts.sk>
-	<1e41a3230903091323j541d1895j2eb69b9f9c11f2f3@mail.gmail.com>
-	<20090310104956.GA81181@bts.sk>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [RFC 2/4] net: netfilter conntrack - add per-net functionality
+ 	for DCCP protocol
+Date: Tue, 10 Mar 2009 14:35:18 +0300
+Message-ID: <49B65076.6090003@openvz.org>
+References: <20090309181628.109019157@gmail.com>	 <20090309182731.762563452@gmail.com> <49B63EA6.2060802@free.fr>	 <49B6420B.4080309@free.fr> <aa79d98a0903100359x5cba797fu9611823b91c64b42@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
-To: md@bts.sk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57441
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750698AbZCJLad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 07:30:33 -0400
-In-Reply-To: <20090310104956.GA81181@bts.sk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>, davem@davemloft.net,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, adobriyan@gmail.com,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <aa79d98a0903100359x5cba797fu9611823b91c64b42@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWFyaWFuIMSOdXJrb3ZpxI0gPG1kQGJ0cy5zaz4NCkRhdGU6IFR1ZSwgMTAgTWFyIDIw
-MDkgMTE6NDk6NTYgKzAxMDANCg0KPiBTZW5kZXIgZG9lcyBub3QgaGF2ZSB0aGUgcmVsZXZhbnQg
-aW5mbyB0byBpbXBsZW1lbnQgdGhpcyAtIGl0IG1pZ2h0IGJlDQo+IGNvbm5lY3RlZCBieSAxMCBH
-RSB0byB0aGUgaGlnaHNwZWVkIGJhY2tib25lLg0KDQpZZXMsIHRoZSBzZW5kZXIgZG9lcyBpbmRl
-ZWQgaGF2ZSB0aGlzIGluZm9ybWF0aW9uLCBhbmQgdXNpbmcgaXQgaXMNCmV4YWN0bHkgd2hhdCBj
-b25nZXN0aW9uIGNvbnRyb2wgYWxnb3JpdGhtcyBzdWNoIGFzIFZFR0FTIHRyeSB0byBkby4NCg0K
-VGhleSBsb29rIGF0IGJvdGggcm91bmQgdHJpcCB0aW1lcyBhbmQgYmFuZHdpdGggYXMgdGhleSBp
-bmNyZWFzZSB0aGUNCnNlbmQgY29uZ2VzdGlvbiB3aW5kb3cuICBBbmQgaWYgcm91bmQgdHJpcHMg
-aW5jcmVhc2Ugd2l0aG91dCBhDQpjb3JyZXNwb25kaW5nIGluY3JlYXNlIGluIGJhbmR3aWR0aCwg
-dGhleSBzdG9wIGluY3JlYXNpbmcuICBUaGlzIGlzDQpiZWNhdXNlIGluIHN1Y2ggYSBzaXR1YXRp
-b24gd2UgY2FuIGluZmVyIHRoYXQgd2UncmUganVzdCBjb25zdW1pbmcNCm1vcmUgcXVldWUgc3Bh
-Y2UgYXQgc29tZSBpbnRlcm1lZGlhdGUgcm91dGVyL3N3aXRjaCByYXRoZXIgdGhhbiB1c2luZw0K
-bW9yZSBvZiB0aGUgYXZhaWxhYmxlIGJhbmR3aWR0aC4NCg0K
+Cyrill Gorcunov wrote:
+> On Tue, Mar 10, 2009 at 1:33 PM, Daniel Lezcano <daniel.lezcano@free.fr> wrote:
+>> Daniel Lezcano wrote:
+>>> Cyrill Gorcunov wrote:
+>>>> Module specific data moved into per-net site and being allocated/freed
+>>>> during net namespace creation/deletion.
+>>>>
+>>>> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+>>>> ---
+>>>>  net/netfilter/nf_conntrack_proto_dccp.c |  148
+>>>> ++++++++++++++++++++++++--------
+>>>>  1 file changed, 111 insertions(+), 37 deletions(-)
+>>>>
+>>>>
+>>>>   static int __init nf_conntrack_proto_dccp_init(void)
+>>>>  {
+>>>>     int err;
+>>>>  -    err = nf_conntrack_l4proto_register(&dccp_proto4);
+>>>> +    err = register_pernet_gen_device(&dccp_net_id, &dccp_net_ops);
+>>>>
+>> [ cut ]
+>>> Shouldn't it be register_pernet_gen_subsys ?
+> 
+> No, I believe. By using  register_pernet_gen_device I'm allowed to
+> not modify 'struct net' and friends and keep all I need in my own
+> pointer retrieved thru per-net gen-device id I've registered.
+
+I believe Daniel means, that we need the register_xxx_get_subsys call
+for subsystems, rather than devices, that will behave according to the
+generic net pointers.
+
+Daniel, am I right with this suggestion?
+
+>> If you use register_pernet_gen_device, your subsystem will be deleted before
+>> the network devices and potentially you can receive a packet even if your
+>> subsystem is already freed.
+>>
+>> Eric did a fix for tcp and icmp a few weeks ago. I thing its explanation is
+>> better than mine :)
+>> it is the commit 6eb0777228f31932fc941eafe8b08848466630a1 for net-2.6
+>>
+>> Thanks.
+>>  -- Daniel
+>>
+> 
+> Thanks a lot Daniel, will check!
+> 
