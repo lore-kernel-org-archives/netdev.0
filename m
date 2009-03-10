@@ -1,70 +1,55 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [PATCH 6/13] forcedeth: add/modify tx done with limit
-Date: Tue, 10 Mar 2009 06:17:52 -0500
-Message-ID: <49B64C60.9080903@nvidia.com>
-References: <49B013A2.8030806@nvidia.com> <20090310.053212.39968484.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "manfred@colorfullife.com" <manfred@colorfullife.com>,
-	"jgarzik@pobox.com" <jgarzik@pobox.com>,
-	"akpm@osdl.org" <akpm@osdl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:7737 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754631AbZCJRz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 13:55:57 -0400
-In-Reply-To: <20090310.053212.39968484.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH] wimax: fix i2400m printk formats
+Date: Tue, 10 Mar 2009 11:48:29 -0700
+Message-ID: <1236710909-27528-1-git-send-email-inaky@linux.intel.com>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, netdev@vger.kernel.org
+To: wimax@linuxwimax.org
+Return-path: <wimax-bounces@linuxwimax.org>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
+Fix printk format warnings:
 
-David Miller wrote:
-> From: Ayaz Abdulla <aabdulla@nvidia.com>
-> Date: Thu, 05 Mar 2009 13:02:10 -0500
-> 
-> 
->>There are two tx_done routines to handle tx completion processing. Both these functions now take in a limit value and return the amount of tx completions. This will be used by a future patch to determine the total amount of work done.
->>
->>Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-> 
-> 
-> Applied.
-> 
-> But I would absolutely not count TX completion processing in the
-> NAPI work limit as you do in one of the subsequent patches.
-> 
+drivers/net/wimax/i2400m/netdev.c:523: warning: format '%zu' expects type 'size_t', but argument 7 has type 'unsigned int'
+drivers/net/wimax/i2400m/netdev.c:548: warning: format '%zu' expects type 'size_t', but argument 7 has type 'unsigned int'
 
-I agree. However, I am counting tx work only for the purpose of 
-interrupt moderation.  The tx work count is not included in the NAPI 
-limit check.
-ie.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ drivers/net/wimax/i2400m/netdev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-+	nv_change_interrupt_mode(dev, tx_work + rx_work);
-
--	if (pkts < budget) {
-+	if (rx_work < budget) {
-
-
-> TX completely is just buffer freeing, very cheap.
-> 
-> Whereas RX processing involves actually network stack processing
-> which is real work and is what NAPI should be limiting.
-> 
-> Also, please get rid of the NAPI config option for this driver and
-> make NAPI unconditionally enabled.
-> 
-
-Sure, I will submit a new patch for removing the config option.
-
-> Thanks.
-
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+index a98eb4b..6b1fe7a 100644
+--- a/drivers/net/wimax/i2400m/netdev.c
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -520,7 +520,7 @@ void i2400m_net_erx(struct i2400m *i2400m, struct sk_buff *skb,
+ 	struct device *dev = i2400m_dev(i2400m);
+ 	int protocol;
+ 
+-	d_fnstart(2, dev, "(i2400m %p skb %p [%zu] cs %d)\n",
++	d_fnstart(2, dev, "(i2400m %p skb %p [%u] cs %d)\n",
+ 		  i2400m, skb, skb->len, cs);
+ 	switch(cs) {
+ 	case I2400M_CS_IPV4_0:
+@@ -545,7 +545,7 @@ void i2400m_net_erx(struct i2400m *i2400m, struct sk_buff *skb,
+ 	d_dump(4, dev, skb->data, skb->len);
+ 	netif_rx_ni(skb);	/* see notes in function header */
+ error:
+-	d_fnend(2, dev, "(i2400m %p skb %p [%zu] cs %d) = void\n",
++	d_fnend(2, dev, "(i2400m %p skb %p [%u] cs %d) = void\n",
+ 		i2400m, skb, skb->len, cs);
+ }
+ 
+-- 
+1.5.6.5
