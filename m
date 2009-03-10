@@ -1,7 +1,7 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 1/5] drivers/base: Add bus_register_notifier_alldev() variant
-Date: Tue, 10 Mar 2009 09:22:02 -0600
-Message-ID: <20090310152201.12455.74770.stgit@localhost.localdomain>
+Subject: [PATCH 2/5] phylib: rework to prepare for OF registration of PHYs
+Date: Tue, 10 Mar 2009 09:22:07 -0600
+Message-ID: <20090310152207.12455.18933.stgit@localhost.localdomain>
 References: <20090310150751.12455.70598.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,106 +10,180 @@ To: afleming@freescale.com, linuxppc-dev@ozlabs.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:39859 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755121AbZCJPWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 11:22:06 -0400
+Received: from wf-out-1314.google.com ([209.85.200.171]:46896 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755055AbZCJPWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 11:22:13 -0400
 In-Reply-To: <20090310150751.12455.70598.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Grant Likely <grant.likely@secretlab.ca>
 
-bus_register_notifier_alldev() is a variation on bus_register_notifier()
-which also triggers the notifier callback for devices already on the bus
-and already bound to drivers.
-
-This function is useful for the case where a driver needs to get a
-reference to a struct device other than the one it is bound to and
-it is not known if the device will be bound before or after this
-function is called.  For example, an Ethernet device connected to
-a PHY that is probed separately.
+This patch makes changes in preparation for supporting open firmware
+device tree descriptions of MDIO busses.  Changes include:
+- Cleanup handling of phy_map[] entries; they are already NULLed when
+  registering and so don't need to be re-cleared, and it is good practice
+  to clear them out when unregistering.
+- Split phy_device registration out into a new function so that the
+  OF helpers can do two stage registration (separate allocation and
+  registration steps).
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
-CC: linux-kernel@vger.kernel.org
 CC: linuxppc-dev@ozlabs.org
-CC: Greg Kroah-Hartman <gregkh@suse.de>
+CC: netdev@vger.kernel.org
+CC: Andy Fleming <afleming@freescale.com>
 ---
 
- drivers/base/bus.c     |   47 +++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/device.h |    2 ++
- 2 files changed, 49 insertions(+), 0 deletions(-)
+ drivers/net/phy/mdio_bus.c   |   29 +++-------------------------
+ drivers/net/phy/phy_device.c |   43 ++++++++++++++++++++++++++++++++++++++----
+ include/linux/phy.h          |    1 +
+ 3 files changed, 43 insertions(+), 30 deletions(-)
 
 
-diff --git a/drivers/base/bus.c b/drivers/base/bus.c
-index 83f32b8..6edde85 100644
---- a/drivers/base/bus.c
-+++ b/drivers/base/bus.c
-@@ -962,6 +962,53 @@ int bus_register_notifier(struct bus_type *bus, struct notifier_block *nb)
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 811a637..3c39c7b 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -112,7 +112,6 @@ int mdiobus_register(struct mii_bus *bus)
+ 		bus->reset(bus);
+ 
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		bus->phy_map[i] = NULL;
+ 		if ((bus->phy_mask & (1 << i)) == 0) {
+ 			struct phy_device *phydev;
+ 
+@@ -149,6 +148,7 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+ 		if (bus->phy_map[i])
+ 			device_unregister(&bus->phy_map[i]->dev);
++		bus->phy_map[i] = NULL;
+ 	}
  }
- EXPORT_SYMBOL_GPL(bus_register_notifier);
+ EXPORT_SYMBOL(mdiobus_unregister);
+@@ -187,35 +187,12 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
+ 	if (IS_ERR(phydev) || phydev == NULL)
+ 		return phydev;
  
-+/**
-+ * bus_register_notifier_alldev_helper - internal support function
-+ * Used by bus_register_notifier_alldev() to create ADD and BOUND events
-+ * for devices.
-+ */
-+static int bus_register_notifier_alldev_helper(struct device *dev, void *data)
-+{
-+	struct notifier_block *nb = data;
-+	nb->notifier_call(nb, BUS_NOTIFY_ADD_DEVICE, dev);
-+	if (dev->driver)
-+		nb->notifier_call(nb, BUS_NOTIFY_BOUND_DRIVER, dev);
-+	return 0;
-+}
-+
-+/**
-+ * bus_register_notifier_alldev - Register for bus events; include existing devs
-+ * @bus: pointer to bus_type
-+ * @nb: pointer to notifier block to register with the bus
-+ *
-+ * Similar to bus_register_notifier() except it also generates events for
-+ * devices already on the bus when the notifier is registered.  When this
-+ * function is called the notifier is called once for each device with
-+ * the BUS_NOTIFY_ADD_DEVICE event, and once for each device registered to
-+ * a driver * with the BUS_NOTIFY_BOUND_DRIVER event.
-+ *
-+ * There is a small chance that the notifier could be called more than once
-+ * for a device.  This would happen if a new device was registered on the bus
-+ * or bound to a driver between the call to bus_register_notifier() and the
-+ * call to bus_for_each_dev().  The only way I can see to protect against
-+ * this would be to take the klist_devices spinlock while calling the
-+ * notifier; but that would be a Very Bad Thing (tm).  Caller needs to be
-+ * aware that a notifier called before this function returns might get
-+ * called a second time on the same device.
-+ */
-+int bus_register_notifier_alldev(struct bus_type *b, struct notifier_block *nb)
-+{
-+	int ret;
-+
-+	ret = bus_register_notifier(b, nb);
-+	if (ret == 0) {
-+		bus_for_each_dev(b, NULL, nb,
-+				 bus_register_notifier_alldev_helper);
-+	}
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(bus_register_notifier_alldev);
-+
- int bus_unregister_notifier(struct bus_type *bus, struct notifier_block *nb)
+-	/* There's a PHY at this address
+-	 * We need to set:
+-	 * 1) IRQ
+-	 * 2) bus_id
+-	 * 3) parent
+-	 * 4) bus
+-	 * 5) mii_bus
+-	 * And, we need to register it */
+-
+-	phydev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
+-
+-	phydev->dev.parent = bus->parent;
+-	phydev->dev.bus = &mdio_bus_type;
+-	dev_set_name(&phydev->dev, PHY_ID_FMT, bus->id, addr);
+-
+-	phydev->bus = bus;
+-
+-	/* Run all of the fixups for this PHY */
+-	phy_scan_fixups(phydev);
+-
+-	err = device_register(&phydev->dev);
++	err = phy_device_register(phydev);
+ 	if (err) {
+-		printk(KERN_ERR "phy %d failed to register\n", addr);
+ 		phy_device_free(phydev);
+-		phydev = NULL;
++		return NULL;
+ 	}
+ 
+-	bus->phy_map[addr] = phydev;
+-
+ 	return phydev;
+ }
+ EXPORT_SYMBOL(mdiobus_scan);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 0a06e4f..793332f 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -39,10 +39,6 @@ MODULE_DESCRIPTION("PHY library");
+ MODULE_AUTHOR("Andy Fleming");
+ MODULE_LICENSE("GPL");
+ 
+-static struct phy_driver genphy_driver;
+-extern int mdio_bus_init(void);
+-extern void mdio_bus_exit(void);
+-
+ void phy_device_free(struct phy_device *phydev)
  {
- 	return blocking_notifier_chain_unregister(&bus->p->bus_notifier, nb);
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 47f343c..95a7d2b 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -103,6 +103,8 @@ struct notifier_block;
+ 	kfree(phydev);
+@@ -53,6 +49,10 @@ static void phy_device_release(struct device *dev)
+ 	phy_device_free(to_phy_device(dev));
+ }
  
- extern int bus_register_notifier(struct bus_type *bus,
- 				 struct notifier_block *nb);
-+extern int bus_register_notifier_alldev(struct bus_type *b,
-+					struct notifier_block *nb);
- extern int bus_unregister_notifier(struct bus_type *bus,
- 				   struct notifier_block *nb);
++static struct phy_driver genphy_driver;
++extern int mdio_bus_init(void);
++extern void mdio_bus_exit(void);
++
+ static LIST_HEAD(phy_fixup_list);
+ static DEFINE_MUTEX(phy_fixup_lock);
  
+@@ -166,6 +166,10 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	dev->addr = addr;
+ 	dev->phy_id = phy_id;
+ 	dev->bus = bus;
++	dev->dev.parent = bus->parent;
++	dev->dev.bus = &mdio_bus_type;
++	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
++	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
+ 
+ 	dev->state = PHY_DOWN;
+ 
+@@ -237,6 +241,37 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
+ }
+ 
+ /**
++ * phy_device_register - Register the phy device on the MDIO bus
++ * @phy_device: phy_device structure to be added to the MDIO bus
++ */
++int phy_device_register(struct phy_device *phydev)
++{
++	int err;
++
++	/* Don't register a phy if one is already registered at this
++	 * address */
++	if (phydev->bus->phy_map[phydev->addr])
++		return -EINVAL;
++	phydev->bus->phy_map[phydev->addr] = phydev;
++
++	/* Run all of the fixups for this PHY */
++	phy_scan_fixups(phydev);
++
++	err = device_register(&phydev->dev);
++	if (err) {
++		pr_err("phy %d failed to register\n", phydev->addr);
++		goto out;
++	}
++
++	return 0;
++
++ out:
++	phydev->bus->phy_map[phydev->addr] = NULL;
++	return err;
++}
++EXPORT_SYMBOL(phy_device_register);
++
++/**
+  * phy_prepare_link - prepares the PHY layer to monitor link status
+  * @phydev: target phy_device struct
+  * @handler: callback function for link status change notifications
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index d7e54d9..a47d64f 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -439,6 +439,7 @@ static inline int phy_write(struct phy_device *phydev, u16 regnum, u16 val)
+ 
+ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id);
+ struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
++int phy_device_register(struct phy_device *phy);
+ int phy_clear_interrupt(struct phy_device *phydev);
+ int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
+ struct phy_device * phy_attach(struct net_device *dev,
 
