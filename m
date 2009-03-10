@@ -1,50 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 03/25] [net] BUG to BUG_ON changes
-Date: Tue, 10 Mar 2009 04:24:17 -0700 (PDT)
-Message-ID: <20090310.042417.242564481.davem@davemloft.net>
-References: <1236661850-8237-3-git-send-email-stoyboyker@gmail.com>
-	<1236661850-8237-4-git-send-email-stoyboyker@gmail.com>
-	<20090310102355.GB2248@x200.localdomain>
+Subject: Re: [RFC 2/4] net: netfilter conntrack - add per-net functionality
+ for DCCP protocol
+Date: Tue, 10 Mar 2009 04:25:37 -0700 (PDT)
+Message-ID: <20090310.042537.49464370.davem@davemloft.net>
+References: <20090309181628.109019157@gmail.com>
+	<20090309182731.762563452@gmail.com>
+	<49B63EA6.2060802@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stoyboyker@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56859
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755475AbZCJLYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 07:24:31 -0400
-In-Reply-To: <20090310102355.GB2248@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gorcunov@gmail.com, kaber@trash.net, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, xemul@openvz.org, adobriyan@gmail.com,
+	gorcunov@openvz.org
+To: daniel.lezcano@free.fr
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <49B63EA6.2060802@free.fr>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 10 Mar 2009 13:23:55 +0300
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Date: Tue, 10 Mar 2009 11:19:18 +0100
 
-> On Tue, Mar 10, 2009 at 12:10:28AM -0500, Stoyan Gaydarov wrote:
-> > --- a/drivers/net/pppol2tp.c
-> > +++ b/drivers/net/pppol2tp.c
-> > @@ -1222,8 +1222,7 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
-> >  	struct pppol2tp_session *session;
-> >  	struct sock *sk;
-> >  
-> > -	if (tunnel == NULL)
-> > -		BUG();
-> > +	BUG_ON(tunnel == NULL);
+> >  static int __init nf_conntrack_proto_dccp_init(void)
+> >  {
+> >  	int err;
+> >  -	err = nf_conntrack_l4proto_register(&dccp_proto4);
+> > +	err = register_pernet_gen_device(&dccp_net_id, &dccp_net_ops);
+> >   
 > 
-> NAK, should be deleted, and kernel will oops anyway.
+> Shouldn't it be register_pernet_gen_subsys ?
 
-I think in situations such as this, where someone is trying to rid the
-tree of an interface (where an exactly equivalent alternative
-expression exists) so it can be deleted, it is absolutely unreasonable
-to ask them to make non-trivial transformations like you are
-requesting on top of what can already be a quite daunting task.
+Do I really have to carefully and meticuliously scan down
+hundreds and hundreds of irrelevant quoted patch text just
+to see what bit you're commenting on?
 
-Please rescind your NACK, thanks.
+Please, just provide the necessary context of the patch for
+your comments, don't quote the whole thing :-(
 
-This is the kind of NACK which makes me absolutely furious when I try
-to contribute to projects other than the kernel.  So please don't make
-the kernel suck as much as those projects do.  It's a deterrant to
-contributors.
+Thanks.
