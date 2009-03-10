@@ -1,46 +1,49 @@
-From: Andy Grover <andy.grover@oracle.com>
-Subject: Re: RDS: no freely available protocol specification?
-Date: Tue, 10 Mar 2009 16:10:00 -0700
-Message-ID: <49B6F348.8010507@oracle.com>
-References: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
+From: Brian Bloniarz <bmb@athenacr.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 10 Mar 2009 19:22:45 -0400
+Message-ID: <49B6F645.2070408@athenacr.com>
+References: <20090204012144.GC3650@localhost.localdomain>	<49A6CE39.5050200@athenacr.com>	<49A8FAFF.7060104@cosmosbay.com> <20090304.001646.100690134.davem@davemloft.net> <49AE3DA9.2020103@cosmosbay.com> <49B2266C.9050701@cosmosbay.com> <49B3F655.6030308@cosmosbay.com> <49B59EA3.3000208@athenacr.com> <49B5FA84.9000301@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	RDS Devel <rds-devel@oss.oracle.com>
-To: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
+Cc: kchang@athenacr.com, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:38033 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754308AbZCJXKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 19:10:20 -0400
-In-Reply-To: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
+Received: from sprinkles.athenacr.com ([64.95.46.210]:1024 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753364AbZCJXWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 19:22:49 -0400
+In-Reply-To: <49B5FA84.9000301@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Juliusz Chroboczek wrote:
-> I am a little worried about the Reliable Datagram Sockets (RDS), which are
-> currently in the process of being merged into the kernel.  I've checked the
-> latest Interned-Drafts index, I've tried searching the web, and I cannot
-> find a freely available protocol specification.  (I've been unable to check
-> the documentation section of the oss.oracle.com site, which requires
-> a password with no way to register visible to my tired eyes.)
+Hi Eric,
 
-Look in net-next tree, Documentation/networking/rds.txt.
+FYI: with your patch applied and lockdep enabled, I see:
+[   39.114628] ================================================
+[   39.121964] [ BUG: lock held when returning to user space! ]
+[   39.127704] ------------------------------------------------
+[   39.133461] msgtest/5242 is leaving the kernel with locks still held!
+[   39.140132] 1 lock held by msgtest/5242:
+[   39.144287]  #0:  (clock-AF_INET){-.-?}, at: [<ffffffff8041f5b9>] sock_def_readable+0x19/0xb0
 
-> I am wondering whether we wish to encourage the use of proprietary
-> (undocumented) protocols, and I wish that the kernel crowd should really
-> try to put some pressure on the Oracle guys to get the RDS protocol spec
-> published as an RFC, or at the very least submitted as an Internet Draft,
-> before it is released as part of the Linux kernel.
+I can't reproduced this with the mcasttest program yet, it
+was with an internal test program which does some userspace
+processing on the messages. I'll let you know if I find a way
+to reproduce it with a simple program I can share.
 
-I thought "rough consensus and running code" was the IETF credo? We've
-provided running code, some documentation, and an active maintainer and
-mailing list. If you're interested in getting an RFC drafted for RDS,
-then I invite you to start work on one. I also will accept patches to
-improve the documentation.
+ > Well, smp_affinity could help in my opininon if you dedicate
+ > one cpu for the NIC, and others for user apps, if the average
+ > work done per packet is large. If load is light, its better
+ > to use the same cpu to perform all the work, since no expensive
+ > bus trafic is needed between cpu to exchange memory lines.
 
-See how this works?
+I tried this setup as well: an 8-core box with 4 userspace
+processes, each affined to an individual CPU1-4. The IRQ was on
+CPU0. On most kernels, this setup loses fewer packets than the default
+affinity (though they both lose some). With your patch enabled, the
+default affinity loses 0 packets, and this setup loses some.
 
-Regards -- Andy
+Thanks,
+Brian Bloniarz
 
