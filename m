@@ -1,42 +1,52 @@
-From: Felix Radensky <felix@embedded-sol.com>
-Subject: RX problem in ibm_newemac driver
-Date: Tue, 10 Mar 2009 21:50:58 +0200
-Message-ID: <49B6C4A2.8060302@embedded-sol.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH 03/25] [net] BUG to BUG_ON changes
+Date: Tue, 10 Mar 2009 12:54:33 -0700
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A1E7589DC@orsmsx507.amr.corp.intel.com>
+References: <1236661850-8237-1-git-send-email-stoyboyker@gmail.com>
+ <1236661850-8237-2-git-send-email-stoyboyker@gmail.com>
+ <1236661850-8237-3-git-send-email-stoyboyker@gmail.com>
+ <1236661850-8237-4-git-send-email-stoyboyker@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stoyan Gaydarov <stoyboyker@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vega.surpasshosting.com ([72.29.83.9]:38160 "EHLO
-	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753772AbZCJTvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 15:51:06 -0400
+Received: from mga09.intel.com ([134.134.136.24]:29717 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753097AbZCJTyh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 15:54:37 -0400
+In-Reply-To: <1236661850-8237-4-git-send-email-stoyboyker@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Stoyan Gaydarov wrote:
+> Signed-off-by: Stoyan Gaydarov <stoyboyker@gmail.com>
+> ---
+>  drivers/net/atl1e/atl1e_main.c    |    3 +--
+>  drivers/net/chelsio/sge.c         |    3 +--
+>  drivers/net/ixgb/ixgb_osdep.h     |    2 +-
+>  drivers/net/pppol2tp.c            |    3 +--
+>  drivers/net/wireless/ath9k/core.h |    6 +-----
+>  5 files changed, 5 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/ixgb/ixgb_osdep.h
+> b/drivers/net/ixgb/ixgb_osdep.h 
+> index d92e72b..371a6be 100644
+> --- a/drivers/net/ixgb/ixgb_osdep.h
+> +++ b/drivers/net/ixgb/ixgb_osdep.h
+> @@ -40,7 +40,7 @@
+>  #include <linux/sched.h>
+> 
+>  #undef ASSERT
+> -#define ASSERT(x)	if (!(x)) BUG()
+> +#define ASSERT(x)	BUG_ON(!(x))
+>  #define MSGOUT(S, A, B)	printk(KERN_DEBUG S "\n", A, B)
+> 
+>  #ifdef DBG
 
-I'm experiencing RX problem on custom board based on AMCC
-405EXr processor. Channel 0 of EMAC is connected to 10/100
-Micrel KSZ8041NL PHY in MII mode. Ethernet works fine in
-u-boot (version 2009.01). In Linux (2.6.27) Ethernet works fine
-as well if EMAC was initialized in u-boot. It is enough to send
-ping from u-boot (even to non-existing host) to make things work
-in linux. But if u-boot takes kernel and ramdisk images from flash
-and does not initialize EMAC only TX side works in linux.
+ack the ixgb portion
 
-I can see that TX counters are incremented when pinging from
-EMAC side, but RX counters remain zero.  RX error counter
-in PHY is zero as well.  I've enabled debugging in EMAC
-driver and verified that RX EOB interrupt is not triggered.
-FER register in RGMII bridge is properly configured for MII
-mode on channel 0.  I've tried to dump EMAC registers using
-ethtool and got machine check exception.
-
-I don't know what else could be done to identify the source of
-the problem. Any tips would be greatly appreciated.
-
-Thanks.
-
-Felix.
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
