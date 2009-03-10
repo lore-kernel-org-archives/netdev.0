@@ -1,43 +1,37 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell 88E609x switch?
-Date: Tue, 10 Mar 2009 10:43:12 +0100
-Message-ID: <20090310094312.GL4738@xi.wantstofly.org>
-References: <49A806C5.1010200@mlbassoc.com> <20090227153102.GH17040@xi.wantstofly.org> <49A80A75.8000101@mlbassoc.com> <20090227155224.GK17040@xi.wantstofly.org> <Pine.LNX.4.64.0902272211260.19905@ask.diku.dk> <20090227222802.GZ17040@xi.wantstofly.org> <1235991382.30736.62.camel@localhost.localdomain> <1235991937.30736.65.camel@localhost.localdomain> <49ABF7DF.8060302@mlbassoc.com> <49ABF9A9.2040608@mlbassoc.com>
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Subject: XFRM state hash value
+Date: Tue, 10 Mar 2009 10:46:03 +0100
+Message-ID: <49B636DB.7010004@dev.6wind.com>
+Reply-To: nicolas.dichtel@dev.6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jdb@comx.dk, Jesper Dangaard Brouer <hawk@diku.dk>,
-	netdev <netdev@vger.kernel.org>
-To: Gary Thomas <gary@mlbassoc.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:40209 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752247AbZCJJnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 05:43:14 -0400
-Content-Disposition: inline
-In-Reply-To: <49ABF9A9.2040608@mlbassoc.com>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:52269 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754442AbZCJJqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2009 05:46:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 02, 2009 at 08:22:17AM -0700, Gary Thomas wrote:
+Hi guys,
 
-> >>> You should write 0x003E ... see attached patch
-> >> Ups, I see (from the thread) that you have already done/tried this...
-> > 
-> > Yes, although I think it will need some work in the future
-> > (I've set it to 1000Mb connection, you said you used 100Mb, etc)
-> > 
-> > Question: I'm testing this by trying a ping out of my box.
-> > Linux replies by sending an ARP packet out, and the destination
-> > replies with an ARP packet in.  I can see from the ethtool stats
-> > that the reply packets get into lan1.1 (the physical port I'm
-> > using), but I don't see them get moved through the CPU port.
-> > My understanding is that this should work via the VLAN map?
-> > I checked that setup and it looks OK.
-> > 
-> > Any ideas where this might be going wrong?
-> 
-> I also just noticed that the ESA registers (Global 1,2,3)
-> aren't set at all.
+this commit: [XFRM]: Hash xfrm_state objects by source address too. 
+(http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=c1969f294e624d5b642fc8e6ab9468b7c7791fa8)
+introduces src address in hash for state.
+But in some cases, source address is a wildcard when state is inserted. For 
+example, we can have something like this:
+# setkey -c
+add :: ff02::9 ah 0x100 -m transport -A hmac-md5 "cle3goldorakcle3";
 
-This is done by mv88e6xxx_set_addr_{in,}direct() in mv88e6xxx.c,
-via the ->set_addr() callback.
+In this case, __xfrm_state_insert() will calculate the hash value with src 
+address set to 0, but xfrm_state_find() will use the real source address to 
+calculate this hash. At the end, no state will be found.
+The most simple way to resolve this pb is to revert the previous patch, but 
+maybe someone has a better idea...
+
+
+Regards,
+Nicolas
