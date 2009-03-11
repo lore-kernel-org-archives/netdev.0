@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
- non-drops and modifying end-of-line points for skbs
-Date: Wed, 11 Mar 2009 09:18:30 -0700 (PDT)
-Message-ID: <20090311.091830.152269823.davem@davemloft.net>
-References: <20090303170307.GD1480@hmsreliant.think-freely.org>
-	<20090305210105.GC12835@hmsreliant.think-freely.org>
+Subject: Re: BUG when unloading bonding on 2.6.29-rc7-git3
+Date: Wed, 11 Mar 2009 09:22:02 -0700 (PDT)
+Message-ID: <20090311.092202.126273766.davem@davemloft.net>
+References: <49B6CA4A.2040506@mandriva.org>
+	<1236727393.7958.38.camel@Maple>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48405
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750870AbZCKQSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 12:18:44 -0400
-In-Reply-To: <20090305210105.GC12835@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tmb@mandriva.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: john.dykstra1@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753755AbZCKQWc@vger.kernel.org>
+In-Reply-To: <1236727393.7958.38.camel@Maple>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 5 Mar 2009 16:01:05 -0500
+From: John Dykstra <john.dykstra1@gmail.com>
+Date: Tue, 10 Mar 2009 23:23:13 +0000
 
-> Ok, as requested, new version of this patch to add in bifurcation of kfree_skb
-> into two versions, one for legitimate kfree's, and one for drops
+> ipv6:  Fix BUG when disabled ipv6 module is unloaded
 > 
-> Modification Notes:
-> 1) Renamed kfree_skb_clean to consume_skb, to better identify points where we
-> are finished with an skb
+> Do not try to "uninitialize" ipv6 if its initialization had been skipped
+> because module parameter disable=1 had been specified.
 > 
-> 2) checkpatch cleanups
+> Reported-by:  Thomas Backlund <tmb@mandriva.org>
+> Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
 
-Looks good.
+I'm going to apply this by hand.
 
-Respin everything with the requested changes I asked for in #4
-and I can likely toss this into net-next-2.6, thanks!
+But if you are going to submit patches in the future you have to fix
+the corruptions and mangling that your email client does to them.
