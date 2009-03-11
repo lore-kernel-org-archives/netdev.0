@@ -1,317 +1,149 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Multicast packet loss
-Date: Wed, 11 Mar 2009 04:00:38 +0100
-Message-ID: <49B72956.9050504@cosmosbay.com>
-References: <20090204012144.GC3650@localhost.localdomain>	<49A6CE39.5050200@athenacr.com>	<49A8FAFF.7060104@cosmosbay.com> <20090304.001646.100690134.davem@davemloft.net> <49AE3DA9.2020103@cosmosbay.com> <49B2266C.9050701@cosmosbay.com> <49B3F655.6030308@cosmosbay.com> <49B59EA3.3000208@athenacr.com> <49B5FA84.9000301@cosmosbay.com> <49B6F645.2070408@athenacr.com>
+From: Christian <cjs@dhp.com>
+Subject: Re: skb_over_panic kernel panic
+Date: Tue, 10 Mar 2009 23:07:29 -0400
+Message-ID: <20090311030729.GB7041@dhp.com>
+References: <20090311011013.GC7022@dhp.com>
+Reply-To: Christian <cjs@dhp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kchang@athenacr.com, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Brian Bloniarz <bmb@athenacr.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52247 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054AbZCKDAv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 23:00:51 -0400
-In-Reply-To: <49B6F645.2070408@athenacr.com>
+Received: from eastrmmtao103.cox.net ([68.230.240.9]:60172 "EHLO
+	eastrmmtao103.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302AbZCKDHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2009 23:07:32 -0400
+Received: from eastrmimpo03.cox.net ([68.1.16.126])
+          by eastrmmtao103.cox.net
+          (InterMail vM.7.08.02.01 201-2186-121-102-20070209) with ESMTP
+          id <20090311030730.CKSQ11476.eastrmmtao103.cox.net@eastrmimpo03.cox.net>
+          for <netdev@vger.kernel.org>; Tue, 10 Mar 2009 23:07:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20090311011013.GC7022@dhp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Bloniarz a =E9crit :
-> Hi Eric,
->=20
-> FYI: with your patch applied and lockdep enabled, I see:
-> [   39.114628] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-> [   39.121964] [ BUG: lock held when returning to user space! ]
-> [   39.127704] ------------------------------------------------
-> [   39.133461] msgtest/5242 is leaving the kernel with locks still he=
-ld!
-> [   39.140132] 1 lock held by msgtest/5242:
-> [   39.144287]  #0:  (clock-AF_INET){-.-?}, at: [<ffffffff8041f5b9>]
-> sock_def_readable+0x19/0xb0
+I've traced down this problem some more.  It only happens when I send
+more than a small amount of data from my OSX86 system to my linux
+server.  I can download files from the linux server without any
+problems, but if I begin to upload anything it will kernel panic the
+system in 2 seconds or less.  I haven't had any problem with regular SSH
+sessions, but if I send files using scp or SMB the linux kernel panics
+almost immediately.
 
-And you told me you were not a kernel hacker ;)
+My OSX86 system is using an Asus Striker Extreme with onboard Marvell
+88E1116 Gigabit Ethernet 10/100/1000Mbps and the driver is
+nForcEthernetDriver.kext which uses forcedeth. 
 
->=20
-> I can't reproduced this with the mcasttest program yet, it
-> was with an internal test program which does some userspace
-> processing on the messages. I'll let you know if I find a way
-> to reproduce it with a simple program I can share.
+-rwxr-xr-x  1 root  wheel  131148 Feb 22  2008
+nForcEthernetDriver.kext/Contents/MacOS/forcedeth
 
-I reproduced it as well here quite easily with a tcpdump of a tcp sessi=
-on,
-thanks for the report.
-
-It seems  "if (in_softirq())" doesnt do what I thought.
-
-I wanted to test if we were called from __do_softirq() handler,
-since only this function is calling softirq_delay_exec()
-to dequeue events.
-
-It appears I have to make current->softirq_context available
-even if !CONFIG_TRACE_IRQFLAGS
-
-Here is an updated version of the patch.
-
-I also made the call to softirq_delay_exec() is performed
-with interrupts enabled, and that preempt count wont
-overflow if many events are queued.
-
-[PATCH] softirq: Introduce mechanism to defer wakeups
-
-Some network workloads need to call scheduler too many times. For examp=
-le,
-each received multicast frame can wakeup many threads. ksoftirqd is the=
-n
-not able to drain NIC RX queues and we get frame losses and high latenc=
-ies.
-
-This patch adds an infrastructure to delay part of work done in
-sock_def_readable() at end of do_softirq(). This need to
-make available current->softirq_context even if !CONFIG_TRACE_IRQFLAGS
-
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- include/linux/interrupt.h |   18 +++++++++++++++++
- include/linux/irqflags.h  |    7 ++----
- include/linux/sched.h     |    2 -
- include/net/sock.h        |    1
- kernel/softirq.c          |   34 +++++++++++++++++++++++++++++++++
- net/core/sock.c           |   37 ++++++++++++++++++++++++++++++++++--
- 6 files changed, 92 insertions(+), 7 deletions(-)
-
-
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 9127f6b..a773d0c 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -295,6 +295,24 @@ extern void send_remote_softirq(struct call_single=
-_data *cp, int cpu, int softir
- extern void __send_remote_softirq(struct call_single_data *cp, int cpu=
-,
- 				  int this_cpu, int softirq);
-=20
-+/*
-+ * softirq delayed works : should be delayed at do_softirq() end
-+ */
-+struct softirq_delay {
-+	struct softirq_delay	*next;
-+	void 			(*func)(struct softirq_delay *);
-+};
-+
-+int softirq_delay_queue(struct softirq_delay *sdel);
-+
-+static inline void softirq_delay_init(struct softirq_delay *sdel,
-+				      void (*func)(struct softirq_delay *))
-+{
-+	sdel->next =3D NULL;
-+	sdel->func =3D func;
-+}
-+
-+
- /* Tasklets --- multithreaded analogue of BHs.
-=20
-    Main feature differing them of generic softirqs: tasklet
-diff --git a/include/linux/irqflags.h b/include/linux/irqflags.h
-index 74bde13..fe55ec4 100644
---- a/include/linux/irqflags.h
-+++ b/include/linux/irqflags.h
-@@ -13,6 +13,9 @@
-=20
- #include <linux/typecheck.h>
-=20
-+#define trace_softirq_enter()	do { current->softirq_context++; } while=
- (0)
-+#define trace_softirq_exit()	do { current->softirq_context--; } while =
-(0)
-+
- #ifdef CONFIG_TRACE_IRQFLAGS
-   extern void trace_softirqs_on(unsigned long ip);
-   extern void trace_softirqs_off(unsigned long ip);
-@@ -24,8 +27,6 @@
- # define trace_softirqs_enabled(p)	((p)->softirqs_enabled)
- # define trace_hardirq_enter()	do { current->hardirq_context++; } whil=
-e (0)
- # define trace_hardirq_exit()	do { current->hardirq_context--; } while=
- (0)
--# define trace_softirq_enter()	do { current->softirq_context++; } whil=
-e (0)
--# define trace_softirq_exit()	do { current->softirq_context--; } while=
- (0)
- # define INIT_TRACE_IRQFLAGS	.softirqs_enabled =3D 1,
- #else
- # define trace_hardirqs_on()		do { } while (0)
-@@ -38,8 +39,6 @@
- # define trace_softirqs_enabled(p)	0
- # define trace_hardirq_enter()		do { } while (0)
- # define trace_hardirq_exit()		do { } while (0)
--# define trace_softirq_enter()		do { } while (0)
--# define trace_softirq_exit()		do { } while (0)
- # define INIT_TRACE_IRQFLAGS
- #endif
-=20
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 8c216e0..5dd8487 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1320,8 +1320,8 @@ struct task_struct {
- 	unsigned long softirq_enable_ip;
- 	unsigned int softirq_enable_event;
- 	int hardirq_context;
--	int softirq_context;
- #endif
-+	int softirq_context;
- #ifdef CONFIG_LOCKDEP
- # define MAX_LOCK_DEPTH 48UL
- 	u64 curr_chain_key;
-diff --git a/include/net/sock.h b/include/net/sock.h
-index eefeeaf..1bfd9b8 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -260,6 +260,7 @@ struct sock {
- 	unsigned long	        sk_lingertime;
- 	struct sk_buff_head	sk_error_queue;
- 	struct proto		*sk_prot_creator;
-+	struct softirq_delay	sk_delay;
- 	rwlock_t		sk_callback_lock;
- 	int			sk_err,
- 				sk_err_soft;
-diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 9041ea7..c601730 100644
---- a/kernel/softirq.c
-+++ b/kernel/softirq.c
-@@ -158,6 +158,38 @@ void local_bh_enable_ip(unsigned long ip)
- }
- EXPORT_SYMBOL(local_bh_enable_ip);
-=20
-+
-+#define SOFTIRQ_DELAY_END (struct softirq_delay *)1L
-+
-+static DEFINE_PER_CPU(struct softirq_delay *, softirq_delay_head) =3D =
-{
-+	SOFTIRQ_DELAY_END
-+};
-+
-+/*
-+ * Preemption is disabled by caller
-+ */
-+int softirq_delay_queue(struct softirq_delay *sdel)
-+{
-+	if (cmpxchg(&sdel->next, NULL, __get_cpu_var(softirq_delay_head)) =3D=
-=3D NULL) {
-+		__get_cpu_var(softirq_delay_head) =3D sdel;
-+		return 1;
-+	}
-+	return 0;
-+}
-+
-+static void softirq_delay_exec(void)
-+{
-+	struct softirq_delay *sdel;
-+
-+	while ((sdel =3D __get_cpu_var(softirq_delay_head)) !=3D SOFTIRQ_DELA=
-Y_END) {
-+		__get_cpu_var(softirq_delay_head) =3D sdel->next;
-+		sdel->next =3D NULL;
-+		sdel->func(sdel);
-+		}
-+}
-+
-+
-+
- /*
-  * We restart softirq processing MAX_SOFTIRQ_RESTART times,
-  * and we fall back to softirqd after that.
-@@ -211,6 +243,8 @@ restart:
- 		pending >>=3D 1;
- 	} while (pending);
-=20
-+	softirq_delay_exec();
-+
- 	local_irq_disable();
-=20
- 	pending =3D local_softirq_pending();
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 5f97caa..d51d57d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -212,6 +212,8 @@ __u32 sysctl_rmem_default __read_mostly =3D SK_RMEM=
-_MAX;
- /* Maximal space eaten by iovec or ancilliary data plus some space */
- int sysctl_optmem_max __read_mostly =3D sizeof(unsigned long)*(2*UIO_M=
-AXIOV+512);
-=20
-+static void sock_readable_defer(struct softirq_delay *sdel);
-+
- static int sock_set_timeout(long *timeo_p, char __user *optval, int op=
-tlen)
- {
- 	struct timeval tv;
-@@ -1026,6 +1028,7 @@ struct sock *sk_clone(const struct sock *sk, cons=
-t gfp_t priority)
- #endif
-=20
- 		rwlock_init(&newsk->sk_dst_lock);
-+		softirq_delay_init(&newsk->sk_delay, sock_readable_defer);
- 		rwlock_init(&newsk->sk_callback_lock);
- 		lockdep_set_class_and_name(&newsk->sk_callback_lock,
- 				af_callback_keys + newsk->sk_family,
-@@ -1634,12 +1637,41 @@ static void sock_def_error_report(struct sock *=
-sk)
- 	read_unlock(&sk->sk_callback_lock);
- }
-=20
-+static void sock_readable_defer(struct softirq_delay *sdel)
-+{
-+	struct sock *sk =3D container_of(sdel, struct sock, sk_delay);
-+
-+	wake_up_interruptible_sync(sk->sk_sleep);
-+	/*
-+	 * Before unlocking, we increase preempt_count,
-+	 * as it was decreased in sock_def_readable()
-+	 */
-+	preempt_disable();
-+	read_unlock(&sk->sk_callback_lock);
-+}
-+
- static void sock_def_readable(struct sock *sk, int len)
- {
- 	read_lock(&sk->sk_callback_lock);
--	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
--		wake_up_interruptible_sync(sk->sk_sleep);
- 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
-+	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep)) {
-+		if (current->softirq_context) {
-+			/*
-+			 * If called from __do_softirq(), we want to delay
-+			 * calls to wake_up_interruptible_sync()
-+			 */
-+			if (!softirq_delay_queue(&sk->sk_delay))
-+				goto unlock;
-+			/*
-+			 * We keep sk->sk_callback_lock read locked,
-+			 * but decrease preempt_count to avoid an overflow
-+			 */
-+			preempt_enable_no_resched();
-+			return;
-+		}
-+		wake_up_interruptible_sync(sk->sk_sleep);
-+	}
-+unlock:
- 	read_unlock(&sk->sk_callback_lock);
- }
-=20
-@@ -1720,6 +1752,7 @@ void sock_init_data(struct socket *sock, struct s=
-ock *sk)
- 		sk->sk_sleep	=3D	NULL;
-=20
- 	rwlock_init(&sk->sk_dst_lock);
-+	softirq_delay_init(&sk->sk_delay, sock_readable_defer);
- 	rwlock_init(&sk->sk_callback_lock);
- 	lockdep_set_class_and_name(&sk->sk_callback_lock,
- 			af_callback_keys + sk->sk_family,
-
+On Tue, Mar 10, 2009 at 09:10:13PM -0400, Christian wrote:
+> Hello,
+> 
+> I keep getting kernel panics on my system with output similar to this:
+> 
+> skb_over_panic: text:fffffffff80456cc4 len:2580 put:2580
+> head:ffff9900bf18a000 data:ffff8800bf18a010 tail:0xa end:0x640 dev:eth0
+> --------[ cut here ] ----------
+> kernel BUG at net/core/skbuff.c:124!xt:ffffffff80456cc4 len:2580
+> put:2580 head:ffff8800bf18a000 data:ffff8800bf18a010 tail:0xa 
+> invalid opcode: 0000 [#1] SMP
+> last sysfs file: /sys/devices/pci0000:00/0000:00:1f.0/resource
+> CPU 5
+> Modules linked in nvidia(P)
+> Pid: 0, comm: swapper Tainted: P        2.6.28.7 #3
+> RIP: 0010:[<ffffffff80531630>] [<ffffffff80531630>] skb_put+0x7a/0x89
+> RSP: 0018:ffff8801bf9b3dd0 EFLAGS: 00010282
+> 
+> (I copied this output by hand so there may be a typo or two) 
+> 
+> Linux server1 2.6.28.7 #3 SMP Mon Mar 9 20:04:12 EDT 2009 x86_64
+> Intel(R) Core(TM) i7 CPU 920 @ 2.67GHz GenuineIntel GNU/Linux
+> 
+> Before this my kernel was 2.6.27.5 and I was still getting the same
+> panics.
+> 
+> eth0: RTL8168c/8111c at 0xffffc20000042000, 00:23:54:ed:7f:a6, XID
+> 3c4000c0 IRQ 18
+> r8169: eth0: link up
+> 
+> 00:00.0 Host bridge: Intel Corporation QuickPath Architecture I/O Hub to
+> ESI Port (rev 12)
+> 00:01.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub PCI
+> Express Root Port 1 (rev 12)
+> 00:03.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub PCI
+> Express Root Port 3 (rev 12)
+> 00:07.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub PCI
+> Express Root Port 7 (rev 12)
+> 00:10.0 PIC: Intel Corporation QuickPath Interconnect Physical and Link
+> Layer Registers Port 0 (rev 12)
+> 00:10.1 PIC: Intel Corporation QuickPath Interconnect Routing and
+> Protocol Layer Registers Port 0 (rev 12)
+> 00:13.0 PIC: Intel Corporation QuickPath Architecture I/O Hub I/OxAPIC
+> Interrupt Controller (rev 12)
+> 00:14.0 PIC: Intel Corporation QuickPath Architecture I/O Hub System
+> Management Registers (rev 12)
+> 00:14.1 PIC: Intel Corporation QuickPath Architecture I/O Hub GPIO and
+> Scratch Pad Registers (rev 12)
+> 00:14.2 PIC: Intel Corporation QuickPath Architecture I/O Hub Control
+> Status and RAS Registers (rev 12)
+> 00:14.3 PIC: Intel Corporation QuickPath Architecture I/O Hub Throttle
+> Registers (rev 12)
+> 00:1a.0 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB
+> UHCI Controller #4
+> 00:1a.1 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB
+> UHCI Controller #5
+> 00:1a.2 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB
+> UHCI Controller #6
+> 00:1a.7 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB2
+> EHCI Controller #2
+> 00:1b.0 Audio device: Intel Corporation 82801JI (ICH10 Family) HD Audio
+> Controller
+> 00:1c.0 PCI bridge: Intel Corporation 82801JI (ICH10 Family) PCI Express
+> Port 1
+> 00:1c.2 PCI bridge: Intel Corporation 82801JI (ICH10 Family) PCI Express
+> Port 3
+> 00:1c.3 PCI bridge: Intel Corporation 82801JI (ICH10 Family) PCI Express
+> Port 4
+> 00:1c.4 PCI bridge: Intel Corporation 82801JI (ICH10 Family) PCI Express
+> Port 5
+> 00:1d.0 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB
+> UHCI Controller #1
+> 00:1d.1 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB
+> UHCI Controller #2
+> 00:1d.2 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB
+> UHCI Controller #3
+> 00:1d.7 USB Controller: Intel Corporation 82801JI (ICH10 Family) USB2
+> EHCI Controller #1
+> 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 90)
+> 00:1f.0 ISA bridge: Intel Corporation 82801JIR (ICH10R) LPC Interface
+> Controller
+> 00:1f.2 IDE interface: Intel Corporation 82801JI (ICH10 Family) 4 port
+> SATA IDE Controller
+> 00:1f.3 SMBus: Intel Corporation 82801JI (ICH10 Family) SMBus Controller
+> 00:1f.5 IDE interface: Intel Corporation 82801JI (ICH10 Family) 2 port
+> SATA IDE Controller
+> 02:00.0 VGA compatible controller: nVidia Corporation G72 [GeForce 7300
+> LE] (rev a1)
+> 04:00.0 SATA controller: JMicron Technologies, Inc. JMicron 20360/20363
+> AHCI Controller (rev 03)
+> 04:00.1 IDE interface: JMicron Technologies, Inc. JMicron 20360/20363
+> AHCI Controller (rev 03)
+> 05:00.0 FireWire (IEEE 1394): VIA Technologies, Inc. Device 3403
+> 06:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+> RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 02)
+> 08:00.0 SCSI storage controller: Marvell Technology Group Ltd.
+> MV88SX6081 8-port SATA II PCI-X Controller (rev 09)
+> 08:01.0 Mass storage controller: Promise Technology, Inc. PDC40718 (SATA
+> 300 TX4) (rev 02)
+> 
+> # lsmod
+> Module                  Size  Used by
+> nvidia               7797560  0 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
