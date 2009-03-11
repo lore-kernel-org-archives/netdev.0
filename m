@@ -1,62 +1,48 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-02-23
-Date: Wed, 11 Mar 2009 09:27:16 -0700
-Message-ID: <43e72e890903110927i2ef8012dn86e0e72fb048aea3@mail.gmail.com>
-References: <20090223192659.GB3553@tuxdriver.com>
-	 <1235457113.4455.89.camel@johannes.local>
-	 <20090224.235510.30497146.davem@davemloft.net>
-	 <1235637360.29050.16.camel@johannes.local>
-	 <20090226161340.GA4430@tuxdriver.com>
-	 <1235698640.4936.6.camel@johannes.local>
-	 <43e72e890902261918p47e45b14i7528dd0f40685879@mail.gmail.com>
-	 <1236772199.20266.3.camel@johannes.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
+ non-drops and modifying end-of-line points for skbs
+Date: Wed, 11 Mar 2009 17:34:47 +0100
+Message-ID: <49B7E827.3070203@cosmosbay.com>
+References: <20090303170307.GD1480@hmsreliant.think-freely.org>	<20090305210105.GC12835@hmsreliant.think-freely.org> <20090311.091830.152269823.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1236772199.20266.3.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56176 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751460AbZCKQkQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 12:40:16 -0400
+In-Reply-To: <20090311.091830.152269823.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2009 at 4:49 AM, Johannes Berg
-<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
-> On Thu, 2009-02-26 at 19:18 -0800, Luis R. Rodriguez wrote:
->
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_lock(&cfg80211_mtx)
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_lock()
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_unlock()
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_unlock(&cfg80211_mtx)
->> >
->> > to
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_lock()
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_lock(&cfg80211_mtx)
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_unlock(&cfg80211_mtx)
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_unlock()
->> >
->> > everywhere.
+David Miller a =E9crit :
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Thu, 5 Mar 2009 16:01:05 -0500
+>=20
+>> Ok, as requested, new version of this patch to add in bifurcation of=
+ kfree_skb
+>> into two versions, one for legitimate kfree's, and one for drops
 >>
->> Sure, I'll give it a shot tomorrow unless someone else gets to it fi=
-rst.
->
-> Did you get a chance to look at this? Otherwise I'll just do it later
-> today.
+>> Modification Notes:
+>> 1) Renamed kfree_skb_clean to consume_skb, to better identify points=
+ where we
+>> are finished with an skb
+>>
+>> 2) checkpatch cleanups
+>=20
+> Looks good.
+>=20
+> Respin everything with the requested changes I asked for in #4
+> and I can likely toss this into net-next-2.6, thanks!
 
-Unfortunately not, please do.
+I was wondering if packets droped at NIC level are handled by "Network =
+Drop Monitor".
+(See recent discussion about Multicast packet loss)
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I believe not, maybe I missed something ...
+
