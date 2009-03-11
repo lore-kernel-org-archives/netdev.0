@@ -1,18 +1,18 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC v2 2/7] net: netfilter conntrack - add per-net functionality for DCCP protocol
-Date: Wed, 11 Mar 2009 23:57:08 +0300
-Message-ID: <20090311210817.172204517@gmail.com>
+Subject: [RFC v2 3/7] net: netfilter conntrack - add per-net functionality for SCTP protocol
+Date: Wed, 11 Mar 2009 23:57:09 +0300
+Message-ID: <20090311210817.384140456@gmail.com>
 References: <20090311205706.141086138@gmail.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	xemul@openvz.org, adobriyan@gmail.com,
 	Cyrill Gorcunov <gorcunov@openvz.org>
 To: kaber@trash.net, davem@davemloft.net, daniel.lezcano@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.187]:9630 "EHLO
+Received: from ti-out-0910.google.com ([209.85.142.190]:7742 "EHLO
 	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbZCKVI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 17:08:27 -0400
-Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-dccp
+	with ESMTP id S1752235AbZCKVI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 17:08:28 -0400
+Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-sctp
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,307 +21,366 @@ during net namespace creation/deletion.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- net/netfilter/nf_conntrack_proto_dccp.c |  145 +++++++++++++++++++++++---------
- 1 file changed, 108 insertions(+), 37 deletions(-)
+ net/netfilter/nf_conntrack_proto_sctp.c |  186 +++++++++++++++++++++++++-------
+ 1 file changed, 146 insertions(+), 40 deletions(-)
 
-Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_dccp.c
+Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_sctp.c
 ===================================================================
---- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_dccp.c
-+++ linux-2.6.git/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -16,6 +16,9 @@
- #include <linux/skbuff.h>
- #include <linux/dccp.h>
+--- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_sctp.c
++++ linux-2.6.git/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -21,6 +21,9 @@
+ #include <linux/spinlock.h>
+ #include <linux/interrupt.h>
  
 +#include <net/net_namespace.h>
 +#include <net/netns/generic.h>
 +
- #include <linux/netfilter/nfnetlink_conntrack.h>
  #include <net/netfilter/nf_conntrack.h>
  #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -23,8 +26,6 @@
+ #include <net/netfilter/nf_conntrack_ecache.h>
+@@ -49,16 +52,6 @@ static const char *const sctp_conntrack_
+ #define HOURS * 60 MINS
+ #define DAYS  * 24 HOURS
  
- static DEFINE_RWLOCK(dccp_lock);
- 
--static int nf_ct_dccp_loose __read_mostly = 1;
--
- /* Timeouts are based on values from RFC4340:
-  *
-  * - REQUEST:
-@@ -72,16 +73,6 @@ static int nf_ct_dccp_loose __read_mostl
- 
- #define DCCP_MSL (2 * 60 * HZ)
- 
--static unsigned int dccp_timeout[CT_DCCP_MAX + 1] __read_mostly = {
--	[CT_DCCP_REQUEST]	= 2 * DCCP_MSL,
--	[CT_DCCP_RESPOND]	= 4 * DCCP_MSL,
--	[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL,
--	[CT_DCCP_OPEN]		= 12 * 3600 * HZ,
--	[CT_DCCP_CLOSEREQ]	= 64 * HZ,
--	[CT_DCCP_CLOSING]	= 64 * HZ,
--	[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL,
+-static unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX] __read_mostly = {
+-	[SCTP_CONNTRACK_CLOSED]			= 10 SECS,
+-	[SCTP_CONNTRACK_COOKIE_WAIT]		= 3 SECS,
+-	[SCTP_CONNTRACK_COOKIE_ECHOED]		= 3 SECS,
+-	[SCTP_CONNTRACK_ESTABLISHED]		= 5 DAYS,
+-	[SCTP_CONNTRACK_SHUTDOWN_SENT]		= 300 SECS / 1000,
+-	[SCTP_CONNTRACK_SHUTDOWN_RECD]		= 300 SECS / 1000,
+-	[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT]	= 3 SECS,
 -};
 -
- static const char * const dccp_state_names[] = {
- 	[CT_DCCP_NONE]		= "NONE",
- 	[CT_DCCP_REQUEST]	= "REQUEST",
-@@ -393,6 +384,22 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][D
- 	},
+ #define sNO SCTP_CONNTRACK_NONE
+ #define	sCL SCTP_CONNTRACK_CLOSED
+ #define	sCW SCTP_CONNTRACK_COOKIE_WAIT
+@@ -130,6 +123,25 @@ static const u8 sctp_conntracks[2][9][SC
+ 	}
  };
  
 +/* this module per-net specifics */
-+static int dccp_net_id;
-+struct dccp_net {
-+	int dccp_loose;
-+	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
++static int sctp_net_id;
++struct sctp_net {
++	unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX];
 +#ifdef CONFIG_SYSCTL
 +	struct ctl_table_header *sysctl_header;
 +	struct ctl_table *sysctl_table;
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	struct ctl_table_header *compat_sysctl_header;
++	struct ctl_table *compat_sysctl_table;
++#endif
 +#endif
 +};
 +
-+static inline struct dccp_net *dccp_pernet(struct net *net)
++static inline struct sctp_net *sctp_pernet(struct net *net)
 +{
-+	return net_generic(net, dccp_net_id);
++	return net_generic(net, sctp_net_id);
 +}
 +
- static bool dccp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+ static bool sctp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
  			      struct nf_conntrack_tuple *tuple)
  {
-@@ -419,6 +426,7 @@ static bool dccp_new(struct nf_conn *ct,
- 		     unsigned int dataoff)
- {
- 	struct net *net = nf_ct_net(ct);
-+	struct dccp_net *dn;
- 	struct dccp_hdr _dh, *dh;
- 	const char *msg;
- 	u_int8_t state;
-@@ -429,7 +437,8 @@ static bool dccp_new(struct nf_conn *ct,
- 	state = dccp_state_table[CT_DCCP_ROLE_CLIENT][dh->dccph_type][CT_DCCP_NONE];
- 	switch (state) {
- 	default:
--		if (nf_ct_dccp_loose == 0) {
-+		dn = dccp_pernet(net);
-+		if (dn->dccp_loose == 0) {
- 			msg = "nf_ct_dccp: not picking up existing connection ";
- 			goto out_invalid;
- 		}
-@@ -465,6 +474,7 @@ static int dccp_packet(struct nf_conn *c
- 		       u_int8_t pf, unsigned int hooknum)
- {
- 	struct net *net = nf_ct_net(ct);
-+	struct dccp_net *dn;
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
- 	struct dccp_hdr _dh, *dh;
- 	u_int8_t type, old_state, new_state;
-@@ -542,7 +552,9 @@ static int dccp_packet(struct nf_conn *c
- 	ct->proto.dccp.last_pkt = type;
- 	ct->proto.dccp.state = new_state;
- 	write_unlock_bh(&dccp_lock);
--	nf_ct_refresh_acct(ct, ctinfo, skb, dccp_timeout[new_state]);
-+
-+	dn = dccp_pernet(net);
-+	nf_ct_refresh_acct(ct, ctinfo, skb, dn->dccp_timeout[new_state]);
+@@ -297,6 +309,7 @@ static int sctp_packet(struct nf_conn *c
+ 	const struct sctp_chunkhdr *sch;
+ 	struct sctp_chunkhdr _sch;
+ 	u_int32_t offset, count;
++	struct sctp_net *sn;
+ 	unsigned long map[256 / sizeof(unsigned long)] = { 0 };
  
- 	return NF_ACCEPT;
- }
-@@ -660,13 +672,11 @@ static int nlattr_to_dccp(struct nlattr 
+ 	sh = skb_header_pointer(skb, dataoff, sizeof(_sctph), &_sctph);
+@@ -373,7 +386,8 @@ static int sctp_packet(struct nf_conn *c
+ 	}
+ 	write_unlock_bh(&sctp_lock);
+ 
+-	nf_ct_refresh_acct(ct, ctinfo, skb, sctp_timeouts[new_state]);
++	sn = sctp_pernet(nf_ct_net(ct));
++	nf_ct_refresh_acct(ct, ctinfo, skb, sn->sctp_timeouts[new_state]);
+ 
+ 	if (old_state == SCTP_CONNTRACK_COOKIE_ECHOED &&
+ 	    dir == IP_CT_DIR_REPLY &&
+@@ -540,54 +554,46 @@ static int nlattr_to_sctp(struct nlattr 
  #endif
  
  #ifdef CONFIG_SYSCTL
--static unsigned int dccp_sysctl_table_users;
--static struct ctl_table_header *dccp_sysctl_header;
--static ctl_table dccp_sysctl_table[] = {
-+/* template, data assigned later */
-+static struct ctl_table dccp_sysctl_table[] = {
+-static unsigned int sctp_sysctl_table_users;
+-static struct ctl_table_header *sctp_sysctl_header;
++/* templates, data assigned later */
+ static struct ctl_table sctp_sysctl_table[] = {
  	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_request",
--		.data		= &dccp_timeout[CT_DCCP_REQUEST],
+ 		.procname	= "nf_conntrack_sctp_timeout_closed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_CLOSED],
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec_jiffies,
-@@ -674,7 +684,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_respond",
--		.data		= &dccp_timeout[CT_DCCP_RESPOND],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -682,7 +691,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_partopen",
--		.data		= &dccp_timeout[CT_DCCP_PARTOPEN],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -690,7 +698,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_open",
--		.data		= &dccp_timeout[CT_DCCP_OPEN],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -698,7 +705,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_closereq",
--		.data		= &dccp_timeout[CT_DCCP_CLOSEREQ],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -706,7 +712,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_closing",
--		.data		= &dccp_timeout[CT_DCCP_CLOSING],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -714,7 +719,6 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_timeout_timewait",
--		.data		= &dccp_timeout[CT_DCCP_TIMEWAIT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -722,8 +726,7 @@ static ctl_table dccp_sysctl_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "nf_conntrack_dccp_loose",
--		.data		= &nf_ct_dccp_loose,
--		.maxlen		= sizeof(nf_ct_dccp_loose),
-+		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
  	},
-@@ -751,11 +754,6 @@ static struct nf_conntrack_l4proto dccp_
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_cookie_wait",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_cookie_echoed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_established",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_shutdown_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_shutdown_recd",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_shutdown_ack_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -601,49 +607,42 @@ static struct ctl_table sctp_sysctl_tabl
+ static struct ctl_table sctp_compat_sysctl_table[] = {
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_closed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_CLOSED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_cookie_wait",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_cookie_echoed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_established",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_shutdown_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_shutdown_recd",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_shutdown_ack_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -653,7 +652,7 @@ static struct ctl_table sctp_compat_sysc
+ 	}
+ };
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+-#endif
++#endif /* CONFIG_SYSCTL */
+ 
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	.l3proto		= PF_INET,
+@@ -673,14 +672,6 @@ static struct nf_conntrack_l4proto nf_co
  	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
  	.nla_policy		= nf_ct_port_nla_policy,
  #endif
 -#ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &dccp_sysctl_table_users,
--	.ctl_table_header	= &dccp_sysctl_header,
--	.ctl_table		= dccp_sysctl_table,
+-	.ctl_table_users	= &sctp_sysctl_table_users,
+-	.ctl_table_header	= &sctp_sysctl_header,
+-	.ctl_table		= sctp_sysctl_table,
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	.ctl_compat_table	= sctp_compat_sysctl_table,
+-#endif
 -#endif
  };
  
- static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
-@@ -776,34 +774,107 @@ static struct nf_conntrack_l4proto dccp_
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+@@ -701,21 +692,133 @@ static struct nf_conntrack_l4proto nf_co
  	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
  	.nla_policy		= nf_ct_port_nla_policy,
  #endif
 +};
 +
-+static __net_init int dccp_net_init(struct net *net)
++static __net_init int sctp_net_init(struct net *net)
 +{
-+	struct dccp_net *dn;
++	struct sctp_net *sn;
 +	int err;
 +
-+	dn = kmalloc(sizeof(*dn), GFP_KERNEL);
-+	if (!dn)
++	sn = kmalloc(sizeof(*sn), GFP_KERNEL);
++	if (!sn)
 +		return -ENOMEM;
 +
 +	/* default values */
-+	dn->dccp_loose = 1;
-+	dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
-+	dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
-+	dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
-+	dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
-+	dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
-+	dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
-+	dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
++	sn->sctp_timeouts[SCTP_CONNTRACK_CLOSED]	= 10 SECS;
++	sn->sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT]	= 3 SECS;
++	sn->sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED]	= 3 SECS;
++	sn->sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED]	= 5 DAYS;
++	sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT]	= 300 SECS / 1000;
++	sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD]	= 300 SECS / 1000;
++	sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT] = 3 SECS;
 +
-+	err = net_assign_generic(net, dccp_net_id, dn);
++	err = net_assign_generic(net, sctp_net_id, sn);
 +	if (err)
 +		goto out;
 +
  #ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &dccp_sysctl_table_users,
--	.ctl_table_header	= &dccp_sysctl_header,
--	.ctl_table		= dccp_sysctl_table,
+-	.ctl_table_users	= &sctp_sysctl_table_users,
+-	.ctl_table_header	= &sctp_sysctl_header,
+-	.ctl_table		= sctp_sysctl_table,
 +	err = -ENOMEM;
-+	dn->sysctl_table = kmemdup(dccp_sysctl_table,
-+			sizeof(dccp_sysctl_table), GFP_KERNEL);
-+	if (!dn->sysctl_table)
++	sn->sysctl_table = kmemdup(sctp_sysctl_table,
++			sizeof(sctp_sysctl_table), GFP_KERNEL);
++	if (!sn->sysctl_table)
 +		goto out;
 +
-+	dn->sysctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
-+	dn->sysctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
-+	dn->sysctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
-+	dn->sysctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
-+	dn->sysctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
-+	dn->sysctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
-+	dn->sysctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
-+	dn->sysctl_table[7].data = &dn->dccp_loose;
++#define ___PERNET_TO_DAT(i, j) \
++	sn->sysctl_table[i].data = &sn->sctp_timeouts[j]
 +
-+	dn->sysctl_header = register_net_sysctl_table(net,
-+			nf_net_netfilter_sysctl_path, dn->sysctl_table);
-+	if (!dn->sysctl_header) {
-+		kfree(dn->sysctl_table);
-+		goto out;
-+	}
- #endif
++	___PERNET_TO_DAT(0, SCTP_CONNTRACK_CLOSED);
++	___PERNET_TO_DAT(1, SCTP_CONNTRACK_COOKIE_WAIT);
++	___PERNET_TO_DAT(2, SCTP_CONNTRACK_COOKIE_ECHOED);
++	___PERNET_TO_DAT(3, SCTP_CONNTRACK_ESTABLISHED);
++	___PERNET_TO_DAT(4, SCTP_CONNTRACK_SHUTDOWN_SENT);
++	___PERNET_TO_DAT(5, SCTP_CONNTRACK_SHUTDOWN_RECD);
++	___PERNET_TO_DAT(6, SCTP_CONNTRACK_SHUTDOWN_ACK_SENT);
++
++#undef ___PERNET_TO_DAT
++
++	sn->sysctl_header = register_net_sysctl_table(net,
++			nf_net_netfilter_sysctl_path, sn->sysctl_table);
++	if (!sn->sysctl_header)
++		goto out_free;
++
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	sn->compat_sysctl_table = kmemdup(sctp_compat_sysctl_table,
++			sizeof(sctp_compat_sysctl_table), GFP_KERNEL);
++	if (!sn->compat_sysctl_table)
++		goto out_sysctl;
++
++#define ___PERNET_TO_DAT(i, j) \
++	sn->compat_sysctl_table[i].data = &sn->sctp_timeouts[j]
++
++	___PERNET_TO_DAT(0, SCTP_CONNTRACK_CLOSED);
++	___PERNET_TO_DAT(1, SCTP_CONNTRACK_COOKIE_WAIT);
++	___PERNET_TO_DAT(2, SCTP_CONNTRACK_COOKIE_ECHOED);
++	___PERNET_TO_DAT(3, SCTP_CONNTRACK_ESTABLISHED);
++	___PERNET_TO_DAT(4, SCTP_CONNTRACK_SHUTDOWN_SENT);
++	___PERNET_TO_DAT(5, SCTP_CONNTRACK_SHUTDOWN_RECD);
++	___PERNET_TO_DAT(6, SCTP_CONNTRACK_SHUTDOWN_ACK_SENT);
++
++#undef ___PERNET_TO_DAT
++
++	sn->compat_sysctl_header = register_net_sysctl_table(net,
++			nf_net_ipv4_netfilter_sysctl_path, sn->compat_sysctl_table);
++	if (!sn->compat_sysctl_header)
++		goto out_free_compat;
++#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
++#endif /* CONFIG_SYSCTL */
 +
 +	return 0;
 +
++#ifdef CONFIG_SYSCTL
++
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++out_free_compat:
++	kfree(sn->compat_sysctl_table);
++#endif
++out_sysctl:
++	unregister_net_sysctl_table(sn->sysctl_header);
++out_free:
++	kfree(sn->sysctl_table);
++#endif
++
 +out:
-+	kfree(dn);
++	kfree(sn);
 +	return err;
 +}
 +
-+static __net_exit void dccp_net_exit(struct net *net)
++static __net_exit void sctp_net_exit(struct net *net)
 +{
-+	struct dccp_net *dn = dccp_pernet(net);
++	struct sctp_net *sn = sctp_pernet(net);
 +#ifdef CONFIG_SYSCTL
-+	unregister_net_sysctl_table(dn->sysctl_header);
-+	kfree(dn->sysctl_table);
++	unregister_net_sysctl_table(sn->sysctl_header);
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	unregister_net_sysctl_table(sn->compat_sysctl_header);
++	kfree(sn->compat_sysctl_table);
 +#endif
-+	kfree(dn);
++	kfree(sn->sysctl_table);
+ #endif
++	kfree(sn);
 +
-+	net_assign_generic(net, dccp_net_id, NULL);
++	net_assign_generic(net, sctp_net_id, NULL);
 +}
 +
-+static struct pernet_operations dccp_net_ops = {
-+	.init = dccp_net_init,
-+	.exit = dccp_net_exit,
++static struct pernet_operations sctp_net_ops = {
++	.init = sctp_net_init,
++	.exit = sctp_net_exit,
  };
  
- static int __init nf_conntrack_proto_dccp_init(void)
+ static int __init nf_conntrack_proto_sctp_init(void)
  {
- 	int err;
+ 	int ret;
  
--	err = nf_conntrack_l4proto_register(&dccp_proto4);
-+	err = register_pernet_gen_subsys(&dccp_net_id, &dccp_net_ops);
- 	if (err < 0)
- 		goto err1;
- 
--	err = nf_conntrack_l4proto_register(&dccp_proto6);
-+	err = nf_conntrack_l4proto_register(&dccp_proto4);
- 	if (err < 0)
- 		goto err2;
++	ret = register_pernet_gen_subsys(&sctp_net_id, &sctp_net_ops);
++	if (ret < 0)
++		goto out;
 +
-+	err = nf_conntrack_l4proto_register(&dccp_proto6);
-+	if (err < 0)
-+		goto err3;
- 	return 0;
+ 	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_sctp4);
+ 	if (ret) {
+ 		printk("nf_conntrack_l4proto_sctp4: protocol register failed\n");
+-		goto out;
++		goto cleanup_net;
+ 	}
+ 	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_sctp6);
+ 	if (ret) {
+@@ -727,12 +830,15 @@ static int __init nf_conntrack_proto_sct
  
--err2:
-+err3:
- 	nf_conntrack_l4proto_unregister(&dccp_proto4);
-+err2:
-+	unregister_pernet_gen_subsys(dccp_net_id, &dccp_net_ops);
- err1:
- 	return err;
+  cleanup_sctp4:
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_sctp4);
++ cleanup_net:
++	unregister_pernet_gen_subsys(sctp_net_id, &sctp_net_ops);
+  out:
+ 	return ret;
  }
  
- static void __exit nf_conntrack_proto_dccp_fini(void)
+ static void __exit nf_conntrack_proto_sctp_fini(void)
  {
-+	unregister_pernet_gen_subsys(dccp_net_id, &dccp_net_ops);
- 	nf_conntrack_l4proto_unregister(&dccp_proto6);
- 	nf_conntrack_l4proto_unregister(&dccp_proto4);
++	unregister_pernet_gen_subsys(sctp_net_id, &sctp_net_ops);
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_sctp6);
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_sctp4);
  }
 
