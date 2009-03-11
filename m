@@ -1,52 +1,49 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Wed, 11 Mar 2009 09:57:21 +0100
-Message-ID: <20090311085721.GV425@pengutronix.de>
-References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <20090311084430.GU425@pengutronix.de> <20090311.014957.117115597.davem@davemloft.net>
+From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Wed, 11 Mar 2009 11:02:31 +0200
+Message-ID: <200903111102.31599.remi.denis-courmont@nokia.com>
+References: <20090309112521.GB37984@bts.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, yanok@emcraft.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	wd@denx.de, dzu@denx.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: ext Marian =?utf-8?q?=C4=8Eurkovi=C4=8D?= <md@bts.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33977 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947AbZCKI52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:57:28 -0400
+Received: from smtp.nokia.com ([192.100.122.233]:39704 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751627AbZCKJCe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 05:02:34 -0400
+In-Reply-To: <20090309112521.GB37984@bts.sk>
 Content-Disposition: inline
-In-Reply-To: <20090311.014957.117115597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2009 at 01:49:57AM -0700, David Miller wrote:
-> From: Sascha Hauer <s.hauer@pengutronix.de>
-> Date: Wed, 11 Mar 2009 09:44:30 +0100
-> 
-> > On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
-> > > Do you still need this? Only works with one board, configuration via
-> > > module parameters is discouraged.  Same effect can be done by setting
-> > > mac address with regular tools.
-> > 
-> > Except for root over nfs. Ok, the answer to this is usually 'use
-> > initrd', but this is still a pita on embedded systems.
-> 
-> Please remove this code.  If we let you do it, we have to let everyone
-> else do it too, and that's something we don't want to do.
-> 
-> There are other ways you can handle this, for example have your board
-> firmware properly program the MAC address into the card at power-on,
-> and then have the driver here look in the MAC address registers to see
-> if a valid ethernet address has been left there.
+On Monday 09 March 2009 13:25:21 ext Marian =C4=8Eurkovi=C4=8D wrote:
+>   The behaviour could be descibed as "spiraling death" syndrome. Whil=
+e
+> TCP with constant and decently sized rx window natively reduces
+> transmission rate when RTT increases, autotuning performs exactly the
+> opposite - as a response to increased RTT it increases the rx window =
+size
+> (which in turn again increases RTT...) As this happens again and agai=
+n, the
+> result is complete waste of all available buffers at sending host or =
+at the
+> bottleneck point, resulting in upto 267 msec (!) latency in LAN conte=
+xt
+> (with 100 Mbps ethernet connection, default txqueuelen=3D1000, MTU=3D=
+1500 and
+> sky2 driver). Needles to say that this means the LAN is almost unusab=
+le.
 
-Cool, that's how I do it on many boards I have, but I always had the
-feeling I was flying under the radar with it.
+This is very likely a stupid question, but anyway...
 
-Sascha
+Is this with all applications, or only some pathological ones (one of w=
+hich we=20
+both wrote code for, alright) with abnormally large send buffers?
 
+--=20
+R=C3=A9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
