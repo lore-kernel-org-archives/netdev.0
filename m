@@ -1,88 +1,51 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell 88E609x switch?
-Date: Wed, 11 Mar 2009 16:12:08 +0100
-Message-ID: <20090311151208.GF4738@xi.wantstofly.org>
-References: <49AD1C81.1020106@mlbassoc.com> <1236083560.30736.114.camel@localhost.localdomain> <49AD2FE1.60305@mlbassoc.com> <49AD30F7.4080006@mlbassoc.com> <49ADA697.3050400@mlbassoc.com> <49B145FF.5060208@mlbassoc.com> <20090310102805.GO4738@xi.wantstofly.org> <49B64CF5.9090508@mlbassoc.com> <20090310133635.GS4738@xi.wantstofly.org> <49B6831A.4080506@mlbassoc.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Wed, 11 Mar 2009 08:34:23 -0700
+Message-ID: <1e41a3230903110834k7fd0e48clfb01e9ec5a189f1@mail.gmail.com>
+References: <20090309200505.GA58375@bts.sk>
+	 <20090309.170927.130334650.davem@davemloft.net>
+	 <87bps8fkaw.fsf@basil.nowhere.org>
+	 <20090311.063058.236235660.davem@davemloft.net>
+	 <20090311150149.GG11935@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jdb@comx.dk, Jesper Dangaard Brouer <hawk@diku.dk>,
-	netdev <netdev@vger.kernel.org>
-To: Gary Thomas <gary@mlbassoc.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, md@bts.sk,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:48303 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683AbZCKPML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 11:12:11 -0400
-Content-Disposition: inline
-In-Reply-To: <49B6831A.4080506@mlbassoc.com>
+Received: from qw-out-2122.google.com ([74.125.92.27]:17517 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752148AbZCKPe1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 11:34:27 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so57723qwi.37
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2009 08:34:24 -0700 (PDT)
+In-Reply-To: <20090311150149.GG11935@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2009 at 09:11:22AM -0600, Gary Thomas wrote:
+On Wed, Mar 11, 2009 at 8:01 AM, Andi Kleen <andi@firstfloor.org> wrote:
+> On Wed, Mar 11, 2009 at 06:30:58AM -0700, David Miller wrote:
+>> From: Andi Kleen <andi@firstfloor.org>
+>> Date: Wed, 11 Mar 2009 11:03:35 +0100
+>>
+>> > Perhaps this points to the default buffer sizing heuristics to
+>> > be too aggressive for >= 1GB?
+>>
+>> It's necessary Andi, you can't fill a connection on a trans-
+>> continental connection without at least a 4MB receive buffer.
+>
+> Seems pretty arbitary to me. It's the value for a given bandwidth*latency
+> product, but why not half or twice the bandwidth? I don't think
+> that number is written in stone like you claim.
 
-> >> For my particular setup, there are two cases (on the same
-> >> board):
-> >>   Switch 1 - ports 1..8
-> >>   Switch 2 - ports 9..16
-> >>     Switch 3 - ports 17..24 (cascaded off of Switch 2)
-> >> Thus, the only access to Switch 3 and its ports is indirect via
-> >> Switch 2.
-> >>
-> >> Presumably, one could have a multiple cascade, so this structure
-> >> should be considered from the start.
-> > 
-> > Switch 1 can correspond to its own DSA platform device as it is now.
-> > 
-> > And for switch 2/3 you'd then have something a la:
-> > 
-> > 
-> > struct dsa_switch_data switches[] = {
-> > 	{
-> > 		.mii_bus = &blah,
-> > 		.sw_addr = 2,
-> > 		.port_names[0] = "p9",
-> > 		.port_names[1] = "p10",
-> > 		.port_names[2] = "p11",
-> > 		.port_names[3] = "p12",
-> > 		.port_names[4] = "p13",
-> > 		.port_names[5] = "p14",
-> > 		.port_names[6] = "p15",
-> > 		.port_names[7] = "p16",
-> > 		.port_names[9] = "dsa",
-> > 		.port_names[10] = "cpu",
-> > 	}, {
-> > 		.mii_bus = &blah,
-> > 		.sw_addr = 3,
-> > 		.port_names[0] = "p17",
-> > 		.port_names[1] = "p18",
-> > 		.port_names[2] = "p19",
-> > 		.port_names[3] = "p20",
-> > 		.port_names[4] = "p21",
-> > 		.port_names[5] = "p22",
-> > 		.port_names[6] = "p23",
-> > 		.port_names[7] = "p24",
-> > 		.port_names[9] = "dsa",
-> > 	},
-> > };
-> > 
-> > struct dsa_platform_data switch23 = {
-> > 	.netdev = &blah,
-> > 	.nr_switches = 2,
-> > 	.sw = switches,
-> > 	.rtable = {
-> > 		{ -1,  9 },
-> > 		{  9, -1 },
-> > 	},
-> > };
-> > 
-> > Or something along those lines.
-> > 
-> > Thoughts?
-> 
-> The setup looks good.  Let me know when you have the rest of
-> the patch ready to test (I'm all setup here)
+It is of course just a number, though not exactly arbitrary -- it's
+approximately the required value for transcontinental 100 Mbps paths.
+Choosing the value is a matter of engineering trade-offs, and seemed
+like a reasonable cap at this time.
 
-OK, I hit a snag with my initial implementation (we can't put an array
-of dsa_switch in dsa_switch_tree as dsa_switch has driver-private data
-at the end, making it variable length), but I should hopefully have a
-patch by day end.
+Any cap so much lower that it would give a small bound for LAN
+latencies would bring us back to the bad old days where you couldn't
+get anything more than 10 Mbps on the wide area.
+
+  -John
