@@ -1,59 +1,59 @@
-From: Marian =?utf-8?B?xI51cmtvdmnEjQ==?= <md@bts.sk>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Wed, 11 Mar 2009 10:05:46 +0100
-Message-ID: <20090311090546.GA22086@bts.sk>
-References: <20090310160040.GA93054@bts.sk> <20090310.091816.178102814.davem@davemloft.net> <20090311082920.GA20543@bts.sk> <20090311.014103.163410266.davem@davemloft.net>
+From: Wolfgang Denk <wd@denx.de>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Wed, 11 Mar 2009 10:09:38 +0100
+Message-ID: <20090311090938.E7BF7832E8B8@gemini.denx.de>
+References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <20090311084430.GU425@pengutronix.de> <20090311.014957.117115597.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: shemminger@vyatta.com, yanok@emcraft.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	dzu@denx.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from saus.bts.sk ([194.160.23.4]:60976 "EHLO saus.bts.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752530AbZCKJFt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2009 05:05:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20090311.014103.163410266.davem@davemloft.net>
+Received: from mail-out.m-online.net ([212.18.0.9]:52465 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751803AbZCKJJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 05:09:44 -0400
+In-reply-to: <20090311085721.GV425@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Let me clue you in about something you may not be aware of.
+Dear David,
+
+on Wed, Mar 11, 2009 at 01:49:57AM -0700, David Miller wrote:
+> From: Sascha Hauer <s.hauer@pengutronix.de>
+> Date: Wed, 11 Mar 2009 09:44:30 +0100
 > 
-> If you don't auto-tune and let the RX socket buffer increase up
-> to a few megabytes, you cannot fully utilize the link on real
-> trans-continental connections people are using over the internet
-> today.
+> > On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
+> > > Do you still need this? Only works with one board, configuration via
+> > > module parameters is discouraged.  Same effect can be done by setting
+> > > mac address with regular tools.
+> > 
+> > Except for root over nfs. Ok, the answer to this is usually 'use
+> > initrd', but this is still a pita on embedded systems.
 > 
-> So your suggestion would be a huge step backwards.
+> Please remove this code.  If we let you do it, we have to let everyone
+> else do it too, and that's something we don't want to do.
+> 
+> There are other ways you can handle this, for example have your board
+> firmware properly program the MAC address into the card at power-on,
+> and then have the driver here look in the MAC address registers to see
+> if a valid ethernet address has been left there.
 
-Are you kidding or treating anyone else but you a complete idiot?
-I never said autotuning should be disabled !
+How do you then handle situations where this is impossible? Say, when
+the firmware cannot write to those registers for example because  the
+ethernet  controller is not even powered on (to reduce power consump-
+tion), but will get powered on only in Linux  when  the  driver  gets
+loaded (i. e. on demand only, not always)?
 
-What I proposed is to limit the maximum autotuned buffer size to:
- 
-NIC full bandwidth * RTT measured during initial phase of TCP connection
+Best regards,
 
-This would for 100 Mbps connection become:
+Wolfgang Denk
 
-at RTT 5 msec 64 kB
-at RTT 50 msec 640 kB
-at RTT 200 msec 2,56 MB
-
-With 1 Gbps connection this will become:
-
-at RTT 5 msec 640 kB
-at RTT 50 msec 6,4 MB
-at RTT 200 msec 25,6 MB (if your hardlimit is that big).
-
-In fact this will IMHO work much better than today, since you'll be able
-to use even larger hardlimits (not 4 MB but e.g. 16 MB if you wish) and
-still be protected from overflowing all buffers at your LAN or any other
-low RTT paths.
-
-> So the world is much bigger than your little university where you've
-> decided to oversubscribe your network, and there are many other issues
-> to consider besides your specific localized problem.
-
-Please spare such junk for yourself and please start talking about technical
-matters.
-
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+"If God had wanted us to use the metric system, Jesus would have  had
+10 apostles."
