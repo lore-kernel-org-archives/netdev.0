@@ -1,42 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] tcp: allow timestamps even if SYN packet has tsval=0
-Date: Wed, 11 Mar 2009 09:24:25 -0700 (PDT)
-Message-ID: <20090311.092425.203553937.davem@davemloft.net>
-References: <49B7ABF2.5040803@cosmosbay.com>
-	<20090311.064710.255854254.davem@davemloft.net>
-	<49B7D1F2.5090504@cosmosbay.com>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-02-23
+Date: Wed, 11 Mar 2009 09:27:16 -0700
+Message-ID: <43e72e890903110927i2ef8012dn86e0e72fb048aea3@mail.gmail.com>
+References: <20090223192659.GB3553@tuxdriver.com>
+	 <1235457113.4455.89.camel@johannes.local>
+	 <20090224.235510.30497146.davem@davemloft.net>
+	 <1235637360.29050.16.camel@johannes.local>
+	 <20090226161340.GA4430@tuxdriver.com>
+	 <1235698640.4936.6.camel@johannes.local>
+	 <43e72e890902261918p47e45b14i7528dd0f40685879@mail.gmail.com>
+	 <1236772199.20266.3.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57301
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751282AbZCKQYj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 12:24:39 -0400
-In-Reply-To: <49B7D1F2.5090504@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1236772199.20266.3.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 11 Mar 2009 16:00:02 +0100
+On Wed, Mar 11, 2009 at 4:49 AM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Thu, 2009-02-26 at 19:18 -0800, Luis R. Rodriguez wrote:
+>
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_lock(&cfg80211_mtx)
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_lock()
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_unlock()
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_unlock(&cfg80211_mtx)
+>> >
+>> > to
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_lock()
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_lock(&cfg80211_mtx)
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0mutex_unlock(&cfg80211_mtx)
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0rtnl_unlock()
+>> >
+>> > everywhere.
+>>
+>> Sure, I'll give it a shot tomorrow unless someone else gets to it fi=
+rst.
+>
+> Did you get a chance to look at this? Otherwise I'll just do it later
+> today.
 
-> [PATCH] tcp: allow timestamps even if SYN packet has tsval=0
-> 
-> Some systems send SYN packets with apparently wrong RFC1323 timestamp
-> option values [timestamp tsval=0 tsecr=0].
-> It might be for security reasons (http://www.secuobs.com/plugs/25220.shtml )
-> 
-> Linux TCP stack ignores this option and sends back a SYN+ACK packet
-> without timestamp option, thus many TCP flows cannot use timestamps
-> and lose some benefit of RFC1323.
-> 
-> Other operating systems seem to not care about initial tsval value, and let
-> tcp flows to negotiate timestamp option.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Unfortunately not, please do.
 
-And amusingly even Linux didn't care for ipv6 TCP sockets ;-)
-
-Applied to net-next-2.6, thanks Eric.
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
