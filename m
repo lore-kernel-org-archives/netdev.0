@@ -1,77 +1,85 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [RFC] tcp: allow timestamps even if SYN packet has tsval=0
-Date: Wed, 11 Mar 2009 13:17:54 +0100
-Message-ID: <49B7ABF2.5040803@cosmosbay.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: pull request: wireless-next-2.6 2009-02-23
+Date: Wed, 11 Mar 2009 12:49:59 +0100
+Message-ID: <1236772199.20266.3.camel@johannes.local>
+References: <20090223192659.GB3553@tuxdriver.com>
+	 <1235457113.4455.89.camel@johannes.local>
+	 <20090224.235510.30497146.davem@davemloft.net>
+	 <1235637360.29050.16.camel@johannes.local>
+	 <20090226161340.GA4430@tuxdriver.com>
+	 <1235698640.4936.6.camel@johannes.local>
+	 <43e72e890902261918p47e45b14i7528dd0f40685879@mail.gmail.com>
+	 (sfid-20090227_041853_694385_298BD1F3)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	"David S. Miller" <davem@davemloft.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-jnMYH6G+MhzIszErd/8+"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:53841 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754285AbZCKMSI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 08:18:08 -0400
+Received: from xc.sipsolutions.net ([83.246.72.84]:58541 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbZCKMj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 08:39:58 -0400
+In-Reply-To: <43e72e890902261918p47e45b14i7528dd0f40685879@mail.gmail.com> (sfid-20090227_041853_694385_298BD1F3)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Windows XP platforms, with RFC1323 enabled, send a SYN packet with NULL tsval.
 
-12:56:56.989615 IP 192.168.4.20.3554 > 192.168.20.110.ssh: S 2907491202:2907491202(0) win 64512 <mss 1460,nop,wscale 0,nop,nop,timestamp 0 0,nop,nop,sackOK>
+--=-jnMYH6G+MhzIszErd/8+
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-linux tcp stack correctly implements RFC1323 and ignores this timestamp option, sending
-a SYN+ACK answer without timestamp option.
+On Thu, 2009-02-26 at 19:18 -0800, Luis R. Rodriguez wrote:
 
-I was wondering what could happen if I patch linux to accept this RFC violation, in
-hope to get timestamps on TCP flows to customers (slow and congestioned links, but long living tcp sessions)
+> >        mutex_lock(&cfg80211_mtx)
+> >        ...
+> >        rtnl_lock()
+> >        ...
+> >        rtnl_unlock()
+> >        ...
+> >        mutex_unlock(&cfg80211_mtx)
+> >
+> > to
+> >
+> >        rtnl_lock()
+> >        ...
+> >        mutex_lock(&cfg80211_mtx)
+> >        ...
+> >        mutex_unlock(&cfg80211_mtx)
+> >        ...
+> >        rtnl_unlock()
+> >
+> > everywhere.
+>=20
+> Sure, I'll give it a shot tomorrow unless someone else gets to it first.
 
-I got :
+Did you get a chance to look at this? Otherwise I'll just do it later
+today.
 
-12:58:01.266978 IP 192.168.4.20.3579 > 192.168.20.110.ssh: S 1532083461:1532083461(0) win 64512 <mss 1460,nop,wscale 0,nop,nop,timestamp 0 0,nop,nop,sackOK>
-12:58:01.267015 IP 192.168.20.110.ssh > 192.168.4.20.3579: S 3467339386:3467339386(0) ack 1532083462 win 5792 <mss 1460,nop,nop,timestamp 4294950269 0,nop,wscale 6>
-12:58:01.268968 IP 192.168.4.20.3579 > 192.168.20.110.ssh: . ack 1 win 64512 <nop,nop,timestamp 60498 4294950269>
-12:58:01.276664 IP 192.168.20.110.ssh > 192.168.4.20.3579: P 1:24(23) ack 1 win 91 <nop,nop,timestamp 4294950279 60498>
-12:58:01.288914 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 1:29(28) ack 24 win 64489 <nop,nop,timestamp 60498 4294950279>
-12:58:01.288966 IP 192.168.20.110.ssh > 192.168.4.20.3579: . ack 29 win 91 <nop,nop,timestamp 4294950291 60498>
-12:58:01.289266 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 29:541(512) ack 24 win 64489 <nop,nop,timestamp 60498 4294950279>
-12:58:01.289278 IP 192.168.20.110.ssh > 192.168.4.20.3579: . ack 541 win 108 <nop,nop,timestamp 4294950292 60498>
-12:58:01.289283 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 541:645(104) ack 24 win 64489 <nop,nop,timestamp 60498 4294950279>
-12:58:01.289290 IP 192.168.20.110.ssh > 192.168.4.20.3579: . ack 645 win 108 <nop,nop,timestamp 4294950292 60498>
-12:58:01.290007 IP 192.168.20.110.ssh > 192.168.4.20.3579: P 24:664(640) ack 645 win 108 <nop,nop,timestamp 4294950292 60498>
-12:58:01.294770 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 645:661(16) ack 664 win 63849 <nop,nop,timestamp 60498 4294950292>
-12:58:01.297546 IP 192.168.20.110.ssh > 192.168.4.20.3579: P 664:944(280) ack 661 win 108 <nop,nop,timestamp 4294950300 60498>
-12:58:01.331144 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 661:933(272) ack 944 win 63569 <nop,nop,timestamp 60499 4294950300>
-12:58:01.350655 IP 192.168.20.110.ssh > 192.168.4.20.3579: P 944:1536(592) ack 933 win 124 <nop,nop,timestamp 4294950353 60499>
-12:58:01.384974 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 933:949(16) ack 1536 win 64512 <nop,nop,timestamp 60499 4294950353>
-12:58:01.385002 IP 192.168.4.20.3579 > 192.168.20.110.ssh: P 949:1001(52) ack 1536 win 64512 <nop,nop,timestamp 60499 4294950353>
+johannes
 
+--=-jnMYH6G+MhzIszErd/8+
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-So apparently WindowsXP sends a NULL tsval in SYN packet, then subsequent packets get a real value (60498) in this case.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-This seems to work on other OS as well, so is the following patch considered evil ?
-Do we have security concerns or only risking windows client to have slightly wrong rtt estimation
-at the begining of the tcp session ?
+iQIcBAABAgAGBQJJt6VkAAoJEKVg1VMiehFYLvEP/A/D27QVo38BoZx2ls0NBiOR
+CUHzXIOKnUAMOA1Wx/Qe+X+mK+zjx3PqM5aSa0A/qrfuYBXajm5gFJt9N/OLQY1w
+diJ5f7gC+H53ezgZRU8MmFdack6Zpt4qbGBYZDp/MHTtWF/fYYO/AsvuRfOQZMAo
+1F5SzyX+u8kVW8Eom2hWV8X+68gVKCNVVsq9FI886ABsXDqYFiQ4mfTV/uQm6ojO
+/Uwnry/sS/EkR2wmrBddr5gQ+Cz7n6luVWnA71zgQTld+dho0iq73iuF1odO8ftb
+olA+KpS1oT2sQygBUbT/5uAT+KF+gGlSzTpp8LEgqsxyIVfESfUUSUGRBb+tFLFf
+ib+jJHCtKQXC3UsBOhe9WntgfCBGpwJcrDQktzz9vmCv+qDXOcbFl2iJwoNj26nc
+RRhA9buIY9vSuduSafq3YSHtswAWKul0aw+6mk/sOXndApe+A/Sn4wAgNAMpabhW
+K20ZbDhQsxOh4Ay9U7szKnYQx8xW8wOB8WV4eOqcz6cWsXDzMuMnncXkr1JDUMgL
+QPeDVEfleg1hesJXVQ8wx15c9ndAyENkjK7gPBvWBFfviJJ3ijBAyaXdvP5xo87u
+K7AzHSasaCuMq3uD/tcL+SfSn7LrSEsfuoZpzAorrUMS06nBmjKNXBRw8wErmdj/
+cMOmXaRhI/5UMm6Xl+O1
+=/o50
+-----END PGP SIGNATURE-----
 
-Thanks a lot
+--=-jnMYH6G+MhzIszErd/8+--
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index cf74c41..4a55854 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1226,15 +1226,6 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (want_cookie && !tmp_opt.saw_tstamp)
- 		tcp_clear_options(&tmp_opt);
- 
--	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
--		/* Some OSes (unknown ones, but I see them on web server, which
--		 * contains information interesting only for windows'
--		 * users) do not send their stamp in SYN. It is easy case.
--		 * We simply do not advertise TS support.
--		 */
--		tmp_opt.saw_tstamp = 0;
--		tmp_opt.tstamp_ok  = 0;
--	}
- 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
- 
- 	tcp_openreq_init(req, &tmp_opt, skb);
