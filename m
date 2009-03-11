@@ -1,166 +1,374 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch 3/5] Network Drop Monitor: Adding kfree_skb_clean for
-	non-drops and modifying end-of-line points for skbs
-Date: Wed, 11 Mar 2009 15:49:55 -0400
-Message-ID: <20090311194955.GC20223@hmsreliant.think-freely.org>
-References: <20090303170307.GD1480@hmsreliant.think-freely.org>
+Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
+	implementation & Netlink protocol
+Date: Wed, 11 Mar 2009 15:51:26 -0400
+Message-ID: <20090311195126.GD20223@hmsreliant.think-freely.org>
+References: <20090303170435.GE1480@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
 	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38152 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38161 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbZCKTuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 15:50:05 -0400
+	with ESMTP id S1751220AbZCKTvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 15:51:37 -0400
 Content-Disposition: inline
-In-Reply-To: <20090303170307.GD1480@hmsreliant.think-freely.org>
+In-Reply-To: <20090303170435.GE1480@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 03, 2009 at 12:03:07PM -0500, Neil Horman wrote:
+On Tue, Mar 03, 2009 at 12:04:35PM -0500, Neil Horman wrote:
 > 
 > 
-As requested, respinning against latest net-next tree.
+
+As requested, respinning to latest net-next tree
 
 Modification notes:
 
-None, simple respin
+1) Converted use of unit*_t to __u* in net_dropmon.h
 
 Neil
 
 
-Network Drop Monitor: Adding kfree_skb_clean for non-drops and modifying end-of-line points for skbs
+Network Drop Monitor: Adding drop monitor implementation & Netlink protocol
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 
- include/linux/skbuff.h |    4 +++-
- net/core/datagram.c    |    2 +-
- net/core/skbuff.c      |   22 ++++++++++++++++++++++
- net/ipv4/arp.c         |    2 +-
- net/ipv4/udp.c         |    2 +-
- net/packet/af_packet.c |    2 +-
- 6 files changed, 29 insertions(+), 5 deletions(-)
+ include/linux/net_dropmon.h |   56 +++++++++
+ net/core/drop_monitor.c     |  263 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 319 insertions(+)
 
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 1f659e8..1fbab2a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -421,6 +421,7 @@ extern void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
- #endif
- 
- extern void kfree_skb(struct sk_buff *skb);
-+extern void consume_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
- extern struct sk_buff *__alloc_skb(unsigned int size,
- 				   gfp_t priority, int fclone, int node);
-@@ -459,7 +460,8 @@ extern int	       skb_to_sgvec(struct sk_buff *skb,
- extern int	       skb_cow_data(struct sk_buff *skb, int tailbits,
- 				    struct sk_buff **trailer);
- extern int	       skb_pad(struct sk_buff *skb, int pad);
--#define dev_kfree_skb(a)	kfree_skb(a)
-+#define dev_kfree_skb(a)	consume_skb(a)
-+#define dev_consume_skb(a)	kfree_skb_clean(a)
- extern void	      skb_over_panic(struct sk_buff *skb, int len,
- 				     void *here);
- extern void	      skb_under_panic(struct sk_buff *skb, int len,
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 5e2ac0c..d0de644 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -208,7 +208,7 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
- 
- void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
- {
--	kfree_skb(skb);
-+	consume_skb(skb);
- 	sk_mem_reclaim_partial(sk);
- }
- 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e5e2111..6acbf9e 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -65,6 +65,7 @@
- 
- #include <asm/uaccess.h>
- #include <asm/system.h>
-+#include <trace/skb.h>
- 
- #include "kmap_skb.h"
- 
-@@ -442,11 +443,32 @@ void kfree_skb(struct sk_buff *skb)
- 		smp_rmb();
- 	else if (likely(!atomic_dec_and_test(&skb->users)))
- 		return;
-+	trace_kfree_skb(skb, __builtin_return_address(0));
- 	__kfree_skb(skb);
- }
- EXPORT_SYMBOL(kfree_skb);
- 
- /**
-+ *	consume_skb - free an skbuff
-+ *	@skb: buffer to free
-+ *
-+ *	Drop a ref to the buffer and free it if the usage count has hit zero
-+ *	Functions identically to kfree_skb, but kfree_skb assumes that the frame
-+ *	is being dropped after a failure and notes that
-+ */
-+void consume_skb(struct sk_buff *skb)
-+{
-+	if (unlikely(!skb))
-+		return;
-+	if (likely(atomic_read(&skb->users) == 1))
-+		smp_rmb();
-+	else if (likely(!atomic_dec_and_test(&skb->users)))
-+		return;
-+	__kfree_skb(skb);
-+}
-+EXPORT_SYMBOL(consume_skb);
+diff --git a/include/linux/net_dropmon.h b/include/linux/net_dropmon.h
+new file mode 100644
+index 0000000..0217fb8
+--- /dev/null
++++ b/include/linux/net_dropmon.h
+@@ -0,0 +1,56 @@
++#ifndef __NET_DROPMON_H
++#define __NET_DROPMON_H
 +
-+/**
-  *	skb_recycle_check - check if skb can be reused for receive
-  *	@skb: buffer
-  *	@skb_size: minimum receive buffer size
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 3d67d1f..9c22032 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -892,7 +892,7 @@ static int arp_process(struct sk_buff *skb)
- out:
- 	if (in_dev)
- 		in_dev_put(in_dev);
--	kfree_skb(skb);
-+	consume_skb(skb);
- 	return 0;
- }
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4bd178a..05b7abb 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1184,7 +1184,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 			sk = sknext;
- 		} while (sknext);
- 	} else
--		kfree_skb(skb);
-+		consume_skb(skb);
- 	spin_unlock(&hslot->lock);
- 	return 0;
- }
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d8cc006..74776de 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -584,7 +584,7 @@ drop_n_restore:
- 		skb->len = skb_len;
- 	}
- drop:
--	kfree_skb(skb);
-+	consume_skb(skb);
- 	return 0;
- }
- 
++#include <linux/netlink.h>
++
++struct net_dm_drop_point {
++	__u8 pc[8];
++	__u32 count;
++};
++
++#define NET_DM_CFG_VERSION  0
++#define NET_DM_CFG_ALERT_COUNT  1
++#define NET_DM_CFG_ALERT_DELAY 2
++#define NET_DM_CFG_MAX 3
++
++struct net_dm_config_entry {
++	__u32 type;
++	__u64 data __attribute__((aligned(8)));
++};
++
++struct net_dm_config_msg {
++	__u32 entries;
++	struct net_dm_config_entry options[0];
++};
++
++struct net_dm_alert_msg {
++	__u32 entries;
++	struct net_dm_drop_point points[0];
++};
++
++struct net_dm_user_msg {
++	union {
++		struct net_dm_config_msg user;
++		struct net_dm_alert_msg alert;
++	} u;
++};
++
++
++/* These are the netlink message types for this protocol */
++
++enum {
++	NET_DM_CMD_UNSPEC = 0,
++	NET_DM_CMD_ALERT,
++	NET_DM_CMD_CONFIG,
++	NET_DM_CMD_START,
++	NET_DM_CMD_STOP,
++	_NET_DM_CMD_MAX,
++};
++
++#define NET_DM_CMD_MAX (_NET_DM_CMD_MAX - 1)
++
++/*
++ * Our group identifiers
++ */
++#define NET_DM_GRP_ALERT 1
++#endif
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+new file mode 100644
+index 0000000..9fd0dc3
+--- /dev/null
++++ b/net/core/drop_monitor.c
+@@ -0,0 +1,263 @@
++/*
++ * Monitoring code for network dropped packet alerts
++ *
++ * Copyright (C) 2009 Neil Horman <nhorman@tuxdriver.com>
++ */
++
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/string.h>
++#include <linux/if_arp.h>
++#include <linux/inetdevice.h>
++#include <linux/inet.h>
++#include <linux/interrupt.h>
++#include <linux/netpoll.h>
++#include <linux/sched.h>
++#include <linux/delay.h>
++#include <linux/types.h>
++#include <linux/workqueue.h>
++#include <linux/netlink.h>
++#include <linux/net_dropmon.h>
++#include <linux/percpu.h>
++#include <linux/timer.h>
++#include <linux/bitops.h>
++#include <net/genetlink.h>
++
++#include <trace/skb.h>
++
++#include <asm/unaligned.h>
++
++#define TRACE_ON 1
++#define TRACE_OFF 0
++
++static void send_dm_alert(struct work_struct *unused);
++
++
++/*
++ * Globals, our netlink socket pointer
++ * and the work handle that will send up
++ * netlink alerts
++ */
++struct sock *dm_sock;
++
++struct per_cpu_dm_data {
++	struct work_struct dm_alert_work;
++	struct sk_buff *skb;
++	atomic_t dm_hit_count;
++	struct timer_list send_timer;
++};
++
++static struct genl_family net_drop_monitor_family = {
++	.id             = GENL_ID_GENERATE,
++	.hdrsize        = 0,
++	.name           = "NET_DM",
++	.version        = 1,
++	.maxattr        = NET_DM_CMD_MAX,
++};
++
++static DEFINE_PER_CPU(struct per_cpu_dm_data, dm_cpu_data);
++
++static int dm_hit_limit = 64;
++static int dm_delay = 1;
++
++
++static void reset_per_cpu_data(struct per_cpu_dm_data *data)
++{
++	size_t al;
++	struct net_dm_alert_msg *msg;
++
++	al = sizeof(struct net_dm_alert_msg);
++	al += dm_hit_limit * sizeof(struct net_dm_drop_point);
++	data->skb = genlmsg_new(al, GFP_KERNEL);
++	genlmsg_put(data->skb, 0, 0, &net_drop_monitor_family,
++			0, NET_DM_CMD_ALERT);
++	msg = __nla_reserve_nohdr(data->skb, sizeof(struct net_dm_alert_msg));
++	memset(msg, 0, al);
++	atomic_set(&data->dm_hit_count, dm_hit_limit);
++}
++
++static void send_dm_alert(struct work_struct *unused)
++{
++	struct sk_buff *skb;
++	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
++
++	/*
++	 * Grab the skb we're about to send
++	 */
++	skb = data->skb;
++
++	/*
++	 * Replace it with a new one
++	 */
++	reset_per_cpu_data(data);
++
++	/*
++	 * Ship it!
++	 */
++	genlmsg_multicast(skb, 0, NET_DM_GRP_ALERT, GFP_KERNEL);
++
++}
++
++/*
++ * This is the timer function to delay the sending of an alert
++ * in the event that more drops will arrive during the
++ * hysteresis period.  Note that it operates under the timer interrupt
++ * so we don't need to disable preemption here
++ */
++static void sched_send_work(unsigned long unused)
++{
++	struct per_cpu_dm_data *data =  &__get_cpu_var(dm_cpu_data);
++
++	schedule_work(&data->dm_alert_work);
++}
++
++static void trace_kfree_skb_hit(struct sk_buff *skb, void *location)
++{
++	struct net_dm_alert_msg *msg;
++	struct nlmsghdr *nlh;
++	int i;
++	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
++
++
++	if (!atomic_add_unless(&data->dm_hit_count, -1, 0)) {
++		/*
++		 * we're already at zero, discard this hit
++		 */
++		goto out;
++	}
++
++	nlh = (struct nlmsghdr *)data->skb->data;
++	msg = genlmsg_data(nlmsg_data(nlh));
++	for (i = 0; i < msg->entries; i++) {
++		if (!memcmp(&location, msg->points[i].pc, sizeof(void *))) {
++			msg->points[i].count++;
++			goto out;
++		}
++	}
++
++	/*
++	 * We need to create a new entry
++	 */
++	__nla_reserve_nohdr(data->skb, sizeof(struct net_dm_drop_point));
++	memcpy(msg->points[msg->entries].pc, &location, sizeof(void *));
++	msg->points[msg->entries].count = 1;
++	msg->entries++;
++
++	if (!timer_pending(&data->send_timer)) {
++		data->send_timer.expires = jiffies + dm_delay * HZ;
++		add_timer_on(&data->send_timer, smp_processor_id());
++	}
++
++out:
++	return;
++}
++
++static int set_all_monitor_traces(int state)
++{
++	int rc = 0;
++
++	switch (state) {
++	case TRACE_ON:
++		rc |= register_trace_kfree_skb(trace_kfree_skb_hit);
++		break;
++	case TRACE_OFF:
++		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit);
++
++		tracepoint_synchronize_unregister();
++		break;
++	default:
++		rc = 1;
++		break;
++	}
++
++	if (rc)
++		return -EINPROGRESS;
++	return rc;
++}
++
++
++static int net_dm_cmd_config(struct sk_buff *skb,
++			struct genl_info *info)
++{
++	return -ENOTSUPP;
++}
++
++static int net_dm_cmd_trace(struct sk_buff *skb,
++			struct genl_info *info)
++{
++	switch (info->genlhdr->cmd) {
++	case NET_DM_CMD_START:
++		return set_all_monitor_traces(TRACE_ON);
++		break;
++	case NET_DM_CMD_STOP:
++		return set_all_monitor_traces(TRACE_OFF);
++		break;
++	}
++
++	return -ENOTSUPP;
++}
++
++
++static struct genl_ops dropmon_ops[] = {
++	{
++		.cmd = NET_DM_CMD_CONFIG,
++		.doit = net_dm_cmd_config,
++	},
++	{
++		.cmd = NET_DM_CMD_START,
++		.doit = net_dm_cmd_trace,
++	},
++	{
++		.cmd = NET_DM_CMD_STOP,
++		.doit = net_dm_cmd_trace,
++	},
++};
++
++static int __init init_net_drop_monitor(void)
++{
++	int cpu;
++	int rc, i, ret;
++	struct per_cpu_dm_data *data;
++	printk(KERN_INFO "Initalizing network drop monitor service\n");
++
++	if (sizeof(void *) > 8) {
++		printk(KERN_ERR "Unable to store program counters on this arch, Drop monitor failed\n");
++		return -ENOSPC;
++	}
++
++	if (genl_register_family(&net_drop_monitor_family) < 0) {
++		printk(KERN_ERR "Could not create drop monitor netlink family\n");
++		return -EFAULT;
++	}
++
++	rc = -EFAULT;
++
++	for (i = 0; i < ARRAY_SIZE(dropmon_ops); i++) {
++		ret = genl_register_ops(&net_drop_monitor_family,
++					&dropmon_ops[i]);
++		if (ret) {
++			printk(KERN_CRIT "failed to register operation %d\n",
++				dropmon_ops[i].cmd);
++			goto out_unreg;
++		}
++	}
++
++	rc = 0;
++
++	for_each_present_cpu(cpu) {
++		data = &per_cpu(dm_cpu_data, cpu);
++		reset_per_cpu_data(data);
++		INIT_WORK(&data->dm_alert_work, send_dm_alert);
++		init_timer(&data->send_timer);
++		data->send_timer.data = cpu;
++		data->send_timer.function = sched_send_work;
++	}
++	goto out;
++
++out_unreg:
++	genl_unregister_family(&net_drop_monitor_family);
++out:
++	return rc;
++}
++
++late_initcall(init_net_drop_monitor);
