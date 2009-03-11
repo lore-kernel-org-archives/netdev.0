@@ -1,82 +1,59 @@
-From: Riku Voipio <riku.voipio@iki.fi>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Wed, 11 Mar 2009 21:15:30 +0200
-Message-ID: <20090311191530.GA18211@kos.to>
-References: <20090311.014957.117115597.davem@davemloft.net>
-	<20090311085721.GV425@pengutronix.de>
-	<20090311090938.E7BF7832E8B8@gemini.denx.de>
-	<20090311.062336.238430706.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Patch 1/5] Network Drop Monitor: Add netlink protocol
+	identifer
+Date: Wed, 11 Mar 2009 15:46:10 -0400
+Message-ID: <20090311194610.GA20223@hmsreliant.think-freely.org>
+References: <20090303170014.GB1480@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0112308856=="
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-In-Reply-To: <20090311.062336.238430706.davem@davemloft.net>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
-List-Id: netdev.vger.kernel.org
-
-
---===============0112308856==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="X1bOJ3K7DJ5YkBrT"
-Content-Disposition: inline
-
-
---X1bOJ3K7DJ5YkBrT
 Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59367 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752834AbZCKTqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 15:46:21 -0400
+Received: from nat-pool-rdu.redhat.com ([66.187.233.202] helo=localhost)
+	by smtp.tuxdriver.com with esmtpsa (TLSv1:AES128-SHA:128)
+	(Exim 4.63)
+	(envelope-from <nhorman@tuxdriver.com>)
+	id 1LhUNe-00062d-NH
+	for netdev@vger.kernel.org; Wed, 11 Mar 2009 15:46:19 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20090303170014.GB1480@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2009 at 06:23:36AM -0700, David Miller wrote:
-> That's what NVRAM, CMOS, EEPROM's and other writable long-term
-> storage areas are for.
-
-> To be quite honest with you, any ethernet device that doesn't
-> have an EEPROM where the chip instance's ethernet address is
-> stored is completely broken.
-
-If that is the case, pretty much every SOHO NAS device (running
-linux + samba) being sold in your nearest IT shop is completly
-broken.
-
-In such machines, typically the mac address is stored in bootloader's
-configuration area in NOR/NAND flash.
-
---=20
-"rm -rf" only sounds scary if you don't have backups
-
---X1bOJ3K7DJ5YkBrT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQFJuA3SibPvMsrqrwMRAhkPAJ9yM8GhuV9mW6fBDjJmqCZSmdJudgCgzY+H
-1b8Rr302gzSRceM/027rYhc=
-=smqv
------END PGP SIGNATURE-----
-
---X1bOJ3K7DJ5YkBrT--
+On Tue, Mar 03, 2009 at 12:00:14PM -0500, Neil Horman wrote:
+> 
+> Network Drop Monitor: Add Netlink protocol identifier
+>     
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> 
+>  netlink.h |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+> index 1e6bf99..d4ac636 100644
+> --- a/include/linux/netlink.h
+> +++ b/include/linux/netlink.h
+> @@ -24,6 +24,7 @@
+>  /* leave room for NETLINK_DM (DM Events) */
+>  #define NETLINK_SCSITRANSPORT	18	/* SCSI Transports */
+>  #define NETLINK_ECRYPTFS	19
+> +#define NETLINK_DRPMON		20	/* Netork packet drop alerts */
+>  
+>  #define MAX_LINKS 32		
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 
---===============0112308856==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Ok, as requested by David, respinning entire set against latest net-next-2.6.
+tree.  Patch 1/5, in the course of updates in this thread, is rescinded.
 
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
---===============0112308856==--
+Neil
+
