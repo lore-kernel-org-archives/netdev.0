@@ -1,51 +1,61 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit to upper layer
-Date: Wed, 11 Mar 2009 12:13:58 +0100
-Message-ID: <877i2wfh1l.fsf@basil.nowhere.org>
-References: <1236761624.2567.442.camel@ymzhang>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: 3c59x: shared interrupt problem
+Date: Wed, 11 Mar 2009 12:31:30 +0100
+Message-ID: <20090311113130.GA26526@newton.mathematik.tu-chemnitz.de>
+References: <20090309224253.135220@gmx.net> <20090309164927.6eb12aff@nehalam> <20090310081628.GA3217@newton.mathematik.tu-chemnitz.de> <20090310090053.322240@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	herbert@gondor.apana.org.au, jesse.brandeburg@intel.com,
-	shemminger@vyatta.com, David Miller <davem@davemloft.net>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Gerhard Pircher <gerhard_pircher@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:36032 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755978AbZCKLQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 07:16:19 -0400
-In-Reply-To: <1236761624.2567.442.camel@ymzhang> (Yanmin Zhang's message of "Wed, 11 Mar 2009 16:53:44 +0800")
+Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:35489 "EHLO
+	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbZCKLbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 07:31:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20090310090053.322240@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Zhang, Yanmin" <yanmin_zhang@linux.intel.com> writes:
+On Tue, Mar 10, 2009 at 10:00:53AM +0100, Gerhard Pircher wrote:
+> > 
+> > This basically reverts a patch from akpm (bitkeeper cset 1.1046.95.8)
+> > This patch was to workaround lots of "nobody cared" warnings generated
+> > by boomerang_interrupt().
+> > I added Andrew to the Cc, perhaps he can remember some details on this.
+> I'm afraid this patch didn't fix the problem. I'm using scp to copy a big
+> ISO file from my PC to the AmigaOne and the network transfer still stalls.
+> I made a photo from the kernel oops printed out during shutdown.
 
-> I got some comments. Special thanks to =EF=BB=BFStephen Hemminger for=
- teaching me on
-> what reorder is and some other comments. Also thank other guys who ra=
-ised comments.
+Your photo shows exactly such a "nobody cared" warning that Andrew wanted 
+to get rid of with his patch.
 
+> BTW: shouldn't the driver use vortex_interrupt() to handle interrupts for
+> a 3c920?
+> 
 
->
-> v2 has some improvements.
-> 1) Add new sysfs interface /sys/class/net/ethXXX/rx_queueXXX/processi=
-ng_cpu. Admin
-> could use it to configure the binding between RX and cpu number. So i=
-t's convenient
-> for drivers to use the new capability.
+It depends on the content of your NIC's eeprom which ISR the driver will use.
+If your NIC is full bus master capable boomerang_interrupt() will be used,
+if not vortex_interrupt() will be used. As far as I know the 3c920 is
+of "tornado" type, so it should be full bus master capable.
 
-Seems very inconvenient to have to configure this by hand. How about
-auto selecting one that shares the same LLC or somesuch? Passing
-data to anything with the same LLC should be cheap enough.
+Your first report showed dnComplete as a pending interrupt source.
+Since the driver uses tx_interrupt_mitigation, this happens just if the 
+tx ring is full. Could you please test the patch below? This disables
+tx_interrupt_mitigation, so the dnComplete interrupt will be triggered 
+with every packet.
 
-BTW the standard idea to balance processing over multiple CPUs was to
-use MSI-X to multiple CPUs. and just use the hash function on the
-NIC. Have you considered this for forwarding too? The trick here would
-be to try to avoid reordering inside streams as far as possible, but
-since the NIC hash should work on flow basis that should be ok.
-
--Andi
-
---=20
-ak@linux.intel.com -- Speaking for myself only.
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index b2563d3..c45c400 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -60,7 +60,7 @@ static int watchdog = 5000;
+  * of possible Tx stalls if the system is blocking interrupts
+  * somewhere else.  Undefine this to disable.
+  */
+-#define tx_interrupt_mitigation 1
++#define tx_interrupt_mitigation 0
+ 
+ /* Put out somewhat more debugging messages. (0: no msg, 1 minimal .. 6). */
+ #define vortex_debug debug
