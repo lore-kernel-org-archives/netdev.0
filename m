@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RDS: no freely available protocol specification?
-Date: Wed, 11 Mar 2009 01:02:08 -0700 (PDT)
-Message-ID: <20090311.010208.67934717.davem@davemloft.net>
-References: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
+From: Marian =?utf-8?B?xI51cmtvdmnEjQ==?= <md@bts.sk>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Wed, 11 Mar 2009 09:29:20 +0100
+Message-ID: <20090311082920.GA20543@bts.sk>
+References: <20090310114606.GA84964@bts.sk> <1e41a3230903100823h5d5768d9wb9f36eb294840814@mail.gmail.com> <20090310160040.GA93054@bts.sk> <20090310.091816.178102814.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	andy.grover@oracle.com
-To: Juliusz.Chroboczek@pps.jussieu.fr
+Content-Type: text/plain; charset=utf-8
+Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40350
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751218AbZCKICW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:02:22 -0400
-In-Reply-To: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
+Received: from saus.bts.sk ([194.160.23.4]:54025 "EHLO saus.bts.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750947AbZCKI3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2009 04:29:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20090310.091816.178102814.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
-Date: Tue, 10 Mar 2009 23:07:45 +0100
+On Tue, Mar 10, 2009 at 09:18:16AM -0700, David Miller wrote:
+> There are both global system-wide and socket local limits to how much
+> memory can be consumed by TCP receive data.  If things get beyond the
+> configured limits, we back off.  You could modify those if you
+> personally wish.
+> 
+> It's really good that you brought up this issue.
+> 
+> And it's really good that you've explained your own personal
+> workaround for this issue.
 
-> I am wondering whether we wish to encourage the use of proprietary
-> (undocumented) protocols, and I wish that the kernel crowd should really
-> try to put some pressure on the Oracle guys to get the RDS protocol spec
-> published as an RFC, or at the very least submitted as an Internet Draft,
-> before it is released as part of the Linux kernel.
+Beg your pardon - "personal" ?! Is our university the only place where
+people use Linux on workstations with 100 Mbps ethernet connection?
+Isn't the stock kernel supposed to work decently for them - or should
+they all become TCP experts and fiddle with various parameters in order
+not to cause harm to other applications or the whole LAN just by starting
+a single bulk transfer?
 
-There is nothing proprietary about a protocol for which you have
-the source code to a full implementation.
+For the last time: setting TCP window to BDP is well-known and generally
+accepted practice. Autotuning does NOT respect it, and for 100 Mpbs 
+connections at LAN context it might set the rx window somewhere between
+100*BDP and 300*BDP. Since the BDP formula obviously applies also in 
+reverse direction, i.e.
 
-And having an RFC or even a draft for a protocol is not a prerequesite
-for it being included in the Linux kernel.
+delay=window/bandwith
 
-So put your bad-juju back in your pocket, kthx.
+setting insanely huge window results in insanely increased LAN latencies
+(upto buffer limits). Is this really something noone cares about ?! 
