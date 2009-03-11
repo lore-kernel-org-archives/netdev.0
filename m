@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG when unloading bonding on 2.6.29-rc7-git3
-Date: Wed, 11 Mar 2009 09:22:02 -0700 (PDT)
-Message-ID: <20090311.092202.126273766.davem@davemloft.net>
-References: <49B6CA4A.2040506@mandriva.org>
-	<1236727393.7958.38.camel@Maple>
+Subject: Re: [RFC] tcp: allow timestamps even if SYN packet has tsval=0
+Date: Wed, 11 Mar 2009 09:24:25 -0700 (PDT)
+Message-ID: <20090311.092425.203553937.davem@davemloft.net>
+References: <49B7ABF2.5040803@cosmosbay.com>
+	<20090311.064710.255854254.davem@davemloft.net>
+	<49B7D1F2.5090504@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tmb@mandriva.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: john.dykstra1@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753755AbZCKQWc@vger.kernel.org>
-In-Reply-To: <1236727393.7958.38.camel@Maple>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57301
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751282AbZCKQYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 12:24:39 -0400
+In-Reply-To: <49B7D1F2.5090504@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Tue, 10 Mar 2009 23:23:13 +0000
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 11 Mar 2009 16:00:02 +0100
 
-> ipv6:  Fix BUG when disabled ipv6 module is unloaded
+> [PATCH] tcp: allow timestamps even if SYN packet has tsval=0
 > 
-> Do not try to "uninitialize" ipv6 if its initialization had been skipped
-> because module parameter disable=1 had been specified.
+> Some systems send SYN packets with apparently wrong RFC1323 timestamp
+> option values [timestamp tsval=0 tsecr=0].
+> It might be for security reasons (http://www.secuobs.com/plugs/25220.shtml )
 > 
-> Reported-by:  Thomas Backlund <tmb@mandriva.org>
-> Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+> Linux TCP stack ignores this option and sends back a SYN+ACK packet
+> without timestamp option, thus many TCP flows cannot use timestamps
+> and lose some benefit of RFC1323.
+> 
+> Other operating systems seem to not care about initial tsval value, and let
+> tcp flows to negotiate timestamp option.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-I'm going to apply this by hand.
+And amusingly even Linux didn't care for ipv6 TCP sockets ;-)
 
-But if you are going to submit patches in the future you have to fix
-the corruptions and mangling that your email client does to them.
+Applied to net-next-2.6, thanks Eric.
