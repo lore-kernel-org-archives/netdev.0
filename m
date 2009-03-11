@@ -1,62 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Wed, 11 Mar 2009 01:41:03 -0700 (PDT)
-Message-ID: <20090311.014103.163410266.davem@davemloft.net>
-References: <20090310160040.GA93054@bts.sk>
-	<20090310.091816.178102814.davem@davemloft.net>
-	<20090311082920.GA20543@bts.sk>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Wed, 11 Mar 2009 09:44:30 +0100
+Message-ID: <20090311084430.GU425@pengutronix.de>
+References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
-To: md@bts.sk
+Content-Type: text/plain; charset=us-ascii
+Cc: Ilya Yanok <yanok@emcraft.com>,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	wd@denx.de, dzu@denx.de
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57027
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751077AbZCKIlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:41:17 -0400
-In-Reply-To: <20090311082920.GA20543@bts.sk>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46583 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831AbZCKIoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:44:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20090310211841.388619ca@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWFyaWFuIMSOdXJrb3ZpxI0gPG1kQGJ0cy5zaz4NCkRhdGU6IFdlZCwgMTEgTWFyIDIw
-MDkgMDk6Mjk6MjAgKzAxMDANCg0KPiBGb3IgdGhlIGxhc3QgdGltZToNCg0KVGhhbmtmdWxseS4u
-Lg0KDQo+IHNldHRpbmcgVENQIHdpbmRvdyB0byBCRFAgaXMgd2VsbC1rbm93biBhbmQgZ2VuZXJh
-bGx5IGFjY2VwdGVkDQo+IHByYWN0aWNlLiBBdXRvdHVuaW5nIGRvZXMgTk9UIHJlc3BlY3QgaXQs
-IGFuZCBmb3IgMTAwIE1wYnMNCj4gY29ubmVjdGlvbnMgYXQgTEFOIGNvbnRleHQgaXQgbWlnaHQg
-c2V0IHRoZSByeCB3aW5kb3cgc29tZXdoZXJlDQo+IGJldHdlZW4gMTAwKkJEUCBhbmQgMzAwKkJE
-UC4gU2luY2UgdGhlIEJEUCBmb3JtdWxhIG9idmlvdXNseSBhcHBsaWVzDQo+IGFsc28gaW4gcmV2
-ZXJzZSBkaXJlY3Rpb24sIGkuZS4NCg0KSXQncyB0aGUgY29uZ2VzdGlvbiBjb250cm9sIGFsZ29y
-aXRobSBvbiB0aGUgc2VuZGVyIG1ha2luZyB0aGlzDQpoYXBwZW4sIG5vdCB3aW5kb3cgYXV0b3Np
-emluZy4gIFRoZSB3aW5kb3cgYXV0b3NpemluZyBpcyBvbmx5DQpwcm92aWRpbmcgZm9yIGZsb3cg
-Y29udHJvbC4gIEl0J3MgdGhlIGNvbmdlc3Rpb24gY29udHJvbCBhbGdvcml0aG0NCnRoYXQgaXMg
-ZGVjaWRpbmcgdG8gc2VuZCBtb3JlIGFuZCBtb3JlIGludG8gYSBwYXRoIHdoZXJlIG9ubHkNCmxh
-dGVuY3kgKGFuZCBub3QgYmFuZHdpZHRoKSBpcyBpbmNyZWFzaW5nIHdpdGggbGFyZ2VyIGNvbmdl
-c3Rpb24NCndpbmRvdyB2YWx1ZXMuDQoNCkpvaG4gaGFzIHRyaWVkIHRvIGV4cGxhaW4gdGhpcyB0
-byB5b3UsIGFuZCBub3cgSSBoYXZlIGFsc28gbWFkZSBhbg0KZWZmb3J0LiAgU28gcGxlYXNlIHN0
-b3AgaWdub3Jpbmcgd2hhdCB0aGUgcmVhbCBpc3N1ZSBpcyBoZXJlLg0KDQpZb3UgYWxzbyBjb3Vs
-ZCB1c2UgQWN0aXZlIFF1ZXVlIE1hbmFnZW1lbnQuICBCdXQgSSBkb3VidCB5b3Ugd291bGQNCmJv
-dGhlciBldmVuIHRlc3Rpbmcgc3VjaCBhIHRoaW5nIHRvIGxldCB1cyBrbm93IGhvdyB3ZWxsIHRo
-YXQgd29ya3MgaW4NCnlvdXIgc2l0dWF0aW9uLiAgWW91J3ZlIGFscmVhZHkgZGVjaWRlZCBob3cg
-eW91IGFyZSB3aWxsaW5nIHRvIGhhbmRsZQ0KdGhpcyBpc3N1ZSwgc28gaXQncyBhIGZhaXQgYWNj
-b21wbGkuDQoNCkl0J3Mgc2VlbXMgdG8gYmUgbm90IGV2ZW4gYSBtYXR0ZXIgZm9yIGRpc2N1c3Np
-b24gZm9yIHlvdSwgc28gdGhhdCdzDQp3aHkgdGhpcyB0aHJlYWQgd2lsbCBsaWtlbHkgZ28gbm93
-aGVyZSBpZiBpdCdzIGVudGlyZWx5IHVwIHRvIHlvdS4NCg0KPiBkZWxheT13aW5kb3cvYmFuZHdp
-dGgNCj4gDQo+IHNldHRpbmcgaW5zYW5lbHkgaHVnZSB3aW5kb3cgcmVzdWx0cyBpbiBpbnNhbmVs
-eSBpbmNyZWFzZWQgTEFOIGxhdGVuY2llcw0KPiAodXB0byBidWZmZXIgbGltaXRzKS4gSXMgdGhp
-cyByZWFsbHkgc29tZXRoaW5nIG5vb25lIGNhcmVzIGFib3V0ID8hIA0KDQpMZXQgbWUgY2x1ZSB5
-b3UgaW4gYWJvdXQgc29tZXRoaW5nIHlvdSBtYXkgbm90IGJlIGF3YXJlIG9mLg0KDQpJZiB5b3Ug
-ZG9uJ3QgYXV0by10dW5lIGFuZCBsZXQgdGhlIFJYIHNvY2tldCBidWZmZXIgaW5jcmVhc2UgdXAN
-CnRvIGEgZmV3IG1lZ2FieXRlcywgeW91IGNhbm5vdCBmdWxseSB1dGlsaXplIHRoZSBsaW5rIG9u
-IHJlYWwNCnRyYW5zLWNvbnRpbmVudGFsIGNvbm5lY3Rpb25zIHBlb3BsZSBhcmUgdXNpbmcgb3Zl
-ciB0aGUgaW50ZXJuZXQNCnRvZGF5Lg0KDQpTbyB5b3VyIHN1Z2dlc3Rpb24gd291bGQgYmUgYSBo
-dWdlIHN0ZXAgYmFja3dhcmRzLg0KDQpUaGlzIGlzIHdoeSB5b3Uga2VlcCBiZWluZyB0b2xkIHRo
-YXQgd2hhdCB5b3UncmUgYXNraW5nIHVzIHRvIGRvDQppcyBub3QgYXBwcm9wcmlhdGUuDQoNCllv
-dSBjYW4ndCBldmVuIHRhbGsgMTAwTWJpdCBiZXR3ZWVuIE5ldyBZb3JrIGFuZCBTYW4gRnJhbmNp
-c2NvDQp3aXRob3V0IGFwcHJvcHJpYXRlbHkgc2l6ZWQgbGFyZ2UgUlggYnVmZmVycywgYW5kIFJY
-IGF1dG90dW5pbmcNCmlzIHRoZSBvbmx5IHdheSB0byBhY2hpZXZlIHRoYXQgbm93Lg0KDQpTaW1p
-bGFybHkgZm9yIHdlc3QgY29hc3QgVVMgdG8gYW55d2hlcmUgaW4gdGhlIEFzaWEgUGFjaWZpYyBy
-ZWdpb24uDQoNClNvIHRoZSB3b3JsZCBpcyBtdWNoIGJpZ2dlciB0aGFuIHlvdXIgbGl0dGxlIHVu
-aXZlcnNpdHkgd2hlcmUgeW91J3ZlDQpkZWNpZGVkIHRvIG92ZXJzdWJzY3JpYmUgeW91ciBuZXR3
-b3JrLCBhbmQgdGhlcmUgYXJlIG1hbnkgb3RoZXIgaXNzdWVzDQp0byBjb25zaWRlciBiZXNpZGVz
-IHlvdXIgc3BlY2lmaWMgbG9jYWxpemVkIHByb2JsZW0uDQo=
+Hi,
+
+On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
+> On Wed, 11 Mar 2009 05:29:09 +0300
+> Ilya Yanok <yanok@emcraft.com> wrote:
+> 
+> > +static char ethaddr[18];
+> > +
+> > +module_param_string(ethaddr, ethaddr, sizeof(ethaddr), 0);
+> > +
+> > +static void get_mac_addr(struct net_device *nd, unsigned char *pmac)
+> > +{
+> > +	int i;
+> > +	char *p = ethaddr;
+> > +
+> > +	ethaddr[17] = 0;
+> > +	for (i = 0; i < ETH_ALEN; i++, p++) {
+> > +		pmac[i] = simple_strtoul(p, &p, 16);
+> > +		if (*p != ':')
+> > +			break;
+> > +	}
+> > +	if (i != ETH_ALEN - 1) {
+> > +		pr_err("Wrong MAC address format!\n");
+> > +		memset(pmac, 0, ETH_ALEN);
+> > +	}
+> > +}
+> > +
+> 
+> Do you still need this? Only works with one board, configuration via
+> module parameters is discouraged.  Same effect can be done by setting
+> mac address with regular tools.
+
+Except for root over nfs. Ok, the answer to this is usually 'use
+initrd', but this is still a pita on embedded systems.
+
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
