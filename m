@@ -1,47 +1,62 @@
-From: Marian =?utf-8?B?xI51cmtvdmnEjQ==?= <md@bts.sk>
+From: David Miller <davem@davemloft.net>
 Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Wed, 11 Mar 2009 09:29:20 +0100
-Message-ID: <20090311082920.GA20543@bts.sk>
-References: <20090310114606.GA84964@bts.sk> <1e41a3230903100823h5d5768d9wb9f36eb294840814@mail.gmail.com> <20090310160040.GA93054@bts.sk> <20090310.091816.178102814.davem@davemloft.net>
+Date: Wed, 11 Mar 2009 01:41:03 -0700 (PDT)
+Message-ID: <20090311.014103.163410266.davem@davemloft.net>
+References: <20090310160040.GA93054@bts.sk>
+	<20090310.091816.178102814.davem@davemloft.net>
+	<20090311082920.GA20543@bts.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
 Cc: johnwheffner@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: md@bts.sk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from saus.bts.sk ([194.160.23.4]:54025 "EHLO saus.bts.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750947AbZCKI3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2009 04:29:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20090310.091816.178102814.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57027
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751077AbZCKIlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:41:17 -0400
+In-Reply-To: <20090311082920.GA20543@bts.sk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2009 at 09:18:16AM -0700, David Miller wrote:
-> There are both global system-wide and socket local limits to how much
-> memory can be consumed by TCP receive data.  If things get beyond the
-> configured limits, we back off.  You could modify those if you
-> personally wish.
-> 
-> It's really good that you brought up this issue.
-> 
-> And it's really good that you've explained your own personal
-> workaround for this issue.
-
-Beg your pardon - "personal" ?! Is our university the only place where
-people use Linux on workstations with 100 Mbps ethernet connection?
-Isn't the stock kernel supposed to work decently for them - or should
-they all become TCP experts and fiddle with various parameters in order
-not to cause harm to other applications or the whole LAN just by starting
-a single bulk transfer?
-
-For the last time: setting TCP window to BDP is well-known and generally
-accepted practice. Autotuning does NOT respect it, and for 100 Mpbs 
-connections at LAN context it might set the rx window somewhere between
-100*BDP and 300*BDP. Since the BDP formula obviously applies also in 
-reverse direction, i.e.
-
-delay=window/bandwith
-
-setting insanely huge window results in insanely increased LAN latencies
-(upto buffer limits). Is this really something noone cares about ?! 
+RnJvbTogTWFyaWFuIMSOdXJrb3ZpxI0gPG1kQGJ0cy5zaz4NCkRhdGU6IFdlZCwgMTEgTWFyIDIw
+MDkgMDk6Mjk6MjAgKzAxMDANCg0KPiBGb3IgdGhlIGxhc3QgdGltZToNCg0KVGhhbmtmdWxseS4u
+Lg0KDQo+IHNldHRpbmcgVENQIHdpbmRvdyB0byBCRFAgaXMgd2VsbC1rbm93biBhbmQgZ2VuZXJh
+bGx5IGFjY2VwdGVkDQo+IHByYWN0aWNlLiBBdXRvdHVuaW5nIGRvZXMgTk9UIHJlc3BlY3QgaXQs
+IGFuZCBmb3IgMTAwIE1wYnMNCj4gY29ubmVjdGlvbnMgYXQgTEFOIGNvbnRleHQgaXQgbWlnaHQg
+c2V0IHRoZSByeCB3aW5kb3cgc29tZXdoZXJlDQo+IGJldHdlZW4gMTAwKkJEUCBhbmQgMzAwKkJE
+UC4gU2luY2UgdGhlIEJEUCBmb3JtdWxhIG9idmlvdXNseSBhcHBsaWVzDQo+IGFsc28gaW4gcmV2
+ZXJzZSBkaXJlY3Rpb24sIGkuZS4NCg0KSXQncyB0aGUgY29uZ2VzdGlvbiBjb250cm9sIGFsZ29y
+aXRobSBvbiB0aGUgc2VuZGVyIG1ha2luZyB0aGlzDQpoYXBwZW4sIG5vdCB3aW5kb3cgYXV0b3Np
+emluZy4gIFRoZSB3aW5kb3cgYXV0b3NpemluZyBpcyBvbmx5DQpwcm92aWRpbmcgZm9yIGZsb3cg
+Y29udHJvbC4gIEl0J3MgdGhlIGNvbmdlc3Rpb24gY29udHJvbCBhbGdvcml0aG0NCnRoYXQgaXMg
+ZGVjaWRpbmcgdG8gc2VuZCBtb3JlIGFuZCBtb3JlIGludG8gYSBwYXRoIHdoZXJlIG9ubHkNCmxh
+dGVuY3kgKGFuZCBub3QgYmFuZHdpZHRoKSBpcyBpbmNyZWFzaW5nIHdpdGggbGFyZ2VyIGNvbmdl
+c3Rpb24NCndpbmRvdyB2YWx1ZXMuDQoNCkpvaG4gaGFzIHRyaWVkIHRvIGV4cGxhaW4gdGhpcyB0
+byB5b3UsIGFuZCBub3cgSSBoYXZlIGFsc28gbWFkZSBhbg0KZWZmb3J0LiAgU28gcGxlYXNlIHN0
+b3AgaWdub3Jpbmcgd2hhdCB0aGUgcmVhbCBpc3N1ZSBpcyBoZXJlLg0KDQpZb3UgYWxzbyBjb3Vs
+ZCB1c2UgQWN0aXZlIFF1ZXVlIE1hbmFnZW1lbnQuICBCdXQgSSBkb3VidCB5b3Ugd291bGQNCmJv
+dGhlciBldmVuIHRlc3Rpbmcgc3VjaCBhIHRoaW5nIHRvIGxldCB1cyBrbm93IGhvdyB3ZWxsIHRo
+YXQgd29ya3MgaW4NCnlvdXIgc2l0dWF0aW9uLiAgWW91J3ZlIGFscmVhZHkgZGVjaWRlZCBob3cg
+eW91IGFyZSB3aWxsaW5nIHRvIGhhbmRsZQ0KdGhpcyBpc3N1ZSwgc28gaXQncyBhIGZhaXQgYWNj
+b21wbGkuDQoNCkl0J3Mgc2VlbXMgdG8gYmUgbm90IGV2ZW4gYSBtYXR0ZXIgZm9yIGRpc2N1c3Np
+b24gZm9yIHlvdSwgc28gdGhhdCdzDQp3aHkgdGhpcyB0aHJlYWQgd2lsbCBsaWtlbHkgZ28gbm93
+aGVyZSBpZiBpdCdzIGVudGlyZWx5IHVwIHRvIHlvdS4NCg0KPiBkZWxheT13aW5kb3cvYmFuZHdp
+dGgNCj4gDQo+IHNldHRpbmcgaW5zYW5lbHkgaHVnZSB3aW5kb3cgcmVzdWx0cyBpbiBpbnNhbmVs
+eSBpbmNyZWFzZWQgTEFOIGxhdGVuY2llcw0KPiAodXB0byBidWZmZXIgbGltaXRzKS4gSXMgdGhp
+cyByZWFsbHkgc29tZXRoaW5nIG5vb25lIGNhcmVzIGFib3V0ID8hIA0KDQpMZXQgbWUgY2x1ZSB5
+b3UgaW4gYWJvdXQgc29tZXRoaW5nIHlvdSBtYXkgbm90IGJlIGF3YXJlIG9mLg0KDQpJZiB5b3Ug
+ZG9uJ3QgYXV0by10dW5lIGFuZCBsZXQgdGhlIFJYIHNvY2tldCBidWZmZXIgaW5jcmVhc2UgdXAN
+CnRvIGEgZmV3IG1lZ2FieXRlcywgeW91IGNhbm5vdCBmdWxseSB1dGlsaXplIHRoZSBsaW5rIG9u
+IHJlYWwNCnRyYW5zLWNvbnRpbmVudGFsIGNvbm5lY3Rpb25zIHBlb3BsZSBhcmUgdXNpbmcgb3Zl
+ciB0aGUgaW50ZXJuZXQNCnRvZGF5Lg0KDQpTbyB5b3VyIHN1Z2dlc3Rpb24gd291bGQgYmUgYSBo
+dWdlIHN0ZXAgYmFja3dhcmRzLg0KDQpUaGlzIGlzIHdoeSB5b3Uga2VlcCBiZWluZyB0b2xkIHRo
+YXQgd2hhdCB5b3UncmUgYXNraW5nIHVzIHRvIGRvDQppcyBub3QgYXBwcm9wcmlhdGUuDQoNCllv
+dSBjYW4ndCBldmVuIHRhbGsgMTAwTWJpdCBiZXR3ZWVuIE5ldyBZb3JrIGFuZCBTYW4gRnJhbmNp
+c2NvDQp3aXRob3V0IGFwcHJvcHJpYXRlbHkgc2l6ZWQgbGFyZ2UgUlggYnVmZmVycywgYW5kIFJY
+IGF1dG90dW5pbmcNCmlzIHRoZSBvbmx5IHdheSB0byBhY2hpZXZlIHRoYXQgbm93Lg0KDQpTaW1p
+bGFybHkgZm9yIHdlc3QgY29hc3QgVVMgdG8gYW55d2hlcmUgaW4gdGhlIEFzaWEgUGFjaWZpYyBy
+ZWdpb24uDQoNClNvIHRoZSB3b3JsZCBpcyBtdWNoIGJpZ2dlciB0aGFuIHlvdXIgbGl0dGxlIHVu
+aXZlcnNpdHkgd2hlcmUgeW91J3ZlDQpkZWNpZGVkIHRvIG92ZXJzdWJzY3JpYmUgeW91ciBuZXR3
+b3JrLCBhbmQgdGhlcmUgYXJlIG1hbnkgb3RoZXIgaXNzdWVzDQp0byBjb25zaWRlciBiZXNpZGVz
+IHlvdXIgc3BlY2lmaWMgbG9jYWxpemVkIHByb2JsZW0uDQo=
