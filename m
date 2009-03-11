@@ -1,84 +1,62 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: TCP rx window autotuning harmful at LAN context
-Date: Wed, 11 Mar 2009 11:03:35 +0100
-Message-ID: <87bps8fkaw.fsf@basil.nowhere.org>
-References: <20090309112521.GB37984@bts.sk>
-	<1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com>
-	<20090309200505.GA58375@bts.sk>
-	<20090309.170927.130334650.davem@davemloft.net>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Wed, 11 Mar 2009 11:35:08 +0100
+Message-ID: <20090311103508.GA425@pengutronix.de>
+References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <20090311084430.GU425@pengutronix.de> <20090311.014957.117115597.davem@davemloft.net> <20090311090938.E7BF7832E8B8@gemini.denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: md@bts.sk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	yanok@emcraft.com, linux-arm-kernel@lists.arm.linux.org.uk,
+	netdev@vger.kernel.org, dzu@denx.de
+To: Wolfgang Denk <wd@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:39944 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753520AbZCKKF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 06:05:59 -0400
-In-Reply-To: <20090309.170927.130334650.davem@davemloft.net> (David Miller's message of "Mon, 09 Mar 2009 17:09:27 -0700 (PDT)")
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:56419 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752676AbZCKKfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 06:35:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20090311090938.E7BF7832E8B8@gemini.denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Hi Wolfgang,
 
-> From: Marian =C4=8Eurkovi=C4=8D <md@bts.sk>
-> Date: Mon, 9 Mar 2009 21:05:05 +0100
->
->> Well, in practice that was always limited by receive window size, wh=
-ich
->> was by default 64 kB on most operating systems. So this undesirable =
-behavior
->> was limited to hosts where receive window was manually increased to =
-huge
->> values.
->
-> You say "was" as if this was a recent change.  Linux has been doing
-> receive buffer autotuning for at least 5 years if not longer.
+On Wed, Mar 11, 2009 at 10:09:38AM +0100, Wolfgang Denk wrote:
+> Dear David,
+> 
+> on Wed, Mar 11, 2009 at 01:49:57AM -0700, David Miller wrote:
+> > From: Sascha Hauer <s.hauer@pengutronix.de>
+> > Date: Wed, 11 Mar 2009 09:44:30 +0100
+> > 
+> > > On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
+> > > > Do you still need this? Only works with one board, configuration via
+> > > > module parameters is discouraged.  Same effect can be done by setting
+> > > > mac address with regular tools.
+> > > 
+> > > Except for root over nfs. Ok, the answer to this is usually 'use
+> > > initrd', but this is still a pita on embedded systems.
+> > 
+> > Please remove this code.  If we let you do it, we have to let everyone
+> > else do it too, and that's something we don't want to do.
+> > 
+> > There are other ways you can handle this, for example have your board
+> > firmware properly program the MAC address into the card at power-on,
+> > and then have the driver here look in the MAC address registers to see
+> > if a valid ethernet address has been left there.
+> 
+> How do you then handle situations where this is impossible? Say, when
+> the firmware cannot write to those registers for example because  the
+> ethernet  controller is not even powered on (to reduce power consump-
+> tion), but will get powered on only in Linux  when  the  driver  gets
+> loaded (i. e. on demand only, not always)?
 
-I think his point was the only now does it become a visible problem
-as >=3D 1GB of memory is wide spread, which leads to 4MB rx buffer size=
-s.
+I never had this situation, but I guess in this case I have a working
+userspace and can use ifconfig to set the MAC address.
 
-Perhaps this points to the default buffer sizing heuristics to=20
-be too aggressive for >=3D 1GB?
+Sascha
 
-Perhaps something like this patch? Marian, does that help?
-
--Andi
-
-TCP: Lower per socket RX buffer sizing threshold=20
-
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
-
----
- net/ipv4/tcp.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-Index: linux-2.6.28-test/net/ipv4/tcp.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.28-test.orig/net/ipv4/tcp.c	2009-02-09 11:06:52.000000000=
- +0100
-+++ linux-2.6.28-test/net/ipv4/tcp.c	2009-03-11 11:01:53.000000000 +010=
-0
-@@ -2757,9 +2757,9 @@
- 	sysctl_tcp_mem[1] =3D limit;
- 	sysctl_tcp_mem[2] =3D sysctl_tcp_mem[0] * 2;
-=20
--	/* Set per-socket limits to no more than 1/128 the pressure threshold=
- */
--	limit =3D ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
--	max_share =3D min(4UL*1024*1024, limit);
-+	/* Set per-socket limits to no more than 1/256 the pressure threshold=
- */
-+	limit =3D ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 8);
-+	max_share =3D min(2UL*1024*1024, limit);
-=20
- 	sysctl_tcp_wmem[0] =3D SK_MEM_QUANTUM;
- 	sysctl_tcp_wmem[1] =3D 16*1024;
-
-
---=20
-ak@linux.intel.com -- Speaking for myself only.
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
