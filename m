@@ -1,209 +1,223 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC v2 7/7] net: netfilter conntrack - add per-net functionality for ICMP protocol
-Date: Wed, 11 Mar 2009 23:57:13 +0300
-Message-ID: <20090311210817.976738435@gmail.com>
+Subject: [RFC v2 4/7] net: netfilter conntrack - add per-net functionality for UDPLITE protocol
+Date: Wed, 11 Mar 2009 23:57:10 +0300
+Message-ID: <20090311210817.539092093@gmail.com>
 References: <20090311205706.141086138@gmail.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	xemul@openvz.org, adobriyan@gmail.com,
 	Cyrill Gorcunov <gorcunov@openvz.org>
 To: kaber@trash.net, davem@davemloft.net, daniel.lezcano@free.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.185]:62190 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592AbZCKVIe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 17:08:34 -0400
-Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-icmp
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-udplite
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Module specific data moved into per-net site and being allocated/freed
-during net namespace creation/deletion. For this reason module_init/exit
-calls added.
+during net namespace creation/deletion.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c |  128 +++++++++++++++++++++++++--
- 1 file changed, 120 insertions(+), 8 deletions(-)
+ net/netfilter/nf_conntrack_proto_udplite.c |  115 ++++++++++++++++++++++++-----
+ 1 file changed, 96 insertions(+), 19 deletions(-)
 
-Index: linux-2.6.git/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_udplite.c
 ===================================================================
---- linux-2.6.git.orig/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-+++ linux-2.6.git/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -9,6 +9,7 @@
- #include <linux/types.h>
- #include <linux/timer.h>
- #include <linux/netfilter.h>
-+#include <linux/module.h>
- #include <linux/in.h>
- #include <linux/icmp.h>
- #include <linux/seq_file.h>
-@@ -20,7 +21,27 @@
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_log.h>
+--- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_udplite.c
++++ linux-2.6.git/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -17,6 +17,9 @@
+ #include <net/ip6_checksum.h>
+ #include <net/checksum.h>
  
--static unsigned int nf_ct_icmp_timeout __read_mostly = 30*HZ;
 +#include <net/net_namespace.h>
 +#include <net/netns/generic.h>
 +
-+/* per-net specifics */
-+static int icmp_net_id;
-+struct icmp_net {
-+	unsigned int icmp_timeout;
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_ipv6.h>
+@@ -24,8 +27,21 @@
+ #include <net/netfilter/nf_conntrack_ecache.h>
+ #include <net/netfilter/nf_log.h>
+ 
+-static unsigned int nf_ct_udplite_timeout __read_mostly = 30*HZ;
+-static unsigned int nf_ct_udplite_timeout_stream __read_mostly = 180*HZ;
++/* this module per-net specifics */
++static int udplite_net_id;
++struct udplite_net {
++	unsigned int udplite_timeout;
++	unsigned int udplite_timeout_stream;
 +#ifdef CONFIG_SYSCTL
 +	struct ctl_table_header *sysctl_header;
 +	struct ctl_table *sysctl_table;
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	struct ctl_table_header *compat_sysctl_header;
-+	struct ctl_table *compat_sysctl_table;
-+#endif
 +#endif
 +};
 +
-+static inline struct icmp_net *icmp_pernet(struct net *net)
++static inline struct udplite_net *udplite_pernet(struct net *net)
 +{
-+	return net_generic(net, icmp_net_id);
++	return net_generic(net, udplite_net_id);
 +}
  
- static bool icmp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- 			      struct nf_conntrack_tuple *tuple)
-@@ -90,9 +111,10 @@ static int icmp_packet(struct nf_conn *c
- 		if (atomic_dec_and_test(&ct->proto.icmp.count))
- 			nf_ct_kill_acct(ct, ctinfo, skb);
- 	} else {
-+		struct icmp_net *in = icmp_pernet(nf_ct_net(ct));
- 		atomic_inc(&ct->proto.icmp.count);
- 		nf_conntrack_event_cache(IPCT_PROTOINFO_VOLATILE, ct);
--		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmp_timeout);
-+		nf_ct_refresh_acct(ct, ctinfo, skb, in->icmp_timeout);
- 	}
+ static bool udplite_pkt_to_tuple(const struct sk_buff *skb,
+ 				 unsigned int dataoff,
+@@ -68,16 +84,18 @@ static int udplite_packet(struct nf_conn
+ 			  u_int8_t pf,
+ 			  unsigned int hooknum)
+ {
++	struct udplite_net *un = udplite_pernet(nf_ct_net(ct));
++
+ 	/* If we've seen traffic both ways, this is some kind of UDP
+ 	   stream.  Extend timeout. */
+ 	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+ 		nf_ct_refresh_acct(ct, ctinfo, skb,
+-				   nf_ct_udplite_timeout_stream);
++				   un->udplite_timeout_stream);
+ 		/* Also, more likely to be important, and not a probe */
+ 		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
+ 			nf_conntrack_event_cache(IPCT_STATUS, ct);
+ 	} else
+-		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_udplite_timeout);
++		nf_ct_refresh_acct(ct, ctinfo, skb, un->udplite_timeout);
  
  	return NF_ACCEPT;
-@@ -265,11 +287,10 @@ static int icmp_nlattr_to_tuple(struct n
- #endif
+ }
+@@ -142,13 +160,11 @@ static int udplite_error(struct net *net
+ }
  
  #ifdef CONFIG_SYSCTL
--static struct ctl_table_header *icmp_sysctl_header;
-+/* templates, data assigned later */
- static struct ctl_table icmp_sysctl_table[] = {
+-static unsigned int udplite_sysctl_table_users;
+-static struct ctl_table_header *udplite_sysctl_header;
++/* template, data assigned later */
+ static struct ctl_table udplite_sysctl_table[] = {
  	{
- 		.procname	= "nf_conntrack_icmp_timeout",
--		.data		= &nf_ct_icmp_timeout,
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_udplite_timeout",
+-		.data		= &nf_ct_udplite_timeout,
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec_jiffies,
-@@ -282,7 +303,6 @@ static struct ctl_table icmp_sysctl_tabl
- static struct ctl_table icmp_compat_sysctl_table[] = {
+@@ -156,7 +172,6 @@ static struct ctl_table udplite_sysctl_t
  	{
- 		.procname	= "ip_conntrack_icmp_timeout",
--		.data		= &nf_ct_icmp_timeout,
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_udplite_timeout_stream",
+-		.data		= &nf_ct_udplite_timeout_stream,
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec_jiffies,
-@@ -312,11 +332,103 @@ struct nf_conntrack_l4proto nf_conntrack
- 	.nlattr_to_tuple	= icmp_nlattr_to_tuple,
- 	.nla_policy		= icmp_nla_policy,
+@@ -183,11 +198,6 @@ static struct nf_conntrack_l4proto nf_co
+ 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
+ 	.nla_policy		= nf_ct_port_nla_policy,
+ #endif
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &udplite_sysctl_table_users,
+-	.ctl_table_header	= &udplite_sysctl_header,
+-	.ctl_table		= udplite_sysctl_table,
+-#endif
+ };
+ 
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6 __read_mostly =
+@@ -206,32 +216,99 @@ static struct nf_conntrack_l4proto nf_co
+ 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
+ 	.nla_policy		= nf_ct_port_nla_policy,
  #endif
 +};
 +
-+static __net_init int icmp_net_init(struct net *net)
++static __net_init int udplite_net_init(struct net *net)
 +{
-+	struct icmp_net *in;
++	struct udplite_net *un;
 +	int err;
 +
-+	in = kmalloc(sizeof(*in), GFP_KERNEL);
-+	if (!in)
++	un = kmalloc(sizeof(*un), GFP_KERNEL);
++	if (!un)
 +		return -ENOMEM;
 +
 +	/* default values */
-+	in->icmp_timeout = 30 * HZ;
++	un->udplite_timeout		= 30 * HZ;
++	un->udplite_timeout_stream	= 180 * HZ;
 +
-+	err = net_assign_generic(net, icmp_net_id, in);
++	err = net_assign_generic(net, udplite_net_id, un);
 +	if (err)
 +		goto out;
 +
 +#ifdef CONFIG_SYSCTL
 +	err = -ENOMEM;
-+	in->sysctl_table = kmemdup(icmp_sysctl_table,
-+			sizeof(icmp_sysctl_table), GFP_KERNEL);
-+	if (!in->sysctl_table)
++	un->sysctl_table = kmemdup(udplite_sysctl_table,
++			sizeof(udplite_sysctl_table), GFP_KERNEL);
++	if (!un->sysctl_table)
 +		goto out;
 +
-+	in->sysctl_table[0].data = &in->icmp_timeout;
++	un->sysctl_table[0].data = &un->udplite_timeout;
++	un->sysctl_table[1].data = &un->udplite_timeout_stream;
 +
-+	in->sysctl_header = register_net_sysctl_table(net,
-+			nf_net_netfilter_sysctl_path, in->sysctl_table);
-+	if (!in->sysctl_header)
++	un->sysctl_header = register_net_sysctl_table(net,
++			nf_net_netfilter_sysctl_path, un->sysctl_table);
++	if (!un->sysctl_header)
 +		goto out_free;
-+
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	in->compat_sysctl_table = kmemdup(icmp_compat_sysctl_table,
-+			sizeof(icmp_compat_sysctl_table), GFP_KERNEL);
-+	if (!in->compat_sysctl_table)
-+		goto out_sysctl;
-+
-+	in->compat_sysctl_table[0].data = &in->icmp_timeout;
-+
-+	in->compat_sysctl_header = register_net_sysctl_table(net,
-+			nf_net_ipv4_netfilter_sysctl_path,
-+			in->compat_sysctl_table);
-+	if (!in->compat_sysctl_header)
-+		goto out_free_compat;
-+#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
 +#endif /* CONFIG_SYSCTL */
 +
 +	return 0;
 +
 +#ifdef CONFIG_SYSCTL
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+out_free_compat:
-+	kfree(in->compat_sysctl_table);
-+#endif
-+out_sysctl:
-+	unregister_net_sysctl_table(in->sysctl_header);
 +out_free:
-+	kfree(in->sysctl_table);
++	kfree(un->sysctl_table);
 +#endif
 +
 +out:
-+	kfree(in);
++	kfree(un);
 +	return err;
 +}
 +
-+static __net_exit void icmp_net_exit(struct net *net)
++static __net_exit void udplite_net_exit(struct net *net)
 +{
-+	struct icmp_net *in = icmp_pernet(net);
++	struct udplite_net *un = udplite_pernet(net);
  #ifdef CONFIG_SYSCTL
--	.ctl_table_header	= &icmp_sysctl_header,
--	.ctl_table		= icmp_sysctl_table,
-+	unregister_net_sysctl_table(in->sysctl_header);
-+	kfree(in->sysctl_table);
- #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
--	.ctl_compat_table	= icmp_compat_sysctl_table,
-+	unregister_net_sysctl_table(in->compat_sysctl_header);
-+	kfree(in->compat_sysctl_table);
+-	.ctl_table_users	= &udplite_sysctl_table_users,
+-	.ctl_table_header	= &udplite_sysctl_header,
+-	.ctl_table		= udplite_sysctl_table,
++	unregister_net_sysctl_table(un->sysctl_header);
++	kfree(un->sysctl_table);
  #endif
- #endif
-+	kfree(in);
++	kfree(un);
 +
-+	net_assign_generic(net, icmp_net_id, NULL);
++	net_assign_generic(net, udplite_net_id, NULL);
 +}
 +
-+static struct pernet_operations icmp_net_ops = {
-+	.init = icmp_net_init,
-+	.exit = icmp_net_exit,
++static struct pernet_operations udplite_net_ops = {
++	.init = udplite_net_init,
++	.exit = udplite_net_exit,
  };
+ 
+ static int __init nf_conntrack_proto_udplite_init(void)
+ {
+ 	int err;
+ 
+-	err = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udplite4);
++	err = register_pernet_gen_subsys(&udplite_net_id, &udplite_net_ops);
+ 	if (err < 0)
+ 		goto err1;
+-	err = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udplite6);
 +
-+int __init nf_ct_icmp_proto_init(void)
-+{
-+	return register_pernet_gen_subsys(&icmp_net_id, &icmp_net_ops);
-+}
++	err = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udplite4);
+ 	if (err < 0)
+ 		goto err2;
 +
-+void __exit nf_ct_icmp_proto_fini(void)
-+{
-+	unregister_pernet_gen_subsys(icmp_net_id, &icmp_net_ops);
-+}
++	err = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udplite6);
++	if (err < 0)
++		goto err3;
 +
-+module_init(nf_ct_icmp_proto_init);
-+module_exit(nf_ct_icmp_proto_fini);
-+MODULE_LICENSE("GPL");
+ 	return 0;
+-err2:
++
++err3:
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udplite4);
++err2:
++	unregister_pernet_gen_subsys(udplite_net_id, &udplite_net_ops);
+ err1:
+ 	return err;
+ }
+ 
+ static void __exit nf_conntrack_proto_udplite_exit(void)
+ {
++	unregister_pernet_gen_subsys(udplite_net_id, &udplite_net_ops);
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udplite6);
+ 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udplite4);
+ }
 
