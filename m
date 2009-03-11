@@ -1,63 +1,68 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Wed, 11 Mar 2009 09:44:30 +0100
-Message-ID: <20090311084430.GU425@pengutronix.de>
-References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] eHEA: Don't do memory allocation under lock if not necessary
+Date: Wed, 11 Mar 2009 08:44:57 +0000
+Message-ID: <20090311084456.9190.52805.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilya Yanok <yanok@emcraft.com>,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	wd@denx.de, dzu@denx.de
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46583 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbZCKIoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:44:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090310211841.388619ca@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: raisch@de.ibm.com, themann@de.ibm.com, tklein@de.ibm.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+In ehea_probe_adapter() the initial memory allocation and initialisation does
+not need to be done with the ehea_fw_handles.lock semaphore held.  Doing so
+extends the amount of time the lock is held unnecessarily.
 
-On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
-> On Wed, 11 Mar 2009 05:29:09 +0300
-> Ilya Yanok <yanok@emcraft.com> wrote:
-> 
-> > +static char ethaddr[18];
-> > +
-> > +module_param_string(ethaddr, ethaddr, sizeof(ethaddr), 0);
-> > +
-> > +static void get_mac_addr(struct net_device *nd, unsigned char *pmac)
-> > +{
-> > +	int i;
-> > +	char *p = ethaddr;
-> > +
-> > +	ethaddr[17] = 0;
-> > +	for (i = 0; i < ETH_ALEN; i++, p++) {
-> > +		pmac[i] = simple_strtoul(p, &p, 16);
-> > +		if (*p != ':')
-> > +			break;
-> > +	}
-> > +	if (i != ETH_ALEN - 1) {
-> > +		pr_err("Wrong MAC address format!\n");
-> > +		memset(pmac, 0, ETH_ALEN);
-> > +	}
-> > +}
-> > +
-> 
-> Do you still need this? Only works with one board, configuration via
-> module parameters is discouraged.  Same effect can be done by setting
-> mac address with regular tools.
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-Except for root over nfs. Ok, the answer to this is usually 'use
-initrd', but this is still a pita on embedded systems.
+ drivers/net/ehea/ehea_main.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
-Sascha
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index dfe9226..34480ae 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -3370,18 +3370,19 @@ static int __devinit ehea_probe_adapter(struct of_device *dev,
+ 		ehea_error("Invalid ibmebus device probed");
+ 		return -EINVAL;
+ 	}
+-	mutex_lock(&ehea_fw_handles.lock);
+ 
+ 	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
+ 	if (!adapter) {
+-		ret = -ENOMEM;
+ 		dev_err(&dev->dev, "no mem for ehea_adapter\n");
+-		goto out;
++		return -ENOMEM;
+ 	}
+ 
+-	list_add(&adapter->list, &adapter_list);
+-
+ 	adapter->ofdev = dev;
++	adapter->pd = EHEA_PD_ID;
++
++	mutex_lock(&ehea_fw_handles.lock);
++
++	list_add(&adapter->list, &adapter_list);
+ 
+ 	adapter_handle = of_get_property(dev->node, "ibm,hea-handle",
+ 					 NULL);
+@@ -3395,8 +3396,6 @@ static int __devinit ehea_probe_adapter(struct of_device *dev,
+ 		goto out_free_ad;
+ 	}
+ 
+-	adapter->pd = EHEA_PD_ID;
+-
+ 	dev->dev.driver_data = adapter;
