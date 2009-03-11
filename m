@@ -1,1300 +1,166 @@
-From: Ilya Yanok <yanok@emcraft.com>
-Subject: [PATCH] dnet: Dave DNET ethernet controller driver (updated)
-Date: Thu, 12 Mar 2009 02:33:07 +0300
-Message-ID: <1236814387-31108-1-git-send-email-yanok@emcraft.com>
-References: <49B7377A.2070006@cosmosbay.com>
-Cc: s.hauer@pengutronix.de, wd@denx.de, dzu@denx.de,
-	Ilya Yanok <yanok@emcraft.com>
-To: dada1@cosmosbay.com, linux-arm-kernel@lists.arm.linux.org.uk,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ocean.emcraft.com ([213.221.7.182]:35134 "EHLO
-	ocean.emcraft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbZCKXdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 19:33:44 -0400
-In-Reply-To: <49B7377A.2070006@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH] igb: fix kexec with igb
+Date: Wed, 11 Mar 2009 16:37:18 -0700
+Message-ID: <49B84B2E.6080701@kernel.org>
+References: <49B1F934.5050006@kernel.org> <49B40A03.7060703@kernel.org> <200903082208.42957.rjw@sisk.pl> <200903082232.36660.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754092AbZCKXjg@vger.kernel.org>
+In-Reply-To: <200903082232.36660.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Driver for Dave DNET ethernet controller found on Dave/DENX QongEVB-LITE
-FPGA. Heavily based on Dave sources, I've just adopted it to current
-kernel version and done some code cleanup.
+Rafael J. Wysocki wrote:
+> On Sunday 08 March 2009, Rafael J. Wysocki wrote:
+>> On Sunday 08 March 2009, Yinghai Lu wrote:
+>>> Rafael J. Wysocki wrote:
+>>>> On Saturday 07 March 2009, Yinghai Lu wrote:
+>>>>> On Fri, Mar 6, 2009 at 11:18 PM, Jesse Brandeburg
+>>>>> <jesse.brandeburg@gmail.com> wrote:
+>>>>>> On Fri, Mar 6, 2009 at 8:33 PM, Yinghai Lu <yinghai@kernel.org> wrote:
+>>>>>>> Impact: could probe igb
+>>>>>>>
+>>>>>>> Found one system with 82575EB, in the kernel that is kexeced, probe igb
+>>>>>>> failed with -2.
+>>>>>>>
+>>>>>>> it looks like the same behavior happened on forcedeth.
+>>>>>>>
+>>>>>>> try to check system_state to make sure if put it on D3
+>>>>>>>
+>>>>>>> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+>>>>>>>
+>>>>>>> ---
+>>>>>>>  drivers/net/igb/igb_main.c |   19 ++++++++++++++-----
+>>>>>>>  1 file changed, 14 insertions(+), 5 deletions(-)
+>>>>>> I see the point of the patch, but I know for a fact that ixgbe when
+>>>>>> enabled for MSI-X also doesn't work with kexec.
+>>>>>>
+>>>>>> so my questions are:
+>>>>>> are you going to change every driver?
+>>>>> i tend to only change driver that i have related HW.
+>>>>>
+>>>>>> why can't this be fixed in core kernel code instead?
+>>>>> will check it.
+>>>>>
+>>>>>> Shouldn't pci_enable_device take it out of D3?
+>>>>>> Or maybe it should be taken out of D3 immediately if someone tries to
+>>>>>> ioremap any of the BARx registers?
+>>>>> looks like second kernel can not detect the state any more.
+>>>> In fact pci_enable_device() calls pci_set_power_state(dev, PCI_D0) as the first
+>>>> thing.  The question is why it doesn't work as expected.
+>>> not sure... please check the version for forcedeth that you made.
+>>>
+>>> commit 3cb5599a84c557c0dd9a19feb63a3788268cf249
+>>> Author: Rafael J. Wysocki <rjw@sisk.pl>
+>>> Date:   Fri Sep 5 14:00:19 2008 -0700
+>>>
+>>>     forcedeth: fix kexec regression
+>>>     
+>>>     Fix regression tracked as http://bugzilla.kernel.org/show_bug.cgi?id=11361
+>>>     and caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2 ("[netdrvr]
+>>>     forcedeth: setup wake-on-lan before shutting down") that makes network
+>>>     adapters integrated into the NVidia MCP55 chipsets fail to work in kexeced
+>>>     kernels.  The problem appears to be that if the adapter is put into D3_hot
+>>>     during ->shutdown(), it cannot be brought back into D0 after kexec (ref.
+>>>     http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore, only
+>>>     put forcedeth into D3 during ->shutdown() if the system is to be powered
+>>>     off.
+>> Thanks, I remember now.
+> 
+> In which case you need to rework igb_shutdown() rather than igb_suspend().
+> 
+> Something like the patch below, perhaps (totally untested).
 
-Signed-off-by: Ilya Yanok <yanok@emcraft.com>
+it works, David, can you picked it up
+
 ---
- drivers/net/Kconfig  |   11 +
- drivers/net/Makefile |    1 +
- drivers/net/dnet.c   |  994 ++++++++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/dnet.h   |  225 ++++++++++++
- 4 files changed, 1231 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/dnet.c
- create mode 100644 drivers/net/dnet.h
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index a2f185f..5c28b06 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1040,6 +1040,17 @@ config NI65
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ni65.
+From: Rafael J. Wysocki <rjw@sisk.pl>
+
+[PATCH] igb: fix kexec with igb -v2
+
+Impact: could probe igb
+
+Found one system with 82575EB, in the kernel that is kexeced, probe igb
+failed with -2.
+
+it looks like the same behavior happened on forcedeth.
+
+try to check system_state to make sure if put it on D3
+
+v2: Rafael J. Wysocki seperate igb_shutdown and igb_suspend code
+
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+
+---
+drivers/net/igb/igb_main.c |   24 +++++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
+
+Index: linux-2.6/drivers/net/igb/igb_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/igb/igb_main.c
++++ linux-2.6/drivers/net/igb/igb_main.c
+@@ -4299,7 +4299,7 @@ int igb_set_spd_dplx(struct igb_adapter
+ }
  
-+config DNET
-+	tristate "Dave ethernet support (DNET)"
-+	depends on NET_ETHERNET
-+	select PHYLIB
-+	help
-+	  The Dave ethernet interface (DNET) is found on Qong Board FPGA.
-+	  Say Y to include support for the DNET chip.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called dnet.
-+
- source "drivers/net/tulip/Kconfig"
  
- config AT1700
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index aca8492..6d9bba5 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -231,6 +231,7 @@ obj-$(CONFIG_ENC28J60) += enc28j60.o
+-static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
++static int __igb_shutdown(struct pci_dev *pdev, bool enable_wake)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+@@ -4359,7 +4359,7 @@ static int igb_suspend(struct pci_dev *p
+ 	}
  
- obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
+ 	/* make sure adapter isn't asleep if manageability/wol is enabled */
+-	if (wufc || adapter->en_mng_pt) {
++	if ((wufc || adapter->en_mng_pt) && enable_wake) {
+ 		pci_enable_wake(pdev, PCI_D3hot, 1);
+ 		pci_enable_wake(pdev, PCI_D3cold, 1);
+ 	} else {
+@@ -4374,12 +4374,21 @@ static int igb_suspend(struct pci_dev *p
  
-+obj-$(CONFIG_DNET) += dnet.o
- obj-$(CONFIG_MACB) += macb.o
+ 	pci_disable_device(pdev);
  
- obj-$(CONFIG_ARM) += arm/
-diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
-new file mode 100644
-index 0000000..92c3bd3
---- /dev/null
-+++ b/drivers/net/dnet.c
-@@ -0,0 +1,994 @@
-+/*
-+ * Dave DNET Ethernet Controller driver
-+ *
-+ * Copyright (C) 2008 Dave S.r.l. <www.dave.eu>
-+ * Copyright (C) 2009 Ilya Yanok, Emcraft Systems Ltd, <yanok@emcraft.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#include <linux/version.h>
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/delay.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/platform_device.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+
-+#include "dnet.h"
-+
-+#undef DEBUG
-+
-+/* function for reading internal MAC register */
-+u16 dnet_readw_mac(struct dnet *bp, u16 reg)
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+-
+ 	return 0;
+ }
+ 
+ #ifdef CONFIG_PM
++static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
 +{
-+	u16 data_read;
++	int retval;
 +
-+	/* issue a read */
-+	dnet_writel(bp, reg, MACREG_ADDR);
++	retval = __igb_shutdown(pdev, true);
++	if (!retval)
++		pci_set_power_state(pdev, PCI_D3hot);
 +
-+	/* since a read/write op to the MAC is very slow,
-+	 * we must wait before reading the data */
-+	ndelay(500);
-+
-+	/* read data read from the MAC register */
-+	data_read = dnet_readl(bp, MACREG_DATA);
-+
-+	/* all done */
-+	return data_read;
++	return retval;
 +}
 +
-+/* function for writing internal MAC register */
-+void dnet_writew_mac(struct dnet *bp, u16 reg, u16 val)
-+{
-+	/* load data to write */
-+	dnet_writel(bp, val, MACREG_DATA);
-+
-+	/* issue a write */
-+	dnet_writel(bp, reg | DNET_INTERNAL_WRITE, MACREG_ADDR);
-+
-+	/* since a read/write op to the MAC is very slow,
-+	 * we must wait before exiting */
-+	ndelay(500);
-+}
-+
-+static void __dnet_set_hwaddr(struct dnet *bp)
-+{
-+	u16 tmp;
-+
-+	tmp = cpu_to_be16(*((u16 *) bp->dev->dev_addr));
-+	dnet_writew_mac(bp, DNET_INTERNAL_MAC_ADDR_0_REG, tmp);
-+	tmp = cpu_to_be16(*((u16 *) (bp->dev->dev_addr + 2)));
-+	dnet_writew_mac(bp, DNET_INTERNAL_MAC_ADDR_1_REG, tmp);
-+	tmp = cpu_to_be16(*((u16 *) (bp->dev->dev_addr + 4)));
-+	dnet_writew_mac(bp, DNET_INTERNAL_MAC_ADDR_2_REG, tmp);
-+}
-+
-+static void __devinit dnet_get_hwaddr(struct dnet *bp)
-+{
-+	u16 tmp;
-+	u8 addr[6];
-+
-+	/*
-+	 * from MAC docs:
-+	 * "Note that the MAC address is stored in the registers in Hexadecimal
-+	 * form. For example, to set the MAC Address to: AC-DE-48-00-00-80
-+	 * would require writing 0xAC (octet 0) to address 0x0B (high byte of
-+	 * Mac_addr[15:0]), 0xDE (octet 1) to address 0x0A (Low byte of
-+	 * Mac_addr[15:0]), 0x48 (octet 2) to address 0x0D (high byte of
-+	 * Mac_addr[15:0]), 0x00 (octet 3) to address 0x0C (Low byte of
-+	 * Mac_addr[15:0]), 0x00 (octet 4) to address 0x0F (high byte of
-+	 * Mac_addr[15:0]), and 0x80 (octet 5) to address * 0x0E (Low byte of
-+	 * Mac_addr[15:0]).
-+	 */
-+	tmp = dnet_readw_mac(bp, DNET_INTERNAL_MAC_ADDR_0_REG);
-+	*((u16 *) addr) = be16_to_cpu(tmp);
-+	tmp = dnet_readw_mac(bp, DNET_INTERNAL_MAC_ADDR_1_REG);
-+	*((u16 *) (addr + 2)) = be16_to_cpu(tmp);
-+	tmp = dnet_readw_mac(bp, DNET_INTERNAL_MAC_ADDR_2_REG);
-+	*((u16 *) (addr + 4)) = be16_to_cpu(tmp);
-+
-+	if (is_valid_ether_addr(addr))
-+		memcpy(bp->dev->dev_addr, addr, sizeof(addr));
-+}
-+
-+static int dnet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+{
-+	struct dnet *bp = bus->priv;
-+	u16 value;
-+
-+	while (!(dnet_readw_mac(bp, DNET_INTERNAL_GMII_MNG_CTL_REG)
-+				& DNET_INTERNAL_GMII_MNG_CMD_FIN))
-+		cpu_relax();
-+
-+	/* only 5 bits allowed for phy-addr and reg_offset */
-+	mii_id &= 0x1f;
-+	regnum &= 0x1f;
-+
-+	/* prepare reg_value for a read */
-+	value = (mii_id << 8);
-+	value |= regnum;
-+
-+	/* write control word */
-+	dnet_writew_mac(bp, DNET_INTERNAL_GMII_MNG_CTL_REG, value);
-+
-+	/* wait for end of transfer */
-+	while (!(dnet_readw_mac(bp, DNET_INTERNAL_GMII_MNG_CTL_REG)
-+				& DNET_INTERNAL_GMII_MNG_CMD_FIN))
-+		cpu_relax();
-+
-+	value = dnet_readw_mac(bp, DNET_INTERNAL_GMII_MNG_DAT_REG);
-+
-+	pr_debug("mdio_read %02x:%02x <- %04x\n", mii_id, regnum, value);
-+
-+	return value;
-+}
-+
-+static int dnet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
-+			   u16 value)
-+{
-+	struct dnet *bp = bus->priv;
-+	u16 tmp;
-+
-+	pr_debug("mdio_write %02x:%02x <- %04x\n", mii_id, regnum, value);
-+
-+	while (!(dnet_readw_mac(bp, DNET_INTERNAL_GMII_MNG_CTL_REG)
-+				& DNET_INTERNAL_GMII_MNG_CMD_FIN))
-+		cpu_relax();
-+
-+	/* prepare for a write operation */
-+	tmp = (1 << 13);
-+
-+	/* only 5 bits allowed for phy-addr and reg_offset */
-+	mii_id &= 0x1f;
-+	regnum &= 0x1f;
-+
-+	/* only 16 bits on data */
-+	value &= 0xffff;
-+
-+	/* prepare reg_value for a write */
-+	tmp |= (mii_id << 8);
-+	tmp |= regnum;
-+
-+	/* write data to write first */
-+	dnet_writew_mac(bp, DNET_INTERNAL_GMII_MNG_DAT_REG, value);
-+
-+	/* write control word */
-+	dnet_writew_mac(bp, DNET_INTERNAL_GMII_MNG_CTL_REG, tmp);
-+
-+	while (!(dnet_readw_mac(bp, DNET_INTERNAL_GMII_MNG_CTL_REG)
-+				& DNET_INTERNAL_GMII_MNG_CMD_FIN))
-+		cpu_relax();
-+
-+	return 0;
-+}
-+
-+static int dnet_mdio_reset(struct mii_bus *bus)
-+{
-+	return 0;
-+}
-+
-+static void dnet_handle_link_change(struct net_device *dev)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+	struct phy_device *phydev = bp->phy_dev;
-+	unsigned long flags;
-+	u32 mode_reg, ctl_reg;
-+
-+	int status_change = 0;
-+
-+	spin_lock_irqsave(&bp->lock, flags);
-+
-+	mode_reg = dnet_readw_mac(bp, DNET_INTERNAL_MODE_REG);
-+	ctl_reg = dnet_readw_mac(bp, DNET_INTERNAL_RXTX_CONTROL_REG);
-+
-+	if (phydev->link) {
-+		if (bp->duplex != phydev->duplex) {
-+			if (phydev->duplex)
-+				ctl_reg &=
-+				    ~(DNET_INTERNAL_RXTX_CONTROL_ENABLEHALFDUP);
-+			else
-+				ctl_reg |=
-+				    DNET_INTERNAL_RXTX_CONTROL_ENABLEHALFDUP;
-+
-+			bp->duplex = phydev->duplex;
-+			status_change = 1;
-+		}
-+
-+		if (bp->speed != phydev->speed) {
-+			status_change = 1;
-+			switch (phydev->speed) {
-+			case 1000:
-+				mode_reg |= DNET_INTERNAL_MODE_GBITEN;
-+				break;
-+			case 100:
-+			case 10:
-+				mode_reg &= ~DNET_INTERNAL_MODE_GBITEN;
-+				break;
-+			default:
-+				printk(KERN_WARNING
-+				       "%s: Ack!  Speed (%d) is not "
-+				       "10/100/1000!\n", dev->name,
-+				       phydev->speed);
-+				break;
-+			}
-+			bp->speed = phydev->speed;
-+		}
-+	}
-+
-+	if (phydev->link != bp->link) {
-+		if (phydev->link) {
-+			mode_reg |=
-+			    (DNET_INTERNAL_MODE_RXEN | DNET_INTERNAL_MODE_TXEN);
-+		} else {
-+			mode_reg &=
-+			    ~(DNET_INTERNAL_MODE_RXEN |
-+			      DNET_INTERNAL_MODE_TXEN);
-+			bp->speed = 0;
-+			bp->duplex = -1;
-+		}
-+		bp->link = phydev->link;
-+
-+		status_change = 1;
-+	}
-+
-+	if (status_change) {
-+		dnet_writew_mac(bp, DNET_INTERNAL_RXTX_CONTROL_REG, ctl_reg);
-+		dnet_writew_mac(bp, DNET_INTERNAL_MODE_REG, mode_reg);
-+	}
-+
-+	spin_unlock_irqrestore(&bp->lock, flags);
-+
-+	if (status_change) {
-+		if (phydev->link)
-+			printk(KERN_INFO "%s: link up (%d/%s)\n",
-+			       dev->name, phydev->speed,
-+			       DUPLEX_FULL == phydev->duplex ? "Full" : "Half");
-+		else
-+			printk(KERN_INFO "%s: link down\n", dev->name);
-+	}
-+}
-+
-+static int dnet_mii_probe(struct net_device *dev)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+	struct phy_device *phydev = NULL;
-+	int phy_addr;
-+
-+	/* find the first phy */
-+	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
-+		if (bp->mii_bus->phy_map[phy_addr]) {
-+			phydev = bp->mii_bus->phy_map[phy_addr];
-+			break;
-+		}
-+	}
-+
-+	if (!phydev) {
-+		printk(KERN_ERR "%s: no PHY found\n", dev->name);
-+		return -ENODEV;
-+	}
-+
-+	/* TODO : add pin_irq */
-+
-+	/* attach the mac to the phy */
-+	if (bp->capabilities & DNET_HAS_RMII) {
-+		phydev = phy_connect(dev, phydev->dev.bus_id,
-+				     &dnet_handle_link_change, 0,
-+				     PHY_INTERFACE_MODE_RMII);
+ static int igb_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -4434,7 +4443,12 @@ static int igb_resume(struct pci_dev *pd
+ 
+ static void igb_shutdown(struct pci_dev *pdev)
+ {
+-	igb_suspend(pdev, PMSG_SUSPEND);
++	if (system_state == SYSTEM_POWER_OFF) {
++		__igb_shutdown(pdev, true);
++		pci_set_power_state(pdev, PCI_D3hot);
 +	} else {
-+		phydev = phy_connect(dev, phydev->dev.bus_id,
-+				     &dnet_handle_link_change, 0,
-+				     PHY_INTERFACE_MODE_MII);
++		__igb_shutdown(pdev, false);
 +	}
-+
-+	if (IS_ERR(phydev)) {
-+		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
-+		return PTR_ERR(phydev);
-+	}
-+
-+	/* mask with MAC supported features */
-+	if (bp->capabilities & DNET_HAS_GIGABIT)
-+		phydev->supported &= PHY_GBIT_FEATURES;
-+	else
-+		phydev->supported &= PHY_BASIC_FEATURES;
-+
-+	phydev->supported |= SUPPORTED_Asym_Pause | SUPPORTED_Pause;
-+
-+	phydev->advertising = phydev->supported;
-+
-+	bp->link = 0;
-+	bp->speed = 0;
-+	bp->duplex = -1;
-+	bp->phy_dev = phydev;
-+
-+	return 0;
-+}
-+
-+static int dnet_mii_init(struct dnet *bp)
-+{
-+	int err, i;
-+
-+	bp->mii_bus = mdiobus_alloc();
-+	if (bp->mii_bus == NULL)
-+		return -ENOMEM;
-+
-+	bp->mii_bus->name = "dnet_mii_bus";
-+	bp->mii_bus->read = &dnet_mdio_read;
-+	bp->mii_bus->write = &dnet_mdio_write;
-+	bp->mii_bus->reset = &dnet_mdio_reset;
-+
-+	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%x", 0);
-+
-+	bp->mii_bus->priv = bp;
-+
-+	bp->mii_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	if (!bp->mii_bus->irq) {
-+		err = -ENOMEM;
-+		goto err_out;
-+	}
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		bp->mii_bus->irq[i] = PHY_POLL;
-+
-+	platform_set_drvdata(bp->dev, bp->mii_bus);
-+
-+	if (mdiobus_register(bp->mii_bus)) {
-+		err = -ENXIO;
-+		goto err_out_free_mdio_irq;
-+	}
-+
-+	if (dnet_mii_probe(bp->dev) != 0) {
-+		err = -ENXIO;
-+		goto err_out_unregister_bus;
-+	}
-+
-+	return 0;
-+
-+err_out_unregister_bus:
-+	mdiobus_unregister(bp->mii_bus);
-+err_out_free_mdio_irq:
-+	kfree(bp->mii_bus->irq);
-+err_out:
-+	mdiobus_free(bp->mii_bus);
-+	return err;
-+}
-+
-+/* For Neptune board: LINK1000 as Link LED and TX as activity LED */
-+int dnet_phy_marvell_fixup(struct phy_device *phydev)
-+{
-+	return phy_write(phydev, 0x18, 0x4148);
-+}
-+
-+static void dnet_update_stats(struct dnet *bp)
-+{
-+	u32 __iomem *reg = bp->regs + DNET_RX_PKT_IGNR_CNT;
-+	u32 *p = &bp->hw_stats.rx_pkt_ignr;
-+	u32 *end = &bp->hw_stats.rx_byte + 1;
-+
-+	WARN_ON((unsigned long)(end - p - 1) !=
-+		(DNET_RX_BYTE_CNT - DNET_RX_PKT_IGNR_CNT) / 4);
-+
-+	for (; p < end; p++, reg++)
-+		*p += readl(reg);
-+
-+	reg = bp->regs + DNET_TX_UNICAST_CNT;
-+	p = &bp->hw_stats.tx_unicast;
-+	end = &bp->hw_stats.tx_byte + 1;
-+
-+	WARN_ON((unsigned long)(end - p - 1) !=
-+		(DNET_TX_BYTE_CNT - DNET_TX_UNICAST_CNT) / 4);
-+
-+	for (; p < end; p++, reg++)
-+		*p += readl(reg);
-+}
-+
-+static int dnet_poll(struct napi_struct *napi, int budget)
-+{
-+	struct dnet *bp = container_of(napi, struct dnet, napi);
-+	struct net_device *dev = bp->dev;
-+	int npackets = 0;
-+	unsigned int pkt_len;
-+	struct sk_buff *skb;
-+	unsigned int *data_ptr;
-+	u32 int_enable;
-+	u32 cmd_word;
-+	int i;
-+
-+	while (npackets < budget) {
-+		/*
-+		 * break out of while loop if there are no more
-+		 * packets waiting
-+		 */
-+		if (!(dnet_readl(bp, RX_FIFO_WCNT) >> 16)) {
-+			netif_rx_complete(napi);
-+			int_enable = dnet_readl(bp, INTR_ENB);
-+			int_enable |= DNET_INTR_SRC_RX_CMDFIFOAF;
-+			dnet_writel(bp, int_enable, INTR_ENB);
-+			return 0;
-+		}
-+
-+		cmd_word = dnet_readl(bp, RX_LEN_FIFO);
-+		pkt_len = cmd_word & 0xFFFF;
-+
-+		if (cmd_word & 0xDF180000)
-+			printk(KERN_ERR "%s packet receive error %x\n",
-+			       __func__, cmd_word);
-+
-+		skb = dev_alloc_skb(pkt_len + 5);
-+		if (skb != NULL) {
-+			/* Align IP on 16 byte boundaries */
-+			skb_reserve(skb, 2);
-+			/*
-+			 * 'skb_put()' points to the start of sk_buff
-+			 * data area.
-+			 */
-+			data_ptr = (unsigned int *)skb_put(skb, pkt_len);
-+			for (i = 0; i < (pkt_len + 3) >> 2; i++)
-+				*data_ptr++ = dnet_readl(bp, RX_DATA_FIFO);
-+			skb->protocol = eth_type_trans(skb, dev);
-+			netif_receive_skb(skb);
-+			npackets++;
-+		} else
-+			printk(KERN_NOTICE
-+			       "%s: No memory to allocate a sk_buff of "
-+			       "size %u.\n", dev->name, pkt_len);
-+	}
-+
-+	budget -= npackets;
-+
-+	if (npackets < budget) {
-+		/* We processed all packets available.  Tell NAPI it can
-+		 * stop polling then re-enable rx interrupts */
-+		netif_rx_complete(napi);
-+		int_enable = dnet_readl(bp, INTR_ENB);
-+		int_enable |= DNET_INTR_SRC_RX_CMDFIFOAF;
-+		dnet_writel(bp, int_enable, INTR_ENB);
-+		return 0;
-+	}
-+
-+	/* There are still packets waiting */
-+	return 1;
-+}
-+
-+static irqreturn_t dnet_interrupt(int irq, void *dev_id)
-+{
-+	struct net_device *dev = dev_id;
-+	struct dnet *bp = netdev_priv(dev);
-+	u32 int_src, int_enable, int_current;
-+	unsigned long flags;
-+	unsigned int handled = 0;
-+
-+	spin_lock_irqsave(&bp->lock, flags);
-+
-+	/* read and clear the DNET irq (clear on read) */
-+	int_src = dnet_readl(bp, INTR_SRC);
-+	int_enable = dnet_readl(bp, INTR_ENB);
-+	int_current = int_src & int_enable;
-+
-+	/* restart the queue if we had stopped it for TX fifo almost full */
-+	if (int_current & DNET_INTR_SRC_TX_FIFOAE) {
-+		int_enable = dnet_readl(bp, INTR_ENB);
-+		int_enable &= ~DNET_INTR_ENB_TX_FIFOAE;
-+		dnet_writel(bp, int_enable, INTR_ENB);
-+		netif_wake_queue(dev);
-+		handled = 1;
-+	}
-+
-+	/* RX FIFO error checking */
-+	if (int_current &
-+	    (DNET_INTR_SRC_RX_CMDFIFOFF | DNET_INTR_SRC_RX_DATAFIFOFF)) {
-+		printk(KERN_ERR "%s: RX fifo error %x, irq %x\n", __func__,
-+		       dnet_readl(bp, RX_STATUS), int_current);
-+		/* we can only flush the RX FIFOs */
-+		dnet_writel(bp, DNET_SYS_CTL_RXFIFOFLUSH, SYS_CTL);
-+		ndelay(500);
-+		dnet_writel(bp, 0, SYS_CTL);
-+		handled = 1;
-+	}
-+
-+	/* TX FIFO error checking */
-+	if (int_current &
-+	    (DNET_INTR_SRC_TX_FIFOFULL | DNET_INTR_SRC_TX_DISCFRM)) {
-+		printk(KERN_ERR "%s: TX fifo error %x, irq %x\n", __func__,
-+		       dnet_readl(bp, TX_STATUS), int_current);
-+		/* we can only flush the TX FIFOs */
-+		dnet_writel(bp, DNET_SYS_CTL_TXFIFOFLUSH, SYS_CTL);
-+		ndelay(500);
-+		dnet_writel(bp, 0, SYS_CTL);
-+		handled = 1;
-+	}
-+
-+	if (int_current & DNET_INTR_SRC_RX_CMDFIFOAF) {
-+		if (netif_rx_schedule_prep(&bp->napi)) {
-+			/*
-+			 * There's no point taking any more interrupts
-+			 * until we have processed the buffers
-+			 */
-+			/* Disable Rx interrupts and schedule NAPI poll */
-+			int_enable = dnet_readl(bp, INTR_ENB);
-+			int_enable &= ~DNET_INTR_SRC_RX_CMDFIFOAF;
-+			dnet_writel(bp, int_enable, INTR_ENB);
-+			__netif_rx_schedule(&bp->napi);
-+		}
-+		handled = 1;
-+	}
-+
-+	if (!handled)
-+		pr_debug("%s: irq %x remains\n", __func__, int_current);
-+
-+	spin_unlock_irqrestore(&bp->lock, flags);
-+
-+	return IRQ_RETVAL(handled);
-+}
-+
-+#ifdef DEBUG
-+static inline void dnet_print_skb(struct sk_buff *skb)
-+{
-+	int k;
-+	printk(KERN_DEBUG PFX "data:");
-+	for (k = 0; k < skb->len; k++)
-+		printk(" %02x", (unsigned int)skb->data[k]);
-+	printk("\n");
-+}
-+#else
-+#define dnet_print_skb(skb)	do {} while (0)
-+#endif
-+
-+static int dnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+
-+	struct dnet *bp = netdev_priv(dev);
-+	u32 tx_status, irq_enable;
-+	unsigned int len, i, tx_cmd, wrsz;
-+	unsigned long flags;
-+	unsigned int *bufp;
-+
-+	tx_status = dnet_readl(bp, TX_STATUS);
-+
-+	pr_debug("start_xmit: len %u head %p data %p tail %p end %p\n",
-+	       skb->len, skb->head, skb->data, skb->tail, skb->end);
-+	dnet_print_skb(skb);
-+
-+	/* frame size (words) */
-+	len = (skb->len + 3) >> 2;
-+
-+	spin_lock_irqsave(&bp->lock, flags);
-+
-+	tx_status = dnet_readl(bp, TX_STATUS);
-+
-+	bufp = (unsigned int *)(((u32) skb->data) & 0xFFFFFFFC);
-+	wrsz = (u32) skb->len + 3;
-+	wrsz += ((u32) skb->data) & 0x3;
-+	wrsz >>= 2;
-+	tx_cmd = ((((unsigned int)(skb->data)) & 0x03) << 16) | (u32) skb->len;
-+
-+	/* check if there is enough room for the current frame */
-+	if (wrsz < (DNET_FIFO_SIZE - dnet_readl(bp, TX_FIFO_WCNT))) {
-+		for (i = 0; i < wrsz; i++)
-+			dnet_writel(bp, *bufp++, TX_DATA_FIFO);
-+
-+		/*
-+		 * inform MAC that a packet's written and ready to be
-+		 * shipped out
-+		 */
-+		dnet_writel(bp, tx_cmd, TX_LEN_FIFO);
-+	}
-+
-+	if (dnet_readl(bp, TX_FIFO_WCNT) > DNET_FIFO_TX_DATA_AF_TH) {
-+		netif_stop_queue(dev);
-+		tx_status = dnet_readl(bp, INTR_SRC);
-+		irq_enable = dnet_readl(bp, INTR_ENB);
-+		irq_enable |= DNET_INTR_ENB_TX_FIFOAE;
-+		dnet_writel(bp, irq_enable, INTR_ENB);
-+	}
-+
-+	/* free the buffer */
-+	dev_kfree_skb(skb);
-+
-+	spin_unlock_irqrestore(&bp->lock, flags);
-+
-+	dev->trans_start = jiffies;
-+
-+	return 0;
-+}
-+
-+static void dnet_reset_hw(struct dnet *bp)
-+{
-+	/* put ts_mac in IDLE state i.e. disable rx/tx */
-+	dnet_writew_mac(bp, DNET_INTERNAL_MODE_REG, DNET_INTERNAL_MODE_FCEN);
-+
-+	/*
-+	 * RX FIFO almost full threshold: only cmd FIFO almost full is
-+	 * implemented for RX side
-+	 */
-+	dnet_writel(bp, DNET_FIFO_RX_CMD_AF_TH, RX_FIFO_TH);
-+	/*
-+	 * TX FIFO almost empty threshold: only data FIFO almost empty
-+	 * is implemented for TX side
-+	 */
-+	dnet_writel(bp, DNET_FIFO_TX_DATA_AE_TH, TX_FIFO_TH);
-+
-+	/* flush rx/tx fifos */
-+	dnet_writel(bp, DNET_SYS_CTL_RXFIFOFLUSH | DNET_SYS_CTL_TXFIFOFLUSH,
-+			SYS_CTL);
-+	msleep(1);
-+	dnet_writel(bp, 0, SYS_CTL);
-+}
-+
-+static void dnet_init_hw(struct dnet *bp)
-+{
-+	u32 config;
-+
-+	dnet_reset_hw(bp);
-+	__dnet_set_hwaddr(bp);
-+
-+	config = dnet_readw_mac(bp, DNET_INTERNAL_RXTX_CONTROL_REG);
-+
-+	if (bp->dev->flags & IFF_PROMISC)
-+		/* Copy All Frames */
-+		config |= DNET_INTERNAL_RXTX_CONTROL_ENPROMISC;
-+	if (!(bp->dev->flags & IFF_BROADCAST))
-+		/* No BroadCast */
-+		config |= DNET_INTERNAL_RXTX_CONTROL_RXMULTICAST;
-+
-+	config |= DNET_INTERNAL_RXTX_CONTROL_RXPAUSE |
-+	    DNET_INTERNAL_RXTX_CONTROL_RXBROADCAST |
-+	    DNET_INTERNAL_RXTX_CONTROL_DROPCONTROL |
-+	    DNET_INTERNAL_RXTX_CONTROL_DISCFXFCS;
-+
-+	dnet_writew_mac(bp, DNET_INTERNAL_RXTX_CONTROL_REG, config);
-+
-+	/* clear irq before enabling them */
-+	config = dnet_readl(bp, INTR_SRC);
-+
-+	/* enable RX/TX interrupt, recv packet ready interrupt */
-+	dnet_writel(bp, DNET_INTR_ENB_GLOBAL_ENABLE | DNET_INTR_ENB_RX_SUMMARY |
-+			DNET_INTR_ENB_TX_SUMMARY | DNET_INTR_ENB_RX_FIFOERR |
-+			DNET_INTR_ENB_RX_ERROR | DNET_INTR_ENB_RX_FIFOFULL |
-+			DNET_INTR_ENB_TX_FIFOFULL | DNET_INTR_ENB_TX_DISCFRM |
-+			DNET_INTR_ENB_RX_PKTRDY, INTR_ENB);
-+}
-+
-+static int dnet_open(struct net_device *dev)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+
-+	/* if the phy is not yet register, retry later */
-+	if (!bp->phy_dev)
-+		return -EAGAIN;
-+
-+	if (!is_valid_ether_addr(dev->dev_addr))
-+		return -EADDRNOTAVAIL;
-+
-+	napi_enable(&bp->napi);
-+	dnet_init_hw(bp);
-+
-+	phy_start_aneg(bp->phy_dev);
-+
-+	/* schedule a link state check */
-+	phy_start(bp->phy_dev);
-+
-+	netif_start_queue(dev);
-+
-+	return 0;
-+}
-+
-+static int dnet_close(struct net_device *dev)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+
-+	netif_stop_queue(dev);
-+	napi_disable(&bp->napi);
-+
-+	if (bp->phy_dev)
-+		phy_stop(bp->phy_dev);
-+
-+	dnet_reset_hw(bp);
-+	netif_carrier_off(dev);
-+
-+	return 0;
-+}
-+
-+static inline void dnet_print_pretty_hwstats(struct dnet_stats *hwstat)
-+{
-+	pr_debug("%s\n", __func__);
-+	pr_debug("----------------------------- RX statistics "
-+		 "-------------------------------\n");
-+	pr_debug("RX_PKT_IGNR_CNT %-8x\n", hwstat->rx_pkt_ignr);
-+	pr_debug("RX_LEN_CHK_ERR_CNT %-8x\n", hwstat->rx_len_chk_err);
-+	pr_debug("RX_LNG_FRM_CNT %-8x\n", hwstat->rx_lng_frm);
-+	pr_debug("RX_SHRT_FRM_CNT %-8x\n", hwstat->rx_shrt_frm);
-+	pr_debug("RX_IPG_VIOL_CNT %-8x\n", hwstat->rx_ipg_viol);
-+	pr_debug("RX_CRC_ERR_CNT %-8x\n", hwstat->rx_crc_err);
-+	pr_debug("RX_OK_PKT_CNT %-8x\n", hwstat->rx_ok_pkt);
-+	pr_debug("RX_CTL_FRM_CNT %-8x\n", hwstat->rx_ctl_frm);
-+	pr_debug("RX_PAUSE_FRM_CNT %-8x\n", hwstat->rx_pause_frm);
-+	pr_debug("RX_MULTICAST_CNT %-8x\n", hwstat->rx_multicast);
-+	pr_debug("RX_BROADCAST_CNT %-8x\n", hwstat->rx_broadcast);
-+	pr_debug("RX_VLAN_TAG_CNT %-8x\n", hwstat->rx_vlan_tag);
-+	pr_debug("RX_PRE_SHRINK_CNT %-8x\n", hwstat->rx_pre_shrink);
-+	pr_debug("RX_DRIB_NIB_CNT %-8x\n", hwstat->rx_drib_nib);
-+	pr_debug("RX_UNSUP_OPCD_CNT %-8x\n", hwstat->rx_unsup_opcd);
-+	pr_debug("RX_BYTE_CNT %-8x\n", hwstat->rx_byte);
-+	pr_debug("----------------------------- TX statistics "
-+		 "-------------------------------\n");
-+	pr_debug("TX_UNICAST_CNT %-8x\n", hwstat->tx_unicast);
-+	pr_debug("TX_PAUSE_FRM_CNT %-8x\n", hwstat->tx_pause_frm);
-+	pr_debug("TX_MULTICAST_CNT %-8x\n", hwstat->tx_multicast);
-+	pr_debug("TX_BRDCAST_CNT %-8x\n", hwstat->tx_brdcast);
-+	pr_debug("TX_VLAN_TAG_CNT %-8x\n", hwstat->tx_vlan_tag);
-+	pr_debug("TX_BAD_FCS_CNT %-8x\n", hwstat->tx_bad_fcs);
-+	pr_debug("TX_JUMBO_CNT %-8x\n", hwstat->tx_jumbo);
-+	pr_debug("TX_BYTE_CNT %-8x\n", hwstat->tx_byte);
-+}
-+
-+static struct net_device_stats *dnet_get_stats(struct net_device *dev)
-+{
-+
-+	struct dnet *bp = netdev_priv(dev);
-+	struct net_device_stats *nstat = &dev->stats;
-+	struct dnet_stats *hwstat = &bp->hw_stats;
-+
-+	/* read stats from hardware */
-+	dnet_update_stats(bp);
-+
-+	/* Convert HW stats into netdevice stats */
-+	nstat->rx_errors = (hwstat->rx_len_chk_err +
-+			    hwstat->rx_lng_frm + hwstat->rx_shrt_frm +
-+			    /* ignore IGP violation error
-+			    hwstat->rx_ipg_viol + */
-+			    hwstat->rx_crc_err +
-+			    hwstat->rx_pre_shrink +
-+			    hwstat->rx_drib_nib + hwstat->rx_unsup_opcd);
-+	nstat->tx_errors = hwstat->tx_bad_fcs;
-+	nstat->rx_length_errors = (hwstat->rx_len_chk_err +
-+				   hwstat->rx_lng_frm +
-+				   hwstat->rx_shrt_frm + hwstat->rx_pre_shrink);
-+	nstat->rx_crc_errors = hwstat->rx_crc_err;
-+	nstat->rx_frame_errors = hwstat->rx_pre_shrink + hwstat->rx_drib_nib;
-+	nstat->rx_packets = hwstat->rx_ok_pkt;
-+	nstat->tx_packets = (hwstat->tx_unicast +
-+			     hwstat->tx_multicast + hwstat->tx_brdcast);
-+	nstat->rx_bytes = hwstat->rx_byte;
-+	nstat->tx_bytes = hwstat->tx_byte;
-+	nstat->multicast = hwstat->rx_multicast;
-+	nstat->rx_missed_errors = hwstat->rx_pkt_ignr;
-+
-+	dnet_print_pretty_hwstats(hwstat);
-+
-+	return nstat;
-+}
-+
-+static int dnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+	struct phy_device *phydev = bp->phy_dev;
-+
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	return phy_ethtool_gset(phydev, cmd);
-+}
-+
-+static int dnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+	struct phy_device *phydev = bp->phy_dev;
-+
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	return phy_ethtool_sset(phydev, cmd);
-+}
-+
-+static int dnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-+{
-+	struct dnet *bp = netdev_priv(dev);
-+	struct phy_device *phydev = bp->phy_dev;
-+
-+	if (!netif_running(dev))
-+		return -EINVAL;
-+
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
-+}
-+
-+static void dnet_get_drvinfo(struct net_device *dev,
-+			     struct ethtool_drvinfo *info)
-+{
-+	strcpy(info->driver, DRV_NAME);
-+	strcpy(info->version, DRV_VERSION);
-+	strcpy(info->bus_info, "0");
-+}
-+
-+static const struct ethtool_ops dnet_ethtool_ops = {
-+	.get_settings		= dnet_get_settings,
-+	.set_settings		= dnet_set_settings,
-+	.get_drvinfo		= dnet_get_drvinfo,
-+	.get_link		= ethtool_op_get_link,
-+};
-+
-+static const struct net_device_ops dnet_netdev_ops = {
-+	.ndo_open		= dnet_open,
-+	.ndo_stop		= dnet_close,
-+	.ndo_get_stats		= dnet_get_stats,
-+	.ndo_start_xmit		= dnet_start_xmit,
-+	.ndo_do_ioctl		= dnet_ioctl,
-+	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+};
-+
-+static int __devinit dnet_probe(struct platform_device *pdev)
-+{
-+	struct resource *res;
-+	struct net_device *dev;
-+	struct dnet *bp;
-+	struct phy_device *phydev;
-+	int err = -ENXIO;
-+	unsigned int mem_base, mem_size, irq;
-+
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!res) {
-+		dev_err(&pdev->dev, "no mmio resource defined\n");
-+		goto err_out;
-+	}
-+	mem_base = res->start;
-+	mem_size = resource_size(res);
-+	irq = platform_get_irq(pdev, 0);
-+
-+	if (!request_mem_region(mem_base, mem_size, DRV_NAME)) {
-+		dev_err(&pdev->dev, "no memory region available\n");
-+		err = -EBUSY;
-+		goto err_out;
-+	}
-+
-+	err = -ENOMEM;
-+	dev = alloc_etherdev(sizeof(*bp));
-+	if (!dev) {
-+		dev_err(&pdev->dev, "etherdev alloc failed, aborting.\n");
-+		goto err_out;
-+	}
-+
-+	/* TODO: Actually, we have some interesting features... */
-+	dev->features |= 0;
-+
-+	bp = netdev_priv(dev);
-+	bp->dev = dev;
-+
-+	SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+	spin_lock_init(&bp->lock);
-+
-+	bp->regs = ioremap(mem_base, mem_size);
-+	if (!bp->regs) {
-+		dev_err(&pdev->dev, "failed to map registers, aborting.\n");
-+		err = -ENOMEM;
-+		goto err_out_free_dev;
-+	}
-+
-+	dev->irq = irq;
-+	err = request_irq(dev->irq, dnet_interrupt, 0, DRV_NAME, dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Unable to request IRQ %d (error %d)\n",
-+		       irq, err);
-+		goto err_out_iounmap;
-+	}
-+
-+	dev->netdev_ops = &dnet_netdev_ops;
-+	netif_napi_add(dev, &bp->napi, dnet_poll, 64);
-+	dev->ethtool_ops = &dnet_ethtool_ops;
-+
-+	dev->base_addr = (unsigned long)bp->regs;
-+
-+	bp->capabilities = dnet_readl(bp, VERCAPS) & DNET_CAPS_MASK;
-+
-+	dnet_get_hwaddr(bp);
-+
-+	if (!is_valid_ether_addr(dev->dev_addr)) {
-+		/* choose a random ethernet address */
-+		random_ether_addr(dev->dev_addr);
-+		__dnet_set_hwaddr(bp);
-+	}
-+
-+	err = register_netdev(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-+		goto err_out_free_irq;
-+	}
-+
-+	/* register the PHY board fixup (for Marvell 88E1111) */
-+	err = phy_register_fixup_for_uid(0x01410cc0, 0xfffffff0,
-+					 dnet_phy_marvell_fixup);
-+	/* we can live without it, so just issue a warning */
-+	if (err)
-+		dev_warn(&pdev->dev, "Cannot register PHY board fixup.\n");
-+
-+	if (dnet_mii_init(bp) != 0)
-+		goto err_out_unregister_netdev;
-+
-+	dev_info(&pdev->dev, "Dave DNET at 0x%p (0x%08x) irq %d %pM\n",
-+	       bp->regs, mem_base, dev->irq, dev->dev_addr);
-+	dev_info(&pdev->dev, "has %smdio, %sirq, %sgigabit, %sdma \n",
-+	       (bp->capabilities & DNET_HAS_MDIO) ? "" : "no ",
-+	       (bp->capabilities & DNET_HAS_IRQ) ? "" : "no ",
-+	       (bp->capabilities & DNET_HAS_GIGABIT) ? "" : "no ",
-+	       (bp->capabilities & DNET_HAS_DMA) ? "" : "no ");
-+	phydev = bp->phy_dev;
-+	dev_info(&pdev->dev, "attached PHY driver [%s] "
-+	       "(mii_bus:phy_addr=%s, irq=%d)\n",
-+	       phydev->drv->name, phydev->dev.bus_id, phydev->irq);
-+
-+	return 0;
-+
-+err_out_unregister_netdev:
-+	unregister_netdev(dev);
-+err_out_free_irq:
-+	free_irq(dev->irq, dev);
-+err_out_iounmap:
-+	iounmap(bp->regs);
-+err_out_free_dev:
-+	free_netdev(dev);
-+err_out:
-+	return err;
-+}
-+
-+static int __devexit dnet_remove(struct platform_device *pdev)
-+{
-+
-+	struct net_device *dev;
-+	struct dnet *bp;
-+
-+	dev = platform_get_drvdata(pdev);
-+
-+	if (dev) {
-+		bp = netdev_priv(dev);
-+		if (bp->phy_dev)
-+			phy_disconnect(bp->phy_dev);
-+		mdiobus_unregister(bp->mii_bus);
-+		kfree(bp->mii_bus->irq);
-+		mdiobus_free(bp->mii_bus);
-+		unregister_netdev(dev);
-+		free_irq(dev->irq, dev);
-+		iounmap(bp->regs);
-+		free_netdev(dev);
-+	}
-+
-+	return 0;
-+}
-+
-+static struct platform_driver dnet_driver = {
-+	.probe		= dnet_probe,
-+	.remove		= __devexit_p(dnet_remove),
-+	.driver		= {
-+		.name		= "dnet",
-+	},
-+};
-+
-+static int __init dnet_init(void)
-+{
-+	return platform_driver_register(&dnet_driver);
-+}
-+
-+static void __exit dnet_exit(void)
-+{
-+	platform_driver_unregister(&dnet_driver);
-+}
-+
-+module_init(dnet_init);
-+module_exit(dnet_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("Dave DNET Ethernet driver");
-+MODULE_AUTHOR("Ilya Yanok <yanok@emcraft.com>, "
-+	      "Matteo Vit <matteo.vit@dave.eu>");
-diff --git a/drivers/net/dnet.h b/drivers/net/dnet.h
-new file mode 100644
-index 0000000..37f5b30
---- /dev/null
-+++ b/drivers/net/dnet.h
-@@ -0,0 +1,225 @@
-+/*
-+ * Dave DNET Ethernet Controller driver
-+ *
-+ * Copyright (C) 2008 Dave S.r.l. <www.dave.eu>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#ifndef _DNET_H
-+#define _DNET_H
-+
-+#define DRV_NAME		"dnet"
-+#define DRV_VERSION		"0.9.1"
-+#define PFX				DRV_NAME ": "
-+
-+/* Register access macros */
-+#define dnet_writel(port, value, reg)	\
-+	writel((value), (port)->regs + DNET_##reg)
-+#define dnet_readl(port, reg)	readl((port)->regs + DNET_##reg)
-+
-+/* ALL DNET FIFO REGISTERS */
-+#define DNET_RX_LEN_FIFO		0x000	/* RX_LEN_FIFO */
-+#define DNET_RX_DATA_FIFO		0x004	/* RX_DATA_FIFO */
-+#define DNET_TX_LEN_FIFO		0x008	/* TX_LEN_FIFO */
-+#define DNET_TX_DATA_FIFO		0x00C	/* TX_DATA_FIFO */
-+
-+/* ALL DNET CONTROL/STATUS REGISTERS OFFSETS */
-+#define DNET_VERCAPS			0x100	/* VERCAPS */
-+#define DNET_INTR_SRC			0x104	/* INTR_SRC */
-+#define DNET_INTR_ENB			0x108	/* INTR_ENB */
-+#define DNET_RX_STATUS			0x10C	/* RX_STATUS */
-+#define DNET_TX_STATUS			0x110	/* TX_STATUS */
-+#define DNET_RX_FRAMES_CNT		0x114	/* RX_FRAMES_CNT */
-+#define DNET_TX_FRAMES_CNT		0x118	/* TX_FRAMES_CNT */
-+#define DNET_RX_FIFO_TH			0x11C	/* RX_FIFO_TH */
-+#define DNET_TX_FIFO_TH			0x120	/* TX_FIFO_TH */
-+#define DNET_SYS_CTL			0x124	/* SYS_CTL */
-+#define DNET_PAUSE_TMR			0x128	/* PAUSE_TMR */
-+#define DNET_RX_FIFO_WCNT		0x12C	/* RX_FIFO_WCNT */
-+#define DNET_TX_FIFO_WCNT		0x130	/* TX_FIFO_WCNT */
-+
-+/* ALL DNET MAC REGISTERS */
-+#define DNET_MACREG_DATA		0x200	/* Mac-Reg Data */
-+#define DNET_MACREG_ADDR		0x204	/* Mac-Reg Addr  */
-+
-+/* ALL DNET RX STATISTICS COUNTERS  */
-+#define DNET_RX_PKT_IGNR_CNT		0x300
-+#define DNET_RX_LEN_CHK_ERR_CNT		0x304
-+#define DNET_RX_LNG_FRM_CNT		0x308
-+#define DNET_RX_SHRT_FRM_CNT		0x30C
-+#define DNET_RX_IPG_VIOL_CNT		0x310
-+#define DNET_RX_CRC_ERR_CNT		0x314
-+#define DNET_RX_OK_PKT_CNT		0x318
-+#define DNET_RX_CTL_FRM_CNT		0x31C
-+#define DNET_RX_PAUSE_FRM_CNT		0x320
-+#define DNET_RX_MULTICAST_CNT		0x324
-+#define DNET_RX_BROADCAST_CNT		0x328
-+#define DNET_RX_VLAN_TAG_CNT		0x32C
-+#define DNET_RX_PRE_SHRINK_CNT		0x330
-+#define DNET_RX_DRIB_NIB_CNT		0x334
-+#define DNET_RX_UNSUP_OPCD_CNT		0x338
-+#define DNET_RX_BYTE_CNT		0x33C
-+
-+/* DNET TX STATISTICS COUNTERS */
-+#define DNET_TX_UNICAST_CNT		0x400
-+#define DNET_TX_PAUSE_FRM_CNT		0x404
-+#define DNET_TX_MULTICAST_CNT		0x408
-+#define DNET_TX_BRDCAST_CNT		0x40C
-+#define DNET_TX_VLAN_TAG_CNT		0x410
-+#define DNET_TX_BAD_FCS_CNT		0x414
-+#define DNET_TX_JUMBO_CNT		0x418
-+#define DNET_TX_BYTE_CNT		0x41C
-+
-+/* SOME INTERNAL MAC-CORE REGISTER */
-+#define DNET_INTERNAL_MODE_REG		0x0
-+#define DNET_INTERNAL_RXTX_CONTROL_REG	0x2
-+#define DNET_INTERNAL_MAX_PKT_SIZE_REG	0x4
-+#define DNET_INTERNAL_IGP_REG		0x8
-+#define DNET_INTERNAL_MAC_ADDR_0_REG	0xa
-+#define DNET_INTERNAL_MAC_ADDR_1_REG	0xc
-+#define DNET_INTERNAL_MAC_ADDR_2_REG	0xe
-+#define DNET_INTERNAL_TX_RX_STS_REG	0x12
-+#define DNET_INTERNAL_GMII_MNG_CTL_REG	0x14
-+#define DNET_INTERNAL_GMII_MNG_DAT_REG	0x16
-+
-+#define DNET_INTERNAL_GMII_MNG_CMD_FIN	(1 << 14)
-+
-+#define DNET_INTERNAL_WRITE		(1 << 31)
-+
-+/* MAC-CORE REGISTER FIELDS */
-+
-+/* MAC-CORE MODE REGISTER FIELDS */
-+#define DNET_INTERNAL_MODE_GBITEN			(1 << 0)
-+#define DNET_INTERNAL_MODE_FCEN				(1 << 1)
-+#define DNET_INTERNAL_MODE_RXEN				(1 << 2)
-+#define DNET_INTERNAL_MODE_TXEN				(1 << 3)
-+
-+/* MAC-CORE RXTX CONTROL REGISTER FIELDS */
-+#define DNET_INTERNAL_RXTX_CONTROL_RXSHORTFRAME		(1 << 8)
-+#define DNET_INTERNAL_RXTX_CONTROL_RXBROADCAST		(1 << 7)
-+#define DNET_INTERNAL_RXTX_CONTROL_RXMULTICAST		(1 << 4)
-+#define DNET_INTERNAL_RXTX_CONTROL_RXPAUSE		(1 << 3)
-+#define DNET_INTERNAL_RXTX_CONTROL_DISTXFCS		(1 << 2)
-+#define DNET_INTERNAL_RXTX_CONTROL_DISCFXFCS		(1 << 1)
-+#define DNET_INTERNAL_RXTX_CONTROL_ENPROMISC		(1 << 0)
-+#define DNET_INTERNAL_RXTX_CONTROL_DROPCONTROL		(1 << 6)
-+#define DNET_INTERNAL_RXTX_CONTROL_ENABLEHALFDUP	(1 << 5)
-+
-+/* SYSTEM CONTROL REGISTER FIELDS */
-+#define DNET_SYS_CTL_IGNORENEXTPKT			(1 << 0)
-+#define DNET_SYS_CTL_SENDPAUSE				(1 << 2)
-+#define DNET_SYS_CTL_RXFIFOFLUSH			(1 << 3)
-+#define DNET_SYS_CTL_TXFIFOFLUSH			(1 << 4)
-+
-+/* TX STATUS REGISTER FIELDS */
-+#define DNET_TX_STATUS_FIFO_ALMOST_EMPTY		(1 << 2)
-+#define DNET_TX_STATUS_FIFO_ALMOST_FULL			(1 << 1)
-+
-+/* INTERRUPT SOURCE REGISTER FIELDS */
-+#define DNET_INTR_SRC_TX_PKTSENT			(1 << 0)
-+#define DNET_INTR_SRC_TX_FIFOAF				(1 << 1)
-+#define DNET_INTR_SRC_TX_FIFOAE				(1 << 2)
-+#define DNET_INTR_SRC_TX_DISCFRM			(1 << 3)
-+#define DNET_INTR_SRC_TX_FIFOFULL			(1 << 4)
-+#define DNET_INTR_SRC_RX_CMDFIFOAF			(1 << 8)
-+#define DNET_INTR_SRC_RX_CMDFIFOFF			(1 << 9)
-+#define DNET_INTR_SRC_RX_DATAFIFOFF			(1 << 10)
-+#define DNET_INTR_SRC_TX_SUMMARY			(1 << 16)
-+#define DNET_INTR_SRC_RX_SUMMARY			(1 << 17)
-+#define DNET_INTR_SRC_PHY				(1 << 19)
-+
-+/* INTERRUPT ENABLE REGISTER FIELDS */
-+#define DNET_INTR_ENB_TX_PKTSENT			(1 << 0)
-+#define DNET_INTR_ENB_TX_FIFOAF				(1 << 1)
-+#define DNET_INTR_ENB_TX_FIFOAE				(1 << 2)
-+#define DNET_INTR_ENB_TX_DISCFRM			(1 << 3)
-+#define DNET_INTR_ENB_TX_FIFOFULL			(1 << 4)
-+#define DNET_INTR_ENB_RX_PKTRDY				(1 << 8)
-+#define DNET_INTR_ENB_RX_FIFOAF				(1 << 9)
-+#define DNET_INTR_ENB_RX_FIFOERR			(1 << 10)
-+#define DNET_INTR_ENB_RX_ERROR				(1 << 11)
-+#define DNET_INTR_ENB_RX_FIFOFULL			(1 << 12)
-+#define DNET_INTR_ENB_RX_FIFOAE				(1 << 13)
-+#define DNET_INTR_ENB_TX_SUMMARY			(1 << 16)
-+#define DNET_INTR_ENB_RX_SUMMARY			(1 << 17)
-+#define DNET_INTR_ENB_GLOBAL_ENABLE			(1 << 18)
-+
-+/* default values:
-+ * almost empty = less than one full sized ethernet frame (no jumbo) inside
-+ * the fifo almost full = can write less than one full sized ethernet frame
-+ * (no jumbo) inside the fifo
-+ */
-+#define DNET_CFG_TX_FIFO_FULL_THRES	25
-+#define DNET_CFG_RX_FIFO_FULL_THRES	20
-+
-+/*
-+ * Capabilities. Used by the driver to know the capabilities that the ethernet
-+ * controller inside the FPGA have.
-+ */
-+
-+#define DNET_HAS_MDIO		(1 << 0)
-+#define DNET_HAS_IRQ		(1 << 1)
-+#define DNET_HAS_GIGABIT	(1 << 2)
-+#define DNET_HAS_DMA		(1 << 3)
-+
-+#define DNET_HAS_MII		(1 << 4) /* or GMII */
-+#define DNET_HAS_RMII		(1 << 5) /* or RGMII */
-+
-+#define DNET_CAPS_MASK		0xFFFF
-+
-+#define DNET_FIFO_SIZE		1024 /* 1K x 32 bit */
-+#define DNET_FIFO_TX_DATA_AF_TH	(DNET_FIFO_SIZE - 384) /* 384 = 1536 / 4 */
-+#define DNET_FIFO_TX_DATA_AE_TH	384
-+
-+#define DNET_FIFO_RX_CMD_AF_TH	(1 << 16) /* just one frame inside the FIFO */
-+
-+/*
-+ * Hardware-collected statistics.
-+ */
-+struct dnet_stats {
-+	u32 rx_pkt_ignr;
-+	u32 rx_len_chk_err;
-+	u32 rx_lng_frm;
-+	u32 rx_shrt_frm;
-+	u32 rx_ipg_viol;
-+	u32 rx_crc_err;
-+	u32 rx_ok_pkt;
-+	u32 rx_ctl_frm;
-+	u32 rx_pause_frm;
-+	u32 rx_multicast;
-+	u32 rx_broadcast;
-+	u32 rx_vlan_tag;
-+	u32 rx_pre_shrink;
-+	u32 rx_drib_nib;
-+	u32 rx_unsup_opcd;
-+	u32 rx_byte;
-+	u32 tx_unicast;
-+	u32 tx_pause_frm;
-+	u32 tx_multicast;
-+	u32 tx_brdcast;
-+	u32 tx_vlan_tag;
-+	u32 tx_bad_fcs;
-+	u32 tx_jumbo;
-+	u32 tx_byte;
-+};
-+
-+struct dnet {
-+	void __iomem			*regs;
-+	spinlock_t			lock;
-+	struct platform_device		*pdev;
-+	struct net_device		*dev;
-+	struct dnet_stats		hw_stats;
-+	unsigned int			capabilities; /* read from FPGA */
-+	struct napi_struct		napi;
-+
-+	/* PHY stuff */
-+	struct mii_bus			*mii_bus;
-+	struct phy_device		*phy_dev;
-+	unsigned int			link;
-+	unsigned int			speed;
-+	unsigned int			duplex;
-+};
-+
-+#endif /* _DNET_H */
--- 
-1.6.0.6
-
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
