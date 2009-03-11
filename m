@@ -1,35 +1,37 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC v2 0/7] introduce netfilter conntrack protos pernet functionality v2
-Date: Wed, 11 Mar 2009 23:57:06 +0300
-Message-ID: <20090311205706.141086138@gmail.com>
+Subject: [RFC v2 1/7] net: sysctl_net - use net_eq to compare nets
+Date: Wed, 11 Mar 2009 23:57:07 +0300
+Message-ID: <20090311210817.001951599@gmail.com>
+References: <20090311205706.141086138@gmail.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	xemul@openvz.org, adobriyan@gmail.com
+	xemul@openvz.org, adobriyan@gmail.com,
+	Cyrill Gorcunov <gorcunov@openvz.org>
 To: kaber@trash.net, davem@davemloft.net, daniel.lezcano@free.fr
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ti-out-0910.google.com ([209.85.142.185]:62190 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698AbZCKVI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 17:08:26 -0400
+Content-Disposition: inline; filename=net-sysctl-net-use-net_eq
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+---
+ net/sysctl_net.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-here is a second request for comments on netfilter conntrack
-protos per-net functionality. The following protos are covered
-now: dccp, sctp, udplite, tcp, udp, icmp. So I would really
-like to hear kind of comments (angry screams maybe :) on the
-series.
+Index: linux-2.6.git/net/sysctl_net.c
+===================================================================
+--- linux-2.6.git.orig/net/sysctl_net.c
++++ linux-2.6.git/net/sysctl_net.c
+@@ -61,7 +61,7 @@ static struct ctl_table_root net_sysctl_
+ static int net_ctl_ro_header_perms(struct ctl_table_root *root,
+ 		struct nsproxy *namespaces, struct ctl_table *table)
+ {
+-	if (namespaces->net_ns == &init_net)
++	if (net_eq(namespaces->net_ns, &init_net))
+ 		return table->mode;
+ 	else
+ 		return table->mode & ~0222;
 
-To Patric:
-Patric I decided to not assign sysctls data by iterative
-fasion since it could lead for harder grep'ability, and
-in case if order of "enum entries" changed the sysctls
-will be silently broken. To make these assignments shorter
-I've added ___PERNET_TO_DAT macro which has quite a small
-lifetime inside sources. If you prefer to assign them
-in for(;;) -- just say the word and I'll remake it :)
-
-So please review and comment (if possible). Thanks!
-(If someone could even test it -- it would be amaizing!
- I've been playing a bit with the series in qemu+lxc)
-
-Hope I didn't miss anything.
-
-Cyrill
