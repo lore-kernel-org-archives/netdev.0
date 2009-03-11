@@ -1,62 +1,57 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Wed, 11 Mar 2009 11:35:08 +0100
-Message-ID: <20090311103508.GA425@pengutronix.de>
-References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <20090311084430.GU425@pengutronix.de> <20090311.014957.117115597.davem@davemloft.net> <20090311090938.E7BF7832E8B8@gemini.denx.de>
+From: Marian =?utf-8?B?xI51cmtvdmnEjQ==?= <md@bts.sk>
+Subject: Re: TCP rx window autotuning harmful at LAN context
+Date: Wed, 11 Mar 2009 12:03:45 +0100
+Message-ID: <20090311110345.GA26294@bts.sk>
+References: <20090309112521.GB37984@bts.sk> <1e41a3230903091101u536a3b3bv7f0dd9da6891781e@mail.gmail.com> <20090309200505.GA58375@bts.sk> <20090309.170927.130334650.davem@davemloft.net> <87bps8fkaw.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	yanok@emcraft.com, linux-arm-kernel@lists.arm.linux.org.uk,
-	netdev@vger.kernel.org, dzu@denx.de
-To: Wolfgang Denk <wd@denx.de>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56419 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752676AbZCKKfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 06:35:15 -0400
+Received: from saus.bts.sk ([194.160.23.4]:62468 "EHLO saus.bts.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754040AbZCKLDq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2009 07:03:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20090311090938.E7BF7832E8B8@gemini.denx.de>
+In-Reply-To: <87bps8fkaw.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
-
-On Wed, Mar 11, 2009 at 10:09:38AM +0100, Wolfgang Denk wrote:
-> Dear David,
+On Wed, Mar 11, 2009 at 11:03:35AM +0100, Andi Kleen wrote:
+> > You say "was" as if this was a recent change.  Linux has been doing
+> > receive buffer autotuning for at least 5 years if not longer.
 > 
-> on Wed, Mar 11, 2009 at 01:49:57AM -0700, David Miller wrote:
-> > From: Sascha Hauer <s.hauer@pengutronix.de>
-> > Date: Wed, 11 Mar 2009 09:44:30 +0100
-> > 
-> > > On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
-> > > > Do you still need this? Only works with one board, configuration via
-> > > > module parameters is discouraged.  Same effect can be done by setting
-> > > > mac address with regular tools.
-> > > 
-> > > Except for root over nfs. Ok, the answer to this is usually 'use
-> > > initrd', but this is still a pita on embedded systems.
-> > 
-> > Please remove this code.  If we let you do it, we have to let everyone
-> > else do it too, and that's something we don't want to do.
-> > 
-> > There are other ways you can handle this, for example have your board
-> > firmware properly program the MAC address into the card at power-on,
-> > and then have the driver here look in the MAC address registers to see
-> > if a valid ethernet address has been left there.
+> I think his point was the only now does it become a visible problem
+> as >= 1GB of memory is wide spread, which leads to 4MB rx buffer sizes.
+
+Yes, exactly! We run into this after number of workstations were upgraded
+at once to a new hardware with 2GB of RAM.
+
+> Perhaps this points to the default buffer sizing heuristics to 
+> be too aggressive for >= 1GB?
 > 
-> How do you then handle situations where this is impossible? Say, when
-> the firmware cannot write to those registers for example because  the
-> ethernet  controller is not even powered on (to reduce power consump-
-> tion), but will get powered on only in Linux  when  the  driver  gets
-> loaded (i. e. on demand only, not always)?
+> Perhaps something like this patch? Marian, does that help?
 
-I never had this situation, but I guess in this case I have a working
-userspace and can use ifconfig to set the MAC address.
+Sure - as it lowers the maximum from 4MB to 2MB, the net result is that
+RTTs at 100 Mbps immediately went down from 267 msec into:
 
-Sascha
+--- x.x.x.x ping statistics ---
+10 packets transmitted, 10 received, 0% packet loss, time 8992ms
+rtt min/avg/max/mdev = 134.417/134.770/134.911/0.315 ms
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Still this is too high for 100 Mpbs network, since the RTTs with 64 KB static
+rx buffer look like this (with no performance penalty):
+
+--- x.x.x.x ping statistics --
+10 packets transmitted, 10 received, 0% packet loss, time 9000ms
+rtt min/avg/max/mdev = 5.163/5.355/5.476/0.102 ms
+
+I.e. the patch significantly helps as expected, however having one static
+limit for all NIC speeds as well as for the whole range of RTTs is suboptimal 
+by principle.
+
+
+   Thanks & kind regards,
+
+       M.
+
