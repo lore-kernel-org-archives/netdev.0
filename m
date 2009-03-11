@@ -1,56 +1,70 @@
-From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
-Subject: Re: RDS: no freely available protocol specification?
-Date: Wed, 11 Mar 2009 01:04:28 +0100
-Message-ID: <7iprgolyb7.fsf@lanthane.pps.jussieu.fr>
-References: <7i63ihm3pq.fsf@lanthane.pps.jussieu.fr>
-	<49B6F348.8010507@oracle.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: RX problem in ibm_newemac driver
+Date: Wed, 11 Mar 2009 11:21:34 +1100
+Message-ID: <1236730894.7086.29.camel@pasglop>
+References: <49B6C4A2.8060302@embedded-sol.com>
+	 <1236718202.7086.10.camel@pasglop>  <49B6E658.4010900@embedded-sol.com>
+	 <1236725832.7086.21.camel@pasglop>  <49B6FA3B.8030509@embedded-sol.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	RDS Devel <rds-devel@oss.oracle.com>
-To: Andy Grover <andy.grover@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754272AbZCKAEv@vger.kernel.org>
-In-Reply-To: <49B6F348.8010507@oracle.com> (Andy Grover's message of "Tue\, 10 Mar 2009 16\:10\:00 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
+To: Felix Radensky <felix@embedded-sol.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:47688 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910AbZCKAVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2009 20:21:49 -0400
+In-Reply-To: <49B6FA3B.8030509@embedded-sol.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for your reply, Andy.
+On Wed, 2009-03-11 at 01:39 +0200, Felix Radensky wrote:
+> Benjamin Herrenschmidt wrote:
+> > On Wed, 2009-03-11 at 00:14 +0200, Felix Radensky wrote:
+> >   
+> >> Yes, seems logical. U-boot has code to enable and disable loopback clock
+> >> for 440SPE, 440EPX,440GRX,405EX, 460EX and 460GT.
+> >>
+> >> I can test patches on my board. Alternatively, I can try something myself
+> >> if you can provide some guidance. I guess you are referring to the code 
+> >> using
+> >> EMAC_FTR_440GX_PHY_CLK_FIX and EMAC_FTR_440EP_PHY_CLK_FIX.
+> >>     
+> >
+> > It would be nice if you could try something as I don't have anything to
+> > test here.
+> >
+> > And yes, it's probably one of those 2 fixes that need to be extended.
+> >
+> > I'll have a look later today if I can find the 405EXr user manual and
+> > give you more precise guidance.
 
->> I've tried searching the web, and I cannot find a freely available
->> protocol specification.
+>From the doc, it looks like it needs the 440 type workaround (and the
+405EX as well). Can you try this patch:
 
-> Look in net-next tree, Documentation/networking/rds.txt.
+emac: Fix clock control for 405EX and 405EXr chips
 
-I cannot find a protocol description, let alone a full specification, in
-this document.
+The EMAC variant in the 405EX and 405EXr chips needs the "440EP" type clock
+control workaround to avoid lockups of the Rx side during reset.
 
->> I am wondering whether we wish to encourage the use of proprietary
->> (undocumented) protocols,
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
 
-> I thought "rough consensus and running code" was the IETF credo?
+Index: linux-work/drivers/net/ibm_newemac/core.c
+===================================================================
+--- linux-work.orig/drivers/net/ibm_newemac/core.c	2009-03-11 11:13:37.000000000 +1100
++++ linux-work/drivers/net/ibm_newemac/core.c	2009-03-11 11:14:00.000000000 +1100
+@@ -2594,6 +2594,9 @@ static int __devinit emac_init_config(st
+ 		if (of_device_is_compatible(np, "ibm,emac-460ex") ||
+ 		    of_device_is_compatible(np, "ibm,emac-460gt"))
+ 			dev->features |= EMAC_FTR_460EX_PHY_CLK_FIX;
++		if (of_device_is_compatible(np, "ibm,emac-405ex") ||
++		    of_device_is_compatible(np, "ibm,emac-405exr"))
++			dev->features |= EMAC_FTR_440EP_PHY_CLK_FIX;
+ 	} else if (of_device_is_compatible(np, "ibm,emac4")) {
+ 		dev->features |= EMAC_FTR_EMAC4;
+ 		if (of_device_is_compatible(np, "ibm,emac-440gx"))
 
-I'm not the IETF, but it is my understanding that rough consensus is
-achieved by writing protocol specifications, and submitting them as
-Internet-Drafts.  (While some Internet-Drafts are destined to become
-standards track RFCs after IETF consensus has been reached, many are only
-submitted in order to stimulate discussion, and some only get submitted so
-that they may become Informational RFCs.)
 
->From what I can gather from the very sparse documentation, RDS in its
-current state cannot possibly achieve IETF consensus, for multiple reasons
-(many of which I happen to disagree with -- but I'm not the IETF).  Still,
-if Oracle find it useful, I'd like to see it published as an informational
-RFC.
-
-I'd have no objection to RDS being included in the Linux kernel without
-IETF consensus, as long as the protocol is fully documented.
-
-> If you're interested in getting an RFC drafted for RDS, then I invite you
-> to start work on one. I also will accept patches to improve the
-> documentation.
->
-> See how this works?
-
-Andy, please don't bully me.
-
-                                        Juliusz
