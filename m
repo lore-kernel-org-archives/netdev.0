@@ -1,255 +1,327 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC v2 6/7] net: netfilter conntrack - add per-net functionality for UDP protocol
-Date: Wed, 11 Mar 2009 23:57:12 +0300
-Message-ID: <20090311210817.833318390@gmail.com>
+Subject: [RFC v2 2/7] net: netfilter conntrack - add per-net functionality for DCCP protocol
+Date: Wed, 11 Mar 2009 23:57:08 +0300
+Message-ID: <20090311210817.172204517@gmail.com>
 References: <20090311205706.141086138@gmail.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	xemul@openvz.org, adobriyan@gmail.com,
 	Cyrill Gorcunov <gorcunov@openvz.org>
 To: kaber@trash.net, davem@davemloft.net, daniel.lezcano@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.186]:8070 "EHLO
+Received: from ti-out-0910.google.com ([209.85.142.187]:9630 "EHLO
 	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129AbZCKVIe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 17:08:34 -0400
-Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-udp
+	with ESMTP id S1751931AbZCKVI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 17:08:27 -0400
+Content-Disposition: inline; filename=net-namespace-nf-conntrack-proto-dccp
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Module specific data moved into per-net site and being allocated/freed
-during net namespace creation/deletion. For this reason module_init/exit
-calls added.
+during net namespace creation/deletion.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- net/netfilter/nf_conntrack_proto_udp.c |  152 ++++++++++++++++++++++++++++-----
- 1 file changed, 130 insertions(+), 22 deletions(-)
+ net/netfilter/nf_conntrack_proto_dccp.c |  145 +++++++++++++++++++++++---------
+ 1 file changed, 108 insertions(+), 37 deletions(-)
 
-Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_udp.c
+Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_dccp.c
 ===================================================================
---- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_udp.c
-+++ linux-2.6.git/net/netfilter/nf_conntrack_proto_udp.c
+--- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_dccp.c
++++ linux-2.6.git/net/netfilter/nf_conntrack_proto_dccp.c
 @@ -16,6 +16,9 @@
- #include <net/ip6_checksum.h>
- #include <net/checksum.h>
+ #include <linux/skbuff.h>
+ #include <linux/dccp.h>
  
 +#include <net/net_namespace.h>
 +#include <net/netns/generic.h>
 +
- #include <linux/netfilter.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/netfilter_ipv6.h>
-@@ -23,8 +26,25 @@
- #include <net/netfilter/nf_conntrack_ecache.h>
- #include <net/netfilter/nf_log.h>
+ #include <linux/netfilter/nfnetlink_conntrack.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+@@ -23,8 +26,6 @@
  
--static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
--static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
-+/* per-net specifics */
-+static int udp_net_id;
-+struct udp_net {
-+	unsigned int udp_timeout;
-+	unsigned int udp_timeout_stream;
+ static DEFINE_RWLOCK(dccp_lock);
+ 
+-static int nf_ct_dccp_loose __read_mostly = 1;
+-
+ /* Timeouts are based on values from RFC4340:
+  *
+  * - REQUEST:
+@@ -72,16 +73,6 @@ static int nf_ct_dccp_loose __read_mostl
+ 
+ #define DCCP_MSL (2 * 60 * HZ)
+ 
+-static unsigned int dccp_timeout[CT_DCCP_MAX + 1] __read_mostly = {
+-	[CT_DCCP_REQUEST]	= 2 * DCCP_MSL,
+-	[CT_DCCP_RESPOND]	= 4 * DCCP_MSL,
+-	[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL,
+-	[CT_DCCP_OPEN]		= 12 * 3600 * HZ,
+-	[CT_DCCP_CLOSEREQ]	= 64 * HZ,
+-	[CT_DCCP_CLOSING]	= 64 * HZ,
+-	[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL,
+-};
+-
+ static const char * const dccp_state_names[] = {
+ 	[CT_DCCP_NONE]		= "NONE",
+ 	[CT_DCCP_REQUEST]	= "REQUEST",
+@@ -393,6 +384,22 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][D
+ 	},
+ };
+ 
++/* this module per-net specifics */
++static int dccp_net_id;
++struct dccp_net {
++	int dccp_loose;
++	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
 +#ifdef CONFIG_SYSCTL
 +	struct ctl_table_header *sysctl_header;
 +	struct ctl_table *sysctl_table;
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	struct ctl_table_header *compat_sysctl_header;
-+	struct ctl_table *compat_sysctl_table;
-+#endif
 +#endif
 +};
 +
-+static inline struct udp_net *udp_pernet(struct net *net)
++static inline struct dccp_net *dccp_pernet(struct net *net)
 +{
-+	return net_generic(net, udp_net_id);
++	return net_generic(net, dccp_net_id);
 +}
- 
- static bool udp_pkt_to_tuple(const struct sk_buff *skb,
- 			     unsigned int dataoff,
-@@ -69,15 +89,17 @@ static int udp_packet(struct nf_conn *ct
- 		      u_int8_t pf,
- 		      unsigned int hooknum)
- {
-+	struct udp_net *un = udp_pernet(nf_ct_net(ct));
 +
- 	/* If we've seen traffic both ways, this is some kind of UDP
- 	   stream.  Extend timeout. */
- 	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
--		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_udp_timeout_stream);
-+		nf_ct_refresh_acct(ct, ctinfo, skb, un->udp_timeout_stream);
- 		/* Also, more likely to be important, and not a probe */
- 		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
- 			nf_conntrack_event_cache(IPCT_STATUS, ct);
- 	} else
--		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_udp_timeout);
-+		nf_ct_refresh_acct(ct, ctinfo, skb, un->udp_timeout);
+ static bool dccp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+ 			      struct nf_conntrack_tuple *tuple)
+ {
+@@ -419,6 +426,7 @@ static bool dccp_new(struct nf_conn *ct,
+ 		     unsigned int dataoff)
+ {
+ 	struct net *net = nf_ct_net(ct);
++	struct dccp_net *dn;
+ 	struct dccp_hdr _dh, *dh;
+ 	const char *msg;
+ 	u_int8_t state;
+@@ -429,7 +437,8 @@ static bool dccp_new(struct nf_conn *ct,
+ 	state = dccp_state_table[CT_DCCP_ROLE_CLIENT][dh->dccph_type][CT_DCCP_NONE];
+ 	switch (state) {
+ 	default:
+-		if (nf_ct_dccp_loose == 0) {
++		dn = dccp_pernet(net);
++		if (dn->dccp_loose == 0) {
+ 			msg = "nf_ct_dccp: not picking up existing connection ";
+ 			goto out_invalid;
+ 		}
+@@ -465,6 +474,7 @@ static int dccp_packet(struct nf_conn *c
+ 		       u_int8_t pf, unsigned int hooknum)
+ {
+ 	struct net *net = nf_ct_net(ct);
++	struct dccp_net *dn;
+ 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+ 	struct dccp_hdr _dh, *dh;
+ 	u_int8_t type, old_state, new_state;
+@@ -542,7 +552,9 @@ static int dccp_packet(struct nf_conn *c
+ 	ct->proto.dccp.last_pkt = type;
+ 	ct->proto.dccp.state = new_state;
+ 	write_unlock_bh(&dccp_lock);
+-	nf_ct_refresh_acct(ct, ctinfo, skb, dccp_timeout[new_state]);
++
++	dn = dccp_pernet(net);
++	nf_ct_refresh_acct(ct, ctinfo, skb, dn->dccp_timeout[new_state]);
  
  	return NF_ACCEPT;
  }
-@@ -135,19 +157,16 @@ static int udp_error(struct net *net, st
- }
+@@ -660,13 +672,11 @@ static int nlattr_to_dccp(struct nlattr 
+ #endif
  
  #ifdef CONFIG_SYSCTL
--static unsigned int udp_sysctl_table_users;
--static struct ctl_table_header *udp_sysctl_header;
-+/* templates, data assigned later */
- static struct ctl_table udp_sysctl_table[] = {
+-static unsigned int dccp_sysctl_table_users;
+-static struct ctl_table_header *dccp_sysctl_header;
+-static ctl_table dccp_sysctl_table[] = {
++/* template, data assigned later */
++static struct ctl_table dccp_sysctl_table[] = {
  	{
- 		.procname	= "nf_conntrack_udp_timeout",
--		.data		= &nf_ct_udp_timeout,
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_request",
+-		.data		= &dccp_timeout[CT_DCCP_REQUEST],
  		.maxlen		= sizeof(unsigned int),
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec_jiffies,
+@@ -674,7 +684,6 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_respond",
+-		.data		= &dccp_timeout[CT_DCCP_RESPOND],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -682,7 +691,6 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_partopen",
+-		.data		= &dccp_timeout[CT_DCCP_PARTOPEN],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -690,7 +698,6 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_open",
+-		.data		= &dccp_timeout[CT_DCCP_OPEN],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -698,7 +705,6 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_closereq",
+-		.data		= &dccp_timeout[CT_DCCP_CLOSEREQ],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -706,7 +712,6 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_closing",
+-		.data		= &dccp_timeout[CT_DCCP_CLOSING],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -714,7 +719,6 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_timeout_timewait",
+-		.data		= &dccp_timeout[CT_DCCP_TIMEWAIT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -722,8 +726,7 @@ static ctl_table dccp_sysctl_table[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "nf_conntrack_dccp_loose",
+-		.data		= &nf_ct_dccp_loose,
+-		.maxlen		= sizeof(nf_ct_dccp_loose),
++		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
  	},
- 	{
- 		.procname	= "nf_conntrack_udp_timeout_stream",
--		.data		= &nf_ct_udp_timeout_stream,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -160,14 +179,12 @@ static struct ctl_table udp_sysctl_table
- static struct ctl_table udp_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_udp_timeout",
--		.data		= &nf_ct_udp_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_udp_timeout_stream",
--		.data		= &nf_ct_udp_timeout_stream,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -195,14 +212,7 @@ struct nf_conntrack_l4proto nf_conntrack
+@@ -751,11 +754,6 @@ static struct nf_conntrack_l4proto dccp_
  	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
  	.nla_policy		= nf_ct_port_nla_policy,
  #endif
 -#ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &udp_sysctl_table_users,
--	.ctl_table_header	= &udp_sysctl_header,
--	.ctl_table		= udp_sysctl_table,
--#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
--	.ctl_compat_table	= udp_compat_sysctl_table,
+-	.ctl_table_users	= &dccp_sysctl_table_users,
+-	.ctl_table_header	= &dccp_sysctl_header,
+-	.ctl_table		= dccp_sysctl_table,
 -#endif
--#endif
-+	.me			= THIS_MODULE,
  };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp4);
  
-@@ -222,10 +232,108 @@ struct nf_conntrack_l4proto nf_conntrack
+ static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
+@@ -776,34 +774,107 @@ static struct nf_conntrack_l4proto dccp_
  	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
  	.nla_policy		= nf_ct_port_nla_policy,
  #endif
-+	.me			= THIS_MODULE,
 +};
-+EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp6);
 +
-+static __net_init int udp_net_init(struct net *net)
++static __net_init int dccp_net_init(struct net *net)
 +{
-+	struct udp_net *un;
++	struct dccp_net *dn;
 +	int err;
 +
-+	un = kmalloc(sizeof(*un), GFP_KERNEL);
-+	if (!un)
++	dn = kmalloc(sizeof(*dn), GFP_KERNEL);
++	if (!dn)
 +		return -ENOMEM;
 +
 +	/* default values */
-+	un->udp_timeout		= 30 * HZ;
-+	un->udp_timeout_stream	= 180 * HZ;
++	dn->dccp_loose = 1;
++	dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
++	dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
++	dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
++	dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
++	dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
++	dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
++	dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
 +
-+	err = net_assign_generic(net, udp_net_id, un);
++	err = net_assign_generic(net, dccp_net_id, dn);
 +	if (err)
 +		goto out;
 +
-+#ifdef CONFIG_SYSCTL
+ #ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &dccp_sysctl_table_users,
+-	.ctl_table_header	= &dccp_sysctl_header,
+-	.ctl_table		= dccp_sysctl_table,
 +	err = -ENOMEM;
-+	un->sysctl_table = kmemdup(udp_sysctl_table,
-+			sizeof(udp_sysctl_table), GFP_KERNEL);
-+	if (!un->sysctl_table)
++	dn->sysctl_table = kmemdup(dccp_sysctl_table,
++			sizeof(dccp_sysctl_table), GFP_KERNEL);
++	if (!dn->sysctl_table)
 +		goto out;
 +
-+	un->sysctl_table[0].data = &un->udp_timeout;
-+	un->sysctl_table[1].data = &un->udp_timeout_stream;
++	dn->sysctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
++	dn->sysctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
++	dn->sysctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
++	dn->sysctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
++	dn->sysctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
++	dn->sysctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
++	dn->sysctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
++	dn->sysctl_table[7].data = &dn->dccp_loose;
 +
-+	un->sysctl_header = register_net_sysctl_table(net,
-+			nf_net_netfilter_sysctl_path, un->sysctl_table);
-+	if (!un->sysctl_header)
-+		goto out_free;
-+
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	un->compat_sysctl_table = kmemdup(udp_compat_sysctl_table,
-+			sizeof(udp_compat_sysctl_table), GFP_KERNEL);
-+	if (!un->compat_sysctl_table)
-+		goto out_sysctl;
-+
-+	un->compat_sysctl_table[0].data = &un->udp_timeout;
-+	un->compat_sysctl_table[1].data = &un->udp_timeout_stream;
-+
-+	un->compat_sysctl_header = register_net_sysctl_table(net,
-+			nf_net_ipv4_netfilter_sysctl_path,
-+			un->compat_sysctl_table);
-+	if (!un->compat_sysctl_header)
-+		goto out_free_compat;
-+#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
-+#endif /* CONFIG_SYSCTL */
++	dn->sysctl_header = register_net_sysctl_table(net,
++			nf_net_netfilter_sysctl_path, dn->sysctl_table);
++	if (!dn->sysctl_header) {
++		kfree(dn->sysctl_table);
++		goto out;
++	}
+ #endif
 +
 +	return 0;
 +
-+#ifdef CONFIG_SYSCTL
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+out_free_compat:
-+	kfree(un->compat_sysctl_table);
-+#endif
-+out_sysctl:
-+	unregister_net_sysctl_table(un->sysctl_header);
-+out_free:
-+	kfree(un->sysctl_table);
-+#endif
-+
 +out:
-+	kfree(un);
++	kfree(dn);
 +	return err;
 +}
 +
-+static __net_exit void udp_net_exit(struct net *net)
++static __net_exit void dccp_net_exit(struct net *net)
 +{
-+	struct udp_net *un = udp_pernet(net);
- #ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &udp_sysctl_table_users,
--	.ctl_table_header	= &udp_sysctl_header,
--	.ctl_table		= udp_sysctl_table,
-+	unregister_net_sysctl_table(un->sysctl_header);
-+	kfree(un->sysctl_table);
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	unregister_net_sysctl_table(un->compat_sysctl_header);
-+	kfree(un->compat_sysctl_table);
- #endif
++	struct dccp_net *dn = dccp_pernet(net);
++#ifdef CONFIG_SYSCTL
++	unregister_net_sysctl_table(dn->sysctl_header);
++	kfree(dn->sysctl_table);
 +#endif
-+	kfree(un);
++	kfree(dn);
 +
-+	net_assign_generic(net, udp_net_id, NULL);
++	net_assign_generic(net, dccp_net_id, NULL);
 +}
 +
-+static struct pernet_operations udp_net_ops = {
-+	.init = udp_net_init,
-+	.exit = udp_net_exit,
++static struct pernet_operations dccp_net_ops = {
++	.init = dccp_net_init,
++	.exit = dccp_net_exit,
  };
--EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp6);
+ 
+ static int __init nf_conntrack_proto_dccp_init(void)
+ {
+ 	int err;
+ 
+-	err = nf_conntrack_l4proto_register(&dccp_proto4);
++	err = register_pernet_gen_subsys(&dccp_net_id, &dccp_net_ops);
+ 	if (err < 0)
+ 		goto err1;
+ 
+-	err = nf_conntrack_l4proto_register(&dccp_proto6);
++	err = nf_conntrack_l4proto_register(&dccp_proto4);
+ 	if (err < 0)
+ 		goto err2;
 +
-+int __init nf_ct_udp_proto_init(void)
-+{
-+	return register_pernet_gen_subsys(&udp_net_id, &udp_net_ops);
-+}
-+
-+void __exit nf_ct_udp_proto_fini(void)
-+{
-+	unregister_pernet_gen_subsys(udp_net_id, &udp_net_ops);
-+}
-+
-+module_init(nf_ct_udp_proto_init);
-+module_exit(nf_ct_udp_proto_fini);
-+MODULE_LICENSE("GPL");
++	err = nf_conntrack_l4proto_register(&dccp_proto6);
++	if (err < 0)
++		goto err3;
+ 	return 0;
+ 
+-err2:
++err3:
+ 	nf_conntrack_l4proto_unregister(&dccp_proto4);
++err2:
++	unregister_pernet_gen_subsys(dccp_net_id, &dccp_net_ops);
+ err1:
+ 	return err;
+ }
+ 
+ static void __exit nf_conntrack_proto_dccp_fini(void)
+ {
++	unregister_pernet_gen_subsys(dccp_net_id, &dccp_net_ops);
+ 	nf_conntrack_l4proto_unregister(&dccp_proto6);
+ 	nf_conntrack_l4proto_unregister(&dccp_proto4);
+ }
 
