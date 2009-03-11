@@ -1,79 +1,52 @@
-From: Felix Radensky <felix@embedded-sol.com>
-Subject: Re: RX problem in ibm_newemac driver
-Date: Wed, 11 Mar 2009 10:56:31 +0200
-Message-ID: <49B77CBF.6070005@embedded-sol.com>
-References: <49B6C4A2.8060302@embedded-sol.com>	 <1236718202.7086.10.camel@pasglop>  <49B6E658.4010900@embedded-sol.com>	 <1236725832.7086.21.camel@pasglop>  <49B6FA3B.8030509@embedded-sol.com> <1236730894.7086.29.camel@pasglop>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Wed, 11 Mar 2009 09:57:21 +0100
+Message-ID: <20090311085721.GV425@pengutronix.de>
+References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <20090311084430.GU425@pengutronix.de> <20090311.014957.117115597.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, yanok@emcraft.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	wd@denx.de, dzu@denx.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vega.surpasshosting.com ([72.29.83.9]:51510 "EHLO
-	vega.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793AbZCKI4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:56:42 -0400
-In-Reply-To: <1236730894.7086.29.camel@pasglop>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:33977 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750947AbZCKI52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 04:57:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20090311.014957.117115597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benjamin Herrenschmidt wrote:
-> On Wed, 2009-03-11 at 01:39 +0200, Felix Radensky wrote:
->   
->> Benjamin Herrenschmidt wrote:
->>     
->>> On Wed, 2009-03-11 at 00:14 +0200, Felix Radensky wrote:
->>>   
->>>       
->>>> Yes, seems logical. U-boot has code to enable and disable loopback clock
->>>> for 440SPE, 440EPX,440GRX,405EX, 460EX and 460GT.
->>>>
->>>> I can test patches on my board. Alternatively, I can try something myself
->>>> if you can provide some guidance. I guess you are referring to the code 
->>>> using
->>>> EMAC_FTR_440GX_PHY_CLK_FIX and EMAC_FTR_440EP_PHY_CLK_FIX.
->>>>     
->>>>         
->>> It would be nice if you could try something as I don't have anything to
->>> test here.
->>>
->>> And yes, it's probably one of those 2 fixes that need to be extended.
->>>
->>> I'll have a look later today if I can find the 405EXr user manual and
->>> give you more precise guidance.
->>>       
->
-> >From the doc, it looks like it needs the 440 type workaround (and the
-> 405EX as well). Can you try this patch:
->
-> emac: Fix clock control for 405EX and 405EXr chips
->
-> The EMAC variant in the 405EX and 405EXr chips needs the "440EP" type clock
-> control workaround to avoid lockups of the Rx side during reset.
->
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
->
-> Index: linux-work/drivers/net/ibm_newemac/core.c
-> ===================================================================
-> --- linux-work.orig/drivers/net/ibm_newemac/core.c	2009-03-11 11:13:37.000000000 +1100
-> +++ linux-work/drivers/net/ibm_newemac/core.c	2009-03-11 11:14:00.000000000 +1100
-> @@ -2594,6 +2594,9 @@ static int __devinit emac_init_config(st
->  		if (of_device_is_compatible(np, "ibm,emac-460ex") ||
->  		    of_device_is_compatible(np, "ibm,emac-460gt"))
->  			dev->features |= EMAC_FTR_460EX_PHY_CLK_FIX;
-> +		if (of_device_is_compatible(np, "ibm,emac-405ex") ||
-> +		    of_device_is_compatible(np, "ibm,emac-405exr"))
-> +			dev->features |= EMAC_FTR_440EP_PHY_CLK_FIX;
->  	} else if (of_device_is_compatible(np, "ibm,emac4")) {
->  		dev->features |= EMAC_FTR_EMAC4;
->  		if (of_device_is_compatible(np, "ibm,emac-440gx"))
->
->
->   
-Hi, Ben
+On Wed, Mar 11, 2009 at 01:49:57AM -0700, David Miller wrote:
+> From: Sascha Hauer <s.hauer@pengutronix.de>
+> Date: Wed, 11 Mar 2009 09:44:30 +0100
+> 
+> > On Tue, Mar 10, 2009 at 09:18:41PM -0700, Stephen Hemminger wrote:
+> > > Do you still need this? Only works with one board, configuration via
+> > > module parameters is discouraged.  Same effect can be done by setting
+> > > mac address with regular tools.
+> > 
+> > Except for root over nfs. Ok, the answer to this is usually 'use
+> > initrd', but this is still a pita on embedded systems.
+> 
+> Please remove this code.  If we let you do it, we have to let everyone
+> else do it too, and that's something we don't want to do.
+> 
+> There are other ways you can handle this, for example have your board
+> firmware properly program the MAC address into the card at power-on,
+> and then have the driver here look in the MAC address registers to see
+> if a valid ethernet address has been left there.
 
-This patch fixes a problem for me. Thank you very much for a quick fix.
+Cool, that's how I do it on many boards I have, but I always had the
+feeling I was flying under the radar with it.
 
-Felix.
+Sascha
+
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
