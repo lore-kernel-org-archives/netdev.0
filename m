@@ -1,50 +1,82 @@
-From: Robert Schwebel <r.schwebel@pengutronix.de>
+From: Riku Voipio <riku.voipio@iki.fi>
 Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Wed, 11 Mar 2009 19:23:37 +0100
-Message-ID: <20090311182337.GA5367@pengutronix.de>
-References: <20090311.014957.117115597.davem@davemloft.net> <20090311085721.GV425@pengutronix.de> <20090311090938.E7BF7832E8B8@gemini.denx.de> <20090311.062336.238430706.davem@davemloft.net>
+Date: Wed, 11 Mar 2009 21:15:30 +0200
+Message-ID: <20090311191530.GA18211@kos.to>
+References: <20090311.014957.117115597.davem@davemloft.net>
+	<20090311085721.GV425@pengutronix.de>
+	<20090311090938.E7BF7832E8B8@gemini.denx.de>
+	<20090311.062336.238430706.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: wd@denx.de, shemminger@vyatta.com, yanok@emcraft.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	dzu@denx.de
+Content-Type: multipart/mixed; boundary="===============0112308856=="
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:35275 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751428AbZCKSXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 14:23:50 -0400
-Content-Disposition: inline
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
 In-Reply-To: <20090311.062336.238430706.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+List-Id: netdev.vger.kernel.org
+
+
+--===============0112308856==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="X1bOJ3K7DJ5YkBrT"
+Content-Disposition: inline
+
+
+--X1bOJ3K7DJ5YkBrT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
 On Wed, Mar 11, 2009 at 06:23:36AM -0700, David Miller wrote:
-> From: Wolfgang Denk <wd@denx.de>
-> Date: Wed, 11 Mar 2009 10:09:38 +0100
-> 
-> > How do you then handle situations where this is impossible? Say, when
-> > the firmware cannot write to those registers for example because  the
-> > ethernet  controller is not even powered on (to reduce power consump-
-> > tion), but will get powered on only in Linux  when  the  driver  gets
-> > loaded (i. e. on demand only, not always)?
-> 
 > That's what NVRAM, CMOS, EEPROM's and other writable long-term
 > storage areas are for.
-> 
+
 > To be quite honest with you, any ethernet device that doesn't
 > have an EEPROM where the chip instance's ethernet address is
 > stored is completely broken.
 
-However, it's quite common in embedded systems where eeprom chips cost
-money and high quantity projects are cost optimized. So we cannot
-neglect reality here. I know almost no ARM board that has a separate
-eeprom for the network chip, and especially SoC-integrated MAC units
-don't even have hardware interfaces for that.
+If that is the case, pretty much every SOHO NAS device (running
+linux + samba) being sold in your nearest IT shop is completly
+broken.
 
-rsc
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+In such machines, typically the mac address is stored in bootloader's
+configuration area in NOR/NAND flash.
+
+--=20
+"rm -rf" only sounds scary if you don't have backups
+
+--X1bOJ3K7DJ5YkBrT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iD8DBQFJuA3SibPvMsrqrwMRAhkPAJ9yM8GhuV9mW6fBDjJmqCZSmdJudgCgzY+H
+1b8Rr302gzSRceM/027rYhc=
+=smqv
+-----END PGP SIGNATURE-----
+
+--X1bOJ3K7DJ5YkBrT--
+
+
+--===============0112308856==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+--===============0112308856==--
