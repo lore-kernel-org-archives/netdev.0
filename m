@@ -1,44 +1,55 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC] tcp: allow timestamps even if SYN packet has tsval=0
-Date: Thu, 12 Mar 2009 09:26:20 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0903120858550.4697@wrl-59.cs.helsinki.fi>
-References: <49B7ABF2.5040803@cosmosbay.com> <20090311.064710.255854254.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] Make virtio_net support carrier detection
+Date: Thu, 12 Mar 2009 17:59:30 +1030
+Message-ID: <200903121759.31024.rusty@rustcorp.com.au>
+References: <1236772642-12705-1-git-send-email-pktoss@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Pantelis Koukousoulas <pktoss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54091 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbZCLH0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 03:26:23 -0400
-In-Reply-To: <20090311.064710.255854254.davem@davemloft.net>
+Received: from ozlabs.org ([203.10.76.45]:42891 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459AbZCLH3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 03:29:37 -0400
+In-Reply-To: <1236772642-12705-1-git-send-email-pktoss@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Mar 2009, David Miller wrote:
-
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 11 Mar 2009 13:17:54 +0100
+On Wednesday 11 March 2009 22:27:22 Pantelis Koukousoulas wrote:
+> For now the semantics are simple: There is always carrier.
 > 
-> > So apparently WindowsXP sends a NULL tsval in SYN packet, then
-> > subsequent packets get a real value (60498) in this case.
-> > 
-> > This seems to work on other OS as well, so is the following patch
-> > considered evil ?  Do we have security concerns or only risking
-> > windows client to have slightly wrong rtt estimation at the begining
-> > of the tcp session ?
-> 
-> I think we'll have to accept this.
-> 
-> I don't see other systems blocking initial ts_ecn values of
-> zero like we do.
+> This allows a seamless experience with e.g., qemu/kvm
+> where NetworkManager just configures and sets up
+> everything automagically.
 
-What about the fact that PAWS could bite us leaving us a hung connection 
-if timestamp changes too much when we get the first ACK? Though I doubt 
-you can get windows to run long enough for this to become a problem if 
-they always start from zero... ;-)
+So, NetworkManager ignores the device because it doesn't support
+carrier detection?
 
--- 
- i.
+That seems weird, but I have nothing against this patch in general.
+
+Thanks,
+Rusty.
+
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -612,6 +612,7 @@ static struct ethtool_ops virtnet_ethtool_ops = {
+>  	.set_tx_csum = virtnet_set_tx_csum,
+>  	.set_sg = ethtool_op_set_sg,
+>  	.set_tso = ethtool_op_set_tso,
+> +	.get_link = ethtool_op_get_link,
+>  };
+>  
+>  #define MIN_MTU 68
+> @@ -739,6 +740,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		goto unregister;
+>  	}
+>  
+> +	netif_carrier_on(dev);
+> +
+>  	pr_debug("virtnet: registered device %s\n", dev->name);
+>  	return 0;
+
