@@ -1,74 +1,76 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
+From: feldmaus <feldmann_markus@gmx.de>
 Subject: Re: no IPv6 Routers present
-Date: Thu, 12 Mar 2009 19:17:37 -0400
-Message-ID: <49B99811.6050304@hp.com>
-References: <gpbtfk$s5h$1@ger.gmane.org>
+Date: Thu, 12 Mar 2009 23:32:27 +0000 (UTC)
+Message-ID: <loom.20090312T232059-421@post.gmane.org>
+References: <gpbtfk$s5h$1@ger.gmane.org> <49B99811.6050304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Markus Feldmann <feldmann_markus@gmx.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:37179 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754832AbZCLXRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 19:17:42 -0400
-In-Reply-To: <gpbtfk$s5h$1@ger.gmane.org>
+Received: from main.gmane.org ([80.91.229.2]:38204 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750946AbZCLXcq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 19:32:46 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1LhuOI-00005h-58
+	for netdev@vger.kernel.org; Thu, 12 Mar 2009 23:32:42 +0000
+Received: from dslb-092-076-238-059.pools.arcor-ip.net ([92.76.238.59])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 23:32:42 +0000
+Received: from feldmann_markus by dslb-092-076-238-059.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 23:32:42 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Markus Feldmann wrote:
-> Hi All,
-> 
-> i am working on a combined Firewall, means
-> 2 Firewalls on one Personal Computer.
-> 
-> The first firewall is for my <ppp0> and
-> the second firewall is for <eth0> if i connect
-> through my Server to the internet.
-> 
-> However, if i plug off and plug in my network
-> cable, to change the connection from <eth0> to
-> <ppp0>, the connection to internet fails.
-> From <ppp0> to <eth0> works, but than i can
-> not switch back because of a unkown connection
-> error.
-> 
-> <dmesg> prints out:
-> no IPv6 Router present
-> 
+Vlad Yasevich <vladislav.yasevich <at> hp.com> writes:
 
-This is just an information message when it's trying to
-configure IPv6.
+> You need to give more information about your interface configurations,
+> routes, and any firewall rules.
+First of all thank you for your answer,
 
-> Ok maybe this is true. There is no IPv6 Router
-> in my lan, but why do my Kernel not switch back
-> to IPv4 ?
+first i post my specifications if my system works well:
+/etc/network/interfaces:
+########################################################################
+auto lo
+iface lo inet loopback
 
-It didn't switch to IPv6 in the first place.  There is not switch.
-The two work side-by-side.
+allow-hotplug eth0
+iface eth0 inet dhcp
 
-If IPv4 is correctly configured it should continue to work.
+iface dsl-provider inet ppp
+    pre-up /sbin/ifconfig eth0 up -arp 0 # line maintained by pppoeconf
+    provider dsl-provider
+########################################################################
 
-> 
-> How can i correct this ?
-> I do not want to disable the whole IPv6 kernel/program
-> options.
+$route -n
+########################################################################
+Ziel            Router          Genmask         Flags Metric Ref    Use Iface
+92.76.224.1     0.0.0.0         255.255.255.255 UH    0      0        0 ppp0
+0.0.0.0         0.0.0.0         0.0.0.0         U     0      0        0 ppp0
+########################################################################
 
-You can do this now in 2.6.29-rcXXX, but not before.  Also,
-my bet is that something other then IPv6 is wrong here.
+iptables -L -n -v -->  <http://nopaste.debianforum.de/19638>
+firewall for <ppp0> --> <http://nopaste.debianforum.de/19647>
+firewall for <eth0> --> <http://nopaste.debianforum.de/19648>
 
-You need to give more information about your interface configurations,
-routes, and any firewall rules.
+Both firewall script will be started about:
+</etc/network/if-up.d/startfirewall> --> <http://nopaste.debianforum.de/19636>
+and stoped:
+</etc/network/if-post-down.d/stopfirewall> --> <http://nopaste.debianforum.de/19637>
 
--vlad
+I hope that is not to much. :-)
 
-> 
-> Is this a Bug ?
-> 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I post next time a specification which failed !
+
+In both firewall scripts i use:
+echo 1 >/proc/sys/net/ipv4/ip_forward
+iptables -t nat -A POSTROUTING -o "$DSLIF" -j MASQUERADE
+
+I am not sure whether this could let it fail,
+when both script will be executed ?
+
+Regards Markus
 
