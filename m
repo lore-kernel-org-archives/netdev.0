@@ -1,62 +1,87 @@
-From: Neil Horman <nhorman@tuxdriver.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
 Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 10:26:55 -0400
-Message-ID: <20090312142655.GA24995@hmsreliant.think-freely.org>
-References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <F884D8C3-E35B-4239-8D72-165EE528FCAC@prograde.net> <20090312.070554.96115441.davem@davemloft.net>
+Date: Thu, 12 Mar 2009 15:34:07 +0100
+Message-ID: <20090312143407.GP425@pengutronix.de>
+References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mboards@prograde.net, shemminger@vyatta.com, yanok@emcraft.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, wd@denx.de, dzu@denx.de
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	yanok@emcraft.com, linux-arm-kernel@lists.arm.linux.org.uk,
+	netdev@vger.kernel.org, wd@denx.de, dzu@denx.de
+To: Christer Weinigel <christer@weinigel.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51245 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752710AbZCLO1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:27:31 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37661 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756819AbZCLOeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:34:24 -0400
 Content-Disposition: inline
-In-Reply-To: <20090312.070554.96115441.davem@davemloft.net>
+In-Reply-To: <49B91A7B.7050303@weinigel.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2009 at 07:05:54AM -0700, David Miller wrote:
-> From: Michael Cashwell <mboards@prograde.net>
-> Date: Thu, 12 Mar 2009 09:41:38 -0400
-> 
-> > I'm confused by this. If I'm NFS-booting the board then how do I get
-> > to those userland tools if I don't have a valid MAC address in place
-> > to do the root mount?
-> 
-> Initial ramdisk.
+On Thu, Mar 12, 2009 at 03:21:47PM +0100, Christer Weinigel wrote:
+> David Miller wrote:
+>> From: Christer Weinigel <christer@weinigel.se>
+>> Date: Thu, 12 Mar 2009 11:41:24 +0100
+>>
+>>> 1. The bootloader can pass a command line to the kernel and it is saved in non-volatile storage that can be changed from the bootloader
+>>>
+>>> 2. I can not modify the bootloader
+>>>
+>>> 3. I can modify the Linux kernel
+>>>
+>>> 4. The manufacturer has hardcoded a MAC address in the ethernet driver
+>>>
+>>> 5. I want to use NFS root to make it easy to develop on the platform
+>>>
+>>> 6. We get a second board so the hardcoded MAC addresses collide
+>>
+>> This is getting rediculious.
+>
+> Yes, ridiculous in the complexity of the workarounds for not having a  
+> generic way to set the mac address from the command line.  :-/
+>
+>> If you can modify the kernel, you can have the kernel look in the
+>> non-volatile storage for the MAC address and export that information
+>> to the ethernet driver.
+>
+> Which means that the non-volatile storage must be available through a  
+> Linux driver before the MAC address is set.  AFAIK there is no guarantee  
+> that the MTD layer will be ready to use by that time.  And that is  
+> assuming that there actually is a MTD driver available, usually when I  
+> work on a Linux port for a reference board, the first thing I do is to  
+> get a NFS root up and running, then I can put a have a complete Debian  
+> system with all nice debugging tools available.  When I have that up and  
+> running I start porting the other drivers, such as the MTD driver.
+>
+> Also, I don't really want to spend time on reverse engineering some  
+> random non-volatile storage format, that's quite fragile.
+>
+>> Or, you can parse the command line in your platform specific code
+>> and program the MAC address into the chip.
+>
+> Which is actually what I'm doing, except that it's easier to hack that  
+> into the ethernet driver each time it is needed.
+>
+>> In fact there are many reasonable ways to solve the problem in
+>> your scenerio, and none of them require device driver command
+>> line option handler.
+>
+> Yes, that why I'd want that in a generic piece of code instead of having  
+> to hack it into each device driver.  Would a generic command line  
+> option, something like "ethaddrs=eth0=00:de:ad:be:ef:01" which assigns  
+> addresses to network cards be acceptable?
 
-+1, the simple fact of the matter is that, when building networkable devices,
-the design requirements must include:
+Unfortunately it isn't this simple because network device names are not
+stable (i.e. eth0 can become eth1 when you plug another network card)
+Someone has already mentioned this and I think this is the real problem
+why we still don't have such a mechanism.
 
-1) The ability to store unit-unique data, like MAC addresses, in persistent
-storage, in a manner that can be read at arbitrary times from the OS.
-
-2) The abiltiy to access that data from the OS under all relevant operating
-conditions.
-
-You have (1) covered, in that the bootloader passes the MAC on the command line
-to the kernel which can then be read via /proc/cmdline easily.
-
-If you can't accomplish (2) with NFS root built into the kernel, then quite
-simply using built in NFS root isn't an option, and you need to burn some extra
-storage to add an initramfs.  Its easy to do, and small.  Cost minimization is
-important, but you can't remove what you need, and you need an initramfs.  You
-can build one in just a few hundred kb, if you use busybox with a minimal
-toolset (you'd probably need the sed, ifconfig, and ash applets).  I would make
-a bet that even if you did need to spring for a bit of extra ram, the
-incremental cost to that is less than the savings of using linux over something
-that would required a per seat license, like VxWorks.
-
-Neil
+Sascha
 
 
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
