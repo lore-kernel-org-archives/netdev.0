@@ -1,34 +1,44 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Re: no IPv6 Routers present
-Date: Thu, 12 Mar 2009 22:41:13 +0100
-Message-ID: <gpbvhp$2j8$1@ger.gmane.org>
-References: <gpbtfk$s5h$1@ger.gmane.org>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Thu, 12 Mar 2009 21:59:19 +0000
+Message-ID: <20090312215919.GA19200@shareable.org>
+References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312174933.GC24995@hmsreliant.think-freely.org> <49B95386.2030600@weinigel.se> <20090312190517.GD24995@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christer Weinigel <christer@weinigel.se>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	s.hauer@pengutronix.de, yanok@emcraft.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	wd@denx.de, dzu@denx.de
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:54173 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752118AbZCLVl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2009 17:41:29 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Lhsec-0004Ya-2Q
-	for netdev@vger.kernel.org; Thu, 12 Mar 2009 21:41:26 +0000
-Received: from dslb-092-076-238-059.pools.arcor-ip.net ([92.76.238.59])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 21:41:26 +0000
-Received: from feldmann_markus by dslb-092-076-238-059.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 21:41:26 +0000
-In-Reply-To: <gpbtfk$s5h$1@ger.gmane.org>
+Received: from mail2.shareable.org ([80.68.89.115]:39018 "EHLO
+	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599AbZCLV7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 17:59:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20090312190517.GD24995@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forgt to write my specifications:
+Neil Horman wrote:
+> I've not looked at the figures lately, but how much space does the
+> dhcp client and nfs root code take up in the kernel these days?
 
-debian lenny with kernel 2.6.28.7
+About 4k apparently.  See the difference from "400k compressed?".
+Also, uncompressing that may add 0.5 second boot time on a slow CPU :-)
 
-Regards Markus
+> I sympathize with you.  This is exactly what soured me on embedded
+> work a few years back.  Embedded shops are forever compromising
+> doing things correctly in the name of time and schedules, never
+> paying any heed to the possibility that taking extra time to do
+> things in an agreed upon, organized and standard fashion might pay
+> off for them in the long run.
 
+I must admit that a solution which makes the effective kernel size
+800k larger (your figure) doesn't look like a good standard to me.
+
+If that was the "standard", I'd be tempted to add a MAC address driver
+hack to the kernel to save the space :-)
+
+-- Jamie
