@@ -1,76 +1,99 @@
-From: feldmaus <feldmann_markus@gmx.de>
-Subject: Re: no IPv6 Routers present
-Date: Thu, 12 Mar 2009 23:32:27 +0000 (UTC)
-Message-ID: <loom.20090312T232059-421@post.gmane.org>
-References: <gpbtfk$s5h$1@ger.gmane.org> <49B99811.6050304@hp.com>
+From: Christer Weinigel <christer@weinigel.se>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Fri, 13 Mar 2009 00:42:41 +0100
+Message-ID: <49B99DF1.9000509@weinigel.se>
+References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312174933.GC24995@hmsreliant.think-freely.org> <49B95386.2030600@weinigel.se> <20090312190517.GD24995@hmsreliant.think-freely.org> <20090312215919.GA19200@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	s.hauer@pengutronix.de, yanok@emcraft.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	wd@denx.de, dzu@denx.de
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:38204 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750946AbZCLXcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2009 19:32:46 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1LhuOI-00005h-58
-	for netdev@vger.kernel.org; Thu, 12 Mar 2009 23:32:42 +0000
-Received: from dslb-092-076-238-059.pools.arcor-ip.net ([92.76.238.59])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 23:32:42 +0000
-Received: from feldmann_markus by dslb-092-076-238-059.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 23:32:42 +0000
+Received: from 2-1-3-15a.ens.sth.bostream.se ([82.182.31.214]:58584 "EHLO
+	zoo.weinigel.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752427AbZCLXmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 19:42:45 -0400
+In-Reply-To: <20090312215919.GA19200@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich <vladislav.yasevich <at> hp.com> writes:
+Jamie Lokier wrote:
 
-> You need to give more information about your interface configurations,
-> routes, and any firewall rules.
-First of all thank you for your answer,
+> Neil Horman wrote:
+>> I've not looked at the figures lately, but how much space does the
+>> dhcp client and nfs root code take up in the kernel these days?
+> 
+> About 4k apparently.  See the difference from "400k compressed?".
+> Also, uncompressing that may add 0.5 second boot time on a slow CPU :-)
 
-first i post my specifications if my system works well:
-/etc/network/interfaces:
-########################################################################
-auto lo
-iface lo inet loopback
 
-allow-hotplug eth0
-iface eth0 inet dhcp
+I just tried to get some actual numbers for the size increase by looking 
+at an actual initrd I had lying around.  If I just look at some some of 
+the largest files needed for a initrd, they use 800kBytes:
 
-iface dsl-provider inet ppp
-    pre-up /sbin/ifconfig eth0 up -arp 0 # line maintained by pppoeconf
-    provider dsl-provider
-########################################################################
+ls -l bin/busybox lib/ld-uClibc-0.9.28.so lib/libuClibc-0.9.28.so
+-rwxr-xr-x 1 root root 499804 2007-01-21 18:17 bin/busybox*
+-rwxr-xr-x 1 root root  19492 2005-12-27 12:15 lib/ld-uClibc-0.9.28.so*
+-rw-r--r-- 1 root root 312136 2005-12-27 08:46 lib/libuClibc-0.9.28.so
 
-$route -n
-########################################################################
-Ziel            Router          Genmask         Flags Metric Ref    Use Iface
-92.76.224.1     0.0.0.0         255.255.255.255 UH    0      0        0 ppp0
-0.0.0.0         0.0.0.0         0.0.0.0         U     0      0        0 ppp0
-########################################################################
+All files are stripped ARM9 binaries and as you can see, the C library 
+is uClibc.  And compressed it is roughly about 400kBytes:
 
-iptables -L -n -v -->  <http://nopaste.debianforum.de/19638>
-firewall for <ppp0> --> <http://nopaste.debianforum.de/19647>
-firewall for <eth0> --> <http://nopaste.debianforum.de/19648>
+tar cvfz - bin/busybox lib/ld-uClibc-0.9.28.so lib/libuClibc-0.9.28.so | wc -c
 
-Both firewall script will be started about:
-</etc/network/if-up.d/startfirewall> --> <http://nopaste.debianforum.de/19636>
-and stoped:
-</etc/network/if-post-down.d/stopfirewall> --> <http://nopaste.debianforum.de/19637>
+422789
 
-I hope that is not to much. :-)
+The in kernel BOOT/DCHP client and NFS root code increases the size of
+the compressed kernel by slighty less than 8kBytes.  The 4k number was
+just for turning off BOOTP/DHCP (IP_PNP).
 
-I post next time a specification which failed !
+ > I must admit that a solution which makes the effective kernel size
 
-In both firewall scripts i use:
-echo 1 >/proc/sys/net/ipv4/ip_forward
-iptables -t nat -A POSTROUTING -o "$DSLIF" -j MASQUERADE
+> 800k larger (your figure) doesn't look like a good standard to me.
+> 
+> If that was the "standard", I'd be tempted to add a MAC address driver
+> hack to the kernel to save the space :-)
 
-I am not sure whether this could let it fail,
-when both script will be executed ?
+So the numbers aren't quite as bad, but it is a 50 time increase in 
+overhead to do things "right".  For a kernel which is 1.5Mbytes it is 
+"only" a 27% increase in total size though.
 
-Regards Markus
+Of course, using busybox is a bit of an overkill, it should be possible 
+to just port the in kernel BOOTP/DHCP client and NFS root code so that 
+it is statically linked with klibc and put in an initrd.  If we assume 
+that the useful parts of the code stay the same size, it should compress 
+to about 8kBytes of initrd instead of 8kBytes of compressed kernel 
+image.  But code running from an initrd will need a stdio library with 
+printf and a bunch of other library functions.  After taking a quick 
+look at klibc it seems that it would add something like 10-20kBytes 
+compressed size to a normal application.  So that would only be a 2-3 
+time increase in size which is much more acceptable to me.
+
+Actually, just looking at the filenames in the klibc source, it seems 
+that it does have a DHCP client and some NFS root code already.  An ARM9 
+"kinit" binary is about 75kBytes, and I'm not sure if it includes the 
+DHCP client or the NFS root code.  But it means that it's probably 
+possible to replace the in kernel code with klibc as is for only an 
+extra 50kBytes or so of increased compressed size.
+
+Looks interesting, any year now...
+
+   /Christer
+
+
+
+
+
+
+
+
+
+
+
+
+
 
