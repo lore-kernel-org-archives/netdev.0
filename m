@@ -1,67 +1,64 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Dave Jones <davej@redhat.com>
 Subject: Re: VIA velocity skb leak.
-Date: Thu, 12 Mar 2009 05:45:57 +0100
-Message-ID: <49B89385.4090005@cosmosbay.com>
-References: <20090312041352.GA6035@redhat.com> <20090311.211706.68465072.davem@davemloft.net> <20090311.212009.51140677.davem@davemloft.net> <20090312043954.GA7132@redhat.com>
+Date: Thu, 12 Mar 2009 00:56:57 -0400
+Message-ID: <20090312045657.GB7132@redhat.com>
+References: <20090312041352.GA6035@redhat.com> <20090311.211706.68465072.davem@davemloft.net> <20090311.212009.51140677.davem@davemloft.net> <20090312043954.GA7132@redhat.com> <49B89385.4090005@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48946 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbZCLEqT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 00:46:19 -0400
-In-Reply-To: <20090312043954.GA7132@redhat.com>
+Received: from mx2.redhat.com ([66.187.237.31]:41516 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750835AbZCLE5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 00:57:10 -0400
+Content-Disposition: inline
+In-Reply-To: <49B89385.4090005@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave Jones a =E9crit :
-> On Wed, Mar 11, 2009 at 09:20:09PM -0700, David Miller wrote:
->  > From: David Miller <davem@davemloft.net>
->  > Date: Wed, 11 Mar 2009 21:17:06 -0700 (PDT)
->  >=20
->  > >=20
->  > > velocity_xmit() needs to set 'pktlen =3D skb->len;' after,
->  > > not before, the skb_padto() call.
->  >=20
->  > Actually that won't work since, as you suggest, skb->len
->  > isn't updated by skb_padto().
->  >=20
->  > So the transmit needs something like:
->  >=20
->  > 	pktlen =3D (skb->len > ETH_ZLEN ? : ETH_ZLEN);
->  >=20
->  > velocity_free_tx_buf() needs to make the same calculation
->  > instead of just plain skb->len
->=20
-> Something like this ?
-> (It looks like the ZERO_COPY_SUPPORT is never enabled anywhere,
->  so I didn't dig into how that works).
->=20
-> diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-> index c5691fd..cd34dda 100644
-> --- a/drivers/net/via-velocity.c
-> +++ b/drivers/net/via-velocity.c
-> @@ -1838,6 +1838,7 @@ static void velocity_free_tx_buf(struct velocit=
-y_info *vptr, struct velocity_td_
->  {
->  	struct sk_buff *skb =3D tdinfo->skb;
->  	int i;
-> +	int pktlen;
-> =20
->  	/*
->  	 *	Don't unmap the pre-allocated tx_bufs
-> @@ -1845,10 +1846,11 @@ static void velocity_free_tx_buf(struct veloc=
-ity_info *vptr, struct velocity_td_
->  	if (tdinfo->skb_dma) {
-> =20
-> +		pktlen =3D (skb->len > ETH_ZLEN ? : ETH_ZLEN);
+On Thu, Mar 12, 2009 at 05:45:57AM +0100, Eric Dumazet wrote:
 
-I personally find better to use max(skb->len, ETH_ZLEN) macro, but YMMV=
- ;)
+ > > @@ -1845,10 +1846,11 @@ static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_
+ > >  	if (tdinfo->skb_dma) {
+ > >  
+ > > +		pktlen = (skb->len > ETH_ZLEN ? : ETH_ZLEN);
+ > 
+ > I personally find better to use max(skb->len, ETH_ZLEN) macro, but YMMV ;)
+ > 
+ > It actually can avoid you a bug ;)
+ 
+I prefer that too, but it makes a warning.
 
-It actually can avoid you a bug ;)
+drivers/net/via-velocity.c:2093: warning: comparison of distinct pointer types lacks a cast
 
+We can fix this by either casting ETH_ZLEN to an unsigned int,
+or we could just do the diff below..
 
+Or did I overlook something?
+
+(if this looks ok, perhaps the other defines could use the same treatment?)
+
+	Dave
+
+The minimum frame length is never signed, define it as
+such so we don't need excessive casts in comparisons.
+
+Signed-off-by: Dave Jones <davej@redhat.com>
+
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 7f3c735..c41183e 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -30,7 +30,7 @@
+ 
+ #define ETH_ALEN	6		/* Octets in one ethernet addr	 */
+ #define ETH_HLEN	14		/* Total octets in header.	 */
+-#define ETH_ZLEN	60		/* Min. octets in frame sans FCS */
++#define ETH_ZLEN	60U		/* Min. octets in frame sans FCS */
+ #define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
+ #define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
+ #define ETH_FCS_LEN	4		/* Octets in the FCS		 */
+
+-- 
+http://www.codemonkey.org.uk
