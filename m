@@ -1,103 +1,111 @@
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: [IPROUTE2][PATCH 2/2] Enable Type Labels For "ip monitor all"
-Date: Thu, 12 Mar 2009 13:42:43 +0530
-Message-ID: <20090312134243.1b15fc2c.varunc@linux.vnet.ibm.com>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to
+	submit to upper layer
+Date: Thu, 12 Mar 2009 16:16:32 +0800
+Message-ID: <1236845792.2567.484.camel@ymzhang>
+References: <1236761624.2567.442.camel@ymzhang>
+	 <877i2wfh1l.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	herbert@gondor.apana.org.au, jesse.brandeburg@intel.com,
+	shemminger@vyatta.com, David Miller <davem@davemloft.net>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp09.au.ibm.com ([202.81.31.142]:45172 "EHLO
-	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787AbZCLIMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 04:12:45 -0400
-Received: from d23relay01.au.ibm.com (d23relay01.au.ibm.com [202.81.31.243])
-	by e23smtp09.au.ibm.com (8.13.1/8.13.1) with ESMTP id n2C7xXBl023754
-	for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 18:59:33 +1100
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay01.au.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n2C8D0Kf381160
-	for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 19:13:00 +1100
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n2C8CgVk029600
-	for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 19:12:42 +1100
+Received: from mga05.intel.com ([192.55.52.89]:57804 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752271AbZCLIRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 04:17:03 -0400
+In-Reply-To: <877i2wfh1l.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds prefix lables for "ip monitor all" command to simplfy
-understanding of the output.
+On Wed, 2009-03-11 at 12:13 +0100, Andi Kleen wrote:
+> "Zhang, Yanmin" <yanmin_zhang@linux.intel.com> writes:
+>=20
+> > I got some comments. Special thanks to =C3=AF=C2=BB=C2=BFStephen He=
+mminger for teaching me on
+> > what reorder is and some other comments. Also thank other guys who =
+raised comments.
+>=20
+>=20
+> >
+> > v2 has some improvements.
+> > 1) Add new sysfs interface /sys/class/net/ethXXX/rx_queueXXX/proces=
+sing_cpu. Admin
+> > could use it to configure the binding between RX and cpu number. So=
+ it's convenient
+> > for drivers to use the new capability.
+>=20
 
-Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
----
- ip/ipmonitor.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+> Seems very inconvenient to have to configure this by hand.
+A little, but not too much, especially when we consider there is interr=
+upt binding.
 
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index a74730e..baf25a8 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -25,6 +25,7 @@
- #include "ip_common.h"
- 
- static void usage(void) __attribute__((noreturn));
-+int prefix_banner;
- 
- static void usage(void)
- {
-@@ -42,31 +43,45 @@ int accept_msg(const struct sockaddr_nl *who,
- 		print_timestamp(fp);
- 
- 	if (n->nlmsg_type == RTM_NEWROUTE || n->nlmsg_type == RTM_DELROUTE) {
-+		if (prefix_banner)
-+			fprintf(fp, "[ROUTE]");
- 		print_route(who, n, arg);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWLINK || n->nlmsg_type == RTM_DELLINK) {
- 		ll_remember_index(who, n, NULL);
-+		if (prefix_banner)
-+			fprintf(fp, "[LINK]");
- 		print_linkinfo(who, n, arg);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWADDR || n->nlmsg_type == RTM_DELADDR) {
-+		if (prefix_banner)
-+			fprintf(fp, "[ADDR]");
- 		print_addrinfo(who, n, arg);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWADDRLABEL || n->nlmsg_type == RTM_DELADDRLABEL) {
-+		if (prefix_banner)
-+			fprintf(fp, "[ADDRLABEL]");
- 		print_addrlabel(who, n, arg);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH) {
-+		if (prefix_banner)
-+			fprintf(fp, "[NEIGH]");
- 		print_neigh(who, n, arg);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWPREFIX) {
-+		if (prefix_banner)
-+			fprintf(fp, "[PREFIX]");
- 		print_prefix(who, n, arg);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWRULE || n->nlmsg_type == RTM_DELRULE) {
-+		if (prefix_banner)
-+			fprintf(fp, "[RULE]");
- 		print_rule(who, n, arg);
- 		return 0;
- 	}
-@@ -130,6 +145,7 @@ int do_ipmonitor(int argc, char **argv)
- 			groups = 0;		
- 		} else if (strcmp(*argv, "all") == 0) {
- 			groups = ~RTMGRP_TC;
-+			prefix_banner=1;
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 		} else {
--- 
-1.5.4.3
+>  How about
+> auto selecting one that shares the same LLC or somesuch?
+There are 2 kinds of LLC sharing here.
+1) RX/TX share the LLC;
+2) All RX share the LLC of some cpus and TX share the LLC of other cpus=
+=2E
+
+Item 1) is important, but sometimes item 2) is also important when the =
+sending speed is
+very high and huge data is on flight which flushes cpu cache quickly.
+It's hard to distinguish the 2 different scenarioes automatically.
+
+>  Passing
+> data to anything with the same LLC should be cheap enough.
+Yes, when the data isn't huge. My forwarding testing currently could re=
+ach at 270M bytes per
+second on Nehalem and I wish higher if I could get the latest NICs.
+
+
+> BTW the standard idea to balance processing over multiple CPUs was to
+> use MSI-X to multiple CPUs.
+Yes. My method still depends on MSI-X and multi-queue. One difference i=
+s I just need less than
+CPU_NUM interrupt numbers as there are only some cpus working on packet=
+ receiving.
+
+>  and just use the hash function on the
+> NIC.
+Sorry. I can't understand what the hash function of NIC is. Perhaps NIC=
+ hardware has something
+like hash function to decide the RX queue number based on SRC/DST?
+
+>  Have you considered this for forwarding too?
+Yes. originally, I plan to add a tx_num under the same sysfs directory,=
+ so admin could
+define that all packets received from a RX queue should be sent out fro=
+m a specific TX queue.
+So struct sk_buff->queue_mapping would be a union of 2 sub-members, rx_=
+num and tx_num. But
+=EF=BB=BFsk_buff->queue_mapping is just a u16 which is a small type. We=
+ might use the most-significant
+bit of =EF=BB=BFsk_buff->queue_mapping as a flag as rx_num and tx_num w=
+ouldn't exist at the
+same time.
+
+>  The trick here would
+> be to try to avoid reordering inside streams as far as possible,
+It's not to solve reorder issue. The start point is 10G NIC is very fas=
+t. We need some cpu
+work on packet receiving dedicately. If they work on other things, NIC =
+might drop packets
+quickly.
+
+The sysfs interface is just to facilitate NIC drivers. If there is no t=
+he sysfs interface,
+driver developers need implement it with parameters which are painful.
+
+>  but
+> since the NIC hash should work on flow basis that should be ok.
+Yes, hardware is good at preventing reorder. My method doesn't change t=
+he order in software
+layer.
+
+Thanks Andi.
+
 
