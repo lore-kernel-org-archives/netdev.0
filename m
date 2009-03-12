@@ -1,64 +1,39 @@
-From: Arthur Jones <ajones@riverbed.com>
-Subject: [PATCH] igb: allow tx of pre-formatted vlan tagged packets
-Date: Thu, 12 Mar 2009 13:27:24 -0700
-Message-ID: <20090312202724.GA9876@ajones-laptop.nbttech.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: how to access this mailing list netdev
+Date: Thu, 12 Mar 2009 20:40:15 +0000
+Message-ID: <1236890415.3221.13.camel@achroite>
+References: <49B97157.2090007@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Markus Feldmann <feldmann_markus@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.riverbed.com ([206.169.144.7]:61520 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbZCLUgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 16:36:48 -0400
-Content-Disposition: inline
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:39824 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750943AbZCLUkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 16:40:20 -0400
+In-Reply-To: <49B97157.2090007@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the 82575 is fed 802.1q packets, it chokes with
-an error of the form:
+On Thu, 2009-03-12 at 21:32 +0100, Markus Feldmann wrote:
+> Hi All,
+> 
+> i am not sure whether this mail will pass this
+> mailing list ?
 
-igb 0000:08:00.1: partial checksum but proto=81
+Looks like it.
 
-As the logic there was not smart enough to look into
-the vlan header to pick out the encapsulated protocol.
+> Is this Mailing List <netdev> accessable over
+> gmane ? Or another Side with a Treeview ?
 
-There are times when we'd like to send these packets
-out without having to configure a vlan on the interface.
-Here we check for the vlan tag and allow the packet to
-go out with the correct hardware checksum.
+Yes, it's called gmane.linux.network there.
 
-Thanks to Kand Ly <kand@riverbed.com> for discovering the
-issue and the coming up with a solution.  This patch is
-based upon his work.
+Ben.
 
-Signed-off-by: Arthur Jones <ajones@riverbed.com>
----
- drivers/net/igb/igb_main.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index fddeece..99ba3a5 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2778,7 +2778,17 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
- 
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
--			switch (skb->protocol) {
-+			__be16 protocol;
-+
-+			if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
-+				const struct vlan_ethhdr *vhdr =
-+					(const struct vlan_ethhdr *) skb->data;
-+
-+				protocol = vhdr->h_vlan_encapsulated_proto;
-+			} else
-+				protocol = skb->protocol;
-+
-+			switch (protocol) {
- 			case __constant_htons(ETH_P_IP):
- 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
- 				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
 -- 
-1.5.6.3
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
