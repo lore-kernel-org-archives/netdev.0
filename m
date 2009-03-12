@@ -1,87 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to
-	submit to upper layer
-Date: Thu, 12 Mar 2009 14:08:26 +0000
-Message-ID: <1236866906.3221.11.camel@achroite>
-References: <1236761624.2567.442.camel@ymzhang>
-	 <877i2wfh1l.fsf@basil.nowhere.org>  <1236845792.2567.484.camel@ymzhang>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit to upper layer
+Date: Thu, 12 Mar 2009 15:34:27 +0100
+Message-ID: <20090312143427.GJ11935@one.firstfloor.org>
+References: <1236761624.2567.442.camel@ymzhang> <877i2wfh1l.fsf@basil.nowhere.org> <1236845792.2567.484.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
 	LKML <linux-kernel@vger.kernel.org>, herbert@gondor.apana.org.au,
 	jesse.brandeburg@intel.com, shemminger@vyatta.com,
 	David Miller <davem@davemloft.net>
 To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:50264 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752942AbZCLOIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:08:39 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:49690 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755355AbZCLOO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:14:57 -0400
+Content-Disposition: inline
 In-Reply-To: <1236845792.2567.484.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-03-12 at 16:16 +0800, Zhang, Yanmin wrote:
-> On Wed, 2009-03-11 at 12:13 +0100, Andi Kleen wrote:
-[...]
+On Thu, Mar 12, 2009 at 04:16:32PM +0800, Zhang, Yanmin wrote:
+> 
+> > Seems very inconvenient to have to configure this by hand.
+> A little, but not too much, especially when we consider there is interrupt binding.
+
+Interrupt binding is something popular for benchmarks, but most users
+don't (and shouldn't need to) care. Having it work well out of the box
+without special configuration is very important.
+
+> 
+> >  How about
+> > auto selecting one that shares the same LLC or somesuch?
+> There are 2 kinds of LLC sharing here.
+> 1) RX/TX share the LLC;
+> 2) All RX share the LLC of some cpus and TX share the LLC of other cpus.
+> 
+> Item 1) is important, but sometimes item 2) is also important when the sending speed is
+> very high and huge data is on flight which flushes cpu cache quickly.
+> It's hard to distinguish the 2 different scenarioes automatically.
+
+Why is it hard if you know the CPUs?
+
 > >  and just use the hash function on the
 > > NIC.
-> Sorry. I can't understand what the hash function of NIC is. Perhaps N=
-IC hardware has something
+> Sorry. I can't understand what the hash function of NIC is. Perhaps NIC hardware has something
 > like hash function to decide the RX queue number based on SRC/DST?
 
-Yes, that's exactly what they do.  This feature is sometimes called
-Receive-Side Scaling (RSS) which is Microsoft's name for it.  Microsoft
-requires Windows drivers performing RSS to provide the hash value to th=
-e
-networking stack, so Linux drivers for the same hardware should be able
-to do so too.
+There's a Microsoft spec for a standard hash function that does this
+on NICs and all the serious ones support it these days. The hash 
+is normally used to select a MSI-X target based on the input header.
 
-> >  Have you considered this for forwarding too?
-> Yes. originally, I plan to add a tx_num under the same sysfs director=
-y, so admin could
-> define that all packets received from a RX queue should be sent out f=
-rom a specific TX queue.
+I think if that works your manual target shouldn't be necessary.
 
-The choice of TX queue can be based on the RX hash so that configuratio=
-n
-is usually unnecessary.
-
-> So struct sk_buff->queue_mapping would be a union of 2 sub-members, r=
-x_num and tx_num. But
-> =EF=BB=BFsk_buff->queue_mapping is just a u16 which is a small type. =
-We might use the most-significant
-> bit of =EF=BB=BFsk_buff->queue_mapping as a flag as rx_num and tx_num=
- wouldn't exist at the
-> same time.
->=20
 > >  The trick here would
 > > be to try to avoid reordering inside streams as far as possible,
-> It's not to solve reorder issue. The start point is 10G NIC is very f=
-ast. We need some cpu
-> work on packet receiving dedicately. If they work on other things, NI=
-C might drop packets
-> quickly.
+> It's not to solve reorder issue. The start point is 10G NIC is very fast. We need some cpu
 
-Aggressive power-saving causes far greater latency than context-
-switching under Linux.  I believe most 10G NICs have large RX FIFOs to
-mitigate against this.  Ethernet flow control also helps to prevent
-packet loss.
+Point was that any solution shouldn't add more reordering. But when a RSS
+hash is used there is no reordering on stream basis.
 
-> The sysfs interface is just to facilitate NIC drivers. If there is no=
- the sysfs interface,
-> driver developers need implement it with parameters which are painful=
-=2E
-[...]
+-Andi 
 
-Or through the ethtool API, which already has some multiqueue control
-operations.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+-- 
+ak@linux.intel.com -- Speaking for myself only.
