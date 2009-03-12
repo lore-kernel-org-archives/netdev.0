@@ -1,50 +1,52 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
+From: "Mike (mwester)" <mwester@dls.net>
 Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 21:27:45 +0100
-Message-ID: <20090312202745.GV425@pengutronix.de>
-References: <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312.104345.68580544.davem@davemloft.net> <49B94BCA.6090309@weinigel.se> <20090312180638.GG14491@shareable.org> <49B95907.4010404@weinigel.se> <20090312190416.GS425@pengutronix.de> <20090312201449.95468832E8B8@gemini.denx.de>
+Date: Thu, 12 Mar 2009 15:24:20 -0500
+Message-ID: <49B96F74.50804@dls.net>
+References: <49B82566.3070909@weinigel.se>
+	<20090311171354.04c7a63d@nehalam>	<49B8E6D4.2030702@weinigel.se>	<20090312.055523.193191701.davem@davemloft.net>	<49B91A7B.7050303@weinigel.se>
+	<20090312151211.GB24995@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Christer Weinigel <christer@weinigel.se>,
-	Jamie Lokier <jamie@shareable.org>,
-	David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	shemminger@vyatta.com, yanok@emcraft.com,
+	David Miller <davem@davemloft.net>,
+	shemminger@vyatta.com, s.hauer@pengutronix.de, yanok@emcraft.com,
 	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	dzu@denx.de, Vladimir Khusainov <vlad@emcraft.com>,
-	Nick Ivanter <nick@emcraft.com>,
-	Sergei Poselenov <sposelenov@emcraft.com>
-To: Wolfgang Denk <wd@denx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:44414 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749AbZCLU16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 16:27:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20090312201449.95468832E8B8@gemini.denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	wd@denx.de, dzu@denx.de
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
+In-Reply-To: <20090312151211.GB24995@hmsreliant.think-freely.org>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 12, 2009 at 09:14:49PM +0100, Wolfgang Denk wrote:
-> Dear Sascha Hauer,
-> 
-> In message <20090312190416.GS425@pengutronix.de> you wrote:
-> >
-> > Great, but how does this help in setting the MAC address? This would
-> > just move this exact discussion to the dracut or whatever mailing list,
-> > but we would still be searching for a generic way to say
-> > eth0addr=00:01:02:03:04:05 and I bet the arguments stay the same.
-> 
-> Well, PowerPC uses the device tree for such information.  As  far  as
-> I've been told work is underway to extend the device tree support for
-> ARM, too.  [And U-Boot supports the device tree, of course.]
+Neil Horman wrote:
 
-I'm looking forward to the first patches on Linux Arm Kernel. That's
-gonna be even more fun than this thread ;)
+> What exactly is so difficult about cpio-ing up an initramfs to do this work with
+> sed and ifconfig? You make it sound like its an impossible barrier. Its really
+> quite simple
 
-Sascha
+Can you share your scripts and tools for creating an initramfs so
+easily?  I too run into this problem -- I've always used the
+kernel-provided mechanism to DHCP and do the nfs mount of the rootfs,
+but if the initramfs is the right way to do that, then I'll be happy to
+change.
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+It always looked rather daunting to me, and a lot of extra effort
+compared to letting the kernel do the job, but if it really is so easy,
+then I'll be happy to change my practices.
+
+Thanks!
+Mike (mwester)
+
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
