@@ -1,27 +1,56 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: Re: Multicast packet loss
-Date: Thu, 12 Mar 2009 11:47:24 -0400
-Message-ID: <49B92E8C.6040908@athenacr.com>
-References: <20090204012144.GC3650@localhost.localdomain>	<49A6CE39.5050200@athenacr.com>	<49A8FAFF.7060104@cosmosbay.com> <20090304.001646.100690134.davem@davemloft.net> <49AE3DA9.2020103@cosmosbay.com> <49B2266C.9050701@cosmosbay.com> <49B3F655.6030308@cosmosbay.com> <49B59EA3.3000208@athenacr.com> <49B5FA84.9000301@cosmosbay.com> <49B6F645.2070408@athenacr.com> <49B72956.9050504@cosmosbay.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [RFC PATCH v1 0/3] Fix a problem with incoming TCP connections and
+	NetLabel
+Date: Thu, 12 Mar 2009 12:22:50 -0400
+Message-ID: <20090312160934.29454.31004.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: kchang@athenacr.com, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:1044 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753802AbZCLPr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 11:47:28 -0400
-In-Reply-To: <49B72956.9050504@cosmosbay.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:4937 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757383AbZCLQWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 12:22:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Here is an updated version of the patch.
+The patches below have more information on the problem but the issue is that
+we are not correctly labeling incoming TCP connection sockets at present.  Due
+to a variety of things all coming together we've gotten a bit lucky in that
+the majority of labeled TCP connections are labeled correctly now but this
+won't hold for long as some of the new features added recently will break this
+"happy coincidence" for some configurations.
 
-This works great in all my tests so far.
+For the folks on netdev, you probably only care about the relocation of the
+security_inet_conn_request() hooks but this is such a minor move I doubt there
+will be much objection.  Still, I would appreciate any feedback/comments.
 
-Thanks,
-Brian Bloniarz
+For the folks on the SELinux and LSM lists please take a look and let me know
+if the basic approach seems reasonable.  Keep in mind I still need to make a
+few more passes through the code to clean it up and make sure I haven't done
+anything stupid.  I've done basic testing under both SELinux and Smack using
+2.6.29-rc7 and everything looks okay so far so feel free to play with it but
+more testing is still needed.
+
+---
+
+Paul Moore (3):
+      netlabel: Label incoming TCP connections correctly in Smack
+      netlabel: Label incoming TCP connections correctly in SELinux
+      lsm: Relocate the IPv4 security_inet_conn_request() hooks
+
+
+ include/net/cipso_ipv4.h            |   17 +++
+ include/net/netlabel.h              |   17 +++
+ net/ipv4/cipso_ipv4.c               |  130 ++++++++++++++++++++++--
+ net/ipv4/syncookies.c               |    9 +-
+ net/ipv4/tcp_ipv4.c                 |    7 +
+ net/netlabel/netlabel_kapi.c        |  124 +++++++++++++++++++++--
+ security/selinux/hooks.c            |   54 +++-------
+ security/selinux/include/netlabel.h |   26 ++---
+ security/selinux/netlabel.c         |  187 ++++++++++-------------------------
+ security/smack/smack_lsm.c          |   53 +++++++---
+ 10 files changed, 393 insertions(+), 231 deletions(-)
+
