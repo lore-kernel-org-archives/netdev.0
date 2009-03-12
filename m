@@ -1,79 +1,76 @@
-From: Christer Weinigel <christer@weinigel.se>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 15:21:47 +0100
-Message-ID: <49B91A7B.7050303@weinigel.se>
-References: <49B82566.3070909@weinigel.se>	<20090311171354.04c7a63d@nehalam>	<49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <remi-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org>
+Subject: Re: Trouble getting a stable miredo relay
+Date: Thu, 12 Mar 2009 16:24:09 +0200
+Message-ID: <200903121624.09972.remi@remlab.net>
+References: <0A8C9460533C4688AD2B16D7CE94614E@intra.widexs.nl>
+Reply-To: miredo-devel-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, s.hauer@pengutronix.de, yanok@emcraft.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	wd@denx.de, dzu@denx.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2-1-3-15a.ens.sth.bostream.se ([82.182.31.214]:51155 "EHLO
-	zoo.weinigel.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753632AbZCLOVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:21:50 -0400
-In-Reply-To: <20090312.055523.193191701.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: miredo-devel-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org
+Return-path: <miredo-devel-bounce-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org>
+In-Reply-To: <0A8C9460533C4688AD2B16D7CE94614E-buZBqSF2HJSvtRW33yhrgg@public.gmane.org>
+Content-Disposition: inline
+Sender: miredo-devel-bounce-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org
+Errors-to: miredo-devel-bounce-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Christer Weinigel <christer@weinigel.se>
-> Date: Thu, 12 Mar 2009 11:41:24 +0100
-> 
->> 1. The bootloader can pass a command line to the kernel and it is saved in non-volatile storage that can be changed from the bootloader
->>
->> 2. I can not modify the bootloader
->>
->> 3. I can modify the Linux kernel
->>
->> 4. The manufacturer has hardcoded a MAC address in the ethernet driver
->>
->> 5. I want to use NFS root to make it easy to develop on the platform
->>
->> 6. We get a second board so the hardcoded MAC addresses collide
-> 
-> This is getting rediculious.
+	Hello,
 
-Yes, ridiculous in the complexity of the workarounds for not having a 
-generic way to set the mac address from the command line.  :-/
+Le jeudi 12 mars 2009 16:06:13 Wouter de Jong, vous avez =E9crit=A0:
+> I'm trying to get a miredo relay up & running.
+> While it should be so easy, I can't get it stable...
 
-> If you can modify the kernel, you can have the kernel look in the
-> non-volatile storage for the MAC address and export that information
-> to the ethernet driver.
+> After a very short period (< 5-10 minutes) of announcing 2001::/32
+> via BGP to the rest of the world,
+> I see a lot of packetloss towards hosts in our network that I reach
+> through our relay from teredo clients.
+> Sometimes the addresses are not reachable at all (not even the
+> relay-address).
 
-Which means that the non-volatile storage must be available through a 
-Linux driver before the MAC address is set.  AFAIK there is no guarantee 
-that the MTD layer will be ready to use by that time.  And that is 
-assuming that there actually is a MTD driver available, usually when I 
-work on a Linux port for a reference board, the first thing I do is to 
-get a NFS root up and running, then I can put a have a complete Debian 
-system with all nice debugging tools available.  When I have that up and 
-running I start porting the other drivers, such as the MTD driver.
+This is symptomatic of an overflow in the route/neighbor caches of the kern=
+el.=20
+Please try to increase the size (a lot) manually via sysctl. I don't know=20
+anything sane userland/TUNTAP can do about this.
 
-Also, I don't really want to spend time on reverse engineering some 
-random non-volatile storage format, that's quite fragile.
+> From native IPv6 hosts from outside -> native IPv6 hosts inside our
+> network and vice versa, there is no packetloss at all.
 
-> Or, you can parse the command line in your platform specific code
-> and program the MAC address into the chip.
+> I tried various hardware (SuperMicro Dual Xeon, Dell 860 Dual-Core
+> machine, HP DL360, etc)... all ending up with the same result. Tried
+> various distro's (CentOS 5.2, Fedora 10, Ubuntu server 8.10,
+> Debian 4.0r7). Distro specific packages, self-compile (against Judy,
+> without Judy).... no change.
 
-Which is actually what I'm doing, except that it's easier to hack that 
-into the ethernet driver each time it is needed.
+> I tried separating the IPv4 traffic from the IPv6 traffic (both on
+> different nic's), tried tweaking sysctl parameters .... all to no
+> avail.=20
 
-> In fact there are many reasonable ways to solve the problem in
-> your scenerio, and none of them require device driver command
-> line option handler.
+> At no point the relay took more than 10Mbit/s.
 
-Yes, that why I'd want that in a generic piece of code instead of having 
-to hack it into each device driver.  Would a generic command line 
-option, something like "ethaddrs=eth0=00:de:ad:be:ef:01" which assigns 
-addresses to network cards be acceptable?
+Miredo holds a paradoxical situation whereby it (in userland) can easily=20
+handle millions of peers, but the kernel starts failing at 1024 of them.
 
-Next time I have to port something to an embedded platform with this 
-kind of problem, I might try to do something more generic instead of the 
-simple hack I usually do now.
+See also=20
+http://kerneltrap.org/mailarchive/linux-netdev/2008/8/31/3146914/thread and=
+=20
+http://kerneltrap.org/mailarchive/linux-netdev/2008/8/31/3147634/thread
 
-   /Christer
+You don't need much bandwidth to hit 1024 peers. You just to export your ro=
+ute=20
+to sufficiently many people. I don't know why there is a neighbors cache fo=
+r=20
+no-ARP interfaces in the first place. I guess nobody ever bothered to=20
+conditionnaly disable the code.
 
+> When I restart miredo, it usually works again for a minute (but not
+> always).  With tcpdump i do see a lot of teredo traffic when it
+> appears to give unreachable messages for hosts.
+
+Best regards,
+
+=2D-=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
