@@ -1,37 +1,45 @@
 From: Jamie Lokier <jamie@shareable.org>
 Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 18:02:34 +0000
-Message-ID: <20090312180234.GF14491@shareable.org>
-References: <1236738549-16703-1-git-send-email-yanok@emcraft.com> <20090310211841.388619ca@nehalam> <F884D8C3-E35B-4239-8D72-165EE528FCAC@prograde.net> <20090312.070554.96115441.davem@davemloft.net>
+Date: Thu, 12 Mar 2009 18:06:38 +0000
+Message-ID: <20090312180638.GG14491@shareable.org>
+References: <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312.104345.68580544.davem@davemloft.net> <49B94BCA.6090309@weinigel.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mboards@prograde.net, shemminger@vyatta.com, yanok@emcraft.com,
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	shemminger@vyatta.com, s.hauer@pengutronix.de, yanok@emcraft.com,
 	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, wd@denx.de, dzu@denx.de
-To: David Miller <davem@davemloft.net>
+	wd@denx.de, dzu@denx.de
+To: Christer Weinigel <christer@weinigel.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.shareable.org ([80.68.89.115]:50301 "EHLO
+Received: from mail2.shareable.org ([80.68.89.115]:33727 "EHLO
 	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752294AbZCLSCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 14:02:52 -0400
+	with ESMTP id S1754074AbZCLSHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 14:07:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20090312.070554.96115441.davem@davemloft.net>
+In-Reply-To: <49B94BCA.6090309@weinigel.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> > I'm confused by this. If I'm NFS-booting the board then how do I get
-> > to those userland tools if I don't have a valid MAC address in place
-> > to do the root mount?
+Christer Weinigel wrote:
+> David Miller wrote:
+> > You can start with the debian installer, that's probably the
+> > easiest to hack on and extend.
+> > 
+> > Or you can just continue to list excuses, that might be easier.
 > 
-> Initial ramdisk.
+> Or I can keep patching the drivers, that's even easier.  No it's not 
+> something I expect to see in the official kernel, but who cares, I 
+> always have loads of debug patches that won't get into the official 
+> kernel either.  Keep the status quo.
 
-Aren't you basically implying that the in-kernel DHCP client and NFS
-mounting should be removed from the kernel too?
+Yes.  Patching your own initrd or your own modified Debian initrd is
+_also_ not in the official trees, so I can't see any reason why
+anybody would follow Dave's suggestion.  Much more work, different
+private tree, same behaviour, probably more bloated, probably Debian's
+initrd doesn't work on nommu anyway.
 
-I'd agree with that; it's the trend.  But it seems pretty harsh to say
-"you can do DHCP+NFS now, but if you want to set the MAC address too,
-then you have to reimplement DHCP+NFS a completely different way from
-scratch first".
+However there was some attempt to get a reference initrd build into
+the kernel.  Did that go anywhere?  It would actually be good to use
+that if it exists.
 
 -- Jamie
