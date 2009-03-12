@@ -1,84 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Thu, 12 Mar 2009 05:52:35 -0700 (PDT)
-Message-ID: <20090312.055235.56926675.davem@davemloft.net>
-References: <200903121946.24847.rusty@rustcorp.com.au>
-	<1236858219.14863.18.camel@localhost.localdomain>
-	<1295ed070903120547q431b5b40n71b8d2e98719e18d@mail.gmail.com>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Thu, 12 Mar 2009 05:55:23 -0700 (PDT)
+Message-ID: <20090312.055523.193191701.davem@davemloft.net>
+References: <49B82566.3070909@weinigel.se>
+	<20090311171354.04c7a63d@nehalam>
+	<49B8E6D4.2030702@weinigel.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dcbw@redhat.com, rusty@rustcorp.com.au, netdev@vger.kernel.org
-To: pktoss@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, s.hauer@pengutronix.de, yanok@emcraft.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	wd@denx.de, dzu@denx.de
+To: christer@weinigel.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34169
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34173
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752637AbZCLMwt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2009 08:52:49 -0400
-In-Reply-To: <1295ed070903120547q431b5b40n71b8d2e98719e18d@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752114AbZCLMzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 08:55:37 -0400
+In-Reply-To: <49B8E6D4.2030702@weinigel.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Pantelis Koukousoulas <pktoss@gmail.com>
-Date: Thu, 12 Mar 2009 14:47:09 +0200
+From: Christer Weinigel <christer@weinigel.se>
+Date: Thu, 12 Mar 2009 11:41:24 +0100
 
-> > The problem is that there's no "my carrier detection is accurate" f=
-lag
-> > for drivers. =A0Drivers that don't support carrier detection (say, =
-my
-> > Belkin PCMCIA NE2k card) always report "carrier on", but of course =
-don't
-> > support carrier detection. =A0So when NetworkManager looks at the d=
-evice
-> > and sees "hey, there's a carrier!" it will activate it, because a
-> > carrier means the cable is plugged in or the PHY *thinks* a cable i=
-s
-> > plugged in.
-> >
-> > So NetworkManager checks whether the device supports ethtool get_li=
-nk or
-> > MII register carrier status in lieu of a general kernel driver flag=
- for
-> > "I support carrier detection".
-> >
-> > Carrier is not on/off, it needs to be tristate, like on/off/unknown=
-=2E =A0If
-> > it was unknown, NM could make an intelligent decision about this wi=
-thout
-> > resorting to ethtool/MII checks. =A0But we don't have that.
->=20
-> This looks like an independent problem imho, one of kernel<->userspac=
-e
-> API. The current 'defacto' way of finding out if detection is support=
-ed or
-> not (ethtool) seems to give the needed information even if somewhat u=
-gly.
->=20
-> The issue discussed here as I understand it is whether virtio should =
-or
-> should not support carrier status reporting. IMHO it should, since
-> it is useful functionality and doesn't cost much.
->=20
-> Dan, What is your opinion on that?
+> 1. The bootloader can pass a command line to the kernel and it is saved in non-volatile storage that can be changed from the bootloader
+> 
+> 2. I can not modify the bootloader
+> 
+> 3. I can modify the Linux kernel
+> 
+> 4. The manufacturer has hardcoded a MAC address in the ethernet driver
+> 
+> 5. I want to use NFS root to make it easy to develop on the platform
+> 
+> 6. We get a second board so the hardcoded MAC addresses collide
 
-I think Dan is right.
+This is getting rediculious.
 
-If the driver doesn't provide an explicit carrier, there is no way to
-know for sure that it is on of off.  If NetworkManager decides that
-this means on, and it's really off, that isn't so nice.
+If you can modify the kernel, you can have the kernel look in the
+non-volatile storage for the MAC address and export that information
+to the ethernet driver.
 
-And lots of very old drivers in the tree don't have a link indication
-handler, so this is a very real issue.
+Or, you can parse the command line in your platform specific code
+and program the MAC address into the chip.
 
-Not adding a link state handler to virtio_net for pompous reasons like
-some theoretical "clean design" claim is idiotic, and in the end bad
-for users who are using existing versions of NetworkManager.
+In fact there are many reasonable ways to solve the problem in
+your scenerio, and none of them require device driver command
+line option handler.
 
-I also think the NetworkManager change is wrong, lack of link
-indication support does not mean the link is always on, not by a
-country mile.  Tell that to all the ancient ethernet drivers in
-our tree.
-
-If the link is always on, you should make that explicit by providing
-a link state handler, and making sure it always returns true.
+None.
