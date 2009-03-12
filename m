@@ -1,66 +1,79 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit to upper layer
-Date: Thu, 12 Mar 2009 15:34:27 +0100
-Message-ID: <20090312143427.GJ11935@one.firstfloor.org>
-References: <1236761624.2567.442.camel@ymzhang> <877i2wfh1l.fsf@basil.nowhere.org> <1236845792.2567.484.camel@ymzhang>
+From: Christer Weinigel <christer@weinigel.se>
+Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
+Date: Thu, 12 Mar 2009 15:21:47 +0100
+Message-ID: <49B91A7B.7050303@weinigel.se>
+References: <49B82566.3070909@weinigel.se>	<20090311171354.04c7a63d@nehalam>	<49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, herbert@gondor.apana.org.au,
-	jesse.brandeburg@intel.com, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, s.hauer@pengutronix.de, yanok@emcraft.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	wd@denx.de, dzu@denx.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:49690 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755355AbZCLOO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:14:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1236845792.2567.484.camel@ymzhang>
+Received: from 2-1-3-15a.ens.sth.bostream.se ([82.182.31.214]:51155 "EHLO
+	zoo.weinigel.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753632AbZCLOVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 10:21:50 -0400
+In-Reply-To: <20090312.055523.193191701.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2009 at 04:16:32PM +0800, Zhang, Yanmin wrote:
+David Miller wrote:
+> From: Christer Weinigel <christer@weinigel.se>
+> Date: Thu, 12 Mar 2009 11:41:24 +0100
 > 
-> > Seems very inconvenient to have to configure this by hand.
-> A little, but not too much, especially when we consider there is interrupt binding.
-
-Interrupt binding is something popular for benchmarks, but most users
-don't (and shouldn't need to) care. Having it work well out of the box
-without special configuration is very important.
-
+>> 1. The bootloader can pass a command line to the kernel and it is saved in non-volatile storage that can be changed from the bootloader
+>>
+>> 2. I can not modify the bootloader
+>>
+>> 3. I can modify the Linux kernel
+>>
+>> 4. The manufacturer has hardcoded a MAC address in the ethernet driver
+>>
+>> 5. I want to use NFS root to make it easy to develop on the platform
+>>
+>> 6. We get a second board so the hardcoded MAC addresses collide
 > 
-> >  How about
-> > auto selecting one that shares the same LLC or somesuch?
-> There are 2 kinds of LLC sharing here.
-> 1) RX/TX share the LLC;
-> 2) All RX share the LLC of some cpus and TX share the LLC of other cpus.
-> 
-> Item 1) is important, but sometimes item 2) is also important when the sending speed is
-> very high and huge data is on flight which flushes cpu cache quickly.
-> It's hard to distinguish the 2 different scenarioes automatically.
+> This is getting rediculious.
 
-Why is it hard if you know the CPUs?
+Yes, ridiculous in the complexity of the workarounds for not having a 
+generic way to set the mac address from the command line.  :-/
 
-> >  and just use the hash function on the
-> > NIC.
-> Sorry. I can't understand what the hash function of NIC is. Perhaps NIC hardware has something
-> like hash function to decide the RX queue number based on SRC/DST?
+> If you can modify the kernel, you can have the kernel look in the
+> non-volatile storage for the MAC address and export that information
+> to the ethernet driver.
 
-There's a Microsoft spec for a standard hash function that does this
-on NICs and all the serious ones support it these days. The hash 
-is normally used to select a MSI-X target based on the input header.
+Which means that the non-volatile storage must be available through a 
+Linux driver before the MAC address is set.  AFAIK there is no guarantee 
+that the MTD layer will be ready to use by that time.  And that is 
+assuming that there actually is a MTD driver available, usually when I 
+work on a Linux port for a reference board, the first thing I do is to 
+get a NFS root up and running, then I can put a have a complete Debian 
+system with all nice debugging tools available.  When I have that up and 
+running I start porting the other drivers, such as the MTD driver.
 
-I think if that works your manual target shouldn't be necessary.
+Also, I don't really want to spend time on reverse engineering some 
+random non-volatile storage format, that's quite fragile.
 
-> >  The trick here would
-> > be to try to avoid reordering inside streams as far as possible,
-> It's not to solve reorder issue. The start point is 10G NIC is very fast. We need some cpu
+> Or, you can parse the command line in your platform specific code
+> and program the MAC address into the chip.
 
-Point was that any solution shouldn't add more reordering. But when a RSS
-hash is used there is no reordering on stream basis.
+Which is actually what I'm doing, except that it's easier to hack that 
+into the ethernet driver each time it is needed.
 
--Andi 
+> In fact there are many reasonable ways to solve the problem in
+> your scenerio, and none of them require device driver command
+> line option handler.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Yes, that why I'd want that in a generic piece of code instead of having 
+to hack it into each device driver.  Would a generic command line 
+option, something like "ethaddrs=eth0=00:de:ad:be:ef:01" which assigns 
+addresses to network cards be acceptable?
+
+Next time I have to port something to an embedded platform with this 
+kind of problem, I might try to do something more generic instead of the 
+simple hack I usually do now.
+
+   /Christer
+
