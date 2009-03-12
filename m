@@ -1,50 +1,43 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PROBLEM]: potential unaligned memory access in
- drivers/usb/gadget/rndis.c
-Date: Thu, 12 Mar 2009 16:51:37 -0700
-Message-ID: <1236901897.4036.1.camel@brick>
-References: <3848726.1723791236775868071.JavaMail.root@spooler2-g27.priv.proxad.net>
-	 <20090311235119.f4609775.akpm@linux-foundation.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Make virtio_net support carrier detection
+Date: Thu, 12 Mar 2009 16:55:43 -0700
+Message-ID: <20090312165543.5f0e356b@nehalam>
+References: <200903121946.24847.rusty@rustcorp.com.au>
+	<20090312.055235.56926675.davem@davemloft.net>
+	<200903130809.49523.rusty@rustcorp.com.au>
+	<200903131017.11572.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yann.poupet@free.fr, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Miller <davem@davemloft.net>, pktoss@gmail.com,
+	dcbw@redhat.com, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:14951 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbZCLXvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 19:51:41 -0400
-In-Reply-To: <20090311235119.f4609775.akpm@linux-foundation.org>
+Received: from mail.vyatta.com ([76.74.103.46]:47285 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751272AbZCLXzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 19:55:53 -0400
+In-Reply-To: <200903131017.11572.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-03-11 at 23:51 -0700, Andrew Morton wrote:
+On Fri, 13 Mar 2009 10:17:11 +1030
+Rusty Russell <rusty@rustcorp.com.au> wrote:
 
-> Maybe the below fixed this?  afacit it is queued for 2.6.30 in the
-> net-next tree: 
+> On Friday 13 March 2009 08:09:49 Rusty Russell wrote:
+> > On Thursday 12 March 2009 23:22:35 David Miller wrote:
+> > > If the link is always on, you should make that explicit by providing
+> > > a link state handler, and making sure it always returns true.
+> > 
+> > "If".  We've discussed adding a virtio_net feature to indicate link status,
+> > which implies that it's *not* always on.
 > 
-> commit 35c26c2cf6a6a2d1c48add732d8ba002bd90784c
-> Author:     Harvey Harrison <harvey.harrison@gmail.com>
-> AuthorDate: Sat Feb 14 22:56:56 2009 -0800
-> Commit:     David S. Miller <davem@davemloft.net>
-> CommitDate: Sat Feb 14 22:56:56 2009 -0800
+> Actually, I've changed my mind.
 > 
->     rndis: remove private wrapper of __constant_cpu_to_le32
->     
->     Use cpu_to_le32 directly as it handles constant folding now, replace direct
->     uses of __constant_cpu_to_{endian} as well.
->     
->     Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
->     Acked-by: David Brownell <dbrownell@users.sourceforge.net>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+> Unlike a device which *has* a carrier which we can't detect, there's no
+> virtio_net "device" which can turn off link (not kvm/qemu, not lguest) without
+> the pending VIRTIO_NET_S_LINK feature.
 > 
 
-Doubtful, this patch should be a no-op, any alignment problems that existed
-before will still be there.
-
-Harvey
-
-
-
+Yes, need that feature, it is really useful for testing.
+It is about the only reason I hold onto using VMware.
