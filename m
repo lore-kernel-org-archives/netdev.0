@@ -1,51 +1,70 @@
-From: Pantelis Koukousoulas <pktoss@gmail.com>
-Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Thu, 12 Mar 2009 09:44:44 +0200
-Message-ID: <1295ed070903120044s63b4da71i68add51703952d0f@mail.gmail.com>
-References: <1236772642-12705-1-git-send-email-pktoss@gmail.com>
-	 <200903121759.31024.rusty@rustcorp.com.au>
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: [IPROUTE2][PATCH 1/2] Add Monitor Support For Neigh Table
+Date: Thu, 12 Mar 2009 13:42:07 +0530
+Message-ID: <20090312134207.783f00d4.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f177.google.com ([209.85.219.177]:33074 "EHLO
-	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbZCLHos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 03:44:48 -0400
-Received: by ewy25 with SMTP id 25so257919ewy.37
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 00:44:45 -0700 (PDT)
-In-Reply-To: <200903121759.31024.rusty@rustcorp.com.au>
+Received: from e23smtp06.au.ibm.com ([202.81.31.148]:43140 "EHLO
+	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbZCLIML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 04:12:11 -0400
+Received: from d23relay01.au.ibm.com (d23relay01.au.ibm.com [202.81.31.243])
+	by e23smtp06.au.ibm.com (8.13.1/8.13.1) with ESMTP id n2C8Bw3k007905
+	for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 19:11:58 +1100
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by d23relay01.au.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n2C8CNu9405946
+	for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 19:12:25 +1100
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n2C8C5et017439
+	for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 19:12:05 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2009 at 9:29 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> On Wednesday 11 March 2009 22:27:22 Pantelis Koukousoulas wrote:
->> For now the semantics are simple: There is always carrier.
->>
->> This allows a seamless experience with e.g., qemu/kvm
->> where NetworkManager just configures and sets up
->> everything automagically.
->
-> So, NetworkManager ignores the device because it doesn't support
-> carrier detection?
+This patch adds exclusive support to enable monitoring
+neighbour table entries in ip command.
 
-It doesn't ignore it, it just doesn't enable it by default, like it does for
-those that do report carrier.
+Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+---
+ ip/ipmonitor.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-But the user experience is that on real hardware you just boot a livecd
-and see your network "just working" (and the familiar icon with the 2
-computers indicating that), while under e.g., KVM/virtio you get
-non-working network / an icon with a red X and you have to
-figure out to left click on it and select eth0 to get things to work.
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index df0fd91..a74730e 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -102,6 +102,7 @@ int do_ipmonitor(int argc, char **argv)
+ 	int laddr=0;
+ 	int lroute=0;
+ 	int lprefix=0;
++	int lneigh=0;
+ 
+ 	rtnl_close(&rth);
+ 	ipaddr_reset_filter(1);
+@@ -124,6 +125,9 @@ int do_ipmonitor(int argc, char **argv)
+ 		} else if (matches(*argv, "prefix") == 0) {
+ 			lprefix=1;
+ 			groups = 0;
++		} else if (matches(*argv, "neigh") == 0) {
++			lneigh=1;
++			groups = 0;		
+ 		} else if (strcmp(*argv, "all") == 0) {
+ 			groups = ~RTMGRP_TC;
+ 		} else if (matches(*argv, "help") == 0) {
+@@ -153,7 +157,9 @@ int do_ipmonitor(int argc, char **argv)
+ 		if (!preferred_family || preferred_family == AF_INET6)
+ 			groups |= nl_mgrp(RTNLGRP_IPV6_PREFIX);
+ 	}
+-
++	if (lneigh) {
++		groups |= nl_mgrp(RTNLGRP_NEIGH);
++	}
+ 	if (file) {
+ 		FILE *fp;
+ 		fp = fopen(file, "r");
+-- 
+1.5.4.3
 
-Some newer versions of NetworkManager seem to assume that
-if no carrier detection is supported then carrier is on by default
-so it should work for those, but that assumption seems like
-a worse hack than this patch :)
-
-(And in any case this patch helps all those who don't run
-the latest unstable branch of their distro, while causing
-no harm as far as I can see)
-
-Pantelis
