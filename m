@@ -1,55 +1,63 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: no IPv6 Routers present
-Date: Thu, 12 Mar 2009 22:05:56 +0100
-Message-ID: <gpbtfk$s5h$1@ger.gmane.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] igb: allow tx of pre-formatted vlan tagged packets
+Date: Thu, 12 Mar 2009 14:22:18 -0700
+Message-ID: <20090312142218.5085a043@nehalam>
+References: <20090312202724.GA9876@ajones-laptop.nbttech.com>
+	<20090312135119.3a715480@nehalam>
+	<20090312210057.GA14957@ajones-laptop.nbttech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arthur Jones <ajones@riverbed.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:40076 "EHLO ciao.gmane.org"
+Received: from mail.vyatta.com ([76.74.103.46]:39226 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751012AbZCLVKM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2009 17:10:12 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1LhsAE-00032G-HV
-	for netdev@vger.kernel.org; Thu, 12 Mar 2009 21:10:03 +0000
-Received: from dslb-092-076-238-059.pools.arcor-ip.net ([92.76.238.59])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 21:10:02 +0000
-Received: from feldmann_markus by dslb-092-076-238-059.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 21:10:02 +0000
+	id S1754992AbZCLVW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 17:22:27 -0400
+In-Reply-To: <20090312210057.GA14957@ajones-laptop.nbttech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+On Thu, 12 Mar 2009 14:00:57 -0700
+Arthur Jones <ajones@riverbed.com> wrote:
 
-i am working on a combined Firewall, means
-2 Firewalls on one Personal Computer.
+> Hi Stephen, ...
+> 
+> On Thu, Mar 12, 2009 at 01:51:19PM -0700, Stephen Hemminger wrote:
+> > On Thu, 12 Mar 2009 13:27:24 -0700
+> > Arthur Jones <ajones@riverbed.com> wrote:
+> > 
+> > > When the 82575 is fed 802.1q packets, it chokes with
+> > > an error of the form:
+> > > 
+> > > igb 0000:08:00.1: partial checksum but proto=81
+> > > 
+> > > As the logic there was not smart enough to look into
+> > > the vlan header to pick out the encapsulated protocol.
+> > > 
+> > > There are times when we'd like to send these packets
+> > > out without having to configure a vlan on the interface.
+> > > Here we check for the vlan tag and allow the packet to
+> > > go out with the correct hardware checksum.
+> > > 
+> > > Thanks to Kand Ly <kand@riverbed.com> for discovering the
+> > > issue and the coming up with a solution.  This patch is
+> > > based upon his work.
+> > > 
+> > > Signed-off-by: Arthur Jones <ajones@riverbed.com>
+> > > ---
+> > >  drivers/net/igb/igb_main.c |   12 +++++++++++-
+> > >  1 files changed, 11 insertions(+), 1 deletions(-)
+> > 
+> > That code in current igb driver (net-next-2.6) tree no longer has
+> > the whole switch you are changing.
+> 
+> Ok, thanks, I'll test that one...
+> 
+> Arthur
 
-The first firewall is for my <ppp0> and
-the second firewall is for <eth0> if i connect
-through my Server to the internet.
-
-However, if i plug off and plug in my network
-cable, to change the connection from <eth0> to
-<ppp0>, the connection to internet fails.
- From <ppp0> to <eth0> works, but than i can
-not switch back because of a unkown connection
-error.
-
-<dmesg> prints out:
-no IPv6 Router present
-
-Ok maybe this is true. There is no IPv6 Router
-in my lan, but why do my Kernel not switch back
-to IPv4 ?
-
-How can i correct this ?
-I do not want to disable the whole IPv6 kernel/program
-options.
-
-Is this a Bug ?
-
+Actually, it is there just a little furthur down than I was looking
