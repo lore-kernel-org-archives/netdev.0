@@ -1,83 +1,56 @@
-From: Jamie Lokier <jamie@shareable.org>
+From: Christer Weinigel <christer@weinigel.se>
 Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 19:25:04 +0000
-Message-ID: <20090312192504.GB16611@shareable.org>
-References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312174933.GC24995@hmsreliant.think-freely.org> <49B95386.2030600@weinigel.se>
+Date: Thu, 12 Mar 2009 20:29:23 +0100
+Message-ID: <49B96293.7040003@weinigel.se>
+References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312174933.GC24995@hmsreliant.think-freely.org> <49B95386.2030600@weinigel.se> <20090312190517.GD24995@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
 	s.hauer@pengutronix.de, yanok@emcraft.com,
 	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
 	wd@denx.de, dzu@denx.de
-To: Christer Weinigel <christer@weinigel.se>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.shareable.org ([80.68.89.115]:32799 "EHLO
-	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754769AbZCLTZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 15:25:14 -0400
-Content-Disposition: inline
-In-Reply-To: <49B95386.2030600@weinigel.se>
+Received: from 2-1-3-15a.ens.sth.bostream.se ([82.182.31.214]:35463 "EHLO
+	zoo.weinigel.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbZCLT31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 15:29:27 -0400
+In-Reply-To: <20090312190517.GD24995@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christer Weinigel wrote:
-> > You don't need klibc, you can use regular glibc, and even build
-> > statically if you like.  You'll have to use dig or host to do name
-> > lookups, but thats also pretty easy to do.  This really is easier
-> > than you think it is :)
+Neil Horman wrote:
+> You didn't read what I wrote very closely, I specifically said you have to dig
+> or host to do name lookups, specifically because of the issues with getXbyY.
+
+Did too.  :-)
+
+> 3) Your knoweldge from (1) is insufficient to implement the required initramfs in (2)
+> in (assuming your example time frame) 1 week?
 > 
-> Size, size, size.  The killer in the embedded world which rules out 
-> glibc.  And have you tried to link glibc statically with something that 
-> uses gethostbyname lately?  It is no longer possible since the 
-> introduction of all the introduction of the dynamic name lookup crap 
-> (ok, it's not really crap, I just feel like it's crap every time I try 
-> to link a networking application statically).
+> Seriously?
 
-In other words, glibc doesn't work on some embedded targets even if
-you have plenty of room: they don't support dynamic libs.
+Yup.  A week right now is a luxury I usually don't have right now.
+I shouldn't even be spending time writing this mail, but I'm eh,
+right, waiting for a compilation to finish.
 
-> uclibc also seems to have issues with networking and statically linked 
-> binaries, but I just haven't had time to figure out why yet.
+>> Anyway, I've spent more time on discussing this now than it would have  
+>> taken me to hack the device drivers on half a dozen platforms, so I  
+>> think I'll give up.  Maybe I'll take a look at some initrd+klibc+dhcp  
+>> stuff when I have some free time next Christmas (that's when I usually  
+>> get to play around with my hobby projects), maybe not. :-)
+>>
+> I sympathize with you.  This is exactly what soured me on embedded work a few
+> years back.  Embedded shops are forever compromising doing things correctly in
+> the name of time and schedules, never paying any heed to the possibility that
+> taking extra time to do things in an agreed upon, organized and standard fashion
+> might pay off for them in the long run.  
 
-I've never had an issue with uclibc and networking.
+Actually, I'm quite happy about work so far.  When worked on improving 
+the Samsung S3C24A0 patches Sandeep Patil had made, I got approval from 
+my boss to spend time on making them suitable for submission to the 
+official kernel, so I was able to do a lot more than just "make things 
+work now".  But the last few months have been kind of hectic.
 
-> In my opion, having a "hwaddrs=eth0=00:de:ad:be:ef:01" would be 
-> consistent and maintainable.  But opinions differ.
-
-I believe the party line on such things is "use udev". 
-
-Of course, realistically you can't use udev on little embedded systems
-and you probably wouldn't use it inside initrd either.  Oh well!
-
-To fix the device name with udev you often match on MAC address :-)
-
-> Once again, in your opinion it is a hack, I don't consider it more a 
-> hack than assigning the IP address on the command line.  And I wouldn't 
-> call the in kernel stuff useless.
-
-That's a good point.
-
-If assigning the MAC to a particular device "eth0" is dubious -
-someone said because device names aren't guaranteed.  Well, why is
-assigning the IP address ok?
-
-> Yes, and the next time I would have to fix this on an embedded board, I 
-> could probably have spent the time on figure out how to do something 
-> slightly more generic, but since it won't have a chance of getting into 
-> the kernel, I probably won't.
-
-Another good point: There have been complaints, of a sort, that
-embedded developers don't feed back enough of their work upstream.
-
-It's not surprising if this is typical of the objections.
-
-I'm totally failing to see why _if_ setting the IP address on the
-kernel command line, for the kernel to apply, is ok, but the MAC is
-not.  Both or neither.  Fair enough that the IP option was put in a
-long time ago, before policies changed.  But as long as that
-capability is there and used and useful, it's ridiculous that it can't
-be marginally improved.
-
--- Jamie
-
+   /Christer
