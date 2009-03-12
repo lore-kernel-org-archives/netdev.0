@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Wed, 11 Mar 2009 17:44:46 -0700 (PDT)
-Message-ID: <20090311.174446.150354252.davem@davemloft.net>
-References: <20090311090938.E7BF7832E8B8@gemini.denx.de>
-	<20090311.062336.238430706.davem@davemloft.net>
-	<20090311191530.GA18211@kos.to>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [PATCH] cls_cgroup: remove unneeded cgroup_lock
+Date: Thu, 12 Mar 2009 09:47:30 +0800
+Message-ID: <49B869B2.1020303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: riku.voipio@iki.fi
+Cc: Paul Menage <menage@google.com>, Thomas Graf <tgraf@suug.ch>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Containers <containers@lists.linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42888
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752497AbZCLApA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2009 20:45:00 -0400
-In-Reply-To: <20090311191530.GA18211@kos.to>
+Received: from cn.fujitsu.com ([222.73.24.84]:58559 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752992AbZCLBrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2009 21:47:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Riku Voipio <riku.voipio@iki.fi>
-Date: Wed, 11 Mar 2009 21:15:30 +0200
+We can remove this lock here, since we are in cgroup write handler
+and thus the cgrp is guaranteed to be valid, and no lock is needed
+when writing a u32 variable.
 
-> In such machines, typically the mac address is stored in bootloader's
-> configuration area in NOR/NAND flash.
+Signed-off-by: Li Zefan <lizf@cn.fujitsuc.com>
+---
+ net/sched/cls_cgroup.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-That's a perfectly fine solution as well.
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 91a3db4..1ab4542 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -62,13 +62,7 @@ static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
+ 
+ static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
+ {
+-	if (!cgroup_lock_live_group(cgrp))
+-		return -ENODEV;
+-
+ 	cgrp_cls_state(cgrp)->classid = (u32) value;
+-
+-	cgroup_unlock();
+-
+ 	return 0;
+ }
+ 
+-- 
+1.5.4.rc3
 
-Anything that specifies a unique MAC address somewhere on
-the board is OK.
-
-It's this "generate a random MAC address every bootup" that
-I am totally against.  A situation where there is no permanent
-MAC address stored anywhere.
