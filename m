@@ -1,82 +1,77 @@
-From: Christer Weinigel <christer@weinigel.se>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 11:41:24 +0100
-Message-ID: <49B8E6D4.2030702@weinigel.se>
-References: <1236738549-16703-1-git-send-email-yanok@emcraft.com>	<20090310211841.388619ca@nehalam>	<20090311084430.GU425@pengutronix.de>	<20090311.014957.117115597.davem@davemloft.net>	<49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam>
+From: Pantelis Koukousoulas <pktoss@gmail.com>
+Subject: Re: [PATCH] Make virtio_net support carrier detection
+Date: Thu, 12 Mar 2009 13:05:10 +0200
+Message-ID: <1295ed070903120405y350cb5b3uefb88518c24e87a8@mail.gmail.com>
+References: <1236772642-12705-1-git-send-email-pktoss@gmail.com>
+	 <200903121759.31024.rusty@rustcorp.com.au>
+	 <1295ed070903120044s63b4da71i68add51703952d0f@mail.gmail.com>
+	 <200903121946.24847.rusty@rustcorp.com.au>
+	 <1295ed070903120323y21c9b3ddrf382ba765d060e65@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, s.hauer@pengutronix.de,
-	yanok@emcraft.com, linux-arm-kernel@lists.arm.linux.org.uk,
-	netdev@vger.kernel.org, wd@denx.de, dzu@denx.de
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2-1-3-15a.ens.sth.bostream.se ([82.182.31.214]:33294 "EHLO
-	zoo.weinigel.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754225AbZCLKl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 06:41:27 -0400
-In-Reply-To: <20090311171354.04c7a63d@nehalam>
+Received: from mail-ew0-f177.google.com ([209.85.219.177]:38670 "EHLO
+	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752326AbZCLLFN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 07:05:13 -0400
+Received: by ewy25 with SMTP id 25so313194ewy.37
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 04:05:10 -0700 (PDT)
+In-Reply-To: <1295ed070903120323y21c9b3ddrf382ba765d060e65@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Wed, 11 Mar 2009 21:56:06 +0100
-> Christer Weinigel <christer@weinigel.se> wrote:
->> It's still a pain to have to do this.  Many embedded systems that I =
-have=20
->> seen have a bootloader which I can't modify to do that, but the=20
->> bootloader allows me to save the kernel command line into some kind =
-of=20
->> volatile storage.  S=C3=A5 being able to set the MAC address with a:
+On Thu, Mar 12, 2009 at 12:23 PM, Pantelis Koukousoulas
+<pktoss@gmail.com> wrote:
+>> No, that's absolutely sane behavior, the previous was buggy. =A0If a=
+ network
+>> doesn't support carrier, you shouldn't look for it.
 >>
->>      setenv cmdline foo.hwaddr=3D00:de:ad:be:ef:ed
+>> Since they've fixed this in Network Manager, I'm not tempted to lie =
+about it
+>> in the driver (though the distributions might choose to).
 >>
->> is very nice because it allows me to use a NFS root without having t=
-o=20
->> jump through hoops with initrds an such.
+>> Rusty.
 >>
->> Actually, I wish we had a generic way of doing that, so that could s=
-et=20
->> the mac address of any ethernet interface from the kernel command in=
- a=20
->> nice and supported way.
->=20
-> The problem is that usually users end up with all devices with the
-> same address, unless there is some other procedure to hand out addres=
-ses
-> during configuration. That is why the random_ether_addr is safer.
+>
+> Ok, if "lying" is reporting that the driver supports carrier
+> detection, this looks
+> like an innocent lie :). Because the carrier *is* on, this is the tru=
+th and you
+> could just as well claim that the virtual hardware supports detection
+> as that it doesn't :)
 
-Random mac addresses, yuk! :-)  I'd much rather have something that I=20
-can make "do the right thing" than something I can't.  And as I said,=20
-what I've encountered many times is a reference board from some=20
-manufacturer where the following conditions are present:
+After reading this one more time, it doesn't make much sense, so let me=
+ try
+to explain my point of view more clearly:
+=46or the wired case, carrier status =3D=3D "is cable connected?"
+(NetworkManager is asking that)
 
-1. The bootloader can pass a command line to the kernel and it is saved=
-=20
-in non-volatile storage that can be changed from the bootloader
+So,
 
-2. I can not modify the bootloader
+* virtio saying "Hey, I have no idea if cable is connected or not. I
+have no way to know that".
+  (aka carrier detect not supported)
 
-3. I can modify the Linux kernel
+I think this is closer to lying than:
 
-4. The manufacturer has hardcoded a MAC address in the ethernet driver
+* "Hey, I know that the cable is connected". =3D=3D carrier detection
+supported. carrier is on
 
-5. I want to use NFS root to make it easy to develop on the platform
+Because unlike prehistoric hardware / incomplete drivers, virtio *does*=
+ know :)
 
-6. We get a second board so the hardcoded MAC addresses collide
+Even if someone comes up with a patch at the hypervisor / emulator
+level that allows
+the user to set carrier status to on or off, then pressure should be
+applied on them
+to implement this change in a way that makes this known to the virtio_n=
+et driver
+for the same reasons that actual hardware does it (i.e., users like / w=
+ant this
+functionality :)
 
-In this situation I usually hack a hwaddr module param into the etherne=
-t=20
-driver, so that I can actually make the devices have different, but=20
-stable, MAC addresses.  The alternatives are to hardcode the MAC addres=
-s=20
-into the kernel and run different kernels on different boards, or to=20
-create an initrd with a tools that parses the kernel command line to=20
-extract the MAC address and then do ifconfig eth0 hwaddr $HWADDR, and=20
-then add a DCHP client which gets the NFS root from the DCHP response=20
-and finally mounts the NFS root and switches too it.  But I'm lazy so a=
-s=20
-I said usually just hack the driver.
-
-    /Christer
+Hope this is clearer,
+Pantelis
