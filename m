@@ -1,44 +1,82 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 21:59:19 +0000
-Message-ID: <20090312215919.GA19200@shareable.org>
-References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312174933.GC24995@hmsreliant.think-freely.org> <49B95386.2030600@weinigel.se> <20090312190517.GD24995@hmsreliant.think-freely.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next PATCH] igb: allow tx of pre-formatted vlan tagged packets
+Date: Thu, 12 Mar 2009 15:30:02 -0700
+Message-ID: <49B98CEA.7010306@intel.com>
+References: <20090312202724.GA9876@ajones-laptop.nbttech.com> <20090312213345.GA12653@ajones-laptop.nbttech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christer Weinigel <christer@weinigel.se>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	s.hauer@pengutronix.de, yanok@emcraft.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	wd@denx.de, dzu@denx.de
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Arthur Jones <ajones@riverbed.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.shareable.org ([80.68.89.115]:39018 "EHLO
-	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbZCLV7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 17:59:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20090312190517.GD24995@hmsreliant.think-freely.org>
+Received: from mga14.intel.com ([143.182.124.37]:3715 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753085AbZCLWaF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 18:30:05 -0400
+In-Reply-To: <20090312213345.GA12653@ajones-laptop.nbttech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman wrote:
-> I've not looked at the figures lately, but how much space does the
-> dhcp client and nfs root code take up in the kernel these days?
+I have added a few comments inline.
 
-About 4k apparently.  See the difference from "400k compressed?".
-Also, uncompressing that may add 0.5 second boot time on a slow CPU :-)
+Arthur Jones wrote:
+> When the 82575 is fed 802.1q packets, it chokes with
+> an error of the form:
+> 
+> igb 0000:08:00.1: partial checksum but proto=81
+> 
+> As the logic there was not smart enough to look into
+> the vlan header to pick out the encapsulated protocol.
+> 
+> There are times when we'd like to send these packets
+> out without having to configure a vlan on the interface.
+> Here we check for the vlan tag and allow the packet to
+> go out with the correct hardware checksum.
+> 
+> Thanks to Kand Ly <kand@riverbed.com> for discovering the
+> issue and the coming up with a solution.  This patch is
+> based upon his work.
+> 
+> Macro fixups from Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Signed-off-by: Arthur Jones <ajones@riverbed.com>
+> ---
+>  drivers/net/igb/igb_main.c |   12 +++++++++++-
+>  1 files changed, 11 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+> index 78558f8..e4ef1f6 100644
+> --- a/drivers/net/igb/igb_main.c
+> +++ b/drivers/net/igb/igb_main.c
+> @@ -3017,7 +3017,17 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
+>  		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
+>  
+>  		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> -			switch (skb->protocol) {
+> +			__be16 protocol;
+> +
+> +			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
+> +				const struct vlan_ethhdr *vhdr =
+> +					(const struct vlan_ethhdr *) skb->data;
+This should probably reference skb_mac_header(skb) instead of data in 
+the event that data is an offset instead of a pointer.
 
-> I sympathize with you.  This is exactly what soured me on embedded
-> work a few years back.  Embedded shops are forever compromising
-> doing things correctly in the name of time and schedules, never
-> paying any heed to the possibility that taking extra time to do
-> things in an agreed upon, organized and standard fashion might pay
-> off for them in the long run.
+> +
+> +				protocol = vhdr->h_vlan_encapsulated_proto;
+> +			} else
+> +				protocol = skb->protocol;
+> +
+This else should have braces since the matching if was using braces.
 
-I must admit that a solution which makes the effective kernel size
-800k larger (your figure) doesn't look like a good standard to me.
+> +			switch (protocol) {
+>  			case cpu_to_be16(ETH_P_IP):
+>  				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
+>  				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
 
-If that was the "standard", I'd be tempted to add a MAC address driver
-hack to the kernel to save the space :-)
+Thanks,
 
--- Jamie
+Alex
