@@ -1,40 +1,34 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Fri, 13 Mar 2009 08:09:49 +1030
-Message-ID: <200903130809.49523.rusty@rustcorp.com.au>
-References: <200903121946.24847.rusty@rustcorp.com.au> <1295ed070903120547q431b5b40n71b8d2e98719e18d@mail.gmail.com> <20090312.055235.56926675.davem@davemloft.net>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: Re: no IPv6 Routers present
+Date: Thu, 12 Mar 2009 22:41:13 +0100
+Message-ID: <gpbvhp$2j8$1@ger.gmane.org>
+References: <gpbtfk$s5h$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pktoss@gmail.com, dcbw@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:44413 "EHLO ozlabs.org"
+Received: from main.gmane.org ([80.91.229.2]:54173 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753103AbZCLVj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2009 17:39:56 -0400
-In-Reply-To: <20090312.055235.56926675.davem@davemloft.net>
-Content-Disposition: inline
+	id S1752118AbZCLVl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2009 17:41:29 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Lhsec-0004Ya-2Q
+	for netdev@vger.kernel.org; Thu, 12 Mar 2009 21:41:26 +0000
+Received: from dslb-092-076-238-059.pools.arcor-ip.net ([92.76.238.59])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 21:41:26 +0000
+Received: from feldmann_markus by dslb-092-076-238-059.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 21:41:26 +0000
+In-Reply-To: <gpbtfk$s5h$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12 March 2009 23:22:35 David Miller wrote:
-> Not adding a link state handler to virtio_net for pompous reasons like
-> some theoretical "clean design" claim is idiotic, and in the end bad
-> for users who are using existing versions of NetworkManager.
+Forgt to write my specifications:
 
-We really don't know if there's a carrier: virtio_net doesn't support it
-(yet).
+debian lenny with kernel 2.6.28.7
 
-Dan said we can't return "don't know", but he's wrong: you get
--EOPNOTSUPP from ETHTOOL_GLINK.  That surely gives userspace the best
-possible information.
+Regards Markus
 
-> If the link is always on, you should make that explicit by providing
-> a link state handler, and making sure it always returns true.
-
-"If".  We've discussed adding a virtio_net feature to indicate link status,
-which implies that it's *not* always on.
-
-Rusty.
