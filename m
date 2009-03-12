@@ -1,51 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: DRR example, how to replace SFQ
-Date: Thu, 12 Mar 2009 07:25:08 +0000
-Message-ID: <20090312072508.GA4104@ff.dom.local>
-References: <200903120201.49195.denys@visp.net.lb>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC] tcp: allow timestamps even if SYN packet has tsval=0
+Date: Thu, 12 Mar 2009 09:26:20 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0903120858550.4697@wrl-59.cs.helsinki.fi>
+References: <49B7ABF2.5040803@cosmosbay.com> <20090311.064710.255854254.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f178.google.com ([209.85.218.178]:38060 "EHLO
-	mail-bw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835AbZCLHZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 03:25:15 -0400
-Received: by bwz26 with SMTP id 26so63117bwz.37
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2009 00:25:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200903120201.49195.denys@visp.net.lb>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54091 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbZCLH0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 03:26:23 -0400
+In-Reply-To: <20090311.064710.255854254.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2009 at 02:01:49AM +0200, Denys Fedoryschenko wrote:
-> If i understand right, it must look like this to simulate SFQ 
-> This example with just 2 "queues".
-> 
-> tc qdisc add dev eth0.100 root handle 1: htb
-> 
-> tc class add dev eth0.100 parent 1: classid 1:1 htb rate 15Kbit ceil 15Kbit
-> 
-> tc qdisc add dev eth0.100 parent 1:1 handle 2: drr
-> 
-> tc class add dev eth0.100 parent 2: classid 2:1 drr quantum 1600
-> tc class add dev eth0.100 parent 2: classid 2:2 drr quantum 1600
-> 
-> tc qdisc add dev eth0.100 parent 2:1 handle 10: bfifo 9000
-> tc qdisc add dev eth0.100 parent 2:2 handle 11: bfifo 9000
-> 
-> tc filter add dev eth0.100 parent 1: protocol ip prio 5 u32 match u32 0 0 
-> flowid 1:1
-> 
-> tc filter add dev eth0.100 parent 2: protocol ip prio 10 handle 1 flow keys 
-> dst divisor 2 baseclass 2:1
-> 
-> Is it correct?
+On Wed, 11 Mar 2009, David Miller wrote:
 
-Generally looks OK, but examples from cls_flow changelog could be
-followed:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 11 Mar 2009 13:17:54 +0100
+> 
+> > So apparently WindowsXP sends a NULL tsval in SYN packet, then
+> > subsequent packets get a real value (60498) in this case.
+> > 
+> > This seems to work on other OS as well, so is the following patch
+> > considered evil ?  Do we have security concerns or only risking
+> > windows client to have slightly wrong rtt estimation at the begining
+> > of the tcp session ?
+> 
+> I think we'll have to accept this.
+> 
+> I don't see other systems blocking initial ts_ecn values of
+> zero like we do.
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=e5dfb815181fcb186d6080ac3a091eadff2d98fe
+What about the fact that PAWS could bite us leaving us a hung connection 
+if timestamp changes too much when we get the first ACK? Though I doubt 
+you can get windows to run long enough for this to become a problem if 
+they always start from zero... ;-)
 
-Jarek P.
+-- 
+ i.
