@@ -1,58 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Assign linklocal addresses to isatap from link dev
-Date: Fri, 13 Mar 2009 14:43:41 -0700 (PDT)
-Message-ID: <20090313.144341.117676496.davem@davemloft.net>
-References: <200903010134.54405.mail@saschahlusiak.de>
-	<20090304.032835.183524465.davem@davemloft.net>
-	<200903041849.48474.mail@saschahlusiak.de>
+Subject: Re: Multicast packet loss
+Date: Fri, 13 Mar 2009 14:51:52 -0700 (PDT)
+Message-ID: <20090313.145152.121603300.davem@davemloft.net>
+References: <49B3F655.6030308@cosmosbay.com>
+	<20090308.194922.267426196.davem@davemloft.net>
+	<49B4B909.7050002@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fred.l.templin@boeing.com
-To: mail@saschahlusiak.de
+Cc: kchang@athenacr.com, netdev@vger.kernel.org,
+	cl@linux-foundation.org, bmb@athenacr.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46528
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34950
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752838AbZCMVnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 17:43:55 -0400
-In-Reply-To: <200903041849.48474.mail@saschahlusiak.de>
+	by vger.kernel.org with ESMTP id S1754458AbZCMVwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 17:52:06 -0400
+In-Reply-To: <49B4B909.7050002@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Hlusiak <mail@saschahlusiak.de>
-Date: Wed, 4 Mar 2009 18:49:41 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 09 Mar 2009 07:36:57 +0100
 
-> > > That way stateless autoconf works with isatap tunnels and without
-> > > knowledge of the local v4 address.
-> >
-> > Real autoconf is not performed, but rather you must configure your
-> > system with a PRL (potential routers list) and these routers are
-> > probed periodically in order to keep track of which of them are still
-> > functioning and also to perform a sort-of unicast-only autoconf.
-> Well, since ISATAP is just a SIT, it still needs a link local address for 
-> autoconf and it needs to have it's v4 Address embedded in the lowest 32 bit of 
-> the linklocal address. It will then do normal autoconf with the potential 
-> router by sending a proper router solicitation messages, either directed or 
-> multicast.
-> 
-> I see that the current implementation disables sending of RS when on ISATAP, 
-> which is not correct because RS are needed to do the autoconf.
-> 
-> At least that's the way the implementation in MS Windows works.
-> 
-> > I am pretty sure that the person who added the ISATAP code created the
-> > current behavior intentionally.
-> Well, the current implementation does not cover clients at all, because 
-> the ip command refuses to create tunnels without the remote parameter, which 
-> is neccessary because it's the potential router.
-> 
-> It then does not derive the linklocal address correctly, making it impossible 
-> to do autoconf with the server. Using SIT does work as such as you still need 
-> to add the correct ISATAP linklocal address to the interface. 
-> 
-> I think ISATAP Client support in Linux could be more automated.
+> I chose cmpxchg() because I needed some form of exclusion here.
+> I first added a spinlock inside "struct softirq_del" then I realize
+> I could use cmpxchg() instead and keep the structure small. As the
+> synchronization is only needed at queueing time, we could pass
+> the address of a spinlock XXX to sofirq_del() call.
 
-Let's ask the ISATAP author the intent of the situation.
-CC:'d
+I don't understand why you need the mutual exclusion in the
+first place.  The function pointer always has the same value.
+And this locking isn't protecting the list insertion either,
+as that isn't even necessary.
 
-Fred?
+It just looks like plain overhead to me.
+
+> Also, when an event was queued for later invocation, I also needed to keep
+> a reference on "struct socket" to make sure it doesnt disappear before
+> the invocation. Not all sockets are RCU guarded (we added RCU only for 
+> some protocols (TCP, UDP ...). So I found keeping a read_lock
+> on callback was the easyest thing to do. I now realize we might
+> overflow preempt_count, so special care is needed.
+
+You're using this in UDP so... make the rule that you can't use
+this with a non-RCU-quiescent protocol.
+
+> About your first point, maybe we should make sofirq_del() (poor name
+> I confess) only have one argument (pointer to struct softirq_del),
+> and initialize the function pointer at socket init time. That would
+> insure "struct softirq_del" is associated to one callback
+> only. cmpxchg() test would have to be done on "next" field then (or
+> use the spinlock XXX)
+
+Why?  You run this from softirq safe context, nothing can run other
+softirqs on this cpu and corrupt the list, therefore.
