@@ -1,20 +1,20 @@
 From: Siemens New Center <laquinta@yuma.twcbc.com>
 Subject: Mrs Mercy Bill
-Date: Thu, 12 Mar 2009 21:52:33 -0500
-Message-ID: <7h9gbp$cedhl3@rrcs-agw-01b.hrndva.rr.com>
+Date: Thu, 12 Mar 2009 21:52:32 -0500
+Message-ID: <7h9gbp$cedhl1@rrcs-agw-01b.hrndva.rr.com>
 Reply-To: siemens11@btinternet.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: <info@lily.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:37407 "EHLO
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.8]:35437 "EHLO
 	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752957AbZCMCwf (ORCPT
+	with ESMTP id S1752574AbZCMCwf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 22:52:35 -0400
 Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
-          by hrndva-comm-mta02.mail.rr.com with ESMTP
-          id <20090313025233.POEH22286.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          by hrndva-comm-mta03.mail.rr.com with ESMTP
+          id <20090313025233.VBXS9006.hrndva-comm-mta03.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
           for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 02:52:33 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
