@@ -1,67 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
+From: Christer Weinigel <christer@weinigel.se>
 Subject: Re: [PATCH] dnet: Dave DNET ethernet controller driver
-Date: Thu, 12 Mar 2009 20:29:13 -0400
-Message-ID: <20090313002913.GC13764@localhost.localdomain>
-References: <49B82566.3070909@weinigel.se> <20090311171354.04c7a63d@nehalam> <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B96F74.50804@dls.net>
+Date: Fri, 13 Mar 2009 02:29:58 +0100
+Message-ID: <49B9B716.4060506@weinigel.se>
+References: <49B8E6D4.2030702@weinigel.se> <20090312.055523.193191701.davem@davemloft.net> <49B91A7B.7050303@weinigel.se> <20090312151211.GB24995@hmsreliant.think-freely.org> <49B93777.7030202@weinigel.se> <20090312174933.GC24995@hmsreliant.think-freely.org> <49B95386.2030600@weinigel.se> <20090312190517.GD24995@hmsreliant.think-freely.org> <20090312215919.GA19200@shareable.org> <49B99DF1.9000509@weinigel.se> <20090313002155.GB13764@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christer Weinigel <christer@weinigel.se>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	s.hauer@pengutronix.de, yanok@emcraft.com,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamie Lokier <jamie@shareable.org>, davem@davemloft.net,
+	shemminger@vyatta.com, s.hauer@pengutronix.de, yanok@emcraft.com,
 	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
 	wd@denx.de, dzu@denx.de
-To: "Mike (mwester)" <mwester@dls.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37746 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbZCMA3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 20:29:37 -0400
-Content-Disposition: inline
-In-Reply-To: <49B96F74.50804@dls.net>
+Received: from 2-1-3-15a.ens.sth.bostream.se ([82.182.31.214]:43299 "EHLO
+	zoo.weinigel.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750843AbZCMBaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2009 21:30:01 -0400
+In-Reply-To: <20090313002155.GB13764@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2009 at 03:24:20PM -0500, Mike (mwester) wrote:
-> Neil Horman wrote:
-> 
-> > What exactly is so difficult about cpio-ing up an initramfs to do this work with
-> > sed and ifconfig? You make it sound like its an impossible barrier. Its really
-> > quite simple
-> 
-> Can you share your scripts and tools for creating an initramfs so
-> easily?  I too run into this problem -- I've always used the
-> kernel-provided mechanism to DHCP and do the nfs mount of the rootfs,
-> but if the initramfs is the right way to do that, then I'll be happy to
-> change.
-> 
-> It always looked rather daunting to me, and a lot of extra effort
-> compared to letting the kernel do the job, but if it really is so easy,
-> then I'll be happy to change my practices.
-> 
-> Thanks!
-> Mike (mwester)
-Sure, you'll find my mkduprd script in the kexec-tools package for fedora,
-you're welcome to tear it up to suit your needs.
+Neil Horman wrote:
 
-By way of precaution, I'll tell you that the script is much larger than it needs
-to be, since its purpose is to copy a vmcore to several various locations.
+> So, I've avoided asking this question, because I didn't want to get off topic,
+> but since it appears we're winding up here, I have to ask what your long term
+> plan is for your final application.  I can understand being hesitant to invest
+> in an initramfs when its solely for your intermediate development (even though I
+> think that will pay off for you in the long run), but when your development
+> ends, and you ship a product, how do you plan to implement your application?  I
+> would imagine you at least need an initramfs to store, load and run your final
+> application don't you?  How do you plan on executing it?
 
-In short summary, all you need to make an initramfs is:
+Most probably no ramdisk at all, just the mtd driver and flash file 
+system driver compiled into the kernel and then "root=/dev/mtdblock4".
 
-1) create a rootfs directory tree somewhere, call it $INITRD_ROOT
-2) populate the initrd with any applications you need for your purpose
-3) create an executable file , called $INITRD_ROOT/init
-4) $INITRD_ROOT/init should do whatever you want the initramfs to do, in
-mkdumprd I make it a shell script that does various and sunry things, although
-you could do something as simple as making it run /bin/sh to give you a shell
-prompt.
-5)cd $INITRD_ROOT; cpio --quiet -c -o /tmp/initramfs; gzip -9 /tmp/initramfs
+For one old product the bootloader programs the mac address into the 
+ethernet chip before the kernel boots.  For another embedded system 
+thats out in production the bootloader is really dumb and it's up to 
+early userspace to extract the mac address from nonvolatile memory and 
+do ifconfig hwaddr.
 
-thats it.
-Neil
+And as I wrote in a different post, most systems I'm working on now 
+won't even have ethernet.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+   /Christer
+
