@@ -1,7 +1,8 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH net-next 1/10] cxgb3: ring rx door bell less frequently
-Date: Fri, 13 Mar 2009 00:13:43 -0700
-Message-ID: <20090313071343.21994.85719.stgit@speedy5>
+Subject: [PATCH net-next 2/10] cxgb3: release page ref on mapping error
+Date: Fri, 13 Mar 2009 00:13:49 -0700
+Message-ID: <20090313071348.21994.7337.stgit@speedy5>
+References: <20090313071343.21994.85719.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,120 +10,73 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:27583 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:27595 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752270AbZCMHNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 03:13:47 -0400
+	with ESMTP id S1753449AbZCMHNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 03:13:51 -0400
+In-Reply-To: <20090313071343.21994.85719.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Ring free lists door bell less frequently,
-specifically every quarter of the active FL
-size.
+Release page chunk reference in case we fail to map it.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/adapter.h |    1 +
- drivers/net/cxgb3/sge.c     |   32 ++++++++++++++++++++++++--------
- 2 files changed, 25 insertions(+), 8 deletions(-)
+ drivers/net/cxgb3/sge.c |   26 ++++++++++++++------------
+ 1 files changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
-index fbe1569..95dce48 100644
---- a/drivers/net/cxgb3/adapter.h
-+++ b/drivers/net/cxgb3/adapter.h
-@@ -91,6 +91,7 @@ struct rx_sw_desc;
- struct sge_fl {                     /* SGE per free-buffer list state */
- 	unsigned int buf_size;      /* size of each Rx buffer */
- 	unsigned int credits;       /* # of available Rx buffers */
-+	unsigned int pend_cred;     /* new buffers since last FL DB ring */
- 	unsigned int size;          /* capacity of free list */
- 	unsigned int cidx;          /* consumer index */
- 	unsigned int pidx;          /* producer index */
 diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 8205aa4..882beaf 100644
+index 882beaf..808b8af 100644
 --- a/drivers/net/cxgb3/sge.c
 +++ b/drivers/net/cxgb3/sge.c
-@@ -63,6 +63,10 @@
- #define SGE_RX_DROP_THRES 16
- 
- /*
-+ * Max number of Rx buffers we replenish at a time.
-+ */
-+#define MAX_RX_REFILL 16U
-+/*
-  * Period of the Tx buffer reclaim timer.  This timer does not need to run
-  * frequently as Tx buffers are usually reclaimed by new Tx packets.
-  */
-@@ -423,6 +427,14 @@ static int alloc_pg_chunk(struct sge_fl *q, struct rx_sw_desc *sd, gfp_t gfp,
- 	return 0;
+@@ -338,6 +338,18 @@ static inline int should_restart_tx(const struct sge_txq *q)
+ 	return q->in_use - r < (q->size >> 1);
  }
  
-+static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
++static void clear_rx_desc(const struct sge_fl *q, struct rx_sw_desc *d)
 +{
-+	if (q->pend_cred >= q->credits / 4) {
-+		q->pend_cred = 0;
-+		t3_write_reg(adap, A_SG_KDOORBELL, V_EGRCNTX(q->cntxt_id));
++	if (q->use_pages) {
++		if (d->pg_chunk.page)
++			put_page(d->pg_chunk.page);
++		d->pg_chunk.page = NULL;
++	} else {
++		kfree_skb(d->skb);
++		d->skb = NULL;
 +	}
 +}
 +
  /**
-  *	refill_fl - refill an SGE free-buffer list
-  *	@adapter: the adapter
-@@ -478,19 +490,19 @@ nomem:				q->alloc_failed++;
- 			sd = q->sdesc;
- 			d = q->desc;
+  *	free_rx_bufs - free the Rx buffers on an SGE free list
+  *	@pdev: the PCI device associated with the adapter
+@@ -355,14 +367,7 @@ static void free_rx_bufs(struct pci_dev *pdev, struct sge_fl *q)
+ 
+ 		pci_unmap_single(pdev, pci_unmap_addr(d, dma_addr),
+ 				 q->buf_size, PCI_DMA_FROMDEVICE);
+-		if (q->use_pages) {
+-			if (d->pg_chunk.page)
+-				put_page(d->pg_chunk.page);
+-			d->pg_chunk.page = NULL;
+-		} else {
+-			kfree_skb(d->skb);
+-			d->skb = NULL;
+-		}
++		clear_rx_desc(q, d);
+ 		if (++cidx == q->size)
+ 			cidx = 0;
+ 	}
+@@ -475,10 +480,7 @@ nomem:				q->alloc_failed++;
+ 		err = add_one_rx_buf(buf_start, q->buf_size, d, sd, q->gen,
+ 				     adap->pdev);
+ 		if (unlikely(err)) {
+-			if (!q->use_pages) {
+-				kfree_skb(sd->skb);
+-				sd->skb = NULL;
+-			}
++			clear_rx_desc(q, sd);
+ 			break;
  		}
--		q->credits++;
- 		count++;
- 	}
--	wmb();
--	if (likely(count))
--		t3_write_reg(adap, A_SG_KDOORBELL, V_EGRCNTX(q->cntxt_id));
-+
-+	q->credits += count;
-+	q->pend_cred += count;
-+	ring_fl_db(adap, q);
  
- 	return count;
- }
- 
- static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
- {
--	refill_fl(adap, fl, min(16U, fl->size - fl->credits),
-+	refill_fl(adap, fl, min(MAX_RX_REFILL, fl->size - fl->credits),
- 		  GFP_ATOMIC | __GFP_COMP);
- }
- 
-@@ -515,13 +527,15 @@ static void recycle_rx_buf(struct adapter *adap, struct sge_fl *q,
- 	wmb();
- 	to->len_gen = cpu_to_be32(V_FLD_GEN1(q->gen));
- 	to->gen2 = cpu_to_be32(V_FLD_GEN2(q->gen));
--	q->credits++;
- 
- 	if (++q->pidx == q->size) {
- 		q->pidx = 0;
- 		q->gen ^= 1;
- 	}
--	t3_write_reg(adap, A_SG_KDOORBELL, V_EGRCNTX(q->cntxt_id));
-+
-+	q->credits++;
-+	q->pend_cred++;
-+	ring_fl_db(adap, q);
- }
- 
- /**
-@@ -732,7 +746,9 @@ recycle:
- 		return skb;
- 	}
- 
--	if (unlikely(fl->credits < drop_thres))
-+	if (unlikely(fl->credits < drop_thres) &&
-+	    refill_fl(adap, fl, min(MAX_RX_REFILL, fl->size - fl->credits - 1),
-+		      GFP_ATOMIC | __GFP_COMP) == 0)
- 		goto recycle;
- 
- use_orig_buf:
 
