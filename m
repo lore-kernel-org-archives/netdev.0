@@ -1,42 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to
- submit to upper layer
-Date: Fri, 13 Mar 2009 14:02:17 -0700 (PDT)
-Message-ID: <20090313.140217.143696945.davem@davemloft.net>
-References: <65634d660903131006n44f068dw18b2fe9dce25399e@mail.gmail.com>
-	<20090313.115137.254924980.davem@davemloft.net>
-	<65634d660903131358h765bef64y6a0f1b0db7400f6f@mail.gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: r8169 skb leak
+Date: Fri, 13 Mar 2009 17:10:08 -0400
+Message-ID: <20090313211008.GA14796@redhat.com>
+References: <49B89385.4090005@cosmosbay.com> <20090312045657.GB7132@redhat.com> <49B89A33.2030207@cosmosbay.com> <20090313.133640.130060599.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yanmin_zhang@linux.intel.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	jesse.brandeburg@intel.com, shemminger@vyatta.com
-To: therbert@google.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37387
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750949AbZCMVCb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 17:02:31 -0400
-In-Reply-To: <65634d660903131358h765bef64y6a0f1b0db7400f6f@mail.gmail.com>
+Received: from mx2.redhat.com ([66.187.237.31]:32867 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752331AbZCMVKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2009 17:10:13 -0400
+Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
+	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n2DLA9AR029706
+	for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 17:10:09 -0400
+Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
+	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id n2DLA9mq022214
+	for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 17:10:10 -0400
+Received: from gelk.kernelslacker.org (vpn-12-86.rdu.redhat.com [10.11.12.86])
+	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id n2DLA9TT026032
+	for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 17:10:09 -0400
+Received: from gelk.kernelslacker.org (localhost.localdomain [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.3/8.14.3) with ESMTP id n2DLA8lC014807
+	for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 17:10:08 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.3/8.14.3/Submit) id n2DLA8Vk014803
+	for netdev@vger.kernel.org; Fri, 13 Mar 2009 17:10:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20090313.133640.130060599.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Fri, 13 Mar 2009 13:58:53 -0700
+r8169 seems to have the same problem that the via-velocity did with skb padding.
+Found by code-inspection only, no hardware to test.
 
-> We are trying to follow the decisions scheduler as opposed to
-> leading it.  This works on very loaded systems, with applications
-> binding to cpusets, with threads that are receiving on multiple
-> sockets.  I suppose it might be compelling if a NIC could steer
-> packets per flow, instead of by a hash...
+Signed-off-by: Dave Jones <davej@redhat.com>
 
-If the hash is good is will distribute the load properly.
-
-If the NIC is sophisticated enough (Sun's Neptune chipset is)
-you can even group interrupt distribution by traffic type
-and even bind specific ports to interrupt groups.
-
-I really detest all of these software hacks that add overhead
-to solve problems the hardware can solve for us.
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index b347340..07b1de1 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3145,7 +3145,9 @@ err_out:
+ static void rtl8169_unmap_tx_skb(struct pci_dev *pdev, struct ring_info *tx_skb,
+ 				 struct TxDesc *desc)
+ {
+-	unsigned int len = tx_skb->len;
++	unsigned int len;
++
++	len = max_t(unsigned, tx_skb->len, ETH_ZLEN);
+ 
+ 	pci_unmap_single(pdev, le64_to_cpu(desc->addr), len, PCI_DMA_TODEVICE);
+ 	desc->opts1 = 0x00;
+@@ -3364,11 +3366,9 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	} else {
+ 		len = skb->len;
+ 
+-		if (unlikely(len < ETH_ZLEN)) {
+-			if (skb_padto(skb, ETH_ZLEN))
+-				goto err_update_stats;
+-			len = ETH_ZLEN;
+-		}
++		if (skb_padto(skb, ETH_ZLEN))
++			goto err_update_stats;
++		len = max_t(unsigned, skb->len, ETH_ZLEN);
+ 
+ 		opts1 |= FirstFrag | LastFrag;
+ 		tp->tx_skb[entry].skb = skb;
+-- 
+http://www.codemonkey.org.uk
