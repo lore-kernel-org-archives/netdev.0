@@ -1,113 +1,73 @@
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: [PATCHv2] netns: oops in ip_frag_reasm incrementing stats
-Date: Fri, 13 Mar 2009 17:35:49 +0100
-Message-ID: <49BA8B65.2060408@dti2.net>
-References: <49BA87F4.1090709@dti2.net>
-Reply-To: jorge@dti2.net
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit
+	to upper layer
+Date: Fri, 13 Mar 2009 10:06:56 -0700
+Message-ID: <65634d660903131006n44f068dw18b2fe9dce25399e@mail.gmail.com>
+References: <1236761624.2567.442.camel@ymzhang>
+	 <877i2wfh1l.fsf@basil.nowhere.org> <1236845792.2567.484.camel@ymzhang>
+	 <1236866906.3221.11.camel@achroite>
+	 <1236926602.2567.528.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, herbert@gondor.apana.org.au,
+	jesse.brandeburg@intel.com, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alcalazamora.dti2.net ([81.24.162.8]:3860 "EHLO
-	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759427AbZCMQfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 12:35:55 -0400
-Received: from [172.16.16.6] ([81.24.161.20])
-	(authenticated user jorge@dti2.net)
-	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
-	(MDaemon PRO v9.6.5)
-	with ESMTP id md50002645321.msg
-	for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 17:35:52 +0100
-In-Reply-To: <49BA87F4.1090709@dti2.net>
+Received: from smtp-out.google.com ([216.239.33.17]:32299 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761047AbZCMRHI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 13:07:08 -0400
+In-Reply-To: <1236926602.2567.528.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dev can be NULL on ip_frag_reasm for skb's coming from RAW sockets.
+On Thu, Mar 12, 2009 at 11:43 PM, Zhang, Yanmin
+<yanmin_zhang@linux.intel.com> wrote:
+>
+> On Thu, 2009-03-12 at 14:08 +0000, Ben Hutchings wrote:
+> > On Thu, 2009-03-12 at 16:16 +0800, Zhang, Yanmin wrote:
+> > > On Wed, 2009-03-11 at 12:13 +0100, Andi Kleen wrote:
+> > [...]
+> > > > =A0and just use the hash function on the
+> > > > NIC.
+> > > Sorry. I can't understand what the hash function of NIC is. Perha=
+ps NIC hardware has something
+> > > like hash function to decide the RX queue number based on SRC/DST=
+?
+> >
+> > Yes, that's exactly what they do. =A0This feature is sometimes call=
+ed
+> > Receive-Side Scaling (RSS) which is Microsoft's name for it. =A0Mic=
+rosoft
+> > requires Windows drivers performing RSS to provide the hash value t=
+o the
+> > networking stack, so Linux drivers for the same hardware should be =
+able
+> > to do so too.
+> Oh, I didn't know the background. I need study more about network.
+> Thanks for explain it.
+>
 
-Quagga's OSPFD sends fragmented packets on a RAW socket, when netfilter
-conntrack reassembles them on the OUTPUT path you hit this code path.
+You'll definitely want to look at the hardware provided hash.  We've
+been using a 10G NIC which provides a Toeplitz hash (the one defined
+by Microsoft) and a software RSS-like capability to move packets from
+an interrupting CPU to another for processing.  The hash could be used
+to index to a set of CPUs, but we also use the hash as a connection
+identifier to key into a lookup table to steer packets to the CPU
+where the application is running based on the running CPU of the last
+recvmsg.  Using the device provided hash in this manner is a HUGE win,
+as opposed to taking cache misses to get 4-tuple from packet itself to
+compute a hash.  I posted some patches a while back on our work if
+you're interested.
 
-Changes from v1:
-	- Fixed description
+We also using multiple RX queues of the 10G device in concert with
+pretty good results.  We have noticed that the interrupt overheads
+substantially mitigate the benefits.  In fact, I would say the
+software packet steering has provided the greater benefit (and it's
+very useful on our many 1G NICS that don't have multiq!).
 
-Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
----
-  net/ipv4/ip_fragment.c |   14 +++++++-------
-  1 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 6659ac0..8f150d5 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -84,7 +84,7 @@ int ip_frag_mem(struct net *net)
-  	return atomic_read(&net->ipv4.frags.mem);
-  }
-
--static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
-+static int ip_frag_reasm(struct net *net, struct ipq *qp, struct 
-sk_buff *prev,
-  			 struct net_device *dev);
-
-  struct ip4_create_arg {
-@@ -296,7 +296,7 @@ static int ip_frag_reinit(struct ipq *qp)
-  }
-
-  /* Add new segment to existing queue. */
--static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
-+static int ip_frag_queue(struct net *net, struct ipq *qp, struct 
-sk_buff *skb)
-  {
-  	struct sk_buff *prev, *next;
-  	struct net_device *dev;
-@@ -445,7 +445,7 @@ static int ip_frag_queue(struct ipq *qp, struct 
-sk_buff *skb)
-
-  	if (qp->q.last_in == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
-  	    qp->q.meat == qp->q.len)
--		return ip_frag_reasm(qp, prev, dev);
-+		return ip_frag_reasm(net, qp, prev, dev);
-
-  	write_lock(&ip4_frags.lock);
-  	list_move_tail(&qp->q.lru_list, &qp->q.net->lru_list);
-@@ -460,7 +460,7 @@ err:
-
-  /* Build a new IP datagram from all its fragments. */
-
--static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
-+static int ip_frag_reasm(struct net *net, struct ipq *qp, struct 
-sk_buff *prev,
-  			 struct net_device *dev)
-  {
-  	struct iphdr *iph;
-@@ -548,7 +548,7 @@ static int ip_frag_reasm(struct ipq *qp, struct 
-sk_buff *prev,
-  	iph = ip_hdr(head);
-  	iph->frag_off = 0;
-  	iph->tot_len = htons(len);
--	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMOKS);
-+	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
-  	qp->q.fragments = NULL;
-  	return 0;
-
-@@ -562,7 +562,7 @@ out_oversize:
-  		printk(KERN_INFO "Oversized IP packet from %pI4.\n",
-  			&qp->saddr);
-  out_fail:
--	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMFAILS);
-+	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMFAILS);
-  	return err;
-  }
-
-@@ -585,7 +585,7 @@ int ip_defrag(struct sk_buff *skb, u32 user)
-
-  		spin_lock(&qp->q.lock);
-
--		ret = ip_frag_queue(qp, skb);
-+		ret = ip_frag_queue(net, qp, skb);
-
-  		spin_unlock(&qp->q.lock);
-  		ipq_put(qp);
--- 
-1.5.6.5
-
+Tom
