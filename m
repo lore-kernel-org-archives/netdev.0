@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: '< 0' test on unsigned
-Date: Fri, 13 Mar 2009 16:05:33 -0700 (PDT)
-Message-ID: <20090313.160533.111575830.davem@davemloft.net>
-References: <20090302043056.GA16090@gondor.apana.org.au>
-	<20090301.203643.105143832.davem@davemloft.net>
-	<49ABD014.3010006@gmail.com>
+Subject: Re: PATCH_ppp_mp_explode_redesign
+Date: Fri, 13 Mar 2009 16:09:29 -0700 (PDT)
+Message-ID: <20090313.160929.74391613.davem@davemloft.net>
+References: <49AD1AAB.mail7XX11MN1A@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: roel.kluin@gmail.com
+Cc: netdev@vger.kernel.org, paulus@samba.org
+To: gabriele.paoloni@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48213
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46282
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751588AbZCMXFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 19:05:47 -0400
-In-Reply-To: <49ABD014.3010006@gmail.com>
+	by vger.kernel.org with ESMTP id S1751340AbZCMXJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 19:09:43 -0400
+In-Reply-To: <49AD1AAB.mail7XX11MN1A@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Mon, 02 Mar 2009 13:24:52 +0100
+From: gabriele.paoloni@intel.com
+Date: Tue, 03 Mar 2009 11:55:23 +0000
 
-> David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Mon, 2 Mar 2009 12:30:56 +0800
-> > 
-> >> Either cnt needs to be promoted, or you need to limit len to INT_MAX.
-> > 
-> > Right, since the positive range of 'size_t' can exceed that of 'int'
+> Problem Solution:
 > 
-> like this then?
-> ------------------------------>8-------------8<---------------------------------
-> promote 'cnt' to size_t, to match 'len'.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> The problem has been solved by redesigning the "ppp_mp_explode" function in such 
+> a way to make it split the sk_buff buffer according to the speeds of the underlying 
+> PPP channels (the speeds of the serial interfaces respectively attached to the PPP 
+> channels). Referring to the above example, the redesigned "ppp_mp_explode" function 
+> will now divide the 1000 Bytes buffer into two fragments whose sizes are set 
+> according to the speeds of the channels where they are going to be sent on (e.g . 
+> 10 Byets on 10KB/sec channel and 990 Bytes on 1000KB/sec channel). 
+> The reworked function grants the same performances of the original one in optimal 
+> working conditions (i.e. a bundle made up of PPP links all working at the same 
+> speed), while greatly improving performances on the bundles made up of channels 
+> working at different speeds.
 
-Applied, thanks.
+Looks good, applied.
+
