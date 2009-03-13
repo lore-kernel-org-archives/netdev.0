@@ -1,56 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict
- verification
-Date: Fri, 13 Mar 2009 16:02:58 -0700 (PDT)
-Message-ID: <20090313.160258.151176507.davem@davemloft.net>
-References: <200903011344.45814.denys@visp.net.lb>
+Subject: Re: [PATCH] tcp: '< 0' test on unsigned
+Date: Fri, 13 Mar 2009 16:05:33 -0700 (PDT)
+Message-ID: <20090313.160533.111575830.davem@davemloft.net>
+References: <20090302043056.GA16090@gondor.apana.org.au>
+	<20090301.203643.105143832.davem@davemloft.net>
+	<49ABD014.3010006@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: denys@visp.net.lb
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48204
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48213
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751340AbZCMXDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 19:03:12 -0400
-In-Reply-To: <200903011344.45814.denys@visp.net.lb>
+	by vger.kernel.org with ESMTP id S1751588AbZCMXFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 19:05:47 -0400
+In-Reply-To: <49ABD014.3010006@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Date: Sun, 1 Mar 2009 13:44:45 +0200
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Mon, 02 Mar 2009 13:24:52 +0100
 
-> Windows (XP at least) hosts on boot, with configured static ip, performing 
-> address conflict detection, which is defined in RFC3927.
-> Here is quote of important information:
+> David Miller wrote:
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Mon, 2 Mar 2009 12:30:56 +0800
+> > 
+> >> Either cnt needs to be promoted, or you need to limit len to INT_MAX.
+> > 
+> > Right, since the positive range of 'size_t' can exceed that of 'int'
 > 
-> "
-> An ARP announcement is identical to the ARP Probe described above, 
-> except    that now the sender and target IP addresses are both set 
-> to the host's newly selected IPv4 address. 
-> "
+> like this then?
+> ------------------------------>8-------------8<---------------------------------
+> promote 'cnt' to size_t, to match 'len'.
 > 
-> But it same time this goes wrong with RFC5227.
-> "
-> The 'sender IP address' field MUST be set to all zeroes; this is to avoid
-> polluting ARP caches in other hosts on the same link in the case
-> where the address turns out to be already in use by another host.
-> "
-> 
-> When ARP proxy configured, it must not answer to both cases, because 
-> it is address conflict verification in any case. For Windows it is just 
-> causing to detect false "ip conflict". Already there is code for RFC5227, so 
-> just trivially we just check also if source ip == target ip.
-> 
-> Signed-off-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-Patch applied to net-next-2.6
-
-Although, It's a shame that I had to munge such a simple patch so
-much, between the bad comment formatting and the trailing whitespace
-characters.
-
-Please be mindful of this in future patch submissions.
-
-Thanks.
+Applied, thanks.
