@@ -1,34 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel panic during stress with igb in the upstream kernel
-Date: Fri, 13 Mar 2009 14:54:48 -0700 (PDT)
-Message-ID: <20090313.145448.113437230.davem@davemloft.net>
-References: <EA929A9653AAE14F841771FB1DE5A1365F69CA4280@rrsmsx501.amr.corp.intel.com>
-	<20090313115245.GA31949@gondor.apana.org.au>
-	<EA929A9653AAE14F841771FB1DE5A1365F69E95C03@rrsmsx501.amr.corp.intel.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit
+	to upper layer
+Date: Fri, 13 Mar 2009 14:59:55 -0700
+Message-ID: <65634d660903131459m645eb468y3ad850a1fd56d447@mail.gmail.com>
+References: <65634d660903131006n44f068dw18b2fe9dce25399e@mail.gmail.com>
+	 <20090313.115137.254924980.davem@davemloft.net>
+	 <65634d660903131358h765bef64y6a0f1b0db7400f6f@mail.gmail.com>
+	 <20090313.140217.143696945.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, alexander.h.duyck@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: emil.s.tantilov@intel.com
+Cc: yanmin_zhang@linux.intel.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	jesse.brandeburg@intel.com, shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34955
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753817AbZCMVzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 17:55:02 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F69E95C03@rrsmsx501.amr.corp.intel.com>
+Received: from smtp-out.google.com ([216.239.45.13]:46574 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755634AbZCMWAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 18:00:00 -0400
+In-Reply-To: <20090313.140217.143696945.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Date: Fri, 13 Mar 2009 15:53:47 -0600
+>
+> If the hash is good is will distribute the load properly.
+>
+> If the NIC is sophisticated enough (Sun's Neptune chipset is)
+> you can even group interrupt distribution by traffic type
+> and even bind specific ports to interrupt groups.
+>
+> I really detest all of these software hacks that add overhead
+> to solve problems the hardware can solve for us.
+>
 
-> With this patch the stress test has been going for more than 4 hours
-> now (compared to minutes until panic before). I will leave the test
-> running over the weekend, but at least for now looks like it's
-> fixed.
-
-Thanks for testing.
-
-Herbert, want me to toss this into net-2.6 now?
+I appreciate this philosophy, but unfortunately I don't have the
+luxury of working with a NIC that solves these problems.  The reality
+may be that we're trying to squeeze performance out of crappy hardware
+to scale on multi-core.  Left alone we couldn't get the stack to
+scale, but with these "destable hacks" we've gotten 3X or so
+improvement in packets per second across both our dumb 1G and 10G
+NICs.  These gains have translated into tangible application
+performance gains, so we'll probably continue to have interest in this
+area of development at least for the foreseeable future.
