@@ -1,44 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: convert state_queue work to delayed_work
-Date: Fri, 13 Mar 2009 15:41:29 -0700 (PDT)
-Message-ID: <20090313.154129.08540488.davem@davemloft.net>
-References: <20090306205139.GA30500@joi>
-	<20090307104620.7f2aed57@hyperion.delvare>
+Subject: Re: [PATCH] tulip: Fix for MTU problems with 802.1q tagged frames
+Date: Fri, 13 Mar 2009 15:43:49 -0700 (PDT)
+Message-ID: <20090313.154349.203057278.davem@davemloft.net>
+References: <1236248494-1599-1-git-send-email-ivecera@redhat.com>
+	<20090306181322.GA3616@colo.lackof.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcin.slusarz@gmail.com, netdev@vger.kernel.org,
-	afleming@freescale.com, tpiepho@freescale.com,
-	linux-kernel@vger.kernel.org
-To: khali@linux-fr.org
+Cc: ivecera@redhat.com, netdev@vger.kernel.org, kyle@mcmartin.ca,
+	szpajder@staszic.waw.pl
+To: grundler@parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55014
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55017
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760060AbZCMWln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 18:41:43 -0400
-In-Reply-To: <20090307104620.7f2aed57@hyperion.delvare>
+	by vger.kernel.org with ESMTP id S1751588AbZCMWoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 18:44:03 -0400
+In-Reply-To: <20090306181322.GA3616@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <khali@linux-fr.org>
-Date: Sat, 7 Mar 2009 10:46:20 +0100
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Fri, 6 Mar 2009 11:13:22 -0700
 
-> On Fri, 6 Mar 2009 21:51:42 +0100, Marcin Slusarz wrote:
-> > It closes a race in phy_stop_machine when reprogramming of phy_timer
-> > (from phy_state_machine) happens between del_timer_sync and cancel_work_sync.
+> On Thu, Mar 05, 2009 at 11:21:34AM +0100, Ivan Vecera wrote:
+> > The original patch was submitted last year but wasn't discussed or applied
+> > because of missing maintainer's CCs. I only fixed some formatting errors,
+> > but as I saw tulip is very badly formatted and needs further work.
 > > 
-> > Without this change it could lead to crash if phy_device would be freed after
-> > phy_stop_machine (timer would fire and schedule freed work).
+> > Original description:
+> > This patch fixes MTU problem, which occurs when using 802.1q VLANs. We
+> > should allow receiving frames of up to 1518 bytes in length, instead of
+> > 1514.
 > > 
-> > Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-> > Cc: Andy Fleming <afleming@freescale.com>
-> > Cc: Trent Piepho <tpiepho@freescale.com>
-> > ---
+> > Based on patch written by Ben McKeegan for 2.4.x kernels. It is archived
+> > at http://www.candelatech.com/~greear/vlan/howto.html#tulip
+> > I've adjusted a few things to make it apply on 2.6.x kernels.
 > > 
-> > This patch was only compile tested.
+> > Tested on D-Link DFE-570TX quad-fastethernet card.
+> > 
+> > Signed-off-by: Tomasz Lemiech <szpajder@staszic.waw.pl>
+> > Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 > 
-> Patch looks good.
-> 
-> Acked-by: Jean Delvare <khali@linux-fr.org>
+> Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
-Applied, thanks.
+Applied to net-next-2.6, thanks everyone.
