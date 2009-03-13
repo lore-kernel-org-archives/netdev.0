@@ -1,39 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] smsc911x: improve EEPROM loading timeout logic in
- open
-Date: Fri, 13 Mar 2009 12:14:47 -0700 (PDT)
-Message-ID: <20090313.121447.186963981.davem@davemloft.net>
-References: <1236188005-14065-1-git-send-email-steve.glendinning@smsc.com>
-	<1236188005-14065-2-git-send-email-steve.glendinning@smsc.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v1 1/3] lsm: Relocate the IPv4 security_inet_conn_request() hooks
+Date: Fri, 13 Mar 2009 15:39:30 -0400
+Message-ID: <200903131539.30903.paul.moore@hp.com>
+References: <20090312160934.29454.31004.stgit@flek.lan> <20090312162256.29454.8929.stgit@flek.lan> <20090313.115458.168786837.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roel.kluin@gmail.com,
-	juha_motorsportcom@luukku.com, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49350
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753966AbZCMTPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 15:15:01 -0400
-In-Reply-To: <1236188005-14065-2-git-send-email-steve.glendinning@smsc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090313.115458.168786837.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Wed,  4 Mar 2009 17:33:25 +0000
+On Friday 13 March 2009 02:54:58 pm David Miller wrote:
+> From: Paul Moore <paul.moore@hp.com>
+> Date: Thu, 12 Mar 2009 12:22:57 -0400
+>
+> > The current placement of the security_inet_conn_request() hooks do not
+> > allow individual LSMs to override the IP options of the connection's
+> > request_sock. This is a problem as both SELinux and Smack have the
+> > ability to use labeled networking protocols which make use of IP options
+> > to carry security attributes and the inability to set the IP options at
+> > the start of the TCP handshake is problematic.
+> >
+> > This patch moves the IPv4 security_inet_conn_request() hooks past the
+> > code where the request_sock's IP options are set/reset so that the LSM
+> > can safely manipulate the IP options as needed.  This patch intentionally
+> > does not change the related IPv6 hooks as IPv6 based labeling protocols
+> > which use IPv6 options are not currently implemented, once they are we
+> > will have a better idea of the correct placement for the IPv6 hooks.
+>
+> This looks OK to me:
+>
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-> This patch from Juha Leppanen suppresses a false warning if the eeprom
-> load succeeds on the very last attempt.
-> 
-> Juha> In function smsc911x_open smsc911x_reg_read+udelay can be run 50
-> Juha> times with timeout reaching -1, and the following if statetement
-> Juha> does not catch the timeout and no warning is issued. Also if the
-> Juha> 50th smsc911x_reg_read is GOOD, loop is exited with timeout as 0
-> Juha> and bogus warning issued.  Replace testing order and --timeout
-> Juha> instead of timeout-- and now max 50 smsc911x_reg_read's are done,
-> Juha> with max 49 udelays.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Great, thanks for taking a look.
 
-Applied to net-next-2.6
+-- 
+paul moore
+linux @ hp
+
