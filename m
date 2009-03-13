@@ -1,30 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ehea: fix circular locking problem
-Date: Fri, 13 Mar 2009 13:50:48 -0700 (PDT)
-Message-ID: <20090313.135048.202553524.davem@davemloft.net>
-References: <200903121620.19075.ossthema@de.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PROBLEM]: potential unaligned memory access in
+ drivers/usb/gadget/rndis.c
+Date: Fri, 13 Mar 2009 13:52:16 -0700 (PDT)
+Message-ID: <20090313.135216.19807120.davem@davemloft.net>
+References: <3848726.1723791236775868071.JavaMail.root@spooler2-g27.priv.proxad.net>
+	<20090311235119.f4609775.akpm@linux-foundation.org>
+	<1236901897.4036.1.camel@brick>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	raisch@de.ibm.com, tklein@de.ibm.com, themann@de.ibm.com,
-	hering2@de.ibm.com, linuxppc-dev@ozlabs.org
-To: ossthema@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48913
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753451AbZCMUvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 16:51:02 -0400
-In-Reply-To: <200903121620.19075.ossthema@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, yann.poupet-GANU6spQydw@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: harvey.harrison-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1236901897.4036.1.camel@brick>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jan-Bernd Themann" <ossthema@de.ibm.com>
-Date: Thu, 12 Mar 2009 16:20:18 +0100
+From: Harvey Harrison <harvey.harrison-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 12 Mar 2009 16:51:37 -0700
 
-> This patch fixes the circular locking problem by changing the locking strategy
-> concerning the logging of firmware handles.
+> On Wed, 2009-03-11 at 23:51 -0700, Andrew Morton wrote:
 > 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+> > Maybe the below fixed this?  afacit it is queued for 2.6.30 in the
+> > net-next tree: 
+> > 
+> > commit 35c26c2cf6a6a2d1c48add732d8ba002bd90784c
+> > Author:     Harvey Harrison <harvey.harrison-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > AuthorDate: Sat Feb 14 22:56:56 2009 -0800
+> > Commit:     David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> > CommitDate: Sat Feb 14 22:56:56 2009 -0800
+> > 
+> >     rndis: remove private wrapper of __constant_cpu_to_le32
+> >     
+> >     Use cpu_to_le32 directly as it handles constant folding now, replace direct
+> >     uses of __constant_cpu_to_{endian} as well.
+> >     
+> >     Signed-off-by: Harvey Harrison <harvey.harrison-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >     Acked-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> >     Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> > 
+> 
+> Doubtful, this patch should be a no-op, any alignment problems that existed
+> before will still be there.
 
-Applied, thanks.
+Agreed, that patch won't do anything wrt. the alignment issue being
+reported here.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
