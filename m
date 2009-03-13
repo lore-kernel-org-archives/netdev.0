@@ -1,47 +1,63 @@
-From: feldmaus <feldmann_markus@gmx.de>
-Subject: Re: no IPv6 Routers present
-Date: Fri, 13 Mar 2009 13:22:25 +0000 (UTC)
-Message-ID: <loom.20090313T131931-421@post.gmane.org>
-References: <gpbtfk$s5h$1@ger.gmane.org> <49B99811.6050304@hp.com> <loom.20090313T082825-818@post.gmane.org> <49BA49C6.2020007@hp.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] 8139cp: allow to set mac address on running device
+Date: Fri, 13 Mar 2009 09:36:43 -0400
+Message-ID: <49BA616B.5080902@pobox.com>
+References: <20090312162730.GA20153@psychotron.englab.brq.redhat.com> <20090312181121.79e297a2@brian.englab.brq.redhat.com> <20090312174641.GC20153@psychotron.englab.brq.redhat.com> <49BA20E1.70607@redhat.com> <20090313111633.GB3436@psychotron.englab.brq.redhat.com> <49BA5B98.90604@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	Michal Schmidt <mschmidt@redhat.com>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:57497 "EHLO ciao.gmane.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:37891 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752244AbZCMNWy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2009 09:22:54 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1Li7La-0003ud-S8
-	for netdev@vger.kernel.org; Fri, 13 Mar 2009 13:22:47 +0000
-Received: from dslb-092-076-244-077.pools.arcor-ip.net ([92.76.244.77])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 13:22:46 +0000
-Received: from feldmann_markus by dslb-092-076-244-077.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2009 13:22:46 +0000
+	id S1750852AbZCMNg7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2009 09:36:59 -0400
+In-Reply-To: <49BA5B98.90604@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich <vladislav.yasevich <at> hp.com> writes:
+Ivan Vecera wrote:
+> Jiri Pirko wrote:
+>> Fri, Mar 13, 2009 at 10:01:21AM CET, ivecera@redhat.com wrote:
+>>> Jiri Pirko wrote:
+>>>> Thu, Mar 12, 2009 at 06:11:21PM CET, mschmidt@redhat.com wrote:
+>>>>> On Thu, 12 Mar 2009 17:27:31 +0100
+>>>>> Jiri Pirko <jpirko@redhat.com> wrote:
+>>>>>
+>>>>>> +	cpw32_f(MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr +
+>>>>>> 0)));
+>>>>>> +	cpw32_f(MAC0 + 4, le32_to_cpu (*(__le32 *) (dev->dev_addr +
+>>>>>> 4)));
+>>>>> You're writing to the card, so using *_to_cpu looks suspicious.
+>>>> Well, I'm using the same approach as it is already done in function
+>>>> cp_init_hw(). Quote:
+>>>>
+>>>>  /* Restore our idea of the MAC address. */
+>>>>  cpw32_f (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
+>>>>  cpw32_f (MAC0 + 4, le32_to_cpu (*(__le32 *) (dev->dev_addr + 4)));
+>>>>
+>>> Yes, that's right but I would use more cleaner approach:
+>>> ===
+>>> u32 low, high;
+>>> low  = addr[0] | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
+>>> high = addr[4] | (addr[5] << 8);
+>>> cpw32_f(MAC0 + 0, low);
+>>> cpw32_f(MAC0 + 4, high);
+>>> ===
+>> Well, I have no problem with this (in fact I like this more). I just wanted to
+>> stay consistent to existing code. Maybe it would be good to change this chunk
+>> of code in cp_init_hw() too, don't you think?
+> Yes, you're right.
 
-> Get rid of NOARP in you eth0 case, and it should work.
-> 
-It seems to better, but i do not know how the <NOARP> comes from ?
+The existing code is correct, and works.  How about just leaving it alone?
 
-I changed my </etc/network/interfaces> from:
-iface dsl-provider inet ppp
-    pre-up /sbin/ifconfig eth0 up -arp 0# line maintained by pppoeconf
-    provider dsl-provider
+You can grep around and see other drivers doing this when necessary, too.
 
-to this one:
-iface dsl-provider inet ppp
-    pre-up /sbin/ifconfig eth0 up # line maintained by pppoeconf
-    provider dsl-provider
+	Jeff
 
-Should this the key ?
 
-Regards Markus
 
