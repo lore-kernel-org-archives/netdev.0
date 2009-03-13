@@ -1,44 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Multicast packet loss
-Date: Fri, 13 Mar 2009 15:38:51 -0700 (PDT)
-Message-ID: <20090313.153851.11725991.davem@davemloft.net>
-References: <49B4B909.7050002@cosmosbay.com>
-	<20090313.145152.121603300.davem@davemloft.net>
-	<49BADE87.40407@cosmosbay.com>
+Subject: Re: [PATCH] phylib: convert state_queue work to delayed_work
+Date: Fri, 13 Mar 2009 15:41:29 -0700 (PDT)
+Message-ID: <20090313.154129.08540488.davem@davemloft.net>
+References: <20090306205139.GA30500@joi>
+	<20090307104620.7f2aed57@hyperion.delvare>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kchang@athenacr.com, netdev@vger.kernel.org,
-	cl@linux-foundation.org, bmb@athenacr.com
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: marcin.slusarz@gmail.com, netdev@vger.kernel.org,
+	afleming@freescale.com, tpiepho@freescale.com,
+	linux-kernel@vger.kernel.org
+To: khali@linux-fr.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41501
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55014
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754561AbZCMWjF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2009 18:39:05 -0400
-In-Reply-To: <49BADE87.40407@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1760060AbZCMWln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 18:41:43 -0400
+In-Reply-To: <20090307104620.7f2aed57@hyperion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 13 Mar 2009 23:30:31 +0100
+From: Jean Delvare <khali@linux-fr.org>
+Date: Sat, 7 Mar 2009 10:46:20 +0100
 
-> David Miller a =E9crit :
-> >> Also, when an event was queued for later invocation, I also needed=
- to keep
-> >> a reference on "struct socket" to make sure it doesnt disappear be=
-fore
-> >> the invocation. Not all sockets are RCU guarded (we added RCU only=
- for=20
-> >> some protocols (TCP, UDP ...). So I found keeping a read_lock
-> >> on callback was the easyest thing to do. I now realize we might
-> >> overflow preempt_count, so special care is needed.
-> >=20
-> > You're using this in UDP so... make the rule that you can't use
-> > this with a non-RCU-quiescent protocol.
->=20
-> UDP/TCP only ? I though many other protocols (not all using RCU) were
-> using sock_def_readable() too...
+> On Fri, 6 Mar 2009 21:51:42 +0100, Marcin Slusarz wrote:
+> > It closes a race in phy_stop_machine when reprogramming of phy_timer
+> > (from phy_state_machine) happens between del_timer_sync and cancel_work_sync.
+> > 
+> > Without this change it could lead to crash if phy_device would be freed after
+> > phy_stop_machine (timer would fire and schedule freed work).
+> > 
+> > Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+> > Cc: Andy Fleming <afleming@freescale.com>
+> > Cc: Trent Piepho <tpiepho@freescale.com>
+> > ---
+> > 
+> > This patch was only compile tested.
+> 
+> Patch looks good.
+> 
+> Acked-by: Jean Delvare <khali@linux-fr.org>
 
-Maybe create a inet_def_readable() just for this purpose :-)
+Applied, thanks.
