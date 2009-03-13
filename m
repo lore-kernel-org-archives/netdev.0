@@ -1,30 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 skb leak
-Date: Fri, 13 Mar 2009 23:26:18 +0100
-Message-ID: <20090313222618.GB28021@electric-eye.fr.zoreil.com>
-References: <49B89385.4090005@cosmosbay.com> <20090312045657.GB7132@redhat.com> <49B89A33.2030207@cosmosbay.com> <20090313.133640.130060599.davem@davemloft.net> <20090313211008.GA14796@redhat.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Multicast packet loss
+Date: Fri, 13 Mar 2009 23:30:31 +0100
+Message-ID: <49BADE87.40407@cosmosbay.com>
+References: <49B3F655.6030308@cosmosbay.com>	<20090308.194922.267426196.davem@davemloft.net>	<49B4B909.7050002@cosmosbay.com> <20090313.145152.121603300.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kchang@athenacr.com, netdev@vger.kernel.org,
+	cl@linux-foundation.org, bmb@athenacr.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45870 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759940AbZCMWXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 18:23:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20090313211008.GA14796@redhat.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46303 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752058AbZCMWbq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 18:31:46 -0400
+In-Reply-To: <20090313.145152.121603300.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave Jones <davej@redhat.com> :
-> r8169 seems to have the same problem that the via-velocity did with skb padding.
-> Found by code-inspection only, no hardware to test.
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Mon, 09 Mar 2009 07:36:57 +0100
+>=20
+>> I chose cmpxchg() because I needed some form of exclusion here.
+>> I first added a spinlock inside "struct softirq_del" then I realize
+>> I could use cmpxchg() instead and keep the structure small. As the
+>> synchronization is only needed at queueing time, we could pass
+>> the address of a spinlock XXX to sofirq_del() call.
+>=20
+> I don't understand why you need the mutual exclusion in the
+> first place.  The function pointer always has the same value.
+> And this locking isn't protecting the list insertion either,
+> as that isn't even necessary.
+>=20
+> It just looks like plain overhead to me.
 
-Davem, can you defer this one until now + 24h ?
+I was lazy to check all callers (all protocols) had a lock on sock,
+and prefered safety.
 
-The hardware is supposed to auto-pad: I'd rather check it does with
-a few adapters and remove this code altogether.
+I was fooled by the read_lock(), and though several cpus could call
+this function in //
 
--- 
-Ueimor
+
+>=20
+>> Also, when an event was queued for later invocation, I also needed t=
+o keep
+>> a reference on "struct socket" to make sure it doesnt disappear befo=
+re
+>> the invocation. Not all sockets are RCU guarded (we added RCU only f=
+or=20
+>> some protocols (TCP, UDP ...). So I found keeping a read_lock
+>> on callback was the easyest thing to do. I now realize we might
+>> overflow preempt_count, so special care is needed.
+>=20
+> You're using this in UDP so... make the rule that you can't use
+> this with a non-RCU-quiescent protocol.
+
+UDP/TCP only ? I though many other protocols (not all using RCU) were
+using sock_def_readable() too...
+
+
