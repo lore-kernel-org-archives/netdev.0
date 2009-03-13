@@ -1,68 +1,33 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH] 8139cp: allow to set mac address on running device
-Date: Fri, 13 Mar 2009 14:39:39 +0100
-Message-ID: <49BA621B.40303@redhat.com>
-References: <20090312162730.GA20153@psychotron.englab.brq.redhat.com> <20090312181121.79e297a2@brian.englab.brq.redhat.com> <20090312174641.GC20153@psychotron.englab.brq.redhat.com> <49BA20E1.70607@redhat.com> <20090313111633.GB3436@psychotron.englab.brq.redhat.com> <49BA5B98.90604@redhat.com> <49BA616B.5080902@pobox.com>
+From: Arthur Jones <ajones@riverbed.com>
+Subject: Re: [net-next PATCH] igb: allow tx of pre-formatted vlan tagged
+	packets
+Date: Fri, 13 Mar 2009 07:55:01 -0700
+Message-ID: <20090313145501.GA29049@ajones-laptop.nbttech.com>
+References: <20090312202724.GA9876@ajones-laptop.nbttech.com> <20090312213345.GA12653@ajones-laptop.nbttech.com> <49B98CEA.7010306@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	Michal Schmidt <mschmidt@redhat.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53794 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752757AbZCMNjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2009 09:39:47 -0400
-In-Reply-To: <49BA616B.5080902@pobox.com>
+Received: from smtp1.riverbed.com ([206.169.144.12]:60029 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015AbZCMOzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 10:55:04 -0400
+Content-Disposition: inline
+In-Reply-To: <49B98CEA.7010306@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Garzik wrote:
-> Ivan Vecera wrote:
->> Jiri Pirko wrote:
->>> Fri, Mar 13, 2009 at 10:01:21AM CET, ivecera@redhat.com wrote:
->>>> Jiri Pirko wrote:
->>>>> Thu, Mar 12, 2009 at 06:11:21PM CET, mschmidt@redhat.com wrote:
->>>>>> On Thu, 12 Mar 2009 17:27:31 +0100
->>>>>> Jiri Pirko <jpirko@redhat.com> wrote:
->>>>>>
->>>>>>> +	cpw32_f(MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr +
->>>>>>> 0)));
->>>>>>> +	cpw32_f(MAC0 + 4, le32_to_cpu (*(__le32 *) (dev->dev_addr +
->>>>>>> 4)));
->>>>>> You're writing to the card, so using *_to_cpu looks suspicious.
->>>>> Well, I'm using the same approach as it is already done in function
->>>>> cp_init_hw(). Quote:
->>>>>
->>>>>  /* Restore our idea of the MAC address. */
->>>>>  cpw32_f (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
->>>>>  cpw32_f (MAC0 + 4, le32_to_cpu (*(__le32 *) (dev->dev_addr + 4)));
->>>>>
->>>> Yes, that's right but I would use more cleaner approach:
->>>> ===
->>>> u32 low, high;
->>>> low  = addr[0] | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
->>>> high = addr[4] | (addr[5] << 8);
->>>> cpw32_f(MAC0 + 0, low);
->>>> cpw32_f(MAC0 + 4, high);
->>>> ===
->>> Well, I have no problem with this (in fact I like this more). I just wanted to
->>> stay consistent to existing code. Maybe it would be good to change this chunk
->>> of code in cp_init_hw() too, don't you think?
->> Yes, you're right.
-> 
-> The existing code is correct, and works.  How about just leaving it alone?
-+1
+Hi Alexander, ...
 
-Ivan
-> 
-> You can grep around and see other drivers doing this when necessary, too.
-> 
-> 	Jeff
-> 
-> 
-> 
+On Thu, Mar 12, 2009 at 03:30:02PM -0700, Alexander Duyck wrote:
+> I have added a few comments inline.
+
+Thanks, I'll fix these up and re-submit...
+
+Arthur
 
