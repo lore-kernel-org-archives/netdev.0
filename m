@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Submit new 10 GbE driver
-Date: Fri, 13 Mar 2009 11:17:49 -0700 (PDT)
-Message-ID: <20090313.111749.240385834.davem@davemloft.net>
-References: <20090309.052941.227857405.davem@davemloft.net>
-	<78C9135A3D2ECE4B8162EBDCE82CAD7705092B33@nekter>
+Subject: Re: [net-2.6 PATCH 0/4] qlge: More bug fixes.
+Date: Fri, 13 Mar 2009 11:28:42 -0700 (PDT)
+Message-ID: <20090313.112842.120499915.davem@davemloft.net>
+References: <1236808543-11165-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: Ramkrishna.Vepa@neterion.com
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52258
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37801
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753076AbZCMSSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 14:18:04 -0400
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705092B33@nekter>
+	by vger.kernel.org with ESMTP id S1752670AbZCMS24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 14:28:56 -0400
+In-Reply-To: <1236808543-11165-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Date: Fri, 13 Mar 2009 14:15:00 -0400
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Wed, 11 Mar 2009 14:55:39 -0700
 
-> We would like to submit a new driver for our latest 10 GbE hardware. We
-> currently have patches created for net-next-2.6. Please let me know if
-> this is ok or we should submit it against net-2.6.
+> Attached are relevant bugfixes backported from the net-next changes I
+> did this week. I mentioned that I would drop netif_set_gso_max_size()
+> from net-next per your request.  I just wanted to get these out of the
+> way first...
 
-If your driver is in good shape we can add it to net-2.6
+Applied, thanks Ron.
