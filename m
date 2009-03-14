@@ -1,116 +1,156 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Change misleading code in class delete.
-Date: Sat, 14 Mar 2009 15:45:28 +0100
-Message-ID: <20090314144528.GA24995@ami.dom.local>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH] iproute2: drop equalize support.
+Date: Sat, 14 Mar 2009 17:37:35 +0100
+Message-ID: <20090314163735.GA9762@amd64.fatal.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: m0sia@m0sia.ru, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f175.google.com ([209.85.218.175]:56829 "EHLO
-	mail-bw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754279AbZCNOqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 10:46:16 -0400
-Received: by bwz23 with SMTP id 23so434907bwz.37
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2009 07:46:13 -0700 (PDT)
+Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:54469 "EHLO
+	amd64.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753060AbZCNRZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Mar 2009 13:25:27 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While looking for a possible reason of bugzilla report on HTB oops:
-http://bugzilla.kernel.org/show_bug.cgi?id=12858
-I found the code in htb_delete calling htb_destroy_class on zero
-refcount is very misleading: it can suggest this is a common path, and
-destroy is called under sch_tree_lock. Actually, this can never happen
-like this because before deletion cops->get() is done, and after
-delete a class is still used by tclass_notify. The class destroy is
-always called from cops->put(), so without sch_tree_lock.
+Hello Stephen and netdev people!
 
-This doesn't mean much now (since 2.6.27) because all vulnerable calls
-were moved from htb_destroy_class to htb_delete, but there was a bug
-in older kernels. The same change is done for other classful scheds,
-which, it seems, didn't have similar locking problems here.
+Currently you can configure "equalize" and it looks all fine and dandy.
+The kernel has the interface defined, but apparently there's never actually
+been any implementation for it (only a never merged patch in the 2.4 era).
 
-Reported-by: m0sia@m0sia.ru
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+I'm suggesting to drop the code to give any potential users of this feature
+the benefit of receiving a proper error message. I see it unlikely that
+this will be implemented in the near future, but if it ever happens
+reviving the iproute2 side should be as easy as git revert this patch.
 
- net/sched/sch_cbq.c  |    7 +++++--
- net/sched/sch_drr.c  |    7 +++++--
- net/sched/sch_hfsc.c |    7 +++++--
- net/sched/sch_htb.c  |    7 +++++--
- 4 files changed, 20 insertions(+), 8 deletions(-)
+For more details see http://bugs.debian.org/149897
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 9e43ed9..002442a 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1960,8 +1960,11 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
- 	cbq_rmprio(q, cl);
- 	sch_tree_unlock(sch);
+Regards, 
+Andreas Henriksson
+
+
+diff --git a/debian/rules b/debian/rules
+index 132455f..4d825ca 100755
+diff --git a/doc/ip-cref.tex b/doc/ip-cref.tex
+index bb4eb78..b333842 100644
+--- a/doc/ip-cref.tex
++++ b/doc/ip-cref.tex
+@@ -1380,13 +1380,6 @@ database.
+ even if it does not match any interface prefix. One application of this
+ option may be found in~\cite{IP-TUNNELS}.
  
--	if (--cl->refcnt == 0)
--		cbq_destroy_class(sch, cl);
-+	BUG_ON(--cl->refcnt == 0);
-+	/*
-+	 * This shouldn't happen: we hold one cops->get() when called
-+	 * from tc_ctl_tclass; the destroy is done from cops->put().
-+	 */
+-\item \verb|equalize|
+-
+---- allow packet by packet randomization on multipath routes.
+-Without this modifier, the route will be frozen to one selected
+-nexthop, so that load splitting will only occur on per-flow base.
+-\verb|equalize| only works if the kernel is patched.
+-
  
- 	return 0;
- }
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index e36e94a..00e20d5 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -155,8 +155,11 @@ static int drr_delete_class(struct Qdisc *sch, unsigned long arg)
- 	drr_purge_queue(cl);
- 	qdisc_class_hash_remove(&q->clhash, &cl->common);
+ \end{itemize}
  
--	if (--cl->refcnt == 0)
--		drr_destroy_class(sch, cl);
-+	BUG_ON(--cl->refcnt == 0);
-+	/*
-+	 * This shouldn't happen: we hold one cops->get() when called
-+	 * from tc_ctl_tclass; the destroy is done from cops->put().
-+	 */
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 6a2ea05..529159b 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -67,9 +67,9 @@ static void usage(void)
+ 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
+ 	fprintf(stderr, "             [ table TABLE_ID ] [ proto RTPROTO ]\n");
+ 	fprintf(stderr, "             [ scope SCOPE ] [ metric METRIC ]\n");
+-	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
++	fprintf(stderr, "INFO_SPEC := NH OPTIONS [ nexthop NH ]...\n");
+ 	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
+-	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
++	fprintf(stderr, "OPTIONS := [ mtu NUMBER ] [ advmss NUMBER ]\n");
+ 	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ]\n");
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+@@ -78,7 +78,6 @@ static void usage(void)
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+ 	fprintf(stderr, "SCOPE := [ host | link | global | NUMBER ]\n");
+-	fprintf(stderr, "FLAGS := [ equalize ]\n");
+ 	fprintf(stderr, "MP_ALGO := { rr | drr | random | wrandom }\n");
+ 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
+ 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
+@@ -387,8 +386,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "onlink ");
+ 	if (r->rtm_flags & RTNH_F_PERVASIVE)
+ 		fprintf(fp, "pervasive ");
+-	if (r->rtm_flags & RTM_F_EQUALIZE)
+-		fprintf(fp, "equalize ");
+ 	if (r->rtm_flags & RTM_F_NOTIFY)
+ 		fprintf(fp, "notify ");
  
- 	sch_tree_unlock(sch);
- 	return 0;
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 74226b2..a516aa4 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1139,8 +1139,11 @@ hfsc_delete_class(struct Qdisc *sch, unsigned long arg)
- 	hfsc_purge_queue(sch, cl);
- 	qdisc_class_hash_remove(&q->clhash, &cl->cl_common);
+@@ -428,9 +425,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		PRTFL(FAST, "fastroute");
+ 		PRTFL(NOTIFY, "notify");
+ 		PRTFL(TPROXY, "proxy");
+-#ifdef RTCF_EQUALIZE
+-		PRTFL(EQUALIZE, "equalize");
+-#endif
++
+ 		if (flags)
+ 			fprintf(fp, "%s%x> ", first ? "<" : "", flags);
+ 		if (tb[RTA_CACHEINFO]) {
+@@ -859,9 +854,6 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			addattr32(&req.n, sizeof(req), RTA_FLOW, realm);
+ 		} else if (strcmp(*argv, "onlink") == 0) {
+ 			req.r.rtm_flags |= RTNH_F_ONLINK;
+-		} else if (matches(*argv, "equalize") == 0 ||
+-			   strcmp(*argv, "eql") == 0) {
+-			req.r.rtm_flags |= RTM_F_EQUALIZE;
+ 		} else if (strcmp(*argv, "nexthop") == 0) {
+ 			nhs_ok = 1;
+ 			break;
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index e948d03..e4a57ff 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -163,7 +163,7 @@ replace " | " monitor " } "
+ .IR METRIC " ]"
  
--	if (--cl->refcnt == 0)
--		hfsc_destroy_class(sch, cl);
-+	BUG_ON(--cl->refcnt == 0);
-+	/*
-+	 * This shouldn't happen: we hold one cops->get() when called
-+	 * from tc_ctl_tclass; the destroy is done from cops->put().
-+	 */
+ .ti -8
+-.IR INFO_SPEC " := " "NH OPTIONS FLAGS" " ["
++.IR INFO_SPEC " := " "NH OPTIONS" " ["
+ .B  nexthop
+ .IR NH " ] ..."
  
- 	sch_tree_unlock(sch);
- 	return 0;
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 355974f..a4b682b 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1275,8 +1275,11 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
- 	if (last_child)
- 		htb_parent_to_leaf(q, cl, new_q);
+@@ -177,7 +177,7 @@ replace " | " monitor " } "
+ .IR NUMBER " ] " NHFLAGS
  
--	if (--cl->refcnt == 0)
--		htb_destroy_class(sch, cl);
-+	BUG_ON(--cl->refcnt == 0);
-+	/*
-+	 * This shouldn't happen: we hold one cops->get() when called
-+	 * from tc_ctl_tclass; the destroy is done from cops->put().
-+	 */
+ .ti -8
+-.IR OPTIONS " := " FLAGS " [ "
++.IR OPTIONS " := [ "
+ .B  mtu
+ .IR NUMBER " ] [ "
+ .B  advmss
+@@ -213,10 +213,6 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
+ .IR NUMBER " ]"
  
- 	sch_tree_unlock(sch);
- 	return 0;
+ .ti -8
+-.IR FLAGS " := [ "
+-.BR equalize " ]"
+-
+-.ti -8
+ .IR NHFLAGS " := [ "
+ .BR onlink " | " pervasive " ]"
+ 
+@@ -1582,14 +1578,6 @@ to assign (or not to assign) protocol tags.
+ pretend that the nexthop is directly attached to this link,
+ even if it does not match any interface prefix.
+ 
+-.TP
+-.B equalize
+-allow packet by packet randomization on multipath routes.
+-Without this modifier, the route will be frozen to one selected
+-nexthop, so that load splitting will only occur on per-flow base.
+-.B equalize
+-only works if the kernel is patched.
+-
+ .SS ip route delete - delete route
+ 
+ .B ip route del
