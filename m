@@ -1,68 +1,44 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: Re: [BUG] 2.6.29-rc7 broke r8169 MAC on Thecus n2100 ARM board
-Date: Sat, 14 Mar 2009 12:37:53 +0100
-Message-ID: <18875.38673.270977.133982@pilspetsen.it.uu.se>
-References: <200903092029.n29KT1DS004531@harpo.it.uu.se>
-	<20090313201511.GA27827@electric-eye.fr.zoreil.com>
-	<9e246b4d0903131921k6fba9b04ge945c2902d4117d0@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to
+	submit to upper layer
+Date: Sat, 14 Mar 2009 21:19:51 +0800
+Message-ID: <20090314131951.GA6080@gondor.apana.org.au>
+References: <65634d660903131459m645eb468y3ad850a1fd56d447@mail.gmail.com> <20090313.151913.21135937.davem@davemloft.net> <65634d660903131724s49009177pdc11005aa76a4b56@mail.gmail.com> <20090313.191951.228619450.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Mikael Pettersson <mikpe@it.uu.se>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ivecera@redhat.com
-To: Tim Durack <tdurack@gmail.com>
+Cc: therbert@google.com, yanmin_zhang@linux.intel.com,
+	bhutchings@solarflare.com, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jesse.brandeburg@intel.com, shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aun.it.uu.se ([130.238.12.36]:37232 "EHLO aun.it.uu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756764AbZCNLiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Mar 2009 07:38:19 -0400
-In-Reply-To: <9e246b4d0903131921k6fba9b04ge945c2902d4117d0@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:60282 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751674AbZCNNUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 09:20:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20090313.191951.228619450.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tim Durack writes:
- > On Fri, Mar 13, 2009 at 4:15 PM, Francois Romieu <romieu@fr.zoreil.com>wrote:
- > 
- > > Mikael Pettersson <mikpe@it.uu.se> :
- > > > With the 2.6.29-rc7 kernel I'm unable to 'ifup' eth0 on my ARM-based
- > > > Thecus n2100 NAS box, which has an RTL8169 NIC (10ec:8169 (rev 10)).
- > > > A diff of the kernel logs from 2.6.29-rc6 and -rc7 shows that -rc7
- > > > first mangles and then zaps the MAC addresses:
- > >
- > > Can you apply the attached patch and see if it fixes any of these
- > > problems ?
- > >
- > > Tim, could you give it a try too ? It applies with "patch -p1" from
- > > the kernel tree directory.
- > >
- > > --
- > > Ueimor
- > >
- > 
- > No luck:
+On Fri, Mar 13, 2009 at 07:19:51PM -0700, David Miller wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Fri, 13 Mar 2009 17:24:10 -0700
+> 
+> > Enabling HW multi-queue has somewhat higher CPU
+> > utilization though, the extra device interrupt load is not coming for
+> > free.  We actually use the HW multi-queue in conjunction with our
+> > software steering to get maximum pps (about 20% more).
+> 
+> This is a non-intuitive observation.  Using HW multiqueue should be
+> cheaper than doing it in software, right?
 
-No joy here either. 2.6.29-rc8 + this patch shows the same misbehaviour
-as 2.6.29-rc7 had. Here's a minicom log of an attempted boot:
+Shared caches can play games with the numbers, we need to look
+at this a bit more.
 
-(kernel messages)
-
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:00:01.0: no PCI Express capability
-r8169 0000:00:01.0: MAC address found in EEPROM: 00:14:fd:10:00:00
-eth0: RTL8169sb/8110sb at 0xe080c200, 00:00:00:00:00:00, XID 10000000 IRQ 27
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:00:02.0: no PCI Express capability
-r8169 0000:00:02.0: MAC address found in EEPROM: 00:14:fd:10:00:00
-eth1: RTL8169sb/8110sb at 0xe0810300, 00:00:00:00:00:00, XID 10000000 IRQ 30
-
-(init messages)
-
-Bringing up interface eth0:  RTNETLINK answers: Cannot assign requested address
-Failed to bring up eth0.
-
-May I suggest that 6709fe9a27e43a4931938fe0d7f2cc5edef31386 is reverted
-until this regression is debugged and fixed?
-
-/Mikael
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
