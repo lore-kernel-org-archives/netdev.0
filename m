@@ -1,62 +1,82 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] bonding: allow bond in mode balance-alb to work
- properly in bridge
-Date: Fri, 13 Mar 2009 22:39:32 -0700
-Message-ID: <20090313223932.50ebbd88@nehalam>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH][RESEND] igb: remove ASPM L0s workaround
+Date: Fri, 13 Mar 2009 23:35:34 -0700
+Message-ID: <20090314063308.3837.66924.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47820 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750876AbZCNFlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 01:41:22 -0400
-In-Reply-To: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:36430
+	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751090AbZCNGfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 02:35:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Mar 2009 19:33:04 +0100
-Jiri Pirko <jpirko@redhat.com> wrote:
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> Hi all.
-> 
-> This is only a draft of patch to consult. I'm aware that it should be divided
-> into multiple patches. I want to know opinion from you folks.
-> 
-> The problem is described in following bugzilla:
-> https://bugzilla.redhat.com/show_bug.cgi?id=487763
-> 
-> Basically here's what's going on. In every mode, bonding interface uses the same
-> mac address for all enslaved devices. Except for mode balance-alb. When you put
-> this kind of bond device into a bridge it will only add one of mac adresses into
-> a hash list of mac addresses, say X. This mac address is marked as local. But
-> this bonding interface also has mac address Y. Now then packet arrives with
-> destination address Y, this address is not marked as local and the packed looks
-> like it needs to be forwarded. This packet is then lost which is wrong.
-> 
-> Notice that interfaces can be added and removed from bond while it is in bridge.
-> Therefore I introduce another function pointer in struct net_device_ops -
-> ndo_check_mac_address. This function when it's implemented should check passed
-> mac address against the one set in device. I'm using this in bonding driver when
-> the bond is in mode balance-alb to walk thru all slaves and checking if any of
-> them equals passed address.
-> 
-> Then in bridge function br_handle_frame_finish() I'm using ndo_check_mac_address
-> to recognize the destination mac address as local.
-> 
-> Please look at this and tell me what you think about it.
-> 
-> Thanks
-> 
-> Jirka
->
+The L0s workaround should be moved into a pci quirk and so it is not
+necessary in the driver.  This update removes the L0s workaround from the
+igb driver.
 
-A better and more general way to do this have the dev_set_mac_address
-function check the return of the notifier and unwind. Then any protocol
-can easily prevent address from changing.
+This was the second half of the PCI quirk patch with Matthew Wilcox did not
+pick up when he picked up the quirk patch.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/igb/igb_main.c |   26 ++------------------------
+ 1 files changed, 2 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 78558f8..1adc7d2 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1126,11 +1126,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	struct net_device *netdev;
+ 	struct igb_adapter *adapter;
+ 	struct e1000_hw *hw;
+-	struct pci_dev *us_dev;
+ 	const struct e1000_info *ei = igb_info_tbl[ent->driver_data];
+ 	unsigned long mmio_start, mmio_len;
+-	int err, pci_using_dac, pos;
+-	u16 eeprom_data = 0, state = 0;
++	int err, pci_using_dac;
++	u16 eeprom_data = 0;
+ 	u16 eeprom_apme_mask = IGB_EEPROM_APME;
+ 	u32 part_num;
+ 
+@@ -1156,27 +1155,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 		}
+ 	}
+ 
+-	/* 82575 requires that the pci-e link partner disable the L0s state */
+-	switch (pdev->device) {
+-	case E1000_DEV_ID_82575EB_COPPER:
+-	case E1000_DEV_ID_82575EB_FIBER_SERDES:
+-	case E1000_DEV_ID_82575GB_QUAD_COPPER:
+-		us_dev = pdev->bus->self;
+-		pos = pci_find_capability(us_dev, PCI_CAP_ID_EXP);
+-		if (pos) {
+-			pci_read_config_word(us_dev, pos + PCI_EXP_LNKCTL,
+-			                     &state);
+-			state &= ~PCIE_LINK_STATE_L0S;
+-			pci_write_config_word(us_dev, pos + PCI_EXP_LNKCTL,
+-			                      state);
+-			dev_info(&pdev->dev,
+-				 "Disabling ASPM L0s upstream switch port %s\n",
+-				 pci_name(us_dev));
+-		}
+-	default:
+-		break;
+-	}
+-
+ 	err = pci_request_selected_regions(pdev, pci_select_bars(pdev,
+ 	                                   IORESOURCE_MEM),
+ 	                                   igb_driver_name);
+
