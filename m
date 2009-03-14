@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 07/11] ixgbe: Cleanup on the Rx init path
-Date: Sat, 14 Mar 2009 01:14:30 -0700
-Message-ID: <20090314081430.4687.54482.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 06/11] ixgbe: Fix the Tx clean logic to return proper
+	status
+Date: Sat, 14 Mar 2009 01:14:10 -0700
+Message-ID: <20090314081409.4687.50170.stgit@lost.foo-projects.org>
 References: <20090314081229.4687.40245.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,87 +15,95 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:33436
 	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754626AbZCNIOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 04:14:50 -0400
+	by vger.kernel.org with ESMTP id S1755134AbZCNIOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 04:14:32 -0400
 In-Reply-To: <20090314081229.4687.40245.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This cleans up the following pieces of the Rx initialization path:
-
-- Enable the ECC memory fault interrupt in OTHER causes.
-
-- Fix an 82598 initialization of RDRXCTL when depending on RSS and VMDq to
-be enabled.  We don't need these features enabled to safely set the MVMEN
-bit to allow multiple SRRCTL register mappings into the RXDCTL registers.
-
-- Fix the RSS initialization path to not stomp on DCB accidentally.  When
-configuring the MRQC (multiple Rx queue contol) register, we want to make
-sure we only OR in features as necessary, instead of full assignment.
+The Tx accounting when cleaning during NAPI was not completely properly.
+We should use the work_limit to determine when to finish cleaning, and
+use the same to return the cleaned status.  The impact of running like this
+causes the NAPI clean for this Tx to get stuck in a scheduling loop, and
+can result in Tx not getting cleaned, ending with a Tx hang and device
+reset.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   29 ++++++++++++++---------------
- 1 files changed, 14 insertions(+), 15 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c4e5fd3..78b0357 100644
+index 4a2a769..c4e5fd3 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1464,6 +1464,7 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
- 	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
- 		mask |= IXGBE_EIMS_GPI_SDP1;
- 	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
-+		mask |= IXGBE_EIMS_ECC;
- 		mask |= IXGBE_EIMS_GPI_SDP1;
- 		mask |= IXGBE_EIMS_GPI_SDP2;
- 	}
-@@ -1795,12 +1796,9 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 		 * effects of setting this bit are only that SRRCTL must be
- 		 * fully programmed [0..15]
- 		 */
--		if (adapter->flags &
--		    (IXGBE_FLAG_RSS_ENABLED | IXGBE_FLAG_VMDQ_ENABLED)) {
--			rdrxctl = IXGBE_READ_REG(hw, IXGBE_RDRXCTL);
--			rdrxctl |= IXGBE_RDRXCTL_MVMEN;
--			IXGBE_WRITE_REG(hw, IXGBE_RDRXCTL, rdrxctl);
--		}
-+		rdrxctl = IXGBE_READ_REG(hw, IXGBE_RDRXCTL);
-+		rdrxctl |= IXGBE_RDRXCTL_MVMEN;
-+		IXGBE_WRITE_REG(hw, IXGBE_RDRXCTL, rdrxctl);
+@@ -251,6 +251,8 @@ static void ixgbe_tx_timeout(struct net_device *netdev);
+  * ixgbe_clean_tx_irq - Reclaim resources after transmit completes
+  * @adapter: board private structure
+  * @tx_ring: tx ring to clean
++ *
++ * returns true if transmit work is done
+  **/
+ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
+                                struct ixgbe_ring *tx_ring)
+@@ -266,7 +268,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
+ 	eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
+ 
+ 	while ((eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)) &&
+-	       (count < tx_ring->count)) {
++	       (count < tx_ring->work_limit)) {
+ 		bool cleaned = false;
+ 		for ( ; !cleaned; count++) {
+ 			struct sk_buff *skb;
+@@ -328,8 +330,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
  	}
  
- 	/* Program MRQC for the distribution of queues */
-@@ -1837,16 +1835,17 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 		for (i = 0; i < 10; i++)
- 			IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
+ 	/* re-arm the interrupt */
+-	if ((total_packets >= tx_ring->work_limit) ||
+-	    (count == tx_ring->count))
++	if (count >= tx_ring->work_limit)
+ 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_EICS, tx_ring->v_idx);
  
--		mrqc = IXGBE_MRQC_RSSEN
-+		if (hw->mac.type == ixgbe_mac_82598EB)
-+			mrqc |= IXGBE_MRQC_RSSEN;
- 		    /* Perform hash on these packet types */
--		       | IXGBE_MRQC_RSS_FIELD_IPV4
--		       | IXGBE_MRQC_RSS_FIELD_IPV4_TCP
--		       | IXGBE_MRQC_RSS_FIELD_IPV4_UDP
--		       | IXGBE_MRQC_RSS_FIELD_IPV6
--		       | IXGBE_MRQC_RSS_FIELD_IPV6_TCP
--		       | IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
--		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
--	}
-+		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4
-+		      | IXGBE_MRQC_RSS_FIELD_IPV4_TCP
-+		      | IXGBE_MRQC_RSS_FIELD_IPV4_UDP
-+		      | IXGBE_MRQC_RSS_FIELD_IPV6
-+		      | IXGBE_MRQC_RSS_FIELD_IPV6_TCP
-+		      | IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
-+	}
-+	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
+ 	tx_ring->total_bytes += total_bytes;
+@@ -338,7 +339,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
+ 	tx_ring->stats.bytes += total_bytes;
+ 	adapter->net_stats.tx_bytes += total_bytes;
+ 	adapter->net_stats.tx_packets += total_packets;
+-	return (total_packets ? true : false);
++	return (count < tx_ring->work_limit);
+ }
  
- 	rxcsum = IXGBE_READ_REG(hw, IXGBE_RXCSUM);
+ #ifdef CONFIG_IXGBE_DCA
+@@ -2590,10 +2591,10 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+  **/
+ static int ixgbe_poll(struct napi_struct *napi, int budget)
+ {
+-	struct ixgbe_q_vector *q_vector = container_of(napi,
+-	                                          struct ixgbe_q_vector, napi);
++	struct ixgbe_q_vector *q_vector =
++	                        container_of(napi, struct ixgbe_q_vector, napi);
+ 	struct ixgbe_adapter *adapter = q_vector->adapter;
+-	int tx_cleaned, work_done = 0;
++	int tx_clean_complete, work_done = 0;
  
+ #ifdef CONFIG_IXGBE_DCA
+ 	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED) {
+@@ -2602,10 +2603,10 @@ static int ixgbe_poll(struct napi_struct *napi, int budget)
+ 	}
+ #endif
+ 
+-	tx_cleaned = ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
++	tx_clean_complete = ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
+ 	ixgbe_clean_rx_irq(q_vector, adapter->rx_ring, &work_done, budget);
+ 
+-	if (tx_cleaned)
++	if (!tx_clean_complete)
+ 		work_done = budget;
+ 
+ 	/* If budget not fully consumed, exit the polling mode */
 
