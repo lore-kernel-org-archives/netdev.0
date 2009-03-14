@@ -1,39 +1,60 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [Bug #12868] iproute2 and regressing "ipv6: convert tunnels to net_device_ops"
-Date: Sat, 14 Mar 2009 20:20:20 +0100 (CET)
-Message-ID: <qm8_cedJGaP.A.vMG.jOCvJB@chimera>
-References: <9nR7rAsBwYG.A.iEG.fOCvJB@chimera>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug #12805] QinQ vlan trunking regression
+Date: Sat, 14 Mar 2009 15:04:20 -0700 (PDT)
+Message-ID: <20090314.150420.149174658.davem@davemloft.net>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	<GCLaknAim2M.A.RgD.w4BvJB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers@vger.kernel.org>,
-	"Jan Engelhardt" <jengelh@medozas.de>,
-	"netdev" <netdev@vger.kernel.org>,
-	"Stephen Hemminger" <shemminger@vyatta.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel-testers@vger.kernel.org,
+	bart@jukie.net, netdev@vger.kernel.org
+To: rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:41882 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761651AbZCNV6Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 17:58:24 -0400
-In-Reply-To: <9nR7rAsBwYG.A.iEG.fOCvJB@chimera>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43749
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751238AbZCNWEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 18:04:34 -0400
+In-Reply-To: <GCLaknAim2M.A.RgD.w4BvJB@chimera>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.27 and 2.6.28.
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Sat, 14 Mar 2009 20:05:33 +0100 (CET)
 
-The following bug entry is on the current list of known regressions
-introduced between 2.6.27 and 2.6.28.  Please verify if it still should
-be listed and let me know (either way).
+> This message has been generated automatically as a part of a report
+> of recent regressions.
+> 
+> The following bug entry is on the current list of known regressions
+> from 2.6.28.  Please verify if it still should be listed and let me know
+> (either way).
+> 
+> 
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12805
+> Subject		: QinQ vlan trunking regression
+> Submitter	: Bart Trojanowski <bart@jukie.net>
+> Date		: 2009-02-28 18:05 (15 days old)
+> References	: http://marc.info/?l=linux-kernel&m=123584439115868&w=4
 
+Fixed by:
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12868
-Subject		: iproute2 and regressing "ipv6: convert tunnels to net_device_ops"
-Submitter	: Jan Engelhardt <jengelh@medozas.de>
-Date		: 2009-03-09 14:46 (6 days old)
-First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1326c3d5a4b792a2b15877feb7fb691f8945d203
-References	: http://marc.info/?l=linux-netdev&m=123660999632730&w=4
+commit 9d40bbda599def1e1d155d7f7dca14fe8744bd2b
+Author: David S. Miller <davem@davemloft.net>
+Date:   Wed Mar 4 23:46:25 2009 -0800
 
+    vlan: Fix vlan-in-vlan crashes.
+    
+    As analyzed by Patrick McHardy, vlan needs to reset it's
+    netdev_ops pointer in it's ->init() function but this
+    leaves the compat method pointers stale.
+    
+    Add a netdev_resync_ops() and call it from the vlan code.
+    
+    Any other driver which changes ->netdev_ops after register_netdevice()
+    will need to call this new function after doing so too.
+    
+    With help from Patrick McHardy.
+    
+    Tested-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
