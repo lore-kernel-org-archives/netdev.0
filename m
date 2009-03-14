@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 3c59x: shared interrupt problem
-Date: Sat, 14 Mar 2009 11:40:23 -0700 (PDT)
-Message-ID: <20090314.114023.31494618.davem@davemloft.net>
-References: <20090311113815.GB26526@newton.mathematik.tu-chemnitz.de>
-	<20090313.155116.183062617.davem@davemloft.net>
-	<20090314140841.GA17629@bayes.mathematik.tu-chemnitz.de>
+Subject: Re: [net-2.6 PATCH 3/10] Neterion: New driver: Kconfig and Makefile
+Date: Sat, 14 Mar 2009 11:44:36 -0700 (PDT)
+Message-ID: <20090314.114436.141673098.davem@davemloft.net>
+References: <1237018842.4966.418.camel@flash>
+	<20090314134017.d0ec1024.billfink@mindspring.com>
+	<20090314140857.746dbbf6.billfink@mindspring.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, shemminger@vyatta.com,
-	gerhard_pircher@gmx.net, netdev@vger.kernel.org
-To: klassert@mathematik.tu-chemnitz.de
+Cc: ram.vepa@neterion.com, netdev@vger.kernel.org, jgarzik@pobox.com
+To: billfink@mindspring.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55805
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37871
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752667AbZCNSkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 14:40:37 -0400
-In-Reply-To: <20090314140841.GA17629@bayes.mathematik.tu-chemnitz.de>
+	by vger.kernel.org with ESMTP id S1752706AbZCNSou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 14:44:50 -0400
+In-Reply-To: <20090314140857.746dbbf6.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Date: Sat, 14 Mar 2009 15:08:41 +0100
+From: Bill Fink <billfink@mindspring.com>
+Date: Sat, 14 Mar 2009 14:08:57 -0400
 
-> Gerhard reported at least one of these "nobody cared" messages at shutdown
-> after applying this change. He wanted to provide us with further informations
-> about this issue next week. Best would be to put it in together with a fix.
-> So I would suggest to wait, perhaps we can fix it with his informations. 
+> And I believe LRO has been deprecated in favor of GRO.
 
-Fair enough.
+That's correct.
+
+We should not add any new users of LRO.
