@@ -1,46 +1,74 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit
-	to upper layer
-Date: Sat, 14 Mar 2009 11:15:21 -0700
-Message-ID: <65634d660903141115w7e164134ycece307f041e93a9@mail.gmail.com>
-References: <65634d660903131459m645eb468y3ad850a1fd56d447@mail.gmail.com>
-	 <20090313.151913.21135937.davem@davemloft.net>
-	 <65634d660903131724s49009177pdc11005aa76a4b56@mail.gmail.com>
-	 <20090313.191951.228619450.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: iproute2 and regressing "ipv6: convert tunnels to net_device_ops"
+Date: Sat, 14 Mar 2009 19:34:38 +0100
+Message-ID: <200903141934.38915.rjw@sisk.pl>
+References: <alpine.LSU.2.00.0903091400200.28029@fbirervta.pbzchgretzou.qr> <200903091414.15171.rjw@sisk.pl> <alpine.LSU.2.00.0903091545430.2331@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yanmin_zhang@linux.intel.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	jesse.brandeburg@intel.com, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:37988 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486AbZCNSPa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 14:15:30 -0400
-In-Reply-To: <20090313.191951.228619450.davem@davemloft.net>
+Received: from ogre.sisk.pl ([217.79.144.158]:41107 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754087AbZCNSeg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Mar 2009 14:34:36 -0400
+In-Reply-To: <alpine.LSU.2.00.0903091545430.2331@fbirervta.pbzchgretzou.qr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 13, 2009 at 7:19 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Tom Herbert <therbert@google.com>
-> Date: Fri, 13 Mar 2009 17:24:10 -0700
->
->> Enabling HW multi-queue has somewhat higher CPU
->> utilization though, the extra device interrupt load is not coming fo=
-r
->> free. =A0We actually use the HW multi-queue in conjunction with our
->> software steering to get maximum pps (about 20% more).
->
-> This is a non-intuitive observation. =A0Using HW multiqueue should be
-> cheaper than doing it in software, right?
->
+On Monday 09 March 2009, Jan Engelhardt wrote:
+> 
+> (Cc'ed netdev ml)
 
-I suppose it may be counter-intuitive, but I am not making a general
-claim.  I would only suggest that these software hacks could be a very
-good approximation or substitute for hardware functionality.  This is
-a generic way to get more performance out of deficient or lower end
-NICs.
+Tracked as http://bugzilla.kernel.org/show_bug.cgi?id=12868 .
+
+> On Monday 2009-03-09 14:14, Rafael J. Wysocki wrote:
+> 
+> >Hi,
+> >
+> >On Monday 09 March 2009, Jan Engelhardt wrote:
+> >> Hi,
+> >> 
+> >> 
+> >> commit 1326c3d5a4b792a2b15877feb7fb691f8945d203 
+> >> (v2.6.28-rc6-461-g23a12b1) broke the display of local and remote 
+> >> addresses of an SIT tunnel in iproute2. Instead of the addresses 
+> >> assigned, it only displays 0.0.0.0. The version of iproute2 is 2.6.25, 
+> >> as shipped with openSUSE 11.1.
+> >> 
+> >> Before:
+> >> # ip t a sit7 mode sit remote 1.2.3.4 local 5.6.7.8
+> >> # ip a
+> >> 7: sit7@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop stat DOWN
+> >>     link/sit 5.6.7.8 peer 1.2.3.4
+> >> 
+> >> After:
+> >> 7: sit7@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop stat DOWN
+> >>     link/sit 0.0.0.0 brd 0.0.0.0
+> >> 
+> >> ---->
+> >> commit 23a12b14715e2dcd34dc8002927263ad3437344c
+> >> Author: Stephen Hemminger <shemminger@vyatta.com>
+> >> Date:   Thu Nov 20 20:33:56 2008 -0800
+> >> 
+> >>     ipv6: convert tunnels to net_device_ops
+> >>     
+> >>     Like IPV4, convert the tunnel virtual devices to use net_device_ops.
+> >>     
+> >>     Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> >> 
+> >> :040000 040000 23483d156e517904d31dd7e2276a0ff8a25f2ecc 
+> >> 395574b3a80869307a5e936a02598476f7e1c49b M      net
+> >> <----
+> >
+> >If you want me to track this, please send a copy to a mailing list with
+> >archives to which I can link or file a bugzilla report (with CC to me).
+
+Thanks,
+Rafael
