@@ -1,48 +1,116 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: 3c59x: shared interrupt problem
-Date: Sat, 14 Mar 2009 15:08:41 +0100
-Message-ID: <20090314140841.GA17629@bayes.mathematik.tu-chemnitz.de>
-References: <20090310081628.GA3217@newton.mathematik.tu-chemnitz.de> <20090310145542.499128ef.akpm@linux-foundation.org> <20090311113815.GB26526@newton.mathematik.tu-chemnitz.de> <20090313.155116.183062617.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: Change misleading code in class delete.
+Date: Sat, 14 Mar 2009 15:45:28 +0100
+Message-ID: <20090314144528.GA24995@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, shemminger@vyatta.com,
-	gerhard_pircher@gmx.net, netdev@vger.kernel.org
+Cc: m0sia@m0sia.ru, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:53273 "EHLO
-	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbZCNOIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 10:08:44 -0400
+Received: from mail-bw0-f175.google.com ([209.85.218.175]:56829 "EHLO
+	mail-bw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754279AbZCNOqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 10:46:16 -0400
+Received: by bwz23 with SMTP id 23so434907bwz.37
+        for <netdev@vger.kernel.org>; Sat, 14 Mar 2009 07:46:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090313.155116.183062617.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 13, 2009 at 03:51:16PM -0700, David Miller wrote:
-> > #### ChangeSet ####
-> > 2003-05-19 10:27:49-07:00, akpm@digeo.com 
-> >   [PATCH] 3c59x irqreturn fix
-> >   
-> >   Apparently boomerang_interrupt() is generating lots of "nobody cared"
-> >   warnings - one per packet it seems.  Frankly, I don't have a clue why.
-> >   
-> >   These are ancient cards and the driver is otherwise stable, so just
-> >   change it to return IRQ_HANDLED and move on...
-> 
-> So basically it's a band-aid because we didn't investigate why
-> this happens.
-> 
-> I think we should put the change in, and then look into things
-> properly if users report this issue again.
-> 
+While looking for a possible reason of bugzilla report on HTB oops:
+http://bugzilla.kernel.org/show_bug.cgi?id=12858
+I found the code in htb_delete calling htb_destroy_class on zero
+refcount is very misleading: it can suggest this is a common path, and
+destroy is called under sch_tree_lock. Actually, this can never happen
+like this because before deletion cops->get() is done, and after
+delete a class is still used by tclass_notify. The class destroy is
+always called from cops->put(), so without sch_tree_lock.
 
-Gerhard reported at least one of these "nobody cared" messages at shutdown
-after applying this change. He wanted to provide us with further informations
-about this issue next week. Best would be to put it in together with a fix.
-So I would suggest to wait, perhaps we can fix it with his informations. 
+This doesn't mean much now (since 2.6.27) because all vulnerable calls
+were moved from htb_destroy_class to htb_delete, but there was a bug
+in older kernels. The same change is done for other classful scheds,
+which, it seems, didn't have similar locking problems here.
 
+Reported-by: m0sia@m0sia.ru
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-> The code there right now is just completely wrong when the
-> 3c59x interrupt is shared with another device.
+ net/sched/sch_cbq.c  |    7 +++++--
+ net/sched/sch_drr.c  |    7 +++++--
+ net/sched/sch_hfsc.c |    7 +++++--
+ net/sched/sch_htb.c  |    7 +++++--
+ 4 files changed, 20 insertions(+), 8 deletions(-)
 
-Indeed.
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 9e43ed9..002442a 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1960,8 +1960,11 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
+ 	cbq_rmprio(q, cl);
+ 	sch_tree_unlock(sch);
+ 
+-	if (--cl->refcnt == 0)
+-		cbq_destroy_class(sch, cl);
++	BUG_ON(--cl->refcnt == 0);
++	/*
++	 * This shouldn't happen: we hold one cops->get() when called
++	 * from tc_ctl_tclass; the destroy is done from cops->put().
++	 */
+ 
+ 	return 0;
+ }
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index e36e94a..00e20d5 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -155,8 +155,11 @@ static int drr_delete_class(struct Qdisc *sch, unsigned long arg)
+ 	drr_purge_queue(cl);
+ 	qdisc_class_hash_remove(&q->clhash, &cl->common);
+ 
+-	if (--cl->refcnt == 0)
+-		drr_destroy_class(sch, cl);
++	BUG_ON(--cl->refcnt == 0);
++	/*
++	 * This shouldn't happen: we hold one cops->get() when called
++	 * from tc_ctl_tclass; the destroy is done from cops->put().
++	 */
+ 
+ 	sch_tree_unlock(sch);
+ 	return 0;
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 74226b2..a516aa4 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1139,8 +1139,11 @@ hfsc_delete_class(struct Qdisc *sch, unsigned long arg)
+ 	hfsc_purge_queue(sch, cl);
+ 	qdisc_class_hash_remove(&q->clhash, &cl->cl_common);
+ 
+-	if (--cl->refcnt == 0)
+-		hfsc_destroy_class(sch, cl);
++	BUG_ON(--cl->refcnt == 0);
++	/*
++	 * This shouldn't happen: we hold one cops->get() when called
++	 * from tc_ctl_tclass; the destroy is done from cops->put().
++	 */
+ 
+ 	sch_tree_unlock(sch);
+ 	return 0;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 355974f..a4b682b 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1275,8 +1275,11 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
+ 	if (last_child)
+ 		htb_parent_to_leaf(q, cl, new_q);
+ 
+-	if (--cl->refcnt == 0)
+-		htb_destroy_class(sch, cl);
++	BUG_ON(--cl->refcnt == 0);
++	/*
++	 * This shouldn't happen: we hold one cops->get() when called
++	 * from tc_ctl_tclass; the destroy is done from cops->put().
++	 */
+ 
+ 	sch_tree_unlock(sch);
+ 	return 0;
