@@ -1,98 +1,68 @@
-From: Pantelis Koukousoulas <pktoss@gmail.com>
-Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Sat, 14 Mar 2009 13:33:02 +0200
-Message-ID: <1295ed070903140433h14a7070es27885b254af0a90e@mail.gmail.com>
-References: <20090312.055235.56926675.davem@davemloft.net>
-	 <200903131017.11572.rusty@rustcorp.com.au>
-	 <20090313.120100.266753164.davem@davemloft.net>
-	 <200903141049.43202.rusty@rustcorp.com.au>
-	 <1295ed070903140340g5da5853cq51decf40e2fc03c8@mail.gmail.com>
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: Re: [BUG] 2.6.29-rc7 broke r8169 MAC on Thecus n2100 ARM board
+Date: Sat, 14 Mar 2009 12:37:53 +0100
+Message-ID: <18875.38673.270977.133982@pilspetsen.it.uu.se>
+References: <200903092029.n29KT1DS004531@harpo.it.uu.se>
+	<20090313201511.GA27827@electric-eye.fr.zoreil.com>
+	<9e246b4d0903131921k6fba9b04ge945c2902d4117d0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, dcbw@redhat.com,
-	netdev@vger.kernel.org, markmc@redhat.com
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Mikael Pettersson <mikpe@it.uu.se>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ivecera@redhat.com
+To: Tim Durack <tdurack@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f177.google.com ([209.85.219.177]:63964 "EHLO
-	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753997AbZCNLdF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 07:33:05 -0400
-Received: by ewy25 with SMTP id 25so2872839ewy.37
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2009 04:33:02 -0700 (PDT)
-In-Reply-To: <1295ed070903140340g5da5853cq51decf40e2fc03c8@mail.gmail.com>
+Received: from aun.it.uu.se ([130.238.12.36]:37232 "EHLO aun.it.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756764AbZCNLiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Mar 2009 07:38:19 -0400
+In-Reply-To: <9e246b4d0903131921k6fba9b04ge945c2902d4117d0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 14, 2009 at 12:40 PM, Pantelis Koukousoulas
-<pktoss@gmail.com> wrote:
->> I don't think it was straightforward at all. =A0Current virtio_net "=
-cards"
->> don't support carrier detection. =A0We reported that (correctly) to =
-userspace,
->> like every other driver which doesn't support carrier detect.
->>
->> So why is virtio_net different? =A0Or should all devices which can't=
- detect
->> carrier set it to on, so older NetworkManagers work?
->>
->
-[snip]
->
-> So, I still propose my version for 2.6.29 / -stable and then mark's
-> commit applies
-> on top of that just fine (just don't delete the netif_carrier_on) =A0=
-and
-> adds the feature
-> of the user being able to set the status to on / off explicitly if
-> they have a new version
-> of qemu / virtio while still doing the "right thing" for current vers=
-ions.
->
-> Therefore, I guess I should resend my patch to netdev with reworked c=
-omments
-> to reflect this discussion. Hope that is ok with you too.
->
-> Pantelis
+Tim Durack writes:
+ > On Fri, Mar 13, 2009 at 4:15 PM, Francois Romieu <romieu@fr.zoreil.com>wrote:
+ > 
+ > > Mikael Pettersson <mikpe@it.uu.se> :
+ > > > With the 2.6.29-rc7 kernel I'm unable to 'ifup' eth0 on my ARM-based
+ > > > Thecus n2100 NAS box, which has an RTL8169 NIC (10ec:8169 (rev 10)).
+ > > > A diff of the kernel logs from 2.6.29-rc6 and -rc7 shows that -rc7
+ > > > first mangles and then zaps the MAC addresses:
+ > >
+ > > Can you apply the attached patch and see if it fixes any of these
+ > > problems ?
+ > >
+ > > Tim, could you give it a try too ? It applies with "patch -p1" from
+ > > the kernel tree directory.
+ > >
+ > > --
+ > > Ueimor
+ > >
+ > 
+ > No luck:
 
-Or, we can merge the extra netif_carrier_on (what your patch did) to
-mark's commit
-and just add that full thing to 2.6.29 (as 2 patches probably because
-of git, but
-one next to the other please for bisection / readability reasons).
+No joy here either. 2.6.29-rc8 + this patch shows the same misbehaviour
+as 2.6.29-rc7 had. Here's a minicom log of an attempted boot:
 
-I just tested this solution with a self-made livecd, it applies
-cleanly and works fine :)
-(it might be ~42 lines instead of 2 but it is still trivial enough to
-be confident that
-nothing will break).
+(kernel messages)
 
-This way we get the expected result for every combination of current an=
-d future
-versions of qemu / kernel without ever having one "lie" to the other or=
- innocent
-users becoming frustrated.
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:01.0: no PCI Express capability
+r8169 0000:00:01.0: MAC address found in EEPROM: 00:14:fd:10:00:00
+eth0: RTL8169sb/8110sb at 0xe080c200, 00:00:00:00:00:00, XID 10000000 IRQ 27
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:02.0: no PCI Express capability
+r8169 0000:00:02.0: MAC address found in EEPROM: 00:14:fd:10:00:00
+eth1: RTL8169sb/8110sb at 0xe0810300, 00:00:00:00:00:00, XID 10000000 IRQ 30
 
-Again:
- (1) My version: smallest, only takes into account current "hardware",
-might lead
-   to a surprise for someone that uses a future qemu with 2.6.29, does
-set_link off
-   and expects to see "operation not supported" in ethtool instead of
-"Link detected: yes".
+(init messages)
 
- (2) Mark's commit: proper implementation (does both the hardware and
-driver part),
-       but will only work right for future qemu versions.
+Bringing up interface eth0:  RTNETLINK answers: Cannot assign requested address
+Failed to bring up eth0.
 
- (3) The 2 merged: work for all combinations of current and future
-kernel / qemu.
-   42 lines instead of 2 but just as unlikely to cause breakage.
+May I suggest that 6709fe9a27e43a4931938fe0d7f2cc5edef31386 is reverted
+until this regression is debugged and fixed?
 
-
-I 'd be happy with either (3) in 2.6.29, or (1) in 2.6.29 and (2) in 2.=
-6.30.
-
-Just please don't select to "do nothing". That would be wrong :)
-
-Pantelis
+/Mikael
