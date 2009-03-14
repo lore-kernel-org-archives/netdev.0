@@ -1,62 +1,118 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 3/8] igb: resolve warning of unused adapter struct
-Date: Fri, 13 Mar 2009 23:40:58 -0700
-Message-ID: <20090314064058.4052.11753.stgit@lost.foo-projects.org>
-References: <20090314064020.4052.46249.stgit@lost.foo-projects.org>
+From: Ramkrishna Vepa <ram.vepa@neterion.com>
+Subject: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10 GbE PCIe
+	adapter
+Date: 14 Mar 2009 00:20:26 -0800
+Message-ID: <1237018825.4966.412.camel@flash>
+Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: Ramkrishna Vepa <ram.vepa@neterion.com>
+To: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:41771
-	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751090AbZCNGrD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 02:47:03 -0400
-In-Reply-To: <20090314064020.4052.46249.stgit@lost.foo-projects.org>
+Received: from barracuda.s2io.com ([72.1.205.138]:60407 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751638AbZCNHxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 03:53:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+This is a release of a new network driver, "vxge", for our latest PCIe based
+hardware - The X3100 10GbE Server/Storage Adapter. The X3100 ASIC supports 
+four modes of operation, configurable via firmware -
+	Single function mode
+	Multi function	mode
+	SRIOV mode
+	MRIOV mode
+	
+The driver patches series will follow this email. This driver has undergone 
+significant testing for the past six months in all four modes of operation,
+and is very stable. We would appreciate the community review and comments
+on this driver.
+	
+The modes, besides single function mode, are oriented towards Server
+I/O virtualization and/or I/O sharing (see PCI SIG SR IOV and MR IOV
+specs for reference), although they can be used on a single
+non-virtualized server as well for instance, to run workloads that would
+typically benefit from using separate network cards. In these scenarios,
+X3100 can replace large number of GbE NICs without any system or network
+changes (outside of L2 driver/hardware), while each physical NIC will be
+able run up to 10 GbE instead of 1 GbE.
 
-If DCA is undefined then the adapter struct becomes unnecessary.  To
-resolve this issue the DCA calls can simply make a call to the adapter
-struct through the rx_ring adapter struct member.
+Major features include -
+	Virtual ethernet bridge 
+	Multiqueue enabled
+	Service level guarantees per queue
+	Dual port with integrated IEEE 802.3ad link aggregation
+	Tcp/Udp/IP stateless offloads - 
+		TCP/UDP/IPv4/IPv6 checksum offload, TSO.
+	Large receive offload
+	Receive traffic hashing
+	MSI-X interrupts
+	Multiple tx and rx queues with number of steering options
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+A note on the different modes of operation -
 
- drivers/net/igb/igb_main.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 28b22c3..d83d30e 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -4164,18 +4164,17 @@ static inline void igb_rx_irq_enable(struct igb_ring *rx_ring)
- static int igb_poll(struct napi_struct *napi, int budget)
- {
- 	struct igb_ring *rx_ring = container_of(napi, struct igb_ring, napi);
--	struct igb_adapter *adapter = rx_ring->adapter;
- 	int work_done = 0;
+Single-function mode: From Linux stack perspective, the adapter is a
+typical multi-queue 10GbE pci-e netdev interface (driven by the
+submitted vxge driver).
  
- #ifdef CONFIG_IGB_DCA
--	if (adapter->flags & IGB_FLAG_DCA_ENABLED)
-+	if (rx_ring->adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_rx_dca(rx_ring);
- #endif
- 	igb_clean_rx_irq_adv(rx_ring, &work_done, budget);
+Multi-function mode: From Linux stack perspective, the adapter is a
+multi-function pci-e device where each function is a multi-queue pci-e
+netdev interface. This mode has some applications in native Linux
+environments, but it is primarily designed for use in hypervisors that
+do not yet support SR IOV pci-e extensions. In fact, the functionality
+in this mode is virtually identical to the SR IOV mode described below,
+except SR IOV support in Linux is not required/expected. 
+
+>From vxge driver perspective, each x3100 function is an independent NIC.
+The functions share 10GbE link and pci-e bus, but hardly anything else
+inside the ASIC. Features like independent hw reset, statistics,
+bandwidth/priority allocation and guarantees, etc. are supported. Also,
+typical L2 functions like LSO, interrupt moderation, etc are supported
+independently on each function.
+
+In other words, direct hardware access with x3100 doesnctions for Direct Hardware
+	Access to different Guests or Servers - while keeping traditional
+	privileged operations (VLAN membership, etc) under privileged domain
+	control.
  
- 	if (rx_ring->buddy) {
- #ifdef CONFIG_IGB_DCA
--		if (adapter->flags & IGB_FLAG_DCA_ENABLED)
-+		if (rx_ring->adapter->flags & IGB_FLAG_DCA_ENABLED)
- 			igb_update_tx_dca(rx_ring->buddy);
- #endif
- 		if (!igb_clean_tx_irq(rx_ring->buddy))
+SR IOV mode: Once BIOS and/or OS support SR IOV pci-e extensions, from
+Linux stack perspective the adapter will look like the multi-function
+mode in #2 above. vxge driver will still think that each x3100 function
+is an independent x3100 pci-e device.
+ 
+MR IOV mode: This mode is designed to support sharing single pci-e 10GbE
+device across multiple independent servers (see PCI SIG MR IOV spec
+and/or presentations for reference). In PCI SIG terms, in this mode
+the X3100 works as a shared IOV 10GbE endpoint that assumes the presence
+of a pci-e switch. To the Linux stack on each server, the X3100 function
+(assigned to the server by the pci-e switch) will look like a separate
+X3100 adapter driven by the vxge driver.
+
+The patch set consists of the the following files -
+
+ Documentation/networking/vxge.txt |  476 +++
+ MAINTAINERS                       |    7 +-
+ drivers/net/Kconfig               |   18 +
+ drivers/net/Makefile              |    1 +
+ drivers/net/vxge/Makefile         |    9 +
+ drivers/net/vxge/vxge-config.c    | 7576 +++++++++++++++++++++++++++++++++++++
+ drivers/net/vxge/vxge-config.h    | 3323 ++++++++++++++++
+ drivers/net/vxge/vxge-ethtool.c   | 1450 +++++++
+ drivers/net/vxge/vxge-ethtool.h   |   73 +
+ drivers/net/vxge/vxge-main.c      | 5204 +++++++++++++++++++++++++
+ drivers/net/vxge/vxge-main.h      |  623 +++
+ drivers/net/vxge/vxge-reg.h       | 5659 +++++++++++++++++++++++++++
+ drivers/net/vxge/vxge-traffic.c   | 2969 +++++++++++++++
+ drivers/net/vxge/vxge-traffic.h   | 2808 ++++++++++++++
+ drivers/net/vxge/vxge-version.h   |   24 +
+ include/linux/pci_ids.h           |    2 +
+ 16 files changed, 30220 insertions(+), 2 deletions(-)
+
+Regards,
+
+Ram Vepa
 
