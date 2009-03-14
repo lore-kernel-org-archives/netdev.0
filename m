@@ -1,147 +1,240 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 10/11] ixgbe: Cleanup some whitespace issues,
-	fixup and add some comments
-Date: Sat, 14 Mar 2009 01:15:31 -0700
-Message-ID: <20090314081531.4687.34601.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 11/11] ixgbe: Add documentation for the driver
+Date: Sat, 14 Mar 2009 01:15:54 -0700
+Message-ID: <20090314081554.4687.58711.stgit@lost.foo-projects.org>
 References: <20090314081229.4687.40245.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:41534
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753268AbZCNIPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 04:15:55 -0400
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:45967 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753684AbZCNIQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 04:16:15 -0400
 In-Reply-To: <20090314081229.4687.40245.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-Cleanup a bit of whitespace, add some function header comments, and fix a
-few comments around the driver.
+Documentation for the ixgbe driver in the kernel docs area is missing.
+This adds that documentation.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Acked-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82599.c |    5 ++---
- drivers/net/ixgbe/ixgbe_main.c  |   31 +++++++++++++++++++++++++++----
- 2 files changed, 29 insertions(+), 7 deletions(-)
+ Documentation/networking/ixgbe.txt |  199 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 199 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/ixgbe.txt
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 56efa98..beae7e0 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -404,8 +404,7 @@ s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw)
- {
- 	s32 status = 0;
- 	ixgbe_link_speed link_speed = IXGBE_LINK_SPEED_82599_AUTONEG;
--	status = ixgbe_setup_mac_link_speed_multispeed_fiber(hw,
--	                                                     link_speed,
-+	status = ixgbe_setup_mac_link_speed_multispeed_fiber(hw, link_speed,
- 	                                                     true, true);
- 	return status;
- }
-@@ -759,7 +758,7 @@ s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
- 		hw->mac.orig_autoc = autoc;
- 		hw->mac.orig_autoc2 = autoc2;
- 		hw->mac.orig_link_settings_stored = true;
--	} else  {
-+	} else {
- 		if (autoc != hw->mac.orig_autoc)
- 			IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (hw->mac.orig_autoc |
- 			                IXGBE_AUTOC_AN_RESTART));
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index ef0b99a..335119a 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -779,7 +779,8 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 
- 	q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
- 
--	/* Populate the IVAR table and set the ITR values to the
-+	/*
-+	 * Populate the IVAR table and set the ITR values to the
- 	 * corresponding register.
- 	 */
- 	for (v_idx = 0; v_idx < q_vectors; v_idx++) {
-@@ -814,7 +815,7 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 			q_vector->eitr = adapter->eitr_param;
- 
- 		/*
--		 * since ths is initial set up don't need to call
-+		 * since this is initial set up don't need to call
- 		 * ixgbe_write_eitr helper
- 		 */
- 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_EITR(v_idx),
-@@ -2675,6 +2676,14 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
- }
- #endif
- 
-+/**
-+ * ixgbe_set_rss_queues: Allocate queues for RSS
-+ * @adapter: board private structure to initialize
-+ *
-+ * This is our "base" multiqueue mode.  RSS (Receive Side Scaling) will try
-+ * to allocate one Rx queue per CPU, and if available, one Tx queue per CPU.
-+ *
-+ **/
- static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
- {
- 	bool ret = false;
-@@ -2693,6 +2702,17 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
- 	return ret;
- }
- 
-+/*
-+ * ixgbe_set_num_queues: Allocate queues for device, feature dependant
-+ * @adapter: board private structure to initialize
-+ *
-+ * This is the top level queue allocation routine.  The order here is very
-+ * important, starting with the "most" number of features turned on at once,
-+ * and ending with the smallest set of features.  This way large combinations
-+ * can be allocated if they're turned on, and smaller combinations are the
-+ * fallthrough conditions.
-+ *
-+ **/
- static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- {
- 	/* Start with base case */
-@@ -2856,7 +2876,8 @@ static void ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
-  * @adapter: board private structure to initialize
-  *
-  * We allocate one ring per queue at run-time since we don't know the
-- * number of queues at compile-time.
-+ * number of queues at compile-time.  The polling_netdev array is
-+ * intended for Multiqueue, but should work fine with a single queue.
-  **/
- static int ixgbe_alloc_queues(struct ixgbe_adapter *adapter)
- {
-@@ -3035,7 +3056,8 @@ static void ixgbe_sfp_timer(unsigned long data)
- {
- 	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)data;
- 
--	/* Do the sfp_timer outside of interrupt context due to the
-+	/*
-+	 * Do the sfp_timer outside of interrupt context due to the
- 	 * delays that sfp+ detection requires
- 	 */
- 	schedule_work(&adapter->sfp_task);
-@@ -3609,6 +3631,7 @@ static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
- 	retval = pci_save_state(pdev);
- 	if (retval)
- 		return retval;
+diff --git a/Documentation/networking/ixgbe.txt b/Documentation/networking/ixgbe.txt
+new file mode 100644
+index 0000000..eeb6868
+--- /dev/null
++++ b/Documentation/networking/ixgbe.txt
+@@ -0,0 +1,199 @@
++Linux Base Driver for 10 Gigabit PCI Express Intel(R) Network Connection
++========================================================================
 +
- #endif
- 	if (wufc) {
- 		ixgbe_set_rx_mode(netdev);
++March 10, 2009
++
++
++Contents
++========
++
++- In This Release
++- Identifying Your Adapter
++- Building and Installation
++- Additional Configurations
++- Support
++
++
++
++In This Release
++===============
++
++This file describes the ixgbe Linux Base Driver for the 10 Gigabit PCI
++Express Intel(R) Network Connection.  This driver includes support for
++Itanium(R)2-based systems.
++
++For questions related to hardware requirements, refer to the documentation
++supplied with your 10 Gigabit adapter.  All hardware requirements listed apply
++to use with Linux.
++
++The following features are available in this kernel:
++ - Native VLANs
++ - Channel Bonding (teaming)
++ - SNMP
++ - Generic Receive Offload
++ - Data Center Bridging
++
++Channel Bonding documentation can be found in the Linux kernel source:
++/Documentation/networking/bonding.txt
++
++Ethtool, lspci, and ifconfig can be used to display device and driver
++specific information.
++
++
++Identifying Your Adapter
++========================
++
++This driver supports devices based on the 82598 controller and the 82599
++controller.
++
++For specific information on identifying which adapter you have, please visit:
++
++    http://support.intel.com/support/network/sb/CS-008441.htm
++
++
++Building and Installation
++=========================
++
++select m for "Intel(R) 10GbE PCI Express adapters support" located at:
++      Location:
++        -> Device Drivers
++          -> Network device support (NETDEVICES [=y])
++            -> Ethernet (10000 Mbit) (NETDEV_10000 [=y])
++
++1. make modules & make modules_install
++
++2. Load the module:
++
++# modprobe ixgbe
++
++   The insmod command can be used if the full
++   path to the driver module is specified.  For example:
++
++     insmod /lib/modules/<KERNEL VERSION>/kernel/drivers/net/ixgbe/ixgbe.ko
++
++   With 2.6 based kernels also make sure that older ixgbe drivers are
++   removed from the kernel, before loading the new module:
++
++     rmmod ixgbe; modprobe ixgbe
++
++3. Assign an IP address to the interface by entering the following, where
++   x is the interface number:
++
++     ifconfig ethx <IP_address>
++
++4. Verify that the interface works. Enter the following, where <IP_address>
++   is the IP address for another machine on the same subnet as the interface
++   that is being tested:
++
++     ping  <IP_address>
++
++
++Additional Configurations
++=========================
++
++  Viewing Link Messages
++  ---------------------
++  Link messages will not be displayed to the console if the distribution is
++  restricting system messages. In order to see network driver link messages on
++  your console, set dmesg to eight by entering the following:
++
++       dmesg -n 8
++
++  NOTE: This setting is not saved across reboots.
++
++
++  Jumbo Frames
++  ------------
++  The driver supports Jumbo Frames for all adapters. Jumbo Frames support is
++  enabled by changing the MTU to a value larger than the default of 1500.
++  The maximum value for the MTU is 16110.  Use the ifconfig command to
++  increase the MTU size.  For example:
++
++        ifconfig ethx mtu 9000 up
++
++  The maximum MTU setting for Jumbo Frames is 16110.  This value coincides
++  with the maximum Jumbo Frames size of 16128.
++
++  Generic Receive Offload, aka GRO
++  --------------------------------
++  The driver supports the in-kernel software implementation of GRO.  GRO has
++  shown that by coalescing Rx traffic into larger chunks of data, CPU
++  utilization can be significantly reduced when under large Rx load.  GRO is an
++  evolution of the previously-used LRO interface.  GRO is able to coalesce
++  other protocols besides TCP.  It's also safe to use with configurations that
++  are problematic for LRO, namely bridging and iSCSI.
++
++  GRO is enabled by default in the driver.  Future versions of ethtool will
++  support disabling and re-enabling GRO on the fly.
++
++
++  Data Center Bridging, aka DCB
++  -----------------------------
++
++  DCB is a configuration Quality of Service implementation in hardware.
++  It uses the VLAN priority tag (802.1p) to filter traffic.  That means
++  that there are 8 different priorities that traffic can be filtered into.
++  It also enables priority flow control which can limit or eliminate the
++  number of dropped packets during network stress.  Bandwidth can be
++  allocated to each of these priorities, which is enforced at the hardware
++  level.
++
++  To enable DCB support in ixgbe, you must enable the DCB netlink layer to
++  allow the userspace tools (see below) to communicate with the driver.
++  This can be found in the kernel configuration here:
++
++        -> Networking support
++          -> Networking options
++            -> Data Center Bridging support
++
++  Once this is selected, DCB support must be selected for ixgbe.  This can
++  be found here:
++
++        -> Device Drivers
++          -> Network device support (NETDEVICES [=y])
++            -> Ethernet (10000 Mbit) (NETDEV_10000 [=y])
++              -> Intel(R) 10GbE PCI Express adapters support
++                -> Data Center Bridging (DCB) Support
++
++  After these options are selected, you must rebuild your kernel and your
++  modules.
++
++  In order to use DCB, userspace tools must be downloaded and installed.
++  The dcbd tools can be found at:
++
++        http://e1000.sf.net
++
++
++  Ethtool
++  -------
++  The driver utilizes the ethtool interface for driver configuration and
++  diagnostics, as well as displaying statistical information.  Ethtool
++  version 3.0 or later is required for this functionality.
++
++  The latest release of ethtool can be found from
++  http://sourceforge.net/projects/gkernel.
++
++
++  NAPI
++  ----
++
++  NAPI (Rx polling mode) is supported in the ixgbe driver.  NAPI is enabled
++  by default in the driver.
++
++  See www.cyberus.ca/~hadi/usenix-paper.tgz for more information on NAPI.
++
++
++Support
++=======
++
++For general information, go to the Intel support website at:
++
++    http://support.intel.com
++
++or the Intel Wired Networking project hosted by Sourceforge at:
++
++    http://e1000.sourceforge.net
++
++If an issue is identified with the released source code on the supported
++kernel with a supported adapter, email the specific information related
++to the issue to e1000-devel@lists.sf.net
 
