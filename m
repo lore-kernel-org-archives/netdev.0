@@ -1,69 +1,58 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC] tcp: allow timestamps even if SYN packet has tsval=0
-Date: Sat, 14 Mar 2009 10:22:12 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0903141015170.5797@wrl-59.cs.helsinki.fi>
-References: <49B7ABF2.5040803@cosmosbay.com> <20090311.064710.255854254.davem@davemloft.net>
- <Pine.LNX.4.64.0903120858550.4697@wrl-59.cs.helsinki.fi>
- <20090313.142507.47563051.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] net: reorder fields of struct socket
+Date: Sat, 14 Mar 2009 10:03:54 +0100
+Message-ID: <49BB72FA.1080401@cosmosbay.com>
+References: <49B4B909.7050002@cosmosbay.com>	<20090313.145152.121603300.davem@davemloft.net>	<49BADE87.40407@cosmosbay.com> <20090313.153851.11725991.davem@davemloft.net> <49BAE1F3.5020105@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-207211498-1237018932=:5797"
-Cc: dada1@cosmosbay.com, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: kchang@athenacr.com, netdev@vger.kernel.org, bmb@athenacr.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58695 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876AbZCNIWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 04:22:15 -0400
-In-Reply-To: <20090313.142507.47563051.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49758 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198AbZCNJEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 05:04:06 -0400
+In-Reply-To: <49BAE1F3.5020105@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On x86_64, its rather unfortunate that "wait_queue_head_t wait"
+field of "struct socket" spans two cache lines (assuming a 64
+bytes cache line in current cpus)
 
----696208474-207211498-1237018932=:5797
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+offsetof(struct socket, wait)=0x30
+sizeof(wait_queue_head_t)=0x18
 
-On Fri, 13 Mar 2009, David Miller wrote:
+This might explain why Kenny Chang noticed that his multicast workload
+was performing bad with 64 bit kernels, since more cache lines ping pongs
+were involved.
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Thu, 12 Mar 2009 09:26:20 +0200 (EET)
-> 
-> > On Wed, 11 Mar 2009, David Miller wrote:
-> > 
-> > > From: Eric Dumazet <dada1@cosmosbay.com>
-> > > Date: Wed, 11 Mar 2009 13:17:54 +0100
-> > > 
-> > > > So apparently WindowsXP sends a NULL tsval in SYN packet, then
-> > > > subsequent packets get a real value (60498) in this case.
-> > > > 
-> > > > This seems to work on other OS as well, so is the following patch
-> > > > considered evil ?  Do we have security concerns or only risking
-> > > > windows client to have slightly wrong rtt estimation at the begining
-> > > > of the tcp session ?
-> > > 
-> > > I think we'll have to accept this.
-> > > 
-> > > I don't see other systems blocking initial ts_ecn values of
-> > > zero like we do.
-> > 
-> > What about the fact that PAWS could bite us leaving us a hung connection 
-> > if timestamp changes too much when we get the first ACK? Though I doubt 
-> > you can get windows to run long enough for this to become a problem if 
-> > they always start from zero... ;-)
-> 
-> I really don't think it's a real issue, and Windows XP should be happy
-> we're willing to try timestamps at all with it :-)
+This litle patch moves "wait" field next "fasync_list" so that both
+fields share a single cache line, to speedup sock_def_readable()
 
-Right. Would it ever become a problem it would certainly possible to 
-collect the first real timestamp and discard the bogus zero. We just need 
-to be aware on this if some report about unable-to-connect appears once
-the change gets larger exposure in wild.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-There could be other broken things such as firewalls zeroing it in SYNs 
-so the end host might not necessarily even be xp.
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 4515efa..4fc2ffd 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -129,11 +129,15 @@ struct socket {
+ 	socket_state		state;
+ 	short			type;
+ 	unsigned long		flags;
+-	const struct proto_ops	*ops;
++	/*
++	 * Please keep fasync_list & wait fields in the same cache line
++	 */
+ 	struct fasync_struct	*fasync_list;
++	wait_queue_head_t	wait;
++
+ 	struct file		*file;
+ 	struct sock		*sk;
+-	wait_queue_head_t	wait;
++	const struct proto_ops	*ops;
+ };
+ 
+ struct vm_area_struct;
 
--- 
- i.
----696208474-207211498-1237018932=:5797--
