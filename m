@@ -1,32 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to
- submit to upper layer
-Date: Sat, 14 Mar 2009 11:45:22 -0700 (PDT)
-Message-ID: <20090314.114522.19720687.davem@davemloft.net>
-References: <65634d660903131724s49009177pdc11005aa76a4b56@mail.gmail.com>
-	<20090313.191951.228619450.davem@davemloft.net>
-	<65634d660903141115w7e164134ycece307f041e93a9@mail.gmail.com>
+Subject: Re: [net-next PATCH 1/8] igb: switch to new dca API
+Date: Sat, 14 Mar 2009 12:51:08 -0700 (PDT)
+Message-ID: <20090314.125108.248832647.davem@davemloft.net>
+References: <20090314064020.4052.46249.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yanmin_zhang@linux.intel.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	jesse.brandeburg@intel.com, shemminger@vyatta.com
-To: therbert@google.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756832AbZCNSpv@vger.kernel.org>
-In-Reply-To: <65634d660903141115w7e164134ycece307f041e93a9@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	maciej.sosnowski@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46702
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754419AbZCNTvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 15:51:22 -0400
+In-Reply-To: <20090314064020.4052.46249.stgit@lost.foo-projects.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sat, 14 Mar 2009 11:15:21 -0700
 
-> I suppose it may be counter-intuitive, but I am not making a general
-> claim.  I would only suggest that these software hacks could be a very
-> good approximation or substitute for hardware functionality.  This is
-> a generic way to get more performance out of deficient or lower end
-> NICs.
-
-They certainly could.  Why don't you post the current version
-of your patches so we have something concrete to discuss?
+All 8 patches applied.
