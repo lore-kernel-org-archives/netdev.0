@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 6/8] igb: correct typo that was setting vfta mask to 1
-Date: Fri, 13 Mar 2009 23:41:55 -0700
-Message-ID: <20090314064155.4052.9481.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 7/8] igb: add support for another dual port 82576
+	non-security nic
+Date: Fri, 13 Mar 2009 23:42:15 -0700
+Message-ID: <20090314064215.4052.64563.stgit@lost.foo-projects.org>
 References: <20090314064020.4052.46249.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,54 +13,63 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:57811 "EHLO
-	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752421AbZCNGmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 02:42:16 -0400
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:45652 "EHLO
+	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752370AbZCNGmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 02:42:36 -0400
 In-Reply-To: <20090314064020.4052.46249.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch corrects a typo that was doing a less than comparison instead of
-a left shift due to the fact that I didn't get enough <'s in there.
-
-This resolves an issue in which vlans were not functioning correctly.
+Adding device id to support 82576NS dual port copper
+NIC.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_mac.c |    2 +-
- drivers/net/igb/igb_main.c  |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/igb/e1000_82575.c |    1 +
+ drivers/net/igb/e1000_hw.h    |    1 +
+ drivers/net/igb/igb_main.c    |    1 +
+ 3 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
-index f11592f..f4c315b 100644
---- a/drivers/net/igb/e1000_mac.c
-+++ b/drivers/net/igb/e1000_mac.c
-@@ -129,7 +129,7 @@ void igb_write_vfta(struct e1000_hw *hw, u32 offset, u32 value)
- s32 igb_vfta_set(struct e1000_hw *hw, u32 vid, bool add)
- {
- 	u32 index = (vid >> E1000_VFTA_ENTRY_SHIFT) & E1000_VFTA_ENTRY_MASK;
--	u32 mask = 1 < (vid & E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
-+	u32 mask = 1 << (vid & E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
- 	u32 vfta = array_rd32(E1000_VFTA, index);
- 	s32 ret_val = 0;
- 
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index ea63a21..adfe2e1 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -80,6 +80,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 		mac->type = e1000_82575;
+ 		break;
+ 	case E1000_DEV_ID_82576:
++	case E1000_DEV_ID_82576_NS:
+ 	case E1000_DEV_ID_82576_FIBER:
+ 	case E1000_DEV_ID_82576_SERDES:
+ 		mac->type = e1000_82576;
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index d793dca..4db3602 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -40,6 +40,7 @@ struct e1000_hw;
+ #define E1000_DEV_ID_82576                    0x10C9
+ #define E1000_DEV_ID_82576_FIBER              0x10E6
+ #define E1000_DEV_ID_82576_SERDES             0x10E7
++#define E1000_DEV_ID_82576_NS                 0x150A
+ #define E1000_DEV_ID_82575EB_COPPER           0x10A7
+ #define E1000_DEV_ID_82575EB_FIBER_SERDES     0x10A9
+ #define E1000_DEV_ID_82575GB_QUAD_COPPER      0x10D6
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index d972f91..3f505ae 100644
+index 3f505ae..0997370 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -3806,7 +3806,7 @@ static void igb_restore_vf_multicasts(struct igb_adapter *adapter)
+@@ -62,6 +62,7 @@ static const struct e1000_info *igb_info_tbl[] = {
  
- 	for (i = 0; i < adapter->vfs_allocated_count; i++) {
- 		vf_data = &adapter->vf_data[i];
--		for (j = 0; j < vf_data[i].num_vf_mc_hashes; j++)
-+		for (j = 0; j < vf_data->num_vf_mc_hashes; j++)
- 			igb_mta_set(hw, vf_data->vf_mc_hashes[j]);
- 	}
- }
+ static struct pci_device_id igb_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576), board_82575 },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_NS), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
 
