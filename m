@@ -1,69 +1,62 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] bonding: allow bond in mode balance-alb to work
-	properly in bridge
-Date: Sat, 14 Mar 2009 10:49:11 +0100
-Message-ID: <20090314094911.GA3455@psychotron.englab.brq.redhat.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090313223932.50ebbd88@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Pantelis Koukousoulas <pktoss@gmail.com>
+Subject: [PATCH] Make virtio_net report carrier status ON.
+Date: Sat, 14 Mar 2009 12:40:49 +0200
+Message-ID: <1237027249-10512-1-git-send-email-pktoss@gmail.com>
+Cc: Pantelis Koukousoulas <pktoss@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:40377 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751778AbZCNJus (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Mar 2009 05:50:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20090313223932.50ebbd88@nehalam>
+Received: from ey-out-2122.google.com ([74.125.78.25]:21633 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751242AbZCNKki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 06:40:38 -0400
+Received: by ey-out-2122.google.com with SMTP id 25so730169eya.37
+        for <netdev@vger.kernel.org>; Sat, 14 Mar 2009 03:40:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Mar 14, 2009 at 06:39:32AM CET, shemminger@linux-foundation.org wrote:
->On Fri, 13 Mar 2009 19:33:04 +0100
->Jiri Pirko <jpirko@redhat.com> wrote:
->
->> Hi all.
->> 
->> This is only a draft of patch to consult. I'm aware that it should be divided
->> into multiple patches. I want to know opinion from you folks.
->> 
->> The problem is described in following bugzilla:
->> https://bugzilla.redhat.com/show_bug.cgi?id=487763
->> 
->> Basically here's what's going on. In every mode, bonding interface uses the same
->> mac address for all enslaved devices. Except for mode balance-alb. When you put
->> this kind of bond device into a bridge it will only add one of mac adresses into
->> a hash list of mac addresses, say X. This mac address is marked as local. But
->> this bonding interface also has mac address Y. Now then packet arrives with
->> destination address Y, this address is not marked as local and the packed looks
->> like it needs to be forwarded. This packet is then lost which is wrong.
->> 
->> Notice that interfaces can be added and removed from bond while it is in bridge.
->> Therefore I introduce another function pointer in struct net_device_ops -
->> ndo_check_mac_address. This function when it's implemented should check passed
->> mac address against the one set in device. I'm using this in bonding driver when
->> the bond is in mode balance-alb to walk thru all slaves and checking if any of
->> them equals passed address.
->> 
->> Then in bridge function br_handle_frame_finish() I'm using ndo_check_mac_address
->> to recognize the destination mac address as local.
->> 
->> Please look at this and tell me what you think about it.
->> 
->> Thanks
->> 
->> Jirka
->>
->
->A better and more general way to do this have the dev_set_mac_address
->function check the return of the notifier and unwind. Then any protocol
->can easily prevent address from changing.
+The current versions of virtio hardware do not have a way to
+turn the link "OFF", so in practice, the status is always ON.
 
-Can you please describe this thougth a bit more? I can't understand it now...
+Reporting that via ethtool instead of claiming
+"I have no idea", allows NetworkManager to configure the
+card automatically as preferred and gives users e.g.,
+testing a new livecd in existing qemu/kvm the experience
+they expect.
 
-Thanks
+Note that for the next versions of the kernel and virtual
+hardware, there is a patch that adds proper link detection
+to the driver (since it will now be possible to turn it off).
+But even in the light of this, my patch is still valid
+because the "default ON" behavior will still be needed for
+current qemu / virtio versions that don't support this feature
+(VIRTIO_NET_F_STATUS).
 
-Jirka
+Signed-off-by: Pantelis Koukousoulas <pktoss@gmail.com>
+---
+ drivers/net/virtio_net.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index c688083..e67d16c 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -612,6 +612,7 @@ static struct ethtool_ops virtnet_ethtool_ops = {
+ 	.set_tx_csum = virtnet_set_tx_csum,
+ 	.set_sg = ethtool_op_set_sg,
+ 	.set_tso = ethtool_op_set_tso,
++	.get_link = ethtool_op_get_link,
+ };
+ 
+ #define MIN_MTU 68
+@@ -739,6 +740,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto unregister;
+ 	}
+ 
++	netif_carrier_on(dev);
++
+ 	pr_debug("virtnet: registered device %s\n", dev->name);
+ 	return 0;
+ 
+-- 
+1.5.6.3
+
