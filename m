@@ -1,44 +1,32 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [E1000-devel] [stable] Li-nux 2.6.27.19  2.6.28.7
-Date: Sat, 14 Mar 2009 10:21:51 +0900
-Message-ID: <200903141021.BAI56205.QtLOFJOFOHMFSV@I-love.SAKURA.ne.jp>
-References: <20090220225448.GA14122@kroah.com>
-	<20090313151051.a9198384.akpm@linux-foundation.org>
-	<20090313222044.GA18010@kroah.com>
-	<F169D4F5E1F1974DBFAFABF47F60C10A1E80D63A@orsmsx507.amr.corp.intel.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC v2: Patch 1/3] net: hand off skb list to other cpu to submit to upper layer
+Date: Sat, 14 Mar 2009 02:51:50 +0100
+Message-ID: <20090314015150.GL11935@one.firstfloor.org>
+References: <1236866906.3221.11.camel@achroite> <1236926602.2567.528.camel@ymzhang> <65634d660903131006n44f068dw18b2fe9dce25399e@mail.gmail.com> <20090313.115137.254924980.davem@davemloft.net> <65634d660903131358h765bef64y6a0f1b0db7400f6f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	stable@kernel.org, netdev@vger.kernel.org
-To: jesse.brandeburg@intel.com, greg@kroah.com,
-	akpm@linux-foundation.org
+Cc: David Miller <davem@davemloft.net>, yanmin_zhang@linux.intel.com,
+	bhutchings@solarflare.com, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	herbert@gondor.apana.org.au, jesse.brandeburg@intel.com,
+	shemminger@vyatta.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:65159 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755868AbZCNBV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2009 21:21:56 -0400
-In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1E80D63A@orsmsx507.amr.corp.intel.com>
+Received: from one.firstfloor.org ([213.235.205.2]:34372 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761977AbZCNBvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2009 21:51:50 -0400
+Content-Disposition: inline
+In-Reply-To: <65634d660903131358h765bef64y6a0f1b0db7400f6f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+> We are trying to follow the decisions scheduler as opposed to leading it.
+> This works on very loaded systems, with applications binding to cpusets,
 
-Brandeburg, Jesse wrote:
-> Greg KH wrote:
-> > On Fri, Mar 13, 2009 at 03:10:51PM -0700, Andrew Morton wrote:
-> >> 
-> >> I fired up this kernel up on my FC8 laptop and I see
-> >> http://userweb.kernel.org/~akpm/p3130212.jpg
-> >> 
-> >> On the next two boot attempts, the kernel came up OK.
-> >> 
-That picture may be caused by /dev/root being automatically disappeared.
-https://bugzilla.redhat.com/show_bug.cgi?id=488679
+One possible solution would be then to just not bind to cpusets and
+give the scheduler the freedom it needs instead?
 
-> root issue:
-> seems that something with the 2.6.newer doesn't like some of the stuff with the fedora nash stuff.
-> mkinitrd and friends were updated multiple times to work with these newer kernels in the fedora 10
-> I was using.  I worked around by changing root=LABEL to use root=/dev/foo in grub.conf
-
-I don't experience this problem with Debian Sarge.
-I think it is Fedora's nash problem.
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
