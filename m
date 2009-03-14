@@ -1,156 +1,53 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH] iproute2: drop equalize support.
-Date: Sat, 14 Mar 2009 17:37:35 +0100
-Message-ID: <20090314163735.GA9762@amd64.fatal.se>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [net-2.6 PATCH 3/10] Neterion: New driver: Kconfig and Makefile
+Date: Sat, 14 Mar 2009 13:40:17 -0400
+Message-ID: <20090314134017.d0ec1024.billfink@mindspring.com>
+References: <1237018842.4966.418.camel@flash>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: ram.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:54469 "EHLO
-	amd64.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753060AbZCNRZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Mar 2009 13:25:27 -0400
-Content-Disposition: inline
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:36776
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752909AbZCNRkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 13:40:24 -0400
+In-Reply-To: <1237018842.4966.418.camel@flash>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Stephen and netdev people!
+On 14 Mar 2009, Ramkrishna Vepa wrote:
 
-Currently you can configure "equalize" and it looks all fine and dandy.
-The kernel has the interface defined, but apparently there's never actually
-been any implementation for it (only a never merged patch in the 2.4 era).
+> - Kconfig and Makefile related changes for vxge driver.
+> 
+> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
+> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> ---
+> diff -urpN patch_2/drivers/net/Kconfig patch_3/drivers/net/Kconfig
+> --- patch_2/drivers/net/Kconfig	2009-03-12 11:23:32.000000000 -0700
+> +++ patch_3/drivers/net/Kconfig	2009-03-12 11:33:06.000000000 -0700
+> @@ -2531,6 +2531,24 @@ config S2IO
+>  	  More specific information on configuring the driver is in 
+>  	  <file:Documentation/networking/s2io.txt>.
+> 
+> +config VXGE
+> +	tristate "Neterion X3100 Series 10GbE PCIe Server Adapter"
+> +	depends on PCI
+> +	select INET_LRO
+> +	---help---
+> +	  This driver supports Neterion Inc's X3100 Series 10 GbE PCIe
+> +	  I/O Virtualized Server Adapter.
+> +	  More specific information on configuring the driver is in
+> +	  <file:Documentation/networking/vxge.txt>.
 
-I'm suggesting to drop the code to give any potential users of this feature
-the benefit of receiving a proper error message. I see it unlikely that
-this will be implemented in the near future, but if it ever happens
-reviving the iproute2 side should be as easy as git revert this patch.
+To prevent certain build failures, when you "select INET_LRO" you also
+need to add a depends on INET, so the above "depends on PCI" needs to
+be changed to:
 
-For more details see http://bugs.debian.org/149897
+	depends on PCI && INET
 
-Regards, 
-Andreas Henriksson
-
-
-diff --git a/debian/rules b/debian/rules
-index 132455f..4d825ca 100755
-diff --git a/doc/ip-cref.tex b/doc/ip-cref.tex
-index bb4eb78..b333842 100644
---- a/doc/ip-cref.tex
-+++ b/doc/ip-cref.tex
-@@ -1380,13 +1380,6 @@ database.
- even if it does not match any interface prefix. One application of this
- option may be found in~\cite{IP-TUNNELS}.
- 
--\item \verb|equalize|
--
----- allow packet by packet randomization on multipath routes.
--Without this modifier, the route will be frozen to one selected
--nexthop, so that load splitting will only occur on per-flow base.
--\verb|equalize| only works if the kernel is patched.
--
- 
- \end{itemize}
- 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 6a2ea05..529159b 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -67,9 +67,9 @@ static void usage(void)
- 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
- 	fprintf(stderr, "             [ table TABLE_ID ] [ proto RTPROTO ]\n");
- 	fprintf(stderr, "             [ scope SCOPE ] [ metric METRIC ]\n");
--	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
-+	fprintf(stderr, "INFO_SPEC := NH OPTIONS [ nexthop NH ]...\n");
- 	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
--	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
-+	fprintf(stderr, "OPTIONS := [ mtu NUMBER ] [ advmss NUMBER ]\n");
- 	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ]\n");
- 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
- 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
-@@ -78,7 +78,6 @@ static void usage(void)
- 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
- 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
- 	fprintf(stderr, "SCOPE := [ host | link | global | NUMBER ]\n");
--	fprintf(stderr, "FLAGS := [ equalize ]\n");
- 	fprintf(stderr, "MP_ALGO := { rr | drr | random | wrandom }\n");
- 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
- 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
-@@ -387,8 +386,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		fprintf(fp, "onlink ");
- 	if (r->rtm_flags & RTNH_F_PERVASIVE)
- 		fprintf(fp, "pervasive ");
--	if (r->rtm_flags & RTM_F_EQUALIZE)
--		fprintf(fp, "equalize ");
- 	if (r->rtm_flags & RTM_F_NOTIFY)
- 		fprintf(fp, "notify ");
- 
-@@ -428,9 +425,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		PRTFL(FAST, "fastroute");
- 		PRTFL(NOTIFY, "notify");
- 		PRTFL(TPROXY, "proxy");
--#ifdef RTCF_EQUALIZE
--		PRTFL(EQUALIZE, "equalize");
--#endif
-+
- 		if (flags)
- 			fprintf(fp, "%s%x> ", first ? "<" : "", flags);
- 		if (tb[RTA_CACHEINFO]) {
-@@ -859,9 +854,6 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			addattr32(&req.n, sizeof(req), RTA_FLOW, realm);
- 		} else if (strcmp(*argv, "onlink") == 0) {
- 			req.r.rtm_flags |= RTNH_F_ONLINK;
--		} else if (matches(*argv, "equalize") == 0 ||
--			   strcmp(*argv, "eql") == 0) {
--			req.r.rtm_flags |= RTM_F_EQUALIZE;
- 		} else if (strcmp(*argv, "nexthop") == 0) {
- 			nhs_ok = 1;
- 			break;
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index e948d03..e4a57ff 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -163,7 +163,7 @@ replace " | " monitor " } "
- .IR METRIC " ]"
- 
- .ti -8
--.IR INFO_SPEC " := " "NH OPTIONS FLAGS" " ["
-+.IR INFO_SPEC " := " "NH OPTIONS" " ["
- .B  nexthop
- .IR NH " ] ..."
- 
-@@ -177,7 +177,7 @@ replace " | " monitor " } "
- .IR NUMBER " ] " NHFLAGS
- 
- .ti -8
--.IR OPTIONS " := " FLAGS " [ "
-+.IR OPTIONS " := [ "
- .B  mtu
- .IR NUMBER " ] [ "
- .B  advmss
-@@ -213,10 +213,6 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
- .IR NUMBER " ]"
- 
- .ti -8
--.IR FLAGS " := [ "
--.BR equalize " ]"
--
--.ti -8
- .IR NHFLAGS " := [ "
- .BR onlink " | " pervasive " ]"
- 
-@@ -1582,14 +1578,6 @@ to assign (or not to assign) protocol tags.
- pretend that the nexthop is directly attached to this link,
- even if it does not match any interface prefix.
- 
--.TP
--.B equalize
--allow packet by packet randomization on multipath routes.
--Without this modifier, the route will be frozen to one selected
--nexthop, so that load splitting will only occur on per-flow base.
--.B equalize
--only works if the kernel is patched.
--
- .SS ip route delete - delete route
- 
- .B ip route del
+						-Bill
