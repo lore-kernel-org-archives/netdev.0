@@ -1,139 +1,75 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: build bug on kfree(struct sk_buff*)
-Date: Sun, 15 Mar 2009 17:42:07 +0100
-Message-ID: <49BD2FDF.5050504@gmail.com>
-References: <49BA8710.20808@gmail.com> <49BAE95D.7060001@gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Sun, 15 Mar 2009 19:11:05 +0100
+Message-ID: <1237140665.24621.2.camel@johannes.local>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
+	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
+	 (sfid-20090315_040645_344726_0E746861)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f177.google.com ([209.85.219.177]:55288 "EHLO
-	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162AbZCOQmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 12:42:09 -0400
-In-Reply-To: <49BAE95D.7060001@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-AVqk3u9ur7XpbtCSWx/D"
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b6a2187b0903142006u546fad9eme66f9ea7b464b81f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20090315_040645_344726_0E746861)
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I noticed that my initial attempt was invalid. The one below appears to be
-correct, although I am not sure whether there is a better implementation.
 
-this patch also fixes a kfree(skb) in net/core/dev.c, what do you think?
+--=-AVqk3u9ur7XpbtCSWx/D
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Roel
+On Sun, 2009-03-15 at 11:06 +0800, Jeff Chua wrote:
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
- include/linux/kernel.h |    4 ++++
- include/linux/slab.h   |    3 +++
- mm/slab.c              |    2 ++
- mm/slob.c              |    2 ++
- mm/slub.c              |    2 ++
- net/core/dev.c         |    2 +-
- 6 files changed, 14 insertions(+), 1 deletions(-)
+> The commit below is causing problem with associating with the hidden AP a=
+s well.
 
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 7fa3718..b7f22d8 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -526,6 +526,10 @@ struct sysinfo {
-    aren't permitted). */
- #define BUILD_BUG_ON_ZERO(e) (sizeof(char[1 - 2 * !!(e)]) - 1)
- 
-+/* If the type of x is TYPE, force a compilation error, otherwise produce x */
-+#define BUILD_BUG_ON_TYPE(x, TYPE) __builtin_choose_expr(		\
-+		__builtin_types_compatible_p(typeof(x), TYPE), (void)0, (x))
-+
- /* Trap pasters of __FUNCTION__ at compile-time */
- #define __FUNCTION__ (__func__)
- 
-diff --git a/include/linux/slab.h b/include/linux/slab.h
-index 24c5602..30c28f9 100644
---- a/include/linux/slab.h
-+++ b/include/linux/slab.h
-@@ -130,6 +130,9 @@ void kfree(const void *);
- void kzfree(const void *);
- size_t ksize(const void *);
- 
-+/* This ensures that kfree is not called with a struct sk_buff* */
-+#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
-+
- /*
-  * Allocator specific definitions. These are mainly used to establish optimized
-  * ways to convert kmalloc() calls to kmem_cache_alloc() invocations by
-diff --git a/mm/slab.c b/mm/slab.c
-index 4d00855..cbcd28a 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -3711,6 +3711,7 @@ EXPORT_SYMBOL(kmem_cache_free);
-  * Don't free memory not originally allocated by kmalloc()
-  * or you will run into trouble.
-  */
-+#undef kfree
- void kfree(const void *objp)
- {
- 	struct kmem_cache *c;
-@@ -3727,6 +3728,7 @@ void kfree(const void *objp)
- 	local_irq_restore(flags);
- }
- EXPORT_SYMBOL(kfree);
-+#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
- 
- unsigned int kmem_cache_size(struct kmem_cache *cachep)
- {
-diff --git a/mm/slob.c b/mm/slob.c
-index 52bc8a2..451325c 100644
---- a/mm/slob.c
-+++ b/mm/slob.c
-@@ -487,6 +487,7 @@ void *__kmalloc_node(size_t size, gfp_t gfp, int node)
- }
- EXPORT_SYMBOL(__kmalloc_node);
- 
-+#undef kfree
- void kfree(const void *block)
- {
- 	struct slob_page *sp;
-@@ -503,6 +504,7 @@ void kfree(const void *block)
- 		put_page(&sp->page);
- }
- EXPORT_SYMBOL(kfree);
-+#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
- 
- /* can't use ksize for kmem_cache_alloc memory, only kmalloc */
- size_t ksize(const void *block)
-diff --git a/mm/slub.c b/mm/slub.c
-index 0280eee..41943fc 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -2738,6 +2738,7 @@ size_t ksize(const void *object)
- }
- EXPORT_SYMBOL(ksize);
- 
-+#undef kfree
- void kfree(const void *x)
- {
- 	struct page *page;
-@@ -2755,6 +2756,7 @@ void kfree(const void *x)
- 	slab_free(page->slab, page, object, _RET_IP_);
- }
- EXPORT_SYMBOL(kfree);
-+#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
- 
- /*
-  * kmem_cache_shrink removes empty slabs from the partial lists and sorts
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f112970..c1e9dc0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2671,7 +2671,7 @@ void netif_napi_del(struct napi_struct *napi)
- 	struct sk_buff *skb, *next;
- 
- 	list_del_init(&napi->dev_list);
--	kfree(napi->skb);
-+	kfree_skb(napi->skb);
- 
- 	for (skb = napi->gro_list; skb; skb = next) {
- 		next = skb->next;
+> 71c11fb57b924c160297ccd9e1761db598d00ac2 is first bad commit
+> commit 71c11fb57b924c160297ccd9e1761db598d00ac2
+> Author: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Date:   Tue Oct 28 18:29:48 2008 +0100
+>=20
+>     b43/legacy: remove SSID code
+>=20
+>     The SSID programmed into the device is used by the ucode only
+>     to reply to probe requests, a functionality we disable anyway
+>     because it doesn't fit with the mac80211/hostapd programming
+>     model. Therefore, it isn't useful to program the SSID into
+>     device.
 
+That's not believable, sorry. I know exactly what the microcode uses the
+SSID here for, and it never uses it when we're in station mode.
+
+johannes
+
+--=-AVqk3u9ur7XpbtCSWx/D
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJvUS3AAoJEKVg1VMiehFYHbwP/23mwPlFgJ1/pUMeENy0CwWl
+4gbwtEUoSPS4s4V4iakJNBLxmcBpv0txZzrkZo7XpFtoCyCo2w3gzd8swrkN/ZCJ
+1IQekBsbfVxGH14CoOg/V+/K0m53nr+bqkW/7aFDGpS/0KyLEsLecvZHDOKaw6nP
+2AKXrpnCupqjmDVySnaRMrUp7zd3oarRhxmkZFp7lOxfrFGT0gMkBqML4kAsHd/Y
+tp3of6TOj5lsmIemitokGhPPVENXMZUorZyTbAo/HPFDBGY+07OJVsis90uZTPtT
+3DjRSJNvs7s4e0YQHyQvROo3j7WphcPlPLLj+VT/+uYkHnmfv7no6PCnpRgLcdjO
+xLRRQxGj47bMIikdimjTk7gH84eObTqjaXXnUaqAh6CMORyMUXXawMyqu7G8JIId
+S9DEzYR6sAq1x8RT3wuH1DssTsCxN2xWKU8BSi+B0ZrbjqkCLp2G4q93Av+yWSNQ
+9p8mHiJiCyicXnTHsbPve+MsFbAJ4YnbOyi9lvl5giX6hDGHrXHoaX5Ic4nsLn4d
+kZoelPLCo6c1iD1wxk43q69K0c9IVZe6Ox9v3pFw/sKDaq1d8RHvt0XX21ADYAIU
+lnL3x9HQWP94TfB0jJdd/0inRrePsgHzpqXQOcx5sof+4gYaQdZrP0anHNc3JzNr
+t6sZVt0jm43S6jCLTwFB
+=3LKL
+-----END PGP SIGNATURE-----
+
+--=-AVqk3u9ur7XpbtCSWx/D--
