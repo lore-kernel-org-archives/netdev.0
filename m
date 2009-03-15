@@ -1,128 +1,139 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH] bonding: select current active slave when enslaving device
-	for mode tlb and alb
-Date: Sun, 15 Mar 2009 17:02:43 +0100
-Message-ID: <20090315160242.GA3379@psychotron.englab.brq.redhat.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: build bug on kfree(struct sk_buff*)
+Date: Sun, 15 Mar 2009 17:42:07 +0100
+Message-ID: <49BD2FDF.5050504@gmail.com>
+References: <49BA8710.20808@gmail.com> <49BAE95D.7060001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, davem@davemloft.net
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:40155 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752074AbZCOQC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Mar 2009 12:02:58 -0400
-Content-Disposition: inline
+Received: from mail-ew0-f177.google.com ([209.85.219.177]:55288 "EHLO
+	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753162AbZCOQmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 12:42:09 -0400
+In-Reply-To: <49BAE95D.7060001@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+I noticed that my initial attempt was invalid. The one below appears to be
+correct, although I am not sure whether there is a better implementation.
 
-I've hit an issue on my system when I've been using RealTek RTL8139D cards in
-bonding interface in mode balancing-alb. When I enslave a card, the current
-active slave (bond->curr_active_slave) is not set and the link is therefore
-not functional.
+this patch also fixes a kfree(skb) in net/core/dev.c, what do you think?
 
-----
-# cat /proc/net/bonding/bond0
-Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+Roel
 
-Bonding Mode: adaptive load balancing
-Primary Slave: None
-Currently Active Slave: None
-MII Status: up
-MII Polling Interval (ms): 100
-Up Delay (ms): 0
-Down Delay (ms): 0
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+ include/linux/kernel.h |    4 ++++
+ include/linux/slab.h   |    3 +++
+ mm/slab.c              |    2 ++
+ mm/slob.c              |    2 ++
+ mm/slub.c              |    2 ++
+ net/core/dev.c         |    2 +-
+ 6 files changed, 14 insertions(+), 1 deletions(-)
 
-Slave Interface: eth1
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:1f:1f:01:2f:22
-----
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index 7fa3718..b7f22d8 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -526,6 +526,10 @@ struct sysinfo {
+    aren't permitted). */
+ #define BUILD_BUG_ON_ZERO(e) (sizeof(char[1 - 2 * !!(e)]) - 1)
+ 
++/* If the type of x is TYPE, force a compilation error, otherwise produce x */
++#define BUILD_BUG_ON_TYPE(x, TYPE) __builtin_choose_expr(		\
++		__builtin_types_compatible_p(typeof(x), TYPE), (void)0, (x))
++
+ /* Trap pasters of __FUNCTION__ at compile-time */
+ #define __FUNCTION__ (__func__)
+ 
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index 24c5602..30c28f9 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -130,6 +130,9 @@ void kfree(const void *);
+ void kzfree(const void *);
+ size_t ksize(const void *);
+ 
++/* This ensures that kfree is not called with a struct sk_buff* */
++#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
++
+ /*
+  * Allocator specific definitions. These are mainly used to establish optimized
+  * ways to convert kmalloc() calls to kmem_cache_alloc() invocations by
+diff --git a/mm/slab.c b/mm/slab.c
+index 4d00855..cbcd28a 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -3711,6 +3711,7 @@ EXPORT_SYMBOL(kmem_cache_free);
+  * Don't free memory not originally allocated by kmalloc()
+  * or you will run into trouble.
+  */
++#undef kfree
+ void kfree(const void *objp)
+ {
+ 	struct kmem_cache *c;
+@@ -3727,6 +3728,7 @@ void kfree(const void *objp)
+ 	local_irq_restore(flags);
+ }
+ EXPORT_SYMBOL(kfree);
++#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
+ 
+ unsigned int kmem_cache_size(struct kmem_cache *cachep)
+ {
+diff --git a/mm/slob.c b/mm/slob.c
+index 52bc8a2..451325c 100644
+--- a/mm/slob.c
++++ b/mm/slob.c
+@@ -487,6 +487,7 @@ void *__kmalloc_node(size_t size, gfp_t gfp, int node)
+ }
+ EXPORT_SYMBOL(__kmalloc_node);
+ 
++#undef kfree
+ void kfree(const void *block)
+ {
+ 	struct slob_page *sp;
+@@ -503,6 +504,7 @@ void kfree(const void *block)
+ 		put_page(&sp->page);
+ }
+ EXPORT_SYMBOL(kfree);
++#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
+ 
+ /* can't use ksize for kmem_cache_alloc memory, only kmalloc */
+ size_t ksize(const void *block)
+diff --git a/mm/slub.c b/mm/slub.c
+index 0280eee..41943fc 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2738,6 +2738,7 @@ size_t ksize(const void *object)
+ }
+ EXPORT_SYMBOL(ksize);
+ 
++#undef kfree
+ void kfree(const void *x)
+ {
+ 	struct page *page;
+@@ -2755,6 +2756,7 @@ void kfree(const void *x)
+ 	slab_free(page->slab, page, object, _RET_IP_);
+ }
+ EXPORT_SYMBOL(kfree);
++#define kfree(x) kfree(BUILD_BUG_ON_TYPE(x, struct sk_buff*))
+ 
+ /*
+  * kmem_cache_shrink removes empty slabs from the partial lists and sorts
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f112970..c1e9dc0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2671,7 +2671,7 @@ void netif_napi_del(struct napi_struct *napi)
+ 	struct sk_buff *skb, *next;
+ 
+ 	list_del_init(&napi->dev_list);
+-	kfree(napi->skb);
++	kfree_skb(napi->skb);
+ 
+ 	for (skb = napi->gro_list; skb; skb = next) {
+ 		next = skb->next;
 
-The thing that gets it right is when I unplug the cable and then I put it back
-into the NIC. Then the current active slave is set to eth1 and link is working
-just fine. Here is dmesg log with bonding DEBUG messages turned on:
-----
-ADDRCONF(NETDEV_UP): bond0: link is not ready
-event_dev: bond0, event: 1
-IFF_MASTER
-event_dev: bond0, event: 8
-IFF_MASTER
-bond_ioctl: master=bond0, cmd=35216
-slave_dev=cac5d800: 
-slave_dev->name=eth1: 
-eth1: ! NETIF_F_VLAN_CHALLENGED
-event_dev: eth1, event: 8
-eth1: link up, 100Mbps, full-duplex, lpa 0xC5E1
-event_dev: eth1, event: 1
-event_dev: eth1, event: 8
-IFF_SLAVE
-Initial state of slave_dev is BOND_LINK_UP
-bonding: bond0: enslaving eth1 as an active interface with an up link.
-ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-event_dev: bond0, event: 4
-IFF_MASTER
-bond0: no IPv6 routers present
-
-<<<<cable unplug>>>>
-
-eth1: link down
-event_dev: eth1, event: 4
-IFF_SLAVE
-bonding: bond0: link status definitely down for interface eth1, disabling it
-event_dev: bond0, event: 4
-IFF_MASTER
-
-<<<<cable plug>>>>
-
-eth1: link up, 100Mbps, full-duplex, lpa 0xC5E1
-event_dev: eth1, event: 4
-IFF_SLAVE
-bonding: bond0: link status definitely up for interface eth1.
-bonding: bond0: making interface eth1 the new active one.
-event_dev: eth1, event: 8
-IFF_SLAVE
-event_dev: eth1, event: 8
-IFF_SLAVE
-bonding: bond0: first active interface up!
-event_dev: bond0, event: 4
-IFF_MASTER
-----
-
-The current active slave is set by calling bond_select_active_slave() function
-from bond_miimon_commit() function when the slave (eth1) link goes to state up.
-
-I also tested this on other machine with Broadcom NetXtreme II BCM5708
-1000Base-T NIC and there all works fine. The thing is that this adapter is down
-and goes up after few seconds after it is enslaved.
-
-This patch calls bond_select_active_slave() in bond_enslave() function for modes
-alb and tlb and makes sure that the current active slave is set up properly even
-when the slave state is already up. Tested on both systems, works fine.
-
-Notice: The same problem can maybe also occrur in mode 8023AD but I'm unable to
-test that.
-
-Jirka
-
-
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-
- drivers/net/bonding/bond_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e0578fe..ba64666 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1710,6 +1710,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	case BOND_MODE_ALB:
- 		new_slave->state = BOND_STATE_ACTIVE;
- 		bond_set_slave_inactive_flags(new_slave);
-+		bond_select_active_slave(bond);
- 		break;
- 	default:
- 		pr_debug("This slave is always active in trunk mode\n");
