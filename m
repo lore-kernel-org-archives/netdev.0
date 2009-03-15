@@ -1,59 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-2.6 PATCH][RESEND] igb: remove ASPM L0s workaround
-Date: Sat, 14 Mar 2009 18:39:18 -0700
-Message-ID: <9929d2390903141839o7cf91c40u1fc308cc349f9231@mail.gmail.com>
-References: <20090314063308.3837.66924.stgit@lost.foo-projects.org>
-	 <20090314.125445.99853912.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: IGMP Join dropping multicast packets
+Date: Sun, 15 Mar 2009 03:37:09 +0100
+Message-ID: <49BC69D5.5000002@cosmosbay.com>
+References: <91bdcedb0903141316j2dbf4160wb348a5a9e3bde8ad@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Dave Boutcher <daveboutcher@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:40227 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755015AbZCOBjU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 21:39:20 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so634221ywh.1
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2009 18:39:18 -0700 (PDT)
-In-Reply-To: <20090314.125445.99853912.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:41318 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753082AbZCOChS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2009 22:37:18 -0400
+In-Reply-To: <91bdcedb0903141316j2dbf4160wb348a5a9e3bde8ad@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 14, 2009 at 12:54 PM, David Miller <davem@davemloft.net> wr=
-ote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Fri, 13 Mar 2009 23:35:34 -0700
->
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>
->> The L0s workaround should be moved into a pci quirk and so it is not
->> necessary in the driver. =C2=A0This update removes the L0s workaroun=
-d from the
->> igb driver.
->>
->> This was the second half of the PCI quirk patch with Matthew Wilcox =
-did not
->> pick up when he picked up the quirk patch.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->
-> Doesn't apply to net-2.6:
->
-> davem@sunset:~/src/GIT/net-2.6$ apply "Alexander Duyck" "alexander.h.=
-duyck@intel.com" diff msg
-> error: patch failed: drivers/net/igb/igb_main.c:1126
-> error: drivers/net/igb/igb_main.c: patch does not apply
-> davem@sunset:~/src/GIT/net-2.6$
->
-> And in fact if I try to apply it to net-next-2.6, that does
-> work.
-> --
+Dave Boutcher a =E9crit :
+> I'm running into an interesting problem with joining multiple
+> multicast feeds.  If you join multiple multicast feeds using
+> setsockopt(...,IP_ADD_MEMBERSHIP...) it causes packets on UNRELATED
+> multicast feeds to get dropped.  We have a multicast feed on a rock
+> solid network, and we were very surprised to see dropped packets.  Th=
+e
+> cause was a different process/program being run by a different user
+> joining a bunch of mulitcast feeds.
+>=20
+> I can recreate this with a fairly simple testcase (attached below.)
+> The problem doesn't happen with unicast UDP data, and it doesn't
+> happen with loopback, so you need at least two systems to run this
+> (and what subscriber to netdev doesn't have at least two systems.)  T=
+o
+> recreate, run "receiver" on one system, "sender", on another, and the=
+n
+> "joiner" on the receiving system.  You should see a message pop out
+> saying that packets have been dropped.  I've recreated this on a few
+> different kernel versions (the latest being 2.6.28) and a few
+> different sets off hardware.  I HAVEN"T recreated it if the system
+> doing the IP_ADD_MEMBERSHIP specifies a specific interface rather tha=
+n
+> INADDR_ANY.  I'm not sure if that is core to the issue or not.  You
+> may also need to bump the value in
+> /proc/sys/net/ipv4/igmp_max_memberships (though that hasn't seemed
+> necessary for me.)
+>=20
+> I poked around in igmp.c, but its mojo exceeds my threshold.  If
+> anyone has any ideas or questions I'd be happy to hear them.
+>=20
 
-My bad, I will re-spin the patch with your net-2.6 tree.
+I could not reproduce the problem on my machines (bnx2 adapter), even i=
+f changing
+NUMSOCK from 55 to 200 in joiner.c
 
---=20
-Cheers,
-Jeff
+Is your network a 100Mb one or Gigabit ?
+Try to slow down your joiner ?
+(Could be a flood of IGMP messages your router/switch cannot cope with)
+
+Please describe your "rock solid" network setup (kind of network adapte=
+rs you have, kind of router...)
+
+Each time an address is added, NIC driver have to reprogram mcfilter of
+the device. Maybe some NIC can drop some packets at this moment...
+
+If using tcpdump to force promiscuous mode on the device also triggers =
+packet losses ?
+
+(see also ifconfig ethX promisc|allmulti)
+
