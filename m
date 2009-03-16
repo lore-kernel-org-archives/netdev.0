@@ -1,47 +1,39 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 00/04: netfilter fixes
-Date: Mon, 16 Mar 2009 17:08:42 +0100 (MET)
-Message-ID: <20090316160841.3567.94089.sendpatchset@x2.localnet>
+Subject: netfilter 01/04: conntrack: don't deliver events for racy packets
+Date: Mon, 16 Mar 2009 17:08:43 +0100 (MET)
+Message-ID: <20090316160842.3567.21460.sendpatchset@x2.localnet>
+References: <20090316160841.3567.94089.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090316160841.3567.94089.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+commit b1e93a68ca41e7e73766f95ba32ca05cf9052e15
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Mon Mar 16 15:06:42 2009 +0100
 
-the following patches for 2.6.29 fix a few netfilter bugs:
+    netfilter: conntrack: don't deliver events for racy packets
+    
+    This patch skips the delivery of conntrack events if the packet
+    was drop due to a race condition in the conntrack insertion.
+    
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-- avoid event delivery for conntracks dropped because of clashes (from Pablo)
-
-- fix for a ctnetlink crash during expectation creation caused by a missing
-  initialization. Also from Pablo.
-
-- a fix for correctly handling NF_DROP return values from the conntrack
-  ->packet() callbacks. From Christoph Pasch.
-
-- reordering of the header checks in IPv6 conntrack reassembly to avoid an
-  incorrect log message with NEXTHDR_NONE. Also from Christoph.
-
-Please apply or pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
-
-Thanks!
-
-
- include/net/netfilter/nf_conntrack_core.h |    3 ++-
- net/ipv6/netfilter/nf_conntrack_reasm.c   |    8 ++++----
- net/netfilter/nf_conntrack_core.c         |    2 +-
- net/netfilter/nf_conntrack_netlink.c      |    1 +
- net/netfilter/nf_conntrack_proto_tcp.c    |    4 ++--
- 5 files changed, 10 insertions(+), 8 deletions(-)
-
-Christoph Paasch (2):
-      netfilter: conntrack: fix dropping packet after l4proto->packet()
-      netfilter: conntrack: check for NEXTHDR_NONE before header sanity checking
-
-Pablo Neira Ayuso (2):
-      netfilter: conntrack: don't deliver events for racy packets
-      netfilter: ctnetlink: fix crash during expectation creation
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index c25068e..5a449b4 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -62,7 +62,8 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)
+ 	if (ct && ct != &nf_conntrack_untracked) {
+ 		if (!nf_ct_is_confirmed(ct) && !nf_ct_is_dying(ct))
+ 			ret = __nf_conntrack_confirm(skb);
+-		nf_ct_deliver_cached_events(ct);
++		if (likely(ret == NF_ACCEPT))
++			nf_ct_deliver_cached_events(ct);
+ 	}
+ 	return ret;
+ }
