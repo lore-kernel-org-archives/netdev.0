@@ -1,142 +1,125 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sun, 15 Mar 2009 20:56:31 -0700 (PDT)
-Message-ID: <20090315.205631.219535931.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [patch next] netxen: fix firmware download warnings
+Date: Sun, 15 Mar 2009 23:41:02 -0700
+Message-ID: <1237185662-16726-1-git-send-email-dhananjay@netxen.com>
+Cc: davem@davemloft.net, sfr@canb.auug.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34338
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751690AbZCPD4p convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Mar 2009 23:56:45 -0400
+Received: from nxgate.netxen.com ([38.99.60.130]:47887 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751435AbZCPGlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Mar 2009 02:41:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fix following warnings, by using integer firmware types.
 
-Almost all driver stuff, as usually is the case at this point.
+drivers/net/netxen/netxen_nic_hw.c: In function 'netxen_load_firmware':
+drivers/net/netxen/netxen_nic_hw.c:1146: warning: comparison with string literal results in unspecified behavior
+drivers/net/netxen/netxen_nic_hw.c:1146: warning: comparison with string literal results in unspecified behavior
+drivers/net/netxen/netxen_nic_hw.c:1146: warning: comparison with string literal results in unspecified behavior
+drivers/net/netxen/netxen_nic_hw.c:1159: warning: comparison with string literal results in unspecified behavior
+drivers/net/netxen/netxen_nic_hw.c:1159: warning: comparison with string literal results in unspecified behavior
+drivers/net/netxen/netxen_nic_hw.c:1159: warning: comparison with string literal results in unspecified behavior
 
-1) Two new drivers, for Dave DNET and be2net ethernet controllers.
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic.h    |    6 +++---
+ drivers/net/netxen/netxen_nic_hw.c |   24 ++++++++++++------------
+ 2 files changed, 15 insertions(+), 15 deletions(-)
 
-2) Missing second part of ASPM L0 IGB fix, from Alexander Duyck.
-   The first part went in via the PCI tree already.
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index 2544129..78e6228 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -693,9 +693,9 @@ typedef enum {
+ #define NX_BIOS_VERSION_OFFSET	(NETXEN_USER_START+0x83c)
+ #define NX_FW_MAGIC_OFFSET	(NETXEN_BRDCFG_START+0x128)
+ #define NX_FW_MIN_SIZE		(0x3fffff)
+-#define NX_P2_MN_ROMIMAGE	"nxromimg.bin"
+-#define NX_P3_CT_ROMIMAGE	"nx3fwct.bin"
+-#define NX_P3_MN_ROMIMAGE	"nx3fwmn.bin"
++#define NX_P2_MN_ROMIMAGE	0
++#define NX_P3_CT_ROMIMAGE	1
++#define NX_P3_MN_ROMIMAGE	2
+ 
+ #define NETXEN_USER_START_OLD NETXEN_PXE_START	/* for backward compatibility */
+ 
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index c89c791..b24cfdd 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -1130,21 +1130,21 @@ netxen_validate_firmware(struct netxen_adapter *adapter, const char *fwname,
+ 	return 0;
+ }
+ 
++static char *fw_name[] = { "nxromimg.bin", "nx3fwct.bin", "nx3fwmn.bin" };
++
+ int netxen_load_firmware(struct netxen_adapter *adapter)
+ {
+ 	u32 capability, flashed_ver;
+ 	const struct firmware *fw;
+-	char *fw_name = NULL;
++	int fw_type;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int rc = 0;
+ 
+ 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+-		fw_name = NX_P2_MN_ROMIMAGE;
++		fw_type = NX_P2_MN_ROMIMAGE;
+ 		goto request_fw;
+-	}
+-
+-	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
+-		fw_name = NX_P3_CT_ROMIMAGE;
++	} else {
++		fw_type = NX_P3_CT_ROMIMAGE;
+ 		goto request_fw;
+ 	}
+ 
+@@ -1157,15 +1157,15 @@ request_mn:
+ 		adapter->hw_read_wx(adapter,
+ 				NX_PEG_TUNE_CAPABILITY, &capability, 4);
+ 		if (capability & NX_PEG_TUNE_MN_PRESENT) {
+-			fw_name = NX_P3_MN_ROMIMAGE;
++			fw_type = NX_P3_MN_ROMIMAGE;
+ 			goto request_fw;
+ 		}
+ 	}
+ 
+ request_fw:
+-	rc = request_firmware(&fw, fw_name, &pdev->dev);
++	rc = request_firmware(&fw, fw_name[fw_type], &pdev->dev);
+ 	if (rc != 0) {
+-		if (fw_name == NX_P3_CT_ROMIMAGE) {
++		if (fw_type == NX_P3_CT_ROMIMAGE) {
+ 			msleep(1);
+ 			goto request_mn;
+ 		}
+@@ -1174,11 +1174,11 @@ request_fw:
+ 		goto load_fw;
+ 	}
+ 
+-	rc = netxen_validate_firmware(adapter, fw_name, fw);
++	rc = netxen_validate_firmware(adapter, fw_name[fw_type], fw);
+ 	if (rc != 0) {
+ 		release_firmware(fw);
+ 
+-		if (fw_name == NX_P3_CT_ROMIMAGE) {
++		if (fw_type == NX_P3_CT_ROMIMAGE) {
+ 			msleep(1);
+ 			goto request_mn;
+ 		}
+@@ -1187,7 +1187,7 @@ request_fw:
+ 	}
+ 
+ load_fw:
+-	rc = netxen_do_load_firmware(adapter, fw_name, fw);
++	rc = netxen_do_load_firmware(adapter, fw_name[fw_type], fw);
+ 
+ 	if (fw)
+ 		release_firmware(fw);
+-- 
+1.6.0.2
 
-3) BUG fix when ipv6 module is unloaded, missing check on disabled
-   module option.  From John Dykstra.
-
-4) r8169 fixes from fran=E7ois romieu.
-
-5) IBM EMAC bug fix from Benjamin Herrenschmidt.
-
-6) Fix regression in IPSEC xfrm_state lookups wrt. wildcard source
-   addresses.
-
-7) QLGE bug fixes from Ron Mercer.
-
-8) unicast filtering fixes in IXGBE and MV643XX_ETH.
-
-Please pull, thanks a lot.
-
-The following changes since commit 326d8519fc97be186c55ac605c3a7c957c75=
-8ae1:
-  Linus Torvalds (1):
-        Merge branch 'upstream' of git://ftp.linux-mips.org/pub/scm/ups=
-tream-linus
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alexander Duyck (1):
-      igb: remove ASPM L0s workaround
-
-Benjamin Herrenschmidt (1):
-      emac: Fix clock control for 405EX and 405EXr chips
-
-Chris Leech (1):
-      ixgbe: fix multiple unicast address support
-
-Dave Jones (1):
-      via-velocity: Fix DMA mapping length errors on transmit.
-
-David S. Miller (2):
-      dnet: Fix warnings on 64-bit.
-      xfrm: Fix xfrm_state_find() wrt. wildcard source address.
-
-Dhananjay Phadke (1):
-      netxen: remove old flash check.
-
-Eilon Greenstein (3):
-      bnx2x: Adding restriction on sge_buf_size
-      bnx2x: Casting page alignment
-      bnx2x: Using DMAE to initialize the chip
-
-Ilya Yanok (2):
-      dnet: Dave DNET ethernet controller driver (updated)
-      dnet: replace obsolete *netif_rx_* functions with *napi_*
-
-John Dykstra (1):
-      ipv6:  Fix BUG when disabled ipv6 module is unloaded
-
-Lennert Buytenhek (1):
-      mv643xx_eth: fix unicast address filter corruption on mtu change
-
-Ron Mercer (4):
-      qlge: bugfix: Increase filter on inbound csum.
-      qlge: bugfix: Tell hw to strip vlan header.
-      qlge: bugfix: Move netif_napi_del() to common call point.
-      qlge: bugfix: Pad outbound frames smaller than 60 bytes.
-
-Sathya Perla (1):
-      net: Add be2net driver.
-
-fran=E7ois romieu (2):
-      r8169: use hardware auto-padding.
-      r8169: revert "r8169: read MAC address from EEPROM on init (2nd a=
-ttempt)"
-
- MAINTAINERS                          |    9 +
- drivers/net/Kconfig                  |   13 +
- drivers/net/Makefile                 |    2 +
- drivers/net/benet/Kconfig            |    7 +
- drivers/net/benet/Makefile           |    7 +
- drivers/net/benet/be.h               |  327 ++++++
- drivers/net/benet/be_cmds.c          |  861 +++++++++++++++
- drivers/net/benet/be_cmds.h          |  688 ++++++++++++
- drivers/net/benet/be_ethtool.c       |  362 +++++++
- drivers/net/benet/be_hw.h            |  211 ++++
- drivers/net/benet/be_main.c          | 1903 ++++++++++++++++++++++++++=
-++++++++
- drivers/net/bnx2x.h                  |    2 +-
- drivers/net/bnx2x_init.h             |    4 -
- drivers/net/bnx2x_main.c             |   21 +-
- drivers/net/dnet.c                   |  994 ++++++++++++++++++
- drivers/net/dnet.h                   |  225 ++++
- drivers/net/ibm_newemac/core.c       |    3 +
- drivers/net/igb/igb_main.c           |   26 +-
- drivers/net/ixgbe/ixgbe_main.c       |    1 +
- drivers/net/mv643xx_eth.c            |   10 +-
- drivers/net/netxen/netxen_nic.h      |    1 -
- drivers/net/netxen/netxen_nic_hw.c   |   22 -
- drivers/net/netxen/netxen_nic_main.c |    3 -
- drivers/net/qlge/qlge.h              |    1 +
- drivers/net/qlge/qlge_main.c         |   57 +-
- drivers/net/r8169.c                  |  122 +---
- drivers/net/via-velocity.c           |   15 +-
- net/ipv6/af_inet6.c                  |    3 +
- net/xfrm/xfrm_state.c                |   90 +-
- 29 files changed, 5741 insertions(+), 249 deletions(-)
- create mode 100644 drivers/net/benet/Kconfig
- create mode 100644 drivers/net/benet/Makefile
- create mode 100644 drivers/net/benet/be.h
- create mode 100644 drivers/net/benet/be_cmds.c
- create mode 100644 drivers/net/benet/be_cmds.h
- create mode 100644 drivers/net/benet/be_ethtool.c
- create mode 100644 drivers/net/benet/be_hw.h
- create mode 100644 drivers/net/benet/be_main.c
- create mode 100644 drivers/net/dnet.c
- create mode 100644 drivers/net/dnet.h
