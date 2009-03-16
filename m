@@ -1,235 +1,101 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-2.6 PATCH 9/10] Neterion: New driver: Ethtool related
-Date: Mon, 16 Mar 2009 21:53:01 +0000
-Message-ID: <1237240381.3106.79.camel@achroite>
-References: <1237018915.4966.437.camel@flash>
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Subject: Re: [PATCHv2] netns: oops in ip_frag_reasm incrementing stats
+Date: Mon, 16 Mar 2009 22:53:14 +0100
+Message-ID: <49BECA4A.4080207@dti2.net>
+References: <49BA87F4.1090709@dti2.net> <49BA8B65.2060408@dti2.net> <49BE4192.7090706@dti2.net> <49BEBF25.70008@gmail.com>
+Reply-To: jorge@dti2.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: ram.vepa@neterion.com
+Cc: netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:58067 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753597AbZCPVxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 17:53:12 -0400
-In-Reply-To: <1237018915.4966.437.camel@flash>
+Received: from alcalazamora.dti2.net ([81.24.162.8]:3167 "EHLO
+	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759071AbZCPVxX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 17:53:23 -0400
+Received: from [172.16.16.6] ([81.24.161.20])
+	(authenticated user jorge@dti2.net)
+	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
+	(MDaemon PRO v9.6.5)
+	with ESMTP id md50002681241.msg
+	for <netdev@vger.kernel.org>; Mon, 16 Mar 2009 22:53:18 +0100
+In-Reply-To: <49BEBF25.70008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-03-14 at 00:22 -0800, Ramkrishna Vepa wrote:
-> This patch implements all ethtool related entry point functions for t=
-he driver.
+Jarek Poplawski escribi=F3:
+> Jorge Boncompte [DTI2] wrote, On 03/16/2009 01:09 PM:
 >=20
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
-> Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-> ---
-> diff -urpN patch_8/drivers/net/vxge/vxge-ethtool.c patch_9/drivers/ne=
-t/vxge/vxge-ethtool.c
-> --- patch_8/drivers/net/vxge/vxge-ethtool.c	1969-12-31 16:00:00.00000=
-0000 -0800
-> +++ patch_9/drivers/net/vxge/vxge-ethtool.c	2009-03-13 00:15:35.00000=
-0000 -0700
-[...
-> +/*
-> + * vxge_ethtool_sset - Sets different link parameters.
-> + * @dev: device pointer.
-> + * @info: pointer to the structure with parameters given by ethtool =
-to set
-> + * link information.
-> + *
-> + * The function sets different link parameters provided by the user =
-onto
-> + * the NIC.
-> + * Return value:
-> + * 0 on success.
-> + */
-> +
-> +static int vxge_ethtool_sset(struct net_device *dev, struct ethtool_=
-cmd *info)
-> +{
-> +	if ((info->autoneg =3D=3D AUTONEG_ENABLE) ||
-> +	    (info->speed !=3D SPEED_10000) || (info->duplex !=3D DUPLEX_FUL=
-L))
-> +		return -EINVAL;
-> +
-> +	if (netif_running(dev)) {
-> +		vxge_close(dev);
-> +		vxge_open(dev);
+>> dev can be NULL on ip_frag_reasm for skb's coming from RAW sockets.
+>>
+>> Quagga's OSPFD sends fragmented packets on a RAW socket, when netfil=
+ter
+>> conntrack reassembles them on the OUTPUT path you hit this code path=
+=2E
+>>
+>> Changes from v1:
+>>    - Fixed description
+>>
+>> Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+>> ---
+>> net/ipv4/ip_fragment.c |   14 +++++++-------
+>> 1 files changed, 7 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+>> index 6659ac0..8f150d5 100644
+>> --- a/net/ipv4/ip_fragment.c
+>> +++ b/net/ipv4/ip_fragment.c
+>=20
+> ...
+>=20
+>> -static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+>> +static int ip_frag_reasm(struct net *net, struct ipq *qp, struct sk=
+_buff *prev,
+>> 			 struct net_device *dev)
+>> {
+>> 	struct iphdr *iph;
+>> @@ -548,7 +548,7 @@ static int ip_frag_reasm(struct ipq *qp, struct =
+sk_buff *prev,
+>> 	iph =3D ip_hdr(head);
+>> 	iph->frag_off =3D 0;
+>> 	iph->tot_len =3D htons(len);
+>> -	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMOKS);
+>> +	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
+>=20
+>=20
+> I didn't check this but isn't something like this possible here too?:
+>=20
+> static inline int ip_frag_too_far(struct ipq *qp)
+> {
+> 	...
+>         net =3D container_of(qp->q.net, struct net, ipv4.frags);
+>         IP_INC_STATS_BH(net, IPSTATS_MIB_REASMFAILS);
+>=20
 
-Why?
+	Yes, it seems so. I did not noticed how the rest of the code accessed
+the net pointer, sorry.
+	Do you want to send a patch yourself or should I do it?
 
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +/*
-> + * vxge_ethtool_gset - Return link specific information.
-> + * @dev: device pointer.
-> + * @info: pointer to the structure with parameters given by ethtool
-> + * to return link information.
-> + *
-> + * Returns link specific information like speed, duplex etc.. to eth=
-tool.
-> + * Return value :
-> + * return 0 on success.
-> + */
-> +int vxge_ethtool_gset(struct net_device *dev, struct ethtool_cmd
-> +*info)
-> +{
-> +	info->supported =3D (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-> +
-> +#ifdef ADVERTISED_10000baseT_Full
-> +	info->advertising =3D ADVERTISED_10000baseT_Full;
-> +#else
-> +	info->advertising =3D SUPPORTED_10000baseT_Full;
-> +#endif
-> +
-> +#ifdef ADVERTISED_FIBRE
-> +	info->advertising  |=3D ADVERTISED_FIBRE;
-> +#else
-> +	info->advertising  |=3D SUPPORTED_FIBRE;
-> +#endif
+	Regards,
 
-Do not use #ifdef here.  You can be sure that these definitions aren't
-going away.
-
-[...]
-> +/*
-> + * vxge_ethtool_gdrvinfo - Returns driver specific information.
-> + * @dev: device pointer.
-> + * @info: pointer to the structure with parameters given by ethtool =
-to
-> + * return driver information.
-> + *
-> + * Returns driver specefic information like name, version etc.. to e=
-thtool.
-> + */
-> +static void vxge_ethtool_gdrvinfo(struct net_device *dev,
-> +			struct ethtool_drvinfo *info)
-> +{
-> +	struct vxgedev *vdev;
-> +	char version[80];
-> +	vdev =3D (struct vxgedev *)netdev_priv(dev);
-> +	sprintf(version, "%s", DRV_VERSION);
-
-What is the point of this intermediate copy?
-
-> +	strncpy(info->driver, VXGE_DRIVER_NAME, sizeof(VXGE_DRIVER_NAME));
-> +	strncpy(info->version, version, sizeof(version));
-> +	strncpy(info->fw_version, vdev->fw_version, VXGE_HW_FW_VERSION_LEN)=
-;
-> +	strncpy(info->bus_info, pci_name(vdev->pdev), sizeof(info->bus_info=
-));
-=EF=BB=BF
-Use strlcpy() to ensure null-termination.
-
-[...]
-> +static int vxge_ethtool_idnic(struct net_device *dev, u32 data)
-> +{
-> +	u32 port[3] =3D {0, 1, 2};
-> +	int i;
-> +	struct vxgedev *vdev =3D (struct vxgedev *)netdev_priv(dev);
-> +	struct __hw_device  *hldev =3D (struct __hw_device  *)
-> +			pci_get_drvdata(vdev->pdev);
-> +
-> +	if (vdev->id_timer.function =3D=3D NULL) {
-> +		init_timer(&vdev->id_timer);
-> +		vdev->id_timer.function =3D vxge_phy_id;
-> +		vdev->id_timer.data =3D (unsigned long) vdev;
-> +	}
-> +	mod_timer(&vdev->id_timer, jiffies);
-> +	set_current_state(TASK_INTERRUPTIBLE);
-> +	if (data)
-> +		schedule_timeout(data * HZ);
-> +	else
-> +		schedule_timeout(MAX_SCHEDULE_TIMEOUT);
-
-Just schedule() will do.
-
-[...]
-> +static u32 vxge_ethtool_op_get_tso(struct net_device *dev)
-> +{
-> +	return (dev->features & NETIF_F_TSO) !=3D 0;
-> +}
-
-This is the same as ethtool_op_get_tso; just point to that.
-
-[...]
-> +int vxge_ethtool_self_test_count(struct net_device *dev)
-> +{
-> +	return VXGE_TEST_LEN;
-> +}
-> +
-> +static int vxge_ethtool_get_stats_count(struct net_device *dev)
-> +{
-> +	struct vxgedev *vdev =3D (struct vxgedev *)netdev_priv(dev);
-> +	return VXGE_TITLE_LEN + (vdev->no_of_vpath *
-> +		VXGE_HW_VPATH_STATS_LEN) +
-> +		(vdev->max_config_port * VXGE_HW_AGGR_STATS_LEN) +
-> +		(vdev->max_config_port * VXGE_HW_PORT_STATS_LEN) +
-> +		(vdev->no_of_vpath * VXGE_HW_VPATH_TX_STATS_LEN) +
-> +		(vdev->no_of_vpath * VXGE_HW_VPATH_RX_STATS_LEN) +
-> +
-> +		(vdev->no_of_vpath * VXGE_SW_STATS_LEN) + DRIVER_STAT_LEN;
-> +
-> +}
-
-These operations are deprecated; you should implement get_strings_count
-instead.
-
-> +int vxge_ethtool_op_set_tx_csum(struct net_device *dev, u32 data)
-> +{
-> +	if (data)
-> +		dev->features |=3D NETIF_F_HW_CSUM;
-> +	else
-> +		dev->features &=3D ~NETIF_F_HW_CSUM;
-> +
-> +	return 0;
-> +}
-
-This is the same as ethtool_op_set_tx_hw_csum; just point to that.
-
-[...]
-> +struct ethtool_ops netdev_ethtool_ops =3D {
-> +	.get_settings =3D vxge_ethtool_gset,
-> +	.set_settings =3D vxge_ethtool_sset,
-> +	.get_drvinfo =3D vxge_ethtool_gdrvinfo,
-> +	.get_regs_len =3D vxge_ethtool_get_regs_len,
-> +	.get_regs =3D vxge_ethtool_gregs,
-> +	.get_link =3D ethtool_op_get_link,
-> +
-> +	.get_eeprom_len =3D vxge_get_eeprom_len,
-> +
-> +	.get_eeprom =3D NULL,
-> +	.set_eeprom =3D NULL,
-
-So what is the point of reporting the EEPROM length?
-
-> +	.get_pauseparam =3D vxge_ethtool_getpause_data,
-> +	.set_pauseparam =3D vxge_ethtool_setpause_data,
-> +	.get_rx_csum =3D vxge_get_rx_csum,
-> +	.set_rx_csum =3D vxge_set_rx_csum,
-> +	.get_tx_csum =3D ethtool_op_get_tx_csum,
-> +	.set_tx_csum =3D vxge_ethtool_op_set_tx_csum,
-> +	.get_sg =3D ethtool_op_get_sg,
-> +	.set_sg =3D ethtool_op_set_sg,
-> +
-> +	.get_tso =3D vxge_ethtool_op_get_tso,
-> +	.set_tso =3D vxge_ethtool_op_set_tso,
-> +
-> +	.self_test_count =3D vxge_ethtool_self_test_count,
-> +	.self_test =3D NULL,
-[...]
-
-Don't claim to have tests you don't actually implement.
-
-Ben.
-
+	Jorge
 --=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Jorge Boncompte - Ingenieria y Gestion de RED
+DTI2 - Desarrollo de la Tecnologia de las Comunicaciones
+--------------------------------------------------------------
+C/ Abogado Enriquez Barrios, 5   14004 CORDOBA (SPAIN)
+Tlf: +34 957 761395 / FAX: +34 957 450380
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+- Sin pistachos no hay Rock & Roll...
+- Without wicker a basket cannot be made.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 
