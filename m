@@ -1,44 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Sun, 15 Mar 2009 19:58:06 -0700 (PDT)
-Message-ID: <20090315.195806.97939686.davem@davemloft.net>
-References: <200903131017.11572.rusty@rustcorp.com.au>
-	<20090313.120100.266753164.davem@davemloft.net>
-	<200903141049.43202.rusty@rustcorp.com.au>
+Subject: Re: [PATCH] net: reorder fields of struct socket
+Date: Sun, 15 Mar 2009 19:59:23 -0700 (PDT)
+Message-ID: <20090315.195923.109697114.davem@davemloft.net>
+References: <20090313.153851.11725991.davem@davemloft.net>
+	<49BAE1F3.5020105@cosmosbay.com>
+	<49BB72FA.1080401@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pktoss@gmail.com, dcbw@redhat.com, netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
+Cc: kchang@athenacr.com, netdev@vger.kernel.org, bmb@athenacr.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35140
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35144
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751851AbZCPC6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 22:58:19 -0400
-In-Reply-To: <200903141049.43202.rusty@rustcorp.com.au>
+	by vger.kernel.org with ESMTP id S1753399AbZCPC7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 22:59:36 -0400
+In-Reply-To: <49BB72FA.1080401@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Sat, 14 Mar 2009 10:49:42 +1030
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sat, 14 Mar 2009 10:03:54 +0100
 
-> On Saturday 14 March 2009 05:31:00 David Miller wrote:
-> > You can set netif_carrier_on() until you are blue in the face,
-> > but until you hook up the ethtool link indication operation
-> > NetworkManager won't see it.
+> On x86_64, its rather unfortunate that "wait_queue_head_t wait"
+> field of "struct socket" spans two cache lines (assuming a 64
+> bytes cache line in current cpus)
 > 
-> Um, dude, you already have that patch in your net-next tree.  See below.
-> This one goes on top.
+> offsetof(struct socket, wait)=0x30
+> sizeof(wait_queue_head_t)=0x18
+> 
+> This might explain why Kenny Chang noticed that his multicast workload
+> was performing bad with 64 bit kernels, since more cache lines ping pongs
+> were involved.
+> 
+> This litle patch moves "wait" field next "fasync_list" so that both
+> fields share a single cache line, to speedup sock_def_readable()
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Ahh, I didn't comprehend this bit.
-
-I overreacted, that's for sure, sorry.
-
-> Or should all devices which can't detect carrier set it to on, so
-> older NetworkManagers work?
-
-It is my opinion that this is the only correct behavior.
-
-If you don't know, it's on.  Because "on" means "usable".  And you
-can't fault NetworkManager or any other tool for making that kind of
-decision.
+Applied, thanks a lot Eric.
