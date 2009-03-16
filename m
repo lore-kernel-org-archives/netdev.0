@@ -1,57 +1,51 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC v2 3/7] net: netfilter conntrack - add per-net
-	functionality for SCTP protocol
-Date: Mon, 16 Mar 2009 21:45:36 +0300
-Message-ID: <20090316184536.GH7551@localhost>
-References: <20090311205706.141086138@gmail.com> <20090311210817.384140456@gmail.com> <49BE71AF.8050200@trash.net> <20090316154620.GA7551@localhost> <49BE74CC.8060701@trash.net> <20090316182136.GF7551@localhost> <49BE9A6E.4030904@trash.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: e100 firmware in 2.6.29-rc7?
+Date: Mon, 16 Mar 2009 11:47:22 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0903161143180.5116@jbrandeb-desk1.amr.corp.intel.com>
+References: <49BABF1F.9080909@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, daniel.lezcano@free.fr,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	xemul@openvz.org, adobriyan@gmail.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49BE9A6E.4030904@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, NetDev <netdev@vger.kernel.org>,
+	dwmw2@infradead.org, jesse.brandeburg@intel.com
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <49BABF1F.9080909@candelatech.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-[Patrick McHardy - Mon, Mar 16, 2009 at 07:29:02PM +0100]
-> Cyrill Gorcunov wrote:
->> After playing a bit with ctrl tables (thought about additional
->> mapping set or say new sysctl helper structure, or even using
->> extra1 member from struct ctl_table as temporary index) -- you were 
->> right in your first propose on this patch. Iterative
->> fasion is only more or less convenient here indeed :)
->>
->> Patrick, take a look please on the snippet below (that is how
->> it looks now).
->> ...
->
->> +	for (i = SCTP_CONNTRACK_CLOSED; i < SCTP_CONNTRACK_MAX; i++)
->> +		sn->sysctl_table[i - 1].data = &sn->sctp_timeouts[i];
->
-> That definitely looks nicer. Does this work (-1) for the other
-> protocols as well?
+On Fri, 13 Mar 2009, Ben Greear wrote:
+> I have selected build-firmware-into-kernel
+> but it seems e100 is still unhappy in 2.6.29-rc7.
+> 
+> e100 0000:02:01.0: firmware: requesting e100/d102e_ucode.bin
+> e100: eth4: e100_request_firmware: Failed to load firmware "e100/d102e_ucode.bin": -2
 
-Yes, it's allowable for TCP_CONNTRACK_ to use the same way
-referring just fine, though we use only a subset of the enum
-for sysctl table.
+can you post anything extra about your config? arch? full dmesg? full 
+.config?
 
->
->> If such an approach is fine -- I will fix the TCP proto
->> as well. Btw, this two patches (SCTP and TCP) are only
->> involved in such a modification, are there some problems
->> with patches for UDP, UDPlite and ICMP protos?
->
-> Its better than the macro and I don't really see a better way, so
-> this is fine with me. About the other patches - I just stopped at
-> SCTP since it was the first one I truely didn't like :)
->
+There have been several other reports of this but setting 
+CONFIG_FIRMWARE_IN_KERNEL=y seems to fix them in general.
 
-Ah :) Then I update only these two patches (SCTP and TCP protos)
-since other are not related in this. Or I could resend the whole
-series excluding the patches you've already picked up. Just say
-what would be more convenient for you.
+also please post lspci -vvv -s 2:1.0, after failing to load.  I'm curious 
+if the device might be in D3 still.
 
-	- Cyrill -
+you can likely just get working by commenting out the firmware load for 
+e100.  It may or may not re-enable a hardware bug depending upon the 
+hardware you have.
+
+Jesse
+
+------------------------------------------------------------------------------
+Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
+powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
+easily build your RIAs with Flex Builder, the Eclipse(TM)based development
+software that enables intelligent coding and step-through debugging.
+Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
