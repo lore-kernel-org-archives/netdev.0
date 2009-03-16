@@ -1,58 +1,57 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: Intel 82567LM e1000e DHCP problem/question
-Date: Mon, 16 Mar 2009 11:38:49 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.0903161133100.5116@jbrandeb-desk1.amr.corp.intel.com>
-References: <BAY143-W41A6A9A51EDB64905CA4D1B99A0@phx.gbl>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC v2 3/7] net: netfilter conntrack - add per-net
+	functionality for SCTP protocol
+Date: Mon, 16 Mar 2009 21:45:36 +0300
+Message-ID: <20090316184536.GH7551@localhost>
+References: <20090311205706.141086138@gmail.com> <20090311210817.384140456@gmail.com> <49BE71AF.8050200@trash.net> <20090316154620.GA7551@localhost> <49BE74CC.8060701@trash.net> <20090316182136.GF7551@localhost> <49BE9A6E.4030904@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net
-To: Pelle Svensson <pelle2004@hotmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26712 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753514AbZCPSiw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Mar 2009 14:38:52 -0400
-In-Reply-To: <BAY143-W41A6A9A51EDB64905CA4D1B99A0@phx.gbl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, daniel.lezcano@free.fr,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	xemul@openvz.org, adobriyan@gmail.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49BE9A6E.4030904@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-good idea to include e1000-devel@lists.sourceforge.net on these kinds of 
-requests.
+[Patrick McHardy - Mon, Mar 16, 2009 at 07:29:02PM +0100]
+> Cyrill Gorcunov wrote:
+>> After playing a bit with ctrl tables (thought about additional
+>> mapping set or say new sysctl helper structure, or even using
+>> extra1 member from struct ctl_table as temporary index) -- you were 
+>> right in your first propose on this patch. Iterative
+>> fasion is only more or less convenient here indeed :)
+>>
+>> Patrick, take a look please on the snippet below (that is how
+>> it looks now).
+>> ...
+>
+>> +	for (i = SCTP_CONNTRACK_CLOSED; i < SCTP_CONNTRACK_MAX; i++)
+>> +		sn->sysctl_table[i - 1].data = &sn->sctp_timeouts[i];
+>
+> That definitely looks nicer. Does this work (-1) for the other
+> protocols as well?
 
+Yes, it's allowable for TCP_CONNTRACK_ to use the same way
+referring just fine, though we use only a subset of the enum
+for sysctl table.
 
-On Sun, 15 Mar 2009, Pelle Svensson wrote:
-> Is there any functionality inside the driver for DHCP request.
-> I see in the source that there is some kind of DHCP filter f the tx stream.
-> Can the drive issue DHCP request inside it self when the Cable is unplugged/plugged.
+>
+>> If such an approach is fine -- I will fix the TCP proto
+>> as well. Btw, this two patches (SCTP and TCP) are only
+>> involved in such a modification, are there some problems
+>> with patches for UDP, UDPlite and ICMP protos?
+>
+> Its better than the macro and I don't really see a better way, so
+> this is fine with me. About the other patches - I just stopped at
+> SCTP since it was the first one I truely didn't like :)
+>
 
-short answer, the driver no, but the management firmware, maybe.
- 
-> I'm tracing a DHCP fault. 
+Ah :) Then I update only these two patches (SCTP and TCP protos)
+since other are not related in this. Or I could resend the whole
+series excluding the patches you've already picked up. Just say
+what would be more convenient for you.
 
-what kind of fault?  Is the server faulting?
-
-> When the net is brought down, ifdown eth0, the dhclient is killed.
-> Then when I unplugged/plugged the cable I get a DHCP request even that 
-> dhclient is down.
-> 
-> Also the Wireshark format of the DHCP request are different.
-> Correct request includes from dhclient has:
-> > Option: (t=12,l=5) Host Name = "pc005"
-> Incorrect requests when dhclient is killed does not have above.
-
-you apparently have the Intel AMT firmware (ME aka Management Engine) 
-enabled in your BIOS, you can try to configure it by hitting CTRL-P during 
-post (pre-boot) or at the prompt where it says to hit CTRL-P to enter 
-system management setup.
-
-The ME (management engine) firmware is trying to acquire its own dhcp 
-address and will do so if the driver is either not loaded or not up.
-
-Once the driver is loaded the firmware may still try to acquire a second 
-dhcp address for the ME, depending on your configuration.  This whole 
-setup works a lot like IPMI, but generally the ME is not configurable via 
-IPMI interfaces.
-
-Hope this helps,
-  Jesse
+	- Cyrill -
