@@ -1,59 +1,50 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10 GbE PCIe adapter
-Date: Sun, 15 Mar 2009 19:32:57 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705092C4D@nekter>
-References: <1237018825.4966.412.camel@flash><20090314.135746.44371717.davem@davemloft.net><78C9135A3D2ECE4B8162EBDCE82CAD7705092C24@nekter> <20090315192937.4bab4ffe.billfink@mindspring.com>
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: Re: [PATCH 2/2] r8169: revert "r8169: read MAC address from EEPROM on
+	init (2nd attempt)"
+Date: Mon, 16 Mar 2009 01:53:01 +0100
+Message-ID: <18877.41709.567947.25614@pilspetsen.it.uu.se>
+References: <20090315111050.GB17800@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Bill Fink" <billfink@mindspring.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Dave Jones <davej@redhat.com>,
+	Mikael Pettersson <mikpe@it.uu.se>,
+	Tim Durack <tdurack@gmail.com>, ivecera@redhat.com,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:14713 "EHLO owa.neterion.com"
+Received: from aun.it.uu.se ([130.238.12.36]:41975 "EHLO aun.it.uu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754669AbZCOXdA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 19:33:00 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090315192937.4bab4ffe.billfink@mindspring.com>
+	id S1753515AbZCPAxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Mar 2009 20:53:30 -0400
+In-Reply-To: <20090315111050.GB17800@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hmmm... Not sure why you got this error message. Will check with our IT
-guys.
+Francois Romieu writes:
+ > It fails on the following systems:
+ > - RTL8169sc/8110sc (XID 18000000)
+ >   reported by Tim Durack <tdurack@gmail.com> (x86)
+ > - RTL8169sb/8110sb (XID 10000000)
+ >   reported by Mikael Pettersson <mikpe@it.uu.se> (ARM)
+ > 
+ > The patch appeared to work on x86 for the following systems:
+ > RTL8169sb/8110sb 10000000 PCI   (EXT)
+ > RTL8110s         04000000 PCI   (EXT)
+ > RTL8102e         24a00000 PCI-E (LOM)
+ > RTL8168c/8111c   3c2000c0 PCI-E (LOM)
+ > RTL8168b/8111b   38000000 PCI-E (LOM)
+ > RTL8168b/8111b   38000000 PCI-E (EXT)
+ > 
+ > The patch exposes two problems:
+ > 1) while not completely wrong, mac addresses are not read correctly
+ >    from the EEPROM
+ > 2) the MAC address registers are not correctly set
+ > 
+ > Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Thanks,
-Ram
+Thanks. With these two patches applied 2.6.29-rc8 now works fine
+with the r8169 in my NAS box.
 
-> -----Original Message-----
-> From: Bill Fink [mailto:billfink@mindspring.com]
-> Sent: Sunday, March 15, 2009 4:30 PM
-> To: Ramkrishna Vepa
-> Cc: David Miller; netdev@vger.kernel.org
-> Subject: Re: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10
-GbE
-> PCIe adapter
-> 
-> Hi Ram,
-> 
-> On Sat, 14 Mar, Ramkrishna Vepa wrote:
-> 
-> > Thanks for the feedback. We'll make the changes, retest and then
-> > resubmit.
-> 
-> BTW I got the following mail delivery error on my emails to you:
-> 
-> From: postmaster@pc.s2io.com
-> Date: Sat, 14 Mar 2009 15:23:49 -0400
-> Subject: Delivery Status Notification (Failure)
-> 
-> Unable to deliver message to the following recipients, because the
-message
-> was f
-> orwarded more than the maximum allowed times. This could indicate a
-mail
-> loop.
-> 
->        ram.vepa@neterion.com
-> 
-> 						-Bill
+Tested-by: Mikael Pettersson <mikpe@it.uu.se>
