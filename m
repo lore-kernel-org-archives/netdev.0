@@ -1,66 +1,69 @@
-From: Zhang Rui <rui.zhang@intel.com>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Mon, 16 Mar 2009 09:02:53 +0800
-Message-ID: <1237165373.2807.140.camel@rzhang-dt>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+From: Dave Boutcher <daveboutcher@gmail.com>
+Subject: Re: IGMP Join dropping multicast packets
+Date: Sun, 15 Mar 2009 21:04:21 -0500
+Message-ID: <91bdcedb0903151904x1066ac24h63557b588e7c4967@mail.gmail.com>
+References: <91bdcedb0903141316j2dbf4160wb348a5a9e3bde8ad@mail.gmail.com>
+	 <49BC69D5.5000002@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <MiincthRUSI.A.eKC.F4BvJB@chimera>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yx-out-2324.google.com ([74.125.44.28]:34500 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbZCPCEX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 22:04:23 -0400
+Received: by yx-out-2324.google.com with SMTP id 8so889153yxm.1
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2009 19:04:21 -0700 (PDT)
+In-Reply-To: <49BC69D5.5000002@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-03-15 at 03:01 +0800, Rafael J. Wysocki wrote:
-> This message contains a list of some regressions from 2.6.28, for which there
-> are no fixes in the mainline I know of.  If any of them have been fixed already,
-> please let me know.
-> 
-> If you know of any other unresolved regressions from 2.6.28, please let me know
-> either and I'll add them to the list.  Also, please let me know if any of the
-> entries below are invalid.
-> 
-> Each entry from the list will be sent additionally in an automatic reply to
-> this message with CCs to the people involved in reporting and handling the
-> issue.
-> 
-> 
-> Listed regressions statistics:
-> 
->   Date          Total  Pending  Unresolved
->   ----------------------------------------
->   2009-03-14      124       36          32
->   2009-03-03      108       33          28
->   2009-02-24       95       32          24
->   2009-02-14       85       33          27
->   2009-02-08       82       45          36
->   2009-02-04       66       51          39
->   2009-01-20       38       35          27
->   2009-01-11       13       13          10
-> 
-> 
-> Unresolved regressions
-> ----------------------
+On Sat, Mar 14, 2009 at 9:37 PM, Eric Dumazet <dada1@cosmosbay.com> wro=
+te:
+> Dave Boutcher a =E9crit :
+>> I'm running into an interesting problem with joining multiple
+>> multicast feeds. =A0If you join multiple multicast feeds using
+>> setsockopt(...,IP_ADD_MEMBERSHIP...) it causes packets on UNRELATED
+>> multicast feeds to get dropped. =A0We have a multicast feed on a roc=
+k
+>> solid network, and we were very surprised to see dropped packets. =A0=
+The
+>> cause was a different process/program being run by a different user
+>> joining a bunch of mulitcast feeds.
+>
+> I could not reproduce the problem on my machines (bnx2 adapter), even=
+ if changing
+> NUMSOCK from 55 to 200 in joiner.c
 
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12831
-> Subject         : Hot/Fn Keys do not work EEEPC 1000HE (eeepc_laptop)
-> Submitter       : Matthew <pyther@pyther.net>
-> Date            : 2009-03-07 10:05 (8 days old)
+Thanks for trying Eric.  Based on your email I did some more testing
+and thus far I've
+only recreated this on x86_64 arches, not on i386.  Which arch did you
+try it on?
 
-patch is available at
-http://bugzilla.kernel.org/show_bug.cgi?id=12831#c11
+> Is your network a 100Mb one or Gigabit ?
+> Try to slow down your joiner ?
+> (Could be a flood of IGMP messages your router/switch cannot cope wit=
+h)
+>
+> Please describe your "rock solid" network setup (kind of network adap=
+ters you have, kind of router...)
 
-thanks,
-rui
+The problem originally manifest itself at work on a 24-core Dell
+server with 6 NICs.   The network
+is gigabit with a Cisco 4900 switch.  I recreated it in my basement on
+my little white-box
+system and a cheap netgear switch.  The NIC at work is Intel e1000e
+driver, the one
+at home is also e1000.
 
+> If using tcpdump to force promiscuous mode on the device also trigger=
+s packet losses ?
+>
+> (see also ifconfig ethX promisc|allmulti)
+
+I haven't had a chance to play with promiscuous yet...
+
+--=20
+Dave B
