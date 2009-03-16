@@ -1,212 +1,204 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Kernel panic during stress with igb in the upstream kernel
-Date: Mon, 16 Mar 2009 21:22:40 +0800
-Message-ID: <20090316132240.GA18413@gondor.apana.org.au>
-References: <EA929A9653AAE14F841771FB1DE5A1365F69CA4280@rrsmsx501.amr.corp.intel.com> <20090313115245.GA31949@gondor.apana.org.au> <20090315.201353.57364397.davem@davemloft.net> <20090315.201802.58015530.davem@davemloft.net>
+From: Jeff Chua <jeff.chua.linux@gmail.com>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Mon, 16 Mar 2009 21:24:14 +0800
+Message-ID: <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
+	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
+	 <1237140665.24621.2.camel@johannes.local>
+	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
+	 <1237143683.24621.7.camel@johannes.local>
+	 <20090315202603.GA9077@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: emil.s.tantilov@intel.com, alexander.h.duyck@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57823 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753961AbZCPNWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 09:22:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20090315.201802.58015530.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary=00504502ccc3e05c4f04653c5d96
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759471AbZCPNYb@vger.kernel.org>
+In-Reply-To: <20090315202603.GA9077@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 15, 2009 at 08:18:02PM -0700, David Miller wrote:
->=20
-> Actually, I had to revert, it doesn't build with netpoll
-> disabled:
->=20
-> net/8021q/vlan_core.c: In function =E2=80=98vlan_gro_common=E2=80=99:
-> net/8021q/vlan_core.c:82: error: implicit declaration of function =E2=
-=80=98netpoll_rx_on=E2=80=99
-> make[2]: *** [net/8021q/vlan_core.o] Error 1
-> make[1]: *** [net/8021q] Error 2
-> make: *** [net] Error 2
-> make: *** Waiting for unfinished jobs....
+--00504502ccc3e05c4f04653c5d96
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Oops, forgot the #else case.
+On Mon, Mar 16, 2009 at 4:26 AM, Ingo Molnar <mingo@elte.hu> wrote:
+> * Johannes Berg <johannes@sipsolutions.net> wrote:
+>> that the commit he quotes doesn't even change the driver he's
+>> working with.
 
-GRO: Move netpoll checks to correct location
+Here's what I did, and it's repeatable.
 
-As my netpoll fix for net doesn't really work for net-next, we
-need this update to move the checks into the right place.  As it
-stands we may pass freed skbs to netpoll_receive_skb.
+Take the attached bisect log and replay it, and the last offending
+commit is this ...
+# git log
+commit 71c11fb57b924c160297ccd9e1761db598d00ac2
+Author: Johannes Berg <johannes@sipsolutions.net>
+Date:   Tue Oct 28 18:29:48 2008 +0100
 
-This patch also introduces a netpoll_rx_on function to avoid GRO
-completely if we're invoked through netpoll.  This might seem
-paranoid but as netpoll may have an external receive hook it's
-better to be safe than sorry.  I don't think we need this for
-2.6.29 though since there's nothing immediately broken by it.
+    b43/legacy: remove SSID code
 
-This patch also moves the GRO_* return values to netdevice.h since
-VLAN needs them too (I tried to avoid this originally but alas
-this seems to be the easiest way out).  This fixes a bug in VLAN
-where it continued to use the old return value 2 instead of the
-correct GRO_DROP.
+Yes, this is not the real problem, but it's the last commit that cause
+the problem, and I couldn't bisect further, typing the next "git
+bisect bad" and the commit is
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+# git bisect bad
+71c11fb57b924c160297ccd9e1761db598d00ac2 is first bad commit
+commit 71c11fb57b924c160297ccd9e1761db598d00ac2
+Author: Johannes Berg <johannes@sipsolutions.net>
+Date:   Tue Oct 28 18:29:48 2008 +0100
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 493b065..be3ebd7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -330,6 +330,14 @@ enum
- 	NAPI_STATE_NPSVC,	/* Netpoll - don't dequeue from poll_list */
- };
-=20
-+enum {
-+	GRO_MERGED,
-+	GRO_MERGED_FREE,
-+	GRO_HELD,
-+	GRO_NORMAL,
-+	GRO_DROP,
-+};
-+
- extern void __napi_schedule(struct napi_struct *n);
-=20
- static inline int napi_disable_pending(struct napi_struct *n)
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index e38d3c9..de99025 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -63,6 +63,13 @@ static inline int netpoll_rx(struct sk_buff *skb)
- 	return ret;
- }
-=20
-+static inline int netpoll_rx_on(struct sk_buff *skb)
-+{
-+	struct netpoll_info *npinfo =3D skb->dev->npinfo;
-+
-+	return npinfo && (npinfo->rx_np || npinfo->rx_flags);
-+}
-+
- static inline int netpoll_receive_skb(struct sk_buff *skb)
- {
- 	if (!list_empty(&skb->dev->napi_list))
-@@ -99,6 +106,10 @@ static inline int netpoll_rx(struct sk_buff *skb)
- {
- 	return 0;
- }
-+static inline int netpoll_rx_on(struct sk_buff *skb)
-+{
-+	return 0;
-+}
- static inline int netpoll_receive_skb(struct sk_buff *skb)
- {
- 	return 0;
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 2d6e405..6227248 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -79,6 +79,9 @@ static int vlan_gro_common(struct napi_struct *napi, =
-struct vlan_group *grp,
- {
- 	struct sk_buff *p;
-=20
-+	if (netpoll_rx_on(skb))
-+		return GRO_NORMAL;
-+
- 	if (skb_bond_should_drop(skb))
- 		goto drop;
-=20
-@@ -98,7 +101,7 @@ static int vlan_gro_common(struct napi_struct *napi,=
- struct vlan_group *grp,
- 	return dev_gro_receive(napi, skb);
-=20
- drop:
--	return 2;
-+	return GRO_DROP;
- }
-=20
- int vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
-@@ -106,9 +109,6 @@ int vlan_gro_receive(struct napi_struct *napi, stru=
-ct vlan_group *grp,
- {
- 	skb_gro_reset_offset(skb);
-=20
--	if (netpoll_receive_skb(skb))
--		return NET_RX_DROP;
--
- 	return napi_skb_finish(vlan_gro_common(napi, grp, vlan_tci, skb), skb=
-);
- }
- EXPORT_SYMBOL(vlan_gro_receive);
-@@ -121,9 +121,6 @@ int vlan_gro_frags(struct napi_struct *napi, struct=
- vlan_group *grp,
- 	if (!skb)
- 		return NET_RX_DROP;
-=20
--	if (netpoll_receive_skb(skb))
--		return NET_RX_DROP;
--
- 	return napi_frags_finish(napi, skb,
- 				 vlan_gro_common(napi, grp, vlan_tci, skb));
- }
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 033d7ca..7bd3c29 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -135,14 +135,6 @@
- /* This should be increased if a protocol with a bigger head is added.=
- */
- #define GRO_MAX_HEAD (MAX_HEADER + 128)
-=20
--enum {
--	GRO_MERGED,
--	GRO_MERGED_FREE,
--	GRO_HELD,
--	GRO_NORMAL,
--	GRO_DROP,
--};
--
- /*
-  *	The list of packet types we will receive (as opposed to discard)
-  *	and the routines to invoke.
-@@ -2474,6 +2466,9 @@ static int __napi_gro_receive(struct napi_struct =
-*napi, struct sk_buff *skb)
- {
- 	struct sk_buff *p;
-=20
-+	if (netpoll_rx_on(skb))
-+		return GRO_NORMAL;
-+
- 	for (p =3D napi->gro_list; p; p =3D p->next) {
- 		NAPI_GRO_CB(p)->same_flow =3D !compare_ether_header(
- 			skb_mac_header(p), skb_gro_mac_header(skb));
-@@ -2487,9 +2482,6 @@ int napi_skb_finish(int ret, struct sk_buff *skb)
- {
- 	int err =3D NET_RX_SUCCESS;
-=20
--	if (netpoll_receive_skb(skb))
--		return NET_RX_DROP;
--
- 	switch (ret) {
- 	case GRO_NORMAL:
- 		return netif_receive_skb(skb);
-@@ -2587,9 +2579,6 @@ int napi_frags_finish(struct napi_struct *napi, s=
-truct sk_buff *skb, int ret)
- {
- 	int err =3D NET_RX_SUCCESS;
-=20
--	if (netpoll_receive_skb(skb))
--		return NET_RX_DROP;
--
- 	switch (ret) {
- 	case GRO_NORMAL:
- 	case GRO_HELD:
+    b43/legacy: remove SSID code
+
+
+Johannes, Ok, this is not the commit causing the problem, but anything
+after this commit doesn't associate with my hidden APs. I may not have
+run over every single commits since, but 2.6.29-rc8 is definitely not
+associating at all automatically -- only manually by specifying the
+AP.
+
+This bug is quite hard to trigger, and it doesn't shows easily in
+2.6.28-rc3. May be once every 10 times you tried.
+
+
+
+# git reset --hard 71c11fb57b924c160297ccd9e1761db598d00ac2
+
+I've tried on two different Linksys's AP. Association with WAG354G  is
+better than with WAG200G ... meaning it's harder to get association
+failure on 2.6.28-rc3. 1/10 fail on WAG354G, and 9/10 fails on
+WAG200G.
+
+Here's how I associate with the AP.
+
+# modprobe -r iwlagn
+# modprobe iwlagn
+# iwconfig wlan0 mode Managed
+# ifconfig wlan0 up
+# iwconfig wlan0 essid "myessid"
+# iwconfig wlan0 key restricted "hex key"
+# iwconfig wlan0 ap auto channel auto
+# ... wait for association
+# ping -c 3 <IP of the AP>
+# shutdown the interface
+# ifconfig wlan0 down
+# modprobe -r iwlagn
+
+
+Repeat these and it'll fail to associate. On WAG200G, can't associate
+after 2nd attempt.
+
+
+Next revert these two commits
+
+commit 4607816f608b42a5379aca97ceed08378804c99f
+Author: Johannes Berg <johannes@sipsolutions.net>
+Date:   Tue Oct 28 18:25:43 2008 +0100
+
+    iwlwifi: remove unused essid variable
+
+commit a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
+Author: Johannes Berg <johannes@sipsolutions.net>
+Date:   Tue Oct 28 18:21:05 2008 +0100
+
+    iwlwifi: remove implicit direct scan
+
+
+With these patches reverted, associating with the APs are always
+successful 10 out of 10 times with the same steps as above.
+
+I've even used the bad modules and when it failed, I can associate
+again with the patched module. Same 2.6.28-rc3 kernel.
+
+
+Here's part of the dmesg
+cfg80211: Using static regulatory domain info
+cfg80211: Regulatory domain: US
+        (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp)
+        (2402000 KHz - 2472000 KHz @ 40000 KHz), (600 mBi, 2700 mBm)
+        (5170000 KHz - 5190000 KHz @ 40000 KHz), (600 mBi, 2300 mBm)
+        (5190000 KHz - 5210000 KHz @ 40000 KHz), (600 mBi, 2300 mBm)
+        (5210000 KHz - 5230000 KHz @ 40000 KHz), (600 mBi, 2300 mBm)
+        (5230000 KHz - 5330000 KHz @ 40000 KHz), (600 mBi, 2300 mBm)
+        (5735000 KHz - 5835000 KHz @ 40000 KHz), (600 mBi, 3000 mBm)
+cfg80211: Calling CRDA for country: US
+iwlagn: Intel(R) Wireless WiFi Link AGN driver for Linux, 1.3.27ks
+iwlagn: Copyright(c) 2003-2008 Intel Corporation
+iwlagn 0000:03:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+iwlagn 0000:03:00.0: setting latency timer to 64
+iwlagn: Detected Intel Wireless WiFi Link 4965AGN REV=0x4
+iwlagn: Tunable channels: 11 802.11bg, 13 802.11a channels
+iwlagn 0000:03:00.0: PCI INT A disabled
+wmaster0 (iwlagn): not using net_device_ops yet
+phy0: Selected rate control algorithm 'iwl-agn-rs'
+wlan0 (iwlagn): not using net_device_ops yet
+iwlagn 0000:03:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+iwlagn 0000:03:00.0: restoring config space at offset 0x1 (was
+0x100102, writing 0
+x100106)
+iwlagn 0000:03:00.0: irq 28 for MSI/MSI-X
+iwlagn 0000:03:00.0: firmware: requesting iwlwifi-4965-2.ucode
+iwlagn loaded firmware version 228.57.2.23
+Registered led device: iwl-phy0:radio
+Registered led device: iwl-phy0:assoc
+Registered led device: iwl-phy0:RX
+Registered led device: iwl-phy0:TX
+iwlagn: TX Power requested while scanning!
+
+Anything I can help to debug further, just let me know.
 
 Thanks,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jeff.
+
+--00504502ccc3e05c4f04653c5d96
+Content-Type: application/octet-stream; name="bisect.log"
+Content-Disposition: attachment; filename="bisect.log"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fsd5ozkt0
+
+Z2l0IGJpc2VjdCBzdGFydAojIGJhZDogWzAxOTFiNjI1Y2E1YTQ2MjA2ZDJmYjg2MmJiMDhmMzZm
+MmZjYjNiMzFdIE1lcmdlIGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVs
+L2dpdC9kYXZlbS9uZXQtbmV4dC0yLjYKZ2l0IGJpc2VjdCBiYWQgMDE5MWI2MjVjYTVhNDYyMDZk
+MmZiODYyYmIwOGYzNmYyZmNiM2IzMQojIGdvb2Q6IFsxZDI0OGIyNTkzZTkyZGI2YzUxY2EwNzIz
+NTk4NWE5NWM2MjVhOTNmXSBNZXJnZSBicmFuY2ggJ2Zvci1saW51cycgb2YgZ2l0Oi8vZ2l0Lmtl
+cm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L3JvbGFuZC9pbmZpbmliYW5kCmdpdCBi
+aXNlY3QgZ29vZCAxZDI0OGIyNTkzZTkyZGI2YzUxY2EwNzIzNTk4NWE5NWM2MjVhOTNmCiMgYmFk
+OiBbN2QzNTlkYWFmZTEyYjM2YjZkYTdlYzYyNDdjYWRkZjUzNDE4M2FlZF0gYXBuZTogY29udmVy
+dCB0byBuZXRfZGV2aWNlX29wcwpnaXQgYmlzZWN0IGJhZCA3ZDM1OWRhYWZlMTJiMzZiNmRhN2Vj
+NjI0N2NhZGRmNTM0MTgzYWVkCiMgYmFkOiBbMGE4ODhmZDFmNjMyMGQxZDkzMThjNThkZTliY2Ez
+Y2VmNDE1NDZkNl0gdmlydGlvX25ldDogUmVjeWNsZSBzb21lIG1vcmUgcnggYnVmZmVyIHBhZ2Vz
+CmdpdCBiaXNlY3QgYmFkIDBhODg4ZmQxZjYzMjBkMWQ5MzE4YzU4ZGU5YmNhM2NlZjQxNTQ2ZDYK
+IyBnb29kOiBbYzM1NGUxMjQ2MzQ4ZTI1YzcxNGU2YjI5NzNmMzI1NzE4M2QwNmUyY10gbmV0OiBj
+bGVhbiB1cCBuZXQvaXB2NC9pcG1yLmMKZ2l0IGJpc2VjdCBnb29kIGMzNTRlMTI0NjM0OGUyNWM3
+MTRlNmIyOTczZjMyNTcxODNkMDZlMmMKIyBnb29kOiBbZjIxZjIzN2NmNTU0OTRjM2E0MjA5ZGUz
+MjMyODFhM2IwNTI4ZGExMF0gTWVyZ2UgYnJhbmNoICd0aW1lcnMtZml4ZXMtZm9yLWxpbnVzJyBv
+ZiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvdGlwL2xpbnV4
+LTIuNi10aXAKZ2l0IGJpc2VjdCBnb29kIGYyMWYyMzdjZjU1NDk0YzNhNDIwOWRlMzIzMjgxYTNi
+MDUyOGRhMTAKIyBiYWQ6IFswNWExZTJkMTExYzk4MzQwZmIxN2VjNzAyY2YwOTQ1MGVlYzNhOTQ3
+XSBhdGg5azogRW5hYmxlIGludGVycnVwdHMgYXQgdGhlIHByb3BlciBwbGFjZQpnaXQgYmlzZWN0
+IGJhZCAwNWExZTJkMTExYzk4MzQwZmIxN2VjNzAyY2YwOTQ1MGVlYzNhOTQ3CiMgZ29vZDogWzRi
+YWIwZWExZDQyZGQxOTI3YWY5ZGY2ZmJmMDAwM2ZjMDA2MTdjNTBdIE1lcmdlIGdpdDovL2dpdC5r
+ZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtMi42CmdpdCBiaXNl
+Y3QgZ29vZCA0YmFiMGVhMWQ0MmRkMTkyN2FmOWRmNmZiZjAwMDNmYzAwNjE3YzUwCiMgZ29vZDog
+WzBhOTVmNTYzMjNjZTkzZGFjMzU0YzFiMmQ1NGJmOTU5YTk4NWNmN2RdIHNmYzogQ2xlYW4gdXAg
+bm9uLXZvbGF0aWxlIG1lbW9yeSBwYXJ0aXRpb25pbmcKZ2l0IGJpc2VjdCBnb29kIDBhOTVmNTYz
+MjNjZTkzZGFjMzU0YzFiMmQ1NGJmOTU5YTk4NWNmN2QKIyBnb29kOiBbMTIzOWNkNThkMjM3ZmE2
+YWQ1MDFhY2FlYzg3NzYyNjJhNTc4NGVjOF0gd2lyZWxlc3M6IG1vdmUgbWVzaCBjb25maWcgbGVu
+Z3RoIGNvbnN0YW50CmdpdCBiaXNlY3QgZ29vZCAxMjM5Y2Q1OGQyMzdmYTZhZDUwMWFjYWVjODc3
+NjI2MmE1Nzg0ZWM4CiMgYmFkOiBbMTc2ODNjNjVjOGE1ZjNmMjlmNTQwODMzNDk5Mjk4NmI5OTZk
+ODIwNV0gYXRoNWs6IGZpeCBrZXl0YWJsZSB0eXBlIGJ1Z2xldCBpbiBhdGg1a19od19yZXNldF9r
+ZXkKZ2l0IGJpc2VjdCBiYWQgMTc2ODNjNjVjOGE1ZjNmMjlmNTQwODMzNDk5Mjk4NmI5OTZkODIw
+NQojIGJhZDogWzcxYzExZmI1N2I5MjRjMTYwMjk3Y2NkOWUxNzYxZGI1OThkMDBhYzJdIGI0My9s
+ZWdhY3k6IHJlbW92ZSBTU0lEIGNvZGUKZ2l0IGJpc2VjdCBiYWQgNzFjMTFmYjU3YjkyNGMxNjAy
+OTdjY2Q5ZTE3NjFkYjU5OGQwMGFjMgojIGdvb2Q6IFs0MzBjZmU5NWE0MDFiYWEwZGMyMDIyZGVh
+YWQwMmNiNzVkNjNjNzNjXSBpd2wzOTQ1OiByZW1vdmUgZGVhZCBjb2RlCmdpdCBiaXNlY3QgZ29v
+ZCA0MzBjZmU5NWE0MDFiYWEwZGMyMDIyZGVhYWQwMmNiNzVkNjNjNzNjCg==
+--00504502ccc3e05c4f04653c5d96--
