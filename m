@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/7] tcp: cache result of earlier divides when
- mss-aligning things
-Date: Sun, 15 Mar 2009 20:11:15 -0700 (PDT)
-Message-ID: <20090315.201115.23510598.davem@davemloft.net>
-References: <12370756752721-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20090315083642.GA31423@ioremap.net>
-	<Pine.LNX.4.64.0903151041350.23360@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH 7/7] tcp: make sure xmit goal size never becomes zero
+Date: Sun, 15 Mar 2009 20:11:23 -0700 (PDT)
+Message-ID: <20090315.201123.177187129.davem@davemloft.net>
+References: <12370756751028-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12370756752721-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<12370756754020-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: zbr@ioremap.net, netdev@vger.kernel.org, mingo@elte.hu
+Cc: netdev@vger.kernel.org, zbr@ioremap.net, mingo@elte.hu
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39273
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39278
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751147AbZCPDL2 convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1751205AbZCPDLg convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Mar 2009 23:11:28 -0400
-In-Reply-To: <Pine.LNX.4.64.0903151041350.23360@wrl-59.cs.helsinki.fi>
+	Sun, 15 Mar 2009 23:11:36 -0400
+In-Reply-To: <12370756754020-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sun, 15 Mar 2009 10:45:16 +0200 (EET)
+Date: Sun, 15 Mar 2009 02:07:55 +0200
 
-> [PATCHv2] tcp: cache result of earlier divides when mss-aligning thin=
-gs
->=20
-> The results is very unlikely change every so often so we
-> hardly need to divide again after doing that once for a
-> connection. Yet, if divide still becomes necessary we
-> detect that and do the right thing and again settle for
-> non-divide state. Takes the u16 space which was previously
-> taken by the plain xmit_size_goal.
->=20
-> This should take care part of the tso vs non-tso difference
-> we found earlier.
+> It's not too likely to happen, would basically require crafted
+> packets (must hit the max guard in tcp_bound_to_half_wnd()).
+> It seems that nothing that bad would happen as there's tcp_mems
+> and congestion window that prevent runaway at some point from
+> hurting all too much (I'm not that sure what all those zero
+> sized segments we would generate do though in write queue).
+> Preventing it regardless is certainly the best way to go.
 >=20
 > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
