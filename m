@@ -1,38 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Mon, 16 Mar 2009 13:43:13 +1030
-Message-ID: <200903161343.13894.rusty@rustcorp.com.au>
-References: <200903131017.11572.rusty@rustcorp.com.au> <200903141049.43202.rusty@rustcorp.com.au> <20090315.195806.97939686.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel panic during stress with igb in the upstream kernel
+Date: Sun, 15 Mar 2009 20:13:53 -0700 (PDT)
+Message-ID: <20090315.201353.57364397.davem@davemloft.net>
+References: <EA929A9653AAE14F841771FB1DE5A1365F69CA4280@rrsmsx501.amr.corp.intel.com>
+	<20090313115245.GA31949@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pktoss@gmail.com, dcbw@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: emil.s.tantilov@intel.com, alexander.h.duyck@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41758 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751375AbZCPDNV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Mar 2009 23:13:21 -0400
-In-Reply-To: <20090315.195806.97939686.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39286
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752604AbZCPDOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 23:14:06 -0400
+In-Reply-To: <20090313115245.GA31949@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 16 March 2009 13:28:06 David Miller wrote:
-> > Or should all devices which can't detect carrier set it to on, so
-> > older NetworkManagers work?
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 13 Mar 2009 19:52:45 +0800
+
+> Sorry, it seems that I've managed to get the net/net-next patches
+> mixed up.  Does this help?
+
+Actually I introduced this problem when I did the net-2.6
+--> net-next-2.6 merge when your netpoll fix went it. :-/
+
+> GRO: Move netpoll checks to correct location
 > 
-> It is my opinion that this is the only correct behavior.
+> As my netpoll fix for net doesn't really work for net-next, we
+> need this update to move the checks into the right place.  As it
+> stands we may pass freed skbs to netpoll_receive_skb.
 > 
-> If you don't know, it's on.  Because "on" means "usable".  And you
-> can't fault NetworkManager or any other tool for making that kind of
-> decision.
+> This patch also introduces a netpoll_rx_on function to avoid GRO
+> completely if we're invoked through netpoll.  This might seem
+> paranoid but as netpoll may have an external receive hook it's
+> better to be safe than sorry.  I don't think we need this for
+> 2.6.29 though since there's nothing immediately broken by it.
+> 
+> This patch also moves the GRO_* return values to netdevice.h since
+> VLAN needs them too (I tried to avoid this originally but alas
+> this seems to be the easiest way out).  This fixes a bug in VLAN
+> where it continued to use the old return value 2 instead of the
+> correct GRO_DROP.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Yes, I agree that NM has to assume unknown == on.  But I still think the
-kernel is right as it is to return -EOPNOTSUPP and let userspace deal with it.
-
-"Let's fix broken userspace in the kernel" arguments make me nervous ;)
-
-Cheers,
-Rusty.
+Applied, thanks!
