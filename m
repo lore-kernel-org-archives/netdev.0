@@ -1,35 +1,49 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [PROBLEM]: potential unaligned memory access in drivers/usb/gadget/rndis.c
-Date: Mon, 16 Mar 2009 01:38:32 -0700
-Message-ID: <200903160138.32964.david-b@pacbell.net>
-References: <3848726.1723791236775868071.JavaMail.root@spooler2-g27.priv.proxad.net> <20090311235119.f4609775.akpm@linux-foundation.org>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-2.6 ] ipv4: remove parameter from tcp_recv_urg().
+Date: Mon, 16 Mar 2009 11:57:20 +0200
+Message-ID: <eb3ff54b0903160257n707ceddfr1a56c75b7911c1e7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: multipart/mixed; boundary=001636e90eeaf00c6e04653979b8
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.175]:30358 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761503AbZCPJ5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 05:57:22 -0400
+Received: by wf-out-1314.google.com with SMTP id 28so1827594wfa.4
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2009 02:57:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--001636e90eeaf00c6e04653979b8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Harvey Harrison <harvey.harrison-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: yann.poupet-GANU6spQydw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090311235119.f4609775.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On Wednesday 11 March 2009, Andrew Morton wrote:
-> 
-> > It happened to me that skb_pull() returns a pointer to a
-> > location not aligned on a 4 bytes boundary. 
+Hi,
+This patch removes an unused parameter (addr_len) from tcp_recv_urg() method in
+net/ipv4/tcp.c.
 
-Does this arch set NET_IP_ALIGN appropriately?
-
-If worst comes to worst, use put_unaligned() instead of
-a static (non-const) template for that header.
+Regards,
+Rami Rosen
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--001636e90eeaf00c6e04653979b8
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fsczccfp0
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcC5jIGIvbmV0L2lwdjQvdGNwLmMKaW5kZXggNzZiMTQ4
+Yi4uZmQ0OGJiYiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwLmMKKysrIGIvbmV0L2lwdjQvdGNw
+LmMKQEAgLTEwNDUsOCArMTA0NSw3IEBAIG91dF9lcnI6CiAgKi8KIAogc3RhdGljIGludCB0Y3Bf
+cmVjdl91cmcoc3RydWN0IHNvY2sgKnNrLCBsb25nIHRpbWVvLAotCQkJc3RydWN0IG1zZ2hkciAq
+bXNnLCBpbnQgbGVuLCBpbnQgZmxhZ3MsCi0JCQlpbnQgKmFkZHJfbGVuKQorCQkJc3RydWN0IG1z
+Z2hkciAqbXNnLCBpbnQgbGVuLCBpbnQgZmxhZ3MpCiB7CiAJc3RydWN0IHRjcF9zb2NrICp0cCA9
+IHRjcF9zayhzayk7CiAKQEAgLTE2NjEsNyArMTY2MCw3IEBAIG91dDoKIAlyZXR1cm4gZXJyOwog
+CiByZWN2X3VyZzoKLQllcnIgPSB0Y3BfcmVjdl91cmcoc2ssIHRpbWVvLCBtc2csIGxlbiwgZmxh
+Z3MsIGFkZHJfbGVuKTsKKwllcnIgPSB0Y3BfcmVjdl91cmcoc2ssIHRpbWVvLCBtc2csIGxlbiwg
+ZmxhZ3MpOwogCWdvdG8gb3V0OwogfQogCg==
+--001636e90eeaf00c6e04653979b8--
