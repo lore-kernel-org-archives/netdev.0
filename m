@@ -1,41 +1,44 @@
-From: Pantelis Koukousoulas <pktoss@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Make virtio_net support carrier detection
-Date: Mon, 16 Mar 2009 04:05:35 +0200
-Message-ID: <1295ed070903151905o540c9998ofcbac05233b6c063@mail.gmail.com>
-References: <20090312.055235.56926675.davem@davemloft.net>
-	 <200903141049.43202.rusty@rustcorp.com.au>
-	 <1295ed070903140340g5da5853cq51decf40e2fc03c8@mail.gmail.com>
-	 <200903160909.48605.rusty@rustcorp.com.au>
+Date: Sun, 15 Mar 2009 19:58:06 -0700 (PDT)
+Message-ID: <20090315.195806.97939686.davem@davemloft.net>
+References: <200903131017.11572.rusty@rustcorp.com.au>
+	<20090313.120100.266753164.davem@davemloft.net>
+	<200903141049.43202.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: pktoss@gmail.com, dcbw@redhat.com, netdev@vger.kernel.org
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f177.google.com ([209.85.219.177]:54650 "EHLO
-	mail-ew0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751560AbZCPCFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 22:05:38 -0400
-Received: by ewy25 with SMTP id 25so3301816ewy.37
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2009 19:05:35 -0700 (PDT)
-In-Reply-To: <200903160909.48605.rusty@rustcorp.com.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35140
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751851AbZCPC6T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2009 22:58:19 -0400
+In-Reply-To: <200903141049.43202.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 16, 2009 at 12:39 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> On Saturday 14 March 2009 21:10:43 Pantelis Koukousoulas wrote:
->> Therefore, I guess I should resend my patch to netdev with reworked comments
->> to reflect this discussion. Hope that is ok with you too.
->
-> Already sent to Linus and -stable, with Dave's Ack.
->
-> Tho he hasn't applied it (yet?)
->
-> Thanks,
-> Rusty.
->
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Sat, 14 Mar 2009 10:49:42 +1030
 
-Great, I 'll just wait then :)
+> On Saturday 14 March 2009 05:31:00 David Miller wrote:
+> > You can set netif_carrier_on() until you are blue in the face,
+> > but until you hook up the ethtool link indication operation
+> > NetworkManager won't see it.
+> 
+> Um, dude, you already have that patch in your net-next tree.  See below.
+> This one goes on top.
 
-Thanks,
-Pantelis
+Ahh, I didn't comprehend this bit.
+
+I overreacted, that's for sure, sorry.
+
+> Or should all devices which can't detect carrier set it to on, so
+> older NetworkManagers work?
+
+It is my opinion that this is the only correct behavior.
+
+If you don't know, it's on.  Because "on" means "usable".  And you
+can't fault NetworkManager or any other tool for making that kind of
+decision.
