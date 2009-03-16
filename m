@@ -1,394 +1,194 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC v2 3/7] net: netfilter conntrack - add per-net
-	functionality for SCTP protocol
-Date: Tue, 17 Mar 2009 00:03:39 +0300
-Message-ID: <20090316210339.GL7551@localhost>
-References: <20090311205706.141086138@gmail.com> <20090311210817.384140456@gmail.com> <49BE71AF.8050200@trash.net> <20090316154620.GA7551@localhost> <49BE74CC.8060701@trash.net> <20090316182136.GF7551@localhost> <49BE9A6E.4030904@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-2.6 PATCH 5/10] Neterion: New driver: register set -
+	vxge-reg.h
+Date: Mon, 16 Mar 2009 21:03:42 +0000
+Message-ID: <1237237422.3106.34.camel@achroite>
+References: <1237018876.4966.429.camel@flash>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, daniel.lezcano@free.fr,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	xemul@openvz.org, adobriyan@gmail.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49BE9A6E.4030904@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: ram.vepa@neterion.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:42770 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753801AbZCPVDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 17:03:52 -0400
+In-Reply-To: <1237018876.4966.429.camel@flash>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Patrick McHardy - Mon, Mar 16, 2009 at 07:29:02PM +0100]
-...
-> Its better than the macro and I don't really see a better way, so
-> this is fine with me. About the other patches - I just stopped at
-> SCTP since it was the first one I truely didn't like :)
->
+On Sat, 2009-03-14 at 00:21 -0800, Ramkrishna Vepa wrote:
+> - Complete Register map details of Neterion Inc's X3100 Series 10GbE =
+PCIe I/O
+>   Virtualized Server Adapter.
+> ---
+> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
+> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> ---
+> diff -urpN patch_4/drivers/net/vxge/vxge-reg.h patch_5/drivers/net/vx=
+ge/vxge-reg.h
+> --- patch_4/drivers/net/vxge/vxge-reg.h	1969-12-31 16:00:00.000000000=
+ -0800
+> +++ patch_5/drivers/net/vxge/vxge-reg.h	2009-03-13 00:10:23.000000000=
+ -0700
+[...]
+> +#define VXGE_HW_PCI_CONFIG_SPACE_SIZE	VXGE_OS_PCI_CONFIG_SIZE
+> +#define VXGE_OS_PCI_CONFIG_SIZE	1024
+> +
+> +#ifdef __BIG_ENDIAN
+> +#define VXGE_OS_HOST_BIG_ENDIAN		1
+> +#define VXGE_OS_PIO_LITTLE_ENDIAN	1
+> +#elif __LITTLE_ENDIAN
+> +#define VXGE_OS_HOST_LITTLE_ENDIAN	1
+> +#endif
+=EF=BB=BF
+=EF=BB=BFWhat's wrong with the original macros?
 
-Here is an updated version of the patch with assignment in cycle.
-Please review. If all this series become a mess which hard to unwind
-(ie what version of patch is last, which is not) -- I could resend
-the whole series (excluding already applied). Just say. Thanks!
----
+> +#if BITS_PER_LONG =3D=3D 64
+> +#define VXGE_OS_PLATFORM_64BIT		1
+> +#elif BITS_PER_LONG =3D=3D 32
+> +#define VXGE_OS_PLATFORM_32BIT		1
+> +#endif
+> +
+> +#if !defined(VXGE_OS_PLATFORM_64BIT) && !defined(VXGE_OS_PLATFORM_32=
+BIT)
+> +#error "either 32bit or 64bit switch must be defined!"
+> +#endif
 
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Subject: [RFC v2 3/7] net: netfilter conntrack - add per-net functionality for SCTP protocol
+The VXGE_OS_PLATFORM_* macros aren't even used in this header, and in
+any case they are redundant with BITS_PER_LONG.
 
-Module specific data moved into per-net site and being allocated/freed
-during net namespace creation/deletion.
+> +#if !defined(VXGE_OS_HOST_BIG_ENDIAN) && !defined(VXGE_OS_HOST_LITTL=
+E_ENDIAN)
+> +#error "either little endian or big endian switch must be defined!"
+> +#endif
 
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
----
- net/netfilter/nf_conntrack_proto_sctp.c |  179 ++++++++++++++++++++++++--------
- 1 file changed, 139 insertions(+), 40 deletions(-)
+It would be simpler just to include <asm/byteorder.h>.
 
-Index: linux-2.6.git/net/netfilter/nf_conntrack_proto_sctp.c
-===================================================================
---- linux-2.6.git.orig/net/netfilter/nf_conntrack_proto_sctp.c
-+++ linux-2.6.git/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -21,6 +21,9 @@
- #include <linux/spinlock.h>
- #include <linux/interrupt.h>
- 
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_ecache.h>
-@@ -49,16 +52,6 @@ static const char *const sctp_conntrack_
- #define HOURS * 60 MINS
- #define DAYS  * 24 HOURS
- 
--static unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX] __read_mostly = {
--	[SCTP_CONNTRACK_CLOSED]			= 10 SECS,
--	[SCTP_CONNTRACK_COOKIE_WAIT]		= 3 SECS,
--	[SCTP_CONNTRACK_COOKIE_ECHOED]		= 3 SECS,
--	[SCTP_CONNTRACK_ESTABLISHED]		= 5 DAYS,
--	[SCTP_CONNTRACK_SHUTDOWN_SENT]		= 300 SECS / 1000,
--	[SCTP_CONNTRACK_SHUTDOWN_RECD]		= 300 SECS / 1000,
--	[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT]	= 3 SECS,
--};
--
- #define sNO SCTP_CONNTRACK_NONE
- #define	sCL SCTP_CONNTRACK_CLOSED
- #define	sCW SCTP_CONNTRACK_COOKIE_WAIT
-@@ -130,6 +123,25 @@ static const u8 sctp_conntracks[2][9][SC
- 	}
- };
- 
-+/* this module per-net specifics */
-+static int sctp_net_id;
-+struct sctp_net {
-+	unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX];
-+#ifdef CONFIG_SYSCTL
-+	struct ctl_table_header *sysctl_header;
-+	struct ctl_table *sysctl_table;
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	struct ctl_table_header *compat_sysctl_header;
-+	struct ctl_table *compat_sysctl_table;
-+#endif
-+#endif
-+};
-+
-+static inline struct sctp_net *sctp_pernet(struct net *net)
-+{
-+	return net_generic(net, sctp_net_id);
-+}
-+
- static bool sctp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- 			      struct nf_conntrack_tuple *tuple)
- {
-@@ -297,6 +309,7 @@ static int sctp_packet(struct nf_conn *c
- 	const struct sctp_chunkhdr *sch;
- 	struct sctp_chunkhdr _sch;
- 	u_int32_t offset, count;
-+	struct sctp_net *sn;
- 	unsigned long map[256 / sizeof(unsigned long)] = { 0 };
- 
- 	sh = skb_header_pointer(skb, dataoff, sizeof(_sctph), &_sctph);
-@@ -373,7 +386,8 @@ static int sctp_packet(struct nf_conn *c
- 	}
- 	write_unlock_bh(&sctp_lock);
- 
--	nf_ct_refresh_acct(ct, ctinfo, skb, sctp_timeouts[new_state]);
-+	sn = sctp_pernet(nf_ct_net(ct));
-+	nf_ct_refresh_acct(ct, ctinfo, skb, sn->sctp_timeouts[new_state]);
- 
- 	if (old_state == SCTP_CONNTRACK_COOKIE_ECHOED &&
- 	    dir == IP_CT_DIR_REPLY &&
-@@ -540,54 +554,46 @@ static int nlattr_to_sctp(struct nlattr 
- #endif
- 
- #ifdef CONFIG_SYSCTL
--static unsigned int sctp_sysctl_table_users;
--static struct ctl_table_header *sctp_sysctl_header;
-+/* templates, data assigned later */
- static struct ctl_table sctp_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_closed",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_CLOSED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_cookie_wait",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_cookie_echoed",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_established",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_shutdown_sent",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_shutdown_recd",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_sctp_timeout_shutdown_ack_sent",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -601,49 +607,42 @@ static struct ctl_table sctp_sysctl_tabl
- static struct ctl_table sctp_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_closed",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_CLOSED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_cookie_wait",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_cookie_echoed",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_established",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_shutdown_sent",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_shutdown_recd",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_sctp_timeout_shutdown_ack_sent",
--		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -653,7 +652,7 @@ static struct ctl_table sctp_compat_sysc
- 	}
- };
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
--#endif
-+#endif /* CONFIG_SYSCTL */
- 
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
- 	.l3proto		= PF_INET,
-@@ -673,14 +672,6 @@ static struct nf_conntrack_l4proto nf_co
- 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
- 	.nla_policy		= nf_ct_port_nla_policy,
- #endif
--#ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &sctp_sysctl_table_users,
--	.ctl_table_header	= &sctp_sysctl_header,
--	.ctl_table		= sctp_sysctl_table,
--#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
--	.ctl_compat_table	= sctp_compat_sysctl_table,
--#endif
--#endif
- };
- 
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
-@@ -701,21 +692,126 @@ static struct nf_conntrack_l4proto nf_co
- 	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
- 	.nla_policy		= nf_ct_port_nla_policy,
- #endif
-+};
-+
-+static __net_init int sctp_net_init(struct net *net)
-+{
-+	struct sctp_net *sn;
-+	int err;
-+
-+	sn = kmalloc(sizeof(*sn), GFP_KERNEL);
-+	if (!sn)
-+		return -ENOMEM;
-+
-+	/* default values */
-+	sn->sctp_timeouts[SCTP_CONNTRACK_CLOSED]	= 10 SECS;
-+	sn->sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT]	= 3 SECS;
-+	sn->sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED]	= 3 SECS;
-+	sn->sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED]	= 5 DAYS;
-+	sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT]	= 300 SECS / 1000;
-+	sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD]	= 300 SECS / 1000;
-+	sn->sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT] = 3 SECS;
-+
-+	err = net_assign_generic(net, sctp_net_id, sn);
-+	if (err)
-+		goto out;
-+
-+	/*
-+	 * Pin per-net data to sysctl tables
-+	 *
-+	 * We allocate new ctrl tables from predefined templates
-+	 * and then assign .data fields iteratively, we allowed
-+	 * to do so since SCTP_CONNTRACK_... (enum sctp_conntrack)
-+	 * is a part of userspace ABI and it's hardly that the enum
-+	 * entries will be rearranged
-+	 */
-+
- #ifdef CONFIG_SYSCTL
--	.ctl_table_users	= &sctp_sysctl_table_users,
--	.ctl_table_header	= &sctp_sysctl_header,
--	.ctl_table		= sctp_sysctl_table,
-+	{
-+	int i;
-+	err = -ENOMEM;
-+	sn->sysctl_table = kmemdup(sctp_sysctl_table,
-+			sizeof(sctp_sysctl_table), GFP_KERNEL);
-+	if (!sn->sysctl_table)
-+		goto out;
-+
-+	for (i = SCTP_CONNTRACK_CLOSED; i < SCTP_CONNTRACK_MAX; i++)
-+		sn->sysctl_table[i - 1].data = &sn->sctp_timeouts[i];
-+
-+	sn->sysctl_header = register_net_sysctl_table(net,
-+			nf_net_netfilter_sysctl_path, sn->sysctl_table);
-+	if (!sn->sysctl_header)
-+		goto out_free;
-+
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	sn->compat_sysctl_table = kmemdup(sctp_compat_sysctl_table,
-+			sizeof(sctp_compat_sysctl_table), GFP_KERNEL);
-+	if (!sn->compat_sysctl_table)
-+		goto out_sysctl;
-+
-+	for (i = SCTP_CONNTRACK_CLOSED; i < SCTP_CONNTRACK_MAX; i++)
-+		sn->compat_sysctl_table[err - 1].data = &sn->sctp_timeouts[i];
-+
-+	sn->compat_sysctl_header = register_net_sysctl_table(net,
-+			nf_net_ipv4_netfilter_sysctl_path, sn->compat_sysctl_table);
-+	if (!sn->compat_sysctl_header)
-+		goto out_free_compat;
-+#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
-+	}
-+#endif /* CONFIG_SYSCTL */
-+
-+	return 0;
-+
-+#ifdef CONFIG_SYSCTL
-+
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+out_free_compat:
-+	kfree(sn->compat_sysctl_table);
-+#endif
-+out_sysctl:
-+	unregister_net_sysctl_table(sn->sysctl_header);
-+out_free:
-+	kfree(sn->sysctl_table);
-+#endif
-+
-+out:
-+	kfree(sn);
-+	return err;
-+}
-+
-+static __net_exit void sctp_net_exit(struct net *net)
-+{
-+	struct sctp_net *sn = sctp_pernet(net);
-+#ifdef CONFIG_SYSCTL
-+	unregister_net_sysctl_table(sn->sysctl_header);
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	unregister_net_sysctl_table(sn->compat_sysctl_header);
-+	kfree(sn->compat_sysctl_table);
- #endif
-+	kfree(sn->sysctl_table);
-+#endif
-+	kfree(sn);
-+
-+	net_assign_generic(net, sctp_net_id, NULL);
-+}
-+
-+static struct pernet_operations sctp_net_ops = {
-+	.init = sctp_net_init,
-+	.exit = sctp_net_exit,
- };
- 
- static int __init nf_conntrack_proto_sctp_init(void)
- {
- 	int ret;
- 
-+	ret = register_pernet_gen_subsys(&sctp_net_id, &sctp_net_ops);
-+	if (ret < 0)
-+		goto out;
-+
- 	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_sctp4);
- 	if (ret) {
- 		printk("nf_conntrack_l4proto_sctp4: protocol register failed\n");
--		goto out;
-+		goto cleanup_net;
- 	}
- 	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_sctp6);
- 	if (ret) {
-@@ -727,12 +823,15 @@ static int __init nf_conntrack_proto_sct
- 
-  cleanup_sctp4:
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_sctp4);
-+ cleanup_net:
-+	unregister_pernet_gen_subsys(sctp_net_id, &sctp_net_ops);
-  out:
- 	return ret;
- }
- 
- static void __exit nf_conntrack_proto_sctp_fini(void)
- {
-+	unregister_pernet_gen_subsys(sctp_net_id, &sctp_net_ops);
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_sctp6);
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_sctp4);
- }
+> +/*
+> + * vxge_mBIT(loc) - set bit at offset
+> + */
+> +#define vxge_mBIT(loc)		(0x8000000000000000ULL >> (loc))
+> +
+> +/*
+> + * vxge_vBIT(val, loc, sz) - set bits at offset
+> + */
+> +#define vxge_vBIT(val, loc, sz)	(((u64)(val)) << (64-(loc)-(sz)))
+> +#define vxge_vBIT32(val, loc, sz)	(((u32)(val)) << (32-(loc)-(sz)))
+> +
+> +/*
+> + * bVALx(bits, loc) - Get the value of x bits at location
+> + */
+> +#define bVAL1(bits, loc)  ((((u64)bits) >> (64-(loc+1))) & 0x1)
+> +#define bVAL2(bits, loc)  ((((u64)bits) >> (64-(loc+2))) & 0x3)
+> +#define bVAL3(bits, loc)  ((((u64)bits) >> (64-(loc+3))) & 0x7)
+> +#define bVAL4(bits, loc)  ((((u64)bits) >> (64-(loc+4))) & 0xF)
+> +#define bVAL5(bits, loc)  ((((u64)bits) >> (64-(loc+5))) & 0x1F)
+> +#define bVAL6(bits, loc)  ((((u64)bits) >> (64-(loc+6))) & 0x3F)
+> +#define bVAL7(bits, loc)  ((((u64)bits) >> (64-(loc+7))) & 0x7F)
+> +#define bVAL8(bits, loc)  ((((u64)bits) >> (64-(loc+8))) & 0xFF)
+> +#define bVAL9(bits, loc)  ((((u64)bits) >> (64-(loc+9))) & 0x1FF)
+> +#define bVAL11(bits, loc) ((((u64)bits) >> (64-(loc+11))) & 0x7FF)
+> +#define bVAL12(bits, loc) ((((u64)bits) >> (64-(loc+12))) & 0xFFF)
+> +#define bVAL14(bits, loc) ((((u64)bits) >> (64-(loc+14))) & 0x3FFF)
+> +#define bVAL15(bits, loc) ((((u64)bits) >> (64-(loc+15))) & 0x7FFF)
+> +#define bVAL16(bits, loc) ((((u64)bits) >> (64-(loc+16))) & 0xFFFF)
+> +#define bVAL17(bits, loc) ((((u64)bits) >> (64-(loc+17))) & 0x1FFFF)
+> +#define bVAL18(bits, loc) ((((u64)bits) >> (64-(loc+18))) & 0x3FFFF)
+> +#define bVAL20(bits, loc) ((((u64)bits) >> (64-(loc+20))) & 0xFFFFF)
+> +#define bVAL22(bits, loc) ((((u64)bits) >> (64-(loc+22))) & 0x3FFFFF=
+)
+> +#define bVAL24(bits, loc) ((((u64)bits) >> (64-(loc+24))) & 0xFFFFFF=
+)
+> +#define bVAL28(bits, loc) ((((u64)bits) >> (64-(loc+28))) & 0xFFFFFF=
+=46)
+> +#define bVAL32(bits, loc) ((((u64)bits) >> (64-(loc+32))) & 0xFFFFFF=
+=46F)
+> +#define bVAL36(bits, loc) ((((u64)bits) >> (64-(loc+36))) & 0xFFFFFF=
+=46FFULL)
+> +#define bVAL40(bits, loc) ((((u64)bits) >> (64-(loc+40))) & 0xFFFFFF=
+=46FFFULL)
+> +#define bVAL44(bits, loc) ((((u64)bits) >> (64-(loc+44))) & 0xFFFFFF=
+=46FFFFULL)
+> +#define bVAL48(bits, loc) ((((u64)bits) >> (64-(loc+48))) & 0xFFFFFF=
+=46FFFFFULL)
+> +#define bVAL52(bits, loc) ((((u64)bits) >> (64-(loc+52))) & 0xFFFFFF=
+=46FFFFFFULL)
+> +#define bVAL56(bits, loc) ((((u64)bits) >> (64-(loc+56))) & 0xFFFFFF=
+=46FFFFFFFULL)
+> +#define bVAL60(bits, loc) ((((u64)bits) >> (64-(loc+60))) & \
+> +					0xFFFFFFFFFFFFFFFULL)
+> +#define bVAL61(bits, loc) ((((u64)bits) >> (64-(loc+61))) & \
+> +					0x1FFFFFFFFFFFFFFFULL)
+
+Wow.  Why don't you make the width a parameter too?
+
+[...]
+> +#pragma pack(1)
+
+We don't use Microsoft extensions, even if gcc does now understand this
+one.  Use the __packed macro at the end of each structure definition
+instead.
+
+> +struct vxge_hw_legacy_reg {
+> +
+> +	u8	unused00010[0x00010];
+> +
+> +/*0x00010*/	u64	toc_swapper_fb;
+> +#define VXGE_HW_TOC_SWAPPER_FB_INITIAL_VAL(val) vxge_vBIT(val, 0, 64=
+)
+> +/*0x00018*/	u64	pifm_rd_swap_en;
+> +#define VXGE_HW_PIFM_RD_SWAP_EN_PIFM_RD_SWAP_EN(val) vxge_vBIT(val, =
+0, 64)
+> +/*0x00020*/	u64	pifm_rd_flip_en;
+> +#define VXGE_HW_PIFM_RD_FLIP_EN_PIFM_RD_FLIP_EN(val) vxge_vBIT(val, =
+0, 64)
+> +/*0x00028*/	u64	pifm_wr_swap_en;
+> +#define VXGE_HW_PIFM_WR_SWAP_EN_PIFM_WR_SWAP_EN(val) vxge_vBIT(val, =
+0, 64)
+> +/*0x00030*/	u64	pifm_wr_flip_en;
+> +#define VXGE_HW_PIFM_WR_FLIP_EN_PIFM_WR_FLIP_EN(val) vxge_vBIT(val, =
+0, 64)
+> +/*0x00038*/	u64	toc_first_pointer;
+> +#define VXGE_HW_TOC_FIRST_POINTER_INITIAL_VAL(val) vxge_vBIT(val, 0,=
+ 64)
+> +/*0x00040*/	u64	host_access_en;
+> +#define VXGE_HW_HOST_ACCESS_EN_HOST_ACCESS_EN(val) vxge_vBIT(val, 0,=
+ 64)
+> +
+> +};
+
+If this structure is supposed to represent memory-mapped registers
+(which is rarely a good idea) then you should make the byte order of
+these registers explicit.
+
+[...]
+> +/* Using this strcture to calculate offsets */
+> +struct vxge_hw_pci_config_le {
+> +	u16     vendor_id;              /* 0x00 */
+> +	u16     device_id;              /* 0x02 */
+> +
+> +	u16     command;                /* 0x04 */
+> +	u16     status;                 /* 0x06 */
+[...]
+
+This is duplicating definitions in <linux/pci_regs.h>.  Use those
+instead.
+
+[...]
+> +/* Capability lists */
+[...]
+
+Registers in PCI capabilities are mostly defined in <linux/pci_regs.h>
+too.  If any register definitions are missing from that please add them
+there.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
