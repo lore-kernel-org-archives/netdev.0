@@ -1,179 +1,41 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [net-2.6 PATCH 6/10] Neterion: New driver: Hardware init & configuration
-Date: Mon, 16 Mar 2009 23:25:19 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705092E88@nekter>
-References: <1237018885.4966.431.camel@flash> <87bps12b33.fsf@basil.nowhere.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [net-2.6 PATCH 6/10] Neterion: New driver: Hardware init &
+	configuration
+Date: Tue, 17 Mar 2009 03:34:42 +0000
+Message-ID: <1237260883.9656.23.camel@bunthorne.i.decadent.org.uk>
+References: <1237018885.4966.431.camel@flash>
+	 <87bps12b33.fsf@basil.nowhere.org>
+	 <78C9135A3D2ECE4B8162EBDCE82CAD7705092E88@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Netdev" <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Jeff Garzik" <jgarzik@pobox.com>
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>, Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:59838 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753437AbZCQDZQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 23:25:16 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <87bps12b33.fsf@basil.nowhere.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51607 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751924AbZCQDew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 23:34:52 -0400
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705092E88@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi,
+On Mon, 2009-03-16 at 23:25 -0400, Ramkrishna Vepa wrote:
+> Andi,
+> 
+> Thanks for the comments. We are looking into them.
+> 
+> Question of the following -
+> > In general your driver looks like it could use a pass with sparse's
+> > __iomem checking (make V=1)
+> How do I enable this checking?
 
-Thanks for the comments. We are looking into them.
+What Andi said, only without the typo: run "make C=1 drivers/net/vxge/"
 
-Question of the following -
-> In general your driver looks like it could use a pass with sparse's
-> __iomem checking (make V=1)
-How do I enable this checking?
+Ben.
 
-Ram
-
-> > +struct __hw_channel*
-> > +__hw_channel_allocate(
-> > +	struct __hw_device *hldev,
-> > +	struct __hw_vpath_handle *vph,
-> > +	enum __hw_channel_type type,
-> > +	u32 length,
-> > +	u32 alloc_work_array,
-> > +	u32 alloc_free_array,
-> > +	u32 alloc_reserve_array,
-> > +	u32 per_dtr_space,
-> > +	void *userdata)
-> 
-> Having so many arguments in a function is usually a clear sign that it
-> needs
-> to be refactored into smaller functions.
-> 
-> > +	channel = (struct __hw_channel *) vmalloc(size);
-> 
-> You seem to use vmalloc nearly everywhere. First that has a lot of
-> overhead (rounds up to pages, flushes TLBs) and also will cause more
-> TLB misses. It's better to avoid it when not absolutely needed.
-> 
-> > +	vxge_assert(channel != NULL);
-> > +
-> > +	hldev = (struct __hw_device  *)channel->devh;
-> 
-> That assert is pretyt pointless because you'll just get a NULL pointer
-> reference next. Same true all over. asserts (or rather BUG_ON) only
-> make sense when they check for something that's not nearly obvious
-> given a oops.
-> 
-> > +	while (next_ptr != 0) {
-> > +
-> > +		cap_id = VXGE_HW_PCI_CAP_ID((((u8 *)pci_config)  +
-> next_ptr));
-> > +
-> > +		switch (cap_id) {
-> > +
-> > +		case VXGE_HW_PCI_CAP_ID_PM:
-> > +			hldev->pci_caps.pm_cap_offset = next_ptr;
-> 
-> This all could be done much shorter with a table.
-> 
-> > +	if (VXGE_HW_PCI_CONFIG_SPACE_SIZE <= 0x100)
-> > +		goto exit;
-> > +
-> > +	next_ptr = 0x100;
-> 
-> Such magic numbers are frowned upon.
-> 
-> Also in general you should use the pci capabilities accessor functions
-> provided by the PCI layer.
-> 
-> 
-> > +			break;
-> > +		case VXGE_HW_PCI_EXT_CAP_ID_DSN:
-> > +			hldev->pci_e_ext_caps.dsn_cap_offset = next_ptr;
-> > +			break;
-> > +		case VXGE_HW_PCI_EXT_CAP_ID_PWR:
-> > +			hldev->pci_e_ext_caps.pwr_budget_cap_offset =
-next_ptr;
-> > +			break;
-> > +
-> > +		default:
-> > +
-> > +			break;
-> > +		}
-> > +
-> > +		next_ptr = (u16)VXGE_HW_PCI_EXT_CAP_NEXT(
-> > +				*(u32 *)(((u8 *)pci_config)  +
-next_ptr));
-> 
-> Especially the patch orgies are scary. Does that really use readl()
-et.al.
-> correctly? I doubt it. Again this should use the pci layer code for
-this.
-> 
-> > +/**
-> > + * vxge_hw_device_private_set - Set driver context.
-> > + * @hldev: HW device handle.
-> > + * @data: pointer to driver context
-> > + *
-> > + * Use HW device to set driver context.
-> > + *
-> > + * See also: vxge_hw_device_private_get()
-> > + */
-> > +void vxge_hw_device_private_set(struct __hw_device *hldev, void
-*data)
-> > +{
-> > +	hldev->upper_layer_data = data;
-> > +}
-> 
-> Such wrappers are not encouraged in Linux code, which aims to do with
-> only necessary abstraction. Lots of occurrences.
-> 
-> > +
-> > +#ifdef VXGE_HW_INTERNAL_COMPILER_ERROR
-> > +
-> > +#pragma optimize("", off)
-> > +
-> > +#endif
-> 
-> That's not for gcc isn't it?
-> 
-> > +/*
-> > + * __hw_ring_block_memblock_idx - Return the memblock index
-> > + * @block: Virtual address of memory block
-> > + *
-> > + * This function returns the index of memory block
-> > + */
-> > +static inline u32
-> > +__hw_ring_block_memblock_idx(
-> > +	u8 (block)[VXGE_HW_BLOCK_SIZE])
-> > +{
-> > +	return (u32)*((u64 *)((u8 *)block  +
-> > +		VXGE_HW_RING_MEMBLOCK_IDX_OFFSET));
-> 
-> Is that readl/writel clean again?
-> 
-> In general your driver looks like it could use a pass with sparse's
-> __iomem checking (make V=1)
-> 
-> > +static enum vxge_hw_status
-> > +__hw_ring_mempool_item_alloc(
-> > +	struct vxge_hw_mempool *mempoolh,
-> > +	void *memblock,
-> > +	u32 memblock_index,
-> > +	struct vxge_hw_mempool_dma *dma_object,
-> > +	void *item,
-> > +	u32 index,
-> > +	u32 is_last,
-> > +	void *userdata)
-> 
-> Again far too many arguments.
-> 
-> 
-> Stopped reading for now, but that file needs a lot of work in general.
-> 
-> -Andi
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
