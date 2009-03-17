@@ -1,86 +1,58 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH 1/4] ARM: OMAP3: Add SMSC911X support to Overo
-	platform	(V2)
-Date: Tue, 17 Mar 2009 09:18:02 +0100
-Message-ID: <OF29DE8A9F.A26662CB-ON8025757C.002D018B-8025757C.002D970C@smsc.com>
-References: <20090316180800.GG19229@atomide.com>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: GRO with non napi driver: BUG in __napi_complete
+Date: Tue, 17 Mar 2009 09:35:21 +0100
+Message-ID: <49BF60C9.1080100@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	linux-arm-kernel@lists.arm.linux.org.uk, linux-omap@vger.kernel.org,
-	Steve Sakoman <sakoman@gmail.com>, netdev@vger.kernel.org
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-In-Reply-To: <20090316180800.GG19229@atomide.com>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:56551 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753177AbZCQIfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 04:35:22 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.14.3/8.13.8) with ESMTP id n2H8ZKCd478080
+	for <netdev@vger.kernel.org>; Tue, 17 Mar 2009 08:35:20 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n2H8ZJ1Q3756282
+	for <netdev@vger.kernel.org>; Tue, 17 Mar 2009 09:35:20 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n2H8ZJj7009348
+	for <netdev@vger.kernel.org>; Tue, 17 Mar 2009 09:35:19 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tony,
+Hi,
 
-Tony Lindgren <tony@atomide.com> wrote on 16/03/2009 18:08:01:
+I try to activate GRO on a non napi driver (2.6.29-rc8). Running an iperf test
+causes a bug in __napi_complete.
 
-> * Russell King - ARM Linux <linux@arm.linux.org.uk> [090315 10:37]:
-> > On Sun, Mar 15, 2009 at 10:13:47AM -0700, Steve Sakoman wrote:
-> > > On Sun, Mar 15, 2009 at 10:00 AM, Russell King - ARM Linux
-> > > <linux@arm.linux.org.uk> wrote:
-> > > > On Sun, Mar 15, 2009 at 09:36:25AM -0700, Steve Sakoman wrote:
-> > > >> On Sun, Mar 15, 2009 at 8:38 AM, Russell King - ARM Linux
-> > > >> <linux@arm.linux.org.uk> wrote:
-> > > >> > On Fri, Mar 13, 2009 at 03:44:53PM -0700, Tony Lindgren wrote:
-> > > >> >> Gumstix will soon be shipping a variant of their Summit board 
-that
-> > > >> >> includes an SMSC LAN9221 ethernet interface.  This patch 
-provides
-> > > >> >> support via the smsc911x driver when enabled in kernel config.
-> > > >> >
-> > > >> > Does this actually work with the smsc911x driver which is 
-> in mainline,
-> > > >> > or is it dependent on the smsc911x patches from Steve 
-Glendinning?
-> > > >>
-> > > >> For the shipping Overo kernel, I build with 2 of Steve's 
-> patches, copied below.
-> > > >
-> > > > That doesn't help answer the question.  What we need to know is 
-whether
-> > > > this patch works alone?  If not, do we know for sure that 
-> Steve's patches
-> > > > are going in during the next merge window?
-> > > 
-> > > It does not work without the 2 mentioned patches (IRQ's never 
-> get handled).
-> > 
-> > So I suggest that this patch is handed over to Steve to submit with 
-his
-> > set of patches.
-> 
-> I've added Steve Glendinning to the Cc.
-> 
-> I'll drop this from my queue, Steve Sakoman please email this to Steve
-> Glendinning for inclusion to his queue.
-> 
+kernel BUG at net/core/dev.c:2625!
+illegal operation: 0001 <DD>#1<A8> PREEMPT SMP
+Modules linked in:
+CPU: 1 Not tainted 2.6.29-rc8-00124-g5bee17f #8
+Process swapper (pid: 0, task: 000000002ff7ccc0, ksp: 000000002ff97d48)
+Krnl PSW : 0404d00180000000 00000000002d1f4e (__napi_complete+0x82/0x88)
+           R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:3 CC:1 PM:0 EA:3
+...
+<DD>  261.377396<A8> Call Trace:
+<DD>  261.377400<A8> (<DD><00000000002cb752><A8> process_backlog+0xba/0x104)
+<DD>  261.377410<A8>  <DD><00000000002cb5ba><A8> net_rx_action+0x102/0x1e0
+<DD>  261.377418<A8>  <DD><000000000004921e><A8> __do_softirq+0x92/0x168
+<DD>  261.377428<A8>  <DD><0000000000020936><A8> do_softirq+0x96/0xb0
+<DD>  261.377436<A8>  <DD><00000000000493c0><A8> irq_exit+0x70/0x80
+<DD>  261.377444<A8>  <DD><000000000025789c><A8> do_IRQ+0x174/0x194
+<DD>  261.377455<A8>  <DD><00000000000258da><A8> io_return+0x0/0x8
+<DD>  261.377464<A8>  <DD><00000000000246fe><A8> vtime_stop_cpu+0xb2/0xc0
+<DD>  261.377473<A8> (<DD><00000007005b1007><A8> 0x7005b1007)
 
-Yes, David has included all the IRQ patches in net-next-2.6, so they will 
-be merged in the next merge window.
+What is the intention process_backlog calls __napi_complete() instead of
+napi_complete(), this looks suspicious to me. Can anybody help?
 
-Steve
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+Thanks,
 
+Frank
 
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
