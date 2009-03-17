@@ -1,172 +1,378 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
-Date: Tue, 17 Mar 2009 03:47:41 +0100
-Message-ID: <49BF0F4D.7000409@cosmosbay.com>
-References: <20090316233934.GD32111@codeblau.de> <49BF0A5A.2040501@hp.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
+Date: Mon, 16 Mar 2009 20:04:28 -0700
+Message-ID: <20090316200428.908245dc.akpm@linux-foundation.org>
+References: <bug-12886-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Felix von Leitner <felix-kernel@fefe.de>, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	tomimo@ncircle.nullnet.fi,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45648 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087AbZCQCsN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 22:48:13 -0400
-In-Reply-To: <49BF0A5A.2040501@hp.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42294 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755276AbZCQDKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 23:10:03 -0400
+In-Reply-To: <bug-12886-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley a =E9crit :
-> Felix von Leitner wrote:
->> Here's an strace:
->>
->> socket(PF_INET6, SOCK_STREAM, IPPROTO_IP) =3D 3
->> fcntl(3, F_GETFL)                       =3D 0x2 (flags O_RDWR)
->> fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK)    =3D 0
->> setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
->> bind(3, {sa_family=3DAF_INET6, sin6_port=3Dhtons(6969), inet_pton(AF=
-_INET6, "::ffff:0.0.0.0", &sin6_addr), sin6_flowinfo=3D0, sin6_scope_id=
-=3D0}, 28) =3D -1 EADDRNOTAVAIL (Cannot assign requested address)
->>
->> This is supposed to work, and it works on other operating systems, e=
-ven
->> on Mac OS X.
->>
->> I think it used to work on Linux, too.
->>
->> I'm using 2.6.29-rc7 right now, but others have reported this not
->> working on distro kernels, too.
->=20
-> I don't think this ever worked on Linux, from the very beginning of i=
-net6_bind():
->=20
->         /* Check if the address belongs to the host. */
->         if (addr_type =3D=3D IPV6_ADDR_MAPPED) {
->                 v4addr =3D addr->sin6_addr.s6_addr32[3];
->                 if (inet_addr_type(net, v4addr) !=3D RTN_LOCAL) {
->                         err =3D -EADDRNOTAVAIL;
->                         goto out;
->                 }
->         } else {
->=20
-> So if it's a mapped address, the lower 32-bits must contain a local a=
-ddress.
-> RFC 3493 doesn't specifically mention what to do with ::ffff:0.0.0.0,=
- so this
-> looks like a gray area to me.
->=20
-> So are you trying to get IPv4-only behavior out of this socket?  Seem=
-s like the
-> wrong way to go about it.
 
-To me, section 3.7 of RFC 3493 is not gray. It is only refering to inte=
-roperate
-with IPV4 applications.=20
-Ie *sending* UDP messages to IPV4 nodes, or *connect* to TCP IPV4 nodes=
-=2E
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-So "::ffff:0.0.0.0" has no meaning to contact an IPV4 node, since 0.0.0=
-=2E0 is not
-a valid IPV4 address.
+On Mon, 16 Mar 2009 14:49:44 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-RFC 2373 is also clear
+> http://bugzilla.kernel.org/show_bug.cgi?id=12886
+> 
+>            Summary: skge wake on lan
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.28.7
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: tomimo@ncircle.nullnet.fi
+> 
+> 
+> Latest working kernel version:  -
+> Earliest failing kernel version: commit
+> 5177b3240a6608fc0c9c05cc32f4855c6540f8d5
 
-Part of RFC 3493 :
+That's
 
-   Applications may use AF_INET6 sockets to open TCP connections to IPv=
-4
-   nodes, or send UDP packets to IPv4 nodes, by simply encoding the
-   destination's IPv4 address as an IPv4-mapped IPv6 address, and
-   passing that address, within a sockaddr_in6 structure, in the
-   connect() or sendto() call.  When applications use AF_INET6 sockets
-   to accept TCP connections from IPv4 nodes, or receive UDP packets
-   from IPv4 nodes, the system returns the peer's address to the
-   application in the accept(), recvfrom(), or getpeername() call using
-   a sockaddr_in6 structure encoded this way.
+commit 5177b3240a6608fc0c9c05cc32f4855c6540f8d5
+Author:     Rafael J. Wysocki <rjw@sisk.pl>
+AuthorDate: Wed Oct 29 14:22:14 2008 -0700
+Commit:     Jeff Garzik <jgarzik@redhat.com>
+CommitDate: Fri Oct 31 00:52:17 2008 -0400
 
+    skge: adapt skge to use reworked PCI PM
+    
+    Adapt the skge driver to the reworked PCI PM
+    
+    * Use device_set_wakeup_enable() and friends as needed
+    * Remove an open-coded reference to the standard PCI PM registers
+    * Use pci_prepare_to_sleep() and pci_back_from_sleep() in the
+      ->suspend() and ->resume() callbacks
+    * Use the observation that it is sufficient to call pci_enable_wake()
+      once, unless it fails
+    
+    Tested on Asus L5D (Yukon-Lite rev 7).
 
-
-RFC 2373 states :
-
- The IPv6 transition mechanisms [TRAN] include a technique for hosts
- and routers to dynamically tunnel IPv6 packets over IPv4 routing
- infrastructure.  IPv6 nodes that utilize this technique are assigned
- special IPv6 unicast addresses that carry an IPv4 address in the low-
- order 32-bits.  This type of address is termed an "IPv4-compatible
- IPv6 address" and has the format:
-
-   |                80 bits               | 16 |      32 bits        |
-   +--------------------------------------+--------------------------+
-   |0000..............................0000|0000|    IPv4 address     |
-   +--------------------------------------+----+---------------------+
-
- A second type of IPv6 address which holds an embedded IPv4 address is
- also defined.  This address is used to represent the addresses of
- IPv4-only nodes (those that *do not* support IPv6) as IPv6 addresses.
- This type of address is termed an "IPv4-mapped IPv6 address" and has
- the format:
-
-   |                80 bits               | 16 |      32 bits        |
-   +--------------------------------------+--------------------------+
-   |0000..............................0000|FFFF|    IPv4 address     |
-   +--------------------------------------+----+---------------------+
-
-
-
-So using the "::ffff:0.0.0.0" as a local address for an=20
-IPv6 socket is a paradox, since "IPv4-mapped IPV6 address"
-are for IPV4-only nodes.
-
-If you want to accept only IPV4 connections, why use AF_INET6 in the fi=
-rst
-place ?
-
-Check how is implemented sctp_v6_cmp_addr() to see how expensive it
-is to handle extensive ipv6 address comparisons...
-
-
-/* Compare addresses exactly.
- * v4-mapped-v6 is also in consideration.
- */
-static int sctp_v6_cmp_addr(const union sctp_addr *addr1,
-                            const union sctp_addr *addr2)
-{
-        if (addr1->sa.sa_family !=3D addr2->sa.sa_family) {
-                if (addr1->sa.sa_family =3D=3D AF_INET &&
-                    addr2->sa.sa_family =3D=3D AF_INET6 &&
-                    ipv6_addr_v4mapped(&addr2->v6.sin6_addr)) {
-                        if (addr2->v6.sin6_port =3D=3D addr1->v4.sin_po=
-rt &&
-                            addr2->v6.sin6_addr.s6_addr32[3] =3D=3D
-                            addr1->v4.sin_addr.s_addr)
-                                return 1;
-                }
-                if (addr2->sa.sa_family =3D=3D AF_INET &&
-                    addr1->sa.sa_family =3D=3D AF_INET6 &&
-                    ipv6_addr_v4mapped(&addr1->v6.sin6_addr)) {
-                        if (addr1->v6.sin6_port =3D=3D addr2->v4.sin_po=
-rt &&
-                            addr1->v6.sin6_addr.s6_addr32[3] =3D=3D
-                            addr2->v4.sin_addr.s_addr)
-                                return 1;
-                }
-                return 0;
-        }
-        if (!ipv6_addr_equal(&addr1->v6.sin6_addr, &addr2->v6.sin6_addr=
-))
-                return 0;
-        /* If this is a linklocal address, compare the scope_id. */
-        if (ipv6_addr_type(&addr1->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)=
- {
-                if (addr1->v6.sin6_scope_id && addr2->v6.sin6_scope_id =
-&&
-                    (addr1->v6.sin6_scope_id !=3D addr2->v6.sin6_scope_=
-id)) {
-                        return 0;
-                }
-        }
-
-        return 1;
-}
+> Distribution: Fedora (with standard mainline kernel)
+> Hardware Environment: Asus A7V880-motherboard
+> Software Environment: Fedora 9
+> Problem Description: The skge-drivers commit from last october seems to have
+> broken the wake-on-lan feature from my machine. Reverting the above mentioned
+> commit fixes the problem again ie. WOL is working again without problems.
+> The broken patch did not produce any errors or such, only symptom was that WOL
+> did not work anymore. The loading of the nvidia module did not change the
+> situation at all (for the record).
+> 
+> valen#root>lspci -vv
+> 00:00.0 Host bridge: VIA Technologies, Inc. KT880 Host Bridge (rev 80)
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8122
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR+ FastB2B- DisINTx-
+>         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort+ >SERR- <PERR- INTx-
+>         Latency: 96
+>         Region 0: Memory at e0000000 (32-bit, prefetchable) [size=256M]
+>         Capabilities: [80] AGP version 3.5
+>                 Status: RQ=32 Iso- ArqSz=0 Cal=2 SBA+ ITACoh- GART64- HTrans-
+> 64bit- FW+ AGP3+ Rate=x8
+>                 Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW-
+> Rate=<none>
+>         Capabilities: [50] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:00.1 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8122
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+> 
+> 00:00.2 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8122
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+> 
+> 00:00.3 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8122
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+> 
+> 00:00.4 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8122
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+> 
+> 00:00.7 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+>         Subsystem: ASUSTeK Computer Inc. Unknown device 8122
+>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+> 
+> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8237/VX700 PCI Bridge (prog-if 00
+> [Normal decode])
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR+ FastB2B- DisINTx-
+>         Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+>         Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
+>         Memory behind bridge: fc100000-fe2fffff
+>         Prefetchable memory behind bridge: 9ff00000-afefffff
+>         Secondary status: 66MHz+ FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort+ <SERR- <PERR+
+>         BridgeCtl: Parity+ SERR+ NoISA- VGA+ MAbort- >Reset- FastB2B-
+>                 PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+>         Capabilities: [70] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:09.0 Ethernet controller: Marvell Technology Group Ltd. 88E8001 Gigabit
+> Ethernet Controller (rev 13)
+>         Subsystem: ASUSTeK Computer Inc. Marvell 88E8001 Gigabit Ethernet
+> Controller (Asus)
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+> Stepping- SERR+ FastB2B- DisINTx-
+>         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96 (5750ns min, 7750ns max), Cache Line Size: 32 bytes
+>         Interrupt: pin A routed to IRQ 18
+>         Region 0: Memory at fe400000 (32-bit, non-prefetchable) [size=16K]
+>         Region 1: I/O ports at e000 [size=256]
+>         Expansion ROM at fe300000 [disabled] [size=128K]
+>         Capabilities: [48] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA
+> PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+>         Capabilities: [50] Vital Product Data <?>
+>         Kernel driver in use: skge
+> 
+> 00:0f.0 RAID bus controller: VIA Technologies, Inc. VIA VT6420 SATA RAID
+> Controller (rev 80)
+>         Subsystem: ASUSTeK Computer Inc. A7V600/K8V Deluxe/K8V-X/A8V Deluxe
+> motherboard
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96
+>         Interrupt: pin B routed to IRQ 20
+>         Region 0: I/O ports at eff0 [size=8]
+>         Region 1: I/O ports at efe4 [size=4]
+>         Region 2: I/O ports at efa8 [size=8]
+>         Region 3: I/O ports at efe0 [size=4]
+>         Region 4: I/O ports at ef90 [size=16]
+>         Region 5: I/O ports at e800 [size=256]
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: sata_via
+> 
+> 00:0f.1 IDE interface: VIA Technologies, Inc.
+> VT82C586A/B/VT82C686/A/B/VT823x/A/C PIPC Bus Master IDE (rev 06) (prog-if 8a
+> [Master SecP PriP])
+>         Subsystem: ASUSTeK Computer Inc. A7V600/K8V-X/A8V Deluxe motherboard
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 32
+>         Interrupt: pin A routed to IRQ 20
+>         Region 0: [virtual] Memory at 000001f0 (32-bit, non-prefetchable)
+> [size=8]
+>         Region 1: [virtual] Memory at 000003f0 (type 3, non-prefetchable)
+> [size=1]
+>         Region 2: [virtual] Memory at 00000170 (32-bit, non-prefetchable)
+> [size=8]
+>         Region 3: [virtual] Memory at 00000370 (type 3, non-prefetchable)
+> [size=1]
+>         Region 4: I/O ports at fc00 [size=16]
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: pata_via
+> 
+> 00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
+> Controller (rev 81) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96, Cache Line Size: 32 bytes
+>         Interrupt: pin A routed to IRQ 21
+>         Region 4: I/O ports at eec0 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+> PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: uhci_hcd
+>         Kernel modules: uhci-hcd
+> 
+> 00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
+> Controller (rev 81) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96, Cache Line Size: 32 bytes
+>         Interrupt: pin A routed to IRQ 21
+>         Region 4: I/O ports at ef00 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+> PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: uhci_hcd
+>         Kernel modules: uhci-hcd
+> 
+> 00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
+> Controller (rev 81) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96, Cache Line Size: 32 bytes
+>         Interrupt: pin B routed to IRQ 21
+>         Region 4: I/O ports at ef20 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+> PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: uhci_hcd
+>         Kernel modules: uhci-hcd
+> 
+> 00:10.3 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
+> Controller (rev 81) (prog-if 00 [UHCI])
+>         Subsystem: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96, Cache Line Size: 32 bytes
+>         Interrupt: pin B routed to IRQ 21
+>         Region 4: I/O ports at ef40 [size=32]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+> PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: uhci_hcd
+>         Kernel modules: uhci-hcd
+> 
+> 00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 86) (prog-if 20
+> [EHCI])
+>         Subsystem: VIA Technologies, Inc. USB 2.0
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 96, Cache Line Size: 64 bytes
+>         Interrupt: pin C routed to IRQ 21
+>         Region 0: Memory at fe900000 (32-bit, non-prefetchable) [size=256]
+>         Capabilities: [80] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA
+> PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: ehci_hcd
+>         Kernel modules: ehci-hcd
+> 
+> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8237 ISA bridge
+> [KT600/K8T800/K8T890 South]
+>         Subsystem: ASUSTeK Computer Inc. A7V600/K8V-X/A8V Deluxe motherboard
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel modules: i2c-viapro
+> 
+> 00:11.5 Multimedia audio controller: VIA Technologies, Inc. VT8233/A/8235/8237
+> AC97 Audio Controller (rev 60)
+>         Subsystem: ASUSTeK Computer Inc. Asus P5VD1-X (AD1888 codec [SoundMax])
+>         Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Interrupt: pin C routed to IRQ 22
+>         Region 0: I/O ports at e400 [size=256]
+>         Capabilities: [c0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Kernel driver in use: VIA 82xx Audio
+>         Kernel modules: snd-via82xx
+> 
+> 00:11.6 Communication controller: VIA Technologies, Inc. AC'97 Modem Controller
+> (rev 80)
+>         Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Interrupt: pin C routed to IRQ 0
+>         Region 0: I/O ports at 1000 [disabled] [size=256]
+>         Capabilities: [d0] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 01:00.0 VGA compatible controller: nVidia Corporation NV34 [GeForce FX 5200]
+> (rev a1) (prog-if 00 [VGA controller])
+>         Subsystem: XFX Pine Group Inc. Unknown device 1280
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR- FastB2B- DisINTx-
+>         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 248 (1250ns min, 250ns max)
+>         Interrupt: pin A routed to IRQ 16
+>         Region 0: Memory at fd000000 (32-bit, non-prefetchable) [size=16M]
+>         Region 1: Memory at a0000000 (32-bit, prefetchable) [size=128M]
+>         [virtual] Expansion ROM at fe200000 [disabled] [size=128K]
+>         Capabilities: [60] Power Management version 2
+>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+> PME(D0-,D1-,D2-,D3hot-,D3cold-)
+>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+>         Capabilities: [44] AGP version 3.0
+>                 Status: RQ=32 Iso- ArqSz=0 Cal=3 SBA+ ITACoh- GART64- HTrans-
+> 64bit- FW+ AGP3+ Rate=x4,x8
+>                 Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW-
+> Rate=<none>
+>         Kernel driver in use: nvidia
+>         Kernel modules: nvidia
+> 
+> 
 
