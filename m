@@ -1,83 +1,73 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] tipc: fix non-const printf format arguments
-Date: Tue, 17 Mar 2009 11:28:32 -0700
-Message-ID: <20090317112832.66832ce4@nehalam>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
+Date: Tue, 17 Mar 2009 15:21:52 -0400
+Message-ID: <49BFF850.7060906@hp.com>
+References: <20090316233934.GD32111@codeblau.de> <49BF0A5A.2040501@hp.com> <20090317125845.GB9754@codeblau.de> <49BFC8E6.8000404@hp.com> <20090317180840.GC13270@codeblau.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, per.linden@ericsson.com,
-	jon.maloy@ericsson.com, allan.stephens@windriver.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Felix von Leitner <felix-kernel@fefe.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54963 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752465AbZCQS2k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 14:28:40 -0400
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:31003 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752604AbZCQTV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 15:21:56 -0400
+In-Reply-To: <20090317180840.GC13270@codeblau.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix warnings from current gcc about using non-const strings as printf args
-in TIPC. Compile tested only (not a TIPC user).
+Top-posting so others can see your off-list rant in full.  I see no reason to
+help you any further, even though I did have a patch that would change this
+behavior for you.  Good luck with your "biggest noncommercial Internet messaging
+infrastructure" in the world.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+-Brian
 
----
- net/tipc/bcast.c |    4 ++--
- net/tipc/bcast.h |    2 +-
- net/tipc/dbg.c   |    2 +-
- net/tipc/node.c  |    2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
-
---- a/net/tipc/bcast.c	2009-03-17 11:17:23.196668013 -0700
-+++ b/net/tipc/bcast.c	2009-03-17 11:24:54.277355254 -0700
-@@ -119,7 +119,7 @@ static struct bclink *bclink = NULL;
- static struct link *bcl = NULL;
- static DEFINE_SPINLOCK(bc_lock);
- 
--char tipc_bclink_name[] = "multicast-link";
-+const char tipc_bclink_name[] = "multicast-link";
- 
- 
- static u32 buf_seqno(struct sk_buff *buf)
-@@ -800,7 +800,7 @@ int tipc_bclink_init(void)
- 	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
- 	bcl->b_ptr = &bcbearer->bearer;
- 	bcl->state = WORKING_WORKING;
--	sprintf(bcl->name, tipc_bclink_name);
-+	strlcpy(bcl->name, tipc_bclink_name, TIPC_MAX_LINK_NAME);
- 
- 	if (BCLINK_LOG_BUF_SIZE) {
- 		char *pb = kmalloc(BCLINK_LOG_BUF_SIZE, GFP_ATOMIC);
---- a/net/tipc/bcast.h	2009-03-17 11:19:59.985355078 -0700
-+++ b/net/tipc/bcast.h	2009-03-17 11:20:07.009542787 -0700
-@@ -70,7 +70,7 @@ struct port_list {
- 
- struct tipc_node;
- 
--extern char tipc_bclink_name[];
-+extern const char tipc_bclink_name[];
- 
- 
- /**
---- a/net/tipc/dbg.c	2009-03-17 11:22:58.825479925 -0700
-+++ b/net/tipc/dbg.c	2009-03-17 11:23:52.503463479 -0700
-@@ -258,7 +258,7 @@ void tipc_printf(struct print_buf *pb, c
- 	}
- 
- 	if (pb->echo)
--		printk(print_string);
-+		printk("%s", print_string);
- 
- 	spin_unlock_bh(&print_lock);
- }
---- a/net/tipc/node.c	2009-03-17 11:22:24.129480376 -0700
-+++ b/net/tipc/node.c	2009-03-17 11:25:13.389229628 -0700
-@@ -703,7 +703,7 @@ struct sk_buff *tipc_node_get_links(cons
- 
- 	link_info.dest = htonl(tipc_own_addr & 0xfffff00);
- 	link_info.up = htonl(1);
--	sprintf(link_info.str, tipc_bclink_name);
-+	strlcpy(link_info.str, tipc_bclink_name, TIPC_MAX_LINK_NAME);
- 	tipc_cfg_append_tlv(buf, TIPC_TLV_LINK_INFO, &link_info, sizeof(link_info));
- 
- 	/* Add TLVs for any other links in scope */
+Felix von Leitner wrote:
+>> Please show me a porting guide that even mentions supporting IPv4-only mode
+>> through an IPv6 socket by using this method.  There is none that I know of.
+> 
+> Are you kidding me?
+> A _porting guide_?!?
+> 
+> If you are trying to troll me, you just succeeded.
+> 
+> Now please make room so the adults can talk about the issue at hand
+> while you are putting up straw men.
+> 
+>>> Did I mention *BSD and OSX allow this?
+>> That was their decision, and it doesn't mean it's the right thing to do.
+> 
+> Riiiight.
+> 
+> There is an old joke.  The Joneses are driving on the freeway, when the
+> radio sounds a warning.  "Warning!  There is a car driving the wrong way
+> on the freeway!"  Says grandpa (who is driving the car) "what do you
+> mean, one guy?  Hundreds!!"
+> 
+> Sometimes, if there are two ways to read something, and your users tell
+> you which way they want it, and the competition does it the way the
+> users want, and you don't, sometimes, in that case, YOU ARE WRONG.
+> 
+> It's that easy.
+> 
+> Hey, you have an hp.com email address.  Why don't you check out how
+> HP-UX handles this.
+> 
+>> Compare your bittorrent server to Apache, which is probably the most widely-used
+>> server application in the world.  It doesn't do what you're trying to do.  See
+>> http://httpd.apache.org/docs/2.2/bind.html and/or browse the source code.
+> 
+> What is this supposed to be?  Name dropping?
+> 
+> I'm not impressed.
+> 
+> And Apache never won any speed or scalability records.  Just because
+> many people use Apache does not mean it's a good piece of software.  You
+> know, many more people use Windows than Linux.  That does not make
+> Windows the standard to follow.  Hey, many people use sendmail!  And
+> BIND!
+> 
+> Felix
+> 
