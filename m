@@ -1,55 +1,48 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 25/30] solos: Don't clear config registers at startup
-Date: Tue, 17 Mar 2009 21:29:34 +0000
-Message-ID: <1237325374.27681.354.camel@macbook.infradead.org>
+Subject: Re: [GIT *] Solos PCI ADSL card update
+Date: Tue, 17 Mar 2009 21:33:49 +0000
+Message-ID: <1237325629.27681.365.camel@macbook.infradead.org>
 References: <1237310370.27681.314.camel@macbook.infradead.org>
+	 <20090317.122317.150954865.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+	chas@cmf.nrl.navy.mil
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37673 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:38068 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758359AbZCQV3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:47 -0400
-Received: from macbook.infradead.org ([2001:8b0:10b:1:216:eaff:fe05:bbb8])
-	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
-	id 1Ljgr2-0001w9-LO
-	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:44 +0000
-In-Reply-To: <1237310370.27681.314.camel@macbook.infradead.org>
+	with ESMTP id S1754679AbZCQVdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:33:54 -0400
+In-Reply-To: <20090317.122317.150954865.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
----
- drivers/atm/solos-pci.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
+On Tue, 2009-03-17 at 12:23 -0700, David Miller wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Tue, 17 Mar 2009 17:19:30 +0000
+> 
+> > Please pull from git://git.infradead.org/~dwmw2/solos-2.6.git
+> > 
+> > This contains a bunch of updates to the Solos PCI driver (full patch
+> > below for review):
+> 
+> So if I don't like patch 3 and want to discuss it as a unit,
+> what do I do?  Pull the patch out of your GIT repo and
+> start a thread to discuss it?
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index f27bd92..df01682 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -1040,7 +1040,7 @@ static struct atmdev_ops fpga_ops = {
- 
- static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- {
--	int err, i;
-+	int err;
- 	uint16_t fpga_ver;
- 	uint8_t major_ver, minor_ver;
- 	uint32_t data32;
-@@ -1090,10 +1090,6 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 		iowrite32(0, card->config_regs + FPGA_MODE);
- 		data32 = ioread32(card->config_regs + FPGA_MODE); 
- 	}
--	//Fill Config Mem with zeros
--	for(i = 0; i < 128; i += 4)
--		iowrite32(0, card->config_regs + i);
--
- 	//Set RX empty flags
- 	iowrite32(0xF0, card->config_regs + FLAGS_ADDR);
- 
+If you like :)
+
+Since the complete patch isn't that large, I figured it was probably
+easier to review that way. 
+
+> Come on, post the whole series, please. :-/
+
+Since the complete patch isn't that large, I figured it was probably
+easier to review that way. I've posted them individually now.
+
 -- 
-1.6.0.6
-
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
