@@ -1,55 +1,30 @@
-From: Karsten Wiese <fzu@wemgehoertderstaat.de>
-Subject: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
-Date: Tue, 17 Mar 2009 20:34:54 +0100
-Message-ID: <200903172034.55241.fzu@wemgehoertderstaat.de>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 17 Mar 2009 12:39:49 -0700
+Message-ID: <OF37E3EF60.503CB684-ON8825757C.006B831D-8825757C.006C0301@us.ibm.com>
+References: <49BFBEE4.9070405@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Rafael Wysocki <rjw@sisk.pl>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Brian Bloniarz <bmb@athenacr.com>, cl@linux-foundation.org,
+	David Miller <davem@davemloft.net>, kchang@athenacr.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout0.freenet.de ([195.4.92.90]:44715 "EHLO mout0.freenet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752211AbZCQTfG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 15:35:06 -0400
-Content-Disposition: inline
+Received: from e31.co.us.ibm.com ([32.97.110.149]:41202 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753096AbZCQTkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 15:40:00 -0400
+In-Reply-To: <49BFBEE4.9070405@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I did some testing with this and see at least a 20% improvement
+without drop.
 
-Only adjust the NAPI bits of the interruptmask, if netif_rx_schedule_prep()
-returns true.
-Without this, I see interrupt storms here using 2.6.29-rcx and 2.6.27.19 and
-device needed rmmod r8169 + modprobe r8169 to start working.
+I agree with Peter's recommended changes (esp. sentinel vs null),
+and also the trivial brace indentation  in softirq_delay_exec(),
+but otherwise looks  good to me. Nice work.
 
-Signed-off-by: Karsten Wiese <fzu@wemgehoertderstaat.de>
----
- drivers/net/r8169.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b347340..0c943ba 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3708,12 +3708,11 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 		rtl8169_check_link_status(dev, tp, ioaddr);
- 
- 	if (status & tp->napi_event) {
--		RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
--		tp->intr_mask = ~tp->napi_event;
--
--		if (likely(netif_rx_schedule_prep(&tp->napi)))
-+		if (likely(netif_rx_schedule_prep(&tp->napi))) {
-+			RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
-+			tp->intr_mask = ~tp->napi_event;
- 			__netif_rx_schedule(&tp->napi);
--		else if (netif_msg_intr(tp)) {
-+		} else if (netif_msg_intr(tp)) {
- 			printk(KERN_INFO "%s: interrupt %04x in poll\n",
- 			       dev->name, status);
- 		}
--- 
-1.6.0.6
+                                        +-DLS
 
