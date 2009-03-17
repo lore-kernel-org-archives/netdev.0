@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 00/04: netfilter fixes
-Date: Tue, 17 Mar 2009 13:13:36 -0700 (PDT)
-Message-ID: <20090317.131336.135791868.davem@davemloft.net>
-References: <20090316160841.3567.94089.sendpatchset@x2.localnet>
+Subject: Re: [patch next] netxen: fix firmware download warnings
+Date: Tue, 17 Mar 2009 13:14:31 -0700 (PDT)
+Message-ID: <20090317.131431.47471677.davem@davemloft.net>
+References: <1237185662-16726-1-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au
+To: dhananjay@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33672
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35628
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756467AbZCQUNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 16:13:49 -0400
-In-Reply-To: <20090316160841.3567.94089.sendpatchset@x2.localnet>
+	by vger.kernel.org with ESMTP id S1754619AbZCQUOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 16:14:44 -0400
+In-Reply-To: <1237185662-16726-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 16 Mar 2009 17:08:42 +0100 (MET)
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Sun, 15 Mar 2009 23:41:02 -0700
 
-> the following patches for 2.6.29 fix a few netfilter bugs:
+> Fix following warnings, by using integer firmware types.
 > 
-> - avoid event delivery for conntracks dropped because of clashes (from Pablo)
+> drivers/net/netxen/netxen_nic_hw.c: In function 'netxen_load_firmware':
+> drivers/net/netxen/netxen_nic_hw.c:1146: warning: comparison with string literal results in unspecified behavior
+> drivers/net/netxen/netxen_nic_hw.c:1146: warning: comparison with string literal results in unspecified behavior
+> drivers/net/netxen/netxen_nic_hw.c:1146: warning: comparison with string literal results in unspecified behavior
+> drivers/net/netxen/netxen_nic_hw.c:1159: warning: comparison with string literal results in unspecified behavior
+> drivers/net/netxen/netxen_nic_hw.c:1159: warning: comparison with string literal results in unspecified behavior
+> drivers/net/netxen/netxen_nic_hw.c:1159: warning: comparison with string literal results in unspecified behavior
 > 
-> - fix for a ctnetlink crash during expectation creation caused by a missing
->   initialization. Also from Pablo.
-> 
-> - a fix for correctly handling NF_DROP return values from the conntrack
->   ->packet() callbacks. From Christoph Pasch.
-> 
-> - reordering of the header checks in IPv6 conntrack reassembly to avoid an
->   incorrect log message with NEXTHDR_NONE. Also from Christoph.
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Pulled, thanks a lot!
+Applied, thanks.
