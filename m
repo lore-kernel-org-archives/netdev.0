@@ -1,127 +1,61 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
-Date: Tue, 17 Mar 2009 16:21:24 +0100
-Message-ID: <49BFBFF4.5060206@cosmosbay.com>
-References: <20090316233934.GD32111@codeblau.de> <49BF0A5A.2040501@hp.com> <20090317125845.GB9754@codeblau.de> <49BFA9F0.6070702@hp.com> <20090317141432.GA10575@codeblau.de>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Tue, 17 Mar 2009 11:28:02 -0400
+Message-ID: <20090317152801.GA6737@tuxdriver.com>
+References: <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com> <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com> <1237140665.24621.2.camel@johannes.local> <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain> <1237143683.24621.7.camel@johannes.local> <20090315202603.GA9077@elte.hu> <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com> <alpine.LFD.2.00.0903161250080.3082@localhost.localdomain> <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com> <20090317144802.GF3549@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: Felix von Leitner <felix-kernel@fefe.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60093 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbZCQPVz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 11:21:55 -0400
-In-Reply-To: <20090317141432.GA10575@codeblau.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090317144802.GF3549-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46elix von Leitner a =E9crit :
->> Sorry, I just don't buy this.  You imply that you don't want the ove=
-rhead
->> of storing IPv6 addresses, but you still get this with ::ffff:0.0.0.=
-0.
->> In fact, now your overhead is even worse since ever IPv4 address wil=
-l be
->> stored stored and interpreted as IPv6 128 bit address.
->=20
->> If you really care about overhead, run 2 services.  Your IPv6 servic=
-e
->> will only track real IPv6 addresses and will reduce you total overhe=
-ad.
->=20
-> I am worried about the overhead of storing the IPv6 addresses.
-> I am not storing them in the IPv4 case.
->=20
-> But the socket code has been rewritten to use IPv6 addresses only,
-> precisely because IPv4-mapped addresses exist.
->=20
->> If you don't care about overhead, just bind a single socket to :: an=
-d
->> you will get behavior identical for the ::fff:0.0.0.0 case, but with
->> the added benefit of tracking real ipv6 addresses as well.
->=20
-> You probably mean well but please stick to the problem at hand and do=
-n't
-> speculate about my app.
->=20
->> Having written support for ::ffff:0.0.0.0, I've always thought it wa=
-s
->> a bastardized case that didn't provide any benefits.  It was like sa=
-ying:
->> "I've got IPv6 on my system, but I don't really support it, even tho=
-ugh
->> I pretend that I do."
->=20
-> The app has a command line option to specify which address to bind to=
-=2E
-> The app understands IPv4 addresses and converts them to ipv4 mapped
-> addresses so it can only deal with sockaddr_in6 when talking to the
-> kernel and does not need to store info on what kind of socket family =
-it
-> is dealing with.
->=20
-> If someone specifies 0.0.0.0, it does not work.  It's that easy.
->=20
-> Now it may be a fascinating side discussion on whether you think IPv4
-> mapped 0.0.0.0 is useful or not, but rest assured: it is useful to at
-> least one high profile app that is so far running on Linux.
->=20
->>> Why would you say that?
->> Because that case doesn't provide any benefits.
->=20
-> You may not see it but it does.
->=20
->> It only has the drawback that you have to deal with ipv4-mapped IPv6
->> addresses witch is the overhead of the whole thing.
->=20
-> That is not a drawback.  On the contrary.  It greatly simplifies how =
-the
-> app deals with the socket API.
->=20
->> If you are prepared to deal with it, you might as well deal with rea=
-l ipv6 addresses
->> at the same time and mitigate your overhead somewhat.
->=20
-> You are currently proving all the snide remarks by the BSD people abo=
-ut
-> the Linux IP stack true, and the "professionalism" snide remarks of t=
-he
-> Solaris people.  Great work, man.
->
+On Tue, Mar 17, 2009 at 10:48:02AM -0400, John W. Linville wrote:
+> On Tue, Mar 17, 2009 at 07:55:49AM +0800, Jeff Chua wrote:
+> > On Tue, Mar 17, 2009 at 3:57 AM, Linus Torvalds
+> > <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+> > 
+> > > IOW, if you've pinpointed 71c11fb57b924c160297ccd9e1761db598d00ac2 as
+> > > being bad, then you should go back and double-check that its parent
+> > > (in this case 4607816f608b42a5379aca97ceed08378804c99f) is good.
+> > > Because if it's parent is also bad, then that just means that you made
+> > > some mistake in "git bisect".
+> > > In this case, it really sounds like maybe you marked the parent good, even
+> > > though you should have marked it bad.
+> > 
+> > I should have been more careful, just got thrown off during the last
+> > few steps of the bisect. But with the bad association to the AP after
+> > a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9 (iwlwifi: remove implicit
+> > direct scan), can someone suggest where to go from here?
+> 
+> The obvious question for me is did you try this?
+> 
+> 	git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
 
-Trying to understand why you seem furious, lets try to be pragmatic.
+Hmmm...more like this:
 
-Most users of your great program wont have a fix for this until next ye=
-ar.
+git revert 41bb73eeac5ff5fb217257ba33b654747b3abf11
+git revert b23f99bcfa12c7b452f7ad201ea5921534d4e9ff
+git revert 71c11fb57b924c160297ccd9e1761db598d00ac2
+git revert 4607816f608b42a5379aca97ceed08378804c99f
+git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
+ 
+This first one has a conflict -- just take the hunk.
 
-I am afraid you have no choice but change your program, or loose users.
+> Does that restore operation for you?
 
-Still I dont get your point. Having TCP V6 sockets is much more expensi=
-ve
-at kernel level (same for UDP), and bittorrent is known to stress netwo=
-rk a bit, so
-having application use an IPV4 socket where it can is a win for your
-program getting more users, and computers spend less power.
-
-grep TCP /proc/slabinfo
-
-tw_sock_TCPv6          0      0    192   21    1 : tunables    0    0  =
-  0 : slabdata      0      0      0
-TCPv6                140    140   1600   20    8 : tunables    0    0  =
-  0 : slabdata      7      7      0
-tw_sock_TCP          256    256    128   32    1 : tunables    0    0  =
-  0 : slabdata      8      8      0
-TCP                  197    198   1472   22    8 : tunables    0    0  =
-  0 : slabdata      9      9      0
-
-
-Gasp, OSX having this "::ffff:0.0.0.0" right is probably the reason why=
- more computers
- run OSX than linux. Sometime dont implement RFC too literally :)
-
-
-
-
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
