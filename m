@@ -1,127 +1,63 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 20/30] solos: Fix various bugs in status packet handling
-Date: Tue, 17 Mar 2009 21:29:31 +0000
-Message-ID: <1237325371.27681.349.camel@macbook.infradead.org>
+Subject: [PATCH 18/30] solos: Remove IRQF_DISABLED, don't frob IRQ enable
+ on the FPGA in solos_irq()
+Date: Tue, 17 Mar 2009 21:29:29 +0000
+Message-ID: <1237325369.27681.347.camel@macbook.infradead.org>
 References: <1237310370.27681.314.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37668 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:37666 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758272AbZCQV3j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:39 -0400
+	with ESMTP id S1758206AbZCQV3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:37 -0400
 Received: from macbook.infradead.org ([2001:8b0:10b:1:216:eaff:fe05:bbb8])
 	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
-	id 1Ljgqv-0001vu-Lf
-	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:37 +0000
+	id 1Ljgqs-0001vo-W5
+	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:35 +0000
 In-Reply-To: <1237310370.27681.314.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Neither of these are necessary.
+
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/atm/solos-pci.c |   49 ++++++++++++++++++++++++++--------------------
- 1 files changed, 28 insertions(+), 21 deletions(-)
+ drivers/atm/solos-pci.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 8121f85..5e228a3 100644
+index 2ef8157..f2736dd 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -293,13 +293,15 @@ static char *next_string(struct sk_buff *skb)
- {
- 	int i = 0;
- 	char *this = skb->data;
--
--	while (i < skb->len) {
-+	
-+	for (i = 0; i < skb->len; i++) {
- 		if (this[i] == '\n') {
- 			this[i] = 0;
--			skb_pull(skb, i);
-+			skb_pull(skb, i + 1);
- 			return this;
- 		}
-+		if (!isprint(this[i]))
-+			return NULL;
- 	}
- 	return NULL;
+@@ -570,16 +570,12 @@ static irqreturn_t solos_irq(int irq, void *dev_id)
+ 
+ 	//ACK IRQ
+ 	iowrite32(0, card->config_regs + IRQ_CLEAR);
+-	//Disable IRQs from FPGA
+-	iowrite32(0, card->config_regs + IRQ_EN_ADDR);
+ 
+ 	if (card->atmdev[0])
+ 		tasklet_schedule(&card->tlet);
+ 	else
+ 		wake_up(&card->fw_wq);
+ 
+-	//Enable IRQs from FPGA
+-	iowrite32(1, card->config_regs + IRQ_EN_ADDR);
+ 	return IRQ_RETVAL(handled);
  }
-@@ -316,7 +318,7 @@ static char *next_string(struct sk_buff *skb)
- static int process_status(struct solos_card *card, int port, struct sk_buff *skb)
- {
- 	char *str, *end, *state_str;
--	int ver, rate_up, rate_down, state, snr, attn;
-+	int ver, rate_up, rate_down, state;
  
- 	if (!card->atmdev[port])
- 		return -ENODEV;
-@@ -333,16 +335,22 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+@@ -1132,7 +1128,7 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
  	}
- 
- 	str = next_string(skb);
-+	if (!str)
-+		return -EIO;
- 	rate_up = simple_strtol(str, &end, 10);
- 	if (*end)
- 		return -EIO;
- 
- 	str = next_string(skb);
-+	if (!str)
-+		return -EIO;
- 	rate_down = simple_strtol(str, &end, 10);
- 	if (*end)
- 		return -EIO;
- 
- 	state_str = next_string(skb);
-+	if (!state_str)
-+		return -EIO;
- 	if (!strcmp(state_str, "Showtime"))
- 		state = ATM_PHY_SIG_FOUND;
- 	else {
-@@ -350,25 +358,24 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
- 		release_vccs(card->atmdev[port]);
- 	}
- 
--	str = next_string(skb);
--	snr = simple_strtol(str, &end, 10);
--	if (*end)
--		return -EIO;
--
--	str = next_string(skb);
--	attn = simple_strtol(str, &end, 10);
--	if (*end)
--		return -EIO;
--
--	if (state == ATM_PHY_SIG_LOST && !rate_up && !rate_down)
-+	if (state == ATM_PHY_SIG_LOST) {
- 		dev_info(&card->dev->dev, "Port %d ATM state: %s\n",
- 			 port, state_str);
--	else
--		dev_info(&card->dev->dev, "Port %d ATM state: %s (%d/%d kb/s, SNR %ddB, Attn %ddB)\n",
--			 port, state_str, rate_up/1000, rate_down/1000,
--			 snr, attn);
--
--	card->atmdev[port]->link_rate = rate_down;
-+	} else {
-+		char *snr, *attn;
-+
-+		snr = next_string(skb);
-+		if (!str)
-+			return -EIO;
-+		attn = next_string(skb);
-+		if (!attn)
-+			return -EIO;
-+
-+		dev_info(&card->dev->dev, "Port %d: %s (%d/%d kb/s%s%s%s%s)\n",
-+			 port, state_str, rate_down/1000, rate_up/1000,
-+			 snr[0]?", SNR ":"", snr, attn[0]?", Attn ":"", attn);
-+	}		
-+	card->atmdev[port]->link_rate = rate_down / 424;
- 	card->atmdev[port]->signal = state;
- 
- 	return 0;
+ */
+ 	//dev_dbg(&card->dev->dev, "Requesting IRQ: %d\n",dev->irq);
+-	err = request_irq(dev->irq, solos_irq, IRQF_DISABLED|IRQF_SHARED,
++	err = request_irq(dev->irq, solos_irq, IRQF_SHARED,
+ 			  "solos-pci", card);
+ 	if (err) {
+ 		dev_dbg(&card->dev->dev, "Failed to request interrupt IRQ: %d\n", dev->irq);
 -- 
 1.6.0.6
 
