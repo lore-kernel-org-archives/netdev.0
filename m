@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-03-16
-Date: Tue, 17 Mar 2009 14:39:49 -0700 (PDT)
-Message-ID: <20090317.143949.250643299.davem@davemloft.net>
-References: <20090316231423.GA3633@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Tue, 17 Mar 2009 23:06:25 +0100
+Message-ID: <20090317220625.GA5038@electric-eye.fr.zoreil.com>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sfr@canb.auug.org.au
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Karsten Wiese <fzu@wemgehoertderstaat.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34070
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754589AbZCQVkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:40:03 -0400
-In-Reply-To: <20090316231423.GA3633@tuxdriver.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50202 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752984AbZCQWDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 18:03:32 -0400
+Content-Disposition: inline
+In-Reply-To: <200903172034.55241.fzu@wemgehoertderstaat.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 16 Mar 2009 19:14:24 -0400
-
-> Here is a group of patches intended for 2.6.29.  The one from me is
-> minor, but it cuts-down on log SPAM for ipw2100, ipw2200, and hostap
-> users.  The two from Jouni fix some panics he observed himself.
+Karsten Wiese <fzu@wemgehoertderstaat.de> :
 > 
-> The first one from Luis fixes bug 12110 at bugzilla.kernel.org.  I know
-> he has worked on it for a long time and I've had several desperate users
-> asking for it, so it must be good. :-)  Unfortunately, it causes some
-> nasty merge errors with what is in net-next-2.6 and wireless-next-2.6.
-> I created a merge-test branch in wireless-next-2.6, and the merge commit
-> log goes into more detail about resolving the issue.  In short, you
-> probably want to diff drivers/net/ath9k against the merge-test branch...
-> 
-> Please let me know if there are problems!
+> Only adjust the NAPI bits of the interruptmask, if netif_rx_schedule_prep()
+> returns true.
+> Without this, I see interrupt storms here using 2.6.29-rcx and 2.6.27.19 and
+> device needed rmmod r8169 + modprobe r8169 to start working.
 
-Pulled, thanks John.
+How the patch is supposed to work is not completely clear to me.
 
-Wish me luck with the net-next-2.6 merge :-)
+Can you elaborate a bit ?
+
+-- 
+Ueimor
