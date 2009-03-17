@@ -1,64 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch 0/6] netfilter: ctnetlink allocation improvement
-Date: Tue, 17 Mar 2009 05:35:47 +0100
-Message-ID: <49BF28A3.3010606@trash.net>
-References: <20090316220659.756862181@jonathan.eitzenberger.org>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: Intel 82567LM e1000e DHCP problem/question
+Date: Mon, 16 Mar 2009 22:23:09 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.1.10.0903162202080.5440@jbrandeb-MOBL1.amr.corp.intel.com>
+References: <BAY143-W41A6A9A51EDB64905CA4D1B99A0@phx.gbl> <alpine.WNT.2.00.0903161133100.5116@jbrandeb-desk1.amr.corp.intel.com> <BAY143-W2353DFECB11A239842C4C3B99B0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Holger Eitzenberger <holger@eitzenberger.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090316220659.756862181@jonathan.eitzenberger.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Pelle Svensson <pelle2004@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:16664 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751049AbZCQFXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2009 01:23:12 -0400
+In-Reply-To: <BAY143-W2353DFECB11A239842C4C3B99B0@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Holger Eitzenberger wrote:
-> what follows is a small patchset against net-next-2.6 which tries to
-> improve the way ctnetlink events are allocated.  By allocating the
-> ctnetlink skbs roughly the size of the message we prevent the skb from
-> later being reallocated in netlink_trim().
+
+On Mon, 16 Mar 2009, Pelle Svensson wrote:
+> Your assumption about the Intel AMT seems right!
 > 
-> Though I haven't got any hard performance numbers yet I think this
-> might introduce a noticable performance gain.
+> Log Tracking DHCP Request when plugged net cable in:
 > 
-> The overall idea of these patches is to compute the proto independant
-> attribute sizes at compile time, the proto-dependant parts are
-> computed at registration of the actual proto helpers.  This is
-> achieved by introducing nla_policy_len(), which computes the max.
-> length of a nla_policy.
+> - Power on and load Fedora -> No DHCP Request from BIOS until Desktop up
+> - ifdown eth0 -> DHCP Request
+> - Restart Fedora -> DHCP Request during the hole Shutdown process
+> - Enter BIOS menu -> DHCP Request
+> - Boot up Fedora -> DHCP Request from BIOS until Desktop up
 > 
-> I also have to introduce NF_CT_HELPER_NAME_LEN as an upper limit for
-> the conntrack protcol helper names, which is not much of a problem
-> because all names in mainline are actually shorter than that.
+> ifdown eth0 trigged the plugged net cable DHCP Request
+> 
+> I tried to hit Ctrl-P frequently during the boot process but it newer display any
+> management setup. I'm running Fedora 10 on Lenovo T500 bios 1.20 (6FET50WW).
 
-The helper name change is fine. We currently have a limit of 30
-in the helper match, but that is just as arbitrary and 16 does
-seem like enough. In fact I need the same change for nftables :)
+Okay, maybe there is a bios setting you can change.
 
-> It would be great to have that being merged.  Please share youre
-> comments.
+I am not experienced in configuring this on a t500, so I can't give you 
+direct instructions.
 
-These patches look almost perfect, there's just one minor thing
-that should be fixed from my perspective (from patch 4):
+I did find the instructions on the Intel website that someone else on the 
+web said they were able to use to configure iAMT.  I think you're only 
+looking to disable it.
 
-> +	l3proto = nf_ct_l3proto_find_get(tuple->src.l3num);
-> +	len += l3proto->nla_size;
-> +	nf_ct_l3proto_put(l3proto);
-> +
-> +	l4proto = nf_ct_l4proto_find_get(tuple->src.l3num, tuple->dst.protonum);
-> +	len += l4proto->nla_size;
-> +	nf_ct_l4proto_put(l4proto);
-> +
-> +	return alloc_skb(len, gfp);
+http://download.intel.com/support/motherboards/desktop/sb/amt_quick_start_guide1.pdf
 
-Its preferrable not to use module reference counting during packet
-processing, the protocols can be accessed safely using RCU. I thought
-I had fixed all those areas, but I now notice that ctnetlink is full
-of similar spots and takes and drops module references quite
-excessively. So just leave it as it is I guess, this should be fully
-fixed anyways.
+> Only AMT stuff I can find for Lenovo is related to Vista or XP, But that seems to
+> for the OS not the BIOS. Can I load the Windows stuff and turn the AMT DHCP
+> stuff off? I do have dual boot for XP on this PC.
 
-I'll wait a few hours for others to comment before applying your
-patches.
+I don't think that is what you want, or at least it might be more work 
+than you want.
+
+let us know how it goes.
