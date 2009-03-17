@@ -1,75 +1,206 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Tue, 17 Mar 2009 12:05:27 -0400
-Message-ID: <20090317160527.GB6737@tuxdriver.com>
-References: <1237140665.24621.2.camel@johannes.local> <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain> <1237143683.24621.7.camel@johannes.local> <20090315202603.GA9077@elte.hu> <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com> <alpine.LFD.2.00.0903161250080.3082@localhost.localdomain> <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com> <20090317144802.GF3549@tuxdriver.com> <20090317152801.GA6737@tuxdriver.com> <20090317153924.GA21061@elte.hu>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] gianfar: pass the proper dev to DMA ops
+Date: Tue, 17 Mar 2009 11:16:07 -0500
+Message-ID: <1237306567-32219-1-git-send-email-galak@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20090317153924.GA21061-X9Un+BFzKDI@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Becky Bruce <becky.bruce@freescale.com>, netdev@vger.kernel.org,
+	Andy Fleming <afleming@freescale.com>, linuxppc-dev@ozlabs.org
+To: davem@davemloft.net
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 17, 2009 at 04:39:24PM +0100, Ingo Molnar wrote:
-> 
-> * John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> 
-> > On Tue, Mar 17, 2009 at 10:48:02AM -0400, John W. Linville wrote:
-> > > On Tue, Mar 17, 2009 at 07:55:49AM +0800, Jeff Chua wrote:
-> > > > On Tue, Mar 17, 2009 at 3:57 AM, Linus Torvalds
-> > > > <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-> > > > 
-> > > > > IOW, if you've pinpointed 71c11fb57b924c160297ccd9e1761db598d00ac2 as
-> > > > > being bad, then you should go back and double-check that its parent
-> > > > > (in this case 4607816f608b42a5379aca97ceed08378804c99f) is good.
-> > > > > Because if it's parent is also bad, then that just means that you made
-> > > > > some mistake in "git bisect".
-> > > > > In this case, it really sounds like maybe you marked the parent good, even
-> > > > > though you should have marked it bad.
-> > > > 
-> > > > I should have been more careful, just got thrown off during the last
-> > > > few steps of the bisect. But with the bad association to the AP after
-> > > > a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9 (iwlwifi: remove implicit
-> > > > direct scan), can someone suggest where to go from here?
-> > > 
-> > > The obvious question for me is did you try this?
-> > > 
-> > > 	git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
-> > 
-> > Hmmm...more like this:
-> > 
-> > git revert 41bb73eeac5ff5fb217257ba33b654747b3abf11
-> > git revert b23f99bcfa12c7b452f7ad201ea5921534d4e9ff
-> > git revert 71c11fb57b924c160297ccd9e1761db598d00ac2
-> > git revert 4607816f608b42a5379aca97ceed08378804c99f
-> > git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
-> >  
-> > This first one has a conflict -- just take the hunk.
-> 
-> Since you apparently have done this sequence and have
-> resolved the conflict (which is hard to do for testers
-> even in trivial cases) - would you mind to post the
-> resulting combo patch for Jeff to test?
+We need to be passing the of_platform device struct into the DMA ops as
+its the one that has the archdata setup to know which low-level DMA ops we
+should be using (not the net_device one).  This isn't an issue until we
+expect the archdata to be setup correctly.
 
-Since Jeff has been using git for bisect, I presumed he could handle
-the reverts.  But if you think it is helpful:
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+---
 
-	http://bugzilla.kernel.org/attachment.cgi?id=20567&action=view
+Dave,
 
-Hth!
+This is for net-next.  We are working on having per device dma ops for .30 and
+expect the struct device archdata to be setup properly but in .29 we still
+default to a direct DMA ops on ppc32 so this "bug" will never show up.
 
-John
+- k
+
+ drivers/net/gianfar.c |   34 ++++++++++++++++++----------------
+ drivers/net/gianfar.h |    3 ++-
+ 2 files changed, 20 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index bed30ef..8659833 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -365,8 +365,10 @@ static int gfar_probe(struct of_device *ofdev,
+ 		return -ENOMEM;
+ 
+ 	priv = netdev_priv(dev);
+-	priv->dev = dev;
++	priv->ndev = dev;
++	priv->ofdev = ofdev;
+ 	priv->node = ofdev->node;
++	SET_NETDEV_DEV(dev, &ofdev->dev);
+ 
+ 	err = gfar_of_init(dev);
+ 
+@@ -538,7 +540,7 @@ static int gfar_remove(struct of_device *ofdev)
+ 	dev_set_drvdata(&ofdev->dev, NULL);
+ 
+ 	iounmap(priv->regs);
+-	free_netdev(priv->dev);
++	free_netdev(priv->ndev);
+ 
+ 	return 0;
+ }
+@@ -870,7 +872,7 @@ void stop_gfar(struct net_device *dev)
+ 
+ 	free_skb_resources(priv);
+ 
+-	dma_free_coherent(&dev->dev,
++	dma_free_coherent(&priv->ofdev->dev,
+ 			sizeof(struct txbd8)*priv->tx_ring_size
+ 			+ sizeof(struct rxbd8)*priv->rx_ring_size,
+ 			priv->tx_bd_base,
+@@ -892,12 +894,12 @@ static void free_skb_resources(struct gfar_private *priv)
+ 		if (!priv->tx_skbuff[i])
+ 			continue;
+ 
+-		dma_unmap_single(&priv->dev->dev, txbdp->bufPtr,
++		dma_unmap_single(&priv->ofdev->dev, txbdp->bufPtr,
+ 				txbdp->length, DMA_TO_DEVICE);
+ 		txbdp->lstatus = 0;
+ 		for (j = 0; j < skb_shinfo(priv->tx_skbuff[i])->nr_frags; j++) {
+ 			txbdp++;
+-			dma_unmap_page(&priv->dev->dev, txbdp->bufPtr,
++			dma_unmap_page(&priv->ofdev->dev, txbdp->bufPtr,
+ 					txbdp->length, DMA_TO_DEVICE);
+ 		}
+ 		txbdp++;
+@@ -914,7 +916,7 @@ static void free_skb_resources(struct gfar_private *priv)
+ 	if(priv->rx_skbuff != NULL) {
+ 		for (i = 0; i < priv->rx_ring_size; i++) {
+ 			if (priv->rx_skbuff[i]) {
+-				dma_unmap_single(&priv->dev->dev, rxbdp->bufPtr,
++				dma_unmap_single(&priv->ofdev->dev, rxbdp->bufPtr,
+ 						priv->rx_buffer_size,
+ 						DMA_FROM_DEVICE);
+ 
+@@ -980,7 +982,7 @@ int startup_gfar(struct net_device *dev)
+ 	gfar_write(&regs->imask, IMASK_INIT_CLEAR);
+ 
+ 	/* Allocate memory for the buffer descriptors */
+-	vaddr = (unsigned long) dma_alloc_coherent(&dev->dev,
++	vaddr = (unsigned long) dma_alloc_coherent(&priv->ofdev->dev,
+ 			sizeof (struct txbd8) * priv->tx_ring_size +
+ 			sizeof (struct rxbd8) * priv->rx_ring_size,
+ 			&addr, GFP_KERNEL);
+@@ -1192,7 +1194,7 @@ err_rxalloc_fail:
+ rx_skb_fail:
+ 	free_skb_resources(priv);
+ tx_skb_fail:
+-	dma_free_coherent(&dev->dev,
++	dma_free_coherent(&priv->ofdev->dev,
+ 			sizeof(struct txbd8)*priv->tx_ring_size
+ 			+ sizeof(struct rxbd8)*priv->rx_ring_size,
+ 			priv->tx_bd_base,
+@@ -1345,7 +1347,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			if (i == nr_frags - 1)
+ 				lstatus |= BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
+ 
+-			bufaddr = dma_map_page(&dev->dev,
++			bufaddr = dma_map_page(&priv->ofdev->dev,
+ 					skb_shinfo(skb)->frags[i].page,
+ 					skb_shinfo(skb)->frags[i].page_offset,
+ 					length,
+@@ -1377,7 +1379,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* setup the TxBD length and buffer pointer for the first BD */
+ 	priv->tx_skbuff[priv->skb_curtx] = skb;
+-	txbdp_start->bufPtr = dma_map_single(&dev->dev, skb->data,
++	txbdp_start->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
+ 			skb_headlen(skb), DMA_TO_DEVICE);
+ 
+ 	lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
+@@ -1563,7 +1565,7 @@ static void gfar_reset_task(struct work_struct *work)
+ {
+ 	struct gfar_private *priv = container_of(work, struct gfar_private,
+ 			reset_task);
+-	struct net_device *dev = priv->dev;
++	struct net_device *dev = priv->ndev;
+ 
+ 	if (dev->flags & IFF_UP) {
+ 		stop_gfar(dev);
+@@ -1610,7 +1612,7 @@ static int gfar_clean_tx_ring(struct net_device *dev)
+ 				(lstatus & BD_LENGTH_MASK))
+ 			break;
+ 
+-		dma_unmap_single(&dev->dev,
++		dma_unmap_single(&priv->ofdev->dev,
+ 				bdp->bufPtr,
+ 				bdp->length,
+ 				DMA_TO_DEVICE);
+@@ -1619,7 +1621,7 @@ static int gfar_clean_tx_ring(struct net_device *dev)
+ 		bdp = next_txbd(bdp, base, tx_ring_size);
+ 
+ 		for (i = 0; i < frags; i++) {
+-			dma_unmap_page(&dev->dev,
++			dma_unmap_page(&priv->ofdev->dev,
+ 					bdp->bufPtr,
+ 					bdp->length,
+ 					DMA_TO_DEVICE);
+@@ -1696,7 +1698,7 @@ static void gfar_new_rxbdp(struct net_device *dev, struct rxbd8 *bdp,
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	u32 lstatus;
+ 
+-	bdp->bufPtr = dma_map_single(&dev->dev, skb->data,
++	bdp->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
+ 			priv->rx_buffer_size, DMA_FROM_DEVICE);
+ 
+ 	lstatus = BD_LFLAG(RXBD_EMPTY | RXBD_INTERRUPT);
+@@ -1856,7 +1858,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 
+ 		skb = priv->rx_skbuff[priv->skb_currx];
+ 
+-		dma_unmap_single(&priv->dev->dev, bdp->bufPtr,
++		dma_unmap_single(&priv->ofdev->dev, bdp->bufPtr,
+ 				priv->rx_buffer_size, DMA_FROM_DEVICE);
+ 
+ 		/* We drop the frame if we failed to allocate a new buffer */
+@@ -1916,7 +1918,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ static int gfar_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct gfar_private *priv = container_of(napi, struct gfar_private, napi);
+-	struct net_device *dev = priv->dev;
++	struct net_device *dev = priv->ndev;
+ 	int tx_cleaned = 0;
+ 	int rx_cleaned = 0;
+ 	unsigned long flags;
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index 54332b0..dd499d7 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -738,7 +738,8 @@ struct gfar_private {
+ 	spinlock_t rxlock;
+ 
+ 	struct device_node *node;
+-	struct net_device *dev;
++	struct net_device *ndev;
++	struct of_device *ofdev;
+ 	struct napi_struct napi;
+ 
+ 	/* skb array and index */
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+1.5.6.6
