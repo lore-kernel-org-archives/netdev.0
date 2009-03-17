@@ -1,345 +1,159 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 04/30] solos: Clean up firmware loading code
-Date: Tue, 17 Mar 2009 21:29:12 +0000
-Message-ID: <1237325352.27681.333.camel@macbook.infradead.org>
+Subject: [PATCH 07/30] solos: Add initial list of parameters
+Date: Tue, 17 Mar 2009 21:29:16 +0000
+Message-ID: <1237325356.27681.336.camel@macbook.infradead.org>
 References: <1237310370.27681.314.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37652 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:37655 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757014AbZCQV3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:17 -0400
+	with ESMTP id S1755532AbZCQV3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:21 -0400
 Received: from macbook.infradead.org ([2001:8b0:10b:1:216:eaff:fe05:bbb8])
 	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
-	id 1LjgqY-0001uo-Ld
-	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:15 +0000
+	id 1Ljgqd-0001ux-7Z
+	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:19 +0000
 In-Reply-To: <1237310370.27681.314.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We no longer try to load firmware while the ATM is up and running.
-However, this means that we _do_ make init_module() wait for it, and it
-takes a long time for now (since we're using ultra-conservative code in
-the FPGA for that too).
-
-The inner loop which uses swahb32p() was by Simon Farnsworth.
-
-Simon has patches which migrate us to request_firmware_nowait(), for
-which we'll actually need to take down the ATM devices, do the upgrade,
-then reregister them.
+I don't much like the trick with multiple inclusions of solos-attrlist.c
+but don't really see a saner way to do it without repeating the list.
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/atm/solos-pci.c |  209 ++++++++++++++++------------------------------
- 1 files changed, 73 insertions(+), 136 deletions(-)
+ drivers/atm/solos-attrlist.c |   70 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/atm/solos-pci.c      |   30 ++++++++++++++---
+ 2 files changed, 94 insertions(+), 6 deletions(-)
+ create mode 100644 drivers/atm/solos-attrlist.c
 
+diff --git a/drivers/atm/solos-attrlist.c b/drivers/atm/solos-attrlist.c
+new file mode 100644
+index 0000000..efa2808
+--- /dev/null
++++ b/drivers/atm/solos-attrlist.c
+@@ -0,0 +1,70 @@
++SOLOS_ATTR_RO(DriverVersion)
++SOLOS_ATTR_RO(APIVersion)
++SOLOS_ATTR_RO(FirmwareVersion)
++// SOLOS_ATTR_RO(DspVersion)
++// SOLOS_ATTR_RO(CommonHandshake)
++SOLOS_ATTR_RO(Connected)
++SOLOS_ATTR_RO(OperationalMode)
++SOLOS_ATTR_RO(State)
++SOLOS_ATTR_RO(Watchdog)
++SOLOS_ATTR_RO(OperationProgress)
++SOLOS_ATTR_RO(LastFailed)
++SOLOS_ATTR_RO(TxBitRate)
++SOLOS_ATTR_RO(RxBitRate)
++// SOLOS_ATTR_RO(DeltACTATPds)
++// SOLOS_ATTR_RO(DeltACTATPus)
++SOLOS_ATTR_RO(TxATTNDR)
++SOLOS_ATTR_RO(RxATTNDR)
++SOLOS_ATTR_RO(AnnexType)
++SOLOS_ATTR_RO(GeneralFailure)
++SOLOS_ATTR_RO(InterleaveDpDn)
++SOLOS_ATTR_RO(InterleaveDpUp)
++SOLOS_ATTR_RO(RSCorrectedErrorsDn)
++SOLOS_ATTR_RO(RSUnCorrectedErrorsDn)
++SOLOS_ATTR_RO(RSCorrectedErrorsUp)
++SOLOS_ATTR_RO(RSUnCorrectedErrorsUp)
++SOLOS_ATTR_RO(InterleaveRDn)
++SOLOS_ATTR_RO(InterleaveRUp)
++SOLOS_ATTR_RO(ShowtimeStart)
++SOLOS_ATTR_RO(ATURVendor)
++SOLOS_ATTR_RO(ATUCCountry)
++SOLOS_ATTR_RO(ATURANSIRev)
++SOLOS_ATTR_RO(ATURANSISTD)
++SOLOS_ATTR_RO(ATUCANSIRev)
++SOLOS_ATTR_RO(ATUCANSIId)
++SOLOS_ATTR_RO(ATUCANSISTD)
++SOLOS_ATTR_RO(DataBoost)
++SOLOS_ATTR_RO(LocalITUCountryCode)
++SOLOS_ATTR_RO(LocalSEF)
++SOLOS_ATTR_RO(LocalEndLOS)
++SOLOS_ATTR_RO(LocalSNRMargin)
++SOLOS_ATTR_RO(LocalLineAttn)
++SOLOS_ATTR_RO(RawAttn)
++SOLOS_ATTR_RO(LocalTxPower)
++SOLOS_ATTR_RO(RemoteTxPower)
++SOLOS_ATTR_RO(RemoteSEF)
++SOLOS_ATTR_RO(RemoteLOS)
++SOLOS_ATTR_RO(RemoteLineAttn)
++SOLOS_ATTR_RO(RemoteSNRMargin)
++SOLOS_ATTR_RO(LineUpCount)
++SOLOS_ATTR_RO(SRACnt)
++SOLOS_ATTR_RO(SRACntUp)
++SOLOS_ATTR_RO(ProfileStatus)
++SOLOS_ATTR_RW(Action)
++SOLOS_ATTR_RW(ActivateLine)
++SOLOS_ATTR_RO(LineStatus)
++SOLOS_ATTR_RW(HostControl)
++SOLOS_ATTR_RW(AutoStart)
++SOLOS_ATTR_RW(Failsafe)
++SOLOS_ATTR_RW(ShowtimeLed)
++SOLOS_ATTR_RW(Retrain)
++SOLOS_ATTR_RW(Defaults)
++SOLOS_ATTR_RW(LineMode)
++SOLOS_ATTR_RW(Profile)
++SOLOS_ATTR_RW(DetectNoise)
++SOLOS_ATTR_RO(SupportedAnnexes)
++SOLOS_ATTR_RO(Status)
++SOLOS_ATTR_RO(TotalStart)
++SOLOS_ATTR_RO(RecentShowtimeStart)
++SOLOS_ATTR_RO(TotalRxBlocks)
++SOLOS_ATTR_RO(TotalTxBlocks)
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 2b472c8..89bdf73 100644
+index d9262a4..b0c4676 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -93,7 +93,7 @@ struct solos_card {
- 	spinlock_t cli_queue_lock;
- 	struct sk_buff_head tx_queue[4];
- 	struct sk_buff_head cli_queue[4];
--	int flash_chip;
-+	wait_queue_head_t fw_wq;
- };
- 
- #define SOLOS_CHAN(atmdev) ((int)(unsigned long)(atmdev)->phy_data)
-@@ -112,11 +112,7 @@ module_param(firmware_upgrade, int, 0444);
- module_param(fpga_upgrade, int, 0444);
- 
- static int opens;
--static struct firmware *fw;
--static int flash_offset;
- 
--void flash_upgrade(struct solos_card *);
--void flash_write(struct solos_card *);
- static void fpga_queue(struct solos_card *card, int port, struct sk_buff *skb,
- 		       struct atm_vcc *vcc);
- static int fpga_tx(struct solos_card *);
-@@ -202,129 +198,73 @@ static ssize_t console_store(struct device *dev, struct device_attribute *attr,
- 
- static DEVICE_ATTR(console, 0644, console_show, console_store);
- 
--void flash_upgrade(struct solos_card *card){
-+static int flash_upgrade(struct solos_card *card, int chip)
-+{
-+	const struct firmware *fw;
-+	const char *fw_name;
- 	uint32_t data32 = 0;
- 	int blocksize = 0;
- 	int numblocks = 0;
--	dev_info(&card->dev->dev, "Flash upgrade started\n");
--	if (card->flash_chip == 0) {
--		if (request_firmware((const struct firmware **)&fw,
--				"solos-FPGA.bin",&card->dev->dev))
--		{
--			dev_info(&card->dev->dev,
--					"Failed to find firmware\n");
--			return;
--		}
-+	int offset;
-+
-+	if (chip == 0) {
-+		fw_name = "solos-FPGA.bin";
- 		blocksize = FPGA_BLOCK;
- 	} else {
--		if (request_firmware((const struct firmware **)&fw,
--				"solos-Firmware.bin",&card->dev->dev))
--		{
--			dev_info(&card->dev->dev,
--					"Failed to find firmware\n");
--			return;
--		}
-+		fw_name = "solos-Firmware.bin";
- 		blocksize = SOLOS_BLOCK;
- 	}
--	numblocks = fw->size/blocksize;
--	dev_info(&card->dev->dev, "Firmware size: %d\n", fw->size);
-+
-+	if (request_firmware(&fw, fw_name, &card->dev->dev))
-+		return -ENOENT;
-+
-+	dev_info(&card->dev->dev, "Flash upgrade starting\n");
-+
-+	numblocks = fw->size / blocksize;
-+	dev_info(&card->dev->dev, "Firmware size: %zd\n", fw->size);
- 	dev_info(&card->dev->dev, "Number of blocks: %d\n", numblocks);
- 	
--		
- 	dev_info(&card->dev->dev, "Changing FPGA to Update mode\n");
- 	iowrite32(1, card->config_regs + FPGA_MODE);
- 	data32 = ioread32(card->config_regs + FPGA_MODE); 
--	/*Set mode to Chip Erase*/
--	if (card->flash_chip == 0) {
--		dev_info(&card->dev->dev, 
--				"Set FPGA Flash mode to FPGA Chip Erase\n");
--	} else {
--		dev_info(&card->dev->dev, 
--				"Set FPGA Flash mode to Solos Chip Erase\n");
--	}
--	iowrite32((card->flash_chip * 2), card->config_regs + FLASH_MODE);
--	flash_offset = 0;
--	iowrite32(1, card->config_regs + WRITE_FLASH);
--	return;
--}
- 
--void flash_write(struct solos_card *card){
--	int block;
--	int block_num;
--	int blocksize;
--	int i;
--	uint32_t data32 = 0;
-+	/* Set mode to Chip Erase */
-+	dev_info(&card->dev->dev, "Set FPGA Flash mode to %s Chip Erase\n",
-+		 chip?"Solos":"FPGA");
-+	iowrite32((chip * 2), card->config_regs + FLASH_MODE);
- 
--	/*Clear write flag*/
--	iowrite32(0, card->config_regs + WRITE_FLASH);
--	/*Set mode to Block Write*/
--	/*dev_info(&card->dev->dev, "Set FPGA Flash mode to Block Write\n");*/
--	iowrite32(((card->flash_chip * 2) + 1), card->config_regs + FLASH_MODE);
- 
--	/*When finished programming flash, release firmware and exit*/
--	if (fw->size - flash_offset == 0) {
--		//release_firmware(fw); /* This crashes for some reason */
-+	iowrite32(1, card->config_regs + WRITE_FLASH);
-+	wait_event(card->fw_wq, !ioread32(card->config_regs + FLASH_BUSY));
-+
-+	for (offset = 0; offset < fw->size; offset += blocksize) {
-+		int i;
-+
-+		/* Clear write flag */
- 		iowrite32(0, card->config_regs + WRITE_FLASH);
--		iowrite32(0, card->config_regs + FPGA_MODE);
--		iowrite32(0, card->config_regs + FLASH_MODE);
--		dev_info(&card->dev->dev, "Returning FPGA to Data mode\n");
--		return;
--	}
--	if (card->flash_chip == 0) {
--		blocksize = FPGA_BLOCK;
--	} else {
--		blocksize = SOLOS_BLOCK;
--	}
--	
--	/*Calculate block size*/
--	if ((fw->size - flash_offset) > blocksize) {
--		block = blocksize;
--	} else {
--		block = fw->size - flash_offset;
--	}
--	block_num = flash_offset / blocksize;
--	//dev_info(&card->dev->dev, "block %d/%d\n",block_num + 1,(fw->size/512/8));
--
--	/*Copy block into RAM*/
--	for(i=0;i<block;i++){
--		if(i%4 == 0){
--			//dev_info(&card->dev->dev, "i: %d\n", i);
--			data32=0x00000000;
--		}
--		
--		switch(i%4){
--		case 0:
--			data32 |= 0x0000FF00 & 
--				(*(fw->data + i + flash_offset)	<< 8);
--			break;
--		case 1:
--			data32 |= 0x000000FF & *(fw->data + i + flash_offset);
--			break;
--		case 2:
--			data32 |= 0xFF000000 &
--					(*(fw->data + i + flash_offset)	<< 24);
--			break;
--		case 3:
--			data32 |= 0x00FF0000 &
--					(*(fw->data + i + flash_offset)	<< 16);
--			break;
--		}
- 
--		if (i%4 == 3) {
--			iowrite32(data32, RX_BUF(card, 3) + i - 3);
-+		/* Set mode to Block Write */
-+		/* dev_info(&card->dev->dev, "Set FPGA Flash mode to Block Write\n"); */
-+		iowrite32(((chip * 2) + 1), card->config_regs + FLASH_MODE);
-+
-+		/* Copy block to buffer, swapping each 16 bits */
-+		for(i = 0; i < blocksize; i += 4) {
-+			uint32_t word = swahb32p((uint32_t *)(fw->data + offset + i));
-+			iowrite32(word, RX_BUF(card, 3) + i);
- 		}
--	}
--	i--;
--	if (i%4 != 3) {
--		iowrite32(data32, RX_BUF(card, 3) + i - (i%4));
-+
-+		/* Specify block number and then trigger flash write */
-+		iowrite32(offset / blocksize, card->config_regs + FLASH_BLOCK);
-+		iowrite32(1, card->config_regs + WRITE_FLASH);
-+		wait_event(card->fw_wq, !ioread32(card->config_regs + FLASH_BUSY));
- 	}
- 
--	/*Specify block number and then trigger flash write*/
--	iowrite32(block_num, card->config_regs + FLASH_BLOCK);
--	iowrite32(1, card->config_regs + WRITE_FLASH);
--//	iowrite32(0, card->config_regs + WRITE_FLASH);
--	flash_offset += block;
--	return;
-+	release_firmware(fw);
-+	iowrite32(0, card->config_regs + WRITE_FLASH);
-+	iowrite32(0, card->config_regs + FPGA_MODE);
-+	iowrite32(0, card->config_regs + FLASH_MODE);
-+	dev_info(&card->dev->dev, "Returning FPGA to Data mode\n");
-+	return 0;
+@@ -371,8 +371,28 @@ static ssize_t console_store(struct device *dev, struct device_attribute *attr,
  }
  
- static irqreturn_t solos_irq(int irq, void *dev_id)
-@@ -337,10 +277,10 @@ static irqreturn_t solos_irq(int irq, void *dev_id)
- 	//Disable IRQs from FPGA
- 	iowrite32(0, card->config_regs + IRQ_EN_ADDR);
- 
--	/* If we only do it when the device is open, we lose console
--	   messages */
--	if (1 || opens)
-+	if (card->atmdev[0])
- 		tasklet_schedule(&card->tlet);
-+	else
-+		wake_up(&card->fw_wq);
- 
- 	//Enable IRQs from FPGA
- 	iowrite32(1, card->config_regs + IRQ_EN_ADDR);
-@@ -354,17 +294,6 @@ void solos_bh(unsigned long card_arg)
- 	uint32_t card_flags;
- 	uint32_t tx_mask;
- 	uint32_t rx_done = 0;
--	uint32_t data32;
--
--	data32 = ioread32(card->config_regs + FPGA_MODE); 
--	if (data32 != 0) {
--		data32 = ioread32(card->config_regs + FLASH_BUSY); 
--		if (data32 == 0) {
--			flash_write(card);
--		}	
--		return;
--	}
--		
- 
- 	card_flags = ioread32(card->config_regs + FLAGS_ADDR);
- 
-@@ -749,6 +678,7 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 		return -ENOMEM;
- 
- 	card->dev = dev;
-+	init_waitqueue_head(&card->fw_wq);
- 
- 	err = pci_enable_device(dev);
- 	if (err) {
-@@ -794,15 +724,13 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 
- 	card->nr_ports = 2; /* FIXME: Detect daughterboard */
- 
--	err = atm_init(card);
--	if (err)
--		goto out_unmap_both;
--
- 	pci_set_drvdata(dev, card);
+ static DEVICE_ATTR(console, 0644, console_show, console_store);
+-static DEVICE_ATTR(OperationalMode, 0444, solos_param_show, NULL);
+-static DEVICE_ATTR(AutoStart, 0644, solos_param_show, solos_param_store);
 +
- 	tasklet_init(&card->tlet, solos_bh, (unsigned long)card);
- 	spin_lock_init(&card->tx_lock);
- 	spin_lock_init(&card->tx_queue_lock);
- 	spin_lock_init(&card->cli_queue_lock);
 +
- /*
- 	// Set Loopback mode
- 	data32 = 0x00010000;
-@@ -832,24 +760,33 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 	//dev_dbg(&card->dev->dev, "Requesting IRQ: %d\n",dev->irq);
- 	err = request_irq(dev->irq, solos_irq, IRQF_DISABLED|IRQF_SHARED,
- 			  "solos-pci", card);
--	if (err)
-+	if (err) {
- 		dev_dbg(&card->dev->dev, "Failed to request interrupt IRQ: %d\n", dev->irq);
-+		goto out_unmap_both;
-+	}
++#define SOLOS_ATTR_RO(x) static DEVICE_ATTR(x, 0444, solos_param_show, NULL);
++#define SOLOS_ATTR_RW(x) static DEVICE_ATTR(x, 0644, solos_param_show, solos_param_store);
++
++#include "solos-attrlist.c"
++
++#undef SOLOS_ATTR_RO
++#undef SOLOS_ATTR_RW
++
++#define SOLOS_ATTR_RO(x) &dev_attr_##x.attr,
++#define SOLOS_ATTR_RW(x) &dev_attr_##x.attr,
++
++static struct attribute *solos_attrs[] = {
++#include "solos-attrlist.c"
++	NULL
++};
++
++static struct attribute_group solos_attr_group = {
++	.attrs = solos_attrs,
++	.name = "parameters",
++};
  
- 	// Enable IRQs
- 	iowrite32(1, card->config_regs + IRQ_EN_ADDR);
+ static int flash_upgrade(struct solos_card *card, int chip)
+ {
+@@ -987,10 +1007,8 @@ static int atm_init(struct solos_card *card)
+ 		}
+ 		if (device_create_file(&card->atmdev[i]->class_dev, &dev_attr_console))
+ 			dev_err(&card->dev->dev, "Could not register console for ATM device %d\n", i);
+-		if (device_create_file(&card->atmdev[i]->class_dev, &dev_attr_OperationalMode))
+-			dev_err(&card->dev->dev, "Could not register opmode attr for ATM device %d\n", i);
+-		if (device_create_file(&card->atmdev[i]->class_dev, &dev_attr_AutoStart))
+-			dev_err(&card->dev->dev, "Could not register autostart attr for ATM device %d\n", i);
++		if (sysfs_create_group(&card->atmdev[i]->class_dev.kobj, &solos_attr_group))
++			dev_err(&card->dev->dev, "Could not register parameter group for ATM device %d\n", i);
  
--	if(firmware_upgrade != 0){
--		card->flash_chip = 1;
--		flash_upgrade(card);
--	} else {
--		if(fpga_upgrade != 0){
--			card->flash_chip = 0;
--			flash_upgrade(card);
--		}
--	}
-+	if (fpga_upgrade)
-+		flash_upgrade(card, 0);
-+
-+	if (firmware_upgrade)
-+		flash_upgrade(card, 1);
-+
-+	err = atm_init(card);
-+	if (err)
-+		goto out_free_irq;
-+
- 	return 0;
+ 		dev_info(&card->dev->dev, "Registered ATM device %d\n", card->atmdev[i]->number);
  
-+ out_free_irq:
-+	iowrite32(0, card->config_regs + IRQ_EN_ADDR);
-+	free_irq(dev->irq, card);
-+	tasklet_kill(&card->tlet);
-+	
-  out_unmap_both:
-+	pci_set_drvdata(dev, NULL);
- 	pci_iounmap(dev, card->config_regs);
-  out_unmap_config:
- 	pci_iounmap(dev, card->buffers);
 -- 
 1.6.0.6
 
