@@ -1,49 +1,81 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [patch 0/6] netfilter: ctnetlink allocation improvement
-Date: Tue, 17 Mar 2009 10:49:00 +0100
-Message-ID: <49BF720C.2010603@netfilter.org>
-References: <20090316220659.756862181@jonathan.eitzenberger.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel panic during stress with igb in the upstream kernel
+Date: Tue, 17 Mar 2009 18:02:03 +0800
+Message-ID: <20090317100203.GA23396@gondor.apana.org.au>
+References: <20090316132240.GA18413@gondor.apana.org.au> <20090317093724.GA5743@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Holger Eitzenberger <holger@eitzenberger.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, emil.s.tantilov@intel.com,
+	alexander.h.duyck@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35812 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752249AbZCQJtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 05:49:09 -0400
-In-Reply-To: <20090316220659.756862181@jonathan.eitzenberger.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:42635 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753012AbZCQKCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:02:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20090317093724.GA5743@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Holger,
+On Tue, Mar 17, 2009 at 09:37:24AM +0000, Jarek Poplawski wrote:
+>
+> Probably I miss something, but you seem to assume here this skb will
+> be taken by netpoll later. But if it's not active (trapped) vlan
+> packet will be passed as "normal"?
 
-Holger Eitzenberger wrote:
-> what follows is a small patchset against net-next-2.6 which tries to
-> improve the way ctnetlink events are allocated.  By allocating the
-> ctnetlink skbs roughly the size of the message we prevent the skb from
-> later being reallocated in netlink_trim().
+Good point.  I'll see if this stuff can be simplified further,
+but for now, let's go for the obvious fix.
 
-I have a similar patch here that I sent time ago, I'll send it again, I
-think that we can merge your patches and mine.
+gro: Fix vlan/netpoll check again
 
-> Though I haven't got any hard performance numbers yet I think this
-> might introduce a noticable performance gain.
+Jarek Poplawski pointed out that my previous fix is broken for
+VLAN+netpoll as if netpoll is enabled we'd end up in the normal
+receive path instead of the VLAN receive path.
 
-I'm not sure about this. Instead, I noticed with oprofile that we spend
-more cycles to calculate the message size. I think it's more like a
-trade-off, reducing the message size to what we need reduces the chances
-to hit ENOBUFS.
+This patch fixes it by calling the VLAN receive hook.
 
-> I also have to introduce NF_CT_HELPER_NAME_LEN as an upper limit for
-> the conntrack protcol helper names, which is not much of a problem
-> because all names in mainline are actually shorter than that.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I'm fine with the helper size change. Actually the current size of 30
-bytes doesn't make too much sense.
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 6227248..654e45f 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -79,9 +79,6 @@ static int vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+ {
+ 	struct sk_buff *p;
+ 
+-	if (netpoll_rx_on(skb))
+-		return GRO_NORMAL;
+-
+ 	if (skb_bond_should_drop(skb))
+ 		goto drop;
+ 
+@@ -107,6 +104,9 @@ drop:
+ int vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+ 		     unsigned int vlan_tci, struct sk_buff *skb)
+ {
++	if (netpoll_rx_on(skb))
++		return vlan_hwaccel_receive_skb(skb, grp, vlan_tci);
++
+ 	skb_gro_reset_offset(skb);
+ 
+ 	return napi_skb_finish(vlan_gro_common(napi, grp, vlan_tci, skb), skb);
+@@ -121,6 +121,9 @@ int vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
+ 	if (!skb)
+ 		return NET_RX_DROP;
+ 
++	if (netpoll_rx_on(skb))
++		return vlan_hwaccel_receive_skb(skb, grp, vlan_tci);
++
+ 	return napi_frags_finish(napi, skb,
+ 				 vlan_gro_common(napi, grp, vlan_tci, skb));
+ }
 
+Thanks,
 -- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
