@@ -1,51 +1,39 @@
-From: Felix von Leitner <felix-kernel@fefe.de>
-Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
-Date: Tue, 17 Mar 2009 13:58:45 +0100
-Message-ID: <20090317125845.GB9754@codeblau.de>
-References: <20090316233934.GD32111@codeblau.de> <49BF0A5A.2040501@hp.com>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: Re: [patch 0/6] netfilter: ctnetlink allocation improvement
+Date: Tue, 17 Mar 2009 11:03:51 +0100
+Message-ID: <20090317100350.GA3526@mail.eitzenberger.org>
+References: <20090316220659.756862181@jonathan.eitzenberger.org> <49BF720C.2010603@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ioctl.codeblau.de ([80.190.240.67]:46092 "EHLO codeblau.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752639AbZCQM6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 08:58:49 -0400
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49BF0A5A.2040501@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <49BF720C.2010603@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I don't think this ever worked on Linux, from the very beginning of inet6_bind():
+On Tue, Mar 17, 2009 at 10:49:00AM +0100, Pablo Neira Ayuso wrote:
 
->         /* Check if the address belongs to the host. */
->         if (addr_type == IPV6_ADDR_MAPPED) {
->                 v4addr = addr->sin6_addr.s6_addr32[3];
->                 if (inet_addr_type(net, v4addr) != RTN_LOCAL) {
->                         err = -EADDRNOTAVAIL;
->                         goto out;
->                 }
->         } else {
+> > Though I haven't got any hard performance numbers yet I think this
+> > might introduce a noticable performance gain.
+> 
+> I'm not sure about this. Instead, I noticed with oprofile that we spend
+> more cycles to calculate the message size. I think it's more like a
+> trade-off, reducing the message size to what we need reduces the chances
+> to hit ENOBUFS.
 
-What is the harm in allowing this?  That way an application ported to
-IPv6 can still bind IPv4-only.  Why would it be legal to bind to a
-specific IPv4 address but not to all IPv4 addresses?
+Hi Pablo,
 
-The specific case is a bittorrent tracker.  The code was ported to IPv6,
-but since there is so much overhead in storing IPv6 addresses you are
-supposed to run two processes, one on the IPv6 address and one on the
-IPv4 address (the IPv4 one then does not have overhead).  The sane way
-to do this is to bind the IPv6 socket to ::ffff:0.0.0.0 then.  Otherwise
-you would need some kind of giant abstraction layer in the application.
-And we specifically added the ipv4 mapped addresses so applications
-would not need to have a giant abstraction layer.
+your patch is a bit different, as you do the message length
+calculation on each packet.  Instead I do it once at compile time for
+the proto independant part and then later for each protocol helper at
+the time it is registered.  At unload time the helper is replaced by
+the generic one (which implies =0 always).
 
-Did I mention *BSD and OSX allow this?
+Cheers,
 
-> So are you trying to get IPv4-only behavior out of this socket?  Seems
-> like the wrong way to go about it.
+ /holger
 
-Why would you say that?
-
-Felix
