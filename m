@@ -1,36 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 06/30] solos: Handle attribute show/store in kernel more
- sanely
-Date: Tue, 17 Mar 2009 15:44:11 -0700
-Message-ID: <20090317154411.598b9f00@nehalam>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 06/30] solos: Handle attribute show/store in kernel
+ more sanely
+Date: Tue, 17 Mar 2009 22:49:32 +0000
+Message-ID: <1237330172.27829.14.camel@macbook.infradead.org>
 References: <1237310370.27681.314.camel@macbook.infradead.org>
-	<1237325355.27681.335.camel@macbook.infradead.org>
+	 <1237325355.27681.335.camel@macbook.infradead.org>
+	 <20090317154411.598b9f00@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40084 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168AbZCQWoV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 18:44:21 -0400
-In-Reply-To: <1237325355.27681.335.camel@macbook.infradead.org>
+Received: from casper.infradead.org ([85.118.1.10]:33470 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757524AbZCQWtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 18:49:40 -0400
+In-Reply-To: <20090317154411.598b9f00@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Mar 2009 21:29:15 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
-
-> There are still a _lot_ of attributes, but for at least the basic ones
-> we want to be able to get/set them from the kernel. Especially the ones
-> we want to inform the ATM core about (link state, speed).
+On Tue, 2009-03-17 at 15:44 -0700, Stephen Hemminger wrote:
+> Since these are generic, please use some form of netlink for this
+> instead of sysfs.
 > 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
-> ---
+> Bonding was the first mistake (trying to use sysfs for a transactional
+> API).
+> Pls don't repeat the mistake.
 
-Since these are generic, please use some form of netlink for this
-instead of sysfs.
+It's not a transactional API.
 
-Bonding was the first mistake (trying to use sysfs for a transactional API).
-Pls don't repeat the mistake.
+The sysfs model actually fits the communication with the hardware almost
+perfectly -- there are a bunch of named parameters, all of which can be
+read and a few of which can be written to. A sysfs read or write
+translates directly into a single exchange with the device's firmware.
+
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
