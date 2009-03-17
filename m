@@ -1,56 +1,63 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Multicast packet loss
-Date: Tue, 17 Mar 2009 22:19:58 +0100
-Message-ID: <49C013FE.90004@cosmosbay.com>
-References: <OF37E3EF60.503CB684-ON8825757C.006B831D-8825757C.006C0301@us.ibm.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
+Date: Tue, 17 Mar 2009 22:23:13 +0100
+Message-ID: <200903172223.14608.rjw@sisk.pl>
+References: <bug-12886-10286@http.bugzilla.kernel.org/> <200903171101.32812.rjw@sisk.pl> <9e1133f653c918ec3c19c8fe28452a9f.squirrel@ncircle.nullnet.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brian Bloniarz <bmb@athenacr.com>, cl@linux-foundation.org,
-	David Miller <davem@davemloft.net>, kchang@athenacr.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>
+To: "Tomi Orava" <tomimo@ncircle.nullnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:56546 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367AbZCQVVd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:21:33 -0400
-In-Reply-To: <OF37E3EF60.503CB684-ON8825757C.006B831D-8825757C.006C0301@us.ibm.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:56653 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757158AbZCQVXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2009 17:23:25 -0400
+In-Reply-To: <9e1133f653c918ec3c19c8fe28452a9f.squirrel@ncircle.nullnet.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Stevens a =E9crit :
-> I did some testing with this and see at least a 20% improvement
-> without drop.
->=20
-> I agree with Peter's recommended changes (esp. sentinel vs null),
-> and also the trivial brace indentation  in softirq_delay_exec(),
-> but otherwise looks  good to me. Nice work.
->=20
->                                         +-DLS
->=20
->=20
+On Tuesday 17 March 2009, Tomi Orava wrote:
+> 
+> Hi,
+> 
+> > Please tell me what exactly you do to set up WoL.
+> 
+> The only thing I do is I configure the WOL bios option
+> to on ie. no OS based configuration settings are touched.
 
-Still I dont like very much all softirq.c changes. I feel very
-uncomfortable to justify one extra call in do_softirq(), and
-not very clean interface (stuff about locking, barriers...)
+Hmm.
 
-Easy way could be to add a SOFTIRQ but its not very wise.
+> The previously mentioned patch reverted the ethtool output is
+> (ie. this is a working 2.6.28.7 system atm):
 
-I was wondering if we could use the infrastructure added in commit
-54514a70adefe356afe854e2d3912d46668068e6
-(softirq: Add support for triggering softirq work on softirqs.)
-But I dont understand how it can works...
-(softirq_work_list is feeded, but never processed)
+I wonder what it shows if that commit is not reverted (in fact it is necessary
+on some other systems for things to work correctly).
 
-Alternatively, we could use a framework dedicated to
-network use, with well defined semantic :
+Also, please check if the appended patch helps (of course, without reverting
+the commit).
 
-Calling softirq_delay_exec() from net_rx_action(),
-from this function, we know if time_squeeze was incremented,
-or all netdev_budget consumed, and in this stress case=20
-try to give the wakeups job to another cpu.
+---
+ drivers/net/skge.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-
-
+Index: linux-2.6/drivers/net/skge.c
+===================================================================
+--- linux-2.6.orig/drivers/net/skge.c
++++ linux-2.6/drivers/net/skge.c
+@@ -3856,8 +3856,9 @@ static struct net_device *skge_devinit(s
+ 	skge->speed = -1;
+ 	skge->advertising = skge_supported_modes(hw);
+ 
+-	if (device_may_wakeup(&hw->pdev->dev))
+-		skge->wol = wol_supported(hw) & WAKE_MAGIC;
++	skge->wol = wol_supported(hw) & WAKE_MAGIC;
++	if (skge->wol && device_can_wakeup(&hw->pdev->dev))
++		device_set_wakeup_enable(&hw->pdev->dev, true);
+ 
+ 	hw->dev[port] = dev;
+ 
