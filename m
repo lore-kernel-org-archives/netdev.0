@@ -1,118 +1,59 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Tue, 17 Mar 2009 20:22:22 +0100
-Message-ID: <1237317742.31814.28.camel@johannes.local>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
-	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
-	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
-	 <1237140665.24621.2.camel@johannes.local>
-	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
-	 <1237143683.24621.7.camel@johannes.local> <20090315202603.GA9077@elte.hu>
-	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
-	 (sfid-20090316_142417_625321_EAE390ED)
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH 02/30] solos: Slight debugging improvements
+Date: Tue, 17 Mar 2009 21:29:09 +0000
+Message-ID: <1237325349.27681.331.camel@macbook.infradead.org>
+References: <1237310370.27681.314.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-APmAsfgopLNAwlSHx71g"
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Jeff Chua <jeff.chua.linux@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:52230 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756933AbZCQV1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:27:33 -0400
-In-Reply-To: <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com> (sfid-20090316_142417_625321_EAE390ED)
+Received: from casper.infradead.org ([85.118.1.10]:37650 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756876AbZCQV3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:13 -0400
+Received: from macbook.infradead.org ([2001:8b0:10b:1:216:eaff:fe05:bbb8])
+	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1LjgqV-0001ue-8n
+	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:11 +0000
+In-Reply-To: <1237310370.27681.314.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Print a message if pskb_expand_head fails.
 
---=-APmAsfgopLNAwlSHx71g
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Make atmdebug writable by root, so that you can turn printing of data sent to
+and received from the card on and off at runtime - useful for tracking
+corruption.
 
-On Mon, 2009-03-16 at 21:24 +0800, Jeff Chua wrote:
+Signed-off-by: Simon Farnsworth <simon@farnz.org.uk>
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+ drivers/atm/solos-pci.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> Here's what I did, and it's repeatable.
->=20
-> Take the attached bisect log and replay it, and the last offending
-> commit is this ...
-> # git log
-> commit 71c11fb57b924c160297ccd9e1761db598d00ac2
-> Author: Johannes Berg <johannes@sipsolutions.net>
-> Date:   Tue Oct 28 18:29:48 2008 +0100
->=20
->     b43/legacy: remove SSID code
->=20
-> Yes, this is not the real problem, but it's the last commit that cause
-> the problem, and I couldn't bisect further, typing the next "git
-> bisect bad" and the commit is
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index f030954..3daa3a3 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -91,7 +91,7 @@ MODULE_LICENSE("GPL");
+ MODULE_PARM_DESC(debug, "Enable Loopback");
+ MODULE_PARM_DESC(atmdebug, "Print ATM data");
+ module_param(debug, int, 0444);
+-module_param(atmdebug, int, 0444);
++module_param(atmdebug, int, 0644);
+ 
+ static int opens;
+ 
+@@ -541,6 +541,7 @@ static int psend(struct atm_vcc *vcc, struct sk_buff *skb)
+ 
+ 		ret = pskb_expand_head(skb, expand_by, 0, GFP_ATOMIC);
+ 		if (ret) {
++			dev_warn(&card->dev->dev, "pskb_expand_head failed.\n");
+ 			solos_pop(vcc, skb);
+ 			return ret;
+ 		}
+-- 
+1.6.0.6
 
-I'm on 0191b62 now and cannot reproduce the problem with iwlwifi
-hardware and a linksys (broadcom-based) AP with hidden SSID.
-
-> Anything I can help to debug further, just let me know.
-
-Compile iwlwifi with debugging please, and instead of plain modprobe
-iwlagn, do this:
-	modprobe iwlagn debug=3D0x800 debug50=3D0x800
-
-Then send me the relevant dmesg output from a working and a failed
-attempt. You should see something like this
-
-[  318.420537] ieee80211 phy4: U iwl_bg_request_scan Start direct scan for =
-'myssid'
-
-in the log. I can't see any reason why it would be missing. For me, the
-association is instantaneous after saying "ap any". This is expected
-too, because
-	iwconfig wlan0 essid "myessid"
-will have triggered a directed scan for the AP.
-
-There are two possible failure scenarios that I can imagine:
-
-1) You see no line like the one above in your log, but rather
-
-[  736.047879] ieee80211 phy5: U iwl_bg_request_scan Start indirect scan.
-
-This would indicate a bug in the driver.
-
-
-2) You do see the line with the SSID, but you don't get any reply. In
-this case, please try doing it manually:
-	iwlist wlan0 scan essid 'myssid'
-Wait about 15 seconds between each attempt of doing so, and report
-whether your AP is listed in the results or not. If it isn't most of the
-time, then your AP is broken.
-
-johannes
-
---=-APmAsfgopLNAwlSHx71g
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJv/hrAAoJEKVg1VMiehFYEnQP/0L8NEZmyYZMIzDTl7A1/YIk
-GnLVkUEsIQd4WtRQXyiYnw9OHUaG78oqfdCUJqA2AiPiL5jXrp1IMqNyZAI8IRm4
-OzfWVdXYeYc0RoJzksrZOTS2UYG38Hv/XltM77cWOCLfi6aAAZ7lkyPNnjDJtSqd
-3mDzjpbzVRnJYT17aSJhEAJvxygzpT0p8B0lJOKWepyivQhSz28ie50cHsfAxvjr
-tM8eVsH6jW6ZN8+AIiluScRws20YIwOwJEFv43Uapnl4QwvB6Vp2RIVfSx4jNLq1
-uzQ3NHjur6EbpKtUS3HYk7hYSurXb3XDgtolY1WxzePSY/i+RHiColMFfFoN0EZA
-6kam7Pfjml8Xtoz2l+vNL4G+hHvIpVC/rCz7upxsayvt+q0i/jPkC+ThIdKp1gKZ
-iT7D0qxEKac+Z1SDUYVY999H67jM66nrwpro+RSJdb4oQCWEEj5Hxa/UHtYElLxh
-bdmM2N1GUo+cKuX/GtOfXo5WnzIxduhozMRDudtVFAjc0IRfMl4kVHxzL3WPQ691
-qHRg8kNgrLqStJZQ49x9sjoE2TgFW5r7K6EUhrM1upRJqtgn2c4BAU2UgHMugUU9
-whAwhCnwSlWV+LnQYqpXzXmUAZSANqeB0d5tS2mLZ3w1UXM1T7+IhpRWQoBSQoAE
-K3tbYQQV1Xd7fUI648I/
-=95ZB
------END PGP SIGNATURE-----
-
---=-APmAsfgopLNAwlSHx71g--
 
