@@ -1,63 +1,56 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [RFC PATCH 3/4] ipv6: Make v4-mapped bindings consitant with IPv4
-Date: Tue, 17 Mar 2009 17:06:01 -0400
-Message-ID: <1237323962-18635-4-git-send-email-vladislav.yasevich@hp.com>
-References: <20090317.123146.210941276.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, Vlad Yasevich <vladislav.yasevich@hp.com>
-To: davem@davemloft.net
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 17 Mar 2009 22:19:58 +0100
+Message-ID: <49C013FE.90004@cosmosbay.com>
+References: <OF37E3EF60.503CB684-ON8825757C.006B831D-8825757C.006C0301@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brian Bloniarz <bmb@athenacr.com>, cl@linux-foundation.org,
+	David Miller <davem@davemloft.net>, kchang@athenacr.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:46137 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754182AbZCQVGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:06:08 -0400
-In-Reply-To: <20090317.123146.210941276.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56546 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752367AbZCQVVd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:21:33 -0400
+In-Reply-To: <OF37E3EF60.503CB684-ON8825757C.006B831D-8825757C.006C0301@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Binding to a v4-mapped address on an AF_INET6 socket should
-produce the same result as binding to an IPv4 address on
-AF_INET socket.  The two are interchangable as v4-mapped
-address is really a portability aid.
+David Stevens a =E9crit :
+> I did some testing with this and see at least a 20% improvement
+> without drop.
+>=20
+> I agree with Peter's recommended changes (esp. sentinel vs null),
+> and also the trivial brace indentation  in softirq_delay_exec(),
+> but otherwise looks  good to me. Nice work.
+>=20
+>                                         +-DLS
+>=20
+>=20
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/ipv6/af_inet6.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
+Still I dont like very much all softirq.c changes. I feel very
+uncomfortable to justify one extra call in do_softirq(), and
+not very clean interface (stuff about locking, barriers...)
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 0adce8e..274cc89 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -276,6 +276,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 
- 	/* Check if the address belongs to the host. */
- 	if (addr_type == IPV6_ADDR_MAPPED) {
-+		int chk_addr_ret;
-+
- 		/* Binding to v4-mapped address on a v6-only socket
- 		 * makes no sense
- 		 */
-@@ -283,11 +285,17 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			err = -EINVAL;
- 			goto out;
- 		}
-+
-+		/* Reproduce AF_INET checks to make the bindings consitant */
- 		v4addr = addr->sin6_addr.s6_addr32[3];
--		if (inet_addr_type(net, v4addr) != RTN_LOCAL) {
--			err = -EADDRNOTAVAIL;
-+		chk_addr_ret = inet_addr_type(net, v4addr);
-+		if (!sysctl_ip_nonlocal_bind &&
-+		    !(inet->freebind || inet->transparent) &&
-+		    v4addr != htonl(INADDR_ANY) &&
-+		    chk_addr_ret != RTN_LOCAL &&
-+		    chk_addr_ret != RTN_MULTICAST &&
-+		    chk_addr_ret != RTN_BROADCAST)
- 			goto out;
--		}
- 	} else {
- 		if (addr_type != IPV6_ADDR_ANY) {
- 			struct net_device *dev = NULL;
--- 
-1.5.4.3
+Easy way could be to add a SOFTIRQ but its not very wise.
+
+I was wondering if we could use the infrastructure added in commit
+54514a70adefe356afe854e2d3912d46668068e6
+(softirq: Add support for triggering softirq work on softirqs.)
+But I dont understand how it can works...
+(softirq_work_list is feeded, but never processed)
+
+Alternatively, we could use a framework dedicated to
+network use, with well defined semantic :
+
+Calling softirq_delay_exec() from net_rx_action(),
+from this function, we know if time_squeeze was incremented,
+or all netdev_budget consumed, and in this stress case=20
+try to give the wakeups job to another cpu.
+
+
 
