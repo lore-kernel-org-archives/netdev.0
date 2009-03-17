@@ -1,93 +1,86 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Tue, 17 Mar 2009 08:50:12 +0100
-Message-ID: <1237276212.18086.11.camel@johannes.local>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
-	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
-	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
-	 <1237140665.24621.2.camel@johannes.local>
-	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
-	 <1237143683.24621.7.camel@johannes.local> <20090315202603.GA9077@elte.hu>
-	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
-	 <alpine.LFD.2.00.0903161250080.3082@localhost.localdomain>
-	 <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com>
-	 (sfid-20090317_005551_652269_7D5AC813)
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 1/4] ARM: OMAP3: Add SMSC911X support to Overo
+	platform	(V2)
+Date: Tue, 17 Mar 2009 09:18:02 +0100
+Message-ID: <OF29DE8A9F.A26662CB-ON8025757C.002D018B-8025757C.002D970C@smsc.com>
+References: <20090316180800.GG19229@atomide.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-lkT8FdbDuHdh8xzkiIpe"
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b6a2187b0903161655q15437156qc926c8db37d8ba4b-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20090317_005551_652269_7D5AC813)
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	linux-arm-kernel@lists.arm.linux.org.uk, linux-omap@vger.kernel.org,
+	Steve Sakoman <sakoman@gmail.com>, netdev@vger.kernel.org
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
+In-Reply-To: <20090316180800.GG19229@atomide.com>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
 List-Id: netdev.vger.kernel.org
 
+Hi Tony,
 
---=-lkT8FdbDuHdh8xzkiIpe
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Tony Lindgren <tony@atomide.com> wrote on 16/03/2009 18:08:01:
 
-On Tue, 2009-03-17 at 07:55 +0800, Jeff Chua wrote:
+> * Russell King - ARM Linux <linux@arm.linux.org.uk> [090315 10:37]:
+> > On Sun, Mar 15, 2009 at 10:13:47AM -0700, Steve Sakoman wrote:
+> > > On Sun, Mar 15, 2009 at 10:00 AM, Russell King - ARM Linux
+> > > <linux@arm.linux.org.uk> wrote:
+> > > > On Sun, Mar 15, 2009 at 09:36:25AM -0700, Steve Sakoman wrote:
+> > > >> On Sun, Mar 15, 2009 at 8:38 AM, Russell King - ARM Linux
+> > > >> <linux@arm.linux.org.uk> wrote:
+> > > >> > On Fri, Mar 13, 2009 at 03:44:53PM -0700, Tony Lindgren wrote:
+> > > >> >> Gumstix will soon be shipping a variant of their Summit board 
+that
+> > > >> >> includes an SMSC LAN9221 ethernet interface.  This patch 
+provides
+> > > >> >> support via the smsc911x driver when enabled in kernel config.
+> > > >> >
+> > > >> > Does this actually work with the smsc911x driver which is 
+> in mainline,
+> > > >> > or is it dependent on the smsc911x patches from Steve 
+Glendinning?
+> > > >>
+> > > >> For the shipping Overo kernel, I build with 2 of Steve's 
+> patches, copied below.
+> > > >
+> > > > That doesn't help answer the question.  What we need to know is 
+whether
+> > > > this patch works alone?  If not, do we know for sure that 
+> Steve's patches
+> > > > are going in during the next merge window?
+> > > 
+> > > It does not work without the 2 mentioned patches (IRQ's never 
+> get handled).
+> > 
+> > So I suggest that this patch is handed over to Steve to submit with 
+his
+> > set of patches.
+> 
+> I've added Steve Glendinning to the Cc.
+> 
+> I'll drop this from my queue, Steve Sakoman please email this to Steve
+> Glendinning for inclusion to his queue.
+> 
 
-> > IOW, if you've pinpointed 71c11fb57b924c160297ccd9e1761db598d00ac2 as
-> > being bad, then you should go back and double-check that its parent
-> > (in this case 4607816f608b42a5379aca97ceed08378804c99f) is good.
-> > Because if it's parent is also bad, then that just means that you made
-> > some mistake in "git bisect".
-> > In this case, it really sounds like maybe you marked the parent good, e=
-ven
-> > though you should have marked it bad.
->=20
-> I should have been more careful, just got thrown off during the last
-> few steps of the bisect. But with the bad association to the AP after
-> a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9 (iwlwifi: remove implicit
-> direct scan), can someone suggest where to go from here?
+Yes, David has included all the IRQ patches in net-next-2.6, so they will 
+be merged in the next merge window.
 
-That actually makes some sense, though I'm convinced the code I removed
-there is actually wrong that doesn't mean it couldn't have had positive
-side effects too. I'll take a look at it, in the meantime your time
-would be better spent trying to capture what's going on on the air
-instead of bisecting again.
+Steve
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
 
-If you don't have a second device to monitor, you can also create a
-monitor interface as such:
-	iw dev wlan0 interface add moni0 type monitor flags none
 
-and run tcpdump on the resulting 'moni0' interface while you try to
-associate etc. Write the packets to files and send them to me.
-
-Due to this implicit scan modification in the driver that I removed,
-however, I won't see scans in that file, so it won't be all that useful,
-a capture made on a second device would be much better.
-
-johannes
-
---=-lkT8FdbDuHdh8xzkiIpe
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJv1YyAAoJEKVg1VMiehFYxv4P/3qk3ba1W7WeZDxeSWe5lzXw
-7d4LuKDgw8TEpfZBZgcf4eZuZsmuXBZGa29LPEheLHMbICrGIxLbOlPFJ0xzv49+
-FThedraa26mmAGU1Y1m/9Kpo8SKFNmfsVxi5rgjWUixA8HPk+038tABwQDdKkbS6
-/cx1F3Au5RKsSXMMIebI6/7EF9z8Znv3TD7ymVdp5q5kXPgDRVJJisDg6eXaoVHg
-gJaJrkFnwXKVV/oAdAPbmjNpbtOrxA68VTxxtmAkGs+LuW9B1p4R9YFb3cnfBiCj
-IXwOLPG6DzMqU/txXIWo0Z79Y0F4LKysIX5+NtnAKh2KXv9QntAHtcCAYju8uc0S
-KZTbwSkWGWnfFRtdIoe0dbZ831OPSToCeEz1a1AdLkI2wksrvc0U12ZyfJ7orRnz
-JvcorvGT/zKclXMegdL0aX9UAq+K47WjeX/oJ4wvbRuEkdai+lJ66VYDzzu1RsTj
-wBWeJLcn14adDWa0mWqfOdmgkJ4CtmnpMPq30GN47E8lV2/mhRXOOHjnQbwaQPmc
-1Q9GhSjRLQI08gmJctO+qAizmt4CDgxYTHxiN2DQMRriHVlzJ2fGsKp58kXYWa4k
-Nh0BphA2dKPci7ZLcumBN9oP9X3FCE5SYXiI/sDkQ1Klz6tngXj7JeobjfqxW61P
-YAE5sRPTNvhTqV6e+Cfi
-=iPZ1
------END PGP SIGNATURE-----
-
---=-lkT8FdbDuHdh8xzkiIpe--
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
