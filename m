@@ -1,59 +1,55 @@
-From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-03-16
-Date: Tue, 17 Mar 2009 13:00:09 +1100
-Message-ID: <20090317130009.19e2dbd8.sfr@canb.auug.org.au>
-References: <20090316231423.GA3633@tuxdriver.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
+Date: Mon, 16 Mar 2009 22:26:34 -0400
+Message-ID: <49BF0A5A.2040501@hp.com>
+References: <20090316233934.GD32111@codeblau.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__17_Mar_2009_13_00_09_+1100_U0KhvqZyqHeRo.Xk"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090316231423.GA3633-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Felix von Leitner <felix-kernel@fefe.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:36513 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754087AbZCQC0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2009 22:26:38 -0400
+In-Reply-To: <20090316233934.GD32111@codeblau.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__17_Mar_2009_13_00_09_+1100_U0KhvqZyqHeRo.Xk
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Felix von Leitner wrote:
+> Here's an strace:
+> 
+> socket(PF_INET6, SOCK_STREAM, IPPROTO_IP) = 3
+> fcntl(3, F_GETFL)                       = 0x2 (flags O_RDWR)
+> fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
+> setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> bind(3, {sa_family=AF_INET6, sin6_port=htons(6969), inet_pton(AF_INET6, "::ffff:0.0.0.0", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EADDRNOTAVAIL (Cannot assign requested address)
+> 
+> This is supposed to work, and it works on other operating systems, even
+> on Mac OS X.
+> 
+> I think it used to work on Linux, too.
+> 
+> I'm using 2.6.29-rc7 right now, but others have reported this not
+> working on distro kernels, too.
 
-Hi John,
+I don't think this ever worked on Linux, from the very beginning of inet6_bind():
 
-On Mon, 16 Mar 2009 19:14:24 -0400 "John W. Linville" <linville@tuxdriver.c=
-om> wrote:
->
-> The first one from Luis fixes bug 12110 at bugzilla.kernel.org.  I know
-> he has worked on it for a long time and I've had several desperate users
-> asking for it, so it must be good. :-)  Unfortunately, it causes some
-> nasty merge errors with what is in net-next-2.6 and wireless-next-2.6.
-> I created a merge-test branch in wireless-next-2.6, and the merge commit
-> log goes into more detail about resolving the issue.  In short, you
-> probably want to diff drivers/net/ath9k against the merge-test branch...
+        /* Check if the address belongs to the host. */
+        if (addr_type == IPV6_ADDR_MAPPED) {
+                v4addr = addr->sin6_addr.s6_addr32[3];
+                if (inet_addr_type(net, v4addr) != RTN_LOCAL) {
+                        err = -EADDRNOTAVAIL;
+                        goto out;
+                }
+        } else {
 
-I resolved the conflicts as you suggested (hopefully).
+So if it's a mapped address, the lower 32-bits must contain a local address.
+RFC 3493 doesn't specifically mention what to do with ::ffff:0.0.0.0, so this
+looks like a gray area to me.
 
-Thanks.
---=20
-Cheers,
-Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-http://www.canb.auug.org.au/~sfr/
+So are you trying to get IPv4-only behavior out of this socket?  Seems like the
+wrong way to go about it.
 
---Signature=_Tue__17_Mar_2009_13_00_09_+1100_U0KhvqZyqHeRo.Xk
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkm/BCkACgkQjjKRsyhoI8zztQCguqAeGRTxChEEKS/Og6ton0p9
-PXAAn3pPDQq4NR6HwqN6PMedITNEmWBT
-=T7zP
------END PGP SIGNATURE-----
-
---Signature=_Tue__17_Mar_2009_13_00_09_+1100_U0KhvqZyqHeRo.Xk--
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Brian
