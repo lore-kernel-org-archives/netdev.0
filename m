@@ -1,31 +1,37 @@
-From: Holger Eitzenberger <holger@eitzenberger.org>
-Subject: Re: [patch 0/6] netfilter: ctnetlink allocation improvement
-Date: Tue, 17 Mar 2009 08:39:26 +0100
-Message-ID: <20090317073926.GA1030@mail.eitzenberger.org>
-References: <20090316220659.756862181@jonathan.eitzenberger.org> <49BF28A3.3010606@trash.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [net-2.6 PATCH 6/10] Neterion: New driver: Hardware init & configuration
+Date: Tue, 17 Mar 2009 11:52:30 +0100
+Message-ID: <20090317105230.GP11935@one.firstfloor.org>
+References: <1237018885.4966.431.camel@flash> <87bps12b33.fsf@basil.nowhere.org> <78C9135A3D2ECE4B8162EBDCE82CAD7705092E88@nekter>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Andi Kleen <andi@firstfloor.org>, Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:61528 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756972AbZCQKpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:45:11 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:56598 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754812AbZCQKwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:52:08 -0400
 Content-Disposition: inline
-In-Reply-To: <49BF28A3.3010606@trash.net>
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705092E88@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 17, 2009 at 05:35:47AM +0100, Patrick McHardy wrote:
+On Mon, Mar 16, 2009 at 11:25:19PM -0400, Ramkrishna Vepa wrote:
+> Question of the following -
+> > In general your driver looks like it could use a pass with sparse's
+> > __iomem checking (make V=1)
+> How do I enable this checking?
 
-> Its preferrable not to use module reference counting during packet
-> processing, the protocols can be accessed safely using RCU. I thought
-> I had fixed all those areas, but I now notice that ctnetlink is full
-> of similar spots and takes and drops module references quite
-> excessively. So just leave it as it is I guess, this should be fully
-> fixed anyways.
+Install sparse and then
 
-Thanks Patrick.
+make V=1
 
+and add __iomem annotations as needed.
+
+There will be a lot of warnings, it's likely enough to concentrate on
+iomem first pass.
+
+-Andi
