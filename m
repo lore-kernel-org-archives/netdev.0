@@ -1,59 +1,52 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] smsc911x: reset last known duplex and carrier on open
-Date: Tue, 17 Mar 2009 18:06:39 +0000
-Message-ID: <1237313199-18617-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Ian Saturley <ian.saturley@smsc.com>,
-	David Miller <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Jeff Chua <jeff.chua.linux@gmail.com>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Wed, 18 Mar 2009 02:26:38 +0800
+Message-ID: <b6a2187b0903171126y282077a7oe32dd3870a1ddf37@mail.gmail.com>
+References: <1237143683.24621.7.camel@johannes.local>
+	 <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com>
+	 <20090317144802.GF3549@tuxdriver.com>
+	 <20090317152801.GA6737@tuxdriver.com> <20090317153924.GA21061@elte.hu>
+	 <20090317160527.GB6737@tuxdriver.com>
+	 <b6a2187b0903170924u72723220x4c0a717e3cfebf8d@mail.gmail.com>
+	 <20090317171047.GF6737@tuxdriver.com>
+	 <b6a2187b0903171027w328f1dfds781910c0571b2424@mail.gmail.com>
+	 <b6a2187b0903171031l3657dc93rbfe01dd4dc9b7a4@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:45837 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751116AbZCQSGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 14:06:44 -0400
+Received: from yx-out-2324.google.com ([74.125.44.30]:46018 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753582AbZCQS0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 14:26:41 -0400
+In-Reply-To: <b6a2187b0903171031l3657dc93rbfe01dd4dc9b7a4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-smsc911x_phy_adjust_link is called periodically by the phy layer (as
-it's run in polling mode), and it only updates the hardware when it sees
-a change in duplex or carrier.  This patch clears the last known values
-every time the interface is brought up, instead of only when the module
-is loaded.
+On Wed, Mar 18, 2009 at 1:31 AM, Jeff Chua <jeff.chua.linux@gmail.com> wrote:
+> My downloaded tree is clean. I'm trying your patches now.
 
-Without this patch the adjust_link function never updates the hardware
-after an ifconfig down; ifconfig up.  On a full duplex link this causes
-the tx error counter to increment, even though packets are correctly
-transmitted, as the default MAC_CR register setting is for half duplex.
+John,
 
-The tx errors are "no carrier" errors, which should be ignored in
-full-duplex mode.  When MAC_CR is set to "full duplex" mode they are
-correctly ignored by the hardware.
+Your patches applied cleanly this time. And associating to the hidden
+AP on 2.6.29-rc8. I'll run it against the WAG200G tomorrow. But from
+what I can see, it's working well with the WAG354G.
 
-Note that even with this patch the tx error counter can increment if
-packets are transmitted between "ifconfig up" and the first phy poll
-interval.  An improved solution would use the phy interrupt with phylib,
-but I haven't managed to make this work 100% robustly yet.
+I'll try out this as well "iw dev wlan0 interface add moni0 type
+monitor flags none"
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/smsc911x.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Your guys are great!
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index 9a78dae..d1590ac 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1225,6 +1225,10 @@ static int smsc911x_open(struct net_device *dev)
- 	dev_info(&dev->dev, "SMSC911x/921x identified at %#08lx, IRQ: %d\n",
- 		 (unsigned long)pdata->ioaddr, dev->irq);
- 
-+	/* Reset the last known duplex and carrier */
-+	pdata->last_duplex = -1;
-+	pdata->last_carrier = -1;
-+
- 	/* Bring the PHY up */
- 	phy_start(pdata->phy_dev);
- 
--- 
-1.6.0.6
+Thank you.
 
+Jeff.
