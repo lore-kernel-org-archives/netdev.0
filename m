@@ -1,50 +1,67 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Tue, 17 Mar 2009 10:48:02 -0400
-Message-ID: <20090317144802.GF3549@tuxdriver.com>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera> <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com> <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com> <1237140665.24621.2.camel@johannes.local> <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain> <1237143683.24621.7.camel@johannes.local> <20090315202603.GA9077@elte.hu> <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com> <alpine.LFD.2.00.0903161250080.3082@localhost.localdomain> <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [Bonding-devel] [Bugme-new] [Bug 12570] New:
+	Bonding does not work over e1000e.
+Date: Tue, 17 Mar 2009 11:04:36 -0400
+Message-ID: <bdfc5d6e0903170804m2c3d8d0bra6bdd50dc67971be@mail.gmail.com>
+References: <8DD2590731AB5D4C9DBF71A877482A900DCA8695@orsmsx509.amr.corp.intel.com>
+	<EA929A9653AAE14F841771FB1DE5A1365F60321240@rrsmsx501.amr.corp.intel.com>
+	<F169D4F5E1F1974DBFAFABF47F60C10A1C2C9480@orsmsx507.amr.corp.intel.com>
+	<EA929A9653AAE14F841771FB1DE5A1365F60321411@rrsmsx501.amr.corp.intel.com>
+	<13830B75AD5A2F42848F92269B11996F3A0F5952@orsmsx509.amr.corp.intel.com>
+	<498C0E8C.9050309@parallels.com>
+	<13830B75AD5A2F42848F92269B11996F3C5C645A@orsmsx509.amr.corp.intel.com>
+	<49BFB2F0.8090704@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <b6a2187b0903161655q15437156qc926c8db37d8ba4b-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devel@lists.sourceforge.net" <devel@lists.sourceforge.net>,
+	"bonding-devel@lists.sourceforge.net"
+	<bonding-devel@lists.sourceforge.net>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: Konstantin Khorenko <khorenko@parallels.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <49BFB2F0.8090704@parallels.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 17, 2009 at 07:55:49AM +0800, Jeff Chua wrote:
-> On Tue, Mar 17, 2009 at 3:57 AM, Linus Torvalds
-> <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-> 
-> > IOW, if you've pinpointed 71c11fb57b924c160297ccd9e1761db598d00ac2 as
-> > being bad, then you should go back and double-check that its parent
-> > (in this case 4607816f608b42a5379aca97ceed08378804c99f) is good.
-> > Because if it's parent is also bad, then that just means that you made
-> > some mistake in "git bisect".
-> > In this case, it really sounds like maybe you marked the parent good, even
-> > though you should have marked it bad.
-> 
-> I should have been more careful, just got thrown off during the last
-> few steps of the bisect. But with the bad association to the AP after
-> a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9 (iwlwifi: remove implicit
-> direct scan), can someone suggest where to go from here?
+On Tue, Mar 17, 2009 at 10:25 AM, Konstantin Khorenko
+<khorenko@parallels.com> wrote:
+>
+> Conclusions: well, the latest kernel with your patches does work, thank y=
+ou very much, David!
+> Now i have to solve my original problem - to make RHEL5-based (2.6.18-x) =
+kernel working.
+> At the moment RHEL5 kernel is affected by 2 issues:
+> 1) that one which seems to be fixed by updating the testkernel from 2.6.2=
+9-r1 up to rc4 + 3 your patches.
+> 2) when we break a link, mii status is still reported as "up" in /proc/ne=
+t/bonding/bond1.
+> =A0 (at the same time bonding changes the active slave to the working one=
+ correctly).
+>
+> i understand there were a lot of changes since 2.6.18, but i still want t=
+o try not to replace the e1000e driver completely from the latest mainstrea=
+m kernel, but to backport the set of patches to fix this exact issue.
+> Could you please help me pointing the patches that are essential to fix t=
+his issue (and probably issue 2)) from your point of view?
+>
 
-The obvious question for me is did you try this?
+I'm sure if you opened a new bug at bugzilla.redhat.com to address
+this issue someone would be willing to make sure this was fixed.
 
-	git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
-
-Does that restore operation for you?
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+---------------------------------------------------------------------------=
+---
+Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
+powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
+easily build your RIAs with Flex Builder, the Eclipse(TM)based development
+software that enables intelligent coding and step-through debugging.
+Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
