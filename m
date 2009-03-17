@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
-Date: Tue, 17 Mar 2009 12:31:46 -0700 (PDT)
-Message-ID: <20090317.123146.210941276.davem@davemloft.net>
-References: <49BFC8E6.8000404@hp.com>
-	<20090317180840.GC13270@codeblau.de>
-	<49BFF850.7060906@hp.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-03-17
+Date: Tue, 17 Mar 2009 12:32:53 -0700 (PDT)
+Message-ID: <20090317.123253.171955525.davem@davemloft.net>
+References: <20090317192129.GG6737@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: felix-kernel@fefe.de, netdev@vger.kernel.org
-To: brian.haley@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58095
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751626AbZCQTcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 15:32:00 -0400
-In-Reply-To: <49BFF850.7060906@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090317192129.GG6737-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Tue, 17 Mar 2009 15:21:52 -0400
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 17 Mar 2009 15:21:29 -0400
 
-> Top-posting so others can see your off-list rant in full.  I see no
-> reason to help you any further, even though I did have a patch that
-> would change this behavior for you.  Good luck with your "biggest
-> noncommercial Internet messaging infrastructure" in the world.
+> Dave,
+> 
+> Top o' the mornin' to ya!
+> 
+> Here is another big round of wireless updates intended for 2.6.30.  They
+> just keep coming!  Lots of driver bits and some more regulatory stuff
+> from Luis...
+> 
+> Please let me know if there are problems!
 
-What a jerk.  Brian, don't help him any more, you were being
-very reasonable in your email to him.  His response was way
-out of line.
+Oh, there will be problems, when I try to merge all of this
+stuff together :-)
 
+It might make sense to do the net-2.6 --> net-next-2.6 merge while
+sober, so it might have to wait until tomorrow :)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
