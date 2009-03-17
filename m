@@ -1,44 +1,83 @@
-From: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Wed, 18 Mar 2009 01:31:42 +0800
-Message-ID: <b6a2187b0903171031l3657dc93rbfe01dd4dc9b7a4@mail.gmail.com>
-References: <1237143683.24621.7.camel@johannes.local>
-	 <alpine.LFD.2.00.0903161250080.3082@localhost.localdomain>
-	 <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com>
-	 <20090317144802.GF3549@tuxdriver.com>
-	 <20090317152801.GA6737@tuxdriver.com> <20090317153924.GA21061@elte.hu>
-	 <20090317160527.GB6737@tuxdriver.com>
-	 <b6a2187b0903170924u72723220x4c0a717e3cfebf8d@mail.gmail.com>
-	 <20090317171047.GF6737@tuxdriver.com>
-	 <b6a2187b0903171027w328f1dfds781910c0571b2424@mail.gmail.com>
+From: Arthur Jones <ajones@riverbed.com>
+Subject: [net-next PATCH -- take 2] igb: allow tx of
+	pre-formatted vlan	tagged packets
+Date: Tue, 17 Mar 2009 10:39:24 -0700
+Message-ID: <20090317173924.GA13723@ajones-laptop.nbttech.com>
+References: <20090312213345.GA12653@ajones-laptop.nbttech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b6a2187b0903171027w328f1dfds781910c0571b2424-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Hemminger <shemminger@vyatta.com>, Stephen
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20090312213345.GA12653@ajones-laptop.nbttech.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 18, 2009 at 1:27 AM, Jeff Chua
->> Perhaps you have a dirty tree?
->> =A0 =A0 =A0 =A0git checkout -f
->
-> May be. Checking now.
+When the 82575 is fed 802.1q packets, it chokes with
+an error of the form:
 
-Oh, now I know why. I was "mucking" the SSID stuffs trying to revert
-some of the wireless codes on 2.6.29-rc8, and just applied your
-patches on top.
+igb 0000:08:00.1: partial checksum but proto=81
 
-My downloaded tree is clean. I'm trying your patches now.
+As the logic there was not smart enough to look into
+the vlan header to pick out the encapsulated protocol.
 
-Jeff.
+There are times when we'd like to send these packets
+out without having to configure a vlan on the interface.
+Here we check for the vlan tag and allow the packet to
+go out with the correct hardware checksum.
+
+Thanks to Kand Ly <kand@riverbed.com> for discovering the
+issue and the coming up with a solution.  This patch is
+based upon his work.
+
+Fixups from Stephen Hemminger <shemminger@vyatta.com> and
+Alexander Duyck <alexander.h.duyck@intel.com>.
+
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+---
+ drivers/net/igb/igb_main.c |   13 ++++++++++++-
+ 1 files changed, 12 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 7124f59..26742dd 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3030,7 +3030,18 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
+ 		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			switch (skb->protocol) {
++			__be16 protocol;
++
++			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
++				const struct vlan_ethhdr *vhdr =
++					vlan_eth_hdr(skb);
++
++				protocol = vhdr->h_vlan_encapsulated_proto;
++			} else {
++				protocol = skb->protocol;
++			}
++
++			switch (protocol) {
+ 			case cpu_to_be16(ETH_P_IP):
+ 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
+ 				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+-- 
+1.5.6.3
+
+------------------------------------------------------------------------------
+Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
+powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
+easily build your RIAs with Flex Builder, the Eclipse(TM)based development
+software that enables intelligent coding and step-through debugging.
+Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
