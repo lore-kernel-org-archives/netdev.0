@@ -1,70 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: GRO with non napi driver: BUG in __napi_complete
-Date: Tue, 17 Mar 2009 18:22:44 +0800
-Message-ID: <20090317102244.GB23396@gondor.apana.org.au>
-References: <49BF60C9.1080100@linux.vnet.ibm.com>
+From: "Tomi Orava" <tomimo@ncircle.nullnet.fi>
+Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
+Date: Tue, 17 Mar 2009 12:15:20 +0200 (EET)
+Message-ID: <9e1133f653c918ec3c19c8fe28452a9f.squirrel@ncircle.nullnet.fi>
+References: <bug-12886-10286@http.bugzilla.kernel.org/>
+    <20090316200428.908245dc.akpm@linux-foundation.org>
+    <200903171101.32812.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43455 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752392AbZCQKWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:22:49 -0400
-Content-Disposition: inline
-In-Reply-To: <49BF60C9.1080100@linux.vnet.ibm.com>
+Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:55577 "EHLO
+	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756972AbZCQKXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:23:44 -0400
+In-Reply-To: <200903171101.32812.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 17, 2009 at 09:35:21AM +0100, Frank Blaschka wrote:
->
-> What is the intention process_backlog calls __napi_complete() instead of
-> napi_complete(), this looks suspicious to me. Can anybody help?
 
-You're absolutely right.  Dave, we need this fix for both net
-and net-next.
+Hi,
 
-gro: Fix legacy path napi_complete crash
+> Please tell me what exactly you do to set up WoL.
 
-On the legacy netif_rx path, I incorrectly tried to optimise
-the napi_complete call by using __napi_complete before we reenable
-IRQs.  This simply doesn't work since we need to flush the held
-GRO packets first.
+The only thing I do is I configure the WOL bios option
+to on ie. no OS based configuration settings are touched.
 
-This patch fixes it by doing the obvious thing of reenabling
-IRQs first and then calling napi_complete.
+The previously mentioned patch reverted the ethtool output is
+(ie. this is a working 2.6.28.7 system atm):
 
-Reported-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pg
+        Wake-on: g
+        Current message level: 0x00000037 (55)
+        Link detected: yes
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f112970..2565f6d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2588,9 +2588,9 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 		local_irq_disable();
- 		skb = __skb_dequeue(&queue->input_pkt_queue);
- 		if (!skb) {
--			__napi_complete(napi);
- 			local_irq_enable();
--			break;
-+			napi_complete(napi);
-+			goto out;
- 		}
- 		local_irq_enable();
- 
-@@ -2599,6 +2599,7 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 
- 	napi_gro_flush(napi);
- 
-+out:
- 	return work;
- }
- 
-Thanks,
+Regards,
+Tomi O.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+
