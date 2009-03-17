@@ -1,68 +1,77 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Tue, 17 Mar 2009 16:39:24 +0100
-Message-ID: <20090317153924.GA21061@elte.hu>
-References: <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com> <1237140665.24621.2.camel@johannes.local> <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain> <1237143683.24621.7.camel@johannes.local> <20090315202603.GA9077@elte.hu> <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com> <alpine.LFD.2.00.0903161250080.3082@localhost.localdomain> <b6a2187b0903161655q15437156qc926c8db37d8ba4b@mail.gmail.com> <20090317144802.GF3549@tuxdriver.com> <20090317152801.GA6737@tuxdriver.com>
+From: Jean-Pascal Billaud <billaud@vmware.com>
+Subject: RE: GRO with non napi driver: BUG in __napi_complete
+Date: Tue, 17 Mar 2009 08:49:10 -0700
+Message-ID: <AF9CD7A487028E428749836D21102612201DA51F5D@PA-EXMBX02.vmware.com>
+References: <49BF60C9.1080100@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Chua <jeff.chua.linux@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Frank Blaschka <blaschka@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:47642 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754279AbZCQPls (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 11:41:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20090317152801.GA6737@tuxdriver.com>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:46500 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752748AbZCQPtN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2009 11:49:13 -0400
+In-Reply-To: <49BF60C9.1080100@linux.vnet.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+More generally, is there still a point to support non-napi drivers? Shouldn't we have a unique way to process traffic at the driver level?
 
-* John W. Linville <linville@tuxdriver.com> wrote:
+--jp
 
-> On Tue, Mar 17, 2009 at 10:48:02AM -0400, John W. Linville wrote:
-> > On Tue, Mar 17, 2009 at 07:55:49AM +0800, Jeff Chua wrote:
-> > > On Tue, Mar 17, 2009 at 3:57 AM, Linus Torvalds
-> > > <torvalds@linux-foundation.org> wrote:
-> > > 
-> > > > IOW, if you've pinpointed 71c11fb57b924c160297ccd9e1761db598d00ac2 as
-> > > > being bad, then you should go back and double-check that its parent
-> > > > (in this case 4607816f608b42a5379aca97ceed08378804c99f) is good.
-> > > > Because if it's parent is also bad, then that just means that you made
-> > > > some mistake in "git bisect".
-> > > > In this case, it really sounds like maybe you marked the parent good, even
-> > > > though you should have marked it bad.
-> > > 
-> > > I should have been more careful, just got thrown off during the last
-> > > few steps of the bisect. But with the bad association to the AP after
-> > > a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9 (iwlwifi: remove implicit
-> > > direct scan), can someone suggest where to go from here?
-> > 
-> > The obvious question for me is did you try this?
-> > 
-> > 	git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Frank Blaschka
+> Sent: Tuesday, March 17, 2009 1:35 AM
+> To: netdev@vger.kernel.org
+> Cc: David Miller; Herbert Xu
+> Subject: GRO with non napi driver: BUG in __napi_complete
 > 
-> Hmmm...more like this:
+> Hi,
 > 
-> git revert 41bb73eeac5ff5fb217257ba33b654747b3abf11
-> git revert b23f99bcfa12c7b452f7ad201ea5921534d4e9ff
-> git revert 71c11fb57b924c160297ccd9e1761db598d00ac2
-> git revert 4607816f608b42a5379aca97ceed08378804c99f
-> git revert a57a59f247b651e8ed6d3eeb7e2f9d83b83134c9
->  
-> This first one has a conflict -- just take the hunk.
-
-Since you apparently have done this sequence and have
-resolved the conflict (which is hard to do for testers
-even in trivial cases) - would you mind to post the
-resulting combo patch for Jeff to test?
-
-	Ingo
+> I try to activate GRO on a non napi driver (2.6.29-rc8). Running an
+> iperf test
+> causes a bug in __napi_complete.
+> 
+> kernel BUG at net/core/dev.c:2625!
+> illegal operation: 0001 <DD>#1<A8> PREEMPT SMP
+> Modules linked in:
+> CPU: 1 Not tainted 2.6.29-rc8-00124-g5bee17f #8
+> Process swapper (pid: 0, task: 000000002ff7ccc0, ksp: 000000002ff97d48)
+> Krnl PSW : 0404d00180000000 00000000002d1f4e
+> (__napi_complete+0x82/0x88)
+>            R:0 T:1 IO:0 EX:0 Key:0 M:1 W:0 P:0 AS:3 CC:1 PM:0 EA:3
+> ...
+> <DD>  261.377396<A8> Call Trace:
+> <DD>  261.377400<A8> (<DD><00000000002cb752><A8>
+> process_backlog+0xba/0x104)
+> <DD>  261.377410<A8>  <DD><00000000002cb5ba><A8>
+> net_rx_action+0x102/0x1e0
+> <DD>  261.377418<A8>  <DD><000000000004921e><A8>
+> __do_softirq+0x92/0x168
+> <DD>  261.377428<A8>  <DD><0000000000020936><A8> do_softirq+0x96/0xb0
+> <DD>  261.377436<A8>  <DD><00000000000493c0><A8> irq_exit+0x70/0x80
+> <DD>  261.377444<A8>  <DD><000000000025789c><A8> do_IRQ+0x174/0x194
+> <DD>  261.377455<A8>  <DD><00000000000258da><A8> io_return+0x0/0x8
+> <DD>  261.377464<A8>  <DD><00000000000246fe><A8>
+> vtime_stop_cpu+0xb2/0xc0
+> <DD>  261.377473<A8> (<DD><00000007005b1007><A8> 0x7005b1007)
+> 
+> What is the intention process_backlog calls __napi_complete() instead
+> of
+> napi_complete(), this looks suspicious to me. Can anybody help?
+> 
+> Thanks,
+> 
+> Frank
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
