@@ -1,45 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: GRO with non napi driver: BUG in __napi_complete
-Date: Tue, 17 Mar 2009 13:11:40 -0700 (PDT)
-Message-ID: <20090317.131140.187586185.davem@davemloft.net>
-References: <49BF60C9.1080100@linux.vnet.ibm.com>
-	<20090317102244.GB23396@gondor.apana.org.au>
+Subject: Re: netfilter 00/04: netfilter fixes
+Date: Tue, 17 Mar 2009 13:13:36 -0700 (PDT)
+Message-ID: <20090317.131336.135791868.davem@davemloft.net>
+References: <20090316160841.3567.94089.sendpatchset@x2.localnet>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33666
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33672
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753546AbZCQULy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 16:11:54 -0400
-In-Reply-To: <20090317102244.GB23396@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1756467AbZCQUNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 16:13:49 -0400
+In-Reply-To: <20090316160841.3567.94089.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 17 Mar 2009 18:22:44 +0800
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 16 Mar 2009 17:08:42 +0100 (MET)
 
-> On Tue, Mar 17, 2009 at 09:35:21AM +0100, Frank Blaschka wrote:
-> >
-> > What is the intention process_backlog calls __napi_complete() instead of
-> > napi_complete(), this looks suspicious to me. Can anybody help?
+> the following patches for 2.6.29 fix a few netfilter bugs:
 > 
-> You're absolutely right.  Dave, we need this fix for both net
-> and net-next.
+> - avoid event delivery for conntracks dropped because of clashes (from Pablo)
 > 
-> gro: Fix legacy path napi_complete crash
+> - fix for a ctnetlink crash during expectation creation caused by a missing
+>   initialization. Also from Pablo.
 > 
-> On the legacy netif_rx path, I incorrectly tried to optimise
-> the napi_complete call by using __napi_complete before we reenable
-> IRQs.  This simply doesn't work since we need to flush the held
-> GRO packets first.
+> - a fix for correctly handling NF_DROP return values from the conntrack
+>   ->packet() callbacks. From Christoph Pasch.
 > 
-> This patch fixes it by doing the obvious thing of reenabling
-> IRQs first and then calling napi_complete.
+> - reordering of the header checks in IPv6 conntrack reassembly to avoid an
+>   incorrect log message with NEXTHDR_NONE. Also from Christoph.
 > 
-> Reported-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
 
-Applied, thanks.
+Pulled, thanks a lot!
