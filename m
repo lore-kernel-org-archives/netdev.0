@@ -1,36 +1,31 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] kfree(napi->skb) => kfree_skb
-Date: Tue, 17 Mar 2009 11:38:25 +0100
-Message-ID: <49BF7DA1.6010805@gmail.com>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: Re: [patch 0/6] netfilter: ctnetlink allocation improvement
+Date: Tue, 17 Mar 2009 08:39:26 +0100
+Message-ID: <20090317073926.GA1030@mail.eitzenberger.org>
+References: <20090316220659.756862181@jonathan.eitzenberger.org> <49BF28A3.3010606@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:23842 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753714AbZCQKi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:38:28 -0400
-Received: by nf-out-0910.google.com with SMTP id d21so1040930nfb.21
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2009 03:38:26 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.126.186]:61528 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756972AbZCQKpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:45:11 -0400
+Content-Disposition: inline
+In-Reply-To: <49BF28A3.3010606@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct sk_buff pointers should be freed with kfree_skb.
+On Tue, Mar 17, 2009 at 05:35:47AM +0100, Patrick McHardy wrote:
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-@@ -2669,11 +2669,11 @@ EXPORT_SYMBOL(netif_napi_add);
- void netif_napi_del(struct napi_struct *napi)
- {
- 	struct sk_buff *skb, *next;
- 
- 	list_del_init(&napi->dev_list);
--	kfree(napi->skb);
-+	kfree_skb(napi->skb);
- 
- 	for (skb = napi->gro_list; skb; skb = next) {
- 		next = skb->next;
- 		skb->next = NULL;
- 		kfree_skb(skb);
+> Its preferrable not to use module reference counting during packet
+> processing, the protocols can be accessed safely using RCU. I thought
+> I had fixed all those areas, but I now notice that ctnetlink is full
+> of similar spots and takes and drops module references quite
+> excessively. So just leave it as it is I guess, this should be fully
+> fixed anyways.
+
+Thanks Patrick.
 
