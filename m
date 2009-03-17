@@ -1,61 +1,57 @@
-From: "Tomi Orava" <tomimo@ncircle.nullnet.fi>
-Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
-Date: Tue, 17 Mar 2009 12:15:20 +0200 (EET)
-Message-ID: <9e1133f653c918ec3c19c8fe28452a9f.squirrel@ncircle.nullnet.fi>
-References: <bug-12886-10286@http.bugzilla.kernel.org/>
-    <20090316200428.908245dc.akpm@linux-foundation.org>
-    <200903171101.32812.rjw@sisk.pl>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch 0/6] netfilter: ctnetlink allocation improvement
+Date: Tue, 17 Mar 2009 11:24:51 +0100
+Message-ID: <49BF7A73.3010605@netfilter.org>
+References: <20090316220659.756862181@jonathan.eitzenberger.org> <49BF28A3.3010606@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Holger Eitzenberger <holger@eitzenberger.org>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:55577 "EHLO
-	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756972AbZCQKXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 06:23:44 -0400
-In-Reply-To: <200903171101.32812.rjw@sisk.pl>
+Received: from mail.us.es ([193.147.175.20]:42765 "EHLO us.es"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757751AbZCQKY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2009 06:24:59 -0400
+In-Reply-To: <49BF28A3.3010606@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Patrick,
 
-Hi,
+Patrick McHardy wrote:
+> These patches look almost perfect, there's just one minor thing
+> that should be fixed from my perspective (from patch 4):
+> 
+>> +    l3proto = nf_ct_l3proto_find_get(tuple->src.l3num);
+>> +    len += l3proto->nla_size;
+>> +    nf_ct_l3proto_put(l3proto);
+>> +
+>> +    l4proto = nf_ct_l4proto_find_get(tuple->src.l3num,
+>> tuple->dst.protonum);
+>> +    len += l4proto->nla_size;
+>> +    nf_ct_l4proto_put(l4proto);
+>> +
+>> +    return alloc_skb(len, gfp);
+> 
+> Its preferrable not to use module reference counting during packet
+> processing, the protocols can be accessed safely using RCU. I thought
+> I had fixed all those areas, but I now notice that ctnetlink is full
+> of similar spots and takes and drops module references quite
+> excessively. So just leave it as it is I guess, this should be fully
+> fixed anyways.
 
-> Please tell me what exactly you do to set up WoL.
+Indeed, there are still a couple of module reference spots. We only
+remove them from the event delivery path.
 
-The only thing I do is I configure the WOL bios option
-to on ie. no OS based configuration settings are touched.
+> I'll wait a few hours for others to comment before applying your
+> patches.
 
-The previously mentioned patch reverted the ethtool output is
-(ie. this is a working 2.6.28.7 system atm):
-
-Settings for eth0:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Half 1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Half 1000baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: pg
-        Wake-on: g
-        Current message level: 0x00000037 (55)
-        Link detected: yes
-
-Regards,
-Tomi O.
+Hm, it seems that our patches follows two different principles. AFAICS,
+Holger calculates an approximate message size to avoid trimming, while I
+calculate the exact message size.
 
 -- 
-
-
+"Los honestos son inadaptados sociales" -- Les Luthiers
