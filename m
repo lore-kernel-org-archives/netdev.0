@@ -1,73 +1,35 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
-Date: Tue, 17 Mar 2009 15:21:52 -0400
-Message-ID: <49BFF850.7060906@hp.com>
-References: <20090316233934.GD32111@codeblau.de> <49BF0A5A.2040501@hp.com> <20090317125845.GB9754@codeblau.de> <49BFC8E6.8000404@hp.com> <20090317180840.GC13270@codeblau.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT *] Solos PCI ADSL card update
+Date: Tue, 17 Mar 2009 12:23:17 -0700 (PDT)
+Message-ID: <20090317.122317.150954865.davem@davemloft.net>
+References: <1237310370.27681.314.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Felix von Leitner <felix-kernel@fefe.de>
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+	chas@cmf.nrl.navy.mil
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:31003 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbZCQTV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 15:21:56 -0400
-In-Reply-To: <20090317180840.GC13270@codeblau.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54492
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753790AbZCQTXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 15:23:30 -0400
+In-Reply-To: <1237310370.27681.314.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Top-posting so others can see your off-list rant in full.  I see no reason to
-help you any further, even though I did have a patch that would change this
-behavior for you.  Good luck with your "biggest noncommercial Internet messaging
-infrastructure" in the world.
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Tue, 17 Mar 2009 17:19:30 +0000
 
--Brian
+> Please pull from git://git.infradead.org/~dwmw2/solos-2.6.git
+> 
+> This contains a bunch of updates to the Solos PCI driver (full patch
+> below for review):
 
-Felix von Leitner wrote:
->> Please show me a porting guide that even mentions supporting IPv4-only mode
->> through an IPv6 socket by using this method.  There is none that I know of.
-> 
-> Are you kidding me?
-> A _porting guide_?!?
-> 
-> If you are trying to troll me, you just succeeded.
-> 
-> Now please make room so the adults can talk about the issue at hand
-> while you are putting up straw men.
-> 
->>> Did I mention *BSD and OSX allow this?
->> That was their decision, and it doesn't mean it's the right thing to do.
-> 
-> Riiiight.
-> 
-> There is an old joke.  The Joneses are driving on the freeway, when the
-> radio sounds a warning.  "Warning!  There is a car driving the wrong way
-> on the freeway!"  Says grandpa (who is driving the car) "what do you
-> mean, one guy?  Hundreds!!"
-> 
-> Sometimes, if there are two ways to read something, and your users tell
-> you which way they want it, and the competition does it the way the
-> users want, and you don't, sometimes, in that case, YOU ARE WRONG.
-> 
-> It's that easy.
-> 
-> Hey, you have an hp.com email address.  Why don't you check out how
-> HP-UX handles this.
-> 
->> Compare your bittorrent server to Apache, which is probably the most widely-used
->> server application in the world.  It doesn't do what you're trying to do.  See
->> http://httpd.apache.org/docs/2.2/bind.html and/or browse the source code.
-> 
-> What is this supposed to be?  Name dropping?
-> 
-> I'm not impressed.
-> 
-> And Apache never won any speed or scalability records.  Just because
-> many people use Apache does not mean it's a good piece of software.  You
-> know, many more people use Windows than Linux.  That does not make
-> Windows the standard to follow.  Hey, many people use sendmail!  And
-> BIND!
-> 
-> Felix
-> 
+So if I don't like patch 3 and want to discuss it as a unit,
+what do I do?  Pull the patch out of your GIT repo and
+start a thread to discuss it?
+
+Come on, post the whole series, please. :-/
+
+Nobody can review this huge hunk of intertwines changes.
