@@ -1,97 +1,76 @@
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: Re: [PATCHv3] netns: oops in ip[6]_frag_reasm incrementing stats
-Date: Tue, 17 Mar 2009 14:54:04 +0100
-Message-ID: <49BFAB7C.1020503@dti2.net>
-References: <49BA87F4.1090709@dti2.net> <49BA8B65.2060408@dti2.net> <49BE4192.7090706@dti2.net> <49BEBF25.70008@gmail.com> <49BECA4A.4080207@dti2.net> <20090316224645.GA3129@ami.dom.local> <49BF8FBE.7010800@dti2.net> <20090317132113.GA6939@ff.dom.local>
-Reply-To: jorge@dti2.net
+From: Felix von Leitner <felix-kernel@fefe.de>
+Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
+Date: Tue, 17 Mar 2009 15:14:32 +0100
+Message-ID: <20090317141432.GA10575@codeblau.de>
+References: <20090316233934.GD32111@codeblau.de> <49BF0A5A.2040501@hp.com> <20090317125845.GB9754@codeblau.de> <49BFA9F0.6070702@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alcalazamora.dti2.net ([81.24.162.8]:4969 "EHLO
-	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752304AbZCQNyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 09:54:10 -0400
-Received: from [172.16.16.6] ([81.24.161.20])
-	(authenticated user jorge@dti2.net)
-	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
-	(MDaemon PRO v9.6.5)
-	with ESMTP id md50002694223.msg
-	for <netdev@vger.kernel.org>; Tue, 17 Mar 2009 14:54:07 +0100
-In-Reply-To: <20090317132113.GA6939@ff.dom.local>
+Received: from ioctl.codeblau.de ([80.190.240.67]:36790 "EHLO codeblau.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751290AbZCQOOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2009 10:14:36 -0400
+Content-Disposition: inline
+In-Reply-To: <49BFA9F0.6070702@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski escribi=F3:
-> On Tue, Mar 17, 2009 at 12:55:42PM +0100, Jorge Boncompte [DTI2] wrot=
-e:
->> dev can be NULL in ip[6]_frag_reasm for skb's coming from RAW socket=
-s.
->>
->> Quagga's OSPFD sends fragmented packets on a RAW socket, when netfil=
-ter
->> conntrack reassembles them on the OUTPUT path you hit this code path=
-=2E
->>
->> You can test it with something like "hping2 -0 -d 2000 -f AA.BB.CC.D=
-D"
->>
->> Changes from v2: (address comments from Jarek Poplawski)
->> 	- Patch reworked to get the net pointer with container_of()
->> 	  instead of passing it to function calls.
->> 	- Fix IPv6 code
->> Changes from v1:
->> 	- Fixed description
->=20
-> I guess David will be interested only with the final state of changes=
-,
-> so v1 & v2 are not necessary here...
->=20
-> Anyway, ipv4 looks OK to me, but ipv6 looks like something is
-> different:
->> +	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMFAILS);
->=20
-> It still depends on dev !=3D NULL in __in6_dev_get(). I see there
-> is also used skb->dst for similar things in ip6_frag_queue(), so I
-> don't know: it needs rethinking, and maybe these patches should be
-> separated if you prefer.
+> Sorry, I just don't buy this.  You imply that you don't want the overhead
+> of storing IPv6 addresses, but you still get this with ::ffff:0.0.0.0.
+> In fact, now your overhead is even worse since ever IPv4 address will be
+> stored stored and interpreted as IPv6 128 bit address.
 
-	Not my day! :-) I should not look at code at 2 am and write patches
-the day after, I confused _idev and idev in the check for !=3D NULL in =
-_DEVINC.
+> If you really care about overhead, run 2 services.  Your IPv6 service
+> will only track real IPv6 addresses and will reduce you total overhead.
 
-	I think this bug was first introduced by patch "[IPV6]: Per-interface
-statistics support." from YOSHIFUJI Hideaki on Nov 4, 2006.
+I am worried about the overhead of storing the IPv6 addresses.
+I am not storing them in the IPv4 case.
 
-	If someone with more knowledge could confirm that using something like=
-=2E..
+But the socket code has been rewritten to use IPv6 addresses only,
+precisely because IPv4-mapped addresses exist.
 
-"(skb->dev ? skb->dev : skb->dst->dev)"
+> If you don't care about overhead, just bind a single socket to :: and
+> you will get behavior identical for the ::fff:0.0.0.0 case, but with
+> the added benefit of tracking real ipv6 addresses as well.
 
-=2E.. here is fine I'll redo this part and resend. I do not have an IPv=
-6 setup where
-I can test this.
+You probably mean well but please stick to the problem at hand and don't
+speculate about my app.
 
-	Regards,
+> Having written support for ::ffff:0.0.0.0, I've always thought it was
+> a bastardized case that didn't provide any benefits.  It was like saying:
+> "I've got IPv6 on my system, but I don't really support it, even though
+> I pretend that I do."
 
-	Jorge
---=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Jorge Boncompte - Ingenieria y Gestion de RED
-DTI2 - Desarrollo de la Tecnologia de las Comunicaciones
---------------------------------------------------------------
-C/ Abogado Enriquez Barrios, 5   14004 CORDOBA (SPAIN)
-Tlf: +34 957 761395 / FAX: +34 957 450380
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-- Sin pistachos no hay Rock & Roll...
-- Without wicker a basket cannot be made.
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+The app has a command line option to specify which address to bind to.
+The app understands IPv4 addresses and converts them to ipv4 mapped
+addresses so it can only deal with sockaddr_in6 when talking to the
+kernel and does not need to store info on what kind of socket family it
+is dealing with.
 
+If someone specifies 0.0.0.0, it does not work.  It's that easy.
+
+Now it may be a fascinating side discussion on whether you think IPv4
+mapped 0.0.0.0 is useful or not, but rest assured: it is useful to at
+least one high profile app that is so far running on Linux.
+
+> > Why would you say that?
+> Because that case doesn't provide any benefits.
+
+You may not see it but it does.
+
+> It only has the drawback that you have to deal with ipv4-mapped IPv6
+> addresses witch is the overhead of the whole thing.
+
+That is not a drawback.  On the contrary.  It greatly simplifies how the
+app deals with the socket API.
+
+> If you are prepared to deal with it, you might as well deal with real ipv6 addresses
+> at the same time and mitigate your overhead somewhat.
+
+You are currently proving all the snide remarks by the BSD people about
+the Linux IP stack true, and the "professionalism" snide remarks of the
+Solaris people.  Great work, man.
+
+Felix
