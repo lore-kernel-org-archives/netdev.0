@@ -1,58 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
-Date: Tue, 17 Mar 2009 16:09:37 -0400
-Message-ID: <49C00381.8050207@garzik.org>
-References: <200903171937.53401.fzu@wemgehoertderstaat.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel panic during stress with igb in the upstream kernel
+Date: Tue, 17 Mar 2009 13:11:05 -0700 (PDT)
+Message-ID: <20090317.131105.111221133.davem@davemloft.net>
+References: <20090316132240.GA18413@gondor.apana.org.au>
+	<20090317093724.GA5743@ff.dom.local>
+	<20090317100203.GA23396@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, NetDev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Cc: jarkao2@gmail.com, emil.s.tantilov@intel.com,
+	alexander.h.duyck@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38864 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754410AbZCQUJn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 16:09:43 -0400
-In-Reply-To: <200903171937.53401.fzu@wemgehoertderstaat.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33662
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752746AbZCQULT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 16:11:19 -0400
+In-Reply-To: <20090317100203.GA23396@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Karsten Wiese wrote:
-> Only adjust the NAPI bits of the interruptmask, if netif_rx_schedule_prep()
-> returns true.
-> Without this, I see interrupt storms here using 2.6.29-rcx and 2.6.27.19 and
-> device needed rmmod r8169 + modprobe r8169 to start working.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 17 Mar 2009 18:02:03 +0800
+
+> On Tue, Mar 17, 2009 at 09:37:24AM +0000, Jarek Poplawski wrote:
+> >
+> > Probably I miss something, but you seem to assume here this skb will
+> > be taken by netpoll later. But if it's not active (trapped) vlan
+> > packet will be passed as "normal"?
 > 
-> Signed-off-by: Karsten Wiese <fzu@wemgehoertderstaat.de>
-> ---
->  drivers/net/r8169.c |    9 ++++-----
->  1 files changed, 4 insertions(+), 5 deletions(-)
+> Good point.  I'll see if this stuff can be simplified further,
+> but for now, let's go for the obvious fix.
 > 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index b347340..0c943ba 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -3708,12 +3708,11 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
->  		rtl8169_check_link_status(dev, tp, ioaddr);
->  
->  	if (status & tp->napi_event) {
-> -		RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
-> -		tp->intr_mask = ~tp->napi_event;
-> -
-> -		if (likely(netif_rx_schedule_prep(&tp->napi)))
-> +		if (likely(netif_rx_schedule_prep(&tp->napi))) {
-> +			RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
-> +			tp->intr_mask = ~tp->napi_event;
->  			__netif_rx_schedule(&tp->napi);
-> -		else if (netif_msg_intr(tp)) {
-> +		} else if (netif_msg_intr(tp)) {
->  			printk(KERN_INFO "%s: interrupt %04x in poll\n",
+> gro: Fix vlan/netpoll check again
+> 
+> Jarek Poplawski pointed out that my previous fix is broken for
+> VLAN+netpoll as if netpoll is enabled we'd end up in the normal
+> receive path instead of the VLAN receive path.
+> 
+> This patch fixes it by calling the VLAN receive hook.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-FWIW, you should CC net driver patches to netdev@vger.kernel.org, so 
-that they get tracked in patchworks and handled by the right people.
-
-	Jeff
-
-
+Applied, thanks Herbert.
