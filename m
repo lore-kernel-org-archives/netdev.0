@@ -1,155 +1,184 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 21/30] solos: Clean up handling of card->tx_mask a little
-Date: Tue, 17 Mar 2009 21:29:31 +0000
-Message-ID: <1237325371.27681.350.camel@macbook.infradead.org>
+Subject: [PATCH 15/30] solos: Tidy up DMA handling a little. Still untested
+Date: Tue, 17 Mar 2009 21:29:27 +0000
+Message-ID: <1237325367.27681.344.camel@macbook.infradead.org>
 References: <1237310370.27681.314.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37669 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:37663 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758154AbZCQV3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:42 -0400
+	with ESMTP id S1757763AbZCQV3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 17:29:33 -0400
 Received: from macbook.infradead.org ([2001:8b0:10b:1:216:eaff:fe05:bbb8])
 	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
-	id 1Ljgqx-0001vx-2V
-	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:39 +0000
+	id 1Ljgqo-0001vS-On
+	for netdev@vger.kernel.org; Tue, 17 Mar 2009 21:29:31 +0000
 In-Reply-To: <1237310370.27681.314.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/atm/solos-pci.c |   53 ++++++++++++++++++++++++----------------------
- 1 files changed, 28 insertions(+), 25 deletions(-)
+ drivers/atm/solos-pci.c |   95 ++++++++++++++++++++++++++---------------------
+ 1 files changed, 53 insertions(+), 42 deletions(-)
 
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 5e228a3..e7691b3 100644
+index 63c9ad0..acba08d 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -140,7 +140,7 @@ module_param(fpga_upgrade, int, 0444);
+@@ -68,6 +68,8 @@
+ #define RX_BUF(card, nr) ((card->buffers) + (nr)*BUF_SIZE*2)
+ #define TX_BUF(card, nr) ((card->buffers) + (nr)*BUF_SIZE*2 + BUF_SIZE)
  
- static void fpga_queue(struct solos_card *card, int port, struct sk_buff *skb,
- 		       struct atm_vcc *vcc);
--static int fpga_tx(struct solos_card *);
-+static uint32_t fpga_tx(struct solos_card *);
- static irqreturn_t solos_irq(int irq, void *dev_id);
- static struct atm_vcc* find_vcc(struct atm_dev *dev, short vpi, int vci);
- static int list_vccs(int vci);
-@@ -438,8 +438,6 @@ static int send_command(struct solos_card *card, int dev, const char *buf, size_
- 	struct sk_buff *skb;
- 	struct pkt_hdr *header;
++#define RX_DMA_SIZE	2048
++
+ static int debug = 0;
+ static int atmdebug = 0;
+ static int firmware_upgrade = 0;
+@@ -608,17 +610,11 @@ void solos_bh(unsigned long card_arg)
  
--//	dev_dbg(&card->dev->dev, "size: %d\n", size);
+ 			if (card->using_dma) {
+ 				skb = card->rx_skb[port];
+-				pci_unmap_single(card->dev, SKB_CB(skb)->dma_addr, skb->len,
+-						 PCI_DMA_FROMDEVICE);
 -
- 	if (size > (BUF_SIZE - sizeof(*header))) {
- 		dev_dbg(&card->dev->dev, "Command is too big.  Dropping request\n");
- 		return 0;
-@@ -574,9 +572,9 @@ static irqreturn_t solos_irq(int irq, void *dev_id)
- 	struct solos_card *card = dev_id;
- 	int handled = 1;
+-				card->rx_skb[port] = alloc_skb(2048, GFP_ATOMIC);
+-				if (card->rx_skb[port]) {
+-					SKB_CB(card->rx_skb[port])->dma_addr =
+-						pci_map_single(card->dev, skb->data, skb->len,
+-							       PCI_DMA_FROMDEVICE);
+-					iowrite32(SKB_CB(card->rx_skb[port])->dma_addr,
+-						  card->config_regs + RX_DMA_ADDR(port));
+-				}
++				card->rx_skb[port] = NULL;
++
++				pci_unmap_single(card->dev, SKB_CB(skb)->dma_addr,
++						 RX_DMA_SIZE, PCI_DMA_FROMDEVICE);
++
+ 				header = (void *)skb->data;
+ 				size = le16_to_cpu(header->size);
+ 				skb_put(skb, size + sizeof(*header));
+@@ -669,7 +665,7 @@ void solos_bh(unsigned long card_arg)
  
--	//ACK IRQ
- 	iowrite32(0, card->config_regs + IRQ_CLEAR);
+ 			case PKT_STATUS:
+ 				process_status(card, port, skb);
+-				dev_kfree_skb(skb);
++				dev_kfree_skb_any(skb);
+ 				break;
  
-+	/* If we're up and running, just kick the tasklet to process TX/RX */
- 	if (card->atmdev[0])
- 		tasklet_schedule(&card->tlet);
- 	else
-@@ -588,16 +586,16 @@ static irqreturn_t solos_irq(int irq, void *dev_id)
- void solos_bh(unsigned long card_arg)
- {
- 	struct solos_card *card = (void *)card_arg;
--	int port;
- 	uint32_t card_flags;
- 	uint32_t rx_done = 0;
-+	int port;
- 
--	card_flags = ioread32(card->config_regs + FLAGS_ADDR);
--
--	/* The TX bits are set if the channel is busy; clear if not. We want to
--	   invoke fpga_tx() unless _all_ the bits for active channels are set */
--	if ((card_flags & card->tx_mask) != card->tx_mask)
--		fpga_tx(card);
-+	/*
-+	 * Since fpga_tx() is going to need to read the flags under its lock,
-+	 * it can return them to us so that we don't have to hit PCI MMIO
-+	 * again for the same information
-+	 */
-+	card_flags = fpga_tx(card);
+ 			case PKT_COMMAND:
+@@ -681,12 +677,32 @@ void solos_bh(unsigned long card_arg)
+ 					if (net_ratelimit())
+ 						dev_warn(&card->dev->dev, "Dropping console response on port %d\n",
+ 							 port);
++					dev_kfree_skb_any(skb);
+ 				} else
+ 					skb_queue_tail(&card->cli_queue[port], skb);
+ 				spin_unlock(&card->cli_queue_lock);
+ 				break;
+ 			}
+ 		}
++		/* Allocate RX skbs for any ports which need them */
++		if (card->using_dma && card->atmdev[port] &&
++		    !card->rx_skb[port]) {
++			struct sk_buff *skb = alloc_skb(RX_DMA_SIZE, GFP_ATOMIC);
++			if (skb) {
++				SKB_CB(skb)->dma_addr =
++					pci_map_single(card->dev, skb->data,
++						       RX_DMA_SIZE, PCI_DMA_FROMDEVICE);
++				iowrite32(SKB_CB(skb)->dma_addr,
++					  card->config_regs + RX_DMA_ADDR(port));
++				card->rx_skb[port] = skb;
++			} else {
++				if (net_ratelimit())
++					dev_warn(&card->dev->dev, "Failed to allocate RX skb");
++
++				/* We'll have to try again later */
++				tasklet_schedule(&card->tlet);
++			}
++		}
+ 	}
+ 	if (rx_done)
+ 		iowrite32(rx_done, card->config_regs + FLAGS_ADDR);
+@@ -901,50 +917,45 @@ static int fpga_tx(struct solos_card *card)
  
  	for (port = 0; port < card->nr_ports; port++) {
- 		if (card_flags & (0x10 << port)) {
-@@ -892,9 +890,8 @@ static void fpga_queue(struct solos_card *card, int port, struct sk_buff *skb,
- 	spin_lock_irqsave(&card->tx_queue_lock, flags);
- 	old_len = skb_queue_len(&card->tx_queue[port]);
- 	skb_queue_tail(&card->tx_queue[port], skb);
--	if (!old_len) {
-+	if (!old_len)
- 		card->tx_mask |= (1 << port);
--	}
- 	spin_unlock_irqrestore(&card->tx_queue_lock, flags);
+ 		if (card->atmdev[port] && !(tx_pending & (1 << port))) {
++			struct sk_buff *oldskb = card->tx_skb[port];
  
- 	/* Theoretically we could just schedule the tasklet here, but
-@@ -903,9 +900,9 @@ static void fpga_queue(struct solos_card *card, int port, struct sk_buff *skb,
- 		fpga_tx(card);
- }
- 
--static int fpga_tx(struct solos_card *card)
-+static uint32_t fpga_tx(struct solos_card *card)
- {
--	uint32_t tx_pending;
-+	uint32_t tx_pending, card_flags;
- 	uint32_t tx_started = 0;
- 	struct sk_buff *skb;
- 	struct atm_vcc *vcc;
-@@ -913,19 +910,24 @@ static int fpga_tx(struct solos_card *card)
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&card->tx_lock, flags);
--
--	tx_pending = ioread32(card->config_regs + FLAGS_ADDR) & card->tx_mask;
--
--	dev_vdbg(&card->dev->dev, "TX Flags are %X\n", tx_pending);
--
--	for (port = 0; port < card->nr_ports; port++) {
--		if (card->atmdev[port] && !(tx_pending & (1 << port))) {
-+	
-+	card_flags = ioread32(card->config_regs + FLAGS_ADDR);
-+	/*
-+	 * The queue lock is required for _writing_ to tx_mask, but we're
-+	 * OK to read it here without locking. The only potential update
-+	 * that we could race with is in fpga_queue() where it sets a bit
-+	 * for a new port... but it's going to call this function again if
-+	 * it's doing that, anyway.
-+	 */
-+	tx_pending = card->tx_mask & ~card_flags;
-+
-+	for (port = 0; tx_pending; tx_pending >>= 1, port++) {
-+		if (tx_pending & 1) {
- 			struct sk_buff *oldskb = card->tx_skb[port];
--
- 			if (oldskb)
- 				pci_unmap_single(card->dev, SKB_CB(oldskb)->dma_addr,
- 						 oldskb->len, PCI_DMA_TODEVICE);
--			
-+
++			if (oldskb)
++				pci_unmap_single(card->dev, SKB_CB(oldskb)->dma_addr,
++						 oldskb->len, PCI_DMA_TODEVICE);
++			
  			spin_lock(&card->tx_queue_lock);
  			skb = skb_dequeue(&card->tx_queue[port]);
- 			if (!skb)
-@@ -966,8 +968,9 @@ static int fpga_tx(struct solos_card *card)
+ 			spin_unlock(&card->tx_queue_lock);
+ 
+-			if (!skb)
++			if (skb && !card->using_dma) {
++				memcpy_toio(TX_BUF(card, port), skb->data, skb->len);
++				tx_started |= 1 << port; //Set TX full flag
++				oldskb = skb; /* We're done with this skb already */
++			} else if (skb && card->using_dma) {
++				SKB_CB(skb)->dma_addr = pci_map_single(card->dev, skb->data,
++								       skb->len, PCI_DMA_TODEVICE);
++				iowrite32(SKB_CB(skb)->dma_addr,
++					  card->config_regs + TX_DMA_ADDR(port));
++			}
++
++			if (!oldskb)
+ 				continue;
+ 
++			/* Clean up and free oldskb now it's gone */
+ 			if (atmdebug) {
+ 				dev_info(&card->dev->dev, "Transmitted: port %d\n",
+ 					 port);
+-				print_buffer(skb);
++				print_buffer(oldskb);
+ 			}
+-			if (card->using_dma) {
+-				if (card->tx_skb[port]) {
+-					struct sk_buff *oldskb = card->tx_skb[port];
+-
+-					pci_unmap_single(card->dev, SKB_CB(oldskb)->dma_addr,
+-							 oldskb->len, PCI_DMA_TODEVICE);
+-
+-					vcc = SKB_CB(oldskb)->vcc;
+-
+-					if (vcc) {
+-						atomic_inc(&vcc->stats->tx);
+-						solos_pop(vcc, oldskb);
+-					} else
+-						dev_kfree_skb_irq(oldskb);
+-				}
+ 
+-				SKB_CB(skb)->dma_addr = pci_map_single(card->dev, skb->data,
+-							       skb->len, PCI_DMA_TODEVICE);
+-				iowrite32(SKB_CB(skb)->dma_addr, card->config_regs + TX_DMA_ADDR(port));
+-			} else {
+-				memcpy_toio(TX_BUF(card, port), skb->data, skb->len);
+-				tx_started |= 1 << port; //Set TX full flag
++			vcc = SKB_CB(oldskb)->vcc;
+ 
+-				vcc = SKB_CB(skb)->vcc;
++			if (vcc) {
++				atomic_inc(&vcc->stats->tx);
++				solos_pop(vcc, oldskb);
++			} else
++				dev_kfree_skb_irq(oldskb);
+ 
+-				if (vcc) {
+-					atomic_inc(&vcc->stats->tx);
+-					solos_pop(vcc, skb);
+-				} else
+-					dev_kfree_skb_irq(skb);
+-			}
+ 		}
+ 	}
  	if (tx_started)
- 		iowrite32(tx_started, card->config_regs + FLAGS_ADDR);
- 
-+ out:
- 	spin_unlock_irqrestore(&card->tx_lock, flags);
--	return 0;
-+	return card_flags;
- }
- 
- static int psend(struct atm_vcc *vcc, struct sk_buff *skb)
 -- 
 1.6.0.6
 
