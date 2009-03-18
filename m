@@ -1,31 +1,32 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: socket api problem: can't bind an ipv6 socket to ::ffff:0.0.0.0
-Date: Wed, 18 Mar 2009 22:53:00 +0100
-Message-ID: <20090318215259.GA3130@ami.dom.local>
-References: <20090317.123146.210941276.davem@davemloft.net> <20090318091307.GB4799@ff.dom.local> <20090318.143635.87275958.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Wed, 18 Mar 2009 22:59:01 +0100
+Message-ID: <20090318215901.GV11935@one.firstfloor.org>
+References: <49C12E64.1000301@us.ibm.com> <87prge1rhu.fsf@basil.nowhere.org> <49C16294.8050101@us.ibm.com> <1237412732.29116.2.camel@lb-tlvb-eliezer> <49C16CD4.3010708@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: brian.haley@hp.com, felix-kernel@fefe.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.186]:27645 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760709AbZCRVyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 17:54:12 -0400
-Received: by ti-out-0910.google.com with SMTP id i7so126710tid.23
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 14:54:09 -0700 (PDT)
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	rt-users <linux-rt-users@vger.kernel.org>
+To: Vernon Mauery <vernux@us.ibm.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090318.143635.87275958.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <49C16CD4.3010708@us.ibm.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 18, 2009 at 02:36:35PM -0700, David Miller wrote:
-...
-> And yes we should advise people what is an appropriate way to
-> accomplish some task.  If we aren't the experts on such a topic,
-> then who the hell is?
+> Thanks.  I will test to see how this affects this lock contention the
+> next time the broadcom hardware is available.
 
-Only if sb. is looking for advice; otherwise it's not very nice,
-especially if repeated many times.
+The other strategy to reduce lock contention here is to use TSO/GSO/USO.
+With that the lock has to be taken less often because there are less packets
+travelling down the stack. I'm not sure how well that works with netperf style 
+workloads though. Using multiple TX queues is probably better though if you have
+capable hardware. Or ideally both.
 
-Jarek P.
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
