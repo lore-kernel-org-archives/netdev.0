@@ -1,90 +1,80 @@
-From: =?UTF-8?Q?Kolbj=C3=B8rn_Barmen?= <linux@kolla.no>
-Subject: Re: PROBLEM: IPv6 autoconf/accept_ra default values
-Date: Wed, 18 Mar 2009 02:06:09 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.0903180200590.10453@firda.kolla.no>
-References: <alpine.LNX.2.00.0902241031470.28298@halbrend.uninett.no>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [net-next PATCH 1/2] igbvf: add new driver to support 82576
+ virtual functions
+Date: Tue, 17 Mar 2009 18:08:26 -0700
+Message-ID: <20090317180826.8f3c596b.akpm@linux-foundation.org>
+References: <20090311020928.23138.20790.stgit@lost.foo-projects.org>
+	<20090310222154.4bc8c12c.akpm@linux-foundation.org>
+	<49C03C80.5020203@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Kolbj=C3=B8rn_Barmen?= <linux@kolla.no>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"greg@kroah.com" <greg@kroah.com>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Zhao, Yu" <yu.zhao@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ufisa.uninett.no ([158.38.152.126]:36236 "EHLO ufisa.uninett.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753671AbZCRBGS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2009 21:06:18 -0400
-In-Reply-To: <alpine.LNX.2.00.0902241031470.28298@halbrend.uninett.no>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58081 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751992AbZCRBRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 21:17:35 -0400
+In-Reply-To: <49C03C80.5020203@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Feb 2009, Kolbj=C3=B8rn Barmen wrote:
+On Tue, 17 Mar 2009 17:12:48 -0700 Alexander Duyck <alexander.h.duyck@intel.com> wrote:
 
-> 1. Summary of problem
->=20
-> autoconfig and accept_ra is by default on (by the way of forwarning) =
--
-> this is very problematic in many ways.
+> Thanks for all the comments.  I tried to incorporate most of them into 
+> the igbvf driver and also ended up porting some over to our other 
+> drivers, specifically igb since the igbvf driver copies much of the code.
+> 
+> I have added my comments inline below.
+> 
+> Thanks,
+> 
+> Alex
+> 
+> Andrew Morton wrote:
+> > On Tue, 10 Mar 2009 19:09:28 -0700 Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > 
+> >> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> >>
+> >> This adds an igbvf driver to handle virtual functions provided
+> >> by the igb driver.
+> > 
+> > The drive-by reader is now wondering what a "virtual function" is.
 
-[snip]
+^^ this comment was missed.
 
-> My personal oppinion is that anything ipv6 autoconfig/accept_ra shoul=
-d be
-> default _off_, since this simplifies all the above mentioned issues, =
-and
-> it is incredibly easy to turn on again with systcl if people want it.
-> It is much easier to enable ipv6 automagic than to disable it.
-> At least there should be kernel/module parameter to set default behav=
-iour.
->=20
-> Part of the problem with deploying IPv6 is due to "magic" like this, =
-all
-> the autoconfig/router announcement magic looks very well on paper and=
- in
-> theory, but out in the field it quickly leads to loads of totally
-> unnecessary extra work, work that could easily be avoided if default
-> behaviour was to have it off. It should be in the interest of IPv6
-> advocates to support a "soft" transition from IPv4-only to dual-stack=
-,
-> fencing off unwanted "magic" only adds to the frustration for those w=
-ho
-> actually try to deploy it.
->=20
-> What do you think?
+I was indirectly asking for an overview (preferably in the changelog) of
+what the whole patch actually does.
 
-Obviously noone really think much of this, one way or the other, so her=
-e's a
-patch that changes the default values.
+> >>
+> >> +static int igbvf_set_ringparam(struct net_device *netdev,
+> >> +                               struct ethtool_ringparam *ring)
+> >> +{
+> >> +     struct igbvf_adapter *adapter = netdev_priv(netdev);
+> >> +     struct igbvf_ring *tx_ring, *tx_old;
+> >> +     struct igbvf_ring *rx_ring, *rx_old;
+> >> +     int err;
+> >> +
+> >> +     if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+> >> +             return -EINVAL;
+> >> +
+> >> +     while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
+> >> +             msleep(1);
+> > 
+> > No timeout needed here?  Interrupts might not be working, for example..
+> 
+> This bit isn't set in interrupt context.  This is always used out of 
+> interrupt context and is just to prevent multiple setting changes at the 
+> same time.
 
---------
---- linux/net/ipv6/addrconf.c.orig      2009-03-17 23:41:10.000000000 +=
-0100
-+++ linux/net/ipv6/addrconf.c   2009-03-17 23:42:18.000000000 +0100
-@@ -157,9 +157,9 @@
-        .forwarding             =3D 0,
-        .hop_limit              =3D IPV6_DEFAULT_HOPLIMIT,
-        .mtu6                   =3D IPV6_MIN_MTU,
--       .accept_ra              =3D 1,
-+       .accept_ra              =3D 0,
-        .accept_redirects       =3D 1,
--       .autoconf               =3D 1,
-+       .autoconf               =3D 0,
-        .force_mld_version      =3D 0,
-        .dad_transmits          =3D 1,
-        .rtr_solicits           =3D MAX_RTR_SOLICITATIONS,
-@@ -192,9 +192,9 @@
-        .forwarding             =3D 0,
-        .hop_limit              =3D IPV6_DEFAULT_HOPLIMIT,
-        .mtu6                   =3D IPV6_MIN_MTU,
--       .accept_ra              =3D 1,
-+       .accept_ra              =3D 0,
-        .accept_redirects       =3D 1,
--       .autoconf               =3D 1,
-+       .autoconf               =3D 0,
-        .dad_transmits          =3D 1,
-        .rtr_solicits           =3D MAX_RTR_SOLICITATIONS,
-        .rtr_solicit_interval   =3D RTR_SOLICITATION_INTERVAL,
---------
+Oh.  Can't use plain old mutex_lock()?
 
-Cheers!
 
--- kolla
