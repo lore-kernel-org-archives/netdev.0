@@ -1,164 +1,111 @@
-From: Ryousei Takano <ryousei@gmail.com>
-Subject: Re: [lxc-devel] Poor bridging performance on 10 GbE
-Date: Thu, 19 Mar 2009 00:56:53 +0900
-Message-ID: <b30d1c3b0903180856r6dce554ap35b8d6a3ee7829e0@mail.gmail.com>
-References: <b30d1c3b0903180221h5175618eue162ffdec3817b4c@mail.gmail.com>
-	 <49C0C87B.7070507@fr.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lxc-devel@lists.sourceforge.net,
-	Linux Containers <containers@lists.osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH] bas_gigaset: correctly allocate USB interrupt transfer buffer
+Date: Wed, 18 Mar 2009 16:58:50 +0100 (CET)
+Message-ID: <20090318-patch-01.tilman@imap.cc>
+Cc: Kolja Waschk <kawk@users.sourceforge.net>,
+	Hansjoerg Lipp <hjlipp@web.de>
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:40982 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751184AbZCRP4y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 11:56:54 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so64820rvb.1
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 08:56:53 -0700 (PDT)
-In-Reply-To: <49C0C87B.7070507@fr.ibm.com>
+Received: from gimli.pxnet.com ([195.227.45.7]:45312 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752581AbZCRP7I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 11:59:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Dave,
 
-On Wed, Mar 18, 2009 at 7:10 PM, Daniel Lezcano <dlezcano@fr.ibm.com> w=
-rote:
-> Ryousei Takano wrote:
->>
->> Hi all,
->>
->> I am evaluating the networking performance of lxc on 10 Gigabit Ethe=
-rnet
->> by
->> using netperf benchmark.
->
-> Thanks for doing benchmarking.
-> I did two years ago similar tests and there is an analysis of the
-> performances at:
-> http://lxc.sourceforge.net/network/benchs.php
->
-> It is not up to date, but that will give you some clues of what is ha=
-ppening
-> with this overhead.
->
-I am using VServer because other virtualization mechanisms, including O=
-penVZ,
-Xen, and KVM cannot fully utilize the network bandwidth of 10 GbE.
+the following patch corrects a serious bug in the Gigaset driver,
+reported by Kolja Waschk, which made the driver unusable on the MIPS
+platform. It is not a regression in the proper sense of the word -
+the problem has been there since the creation of the Gigaset driver.
+(I wonder how we got away with it for so long.) But nevertheless I'd
+like to see it included in v2.6.29 if that is still possible. If not,
+please let me know so that I can submit it to the -stable branch as
+soon as possible.
 
-Here are the results of netperf bencmark:
-	vanilla (2.6.27-9)		9525.94
-	Vserver (2.6.27.10)	9521.79
-	OpenVZ (2.6.27.10)	2049.89
-	Xen (2.6.26.1)		1011.47
-	KVM (2.6.27-9)		1022.42
+The patch doesn't apply to v2.6.28 and earlier because of a (trivial)
+conflict with commit c8770dc. I'll prepare a separate patch for
+2.6.27.x/2.6.28.x as soon as this one is merged in mainline.
 
-Now I am interesting to use LXC instead of VServer.
+Thanks,
+Tilman
 
->> Using a macvlan device, the throughput was 9.6 Gbps. But, using a ve=
-th
->> device,
->> the throughput was only 2.7 Gbps.
->
-> Yeah, definitively the macvlan interfaces is the best in terms of
-> performances but with the restriction of not being able to communicat=
-e
-> between containers on the same hosts.
->
-This restriction is not so big issue for my purpose.
+bas_gigaset: correctly allocate USB interrupt transfer buffer
 
-> There are some discussions around that:
->
-> http://marc.info/?l=3Dlinux-netdev&m=3D123643508124711&w=3D2
->
-> The veth is a virtual device hence it has not offloading. When the pa=
-cket
-> are sent out, the network stack looks at the nic offloading capabilit=
-y which
-> is not present. So the kernel will compute the checksums instead of l=
-etting
-> the nic to do that either if the packet is transmitted through the ph=
-ysical
-> nic. This is a well known issue related to network virtualization and=
- xen
-> has developed a specific network driver:
-> http://www.cse.psu.edu/~bhuvan/teaching/spring06/papers/xen-net-opt.p=
-df
->
->> I think this is because the overhead of bridging devices is high.
->
-> Yes, bridging adds some overhead and AFAIR bridging + netfilter does =
-some
-> skb copy.
->
-Thank you for pointers.
+Every USB transfer buffer has to be allocated individually by kmalloc.
 
->> I also checked the host OS's performance when I used a veth device.
->> I observed a strange phenomenon.
->>
->> Before issuing lxc-start command, the throughput was 9.6 Gbps.
->> Here is the output of brctl show:
->> =A0 =A0 =A0 =A0$ brctl show
->> =A0 =A0 =A0 =A0bridge name =A0 =A0 bridge id =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 STP enabled =A0 =A0 interfaces
->> =A0 =A0 =A0 =A0br0 =A0 =A0 =A0 =A0 =A0 =A0 8000.0060dd470d49 =A0 =A0=
- =A0 no =A0 =A0 =A0 =A0 =A0 =A0 =A0eth1
->>
->> After issuing lxc-start command, the throughput decreased to 3.2 Gbp=
-s.
->> Here is the output of brctl show:
->> =A0 =A0 =A0 =A0$ sudo brctl show
->> =A0 =A0 =A0 =A0bridge name =A0 =A0 bridge id =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 STP enabled =A0 =A0 interfaces
->> =A0 =A0 =A0 =A0br0 =A0 =A0 =A0 =A0 =A0 =A0 8000.0060dd470d49 =A0 =A0=
- =A0 no =A0 =A0 =A0 =A0 =A0 =A0 =A0eth1
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0veth0_7573
->>
->> I wonder why the performance is greatly influenced by adding a veth =
-device
->> to a bridge device.
->
-> Hmm, good question :)
->
->> Here is my experimental setting:
->> =A0 =A0 =A0 =A0OS: Ubuntu server 8.10 amd64
->> =A0 =A0 =A0 =A0Kernel: 2.6.27-rc8 (checkout from the lxc git reposit=
-ory)
->
-> I would recommend to use the 2.6.29-rc8 vanilla because this kernel d=
-oes no
-> longer need patches, a lot of fixes were done in the network namespac=
-e and
-> maybe the bridge has been improved in the meantime :)
->
-I checked out the 2.6.29-rc8 vanilla kernel.
-The performance after issuing lxc-start improved to 8.7 Gbps!
-It's a big improvement, while some performance loss remains.
-Can not we avoid this loss?
+Impact: bugfix, no functional change
 
->> =A0 =A0 =A0 =A0Userland tool: 0.6.0
->> =A0 =A0 =A0 =A0NIC: Myricom Myri-10G
->>
->> Any comments and suggestions will be appreciate.
->> If this list is not proper place to talk about this problem, can any=
-one
->> tell me
->> the proper one?
->
-> The performances question is more related to the network virtualizati=
-on
-> implementation and should be sent to netdev@ and containers@ (added i=
-n the
-> Cc' of this email), of course people at lxc-devel@ will be interested=
- by
-> these aspects, so lxc-devel@ is the right mailing list too.
->
-> Thanks for your testings
-> =A0-- Daniel
->
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+Tested-by: Kolja Waschk <kawk@users.sourceforge.net>
+---
+ drivers/isdn/gigaset/bas-gigaset.c |   16 +++++++++++++---
+ 1 files changed, 13 insertions(+), 3 deletions(-)
 
-Best regards,
-Ryousei Takano
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index 18dd8aa..831ddce 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -46,6 +46,9 @@ MODULE_PARM_DESC(cidmode, "Call-ID mode");
+ /* length limit according to Siemens 3070usb-protokoll.doc ch. 2.1 */
+ #define IF_WRITEBUF 264
+ 
++/* interrupt pipe message size according to ibid. ch. 2.2 */
++#define IP_MSGSIZE 3
++
+ /* Values for the Gigaset 307x */
+ #define USB_GIGA_VENDOR_ID      0x0681
+ #define USB_3070_PRODUCT_ID     0x0001
+@@ -110,7 +113,7 @@ struct bas_cardstate {
+ 	unsigned char		*rcvbuf;	/* AT reply receive buffer */
+ 
+ 	struct urb		*urb_int_in;	/* URB for interrupt pipe */
+-	unsigned char		int_in_buf[3];
++	unsigned char		*int_in_buf;
+ 
+ 	spinlock_t		lock;		/* locks all following */
+ 	int			basstate;	/* bitmap (BS_*) */
+@@ -657,7 +660,7 @@ static void read_int_callback(struct urb *urb)
+ 	}
+ 
+ 	/* drop incomplete packets even if the missing bytes wouldn't matter */
+-	if (unlikely(urb->actual_length < 3)) {
++	if (unlikely(urb->actual_length < IP_MSGSIZE)) {
+ 		dev_warn(cs->dev, "incomplete interrupt packet (%d bytes)\n",
+ 			 urb->actual_length);
+ 		goto resubmit;
+@@ -2127,6 +2130,7 @@ static void gigaset_reinitbcshw(struct bc_state *bcs)
+ static void gigaset_freecshw(struct cardstate *cs)
+ {
+ 	/* timers, URBs and rcvbuf are disposed of in disconnect */
++	kfree(cs->hw.bas->int_in_buf);
+ 	kfree(cs->hw.bas);
+ 	cs->hw.bas = NULL;
+ }
+@@ -2140,6 +2144,12 @@ static int gigaset_initcshw(struct cardstate *cs)
+ 		pr_err("out of memory\n");
+ 		return 0;
+ 	}
++	ucs->int_in_buf = kmalloc(IP_MSGSIZE, GFP_KERNEL);
++	if (!ucs->int_in_buf) {
++		kfree(ucs);
++		pr_err("out of memory\n");
++		return 0;
++	}
+ 
+ 	ucs->urb_cmd_in = NULL;
+ 	ucs->urb_cmd_out = NULL;
+@@ -2292,7 +2302,7 @@ static int gigaset_probe(struct usb_interface *interface,
+ 	usb_fill_int_urb(ucs->urb_int_in, udev,
+ 			 usb_rcvintpipe(udev,
+ 					(endpoint->bEndpointAddress) & 0x0f),
+-			 ucs->int_in_buf, 3, read_int_callback, cs,
++			 ucs->int_in_buf, IP_MSGSIZE, read_int_callback, cs,
+ 			 endpoint->bInterval);
+ 	if ((rc = usb_submit_urb(ucs->urb_int_in, GFP_KERNEL)) != 0) {
+ 		dev_err(cs->dev, "could not submit interrupt URB: %s\n",
+-- 
+1.6.1.rc2
+
