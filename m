@@ -1,50 +1,47 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: Re: benet now in drivers/net/, remove from staging?
-Date: Wed, 18 Mar 2009 12:03:51 +0530
-Message-ID: <1237358031.6662.9.camel@sperla-laptop>
-References: <20090317200524.GA3938@kroah.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Wed, 18 Mar 2009 07:40:11 +0100
+Message-ID: <20090318064010.GA13399@electric-eye.fr.zoreil.com>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <20090317220625.GA5038@electric-eye.fr.zoreil.com> <200903180256.26626.fzu@wemgehoertderstaat.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	subbu <subbus@serverengines.com>
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Karsten Wiese <fzu@wemgehoertderstaat.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail192.messagelabs.com ([216.82.241.243]:63418 "EHLO
-	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754156AbZCRGeC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 02:34:02 -0400
-In-Reply-To: <20090317200524.GA3938@kroah.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59758 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755694AbZCRGgq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 02:36:46 -0400
+Content-Disposition: inline
+In-Reply-To: <200903180256.26626.fzu@wemgehoertderstaat.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg, pls remove it from staging area.
+Karsten Wiese <fzu@wemgehoertderstaat.de> :
+> Am Dienstag 17 M=E4rz 2009 schrieb Francois Romieu:
+[...]
+> > How the patch is supposed to work is not completely clear to me.
+>=20
+> Without it, if netif_rx_schedule_prep() returns 0, __netif_rx_schedul=
+e() is not
+> called so nothing is there to care for the transfer. Nonetheless intr=
+_mask is=20
+> changed so that its not possible that __netif_rx_schedule() is ever c=
+alled
+> later.
+>=20
+> Patch works by letting rtl8169_interrupt() again call netif_rx_schedu=
+le_prep()
+> until it succeeds and __netif_rx_schedule() is called.
 
-Thanks,
--Sathya
+Thanks for the explanation.
 
-On Tue, 2009-03-17 at 13:05 -0700, Greg KH wrote:
-> Now that the benet driver is properly in drivers/net/ should I delete it
-> from drivers/staging/benet?
-> 
-> Or is there some reason for both to live on?
-> 
-> thanks,
-> 
-> greg k-h
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+If netif_rx_schedule fails after napi is enabled, there is a
+racing poll thread to care for the transfer.
 
+Stated differently the bug is noticeable because napi_enable()=20
+should be called before request_irq() in rtl8169_open, right ?
 
-
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
+--=20
+Ueimor
