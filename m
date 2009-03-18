@@ -1,43 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
-Date: Wed, 18 Mar 2009 23:36:29 +0100
-Message-ID: <20090318223629.GA2306@electric-eye.fr.zoreil.com>
-References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903180256.26626.fzu@wemgehoertderstaat.de> <20090318064010.GA13399@electric-eye.fr.zoreil.com> <200903181300.00591.fzu@wemgehoertderstaat.de>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: iproute2: prints bogus hoplimit
+Date: Wed, 18 Mar 2009 23:35:12 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0903182334410.30559@fbirervta.pbzchgretzou.qr>
+References: <alpine.LSU.2.00.0902241125020.329@fbirervta.pbzchgretzou.qr> <20090318151216.60cd0363@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
-To: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:32827 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753553AbZCRWdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 18:33:19 -0400
-Content-Disposition: inline
-In-Reply-To: <200903181300.00591.fzu@wemgehoertderstaat.de>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:52644 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752312AbZCRWfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 18:35:14 -0400
+In-Reply-To: <20090318151216.60cd0363@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Karsten Wiese <fzu@wemgehoertderstaat.de> :
-> Am Mittwoch 18 M=E4rz 2009 schrieb Francois Romieu:
-[...]
-> > If netif_rx_schedule fails after napi is enabled, there is a
-> > racing poll thread to care for the transfer.
-> >=20
-> > Stated differently the bug is noticeable because napi_enable()=20
-> > should be called before request_irq() in rtl8169_open, right ?
->=20
-> Propably yes. That would mean the first interrupt is received before
-> rtl_hw_start() is called in rtl8169_open. The source of that
-> interrupt would be something else then?
 
-All we need is thus a shared interrupt racing on a different CPU
-with rtl8169_open and some IO versus memory reordering so that
-the hardware is started and a change in the status register can
-be seen in the IRQ handler before napi_enable/NAPI_STATE_SCHED
-escapes from the CPU where rtl8169_open is running...
-
-It does not look like a credible explanation. :o/
-
---=20
-Ueimor
+On Wednesday 2009-03-18 23:12, Stephen Hemminger wrote:
+>On Tue, 24 Feb 2009 11:27:52 +0100 (CET)
+>Jan Engelhardt <jengelh@medozas.de> wrote:
+>
+>> $ ip -6 r
+>> fc00::/7 dev rtl0  proto kernel  metric 256  mtu 1500 advmss 1440 
+>> hoplimit 4294967295
+>> 
+>> Most likely, "hoplimit -1" would be the right number, though I am not 
+>> sure if simply changing %u by %d is a correct thing to do, since it 
+>> would affect all fields.
+>> 
+>> ---
+>>  ip/iproute.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>  	if (i != RTAX_RTT && i != RTAX_RTTVAR &&
+>>  	    i != RTAX_RTO_MIN)
+>> -		fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
+>> +		fprintf(fp, " %d", *(unsigned*)RTA_DATA(mxrta[i]));
+>
+>No fix the kernel please.
+>
+And what should the kernel return?
