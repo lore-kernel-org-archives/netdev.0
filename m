@@ -1,53 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Denys Fedoryschenko <denys@visp.net.lb>
 Subject: Re: [ANNOUNCE]: First release of nftables
-Date: Wed, 18 Mar 2009 15:39:39 +0100
-Message-ID: <49C107AB.1030003@trash.net>
-References: <20090318112937.675BF13A4B0@koiott.tartu-labor> <Pine.LNX.4.64.0903181332140.13734@ondatra.tartu-labor>
+Date: Wed, 18 Mar 2009 16:52:27 +0200
+Message-ID: <200903181652.27928.denys@visp.net.lb>
+References: <20090318112937.675BF13A4B0@koiott.tartu-labor> <Pine.LNX.4.64.0903181332140.13734@ondatra.tartu-labor> <49C107AB.1030003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Meelis Roos <mroos@linux.ee>
+Cc: Meelis Roos <mroos@linux.ee>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43119 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757169AbZCROjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 10:39:44 -0400
-In-Reply-To: <Pine.LNX.4.64.0903181332140.13734@ondatra.tartu-labor>
+Received: from hosting.visp.net.lb ([194.146.153.11]:50190 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751326AbZCROwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 10:52:19 -0400
+In-Reply-To: <49C107AB.1030003@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Meelis Roos wrote:
->> Data is represented in a generic way inside the kernel and the
->> operations are defined on the generic data representations, meaning
->> its possible to use any matching feature (ranges, masks, set lookups
->> etc.) with any kind of data. Semantic validation of the operation is
->> performed in userspace, the kernel doesn't care as long as the
->> operation doesn't potentially harm the kernel.
-> 
-> This sounds like a "script" downloaded to kernel and interpreted during 
-> each packet match. This toubles me some - doesn't this use more memory 
-> accesses to achieve the same work that was done in precompiled code before?
+On Wednesday 18 March 2009 16:39:39 Patrick McHardy wrote:
+>
+> On top it has far smaller code and less memory usage as soon as
+> you have more than one CPU, its lockless, no default counters,
+> no overhead for unused chains, etc etc.
+>
+> When the time has come, I will of course post benchmarks.
+>
+Thanks a lot for your code Patrick.
+I will try as soon as i can.
 
-What makes you think your current ruleset is precompiled?
+I dont think hash and rbtrees is suboptimal.
+I have really a lot of situations where i need large set of ip's or ports to 
+be added in similar rule, which is forced to be linear. And if i even build 
+tree manually - it will be really headache to add new hosts.
 
-> Have you measured the fastpath performance of kernel matching of 
-> real-life rulesets, compared to iptables?
-
-Yes, but its not a 1:1 comparison. By inlining common operations
-(small comparisions, small alignned data loads) in the evaluation
-function, costs for a "normal" rule become comparable to iptables.
-As soon as you start actually using some of the new stuff, the
-comparison doesn't hold anymore. A set, even using rbtrees, which
-have a huge overhead in this case, is *a lot* faster than using the
-equivalent linear classification rules beginning with a quite small
-number. Similar, if you replace 200 rules
-"-m realm --realm X --CONNMARK --set-mark X" by a single one, it
-will obviously be faster.
-
-On top it has far smaller code and less memory usage as soon as
-you have more than one CPU, its lockless, no default counters,
-no overhead for unused chains, etc etc.
-
-When the time has come, I will of course post benchmarks.
-
+nftables looks very promissing in this case
