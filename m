@@ -1,71 +1,43 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: High contention on the sk_buff_head.lock
-Date: Wed, 18 Mar 2009 15:19:47 -0700
-Message-ID: <49C17383.2090909@hp.com>
-References: <49C12E64.1000301@us.ibm.com> <87prge1rhu.fsf@basil.nowhere.org>	<49C16294.8050101@us.ibm.com>	<1237412732.29116.2.camel@lb-tlvb-eliezer>	<49C16CD4.3010708@us.ibm.com> <20090318215901.GV11935@one.firstfloor.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Wed, 18 Mar 2009 23:36:29 +0100
+Message-ID: <20090318223629.GA2306@electric-eye.fr.zoreil.com>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903180256.26626.fzu@wemgehoertderstaat.de> <20090318064010.GA13399@electric-eye.fr.zoreil.com> <200903181300.00591.fzu@wemgehoertderstaat.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vernon Mauery <vernux@us.ibm.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	rt-users <linux-rt-users@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20090318215901.GV11935@one.firstfloor.org>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:32827 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753553AbZCRWdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 18:33:19 -0400
+Content-Disposition: inline
+In-Reply-To: <200903181300.00591.fzu@wemgehoertderstaat.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
->>Thanks.  I will test to see how this affects this lock contention the
->>next time the broadcom hardware is available.
-> 
-> 
-> The other strategy to reduce lock contention here is to use TSO/GSO/USO.
-> With that the lock has to be taken less often because there are less packets
-> travelling down the stack. I'm not sure how well that works with netperf style 
-> workloads though. 
+Karsten Wiese <fzu@wemgehoertderstaat.de> :
+> Am Mittwoch 18 M=E4rz 2009 schrieb Francois Romieu:
+[...]
+> > If netif_rx_schedule fails after napi is enabled, there is a
+> > racing poll thread to care for the transfer.
+> >=20
+> > Stated differently the bug is noticeable because napi_enable()=20
+> > should be called before request_irq() in rtl8169_open, right ?
+>=20
+> Propably yes. That would mean the first interrupt is received before
+> rtl_hw_start() is called in rtl8169_open. The source of that
+> interrupt would be something else then?
 
-All depends on what the user provides with the test-specific -m option for how 
-much data they shove into the socket each time "send" is called, and I suppose if 
-they use a test-specific -D option to set TCP_NODELAY in the case of a TCP test 
-when they have small values of -m.  Eg
+All we need is thus a shared interrupt racing on a different CPU
+with rtl8169_open and some IO versus memory reordering so that
+the hardware is started and a change in the status register can
+be seen in the IRQ handler before napi_enable/NAPI_STATE_SCHED
+escapes from the CPU where rtl8169_open is running...
 
-netperf -t TCP_STREAM ... -- -m 64K
-vs
-netperf -t TCP_STREAM ... -- -m 1024
-vs
-netperf -t TCP_STREAM ... -- -m 1024 -D
-vs
-netperf -t UDP_STREAM ... -- -m 1024
+It does not look like a credible explanation. :o/
 
-etc etc.
-
-If the netperf test is:
-
-netperf -t TCP_RR ... -- -r 1   (single-byte request/response)
-
-then TSO/GSO/USO won't matter at all, and probably still wont matter even if the 
-user has ./configure'd netperf with --enable-burst and does:
-
-netperf -t TCP_RR ... -- -r 1 -b 64
-or
-netperf -t TCP_RR ... -- -r 1 -b 64 -D
-
-which was basically what I was doing for the 32-core scaling stuff I posted about 
-a few weeks ago.  That was running on multi-queue NICs, so looking at some of the 
-profiles of the "no iptables" data may help show how big/small the problem is, 
-keeping in mind that my runs (either the XFrame II runs, or the Chelsio T3C runs 
-before them) had one queue per core in the system...and as such may be a best 
-case scenario as far as lock contention on a per-queue basis goes.
-
-ftp://ftp.netperf.org/
-
-happy benchmarking,
-
-rick jones
-
-BTW, that setup went "poof" and had to go to other nefarious porpoises.  I'm not 
-sure when I can recreate it, but I still have both the XFrame and T3C NICs when 
-the HW comes free again.
+--=20
+Ueimor
