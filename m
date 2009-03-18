@@ -1,111 +1,82 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
-Date: Wed, 18 Mar 2009 16:14:08 +0100
-Message-ID: <200903181614.08724.rjw@sisk.pl>
-References: <bug-12886-10286@http.bugzilla.kernel.org/> <200903172223.14608.rjw@sisk.pl> <919358a27b164c5f76cf42d3b3063050.squirrel@ncircle.nullnet.fi>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next PATCH 1/2] igbvf: add new driver to support 82576 virtual
+ functions
+Date: Wed, 18 Mar 2009 08:22:46 -0700
+Message-ID: <49C111C6.2010905@intel.com>
+References: <20090311020928.23138.20790.stgit@lost.foo-projects.org>	<20090310222154.4bc8c12c.akpm@linux-foundation.org>	<49C03C80.5020203@intel.com> <20090317180826.8f3c596b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
-To: "Tomi Orava" <tomimo@ncircle.nullnet.fi>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"greg@kroah.com" <greg@kroah.com>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Zhao, Yu" <yu.zhao@intel.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:34009 "EHLO ogre.sisk.pl"
+Received: from mga11.intel.com ([192.55.52.93]:47300 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751670AbZCRPOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Mar 2009 11:14:24 -0400
-In-Reply-To: <919358a27b164c5f76cf42d3b3063050.squirrel@ncircle.nullnet.fi>
-Content-Disposition: inline
+	id S1752191AbZCRPWt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 11:22:49 -0400
+In-Reply-To: <20090317180826.8f3c596b.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 18 March 2009, Tomi Orava wrote:
-> Hi again,
+Andrew Morton wrote:
+> On Tue, 17 Mar 2009 17:12:48 -0700 Alexander Duyck <alexander.h.duyck@intel.com> wrote:
 > 
-> >> The previously mentioned patch reverted the ethtool output is
-> >> (ie. this is a working 2.6.28.7 system atm):
-> >
-> > I wonder what it shows if that commit is not reverted (in fact it is
-> > necessary
-> > on some other systems for things to work correctly).
+>> Thanks for all the comments.  I tried to incorporate most of them into 
+>> the igbvf driver and also ended up porting some over to our other 
+>> drivers, specifically igb since the igbvf driver copies much of the code.
+>>
+>> I have added my comments inline below.
+>>
+>> Thanks,
+>>
+>> Alex
+>>
+>> Andrew Morton wrote:
+>>> On Tue, 10 Mar 2009 19:09:28 -0700 Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+>>>
+>>>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>>>>
+>>>> This adds an igbvf driver to handle virtual functions provided
+>>>> by the igb driver.
+>>> The drive-by reader is now wondering what a "virtual function" is.
 > 
-> Ethtool eth0 shows on latest 2.6.28.8 kernel with your manually merged
-> patch below:
+> ^^ this comment was missed.
+> 
+> I was indirectly asking for an overview (preferably in the changelog) of
+> what the whole patch actually does.
 
-Hm, are you sure the commit in question _is_ in 2.6.28.y?  I can't see it in
-there.  It is in the current Linus' tree, but not in v2.6.28 and surely not in
--stable.  Do you use a distro kernel?
+Sorry, while I missed the comment in my response I had gotten to 
+addressing it in the next version.  I updated it to more thoroughly 
+describe what the VF driver is doing.  I also included instructions on 
+how to enable the VFs from the PF so that they can be tested.
 
-> Settings for eth0:
->         Supported ports: [ TP ]
->         Supported link modes:   10baseT/Half 10baseT/Full
->                                 100baseT/Half 100baseT/Full
->                                 1000baseT/Half 1000baseT/Full
->         Supports auto-negotiation: Yes
->         Advertised link modes:  10baseT/Half 10baseT/Full
->                                 100baseT/Half 100baseT/Full
->                                 1000baseT/Half 1000baseT/Full
->         Advertised auto-negotiation: Yes
->         Speed: 1000Mb/s
->         Duplex: Full
->         Port: Twisted Pair
->         PHYAD: 0
->         Transceiver: internal
->         Auto-negotiation: on
->         Supports Wake-on: pg
->         Wake-on: g
->         Current message level: 0x00000037 (55)
->         Link detected: yes
+>>>> +static int igbvf_set_ringparam(struct net_device *netdev,
+>>>> +                               struct ethtool_ringparam *ring)
+>>>> +{
+>>>> +     struct igbvf_adapter *adapter = netdev_priv(netdev);
+>>>> +     struct igbvf_ring *tx_ring, *tx_old;
+>>>> +     struct igbvf_ring *rx_ring, *rx_old;
+>>>> +     int err;
+>>>> +
+>>>> +     if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+>>>> +             return -EINVAL;
+>>>> +
+>>>> +     while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
+>>>> +             msleep(1);
+>>> No timeout needed here?  Interrupts might not be working, for example..
+>> This bit isn't set in interrupt context.  This is always used out of 
+>> interrupt context and is just to prevent multiple setting changes at the 
+>> same time.
 > 
-> Ie. looks like exactly the same as with the commit reverted.
+> Oh.  Can't use plain old mutex_lock()?
 
-OK
+We have one or two spots that actually check to see if the bit is set 
+and just report a warning instead of actually waiting on the bit to clear.
 
-> >
-> > Also, please check if the appended patch helps (of course, without
-> > reverting
-> > the commit).
-> >
-> > ---
-> >  drivers/net/skge.c |    5 +++--
-> >  1 file changed, 3 insertions(+), 2 deletions(-)
-> >
-> > Index: linux-2.6/drivers/net/skge.c
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/skge.c
-> > +++ linux-2.6/drivers/net/skge.c
-> > @@ -3856,8 +3856,9 @@ static struct net_device *skge_devinit(s
-> >  	skge->speed = -1;
-> >  	skge->advertising = skge_supported_modes(hw);
-> >
-> > -	if (device_may_wakeup(&hw->pdev->dev))
-> > -		skge->wol = wol_supported(hw) & WAKE_MAGIC;
-> > +	skge->wol = wol_supported(hw) & WAKE_MAGIC;
-> > +	if (skge->wol && device_can_wakeup(&hw->pdev->dev))
-> > +		device_set_wakeup_enable(&hw->pdev->dev, true);
-> >
-> >  	hw->dev[port] = dev;
-> 
-> Hmm, looks like this patch is against a 2.6.28.8 tree with the commit
-> reverted. I merged the couple lines as following.
-> 
-> line 3859:
-> 
->         // if (pci_wake_enabled(hw->pdev))
->         //      skge->wol = wol_supported(hw) & WAKE_MAGIC;
->         skge->wol = wol_supported(hw) & WAKE_MAGIC;
->         if (skge->wol && device_can_wakeup(&hw->pdev->dev))
->                 device_set_wakeup_enable(&hw->pdev->dev, true);
-> 
-> and this really seems to fix the problem. The system is able to wake
-> up via etherwake just fine.
-
-Well, that's because commit 5177b3240a6608fc0c9c05cc32f4855c6540f8d5 changed
-the default from "wake-up enabled by default" to "wake-up disabled by default".
-The latter is safer IMO, but I'll prepare a (better) patch to change it back to
-the old behavior.
-
-You should be able to set up WoL by running 'ethtool -s eth0 wol g' from your
-init scripts even without reverting the patch.  Please verify if that works.
