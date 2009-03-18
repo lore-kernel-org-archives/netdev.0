@@ -1,52 +1,49 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] fix sctp breakage
-Date: Wed, 18 Mar 2009 08:28:44 -0400
-Message-ID: <49C0E8FC.70706@hp.com>
-References: <20090318031405.GX28946@ZenIV.linux.org.uk>
+From: "Lubomir Rintel" <lkundrak@v3.sk>
+Subject: Re: e1000e 0000:00:19.0: DMA-API: device driver tries
+ to free DMA memory it has not allocated [device address=0x0000000052ff084a]
+ [size=90 bytes]
+Date: Wed, 18 Mar 2009 08:54:31 -0400 (EDT)
+Message-ID: <36697.89.102.207.186.1237380871.squirrel@mail.v3.sk>
+References: <1237223130-26519-1-git-send-email-joerg.roedel@amd.com>
+	<20090317120112.GP6159@amd.com> <20090318093847.GC5879@elte.hu>
+	<20090318115615.GS6159@amd.com> <20090318120458.GA1601@elte.hu>
+Reply-To: lkundrak@v3.sk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:36837 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755073AbZCRM2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 08:28:48 -0400
-In-Reply-To: <20090318031405.GX28946@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, Joerg Roedel <joerg.roedel@amd.com>,
+	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
+	iommu@lists.linux-foundation.org, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@redhat.com>
+To: "Ingo Molnar" <mingo@elte.hu>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090318120458.GA1601@elte.hu>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Al Viro wrote:
-> broken by commit 5e739d1752aca4e8f3e794d431503bfca3162df4; AFAICS should
-> be -stable fodder as well...
-> 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 4c8d9f4..905fda5 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -111,7 +111,8 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
->  		if (sctp_addip_enable) {
->  			auth_chunks->chunks[0] = SCTP_CID_ASCONF;
->  			auth_chunks->chunks[1] = SCTP_CID_ASCONF_ACK;
-> -			auth_chunks->param_hdr.length += htons(2);
-> +			auth_chunks->param_hdr.length =
-> +					htons(sizeof(sctp_paramhdr_t) + 2);
->  		}
->  	}
->  
+On Wed, March 18, 2009 8:04 am, Ingo Molnar wrote:
+>
+> ( e1000e Cc:s added. A new debug feature, CONFIG_DMA_API_DEBUG=y,
+>   has triggered the warning below in e1000_put_txbuf(). )
 
-ACK.  That wasn't a good way to write that increment.  I should have thought more
-about it, but at the time it seemed like a good idea...
+http://lkml.org/lkml/2009/3/2/318
 
-Thanks
--vlad
+-- 
+Lubomir Rintel
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
 
+------------------------------------------------------------------------------
+Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
+powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
+easily build your RIAs with Flex Builder, the Eclipse(TM)based development
+software that enables intelligent coding and step-through debugging.
+Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
