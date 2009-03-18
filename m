@@ -1,41 +1,39 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Question: igmp behavior on interface change
-Date: Wed, 18 Mar 2009 10:03:53 -0400
-Message-ID: <20090318140353.GA9771@hmsreliant.think-freely.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: e1000e 0000:00:19.0: DMA-API: device driver tries to free DMA
+	memory it has not allocated [device address=0x0000000052ff084a]
+	[size=90 bytes]
+Date: Wed, 18 Mar 2009 15:09:49 +0100
+Message-ID: <20090318140949.GA20852@elte.hu>
+References: <1237223130-26519-1-git-send-email-joerg.roedel@amd.com> <20090317120112.GP6159@amd.com> <20090318093847.GC5879@elte.hu> <20090318115615.GS6159@amd.com> <20090318120458.GA1601@elte.hu> <36697.89.102.207.186.1237380871.squirrel@mail.v3.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, andy@greyhouse.net, dlstevens@us.ibm.com
-To: netdev@vger.kernel.org
+Cc: Joerg Roedel <joerg.roedel@amd.com>, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
+	Ingo Molnar <mingo@redhat.com>,
+	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: Lubomir Rintel <lkundrak@v3.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51991 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755971AbZCROEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 10:04:07 -0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:52242 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754535AbZCROKo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 10:10:44 -0400
 Content-Disposition: inline
+In-Reply-To: <36697.89.102.207.186.1237380871.squirrel@mail.v3.sk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey-
-	Was wondering if anyone wanted to chime in on this.  Someone asked me
-recently what our behavior should be in response to in interface link state
-change in regards to multicast reception.  They claim that if an mc group is
-joined, and we issue an igmp join request via, say eth0, and then preform an
-ifdown/ifup on that interface, that frames stop getting delivered for that
-group.  I'm having this confirmed, but its my guess that in response to the link
-flap, the attached router on the other end of the link has unsubscribed from the
-group in response to the link state change.
 
-	So my question is, whats the right behavior here?  Reading RFC 3376,
-seems to suggest that we need to issue a state-change report as soon as the link
-goes back up, but its vague, I could see an argument being made for both the
-host and the router to keep their mc group state unchanged and let membership
-queries ages the groups out as per normal.
+* Lubomir Rintel <lkundrak@v3.sk> wrote:
 
-	I was going to look into writing some notification code for igmp to
-detect link state chagnes and issue the reports on link up, but I wanted to be
-sure there were no counter arguments first.  So any and all thoughts
-appreciated.
+> On Wed, March 18, 2009 8:04 am, Ingo Molnar wrote:
+> >
+> > ( e1000e Cc:s added. A new debug feature, CONFIG_DMA_API_DEBUG=y,
+> >   has triggered the warning below in e1000_put_txbuf(). )
+> 
+> http://lkml.org/lkml/2009/3/2/318
 
-Thanks!
-Neil
+Thanks.
 
+	Ingo
