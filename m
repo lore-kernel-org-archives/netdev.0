@@ -1,55 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: nftables
-Date: Wed, 18 Mar 2009 08:47:28 +0100
-Message-ID: <49C0A710.8050207@trash.net>
-References: <4976FF54.1000009@linux.vnet.ibm.com> <200901271540.36749.rusty@rustcorp.com.au> <497ED2B5.4040703@trash.net> <497F059F.7070903@linux.vnet.ibm.com> <497F09CA.2040306@trash.net> <497FEBE5.1050508@linux.vnet.ibm.com> <498013D7.3010401@trash.net> <49C083F4.9010506@linux.vnet.ibm.com> <49C089A2.2020809@trash.net> <49C09610.1010106@linux.vnet.ibm.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [ANNOUNCE]: First release of nftables
+Date: Wed, 18 Mar 2009 09:13:55 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0903180847180.8376@fbirervta.pbzchgretzou.qr>
+References: <49C078B6.4020603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Developer Mailing List
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Netfilter Development Mailinglist
 	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49C09610.1010106@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Linux Netdev List <netdev@vger.kernel.org>, tgraf@suug.ch
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:34479 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754370AbZCRIN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 04:13:58 -0400
+In-Reply-To: <49C078B6.4020603@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Varun Chandramohan wrote:
-> Iam interested in hooking nftables to TC. Could you elaborate on this
-> a little bit?
-> And when you talk about in-kernel mangle table i suppose you mean the
-> mangle table of iptables? 
 
-OK first about mangle - usually tables with nftables should be created
-by userspace. The mangle table contains special functionality that needs
-to be implemented in the kernel (rerouting), so nftables (just as iptables)
-includes some code and table definitions for this. The way it should be is
-that rerouting is just a property that can be optionally specified for a
-chain.
+On Wednesday 2009-03-18 05:29, Patrick McHardy wrote:
+>
+> - logging:  logging using the nf_log mechsism using the primary backend.
+>
+>  Usage: "log [ prefix "prefix" ] [ group NUM ] [ snaplen NUM ]
+>              [ queue-threshold NUM ]
 
-About TC - thats one of the more complicated things I suppose. The first
-thing that needs to be investigated is whether hooking it natively (meaning
-it is called directly, similar to the TC classifiers today) or through a TC
-classifier would make more sense. The second approach is definitely less
-intrusive, but the TC classifier is pretty much useless with nftables
-and it imposes some undesirable limits. In the end each class should offer
-a chain to attach rules to. I'd also suggest to have a table-like container
-for each qdisc, so chains can be added that are not attached directly to
-classes (which I'm not sure is possible when using a TC classifier).
+Hm, how does one do traditional logging to syslog? Some of us just do
+logging for debugging purposes and would not otherwise need the full-blown
+nf_log solution - let alone there be enough space on some constrained
+hardware for a thorough logger (say, WRT54).
 
-What's further needed is:
+> - limit: might be broken currently
+>
+>  Usage: "limit rate RATE/time-unit"
 
-- a way to transport the nftables netlink attributes to the kernel.
-  Either encapsulated in TC attributes or the "normal" way, depending
-  on how it is hooked.
+Does it use the old limit code (which has numerous accuracy problems
+it seems), or will it magically make use of the rate estimator?
 
-- nftables needs to be taught about TC verdicts. Classes bound to the
-  classifier should be treated similar to nftables chains (meaning a
-  lookup is made and the reference is stored). Check out nft_data_init()
-  for reference.
+> The source code is available in three git trees:
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nft-2.6.git
+> git://git.netfilter.org/libnl-nft.git
 
-- the ruleset evaluation function probably needs to be split into a
-  generic part, dealing with internal flow control, and the netfilter/
-  TC specific part, dealing with netfilter verdicts and class IDs.
+The libnl repositories (both original and yours) is missing tags.
+(Cc'ing Thomas).
+The unannotated tags can be got from git://dev.medozas.de/libnl .
+
+This makes it easier to get version numbers instead of
+"cannot describe $sha1".
+
+> git://git.netfilter.org/nftables.git
+
+Missing a tag too, I think you (Patrick) can add it still :)
+
+> The kernel tree will eventually also move to netfilter.org, currently
+> the git daemon is unable to handle it because of memory shortage.
+>
+> Ths source code is considered alpha quality and is not meant for users
+> at this time, it will spew quite a lot of debugging messages and
+> definitely has bugs. Nevertheless, all of the basic features and most
+> of the rest should work fine, the last crash has been several months
+> ago. The two most noticable things that currently don't work is
+> numerical argument parsing for arguments that have more specific types
+> (f.i. port numbers), as well as reconstruction of the internal
+> representation of sets and dictionaries using ranges. Both will be
+> fixed shortly.
+
+How about storing the actual text the user inputed in something like
+an -m comment, as an aid to the user for finding his rules again
+after they have been optimized internally?
 
