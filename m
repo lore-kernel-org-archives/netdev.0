@@ -1,76 +1,124 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [ANNOUNCE]: First release of nftables
-Date: Wed, 18 Mar 2009 09:21:26 +0100
-Message-ID: <49C0AF06.2000803@trash.net>
-References: <49C078B6.4020603@trash.net> <alpine.LSU.2.00.0903180847180.8376@fbirervta.pbzchgretzou.qr>
+Date: Wed, 18 Mar 2009 09:28:03 +0100
+Message-ID: <49C0B093.7000908@trash.net>
+References: <49C078B6.4020603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/mixed;
+ boundary="------------010101060802060404080209"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:35267 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752462AbZCRI2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 04:28:09 -0400
+In-Reply-To: <49C078B6.4020603@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------010101060802060404080209
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, tgraf@suug.ch
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0903180847180.8376@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt wrote:
-> On Wednesday 2009-03-18 05:29, Patrick McHardy wrote:
->   
->> - logging:  logging using the nf_log mechsism using the primary backend.
->>
->>  Usage: "log [ prefix "prefix" ] [ group NUM ] [ snaplen NUM ]
->>              [ queue-threshold NUM ]
->>     
->
-> Hm, how does one do traditional logging to syslog? Some of us just do
-> logging for debugging purposes and would not otherwise need the full-blown
-> nf_log solution - let alone there be enough space on some constrained
-> hardware for a thorough logger (say, WRT54).
->   
+Patrick McHardy wrote:
+> Examples 
 
-Its using the primary backend. You can load "ipt_LOG".
-
->> - limit: might be broken currently
->>
->>  Usage: "limit rate RATE/time-unit"
->>     
->
-> Does it use the old limit code (which has numerous accuracy problems
-> it seems), or will it magically make use of the rate estimator?
->   
-
-It doesn't use either, but it won't have the old accuracy problems
-either once
-its fixed.
+The rule snippets under tests/ pretty much all use obsolete syntax,
+so I'm attaching a test script (which doesn't make much sense, just
+testing features) so people can get a feeling for the syntax.
 
 
->> git://git.netfilter.org/nftables.git
->>     
->
-> Missing a tag too, I think you (Patrick) can add it still :)
->   
-I'll tag it at the first version bump.
 
->> The kernel tree will eventually also move to netfilter.org, currently
->> the git daemon is unable to handle it because of memory shortage.
->>
->> Ths source code is considered alpha quality and is not meant for users
->> at this time, it will spew quite a lot of debugging messages and
->> definitely has bugs. Nevertheless, all of the basic features and most
->> of the rest should work fine, the last crash has been several months
->> ago. The two most noticable things that currently don't work is
->> numerical argument parsing for arguments that have more specific types
->> (f.i. port numbers), as well as reconstruction of the internal
->> representation of sets and dictionaries using ranges. Both will be
->> fixed shortly.
->>     
->
-> How about storing the actual text the user inputed in something like
-> an -m comment, as an aid to the user for finding his rules again
-> after they have been optimized internally?
-Thats not really necessary so far, and I don't want to in any case. If
-someone
-really wants this (and I very much question the need), it can be done in
-userspace.
+--------------010101060802060404080209
+Content-Type: text/plain;
+ name="test"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="test"
+
+#! /home/kaber/src/nf/nft/nftables/src/nft -nf
+
+#include "ipv4-filter"
+
+flush table filter
+delete table filter
+
+table filter {
+	chain log_drop {
+		counter log prefix "drop" drop
+	}
+
+	chain log_accept {
+		counter log prefix "accept" accept
+	}
+
+	chain accept_related {
+		counter
+		tcp dport < 1024 counter log prefix "drop-related" drop
+		udp dport < 1024 counter log prefix "drop-related" drop
+		ct helper "sip" counter log prefix "accept-related-sip" accept
+		ct helper "ftp" counter log prefix "accept-related-ftp" accept
+		ct helper "irc" counter log prefix "accept-related-irc" accept
+		counter log prefix "accept-related" accept
+	}
+
+	chain accept_stateful {
+		counter
+		ct state vmap { established => accept, related => jump accept_related }
+		counter
+	}
+
+	chain input_local {
+		counter
+		jump accept_stateful
+		jump log_accept
+	}
+
+	chain output_local {
+		counter
+		jump accept_stateful
+		udp dport { 123, 631, 514} accept
+		jump log_accept
+	}
+
+	chain input {
+		hook NF_INET_LOCAL_IN 0
+		counter
+		meta iif vmap {				\
+			"eth0"  => jump input_local,	\
+			"eth1"  => jump input_local,	\
+			*	=> continue,		\
+		}
+		counter
+	}
+
+	chain test1 {
+		counter
+	}
+
+	chain output {
+		hook NF_INET_LOCAL_OUT 0
+		counter
+
+		meta oif vmap {				\
+			"eth0"  => jump output_local,	\
+			"eth1"  => jump output_local,	\
+			*	=> continue,		\
+		} counter
+
+		meta oif {				\
+			"eth0",				\
+			"eth1",				\
+		} counter
+
+		ip daddr vmap {				\
+			192.168.0.1 => jump test1,	\
+			*	    => continue,	\
+		} counter
+	}
+}
+
+--------------010101060802060404080209--
