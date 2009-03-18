@@ -1,53 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [net-next PATCH 1/2] igbvf: add new driver to support 82576
- virtual functions
-Date: Wed, 18 Mar 2009 14:53:40 -0700
-Message-ID: <20090318145340.6b282829.akpm@linux-foundation.org>
-References: <20090311020928.23138.20790.stgit@lost.foo-projects.org>
-	<20090310222154.4bc8c12c.akpm@linux-foundation.org>
-	<49C03C80.5020203@intel.com>
-	<20090317180826.8f3c596b.akpm@linux-foundation.org>
-	<49C111C6.2010905@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2: prints bogus hoplimit
+Date: Wed, 18 Mar 2009 15:12:16 -0700
+Message-ID: <20090318151216.60cd0363@nehalam>
+References: <alpine.LSU.2.00.0902241125020.329@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"greg@kroah.com" <greg@kroah.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"Zhao, Yu" <yu.zhao@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49C111C6.2010905@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:45945 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752718AbZCRWMY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 18:12:24 -0400
+In-Reply-To: <alpine.LSU.2.00.0902241125020.329@fbirervta.pbzchgretzou.qr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Mar 2009 08:22:46 -0700 Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+On Tue, 24 Feb 2009 11:27:52 +0100 (CET)
+Jan Engelhardt <jengelh@medozas.de> wrote:
 
-> >>>> +static int igbvf_set_ringparam(struct net_device *netdev,
-> >>>> +                               struct ethtool_ringparam *ring)
-> >>>> +{
-> >>>> +     struct igbvf_adapter *adapter = netdev_priv(netdev);
-> >>>> +     struct igbvf_ring *tx_ring, *tx_old;
-> >>>> +     struct igbvf_ring *rx_ring, *rx_old;
-> >>>> +     int err;
-> >>>> +
-> >>>> +     if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
-> >>>> +             return -EINVAL;
-> >>>> +
-> >>>> +     while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
-> >>>> +             msleep(1);
-> >>> No timeout needed here?  Interrupts might not be working, for example..
-> >> This bit isn't set in interrupt context.  This is always used out of 
-> >> interrupt context and is just to prevent multiple setting changes at the 
-> >> same time.
-> > 
-> > Oh.  Can't use plain old mutex_lock()?
 > 
-> We have one or two spots that actually check to see if the bit is set 
-> and just report a warning instead of actually waiting on the bit to clear.
+> $ ip -6 r
+> fc00::/7 dev rtl0  proto kernel  metric 256  mtu 1500 advmss 1440 
+> hoplimit 4294967295
+> 
+> Most likely, "hoplimit -1" would be the right number, though I am not 
+> sure if simply changing %u by %d is a correct thing to do, since it 
+> would affect all fields.
+> 
+> ---
+>  ip/iproute.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 6a2ea05..91a8cc0 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -507,7 +507,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>  
+>  			if (i != RTAX_RTT && i != RTAX_RTTVAR &&
+>  			    i != RTAX_RTO_MIN)
+> -				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
+> +				fprintf(fp, " %d", *(unsigned*)RTA_DATA(mxrta[i]));
+>  			else {
+>  				unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
+>  
 
-mutex_is_locked()?
+No fix the kernel please.
