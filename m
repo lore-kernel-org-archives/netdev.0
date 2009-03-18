@@ -1,73 +1,46 @@
-From: Vernon Mauery <vernux@us.ibm.com>
-Subject: High contention on the sk_buff_head.lock
-Date: Wed, 18 Mar 2009 10:24:52 -0700
-Message-ID: <49C12E64.1000301@us.ibm.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: e1000e 0000:00:19.0: DMA-API: device driver tries to free DMA
+ memory it has not allocated [device address=0x0000000052ff084a]	[size=90
+ bytes]
+Date: Wed, 18 Mar 2009 10:41:23 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0903181039100.5116@jbrandeb-desk1.amr.corp.intel.com>
+References: <1237223130-26519-1-git-send-email-joerg.roedel@amd.com> <20090317120112.GP6159@amd.com> <20090318093847.GC5879@elte.hu> <20090318115615.GS6159@amd.com> <20090318120458.GA1601@elte.hu> <36697.89.102.207.186.1237380871.squirrel@mail.v3.sk>
+ <20090318140949.GA20852@elte.hu> <F169D4F5E1F1974DBFAFABF47F60C10A1E8795AC@orsmsx507.amr.corp.intel.com> <20090318164731.GB31315@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	rt-users <linux-rt-users@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Lubomir Rintel <lkundrak@v3.sk>,
+	Joerg Roedel <joerg.roedel@amd.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Ingo Molnar <mingo@redhat.com>,
+	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:35760 "EHLO e9.ny.us.ibm.com"
+Received: from mga14.intel.com ([143.182.124.37]:26881 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756773AbZCRRY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Mar 2009 13:24:56 -0400
+	id S1752897AbZCRRla (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 13:41:30 -0400
+In-Reply-To: <20090318164731.GB31315@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have been beating on network throughput in the -rt kernel for some time
-now.  After digging down through the send path of UDP packets, I found
-that the sk_buff_head.lock is under some very high contention.  This lock
-is acquired each time a packet is enqueued on a qdisc and then acquired
-again to dequeue the packet.  Under high networking loads, the enqueueing
-processes are not only contending among each other for the lock, but also
-with the net-tx soft irq.  This makes for some very high contention on this
-one lock.  My testcase is running varying numbers of concurrent netperf
-instances pushing UDP traffic to another machine.  As the count goes from
-1 to 2, the network performance increases.  But from 2 to 4 and from 4 to 8,
-we see a big decline, with 8 instances pushing about half of what a single
-thread can do.
+On Wed, 18 Mar 2009, Ingo Molnar wrote:
+> > >> http://lkml.org/lkml/2009/3/2/318
+> > 
+> > We are still looking for more testing from the general community of 
+> > this patch, in particular if any tx hangs are reported.  Thanks in 
+> > advance for any reports.--
+> 
+> Yeah - already picked it up into tip:out-of-tree and it passed about 
+> a hundred bootup tests on various e1000e using systems already - 
+> with no problems whatsoever. Will let you know if anything breaks - 
+> e1000e has been rock solid for me in the .29 cycle.
 
-Running 2.6.29-rc6-rt3 on an 8-way machine with a 10GbE card (I have tried
-both NetXen and Broadcom, with very similar results), I can only push about
-1200 Mb/s.  Whereas with the mainline 2.6.29-rc8 kernel, I can push nearly
-6000 Mb/s. But still not as much as I think is possible.  I was curious and
-decided to see if the mainline kernel was hitting the same lock, and using
-/proc/lock_stat, it is hitting the sk_buff_head.lock as well (it was the
-number one contended lock).
-
-So while this issue really hits -rt kernels hard, it has a real effect on
-mainline kernels as well.  The contention of the spinlocks is amplified
-when they get turned into rt-mutexes, which causes a double context switch.
-
-Below is the top of the lock_stat for 2.6.29-rc8.  This was captured from
-a 1 minute network stress test.  The next high contender had 2 orders of
-magnitude fewer contentions.  Think of the throughput increase if we could
-ease this contention a bit.  We might even be able to saturate a 10GbE
-link.
-
-lock_stat version 0.3
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-       class name    con-bounces    contentions   waittime-min   waittime-max   waittime-total    acq-bounces   acquisitions   holdtime-min  holdtime-max holdtime-total
------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    &list->lock#3:      24517307       24643791           0.71        1286.62      56516392.42       34834296       44904018           0.60        164.79    31314786.02
-     -------------
-    &list->lock#3       15596927    [<ffffffff812474da>] dev_queue_xmit+0x2ea/0x468
-    &list->lock#3        9046864    [<ffffffff812546e9>] __qdisc_run+0x11b/0x1ef
-     -------------
-    &list->lock#3        6525300    [<ffffffff812546e9>] __qdisc_run+0x11b/0x1ef
-    &list->lock#3       18118491    [<ffffffff812474da>] dev_queue_xmit+0x2ea/0x468
-
-
-The story is the same for -rt kernels, only the waittime and holdtime are both
-orders of magnitude greater.
-
-I am not exactly clear on the solution, but if I understand correctly, in the
-past there has been some discussion of batched enqueueing and dequeueing.  Is
-anyone else working on this problem right now who has just not yet posted
-anything for review?  Questions, comments, flames?
-
---Vernon
-
+thanks! did you pull in both e1000 and e1000e fixes?  We also have a 
+similar fix in internal testing for igb.
