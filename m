@@ -1,46 +1,36 @@
-From: Karsten Wiese <fzu@wemgehoertderstaat.de>
-Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
-Date: Wed, 18 Mar 2009 02:56:26 +0100
-Message-ID: <200903180256.26626.fzu@wemgehoertderstaat.de>
-References: <200903172034.55241.fzu@wemgehoertderstaat.de> <20090317220625.GA5038@electric-eye.fr.zoreil.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH] fix sctp breakage
+Date: Wed, 18 Mar 2009 03:14:05 +0000
+Message-ID: <20090318031405.GX28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout3.freenet.de ([195.4.92.93]:43180 "EHLO mout3.freenet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752284AbZCRCBs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 22:01:48 -0400
-In-Reply-To: <20090317220625.GA5038@electric-eye.fr.zoreil.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37111 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756072AbZCRDOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 23:14:10 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag 17 M=E4rz 2009 schrieb Francois Romieu:
-> Karsten Wiese <fzu@wemgehoertderstaat.de> :
-> >=20
-> > Only adjust the NAPI bits of the interruptmask, if netif_rx_schedul=
-e_prep()
-> > returns true.
-> > Without this, I see interrupt storms here using 2.6.29-rcx and 2.6.=
-27.19 and
-> > device needed rmmod r8169 + modprobe r8169 to start working.
->=20
-> How the patch is supposed to work is not completely clear to me.
+broken by commit 5e739d1752aca4e8f3e794d431503bfca3162df4; AFAICS should
+be -stable fodder as well...
 
-Without it, if netif_rx_schedule_prep() returns 0, __netif_rx_schedule(=
-) is not
-called so nothing is there to care for the transfer. Nonetheless intr_m=
-ask is=20
-changed so that its not possible that __netif_rx_schedule() is ever cal=
-led
-later.
-
-Patch works by letting rtl8169_interrupt() again call netif_rx_schedule=
-_prep()
-until it succeeds and __netif_rx_schedule() is called.
-
-Thanks,
-Karsten
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 4c8d9f4..905fda5 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -111,7 +111,8 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
+ 		if (sctp_addip_enable) {
+ 			auth_chunks->chunks[0] = SCTP_CID_ASCONF;
+ 			auth_chunks->chunks[1] = SCTP_CID_ASCONF_ACK;
+-			auth_chunks->param_hdr.length += htons(2);
++			auth_chunks->param_hdr.length =
++					htons(sizeof(sctp_paramhdr_t) + 2);
+ 		}
+ 	}
+ 
