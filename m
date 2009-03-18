@@ -1,34 +1,53 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: next-20090318: sunhme does not transmit packets
-Date: Wed, 18 Mar 2009 17:34:30 +0300
-Message-ID: <a4423d670903180734w7270a4f3qa2af3981b969436c@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ANNOUNCE]: First release of nftables
+Date: Wed, 18 Mar 2009 15:39:39 +0100
+Message-ID: <49C107AB.1030003@trash.net>
+References: <20090318112937.675BF13A4B0@koiott.tartu-labor> <Pine.LNX.4.64.0903181332140.13734@ondatra.tartu-labor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:23330 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756376AbZCROed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 10:34:33 -0400
+Received: from stinky.trash.net ([213.144.137.162]:43119 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757169AbZCROjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 10:39:44 -0400
+In-Reply-To: <Pine.LNX.4.64.0903181332140.13734@ondatra.tartu-labor>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+Meelis Roos wrote:
+>> Data is represented in a generic way inside the kernel and the
+>> operations are defined on the generic data representations, meaning
+>> its possible to use any matching feature (ranges, masks, set lookups
+>> etc.) with any kind of data. Semantic validation of the operation is
+>> performed in userspace, the kernel doesn't care as long as the
+>> operation doesn't potentially harm the kernel.
+> 
+> This sounds like a "script" downloaded to kernel and interpreted during 
+> each packet match. This toubles me some - doesn't this use more memory 
+> accesses to achieve the same work that was done in precompiled code before?
 
-Ultra 10 can boot, it receives DHCP answer, ssh works, but few minutes
-after machine becomes unresponsible by net at all.
-It does not respond even on ARP requests.
+What makes you think your current ruleset is precompiled?
 
-On Sparc host I see that `TX packets` does not grow, but RX grows.
-The state of the interface is
-UP BROADCAST RUNNING MULTICAST
+> Have you measured the fastpath performance of kernel matching of 
+> real-life rulesets, compared to iptables?
 
-There is no relevant kernel messages in dmesg.
+Yes, but its not a 1:1 comparison. By inlining common operations
+(small comparisions, small alignned data loads) in the evaluation
+function, costs for a "normal" rule become comparable to iptables.
+As soon as you start actually using some of the new stuff, the
+comparison doesn't hold anymore. A set, even using rbtrees, which
+have a huge overhead in this case, is *a lot* faster than using the
+equivalent linear classification rules beginning with a quite small
+number. Similar, if you replace 200 rules
+"-m realm --realm X --CONNMARK --set-mark X" by a single one, it
+will obviously be faster.
 
-next-20090317 worked fine.
+On top it has far smaller code and less memory usage as soon as
+you have more than one CPU, its lockless, no default counters,
+no overhead for unused chains, etc etc.
 
+When the time has come, I will of course post benchmarks.
 
-Let me know if I can help.
