@@ -1,74 +1,73 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: IGMP Join dropping multicast packets
-Date: Wed, 18 Mar 2009 10:24:18 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.0903181016120.5116@jbrandeb-desk1.amr.corp.intel.com>
-References: <91bdcedb0903141316j2dbf4160wb348a5a9e3bde8ad@mail.gmail.com>  <49BC69D5.5000002@cosmosbay.com>  <91bdcedb0903151904x1066ac24h63557b588e7c4967@mail.gmail.com>  <49BEA1ED.4010907@cosmosbay.com>
- <91bdcedb0903172050td2ef895he48168987ad94472@mail.gmail.com>
+From: Vernon Mauery <vernux@us.ibm.com>
+Subject: High contention on the sk_buff_head.lock
+Date: Wed, 18 Mar 2009 10:24:52 -0700
+Message-ID: <49C12E64.1000301@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
-To: Dave Boutcher <daveboutcher@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	rt-users <linux-rt-users@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:32983 "EHLO mga11.intel.com"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:35760 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751082AbZCRRYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Mar 2009 13:24:23 -0400
-In-Reply-To: <91bdcedb0903172050td2ef895he48168987ad94472@mail.gmail.com>
+	id S1756773AbZCRRY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 13:24:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Mar 2009, Dave Boutcher wrote:
-> Eric, based on your inability to recreate this, I tried on some other
-> hardware I had lying around that has an AMD chipset built-in NIC.
-> I could not recreate the problem on that hardware.  I'm starting to
-> think this is an e1000 problem.  In both the e1000 and e1000e
-> drivers they do the following logic:
-> 
->       /* clear the old settings from the multicast hash table */
-> 
->        for (i = 0; i < mta_reg_count; i++) {
->                E1000_WRITE_REG_ARRAY(hw, MTA, i, 0);
->                E1000_WRITE_FLUSH();
->        }
-> 
->        /* load any remaining addresses into the hash table */
-> 
->        for (; mc_ptr; mc_ptr = mc_ptr->next) {
->                hash_value = e1000_hash_mc_addr(hw, mc_ptr->da_addr);
->                e1000_mta_set(hw, hash_value);
->        }
-> 
-> There's clearly a window where the NIC doesn't have the multicast
-> addresses loaded.  This may just be broken-as-designed.  If anyone
-> else happens to have some e1000 hardware and wants to see if you
-> can recreate this, I'd be curious.
-> 
-> Some other notes just FYI...
-> 
-> - RcvbufErrors in /proc/net/snmp doesn't get incremented when this happens
-> - there are no messages in dmesg
-> - frames get dropped when the program calls exit() and all the sockets
-> get closed
->   (and multicast joins dropped) as well as when the ADD_MEMBERSHIPs happen
-> - The problem happens even when adding a sleep(1) in between each of the
->   ADD_MEMBERSHIP calls.
+I have been beating on network throughput in the -rt kernel for some time
+now.  After digging down through the send path of UDP packets, I found
+that the sk_buff_head.lock is under some very high contention.  This lock
+is acquired each time a packet is enqueued on a qdisc and then acquired
+again to dequeue the packet.  Under high networking loads, the enqueueing
+processes are not only contending among each other for the lock, but also
+with the net-tx soft irq.  This makes for some very high contention on this
+one lock.  My testcase is running varying numbers of concurrent netperf
+instances pushing UDP traffic to another machine.  As the count goes from
+1 to 2, the network performance increases.  But from 2 to 4 and from 4 to 8,
+we see a big decline, with 8 instances pushing about half of what a single
+thread can do.
 
-Interesting, this code has been there for eons (and probably this 
-behavior) but that doesn't mean its not a problem.
+Running 2.6.29-rc6-rt3 on an 8-way machine with a 10GbE card (I have tried
+both NetXen and Broadcom, with very similar results), I can only push about
+1200 Mb/s.  Whereas with the mainline 2.6.29-rc8 kernel, I can push nearly
+6000 Mb/s. But still not as much as I think is possible.  I was curious and
+decided to see if the mainline kernel was hitting the same lock, and using
+/proc/lock_stat, it is hitting the sk_buff_head.lock as well (it was the
+number one contended lock).
 
-We are in the process of figuring out if there are any hardware corner 
-cases to changing this code (particularly in e1000)
+So while this issue really hits -rt kernels hard, it has a real effect on
+mainline kernels as well.  The contention of the spinlocks is amplified
+when they get turned into rt-mutexes, which causes a double context switch.
 
-Initial thoughts are:
-1) kcalloc an array that we then populate with the hash functions, and 
-   then program every location only once (never flush)
-2) only program a single hash value each time a multicast is added (bad 
-   because we can't tell the difference in the list since the last time 
-   the OS gave us the list)
+Below is the top of the lock_stat for 2.6.29-rc8.  This was captured from
+a 1 minute network stress test.  The next high contender had 2 orders of
+magnitude fewer contentions.  Think of the throughput increase if we could
+ease this contention a bit.  We might even be able to saturate a 10GbE
+link.
 
-It really seems like this should be fixable, and I agree that the driver 
-behavior is far from optimal, however well entrenched.
+lock_stat version 0.3
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+       class name    con-bounces    contentions   waittime-min   waittime-max   waittime-total    acq-bounces   acquisitions   holdtime-min  holdtime-max holdtime-total
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-Jesse
+    &list->lock#3:      24517307       24643791           0.71        1286.62      56516392.42       34834296       44904018           0.60        164.79    31314786.02
+     -------------
+    &list->lock#3       15596927    [<ffffffff812474da>] dev_queue_xmit+0x2ea/0x468
+    &list->lock#3        9046864    [<ffffffff812546e9>] __qdisc_run+0x11b/0x1ef
+     -------------
+    &list->lock#3        6525300    [<ffffffff812546e9>] __qdisc_run+0x11b/0x1ef
+    &list->lock#3       18118491    [<ffffffff812474da>] dev_queue_xmit+0x2ea/0x468
+
+
+The story is the same for -rt kernels, only the waittime and holdtime are both
+orders of magnitude greater.
+
+I am not exactly clear on the solution, but if I understand correctly, in the
+past there has been some discussion of batched enqueueing and dequeueing.  Is
+anyone else working on this problem right now who has just not yet posted
+anything for review?  Questions, comments, flames?
+
+--Vernon
+
