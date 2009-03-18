@@ -1,80 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [net-next PATCH 1/2] igbvf: add new driver to support 82576
- virtual functions
-Date: Tue, 17 Mar 2009 18:08:26 -0700
-Message-ID: <20090317180826.8f3c596b.akpm@linux-foundation.org>
-References: <20090311020928.23138.20790.stgit@lost.foo-projects.org>
-	<20090310222154.4bc8c12c.akpm@linux-foundation.org>
-	<49C03C80.5020203@intel.com>
+From: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Wed, 18 Mar 2009 02:56:26 +0100
+Message-ID: <200903180256.26626.fzu@wemgehoertderstaat.de>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <20090317220625.GA5038@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"greg@kroah.com" <greg@kroah.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"Zhao, Yu" <yu.zhao@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58081 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751992AbZCRBRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 21:17:35 -0400
-In-Reply-To: <49C03C80.5020203@intel.com>
+Received: from mout3.freenet.de ([195.4.92.93]:43180 "EHLO mout3.freenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752284AbZCRCBs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2009 22:01:48 -0400
+In-Reply-To: <20090317220625.GA5038@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Mar 2009 17:12:48 -0700 Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+Am Dienstag 17 M=E4rz 2009 schrieb Francois Romieu:
+> Karsten Wiese <fzu@wemgehoertderstaat.de> :
+> >=20
+> > Only adjust the NAPI bits of the interruptmask, if netif_rx_schedul=
+e_prep()
+> > returns true.
+> > Without this, I see interrupt storms here using 2.6.29-rcx and 2.6.=
+27.19 and
+> > device needed rmmod r8169 + modprobe r8169 to start working.
+>=20
+> How the patch is supposed to work is not completely clear to me.
 
-> Thanks for all the comments.  I tried to incorporate most of them into 
-> the igbvf driver and also ended up porting some over to our other 
-> drivers, specifically igb since the igbvf driver copies much of the code.
-> 
-> I have added my comments inline below.
-> 
-> Thanks,
-> 
-> Alex
-> 
-> Andrew Morton wrote:
-> > On Tue, 10 Mar 2009 19:09:28 -0700 Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > 
-> >> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> >>
-> >> This adds an igbvf driver to handle virtual functions provided
-> >> by the igb driver.
-> > 
-> > The drive-by reader is now wondering what a "virtual function" is.
+Without it, if netif_rx_schedule_prep() returns 0, __netif_rx_schedule(=
+) is not
+called so nothing is there to care for the transfer. Nonetheless intr_m=
+ask is=20
+changed so that its not possible that __netif_rx_schedule() is ever cal=
+led
+later.
 
-^^ this comment was missed.
+Patch works by letting rtl8169_interrupt() again call netif_rx_schedule=
+_prep()
+until it succeeds and __netif_rx_schedule() is called.
 
-I was indirectly asking for an overview (preferably in the changelog) of
-what the whole patch actually does.
-
-> >>
-> >> +static int igbvf_set_ringparam(struct net_device *netdev,
-> >> +                               struct ethtool_ringparam *ring)
-> >> +{
-> >> +     struct igbvf_adapter *adapter = netdev_priv(netdev);
-> >> +     struct igbvf_ring *tx_ring, *tx_old;
-> >> +     struct igbvf_ring *rx_ring, *rx_old;
-> >> +     int err;
-> >> +
-> >> +     if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
-> >> +             return -EINVAL;
-> >> +
-> >> +     while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
-> >> +             msleep(1);
-> > 
-> > No timeout needed here?  Interrupts might not be working, for example..
-> 
-> This bit isn't set in interrupt context.  This is always used out of 
-> interrupt context and is just to prevent multiple setting changes at the 
-> same time.
-
-Oh.  Can't use plain old mutex_lock()?
-
-
+Thanks,
+Karsten
