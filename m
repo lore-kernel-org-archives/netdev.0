@@ -1,166 +1,120 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: High contention on the sk_buff_head.lock
-Date: Wed, 18 Mar 2009 20:07:19 +0100
-Message-ID: <49C14667.2040806@cosmosbay.com>
-References: <49C12E64.1000301@us.ibm.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH -next] gianfar, ucc_geth: Use proper address translation
+	for MDIO buses
+Date: Wed, 18 Mar 2009 22:21:52 +0300
+Message-ID: <20090318192152.GA29621@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	rt-users <linux-rt-users@vger.kernel.org>
-To: Vernon Mauery <vernux@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54162 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753361AbZCRTH3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 15:07:29 -0400
-In-Reply-To: <49C12E64.1000301@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>,
+	Scott Wood <scottwood@freescale.com>, Li Yang <leoli@freescale.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Vernon Mauery a =E9crit :
-> I have been beating on network throughput in the -rt kernel for some =
-time
-> now.  After digging down through the send path of UDP packets, I foun=
-d
-> that the sk_buff_head.lock is under some very high contention.  This =
-lock
-> is acquired each time a packet is enqueued on a qdisc and then acquir=
-ed
-> again to dequeue the packet.  Under high networking loads, the enqueu=
-eing
-> processes are not only contending among each other for the lock, but =
-also
-> with the net-tx soft irq.  This makes for some very high contention o=
-n this
-> one lock.  My testcase is running varying numbers of concurrent netpe=
-rf
-> instances pushing UDP traffic to another machine.  As the count goes =
-from
-> 1 to 2, the network performance increases.  But from 2 to 4 and from =
-4
-> to 8,
-> we see a big decline, with 8 instances pushing about half of what a s=
-ingle
-> thread can do.
->=20
-> Running 2.6.29-rc6-rt3 on an 8-way machine with a 10GbE card (I have =
-tried
-> both NetXen and Broadcom, with very similar results), I can only push=
- about
-> 1200 Mb/s.  Whereas with the mainline 2.6.29-rc8 kernel, I can push n=
-early
-> 6000 Mb/s. But still not as much as I think is possible.  I was curio=
-us and
-> decided to see if the mainline kernel was hitting the same lock, and =
-using
-> /proc/lock_stat, it is hitting the sk_buff_head.lock as well (it was =
-the
-> number one contended lock).
->=20
-> So while this issue really hits -rt kernels hard, it has a real effec=
-t on
-> mainline kernels as well.  The contention of the spinlocks is amplifi=
-ed
-> when they get turned into rt-mutexes, which causes a double context s=
-witch.
->=20
-> Below is the top of the lock_stat for 2.6.29-rc8.  This was captured =
-from
-> a 1 minute network stress test.  The next high contender had 2 orders=
- of
-> magnitude fewer contentions.  Think of the throughput increase if we =
-could
-> ease this contention a bit.  We might even be able to saturate a 10Gb=
-E
-> link.
->=20
-> lock_stat version 0.3
-> ---------------------------------------------------------------------=
------------------------------------------------------------------------=
----------------------------
->=20
->       class name    con-bounces    contentions   waittime-min =20
-> waittime-max   waittime-total    acq-bounces   acquisitions =20
-> holdtime-min  holdtime-max holdtime-total
-> ---------------------------------------------------------------------=
------------------------------------------------------------------------=
----------------------------
->=20
->=20
->    &list->lock#3:      24517307       24643791           0.71      =20
-> 1286.62      56516392.42       34834296       44904018         =20
-> 0.60        164.79    31314786.02
->     -------------
->    &list->lock#3       15596927    [<ffffffff812474da>]
-> dev_queue_xmit+0x2ea/0x468
->    &list->lock#3        9046864    [<ffffffff812546e9>]
-> __qdisc_run+0x11b/0x1ef
->     -------------
->    &list->lock#3        6525300    [<ffffffff812546e9>]
-> __qdisc_run+0x11b/0x1ef
->    &list->lock#3       18118491    [<ffffffff812474da>]
-> dev_queue_xmit+0x2ea/0x468
->=20
->=20
-> The story is the same for -rt kernels, only the waittime and holdtime
-> are both
-> orders of magnitude greater.
->=20
-> I am not exactly clear on the solution, but if I understand correctly=
-,
-> in the
-> past there has been some discussion of batched enqueueing and
-> dequeueing.  Is
-> anyone else working on this problem right now who has just not yet po=
-sted
-> anything for review?  Questions, comments, flames?
->=20
+Currently the drivers just read "reg" property for constructing MDIO
+bus IDs, but this won't work when we'll start using "ranges = <>" in
+the device tree, so this will pop up:
 
-Yes we have a known contention point here, but before adding more compl=
-ex code,
-could you try following patch please ?
+Gianfar MII Bus: probed
+sysfs: duplicate filename 'mdio@520' can not be created
+------------[ cut here ]------------
+Badness at c00c70c8 [verbose debug info unavailable]
+NIP: c00c70c8 LR: c00c70c8 CTR: c018220c
+REGS: cf82fc80 TRAP: 0700   Not tainted  (2.6.29-rc7-00607-g8deffe6)
+MSR: 00029032 <EE,ME,CE,IR,DR>  CR: 22044022  XER: 20000000
+TASK = cf821bd0[1] 'swapper' THREAD: cf82e000
+GPR00: c00c70c8 cf82fd30 cf821bd0 0000003b 000013a4 ffffffff c017f4f0 000013a4
+GPR08: c03becbc c03b1f5c 000013a4 c03be810 22044022 00000000 0ffcd000 00000000
+GPR16: 0ffc2420 0ffc6eb8 00000000 00000000 00000000 00000000 00000000 00000000
+GPR24: 00000000 00000000 cf9d8c40 cf82fd78 cf86ec14 cf82fd48 cf9d78a4 ffffffef
+NIP [c00c70c8] sysfs_add_one+0x4c/0x54
+LR [c00c70c8] sysfs_add_one+0x4c/0x54
+Call Trace:
+[cf82fd30] [c00c70c8] sysfs_add_one+0x4c/0x54 (unreliable)
+[cf82fd40] [c00c7628] create_dir+0x58/0xc0
+[cf82fd70] [c00c76d0] sysfs_create_dir+0x40/0x70
+[cf82fd90] [c0154d58] create_dir+0x28/0x78
+[cf82fda0] [c01551f4] kobject_add_internal+0x98/0x13c
+[cf82fdc0] [c0155868] kobject_add+0x60/0x98
+[cf82fdf0] [c01854f4] device_add+0x98/0x2ac
+[cf82fe10] [c01985d8] mdiobus_register+0xb4/0x1b8
+[cf82fe30] [c0194f1c] gfar_mdio_probe+0x188/0x204
+...
 
-[PATCH] net: Reorder fields of struct Qdisc
+This patch fixes the issue by translating the "reg" property to a full
+address, and thus avoids the duplicate names.
 
-dev_queue_xmit() needs to dirty fields "state" and "q"
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
 
-On x86_64 arch, they currently span two cache lines, involving more
-cache line ping pongs than necessary.
+This is for 2.6.30 since we don't use ranges = <> yet.
 
-Before patch :
+David, I believe Kumar would like to pick this patch into his tree
+along with a patch set that adds "ranges = <>" properties to the
+device tree... So would you mind if we take it via powerpc.git?
 
-offsetof(struct Qdisc, state)=3D0x38
-offsetof(struct Qdisc, q)=3D0x48
-offsetof(struct Qdisc, dev_queue)=3D0x60
+Thanks,
 
-After patch :
+ drivers/net/gianfar_mii.c  |   10 +++++++---
+ drivers/net/ucc_geth_mii.c |   10 +++++++---
+ 2 files changed, 14 insertions(+), 6 deletions(-)
 
-offsetof(struct Qdisc, dev_queue)=3D0x38
-offsetof(struct Qdisc, state)=3D0x48
-offsetof(struct Qdisc, q)=3D0x50
-
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index f8c4742..e24feeb 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -51,10 +51,11 @@ struct Qdisc
- 	u32			handle;
- 	u32			parent;
- 	atomic_t		refcnt;
--	unsigned long		state;
-+	struct netdev_queue	*dev_queue;
-+
- 	struct sk_buff		*gso_skb;
-+	unsigned long		state;
- 	struct sk_buff_head	q;
--	struct netdev_queue	*dev_queue;
- 	struct Qdisc		*next_sched;
- 	struct list_head	list;
-=20
-
-
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+index f49a426..92bc1a7 100644
+--- a/drivers/net/gianfar_mii.c
++++ b/drivers/net/gianfar_mii.c
+@@ -193,11 +193,15 @@ static int *create_irq_map(struct device_node *np)
+ 
+ void gfar_mdio_bus_name(char *name, struct device_node *np)
+ {
+-	const u32 *reg;
++	const u32 *addr;
++	u64 taddr = OF_BAD_ADDR;
+ 
+-	reg = of_get_property(np, "reg", NULL);
++	addr = of_get_address(np, 0, NULL, NULL);
++	if (addr)
++		taddr = of_translate_address(np, addr);
+ 
+-	snprintf(name, MII_BUS_ID_SIZE, "%s@%x", np->name, reg ? *reg : 0);
++	snprintf(name, MII_BUS_ID_SIZE, "%s@%llx", np->name,
++		(unsigned long long)taddr);
+ }
+ 
+ /* Scan the bus in reverse, looking for an empty spot */
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index 0ada4ed..99cbd14 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -286,10 +286,14 @@ void uec_mdio_exit(void)
+ 
+ void uec_mdio_bus_name(char *name, struct device_node *np)
+ {
+-        const u32 *reg;
++	const u32 *addr;
++	u64 taddr = OF_BAD_ADDR;
+ 
+-        reg = of_get_property(np, "reg", NULL);
++	addr = of_get_address(np, 0, NULL, NULL);
++	if (addr)
++		taddr = of_translate_address(np, addr);
+ 
+-        snprintf(name, MII_BUS_ID_SIZE, "%s@%x", np->name, reg ? *reg : 0);
++	snprintf(name, MII_BUS_ID_SIZE, "%s@%llx", np->name,
++		(unsigned long long)taddr);
+ }
+ 
+-- 
+1.5.6.5
