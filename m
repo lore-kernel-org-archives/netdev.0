@@ -1,95 +1,74 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] netdev: handle setting transmit queue length on active
- device.
-Date: Wed, 18 Mar 2009 18:18:44 +0100
-Message-ID: <49C12CF4.1000609@cosmosbay.com>
-References: <20090318100237.06e974c9@nehalam>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: IGMP Join dropping multicast packets
+Date: Wed, 18 Mar 2009 10:24:18 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0903181016120.5116@jbrandeb-desk1.amr.corp.intel.com>
+References: <91bdcedb0903141316j2dbf4160wb348a5a9e3bde8ad@mail.gmail.com>  <49BC69D5.5000002@cosmosbay.com>  <91bdcedb0903151904x1066ac24h63557b588e7c4967@mail.gmail.com>  <49BEA1ED.4010907@cosmosbay.com>
+ <91bdcedb0903172050td2ef895he48168987ad94472@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
+To: Dave Boutcher <daveboutcher@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39903 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752959AbZCRRSv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 13:18:51 -0400
-In-Reply-To: <20090318100237.06e974c9@nehalam>
+Received: from mga11.intel.com ([192.55.52.93]:32983 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751082AbZCRRYX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2009 13:24:23 -0400
+In-Reply-To: <91bdcedb0903172050td2ef895he48168987ad94472@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> Some virtual devices like VLAN's or bridges by default have not trans=
-mit queue.
-> In order to do queuing disciplines on these devices a queue must be a=
-dded
-> by setting transmit queue length. The kernel allows doing this at any=
- time, but
-> setting the queue length value is not enough. Setting the queue lengt=
-h does
-> not create the transmit queue (going from 0 to non-zero) or destroy i=
-t
-> (setting to zero); the queue is only created (or destroyed) when devi=
-ce
-> comes up (or goes down).
->=20
-> This patch handles this be doing the necessary activations.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> ---
->  include/linux/netdevice.h |    2 ++
->  net/core/dev.c            |   19 +++++++++++++++++--
->  net/core/net-sysfs.c      |    5 ++---
->  net/core/rtnetlink.c      |    2 +-
->  4 files changed, 22 insertions(+), 6 deletions(-)
->=20
-> --- a/include/linux/netdevice.h	2009-03-17 11:06:40.358479573 -0700
-> +++ b/include/linux/netdevice.h	2009-03-17 11:13:55.243604979 -0700
-> @@ -1436,6 +1436,8 @@ extern int		dev_change_net_namespace(str
->  extern int		dev_set_mtu(struct net_device *, int);
->  extern int		dev_set_mac_address(struct net_device *,
->  					    struct sockaddr *);
-> +extern int		dev_set_tx_queue_len(struct net_device *dev,
-> +					     unsigned long len);
->  extern int		dev_hard_start_xmit(struct sk_buff *skb,
->  					    struct net_device *dev,
->  					    struct netdev_queue *txq);
-> --- a/net/core/dev.c	2009-03-17 11:05:54.919541341 -0700
-> +++ b/net/core/dev.c	2009-03-17 11:16:25.717479320 -0700
-> @@ -983,6 +983,22 @@ int dev_set_alias(struct net_device *dev
->  	return len;
->  }
-> =20
-> +/**
-> + *
-> + *	@dev: device
-> + *	@len: limit of frames in transmit queue
-> + *
-> + *	Set ifalias for a device,
+On Tue, 17 Mar 2009, Dave Boutcher wrote:
+> Eric, based on your inability to recreate this, I tried on some other
+> hardware I had lying around that has an AMD chipset built-in NIC.
+> I could not recreate the problem on that hardware.  I'm starting to
+> think this is an e1000 problem.  In both the e1000 and e1000e
+> drivers they do the following logic:
+> 
+>       /* clear the old settings from the multicast hash table */
+> 
+>        for (i = 0; i < mta_reg_count; i++) {
+>                E1000_WRITE_REG_ARRAY(hw, MTA, i, 0);
+>                E1000_WRITE_FLUSH();
+>        }
+> 
+>        /* load any remaining addresses into the hash table */
+> 
+>        for (; mc_ptr; mc_ptr = mc_ptr->next) {
+>                hash_value = e1000_hash_mc_addr(hw, mc_ptr->da_addr);
+>                e1000_mta_set(hw, hash_value);
+>        }
+> 
+> There's clearly a window where the NIC doesn't have the multicast
+> addresses loaded.  This may just be broken-as-designed.  If anyone
+> else happens to have some e1000 hardware and wants to see if you
+> can recreate this, I'd be curious.
+> 
+> Some other notes just FYI...
+> 
+> - RcvbufErrors in /proc/net/snmp doesn't get incremented when this happens
+> - there are no messages in dmesg
+> - frames get dropped when the program calls exit() and all the sockets
+> get closed
+>   (and multicast joins dropped) as well as when the ADD_MEMBERSHIPs happen
+> - The problem happens even when adding a sleep(1) in between each of the
+>   ADD_MEMBERSHIP calls.
 
-copy/pasted from "dev_set_alias - change ifalias of a device" ? ;)
+Interesting, this code has been there for eons (and probably this 
+behavior) but that doesn't mean its not a problem.
 
-> + */
-> +int dev_set_tx_queue_len(struct net_device *dev, unsigned long len)
-> +{
+We are in the process of figuring out if there are any hardware corner 
+cases to changing this code (particularly in e1000)
 
-if (dev->tx_queue_len =3D=3D len)
-	return 0;
+Initial thoughts are:
+1) kcalloc an array that we then populate with the hash functions, and 
+   then program every location only once (never flush)
+2) only program a single hash value each time a multicast is added (bad 
+   because we can't tell the difference in the list since the last time 
+   the OS gave us the list)
 
-> +	if (dev->flags & IFF_UP)
-> +		dev_deactivate(dev);
+It really seems like this should be fixable, and I agree that the driver 
+behavior is far from optimal, however well entrenched.
 
-So changing txqueuelen will drop frames ?
-
-
-> +	dev->tx_queue_len =3D len;
-> +	if (dev->flags & IFF_UP)
-> +		dev_activate(dev);
-> +	return 0;
-> +}
-> =20
->=20
-
-
-
+Jesse
