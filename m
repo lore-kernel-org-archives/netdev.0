@@ -1,80 +1,104 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCHv3] netns: oops in ip[6]_frag_reasm incrementing stats
-Date: Wed, 18 Mar 2009 07:26:58 +0000
-Message-ID: <20090318072658.GA4799@ff.dom.local>
-References: <49BFAB7C.1020503@dti2.net>
+From: "Tomi Orava" <tomimo@ncircle.nullnet.fi>
+Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
+Date: Wed, 18 Mar 2009 09:32:34 +0200 (EET)
+Message-ID: <919358a27b164c5f76cf42d3b3063050.squirrel@ncircle.nullnet.fi>
+References: <bug-12886-10286@http.bugzilla.kernel.org/>
+    <200903171101.32812.rjw@sisk.pl>
+    <9e1133f653c918ec3c19c8fe28452a9f.squirrel@ncircle.nullnet.fi>
+    <200903172223.14608.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jorge@dti2.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	"Stephen Hemminger" <shemminger@linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:59335 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752462AbZCRH1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 03:27:06 -0400
-Received: by fg-out-1718.google.com with SMTP id 13so54378fge.17
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 00:27:03 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <49BFAB7C.1020503@dti2.net>
+Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:40862 "EHLO
+	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751259AbZCRHci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 03:32:38 -0400
+In-Reply-To: <200903172223.14608.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-03-2009 14:54, Jorge Boncompte [DTI2] wrote:
-> Jarek Poplawski escribi=F3:
->> On Tue, Mar 17, 2009 at 12:55:42PM +0100, Jorge Boncompte [DTI2] wro=
-te:
->>> dev can be NULL in ip[6]_frag_reasm for skb's coming from RAW socke=
-ts.
->>>
->>> Quagga's OSPFD sends fragmented packets on a RAW socket, when netfi=
-lter
->>> conntrack reassembles them on the OUTPUT path you hit this code pat=
-h.
->>>
->>> You can test it with something like "hping2 -0 -d 2000 -f AA.BB.CC.=
-DD"
->>>
->>> Changes from v2: (address comments from Jarek Poplawski)
->>> 	- Patch reworked to get the net pointer with container_of()
->>> 	  instead of passing it to function calls.
->>> 	- Fix IPv6 code
->>> Changes from v1:
->>> 	- Fixed description
->> I guess David will be interested only with the final state of change=
-s,
->> so v1 & v2 are not necessary here...
->>
->> Anyway, ipv4 looks OK to me, but ipv6 looks like something is
->> different:
->>> +	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMFAILS)=
-;
->> It still depends on dev !=3D NULL in __in6_dev_get(). I see there
->> is also used skb->dst for similar things in ip6_frag_queue(), so I
->> don't know: it needs rethinking, and maybe these patches should be
->> separated if you prefer.
->=20
-> 	Not my day! :-) I should not look at code at 2 am and write patches
-> the day after, I confused _idev and idev in the check for !=3D NULL i=
-n _DEVINC.
->=20
-> 	I think this bug was first introduced by patch "[IPV6]: Per-interfac=
-e
-> statistics support." from YOSHIFUJI Hideaki on Nov 4, 2006.
->=20
-> 	If someone with more knowledge could confirm that using something li=
-ke...
->=20
-> "(skb->dev ? skb->dev : skb->dst->dev)"
->=20
-> ... here is fine I'll redo this part and resend. I do not have an IPv=
-6 setup where
-> I can test this.
->=20
+Hi again,
 
-skb->dst->dev is used in ip6_frag_queue anyway, so it shouldn't be
-worse if you do this similarly in ip6_frag_reasm. If you send it as
-a separate patch, and write it's not tested, David will decide if he
-wants it. Otherwise you can resend this ipv4 patch only.
+>> The previously mentioned patch reverted the ethtool output is
+>> (ie. this is a working 2.6.28.7 system atm):
+>
+> I wonder what it shows if that commit is not reverted (in fact it is
+> necessary
+> on some other systems for things to work correctly).
 
-Jarek P.
+Ethtool eth0 shows on latest 2.6.28.8 kernel with your manually merged
+patch below:
+
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pg
+        Wake-on: g
+        Current message level: 0x00000037 (55)
+        Link detected: yes
+
+Ie. looks like exactly the same as with the commit reverted.
+
+>
+> Also, please check if the appended patch helps (of course, without
+> reverting
+> the commit).
+>
+> ---
+>  drivers/net/skge.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+>
+> Index: linux-2.6/drivers/net/skge.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/skge.c
+> +++ linux-2.6/drivers/net/skge.c
+> @@ -3856,8 +3856,9 @@ static struct net_device *skge_devinit(s
+>  	skge->speed = -1;
+>  	skge->advertising = skge_supported_modes(hw);
+>
+> -	if (device_may_wakeup(&hw->pdev->dev))
+> -		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+> +	skge->wol = wol_supported(hw) & WAKE_MAGIC;
+> +	if (skge->wol && device_can_wakeup(&hw->pdev->dev))
+> +		device_set_wakeup_enable(&hw->pdev->dev, true);
+>
+>  	hw->dev[port] = dev;
+
+Hmm, looks like this patch is against a 2.6.28.8 tree with the commit
+reverted. I merged the couple lines as following.
+
+line 3859:
+
+        // if (pci_wake_enabled(hw->pdev))
+        //      skge->wol = wol_supported(hw) & WAKE_MAGIC;
+        skge->wol = wol_supported(hw) & WAKE_MAGIC;
+        if (skge->wol && device_can_wakeup(&hw->pdev->dev))
+                device_set_wakeup_enable(&hw->pdev->dev, true);
+
+and this really seems to fix the problem. The system is able to wake
+up via etherwake just fine.
+
+Regards,
+Tomi Orava
+
+-- 
+
+
