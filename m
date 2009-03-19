@@ -1,62 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH] e1000e: allow tx of pre-formatted vlan tagged
-	packets
-Date: Wed, 18 Mar 2009 23:55:31 -0700
-Message-ID: <9929d2390903182355s458a9675mdbbe65e3d548eddd@mail.gmail.com>
-References: <20090317195905.GA22551@ajones-laptop.nbttech.com>
-	 <20090318.234102.202869351.davem@davemloft.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Thu, 19 Mar 2009 10:15:18 +0300
+Message-ID: <20090319071517.GA7389@ioremap.net>
+References: <87prge1rhu.fsf@basil.nowhere.org> <20090318.140340.55290859.davem@davemloft.net> <49C16349.9030503@us.ibm.com> <20090318.143844.173112261.davem@davemloft.net> <49C16D7C.3080003@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ajones@riverbed.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:40727 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754246AbZCSGzd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 02:55:33 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so416171yxl.1
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 23:55:31 -0700 (PDT)
-In-Reply-To: <20090318.234102.202869351.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, vernux@us.ibm.com,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
+	Patrick Mullaney <pmullaney@novell.com>
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49C16D7C.3080003@novell.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 18, 2009 at 11:41 PM, David Miller <davem@davemloft.net> wr=
-ote:
-> From: Arthur Jones <ajones@riverbed.com>
-> Date: Tue, 17 Mar 2009 12:59:05 -0700
->
->> As with igb, when the e1000e driver is fed 802.1q
->> packets with hardware checksum on, it chokes with an
->> error of the form:
->>
->> checksum_partial proto=3D81!
->>
->> As the logic there was not smart enough to look into
->> the vlan header to pick out the encapsulated protocol.
->>
->> There are times when we'd like to send these packets
->> out without having to configure a vlan on the interface.
->> Here we check for the vlan tag and allow the packet to
->> go out with the correct hardware checksum.
->>
->> Thanks to Kand Ly <kand@riverbed.com> for discovering the
->> issue and the coming up with a solution. =C2=A0This patch is
->> based upon his work.
->>
->> Fixups from Stephen Hemminger <shemminger@vyatta.com> and
->> Alexander Duyck <alexander.h.duyck@intel.com>.
->>
->> Signed-off-by: Arthur Jones <ajones@riverbed.com>
->
-> Jeff K., you got this one too?
-> --
+On Wed, Mar 18, 2009 at 05:54:04PM -0400, Gregory Haskins (ghaskins@novell.com) wrote:
+> Note that -rt doesnt typically context-switch under contention anymore
+> since we introduced adaptive-locks.  Also note that the contention
+> against the lock is still contention, regardless of whether you have -rt
+> or not.  Its just that the slow-path to handle the contended case for
+> -rt is more expensive than mainline.  However, once you have the
+> contention as stated, you have already lost.
+> 
+> We have observed the posters findings ourselves in both mainline and
+> -rt.  I.e. That lock doesnt scale very well once you have more than a
+> handful of cores.  It's certainly a great area to look at for improving
+> the overall stack, IMO, as I believe there is quite a bit of headroom
+> left to be recovered that is buried there.
 
-Yes.  I have both.  The are both in my queue, and I should have
-something for you Dave later tonight/tomorrow morning.
+Something tells me that you observer skb head lock contention because
+you stressed the network and anything else on that machine slacked in
+sleep. What if you will start IO stress, will __queue_lock contention
+have the same magnitude order? Or having as many processes as skbs each
+of which will race for the scheduler? Will run-queue lock show up in the
+stats?
 
---=20
-Cheers,
-Jeff
+I believe the asnwer is yes for all the questions.
+You stressed one subsystem and it showed up in the statistics.
+
+-- 
+	Evgeniy Polyakov
