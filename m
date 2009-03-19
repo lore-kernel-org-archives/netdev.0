@@ -1,38 +1,33 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: Bastian Blank <waldi@debian.org>
 Subject: Re: [PATCH] bnx2: Use request_firmware()
-Date: Thu, 19 Mar 2009 16:04:44 -0700
-Message-ID: <1237503884.16140.23.camel@HP1>
-References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk>
+Date: Fri, 20 Mar 2009 00:25:41 +0100
+Message-ID: <20090319232541.GA19262@wavehammer.waldi.eu.org>
+References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk> <1237503884.16140.23.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.org>,
-	"Bastian Blank" <waldi@debian.org>,
+Content-Type: text/plain; charset=utf-8
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@davemloft.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2359 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753228AbZCSXKB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 19:10:01 -0400
-In-Reply-To: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk>
+Received: from wavehammer.waldi.eu.org ([82.139.201.20]:43526 "EHLO
+	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753261AbZCSXb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 19:31:58 -0400
+Content-Disposition: inline
+In-Reply-To: <1237503884.16140.23.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Mar 19, 2009 at 04:04:44PM -0700, Michael Chan wrote:
+> Thanks Ben and Bastian.  I will review this and test it out.  I think I
+> will add some logic to check firmware versions to guarantee some level
+> of compatibility.
 
-On Thu, 2009-03-19 at 15:29 -0700, Ben Hutchings wrote:
-> Based on a patch for Debian by Bastian Blank <waldi@debian.org>.
-> 
-> This patch contains the code changes for review, but should not be
-> applied.  The complete patch, which is about 1 MB in size and therefore
-> too large for the mailing list, is at:
-> <http://womble.decadent.org.uk/tmp/0001-bnx2-Use-request_firmware.patch>.
-> 
+The firmware version is coded into the filenames.
 
+Bastian
 
-Thanks Ben and Bastian.  I will review this and test it out.  I think I
-will add some logic to check firmware versions to guarantee some level
-of compatibility.
-
-
-
+-- 
+Violence in reality is quite different from theory.
+		-- Spock, "The Cloud Minders", stardate 5818.4
