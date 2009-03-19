@@ -1,50 +1,43 @@
-From: Karsten Wiese <fzu@wemgehoertderstaat.de>
-Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
-Date: Thu, 19 Mar 2009 11:58:51 +0100
-Message-ID: <200903191158.52436.fzu@wemgehoertderstaat.de>
-References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903181300.00591.fzu@wemgehoertderstaat.de> <20090318223629.GA2306@electric-eye.fr.zoreil.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH] e100: add support for 82552 10/100 adapter
+Date: Thu, 19 Mar 2009 04:07:14 -0700
+Message-ID: <9929d2390903190407l4796577bkd7163c8c1778dc10@mail.gmail.com>
+References: <20090319104236.11320.25733.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout3.freenet.de ([195.4.92.93]:41781 "EHLO mout3.freenet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752190AbZCSK66 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 06:58:58 -0400
-In-Reply-To: <20090318223629.GA2306@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from yx-out-2324.google.com ([74.125.44.29]:39069 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752351AbZCSLHQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:07:16 -0400
+Received: by yx-out-2324.google.com with SMTP id 31so466491yxl.1
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 04:07:14 -0700 (PDT)
+In-Reply-To: <20090319104236.11320.25733.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch 18 M=E4rz 2009 schrieb Francois Romieu:
-> Karsten Wiese <fzu@wemgehoertderstaat.de> :
-> > Am Mittwoch 18 M=E4rz 2009 schrieb Francois Romieu:
-> [...]
-> > > If netif_rx_schedule fails after napi is enabled, there is a
-> > > racing poll thread to care for the transfer.
-> > >=20
-> > > Stated differently the bug is noticeable because napi_enable()=20
-> > > should be called before request_irq() in rtl8169_open, right ?
-> >=20
-> > Propably yes. That would mean the first interrupt is received befor=
-e
-> > rtl_hw_start() is called in rtl8169_open. The source of that
-> > interrupt would be something else then?
->=20
-> All we need is thus a shared interrupt racing on a different CPU
-> with rtl8169_open and some IO versus memory reordering so that
-> the hardware is started and a change in the status register can
-> be seen in the IRQ handler before napi_enable/NAPI_STATE_SCHED
-> escapes from the CPU where rtl8169_open is running...
->=20
-> It does not look like a credible explanation. :o/
+On Thu, Mar 19, 2009 at 3:42 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Bruce Allan <bruce.w.allan@intel.com>
+>
+> This patch enables support for the new Intel 82552 adapter (new PHY p=
+aired
+> with the existing MAC in the ICH7 chipset). =C2=A0No new features are=
+ added to
+> the driver, however there are minor changes due to updated registers =
+and a
+> few workarounds for hardware errata.
+>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 
-=46ound it: CONFIG_DEBUG_SHIRQ is set here causing a "test-call" to
-rtl8169_interrupt() from irq_request().
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-$SUBJECT patch is ok, me still thinks. You?
+Sorry I left that off on the submission.
 
-Thanks,
-Karsten
+--=20
+Cheers,
+Jeff
