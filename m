@@ -1,69 +1,46 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: IPv6 address printf format specifier
-Date: Wed, 18 Mar 2009 22:26:30 -0400
-Message-ID: <49C1AD56.5000608@hp.com>
-References: <4B97CD05-9949-485D-987E-A555FCBC2F5A@oracle.com>	<49BE889C.8080602@hp.com> <20090318.185826.221840814.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Question: igmp behavior on interface change
+Date: Wed, 18 Mar 2009 22:34:52 -0400
+Message-ID: <20090319023452.GA27155@localhost.localdomain>
+References: <20090318140353.GA9771@hmsreliant.think-freely.org> <OF69D34007.7F9590E4-ON8825757D.005914BF-8825757D.00592A56@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: chuck.lever@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: andy@greyhouse.net, davem@davemloft.net, netdev@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:18911 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927AbZCSC0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 22:26:33 -0400
-In-Reply-To: <20090318.185826.221840814.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42447 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751638AbZCSCfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 22:35:07 -0400
+Content-Disposition: inline
+In-Reply-To: <OF69D34007.7F9590E4-ON8825757D.005914BF-8825757D.00592A56@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 16 Mar 2009 13:13:00 -0400
+On Wed, Mar 18, 2009 at 09:13:55AM -0700, David Stevens wrote:
 > 
->> Chuck Lever wrote:
->>> The NFS and RPC code in the kernel now uses the new printf format
->>> specifier for IPv6 addresses.  In some cases, the generated address
->>> string is sent out of the kernel (for example, it is used to build a
->>> universal address for RPCB_SET requests, and used as the mon_name in
->>> some SM_MON upcalls to our rpc.statd).
->>>
->>> The problem is that outside the kernel, applications generally use
->>> getnameinfo(3) or inet_ntop(3) to do this conversion.  The library
->>> follows the RFC suggestion of shortening these address strings by
->>> replacing the longest series of zeroes in the IPv6 address with "::".
->>>
->>> Since the kernel doesn't do that, string comparisons don't work when
->>> comparing address strings that came from our kernel.  Since these
->>> address strings appear to other hosts (via the rpcbind registry) this
->>> is, or could become, an interoperability issue for Linux.
->>>
->>> How should I fix this?
->>>
->>> 1.  Copy glibc's code to the printf logic for %pI6
->> I think this is the optimum solution.  This normalizes kernel output
->> with that of user-space thus creating a uniform format.
->>
->> My $0.02
 > 
-> Then you'll break cases where this string is output via
-> some /proc/ file or whatever and it expects the existing
-> behavior.
+> Neil Horman <nhorman@tuxdriver.com> wrote on 03/18/2009 07:03:53 AM:
 > 
-> I don't think we can do this.
 > 
+> >    I was going to look into writing some notification code for igmp to
+> > detect link state chagnes and issue the reports on link up, but I wanted
+> to be
+> > sure there were no counter arguments first.  So any and all thoughts
+> > appreciated.
+> 
+>       Isn't that ip_mc_up()? Are you not getting the reports?
+> 
+>                                                 +-DLS
 
-Ugh... you are right.  Changing the formating across the board is a non-starter,
-as much as I would still like to see it.
+Thank you!  I knew there was a some integration between igmp and interface state
+changes, but couldn't find it!  Nevertheless, yes, thats the report I'm getting,
+not so much the lack of membership reports, but the lack of multicast reception
+in perpituity after a link state change.  I'm still gathering data on why, so
+I'm not 100% sure on the lack of the membership report, but now that you've
+shown me the path between state changes and igmp updates, I can figure out more
+precisely whats going on.
 
-Upon rereading Chunk's text and re-reading RFC 2732 and RFC 4291, I've come
-to the conclusion that any application that attempts to compare textual
-representations of IPv6 addresses is misguided at best.
+Thanks!
+Neil
 
-There are multiple different forms of presenting addresses, all of which
-are valid and non of which will provide for sting equality.  Regardless of
-how we represent our IPv6 addresses, there is a chance that it will cause
-interoperability issues and the only way to truly solve it is to change
-applications to compare addresses in their true numerical representation.
-
--vlad
