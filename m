@@ -1,10 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH -- take 2] igb: allow tx of pre-formatted vlan
- tagged packets
-Date: Wed, 18 Mar 2009 23:40:47 -0700 (PDT)
-Message-ID: <20090318.234047.29760524.davem@davemloft.net>
-References: <20090312213345.GA12653@ajones-laptop.nbttech.com>
-	<20090317173924.GA13723@ajones-laptop.nbttech.com>
+Subject: Re: [net-next PATCH] e1000e: allow tx of pre-formatted vlan tagged
+ packets
+Date: Wed, 18 Mar 2009 23:41:02 -0700 (PDT)
+Message-ID: <20090318.234102.202869351.davem@davemloft.net>
+References: <20090317195905.GA22551@ajones-laptop.nbttech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,21 +12,22 @@ Cc: jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
 	alexander.h.duyck@intel.com
 To: ajones@riverbed.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59116
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59122
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752564AbZCSGlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 02:41:00 -0400
-In-Reply-To: <20090317173924.GA13723@ajones-laptop.nbttech.com>
+	by vger.kernel.org with ESMTP id S1753727AbZCSGlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 02:41:15 -0400
+In-Reply-To: <20090317195905.GA22551@ajones-laptop.nbttech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arthur Jones <ajones@riverbed.com>
-Date: Tue, 17 Mar 2009 10:39:24 -0700
+Date: Tue, 17 Mar 2009 12:59:05 -0700
 
-> When the 82575 is fed 802.1q packets, it chokes with
-> an error of the form:
+> As with igb, when the e1000e driver is fed 802.1q
+> packets with hardware checksum on, it chokes with an
+> error of the form:
 > 
-> igb 0000:08:00.1: partial checksum but proto=81
+> checksum_partial proto=81!
 > 
 > As the logic there was not smart enough to look into
 > the vlan header to pick out the encapsulated protocol.
@@ -46,4 +46,4 @@ Date: Tue, 17 Mar 2009 10:39:24 -0700
 > 
 > Signed-off-by: Arthur Jones <ajones@riverbed.com>
 
-Jeff, are you queueing this one up?
+Jeff K., you got this one too?
