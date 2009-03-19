@@ -1,49 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCHv3] netns: oops in ip[6]_frag_reasm incrementing stats
-Date: Thu, 19 Mar 2009 23:09:27 +0100
-Message-ID: <20090319220927.GB2714@ami.dom.local>
-References: <20090318072658.GA4799@ff.dom.local> <20090318.232651.99085030.davem@davemloft.net> <20090319215428.GA2714@ami.dom.local> <20090319.145649.51207208.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Thu, 19 Mar 2009 23:23:02 +0100
+Message-ID: <20090319222302.GA1972@electric-eye.fr.zoreil.com>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903181300.00591.fzu@wemgehoertderstaat.de> <20090318223629.GA2306@electric-eye.fr.zoreil.com> <200903191158.52436.fzu@wemgehoertderstaat.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jorge@dti2.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Karsten Wiese <fzu@wemgehoertderstaat.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:47197 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756374AbZCSWKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 18:10:43 -0400
-Received: by fxm2 with SMTP id 2so696318fxm.37
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 15:10:40 -0700 (PDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35357 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756163AbZCSWTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 18:19:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20090319.145649.51207208.davem@davemloft.net>
+In-Reply-To: <200903191158.52436.fzu@wemgehoertderstaat.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 02:56:49PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Thu, 19 Mar 2009 22:54:28 +0100
+Karsten Wiese <fzu@wemgehoertderstaat.de> :
+[...]
+> Found it: CONFIG_DEBUG_SHIRQ is set here causing a "test-call" to
+> rtl8169_interrupt() from irq_request().
 > 
-> > On Wed, Mar 18, 2009 at 11:26:51PM -0700, David Miller wrote:
-> > > Netfilter on ipv6 handles reassembly differently and in a way
-> > > that won't result in dev being NULL here.
-> > > 
-> > > I've applied Jorge's patch, thanks everyone.
-> > 
-> > My proposal is to revert the ipv6/reassembly part of this patch yet;
-> > it doesn't fix anything, and the changelog is only misleading if it's
-> > like you said.
-> 
-> I've already pushed the change out to net-2.6 so I'd really prefer not
-> to do that.  Make your desires known more emphatically before a patch
-> has been sitting around for days.
+> $SUBJECT patch is ok, me still thinks. You ?
 
-I guess you should re-read the thread: if not me, the author of this
-patch was very emphatical...
+I will have to convince myself that nothing bad can happen in the
+window between netif_rx_schedule_prep and RTL_W16. No big deal.
 
-> 
-> At worst it's a consistency cleanup with an inaccurate commit message,
-> reverting will only make the situation more confusing and ugly.
+I do not understand why / how the patch works at all : AFAIU, the status
+register must contain some napi-related event in order for the patch to
+make a difference. That's exactly what rtl8169_irq_mask_and_ack() is
+supposed to prevent. -> Does it fail ?
 
-Sure, no big deal.
+So I'd really like to understand what is going on here.
 
-Jarek P.
+PS: while I agree on the motivation for CONFIG_DEBUG_SHIRQ, I wonder if
+it is 100% safe to run an IRQ handler from a context which does not
+adhere to the original semantic. If its {disable/enable}_irq pair races
+with a similar pair due to a different driver on the same (shared) irq,
+things could imho be unsafe.
+
+-- 
+Ueimor
