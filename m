@@ -1,59 +1,83 @@
-From: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Thu, 19 Mar 2009 12:49:30 +0800
-Message-ID: <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
-	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
-	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
-	 <1237140665.24621.2.camel@johannes.local>
-	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
-	 <1237143683.24621.7.camel@johannes.local>
-	 <20090315202603.GA9077@elte.hu>
-	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
-	 <1237317742.31814.28.camel@johannes.local>
-	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH 1/9] of: add of_parse_phandle() helper for parsing phandle
+	properties
+Date: Wed, 18 Mar 2009 23:00:15 -0600
+Message-ID: <20090319050015.11320.61641.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b6a2187b0903181958ke11abe7tdcbc4efeb950954d-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	afleming@freescale.com, avorontsov@ru.mvista.com,
+	davem@davemloft.net, galak@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.183]:12515 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752113AbZCSFAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 01:00:20 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so245042wah.21
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 22:00:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 10:58 AM, Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> I've tracked down to the sequence of iwconfig that causes it to fail.
-> This loop does not work at all without John's patch , but will work
-> 100% when patched.
-> This loop only works 8 of 10 times with/without the patch.
+From: Grant Likely <grant.likely@secretlab.ca>
 
-Ignore the above loop thing. The cause seems to be this one instead.
+of_parse_phandle() is a helper function to read and parse a phandle
+property and return a pointer to the resulting device_node.
 
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
-# this needs patch to work ...
-iwconfig wlan0 mode Managed
-ifconfig wlan0 up
-iwconfig wlan0 essid xxx
-iwconfig wlan0 key restricted xxx
-iwconfig wlan0 ap auto channel auto
+ drivers/of/base.c  |   23 +++++++++++++++++++++++
+ include/linux/of.h |    3 +++
+ 2 files changed, 26 insertions(+), 0 deletions(-)
 
 
-# this works with patch ...
-iwconfig wlan0 mode Managed essid xxx key restricted xxx
-ifconfig wlan0 up
-iwconfig wlan0 ap auto channel auto
+diff --git a/drivers/of/base.c b/drivers/of/base.c
+index cd17092..1eaada4 100644
+--- a/drivers/of/base.c
++++ b/drivers/of/base.c
+@@ -494,6 +494,29 @@ int of_modalias_node(struct device_node *node, char *modalias, int len)
+ EXPORT_SYMBOL_GPL(of_modalias_node);
+ 
+ /**
++ * of_parse_phandle - Resolve a phandle property to a device_node pointer
++ * @np: Pointer to device node holding phandle property
++ * @phandle_name: Name of property holding a phandle value
++ * @index: For properties holding a table of phandles, this is the index into
++ *         the table
++ *
++ * Returns the device_node pointer pointed to by the phandle, or NULL
++ */
++struct device_node *
++of_parse_phandle(struct device_node *np, const char *phandle_name, int index)
++{
++	const phandle *phandle;
++	int size;
++
++	phandle = of_get_property(np, phandle_name, &size);
++	if ((!phandle) || (size < sizeof(*phandle) * (index + 1)))
++		return NULL;
++
++	return of_find_node_by_phandle(phandle[index]);
++}
++EXPORT_SYMBOL(of_parse_phandle);
++
++/**
+  * of_parse_phandles_with_args - Find a node pointed by phandle in a list
+  * @np:		pointer to a device tree node containing a list
+  * @list_name:	property name that contains a list
+diff --git a/include/linux/of.h b/include/linux/of.h
+index 6a7efa2..7be2d10 100644
+--- a/include/linux/of.h
++++ b/include/linux/of.h
+@@ -77,6 +77,9 @@ extern int of_n_size_cells(struct device_node *np);
+ extern const struct of_device_id *of_match_node(
+ 	const struct of_device_id *matches, const struct device_node *node);
+ extern int of_modalias_node(struct device_node *node, char *modalias, int len);
++extern struct device_node *of_parse_phandle(struct device_node *np,
++					    const char *phandle_name,
++					    int index);
+ extern int of_parse_phandles_with_args(struct device_node *np,
+ 	const char *list_name, const char *cells_name, int index,
+ 	struct device_node **out_node, const void **out_args);
 
-It looks the placement of "ifconfig" matters. But works on 2.6.28-rc3.
-
-
-Thanks,
-Jeff.
