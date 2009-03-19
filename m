@@ -1,62 +1,55 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] bonding: allow bond in mode balance-alb to work
-	properly in bridge
-Date: Thu, 19 Mar 2009 17:31:52 +0100
-Message-ID: <20090319163151.GB6132@psychotron.englab.brq.redhat.com>
-References: <20090314094911.GA3455@psychotron.englab.brq.redhat.com> <20090315161217.7fa2c3a7@nehalam> <20090316111127.GB3484@psychotron.englab.brq.redhat.com> <20090318.232003.30974750.davem@davemloft.net> <49C2073B.8060102@trash.net>
+From: Jeff Chua <jeff.chua.linux@gmail.com>
+Subject: Re: Required sequence to set wireless parameters? (was: 2.6.29-rc8:
+	Reported regressions from 2.6.28)
+Date: Fri, 20 Mar 2009 00:45:17 +0800
+Message-ID: <b6a2187b0903190945l29d64016sa755bbd9581968aa@mail.gmail.com>
+References: <1237143683.24621.7.camel@johannes.local>
+	 <20090315202603.GA9077@elte.hu>
+	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
+	 <1237317742.31814.28.camel@johannes.local>
+	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+	 <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
+	 <1237455534.5100.56.camel@johannes.local>
+	 <20090319141311.GA3587@tuxdriver.com>
+	 <200903191602.58790.elendil@planet.nl>
+	 <20090319152441.GB3587@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Frans Pop <elendil@planet.nl>, johannes@sipsolutions.net,
+	mingo@elte.hu, torvalds@linux-foundation.org, rjw@sisk.pl,
+	linux-kernel@vger.kernel.org, bunk@kernel.org,
+	akpm@linux-foundation.org, kernel-testers@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42920 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750831AbZCSQfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 12:35:03 -0400
-Content-Disposition: inline
-In-Reply-To: <49C2073B.8060102@trash.net>
+Received: from yw-out-2324.google.com ([74.125.46.31]:35864 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752376AbZCSQpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 12:45:20 -0400
+In-Reply-To: <20090319152441.GB3587@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 19, 2009 at 09:50:03AM CET, kaber@trash.net wrote:
-> David Miller wrote:
->> From: Jiri Pirko <jpirko@redhat.com>
->> Date: Mon, 16 Mar 2009 12:11:28 +0100
->>
->>> I can see two solutions. Either like my patch or somehow allow bridge to know
->>> more MAC addressses per port (maybe netdev can be changed to know more then
->>> one MAC address).
->>>
->>> Any thoughts?
->>
->> The netdev struct already supports having a list of multiple unicast
->> MAC addresses, it can probably be used and inspected for this.
->>
->> I'll hold off on your patch until we make some more progress on
->> this discussion.
->
-> From reading the balance-alb description, I get the impression that this
-> mode is simply not meant to be used with bridging:
->
-> 		Adaptive load balancing: includes balance-tlb plus
-> 		receive load balancing (rlb) for IPV4 traffic, and
-> 		does not require any special switch support.  The
-> 		receive load balancing is achieved by ARP negotiation.
-> 		The bonding driver intercepts the ARP Replies sent by
-> 		the local system on their way out and overwrites the
-> 		source hardware address with the unique hardware
-> 		address of one of the slaves in the bond such that
-> 		different peers use different hardware addresses for
-> 		the server.
->
-> In any case I'd tend to say that if bond-alb mode mangles outgoing MAC
-> addresses, it should restore the original one for received packets
-> and keep the hacks local to bonding.
+On Thu, Mar 19, 2009 at 11:24 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> On Thu, Mar 19, 2009 at 04:02:56PM +0100, Frans Pop wrote:
+>> John W. Linville wrote:
+>> > On Thu, Mar 19, 2009 at 10:38:54AM +0100, Johannes Berg wrote:
+>> >> On Thu, 2009-03-19 at 12:49 +0800, Jeff Chua wrote:
+>> >> > # this needs patch to work ...
+>> >> > iwconfig wlan0 mode Managed
+>> >> > ifconfig wlan0 up
+>> >> > iwconfig wlan0 essid xxx
+>> >> > iwconfig wlan0 key restricted xxx
+>> >> > iwconfig wlan0 ap auto channel auto
+>> >>
+>> >> If you swap the key and essid lines, it will probably always work.
 
-To let bonding driver to resolve this I think there will be needed some kind of
-hook in netif_receive_skb() as for example bridge has. I would rather do this
-more general and transparent.
+I just discovered that  "iwconfig wlan0 ap auto channel auto" is the
+one causing the problem on 2.6.29-rc8. Remove the line and it'll
+associate to the AP. Just tried on two different APs a few times, and
+it seems to behave that way. If I execute the "auto" command, it'll
+fail to associate, but works fine with the patch.
+
+Jeff.
