@@ -1,45 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: High contention on the sk_buff_head.lock
-Date: Wed, 18 Mar 2009 18:17:13 -0700 (PDT)
-Message-ID: <20090318.181713.62394874.davem@davemloft.net>
-References: <49C16D7C.3080003@novell.com>
-	<20090318.180355.228447835.davem@davemloft.net>
-	<1237425191.8204.41.camel@quadrophenia.thebigcorporation.com>
+Subject: Re: a2065 skb_padto cleanups
+Date: Wed, 18 Mar 2009 18:18:06 -0700 (PDT)
+Message-ID: <20090318.181806.224906255.davem@davemloft.net>
+References: <49B89A33.2030207@cosmosbay.com>
+	<20090313.133640.130060599.davem@davemloft.net>
+	<20090313205216.GA6898@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ghaskins@novell.com, vernux@us.ibm.com, andi@firstfloor.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-rt-users@vger.kernel.org, pmullaney@novell.com
-To: sven@thebigcorporation.com
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <1237425191.8204.41.camel@quadrophenia.thebigcorporation.com>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43388
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753840AbZCSBST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:18:19 -0400
+In-Reply-To: <20090313205216.GA6898@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven-Thorsten Dietrich <sven@thebigcorporation.com>
-Date: Wed, 18 Mar 2009 18:13:11 -0700
+From: Dave Jones <davej@redhat.com>
+Date: Fri, 13 Mar 2009 16:52:16 -0400
 
-> On Wed, 2009-03-18 at 18:03 -0700, David Miller wrote:
-> > From: Gregory Haskins <ghaskins@novell.com>
-> > Date: Wed, 18 Mar 2009 17:54:04 -0400
-> > 
-> > > Note that -rt doesnt typically context-switch under contention anymore
-> > > since we introduced adaptive-locks.  Also note that the contention
-> > > against the lock is still contention, regardless of whether you have -rt
-> > > or not.  Its just that the slow-path to handle the contended case for
-> > > -rt is more expensive than mainline.  However, once you have the
-> > > contention as stated, you have already lost.
-> > 
-> > First, contention is not implicitly a bad thing.
->
-> Its a bad thing when it does not scale.
+> Remove unnecessary check (skb_padto does the same check)
+> Remove unnecessary duplicate variable
+> Remove unnecessary clearing of padded part of skb.
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-You have only one pipe to shove packets into in this case, and for
-your workload multiple cpus are going to be trying to stuff a single
-packet at a time from a single UDP send request.
-
-There is no added parallelism you can create for that kind of workload
-on that kind of hardware.
-
-It is one of the issues addressed by multiqueue.
+Looks good enough to me, applied to net-next-2.6, thanks!
