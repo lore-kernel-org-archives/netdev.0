@@ -1,38 +1,27 @@
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Subject: [PATCH] remove duplicated #include
-Date: Thu, 19 Mar 2009 21:44:40 +0800
-Message-ID: <1237470280-668-1-git-send-email-weiyi.huang@gmail.com>
-Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.191]:56182 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755661AbZCSNps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 09:45:48 -0400
-Received: by ti-out-0910.google.com with SMTP id i7so373837tid.23
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 06:45:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Thu, 19 Mar 2009 14:46:49 +0100
+Message-ID: <20090319134649.GX11935@one.firstfloor.org>
+References: <49C12E64.1000301@us.ibm.com> <87prge1rhu.fsf@basil.nowhere.org> <1237467559.6926.31.camel@hermosa>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Vernon Mauery <vernux@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	rt-users <linux-rt-users@vger.kernel.org>
+To: "Peter W. Morreale" <pmorreale@novell.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1237467559.6926.31.camel@hermosa>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Removed duplicated #include in drivers/net/dnet.c.
+> Recall that adaptive spin,developed in RT, is now in mainline. 
 
-Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
----
- drivers/net/dnet.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+For mutexes, but not for spinlocks. And qdisc uses spinlocks.
 
-diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
-index 5c347f7..8a98d40 100644
---- a/drivers/net/dnet.c
-+++ b/drivers/net/dnet.c
-@@ -21,7 +21,6 @@
- #include <linux/dma-mapping.h>
- #include <linux/platform_device.h>
- #include <linux/phy.h>
--#include <linux/platform_device.h>
- 
- #include "dnet.h"
- 
+-Andi
+
 -- 
-1.6.0.4
-
+ak@linux.intel.com -- Speaking for myself only.
