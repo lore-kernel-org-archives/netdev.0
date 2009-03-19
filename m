@@ -1,76 +1,134 @@
-From: Jeff Chua <jeff.chua.linux@gmail.com>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Thu, 19 Mar 2009 11:25:44 +0800
-Message-ID: <b6a2187b0903182025y5552900cu6213a4f4eafeb6e6@mail.gmail.com>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
-	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
-	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
-	 <1237140665.24621.2.camel@johannes.local>
-	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
-	 <1237143683.24621.7.camel@johannes.local>
-	 <20090315202603.GA9077@elte.hu>
-	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
-	 <1237317742.31814.28.camel@johannes.local>
-	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Wed, 18 Mar 2009 23:48:46 -0400
+Message-ID: <49C1C09E.8050405@novell.com>
+References: <49C16349.9030503@us.ibm.com>	<20090318.143844.173112261.davem@davemloft.net>	<49C16D7C.3080003@novell.com> <20090318.180355.228447835.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig92404978001B3FBE2CBD5BC1"
+Cc: vernux@us.ibm.com, andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
+	pmullaney@novell.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.226]:37141 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751970AbZCSDZq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 23:25:46 -0400
-In-Reply-To: <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+Received: from victor.provo.novell.com ([137.65.250.26]:39578 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752533AbZCSDqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 23:46:34 -0400
+In-Reply-To: <20090318.180355.228447835.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 10:58 AM, Jeff Chua <jeff.chua.linux@gmail.com>=
- wrote:
-> I've tracked down to the sequence of iwconfig that causes it to fail.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig92404978001B3FBE2CBD5BC1
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> This loop only works 8 of 10 times with/without the patch.
-> =A0 =A0 =A0 =A0iwconfig wlan0 mode Managed essid xxx key restricted x=
-xx
-> =A0 =A0 =A0 =A0iwconfig wlan0 ap auto channel auto =A0# auto outside =
-loop
-> =A0 =A0 =A0 =A0for((i =3D 0; i < 5; i++))
-> =A0 =A0 =A0 =A0do
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0iwconfig wlan0 | grep -q "Not-Associat=
-ed"
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0[ $? -ne 0 ] && break
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0echo ".\c"
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sleep 1
-> =A0 =A0 =A0 =A0done
+David Miller wrote:
+> From: Gregory Haskins <ghaskins@novell.com>
+> Date: Wed, 18 Mar 2009 17:54:04 -0400
+>
+>  =20
+>> Note that -rt doesnt typically context-switch under contention anymore=
+
+>> since we introduced adaptive-locks.  Also note that the contention
+>> against the lock is still contention, regardless of whether you have -=
+rt
+>> or not.  Its just that the slow-path to handle the contended case for
+>> -rt is more expensive than mainline.  However, once you have the
+>> contention as stated, you have already lost.
+>>    =20
+>
+> First, contention is not implicitly a bad thing.
+>  =20
+However, when the contention in question is your top bottleneck, even
+small improvements have the potential to yield large performance gains. :=
+)
+
+> Second, if the -rt kernel is doing adaptive spinning I see no
+> reason why that adaptive spinning is not kicking in here
+It does.  Things would be *much* worse if it wasn't.
+
+>  to
+> make this problem just go away.
+>  =20
+Well, "go away" is a relative term.  Before adaptive-locks, the box was
+heavily context-switching under a network workload like we are
+discussing, and that is where much of the performance was lost.=20
+Adaptive-locks mitigate that particular problem so that spinlock_t
+clients now more closely model mainline behavior (i.e. spin under
+contention, at least when they can) and this brought -rt much closer to
+what you expect for performance from mainline.
+
+However, in -rt the contention path is, by necessity, still moderately
+more heavy weight than a simple mainline spin (PI, etc), so any
+contention will still hurt relatively more.   And obviously
+adaptive-locks do nothing to address the contention itself.  Therefore,
+as long as the contention remains it will have a higher impact in -rt.=20
+But make no mistake: the contention can (and I believe does) affect both
+trees.
+
+To see this in action, try taking a moderately large smp system (8-way+)
+and scaling the number of flows.  At 1 flow the stack is generally quite
+capable of maintaining line-rate (at least up to GigE).  With two flows
+this should result in each achieving roughly 50% of the line-rate, for a
+sum total of line-rate.  But as you add flows to the equation, the
+aggregate bandwidth typically starts to drop off to be something less
+than line-rate (many times its actually much less).  And when this
+happens, the contention in question is usually at the top of the charts
+(thus all the interest in this thread).
+
+> This lock is held for mere cycles, just to unlink an SKB from
+> the networking qdisc, and then it is immediately released.
+>  =20
+To clarify: I haven't been looking at the stack code since last summer,
+so some things may have changed since then.  However, the issue back
+then from my perspective was the general backpressure in the qdisc
+subsystem (e.g. dev->queue_lock), not just the skb head.lock per se.=20
+This dev->queue_lock can be held for quite a long time, and the
+mechanism in general scales poorly as the fabric speeds and core-counts
+increase.  (It is arguable whether you would even want another buffering
+layer on any reasonably fast interconnect, anyway.  It ultimately just
+destabilizes the flows and is probably best left to the underlying
+hardware which will typically have the proper facilities for
+shaping/limiting, etc. However, that is a topic for another discussion ;)=
+=2E)
+
+One approach that we found yielded some significant improvements here
+was to bypass the qdisc outright and do per-cpu lockless queuing.  One
+thread/core could then simply aggregate the per-cpu buffers with only
+minor contention between the egress (consuming) core and the producer
+thread.  I realize that this solution as-is may not be feasible for
+production use.  However, it did serve to prove the theory that backing
+off cache-line pressures that scale with the core count *did* help the
+stack make more forward progress per unit time (e.g. higher throughput)
+as the number of flows increased.  The idea was more or less to refactor
+the egress/TX path to be more per-cpu, similar to the methodology of the
+ingress/RX side.
+
+You could probably adapt this same concept to work harmoniously with the
+qdisc infrastructure (though as previously indicated, I am not sure if
+we would *want* to ;)).  Something to consider, anyway.
+
+Regards,
+-Greg
 
 
-I've modified it a little, and now it works 100% without patch, by
-using "iwlist scan" instead of "sleep 1" ...
-        iwconfig wlan0 mode Managed essid xxx key restricted xxx
-        iwconfig wlan0 ap auto channel auto  # auto outside loop
-        for((i =3D 0; i < 5; i++))
-        do
-                iwlist wlan0 scan >/dev/null  #use scan instead of slee=
-p
-                iwconfig $DEV | grep -q "Access Point: Not-Associated"
-                [ $? -ne 0 ] && break
-                echo ".\c"
-        done
 
 
-So, this will work for older kernel and well as 2.6.29-rc8.
+--------------enig92404978001B3FBE2CBD5BC1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Rafael, can we close the case? It's the iwconfig sequence that used to
-work on 2.6.28-rc3 but now needs to be updated for 2.6.29-rc8.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-Thanks,
-Jeff.
+iEYEARECAAYFAknBwJ4ACgkQlOSOBdgZUxnEXQCffJj0zcwaubjTv4TCc3G0XXbE
+F8UAn3vAjbPApDX2/FwBE7GbwwmXUk5V
+=KqhC
+-----END PGP SIGNATURE-----
+
+--------------enig92404978001B3FBE2CBD5BC1--
