@@ -1,46 +1,50 @@
-From: Ryousei Takano <ryousei@gmail.com>
-Subject: Re: [lxc-devel] Poor bridging performance on 10 GbE
-Date: Thu, 19 Mar 2009 19:50:29 +0900
-Message-ID: <b30d1c3b0903190350n5783d2fdn6ce46c279aae5980@mail.gmail.com>
-References: <b30d1c3b0903180221h5175618eue162ffdec3817b4c@mail.gmail.com>
-	 <49C0C87B.7070507@fr.ibm.com>
-	 <b30d1c3b0903180856r6dce554ap35b8d6a3ee7829e0@mail.gmail.com>
-	 <m1wsamcp4n.fsf@fess.ebiederm.org>
-	 <b30d1c3b0903182237w7667c5bbt1ea098025f3b5f36@mail.gmail.com>
-	 <49C20B70.7050509@fr.ibm.com>
+From: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Thu, 19 Mar 2009 11:58:51 +0100
+Message-ID: <200903191158.52436.fzu@wemgehoertderstaat.de>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903181300.00591.fzu@wemgehoertderstaat.de> <20090318223629.GA2306@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	lxc-devel@lists.sourceforge.net
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:5823 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbZCSKub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 06:50:31 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so507106rvb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 03:50:29 -0700 (PDT)
-In-Reply-To: <49C20B70.7050509@fr.ibm.com>
+Received: from mout3.freenet.de ([195.4.92.93]:41781 "EHLO mout3.freenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752190AbZCSK66 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 06:58:58 -0400
+In-Reply-To: <20090318223629.GA2306@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Am Mittwoch 18 M=E4rz 2009 schrieb Francois Romieu:
+> Karsten Wiese <fzu@wemgehoertderstaat.de> :
+> > Am Mittwoch 18 M=E4rz 2009 schrieb Francois Romieu:
+> [...]
+> > > If netif_rx_schedule fails after napi is enabled, there is a
+> > > racing poll thread to care for the transfer.
+> > >=20
+> > > Stated differently the bug is noticeable because napi_enable()=20
+> > > should be called before request_irq() in rtl8169_open, right ?
+> >=20
+> > Propably yes. That would mean the first interrupt is received befor=
+e
+> > rtl_hw_start() is called in rtl8169_open. The source of that
+> > interrupt would be something else then?
+>=20
+> All we need is thus a shared interrupt racing on a different CPU
+> with rtl8169_open and some IO versus memory reordering so that
+> the hardware is started and a change in the status register can
+> be seen in the IRQ handler before napi_enable/NAPI_STATE_SCHED
+> escapes from the CPU where rtl8169_open is running...
+>=20
+> It does not look like a credible explanation. :o/
 
-On Thu, Mar 19, 2009 at 6:08 PM, Daniel Lezcano <dlezcano@fr.ibm.com> wrote:
+=46ound it: CONFIG_DEBUG_SHIRQ is set here causing a "test-call" to
+rtl8169_interrupt() from irq_request().
 
-[snip]
+$SUBJECT patch is ok, me still thinks. You?
 
->> So I propose to add lxc.network.mtu into the LXC configuration.
->> How does that sound?
->
-> Sounds good :)
-> Do you plan to send a patch ?
->
-
-Yes, I will post a patch as soon as possible.
-
-Best regards,
-Ryousei Takano
+Thanks,
+Karsten
