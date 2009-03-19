@@ -1,74 +1,135 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [lxc-devel] Poor bridging performance on 10 GbE
-Date: Thu, 19 Mar 2009 10:08:00 +0100
-Message-ID: <49C20B70.7050509@fr.ibm.com>
-References: <b30d1c3b0903180221h5175618eue162ffdec3817b4c@mail.gmail.com> <49C0C87B.7070507@fr.ibm.com> <b30d1c3b0903180856r6dce554ap35b8d6a3ee7829e0@mail.gmail.com> <m1wsamcp4n.fsf@fess.ebiederm.org> <b30d1c3b0903182237w7667c5bbt1ea098025f3b5f36@mail.gmail.com>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: [PATCH 1/2] be2net: replenish when posting to rx-queue is starved
+ in out of mem conditions
+Date: Thu, 19 Mar 2009 14:43:01 +0530
+Message-ID: <1237453981.6210.21.camel@sperla-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	lxc-devel@lists.sourceforge.net
-To: Ryousei Takano <ryousei@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:61366 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754618AbZCSJIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 05:08:09 -0400
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate7.uk.ibm.com (8.14.3/8.13.8) with ESMTP id n2J985Rl667308
-	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 09:08:05 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n2J985qj3404010
-	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 09:08:05 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n2J984xr015057
-	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 09:08:04 GMT
-In-Reply-To: <b30d1c3b0903182237w7667c5bbt1ea098025f3b5f36@mail.gmail.com>
+Received: from mail142.messagelabs.com ([216.82.249.99]:21371 "EHLO
+	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755023AbZCSJNJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 05:13:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ryousei Takano wrote:
-> Hi Eric,
-> 
-> On Thu, Mar 19, 2009 at 9:50 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
-> 
-> [snip]
-> 
->> Bridging last I looked uses the least common denominator of hardware
->> offloads.  Which likely explains why adding a veth decreased your
->> bridging performance.
->>
-> At least now LRO cannot coexist bridging.
-> So I disable the LRO feature of the myri10ge driver.
-> 
->>>>> Here is my experimental setting:
->>>>>        OS: Ubuntu server 8.10 amd64
->>>>>        Kernel: 2.6.27-rc8 (checkout from the lxc git repository)
->>>> I would recommend to use the 2.6.29-rc8 vanilla because this kernel does no
->>>> longer need patches, a lot of fixes were done in the network namespace and
->>>> maybe the bridge has been improved in the meantime :)
->>>>
->>> I checked out the 2.6.29-rc8 vanilla kernel.
->>> The performance after issuing lxc-start improved to 8.7 Gbps!
->>> It's a big improvement, while some performance loss remains.
->>> Can not we avoid this loss?
->> Good question.  Any chance you can profile this and see where the
->> performance loss seems to be coming from?
->>
-> I found out this issue is caused by decreasing the MTU size.
-> Myri-10G's MTU size is 9000 bytes; the veth' MTU size is 1500 bytes.
-> After bridging veth, MTU size decreases from 9000 to 1500 bytes.
-> I changed the veth's MTU size to 9000 bytes, and then I confirmed
-> the throughput improved to 9.6 Gbps.
-> 
-> The throughput between LXC containers also improved to 4.9 Gbps
-> by changing the MTU sizes.
-> 
-> So I propose to add lxc.network.mtu into the LXC configuration.
-> How does that sound?
+Hi, this is a patch to replenish the rx-queue when it is in a starved
+state (due to out-of-mem conditions)
 
-Sounds good :)
-Do you plan to send a patch ?
+thanks,
+-Sathya
+P.S: Pls ignore the "company confidential" warning at the end of the
+patch emails.
+
+
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+---
+ drivers/net/benet/be.h      |    1 +
+ drivers/net/benet/be_main.c |   50 +++++++++++++++++++++++++------------------
+ 2 files changed, 30 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 63d593d..f327be5 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -194,6 +194,7 @@ struct be_adapter {
+ 	struct be_eq_obj rx_eq;
+ 	struct be_rx_obj rx_obj;
+ 	u32 big_page_size;	/* Compounded page size shared by rx wrbs */
++	bool rx_post_starved;	/* Zero rx frags have been posted to BE */
+ 
+ 	struct vlan_group *vlan_grp;
+ 	u16 num_vlans;
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 897a63d..80fe1e0 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -273,26 +273,6 @@ static void be_rx_eqd_update(struct be_adapter *adapter)
+ 	rx_eq->cur_eqd = eqd;
+ }
+ 
+-static void be_worker(struct work_struct *work)
+-{
+-	struct be_adapter *adapter =
+-		container_of(work, struct be_adapter, work.work);
+-	int status;
+-
+-	/* Check link */
+-	be_link_status_update(adapter);
+-
+-	/* Get Stats */
+-	status = be_cmd_get_stats(&adapter->ctrl, &adapter->stats.cmd);
+-	if (!status)
+-		netdev_stats_update(adapter);
+-
+-	/* Set EQ delay */
+-	be_rx_eqd_update(adapter);
+-
+-	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
+-}
+-
+ static struct net_device_stats *be_get_stats(struct net_device *dev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(dev);
+@@ -900,8 +880,11 @@ static void be_post_rx_frags(struct be_adapter *adapter)
+ 		page_info->last_page_user = true;
+ 
+ 	if (posted) {
+-		be_rxq_notify(&adapter->ctrl, rxq->id, posted);
+ 		atomic_add(posted, &rxq->used);
++		be_rxq_notify(&adapter->ctrl, rxq->id, posted);
++	} else if (atomic_read(&rxq->used) == 0) {
++		/* Let be_worker replenish when memory is available */
++		adapter->rx_post_starved = true;
+ 	}
+ 
+ 	return;
+@@ -1305,6 +1288,31 @@ int be_poll_tx(struct napi_struct *napi, int budget)
+ 	return 1;
+ }
+ 
++static void be_worker(struct work_struct *work)
++{
++	struct be_adapter *adapter =
++		container_of(work, struct be_adapter, work.work);
++	int status;
++
++	/* Check link */
++	be_link_status_update(adapter);
++
++	/* Get Stats */
++	status = be_cmd_get_stats(&adapter->ctrl, &adapter->stats.cmd);
++	if (!status)
++		netdev_stats_update(adapter);
++
++	/* Set EQ delay */
++	be_rx_eqd_update(adapter);
++
++	if (adapter->rx_post_starved) {
++		adapter->rx_post_starved = false;
++		be_post_rx_frags(adapter);
++	}
++
++	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
++}
++
+ static void be_msix_enable(struct be_adapter *adapter)
+ {
+ 	int i, status;
+-- 
+1.5.6.3
+
+
+
+
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
