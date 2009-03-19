@@ -1,10 +1,10 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 5/9] net: make mpc5200 fec driver use of_mdio
-	infrastructure
-Date: Wed, 18 Mar 2009 23:06:48 -0600
-Message-ID: <fa686aa40903182206s583f0896v32813718da9d82cf@mail.gmail.com>
+Subject: Re: [PATCH 6/9] net/gianfar: Rework gianfar driver to use OF PHY/MDIO
+	helper functions
+Date: Wed, 18 Mar 2009 23:07:01 -0600
+Message-ID: <fa686aa40903182207w227bba9fie796b5c073078abf@mail.gmail.com>
 References: <20090319050015.11320.61641.stgit@localhost.localdomain>
-	 <20090319050038.11320.71538.stgit@localhost.localdomain>
+	 <20090319050043.11320.96160.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,13 +12,13 @@ To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	afleming@freescale.com, avorontsov@ru.mvista.com,
 	davem@davemloft.net, galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:9449 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753328AbZCSFGv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 01:06:51 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so394125yxl.1
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 22:06:49 -0700 (PDT)
-In-Reply-To: <20090319050038.11320.71538.stgit@localhost.localdomain>
+Received: from yw-out-2324.google.com ([74.125.46.29]:33845 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217AbZCSFHD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 01:07:03 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so392906ywb.1
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 22:07:01 -0700 (PDT)
+In-Reply-To: <20090319050043.11320.96160.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,524 +28,312 @@ On Wed, Mar 18, 2009 at 11:00 PM, Grant Likely
 <grant.likely@secretlab.ca> wrote:
 > From: Grant Likely <grant.likely@secretlab.ca>
 >
-> The patch reworks the MPC5200 Fast Ethernet Controller (FEC) driver t=
-o
-> use the of_mdio infrastructure for registering PHY devices from data =
-out
-> openfirmware device tree, and eliminates the assumption that the PHY
-> for the FEC is always attached to the FEC's own MDIO bus. =A0With thi=
-s
-> patch, the FEC can use a PHY attached to any MDIO bus if it is descri=
-bed
-> in the device tree.
+> This patch simplifies the driver by making use of more common code.
+>
+> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 > ---
 >
-> =A0drivers/net/Kconfig =A0 =A0 =A0 =A0 =A0 | =A0 =A02
-> =A0drivers/net/fec_mpc52xx.c =A0 =A0 | =A0175 +++++++++++------------=
+> =A0drivers/net/gianfar.c =A0 =A0 | =A0 94 ++++++++++++++-------------=
 ------------------
-> =A0drivers/net/fec_mpc52xx_phy.c | =A0 26 +-----
-> =A03 files changed, 53 insertions(+), 150 deletions(-)
+> =A0drivers/net/gianfar.h =A0 =A0 | =A0 =A03 +
+> =A0drivers/net/gianfar_mii.c | =A0 52 +------------------------
+> =A03 files changed, 34 insertions(+), 115 deletions(-)
 >
 >
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index a2f185f..3aa24f6 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -1854,7 +1854,7 @@ config FEC_MPC52xx
->
-> =A0config FEC_MPC52xx_MDIO
-> =A0 =A0 =A0 =A0bool "MPC52xx FEC MDIO bus driver"
-> - =A0 =A0 =A0 depends on FEC_MPC52xx
-> + =A0 =A0 =A0 depends on FEC_MPC52xx && OF_MDIO
-> =A0 =A0 =A0 =A0default y
-> =A0 =A0 =A0 =A0---help---
-> =A0 =A0 =A0 =A0 =A0The MPC5200's FEC can connect to the Ethernet eith=
-er with
-> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-> index 3d55f9a..12ab8ae 100644
-> --- a/drivers/net/fec_mpc52xx.c
-> +++ b/drivers/net/fec_mpc52xx.c
-> @@ -25,6 +25,7 @@
-> =A0#include <linux/hardirq.h>
-> =A0#include <linux/delay.h>
-> =A0#include <linux/of_device.h>
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index 9831b3f..0521267 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -75,6 +75,7 @@
+> =A0#include <linux/if_vlan.h>
+> =A0#include <linux/spinlock.h>
+> =A0#include <linux/mm.h>
 > +#include <linux/of_mdio.h>
 > =A0#include <linux/of_platform.h>
+> =A0#include <linux/ip.h>
+> =A0#include <linux/tcp.h>
+> @@ -155,17 +156,13 @@ static inline int gfar_uses_fcb(struct gfar_pri=
+vate *priv)
 >
-> =A0#include <linux/netdevice.h>
-> @@ -43,11 +44,9 @@
+> =A0static int gfar_of_init(struct net_device *dev)
+> =A0{
+> - =A0 =A0 =A0 struct device_node *phy, *mdio;
+> - =A0 =A0 =A0 const unsigned int *id;
+> =A0 =A0 =A0 =A0const char *model;
+> =A0 =A0 =A0 =A0const char *ctype;
+> =A0 =A0 =A0 =A0const void *mac_addr;
+> - =A0 =A0 =A0 const phandle *ph;
+> =A0 =A0 =A0 =A0u64 addr, size;
+> =A0 =A0 =A0 =A0int err =3D 0;
+> =A0 =A0 =A0 =A0struct gfar_private *priv =3D netdev_priv(dev);
+> =A0 =A0 =A0 =A0struct device_node *np =3D priv->node;
+> - =A0 =A0 =A0 char bus_name[MII_BUS_ID_SIZE];
 >
-> =A0#define DRIVER_NAME "mpc52xx-fec"
+> =A0 =A0 =A0 =A0if (!np || !of_device_is_available(np))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
+> @@ -228,8 +225,8 @@ static int gfar_of_init(struct net_device *dev)
+> =A0 =A0 =A0 =A0if (of_get_property(np, "fsl,magic-packet", NULL))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0priv->device_flags |=3D FSL_GIANFAR_DE=
+V_HAS_MAGIC_PACKET;
 >
-> -#define FEC5200_PHYADDR_NONE =A0 (-1)
-> -#define FEC5200_PHYADDR_7WIRE =A0(-2)
+> - =A0 =A0 =A0 ph =3D of_get_property(np, "phy-handle", NULL);
+> - =A0 =A0 =A0 if (ph =3D=3D NULL) {
+> + =A0 =A0 =A0 priv->phy_node =3D of_parse_phandle(np, "phy-device", 0=
+);
+> + =A0 =A0 =A0 if (!priv->phy_node) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u32 *fixed_link;
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fixed_link =3D (u32 *)of_get_property(=
+np, "fixed-link", NULL);
+> @@ -237,57 +234,10 @@ static int gfar_of_init(struct net_device *dev)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0err =3D -ENODEV;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto err_out;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
 > -
-> =A0/* Private driver data structure */
-> =A0struct mpc52xx_fec_priv {
-> + =A0 =A0 =A0 struct net_device *ndev;
-> =A0 =A0 =A0 =A0int duplex;
-> =A0 =A0 =A0 =A0int speed;
-> =A0 =A0 =A0 =A0int r_irq;
-> @@ -59,10 +58,11 @@ struct mpc52xx_fec_priv {
-> =A0 =A0 =A0 =A0int msg_enable;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 snprintf(priv->phy_bus_id, sizeof(priv-=
+>phy_bus_id),
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 PHY_ID_=
+=46MT, "0", fixed_link[0]);
+> - =A0 =A0 =A0 } else {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy =3D of_find_node_by_phandle(*ph);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (phy =3D=3D NULL) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D -ENODEV;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_out;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdio =3D of_get_parent(phy);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 id =3D of_get_property(phy, "reg", NULL=
+);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 of_node_put(phy);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 of_node_put(mdio);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 gfar_mdio_bus_name(bus_name, mdio);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 snprintf(priv->phy_bus_id, sizeof(priv-=
+>phy_bus_id), "%s:%02x",
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus_nam=
+e, *id);
+> =A0 =A0 =A0 =A0}
 >
-> =A0 =A0 =A0 =A0/* MDIO link details */
-> - =A0 =A0 =A0 int phy_addr;
-> - =A0 =A0 =A0 unsigned int phy_speed;
-> + =A0 =A0 =A0 unsigned int mdio_speed;
-> + =A0 =A0 =A0 struct device_node *phy_node;
-> =A0 =A0 =A0 =A0struct phy_device *phydev;
-> =A0 =A0 =A0 =A0enum phy_state link;
-> + =A0 =A0 =A0 int seven_wire_mode;
-> =A0};
+> =A0 =A0 =A0 =A0/* Find the TBI PHY. =A0If it's not there, we don't su=
+pport SGMII */
+> - =A0 =A0 =A0 ph =3D of_get_property(np, "tbi-handle", NULL);
+> - =A0 =A0 =A0 if (ph) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct device_node *tbi =3D of_find_nod=
+e_by_phandle(*ph);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct of_device *ofdev;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct mii_bus *bus;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!tbi)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdio =3D of_get_parent(tbi);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!mdio)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 ofdev =3D of_find_device_by_node(mdio);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 of_node_put(mdio);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 id =3D of_get_property(tbi, "reg", NULL=
+);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!id)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 of_node_put(tbi);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus =3D dev_get_drvdata(&ofdev->dev);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->tbiphy =3D bus->phy_map[*id];
+> - =A0 =A0 =A0 }
+> + =A0 =A0 =A0 priv->tbi_node =3D of_parse_phandle(np, "tbi-handle", 0=
+);
 >
+> =A0 =A0 =A0 =A0return 0;
 >
-> @@ -210,66 +210,6 @@ static void mpc52xx_fec_adjust_link(struct net_d=
-evice *dev)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0phy_print_status(phydev);
-> =A0}
->
-> -static int mpc52xx_fec_init_phy(struct net_device *dev)
-> -{
-> - =A0 =A0 =A0 struct mpc52xx_fec_priv *priv =3D netdev_priv(dev);
+> @@ -661,7 +611,6 @@ static int init_phy(struct net_device *dev)
+> =A0 =A0 =A0 =A0uint gigabit_support =3D
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0priv->device_flags & FSL_GIANFAR_DEV_H=
+AS_GIGABIT ?
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0SUPPORTED_1000baseT_Full : 0;
 > - =A0 =A0 =A0 struct phy_device *phydev;
-> - =A0 =A0 =A0 char phy_id[BUS_ID_SIZE];
-> -
-> - =A0 =A0 =A0 snprintf(phy_id, sizeof(phy_id), "%x:%02x",
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (unsigned int)dev->base=
-_addr, priv->phy_addr);
-> -
-> - =A0 =A0 =A0 priv->link =3D PHY_DOWN;
-> - =A0 =A0 =A0 priv->speed =3D 0;
-> - =A0 =A0 =A0 priv->duplex =3D -1;
-> -
-> - =A0 =A0 =A0 phydev =3D phy_connect(dev, phy_id, &mpc52xx_fec_adjust=
-_link, 0, PHY_INTERFACE_MODE_MII);
-> - =A0 =A0 =A0 if (IS_ERR(phydev)) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&dev->dev, "phy_connect failed\=
-n");
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(phydev);
-> - =A0 =A0 =A0 }
-> - =A0 =A0 =A0 dev_info(&dev->dev, "attached phy %i to driver %s\n",
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 phydev->addr, phydev->d=
-rv->name);
-> -
-> - =A0 =A0 =A0 priv->phydev =3D phydev;
-> -
-> - =A0 =A0 =A0 return 0;
-> -}
-> -
-> -static int mpc52xx_fec_phy_start(struct net_device *dev)
-> -{
-> - =A0 =A0 =A0 struct mpc52xx_fec_priv *priv =3D netdev_priv(dev);
-> - =A0 =A0 =A0 int err;
-> -
-> - =A0 =A0 =A0 if (priv->phy_addr < 0)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
-> -
-> - =A0 =A0 =A0 err =3D mpc52xx_fec_init_phy(dev);
-> - =A0 =A0 =A0 if (err) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&dev->dev, "mpc52xx_fec_init_ph=
-y failed\n");
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
-> - =A0 =A0 =A0 }
-> -
-> - =A0 =A0 =A0 /* reset phy - this also wakes it from PDOWN */
-> - =A0 =A0 =A0 phy_write(priv->phydev, MII_BMCR, BMCR_RESET);
-> - =A0 =A0 =A0 phy_start(priv->phydev);
-> -
-> - =A0 =A0 =A0 return 0;
-> -}
-> -
-> -static void mpc52xx_fec_phy_stop(struct net_device *dev)
-> -{
-> - =A0 =A0 =A0 struct mpc52xx_fec_priv *priv =3D netdev_priv(dev);
-> -
-> - =A0 =A0 =A0 if (!priv->phydev)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-> -
-> - =A0 =A0 =A0 phy_disconnect(priv->phydev);
-> - =A0 =A0 =A0 /* power down phy */
-> - =A0 =A0 =A0 phy_stop(priv->phydev);
-> - =A0 =A0 =A0 phy_write(priv->phydev, MII_BMCR, BMCR_PDOWN);
-> -}
-> -
-> =A0static int mpc52xx_fec_phy_mii_ioctl(struct mpc52xx_fec_priv *priv=
-,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct mii_ioctl_data *mii_data, int c=
-md)
-> =A0{
-> @@ -279,25 +219,25 @@ static int mpc52xx_fec_phy_mii_ioctl(struct mpc=
-52xx_fec_priv *priv,
-> =A0 =A0 =A0 =A0return phy_mii_ioctl(priv->phydev, mii_data, cmd);
-> =A0}
+> =A0 =A0 =A0 =A0phy_interface_t interface;
 >
-> -static void mpc52xx_fec_phy_hw_init(struct mpc52xx_fec_priv *priv)
-> -{
-> - =A0 =A0 =A0 struct mpc52xx_fec __iomem *fec =3D priv->fec;
-> -
-> - =A0 =A0 =A0 if (priv->phydev)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-> -
-> - =A0 =A0 =A0 out_be32(&fec->mii_speed, priv->phy_speed);
-> -}
-> -
-> =A0static int mpc52xx_fec_open(struct net_device *dev)
-> =A0{
-> =A0 =A0 =A0 =A0struct mpc52xx_fec_priv *priv =3D netdev_priv(dev);
-> =A0 =A0 =A0 =A0int err =3D -EBUSY;
+> =A0 =A0 =A0 =A0priv->oldlink =3D 0;
+> @@ -670,23 +619,38 @@ static int init_phy(struct net_device *dev)
 >
+> =A0 =A0 =A0 =A0interface =3D gfar_get_interface(dev);
+>
+> - =A0 =A0 =A0 phydev =3D phy_connect(dev, priv->phy_bus_id, &adjust_l=
+ink, 0, interface);
 > + =A0 =A0 =A0 if (priv->phy_node) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->phydev =3D of_phy_connect(priv->n=
-dev, priv->phy_node,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->phydev =3D of_phy_connect(dev, pr=
+iv->phy_node, &adjust_link,
 > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 mpc52xx_fec_adjust_link, 0, 0);
+ =A0 =A0 =A0 =A0 =A0 0, interface);
 > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!priv->phydev) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&dev->dev, "of_=
-phy_connect failed\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&dev->dev, "err=
+or: Could not attach to PHY\n");
 > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
 > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_start(priv->phydev);
 > + =A0 =A0 =A0 }
 > +
-> =A0 =A0 =A0 =A0if (request_irq(dev->irq, &mpc52xx_fec_interrupt, IRQF=
-_SHARED,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0DRIVER_NAME "_ctrl", d=
-ev)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&dev->dev, "ctrl interrupt req=
-uest failed\n");
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto free_phy;
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0if (request_irq(priv->r_irq, &mpc52xx_fec_rx_interrupt=
-, 0,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0DRIVER_NAME "_rx", dev=
-)) {
-> @@ -319,10 +259,6 @@ static int mpc52xx_fec_open(struct net_device *d=
-ev)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto free_irqs;
-> =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 err =3D mpc52xx_fec_phy_start(dev);
-> - =A0 =A0 =A0 if (err)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto free_skbs;
-> -
-> =A0 =A0 =A0 =A0bcom_enable(priv->rx_dmatsk);
-> =A0 =A0 =A0 =A0bcom_enable(priv->tx_dmatsk);
->
-> @@ -332,16 +268,18 @@ static int mpc52xx_fec_open(struct net_device *=
-dev)
->
-> =A0 =A0 =A0 =A0return 0;
->
-> - free_skbs:
-> - =A0 =A0 =A0 mpc52xx_fec_free_rx_buffers(dev, priv->rx_dmatsk);
-> -
-> =A0free_irqs:
-> =A0 =A0 =A0 =A0free_irq(priv->t_irq, dev);
-> =A0free_2irqs:
-> =A0 =A0 =A0 =A0free_irq(priv->r_irq, dev);
-> =A0free_ctrl_irq:
-> =A0 =A0 =A0 =A0free_irq(dev->irq, dev);
-> - out:
-> + free_phy:
-> + =A0 =A0 =A0 if (priv->phydev) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_stop(priv->phydev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_disconnect(priv->phydev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->phydev =3D NULL;
+> + =A0 =A0 =A0 if (priv->tbi_node) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->tbiphy =3D of_phy_connect(dev, pr=
+iv->tbi_node, &adjust_link,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 0, interface);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!priv->tbiphy) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&dev->dev, "err=
+or: Could not attach to TBI\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_tbiphy;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
 > + =A0 =A0 =A0 }
 >
-> =A0 =A0 =A0 =A0return err;
-> =A0}
-> @@ -360,7 +298,12 @@ static int mpc52xx_fec_close(struct net_device *=
-dev)
-> =A0 =A0 =A0 =A0free_irq(priv->r_irq, dev);
-> =A0 =A0 =A0 =A0free_irq(priv->t_irq, dev);
+> =A0 =A0 =A0 =A0if (interface =3D=3D PHY_INTERFACE_MODE_SGMII)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0gfar_configure_serdes(dev);
 >
-> - =A0 =A0 =A0 mpc52xx_fec_phy_stop(dev);
-> + =A0 =A0 =A0 if (priv->phydev) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* power down phy */
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_stop(priv->phydev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_disconnect(priv->phydev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->phydev =3D NULL;
-> + =A0 =A0 =A0 }
->
-> =A0 =A0 =A0 =A0return 0;
-> =A0}
-> @@ -700,7 +643,7 @@ static void mpc52xx_fec_hw_init(struct net_device=
- *dev)
-> =A0 =A0 =A0 =A0/* set phy speed.
-> =A0 =A0 =A0 =A0 * this can't be done in phy driver, since it needs to=
- be called
-> =A0 =A0 =A0 =A0 * before fec stuff (even on resume) */
-> - =A0 =A0 =A0 mpc52xx_fec_phy_hw_init(priv);
-> + =A0 =A0 =A0 out_be32(&fec->mii_speed, priv->mdio_speed);
-> =A0}
->
-> =A0/**
-> @@ -736,7 +679,7 @@ static void mpc52xx_fec_start(struct net_device *=
-dev)
-> =A0 =A0 =A0 =A0rcntrl =3D FEC_RX_BUFFER_SIZE << 16; =A0 =A0 =A0/* max=
- frame length */
-> =A0 =A0 =A0 =A0rcntrl |=3D FEC_RCNTRL_FCE;
->
-> - =A0 =A0 =A0 if (priv->phy_addr !=3D FEC5200_PHYADDR_7WIRE)
-> + =A0 =A0 =A0 if (!priv->seven_wire_mode)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rcntrl |=3D FEC_RCNTRL_MII_MODE;
->
-> =A0 =A0 =A0 =A0if (priv->duplex =3D=3D DUPLEX_FULL)
-> @@ -802,8 +745,6 @@ static void mpc52xx_fec_stop(struct net_device *d=
-ev)
->
-> =A0 =A0 =A0 =A0/* Stop FEC */
-> =A0 =A0 =A0 =A0out_be32(&fec->ecntrl, in_be32(&fec->ecntrl) & ~FEC_EC=
-NTRL_ETHER_EN);
-> -
-> - =A0 =A0 =A0 return;
-> =A0}
->
-> =A0/* reset fec and bestcomm tasks */
-> @@ -821,9 +762,11 @@ static void mpc52xx_fec_reset(struct net_device =
-*dev)
->
-> =A0 =A0 =A0 =A0mpc52xx_fec_hw_init(dev);
->
-> - =A0 =A0 =A0 phy_stop(priv->phydev);
-> - =A0 =A0 =A0 phy_write(priv->phydev, MII_BMCR, BMCR_RESET);
-> - =A0 =A0 =A0 phy_start(priv->phydev);
-> + =A0 =A0 =A0 if (priv->phydev) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_stop(priv->phydev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_write(priv->phydev, MII_BMCR, BMCR_=
-RESET);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_start(priv->phydev);
-> + =A0 =A0 =A0 }
->
-> =A0 =A0 =A0 =A0bcom_fec_rx_reset(priv->rx_dmatsk);
-> =A0 =A0 =A0 =A0bcom_fec_tx_reset(priv->tx_dmatsk);
-> @@ -923,7 +866,6 @@ static const struct net_device_ops mpc52xx_fec_ne=
-tdev_ops =3D {
-> =A0#endif
-> =A0};
->
-> -
-> =A0static int __devinit
-> =A0mpc52xx_fec_probe(struct of_device *op, const struct of_device_id =
-*match)
-> =A0{
-> @@ -931,8 +873,6 @@ mpc52xx_fec_probe(struct of_device *op, const str=
-uct of_device_id *match)
-> =A0 =A0 =A0 =A0struct net_device *ndev;
-> =A0 =A0 =A0 =A0struct mpc52xx_fec_priv *priv =3D NULL;
-> =A0 =A0 =A0 =A0struct resource mem;
-> - =A0 =A0 =A0 struct device_node *phy_node;
-> - =A0 =A0 =A0 const phandle *phy_handle;
-> =A0 =A0 =A0 =A0const u32 *prop;
-> =A0 =A0 =A0 =A0int prop_size;
->
-> @@ -945,6 +885,7 @@ mpc52xx_fec_probe(struct of_device *op, const str=
-uct of_device_id *match)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOMEM;
->
-> =A0 =A0 =A0 =A0priv =3D netdev_priv(ndev);
-> + =A0 =A0 =A0 priv->ndev =3D ndev;
->
-> =A0 =A0 =A0 =A0/* Reserve FEC control zone */
-> =A0 =A0 =A0 =A0rv =3D of_address_to_resource(op->node, 0, &mem);
-> @@ -968,6 +909,7 @@ mpc52xx_fec_probe(struct of_device *op, const str=
-uct of_device_id *match)
-> =A0 =A0 =A0 =A0ndev->watchdog_timeo =A0 =A0=3D FEC_WATCHDOG_TIMEOUT;
-> =A0 =A0 =A0 =A0ndev->base_addr =A0 =A0 =A0 =A0 =3D mem.start;
-> =A0 =A0 =A0 =A0ndev->netdev_ops =3D &mpc52xx_fec_netdev_ops;
-> + =A0 =A0 =A0 SET_NETDEV_DEV(ndev, &op->dev);
->
-> =A0 =A0 =A0 =A0priv->t_irq =3D priv->r_irq =3D ndev->irq =3D NO_IRQ; =
-/* IRQ are free for now */
->
-> @@ -1017,14 +959,9 @@ mpc52xx_fec_probe(struct of_device *op, const s=
-truct of_device_id *match)
-> =A0 =A0 =A0 =A0 */
->
-> =A0 =A0 =A0 =A0/* Start with safe defaults for link connection */
-> - =A0 =A0 =A0 priv->phy_addr =3D FEC5200_PHYADDR_NONE;
-> - =A0 =A0 =A0 priv->speed =3D 100;
-> + =A0 =A0 =A0 priv->speed =3D 10;
-> =A0 =A0 =A0 =A0priv->duplex =3D DUPLEX_HALF;
-> - =A0 =A0 =A0 priv->phy_speed =3D ((mpc52xx_find_ipb_freq(op->node) >=
-> 20) / 5) << 1;
-> -
-> - =A0 =A0 =A0 /* the 7-wire property means don't use MII mode */
-> - =A0 =A0 =A0 if (of_find_property(op->node, "fsl,7-wire-mode", NULL)=
-)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->phy_addr =3D FEC5200_PHYADDR_7WIR=
-E;
-> + =A0 =A0 =A0 priv->mdio_speed =3D ((mpc52xx_find_ipb_freq(op->node) =
->> 20) / 5) << 1;
->
-> =A0 =A0 =A0 =A0/* The current speed preconfigures the speed of the MI=
-I link */
-> =A0 =A0 =A0 =A0prop =3D of_get_property(op->node, "current-speed", &p=
-rop_size);
-> @@ -1033,43 +970,23 @@ mpc52xx_fec_probe(struct of_device *op, const =
-struct of_device_id *match)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0priv->duplex =3D prop[1] ? DUPLEX_FULL=
- : DUPLEX_HALF;
-> =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 /* If there is a phy handle, setup link to that phy */
-> - =A0 =A0 =A0 phy_handle =3D of_get_property(op->node, "phy-handle", =
-&prop_size);
-> - =A0 =A0 =A0 if (phy_handle && (prop_size >=3D sizeof(phandle))) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_node =3D of_find_node_by_phandle(*p=
-hy_handle);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 prop =3D of_get_property(phy_node, "reg=
-", &prop_size);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (prop && (prop_size >=3D sizeof(u32)=
-))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((*prop >=3D 0) && (=
-*prop < PHY_MAX_ADDR))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->p=
-hy_addr =3D *prop;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 of_node_put(phy_node);
-> + =A0 =A0 =A0 /* If there is a phy handle, then get the PHY node */
-> + =A0 =A0 =A0 priv->phy_node =3D of_parse_phandle(op->node, "phy-hand=
-le", 0);
-> +
-> + =A0 =A0 =A0 /* the 7-wire property means don't use MII mode */
-> + =A0 =A0 =A0 if (of_find_property(op->node, "fsl,7-wire-mode", NULL)=
-) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->seven_wire_mode =3D 1;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_info(&ndev->dev, "using 7-wire PHY =
-mode\n");
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0/* Hardware init */
-> =A0 =A0 =A0 =A0mpc52xx_fec_hw_init(ndev);
-> -
-> =A0 =A0 =A0 =A0mpc52xx_fec_reset_stats(ndev);
->
-> - =A0 =A0 =A0 SET_NETDEV_DEV(ndev, &op->dev);
-> -
-> - =A0 =A0 =A0 /* Register the new network device */
-> =A0 =A0 =A0 =A0rv =3D register_netdev(ndev);
-> =A0 =A0 =A0 =A0if (rv < 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto probe_error;
->
-> - =A0 =A0 =A0 /* Now report the link setup */
-> - =A0 =A0 =A0 switch (priv->phy_addr) {
-> - =A0 =A0 =A0 =A0case FEC5200_PHYADDR_NONE:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_info(&ndev->dev, "Fixed speed MII l=
-ink: %i%cD\n",
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0priv->speed, priv->d=
-uplex ? 'F' : 'H');
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> - =A0 =A0 =A0 =A0case FEC5200_PHYADDR_7WIRE:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_info(&ndev->dev, "using 7-wire PHY =
-mode\n");
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> - =A0 =A0 =A0 =A0default:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_info(&ndev->dev, "Using PHY at MDIO=
- address %i\n",
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0priv->phy_addr);
+> - =A0 =A0 =A0 if (IS_ERR(phydev)) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR "%s: Could not attach t=
+o PHY\n", dev->name);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(phydev);
 > - =A0 =A0 =A0 }
 > -
-> =A0 =A0 =A0 =A0/* We're done ! */
-> =A0 =A0 =A0 =A0dev_set_drvdata(&op->dev, ndev);
+> =A0 =A0 =A0 =A0/* Remove any features not supported by the controller=
+ */
+> - =A0 =A0 =A0 phydev->supported &=3D (GFAR_SUPPORTED | gigabit_suppor=
+t);
+> - =A0 =A0 =A0 phydev->advertising =3D phydev->supported;
+> -
+> - =A0 =A0 =A0 priv->phydev =3D phydev;
+> + =A0 =A0 =A0 priv->phydev->supported &=3D (GFAR_SUPPORTED | gigabit_=
+support);
+> + =A0 =A0 =A0 priv->phydev->advertising =3D priv->phydev->supported;
 >
-> diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_=
-phy.c
-> index dd9bfa4..fec9f24 100644
-> --- a/drivers/net/fec_mpc52xx_phy.c
-> +++ b/drivers/net/fec_mpc52xx_phy.c
-> @@ -14,12 +14,14 @@
-> =A0#include <linux/netdevice.h>
+> =A0 =A0 =A0 =A0return 0;
+> +
+> + err_tbiphy:
+> + =A0 =A0 =A0 if (priv->phy_node)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_disconnect(priv->phydev);
+> + =A0 =A0 =A0 priv->phydev =3D NULL;
+> + =A0 =A0 =A0 return -ENODEV;
+> =A0}
+>
+> =A0/*
+> diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+> index eaa8689..d3d56a9 100644
+> --- a/drivers/net/gianfar.h
+> +++ b/drivers/net/gianfar.h
+> @@ -775,7 +775,8 @@ struct gfar_private {
+> =A0 =A0 =A0 =A0spinlock_t bflock;
+>
+> =A0 =A0 =A0 =A0phy_interface_t interface;
+> - =A0 =A0 =A0 char =A0 =A0phy_bus_id[BUS_ID_SIZE];
+> + =A0 =A0 =A0 struct device_node *phy_node;
+> + =A0 =A0 =A0 struct device_node *tbi_node;
+> =A0 =A0 =A0 =A0u32 device_flags;
+> =A0 =A0 =A0 =A0unsigned char rx_csum_enable:1,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0extended_hash:1,
+> diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+> index f49a426..c6d77bd 100644
+> --- a/drivers/net/gianfar_mii.c
+> +++ b/drivers/net/gianfar_mii.c
+> @@ -35,6 +35,7 @@
+> =A0#include <linux/mii.h>
 > =A0#include <linux/phy.h>
-> =A0#include <linux/of_platform.h>
+> =A0#include <linux/of.h>
 > +#include <linux/of_mdio.h>
+> =A0#include <linux/of_platform.h>
+>
 > =A0#include <asm/io.h>
-> =A0#include <asm/mpc52xx.h>
-> =A0#include "fec_mpc52xx.h"
+> @@ -152,45 +153,6 @@ static int gfar_mdio_reset(struct mii_bus *bus)
+> =A0 =A0 =A0 =A0return 0;
+> =A0}
 >
-> =A0struct mpc52xx_fec_mdio_priv {
-> =A0 =A0 =A0 =A0struct mpc52xx_fec __iomem *regs;
-> + =A0 =A0 =A0 int mdio_irqs[PHY_MAX_ADDR];
-> =A0};
->
-> =A0static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_=
-id,
-> @@ -27,7 +29,7 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus=
- *bus, int phy_id,
-> =A0{
-> =A0 =A0 =A0 =A0struct mpc52xx_fec_mdio_priv *priv =3D bus->priv;
-> =A0 =A0 =A0 =A0struct mpc52xx_fec __iomem *fec;
-> - =A0 =A0 =A0 int tries =3D 100;
-> + =A0 =A0 =A0 int tries =3D 3;
->
-> =A0 =A0 =A0 =A0value |=3D (phy_id << FEC_MII_DATA_PA_SHIFT) & FEC_MII=
-_DATA_PA_MSK;
-> =A0 =A0 =A0 =A0value |=3D (reg << FEC_MII_DATA_RA_SHIFT) & FEC_MII_DA=
-TA_RA_MSK;
-> @@ -38,7 +40,7 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus=
- *bus, int phy_id,
->
-> =A0 =A0 =A0 =A0/* wait for it to finish, this takes about 23 us on li=
-te5200b */
-> =A0 =A0 =A0 =A0while (!(in_be32(&fec->ievent) & FEC_IEVENT_MII) && --=
-tries)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 udelay(5);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 msleep(1);
->
-> =A0 =A0 =A0 =A0if (!tries)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ETIMEDOUT;
-> @@ -64,7 +66,6 @@ static int mpc52xx_fec_mdio_probe(struct of_device =
-*of,
-> =A0{
-> =A0 =A0 =A0 =A0struct device *dev =3D &of->dev;
-> =A0 =A0 =A0 =A0struct device_node *np =3D of->node;
+> -/* Allocate an array which provides irq #s for each PHY on the given=
+ bus */
+> -static int *create_irq_map(struct device_node *np)
+> -{
+> - =A0 =A0 =A0 int *irqs;
+> - =A0 =A0 =A0 int i;
 > - =A0 =A0 =A0 struct device_node *child =3D NULL;
-> =A0 =A0 =A0 =A0struct mii_bus *bus;
-> =A0 =A0 =A0 =A0struct mpc52xx_fec_mdio_priv *priv;
-> =A0 =A0 =A0 =A0struct resource res =3D {};
-> @@ -85,22 +86,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device=
- *of,
-> =A0 =A0 =A0 =A0bus->write =3D mpc52xx_fec_mdio_write;
->
-> =A0 =A0 =A0 =A0/* setup irqs */
-> - =A0 =A0 =A0 bus->irq =3D kmalloc(sizeof(bus->irq[0]) * PHY_MAX_ADDR=
-, GFP_KERNEL);
-> - =A0 =A0 =A0 if (bus->irq =3D=3D NULL) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D -ENOMEM;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_free;
-> - =A0 =A0 =A0 }
-> - =A0 =A0 =A0 for (i=3D0; i<PHY_MAX_ADDR; i++)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->irq[i] =3D PHY_POLL;
+> -
+> - =A0 =A0 =A0 irqs =3D kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL)=
+;
+> -
+> - =A0 =A0 =A0 if (!irqs)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+> -
+> - =A0 =A0 =A0 for (i =3D 0; i < PHY_MAX_ADDR; i++)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 irqs[i] =3D PHY_POLL;
 > -
 > - =A0 =A0 =A0 while ((child =3D of_get_next_child(np, child)) !=3D NU=
 LL) {
 > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 int irq =3D irq_of_parse_and_map(child,=
  0);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (irq !=3D NO_IRQ) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 const u32 *id =3D of_ge=
-t_property(child, "reg", NULL);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (id)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->ir=
-q[*id] =3D irq;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 const u32 *id;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (irq =3D=3D NO_IRQ)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 id =3D of_get_property(child, "reg", NU=
+LL);
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!id)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (*id < PHY_MAX_ADDR && *id >=3D 0)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 irqs[*id] =3D irq;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_WARNING "%s=
+: "
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 "%d is not a valid PHY address\n",
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 np->full_name, *id);
 > - =A0 =A0 =A0 }
-> + =A0 =A0 =A0 bus->irq =3D priv->mdio_irqs;
+> -
+> - =A0 =A0 =A0 return irqs;
+> -}
+> -
+> -
+> =A0void gfar_mdio_bus_name(char *name, struct device_node *np)
+> =A0{
+> =A0 =A0 =A0 =A0const u32 *reg;
+> @@ -253,7 +215,7 @@ static int gfar_mdio_probe(struct of_device *ofde=
+v,
 >
-> =A0 =A0 =A0 =A0/* setup registers */
-> =A0 =A0 =A0 =A0err =3D of_address_to_resource(np, 0, &res);
-> @@ -122,7 +108,7 @@ static int mpc52xx_fec_mdio_probe(struct of_devic=
-e *of,
-> =A0 =A0 =A0 =A0out_be32(&priv->regs->mii_speed,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0((mpc52xx_find_ipb_freq(of->node) >> 2=
-0) / 5) << 1);
+> =A0 =A0 =A0 =A0new_bus->priv =3D (void __force *)regs;
 >
-> - =A0 =A0 =A0 err =3D mdiobus_register(bus);
-> + =A0 =A0 =A0 err =3D of_mdiobus_register(bus, np);
-> =A0 =A0 =A0 =A0if (err)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out_unmap;
+> - =A0 =A0 =A0 new_bus->irq =3D create_irq_map(np);
+> + =A0 =A0 =A0 new_bus->irq =3D kcalloc(PHY_MAX_ADDR, sizeof(int), GFP=
+_KERNEL);
 >
+> =A0 =A0 =A0 =A0if (new_bus->irq =3D=3D NULL) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0err =3D -ENOMEM;
+> @@ -301,15 +263,7 @@ static int gfar_mdio_probe(struct of_device *ofd=
+ev,
+>
+> =A0 =A0 =A0 =A0gfar_write(&enet_regs->tbipa, tbiaddr);
+>
+> - =A0 =A0 =A0 /*
+> - =A0 =A0 =A0 =A0* The TBIPHY-only buses will find PHYs at every addr=
+ess,
+> - =A0 =A0 =A0 =A0* so we mask them all but the TBI
+> - =A0 =A0 =A0 =A0*/
+> - =A0 =A0 =A0 if (!of_device_is_compatible(np, "fsl,gianfar-mdio"))
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_bus->phy_mask =3D ~(1 << tbiaddr);
+> -
+> - =A0 =A0 =A0 err =3D mdiobus_register(new_bus);
+> -
+> + =A0 =A0 =A0 err =3D of_mdiobus_register(new_bus, np);
+> =A0 =A0 =A0 =A0if (err !=3D 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk (KERN_ERR "%s: Cannot register =
+as MDIO bus\n",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0new_bu=
+s->name);
 >
 >
 
