@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tipc: fix non-const printf format arguments
-Date: Wed, 18 Mar 2009 19:11:41 -0700 (PDT)
-Message-ID: <20090318.191141.262845346.davem@davemloft.net>
-References: <20090317112832.66832ce4@nehalam>
+Subject: Re: [PATCH] fix sctp breakage
+Date: Wed, 18 Mar 2009 19:13:05 -0700 (PDT)
+Message-ID: <20090318.191305.106590466.davem@davemloft.net>
+References: <20090318031405.GX28946@ZenIV.linux.org.uk>
+	<49C0E8FC.70706@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: per.linden@ericsson.com, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55802
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55808
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751383AbZCSCLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 22:11:55 -0400
-In-Reply-To: <20090317112832.66832ce4@nehalam>
+	by vger.kernel.org with ESMTP id S1753636AbZCSCNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 22:13:18 -0400
+In-Reply-To: <49C0E8FC.70706@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 17 Mar 2009 11:28:32 -0700
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 18 Mar 2009 08:28:44 -0400
 
-> Fix warnings from current gcc about using non-const strings as printf args
-> in TIPC. Compile tested only (not a TIPC user).
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Al Viro wrote:
+> > broken by commit 5e739d1752aca4e8f3e794d431503bfca3162df4; AFAICS should
+> > be -stable fodder as well...
+> > 
+> > Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+ ...
+> ACK.  That wasn't a good way to write that increment.  I should have thought more
+> about it, but at the time it seemed like a good idea...
 
-Applied to net-next-2.6, thanks.
+Applied, thanks.
