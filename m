@@ -1,407 +1,195 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 1/3] e1000e: add support for 82583 device id
-Date: Thu, 19 Mar 2009 04:12:27 -0700
-Message-ID: <20090319111226.11601.40603.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 2/3] e1000e: fix dma error handling issues
+Date: Thu, 19 Mar 2009 04:12:50 -0700
+Message-ID: <20090319111250.11601.23708.stgit@lost.foo-projects.org>
+References: <20090319111226.11601.40603.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Radheka Godse <radheka.godse@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:58452
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753085AbZCSLMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:12:51 -0400
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:50523
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754936AbZCSLNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:13:10 -0400
+In-Reply-To: <20090319111226.11601.40603.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Add device ID and related support for 82583 mac.
+There were a few issues I noticed in e1000e. These include a double free
+of the skb if mapping fails, and the fact that context descriptors appear
+to be left in the descriptor ring after the failure.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Radheka Godse <radheka.godse@intel.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |  129 +++++++++++++++++++++++++++++++++++-------
- drivers/net/e1000e/e1000.h   |    2 +
- drivers/net/e1000e/ethtool.c |    1 
- drivers/net/e1000e/hw.h      |    2 +
- drivers/net/e1000e/netdev.c  |    4 +
- 5 files changed, 116 insertions(+), 22 deletions(-)
+ drivers/net/e1000e/netdev.c |   76 ++++++++++++++++++-------------------------
+ 1 files changed, 32 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 51f8e84..6c01a20 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -40,6 +40,7 @@
-  * 82573E Gigabit Ethernet Controller (Copper)
-  * 82573L Gigabit Ethernet Controller
-  * 82574L Gigabit Network Connection
-+ * 82583V Gigabit Network Connection
-  */
- 
- #include <linux/netdevice.h>
-@@ -100,6 +101,7 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
- 		phy->type		 = e1000_phy_m88;
- 		break;
- 	case e1000_82574:
-+	case e1000_82583:
- 		phy->type		 = e1000_phy_bm;
- 		break;
- 	default:
-@@ -122,6 +124,7 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
- 			return -E1000_ERR_PHY;
- 		break;
- 	case e1000_82574:
-+	case e1000_82583:
- 		if (phy->id != BME1000_E_PHY_ID_R2)
- 			return -E1000_ERR_PHY;
- 		break;
-@@ -165,6 +168,7 @@ static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
- 	switch (hw->mac.type) {
- 	case e1000_82573:
- 	case e1000_82574:
-+	case e1000_82583:
- 		if (((eecd >> 15) & 0x3) == 0x3) {
- 			nvm->type = e1000_nvm_flash_hw;
- 			nvm->word_size = 2048;
-@@ -262,6 +266,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 
- 	switch (hw->mac.type) {
- 	case e1000_82574:
-+	case e1000_82583:
- 		func->check_mng_mode = e1000_check_mng_mode_82574;
- 		func->led_on = e1000_led_on_82574;
- 		break;
-@@ -375,6 +380,7 @@ static s32 e1000_get_phy_id_82571(struct e1000_hw *hw)
- 		return e1000e_get_phy_id(hw);
- 		break;
- 	case e1000_82574:
-+	case e1000_82583:
- 		ret_val = e1e_rphy(hw, PHY_ID1, &phy_id);
- 		if (ret_val)
- 			return ret_val;
-@@ -464,8 +470,15 @@ static s32 e1000_acquire_nvm_82571(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	if (hw->mac.type != e1000_82573 && hw->mac.type != e1000_82574)
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
-+		break;
-+	default:
- 		ret_val = e1000e_acquire_nvm(hw);
-+		break;
-+	}
- 
- 	if (ret_val)
- 		e1000_put_hw_semaphore_82571(hw);
-@@ -505,6 +518,7 @@ static s32 e1000_write_nvm_82571(struct e1000_hw *hw, u16 offset, u16 words,
- 	switch (hw->mac.type) {
- 	case e1000_82573:
- 	case e1000_82574:
-+	case e1000_82583:
- 		ret_val = e1000_write_nvm_eewr_82571(hw, offset, words, data);
- 		break;
- 	case e1000_82571:
-@@ -779,7 +793,10 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	 * Must acquire the MDIO ownership before MAC reset.
- 	 * Ownership defaults to firmware after a reset.
- 	 */
--	if (hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574) {
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
- 		extcnf_ctrl = er32(EXTCNF_CTRL);
- 		extcnf_ctrl |= E1000_EXTCNF_CTRL_MDIO_SW_OWNERSHIP;
- 
-@@ -795,6 +812,9 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 			msleep(2);
- 			i++;
- 		} while (i < MDIO_OWNERSHIP_TIMEOUT);
-+		break;
-+	default:
-+		break;
- 	}
- 
- 	ctrl = er32(CTRL);
-@@ -820,8 +840,16 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	 * Need to wait for Phy configuration completion before accessing
- 	 * NVM and Phy.
- 	 */
--	if (hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574)
-+
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
- 		msleep(25);
-+		break;
-+	default:
-+		break;
-+	}
- 
- 	/* Clear any pending interrupt events. */
- 	ew32(IMC, 0xffffffff);
-@@ -891,17 +919,22 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	ew32(TXDCTL(0), reg_data);
- 
- 	/* ...for both queues. */
--	if (mac->type != e1000_82573 && mac->type != e1000_82574) {
-+	switch (mac->type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
-+		e1000e_enable_tx_pkt_filtering(hw);
-+		reg_data = er32(GCR);
-+		reg_data |= E1000_GCR_L1_ACT_WITHOUT_L0S_RX;
-+		ew32(GCR, reg_data);
-+		break;
-+	default:
- 		reg_data = er32(TXDCTL(1));
- 		reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
- 			   E1000_TXDCTL_FULL_TX_DESC_WB |
- 			   E1000_TXDCTL_COUNT_DESC;
- 		ew32(TXDCTL(1), reg_data);
--	} else {
--		e1000e_enable_tx_pkt_filtering(hw);
--		reg_data = er32(GCR);
--		reg_data |= E1000_GCR_L1_ACT_WITHOUT_L0S_RX;
--		ew32(GCR, reg_data);
-+		break;
- 	}
- 
- 	/*
-@@ -966,18 +999,30 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 	}
- 
- 	/* Device Control */
--	if (hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574) {
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
- 		reg = er32(CTRL);
- 		reg &= ~(1 << 29);
- 		ew32(CTRL, reg);
-+		break;
-+	default:
-+		break;
- 	}
- 
- 	/* Extended Device Control */
--	if (hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574) {
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
- 		reg = er32(CTRL_EXT);
- 		reg &= ~(1 << 23);
- 		reg |= (1 << 22);
- 		ew32(CTRL_EXT, reg);
-+		break;
-+	default:
-+		break;
- 	}
- 
- 	if (hw->mac.type == e1000_82571) {
-@@ -999,7 +1044,9 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 
- 
- 	/* PCI-Ex Control Registers */
--	if (hw->mac.type == e1000_82574) {
-+	switch (hw->mac.type) {
-+	case e1000_82574:
-+	case e1000_82583:
- 		reg = er32(GCR);
- 		reg |= (1 << 22);
- 		ew32(GCR, reg);
-@@ -1007,6 +1054,9 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 		reg = er32(GCR2);
- 		reg |= 1;
- 		ew32(GCR2, reg);
-+		break;
-+	default:
-+		break;
- 	}
- 
- 	return;
-@@ -1026,7 +1076,10 @@ void e1000e_clear_vfta(struct e1000_hw *hw)
- 	u32 vfta_offset = 0;
- 	u32 vfta_bit_in_reg = 0;
- 
--	if (hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574) {
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
- 		if (hw->mng_cookie.vlan_id != 0) {
- 			/*
- 			 * The VFTA is a 4096b bit-field, each identifying
-@@ -1041,6 +1094,9 @@ void e1000e_clear_vfta(struct e1000_hw *hw)
- 			vfta_bit_in_reg = 1 << (hw->mng_cookie.vlan_id &
- 					       E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
- 		}
-+		break;
-+	default:
-+		break;
- 	}
- 	for (offset = 0; offset < E1000_VLAN_FILTER_TBL_SIZE; offset++) {
- 		/*
-@@ -1139,9 +1195,16 @@ static s32 e1000_setup_link_82571(struct e1000_hw *hw)
- 	 * the default flow control setting, so we explicitly
- 	 * set it to full.
- 	 */
--	if ((hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574) &&
--	    hw->fc.requested_mode == e1000_fc_default)
--		hw->fc.requested_mode = e1000_fc_full;
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
-+		if (hw->fc.requested_mode == e1000_fc_default)
-+			hw->fc.requested_mode = e1000_fc_full;
-+		break;
-+	default:
-+		break;
-+	}
- 
- 	return e1000e_setup_link(hw);
- }
-@@ -1362,11 +1425,19 @@ static s32 e1000_valid_led_default_82571(struct e1000_hw *hw, u16 *data)
- 		return ret_val;
- 	}
- 
--	if ((hw->mac.type == e1000_82573 || hw->mac.type == e1000_82574) &&
--	    *data == ID_LED_RESERVED_F746)
--		*data = ID_LED_DEFAULT_82573;
--	else if (*data == ID_LED_RESERVED_0000 || *data == ID_LED_RESERVED_FFFF)
--		*data = ID_LED_DEFAULT;
-+	switch (hw->mac.type) {
-+	case e1000_82573:
-+	case e1000_82574:
-+	case e1000_82583:
-+		if (*data == ID_LED_RESERVED_F746)
-+			*data = ID_LED_DEFAULT_82573;
-+		break;
-+	default:
-+		if (*data == ID_LED_RESERVED_0000 ||
-+		    *data == ID_LED_RESERVED_FFFF)
-+			*data = ID_LED_DEFAULT;
-+		break;
-+	}
- 
- 	return 0;
- }
-@@ -1659,3 +1730,19 @@ struct e1000_info e1000_82574_info = {
- 	.nvm_ops		= &e82571_nvm_ops,
- };
- 
-+struct e1000_info e1000_82583_info = {
-+	.mac			= e1000_82583,
-+	.flags			= FLAG_HAS_HW_VLAN_FILTER
-+				  | FLAG_HAS_WOL
-+				  | FLAG_APME_IN_CTRL3
-+				  | FLAG_RX_CSUM_ENABLED
-+				  | FLAG_HAS_SMART_POWER_DOWN
-+				  | FLAG_HAS_AMT
-+				  | FLAG_HAS_CTRLEXT_ON_LOAD,
-+	.pba			= 20,
-+	.get_variants		= e1000_get_variants_82571,
-+	.mac_ops		= &e82571_mac_ops,
-+	.phy_ops		= &e82_phy_ops_bm,
-+	.nvm_ops		= &e82571_nvm_ops,
-+};
-+
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 28bf9a5..f37360a 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -101,6 +101,7 @@ enum e1000_boards {
- 	board_82572,
- 	board_82573,
- 	board_82574,
-+	board_82583,
- 	board_80003es2lan,
- 	board_ich8lan,
- 	board_ich9lan,
-@@ -399,6 +400,7 @@ extern struct e1000_info e1000_82571_info;
- extern struct e1000_info e1000_82572_info;
- extern struct e1000_info e1000_82573_info;
- extern struct e1000_info e1000_82574_info;
-+extern struct e1000_info e1000_82583_info;
- extern struct e1000_info e1000_ich8_info;
- extern struct e1000_info e1000_ich9_info;
- extern struct e1000_info e1000_ich10_info;
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 2557aee..4d25ede 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -790,6 +790,7 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
- 		break;
- 	case e1000_82573:
- 	case e1000_82574:
-+	case e1000_82583:
- 	case e1000_ich8lan:
- 	case e1000_ich9lan:
- 	case e1000_ich10lan:
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 5cb428c..11a2f20 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -339,6 +339,7 @@ enum e1e_registers {
- #define E1000_DEV_ID_82573E_IAMT		0x108C
- #define E1000_DEV_ID_82573L			0x109A
- #define E1000_DEV_ID_82574L			0x10D3
-+#define E1000_DEV_ID_82583V                     0x150C
- 
- #define E1000_DEV_ID_80003ES2LAN_COPPER_DPT	0x1096
- #define E1000_DEV_ID_80003ES2LAN_SERDES_DPT	0x1098
-@@ -376,6 +377,7 @@ enum e1000_mac_type {
- 	e1000_82572,
- 	e1000_82573,
- 	e1000_82574,
-+	e1000_82583,
- 	e1000_80003es2lan,
- 	e1000_ich8lan,
- 	e1000_ich9lan,
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index e74eb3c..402d2dd 100644
+index 402d2dd..da876d5 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -57,6 +57,7 @@ static const struct e1000_info *e1000_info_tbl[] = {
- 	[board_82572]		= &e1000_82572_info,
- 	[board_82573]		= &e1000_82573_info,
- 	[board_82574]		= &e1000_82574_info,
-+	[board_82583]		= &e1000_82583_info,
- 	[board_80003es2lan]	= &e1000_es2_info,
- 	[board_ich8lan]		= &e1000_ich8_info,
- 	[board_ich9lan]		= &e1000_ich9_info,
-@@ -3312,7 +3313,7 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+@@ -574,6 +574,7 @@ static void e1000_put_txbuf(struct e1000_adapter *adapter,
+ 		dev_kfree_skb_any(buffer_info->skb);
+ 		buffer_info->skb = NULL;
+ 	}
++	buffer_info->time_stamp = 0;
+ }
  
- 	adapter->stats.algnerrc += er32(ALGNERRC);
- 	adapter->stats.rxerrc += er32(RXERRC);
--	if (hw->mac.type != e1000_82574)
-+	if ((hw->mac.type != e1000_82574) && (hw->mac.type != e1000_82583))
- 		adapter->stats.tncrs += er32(TNCRS);
- 	adapter->stats.cexterr += er32(CEXTERR);
- 	adapter->stats.tsctc += er32(TSCTC);
-@@ -5134,6 +5135,7 @@ static struct pci_device_id e1000_pci_tbl[] = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82573L), board_82573 },
+ static void e1000_print_tx_hang(struct e1000_adapter *adapter)
+@@ -678,17 +679,10 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+ 	}
  
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82574L), board_82574 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82583V), board_82583 },
+ 	if (adapter->detect_tx_hung) {
+-		/*
+-		 * Detect a transmit hang in hardware, this serializes the
+-		 * check with the clearing of time_stamp and movement of i
+-		 */
++		/* Detect a transmit hang in hardware, this serializes the
++		 * check with the clearing of time_stamp and movement of i */
+ 		adapter->detect_tx_hung = 0;
+-		/*
+-		 * read barrier to make sure that the ->dma member and time
+-		 * stamp are updated fully
+-		 */
+-		smp_rmb();
+-		if (tx_ring->buffer_info[eop].dma &&
++		if (tx_ring->buffer_info[eop].time_stamp &&
+ 		    time_after(jiffies, tx_ring->buffer_info[eop].time_stamp
+ 			       + (adapter->tx_timeout_factor * HZ))
+ 		    && !(er32(STATUS) & E1000_STATUS_TXOFF)) {
+@@ -3824,39 +3818,41 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 			unsigned int mss)
+ {
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
++	struct e1000_buffer *buffer_info;
+ 	unsigned int len = skb_headlen(skb);
+ 	unsigned int offset, size, count = 0, i;
+ 	unsigned int f;
+-	dma_addr_t map;
++	dma_addr_t *map;
  
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_80003ES2LAN_COPPER_DPT),
- 	  board_80003es2lan },
+ 	i = tx_ring->next_to_use;
+ 
+ 	if (skb_dma_map(&adapter->pdev->dev, skb, DMA_TO_DEVICE)) {
+ 		dev_err(&adapter->pdev->dev, "TX DMA map failed\n");
+ 		adapter->tx_dma_failed++;
+-		dev_kfree_skb(skb);
+-		return -2;
++		return 0;
+ 	}
+ 
+-	map = skb_shinfo(skb)->dma_maps[0];
++	map = skb_shinfo(skb)->dma_maps;
+ 	offset = 0;
+ 
+ 	while (len) {
+-		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
++		buffer_info = &tx_ring->buffer_info[i];
+ 		size = min(len, max_per_txd);
+ 
+ 		buffer_info->length = size;
+-		/* set time_stamp *before* dma to help avoid a possible race */
+ 		buffer_info->time_stamp = jiffies;
+-		buffer_info->dma = map + offset;
+ 		buffer_info->next_to_watch = i;
++		buffer_info->dma = map[0] + offset;
++		count++;
+ 
+ 		len -= size;
+ 		offset += size;
+-		count++;
+-		i++;
+-		if (i == tx_ring->count)
+-			i = 0;
++
++		if (len) {
++			i++;
++			if (i == tx_ring->count)
++				i = 0;
++		}
+ 	}
+ 
+ 	for (f = 0; f < nr_frags; f++) {
+@@ -3864,37 +3860,29 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = frag->size;
+-		map = skb_shinfo(skb)->dma_maps[f + 1];
+ 		offset = 0;
+ 
+ 		while (len) {
+-			struct e1000_buffer *buffer_info;
++			i++;
++			if (i == tx_ring->count)
++				i = 0;
++
+ 			buffer_info = &tx_ring->buffer_info[i];
+ 			size = min(len, max_per_txd);
+ 
+ 			buffer_info->length = size;
+ 			buffer_info->time_stamp = jiffies;
+-			buffer_info->dma = map + offset;
+ 			buffer_info->next_to_watch = i;
++			buffer_info->dma = map[f + 1] + offset;
+ 
+ 			len -= size;
+ 			offset += size;
+ 			count++;
+-
+-			i++;
+-			if (i == tx_ring->count)
+-				i = 0;
+ 		}
+ 	}
+ 
+-	if (i == 0)
+-		i = tx_ring->count - 1;
+-	else
+-		i--;
+-
+ 	tx_ring->buffer_info[i].skb = skb;
+ 	tx_ring->buffer_info[first].next_to_watch = i;
+-	smp_wmb();
+ 
+ 	return count;
+ }
+@@ -4145,20 +4133,20 @@ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		tx_flags |= E1000_TX_FLAGS_IPV4;
+ 
++	/* if count is 0 then mapping error has occured */
+ 	count = e1000_tx_map(adapter, skb, first, max_per_txd, nr_frags, mss);
+-	if (count < 0) {
+-		/* handle pci_map_single() error in e1000_tx_map */
++	if (count) {
++		e1000_tx_queue(adapter, tx_flags, count);
++		netdev->trans_start = jiffies;
++		/* Make sure there is space in the ring for the next send. */
++		e1000_maybe_stop_tx(netdev, MAX_SKB_FRAGS + 2);
++
++	} else {
+ 		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
++		tx_ring->buffer_info[first].time_stamp = 0;
++		tx_ring->next_to_use = first;
+ 	}
+ 
+-	e1000_tx_queue(adapter, tx_flags, count);
+-
+-	netdev->trans_start = jiffies;
+-
+-	/* Make sure there is space in the ring for the next send. */
+-	e1000_maybe_stop_tx(netdev, MAX_SKB_FRAGS + 2);
+-
+ 	return NETDEV_TX_OK;
+ }
+ 
 
