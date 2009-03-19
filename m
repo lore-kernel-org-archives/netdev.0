@@ -1,41 +1,48 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] bonding: allow bond in mode balance-alb to work
-	properly in bridge
-Date: Thu, 19 Mar 2009 12:19:28 +0100
-Message-ID: <20090319111927.GD4123@psychotron.englab.brq.redhat.com>
-References: <20090316111127.GB3484@psychotron.englab.brq.redhat.com> <20090318.232003.30974750.davem@davemloft.net> <20090319084444.GA4123@psychotron.englab.brq.redhat.com> <20090319.032143.08849045.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/3] ixgbe: Fix PCI bus reporting on driver load for
+	82598 after 82599 merge
+Date: Thu, 19 Mar 2009 04:23:29 -0700
+Message-ID: <20090319112328.11957.63213.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54144 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbZCSLVA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 07:21:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20090319.032143.08849045.davem@davemloft.net>
+Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:50197
+	"EHLO QMTA15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752338AbZCSLXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:23:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 19, 2009 at 11:21:43AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jpirko@redhat.com>
->Date: Thu, 19 Mar 2009 09:44:45 +0100
->
->> Yes I was looking at this thing yesterday (uc_list). But this list serves
->> to different purpose. Do you think that it will be correct to use it for this? I
->> would maybe like to make a new list similar to this for our purpose
->> (say addr_list). I think it would be more correct.
->
->Whatever you do with that list privately inside of the bonding
->driver should be fine.
-Well I do not need it only inside the bonding driver. I want bridge to use this
-list when adding a device in it and get mac addresses from there into its
-hashlist (to recognize these addresses as local).
->
->It might upset something in the generic code if you don't clean
->it up before deregistration of the bonding device, so just be
->tidy.
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+
+82598's PCI bus reporting on driver load was broken after 82599 merged.
+This results in incorrect reporting, and an erroneous warning message
+that the 82598 is in a PCIe slot that isn't fast enough to run 10GbE.
+
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_82598.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index 623737f..ed265a7 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -79,6 +79,9 @@ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ 	s32 ret_val = 0;
+ 	u16 list_offset, data_offset;
+ 
++	/* Set the bus information prior to PHY identification */
++	mac->ops.get_bus_info(hw);
++
+ 	/* Call PHY identify routine to get the phy type */
+ 	ixgbe_identify_phy_generic(hw);
+ 
+
