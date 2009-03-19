@@ -1,42 +1,87 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: IPv6 address printf format specifier
-Date: Thu, 19 Mar 2009 12:11:27 -0400
-Message-ID: <2810B800-C22B-4EB6-97FC-80FBDCD955FE@oracle.com>
-References: <49BE889C.8080602@hp.com> <20090318.185826.221840814.davem@davemloft.net> <49C1AD56.5000608@hp.com> <20090318.223013.142429036.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Tomi Orava <tomimo@ncircle.nullnet.fi>
+Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
+Date: Thu, 19 Mar 2009 18:23:54 +0200
+Message-ID: <49C2719A.8080905@ncircle.nullnet.fi>
+References: <bug-12886-10286@http.bugzilla.kernel.org/> <200903172223.14608.rjw@sisk.pl> <919358a27b164c5f76cf42d3b3063050.squirrel@ncircle.nullnet.fi> <200903181614.08724.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, vladislav.yasevich@hp.com
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:49404 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757260AbZCSQLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 12:11:40 -0400
-In-Reply-To: <20090318.223013.142429036.davem@davemloft.net>
+Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:49679 "EHLO
+	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045AbZCSQYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 12:24:04 -0400
+In-Reply-To: <200903181614.08724.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mar 19, 2009, at Mar 19, 2009, 1:30 AM, David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Wed, 18 Mar 2009 22:26:30 -0400
->
->> There are multiple different forms of presenting addresses, all of
->> which are valid and non of which will provide for sting equality.
->> Regardless of how we represent our IPv6 addresses, there is a chance
->> that it will cause interoperability issues and the only way to truly
->> solve it is to change applications to compare addresses in their
->> true numerical representation.
->
-> Or to, they themselves, canonicalize the text representation before
-> comparison.
+Hi,
 
-Thanks, this was helpful.
+> Hm, are you sure the commit in question _is_ in 2.6.28.y?  I can't see it in
+> there.  It is in the current Linus' tree, but not in v2.6.28 and surely not in
+> -stable.  Do you use a distro kernel?
 
-We had considered converting the string address to a sockaddr and back  
-in user space, and that sounds like a good way to ensure we get the  
-same presentation address for comparison.
+Ok, I've now verified that I did indeed mess up with the commit
+mentioned previously. In other words the stable series 2.6.28.x
+doesn't support the suspend feature on my Asus A7V880 at all.
+The bios option is not respected at all and the command
+'ethtool -s eth0 wol g' doesn't enable the suspend any better.
 
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+However, the commit taken from main branch actually makes also
+the stable series to work with this motherboard. No additional
+changes are needed, it just works out of the box.
+
+Sorry about the mess up.
+
+Regards,
+Tomi Orava
+
+>>> Also, please check if the appended patch helps (of course, without
+>>> reverting
+>>> the commit).
+>>>
+>>> ---
+>>>  drivers/net/skge.c |    5 +++--
+>>>  1 file changed, 3 insertions(+), 2 deletions(-)
+>>>
+>>> Index: linux-2.6/drivers/net/skge.c
+>>> ===================================================================
+>>> --- linux-2.6.orig/drivers/net/skge.c
+>>> +++ linux-2.6/drivers/net/skge.c
+>>> @@ -3856,8 +3856,9 @@ static struct net_device *skge_devinit(s
+>>>  	skge->speed = -1;
+>>>  	skge->advertising = skge_supported_modes(hw);
+>>>
+>>> -	if (device_may_wakeup(&hw->pdev->dev))
+>>> -		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+>>> +	skge->wol = wol_supported(hw) & WAKE_MAGIC;
+>>> +	if (skge->wol && device_can_wakeup(&hw->pdev->dev))
+>>> +		device_set_wakeup_enable(&hw->pdev->dev, true);
+>>>
+>>>  	hw->dev[port] = dev;
+>> Hmm, looks like this patch is against a 2.6.28.8 tree with the commit
+>> reverted. I merged the couple lines as following.
+>>
+>> line 3859:
+>>
+>>         // if (pci_wake_enabled(hw->pdev))
+>>         //      skge->wol = wol_supported(hw) & WAKE_MAGIC;
+>>         skge->wol = wol_supported(hw) & WAKE_MAGIC;
+>>         if (skge->wol && device_can_wakeup(&hw->pdev->dev))
+>>                 device_set_wakeup_enable(&hw->pdev->dev, true);
+>>
+>> and this really seems to fix the problem. The system is able to wake
+>> up via etherwake just fine.
+> 
+> Well, that's because commit 5177b3240a6608fc0c9c05cc32f4855c6540f8d5 changed
+> the default from "wake-up enabled by default" to "wake-up disabled by default".
+> The latter is safer IMO, but I'll prepare a (better) patch to change it back to
+> the old behavior.
+> 
+> You should be able to set up WoL by running 'ethtool -s eth0 wol g' from your
+> init scripts even without reverting the patch.  Please verify if that works.
+
