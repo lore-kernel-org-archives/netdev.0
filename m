@@ -1,68 +1,113 @@
-From: "Paoloni, Gabriele" <gabriele.paoloni@intel.com>
-Subject: RE: PATCH_ppp_mp_explode_redesign
-Date: Thu, 19 Mar 2009 11:57:25 +0000
-Message-ID: <B53FBD69205CDD4EA91C63A5E0E0BE791EE5182B@irsmsx502.ger.corp.intel.com>
-References: <49AD1AAB.mail7XX11MN1A@intel.com>
- <20090313.160929.74391613.davem@davemloft.net>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Thu, 19 Mar 2009 08:42:33 -0400
+Message-ID: <49C23DB9.6000905@novell.com>
+References: <49C16D7C.3080003@novell.com>	<20090318.180355.228447835.davem@davemloft.net>	<49C1C09E.8050405@novell.com> <20090318.223806.123468340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"paulus@samba.org" <paulus@samba.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42737 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751204AbZCSL5h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:57:37 -0400
-In-Reply-To: <20090313.160929.74391613.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig36EBAC2DDE86F664ACE742C4"
+Cc: vernux@us.ibm.com, andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
+	pmullaney@novell.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <20090318.223806.123468340.davem@davemloft.net>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Many thanks for that.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig36EBAC2DDE86F664ACE742C4
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Just a question:
-Does it mean that I should see my patch applied in the next Linux kernel stable version?
+David Miller wrote:
+> From: Gregory Haskins <ghaskins@novell.com>
+> Date: Wed, 18 Mar 2009 23:48:46 -0400
+>
+>  =20
+>> To see this in action, try taking a moderately large smp system
+>> (8-way+) and scaling the number of flows.
+>>    =20
+>
+> I can maintain line-rate over 10GB with a 64-cpu box.
+Oh man, I am jealous of that 64-way :)
 
-Best Regards
+How many simultaneous flows?  What hardware?  What qdisc and other
+config do you use?  MTU?  I cannot replicate such results on 10GB even
+with much smaller cpu counts.
 
-Gabriele Paoloni
+On my test rig here, I have a 10GB link connected by crossover between
+two 8-core boxes.  Running one unidirectional TCP flow is typically
+toping out at ~5.5Gb/s on 2.6.29-rc8.  Granted we are using MTU=3D1500,
+which in of itself is part of the upper limit.  However, that result in
+of itself isn't a problem, per se.  What is a problem is the aggregate
+bandwidth drops with scaling the number of flows.  I would like to
+understand how to make this better, if possible, and perhaps I can learn
+something from your setup.
+>   It's not
+> a problem.
+>  =20
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: 13 March 2009 23:09
-To: Paoloni, Gabriele
-Cc: netdev@vger.kernel.org; paulus@samba.org
-Subject: Re: PATCH_ppp_mp_explode_redesign
+To clarify terms, we are not saying "the stack performs inadequately".=20
+What we are saying here is that analysis of our workloads and of the
+current stack indicates that we are io-bound, and that this particular
+locking architecture in the qdisc subsystem is the apparent top gating
+factor from going faster.  Therefore we are really saying "how can we
+make it even better"?  This is not a bad question to ask in general,
+would you agree?
 
-From: gabriele.paoloni@intel.com
-Date: Tue, 03 Mar 2009 11:55:23 +0000
+To vet our findings, we built that prototype I mentioned in the last
+mail where we substituted the single queue and queue_lock with a
+per-cpu, lockless queue.  This meant each cpu could submit work
+independent of the others with substantially reduced contention.  More
+importantly, it eliminated the property of scaling the RFO pressure on a
+single cache-lne for the queue-lock.  When we did this, we got
+significant increases in aggregate throughput (somewhere on the order of
+6%-25% depending on workload,  but this was last summer so I am a little
+hazy on the exact numbers).
 
-> Problem Solution:
-> 
-> The problem has been solved by redesigning the "ppp_mp_explode" function in such 
-> a way to make it split the sk_buff buffer according to the speeds of the underlying 
-> PPP channels (the speeds of the serial interfaces respectively attached to the PPP 
-> channels). Referring to the above example, the redesigned "ppp_mp_explode" function 
-> will now divide the 1000 Bytes buffer into two fragments whose sizes are set 
-> according to the speeds of the channels where they are going to be sent on (e.g . 
-> 10 Byets on 10KB/sec channel and 990 Bytes on 1000KB/sec channel). 
-> The reworked function grants the same performances of the original one in optimal 
-> working conditions (i.e. a bundle made up of PPP links all working at the same 
-> speed), while greatly improving performances on the bundles made up of channels 
-> working at different speeds.
+So you had said something to the effect of "Contention isn't implicitly
+a bad thing".   I agree to a point.  At least so much as contention
+cannot always be avoided.  Ultimately we only have one resource in this
+equation:  the phy-link in question.  So naturally multiple flows
+targeted for that link will contend for it.
 
-Looks good, applied.
+But the important thing to note here is that there are different kinds
+of contention.  And contention against spinlocks *is* generally bad, for
+multiple reasons.  It not only affects the cores under contention, but
+it affects all cores that exist in the same coherency domain.  IMO it
+should be avoided whenever possible.
 
----------------------------------------------------------------------
-Intel Shannon Limited
-Registered in Ireland
-Registered Office: One Spencer Dock, North Wall Quay, Dublin 1
-Registered Number: 308263
-Business address: Dromore House, East Park, Shannon, Co. Clare
+So I am not saying our per-cpu solution is the answer.  But what I am
+saying is that we found that an architecture that doesnt piggy back all
+flows into a single spinlock does have the potential to unleash even
+more Linux-networking fury :)
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+I haven't really been following the latest developments in netdev, but
+if I understand correctly part of what we are talking about here would
+be addressed by the new MQ stuff?  And if I also understand that
+correctly, support for MQ is dependent on the hardware beneath it?  If
+so, I wonder if we could apply some of the ideas I presented earlier for
+making "soft MQ" with a lockless-queue per flow or something like that?=20
+Thoughts?
 
+-Greg
+
+
+
+--------------enig36EBAC2DDE86F664ACE742C4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAknCPbkACgkQlOSOBdgZUxlrJwCeLNasxUz01bw9POxOCZjl3B7J
+6SAAnRcKhI9jZSz8f2MiAO1DXf9uFKXR
+=bA95
+-----END PGP SIGNATURE-----
+
+--------------enig36EBAC2DDE86F664ACE742C4--
