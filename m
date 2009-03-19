@@ -1,87 +1,42 @@
-From: Maciej Sosnowski <maciej.sosnowski@intel.com>
-Subject: [PATCH] dca: add missing copyright/license headers
-Date: Thu, 19 Mar 2009 17:03:06 +0100
-Message-ID: <20090319160244.24380.31212.stgit@linux.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: IPv6 address printf format specifier
+Date: Thu, 19 Mar 2009 12:11:27 -0400
+Message-ID: <2810B800-C22B-4EB6-97FC-80FBDCD955FE@oracle.com>
+References: <49BE889C.8080602@hp.com> <20090318.185826.221840814.davem@davemloft.net> <49C1AD56.5000608@hp.com> <20090318.223013.142429036.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: shannon.nelson@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dan.j.williams@intel.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:57345 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751066AbZCSQL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 12:11:27 -0400
+Received: from rcsinet12.oracle.com ([148.87.113.124]:49404 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757260AbZCSQLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 12:11:40 -0400
+In-Reply-To: <20090318.223013.142429036.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In two dca files copyright and license headers are missing.
-This patch adds them there.
+On Mar 19, 2009, at Mar 19, 2009, 1:30 AM, David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Wed, 18 Mar 2009 22:26:30 -0400
+>
+>> There are multiple different forms of presenting addresses, all of
+>> which are valid and non of which will provide for sting equality.
+>> Regardless of how we represent our IPv6 addresses, there is a chance
+>> that it will cause interoperability issues and the only way to truly
+>> solve it is to change applications to compare addresses in their
+>> true numerical representation.
+>
+> Or to, they themselves, canonicalize the text representation before
+> comparison.
 
-Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>
----
+Thanks, this was helpful.
 
- drivers/dca/dca-sysfs.c |   21 +++++++++++++++++++++
- include/linux/dca.h     |   20 ++++++++++++++++++++
- 2 files changed, 41 insertions(+), 0 deletions(-)
+We had considered converting the string address to a sockaddr and back  
+in user space, and that sounds like a good way to ensure we get the  
+same presentation address for comparison.
 
-diff --git a/drivers/dca/dca-sysfs.c b/drivers/dca/dca-sysfs.c
-index bb538b9..ee916c9 100644
---- a/drivers/dca/dca-sysfs.c
-+++ b/drivers/dca/dca-sysfs.c
-@@ -1,3 +1,24 @@
-+/*
-+ * Copyright(c) 2007 - 2009 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59
-+ * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called COPYING.
-+ */
-+
- #include <linux/kernel.h>
- #include <linux/spinlock.h>
- #include <linux/device.h>
-diff --git a/include/linux/dca.h b/include/linux/dca.h
-index b00a753..9c20c7e 100644
---- a/include/linux/dca.h
-+++ b/include/linux/dca.h
-@@ -1,3 +1,23 @@
-+/*
-+ * Copyright(c) 2007 - 2009 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59
-+ * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called COPYING.
-+ */
- #ifndef DCA_H
- #define DCA_H
- /* DCA Provider API */
-
+--
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
