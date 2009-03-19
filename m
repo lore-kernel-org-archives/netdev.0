@@ -1,51 +1,60 @@
 From: bernard pidoux <f6bvp@free.fr>
-Subject: [PATCH 1/3] [AX25] SOCK_DEBUG message simplification
-Date: Thu, 19 Mar 2009 19:11:48 +0100
-Message-ID: <1237486308.30285.12.camel@f6bvp-11>
+Subject: [PATCH 2/3] [AX25] zero length frame filtering in AX25
+Date: Thu, 19 Mar 2009 19:18:15 +0100
+Message-ID: <1237486695.30285.17.camel@f6bvp-11>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: Linux netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb2-g21.free.fr ([212.27.42.10]:58402 "EHLO
-	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754088AbZCSS27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 14:28:59 -0400
-Received: from smtp4-g21.free.fr (smtp4-g21.free.fr [212.27.42.4])
-	by smtpfb2-g21.free.fr (Postfix) with ESMTP id F0E11CB3590
-	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 19:28:52 +0100 (CET)
-Received: from smtp4-g21.free.fr (localhost [127.0.0.1])
-	by smtp4-g21.free.fr (Postfix) with ESMTP id 473E24C811D
-	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 19:27:38 +0100 (CET)
-Received: from [192.168.0.66] (car75-2-82-66-61-83.fbx.proxad.net [82.66.61.83])
-	by smtp4-g21.free.fr (Postfix) with ESMTP id 582354C8072
-	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 19:27:36 +0100 (CET)
+Received: from smtp5-g21.free.fr ([212.27.42.5]:42775 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753474AbZCSSe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2009 14:34:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch condenses two debug messages in one.
+In previous commit 244f46ae6e9e18f6fc0be7d1f49febde4762c34b
+was introduced a zero length frame filter for ROSE protocole.
+This patch has the same purpose at AX25 frame level for the same
+reason. Empty frames have no meaning in AX25 protocole.
 
 Signed-off-by: Bernard Pidoux <f6bvp@amsat.org>
 ---
- net/ax25/af_ax25.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/ax25/af_ax25.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
 diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index 00d9e5e..532a031 100644
+index 532a031..ca32f57 100644
 --- a/net/ax25/af_ax25.c
 +++ b/net/ax25/af_ax25.c
-@@ -1529,10 +1529,8 @@ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		dp = ax25->digipeat;
- 	}
+@@ -1435,6 +1435,11 @@ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	size_t size;
+ 	int lv, err, addr_len = msg->msg_namelen;
  
--	SOCK_DEBUG(sk, "AX.25: sendto: Addresses built.\n");
--
- 	/* Build a packet */
--	SOCK_DEBUG(sk, "AX.25: sendto: building packet.\n");
-+	SOCK_DEBUG(sk, "AX.25: sendto: Addresses built. Building packet.\n");
++	/* AX.25 empty data frame has no meaning : don't send */
++	if (len == 0) {
++		return (0);
++	}
++
+ 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_CMSG_COMPAT))
+ 		return -EINVAL;
  
- 	/* Assume the worst case */
- 	size = len + ax25->ax25_dev->dev->hard_header_len;
+@@ -1634,6 +1639,13 @@ static int ax25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	skb_reset_transport_header(skb);
+ 	copied = skb->len;
+ 
++	/* AX.25 empty data frame has no meaning : ignore it */
++	if (copied == 0) {
++		err = copied;
++		skb_free_datagram(sk, skb);
++		goto out;
++	}
++
+ 	if (copied > size) {
+ 		copied = size;
+ 		msg->msg_flags |= MSG_TRUNC;
 -- 
 1.6.0.6
 
