@@ -1,42 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix display of local and remote sit endpoints
-Date: Wed, 18 Mar 2009 18:57:06 -0700 (PDT)
-Message-ID: <20090318.185706.06488534.davem@davemloft.net>
-References: <alpine.LSU.2.00.0903091545430.2331@fbirervta.pbzchgretzou.qr>
-	<200903141934.38915.rjw@sisk.pl>
-	<87d4ch4m1f.fsf_-_@nemi.mork.no>
+Subject: Re: IPv6 address printf format specifier
+Date: Wed, 18 Mar 2009 18:58:26 -0700 (PDT)
+Message-ID: <20090318.185826.221840814.davem@davemloft.net>
+References: <4B97CD05-9949-485D-987E-A555FCBC2F5A@oracle.com>
+	<49BE889C.8080602@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rjw@sisk.pl, jengelh@medozas.de, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chuck.lever@oracle.com, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48239
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48245
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751391AbZCSB5U convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Mar 2009 21:57:20 -0400
-In-Reply-To: <87d4ch4m1f.fsf_-_@nemi.mork.no>
+	by vger.kernel.org with ESMTP id S1751071AbZCSB6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:58:39 -0400
+In-Reply-To: <49BE889C.8080602@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Mon, 16 Mar 2009 14:47:24 +0100
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon, 16 Mar 2009 13:13:00 -0400
 
-> ipv6: fix display of local and remote sit endpoints
->=20
-> This fixes the regressions cause by
-> commit 1326c3d5a4b792a2b15877feb7fb691f8945d203
-> (v2.6.28-rc6-461-g23a12b1) broke the display of local and remote
-> addresses of an SIT tunnel in iproute2.
->=20
-> nt->parms is used by ipip6_tunnel_init() and therefore need to be
-> initialized first.
->=20
-> Tracked as http://bugzilla.kernel.org/show_bug.cgi?id=3D12868
->=20
-> Reported-by: Jan Engelhardt <jengelh@medozas.de>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> Chuck Lever wrote:
+> > The NFS and RPC code in the kernel now uses the new printf format
+> > specifier for IPv6 addresses.  In some cases, the generated address
+> > string is sent out of the kernel (for example, it is used to build a
+> > universal address for RPCB_SET requests, and used as the mon_name in
+> > some SM_MON upcalls to our rpc.statd).
+> > 
+> > The problem is that outside the kernel, applications generally use
+> > getnameinfo(3) or inet_ntop(3) to do this conversion.  The library
+> > follows the RFC suggestion of shortening these address strings by
+> > replacing the longest series of zeroes in the IPv6 address with "::".
+> > 
+> > Since the kernel doesn't do that, string comparisons don't work when
+> > comparing address strings that came from our kernel.  Since these
+> > address strings appear to other hosts (via the rpcbind registry) this
+> > is, or could become, an interoperability issue for Linux.
+> > 
+> > How should I fix this?
+> > 
+> > 1.  Copy glibc's code to the printf logic for %pI6
+> 
+> I think this is the optimum solution.  This normalizes kernel output
+> with that of user-space thus creating a uniform format.
+> 
+> My $0.02
 
-Applied, thanks.
+Then you'll break cases where this string is output via
+some /proc/ file or whatever and it expects the existing
+behavior.
+
+I don't think we can do this.
