@@ -1,48 +1,220 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 2/3] smsc911x: replace print_mac with %pM
-Date: Thu, 19 Mar 2009 10:24:45 +0000
-Message-ID: <1237458286-23421-2-git-send-email-steve.glendinning@smsc.com>
-References: <1237458286-23421-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Ian Saturley <ian.saturley@smsc.com>,
-	David Miller <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH] e100: add support for 82552 10/100 adapter
+Date: Thu, 19 Mar 2009 03:42:39 -0700
+Message-ID: <20090319104236.11320.25733.stgit@lost.foo-projects.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:56041 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752246AbZCSKYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 06:24:51 -0400
-In-Reply-To: <1237458286-23421-1-git-send-email-steve.glendinning@smsc.com>
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:38513
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751700AbZCSKm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 06:42:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/smsc911x.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index f52bb8a..82157cd 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1914,7 +1914,6 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	unsigned int intcfg = 0;
- 	int res_size, irq_flags;
- 	int retval;
--	DECLARE_MAC_BUF(mac);
+This patch enables support for the new Intel 82552 adapter (new PHY paired
+with the existing MAC in the ICH7 chipset).  No new features are added to
+the driver, however there are minor changes due to updated registers and a
+few workarounds for hardware errata.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+---
+
+ drivers/net/e100.c |   93 +++++++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 77 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 861d2ee..0504db9 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -167,7 +167,7 @@
  
- 	pr_info("%s: Driver version %s.\n", SMSC_CHIPNAME, SMSC_DRV_VERSION);
+ #define DRV_NAME		"e100"
+ #define DRV_EXT			"-NAPI"
+-#define DRV_VERSION		"3.5.23-k6"DRV_EXT
++#define DRV_VERSION		"3.5.24-k2"DRV_EXT
+ #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
+ #define DRV_COPYRIGHT		"Copyright(c) 1999-2006 Intel Corporation"
+ #define PFX			DRV_NAME ": "
+@@ -240,6 +240,7 @@ static struct pci_device_id e100_id_table[] = {
+ 	INTEL_8255X_ETHERNET_DEVICE(0x1093, 7),
+ 	INTEL_8255X_ETHERNET_DEVICE(0x1094, 7),
+ 	INTEL_8255X_ETHERNET_DEVICE(0x1095, 7),
++	INTEL_8255X_ETHERNET_DEVICE(0x10fe, 7),
+ 	INTEL_8255X_ETHERNET_DEVICE(0x1209, 0),
+ 	INTEL_8255X_ETHERNET_DEVICE(0x1229, 0),
+ 	INTEL_8255X_ETHERNET_DEVICE(0x2449, 2),
+@@ -275,6 +276,7 @@ enum phy {
+ 	phy_82562_em = 0x032002A8,
+ 	phy_82562_ek = 0x031002A8,
+ 	phy_82562_eh = 0x017002A8,
++	phy_82552_v  = 0xd061004d,
+ 	phy_unknown  = 0xFFFFFFFF,
+ };
  
-@@ -2049,8 +2048,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+@@ -943,6 +945,22 @@ static int mdio_read(struct net_device *netdev, int addr, int reg)
  
- 	spin_unlock_irq(&pdata->mac_lock);
+ static void mdio_write(struct net_device *netdev, int addr, int reg, int data)
+ {
++	struct nic *nic = netdev_priv(netdev);
++
++	if  ((nic->phy == phy_82552_v) && (reg == MII_BMCR) &&
++	     (data & (BMCR_ANRESTART | BMCR_ANENABLE))) {
++		u16 advert = mdio_read(netdev, nic->mii.phy_id, MII_ADVERTISE);
++
++		/*
++		 * Workaround Si issue where sometimes the part will not
++		 * autoneg to 100Mbps even when advertised.
++		 */
++		if (advert & ADVERTISE_100FULL)
++			data |= BMCR_SPEED100 | BMCR_FULLDPLX;
++		else if (advert & ADVERTISE_100HALF)
++			data |= BMCR_SPEED100;
++	}
++
+ 	mdio_ctrl(netdev_priv(netdev), addr, mdi_write, reg, data);
+ }
  
--	dev_info(&dev->dev, "MAC Address: %s\n",
--		 print_mac(mac, dev->dev_addr));
-+	dev_info(&dev->dev, "MAC Address: %pM\n", dev->dev_addr);
+@@ -1276,16 +1294,12 @@ static int e100_phy_init(struct nic *nic)
+ 	if (addr == 32)
+ 		return -EAGAIN;
+ 
+-	/* Selected the phy and isolate the rest */
+-	for (addr = 0; addr < 32; addr++) {
+-		if (addr != nic->mii.phy_id) {
+-			mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
+-		} else {
+-			bmcr = mdio_read(netdev, addr, MII_BMCR);
+-			mdio_write(netdev, addr, MII_BMCR,
+-				bmcr & ~BMCR_ISOLATE);
+-		}
+-	}
++	/* Isolate all the PHY ids */
++	for (addr = 0; addr < 32; addr++)
++		mdio_write(netdev, addr, MII_BMCR, BMCR_ISOLATE);
++	/* Select the discovered PHY */
++	bmcr &= ~BMCR_ISOLATE;
++	mdio_write(netdev, nic->mii.phy_id, MII_BMCR, bmcr);
+ 
+ 	/* Get phy ID */
+ 	id_lo = mdio_read(netdev, nic->mii.phy_id, MII_PHYSID1);
+@@ -1303,7 +1317,18 @@ static int e100_phy_init(struct nic *nic)
+ 		mdio_write(netdev, nic->mii.phy_id, MII_NSC_CONG, cong);
+ 	}
+ 
+-	if ((nic->mac >= mac_82550_D102) || ((nic->flags & ich) &&
++	if (nic->phy == phy_82552_v) {
++		u16 advert = mdio_read(netdev, nic->mii.phy_id, MII_ADVERTISE);
++
++		/* Workaround Si not advertising flow-control during autoneg */
++		advert |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
++		mdio_write(netdev, nic->mii.phy_id, MII_ADVERTISE, advert);
++
++		/* Reset for the above changes to take effect */
++		bmcr = mdio_read(netdev, nic->mii.phy_id, MII_BMCR);
++		bmcr |= BMCR_RESET;
++		mdio_write(netdev, nic->mii.phy_id, MII_BMCR, bmcr);
++	} else if ((nic->mac >= mac_82550_D102) || ((nic->flags & ich) &&
+ 	   (mdio_read(netdev, nic->mii.phy_id, MII_TPISTATUS) & 0x8000) &&
+ 		!(nic->eeprom[eeprom_cnfg_mdix] & eeprom_mdix_enabled))) {
+ 		/* enable/disable MDI/MDI-X auto-switching. */
+@@ -2134,6 +2159,9 @@ err_clean_rx:
+ }
+ 
+ #define MII_LED_CONTROL	0x1B
++#define E100_82552_LED_OVERRIDE 0x19
++#define E100_82552_LED_ON       0x000F /* LEDTX and LED_RX both on */
++#define E100_82552_LED_OFF      0x000A /* LEDTX and LED_RX both off */
+ static void e100_blink_led(unsigned long data)
+ {
+ 	struct nic *nic = (struct nic *)data;
+@@ -2143,10 +2171,19 @@ static void e100_blink_led(unsigned long data)
+ 		led_on_559 = 0x05,
+ 		led_on_557 = 0x07,
+ 	};
++	u16 led_reg = MII_LED_CONTROL;
++
++	if (nic->phy == phy_82552_v) {
++		led_reg = E100_82552_LED_OVERRIDE;
+ 
+-	nic->leds = (nic->leds & led_on) ? led_off :
+-		(nic->mac < mac_82559_D101M) ? led_on_557 : led_on_559;
+-	mdio_write(nic->netdev, nic->mii.phy_id, MII_LED_CONTROL, nic->leds);
++		nic->leds = (nic->leds == E100_82552_LED_ON) ?
++		            E100_82552_LED_OFF : E100_82552_LED_ON;
++	} else {
++		nic->leds = (nic->leds & led_on) ? led_off :
++		            (nic->mac < mac_82559_D101M) ? led_on_557 :
++		            led_on_559;
++	}
++	mdio_write(nic->netdev, nic->mii.phy_id, led_reg, nic->leds);
+ 	mod_timer(&nic->blink_timer, jiffies + HZ / 4);
+ }
+ 
+@@ -2375,13 +2412,15 @@ static void e100_diag_test(struct net_device *netdev,
+ static int e100_phys_id(struct net_device *netdev, u32 data)
+ {
+ 	struct nic *nic = netdev_priv(netdev);
++	u16 led_reg = (nic->phy == phy_82552_v) ? E100_82552_LED_OVERRIDE :
++	              MII_LED_CONTROL;
+ 
+ 	if (!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
+ 		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
+ 	mod_timer(&nic->blink_timer, jiffies);
+ 	msleep_interruptible(data * 1000);
+ 	del_timer_sync(&nic->blink_timer);
+-	mdio_write(netdev, nic->mii.phy_id, MII_LED_CONTROL, 0);
++	mdio_write(netdev, nic->mii.phy_id, led_reg, 0);
  
  	return 0;
+ }
+@@ -2686,6 +2725,9 @@ static void __devexit e100_remove(struct pci_dev *pdev)
+ 	}
+ }
  
--- 
-1.6.0.6
++#define E100_82552_SMARTSPEED   0x14   /* SmartSpeed Ctrl register */
++#define E100_82552_REV_ANEG     0x0200 /* Reverse auto-negotiation */
++#define E100_82552_ANEG_NOW     0x0400 /* Auto-negotiate now */
+ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -2698,6 +2740,15 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	pci_save_state(pdev);
+ 
+ 	if ((nic->flags & wol_magic) | e100_asf(nic)) {
++		/* enable reverse auto-negotiation */
++		if (nic->phy == phy_82552_v) {
++			u16 smartspeed = mdio_read(netdev, nic->mii.phy_id,
++			                           E100_82552_SMARTSPEED);
++
++			mdio_write(netdev, nic->mii.phy_id,
++			           E100_82552_SMARTSPEED, smartspeed |
++			           E100_82552_REV_ANEG | E100_82552_ANEG_NOW);
++		}
+ 		if (pci_enable_wake(pdev, PCI_D3cold, true))
+ 			pci_enable_wake(pdev, PCI_D3hot, true);
+ 	} else {
+@@ -2721,6 +2772,16 @@ static int e100_resume(struct pci_dev *pdev)
+ 	/* ack any pending wake events, disable PME */
+ 	pci_enable_wake(pdev, 0, 0);
+ 
++	/* disbale reverse auto-negotiation */
++	if (nic->phy == phy_82552_v) {
++		u16 smartspeed = mdio_read(netdev, nic->mii.phy_id,
++		                           E100_82552_SMARTSPEED);
++
++		mdio_write(netdev, nic->mii.phy_id,
++		           E100_82552_SMARTSPEED,
++		           smartspeed & ~(E100_82552_REV_ANEG));
++	}
++
+ 	netif_device_attach(netdev);
+ 	if (netif_running(netdev))
+ 		e100_up(nic);
 
