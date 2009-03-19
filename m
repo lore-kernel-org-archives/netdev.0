@@ -1,61 +1,47 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH -next] gianfar, ucc_geth: Use proper address
-	translation for MDIO buses
-Date: Thu, 19 Mar 2009 21:19:48 +0300
-Message-ID: <20090319181948.GA9360@oksana.dev.rtsoft.ru>
-References: <20090318192152.GA29621@oksana.dev.rtsoft.ru> <A41D3E28-93C8-46FD-A87A-EDE6C4D4E77B@kernel.crashing.org>
-Reply-To: avorontsov@ru.mvista.com
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: Re: [Bugme-new] [Bug 12877] New: tg3: eth0 transit timed out,
+	resetting -> dead NIC
+Date: Thu, 19 Mar 2009 19:19:11 +0100
+Message-ID: <20090319181911.GB30702@lxbsc01>
+References: <bug-12877-10286@http.bugzilla.kernel.org/> <20090315143214.90c71fb7.akpm@linux-foundation.org> <1237238601.8839.85.camel@HP1> <49C01F7F.9030306@birkenwald.de> <20090319165842.GA10819@xw6200.broadcom.net> <20090319180644.GA30702@lxbsc01> <20090319181536.GA13368@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Scott Wood <scottwood@freescale.com>,
-	Andy Fleming <afleming@freescale.com>,
-	Li Yang <leoli@freescale.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	linuxppc-dev@ozlabs.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <mchan@broadcom.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.79.90.228] ([213.79.90.228]:39259 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754760AbZCSSTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 14:19:51 -0400
+Received: from vs02.svr02.mucip.net ([83.170.6.69]:46917 "EHLO
+	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754349AbZCSSTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 14:19:17 -0400
 Content-Disposition: inline
-In-Reply-To: <A41D3E28-93C8-46FD-A87A-EDE6C4D4E77B@kernel.crashing.org>
+In-Reply-To: <20090319181536.GA13368@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 03:57:10AM -0500, Kumar Gala wrote:
-> On Mar 18, 2009, at 2:21 PM, Anton Vorontsov wrote:
-[...]
->> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
->> ---
->>
->> This is for 2.6.30 since we don't use ranges = <> yet.
->>
->> David, I believe Kumar would like to pick this patch into his tree
->> along with a patch set that adds "ranges = <>" properties to the
->> device tree... So would you mind if we take it via powerpc.git?
->>
->> Thanks,
->>
->> drivers/net/gianfar_mii.c  |   10 +++++++---
->> drivers/net/ucc_geth_mii.c |   10 +++++++---
->> 2 files changed, 14 insertions(+), 6 deletions(-)
->
-> Andy merged these in net-next to just have drivers/net/fsl_pq_mdio.c.
->
-> My suggestion is to update the patch against -next and have David put it 
-> into net-next.
->
-> (I'll deal w/the .dts updates in powerpc.git and cherry pick commits out 
-> of net-next into my testing branching)
+On Thu, Mar 19, 2009 at 11:15:36AM -0700, Matt Carlson wrote:
 
-Btw, if we want some testing for .dts changes, you could just merge
-this patch into your powerpc.git tree along with other patches, and
-then, when merge window opens, just fix a trivial conflict in
-{ucc_geth,gianfar}_mii.c files (i.e. just remove the files).
+> > Would switching the uplink connection to eth1 (and not use eth0 in
+> > Linux) give some more clue as well?
+> Sure, let's try that.  Maybe this is the better way to go anyways.  I just
+> learned that disabling iLo2 doesn't necessarily disable the management
+> firmware on the network device.
+> 
+> For this to be a meaningful test though, we need to verify that the
+> driver sign-on messages have a line that reads "ASF[0]" on eth1.  Can
+> you confirm?
 
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+Yes:
+
+[1186598.218205] eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1]
+WireSpeed[1] TSOcap[1]
+[1186598.281314] eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0]
+WireSpeed[1] TSOcap[1]
+
+I'll keep the traffic on eth0 now until it breaks again, hopefully
+spewing out more debugging info with your patch and then I'll switch to
+eth1.
+
+Bernhard
