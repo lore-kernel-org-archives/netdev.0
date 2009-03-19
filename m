@@ -1,47 +1,39 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
-Date: Thu, 19 Mar 2009 21:59:12 +0100
-Message-ID: <200903192159.13170.rjw@sisk.pl>
-References: <bug-12886-10286@http.bugzilla.kernel.org/> <200903181614.08724.rjw@sisk.pl> <49C2719A.8080905@ncircle.nullnet.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TX time stamping
+Date: Thu, 19 Mar 2009 14:05:09 -0700 (PDT)
+Message-ID: <20090319.140509.152824531.davem@davemloft.net>
+References: <1236105081.4653.68.camel@pohly-MOBL>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Tomi Orava <tomimo@ncircle.nullnet.fi>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: patrick.ohly@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:42331 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758877AbZCSU7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 16:59:16 -0400
-In-Reply-To: <49C2719A.8080905@ncircle.nullnet.fi>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35461
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752454AbZCSVFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 17:05:22 -0400
+In-Reply-To: <1236105081.4653.68.camel@pohly-MOBL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 19 March 2009, Tomi Orava wrote:
-> Hi,
-> 
-> > Hm, are you sure the commit in question _is_ in 2.6.28.y?  I can't see it in
-> > there.  It is in the current Linus' tree, but not in v2.6.28 and surely not in
-> > -stable.  Do you use a distro kernel?
-> 
-> Ok, I've now verified that I did indeed mess up with the commit
-> mentioned previously. In other words the stable series 2.6.28.x
-> doesn't support the suspend feature on my Asus A7V880 at all.
-> The bios option is not respected at all and the command
-> 'ethtool -s eth0 wol g' doesn't enable the suspend any better.
-> 
-> However, the commit taken from main branch actually makes also
-> the stable series to work with this motherboard. No additional
-> changes are needed, it just works out of the box.
-> 
-> Sorry about the mess up.
 
-No problem.
+You still haven't done anything to address this fundamental issue with
+your timestamping changes.  I've been more than patient enough.
 
-Does it mean we can close the bug?
+It is also not anyone's obligation to help you fix this problem.
+You want to add this new feature, whereas I do not consider it
+essential in any way whatsoever.
 
-Rafael
+So I am going to have to revert this work, since it appears that being
+able to get at skb->sk after the transmit function runs was an
+essential requirement to how your code works.
+
+And that will simply never ever work.
+
+This is why I tried to wait a long time to integrate these patches in
+the first place, I'd had hoped that you had worked out all of these
+kinds of issues during that time.
+
+Instead, we have a half-working turd in a tree, and I'm removing it.
