@@ -1,44 +1,50 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: High contention on the sk_buff_head.lock
-Date: Thu, 19 Mar 2009 10:15:18 +0300
-Message-ID: <20090319071517.GA7389@ioremap.net>
-References: <87prge1rhu.fsf@basil.nowhere.org> <20090318.140340.55290859.davem@davemloft.net> <49C16349.9030503@us.ibm.com> <20090318.143844.173112261.davem@davemloft.net> <49C16D7C.3080003@novell.com>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: Re: next-20090318: sunhme does not transmit packets
+Date: Thu, 19 Mar 2009 11:16:20 +0300
+Message-ID: <a4423d670903190116p157b2ebfl69d270e0576c6d9a@mail.gmail.com>
+References: <a4423d670903180734w7270a4f3qa2af3981b969436c@mail.gmail.com>
+	 <a4423d670903180958j4847717eh99a41534633dd314@mail.gmail.com>
+	 <20090318.234451.38898787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, vernux@us.ibm.com,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
-	Patrick Mullaney <pmullaney@novell.com>
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49C16D7C.3080003@novell.com>
-Sender: linux-rt-users-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090318.234451.38898787.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 18, 2009 at 05:54:04PM -0400, Gregory Haskins (ghaskins@novell.com) wrote:
-> Note that -rt doesnt typically context-switch under contention anymore
-> since we introduced adaptive-locks.  Also note that the contention
-> against the lock is still contention, regardless of whether you have -rt
-> or not.  Its just that the slow-path to handle the contended case for
-> -rt is more expensive than mainline.  However, once you have the
-> contention as stated, you have already lost.
-> 
-> We have observed the posters findings ourselves in both mainline and
-> -rt.  I.e. That lock doesnt scale very well once you have more than a
-> handful of cores.  It's certainly a great area to look at for improving
-> the overall stack, IMO, as I believe there is quite a bit of headroom
-> left to be recovered that is buried there.
+2009/3/19 David Miller <davem@davemloft.net>:
+> From: Alexander Beregalov <a.beregalov@gmail.com>
+> Date: Wed, 18 Mar 2009 19:58:40 +0300
+>
+>> 2009/3/18 Alexander Beregalov <a.beregalov@gmail.com>:
+>> > Hi
+>> >
+>> > Ultra 10 can boot, it receives DHCP answer, ssh works, but few minutes
+>> > after machine becomes unresponsible by net at all.
+>> > It does not respond even on ARP requests.
+>> >
+>> > On Sparc host I see that `TX packets` does not grow, but RX grows.
+>> > The state of the interface is
+>> > UP BROADCAST RUNNING MULTICAST
+>> >
+>> > There is no relevant kernel messages in dmesg.
+>> >
+>> > next-20090317 worked fine.
+>> >
+>> >
+>> > Let me know if I can help.
+>> >
+>>
+>> I have reproduced it on next-20090318 for the second time, but still
+>> do not know how.
+>> next-20090317 might be affected.
+>>
+>> Now both packet counters grow, but tcpdump cannot capture any packet.
+>
+> Does the current vanilla kernel work fine?
 
-Something tells me that you observer skb head lock contention because
-you stressed the network and anything else on that machine slacked in
-sleep. What if you will start IO stress, will __queue_lock contention
-have the same magnitude order? Or having as many processes as skbs each
-of which will race for the scheduler? Will run-queue lock show up in the
-stats?
-
-I believe the asnwer is yes for all the questions.
-You stressed one subsystem and it showed up in the statistics.
-
--- 
-	Evgeniy Polyakov
+Yes. The problem happens only with -next tree.
