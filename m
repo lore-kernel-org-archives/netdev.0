@@ -1,114 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [lxc-devel] Poor bridging performance on 10 GbE
-Date: Wed, 18 Mar 2009 17:50:16 -0700
-Message-ID: <m1wsamcp4n.fsf@fess.ebiederm.org>
-References: <b30d1c3b0903180221h5175618eue162ffdec3817b4c@mail.gmail.com>
-	<49C0C87B.7070507@fr.ibm.com>
-	<b30d1c3b0903180856r6dce554ap35b8d6a3ee7829e0@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: iproute2: prints bogus hoplimit
+Date: Wed, 18 Mar 2009 17:51:09 -0700 (PDT)
+Message-ID: <20090318.175109.14058201.davem@davemloft.net>
+References: <alpine.LSU.2.00.0902241125020.329@fbirervta.pbzchgretzou.qr>
+	<20090318151216.60cd0363@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	lxc-devel@lists.sourceforge.net
-To: Ryousei Takano <ryousei@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jengelh@medozas.de, stephen.hemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:36026 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718AbZCSAu0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 20:50:26 -0400
-In-Reply-To: <b30d1c3b0903180856r6dce554ap35b8d6a3ee7829e0@mail.gmail.com> (Ryousei Takano's message of "Thu\, 19 Mar 2009 00\:56\:53 +0900")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58980
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754846AbZCSAvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 20:51:22 -0400
+In-Reply-To: <20090318151216.60cd0363@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ryousei Takano <ryousei@gmail.com> writes:
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 18 Mar 2009 15:12:16 -0700
 
-> I am using VServer because other virtualization mechanisms, including=
- OpenVZ,
-> Xen, and KVM cannot fully utilize the network bandwidth of 10 GbE.
->
-> Here are the results of netperf bencmark:
-> 	vanilla (2.6.27-9)		9525.94
-> 	Vserver (2.6.27.10)	9521.79
-> 	OpenVZ (2.6.27.10)	2049.89
-> 	Xen (2.6.26.1)		1011.47
-> 	KVM (2.6.27-9)		1022.42
->
-> Now I am interesting to use LXC instead of VServer.
+> On Tue, 24 Feb 2009 11:27:52 +0100 (CET)
+> Jan Engelhardt <jengelh@medozas.de> wrote:
+> 
+> > 
+> > $ ip -6 r
+> > fc00::/7 dev rtl0  proto kernel  metric 256  mtu 1500 advmss 1440 
+> > hoplimit 4294967295
+> > 
+> > Most likely, "hoplimit -1" would be the right number, though I am not 
+> > sure if simply changing %u by %d is a correct thing to do, since it 
+> > would affect all fields.
+ ...
+> > diff --git a/ip/iproute.c b/ip/iproute.c
+> > index 6a2ea05..91a8cc0 100644
+> > --- a/ip/iproute.c
+> > +++ b/ip/iproute.c
+> > @@ -507,7 +507,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+> >  
+> >  			if (i != RTAX_RTT && i != RTAX_RTTVAR &&
+> >  			    i != RTAX_RTO_MIN)
+> > -				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
+> > +				fprintf(fp, " %d", *(unsigned*)RTA_DATA(mxrta[i]));
+> >  			else {
+> >  				unsigned long long val = *(unsigned*)RTA_DATA(mxrta[i]);
+> >  
+> 
+> No fix the kernel please.
 
-A good argument.
+I don't know what you mean by this Stephen.  Why don't you take
+a look at when and why the kernel uses '-1'?
 
->>> Using a macvlan device, the throughput was 9.6 Gbps. But, using a v=
-eth
->>> device,
->>> the throughput was only 2.7 Gbps.
->>
->> Yeah, definitively the macvlan interfaces is the best in terms of
->> performances but with the restriction of not being able to communica=
-te
->> between containers on the same hosts.
->>
-> This restriction is not so big issue for my purpose.
+"-1" is the hoplimit the kernel uses in the dst metric to mean
+"use the default".
 
-Right.  I have been trying to figure out what the best way to cope
-with that restriction is.
+So this iproute patch is absolutely correct, or alternatively, iproute
+can print "default" when it sees '-1'.
 
->>> I also checked the host OS's performance when I used a veth device.
->>> I observed a strange phenomenon.
->>>
->>> Before issuing lxc-start command, the throughput was 9.6 Gbps.
->>> Here is the output of brctl show:
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0$ brctl show
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0bridge name =C2=A0 =C2=A0 bridge id =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 STP enabled =C2=A0 =C2=A0 in=
-terfaces
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0br0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 8000.0060dd470d49 =C2=A0 =C2=A0 =C2=A0 no =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0eth1
->>>
->>> After issuing lxc-start command, the throughput decreased to 3.2 Gb=
-ps.
->>> Here is the output of brctl show:
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0$ sudo brctl show
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0bridge name =C2=A0 =C2=A0 bridge id =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 STP enabled =C2=A0 =C2=A0 in=
-terfaces
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0br0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 8000.0060dd470d49 =C2=A0 =C2=A0 =C2=A0 no =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0eth1
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0veth0_7573
->>>
->>> I wonder why the performance is greatly influenced by adding a veth=
- device
->>> to a bridge device.
->>
->> Hmm, good question :)
-
-Bridging last I looked uses the least common denominator of hardware
-offloads.  Which likely explains why adding a veth decreased your
-bridging performance.
-
->>> Here is my experimental setting:
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0OS: Ubuntu server 8.10 amd64
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0Kernel: 2.6.27-rc8 (checkout from the lx=
-c git repository)
->>
->> I would recommend to use the 2.6.29-rc8 vanilla because this kernel =
-does no
->> longer need patches, a lot of fixes were done in the network namespa=
-ce and
->> maybe the bridge has been improved in the meantime :)
->>
-> I checked out the 2.6.29-rc8 vanilla kernel.
-> The performance after issuing lxc-start improved to 8.7 Gbps!
-> It's a big improvement, while some performance loss remains.
-> Can not we avoid this loss?
-
-Good question.  Any chance you can profile this and see where the
-performance loss seems to be coming from?
-
-Eric
