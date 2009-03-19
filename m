@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: High contention on the sk_buff_head.lock
-Date: Wed, 18 Mar 2009 18:03:55 -0700 (PDT)
-Message-ID: <20090318.180355.228447835.davem@davemloft.net>
-References: <49C16349.9030503@us.ibm.com>
-	<20090318.143844.173112261.davem@davemloft.net>
-	<49C16D7C.3080003@novell.com>
+Subject: Re: iproute2: prints bogus hoplimit
+Date: Wed, 18 Mar 2009 18:06:44 -0700 (PDT)
+Message-ID: <20090318.180644.37715957.davem@davemloft.net>
+References: <20090318151216.60cd0363@nehalam>
+	<20090318.175109.14058201.davem@davemloft.net>
+	<20090318180106.5115c0aa@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vernux@us.ibm.com, andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
-	pmullaney@novell.com
-To: ghaskins@novell.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757992AbZCSBEY@vger.kernel.org>
-In-Reply-To: <49C16D7C.3080003@novell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jengelh@medozas.de, stephen.hemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57915
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751340AbZCSBG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:06:57 -0400
+In-Reply-To: <20090318180106.5115c0aa@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gregory Haskins <ghaskins@novell.com>
-Date: Wed, 18 Mar 2009 17:54:04 -0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 18 Mar 2009 18:01:06 -0700
 
-> Note that -rt doesnt typically context-switch under contention anymore
-> since we introduced adaptive-locks.  Also note that the contention
-> against the lock is still contention, regardless of whether you have -rt
-> or not.  Its just that the slow-path to handle the contended case for
-> -rt is more expensive than mainline.  However, once you have the
-> contention as stated, you have already lost.
+> if I create route with:
+>    ip route add ... hoplimit 0
+> then to do
+>    ip route show 
+> one would expect the hoplimit in the show to match the add ??
+> Whether the kernel fudges it in rt6_fill or utility has special case
+> code really doesn't matter.
 
-First, contention is not implicitly a bad thing.
+Even if the kernel should change, the tool should behave correctly
+for all existing Linux kernels out there so you'd need the iproute2
+hack anyways.
 
-Second, if the -rt kernel is doing adaptive spinning I see no
-reason why that adaptive spinning is not kicking in here to
-make this problem just go away.
+> The correct patch in utility would be something like:
 
-This lock is held for mere cycles, just to unlink an SKB from
-the networking qdisc, and then it is immediately released.
+Sure.
