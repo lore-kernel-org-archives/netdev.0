@@ -1,61 +1,51 @@
-From: Richard Kennedy <richard@rsk.demon.co.uk>
-Subject: [PATCH] ipv6: reorder struct inet6_ifaddr to remove padding on 64
- bit builds
-Date: Thu, 19 Mar 2009 15:32:40 +0000
-Message-ID: <1237476760.3266.13.camel@localhost.localdomain>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH -next] fsl_pq_mdio: Revive Gianfar TBI PHY support
+Date: Thu, 19 Mar 2009 18:52:32 +0300
+Message-ID: <20090319155232.GA5419@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
-To: yoshfuji@linux-ipv6.org, pekkas@netcore.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchor-post-2.mail.demon.net ([195.173.77.133]:45994 "EHLO
-	anchor-post-2.mail.demon.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752424AbZCSPco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 11:32:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
+	linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-reorder struct inet6_ifaddr to remove padding on 64 bit builds
-    
-remove 8 bytes of padding so inet6_ifaddr becomes 192 bytes & fits into
-a smaller slab.
-    
-Signed-off-by: Richard Kennedy <richard@rsk.demon.co.uk>
-----
-patch against v2.6.29-rc8
+commit 1577ecef766650a57fceb171acee2b13cbfaf1d3 ("netdev: Merge UCC
+and gianfar MDIO bus drivers") broke the TSEC TBI PHY support: the
+driver now refuses to probe TBI MDIO buses as it doesn't know about
+"fsl,gianfar-tbi" compatible entry, and thus _probe() fails with
+-ENODEV status.
 
-I've compiled & booted with this patch, modules ipv6 & ip6_tables load
-successfully, but I've not run any other tests.
+Fix this by adding "fsl,gianfar-tbi" to the list of known Gianfar
+MDIO buses.
 
-regards
-Richard
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/fsl_pq_mdio.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
+index b0ce144..6be36b9 100644
+--- a/drivers/net/fsl_pq_mdio.c
++++ b/drivers/net/fsl_pq_mdio.c
+@@ -321,6 +321,7 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
+ 	dev_set_drvdata(&ofdev->dev, new_bus);
  
-
-
-
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index c8effa4..38b7813 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -39,8 +39,6 @@ struct inet6_ifaddr
- 	
- 	__u32			valid_lft;
- 	__u32			prefered_lft;
--	unsigned long		cstamp;	/* created timestamp */
--	unsigned long		tstamp; /* updated timestamp */
- 	atomic_t		refcnt;
- 	spinlock_t		lock;
- 
-@@ -49,6 +47,9 @@ struct inet6_ifaddr
- 
- 	__u16			scope;
- 
-+	unsigned long		cstamp;	/* created timestamp */
-+	unsigned long		tstamp; /* updated timestamp */
-+
- 	struct timer_list	timer;
- 
- 	struct inet6_dev	*idev;
-
-
+ 	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
++			of_device_is_compatible(np, "fsl,gianfar-tbi") ||
+ 			of_device_is_compatible(np, "gianfar")) {
+ #ifdef CONFIG_GIANFAR
+ 		tbipa = get_gfar_tbipa(regs);
+-- 
+1.5.6.5
