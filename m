@@ -1,35 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [bnx2]: Fix problem of using wrong IRQ handler.
-Date: Wed, 18 Mar 2009 18:12:00 -0700 (PDT)
-Message-ID: <20090318.181200.129327163.davem@davemloft.net>
-References: <1237420377-4444-1-git-send-email-mchan@broadcom.com>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Wed, 18 Mar 2009 18:17:13 -0700 (PDT)
+Message-ID: <20090318.181713.62394874.davem@davemloft.net>
+References: <49C16D7C.3080003@novell.com>
+	<20090318.180355.228447835.davem@davemloft.net>
+	<1237425191.8204.41.camel@quadrophenia.thebigcorporation.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37525
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751383AbZCSBMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:12:13 -0400
-In-Reply-To: <1237420377-4444-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ghaskins@novell.com, vernux@us.ibm.com, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-rt-users@vger.kernel.org, pmullaney@novell.com
+To: sven@thebigcorporation.com
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <1237425191.8204.41.camel@quadrophenia.thebigcorporation.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 18 Mar 2009 15:52:57 -0800
+From: Sven-Thorsten Dietrich <sven@thebigcorporation.com>
+Date: Wed, 18 Mar 2009 18:13:11 -0700
 
-> The MSI-X handler was chosen before the call to pci_enable_msix().
-> If MSI-X was not available, the wrong MSI-X handler would be used in
-> INTA mode.  This would cause a screaming interrupt problem because
-> INTA would not be cleared by the MSI-X handler.
-> 
-> Fixed by assigning MSI-X handler after pci_enable_msix() returns
-> successfully.  Also update version to 1.9.3.
-> 
-> Thomas Chenault <thomas_chenault@dell.com> helped us find this problem.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> On Wed, 2009-03-18 at 18:03 -0700, David Miller wrote:
+> > From: Gregory Haskins <ghaskins@novell.com>
+> > Date: Wed, 18 Mar 2009 17:54:04 -0400
+> > 
+> > > Note that -rt doesnt typically context-switch under contention anymore
+> > > since we introduced adaptive-locks.  Also note that the contention
+> > > against the lock is still contention, regardless of whether you have -rt
+> > > or not.  Its just that the slow-path to handle the contended case for
+> > > -rt is more expensive than mainline.  However, once you have the
+> > > contention as stated, you have already lost.
+> > 
+> > First, contention is not implicitly a bad thing.
+>
+> Its a bad thing when it does not scale.
 
-Applied, thanks.
+You have only one pipe to shove packets into in this case, and for
+your workload multiple cpus are going to be trying to stuff a single
+packet at a time from a single UDP send request.
+
+There is no added parallelism you can create for that kind of workload
+on that kind of hardware.
+
+It is one of the issues addressed by multiqueue.
