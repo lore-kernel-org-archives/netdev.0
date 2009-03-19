@@ -1,48 +1,62 @@
-From: Oliver Zheng <mailinglists+netdev@oliverzheng.com>
-Subject: Re: [PATCH net-next-2.6] Re: TCP/IP stack interpretation of
-	acceptable packet
-Date: Wed, 18 Mar 2009 18:47:35 -0700
-Message-ID: <20090319014734.GB26783@oliveoil.chn.comcast.net>
-References: <2ff60cd60902241459q1de39054lb3dc5233f13b69c3@mail.gmail.com> <1237423493.32009.31.camel@Maple>
+From: Sven-Thorsten Dietrich <sven@thebigcorporation.com>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Wed, 18 Mar 2009 18:43:27 -0700
+Message-ID: <1237427007.8204.55.camel@quadrophenia.thebigcorporation.com>
+References: <49C16D7C.3080003@novell.com>
+	 <20090318.180355.228447835.davem@davemloft.net>
+	 <1237425191.8204.41.camel@quadrophenia.thebigcorporation.com>
+	 <20090318.181713.62394874.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andi Kleen <andi@firstfloor.org>
-To: John Dykstra <john.dykstra1@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:25330 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbZCSBmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:42:42 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so297560rvb.1
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2009 18:42:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1237423493.32009.31.camel@Maple>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: ghaskins@novell.com, vernux@us.ibm.com, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-rt-users@vger.kernel.org, pmullaney@novell.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <20090318.181713.62394874.davem@davemloft.net>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 19, 2009 at 12:44:53AM +0000, John Dykstra wrote:
-> RFC793 says (Section 3.9) that not only should such segments be
-> discarded, but that an ACK should be sent to the peer.  I can't see what
-> that accomplishes, and it seems to badly interact with fast
-> retransmit--under some conditions with crafted packets you can get the
-> two stacks ACKing each other forever.  So I left that out of this patch:
+On Wed, 2009-03-18 at 18:17 -0700, David Miller wrote:
+> From: Sven-Thorsten Dietrich <sven@thebigcorporation.com>
+> Date: Wed, 18 Mar 2009 18:13:11 -0700
+> 
+> > On Wed, 2009-03-18 at 18:03 -0700, David Miller wrote:
+> > > From: Gregory Haskins <ghaskins@novell.com>
+> > > Date: Wed, 18 Mar 2009 17:54:04 -0400
+> > > 
+> > > > Note that -rt doesnt typically context-switch under contention anymore
+> > > > since we introduced adaptive-locks.  Also note that the contention
+> > > > against the lock is still contention, regardless of whether you have -rt
+> > > > or not.  Its just that the slow-path to handle the contended case for
+> > > > -rt is more expensive than mainline.  However, once you have the
+> > > > contention as stated, you have already lost.
+> > > 
+> > > First, contention is not implicitly a bad thing.
+> >
+> > Its a bad thing when it does not scale.
+> 
+> You have only one pipe to shove packets into in this case, and for
+> your workload multiple cpus are going to be trying to stuff a single
+> packet at a time from a single UDP send request.
+> 
+> There is no added parallelism you can create for that kind of workload
+> on that kind of hardware.
+> 
 
-I think part of the original intentions for the response ack is to
-generate the "ack storm". In certain cases of tcp hijacking where the
-attacker is trying to resynchronize a tcp session after injecting a
-packet into the stream, an ack storm raises alerts in intrusion
-detection systems. Most of the times, built-in measures reset the tcp
-session given an unusual large number of acks (I'm not sure how or if
-Linux does this).
+Do we have to rule-out per-CPU queues, that aggregate into a master
+queue in a batch-wise manner? 
 
-This was partially the original reason I was looking into this. I
-noticed that Windows does not send an ack back if the received ack has
-a higher than expected ack number *and* higher than expected sequence
-number. For some well crafted tcp hijacking cases, this increases the
-attack success rate substantially.
+I speculate that might reduce the lock contention by a factor of NCPUs.
+I cannot say this would be enough to mitigate the consequent overhead
+penalty. 
 
-It's beyond my knowledge of other implications such a response ack would
-cause.
+> It is one of the issues addressed by multiqueue.
 
-Cheers,
-Oliver
+Properly tuned adaptive locks, would theoretically perform
+near-optimally compared to the mainline case, and would provide better
+CPU utilization on very large parallel architectures. 
+
+Sven
+
