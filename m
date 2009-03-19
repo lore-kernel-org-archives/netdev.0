@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: iproute2: prints bogus hoplimit
-Date: Wed, 18 Mar 2009 18:06:44 -0700 (PDT)
-Message-ID: <20090318.180644.37715957.davem@davemloft.net>
-References: <20090318151216.60cd0363@nehalam>
-	<20090318.175109.14058201.davem@davemloft.net>
-	<20090318180106.5115c0aa@nehalam>
+Subject: Re: [PATCH] [bnx2]: Fix problem of using wrong IRQ handler.
+Date: Wed, 18 Mar 2009 18:12:00 -0700 (PDT)
+Message-ID: <20090318.181200.129327163.davem@davemloft.net>
+References: <1237420377-4444-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jengelh@medozas.de, stephen.hemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57915
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37525
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751340AbZCSBG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:06:57 -0400
-In-Reply-To: <20090318180106.5115c0aa@nehalam>
+	by vger.kernel.org with ESMTP id S1751383AbZCSBMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2009 21:12:13 -0400
+In-Reply-To: <1237420377-4444-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 18 Mar 2009 18:01:06 -0700
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 18 Mar 2009 15:52:57 -0800
 
-> if I create route with:
->    ip route add ... hoplimit 0
-> then to do
->    ip route show 
-> one would expect the hoplimit in the show to match the add ??
-> Whether the kernel fudges it in rt6_fill or utility has special case
-> code really doesn't matter.
+> The MSI-X handler was chosen before the call to pci_enable_msix().
+> If MSI-X was not available, the wrong MSI-X handler would be used in
+> INTA mode.  This would cause a screaming interrupt problem because
+> INTA would not be cleared by the MSI-X handler.
+> 
+> Fixed by assigning MSI-X handler after pci_enable_msix() returns
+> successfully.  Also update version to 1.9.3.
+> 
+> Thomas Chenault <thomas_chenault@dell.com> helped us find this problem.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Even if the kernel should change, the tool should behave correctly
-for all existing Linux kernels out there so you'd need the iproute2
-hack anyways.
-
-> The correct patch in utility would be something like:
-
-Sure.
+Applied, thanks.
