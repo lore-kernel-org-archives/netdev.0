@@ -1,88 +1,74 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH -next] gianfar, ucc_geth: Use proper address translation for MDIO buses
-Date: Thu, 19 Mar 2009 03:57:10 -0500
-Message-ID: <A41D3E28-93C8-46FD-A87A-EDE6C4D4E77B@kernel.crashing.org>
-References: <20090318192152.GA29621@oksana.dev.rtsoft.ru>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [lxc-devel] Poor bridging performance on 10 GbE
+Date: Thu, 19 Mar 2009 10:08:00 +0100
+Message-ID: <49C20B70.7050509@fr.ibm.com>
+References: <b30d1c3b0903180221h5175618eue162ffdec3817b4c@mail.gmail.com> <49C0C87B.7070507@fr.ibm.com> <b30d1c3b0903180856r6dce554ap35b8d6a3ee7829e0@mail.gmail.com> <m1wsamcp4n.fsf@fess.ebiederm.org> <b30d1c3b0903182237w7667c5bbt1ea098025f3b5f36@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Scott Wood <scottwood@freescale.com>,
-	Andy Fleming <afleming@freescale.com>,
-	Li Yang <leoli@freescale.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	lxc-devel@lists.sourceforge.net
+To: Ryousei Takano <ryousei@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51181 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755827AbZCSI56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 04:57:58 -0400
-In-Reply-To: <20090318192152.GA29621@oksana.dev.rtsoft.ru>
+Received: from mtagate7.uk.ibm.com ([195.212.29.140]:61366 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754618AbZCSJIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 05:08:09 -0400
+Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
+	by mtagate7.uk.ibm.com (8.14.3/8.13.8) with ESMTP id n2J985Rl667308
+	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 09:08:05 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n2J985qj3404010
+	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 09:08:05 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n2J984xr015057
+	for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 09:08:04 GMT
+In-Reply-To: <b30d1c3b0903182237w7667c5bbt1ea098025f3b5f36@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ryousei Takano wrote:
+> Hi Eric,
+> 
+> On Thu, Mar 19, 2009 at 9:50 AM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+> 
+> [snip]
+> 
+>> Bridging last I looked uses the least common denominator of hardware
+>> offloads.  Which likely explains why adding a veth decreased your
+>> bridging performance.
+>>
+> At least now LRO cannot coexist bridging.
+> So I disable the LRO feature of the myri10ge driver.
+> 
+>>>>> Here is my experimental setting:
+>>>>>        OS: Ubuntu server 8.10 amd64
+>>>>>        Kernel: 2.6.27-rc8 (checkout from the lxc git repository)
+>>>> I would recommend to use the 2.6.29-rc8 vanilla because this kernel does no
+>>>> longer need patches, a lot of fixes were done in the network namespace and
+>>>> maybe the bridge has been improved in the meantime :)
+>>>>
+>>> I checked out the 2.6.29-rc8 vanilla kernel.
+>>> The performance after issuing lxc-start improved to 8.7 Gbps!
+>>> It's a big improvement, while some performance loss remains.
+>>> Can not we avoid this loss?
+>> Good question.  Any chance you can profile this and see where the
+>> performance loss seems to be coming from?
+>>
+> I found out this issue is caused by decreasing the MTU size.
+> Myri-10G's MTU size is 9000 bytes; the veth' MTU size is 1500 bytes.
+> After bridging veth, MTU size decreases from 9000 to 1500 bytes.
+> I changed the veth's MTU size to 9000 bytes, and then I confirmed
+> the throughput improved to 9.6 Gbps.
+> 
+> The throughput between LXC containers also improved to 4.9 Gbps
+> by changing the MTU sizes.
+> 
+> So I propose to add lxc.network.mtu into the LXC configuration.
+> How does that sound?
 
-On Mar 18, 2009, at 2:21 PM, Anton Vorontsov wrote:
-
-> Currently the drivers just read "reg" property for constructing MDIO
-> bus IDs, but this won't work when we'll start using "ranges = <>" in
-> the device tree, so this will pop up:
->
-> Gianfar MII Bus: probed
-> sysfs: duplicate filename 'mdio@520' can not be created
-> ------------[ cut here ]------------
-> Badness at c00c70c8 [verbose debug info unavailable]
-> NIP: c00c70c8 LR: c00c70c8 CTR: c018220c
-> REGS: cf82fc80 TRAP: 0700   Not tainted  (2.6.29-rc7-00607-g8deffe6)
-> MSR: 00029032 <EE,ME,CE,IR,DR>  CR: 22044022  XER: 20000000
-> TASK = cf821bd0[1] 'swapper' THREAD: cf82e000
-> GPR00: c00c70c8 cf82fd30 cf821bd0 0000003b 000013a4 ffffffff  
-> c017f4f0 000013a4
-> GPR08: c03becbc c03b1f5c 000013a4 c03be810 22044022 00000000  
-> 0ffcd000 00000000
-> GPR16: 0ffc2420 0ffc6eb8 00000000 00000000 00000000 00000000  
-> 00000000 00000000
-> GPR24: 00000000 00000000 cf9d8c40 cf82fd78 cf86ec14 cf82fd48  
-> cf9d78a4 ffffffef
-> NIP [c00c70c8] sysfs_add_one+0x4c/0x54
-> LR [c00c70c8] sysfs_add_one+0x4c/0x54
-> Call Trace:
-> [cf82fd30] [c00c70c8] sysfs_add_one+0x4c/0x54 (unreliable)
-> [cf82fd40] [c00c7628] create_dir+0x58/0xc0
-> [cf82fd70] [c00c76d0] sysfs_create_dir+0x40/0x70
-> [cf82fd90] [c0154d58] create_dir+0x28/0x78
-> [cf82fda0] [c01551f4] kobject_add_internal+0x98/0x13c
-> [cf82fdc0] [c0155868] kobject_add+0x60/0x98
-> [cf82fdf0] [c01854f4] device_add+0x98/0x2ac
-> [cf82fe10] [c01985d8] mdiobus_register+0xb4/0x1b8
-> [cf82fe30] [c0194f1c] gfar_mdio_probe+0x188/0x204
-> ...
->
-> This patch fixes the issue by translating the "reg" property to a full
-> address, and thus avoids the duplicate names.
->
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> ---
->
-> This is for 2.6.30 since we don't use ranges = <> yet.
->
-> David, I believe Kumar would like to pick this patch into his tree
-> along with a patch set that adds "ranges = <>" properties to the
-> device tree... So would you mind if we take it via powerpc.git?
->
-> Thanks,
->
-> drivers/net/gianfar_mii.c  |   10 +++++++---
-> drivers/net/ucc_geth_mii.c |   10 +++++++---
-> 2 files changed, 14 insertions(+), 6 deletions(-)
-
-Andy merged these in net-next to just have drivers/net/fsl_pq_mdio.c.
-
-My suggestion is to update the patch against -next and have David put  
-it into net-next.
-
-(I'll deal w/the .dts updates in powerpc.git and cherry pick commits  
-out of net-next into my testing branching)
-
-- k
+Sounds good :)
+Do you plan to send a patch ?
