@@ -1,28 +1,38 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: High contention on the sk_buff_head.lock
-Date: Thu, 19 Mar 2009 14:45:40 +0100
-Message-ID: <20090319134540.GW11935@one.firstfloor.org>
-References: <49C16D7C.3080003@novell.com> <20090318.180355.228447835.davem@davemloft.net> <1237425191.8204.41.camel@quadrophenia.thebigcorporation.com> <20090318.181713.62394874.davem@davemloft.net> <1237427007.8204.55.camel@quadrophenia.thebigcorporation.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ghaskins@novell.com,
-	vernux@us.ibm.com, andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
-	pmullaney@novell.com
-To: Sven-Thorsten Dietrich <sven@thebigcorporation.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1237427007.8204.55.camel@quadrophenia.thebigcorporation.com>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Huang Weiyi <weiyi.huang@gmail.com>
+Subject: [PATCH] remove duplicated #include
+Date: Thu, 19 Mar 2009 21:44:40 +0800
+Message-ID: <1237470280-668-1-git-send-email-weiyi.huang@gmail.com>
+Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ti-out-0910.google.com ([209.85.142.191]:56182 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755661AbZCSNps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 09:45:48 -0400
+Received: by ti-out-0910.google.com with SMTP id i7so373837tid.23
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 06:45:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Do we have to rule-out per-CPU queues, that aggregate into a master
-> queue in a batch-wise manner? 
+Removed duplicated #include in drivers/net/dnet.c.
 
-TSO/GSO/USO is that actually in a very specific way. It batches
-packets into larger packets and then less per packet locks need to be taken.  
-It was unclear if that was used in this workload or not.
+Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+---
+ drivers/net/dnet.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
--Andi
+diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
+index 5c347f7..8a98d40 100644
+--- a/drivers/net/dnet.c
++++ b/drivers/net/dnet.c
+@@ -21,7 +21,6 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
+-#include <linux/platform_device.h>
+ 
+ #include "dnet.h"
+ 
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+1.6.0.4
+
