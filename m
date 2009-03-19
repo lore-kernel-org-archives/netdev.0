@@ -1,60 +1,59 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 5/5] net: make mpc5200 fec driver use of_mdio
-	infrastructure
-Date: Wed, 18 Mar 2009 22:35:14 -0600
-Message-ID: <fa686aa40903182135v51bbeafahc7fa899fb454a312@mail.gmail.com>
-References: <20090310150751.12455.70598.stgit@localhost.localdomain>
-	 <20090310152224.12455.99348.stgit@localhost.localdomain>
-	 <20090310191638.GA8539@oksana.dev.rtsoft.ru>
-	 <fa686aa40903101248n33ee35c2o32c4b24b349b14fc@mail.gmail.com>
-	 <20090310202949.GA17184@oksana.dev.rtsoft.ru>
+From: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Thu, 19 Mar 2009 12:49:30 +0800
+Message-ID: <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	 <b6a2187b0903141958u9dae0fdk1f44b387108b99e4@mail.gmail.com>
+	 <b6a2187b0903142006u546fad9eme66f9ea7b464b81f@mail.gmail.com>
+	 <1237140665.24621.2.camel@johannes.local>
+	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
+	 <1237143683.24621.7.camel@johannes.local>
+	 <20090315202603.GA9077@elte.hu>
+	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
+	 <1237317742.31814.28.camel@johannes.local>
+	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.30]:26067 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbZCSEfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 00:35:16 -0400
-In-Reply-To: <20090310202949.GA17184@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b6a2187b0903181958ke11abe7tdcbc4efeb950954d-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 10, 2009 at 2:29 PM, Anton Vorontsov
-<avorontsov@ru.mvista.com> wrote:
-> On Tue, Mar 10, 2009 at 01:48:26PM -0600, Grant Likely wrote:
->> Regardless, I
->> think all the drivers should be using common code for obtaining the
->> phy_device from the device tree.
->
-> Not necessary `struct phy_device'. All we need is some common
-> routine for translating PHY's "mdio_node->full_name + phy id" to
-> phy_bus_id.
+On Thu, Mar 19, 2009 at 10:58 AM, Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> I've tracked down to the sequence of iwconfig that causes it to fail.
+> This loop does not work at all without John's patch , but will work
+> 100% when patched.
+> This loop only works 8 of 10 times with/without the patch.
 
-This only works if the network driver knows how the MDIO bus is named.
- The current code assumes that the MDIO bus name is the register
-address, but this is a driver implementation detail and MDIO bus
-drivers can deviate from this.  What about MDIO busses that don't have
-a reg property?  For example, fs_enet/mii-bitbang.c sets the bus name
-to "CPM2 Bitbanged MII".  There is no one-size-fits-all way to figure
-out the phy bus id from the ethernet driver side of things.
+Ignore the above loop thing. The cause seems to be this one instead.
 
-The sure and simple way to guarantee a match between the PHY device
-node and the phy_device is to use the PHY device_node pointer itself
-as the search key.
 
-I concede that my first attempt at this was overly complex, but I've
-reworked the code and I think it makes thinks considerably simpler.
-I'll post a new series tomorrow.  I've got patches to make the
-ucc_eth, gianfar and fs_enet drivers to use the device_node method
-also.
+# this needs patch to work ...
+iwconfig wlan0 mode Managed
+ifconfig wlan0 up
+iwconfig wlan0 essid xxx
+iwconfig wlan0 key restricted xxx
+iwconfig wlan0 ap auto channel auto
 
-g.
 
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+# this works with patch ...
+iwconfig wlan0 mode Managed essid xxx key restricted xxx
+ifconfig wlan0 up
+iwconfig wlan0 ap auto channel auto
+
+It looks the placement of "ifconfig" matters. But works on 2.6.28-rc3.
+
+
+Thanks,
+Jeff.
