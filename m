@@ -1,43 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH] e100: add support for 82552 10/100 adapter
-Date: Thu, 19 Mar 2009 04:07:14 -0700
-Message-ID: <9929d2390903190407l4796577bkd7163c8c1778dc10@mail.gmail.com>
-References: <20090319104236.11320.25733.stgit@lost.foo-projects.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>
-To: davem@davemloft.net
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH] smsc9420: fix big endian rx checksum offload
+Date: Thu, 19 Mar 2009 11:12:32 +0000
+Message-ID: <1237461152-5519-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Ian Saturley <ian.saturley@smsc.com>,
+	David Miller <davem@davemloft.net>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:39069 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752351AbZCSLHQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:07:16 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so466491yxl.1
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2009 04:07:14 -0700 (PDT)
-In-Reply-To: <20090319104236.11320.25733.stgit@lost.foo-projects.org>
+Received: from drevil.shawell.net ([86.54.240.115]:56413 "EHLO
+	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752052AbZCSLMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 07:12:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 3:42 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Bruce Allan <bruce.w.allan@intel.com>
->
-> This patch enables support for the new Intel 82552 adapter (new PHY p=
-aired
-> with the existing MAC in the ICH7 chipset). =C2=A0No new features are=
- added to
-> the driver, however there are minor changes due to updated registers =
-and a
-> few workarounds for hardware errata.
->
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+The cpu_to_le16 here looks suspicious to me, I don't think we need it
+because put_unaligned_le16 also does this.
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I don't currently have any big endian hardware with a PCI bus available
+to test on, so I haven't been able to verify this.
 
-Sorry I left that off on the submission.
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc9420.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---=20
-Cheers,
-Jeff
+diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
+index 17560db..5959ae8 100644
+--- a/drivers/net/smsc9420.c
++++ b/drivers/net/smsc9420.c
+@@ -807,7 +807,7 @@ static void smsc9420_rx_handoff(struct smsc9420_pdata *pd, const int index,
+ 	if (pd->rx_csum) {
+ 		u16 hw_csum = get_unaligned_le16(skb_tail_pointer(skb) +
+ 			NET_IP_ALIGN + packet_length + 4);
+-		put_unaligned_le16(cpu_to_le16(hw_csum), &skb->csum);
++		put_unaligned_le16(hw_csum, &skb->csum);
+ 		skb->ip_summed = CHECKSUM_COMPLETE;
+ 	}
+ 
+-- 
+1.6.0.6
+
