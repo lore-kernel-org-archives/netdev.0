@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 9/9] net/fs_enet: Rework fs_enet driver to use of_mdio
- infrastructure
-Date: Wed, 18 Mar 2009 22:42:52 -0700 (PDT)
-Message-ID: <20090318.224252.236876628.davem@davemloft.net>
-References: <20090319050015.11320.61641.stgit@localhost.localdomain>
-	<20090319050100.11320.64495.stgit@localhost.localdomain>
-	<fa686aa40903182207r2f62985ar35afcf36b480b7e2@mail.gmail.com>
+Subject: Re: IGMP Join dropping multicast packets
+Date: Wed, 18 Mar 2009 22:46:30 -0700 (PDT)
+Message-ID: <20090318.224630.262428741.davem@davemloft.net>
+References: <49BEA1ED.4010907@cosmosbay.com>
+	<91bdcedb0903172050td2ef895he48168987ad94472@mail.gmail.com>
+	<alpine.WNT.2.00.0903181016120.5116@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	afleming@freescale.com, avorontsov@ru.mvista.com,
-	galak@kernel.crashing.org
-To: grant.likely@secretlab.ca
+Cc: daveboutcher@gmail.com, dada1@cosmosbay.com,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36021
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40424
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752914AbZCSFnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 01:43:06 -0400
-In-Reply-To: <fa686aa40903182207r2f62985ar35afcf36b480b7e2@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752373AbZCSFqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 01:46:44 -0400
+In-Reply-To: <alpine.WNT.2.00.0903181016120.5116@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Wed, 18 Mar 2009 23:07:35 -0600
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Date: Wed, 18 Mar 2009 10:24:18 -0700 (Pacific Daylight Time)
 
-> RFC, please don't apply yet.
+> Interesting, this code has been there for eons (and probably this 
+> behavior) but that doesn't mean its not a problem.
+> 
+> We are in the process of figuring out if there are any hardware corner 
+> cases to changing this code (particularly in e1000)
+> 
+> Initial thoughts are:
+> 1) kcalloc an array that we then populate with the hash functions, and 
+>    then program every location only once (never flush)
+> 2) only program a single hash value each time a multicast is added (bad 
+>    because we can't tell the difference in the list since the last time 
+>    the OS gave us the list)
+> 
+> It really seems like this should be fixable, and I agree that the driver 
+> behavior is far from optimal, however well entrenched.
 
-You know, if you have posted a "0/9" patch explaining the purpose
-and intent of the patch series, you'd only need to re-shit into
-my inbox one time to say this stuff is RFC and "don't apply yet"
-instead of 9 FREAKIN' TIMES!
+Just do what tg3 does to fix this now, get fancy and "beautiful"
+later.
