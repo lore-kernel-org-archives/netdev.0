@@ -1,44 +1,43 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH] pci: fix kexec with power state D3
-Date: Thu, 19 Mar 2009 18:49:48 -0700
-Message-ID: <20090319184948.44bf5e9a@hobbes.lan>
-References: <49B1F934.5050006@kernel.org>
-	<20090308101530.GB14133@elte.hu>
-	<200903081128.35970.rjw@sisk.pl>
-	<200903081133.33020.rjw@sisk.pl>
-	<20090308110835.GB27811@elte.hu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: TX time stamping
+Date: Fri, 20 Mar 2009 10:10:50 +0800
+Message-ID: <20090320021050.GA7021@gondor.apana.org.au>
+References: <1236105081.4653.68.camel@pohly-MOBL> <20090319.140509.152824531.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Yinghai Lu <yinghai@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-	pm list <linux-pm@lists.linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20090308110835.GB27811@elte.hu>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: patrick.ohly@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:56850 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753108AbZCTCK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 22:10:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20090319.140509.152824531.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > And, quite frankly, I'm not sure if users will be happy with 
-> > the $subject patch, because it _really_ breaks things (well, 
-> > the kexec users who don't use suspend might be, but surely 
-> > suspend users who don't use kexec won't).
-> 
-> Please note that i havent reviewed the patches and i did not 
-> take any sides in the discussion - i just flagged the maintainer 
-> ping-pong. As long as we pick one of the patches (or a third 
-> one) within a bound amount of time we should be fine :)
+On Thu, Mar 19, 2009 at 02:05:09PM -0700, David Miller wrote:
+>
+> Instead, we have a half-working turd in a tree, and I'm removing it.
 
-I'll defer to Rafael here; he's been working the most in this area.
-The changelog wasn't very complete for the original patch, but it
-sounds like in the kexec case the newly booted kernel will get an igb
-device in D3 which it can't handle?  That really does sound like a
-driver bug, not something we should mess with in the core.
+Yes, we need to spend a bit more time pondering the semantics
+of all this.
 
+First of all, if a packet bifurcates and is transmitted through
+two interfaces both capable of timestamping, which event do we
+take as the timestamp of the original packet?
+
+As to the problem of skb->sk, I don't think that's even needed
+as we can simply use the skb shared area as the communication
+medium.  However, for that to work we need to figure out what
+we do when the packet becomes two independent entities, hence
+we need to resolve the above question first.
+
+Cheers,
 -- 
-Jesse Barnes, Intel Open Source Technology Center
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
