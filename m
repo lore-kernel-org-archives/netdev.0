@@ -1,33 +1,83 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] atm: lec use dev_change_mtu
-Date: Thu, 19 Mar 2009 17:24:00 -0700
-Message-ID: <20090319172400.239594f8@nehalam>
+From: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Fri, 20 Mar 2009 02:40:49 +0100
+Message-ID: <200903200240.50183.fzu@wemgehoertderstaat.de>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903191158.52436.fzu@wemgehoertderstaat.de> <20090319222302.GA1972@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59210 "EHLO mail.vyatta.com"
+Received: from mout5.freenet.de ([195.4.92.95]:33476 "EHLO mout5.freenet.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755824AbZCTAf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2009 20:35:27 -0400
+	id S1752533AbZCTBll convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 21:41:41 -0400
+In-Reply-To: <20090319222302.GA1972@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than calling device pointer directly (which is incorrect with
-net_device_ops), use the standard dev_change_mtu. Compile tested only.
+Am Donnerstag 19 M=E4rz 2009 schrieb Francois Romieu:
+> Karsten Wiese <fzu@wemgehoertderstaat.de> :
+> [...]
+> > Found it: CONFIG_DEBUG_SHIRQ is set here causing a "test-call" to
+> > rtl8169_interrupt() from irq_request().
+> >=20
+> > $SUBJECT patch is ok, me still thinks. You ?
+>=20
+> I will have to convince myself that nothing bad can happen in the
+> window between netif_rx_schedule_prep and RTL_W16. No big deal.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+RTL_W16 is a posted write, if it happens, theres no difference if its
+posted before or after netif_rx_schedule_prep.
+=20
+> I do not understand why / how the patch works at all : AFAIU, the sta=
+tus
+> register must contain some napi-related event in order for the patch =
+to
+> make a difference.
 
---- a/net/atm/lec.c	2009-03-19 17:18:35.140652628 -0700
-+++ b/net/atm/lec.c	2009-03-19 17:19:19.500777355 -0700
-@@ -502,7 +502,7 @@ static int lec_atm_send(struct atm_vcc *
- 		priv->lane2_ops = NULL;
- 		if (priv->lane_version > 1)
- 			priv->lane2_ops = &lane2_ops;
--		if (dev->change_mtu(dev, mesg->content.config.mtu))
-+		if (dev_set_mtu(dev, mesg->content.config.mtu))
- 			printk("%s: change_mtu to %d failed\n", dev->name,
- 			       mesg->content.config.mtu);
- 		priv->is_proxy = mesg->content.config.is_proxy;
+It contains 0x25 when the "test-call" runs, Link, Rx and Tx Flags.
+
+> That's exactly what rtl8169_irq_mask_and_ack() is
+> supposed to prevent. -> Does it fail ?
+
+rtl8169_irq_mask_and_ack() resets status once and prevents interrupts
+being sent by device. Maybe status reset doesn't work because device is
+stopped or device isn't _completely_ stopped and updates status flags l=
+ater.
+Maybe Tx status only becomes 0 if some Tx data is queued.
+=20
+> So I'd really like to understand what is going on here.
+
+Well, without patch any further interrupt causing napi-status isn't res=
+et
+_and_ netif_rx_schedule() isn't active. screaming interrupts.
+slooooowish pc. Wonder why it proceeded at all though.
+
+After rmmod/modprobe the status register contained 0x20 when in
+rtl8169_irq_mask_and_ack() during "test-call", letting device work
+normally.
+=20
+> PS: while I agree on the motivation for CONFIG_DEBUG_SHIRQ, I wonder =
+if
+> it is 100% safe to run an IRQ handler from a context which does not
+> adhere to the original semantic. If its {disable/enable}_irq pair rac=
+es
+> with a similar pair due to a different driver on the same (shared) ir=
+q,
+> things could imho be unsafe.
+
+=46rom the comment of disable_irq():
+	"This function waits for any pending IRQ handlers for this interrupt
+ 	to complete before returning."
+No race possible, in theory ;-)
+
+The pc I debugged this on is a UP with no other device active on the us=
+ed
+int16.
+
+Thanks,
+Karsten
+
