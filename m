@@ -1,35 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc9420: fix big endian rx checksum offload
-Date: Fri, 20 Mar 2009 01:15:26 -0700 (PDT)
-Message-ID: <20090320.011526.32032988.davem@davemloft.net>
-References: <1237461152-5519-1-git-send-email-steve.glendinning@smsc.com>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH]spider_net:remove '&' in the init of function pointers
+Date: Fri, 20 Mar 2009 16:18:37 +0800
+Message-ID: <49C3515D.7090703@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Cc: jens@de.ibm.com, kou.ishizaki@toshiba.co.jp,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39933
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754608AbZCTIPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:15:39 -0400
-In-Reply-To: <1237461152-5519-1-git-send-email-steve.glendinning@smsc.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:58041 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752921AbZCTITc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 04:19:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Thu, 19 Mar 2009 11:12:32 +0000
+Do not need '&' in the init of function pointers.
 
-> The cpu_to_le16 here looks suspicious to me, I don't think we need it
-> because put_unaligned_le16 also does this.
-> 
-> I don't currently have any big endian hardware with a PCI bus available
-> to test on, so I haven't been able to verify this.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
 
-Looks good, applied.
+---
+ drivers/net/spider_net.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-skb->csum is never unaligned so you probably want to also
-convert this to use one of the aligned endianness store
-interfaces.
+diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
+index 88d2c67..247fe9b 100644
+--- a/drivers/net/spider_net.c
++++ b/drivers/net/spider_net.c
+@@ -2268,20 +2268,20 @@ spider_net_tx_timeout(struct net_device *netdev)
+ static void
+ spider_net_setup_netdev_ops(struct net_device *netdev)
+ {
+-	netdev->open = &spider_net_open;
+-	netdev->stop = &spider_net_stop;
+-	netdev->hard_start_xmit = &spider_net_xmit;
+-	netdev->set_multicast_list = &spider_net_set_multi;
+-	netdev->set_mac_address = &spider_net_set_mac;
+-	netdev->change_mtu = &spider_net_change_mtu;
+-	netdev->do_ioctl = &spider_net_do_ioctl;
++	netdev->open = spider_net_open;
++	netdev->stop = spider_net_stop;
++	netdev->hard_start_xmit = spider_net_xmit;
++	netdev->set_multicast_list = spider_net_set_multi;
++	netdev->set_mac_address = spider_net_set_mac;
++	netdev->change_mtu = spider_net_change_mtu;
++	netdev->do_ioctl = spider_net_do_ioctl;
+ 	/* tx watchdog */
+-	netdev->tx_timeout = &spider_net_tx_timeout;
++	netdev->tx_timeout = spider_net_tx_timeout;
+ 	netdev->watchdog_timeo = SPIDER_NET_WATCHDOG_TIMEOUT;
+ 	/* HW VLAN */
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	/* poll controller */
+-	netdev->poll_controller = &spider_net_poll_controller;
++	netdev->poll_controller = spider_net_poll_controller;
+ #endif /* CONFIG_NET_POLL_CONTROLLER */
+ 	/* ethtool ops */
+ 	netdev->ethtool_ops = &spider_net_ethtool_ops;
+-- 
+1.6.0.3
+
+-- 
+Regards
+Yang Hongyang
