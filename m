@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: reorder struct Qdisc for better SMP performance
-Date: Fri, 20 Mar 2009 01:33:56 -0700 (PDT)
-Message-ID: <20090320.013356.246706473.davem@davemloft.net>
-References: <49C1DCDF.6050300@cosmosbay.com>
-	<20090318.225822.179893347.davem@davemloft.net>
-	<49C250DB.3050707@cosmosbay.com>
+Subject: Re: [PATCH]: sunvnet netdev ops conversion...
+Date: Fri, 20 Mar 2009 01:34:48 -0700 (PDT)
+Message-ID: <20090320.013448.251351318.davem@davemloft.net>
+References: <20090320.005205.65922171.davem@davemloft.net>
+	<49C35443.8020604@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sven@thebigcorporation.com, ghaskins@novell.com, vernux@us.ibm.com,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rt-users@vger.kernel.org,
-	pmullaney@novell.com
-To: dada1@cosmosbay.com
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <49C250DB.3050707@cosmosbay.com>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: yanghy@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42883
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757361AbZCTIfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:35:01 -0400
+In-Reply-To: <49C35443.8020604@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 19 Mar 2009 15:04:11 +0100
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Date: Fri, 20 Mar 2009 16:30:59 +0800
 
-> [PATCH] net: reorder struct Qdisc for better SMP performance
+> David Miller wrote:
+> > Committed to net-next-2.6...
+> > 
+> > sunvnet: Convert to net_device_ops.
+> 
+> I noticed that there are other drivers's  net_device_ops 
+> need to be converted,is these convert nessary?
 
-Applied, thanks.
-
+Not necessary, but desirable.  Once all drivers are
+converted we can remove the compatability code.
