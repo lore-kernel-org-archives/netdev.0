@@ -1,27 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] remove duplicated #include
-Date: Fri, 20 Mar 2009 01:33:04 -0700 (PDT)
-Message-ID: <20090320.013304.171762239.davem@davemloft.net>
-References: <1237470280-668-1-git-send-email-weiyi.huang@gmail.com>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: [PATCH]spider_net:remove '&' in the init of function pointers
+Date: Fri, 20 Mar 2009 16:32:35 +0800
+Message-ID: <49C354A3.7020807@cn.fujitsu.com>
+References: <49C3515D.7090703@cn.fujitsu.com> <20090320.012152.95177338.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weiyi.huang@gmail.com
+Cc: jens@de.ibm.com, kou.ishizaki@toshiba.co.jp, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55690
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753487AbZCTIdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:33:17 -0400
-In-Reply-To: <1237470280-668-1-git-send-email-weiyi.huang@gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:60076 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752823AbZCTIdX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 04:33:23 -0400
+In-Reply-To: <20090320.012152.95177338.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Date: Thu, 19 Mar 2009 21:44:40 +0800
-
-> Removed duplicated #include in drivers/net/dnet.c.
+David Miller wrote:
+> From: Yang Hongyang <yanghy@cn.fujitsu.com>
+> Date: Fri, 20 Mar 2009 16:18:37 +0800
 > 
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+>> Do not need '&' in the init of function pointers.
+>>
+>> Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
+> 
+> It's harmless, just leave it alone.  This is just going to be commit
+> noise.
+> 
+> More useful would be to convert this driver over to net_device_ops.
 
-Applied.
+I'll do that.
+
+> 
+> I'm not applying this.
+> 
+> 
+
+
+-- 
+Regards
+Yang Hongyang
