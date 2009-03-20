@@ -1,46 +1,102 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] pci: fix kexec with power state D3
-Date: Fri, 20 Mar 2009 12:29:16 +0100
-Message-ID: <200903201229.18962.rjw@sisk.pl>
-References: <49B1F934.5050006@kernel.org> <20090308110835.GB27811@elte.hu> <20090319184948.44bf5e9a@hobbes.lan>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH]: sunvnet netdev ops conversion...
+Date: Fri, 20 Mar 2009 12:43:00 +0100
+Message-ID: <87prgcju7v.fsf@nemi.mork.no>
+References: <20090320.005205.65922171.davem@davemloft.net>
+	<49C35443.8020604@cn.fujitsu.com>
+	<20090320.013448.251351318.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Yinghai Lu <yinghai@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-	pm list <linux-pm@lists.linux-foundation.org>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759926AbZCTL3l@vger.kernel.org>
-In-Reply-To: <20090319184948.44bf5e9a@hobbes.lan>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:38928 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752179AbZCTLnO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 07:43:14 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Lkd82-0001bv-2B
+	for netdev@vger.kernel.org; Fri, 20 Mar 2009 11:43:10 +0000
+Received: from 193.160.199.2 ([193.160.199.2])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2009 11:43:10 +0000
+Received: from bjorn by 193.160.199.2 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2009 11:43:10 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 20 March 2009, Jesse Barnes wrote:
-> > > And, quite frankly, I'm not sure if users will be happy with 
-> > > the $subject patch, because it _really_ breaks things (well, 
-> > > the kexec users who don't use suspend might be, but surely 
-> > > suspend users who don't use kexec won't).
-> > 
-> > Please note that i havent reviewed the patches and i did not 
-> > take any sides in the discussion - i just flagged the maintainer 
-> > ping-pong. As long as we pick one of the patches (or a third 
-> > one) within a bound amount of time we should be fine :)
-> 
-> I'll defer to Rafael here; he's been working the most in this area.
-> The changelog wasn't very complete for the original patch, but it
-> sounds like in the kexec case the newly booted kernel will get an igb
-> device in D3 which it can't handle?  That really does sound like a
-> driver bug, not something we should mess with in the core.
+David Miller <davem@davemloft.net> writes:
+> From: Yang Hongyang <yanghy@cn.fujitsu.com>
+> Date: Fri, 20 Mar 2009 16:30:59 +0800
+>
+>> David Miller wrote:
+>> > Committed to net-next-2.6...
+>> >=20
+>> > sunvnet: Convert to net_device_ops.
+>>=20
+>> I noticed that there are other drivers's  net_device_ops=20
+>> need to be converted,is these convert nessary?
+>
+> Not necessary, but desirable.  Once all drivers are
+> converted we can remove the compatability code.
 
-I have already posted an alternative patch for igb that's been reported to
-fix the problem.
+Just thinking... Would it make sense, at some point before removing the
+compatibility layer, to add tests for partial conversions?  I noticed
+the sungem bug just fixed by Stephen Hemminger=20
+( http://permalink.gmane.org/gmane.linux.network/122756 )
+which could have been caught by the patch below.
 
-Thanks,
-Rafael
+This will also ease the transition of "driver sets", like usbnet and
+it's children, where a number of drivers need to make the conversion
+together.  Don't know if that's a big problem, but it did stop my first
+attempt to convert usbnet because I was uncertain whether I had caught
+all of the necessary mini driver conversions.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+
+ net/core/dev.c |   28 ++++++++++++++++++++++++++++
+ 1 files changed, 28 insertions(+), 0 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f112970..ad3e780 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4359,6 +4359,34 @@ int register_netdevice(struct net_device *dev)
+ 	 * This is temporary until all network devices are converted.
+ 	 */
+ 	if (dev->netdev_ops) {
++		/* drivers using netdev_ops should not set any of these */
++		if (dev->init ||
++		    dev->uninit ||
++		    dev->open ||
++		    dev->change_rx_flags ||
++		    dev->set_rx_mode ||
++		    dev->set_multicast_list ||
++		    dev->set_mac_address ||
++		    dev->validate_addr ||
++		    dev->do_ioctl ||
++		    dev->set_config ||
++		    dev->change_mtu ||
++		    dev->neigh_setup ||
++		    dev->tx_timeout ||
++		    dev->get_stats ||
++		    dev->vlan_rx_register ||
++		    dev->vlan_rx_add_vid ||
++		    dev->vlan_rx_kill_vid
++#ifdef CONFIG_NET_POLL_CONTROLLER
++		    || dev->poll_controller
++#endif
++			) {
++			char drivername[64];
++
++			pr_info("%s (%s): mixing netdev_ops and old API\n",
++				dev->name, netdev_drivername(dev, drivername,=20
++							     64));
++		}
+ 		netdev_resync_ops(dev);
+ 	} else {
+ 		char drivername[64];
+
