@@ -1,32 +1,67 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: e1000 under VMware doesn't work since 2.6.27.16 - BISECTED
-Date: Fri, 20 Mar 2009 16:03:58 -0700
-Message-ID: <adafxh7yext.fsf@cisco.com>
-References: <49C3C726.4000405@bcsoft.de>
-	<20090320.155739.93629479.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/5] sfc: Pad packets to 33 bytes to prevent TX packet
+	parser lockup
+Date: Fri, 20 Mar 2009 23:25:39 +0000
+Message-ID: <1237591540.3217.6.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: drifter@bcsoft.de, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:18503 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069AbZCTXEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 19:04:00 -0400
-In-Reply-To: <20090320.155739.93629479.davem@davemloft.net> (David Miller's
-	message of "Fri, 20 Mar 2009 15:57:39 -0700 (PDT)")
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:49701 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763086AbZCTXZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 19:25:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > > we're using virtual machines under VMware with the e1000 emulated
- > > network card.
+The packet parser used in the TX data path for locating checksum
+fields can lose synchronisation with the TX queue manager when
+handling packets that look like IPv4 but are too short (17-32 bytes).
+Work around this by padding to 33 bytes.
 
- > Sounds like vmware doesn't emulate the e1000 accurately enough.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/tx.c          |    8 ++++++++
+ drivers/net/sfc/workarounds.h |    2 ++
+ 2 files changed, 10 insertions(+), 0 deletions(-)
 
-I would consider problems with the vmware emulated e1000 to be similar
-to hardware quirks in some other chip rev supported by the e1000
-driver.  If a driver change broke e1000 inside a vmware VM then we
-should probably fix the kernel if possible (although vmware probably
-wants to improve their emulation too).
+diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
+index b1e1907..d6681ed 100644
+--- a/drivers/net/sfc/tx.c
++++ b/drivers/net/sfc/tx.c
+@@ -162,6 +162,14 @@ static int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
+ 	/* Get size of the initial fragment */
+ 	len = skb_headlen(skb);
+ 
++	/* Pad if necessary */
++	if (EFX_WORKAROUND_15592(efx) && skb->len <= 32) {
++		EFX_BUG_ON_PARANOID(skb->data_len);
++		len = 32 + 1;
++		if (skb_pad(skb, len - skb->len))
++			return NETDEV_TX_OK;
++	}
++
+ 	fill_level = tx_queue->insert_count - tx_queue->old_read_count;
+ 	q_space = efx->type->txd_ring_mask - 1 - fill_level;
+ 
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+index 78de68f..c821c15 100644
+--- a/drivers/net/sfc/workarounds.h
++++ b/drivers/net/sfc/workarounds.h
+@@ -36,6 +36,8 @@
+ #define EFX_WORKAROUND_11482 EFX_WORKAROUND_ALWAYS
+ /* Flush events can take a very long time to appear */
+ #define EFX_WORKAROUND_11557 EFX_WORKAROUND_ALWAYS
++/* Truncated IPv4 packets can confuse the TX packet parser */
++#define EFX_WORKAROUND_15592 EFX_WORKAROUND_ALWAYS
+ 
+ /* Spurious parity errors in TSORT buffers */
+ #define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
 
- - R.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
