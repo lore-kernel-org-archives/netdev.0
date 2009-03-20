@@ -1,26 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] smsc911x: replace print_mac with %pM
-Date: Thu, 19 Mar 2009 23:59:46 -0700 (PDT)
-Message-ID: <20090319.235946.256441840.davem@davemloft.net>
-References: <1237458286-23421-1-git-send-email-steve.glendinning@smsc.com>
-	<1237458286-23421-2-git-send-email-steve.glendinning@smsc.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
+Date: Fri, 20 Mar 2009 00:23:39 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090319233404.6697768b@nehalam> <20090319233610.51fe4ee1@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45338
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752271AbZCTG77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 02:59:59 -0400
-In-Reply-To: <1237458286-23421-2-git-send-email-steve.glendinning@smsc.com>
+Received: from mga09.intel.com ([134.134.136.24]:50168 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750782AbZCTHXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 03:23:43 -0400
+In-Reply-To: <20090319233610.51fe4ee1@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Thu, 19 Mar 2009 10:24:45 +0000
+On Thu, 19 Mar 2009, Stephen Hemminger wrote:
 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> Convert ixgbe to use net_device_ops properly.
+> Rather than changing the select_queue function pointer
+> just check the flag.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied.
+Thanks Stephen.  I was looking at reassigning a DCB netdev_ops struct when 
+DCB is enabled, and then having a default netdev_ops struct when it's not 
+enabled.  I agree the check is cleaner the way you have it below, but it's 
+another conditional check in the Tx hotpath, which we have too many of in 
+the first place.
+
+On a related side note, why is the netdev_ops member of net_device 
+declared const?
+
+Cheers,
+-PJ Waskiewicz
