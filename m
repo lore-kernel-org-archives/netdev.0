@@ -1,64 +1,40 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [RFC] net: release dst entry in dev_queue_xmit()
-Date: Fri, 20 Mar 2009 12:40:22 +0100
-Message-ID: <49C380A6.4000904@cosmosbay.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [NET] net: reorder struct net_device_ops
+Date: Fri, 20 Mar 2009 13:47:08 +0100
+Message-ID: <87iqm4jr8z.fsf@nemi.mork.no>
+References: <49C354B5.3060404@cosmosbay.com>
+	<20090320.013611.67498837.davem@davemloft.net>
+	<49C36570.4010903@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58283 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999AbZCTMDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 08:03:19 -0400
+Received: from canardo.mork.no ([148.122.252.1]:37448 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752758AbZCTMr6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 08:47:58 -0400
+In-Reply-To: <49C36570.4010903@cosmosbay.com> (Eric Dumazet's message of "Fri,
+	20 Mar 2009 10:44:16 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One point of contention in high network loads is the dst_release() performed
-when a transmited skb is freed. This is because NIC tx completion calls skb free
-long after original call to dev_queue_xmit(skb).
+Eric Dumazet <dada1@cosmosbay.com> writes:
 
-CPU cache is cold and the atomic op in dst_release() stalls. On SMP, this is
-quite visible if one CPU is 100% handling softirqs for a network device,
-since dst_clone() is done by other cpus, involving cache line ping pongs.
+> [NET] net: reorder struct net_device_ops
+>
+> Moving ndo_start_xmit() field at first position in
+> struct net_device_ops reduce the assembly needed to compute
+> the prefetch() address.
 
-I believe we can release dst in dev_queue_xmit(), while cpu cache is hot, since
-caller of dev_queue_xmit() had to hold a reference on dst right before. This reduce
-work to be done by softirq handler, and decrease cache misses.
+You can't do this while the compatibility code is still there.
 
-I also believe only pktgen can call dev_queue_xmit() with skb which have
-a skb->users != 1. But pkthen skbs have a NULL dst entry.
+from net/core/dev.c:register_netdevice() :
 
-I added a WARN_ON_ONCE() to catch other cases, and not release skb->dst
-if skb->users != 1
+		/* This works only because net_device_ops and the
+		   compatiablity structure are the same. */
+		dev->netdev_ops =3D (void *) &(dev->init);
 
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f112970..9e0fd01 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1852,6 +1852,20 @@ gso:
- 	if (q->enqueue) {
- 		spinlock_t *root_lock = qdisc_lock(q);
- 
-+		/*
-+		 * Release dst while its refcnt is hot in CPU cache, instead
-+		 * of waiting NIC tx completion
-+		 */
-+		if (likely(skb->dst)) {
-+			if (!WARN_ON_ONCE(atomic_read(&skb->users) != 1)) {
-+				int newrefcnt;
-+
-+				smp_mb__before_atomic_dec();
-+				newrefcnt = atomic_dec_return(&skb->dst->__refcnt);
-+				WARN_ON(newrefcnt < 0);
-+				skb->dst = NULL;
-+			}
-+		}
- 		spin_lock(root_lock);
- 
- 		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+Bj=C3=B8rn
