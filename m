@@ -1,69 +1,133 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 1/5] igb: allow tx of pre-formatted vlan tagged
-	packets
-Date: Fri, 20 Mar 2009 03:16:31 -0700
-Message-ID: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 2/5] igb: remove IGB_DESC_UNUSED since it is better
+	handled by a function call
+Date: Fri, 20 Mar 2009 03:16:50 -0700
+Message-ID: <20090320101650.17663.62516.stgit@lost.foo-projects.org>
+References: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Arthur Jones <ajones@riverbed.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:39011 "EHLO
 	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757826AbZCTKWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:22:41 -0400
+	by vger.kernel.org with ESMTP id S1753745AbZCTKW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:22:57 -0400
+In-Reply-To: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arthur Jones <ajones@riverbed.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-When the 82575 is fed 802.1q packets, it chokes with
-an error of the form:
+This patch removes IGB_DESC_UNUSED and replaces it with a function call
+instead in order to cleanup some of the ugliness introduced by the macro.
 
-igb 0000:08:00.1 partial checksum but proto=81!
-
-As the logic there was not smart enough to look into
-the vlan header to pick out the encapsulated protocol.
-
-There are times when we'd like to send these packets
-out without having to configure a vlan on the interface.
-Here we check for the vlan tag and allow the packet to
-go out with the correct hardware checksum.
-
-Thanks to Kand Ly <kand@riverbed.com> for discovering the
-issue and the coming up with a solution.  This patch is
-based upon his work.
-
-Signed-off-by: Arthur Jones <ajones@riverbed.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/igb/igb.h      |    4 ----
+ drivers/net/igb/igb_main.c |   25 ++++++++++++++++++-------
+ 2 files changed, 18 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index e18ac1b..4e8464b 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -182,10 +182,6 @@ struct igb_ring {
+ 	char name[IFNAMSIZ + 5];
+ };
+ 
+-#define IGB_DESC_UNUSED(R) \
+-	((((R)->next_to_clean > (R)->next_to_use) ? 0 : (R)->count) + \
+-	(R)->next_to_clean - (R)->next_to_use - 1)
+-
+ #define E1000_RX_DESC_ADV(R, i)	    \
+ 	(&(((union e1000_adv_rx_desc *)((R).desc))[i]))
+ #define E1000_TX_DESC_ADV(R, i)	    \
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 7c4481b..c14d569 100644
+index c14d569..05bb7a7 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -3008,6 +3008,17 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
- 		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
+@@ -278,6 +278,17 @@ static char *igb_get_time_str(struct igb_adapter *adapter,
+ #endif
  
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			__be16 protocol;
+ /**
++ * igb_desc_unused - calculate if we have unused descriptors
++ **/
++static int igb_desc_unused(struct igb_ring *ring)
++{
++	if (ring->next_to_clean > ring->next_to_use)
++		return ring->next_to_clean - ring->next_to_use - 1;
 +
-+			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
-+				const struct vlan_ethhdr *vhdr =
-+				          (const struct vlan_ethhdr*)skb->data;
++	return ring->count + ring->next_to_clean - ring->next_to_use - 1;
++}
 +
-+				protocol = vhdr->h_vlan_encapsulated_proto;
-+			} else {
-+				protocol = skb->protocol;
-+			}
-+
- 			switch (skb->protocol) {
- 			case cpu_to_be16(ETH_P_IP):
- 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
++/**
+  * igb_init_module - Driver Registration Routine
+  *
+  * igb_init_module is the first routine called when the driver is
+@@ -873,12 +884,12 @@ static void igb_configure(struct igb_adapter *adapter)
+ 
+ 	igb_rx_fifo_flush_82575(&adapter->hw);
+ 
+-	/* call IGB_DESC_UNUSED which always leaves
++	/* call igb_desc_unused which always leaves
+ 	 * at least 1 descriptor unused to make sure
+ 	 * next_to_use != next_to_clean */
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+ 		struct igb_ring *ring = &adapter->rx_ring[i];
+-		igb_alloc_rx_buffers_adv(ring, IGB_DESC_UNUSED(ring));
++		igb_alloc_rx_buffers_adv(ring, igb_desc_unused(ring));
+ 	}
+ 
+ 
+@@ -2661,7 +2672,7 @@ link_up:
+ 	igb_update_adaptive(&adapter->hw);
+ 
+ 	if (!netif_carrier_ok(netdev)) {
+-		if (IGB_DESC_UNUSED(tx_ring) + 1 < tx_ring->count) {
++		if (igb_desc_unused(tx_ring) + 1 < tx_ring->count) {
+ 			/* We've lost link, so the controller stops DMA,
+ 			 * but we've got queued Tx work that's never going
+ 			 * to get done, so reset controller to flush Tx.
+@@ -3199,7 +3210,7 @@ static int __igb_maybe_stop_tx(struct net_device *netdev,
+ 
+ 	/* We need to check again in a case another CPU has just
+ 	 * made room available. */
+-	if (IGB_DESC_UNUSED(tx_ring) < size)
++	if (igb_desc_unused(tx_ring) < size)
+ 		return -EBUSY;
+ 
+ 	/* A reprieve! */
+@@ -3211,7 +3222,7 @@ static int __igb_maybe_stop_tx(struct net_device *netdev,
+ static int igb_maybe_stop_tx(struct net_device *netdev,
+ 			     struct igb_ring *tx_ring, int size)
+ {
+-	if (IGB_DESC_UNUSED(tx_ring) >= size)
++	if (igb_desc_unused(tx_ring) >= size)
+ 		return 0;
+ 	return __igb_maybe_stop_tx(netdev, tx_ring, size);
+ }
+@@ -4310,7 +4321,7 @@ static bool igb_clean_tx_irq(struct igb_ring *tx_ring)
+ 
+ 	if (unlikely(count &&
+ 		     netif_carrier_ok(netdev) &&
+-		     IGB_DESC_UNUSED(tx_ring) >= IGB_TX_QUEUE_WAKE)) {
++		     igb_desc_unused(tx_ring) >= IGB_TX_QUEUE_WAKE)) {
+ 		/* Make sure that anybody stopping the queue after this
+ 		 * sees the new next_to_clean.
+ 		 */
+@@ -4587,7 +4598,7 @@ next_desc:
+ 	}
+ 
+ 	rx_ring->next_to_clean = i;
+-	cleaned_count = IGB_DESC_UNUSED(rx_ring);
++	cleaned_count = igb_desc_unused(rx_ring);
+ 
+ 	if (cleaned_count)
+ 		igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
 
