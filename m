@@ -1,33 +1,33 @@
-From: Bastian Blank <waldi@debian.org>
-Subject: Re: [PATCH] bnx2: Use request_firmware()
-Date: Fri, 20 Mar 2009 00:25:41 +0100
-Message-ID: <20090319232541.GA19262@wavehammer.waldi.eu.org>
-References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk> <1237503884.16140.23.camel@HP1>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] atm: lec use dev_change_mtu
+Date: Thu, 19 Mar 2009 17:24:00 -0700
+Message-ID: <20090319172400.239594f8@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wavehammer.waldi.eu.org ([82.139.201.20]:43526 "EHLO
-	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753261AbZCSXb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 19:31:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1237503884.16140.23.camel@HP1>
+Received: from mail.vyatta.com ([76.74.103.46]:59210 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755824AbZCTAf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2009 20:35:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 04:04:44PM -0700, Michael Chan wrote:
-> Thanks Ben and Bastian.  I will review this and test it out.  I think I
-> will add some logic to check firmware versions to guarantee some level
-> of compatibility.
+Rather than calling device pointer directly (which is incorrect with
+net_device_ops), use the standard dev_change_mtu. Compile tested only.
 
-The firmware version is coded into the filenames.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Bastian
-
--- 
-Violence in reality is quite different from theory.
-		-- Spock, "The Cloud Minders", stardate 5818.4
+--- a/net/atm/lec.c	2009-03-19 17:18:35.140652628 -0700
++++ b/net/atm/lec.c	2009-03-19 17:19:19.500777355 -0700
+@@ -502,7 +502,7 @@ static int lec_atm_send(struct atm_vcc *
+ 		priv->lane2_ops = NULL;
+ 		if (priv->lane_version > 1)
+ 			priv->lane2_ops = &lane2_ops;
+-		if (dev->change_mtu(dev, mesg->content.config.mtu))
++		if (dev_set_mtu(dev, mesg->content.config.mtu))
+ 			printk("%s: change_mtu to %d failed\n", dev->name,
+ 			       mesg->content.config.mtu);
+ 		priv->is_proxy = mesg->content.config.is_proxy;
