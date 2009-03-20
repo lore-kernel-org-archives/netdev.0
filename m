@@ -1,81 +1,69 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] skb: expose and constify hash primitives
-Date: Thu, 19 Mar 2009 23:34:04 -0700
-Message-ID: <20090319233404.6697768b@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: PROBLEM: IPv6 autoconf/accept_ra default values
+Date: Thu, 19 Mar 2009 23:44:46 -0700 (PDT)
+Message-ID: <20090319.234446.242594797.davem@davemloft.net>
+References: <alpine.LNX.2.00.0902241031470.28298@halbrend.uninett.no>
+	<alpine.LNX.2.00.0903180200590.10453@firda.kolla.no>
+	<20090318.123308.29370828.yoshfuji@st-paulia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux@kolla.no, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: yoshfuji@st-paulia.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44918 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751810AbZCTGgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 02:36:25 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57261
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751315AbZCTGo7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 02:44:59 -0400
+In-Reply-To: <20090318.123308.29370828.yoshfuji@st-paulia.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: YOSHIFUJI Hideaki <yoshfuji@st-paulia.net>
+Date: Wed, 18 Mar 2009 12:33:08 +0900 (JST)
 
-Some minor changes to queue hashing:
- 1. Use const on accessor functions
- 2. Export skb_tx_hash for use in drivers (see ixgbe)
+> In article <alpine.LNX.2.00.0903180200590.10453@firda.kolla.no> (at W=
+ed, 18 Mar 2009 02:06:09 +0100 (CET)), Kolbj=F8rn Barmen <linux@kolla.n=
+o> says:
+>=20
+> > > My personal oppinion is that anything ipv6 autoconfig/accept_ra s=
+hould be
+> > > default _off_, since this simplifies all the above mentioned issu=
+es, and
+> > > it is incredibly easy to turn on again with systcl if people want=
+ it.
+> > > It is much easier to enable ipv6 automagic than to disable it.
+> > > At least there should be kernel/module parameter to set default b=
+ehaviour.
+> > >=20
+> > > Part of the problem with deploying IPv6 is due to "magic" like th=
+is, all
+> > > the autoconfig/router announcement magic looks very well on paper=
+ and in
+> > > theory, but out in the field it quickly leads to loads of totally
+> > > unnecessary extra work, work that could easily be avoided if defa=
+ult
+> > > behaviour was to have it off. It should be in the interest of IPv=
+6
+> > > advocates to support a "soft" transition from IPv4-only to dual-s=
+tack,
+> > > fencing off unwanted "magic" only adds to the frustration for tho=
+se who
+> > > actually try to deploy it.
+> > >=20
+> > > What do you think?
+> >=20
+> > Obviously noone really think much of this, one way or the other, so=
+ here's a
+> > patch that changes the default values.
+>=20
+> Default should be ON.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I absolutely agree.
 
----
- include/linux/skbuff.h |    9 ++++++---
- net/core/dev.c         |    3 ++-
- 2 files changed, 8 insertions(+), 4 deletions(-)
+It can't be called autoconfiguration if it's off by default, and
+you have to "configure" something.
 
---- a/include/linux/skbuff.h	2009-03-19 22:57:01.041090287 -0700
-+++ b/include/linux/skbuff.h	2009-03-19 22:59:00.951841088 -0700
-@@ -1969,7 +1969,7 @@ static inline void skb_set_queue_mapping
- 	skb->queue_mapping = queue_mapping;
- }
- 
--static inline u16 skb_get_queue_mapping(struct sk_buff *skb)
-+static inline u16 skb_get_queue_mapping(const struct sk_buff *skb)
- {
- 	return skb->queue_mapping;
- }
-@@ -1984,16 +1984,19 @@ static inline void skb_record_rx_queue(s
- 	skb->queue_mapping = rx_queue + 1;
- }
- 
--static inline u16 skb_get_rx_queue(struct sk_buff *skb)
-+static inline u16 skb_get_rx_queue(const struct sk_buff *skb)
- {
- 	return skb->queue_mapping - 1;
- }
- 
--static inline bool skb_rx_queue_recorded(struct sk_buff *skb)
-+static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
- {
- 	return (skb->queue_mapping != 0);
- }
- 
-+extern u16 skb_tx_hash(const struct net_device *dev,
-+		       const struct sk_buff *skb);
-+
- #ifdef CONFIG_XFRM
- static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
- {
---- a/net/core/dev.c	2009-03-19 22:57:01.031089784 -0700
-+++ b/net/core/dev.c	2009-03-19 22:58:16.794089571 -0700
-@@ -1725,7 +1725,7 @@ out_kfree_skb:
- 
- static u32 skb_tx_hashrnd;
- 
--static u16 skb_tx_hash(struct net_device *dev, struct sk_buff *skb)
-+u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- {
- 	u32 hash;
- 
-@@ -1740,6 +1740,7 @@ static u16 skb_tx_hash(struct net_device
- 
- 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
- }
-+EXPORT_SYMBOL(skb_tx_hash);
- 
- static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 					struct sk_buff *skb)
+What are people smoking? :-)
+
