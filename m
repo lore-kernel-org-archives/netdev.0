@@ -1,58 +1,30 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
-Date: Fri, 20 Mar 2009 10:14:38 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0903201013300.16596@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090319233404.6697768b@nehalam> <20090319233610.51fe4ee1@nehalam>
- <Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
- <20090320092434.7ac1baf3@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] eql: fix non-constant printk warning
+Date: Fri, 20 Mar 2009 10:14:14 -0700
+Message-ID: <20090320101414.32374962@nehalam>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:62708 "EHLO mga09.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:43931 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753024AbZCTROm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 13:14:42 -0400
-In-Reply-To: <20090320092434.7ac1baf3@nehalam>
+	id S1752079AbZCTROW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 13:14:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Mar 2009, Stephen Hemminger wrote:
 
-> On Fri, 20 Mar 2009 00:23:39 -0700 (Pacific Daylight Time)
-> "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
-> 
-> > On Thu, 19 Mar 2009, Stephen Hemminger wrote:
-> > 
-> > > Convert ixgbe to use net_device_ops properly.
-> > > Rather than changing the select_queue function pointer
-> > > just check the flag.
-> > > 
-> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > 
-> > Thanks Stephen.  I was looking at reassigning a DCB netdev_ops struct when 
-> > DCB is enabled, and then having a default netdev_ops struct when it's not 
-> > enabled.  I agree the check is cleaner the way you have it below, but it's 
-> > another conditional check in the Tx hotpath, which we have too many of in 
-> > the first place.
-> 
-> Changing number of tx queues is actually the fastest, since then
-> indirection is not needed
-> 
-> > On a related side note, why is the netdev_ops member of net_device 
-> > declared const?
-> 
-> The purpose of having an ops structure is two fold. First, the ops
-> can be in read-only section (if driver wants) to avoid cache issues.
-> More importantly only one instance is necessary when there are multiple
-> boards, or 1000's of vlans.
-
-Ah, gotcha.  Clears up my questions.
-
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+--- a/drivers/net/eql.c	2009-02-26 12:04:34.000000000 -0800
++++ b/drivers/net/eql.c	2009-02-26 12:04:52.000000000 -0800
+@@ -159,7 +159,7 @@ static void eql_timer(unsigned long para
+ 	add_timer(&eql->timer);
+ }
+ 
+-static char version[] __initdata =
++static const char version[] __initconst =
+ 	"Equalizer2002: Simon Janes (simon@ncm.com) and David S. Miller (davem@redhat.com)\n";
+ 
+ static const struct net_device_ops eql_netdev_ops = {
