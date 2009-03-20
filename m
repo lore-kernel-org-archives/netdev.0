@@ -1,50 +1,54 @@
-From: Dice-k <ad@cat.180r.com>
-Subject: This Internet company is giving away money worldwide
-Date: Fri, 20 Mar 2009 22:44:13 +0900
-Message-ID: <49C39DAD.6010103@cat.180r.com>
+From: Arthur Jones <ajones@riverbed.com>
+Subject: [next-next PATCH] e1000e: fixup merge error
+Date: Fri, 20 Mar 2009 08:24:47 -0700
+Message-ID: <20090320152447.GA28023@ajones-laptop.nbttech.com>
+References: <20090320.013141.243957487.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>,
+	Arthur Jones <Arthur.Jones@riverbed.com>,
+	<shemminger@vyatta.com>,
+	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www719.sakura.ne.jp ([59.106.19.169]:58675 "EHLO
-	www719.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752154AbZCTOtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 10:49:36 -0400
-Received: from www719.sakura.ne.jp (ksav11.sakura.ne.jp [210.224.165.45])
-	by www719.sakura.ne.jp (8.13.6/8.13.6) with ESMTP id n2KDiJFQ054740
-	for <netdev@vger.kernel.org>; Fri, 20 Mar 2009 22:44:19 +0900 (JST)
-	(envelope-from ad@cat.180r.com)
-Received: from [127.0.0.1] (128.97.111.219.dy.bbexcite.jp [219.111.97.128])
-	(authenticated bits=0)
-	by www719.sakura.ne.jp (8.13.6/8.13.6) with ESMTP id n2KDiHZW054729
-	for <netdev@vger.kernel.org>; Fri, 20 Mar 2009 22:44:17 +0900 (JST)
-	(envelope-from ad@cat.180r.com)
+Received: from smtp1.riverbed.com ([206.169.144.12]:51731 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754731AbZCTPYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 11:24:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20090320.013141.243957487.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+When merging into Jeff's tree:
 
-Do you have your own Internet address yet? 
+	commit 5f66f208064f083aab5e55935d0575892e033b59
+	Author: Arthur Jones <ajones@riverbed.com>
+	Date:   Thu Mar 19 01:13:08 2009 +0000
 
-If not, you should check this out right away. I was blown away by what I saw and I'm sure you will be too. There's a good chance you can still get your name (www.YourName.ws) since this is so new.
+	    e1000e: allow tx of pre-formatted vlan tagged packets
 
-If you've never heard of an affiliate program, you'll see why they are so popular online - and why this is one of the largest and fastest growing business opportunities world-wide.
+We lost one line, this fixes that missing
+piece...
 
-There are nearly a billion people online now, and many of them want an easy way to build their own web site. People in dozens of countries are profiting big-time from this simple opportunity. I'll show you how. It's very fast and easy to get started (and free).
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+---
+ drivers/net/e1000e/netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I'm so lucky to have found out about this company. They were ranked number 37 on Inc 500's list of the fastest growing companies in the US, and are even featured in Entrepreneur Magazine, as well as national newspapers. It's not very often that a company like this shares in the wealth, so you should go see what this is all about right away.
-
-It won't take much of your time. Just click the websites below to get started and it will explain everything.
-
-
-http://website.ws/vaio
-
-http://freedom.ws/vaio
-
-http://website.ws/kvmlm2/_show.dhtml?sponsor=vaio
-
-
-The short video above is a great way to review our offerings quickly. I definitely advise you to watch it. After doing so, you might also be interested in watching this longer presentation with additional information.
-
-Dice-k
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index d092eaf..f388a01 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3774,7 +3774,7 @@ static bool e1000_tx_csum(struct e1000_adapter *adapter, struct sk_buff *skb)
+ 	else
+ 		protocol = skb->protocol;
+ 
+-	switch (skb->protocol) {
++	switch (protocol) {
+ 	case cpu_to_be16(ETH_P_IP):
+ 		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+ 			cmd_len |= E1000_TXD_CMD_TCP;
+-- 
+1.5.6.3
