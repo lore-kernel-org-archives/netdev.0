@@ -1,34 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: performance issue of netdev_budget and dev_weight with ixgbe
-Date: Fri, 20 Mar 2009 15:59:42 -0700 (PDT)
-Message-ID: <20090320.155942.87012361.davem@davemloft.net>
-References: <F169D4F5E1F1974DBFAFABF47F60C10A1E6EABF2@orsmsx507.amr.corp.intel.com>
-	<49C35859.7050803@baidu.com>
-	<alpine.WNT.2.00.0903200835490.7220@jbrandeb-desk1.amr.corp.intel.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: e1000 under VMware doesn't work since 2.6.27.16 - BISECTED
+Date: Fri, 20 Mar 2009 16:03:58 -0700
+Message-ID: <adafxh7yext.fsf@cisco.com>
+References: <49C3C726.4000405@bcsoft.de>
+	<20090320.155739.93629479.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hanfang@baidu.com, netdev@vger.kernel.org
-To: jesse.brandeburg@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: drifter@bcsoft.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43998
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754535AbZCTW7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 18:59:55 -0400
-In-Reply-To: <alpine.WNT.2.00.0903200835490.7220@jbrandeb-desk1.amr.corp.intel.com>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:18503 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069AbZCTXEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 19:04:00 -0400
+In-Reply-To: <20090320.155739.93629479.davem@davemloft.net> (David Miller's
+	message of "Fri, 20 Mar 2009 15:57:39 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Fri, 20 Mar 2009 10:27:17 -0700 (Pacific Daylight Time)
+ > > we're using virtual machines under VMware with the e1000 emulated
+ > > network card.
 
-> 64 is pretty much the global default for all drivers, not just ixgbe, we 
-> didn't "pick" it at all.  at 10 Gb Ethernet speeds, we get a LOT of 
-> packets.  When you play with budget you're decreasing the amount of cache 
-> coherency you get by handing lots of packets at once.
+ > Sounds like vmware doesn't emulate the e1000 accurately enough.
 
-You're also potentially decreasing fairness with other devices
-in the system.
+I would consider problems with the vmware emulated e1000 to be similar
+to hardware quirks in some other chip rev supported by the e1000
+driver.  If a driver change broke e1000 inside a vmware VM then we
+should probably fix the kernel if possible (although vmware probably
+wants to improve their emulation too).
 
-That's the purpose of this value, to allow preemption to other
-active NAPI contexts in the current softirq processing run.
+ - R.
