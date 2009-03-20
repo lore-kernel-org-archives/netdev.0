@@ -1,99 +1,81 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/2] ixgbe: fix select_queue management
-Date: Thu, 19 Mar 2009 23:36:10 -0700
-Message-ID: <20090319233610.51fe4ee1@nehalam>
-References: <20090319233404.6697768b@nehalam>
+Subject: [PATCH 1/2] skb: expose and constify hash primitives
+Date: Thu, 19 Mar 2009 23:34:04 -0700
+Message-ID: <20090319233404.6697768b@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, David Miller
-	<davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20090319233404.6697768b@nehalam>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:44918 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751810AbZCTGgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 02:36:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert ixgbe to use net_device_ops properly.
-Rather than changing the select_queue function pointer
-just check the flag.
+
+Some minor changes to queue hashing:
+ 1. Use const on accessor functions
+ 2. Export skb_tx_hash for use in drivers (see ixgbe)
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
- drivers/net/ixgbe/ixgbe_dcb_nl.c |    8 --------
- drivers/net/ixgbe/ixgbe_main.c   |   11 +++++++++++
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ include/linux/skbuff.h |    9 ++++++---
+ net/core/dev.c         |    3 ++-
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-03-19 22:57:01.053842791 -0700
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-03-19 23:07:36.372656027 -0700
-@@ -102,12 +102,6 @@ static u8 ixgbe_dcbnl_get_state(struct n
- 	return !!(adapter->flags & IXGBE_FLAG_DCB_ENABLED);
+--- a/include/linux/skbuff.h	2009-03-19 22:57:01.041090287 -0700
++++ b/include/linux/skbuff.h	2009-03-19 22:59:00.951841088 -0700
+@@ -1969,7 +1969,7 @@ static inline void skb_set_queue_mapping
+ 	skb->queue_mapping = queue_mapping;
  }
  
--static u16 ixgbe_dcb_select_queue(struct net_device *dev, struct sk_buff *skb)
--{
--	/* All traffic should default to class 0 */
--	return 0;
--}
--
- static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+-static inline u16 skb_get_queue_mapping(struct sk_buff *skb)
++static inline u16 skb_get_queue_mapping(const struct sk_buff *skb)
  {
- 	u8 err = 0;
-@@ -135,7 +129,6 @@ static u8 ixgbe_dcbnl_set_state(struct n
- 		kfree(adapter->rx_ring);
- 		adapter->tx_ring = NULL;
- 		adapter->rx_ring = NULL;
--		netdev->select_queue = &ixgbe_dcb_select_queue;
- 
- 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
- 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
-@@ -154,7 +147,6 @@ static u8 ixgbe_dcbnl_set_state(struct n
- 			kfree(adapter->rx_ring);
- 			adapter->tx_ring = NULL;
- 			adapter->rx_ring = NULL;
--			netdev->select_queue = NULL;
- 
- 			adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
- 			adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
---- a/drivers/net/ixgbe/ixgbe_main.c	2009-03-19 23:05:56.954718897 -0700
-+++ b/drivers/net/ixgbe/ixgbe_main.c	2009-03-19 23:07:33.611651593 -0700
-@@ -4272,6 +4272,16 @@ static int ixgbe_maybe_stop_tx(struct ne
- 	return __ixgbe_maybe_stop_tx(netdev, tx_ring, size);
+ 	return skb->queue_mapping;
+ }
+@@ -1984,16 +1984,19 @@ static inline void skb_record_rx_queue(s
+ 	skb->queue_mapping = rx_queue + 1;
  }
  
-+static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+
-+	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
-+		return 0;  /* All traffic should default to class 0 */
-+
-+	return skb_tx_hash(dev, skb);
-+}
-+
- static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+-static inline u16 skb_get_rx_queue(struct sk_buff *skb)
++static inline u16 skb_get_rx_queue(const struct sk_buff *skb)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -4401,6 +4411,7 @@ static const struct net_device_ops ixgbe
- 	.ndo_open 		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
- 	.ndo_start_xmit		= ixgbe_xmit_frame,
-+	.ndo_select_queue	= ixgbe_select_queue,
- 	.ndo_get_stats		= ixgbe_get_stats,
- 	.ndo_set_rx_mode        = ixgbe_set_rx_mode,
- 	.ndo_set_multicast_list	= ixgbe_set_rx_mode,
-
-------------------------------------------------------------------------------
-Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
-powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
-easily build your RIAs with Flex Builder, the Eclipse(TM)based development
-software that enables intelligent coding and step-through debugging.
-Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
+ 	return skb->queue_mapping - 1;
+ }
+ 
+-static inline bool skb_rx_queue_recorded(struct sk_buff *skb)
++static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
+ {
+ 	return (skb->queue_mapping != 0);
+ }
+ 
++extern u16 skb_tx_hash(const struct net_device *dev,
++		       const struct sk_buff *skb);
++
+ #ifdef CONFIG_XFRM
+ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
+ {
+--- a/net/core/dev.c	2009-03-19 22:57:01.031089784 -0700
++++ b/net/core/dev.c	2009-03-19 22:58:16.794089571 -0700
+@@ -1725,7 +1725,7 @@ out_kfree_skb:
+ 
+ static u32 skb_tx_hashrnd;
+ 
+-static u16 skb_tx_hash(struct net_device *dev, struct sk_buff *skb)
++u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
+ {
+ 	u32 hash;
+ 
+@@ -1740,6 +1740,7 @@ static u16 skb_tx_hash(struct net_device
+ 
+ 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
+ }
++EXPORT_SYMBOL(skb_tx_hash);
+ 
+ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 					struct sk_buff *skb)
