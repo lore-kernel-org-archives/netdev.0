@@ -1,34 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] ixgbe: Fix PCI bus reporting on driver
- load for 82598 after 82599 merge
-Date: Fri, 20 Mar 2009 01:31:53 -0700 (PDT)
-Message-ID: <20090320.013153.188027356.davem@davemloft.net>
-References: <20090319112328.11957.63213.stgit@lost.foo-projects.org>
+Subject: Re: [net-next PATCH 3/3] e1000e: allow tx of pre-formatted vlan
+ tagged packets
+Date: Fri, 20 Mar 2009 01:31:41 -0700 (PDT)
+Message-ID: <20090320.013141.243957487.davem@davemloft.net>
+References: <20090319111226.11601.40603.stgit@lost.foo-projects.org>
+	<20090319111308.11601.93121.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	peter.p.waskiewicz.jr@intel.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, ajones@riverbed.com,
+	shemminger@vyatta.com, alexander.h.duyck@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55678
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55669
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755847AbZCTIcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:32:06 -0400
-In-Reply-To: <20090319112328.11957.63213.stgit@lost.foo-projects.org>
+	by vger.kernel.org with ESMTP id S1754993AbZCTIby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:31:54 -0400
+In-Reply-To: <20090319111308.11601.93121.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 19 Mar 2009 04:23:29 -0700
+Date: Thu, 19 Mar 2009 04:13:08 -0700
 
-> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> From: Arthur Jones <ajones@riverbed.com>
 > 
-> 82598's PCI bus reporting on driver load was broken after 82599 merged.
-> This results in incorrect reporting, and an erroneous warning message
-> that the 82598 is in a PCIe slot that isn't fast enough to run 10GbE.
+> As with igb, when the e1000e driver is fed 802.1q
+> packets with hardware checksum on, it chokes with an
+> error of the form:
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> checksum_partial proto=81!
+> 
+> As the logic there was not smart enough to look into
+> the vlan header to pick out the encapsulated protocol.
+> 
+> There are times when we'd like to send these packets
+> out without having to configure a vlan on the interface.
+> Here we check for the vlan tag and allow the packet to
+> go out wiht the correct hardware checksum.
+> 
+> Thanks to Kand Ly <kand@riverbed.com> for discovering the
+> issue and the coming up with a solution.  This patch is
+> based upon his work.
+> 
+> Fixups from Stephen Hemminger <shemminger@vyatta.com> and
+> Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> Signed-off-by: Arthur Jones <ajones@riverbed.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-APplied.
+Applied.
