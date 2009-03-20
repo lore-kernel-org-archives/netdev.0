@@ -1,76 +1,34 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCH]: sunvnet netdev ops conversion...
-Date: Fri, 20 Mar 2009 16:30:59 +0800
-Message-ID: <49C35443.8020604@cn.fujitsu.com>
-References: <20090320.005205.65922171.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/3] ixgbe: Fix PCI bus reporting on driver
+ load for 82598 after 82599 merge
+Date: Fri, 20 Mar 2009 01:31:53 -0700 (PDT)
+Message-ID: <20090320.013153.188027356.davem@davemloft.net>
+References: <20090319112328.11957.63213.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49866 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754676AbZCTIbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 04:31:49 -0400
-In-Reply-To: <20090320.005205.65922171.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55678
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755847AbZCTIcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:32:06 -0400
+In-Reply-To: <20090319112328.11957.63213.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Committed to net-next-2.6...
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 19 Mar 2009 04:23:29 -0700
+
+> From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 > 
-> sunvnet: Convert to net_device_ops.
-
-I noticed that there are other drivers's  net_device_ops 
-need to be converted,is these convert nessary?
-
+> 82598's PCI bus reporting on driver load was broken after 82599 merged.
+> This results in incorrect reporting, and an erroneous warning message
+> that the 82598 is in a PCIe slot that isn't fast enough to run 10GbE.
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/sunvnet.c |   18 +++++++++++-------
->  1 files changed, 11 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/sunvnet.c b/drivers/net/sunvnet.c
-> index 611230f..a82fb2a 100644
-> --- a/drivers/net/sunvnet.c
-> +++ b/drivers/net/sunvnet.c
-> @@ -1012,6 +1012,16 @@ err_out:
->  static LIST_HEAD(vnet_list);
->  static DEFINE_MUTEX(vnet_list_mutex);
->  
-> +static const struct net_device_ops vnet_ops = {
-> +	.ndo_open		= vnet_open,
-> +	.ndo_stop		= vnet_close,
-> +	.ndo_set_multicast_list	= vnet_set_rx_mode,
-> +	.ndo_set_mac_address	= vnet_set_mac_addr,
-> +	.ndo_tx_timeout		= vnet_tx_timeout,
-> +	.ndo_change_mtu		= vnet_change_mtu,
-> +	.ndo_start_xmit		= vnet_start_xmit,
-> +};
-> +
->  static struct vnet * __devinit vnet_new(const u64 *local_mac)
->  {
->  	struct net_device *dev;
-> @@ -1040,15 +1050,9 @@ static struct vnet * __devinit vnet_new(const u64 *local_mac)
->  	INIT_LIST_HEAD(&vp->list);
->  	vp->local_mac = *local_mac;
->  
-> -	dev->open = vnet_open;
-> -	dev->stop = vnet_close;
-> -	dev->set_multicast_list = vnet_set_rx_mode;
-> -	dev->set_mac_address = vnet_set_mac_addr;
-> -	dev->tx_timeout = vnet_tx_timeout;
-> +	dev->netdev_ops = &vnet_ops;
->  	dev->ethtool_ops = &vnet_ethtool_ops;
->  	dev->watchdog_timeo = VNET_TX_TIMEOUT;
-> -	dev->change_mtu = vnet_change_mtu;
-> -	dev->hard_start_xmit = vnet_start_xmit;
->  
->  	err = register_netdev(dev);
->  	if (err) {
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-
--- 
-Regards
-Yang Hongyang
+APplied.
