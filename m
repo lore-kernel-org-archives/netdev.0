@@ -1,56 +1,127 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 3/5] igb: update driver to use setup_timer function
-Date: Fri, 20 Mar 2009 03:17:08 -0700
-Message-ID: <20090320101708.17663.50584.stgit@lost.foo-projects.org>
-References: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
+From: Sathya Perla <sathya.perla@gmail.com>
+Subject: Re: [PATCH 1/2] be2net: replenish when posting to rx-queue is starved
+	in out of mem conditions
+Date: Fri, 20 Mar 2009 15:49:25 +0530
+Message-ID: <bdc3ac9f0903200319t596c8e26l1af71bf5c934d2fa@mail.gmail.com>
+References: <1237453981.6210.21.camel@sperla-laptop>
+	 <20090319.235537.207102449.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:55897
-	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757914AbZCTKR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:17:26 -0400
-In-Reply-To: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
+Received: from wa-out-1112.google.com ([209.85.146.179]:42222 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757673AbZCTKT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:19:27 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so611941wah.21
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2009 03:19:25 -0700 (PDT)
+In-Reply-To: <20090319.235537.207102449.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Fri, Mar 20, 2009 at 12:25 PM, David Miller <davem@davemloft.net> wrote:
+>
+>
+> I'll apply your patches, but use gmail or something if you can't
+> make this annoying company confidential crap just go away, thanks.
 
-igb was previously setting up all of the timer members itself.  It is
-easier to just call setup_timer and reduce the calls to one line.
+Sorry about this; I'm re-posting the patch below:
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 ---
+ drivers/net/benet/be.h      |    1 +
+ drivers/net/benet/be_main.c |   50 +++++++++++++++++++++++++------------------
+ 2 files changed, 30 insertions(+), 21 deletions(-)
 
- drivers/net/igb/igb_main.c |   11 ++++-------
- 1 files changed, 4 insertions(+), 7 deletions(-)
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 63d593d..f327be5 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -194,6 +194,7 @@ struct be_adapter {
+ 	struct be_eq_obj rx_eq;
+ 	struct be_rx_obj rx_obj;
+ 	u32 big_page_size;	/* Compounded page size shared by rx wrbs */
++	bool rx_post_starved;	/* Zero rx frags have been posted to BE */
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 05bb7a7..3dd3a5a 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1312,13 +1312,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		goto err_eeprom;
- 	}
- 
--	init_timer(&adapter->watchdog_timer);
--	adapter->watchdog_timer.function = &igb_watchdog;
--	adapter->watchdog_timer.data = (unsigned long) adapter;
+ 	struct vlan_group *vlan_grp;
+ 	u16 num_vlans;
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 897a63d..80fe1e0 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -273,26 +273,6 @@ static void be_rx_eqd_update(struct be_adapter *adapter)
+ 	rx_eq->cur_eqd = eqd;
+ }
+
+-static void be_worker(struct work_struct *work)
+-{
+-	struct be_adapter *adapter =
+-		container_of(work, struct be_adapter, work.work);
+-	int status;
 -
--	init_timer(&adapter->phy_info_timer);
--	adapter->phy_info_timer.function = &igb_update_phy_info;
--	adapter->phy_info_timer.data = (unsigned long) adapter;
-+	setup_timer(&adapter->watchdog_timer, &igb_watchdog,
-+	            (unsigned long) adapter);
-+	setup_timer(&adapter->phy_info_timer, &igb_update_phy_info,
-+	            (unsigned long) adapter);
- 
- 	INIT_WORK(&adapter->reset_task, igb_reset_task);
- 	INIT_WORK(&adapter->watchdog_task, igb_watchdog_task);
+-	/* Check link */
+-	be_link_status_update(adapter);
+-
+-	/* Get Stats */
+-	status = be_cmd_get_stats(&adapter->ctrl, &adapter->stats.cmd);
+-	if (!status)
+-		netdev_stats_update(adapter);
+-
+-	/* Set EQ delay */
+-	be_rx_eqd_update(adapter);
+-
+-	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
+-}
+-
+ static struct net_device_stats *be_get_stats(struct net_device *dev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(dev);
+@@ -900,8 +880,11 @@ static void be_post_rx_frags(struct be_adapter *adapter)
+ 		page_info->last_page_user = true;
 
+ 	if (posted) {
+-		be_rxq_notify(&adapter->ctrl, rxq->id, posted);
+ 		atomic_add(posted, &rxq->used);
++		be_rxq_notify(&adapter->ctrl, rxq->id, posted);
++	} else if (atomic_read(&rxq->used) == 0) {
++		/* Let be_worker replenish when memory is available */
++		adapter->rx_post_starved = true;
+ 	}
+
+ 	return;
+@@ -1305,6 +1288,31 @@ int be_poll_tx(struct napi_struct *napi, int budget)
+ 	return 1;
+ }
+
++static void be_worker(struct work_struct *work)
++{
++	struct be_adapter *adapter =
++		container_of(work, struct be_adapter, work.work);
++	int status;
++
++	/* Check link */
++	be_link_status_update(adapter);
++
++	/* Get Stats */
++	status = be_cmd_get_stats(&adapter->ctrl, &adapter->stats.cmd);
++	if (!status)
++		netdev_stats_update(adapter);
++
++	/* Set EQ delay */
++	be_rx_eqd_update(adapter);
++
++	if (adapter->rx_post_starved) {
++		adapter->rx_post_starved = false;
++		be_post_rx_frags(adapter);
++	}
++
++	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
++}
++
+ static void be_msix_enable(struct be_adapter *adapter)
+ {
+ 	int i, status;
+-- 
+1.5.6.3
