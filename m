@@ -1,81 +1,54 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: Fw: [PATCH] ucc_geth: Correct fixed_link OOPS.
-Date: Fri, 20 Mar 2009 21:46:13 +0100
-Message-ID: <OF9395F5D9.8C7241AA-ONC125757F.00714908-C125757F.0072183A@transmode.se>
-References: <OF20EA88BB.017079CD-ONC125757F.006C40A2-C125757F.006C646E@transmode.se> <20090320200740.GA32082@oksana.dev.rtsoft.ru>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3] dsa: add switch chip cascading support
+Date: Fri, 20 Mar 2009 21:16:18 +0000
+Message-ID: <1237583778.3217.4.camel@achroite>
+References: <20090320195209.GW4738@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: leoli@freescale.com, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gary Thomas <gary@mlbassoc.com>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:42592 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751060AbZCTUqP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 16:46:15 -0400
-In-Reply-To: <20090320200740.GA32082@oksana.dev.rtsoft.ru>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:35197 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752074AbZCTVQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 17:16:28 -0400
+In-Reply-To: <20090320195209.GW4738@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Vorontsov <avorontsov@ru.mvista.com> wrote on 20/03/2009 21:07:40:
+On Fri, 2009-03-20 at 20:52 +0100, Lennert Buytenhek wrote:
+[...]
+> For the example topology above, the dsa platform data would look
+> something like this:
 > 
-> On Fri, Mar 20, 2009 at 08:43:56PM +0100, Joakim Tjernlund wrote:
-> > hmm, this mail didn't seem to reach the lists. Resending
-> > 
-> >  Jocke
-> > ----- Forwarded by Joakim Tjernlund/Transmode on 20/03/2009 20:42 
------
-> > 
-> > From:
-> > Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > To:
-> > leoli@freescale.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-> > Cc:
-> > Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > Date:
-> > 20/03/2009 18:01
-> > Subject:
-> > [PATCH] ucc_geth: Correct fixed_link OOPS.
-> > 
-> > 
-> > 
-> > fixed_link(PHY less) mode will get you an NULL
-> > deference as it does not have a phy-handle.
-> > Correct by using already probed information.
-> > 
-> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > ---
-> > 
-> > The below fixes the problem and seems like the right thing to do.
-> > Can we have this in 2.6.29?
-> > 
-> >  drivers/net/ucc_geth.c |   17 +----------------
-> >  1 files changed, 1 insertions(+), 16 deletions(-)
+> 	static struct dsa_chip_data sw[2] = {
+> 		{
+> 			.mii_bus	= &foo,
+> 			.sw_addr	= 1,
+> 			.port_names[0]	= "p1",
+> 			.port_names[1]	= "p2",
+> 			.port_names[2]	= "p3",
+> 			.port_names[3]	= "p4",
+> 			.port_names[4]	= "p5",
+> 			.port_names[5]	= "p6",
+> 			.port_names[6]	= "p7",
+> 			.port_names[7]	= "p8",
+> 			.port_names[9]	= "dsa",
+> 			.port_names[10]	= "cpu",
+> 			.rtable		= (s8 []){ -1, 9, },
+[...]
 
-[SNIP]
+Is there supposed to be a gap in the numbering here?  The diagram above
+seemed to number the ports 1-10 but I'm guessing the internal numbering
+of those would be 0-9.
 
-> 
-> This effectivly breaks boards where Gianfar is using UCC's MDIO
-> bus (i.e. breaks commit b1c4a9dddf09fe99b8f88252718ac5b357363dc4,
-> which is the cause of fixed-link breakage, btw). And, your patch
-> is line-wrapped and tabs are substituted by white spaces...
+Ben.
 
-Yes, I noticed that afterwards. It is our "great" new mailsystem
-that gets in the way. I really need to find another mailsystem as
-Lotus/Domino gets in my way too often :(
-
-> 
-> I would suggest something along these lines (unfortunately
-> right now I can't test it on real HW, only compile-tested):
-
-Tested here, works fine for fixed-link PHYs, thanks.
-I left the 
-    priv->oldlink = 0;
-    priv->oldspeed = 0;
-    priv->oldduplex = -1;
-in though. Seemed like a good idea.
-
-Tested By: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-
- Jocke
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
