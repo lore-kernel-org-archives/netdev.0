@@ -1,8 +1,7 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/2] ipx: use constant for strings and desciptor
-Date: Fri, 20 Mar 2009 08:44:27 -0700
-Message-ID: <20090320084427.5b09049d@nehalam>
-References: <20090320084314.5761b1d9@nehalam>
+Subject: [PATCH 1/2] snap: use const for descirptor
+Date: Fri, 20 Mar 2009 08:43:14 -0700
+Message-ID: <20090320084314.5761b1d9@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -10,39 +9,59 @@ Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39537 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45509 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755447AbZCTPpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 11:45:55 -0400
-In-Reply-To: <20090320084314.5761b1d9@nehalam>
+	by vger.kernel.org with ESMTP id S1754133AbZCTPpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 11:45:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix compiler warning about non-const format string.
+Protocols should be able to use constant value for the descriptor.
+Minor whitespace cleanup as well
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/ipx/af_ipx.c	2009-03-19 23:37:56.671964109 -0700
-+++ b/net/ipx/af_ipx.c	2009-03-19 23:46:55.613777665 -0700
-@@ -1975,15 +1975,15 @@ static struct notifier_block ipx_dev_not
- extern struct datalink_proto *make_EII_client(void);
- extern void destroy_EII_client(struct datalink_proto *);
+--- a/net/802/psnap.c	2009-03-19 23:47:22.745964788 -0700
++++ b/net/802/psnap.c	2009-03-20 08:33:46.694749299 -0700
+@@ -29,7 +29,7 @@ static struct llc_sap *snap_sap;
+ /*
+  *	Find a snap client by matching the 5 bytes.
+  */
+-static struct datalink_proto *find_snap_client(unsigned char *desc)
++static struct datalink_proto *find_snap_client(const unsigned char *desc)
+ {
+ 	struct datalink_proto *proto = NULL, *p;
  
--static unsigned char ipx_8022_type = 0xE0;
--static unsigned char ipx_snap_id[5] = { 0x0, 0x0, 0x0, 0x81, 0x37 };
--static char ipx_EII_err_msg[] __initdata =
-+static const unsigned char ipx_8022_type = 0xE0;
-+static const unsigned char ipx_snap_id[5] = { 0x0, 0x0, 0x0, 0x81, 0x37 };
-+static const char ipx_EII_err_msg[] __initconst =
- 	KERN_CRIT "IPX: Unable to register with Ethernet II\n";
--static char ipx_8023_err_msg[] __initdata =
-+static const char ipx_8023_err_msg[] __initconst =
- 	KERN_CRIT "IPX: Unable to register with 802.3\n";
--static char ipx_llc_err_msg[] __initdata =
-+static const char ipx_llc_err_msg[] __initconst =
- 	KERN_CRIT "IPX: Unable to register with 802.2\n";
--static char ipx_snap_err_msg[] __initdata =
-+static const char ipx_snap_err_msg[] __initconst =
- 	KERN_CRIT "IPX: Unable to register with SNAP\n";
+@@ -122,7 +122,7 @@ module_exit(snap_exit);
+ /*
+  *	Register SNAP clients. We don't yet use this for IP.
+  */
+-struct datalink_proto *register_snap_client(unsigned char *desc,
++struct datalink_proto *register_snap_client(const unsigned char *desc,
+ 					    int (*rcvfunc)(struct sk_buff *,
+ 							   struct net_device *,
+ 							   struct packet_type *,
+@@ -137,7 +137,7 @@ struct datalink_proto *register_snap_cli
  
- static int __init ipx_init(void)
+ 	proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
+ 	if (proto) {
+-		memcpy(proto->type, desc,5);
++		memcpy(proto->type, desc, 5);
+ 		proto->rcvfunc		= rcvfunc;
+ 		proto->header_length	= 5 + 3; /* snap + 802.2 */
+ 		proto->request		= snap_request;
+--- a/include/net/psnap.h	2009-03-19 23:48:33.929963947 -0700
++++ b/include/net/psnap.h	2009-03-19 23:49:25.792963671 -0700
+@@ -1,7 +1,11 @@
+ #ifndef _NET_PSNAP_H
+ #define _NET_PSNAP_H
+ 
+-extern struct datalink_proto *register_snap_client(unsigned char *desc, int (*rcvfunc)(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *orig_dev));
++extern struct datalink_proto *
++register_snap_client(const unsigned char *desc,
++		     int (*rcvfunc)(struct sk_buff *, struct net_device *,
++				    struct packet_type *,
++				    struct net_device *orig_dev));
+ extern void unregister_snap_client(struct datalink_proto *proto);
+ 
+ #endif
