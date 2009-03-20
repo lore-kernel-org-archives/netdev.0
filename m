@@ -1,66 +1,55 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH]: sunvnet netdev ops conversion...
-Date: Fri, 20 Mar 2009 09:16:18 -0700
-Message-ID: <20090320091618.2604ad53@nehalam>
-References: <20090320.005205.65922171.davem@davemloft.net>
-	<49C35443.8020604@cn.fujitsu.com>
-	<20090320.013448.251351318.davem@davemloft.net>
-	<87prgcju7v.fsf@nemi.mork.no>
-	<20090320141949.GA1031@psychotron.englab.brq.redhat.com>
+Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
+Date: Fri, 20 Mar 2009 09:24:34 -0700
+Message-ID: <20090320092434.7ac1baf3@nehalam>
+References: <20090319233404.6697768b@nehalam>
+	<20090319233610.51fe4ee1@nehalam>
+	<Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?QmrDuHJu?= Mork <bjorn@mork.no>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40864 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:41326 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757816AbZCTQQZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 12:16:25 -0400
-In-Reply-To: <20090320141949.GA1031@psychotron.englab.brq.redhat.com>
+	id S1751704AbZCTQYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 12:24:42 -0400
+In-Reply-To: <Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Mar 2009 15:19:50 +0100
-Jiri Pirko <jpirko@redhat.com> wrote:
+On Fri, 20 Mar 2009 00:23:39 -0700 (Pacific Daylight Time)
+"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
 
-> Fri, Mar 20, 2009 at 12:43:00PM CET, bjorn@mork.no wrote:
-> >David Miller <davem@davemloft.net> writes:
-> >> From: Yang Hongyang <yanghy@cn.fujitsu.com>
-> >> Date: Fri, 20 Mar 2009 16:30:59 +0800
-> >>
-> >>> David Miller wrote:
-> >>> > Committed to net-next-2.6...
-> >>> >=20
-> >>> > sunvnet: Convert to net_device_ops.
-> >>>=20
-> >>> I noticed that there are other drivers's  net_device_ops=20
-> >>> need to be converted,is these convert nessary?
-> >>
-> >> Not necessary, but desirable.  Once all drivers are
-> >> converted we can remove the compatability code.
-> >
-> >Just thinking... Would it make sense, at some point before removing =
-the
-> >compatibility layer, to add tests for partial conversions?  I notice=
-d
-> >the sungem bug just fixed by Stephen Hemminger=20
-> >( http://permalink.gmane.org/gmane.linux.network/122756 )
-> >which could have been caught by the patch below.
-> >
-> >This will also ease the transition of "driver sets", like usbnet and
-> >it's children, where a number of drivers need to make the conversion
-> >together.  Don't know if that's a big problem, but it did stop my fi=
-rst
-> >attempt to convert usbnet because I was uncertain whether I had caug=
-ht
-> >all of the necessary mini driver conversions.
-> >
-> >Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
-> >---
+> On Thu, 19 Mar 2009, Stephen Hemminger wrote:
+> 
+> > Convert ixgbe to use net_device_ops properly.
+> > Rather than changing the select_queue function pointer
+> > just check the flag.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Thanks Stephen.  I was looking at reassigning a DCB netdev_ops struct when 
+> DCB is enabled, and then having a default netdev_ops struct when it's not 
+> enabled.  I agree the check is cleaner the way you have it below, but it's 
+> another conditional check in the Tx hotpath, which we have too many of in 
+> the first place.
 
-I intend to get all drivers in x86 allmodconfig converted, then
-change expose the COMPAT_NETDEV_OPS as a config option (which is how
-I test). Need to wait until after in tree drivers all converted
-because kernel developers expect random configurations to build.
+Changing number of tx queues is actually the fastest, since then
+indirection is not needed
+
+> On a related side note, why is the netdev_ops member of net_device 
+> declared const?
+
+The purpose of having an ops structure is two fold. First, the ops
+can be in read-only section (if driver wants) to avoid cache issues.
+More importantly only one instance is necessary when there are multiple
+boards, or 1000's of vlans.
+
+> Cheers,
+> -PJ Waskiewicz
