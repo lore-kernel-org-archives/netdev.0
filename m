@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 4/5] igb: rework igb_set_multi so that vfs are
-	properly updated
-Date: Fri, 20 Mar 2009 03:17:25 -0700
-Message-ID: <20090320101725.17663.72236.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 3/5] igb: update driver to use setup_timer function
+Date: Fri, 20 Mar 2009 03:17:08 -0700
+Message-ID: <20090320101708.17663.50584.stgit@lost.foo-projects.org>
 References: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,64 +11,46 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:51748 "EHLO
-	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754844AbZCTKRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:17:44 -0400
+Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:55897
+	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757914AbZCTKR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:17:26 -0400
 In-Reply-To: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Currently if there are no multicast addresses programmed into the PF then
-the VFs cannot have their multicast filters reset.  This change makes it so
-the code path that updates vf multicast is always called along with the pf
-updates.
+igb was previously setting up all of the timer members itself.  It is
+easier to just call setup_timer and reduce the calls to one line.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |   18 ++++++++----------
- 1 files changed, 8 insertions(+), 10 deletions(-)
+ drivers/net/igb/igb_main.c |   11 ++++-------
+ 1 files changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 3dd3a5a..a977bd7 100644
+index 05bb7a7..3dd3a5a 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -2464,7 +2464,7 @@ static void igb_set_multi(struct net_device *netdev)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_mac_info *mac = &hw->mac;
- 	struct dev_mc_list *mc_ptr;
--	u8  *mta_list;
-+	u8  *mta_list = NULL;
- 	u32 rctl;
- 	int i;
- 
-@@ -2485,17 +2485,15 @@ static void igb_set_multi(struct net_device *netdev)
- 	}
- 	wr32(E1000_RCTL, rctl);
- 
--	if (!netdev->mc_count) {
--		/* nothing to program, so clear mc list */
--		igb_update_mc_addr_list(hw, NULL, 0, 1,
--					mac->rar_entry_count);
--		return;
-+	if (netdev->mc_count) {
-+		mta_list = kzalloc(netdev->mc_count * 6, GFP_ATOMIC);
-+		if (!mta_list) {
-+			dev_err(&adapter->pdev->dev,
-+			        "failed to allocate multicast filter list\n");
-+			return;
-+		}
+@@ -1312,13 +1312,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 		goto err_eeprom;
  	}
  
--	mta_list = kzalloc(netdev->mc_count * 6, GFP_ATOMIC);
--	if (!mta_list)
--		return;
+-	init_timer(&adapter->watchdog_timer);
+-	adapter->watchdog_timer.function = &igb_watchdog;
+-	adapter->watchdog_timer.data = (unsigned long) adapter;
 -
- 	/* The shared function expects a packed array of only addresses. */
- 	mc_ptr = netdev->mc_list;
+-	init_timer(&adapter->phy_info_timer);
+-	adapter->phy_info_timer.function = &igb_update_phy_info;
+-	adapter->phy_info_timer.data = (unsigned long) adapter;
++	setup_timer(&adapter->watchdog_timer, &igb_watchdog,
++	            (unsigned long) adapter);
++	setup_timer(&adapter->phy_info_timer, &igb_update_phy_info,
++	            (unsigned long) adapter);
  
+ 	INIT_WORK(&adapter->reset_task, igb_reset_task);
+ 	INIT_WORK(&adapter->watchdog_task, igb_watchdog_task);
 
