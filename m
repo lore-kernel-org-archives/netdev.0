@@ -1,55 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
-Date: Fri, 20 Mar 2009 09:24:34 -0700
-Message-ID: <20090320092434.7ac1baf3@nehalam>
-References: <20090319233404.6697768b@nehalam>
-	<20090319233610.51fe4ee1@nehalam>
-	<Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
+From: Jens Stroebel <drifter@bcsoft.de>
+Subject: e1000 under VMware doesn't work since 2.6.27.16 - BISECTED
+Date: Fri, 20 Mar 2009 17:41:10 +0100
+Message-ID: <49C3C726.4000405@bcsoft.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: netdev list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41326 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751704AbZCTQYm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 12:24:42 -0400
-In-Reply-To: <Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
+Received: from moutng.kundenserver.de ([212.227.126.177]:55594 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756242AbZCTQlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 12:41:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Mar 2009 00:23:39 -0700 (Pacific Daylight Time)
-"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
+		Hello,
 
-> On Thu, 19 Mar 2009, Stephen Hemminger wrote:
-> 
-> > Convert ixgbe to use net_device_ops properly.
-> > Rather than changing the select_queue function pointer
-> > just check the flag.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> Thanks Stephen.  I was looking at reassigning a DCB netdev_ops struct when 
-> DCB is enabled, and then having a default netdev_ops struct when it's not 
-> enabled.  I agree the check is cleaner the way you have it below, but it's 
-> another conditional check in the Tx hotpath, which we have too many of in 
-> the first place.
+we're using virtual machines under VMware with the e1000 emulated
+network card.
 
-Changing number of tx queues is actually the fastest, since then
-indirection is not needed
+While trying to update the kernel, we had to recogize that the
+networking doesn't work anymore since kernel 2.6.27.16.
 
-> On a related side note, why is the netdev_ops member of net_device 
-> declared const?
+The e1000 kernel module gets loaded and the interface SEEMS to be
+brought up correctly; however, there's no networking possible afterwards
+(no hosts in the network reachable by "ping", for example).
 
-The purpose of having an ops structure is two fold. First, the ops
-can be in read-only section (if driver wants) to avoid cache issues.
-More importantly only one instance is necessary when there are multiple
-boards, or 1000's of vlans.
 
-> Cheers,
-> -PJ Waskiewicz
+I bisected the behaviour to the following commit (commit-ID from the
+2.6.27 git repo):
+#####################################################################
+
+c6ac5fe00250faed88fb258d7ec91ec99bbe1e95 is first bad commit
+commit c6ac5fe00250faed88fb258d7ec91ec99bbe1e95
+Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date:   Tue Jan 27 16:41:58 2009 -0800
+
+    e1000: fix bug with shared interrupt during reset
+
+    commit 15b2bee22a0390d951301b53e83df88d0350c499 upstream.
+
+    A nasty bug was found where an MTU change (or anything else that
+caused a
+    reset) could race with the interrupt code.  The interrupt code was
+entered
+    by a shared interrupt during the MTU change.
+
+    This change prevents the interrupt code from running while the
+driver is in
+    the middle of its reset path.
+
+    Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+    Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+#####################################################################
+
+As this is a relatively common card (and a relatively common usage under
+VMware), has anyone experienced something similar?
+
+If any more data is needed, let me know.
+
+		greets,
+		  jens
