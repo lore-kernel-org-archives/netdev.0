@@ -1,74 +1,93 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 1/2] snap: use const for descirptor
-Date: Fri, 20 Mar 2009 15:16:25 -0300
-Message-ID: <20090320181625.GP30407@ghostprotocols.net>
-References: <20090320084314.5761b1d9@nehalam>
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: Fw: [PATCH] ucc_geth: Correct fixed_link OOPS.
+Date: Fri, 20 Mar 2009 20:43:56 +0100
+Message-ID: <OF20EA88BB.017079CD-ONC125757F.006C40A2-C125757F.006C646E@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42522 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753878AbZCTSRi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 14:17:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20090320084314.5761b1d9@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: leoli@freescale.com,
+	netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Em Fri, Mar 20, 2009 at 08:43:14AM -0700, Stephen Hemminger escreveu:
-> Protocols should be able to use constant value for the descriptor.
-> Minor whitespace cleanup as well
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+hmm, this mail didn't seem to reach the lists. Resending
 
-Looks ok, thanks
+ Jocke
+----- Forwarded by Joakim Tjernlund/Transmode on 20/03/2009 20:42 -----
+
+From:
+Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To:
+leoli@freescale.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+Cc:
+Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date:
+20/03/2009 18:01
+Subject:
+[PATCH] ucc_geth: Correct fixed_link OOPS.
 
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+fixed_link(PHY less) mode will get you an NULL
+deference as it does not have a phy-handle.
+Correct by using already probed information.
+
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+
+The below fixes the problem and seems like the right thing to do.
+Can we have this in 2.6.29?
+
+ drivers/net/ucc_geth.c |   17 +----------------
+ 1 files changed, 1 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index dc2f8f2..12e5c3d 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -1536,11 +1536,6 @@ static void adjust_link(struct net_device *dev)
+ static int init_phy(struct net_device *dev)
+ {
+                 struct ucc_geth_private *priv = netdev_priv(dev);
+-                struct device_node *np = priv->node;
+-                struct device_node *phy, *mdio;
+-                const phandle *ph;
+-                char bus_name[MII_BUS_ID_SIZE];
+-                const unsigned int *id;
+                 struct phy_device *phydev;
+                 char phy_id[BUS_ID_SIZE];
  
-> --- a/net/802/psnap.c	2009-03-19 23:47:22.745964788 -0700
-> +++ b/net/802/psnap.c	2009-03-20 08:33:46.694749299 -0700
-> @@ -29,7 +29,7 @@ static struct llc_sap *snap_sap;
->  /*
->   *	Find a snap client by matching the 5 bytes.
->   */
-> -static struct datalink_proto *find_snap_client(unsigned char *desc)
-> +static struct datalink_proto *find_snap_client(const unsigned char *desc)
->  {
->  	struct datalink_proto *proto = NULL, *p;
->  
-> @@ -122,7 +122,7 @@ module_exit(snap_exit);
->  /*
->   *	Register SNAP clients. We don't yet use this for IP.
->   */
-> -struct datalink_proto *register_snap_client(unsigned char *desc,
-> +struct datalink_proto *register_snap_client(const unsigned char *desc,
->  					    int (*rcvfunc)(struct sk_buff *,
->  							   struct net_device *,
->  							   struct packet_type *,
-> @@ -137,7 +137,7 @@ struct datalink_proto *register_snap_cli
->  
->  	proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
->  	if (proto) {
-> -		memcpy(proto->type, desc,5);
-> +		memcpy(proto->type, desc, 5);
->  		proto->rcvfunc		= rcvfunc;
->  		proto->header_length	= 5 + 3; /* snap + 802.2 */
->  		proto->request		= snap_request;
-> --- a/include/net/psnap.h	2009-03-19 23:48:33.929963947 -0700
-> +++ b/include/net/psnap.h	2009-03-19 23:49:25.792963671 -0700
-> @@ -1,7 +1,11 @@
->  #ifndef _NET_PSNAP_H
->  #define _NET_PSNAP_H
->  
-> -extern struct datalink_proto *register_snap_client(unsigned char *desc, int (*rcvfunc)(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *orig_dev));
-> +extern struct datalink_proto *
-> +register_snap_client(const unsigned char *desc,
-> +		     int (*rcvfunc)(struct sk_buff *, struct net_device *,
-> +				    struct packet_type *,
-> +				    struct net_device *orig_dev));
->  extern void unregister_snap_client(struct datalink_proto *proto);
->  
->  #endif
+@@ -1548,18 +1543,8 @@ static int init_phy(struct net_device *dev)
+                 priv->oldspeed = 0;
+                 priv->oldduplex = -1;
+ 
+-                ph = of_get_property(np, "phy-handle", NULL);
+-                phy = of_find_node_by_phandle(*ph);
+-                mdio = of_get_parent(phy);
+-
+-                id = of_get_property(phy, "reg", NULL);
+-
+-                of_node_put(phy);
+-                of_node_put(mdio);
+-
+-                uec_mdio_bus_name(bus_name, mdio);
+                 snprintf(phy_id, sizeof(phy_id), "%s:%02x",
+-                                bus_name, *id);
++                                 priv->ug_info->mdio_bus, 
+priv->ug_info->phy_address);
+ 
+                 phydev = phy_connect(dev, phy_id, &adjust_link, 0, 
+priv->phy_interface);
+ 
+-- 
+1.6.1.3
