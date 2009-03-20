@@ -1,39 +1,64 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH] Phonet:fix build problem
-Date: Fri, 20 Mar 2009 14:58:38 +0300
-Message-ID: <20090320115838.GA26371@orion>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [RFC] net: release dst entry in dev_queue_xmit()
+Date: Fri, 20 Mar 2009 12:40:22 +0100
+Message-ID: <49C380A6.4000904@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:46151 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752353AbZCTL6u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 07:58:50 -0400
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58283 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbZCTMDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 08:03:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/phonet/pep.c: In function 'pipe_rcv_status':
-net/phonet/pep.c:262: error: lvalue required as left operand of assignment
+One point of contention in high network loads is the dst_release() performed
+when a transmited skb is freed. This is because NIC tx completion calls skb free
+long after original call to dev_queue_xmit(skb).
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
+CPU cache is cold and the atomic op in dst_release() stalls. On SMP, this is
+quite visible if one CPU is 100% handling softirqs for a network device,
+since dst_clone() is done by other cpus, involving cache line ping pongs.
 
- net/phonet/pep.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+I believe we can release dst in dev_queue_xmit(), while cpu cache is hot, since
+caller of dev_queue_xmit() had to hold a reference on dst right before. This reduce
+work to be done by softirq handler, and decrease cache misses.
 
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 8ad2b53..9a1aefa 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -259,7 +259,8 @@ static int pipe_rcv_status(struct sock *sk, struct sk_buff *skb)
- 	case PN_PEP_IND_ID_MCFC_GRANT_CREDITS:
- 		if (pn->tx_fc != PN_MULTI_CREDIT_FLOW_CONTROL)
- 			break;
--		atomic_add(wake = hdr->data[4], &pn->tx_credits);
-+		wake = hdr->data[4];
-+		atomic_add(wake, &pn->tx_credits);
- 		break;
+I also believe only pktgen can call dev_queue_xmit() with skb which have
+a skb->users != 1. But pkthen skbs have a NULL dst entry.
+
+I added a WARN_ON_ONCE() to catch other cases, and not release skb->dst
+if skb->users != 1
+
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f112970..9e0fd01 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1852,6 +1852,20 @@ gso:
+ 	if (q->enqueue) {
+ 		spinlock_t *root_lock = qdisc_lock(q);
  
- 	default:
++		/*
++		 * Release dst while its refcnt is hot in CPU cache, instead
++		 * of waiting NIC tx completion
++		 */
++		if (likely(skb->dst)) {
++			if (!WARN_ON_ONCE(atomic_read(&skb->users) != 1)) {
++				int newrefcnt;
++
++				smp_mb__before_atomic_dec();
++				newrefcnt = atomic_dec_return(&skb->dst->__refcnt);
++				WARN_ON(newrefcnt < 0);
++				skb->dst = NULL;
++			}
++		}
+ 		spin_lock(root_lock);
+ 
+ 		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
