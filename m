@@ -1,43 +1,34 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCH]spider_net:remove '&' in the init of function pointers
-Date: Fri, 20 Mar 2009 16:24:41 +0800
-Message-ID: <49C352C9.7070201@cn.fujitsu.com>
-References: <49C3515D.7090703@cn.fujitsu.com> <20090320.012152.95177338.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/3] e1000e: add support for 82583 device id
+Date: Fri, 20 Mar 2009 01:31:28 -0700 (PDT)
+Message-ID: <20090320.013128.91540857.davem@davemloft.net>
+References: <20090319111226.11601.40603.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jens@de.ibm.com, kou.ishizaki@toshiba.co.jp, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com, radheka.godse@intel.com,
+	bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62617 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755330AbZCTIZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2009 04:25:29 -0400
-In-Reply-To: <20090320.012152.95177338.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55660
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753966AbZCTIbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 04:31:41 -0400
+In-Reply-To: <20090319111226.11601.40603.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Yang Hongyang <yanghy@cn.fujitsu.com>
-> Date: Fri, 20 Mar 2009 16:18:37 +0800
-> 
->> Do not need '&' in the init of function pointers.
->>
->> Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
-> 
-> It's harmless, just leave it alone.  This is just going to be commit
-> noise.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 19 Mar 2009 04:12:27 -0700
 
-OK.
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> Add device ID and related support for 82583 mac.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Acked-by: Radheka Godse <radheka.godse@intel.com>
+> Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-> 
-> More useful would be to convert this driver over to net_device_ops.
-> 
-> I'm not applying this.
-> 
-> 
-
-
--- 
-Regards
-Yang Hongyang
+Applied.
