@@ -1,56 +1,48 @@
-From: Arthur Jones <ajones@riverbed.com>
-Subject: Re: [net-next PATCH 1/5] igb: allow tx of pre-formatted vlan
-	tagged packets
-Date: Fri, 20 Mar 2009 08:27:25 -0700
-Message-ID: <20090320152724.GB7395@ajones-laptop.nbttech.com>
-References: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 2/2] ipx: use constant for strings and desciptor
+Date: Fri, 20 Mar 2009 08:44:27 -0700
+Message-ID: <20090320084427.5b09049d@nehalam>
+References: <20090320084314.5761b1d9@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	Arthur Jones <Arthur.Jones@riverbed.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.riverbed.com ([206.169.144.7]:60177 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbZCTP12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 11:27:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39537 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755447AbZCTPpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 11:45:55 -0400
+In-Reply-To: <20090320084314.5761b1d9@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff, ...
+Fix compiler warning about non-const format string.
 
-On Fri, Mar 20, 2009 at 03:16:31AM -0700, Jeff Kirsher wrote:
->  [...]
-> 
->  drivers/net/igb/igb_main.c |   11 +++++++++++
->  1 files changed, 11 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-> index 7c4481b..c14d569 100644
-> --- a/drivers/net/igb/igb_main.c
-> +++ b/drivers/net/igb/igb_main.c
-> @@ -3008,6 +3008,17 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
->  		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
->  
->  		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> +			__be16 protocol;
-> +
-> +			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
-> +				const struct vlan_ethhdr *vhdr =
-> +				          (const struct vlan_ethhdr*)skb->data;
-> +
-> +				protocol = vhdr->h_vlan_encapsulated_proto;
-> +			} else {
-> +				protocol = skb->protocol;
-> +			}
-> +
->  			switch (skb->protocol) {
-                                ^^^^^^^^^^^^^
-This has the same merge error as the e1000e version,
-it should be just protocol here, not skb->protocol...
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Arthur
+--- a/net/ipx/af_ipx.c	2009-03-19 23:37:56.671964109 -0700
++++ b/net/ipx/af_ipx.c	2009-03-19 23:46:55.613777665 -0700
+@@ -1975,15 +1975,15 @@ static struct notifier_block ipx_dev_not
+ extern struct datalink_proto *make_EII_client(void);
+ extern void destroy_EII_client(struct datalink_proto *);
+ 
+-static unsigned char ipx_8022_type = 0xE0;
+-static unsigned char ipx_snap_id[5] = { 0x0, 0x0, 0x0, 0x81, 0x37 };
+-static char ipx_EII_err_msg[] __initdata =
++static const unsigned char ipx_8022_type = 0xE0;
++static const unsigned char ipx_snap_id[5] = { 0x0, 0x0, 0x0, 0x81, 0x37 };
++static const char ipx_EII_err_msg[] __initconst =
+ 	KERN_CRIT "IPX: Unable to register with Ethernet II\n";
+-static char ipx_8023_err_msg[] __initdata =
++static const char ipx_8023_err_msg[] __initconst =
+ 	KERN_CRIT "IPX: Unable to register with 802.3\n";
+-static char ipx_llc_err_msg[] __initdata =
++static const char ipx_llc_err_msg[] __initconst =
+ 	KERN_CRIT "IPX: Unable to register with 802.2\n";
+-static char ipx_snap_err_msg[] __initdata =
++static const char ipx_snap_err_msg[] __initconst =
+ 	KERN_CRIT "IPX: Unable to register with SNAP\n";
+ 
+ static int __init ipx_init(void)
