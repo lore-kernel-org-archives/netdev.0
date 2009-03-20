@@ -1,49 +1,53 @@
-From: Tomi Orava <tomimo@ncircle.nullnet.fi>
-Subject: Re: [Bugme-new] [Bug 12886] New: skge wake on lan
-Date: Fri, 20 Mar 2009 05:59:05 +0200
-Message-ID: <49C31489.6080206@ncircle.nullnet.fi>
-References: <bug-12886-10286@http.bugzilla.kernel.org/> <200903181614.08724.rjw@sisk.pl> <49C2719A.8080905@ncircle.nullnet.fi> <200903192159.13170.rjw@sisk.pl>
+From: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Fri, 20 Mar 2009 12:55:44 +0800
+Message-ID: <b6a2187b0903192155q33510b57l9d5927538a0f4f99@mail.gmail.com>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	 <1237140665.24621.2.camel@johannes.local>
+	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
+	 <1237143683.24621.7.camel@johannes.local>
+	 <20090315202603.GA9077@elte.hu>
+	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
+	 <1237317742.31814.28.camel@johannes.local>
+	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+	 <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
+	 <1237455534.5100.56.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:60202 "EHLO
-	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752565AbZCTD7O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2009 23:59:14 -0400
-In-Reply-To: <200903192159.13170.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1237455534.5100.56.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/19/2009 10:59 PM, Rafael J. Wysocki wrote:
-> On Thursday 19 March 2009, Tomi Orava wrote:
->> Hi,
+On Thu, Mar 19, 2009 at 5:38 PM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Thu, 2009-03-19 at 12:49 +0800, Jeff Chua wrote:
+>
+>> Ignore the above loop thing. The cause seems to be this one instead.
 >>
->>> Hm, are you sure the commit in question _is_ in 2.6.28.y?  I can't see it in
->>> there.  It is in the current Linus' tree, but not in v2.6.28 and surely not in
->>> -stable.  Do you use a distro kernel?
->> Ok, I've now verified that I did indeed mess up with the commit
->> mentioned previously. In other words the stable series 2.6.28.x
->> doesn't support the suspend feature on my Asus A7V880 at all.
->> The bios option is not respected at all and the command
->> 'ethtool -s eth0 wol g' doesn't enable the suspend any better.
 >>
->> However, the commit taken from main branch actually makes also
->> the stable series to work with this motherboard. No additional
->> changes are needed, it just works out of the box.
->>
->> Sorry about the mess up.
-> 
-> No problem.
-> 
-> Does it mean we can close the bug?
+>> # this needs patch to work ...
+>> iwconfig wlan0 mode Managed
+>> ifconfig wlan0 up
+>> iwconfig wlan0 essid xxx
+>> iwconfig wlan0 key restricted xxx
+>> iwconfig wlan0 ap auto channel auto
+>
+> If you swap the key and essid lines, it will probably always work. But
+> I've yet to analyse your data to see why it doesn't in the other case.
 
-Yes, as it does look like the next stable release should
-contain the fix by default.
+Doesn't. Taking away "hiwconfig wlan0 ap auto channel auto" makes it works.
 
-Thanks & Regards,
-Tomi Orava
+Thanks,
+Jeff.
