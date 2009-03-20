@@ -1,84 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/5] sfc: Work around unreliable legacy interrupt status
-Date: Fri, 20 Mar 2009 23:26:41 +0000
-Message-ID: <1237591601.3217.8.camel@achroite>
-References: <1237591540.3217.6.camel@achroite>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: High contention on the sk_buff_head.lock
+Date: Sat, 21 Mar 2009 00:29:43 +0100
+Message-ID: <20090320232943.GA3024@ami.dom.local>
+References: <49C156E8.1090306@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:36111 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763192AbZCTX0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 19:26:46 -0400
-In-Reply-To: <1237591540.3217.6.camel@achroite>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	rt-users <linux-rt-users@vger.kernel.org>
+To: Vernon Mauery <vernux@us.ibm.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49C156E8.1090306@us.ibm.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In rare cases, reading the legacy interrupt status register can
-acknowledge an event queue whose attention flag has not yet been set
-in the register.  Until we service this event queue it will not
-generate any more interrupts.  Therefore, as a secondary check, poll
-the next slot in each active event queue whose flag is not set.
+Vernon Mauery wrote, On 03/18/2009 09:17 PM:
+...
+> This patch does seem to reduce the number of contentions by about 10%.  That is
+> a good start (and a good catch on the cacheline bounces).  But, like I mentioned
+> above, this lock still has 2 orders of magnitude greater contention than the
+> next lock, so even a large decrease like 10% makes little difference in the
+> overall contention characteristics.
+> 
+> So we will have to do something more.  Whether it needs to be more complex or
+> not is still up in the air.  Batched enqueueing/dequeueing are just two options
+> and the former would be a *lot* less complex than the latter.
+> 
+> If anyone else has any ideas they have been holding back, now would be a great
+> time to get them out in the open.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+I think there would be interesting to check another idea around this
+contention: not all contenders are equal here. One thread is doing
+qdisc_run() and owning the transmit queue (even after releasing the TX
+lock). So if it waits for the qdisc lock the NIC, if not multiqueue,
+is idle. Probably some handicap like in the patch below could make
+some difference in throughput; alas I didn't test it.
+
+Jarek P.
 ---
- drivers/net/sfc/falcon.c |   26 ++++++++++++++------------
- 1 files changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 2ae51fd..92ea614 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -1435,6 +1435,7 @@ static irqreturn_t falcon_legacy_interrupt_b0(int irq, void *dev_id)
- {
- 	struct efx_nic *efx = dev_id;
- 	efx_oword_t *int_ker = efx->irq_status.addr;
-+	irqreturn_t result = IRQ_NONE;
- 	struct efx_channel *channel;
- 	efx_dword_t reg;
- 	u32 queues;
-@@ -1449,23 +1450,24 @@ static irqreturn_t falcon_legacy_interrupt_b0(int irq, void *dev_id)
- 	if (unlikely(syserr))
- 		return falcon_fatal_interrupt(efx);
+ net/core/dev.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f112970..d5ad808 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1852,7 +1852,11 @@ gso:
+ 	if (q->enqueue) {
+ 		spinlock_t *root_lock = qdisc_lock(q);
  
--	if (queues == 0)
--		return IRQ_NONE;
--
--	efx->last_irq_cpu = raw_smp_processor_id();
--	EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_DWORD_FMT "\n",
--		  irq, raw_smp_processor_id(), EFX_DWORD_VAL(reg));
--
- 	/* Schedule processing of any interrupting queues */
--	channel = &efx->channel[0];
--	while (queues) {
--		if (queues & 0x01)
-+	efx_for_each_channel(channel, efx) {
-+		if ((queues & 1) ||
-+		    falcon_event_present(
-+			    falcon_event(channel, channel->eventq_read_ptr))) {
- 			efx_schedule_channel(channel);
--		channel++;
-+			result = IRQ_HANDLED;
+-		spin_lock(root_lock);
++		while (!spin_trylock(root_lock)) {
++			do {
++				cpu_relax();
++			} while (spin_is_locked(root_lock));
 +		}
- 		queues >>= 1;
- 	}
  
--	return IRQ_HANDLED;
-+	if (result == IRQ_HANDLED) {
-+		efx->last_irq_cpu = raw_smp_processor_id();
-+		EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_DWORD_FMT "\n",
-+			  irq, raw_smp_processor_id(), EFX_DWORD_VAL(reg));
-+	}
-+
-+	return result;
- }
- 
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+ 		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+ 			kfree_skb(skb);
