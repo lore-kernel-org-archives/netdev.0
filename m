@@ -1,89 +1,69 @@
-From: Sathya Perla <sathya.perla@gmail.com>
-Subject: Re: [PATCH 2/2] be2net: fix to restore vlan ids into BE2 during a IF
-	DOWN->UP cycle
-Date: Fri, 20 Mar 2009 15:52:39 +0530
-Message-ID: <bdc3ac9f0903200322n3993a7fdx9ac25a3d0b14edec@mail.gmail.com>
-References: <1237454167.6210.24.camel@sperla-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/5] igb: allow tx of pre-formatted vlan tagged
+	packets
+Date: Fri, 20 Mar 2009 03:16:31 -0700
+Message-ID: <20090320101631.17663.63853.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Arthur Jones <ajones@riverbed.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:35937 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758410AbZCTKWl (ORCPT
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:39011 "EHLO
+	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757826AbZCTKWl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 06:22:41 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so612461wah.21
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2009 03:22:39 -0700 (PDT)
-In-Reply-To: <1237454167.6210.24.camel@sperla-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2009 at 2:46 PM, Sathya Perla <sathyap@serverengines.com> wrote:
-> Hi, this is a patch to reconfigure vlan-ids during an i/f down/up cycle
->
-> thanks,
-> -Sathya
+From: Arthur Jones <ajones@riverbed.com>
 
-Re-posting the patch:
+When the 82575 is fed 802.1q packets, it chokes with
+an error of the form:
 
-Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+igb 0000:08:00.1 partial checksum but proto=81!
+
+As the logic there was not smart enough to look into
+the vlan header to pick out the encapsulated protocol.
+
+There are times when we'd like to send these packets
+out without having to configure a vlan on the interface.
+Here we check for the vlan tag and allow the packet to
+go out with the correct hardware checksum.
+
+Thanks to Kand Ly <kand@riverbed.com> for discovering the
+issue and the coming up with a solution.  This patch is
+based upon his work.
+
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/benet/be_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 80fe1e0..0ecaffb 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -473,7 +473,7 @@ static int be_change_mtu(struct net_device
-*netdev, int new_mtu)
-  * program them in BE.  If more than BE_NUM_VLANS_SUPPORTED are configured,
-  * set the BE in promiscuous VLAN mode.
-  */
--static void be_vids_config(struct net_device *netdev)
-+static void be_vid_config(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	u16 vtag[BE_NUM_VLANS_SUPPORTED];
-@@ -516,7 +516,7 @@ static void be_vlan_add_vid(struct net_device
-*netdev, u16 vid)
- 	adapter->num_vlans++;
- 	adapter->vlan_tag[vid] = 1;
+ drivers/net/igb/igb_main.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
--	be_vids_config(netdev);
-+	be_vid_config(netdev);
- }
-
- static void be_vlan_rem_vid(struct net_device *netdev, u16 vid)
-@@ -527,7 +527,7 @@ static void be_vlan_rem_vid(struct net_device
-*netdev, u16 vid)
- 	adapter->vlan_tag[vid] = 0;
-
- 	vlan_group_set_device(adapter->vlan_grp, vid, NULL);
--	be_vids_config(netdev);
-+	be_vid_config(netdev);
- }
-
- static void be_set_multicast_filter(struct net_device *netdev)
-@@ -1430,6 +1430,8 @@ static int be_open(struct net_device *netdev)
- 	if (status != 0)
- 		goto do_none;
-
-+	be_vid_config(netdev);
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 7c4481b..c14d569 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3008,6 +3008,17 @@ static inline bool igb_tx_csum_adv(struct igb_adapter *adapter,
+ 		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			__be16 protocol;
 +
- 	status = be_cmd_set_flow_control(ctrl, true, true);
- 	if (status != 0)
- 		goto if_destroy;
-@@ -1864,8 +1866,6 @@ static int be_resume(struct pci_dev *pdev)
- 	pci_set_power_state(pdev, 0);
- 	pci_restore_state(pdev);
++			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
++				const struct vlan_ethhdr *vhdr =
++				          (const struct vlan_ethhdr*)skb->data;
++
++				protocol = vhdr->h_vlan_encapsulated_proto;
++			} else {
++				protocol = skb->protocol;
++			}
++
+ 			switch (skb->protocol) {
+ 			case cpu_to_be16(ETH_P_IP):
+ 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
 
--	be_vids_config(netdev);
--
- 	if (netif_running(netdev)) {
- 		rtnl_lock();
- 		be_open(netdev);
--- 
-1.5.6.3
