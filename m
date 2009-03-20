@@ -1,64 +1,61 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 1/5] sfc: Pad packets to 33 bytes to prevent TX packet
-	parser lockup
-Date: Fri, 20 Mar 2009 23:25:39 +0000
-Message-ID: <1237591540.3217.6.camel@achroite>
+Subject: [PATCH 4/5] sfc: Optimise falcon_writel_page_locked() for page > 0
+Date: Fri, 20 Mar 2009 23:27:13 +0000
+Message-ID: <1237591633.3217.12.camel@achroite>
+References: <1237591540.3217.6.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:49701 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763086AbZCTXZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 19:25:47 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:36631 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763026AbZCTX1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 19:27:16 -0400
+In-Reply-To: <1237591540.3217.6.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The packet parser used in the TX data path for locating checksum
-fields can lose synchronisation with the TX queue manager when
-handling packets that look like IPv4 but are too short (17-32 bytes).
-Work around this by padding to 33 bytes.
+The bug this function works around only applies to the first set of
+page-mapped registers; other pages can be written without locking.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/tx.c          |    8 ++++++++
- drivers/net/sfc/workarounds.h |    2 ++
- 2 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/sfc/falcon_io.h |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index b1e1907..d6681ed 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -162,6 +162,14 @@ static int efx_enqueue_skb(struct efx_tx_queue *tx_queue,
- 	/* Get size of the initial fragment */
- 	len = skb_headlen(skb);
+diff --git a/drivers/net/sfc/falcon_io.h b/drivers/net/sfc/falcon_io.h
+index c16da31..8883092 100644
+--- a/drivers/net/sfc/falcon_io.h
++++ b/drivers/net/sfc/falcon_io.h
+@@ -238,18 +238,21 @@ static inline void falcon_writel_page(struct efx_nic *efx, efx_dword_t *value,
+ /* Write dword to Falcon page-mapped register with an extra lock.
+  *
+  * As for falcon_writel_page(), but for a register that suffers from
+- * SFC bug 3181. Take out a lock so the BIU collector cannot be
+- * confused. */
++ * SFC bug 3181.  If writing to page 0, take out a lock so the BIU
++ * collector cannot be confused.
++ */
+ static inline void falcon_writel_page_locked(struct efx_nic *efx,
+ 					     efx_dword_t *value,
+ 					     unsigned int reg,
+ 					     unsigned int page)
+ {
+-	unsigned long flags;
++	unsigned long flags = 0;
  
-+	/* Pad if necessary */
-+	if (EFX_WORKAROUND_15592(efx) && skb->len <= 32) {
-+		EFX_BUG_ON_PARANOID(skb->data_len);
-+		len = 32 + 1;
-+		if (skb_pad(skb, len - skb->len))
-+			return NETDEV_TX_OK;
-+	}
-+
- 	fill_level = tx_queue->insert_count - tx_queue->old_read_count;
- 	q_space = efx->type->txd_ring_mask - 1 - fill_level;
+-	spin_lock_irqsave(&efx->biu_lock, flags);
++	if (page == 0)
++		spin_lock_irqsave(&efx->biu_lock, flags);
+ 	falcon_writel(efx, value, FALCON_PAGED_REG(page, reg));
+-	spin_unlock_irqrestore(&efx->biu_lock, flags);
++	if (page == 0)
++		spin_unlock_irqrestore(&efx->biu_lock, flags);
+ }
  
-diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
-index 78de68f..c821c15 100644
---- a/drivers/net/sfc/workarounds.h
-+++ b/drivers/net/sfc/workarounds.h
-@@ -36,6 +36,8 @@
- #define EFX_WORKAROUND_11482 EFX_WORKAROUND_ALWAYS
- /* Flush events can take a very long time to appear */
- #define EFX_WORKAROUND_11557 EFX_WORKAROUND_ALWAYS
-+/* Truncated IPv4 packets can confuse the TX packet parser */
-+#define EFX_WORKAROUND_15592 EFX_WORKAROUND_ALWAYS
- 
- /* Spurious parity errors in TSORT buffers */
- #define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
+ #endif /* EFX_FALCON_IO_H */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
