@@ -1,73 +1,99 @@
-From: Jeff Chua <jeff.chua.linux@gmail.com>
-Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
-Date: Fri, 20 Mar 2009 13:20:47 +0800
-Message-ID: <b6a2187b0903192220p67880251ue8ba9b392f11da01@mail.gmail.com>
-References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
-	 <alpine.LFD.2.00.0903151136310.3131@localhost.localdomain>
-	 <1237143683.24621.7.camel@johannes.local>
-	 <20090315202603.GA9077@elte.hu>
-	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
-	 <1237317742.31814.28.camel@johannes.local>
-	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
-	 <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
-	 <1237455534.5100.56.camel@johannes.local>
-	 <b6a2187b0903192155q33510b57l9d5927538a0f4f99@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/2] ixgbe: fix select_queue management
+Date: Thu, 19 Mar 2009 23:36:10 -0700
+Message-ID: <20090319233610.51fe4ee1@nehalam>
+References: <20090319233404.6697768b@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f208.google.com ([209.85.217.208]:33477 "EHLO
-	mail-gx0-f208.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752768AbZCTFUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2009 01:20:50 -0400
-In-Reply-To: <b6a2187b0903192155q33510b57l9d5927538a0f4f99@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, David Miller
+	<davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090319233404.6697768b@nehalam>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 20, 2009 at 12:55 PM, Jeff Chua <jeff.chua.linux@gmail.com> wrote:
-> On Thu, Mar 19, 2009 at 5:38 PM, Johannes Berg
-> <johannes@sipsolutions.net> wrote:
->> On Thu, 2009-03-19 at 12:49 +0800, Jeff Chua wrote:
->>
->>> Ignore the above loop thing. The cause seems to be this one instead.
->>>
->>>
->>> # this needs patch to work ...
->>> iwconfig wlan0 mode Managed
->>> ifconfig wlan0 up
->>> iwconfig wlan0 essid xxx
->>> iwconfig wlan0 key restricted xxx
->>> iwconfig wlan0 ap auto channel auto
->>
->> If you swap the key and essid lines, it will probably always work. But
->> I've yet to analyse your data to see why it doesn't in the other case.
->
-> Doesn't. Taking away "hiwconfig wlan0 ap auto channel auto" makes it works.
+Convert ixgbe to use net_device_ops properly.
+Rather than changing the select_queue function pointer
+just check the flag.
 
-More discoveries...
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-It seems position of "ifconfig wlan0 up" matters
+---
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |    8 --------
+ drivers/net/ixgbe/ixgbe_main.c   |   11 +++++++++++
+ 2 files changed, 11 insertions(+), 8 deletions(-)
 
-1) It can't be before iwconfig which will result in "SET failed on
-device wlan0 ; Device or resource busy".
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-03-19 22:57:01.053842791 -0700
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-03-19 23:07:36.372656027 -0700
+@@ -102,12 +102,6 @@ static u8 ixgbe_dcbnl_get_state(struct n
+ 	return !!(adapter->flags & IXGBE_FLAG_DCB_ENABLED);
+ }
+ 
+-static u16 ixgbe_dcb_select_queue(struct net_device *dev, struct sk_buff *skb)
+-{
+-	/* All traffic should default to class 0 */
+-	return 0;
+-}
+-
+ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ {
+ 	u8 err = 0;
+@@ -135,7 +129,6 @@ static u8 ixgbe_dcbnl_set_state(struct n
+ 		kfree(adapter->rx_ring);
+ 		adapter->tx_ring = NULL;
+ 		adapter->rx_ring = NULL;
+-		netdev->select_queue = &ixgbe_dcb_select_queue;
+ 
+ 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+ 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
+@@ -154,7 +147,6 @@ static u8 ixgbe_dcbnl_set_state(struct n
+ 			kfree(adapter->rx_ring);
+ 			adapter->tx_ring = NULL;
+ 			adapter->rx_ring = NULL;
+-			netdev->select_queue = NULL;
+ 
+ 			adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+ 			adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
+--- a/drivers/net/ixgbe/ixgbe_main.c	2009-03-19 23:05:56.954718897 -0700
++++ b/drivers/net/ixgbe/ixgbe_main.c	2009-03-19 23:07:33.611651593 -0700
+@@ -4272,6 +4272,16 @@ static int ixgbe_maybe_stop_tx(struct ne
+ 	return __ixgbe_maybe_stop_tx(netdev, tx_ring, size);
+ }
+ 
++static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
++
++	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
++		return 0;  /* All traffic should default to class 0 */
++
++	return skb_tx_hash(dev, skb);
++}
++
+ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+@@ -4401,6 +4411,7 @@ static const struct net_device_ops ixgbe
+ 	.ndo_open 		= ixgbe_open,
+ 	.ndo_stop		= ixgbe_close,
+ 	.ndo_start_xmit		= ixgbe_xmit_frame,
++	.ndo_select_queue	= ixgbe_select_queue,
+ 	.ndo_get_stats		= ixgbe_get_stats,
+ 	.ndo_set_rx_mode        = ixgbe_set_rx_mode,
+ 	.ndo_set_multicast_list	= ixgbe_set_rx_mode,
 
-2) _Before_ "essid" and "key" settings. "ap auto channel auto" MUST NOT BE SET.
-
-3) _After_ "essid" and "key". Ensure all iwconfig settings comes
-before "ifconfig".
-
-
-So, it seems "ifconfig" must be done as the last stage.
-
-Thanks,
-Jeff.
+------------------------------------------------------------------------------
+Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
+powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
+easily build your RIAs with Flex Builder, the Eclipse(TM)based development
+software that enables intelligent coding and step-through debugging.
+Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
