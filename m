@@ -1,68 +1,73 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
-Date: Fri, 20 Mar 2009 17:24:17 -0700
-Message-ID: <9929d2390903201724r863d13cr1ad47ade2c3d0223@mail.gmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management (v2)
+Date: Fri, 20 Mar 2009 20:48:46 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0903202033090.16644@ppwaskie-MOBL2.amr.corp.intel.com>
 References: <20090319233404.6697768b@nehalam> <20090319233610.51fe4ee1@nehalam>
-	<Pine.WNT.4.64.0903200019240.14460@ppwaskie-MOBL2.amr.corp.intel.com>
-	<20090320092434.7ac1baf3@nehalam>
-	<Pine.WNT.4.64.0903201013300.16596@ppwaskie-MOBL2.amr.corp.intel.com>
+ <20090320091247.38326931@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.WNT.4.64.0903201013300.16596@ppwaskie-MOBL2.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:39891 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752461AbZCUDsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2009 23:48:50 -0400
+In-Reply-To: <20090320091247.38326931@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBNYXIgMjAsIDIwMDkgYXQgMTA6MTQgQU0sIFdhc2tpZXdpY3ogSnIsIFBldGVyIFAK
-PHBldGVyLnAud2Fza2lld2ljei5qckBpbnRlbC5jb20+IHdyb3RlOgo+IE9uIEZyaSwgMjAgTWFy
-IDIwMDksIFN0ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOgo+Cj4+IE9uIEZyaSwgMjAgTWFyIDIwMDkg
-MDA6MjM6MzkgLTA3MDAgKFBhY2lmaWMgRGF5bGlnaHQgVGltZSkKPj4gIldhc2tpZXdpY3ogSnIs
-IFBldGVyIFAiIDxwZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tPiB3cm90ZToKPj4KPj4g
-PiBPbiBUaHUsIDE5IE1hciAyMDA5LCBTdGVwaGVuIEhlbW1pbmdlciB3cm90ZToKPj4gPgo+PiA+
-ID4gQ29udmVydCBpeGdiZSB0byB1c2UgbmV0X2RldmljZV9vcHMgcHJvcGVybHkuCj4+ID4gPiBS
-YXRoZXIgdGhhbiBjaGFuZ2luZyB0aGUgc2VsZWN0X3F1ZXVlIGZ1bmN0aW9uIHBvaW50ZXIKPj4g
-PiA+IGp1c3QgY2hlY2sgdGhlIGZsYWcuCj4+ID4gPgo+PiA+ID4gU2lnbmVkLW9mZi1ieTogU3Rl
-cGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlhdHRhLmNvbT4KPj4gPgo+PiA+IFRoYW5rcyBT
-dGVwaGVuLiDCoEkgd2FzIGxvb2tpbmcgYXQgcmVhc3NpZ25pbmcgYSBEQ0IgbmV0ZGV2X29wcyBz
-dHJ1Y3Qgd2hlbgo+PiA+IERDQiBpcyBlbmFibGVkLCBhbmQgdGhlbiBoYXZpbmcgYSBkZWZhdWx0
-IG5ldGRldl9vcHMgc3RydWN0IHdoZW4gaXQncyBub3QKPj4gPiBlbmFibGVkLiDCoEkgYWdyZWUg
-dGhlIGNoZWNrIGlzIGNsZWFuZXIgdGhlIHdheSB5b3UgaGF2ZSBpdCBiZWxvdywgYnV0IGl0J3MK
-Pj4gPiBhbm90aGVyIGNvbmRpdGlvbmFsIGNoZWNrIGluIHRoZSBUeCBob3RwYXRoLCB3aGljaCB3
-ZSBoYXZlIHRvbyBtYW55IG9mIGluCj4+ID4gdGhlIGZpcnN0IHBsYWNlLgo+Pgo+PiBDaGFuZ2lu
-ZyBudW1iZXIgb2YgdHggcXVldWVzIGlzIGFjdHVhbGx5IHRoZSBmYXN0ZXN0LCBzaW5jZSB0aGVu
-Cj4+IGluZGlyZWN0aW9uIGlzIG5vdCBuZWVkZWQKPj4KPj4gPiBPbiBhIHJlbGF0ZWQgc2lkZSBu
-b3RlLCB3aHkgaXMgdGhlIG5ldGRldl9vcHMgbWVtYmVyIG9mIG5ldF9kZXZpY2UKPj4gPiBkZWNs
-YXJlZCBjb25zdD8KPj4KPj4gVGhlIHB1cnBvc2Ugb2YgaGF2aW5nIGFuIG9wcyBzdHJ1Y3R1cmUg
-aXMgdHdvIGZvbGQuIEZpcnN0LCB0aGUgb3BzCj4+IGNhbiBiZSBpbiByZWFkLW9ubHkgc2VjdGlv
-biAoaWYgZHJpdmVyIHdhbnRzKSB0byBhdm9pZCBjYWNoZSBpc3N1ZXMuCj4+IE1vcmUgaW1wb3J0
-YW50bHkgb25seSBvbmUgaW5zdGFuY2UgaXMgbmVjZXNzYXJ5IHdoZW4gdGhlcmUgYXJlIG11bHRp
-cGxlCj4+IGJvYXJkcywgb3IgMTAwMCdzIG9mIHZsYW5zLgo+Cj4gQWgsIGdvdGNoYS4gwqBDbGVh
-cnMgdXAgbXkgcXVlc3Rpb25zLgo+Cj4gQWNrZWQtYnk6IFBldGVyIFAgV2Fza2lld2ljeiBKciA8
-cGV0ZXIucC53YXNraWV3aWN6LmpyQGludGVsLmNvbT4KPiAtLQoKQWNrZWQtYnk6IEplZmYgS2ly
-c2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPgoKRGF2ZSAtIGZlZWwgZnJlZSB0byBh
-cHBseSB0aGlzIHBhdGNoIHdoZW4geW91IHRha2UgdGhlIGZpcnN0IHBhdGNoIGluCnRoaXMgc2Vy
-aWVzLCBJIGFtIG5vdCBhZGRpbmcgdGhpcyB0byBtZSB0cmVlLgoKLS0gCkNoZWVycywKSmVmZgoK
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tCkFwcHMgYnVpbHQgd2l0aCB0aGUgQWRvYmUoUikgRmxleChS
-KSBmcmFtZXdvcmsgYW5kIEZsZXggQnVpbGRlcihUTSkgYXJlCnBvd2VyaW5nIFdlYiAyLjAgd2l0
-aCBlbmdhZ2luZywgY3Jvc3MtcGxhdGZvcm0gY2FwYWJpbGl0aWVzLiBRdWlja2x5IGFuZAplYXNp
-bHkgYnVpbGQgeW91ciBSSUFzIHdpdGggRmxleCBCdWlsZGVyLCB0aGUgRWNsaXBzZShUTSliYXNl
-ZCBkZXZlbG9wbWVudApzb2Z0d2FyZSB0aGF0IGVuYWJsZXMgaW50ZWxsaWdlbnQgY29kaW5nIGFu
-ZCBzdGVwLXRocm91Z2ggZGVidWdnaW5nLgpEb3dubG9hZCB0aGUgZnJlZSA2MCBkYXkgdHJpYWwu
-IGh0dHA6Ly9wLnNmLm5ldC9zZnUvd3d3LWFkb2JlLWNvbQpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAt
-ZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0
-L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsCg==
+On Fri, 20 Mar 2009, Stephen Hemminger wrote:
+
+> Convert ixgbe to use net_device_ops properly.
+> Rather than changing the select_queue function pointer
+> just change number of available transmit queues.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> ---
+>  drivers/net/ixgbe/ixgbe_dcb_nl.c |   48 +++++++++++++++++----------------------
+>  1 file changed, 21 insertions(+), 27 deletions(-)
+> 
+> --- a/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-03-20 09:01:19.643651162 -0700
+> +++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c	2009-03-20 09:11:09.645652169 -0700
+> @@ -102,12 +102,6 @@ static u8 ixgbe_dcbnl_get_state(struct n
+>  	return !!(adapter->flags & IXGBE_FLAG_DCB_ENABLED);
+>  }
+>  
+> -static u16 ixgbe_dcb_select_queue(struct net_device *dev, struct sk_buff *skb)
+> -{
+> -	/* All traffic should default to class 0 */
+> -	return 0;
+> -}
+> -
+>  static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+>  {
+>  	u8 err = 0;
+> @@ -135,7 +129,7 @@ static u8 ixgbe_dcbnl_set_state(struct n
+>  		kfree(adapter->rx_ring);
+>  		adapter->tx_ring = NULL;
+>  		adapter->rx_ring = NULL;
+> -		netdev->select_queue = &ixgbe_dcb_select_queue;
+> +		netdev->real_num_tx_queues = 1;
+
+NAK.  The point of dcb_select_queue() isn't because DCB mode only uses 1 
+Tx queue.  DCB has 8 priorities, and allocates 8 Tx queues, one for each 
+priority.  The DCB spec says that any traffic not being filtered by some 
+kind of mechanism needs to go through priority 0, or queue 0.  So 
+select_queue is meant to tag all traffic to queue 0, then have the 
+attached qdisc and tc filters get the majority of the traffic into the 
+different priority queues.
+
+If we did not push the unfiltered traffic into queue 0, then skb_tx_hash() 
+would put traffic randomly into queues with higher priority, which is not 
+what we want.
+
+I'd prefer your original patch to fix this up, where you check if DCB is 
+enabled, and return 0.
+
+-PJ Waskiewicz
