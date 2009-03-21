@@ -1,67 +1,65 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 61/77] raylan: convert to net_device_ops
-Date: Fri, 20 Mar 2009 22:36:28 -0700
-Message-ID: <20090321053717.204864141@vyatta.com>
+Subject: [PATCH 73/77] ipw2100: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:40 -0700
+Message-ID: <20090321053718.145743314@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>, coreythomas@charter.net
+To: David Miller <davem@davemloft.net>, jkosina@suse.cz,
+	dstreba@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36736 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36738 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760301AbZCUFs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:29 -0400
-Content-Disposition: inline; filename=ray_cs.patch
+	id S1761153AbZCUFsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 01:48:30 -0400
+Content-Disposition: inline; filename=ipw2100.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/wireless/ray_cs.c	2009-03-20 22:14:19.352839145 -0700
-+++ b/drivers/net/wireless/ray_cs.c	2009-03-20 22:25:55.863652814 -0700
-@@ -298,6 +298,19 @@ static char hop_pattern_length[] = { 1,
- static char rcsid[] =
-     "Raylink/WebGear wireless LAN - Corey <Thomas corey@world.std.com>";
+
+---
+ drivers/net/wireless/ipw2x00/ipw2100.c       |   17 ++++++++++++-----
+ drivers/net/wireless/ipw2x00/libipw_module.c |    2 ++
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c	2009-03-20 21:18:36.962783530 -0700
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c	2009-03-20 21:24:40.533652141 -0700
+@@ -6008,6 +6008,17 @@ static void ipw2100_rf_kill(struct work_
  
-+static const struct net_device_ops ray_netdev_ops = {
-+	.ndo_init 		= ray_dev_init,
-+	.ndo_open 		= ray_open,
-+	.ndo_stop 		= ray_dev_close,
-+	.ndo_start_xmit		= ray_dev_start_xmit,
-+	.ndo_set_config		= ray_dev_config,
-+	.ndo_get_stats		= ray_get_stats,
-+	.ndo_set_multicast_list = set_multicast_list,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
+ static void ipw2100_irq_tasklet(struct ipw2100_priv *priv);
+ 
++static const struct net_device_ops ipw2100_netdev_ops = {
++	.ndo_open		= ipw2100_open,
++	.ndo_stop		= ipw2100_close,
++	.ndo_start_xmit		= ieee80211_xmit,
++	.ndo_change_mtu		= ieee80211_change_mtu,
++	.ndo_init		= ipw2100_net_init,
++	.ndo_tx_timeout		= ipw2100_tx_timeout,
++	.ndo_set_mac_address	= ipw2100_set_address,
 +	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
- /*=============================================================================
-     ray_attach() creates an "instance" of the driver, allocating
-     local data structures for one device.  The device is registered
-@@ -347,9 +360,7 @@ static int ray_probe(struct pcmcia_devic
- 	      p_dev, dev, local, &ray_interrupt);
+ /* Look into using netdev destructor to shutdown ieee80211? */
  
- 	/* Raylink entries in the device structure */
--	dev->hard_start_xmit = &ray_dev_start_xmit;
--	dev->set_config = &ray_dev_config;
--	dev->get_stats = &ray_get_stats;
-+	dev->netdev_ops = &ray_netdev_ops;
- 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
- 	dev->wireless_handlers = &ray_handler_def;
- #ifdef WIRELESS_SPY
-@@ -357,12 +368,8 @@ static int ray_probe(struct pcmcia_devic
- 	dev->wireless_data = &local->wireless_data;
- #endif /* WIRELESS_SPY */
+ static struct net_device *ipw2100_alloc_device(struct pci_dev *pci_dev,
+@@ -6032,15 +6043,11 @@ static struct net_device *ipw2100_alloc_
+ 	priv->ieee->perfect_rssi = -20;
+ 	priv->ieee->worst_rssi = -85;
  
--	dev->set_multicast_list = &set_multicast_list;
+-	dev->open = ipw2100_open;
+-	dev->stop = ipw2100_close;
+-	dev->init = ipw2100_net_init;
++	dev->netdev_ops = &ipw2100_netdev_ops;
+ 	dev->ethtool_ops = &ipw2100_ethtool_ops;
+-	dev->tx_timeout = ipw2100_tx_timeout;
+ 	dev->wireless_handlers = &ipw2100_wx_handler_def;
+ 	priv->wireless_data.ieee80211 = priv->ieee;
+ 	dev->wireless_data = &priv->wireless_data;
+-	dev->set_mac_address = ipw2100_set_address;
+ 	dev->watchdog_timeo = 3 * HZ;
+ 	dev->irq = 0;
  
- 	DEBUG(2, "ray_cs ray_attach calling ether_setup.)\n");
--	dev->init = &ray_dev_init;
--	dev->open = &ray_open;
--	dev->stop = &ray_dev_close;
- 	netif_stop_queue(dev);
- 
- 	init_timer(&local->timer);
 
 -- 
 
