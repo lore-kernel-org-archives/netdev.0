@@ -1,63 +1,80 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 34/77] pcmcia: convert 3c589 to net_device_ops
-Date: Fri, 20 Mar 2009 22:36:01 -0700
-Message-ID: <20090321053715.114984260@vyatta.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 67/77] prism54: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:34 -0700
+Message-ID: <20090321053717.682860987@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36603 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760921AbZCUFsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:16 -0400
-Content-Disposition: inline; filename=3c589.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=islpci.patch
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Also, make ethtool_ops const as it should be, and get rid
+of useless cast.
 
---- a/drivers/net/pcmcia/3c589_cs.c	2009-03-20 15:23:42.903968610 -0700
-+++ b/drivers/net/pcmcia/3c589_cs.c	2009-03-20 15:29:37.743901982 -0700
-@@ -169,6 +169,19 @@ static void tc589_detach(struct pcmcia_d
+Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+
+
+--- a/drivers/net/wireless/prism54/islpci_dev.c	2009-03-20 21:45:40.782964097 -0700
++++ b/drivers/net/wireless/prism54/islpci_dev.c	2009-03-20 22:26:05.140779360 -0700
+@@ -804,10 +804,23 @@ static void islpci_ethtool_get_drvinfo(s
+ 	strcpy(info->version, DRV_VERSION);
+ }
  
- ======================================================================*/
+-static struct ethtool_ops islpci_ethtool_ops = {
++static const struct ethtool_ops islpci_ethtool_ops = {
+ 	.get_drvinfo = islpci_ethtool_get_drvinfo,
+ };
  
-+static const struct net_device_ops el3_netdev_ops = {
-+	.ndo_open 		= el3_open,
-+	.ndo_stop 		= el3_close,
-+	.ndo_start_xmit		= el3_start_xmit,
-+	.ndo_tx_timeout 	= el3_tx_timeout,
-+	.ndo_set_config		= el3_config,
-+	.ndo_get_stats		= el3_get_stats,
-+	.ndo_set_multicast_list = set_multicast_list,
++static const struct net_device_ops islpci_netdev_ops = {
++	.ndo_open 		= islpci_open,
++	.ndo_stop		= islpci_close,
++	.ndo_get_stats		= islpci_statistics,
++	.ndo_do_ioctl		= prism54_ioctl,
++	.ndo_start_xmit		= islpci_eth_transmit,
++	.ndo_tx_timeout		= islpci_eth_tx_timeout,
++	.ndo_set_mac_address 	= prism54_set_mac_address,
 +	.ndo_change_mtu		= eth_change_mtu,
 +	.ndo_set_mac_address 	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
- static int tc589_probe(struct pcmcia_device *link)
+ struct net_device *
+ islpci_setup(struct pci_dev *pdev)
  {
-     struct el3_private *lp;
-@@ -195,17 +208,9 @@ static int tc589_probe(struct pcmcia_dev
-     link->conf.IntType = INT_MEMORY_AND_IO;
-     link->conf.ConfigIndex = 1;
+@@ -827,25 +840,16 @@ islpci_setup(struct pci_dev *pdev)
+ 	ndev->irq = pdev->irq;
  
--    /* The EL3-specific entries in the device structure. */
--    dev->hard_start_xmit = &el3_start_xmit;
--    dev->set_config = &el3_config;
--    dev->get_stats = &el3_get_stats;
--    dev->set_multicast_list = &set_multicast_list;
--    dev->open = &el3_open;
--    dev->stop = &el3_close;
+ 	/* initialize the function pointers */
+-	ndev->open = &islpci_open;
+-	ndev->stop = &islpci_close;
+-	ndev->get_stats = &islpci_statistics;
+-	ndev->do_ioctl = &prism54_ioctl;
+-	ndev->wireless_handlers =
+-	    (struct iw_handler_def *) &prism54_handler_def;
++	ndev->netdev_ops = &islpci_netdev_ops;
++	ndev->wireless_handlers = &prism54_handler_def;
+ 	ndev->ethtool_ops = &islpci_ethtool_ops;
+ 
+-	ndev->hard_start_xmit = &islpci_eth_transmit;
+ 	/* ndev->set_multicast_list = &islpci_set_multicast_list; */
+ 	ndev->addr_len = ETH_ALEN;
+-	ndev->set_mac_address = &prism54_set_mac_address;
+ 	/* Get a non-zero dummy MAC address for nameif. Jean II */
+ 	memcpy(ndev->dev_addr, dummy_mac, 6);
+ 
 -#ifdef HAVE_TX_TIMEOUT
--    dev->tx_timeout = el3_tx_timeout;
-+    dev->netdev_ops = &el3_netdev_ops;
-     dev->watchdog_timeo = TX_TIMEOUT;
+ 	ndev->watchdog_timeo = ISLPCI_TX_TIMEOUT;
+-	ndev->tx_timeout = &islpci_eth_tx_timeout;
 -#endif
-+
-     SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
  
-     return tc589_config(link);
+ 	/* allocate a private device structure to the network device  */
+ 	priv = netdev_priv(ndev);
 
 -- 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
