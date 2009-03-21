@@ -1,122 +1,184 @@
-From: Vojtech Pavlik <vojtech@suse.cz>
-Subject: Re: [PATCH 23/77] usbnet: convert to internal net_device stats
-Date: Sat, 21 Mar 2009 14:02:43 +0100
-Message-ID: <20090321130243.GB14353@suse.cz>
-References: <20090321053527.316395697@vyatta.com> <20090321053714.283096585@vyatta.com> <200903210201.53630.david-b@pacbell.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCHv2] net/*: use linux/kernel.h swap()
+Date: Sat, 21 Mar 2009 15:16:09 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0903211514370.31762@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0903192305360.30791@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: MULTIPART/Mixed; boundary="-696208474-319582149-1237497133=:30791"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:50241 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754607AbZCUNCx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 09:02:53 -0400
-Content-Disposition: inline
-In-Reply-To: <200903210201.53630.david-b@pacbell.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54672 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752963AbZCUNQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 09:16:13 -0400
+In-Reply-To: <Pine.LNX.4.64.0903192305360.30791@wrl-59.cs.helsinki.fi>
+Content-ID: <Pine.LNX.4.64.0903211514371.31762@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 21, 2009 at 02:01:53AM -0700, David Brownell wrote:
-> On Friday 20 March 2009, Stephen Hemminger wrote:
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ... ditto ...
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-And here ok, too.
+---696208474-319582149-1237497133=:30791
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0903211514372.31762@wrl-59.cs.helsinki.fi>
 
-> 
-> > --- a/drivers/net/usb/rtl8150.c	2009-03-20 12:11:35.825901868 -0700
-> > +++ b/drivers/net/usb/rtl8150.c	2009-03-20 12:12:47.085715442 -0700
-> > @@ -155,7 +155,6 @@ struct rtl8150 {
-> >  	unsigned long flags;
-> >  	struct usb_device *udev;
-> >  	struct tasklet_struct tl;
-> > -	struct net_device_stats stats;
-> >  	struct net_device *netdev;
-> >  	struct urb *rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
-> >  	struct sk_buff *tx_skb, *rx_skb;
-> > @@ -463,8 +462,8 @@ static void read_bulk_callback(struct ur
-> >  	skb_put(dev->rx_skb, pkt_len);
-> >  	dev->rx_skb->protocol = eth_type_trans(dev->rx_skb, netdev);
-> >  	netif_rx(dev->rx_skb);
-> > -	dev->stats.rx_packets++;
-> > -	dev->stats.rx_bytes += pkt_len;
-> > +	netdev->stats.rx_packets++;
-> > +	netdev->stats.rx_bytes += pkt_len;
-> >  
-> >  	spin_lock(&dev->rx_pool_lock);
-> >  	skb = pull_skb(dev);
-> > @@ -573,13 +572,13 @@ static void intr_callback(struct urb *ur
-> >  
-> >  	d = urb->transfer_buffer;
-> >  	if (d[0] & TSR_ERRORS) {
-> > -		dev->stats.tx_errors++;
-> > +		dev->netdev->stats.tx_errors++;
-> >  		if (d[INT_TSR] & (TSR_ECOL | TSR_JBR))
-> > -			dev->stats.tx_aborted_errors++;
-> > +			dev->netdev->stats.tx_aborted_errors++;
-> >  		if (d[INT_TSR] & TSR_LCOL)
-> > -			dev->stats.tx_window_errors++;
-> > +			dev->netdev->stats.tx_window_errors++;
-> >  		if (d[INT_TSR] & TSR_LOSS_CRS)
-> > -			dev->stats.tx_carrier_errors++;
-> > +			dev->netdev->stats.tx_carrier_errors++;
-> >  	}
-> >  	/* Report link status changes to the network stack */
-> >  	if ((d[INT_MSR] & MSR_LINK) == 0) {
-> > @@ -697,17 +696,12 @@ static void disable_net_traffic(rtl8150_
-> >  	set_registers(dev, CR, 1, &cr);
-> >  }
-> >  
-> > -static struct net_device_stats *rtl8150_netdev_stats(struct net_device *dev)
-> > -{
-> > -	return &((rtl8150_t *)netdev_priv(dev))->stats;
-> > -}
-> > -
-> >  static void rtl8150_tx_timeout(struct net_device *netdev)
-> >  {
-> >  	rtl8150_t *dev = netdev_priv(netdev);
-> >  	dev_warn(&netdev->dev, "Tx timeout.\n");
-> >  	usb_unlink_urb(dev->tx_urb);
-> > -	dev->stats.tx_errors++;
-> > +	netdev->stats.tx_errors++;
-> >  }
-> >  
-> >  static void rtl8150_set_multicast(struct net_device *netdev)
-> > @@ -747,12 +741,12 @@ static int rtl8150_start_xmit(struct sk_
-> >  			netif_device_detach(dev->netdev);
-> >  		else {
-> >  			dev_warn(&netdev->dev, "failed tx_urb %d\n", res);
-> > -			dev->stats.tx_errors++;
-> > +			netdev->stats.tx_errors++;
-> >  			netif_start_queue(netdev);
-> >  		}
-> >  	} else {
-> > -		dev->stats.tx_packets++;
-> > -		dev->stats.tx_bytes += skb->len;
-> > +		netdev->stats.tx_packets++;
-> > +		netdev->stats.tx_bytes += skb->len;
-> >  		netdev->trans_start = jiffies;
-> >  	}
-> >  
-> > @@ -931,7 +925,7 @@ static int rtl8150_probe(struct usb_inte
-> >  	netdev->hard_start_xmit = rtl8150_start_xmit;
-> >  	netdev->set_multicast_list = rtl8150_set_multicast;
-> >  	netdev->set_mac_address = rtl8150_set_mac_address;
-> > -	netdev->get_stats = rtl8150_netdev_stats;
-> > +
-> >  	SET_ETHTOOL_OPS(netdev, &ops);
-> >  	dev->intr_interval = 100;	/* 100ms */
-> >  
-> > 
-> > -- 
-> > 
-> > 
-> 
-> 
 
+tcp_sack_swap seems unnecessary so I pushed swap to the caller.
+Also removed comment that seemed then pointless, and added include
+when not already there. Compile tested.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+
+v2 removes the tcp_sack_swap completely().
+
+ net/decnet/dn_route.c |    6 +-----
+ net/ipv4/tcp_input.c  |   23 +++--------------------
+ net/ipv6/addrconf.c   |    7 ++-----
+ net/sched/sch_tbf.c   |    9 ++-------
+ 4 files changed, 8 insertions(+), 37 deletions(-)
+
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index 5130dee..0cc4394 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -380,7 +380,6 @@ static int dn_return_short(struct sk_buff *skb)
+ 	unsigned char *ptr;
+ 	__le16 *src;
+ 	__le16 *dst;
+-	__le16 tmp;
+ 
+ 	/* Add back headers */
+ 	skb_push(skb, skb->data - skb_network_header(skb));
+@@ -399,10 +398,7 @@ static int dn_return_short(struct sk_buff *skb)
+ 	ptr += 2;
+ 	*ptr = 0; /* Zero hop count */
+ 
+-	/* Swap source and destination */
+-	tmp  = *src;
+-	*src = *dst;
+-	*dst = tmp;
++	swap(*src, *dst);
+ 
+ 	skb->pkt_type = PACKET_OUTGOING;
+ 	dn_rt_finish_output(skb, NULL, NULL);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index fae78e3..8ac82b3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -64,6 +64,7 @@
+ #include <linux/mm.h>
+ #include <linux/module.h>
+ #include <linux/sysctl.h>
++#include <linux/kernel.h>
+ #include <net/dst.h>
+ #include <net/tcp.h>
+ #include <net/inet_common.h>
+@@ -1802,11 +1803,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
+ 	for (i = used_sacks - 1; i > 0; i--) {
+ 		for (j = 0; j < i; j++) {
+ 			if (after(sp[j].start_seq, sp[j + 1].start_seq)) {
+-				struct tcp_sack_block tmp;
+-
+-				tmp = sp[j];
+-				sp[j] = sp[j + 1];
+-				sp[j + 1] = tmp;
++				swap(sp[j], sp[j + 1]);
+ 
+ 				/* Track where the first SACK block goes to */
+ 				if (j == first_sack_index)
+@@ -4156,20 +4153,6 @@ static void tcp_sack_maybe_coalesce(struct tcp_sock *tp)
+ 	}
+ }
+ 
+-static inline void tcp_sack_swap(struct tcp_sack_block *sack1,
+-				 struct tcp_sack_block *sack2)
+-{
+-	__u32 tmp;
+-
+-	tmp = sack1->start_seq;
+-	sack1->start_seq = sack2->start_seq;
+-	sack2->start_seq = tmp;
+-
+-	tmp = sack1->end_seq;
+-	sack1->end_seq = sack2->end_seq;
+-	sack2->end_seq = tmp;
+-}
+-
+ static void tcp_sack_new_ofo_skb(struct sock *sk, u32 seq, u32 end_seq)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -4184,7 +4167,7 @@ static void tcp_sack_new_ofo_skb(struct sock *sk, u32 seq, u32 end_seq)
+ 		if (tcp_sack_extend(sp, seq, end_seq)) {
+ 			/* Rotate this_sack to the first one. */
+ 			for (; this_sack > 0; this_sack--, sp--)
+-				tcp_sack_swap(sp, sp - 1);
++				swap(*sp, *(sp - 1));
+ 			if (cur_sacks > 1)
+ 				tcp_sack_maybe_coalesce(tp);
+ 			return;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 717584b..8499da9 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -40,6 +40,7 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/types.h>
++#include <linux/kernel.h>
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/net.h>
+@@ -1215,16 +1216,12 @@ int ipv6_dev_get_saddr(struct net *net, struct net_device *dst_dev,
+ 					}
+ 					break;
+ 				} else if (minihiscore < miniscore) {
+-					struct ipv6_saddr_score *tmp;
+-
+ 					if (hiscore->ifa)
+ 						in6_ifa_put(hiscore->ifa);
+ 
+ 					in6_ifa_hold(score->ifa);
+ 
+-					tmp = hiscore;
+-					hiscore = score;
+-					score = tmp;
++					swap(hiscore, score);
+ 
+ 					/* restore our iterator */
+ 					score->ifa = hiscore->ifa;
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index a2f93c0..e22dfe8 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -236,7 +236,6 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
+ 	struct tc_tbf_qopt *qopt;
+ 	struct qdisc_rate_table *rtab = NULL;
+ 	struct qdisc_rate_table *ptab = NULL;
+-	struct qdisc_rate_table *tmp;
+ 	struct Qdisc *child = NULL;
+ 	int max_size,n;
+ 
+@@ -295,13 +294,9 @@ static int tbf_change(struct Qdisc* sch, struct nlattr *opt)
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 
+-	tmp = q->R_tab;
+-	q->R_tab = rtab;
+-	rtab = tmp;
++	swap(q->R_tab, rtab);
++	swap(q->P_tab, ptab);
+ 
+-	tmp = q->P_tab;
+-	q->P_tab = ptab;
+-	ptab = tmp;
+ 	sch_tree_unlock(sch);
+ 	err = 0;
+ done:
 -- 
-Vojtech Pavlik
-Director SuSE Labs
+1.5.6.5
+
+---696208474-319582149-1237497133=:30791--
