@@ -1,132 +1,27 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] 3c59x: convert to net_device_ops
-Date: Sat, 21 Mar 2009 17:26:54 +0100
-Message-ID: <20090321162653.GA19265@psychotron.englab.brq.redhat.com>
-References: <20090321113552.GB3380@psychotron.englab.brq.redhat.com> <20090321045155.fbdf8dac.akpm@linux-foundation.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] Re: [PATCH 03/77] infiniband: convert c2 to
+	net_device_ops
+Date: Sat, 21 Mar 2009 13:26:22 -0500
+Message-ID: <49C5314E.8010507@opengridcomputing.com>
+References: <20090321053527.316395697@vyatta.com>
+	<20090321053712.797092692@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	klassert@mathematik.tu-chemnitz.de, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:37694 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754251AbZCUQ2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 12:28:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20090321045155.fbdf8dac.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20090321053712.797092692@vyatta.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Mar 21, 2009 at 12:51:55PM CET, akpm@linux-foundation.org wrote:
->On Sat, 21 Mar 2009 12:35:53 +0100 Jiri Pirko <jpirko@redhat.com> wrote:
->
->> I converted this driver to use net_device_ops. I made two structures, one for
->> vortex and one for boomerang start_xmit function. Tested on my test system with
->> 3Com PCI 3c905C Tornado.
->
->linux-next already contains
-Oh, I've missed that, sorry. It seems pretty similar :)
->
->commit 48b47a5e306c1c119ee81ccd24d487c2df656410
->Author:     Stephen Hemminger <shemminger@linux-foundation.org>
->AuthorDate: Fri Jan 9 13:01:18 2009 +0000
->Commit:     David S. Miller <davem@davemloft.net>
->CommitDate: Wed Jan 21 14:02:25 2009 -0800
->
->    3c59x: convert to net_device_ops
->    
->    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->    Signed-off-by: David S. Miller <davem@davemloft.net>
->
->diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
->index cdbbb62..b2563d3 100644
->--- a/drivers/net/3c59x.c
->+++ b/drivers/net/3c59x.c
->@@ -992,6 +992,42 @@ out:
-> 	return rc;
-> }
-> 
->+static const struct net_device_ops boomrang_netdev_ops = {
->+	.ndo_open		= vortex_open,
->+	.ndo_stop		= vortex_close,
->+	.ndo_start_xmit		= boomerang_start_xmit,
->+	.ndo_tx_timeout		= vortex_tx_timeout,
->+	.ndo_get_stats		= vortex_get_stats,
->+#ifdef CONFIG_PCI
->+	.ndo_do_ioctl 		= vortex_ioctl,
->+#endif
->+	.ndo_set_multicast_list = set_rx_mode,
->+	.ndo_change_mtu		= eth_change_mtu,
->+	.ndo_set_mac_address 	= eth_mac_addr,
->+	.ndo_validate_addr	= eth_validate_addr,
->+#ifdef CONFIG_NET_POLL_CONTROLLER
->+	.ndo_poll_controller	= poll_vortex,
->+#endif
->+};
->+
->+static const struct net_device_ops vortex_netdev_ops = {
->+	.ndo_open		= vortex_open,
->+	.ndo_stop		= vortex_close,
->+	.ndo_start_xmit		= vortex_start_xmit,
->+	.ndo_tx_timeout		= vortex_tx_timeout,
->+	.ndo_get_stats		= vortex_get_stats,
->+#ifdef CONFIG_PCI
->+	.ndo_do_ioctl 		= vortex_ioctl,
->+#endif
->+	.ndo_set_multicast_list = set_rx_mode,
->+	.ndo_change_mtu		= eth_change_mtu,
->+	.ndo_set_mac_address 	= eth_mac_addr,
->+	.ndo_validate_addr	= eth_validate_addr,
->+#ifdef CONFIG_NET_POLL_CONTROLLER
->+	.ndo_poll_controller	= poll_vortex,
->+#endif
->+};
->+
-> /*
->  * Start up the PCI/EISA device which is described by *gendev.
->  * Return 0 on success.
->@@ -1366,18 +1402,16 @@ static int __devinit vortex_probe1(struct device *gendev,
-> 	}
-> 
-> 	/* The 3c59x-specific entries in the device structure. */
->-	dev->open = vortex_open;
-> 	if (vp->full_bus_master_tx) {
->-		dev->hard_start_xmit = boomerang_start_xmit;
->+		dev->netdev_ops = &boomrang_netdev_ops;
-> 		/* Actually, it still should work with iommu. */
-> 		if (card_idx < MAX_UNITS &&
-> 		    ((hw_checksums[card_idx] == -1 && (vp->drv_flags & HAS_HWCKSM)) ||
-> 				hw_checksums[card_idx] == 1)) {
-> 			dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
-> 		}
->-	} else {
->-		dev->hard_start_xmit = vortex_start_xmit;
->-	}
->+	} else
->+		dev->netdev_ops =  &vortex_netdev_ops;
-> 
-> 	if (print_info) {
-> 		printk(KERN_INFO "%s: scatter/gather %sabled. h/w checksums %sabled\n",
->@@ -1386,18 +1420,9 @@ static int __devinit vortex_probe1(struct device *gendev,
-> 				(dev->features & NETIF_F_IP_CSUM) ? "en":"dis");
-> 	}
-> 
->-	dev->stop = vortex_close;
->-	dev->get_stats = vortex_get_stats;
->-#ifdef CONFIG_PCI
->-	dev->do_ioctl = vortex_ioctl;
->-#endif
-> 	dev->ethtool_ops = &vortex_ethtool_ops;
->-	dev->set_multicast_list = set_rx_mode;
->-	dev->tx_timeout = vortex_tx_timeout;
-> 	dev->watchdog_timeo = (watchdog * HZ) / 1000;
->-#ifdef CONFIG_NET_POLL_CONTROLLER
->-	dev->poll_controller = poll_vortex;
->-#endif
->+
-> 	if (pdev) {
-> 		vp->pm_state_valid = 1;
->  		pci_save_state(VORTEX_PCI(vp));
->
+Reviewed-by: Steve Wise <swise@opengridcomputing.com>
