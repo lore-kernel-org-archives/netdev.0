@@ -1,7 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH v2 01/13] net: fix fec_mpc52xx driver to use net_device_ops
-Date: Sat, 21 Mar 2009 16:28:16 -0600
-Message-ID: <20090321222815.20493.68683.stgit@localhost.localdomain>
+Subject: [PATCH v2 04/13] phylib: add *_direct() variants of phy_connect and
+	phy_attach functions
+Date: Sat, 21 Mar 2009 16:28:33 -0600
+Message-ID: <20090321222833.20493.21831.stgit@localhost.localdomain>
 References: <20090321222047.20493.87335.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,125 +13,224 @@ To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, olof@lixom.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wf-out-1314.google.com ([209.85.200.173]:31077 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753151AbZCUW22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 18:28:28 -0400
+	with ESMTP id S1755567AbZCUW2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 18:28:40 -0400
 Received: by wf-out-1314.google.com with SMTP id 29so2085459wff.4
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2009 15:28:27 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Sat, 21 Mar 2009 15:28:39 -0700 (PDT)
 In-Reply-To: <20090321222047.20493.87335.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Henk Stegeman <henk.stegeman@gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
 
-Fix fec_mpc52xx driver to use net_device_ops and to be careful not to
-dereference phy_device if a phy has not yet been connected.
+Add phy_connect_direct() and phy_attach_direct() functions so that
+drivers can use a pointer to the phy_device instead of trying to determine
+the phy's bus_id string.
 
-Waiting for a signed-off-by line from Henk on this one
+This patch is useful for OF device tree descriptions of phy devices where
+the driver doesn't need or know what the bus_id value in order to get a
+phy_device pointer.
 
-CC: Henk Stegeman <henk.stegeman@gmail.com>
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/net/fec_mpc52xx.c |   47 ++++++++++++++++++++++++++++++++++-----------
- 1 files changed, 36 insertions(+), 11 deletions(-)
+ drivers/net/phy/phy_device.c |  118 ++++++++++++++++++++++++++++++------------
+ include/linux/phy.h          |    5 ++
+ 2 files changed, 90 insertions(+), 33 deletions(-)
 
 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index 049b0a7..3d55f9a 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -847,24 +847,40 @@ static void mpc52xx_fec_get_drvinfo(struct net_device *dev,
- static int mpc52xx_fec_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+		return -ENODEV;
-+
- 	return phy_ethtool_gset(priv->phydev, cmd);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 9352ca8..3c8c1de 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -292,6 +292,33 @@ void phy_prepare_link(struct phy_device *phydev,
  }
  
- static int mpc52xx_fec_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ /**
++ * phy_connect_direct - connect an ethernet device to a specific phy_device
++ * @dev: the network device to connect
++ * @phydev: the pointer to the phy device
++ * @handler: callback function for state change notifications
++ * @flags: PHY device's dev_flags
++ * @interface: PHY device's interface
++ */
++int phy_connect_direct(struct net_device *dev, struct phy_device *phydev,
++		       void (*handler)(struct net_device *), u32 flags,
++		       phy_interface_t interface)
++{
++	int rc;
++
++	rc = phy_attach_direct(dev, phydev, flags, interface);
++	if (rc)
++		return rc;
++
++	phy_prepare_link(phydev, handler);
++	phy_start_machine(phydev, NULL);
++	if (phydev->irq > 0)
++		phy_start_interrupts(phydev);
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_connect_direct);
++
++/**
+  * phy_connect - connect an ethernet device to a PHY device
+  * @dev: the network device to connect
+  * @bus_id: the id string of the PHY device to connect
+@@ -312,18 +339,21 @@ struct phy_device * phy_connect(struct net_device *dev, const char *bus_id,
+ 		phy_interface_t interface)
  {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+		return -ENODEV;
-+
- 	return phy_ethtool_sset(priv->phydev, cmd);
- }
+ 	struct phy_device *phydev;
++	struct device *d;
++	int rc;
  
- static u32 mpc52xx_fec_get_msglevel(struct net_device *dev)
+-	phydev = phy_attach(dev, bus_id, flags, interface);
+-
+-	if (IS_ERR(phydev))
+-		return phydev;
+-
+-	phy_prepare_link(phydev, handler);
+-
+-	phy_start_machine(phydev, NULL);
++	/* Search the list of PHY devices on the mdio bus for the
++	 * PHY with the requested name */
++	d = bus_find_device_by_name(&mdio_bus_type, NULL, bus_id);
++	if (!d) {
++		pr_err("PHY %s not found\n", bus_id);
++		return ERR_PTR(-ENODEV);
++	}
++	phydev = to_phy_device(d);
+ 
+-	if (phydev->irq > 0)
+-		phy_start_interrupts(phydev);
++	rc = phy_attach_direct(dev, phydev, flags, interface);
++	if (rc)
++		return ERR_PTR(rc);
+ 
+ 	return phydev;
+ }
+@@ -347,9 +377,9 @@ void phy_disconnect(struct phy_device *phydev)
+ EXPORT_SYMBOL(phy_disconnect);
+ 
+ /**
+- * phy_attach - attach a network device to a particular PHY device
++ * phy_attach_direct - attach a network device to a given PHY device pointer
+  * @dev: network device to attach
+- * @bus_id: PHY device to attach
++ * @phydev: Pointer to phy_device to attach
+  * @flags: PHY device's dev_flags
+  * @interface: PHY device's interface
+  *
+@@ -360,22 +390,10 @@ EXPORT_SYMBOL(phy_disconnect);
+  *     the attaching device, and given a callback for link status
+  *     change.  The phy_device is returned to the attaching driver.
+  */
+-struct phy_device *phy_attach(struct net_device *dev,
+-		const char *bus_id, u32 flags, phy_interface_t interface)
++int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
++		      u32 flags, phy_interface_t interface)
  {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+	
-+	if (!priv->phydev)
-+		return 0;
+-	struct bus_type *bus = &mdio_bus_type;
+-	struct phy_device *phydev;
+-	struct device *d;
+-
+-	/* Search the list of PHY devices on the mdio bus for the
+-	 * PHY with the requested name */
+-	d = bus_find_device_by_name(bus, NULL, bus_id);
+-	if (d) {
+-		phydev = to_phy_device(d);
+-	} else {
+-		printk(KERN_ERR "%s not found\n", bus_id);
+-		return ERR_PTR(-ENODEV);
+-	}
++	struct device *d = &phydev->dev;
+ 
+ 	/* Assume that if there is no driver, that it doesn't
+ 	 * exist, and we should use the genphy driver. */
+@@ -388,13 +406,12 @@ struct phy_device *phy_attach(struct net_device *dev,
+ 			err = device_bind_driver(d);
+ 
+ 		if (err)
+-			return ERR_PTR(err);
++			return err;
+ 	}
+ 
+ 	if (phydev->attached_dev) {
+-		printk(KERN_ERR "%s: %s already attached\n",
+-				dev->name, bus_id);
+-		return ERR_PTR(-EBUSY);
++		dev_err(&dev->dev, "PHY already attached\n");
++		return -EBUSY;
+ 	}
+ 
+ 	phydev->attached_dev = dev;
+@@ -412,13 +429,48 @@ struct phy_device *phy_attach(struct net_device *dev,
+ 		err = phy_scan_fixups(phydev);
+ 
+ 		if (err < 0)
+-			return ERR_PTR(err);
++			return err;
+ 
+ 		err = phydev->drv->config_init(phydev);
+ 
+ 		if (err < 0)
+-			return ERR_PTR(err);
++			return err;
++	}
 +
- 	return priv->msg_enable;
++	return 0;
++}
++EXPORT_SYMBOL(phy_attach_direct);
++
++/**
++ * phy_attach - attach a network device to a particular PHY device
++ * @dev: network device to attach
++ * @bus_id: Bus ID of PHY device to attach
++ * @flags: PHY device's dev_flags
++ * @interface: PHY device's interface
++ *
++ * Description: Same as phy_attach_direct() except that a PHY bus_id
++ *     string is passed instead of a pointer to a struct phy_device.
++ */
++struct phy_device *phy_attach(struct net_device *dev,
++		const char *bus_id, u32 flags, phy_interface_t interface)
++{
++	struct bus_type *bus = &mdio_bus_type;
++	struct phy_device *phydev;
++	struct device *d;
++	int rc;
++
++	/* Search the list of PHY devices on the mdio bus for the
++	 * PHY with the requested name */
++	d = bus_find_device_by_name(bus, NULL, bus_id);
++	if (!d) {
++		pr_err("PHY %s not found\n", bus_id);
++		return ERR_PTR(-ENODEV);
+ 	}
++	phydev = to_phy_device(d);
++
++	rc = phy_attach_direct(dev, phydev, flags, interface);
++	if (rc)
++		return ERR_PTR(rc);
+ 
+ 	return phydev;
  }
- 
- static void mpc52xx_fec_set_msglevel(struct net_device *dev, u32 level)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+		return;
-+
- 	priv->msg_enable = level;
- }
- 
-@@ -882,12 +898,31 @@ static int mpc52xx_fec_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
- 
-+	if (!priv->phydev)
-+		return -ENODEV;
-+
- 	return mpc52xx_fec_phy_mii_ioctl(priv, if_mii(rq), cmd);
- }
- 
- /* ======================================================================== */
- /* OF Driver                                                                */
- /* ======================================================================== */
-+static const struct net_device_ops mpc52xx_fec_netdev_ops = {
-+	.ndo_open               = mpc52xx_fec_open,
-+	.ndo_stop               = mpc52xx_fec_close,
-+	.ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
-+	.ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
-+	.ndo_get_stats          = mpc52xx_fec_get_stats,
-+	.ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
-+	.ndo_validate_addr      = eth_validate_addr,
-+	.ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
-+	.ndo_do_ioctl           = mpc52xx_fec_ioctl,
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller     = mpc52xx_fec_poll_controller,
-+#endif
-+};
-+
- 
- static int __devinit
- mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
-@@ -929,20 +964,10 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 		return -EBUSY;
- 
- 	/* Init ether ndev with what we have */
--	ndev->open		= mpc52xx_fec_open;
--	ndev->stop		= mpc52xx_fec_close;
--	ndev->hard_start_xmit	= mpc52xx_fec_hard_start_xmit;
--	ndev->do_ioctl		= mpc52xx_fec_ioctl;
- 	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
--	ndev->get_stats		= mpc52xx_fec_get_stats;
--	ndev->set_mac_address	= mpc52xx_fec_set_mac_address;
--	ndev->set_multicast_list = mpc52xx_fec_set_multicast_list;
--	ndev->tx_timeout	= mpc52xx_fec_tx_timeout;
- 	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
- 	ndev->base_addr		= mem.start;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	ndev->poll_controller = mpc52xx_fec_poll_controller;
--#endif
-+	ndev->netdev_ops = &mpc52xx_fec_netdev_ops;
- 
- 	priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
- 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index a47d64f..97405f2 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -442,8 +442,13 @@ struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
+ int phy_device_register(struct phy_device *phy);
+ int phy_clear_interrupt(struct phy_device *phydev);
+ int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
++int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
++		u32 flags, phy_interface_t interface);
+ struct phy_device * phy_attach(struct net_device *dev,
+ 		const char *bus_id, u32 flags, phy_interface_t interface);
++int phy_connect_direct(struct net_device *dev, struct phy_device *phydev,
++		void (*handler)(struct net_device *), u32 flags,
++		phy_interface_t interface);
+ struct phy_device * phy_connect(struct net_device *dev, const char *bus_id,
+ 		void (*handler)(struct net_device *), u32 flags,
+ 		phy_interface_t interface);
 
