@@ -1,60 +1,119 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 63/77] wl3501: convert to net_device_ops
-Date: Fri, 20 Mar 2009 22:36:30 -0700
-Message-ID: <20090321053717.363149406@vyatta.com>
+Subject: [PATCH 01/77] atm: convert mpc device to using netdev_ops
+Date: Fri, 20 Mar 2009 22:35:28 -0700
+Message-ID: <20090321053712.648437543@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, acme@ghostprotocols.net
+To: David Miller <davem@davemloft.net>, chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36742 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36630 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761275AbZCUFse (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:34 -0400
-Content-Disposition: inline; filename=wl3501-ops.patch
+	id S1760992AbZCUFsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 01:48:18 -0400
+Content-Disposition: inline; filename=atm-mpc.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This converts the mpc device to using new netdevice_ops.
+Compile tested only, needs more than usual review since
+device was swaping pointers around etc.
+
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/wireless/wl3501_cs.c	2009-03-20 22:25:57.381964610 -0700
-+++ b/drivers/net/wireless/wl3501_cs.c	2009-03-20 22:25:59.099652050 -0700
-@@ -1883,6 +1883,16 @@ static const struct iw_handler_def wl350
- 	.get_wireless_stats = wl3501_get_wireless_stats,
+---
+ net/atm/mpc.c |   32 ++++++++++++++------------------
+ net/atm/mpc.h |    5 ++++-
+ 2 files changed, 18 insertions(+), 19 deletions(-)
+
+--- a/net/atm/mpc.c	2009-03-19 22:40:30.534964257 -0700
++++ b/net/atm/mpc.c	2009-03-19 22:42:40.038902168 -0700
+@@ -286,33 +286,32 @@ static void start_mpc(struct mpoa_client
+ {
+ 
+ 	dprintk("mpoa: (%s) start_mpc:\n", mpc->dev->name);
+-	if (dev->hard_start_xmit == NULL) {
+-		printk("mpoa: (%s) start_mpc: dev->hard_start_xmit == NULL, not starting\n",
+-		       dev->name);
+-		return;
++	if (!dev->netdev_ops)
++		printk("mpoa: (%s) start_mpc  not starting\n", dev->name);
++	else {
++		mpc->old_ops = dev->netdev_ops;
++		mpc->new_ops = *mpc->old_ops;
++		mpc->new_ops.ndo_start_xmit = mpc_send_packet;
++		dev->netdev_ops = &mpc->new_ops;
+ 	}
+-	mpc->old_hard_start_xmit = dev->hard_start_xmit;
+-	dev->hard_start_xmit = mpc_send_packet;
+-
+-	return;
+ }
+ 
+ static void stop_mpc(struct mpoa_client *mpc)
+ {
+-
++	struct net_device *dev = mpc->dev;
+ 	dprintk("mpoa: (%s) stop_mpc:", mpc->dev->name);
+ 
+ 	/* Lets not nullify lec device's dev->hard_start_xmit */
+-	if (mpc->dev->hard_start_xmit != mpc_send_packet) {
++	if (dev->netdev_ops != &mpc->new_ops) {
+ 		dprintk(" mpc already stopped, not fatal\n");
+ 		return;
+ 	}
+ 	dprintk("\n");
+-	mpc->dev->hard_start_xmit = mpc->old_hard_start_xmit;
+-	mpc->old_hard_start_xmit = NULL;
+-	/* close_shortcuts(mpc);    ??? FIXME */
+ 
+-	return;
++	dev->netdev_ops = mpc->old_ops;
++	mpc->old_ops = NULL;
++
++	/* close_shortcuts(mpc);    ??? FIXME */
+ }
+ 
+ static const char *mpoa_device_type_string(char type) __attribute__ ((unused));
+@@ -531,7 +530,6 @@ static int send_via_shortcut(struct sk_b
+  */
+ static int mpc_send_packet(struct sk_buff *skb, struct net_device *dev)
+ {
+-	int retval;
+ 	struct mpoa_client *mpc;
+ 	struct ethhdr *eth;
+ 	int i = 0;
+@@ -561,9 +559,7 @@ static int mpc_send_packet(struct sk_buf
+ 	}
+ 
+  non_ip:
+-	retval = mpc->old_hard_start_xmit(skb,dev);
+-
+-	return retval;
++	return mpc->old_ops->ndo_start_xmit(skb,dev);
+ }
+ 
+ static int atm_mpoa_vcc_attach(struct atm_vcc *vcc, void __user *arg)
+--- a/net/atm/mpc.h	2009-03-19 22:40:30.528964315 -0700
++++ b/net/atm/mpc.h	2009-03-19 22:42:40.038902168 -0700
+@@ -15,7 +15,7 @@ struct mpoa_client {
+ 	struct mpoa_client *next;
+ 	struct net_device *dev;      /* lec in question                     */
+ 	int dev_num;                 /* e.g. 2 for lec2                     */
+-	int (*old_hard_start_xmit)(struct sk_buff *skb, struct net_device *dev);
++
+ 	struct atm_vcc *mpoad_vcc;   /* control channel to mpoad            */
+ 	uint8_t mps_ctrl_addr[ATM_ESA_LEN];  /* MPS control ATM address     */
+ 	uint8_t our_ctrl_addr[ATM_ESA_LEN];  /* MPC's control ATM address   */
+@@ -31,6 +31,9 @@ struct mpoa_client {
+ 	uint8_t *mps_macs;           /* array of MPS MAC addresses, >=1     */
+ 	int number_of_mps_macs;      /* number of the above MAC addresses   */
+ 	struct mpc_parameters parameters;  /* parameters for this client    */
++
++	const struct net_device_ops *old_ops;
++	struct net_device_ops new_ops;
  };
  
-+static const struct net_device_ops wl3501_netdev_ops = {
-+	.ndo_open		= wl3501_open,
-+	.ndo_stop		= wl3501_close,
-+	.ndo_start_xmit		= wl3501_hard_start_xmit,
-+	.ndo_tx_timeout		= wl3501_tx_timeout,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+};
-+
- /**
-  * wl3501_attach - creates an "instance" of the driver
-  *
-@@ -1917,17 +1927,14 @@ static int wl3501_probe(struct pcmcia_de
- 		goto out_link;
  
- 
--	dev->open		= wl3501_open;
--	dev->stop		= wl3501_close;
--	dev->hard_start_xmit	= wl3501_hard_start_xmit;
--	dev->tx_timeout		= wl3501_tx_timeout;
-+	dev->netdev_ops		= &wl3501_netdev_ops;
- 	dev->watchdog_timeo	= 5 * HZ;
- 
- 	this = netdev_priv(dev);
- 	this->wireless_data.spy_data = &this->spy_data;
- 	this->p_dev = p_dev;
- 	dev->wireless_data	= &this->wireless_data;
--	dev->wireless_handlers	= (struct iw_handler_def *)&wl3501_handler_def;
-+	dev->wireless_handlers	= &wl3501_handler_def;
- 	SET_ETHTOOL_OPS(dev, &ops);
- 	netif_stop_queue(dev);
- 	p_dev->priv = p_dev->irq.Instance = dev;
 
 -- 
 
