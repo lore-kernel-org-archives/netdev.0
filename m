@@ -1,50 +1,56 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 11/77] irda: convert w83977af_ir to net_device_ops
-Date: Fri, 20 Mar 2009 22:35:38 -0700
-Message-ID: <20090321053713.376037045@vyatta.com>
+Subject: [PATCH 14/77] irda: convert vlsi driver to net_device_ops
+Date: Fri, 20 Mar 2009 22:35:41 -0700
+Message-ID: <20090321053713.605552151@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>, samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36568 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36571 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760860AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760842AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 21 Mar 2009 01:48:15 -0400
-Content-Disposition: inline; filename=irda-w.patch
+Content-Disposition: inline; filename=irda-vlsi.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/irda/w83977af_ir.c	2009-03-19 22:40:30.367964328 -0700
-+++ b/drivers/net/irda/w83977af_ir.c	2009-03-19 22:42:48.582901908 -0700
-@@ -140,6 +140,13 @@ static void __exit w83977af_cleanup(void
- 	}
+
+---
+ drivers/net/irda/vlsi_ir.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+--- a/drivers/net/irda/vlsi_ir.c	2009-03-19 22:40:30.270902366 -0700
++++ b/drivers/net/irda/vlsi_ir.c	2009-03-19 22:42:50.764027628 -0700
+@@ -1573,6 +1573,14 @@ static int vlsi_close(struct net_device 
+ 	return 0;
  }
  
-+static const struct net_device_ops w83977_netdev_ops = {
-+	.ndo_open       = w83977af_net_open,
-+	.ndo_stop       = w83977af_net_close,
-+	.ndo_start_xmit = w83977af_hard_xmit,
-+	.ndo_do_ioctl   = w83977af_net_ioctl,
++static const struct net_device_ops vlsi_netdev_ops = {
++	.ndo_open       = vlsi_open,
++	.ndo_stop       = vlsi_close,
++	.ndo_start_xmit = vlsi_hard_start_xmit,
++	.ndo_do_ioctl   = vlsi_ioctl,
++	.ndo_tx_timeout = vlsi_tx_timeout,
 +};
 +
- /*
-  * Function w83977af_open (iobase, irq)
-  *
-@@ -231,11 +238,7 @@ static int w83977af_open(int i, unsigned
- 	self->rx_buff.data = self->rx_buff.head;
- 	self->netdev = dev;
+ static int vlsi_irda_init(struct net_device *ndev)
+ {
+ 	vlsi_irda_dev_t *idev = netdev_priv(ndev);
+@@ -1608,11 +1616,7 @@ static int vlsi_irda_init(struct net_dev
+ 	ndev->flags |= IFF_PORTSEL | IFF_AUTOMEDIA;
+ 	ndev->if_port = IF_PORT_UNKNOWN;
+  
+-	ndev->open	      = vlsi_open;
+-	ndev->stop	      = vlsi_close;
+-	ndev->hard_start_xmit = vlsi_hard_start_xmit;
+-	ndev->do_ioctl	      = vlsi_ioctl;
+-	ndev->tx_timeout      = vlsi_tx_timeout;
++	ndev->netdev_ops = &vlsi_netdev_ops;
+ 	ndev->watchdog_timeo  = 500*HZ/1000;	/* max. allowed turn time for IrLAP */
  
--	/* Override the network functions we need to use */
--	dev->hard_start_xmit = w83977af_hard_xmit;
--	dev->open            = w83977af_net_open;
--	dev->stop            = w83977af_net_close;
--	dev->do_ioctl        = w83977af_net_ioctl;
-+	dev->netdev_ops	= &w83977_netdev_ops;
- 
- 	err = register_netdev(dev);
- 	if (err) {
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
 
 -- 
 
