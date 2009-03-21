@@ -1,21 +1,21 @@
 From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH 23/77] usbnet: convert to internal net_device stats
-Date: Sat, 21 Mar 2009 02:01:53 -0700
-Message-ID: <200903210201.53630.david-b@pacbell.net>
-References: <20090321053527.316395697@vyatta.com> <20090321053714.283096585@vyatta.com>
+Subject: Re: [PATCH 29/77] usbnet: convert dms9601 driver to net_device_ops
+Date: Sat, 21 Mar 2009 02:14:56 -0700
+Message-ID: <200903210214.56236.david-b@pacbell.net>
+References: <20090321053527.316395697@vyatta.com> <20090321053714.737716531@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Vojtech Pavlik <vojtech@suse.cz>
+	jacmet@sunsite.dk
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp127.sbc.mail.sp1.yahoo.com ([69.147.65.186]:46390 "HELO
+Received: from smtp127.sbc.mail.sp1.yahoo.com ([69.147.65.186]:46419 "HELO
 	smtp127.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752821AbZCUJZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 05:25:52 -0400
-In-Reply-To: <20090321053714.283096585@vyatta.com>
+	by vger.kernel.org with SMTP id S1753651AbZCUJZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 05:25:56 -0400
+In-Reply-To: <20090321053714.737716531@vyatta.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,91 +23,43 @@ List-ID: <netdev.vger.kernel.org>
 On Friday 20 March 2009, Stephen Hemminger wrote:
 > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-... ditto ...
+cc'd maintainer
 
-> --- a/drivers/net/usb/rtl8150.c	2009-03-20 12:11:35.825901868 -0700
-> +++ b/drivers/net/usb/rtl8150.c	2009-03-20 12:12:47.085715442 -0700
-> @@ -155,7 +155,6 @@ struct rtl8150 {
->  	unsigned long flags;
->  	struct usb_device *udev;
->  	struct tasklet_struct tl;
-> -	struct net_device_stats stats;
->  	struct net_device *netdev;
->  	struct urb *rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
->  	struct sk_buff *tx_skb, *rx_skb;
-> @@ -463,8 +462,8 @@ static void read_bulk_callback(struct ur
->  	skb_put(dev->rx_skb, pkt_len);
->  	dev->rx_skb->protocol = eth_type_trans(dev->rx_skb, netdev);
->  	netif_rx(dev->rx_skb);
-> -	dev->stats.rx_packets++;
-> -	dev->stats.rx_bytes += pkt_len;
-> +	netdev->stats.rx_packets++;
-> +	netdev->stats.rx_bytes += pkt_len;
->  
->  	spin_lock(&dev->rx_pool_lock);
->  	skb = pull_skb(dev);
-> @@ -573,13 +572,13 @@ static void intr_callback(struct urb *ur
->  
->  	d = urb->transfer_buffer;
->  	if (d[0] & TSR_ERRORS) {
-> -		dev->stats.tx_errors++;
-> +		dev->netdev->stats.tx_errors++;
->  		if (d[INT_TSR] & (TSR_ECOL | TSR_JBR))
-> -			dev->stats.tx_aborted_errors++;
-> +			dev->netdev->stats.tx_aborted_errors++;
->  		if (d[INT_TSR] & TSR_LCOL)
-> -			dev->stats.tx_window_errors++;
-> +			dev->netdev->stats.tx_window_errors++;
->  		if (d[INT_TSR] & TSR_LOSS_CRS)
-> -			dev->stats.tx_carrier_errors++;
-> +			dev->netdev->stats.tx_carrier_errors++;
->  	}
->  	/* Report link status changes to the network stack */
->  	if ((d[INT_MSR] & MSR_LINK) == 0) {
-> @@ -697,17 +696,12 @@ static void disable_net_traffic(rtl8150_
->  	set_registers(dev, CR, 1, &cr);
+
+
+> 
+> --- a/drivers/net/usb/dm9601.c	2009-03-20 12:11:35.703901588 -0700
+> +++ b/drivers/net/usb/dm9601.c	2009-03-20 12:16:05.744902076 -0700
+> @@ -419,6 +419,18 @@ static int dm9601_set_mac_address(struct
+>  	return 0;
 >  }
 >  
-> -static struct net_device_stats *rtl8150_netdev_stats(struct net_device *dev)
-> -{
-> -	return &((rtl8150_t *)netdev_priv(dev))->stats;
-> -}
-> -
->  static void rtl8150_tx_timeout(struct net_device *netdev)
->  {
->  	rtl8150_t *dev = netdev_priv(netdev);
->  	dev_warn(&netdev->dev, "Tx timeout.\n");
->  	usb_unlink_urb(dev->tx_urb);
-> -	dev->stats.tx_errors++;
-> +	netdev->stats.tx_errors++;
->  }
->  
->  static void rtl8150_set_multicast(struct net_device *netdev)
-> @@ -747,12 +741,12 @@ static int rtl8150_start_xmit(struct sk_
->  			netif_device_detach(dev->netdev);
->  		else {
->  			dev_warn(&netdev->dev, "failed tx_urb %d\n", res);
-> -			dev->stats.tx_errors++;
-> +			netdev->stats.tx_errors++;
->  			netif_start_queue(netdev);
->  		}
->  	} else {
-> -		dev->stats.tx_packets++;
-> -		dev->stats.tx_bytes += skb->len;
-> +		netdev->stats.tx_packets++;
-> +		netdev->stats.tx_bytes += skb->len;
->  		netdev->trans_start = jiffies;
->  	}
->  
-> @@ -931,7 +925,7 @@ static int rtl8150_probe(struct usb_inte
->  	netdev->hard_start_xmit = rtl8150_start_xmit;
->  	netdev->set_multicast_list = rtl8150_set_multicast;
->  	netdev->set_mac_address = rtl8150_set_mac_address;
-> -	netdev->get_stats = rtl8150_netdev_stats;
+> +static const struct net_device_ops dm9601_netdev_ops = {
+> +	.ndo_open		= usbnet_open,
+> +	.ndo_stop		= usbnet_stop,
+> +	.ndo_start_xmit		= usbnet_start_xmit,
+> +	.ndo_tx_timeout		= usbnet_tx_timeout,
+> +	.ndo_change_mtu		= usbnet_change_mtu,
+> +	.ndo_validate_addr	= eth_validate_addr,
+> +	.ndo_do_ioctl 		= dm9601_ioctl,
+> +	.ndo_set_multicast_list = dm9601_set_multicast,
+> +	.ndo_set_mac_address	= dm9601_set_mac_address,
+> +};
 > +
->  	SET_ETHTOOL_OPS(netdev, &ops);
->  	dev->intr_interval = 100;	/* 100ms */
+>  static int dm9601_bind(struct usbnet *dev, struct usb_interface *intf)
+>  {
+>  	int ret;
+> @@ -428,9 +440,7 @@ static int dm9601_bind(struct usbnet *de
+>  	if (ret)
+>  		goto out;
 >  
+> -	dev->net->do_ioctl = dm9601_ioctl;
+> -	dev->net->set_multicast_list = dm9601_set_multicast;
+> -	dev->net->set_mac_address = dm9601_set_mac_address;
+> +	dev->net->netdev_ops = &dm9601_netdev_ops;
+>  	dev->net->ethtool_ops = &dm9601_ethtool_ops;
+>  	dev->net->hard_header_len += DM_TX_OVERHEAD;
+>  	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
 > 
 > -- 
 > 
