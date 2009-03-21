@@ -1,56 +1,62 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 22/77] usbnet: convert catc device to net_device_ops
-Date: Fri, 20 Mar 2009 22:35:49 -0700
-Message-ID: <20090321053714.207963951@vyatta.com>
+Subject: [PATCH 07/77] irlan: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:35:34 -0700
+Message-ID: <20090321053713.084967137@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, dbrownell@users.sourceforge.net
+To: David Miller <davem@davemloft.net>, samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36579 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36575 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760879AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760878AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 21 Mar 2009 01:48:15 -0400
-Content-Disposition: inline; filename=usb-catc.patch
+Content-Disposition: inline; filename=irlan.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/usb/catc.c	2009-03-20 12:10:10.851651580 -0700
-+++ b/drivers/net/usb/catc.c	2009-03-20 12:10:23.060839265 -0700
-@@ -743,6 +743,18 @@ static int catc_stop(struct net_device *
- 	return 0;
- }
+---
+ net/irda/irlan/irlan_eth.c |   19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+--- a/net/irda/irlan/irlan_eth.c	2009-03-19 22:40:30.449963919 -0700
++++ b/net/irda/irlan/irlan_eth.c	2009-03-19 22:42:45.749902310 -0700
+@@ -45,6 +45,16 @@ static int  irlan_eth_xmit(struct sk_buf
+ static void irlan_eth_set_multicast_list( struct net_device *dev);
+ static struct net_device_stats *irlan_eth_get_stats(struct net_device *dev);
  
-+static const struct net_device_ops catc_netdev_ops = {
-+	.ndo_open		= catc_open,
-+	.ndo_stop		= catc_stop,
-+	.ndo_start_xmit		= catc_start_xmit,
-+
-+	.ndo_tx_timeout		= catc_tx_timeout,
-+	.ndo_set_multicast_list = catc_set_multicast_list,
++static const struct net_device_ops irlan_eth_netdev_ops = {
++	.ndo_open               = irlan_eth_open,
++	.ndo_stop               = irlan_eth_close,
++	.ndo_start_xmit    	= irlan_eth_xmit,
++	.ndo_get_stats	        = irlan_eth_get_stats,
++	.ndo_set_multicast_list = irlan_eth_set_multicast_list,
 +	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
  /*
-  * USB probe, disconnect.
+  * Function irlan_eth_setup (dev)
+  *
+@@ -53,14 +63,11 @@ static struct net_device_stats *irlan_et
   */
-@@ -767,12 +779,8 @@ static int catc_probe(struct usb_interfa
+ static void irlan_eth_setup(struct net_device *dev)
+ {
+-	dev->open               = irlan_eth_open;
+-	dev->stop               = irlan_eth_close;
+-	dev->hard_start_xmit    = irlan_eth_xmit;
+-	dev->get_stats	        = irlan_eth_get_stats;
+-	dev->set_multicast_list = irlan_eth_set_multicast_list;
++	ether_setup(dev);
++
++	dev->netdev_ops		= &irlan_eth_netdev_ops;
+ 	dev->destructor		= free_netdev;
  
- 	catc = netdev_priv(netdev);
+-	ether_setup(dev);
  
--	netdev->open = catc_open;
--	netdev->hard_start_xmit = catc_hard_start_xmit;
--	netdev->stop = catc_stop;
--	netdev->tx_timeout = catc_tx_timeout;
-+	netdev->netdev_ops = &catc_netdev_ops;
- 	netdev->watchdog_timeo = TX_TIMEOUT;
--	netdev->set_multicast_list = catc_set_multicast_list;
- 	SET_ETHTOOL_OPS(netdev, &ops);
- 
- 	catc->usbdev = usbdev;
+ 	/*
+ 	 * Lets do all queueing in IrTTP instead of this device driver.
 
 -- 
 
