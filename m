@@ -1,82 +1,132 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH 31/77] usbnet: convert sms95xx driver to net_device_ops
-Date: Sat, 21 Mar 2009 16:53:17 +0100
-Message-ID: <OF50ECA83D.A1CB4BA1-ON80257580.00572409-80257580.005744C3@smsc.com>
-References: <200903210220.29900.david-b@pacbell.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] 3c59x: convert to net_device_ops
+Date: Sat, 21 Mar 2009 17:26:54 +0100
+Message-ID: <20090321162653.GA19265@psychotron.englab.brq.redhat.com>
+References: <20090321113552.GB3380@psychotron.englab.brq.redhat.com> <20090321045155.fbdf8dac.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	klassert@mathematik.tu-chemnitz.de, Ingo Molnar <mingo@elte.hu>,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:3228 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752483AbZCUPxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 11:53:43 -0400
-In-Reply-To: <200903210220.29900.david-b@pacbell.net>
+Received: from mx2.redhat.com ([66.187.237.31]:37694 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754251AbZCUQ2X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 12:28:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20090321045155.fbdf8dac.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-The patch looks fine, but (minor nit) the subject line should read 
-"smsc95xx" instead of "sms95xx".
-
-Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
-
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
-
-
-David Brownell <david-b@pacbell.net> wrote on 21/03/2009 09:20:29:
-
-> On Friday 20 March 2009, Stephen Hemminger wrote:
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Sat, Mar 21, 2009 at 12:51:55PM CET, akpm@linux-foundation.org wrote:
+>On Sat, 21 Mar 2009 12:35:53 +0100 Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>> I converted this driver to use net_device_ops. I made two structures, one for
+>> vortex and one for boomerang start_xmit function. Tested on my test system with
+>> 3Com PCI 3c905C Tornado.
+>
+>linux-next already contains
+Oh, I've missed that, sorry. It seems pretty similar :)
+>
+>commit 48b47a5e306c1c119ee81ccd24d487c2df656410
+>Author:     Stephen Hemminger <shemminger@linux-foundation.org>
+>AuthorDate: Fri Jan 9 13:01:18 2009 +0000
+>Commit:     David S. Miller <davem@davemloft.net>
+>CommitDate: Wed Jan 21 14:02:25 2009 -0800
+>
+>    3c59x: convert to net_device_ops
+>    
+>    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>    Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+>index cdbbb62..b2563d3 100644
+>--- a/drivers/net/3c59x.c
+>+++ b/drivers/net/3c59x.c
+>@@ -992,6 +992,42 @@ out:
+> 	return rc;
+> }
 > 
-> cc driver maintainer
+>+static const struct net_device_ops boomrang_netdev_ops = {
+>+	.ndo_open		= vortex_open,
+>+	.ndo_stop		= vortex_close,
+>+	.ndo_start_xmit		= boomerang_start_xmit,
+>+	.ndo_tx_timeout		= vortex_tx_timeout,
+>+	.ndo_get_stats		= vortex_get_stats,
+>+#ifdef CONFIG_PCI
+>+	.ndo_do_ioctl 		= vortex_ioctl,
+>+#endif
+>+	.ndo_set_multicast_list = set_rx_mode,
+>+	.ndo_change_mtu		= eth_change_mtu,
+>+	.ndo_set_mac_address 	= eth_mac_addr,
+>+	.ndo_validate_addr	= eth_validate_addr,
+>+#ifdef CONFIG_NET_POLL_CONTROLLER
+>+	.ndo_poll_controller	= poll_vortex,
+>+#endif
+>+};
+>+
+>+static const struct net_device_ops vortex_netdev_ops = {
+>+	.ndo_open		= vortex_open,
+>+	.ndo_stop		= vortex_close,
+>+	.ndo_start_xmit		= vortex_start_xmit,
+>+	.ndo_tx_timeout		= vortex_tx_timeout,
+>+	.ndo_get_stats		= vortex_get_stats,
+>+#ifdef CONFIG_PCI
+>+	.ndo_do_ioctl 		= vortex_ioctl,
+>+#endif
+>+	.ndo_set_multicast_list = set_rx_mode,
+>+	.ndo_change_mtu		= eth_change_mtu,
+>+	.ndo_set_mac_address 	= eth_mac_addr,
+>+	.ndo_validate_addr	= eth_validate_addr,
+>+#ifdef CONFIG_NET_POLL_CONTROLLER
+>+	.ndo_poll_controller	= poll_vortex,
+>+#endif
+>+};
+>+
+> /*
+>  * Start up the PCI/EISA device which is described by *gendev.
+>  * Return 0 on success.
+>@@ -1366,18 +1402,16 @@ static int __devinit vortex_probe1(struct device *gendev,
+> 	}
 > 
+> 	/* The 3c59x-specific entries in the device structure. */
+>-	dev->open = vortex_open;
+> 	if (vp->full_bus_master_tx) {
+>-		dev->hard_start_xmit = boomerang_start_xmit;
+>+		dev->netdev_ops = &boomrang_netdev_ops;
+> 		/* Actually, it still should work with iommu. */
+> 		if (card_idx < MAX_UNITS &&
+> 		    ((hw_checksums[card_idx] == -1 && (vp->drv_flags & HAS_HWCKSM)) ||
+> 				hw_checksums[card_idx] == 1)) {
+> 			dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
+> 		}
+>-	} else {
+>-		dev->hard_start_xmit = vortex_start_xmit;
+>-	}
+>+	} else
+>+		dev->netdev_ops =  &vortex_netdev_ops;
 > 
-> > --- a/drivers/net/usb/smsc95xx.c   2009-03-20 12:11:35.646901516 -0700
-> > +++ b/drivers/net/usb/smsc95xx.c   2009-03-20 12:16:51.582901740 -0700
-> > @@ -1008,6 +1008,18 @@ static int smsc95xx_reset(struct usbnet 
-> >     return 0;
-> >  }
-> > 
-> > +static const struct net_device_ops smsc95xx_netdev_ops = {
-> > +   .ndo_open      = usbnet_open,
-> > +   .ndo_stop      = usbnet_stop,
-> > +   .ndo_start_xmit      = usbnet_start_xmit,
-> > +   .ndo_tx_timeout      = usbnet_tx_timeout,
-> > +   .ndo_change_mtu      = usbnet_change_mtu,
-> > +   .ndo_set_mac_address    = eth_mac_addr,
-> > +   .ndo_validate_addr   = eth_validate_addr,
-> > +   .ndo_do_ioctl       = smsc95xx_ioctl,
-> > +   .ndo_set_multicast_list = smsc95xx_set_multicast,
-> > +};
-> > +
-> >  static int smsc95xx_bind(struct usbnet *dev, struct usb_interface 
-*intf)
-> >  {
-> >     struct smsc95xx_priv *pdata = NULL;
-> > @@ -1038,9 +1050,8 @@ static int smsc95xx_bind(struct usbnet *
-> >     /* Init all registers */
-> >     ret = smsc95xx_reset(dev);
-> > 
-> > -   dev->net->do_ioctl = smsc95xx_ioctl;
-> > +   dev->net->netdev_ops = &smsc95xx_netdev_ops;
-> >     dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
-> > -   dev->net->set_multicast_list = smsc95xx_set_multicast;
-> >     dev->net->flags |= IFF_MULTICAST;
-> >     dev->net->hard_header_len += SMSC95XX_TX_OVERHEAD;
-> >     return 0;
-> > 
-> > -- 
-> > 
-> > 
+> 	if (print_info) {
+> 		printk(KERN_INFO "%s: scatter/gather %sabled. h/w checksums %sabled\n",
+>@@ -1386,18 +1420,9 @@ static int __devinit vortex_probe1(struct device *gendev,
+> 				(dev->features & NETIF_F_IP_CSUM) ? "en":"dis");
+> 	}
 > 
-> 
-
+>-	dev->stop = vortex_close;
+>-	dev->get_stats = vortex_get_stats;
+>-#ifdef CONFIG_PCI
+>-	dev->do_ioctl = vortex_ioctl;
+>-#endif
+> 	dev->ethtool_ops = &vortex_ethtool_ops;
+>-	dev->set_multicast_list = set_rx_mode;
+>-	dev->tx_timeout = vortex_tx_timeout;
+> 	dev->watchdog_timeo = (watchdog * HZ) / 1000;
+>-#ifdef CONFIG_NET_POLL_CONTROLLER
+>-	dev->poll_controller = poll_vortex;
+>-#endif
+>+
+> 	if (pdev) {
+> 		vp->pm_state_valid = 1;
+>  		pci_save_state(VORTEX_PCI(vp));
+>
