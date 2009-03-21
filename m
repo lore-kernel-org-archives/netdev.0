@@ -1,49 +1,61 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 17/77] irda: convert sir device to net_device_ops
-Date: Fri, 20 Mar 2009 22:35:44 -0700
-Message-ID: <20090321053713.827044480@vyatta.com>
+Subject: [PATCH 58/77] wavelan: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:25 -0700
+Message-ID: <20090321053716.965014826@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, samuel@sortiz.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jt@hpl.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36561 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:50129 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760799AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:15 -0400
-Content-Disposition: inline; filename=irda-sir.patch
+	id S1762084AbZCUFwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 01:52:30 -0400
+Content-Disposition: inline; filename=wavelan-ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/irda/sir_dev.c	2009-03-19 22:52:52.826089334 -0700
-+++ b/drivers/net/irda/sir_dev.c	2009-03-19 23:09:32.268774083 -0700
-@@ -865,6 +865,12 @@ out:
- 	return 0;
+--- a/drivers/net/wireless/wavelan_cs.c	2009-03-20 22:16:50.602027068 -0700
++++ b/drivers/net/wireless/wavelan_cs.c	2009-03-20 22:25:51.618651474 -0700
+@@ -4436,6 +4436,19 @@ wavelan_close(struct net_device *	dev)
+   return 0;
  }
  
-+static const struct net_device_ops sirdev_ops = {
-+	.ndo_start_xmit	= sirdev_hard_xmit,
-+	.ndo_open	= sirdev_open,
-+	.ndo_stop	= sirdev_close,
-+	.ndo_do_ioctl	= sirdev_ioctl,
++static const struct net_device_ops wavelan_netdev_ops = {
++	.ndo_open 		= wavelan_open,
++	.ndo_stop		= wavelan_close,
++	.ndo_start_xmit		= wavelan_packet_xmit,
++	.ndo_set_multicast_list = wavelan_set_multicast_list,
++#ifdef SET_MAC_ADDRESS
++	.ndo_set_mac_address	= wavelan_set_mac_address,
++#endif
++	.ndo_tx_timeout		= wavelan_watchdog,
++	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_validate_addr	= eth_validate_addr,
 +};
- /* ----------------------------------------------------------------------------- */
++
+ /*------------------------------------------------------------------*/
+ /*
+  * wavelan_attach() creates an "instance" of the driver, allocating
+@@ -4496,16 +4509,7 @@ wavelan_probe(struct pcmcia_device *p_de
+   lp->dev = dev;
  
- struct sir_dev * sirdev_get_instance(const struct sir_driver *drv, const char *name)
-@@ -908,10 +914,7 @@ struct sir_dev * sirdev_get_instance(con
- 	dev->netdev = ndev;
+   /* wavelan NET3 callbacks */
+-  dev->open = &wavelan_open;
+-  dev->stop = &wavelan_close;
+-  dev->hard_start_xmit = &wavelan_packet_xmit;
+-  dev->set_multicast_list = &wavelan_set_multicast_list;
+-#ifdef SET_MAC_ADDRESS
+-  dev->set_mac_address = &wavelan_set_mac_address;
+-#endif	/* SET_MAC_ADDRESS */
+-
+-  /* Set the watchdog timer */
+-  dev->tx_timeout	= &wavelan_watchdog;
++  dev->netdev_ops = &wavelan_netdev_ops;
+   dev->watchdog_timeo	= WATCHDOG_JIFFIES;
+   SET_ETHTOOL_OPS(dev, &ops);
  
- 	/* Override the network functions we need to use */
--	ndev->hard_start_xmit = sirdev_hard_xmit;
--	ndev->open = sirdev_open;
--	ndev->stop = sirdev_close;
--	ndev->do_ioctl = sirdev_ioctl;
-+	ndev->netdev_ops = &sirdev_ops;
- 
- 	if (register_netdev(ndev)) {
- 		IRDA_ERROR("%s(), register_netdev() failed!\n", __func__);
 
 -- 
 
