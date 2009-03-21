@@ -1,183 +1,108 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 52/77] sbni: use internal net_device_stats
-Date: Fri, 20 Mar 2009 22:36:19 -0700
-Message-ID: <20090321053716.500120634@vyatta.com>
+Subject: [PATCH 62/77] wl3501: convert to internal net_device_stats
+Date: Fri, 20 Mar 2009 22:36:29 -0700
+Message-ID: <20090321053717.285938709@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>, acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36663 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36741 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761032AbZCUFsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:19 -0400
-Content-Disposition: inline; filename=sbni.patch
+	id S1761255AbZCUFse (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 01:48:34 -0400
+Content-Disposition: inline; filename=wl3501-stats.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert to use existing net_device_stats.
-This driver,
-      has bad style,
-      	of using commas,
-	   when brackets should be used...
-
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/wan/sbni.c	2009-03-20 17:14:16.263027723 -0700
-+++ b/drivers/net/wan/sbni.c	2009-03-20 17:22:27.542840306 -0700
-@@ -68,7 +68,6 @@
- /* device private data */
- 
- struct net_local {
--	struct net_device_stats	stats;
- 	struct timer_list	watchdog;
- 
- 	spinlock_t	lock;
-@@ -117,7 +116,6 @@ static int  sbni_open( struct net_device
- static int  sbni_close( struct net_device * );
- static int  sbni_start_xmit( struct sk_buff *, struct net_device * );
- static int  sbni_ioctl( struct net_device *, struct ifreq *, int );
--static struct net_device_stats  *sbni_get_stats( struct net_device * );
- static void  set_multicast_list( struct net_device * );
- 
- static irqreturn_t sbni_interrupt( int, void * );
-@@ -723,13 +721,11 @@ upload_data( struct net_device  *dev,  u
- 			nl->wait_frameno = 0,
- 			nl->inppos = 0,
- #ifdef CONFIG_SBNI_MULTILINE
--			((struct net_local *)netdev_priv(nl->master))
--				->stats.rx_errors++,
--			((struct net_local *)netdev_priv(nl->master))
--				->stats.rx_missed_errors++;
-+			nl->master->stats.rx_errors++,
-+			nl->master->stats.rx_missed_errors++;
- #else
--			nl->stats.rx_errors++,
--			nl->stats.rx_missed_errors++;
-+		        dev->stats.rx_errors++,
-+			dev->stats.rx_missed_errors++;
- #endif
- 			/* now skip all frames until is_first != 0 */
- 	} else
-@@ -742,13 +738,11 @@ upload_data( struct net_device  *dev,  u
- 		 */
- 		nl->wait_frameno = 0,
- #ifdef CONFIG_SBNI_MULTILINE
--		((struct net_local *)netdev_priv(nl->master))
--			->stats.rx_errors++,
--		((struct net_local *)netdev_priv(nl->master))
--			->stats.rx_crc_errors++;
-+		nl->master->stats.rx_errors++,
-+		nl->master->stats.rx_crc_errors++;
- #else
--		nl->stats.rx_errors++,
--		nl->stats.rx_crc_errors++;
-+		dev->stats.rx_errors++,
-+		dev->stats.rx_crc_errors++;
- #endif
- 
- 	return  frame_ok;
-@@ -756,15 +750,16 @@ upload_data( struct net_device  *dev,  u
- 
- 
- static inline void
--send_complete( struct net_local  *nl )
-+send_complete( struct net_device *dev )
- {
-+	struct net_local  *nl = netdev_priv(dev);
+--- a/drivers/net/wireless/wl3501.h	2009-03-20 21:45:40.918964050 -0700
++++ b/drivers/net/wireless/wl3501.h	2009-03-20 22:25:57.380964659 -0700
+@@ -606,7 +606,7 @@ struct wl3501_card {
+ 	u8				reg_domain;
+ 	u8				version[2];
+ 	struct wl3501_scan_confirm	bss_set[20];
+-	struct net_device_stats 	stats;
 +
- #ifdef CONFIG_SBNI_MULTILINE
--	((struct net_local *)netdev_priv(nl->master))->stats.tx_packets++;
--	((struct net_local *)netdev_priv(nl->master))->stats.tx_bytes
--		+= nl->tx_buf_p->len;
-+	nl->master->stats.tx_packets++;
-+	nl->master->stats.tx_bytes += nl->tx_buf_p->len;
- #else
--	nl->stats.tx_packets++;
--	nl->stats.tx_bytes += nl->tx_buf_p->len;
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += nl->tx_buf_p->len;
- #endif
- 	dev_kfree_skb_irq( nl->tx_buf_p );
- 
-@@ -792,7 +787,7 @@ interpret_ack( struct net_device  *dev, 
- 						   nl->maxframe,
- 						   nl->tx_buf_p->len - nl->outpos);
- 			else
--				send_complete( nl ),
-+				send_complete( dev ),
- #ifdef CONFIG_SBNI_MULTILINE
- 				netif_wake_queue( nl->master );
- #else
-@@ -881,13 +876,11 @@ drop_xmit_queue( struct net_device  *dev
- 		dev_kfree_skb_any( nl->tx_buf_p ),
- 		nl->tx_buf_p = NULL,
- #ifdef CONFIG_SBNI_MULTILINE
--		((struct net_local *)netdev_priv(nl->master))
--			->stats.tx_errors++,
--		((struct net_local *)netdev_priv(nl->master))
--			->stats.tx_carrier_errors++;
-+		nl->master->stats.tx_errors++,
-+		nl->master->stats.tx_carrier_errors++;
- #else
--		nl->stats.tx_errors++,
--		nl->stats.tx_carrier_errors++;
-+		dev->stats.tx_errors++,
-+		dev->stats.tx_carrier_errors++;
- #endif
- 
- 	nl->tx_frameno	= 0;
-@@ -1017,14 +1010,13 @@ indicate_pkt( struct net_device  *dev )
- #ifdef CONFIG_SBNI_MULTILINE
- 	skb->protocol = eth_type_trans( skb, nl->master );
- 	netif_rx( skb );
--	++((struct net_local *)netdev_priv(nl->master))->stats.rx_packets;
--	((struct net_local *)netdev_priv(nl->master))->stats.rx_bytes +=
--		nl->inppos;
-+	++nl->master->stats.rx_packets;
-+	nl->master->stats.rx_bytes += nl->inppos;
- #else
- 	skb->protocol = eth_type_trans( skb, dev );
- 	netif_rx( skb );
--	++nl->stats.rx_packets;
--	nl->stats.rx_bytes += nl->inppos;
-+	++dev->stats.rx_packets;
-+	dev->stats.rx_bytes += nl->inppos;
- #endif
- 	nl->rx_buf_p = NULL;	/* protocol driver will clear this sk_buff */
+ 	struct iw_statistics		wstats;
+ 	struct iw_spy_data		spy_data;
+ 	struct iw_public_data		wireless_data;
+--- a/drivers/net/wireless/wl3501_cs.c	2009-03-20 21:45:40.925964138 -0700
++++ b/drivers/net/wireless/wl3501_cs.c	2009-03-20 22:25:57.381964610 -0700
+@@ -1000,7 +1000,7 @@ static inline void wl3501_md_ind_interru
+ 	if (!skb) {
+ 		printk(KERN_WARNING "%s: Can't alloc a sk_buff of size %d.\n",
+ 		       dev->name, pkt_len);
+-		this->stats.rx_dropped++;
++		dev->stats.rx_dropped++;
+ 	} else {
+ 		skb->dev = dev;
+ 		skb_reserve(skb, 2); /* IP headers on 16 bytes boundaries */
+@@ -1008,8 +1008,8 @@ static inline void wl3501_md_ind_interru
+ 		wl3501_receive(this, skb->data, pkt_len);
+ 		skb_put(skb, pkt_len);
+ 		skb->protocol	= eth_type_trans(skb, dev);
+-		this->stats.rx_packets++;
+-		this->stats.rx_bytes += skb->len;
++		dev->stats.rx_packets++;
++		dev->stats.rx_bytes += skb->len;
+ 		netif_rx(skb);
+ 	}
  }
-@@ -1197,7 +1189,7 @@ sbni_open( struct net_device  *dev )
- handler_attached:
+@@ -1311,7 +1311,7 @@ out:
+ static void wl3501_tx_timeout(struct net_device *dev)
+ {
+ 	struct wl3501_card *this = netdev_priv(dev);
+-	struct net_device_stats *stats = &this->stats;
++	struct net_device_stats *stats = &dev->stats;
+ 	unsigned long flags;
+ 	int rc;
  
- 	spin_lock( &nl->lock );
--	memset( &nl->stats, 0, sizeof(struct net_device_stats) );
-+	memset( &dev->stats, 0, sizeof(struct net_device_stats) );
- 	memset( &nl->in_stats, 0, sizeof(struct sbni_in_stats) );
+@@ -1346,11 +1346,11 @@ static int wl3501_hard_start_xmit(struct
+ 	if (enabled)
+ 		wl3501_unblock_interrupt(this);
+ 	if (rc) {
+-		++this->stats.tx_dropped;
++		++dev->stats.tx_dropped;
+ 		netif_stop_queue(dev);
+ 	} else {
+-		++this->stats.tx_packets;
+-		this->stats.tx_bytes += skb->len;
++		++dev->stats.tx_packets;
++		dev->stats.tx_bytes += skb->len;
+ 		kfree_skb(skb);
  
- 	card_start( dev );
-@@ -1413,7 +1405,7 @@ enslave( struct net_device  *dev,  struc
+ 		if (this->tx_buffer_cnt < 2)
+@@ -1400,13 +1400,6 @@ fail:
+ 	goto out;
+ }
  
- 	/* Summary statistics of MultiLine operation will be stored
- 	   in master's counters */
--	memset( &snl->stats, 0, sizeof(struct net_device_stats) );
-+	memset( &slave_dev->stats, 0, sizeof(struct net_device_stats) );
- 	netif_stop_queue( slave_dev );
- 	netif_wake_queue( dev );	/* Now we are able to transmit */
- 
-@@ -1464,14 +1456,6 @@ emancipate( struct net_device  *dev )
- 
- #endif
- 
--
--static struct net_device_stats *
--sbni_get_stats( struct net_device  *dev )
+-static struct net_device_stats *wl3501_get_stats(struct net_device *dev)
 -{
--	return  &((struct net_local *)netdev_priv(dev))->stats;
+-	struct wl3501_card *this = netdev_priv(dev);
+-
+-	return &this->stats;
 -}
 -
--
- static void
- set_multicast_list( struct net_device  *dev )
+ static struct iw_statistics *wl3501_get_wireless_stats(struct net_device *dev)
  {
+ 	struct wl3501_card *this = netdev_priv(dev);
+@@ -1922,12 +1915,14 @@ static int wl3501_probe(struct pcmcia_de
+ 	dev = alloc_etherdev(sizeof(struct wl3501_card));
+ 	if (!dev)
+ 		goto out_link;
++
++
+ 	dev->open		= wl3501_open;
+ 	dev->stop		= wl3501_close;
+ 	dev->hard_start_xmit	= wl3501_hard_start_xmit;
+ 	dev->tx_timeout		= wl3501_tx_timeout;
+ 	dev->watchdog_timeo	= 5 * HZ;
+-	dev->get_stats		= wl3501_get_stats;
++
+ 	this = netdev_priv(dev);
+ 	this->wireless_data.spy_data = &this->spy_data;
+ 	this->p_dev = p_dev;
 
 -- 
 
