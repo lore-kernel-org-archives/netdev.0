@@ -1,89 +1,78 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 15/77] irda: convert smsc driver to net_device_ops
-Date: Fri, 20 Mar 2009 22:35:42 -0700
-Message-ID: <20090321053713.682844996@vyatta.com>
+Subject: [PATCH 13/77] irda: convert ali driver to net_device_ops
+Date: Fri, 20 Mar 2009 22:35:40 -0700
+Message-ID: <20090321053713.525233490@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>, samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36570 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36560 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760848AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760809AbZCUFsP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 21 Mar 2009 01:48:15 -0400
-Content-Disposition: inline; filename=irda-smsc.patch
+Content-Disposition: inline; filename=irda-ali.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
 ---
- drivers/net/irda/smsc-ircc2.c |   33 +++++++++++++++++++++------------
- 1 file changed, 21 insertions(+), 12 deletions(-)
+ drivers/net/irda/ali-ircc.c |   23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
 
---- a/drivers/net/irda/smsc-ircc2.c	2009-03-20 12:00:24.525964199 -0700
-+++ b/drivers/net/irda/smsc-ircc2.c	2009-03-20 12:04:46.972777223 -0700
-@@ -486,6 +486,26 @@ static int __init smsc_ircc_init(void)
- 	return ret;
+--- a/drivers/net/irda/ali-ircc.c	2009-03-19 22:40:30.305965477 -0700
++++ b/drivers/net/irda/ali-ircc.c	2009-03-19 22:42:49.992901415 -0700
+@@ -259,6 +259,20 @@ static void __exit ali_ircc_cleanup(void
+ 	IRDA_DEBUG(2, "%s(), ----------------- End -----------------\n", __func__);
  }
  
-+static int smsc_ircc_net_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct smsc_ircc_cb *self = netdev_priv(dev);
++static const struct net_device_ops ali_ircc_sir_ops = {
++	.ndo_open       = ali_ircc_net_open,
++	.ndo_stop       = ali_ircc_net_close,
++	.ndo_start_xmit = ali_ircc_sir_hard_xmit,
++	.ndo_do_ioctl   = ali_ircc_net_ioctl,
++};
 +
-+	if (self->io.speed > 115200)
-+		return 	smsc_ircc_hard_xmit_fir(skb, dev);
-+	else
-+		return 	smsc_ircc_hard_xmit_sir(skb, dev);
-+}
-+
-+static const struct net_device_ops smsc_ircc_netdev_ops = {
-+	.ndo_open       = smsc_ircc_net_open,
-+	.ndo_stop       = smsc_ircc_net_close,
-+	.ndo_do_ioctl   = smsc_ircc_net_ioctl,
-+	.ndo_start_xmit = smsc_ircc_net_xmit,
-+#if SMSC_IRCC2_C_NET_TIMEOUT
-+	.ndo_tx_timeout	= smsc_ircc_timeout,
-+#endif
++static const struct net_device_ops ali_ircc_fir_ops = {
++	.ndo_open       = ali_ircc_net_open,
++	.ndo_stop       = ali_ircc_net_close,
++	.ndo_start_xmit = ali_ircc_fir_hard_xmit,
++	.ndo_do_ioctl   = ali_ircc_net_ioctl,
 +};
 +
  /*
-  * Function smsc_ircc_open (firbase, sirbase, dma, irq)
+  * Function ali_ircc_open (int i, chipio_t *inf)
   *
-@@ -519,14 +539,10 @@ static int __init smsc_ircc_open(unsigne
- 		goto err_out1;
+@@ -361,10 +375,7 @@ static int ali_ircc_open(int i, chipio_t
+ 	self->tx_fifo.tail = self->tx_buff.head;
+ 
+ 	/* Override the network functions we need to use */
+-	dev->hard_start_xmit = ali_ircc_sir_hard_xmit;
+-	dev->open            = ali_ircc_net_open;
+-	dev->stop            = ali_ircc_net_close;
+-	dev->do_ioctl        = ali_ircc_net_ioctl;
++	dev->netdev_ops = &ali_ircc_sir_ops;
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+@@ -974,7 +985,7 @@ static void ali_ircc_change_speed(struct
+ 		ali_ircc_fir_change_speed(self, baud);			
+ 		
+ 		/* Install FIR xmit handler*/
+-		dev->hard_start_xmit = ali_ircc_fir_hard_xmit;		
++		dev->netdev_ops = &ali_ircc_fir_ops;
+ 				
+ 		/* Enable Interuupt */
+ 		self->ier = IER_EOM; // benjamin 2000/11/20 07:24PM					
+@@ -988,7 +999,7 @@ static void ali_ircc_change_speed(struct
+ 		ali_ircc_sir_change_speed(self, baud);
+ 				
+ 		/* Install SIR xmit handler*/
+-		dev->hard_start_xmit = ali_ircc_sir_hard_xmit;
++		dev->netdev_ops = &ali_ircc_sir_ops;
  	}
- 
--	dev->hard_start_xmit = smsc_ircc_hard_xmit_sir;
- #if SMSC_IRCC2_C_NET_TIMEOUT
--	dev->tx_timeout	     = smsc_ircc_timeout;
- 	dev->watchdog_timeo  = HZ * 2;  /* Allow enough time for speed change */
- #endif
--	dev->open            = smsc_ircc_net_open;
--	dev->stop            = smsc_ircc_net_close;
--	dev->do_ioctl        = smsc_ircc_net_ioctl;
-+	dev->netdev_ops = &smsc_ircc_netdev_ops;
- 
- 	self = netdev_priv(dev);
- 	self->netdev = dev;
-@@ -995,9 +1011,6 @@ static void smsc_ircc_fir_start(struct s
- 
- 	/* Reset everything */
- 
--	/* Install FIR transmit handler */
--	dev->hard_start_xmit = smsc_ircc_hard_xmit_fir;
--
- 	/* Clear FIFO */
- 	outb(inb(fir_base + IRCC_LCR_A) | IRCC_LCR_A_FIFO_RESET, fir_base + IRCC_LCR_A);
- 
-@@ -1894,7 +1907,6 @@ static void smsc_ircc_sir_start(struct s
- 	IRDA_ASSERT(self != NULL, return;);
- 	dev = self->netdev;
- 	IRDA_ASSERT(dev != NULL, return;);
--	dev->hard_start_xmit = &smsc_ircc_hard_xmit_sir;
- 
- 	fir_base = self->io.fir_base;
- 	sir_base = self->io.sir_base;
+ 	
+ 		
 
 -- 
 
