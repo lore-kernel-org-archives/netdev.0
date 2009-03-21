@@ -1,63 +1,59 @@
 From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH 31/77] usbnet: convert sms95xx driver to net_device_ops
-Date: Sat, 21 Mar 2009 02:20:29 -0700
-Message-ID: <200903210220.29900.david-b@pacbell.net>
-References: <20090321053527.316395697@vyatta.com> <20090321053714.885523813@vyatta.com>
+Subject: Re: [PATCH 32/77] usbnet: convert rndis driver to use dev_get_stats
+Date: Sat, 21 Mar 2009 02:22:05 -0700
+Message-ID: <200903210222.06107.david-b@pacbell.net>
+References: <20090321053527.316395697@vyatta.com> <20090321053714.963078292@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp127.sbc.mail.sp1.yahoo.com ([69.147.65.186]:46430 "HELO
+Received: from smtp127.sbc.mail.sp1.yahoo.com ([69.147.65.186]:46448 "HELO
 	smtp127.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754024AbZCUJZ6 (ORCPT
+	by vger.kernel.org with SMTP id S1754227AbZCUJZ6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 05:25:58 -0400
-In-Reply-To: <20090321053714.885523813@vyatta.com>
+In-Reply-To: <20090321053714.963078292@vyatta.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Friday 20 March 2009, Stephen Hemminger wrote:
+> dev_get_stats() handles all issues with net_device_ops
+> 
 > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-cc driver maintainer
+Acked-by: David Brownell <dbrownell@users.sourceforge.net>
 
 
-> --- a/drivers/net/usb/smsc95xx.c	2009-03-20 12:11:35.646901516 -0700
-> +++ b/drivers/net/usb/smsc95xx.c	2009-03-20 12:16:51.582901740 -0700
-> @@ -1008,6 +1008,18 @@ static int smsc95xx_reset(struct usbnet 
->  	return 0;
->  }
+> ---
+>  drivers/usb/gadget/rndis.c |    7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
+> 
+> --- a/drivers/usb/gadget/rndis.c	2009-03-20 12:18:22.054027493 -0700
+> +++ b/drivers/usb/gadget/rndis.c	2009-03-20 12:18:28.620714647 -0700
+> @@ -170,7 +170,7 @@ gen_ndis_query_resp (int configNr, u32 O
+>  	int			i, count;
+>  	rndis_query_cmplt_type	*resp;
+>  	struct net_device	*net;
+> -	struct net_device_stats	*stats;
+> +	const struct net_device_stats	*stats;
 >  
-> +static const struct net_device_ops smsc95xx_netdev_ops = {
-> +	.ndo_open		= usbnet_open,
-> +	.ndo_stop		= usbnet_stop,
-> +	.ndo_start_xmit		= usbnet_start_xmit,
-> +	.ndo_tx_timeout		= usbnet_tx_timeout,
-> +	.ndo_change_mtu		= usbnet_change_mtu,
-> +	.ndo_set_mac_address 	= eth_mac_addr,
-> +	.ndo_validate_addr	= eth_validate_addr,
-> +	.ndo_do_ioctl 		= smsc95xx_ioctl,
-> +	.ndo_set_multicast_list = smsc95xx_set_multicast,
-> +};
-> +
->  static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
->  {
->  	struct smsc95xx_priv *pdata = NULL;
-> @@ -1038,9 +1050,8 @@ static int smsc95xx_bind(struct usbnet *
->  	/* Init all registers */
->  	ret = smsc95xx_reset(dev);
+>  	if (!r) return -ENOMEM;
+>  	resp = (rndis_query_cmplt_type *) r->buf;
+> @@ -193,10 +193,7 @@ gen_ndis_query_resp (int configNr, u32 O
+>  	resp->InformationBufferOffset = cpu_to_le32 (16);
 >  
-> -	dev->net->do_ioctl = smsc95xx_ioctl;
-> +	dev->net->netdev_ops = &smsc95xx_netdev_ops;
->  	dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
-> -	dev->net->set_multicast_list = smsc95xx_set_multicast;
->  	dev->net->flags |= IFF_MULTICAST;
->  	dev->net->hard_header_len += SMSC95XX_TX_OVERHEAD;
->  	return 0;
+>  	net = rndis_per_dev_params[configNr].dev;
+> -	if (net->get_stats)
+> -		stats = net->get_stats(net);
+> -	else
+> -		stats = NULL;
+> +	stats = dev_get_stats(net);
+>  
+>  	switch (OID) {
+>  
 > 
 > -- 
 > 
