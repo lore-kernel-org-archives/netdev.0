@@ -1,53 +1,53 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management (v2)
-Date: Fri, 20 Mar 2009 23:21:38 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0903202319050.12360@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090319233404.6697768b@nehalam> <20090319233610.51fe4ee1@nehalam>
- <20090320091247.38326931@nehalam> <Pine.WNT.4.64.0903202033090.16644@ppwaskie-MOBL2.amr.corp.intel.com>
- <20090320214515.5af3a6f4@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
+	(v2)
+Date: Sat, 21 Mar 2009 00:33:38 -0700 (PDT)
+Message-ID: <20090321.003338.103826980.davem@davemloft.net>
+References: <Pine.WNT.4.64.0903202033090.16644@ppwaskie-MOBL2.amr.corp.intel.com>
+	<20090320214515.5af3a6f4@nehalam>
+	<Pine.WNT.4.64.0903202319050.12360@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45754 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752123AbZCUGVm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 02:21:42 -0400
-In-Reply-To: <20090320214515.5af3a6f4@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	shemminger@vyatta.com, jeffrey.t.kirsher@intel.com
+To: peter.p.waskiewicz.jr@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <Pine.WNT.4.64.0903202319050.12360@ppwaskie-MOBL2.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Mar 2009, Stephen Hemminger wrote:
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Fri, 20 Mar 2009 23:21:38 -0700 (Pacific Daylight Time)
 
-> The default select queue function in the kernel is:
-> 
-> static struct netdev_queue *dev_pick_tx(struct net_device *dev,
-> 					struct sk_buff *skb)
-> {
-> 	const struct net_device_ops *ops = dev->netdev_ops;
-> 	u16 queue_index = 0;
-> 
-> 	if (ops->ndo_select_queue)
-> 		queue_index = ops->ndo_select_queue(dev, skb);
-> 	else if (dev->real_num_tx_queues > 1)
-> 		queue_index = skb_tx_hash(dev, skb);
-> 
-> 	skb_set_queue_mapping(skb, queue_index);
-> 	return netdev_get_tx_queue(dev, queue_index);
-> }
-> 
-> So if driver (re)sets real_num_tx_queues to 1 then queue_index will always
-> 0 and all traffic will go to one queue. This is the same as having your
-> own select_queue function.
+> I see your point, but it is a hack in my opinion.  The device will have 8 
+> real Tx queues, not 1.  I'd much rather go with the original proposal, 
+> since if the code in dev_pick_tx() changed, it could silently break ixgbe.
 
-I see your point, but it is a hack in my opinion.  The device will have 8 
-real Tx queues, not 1.  I'd much rather go with the original proposal, 
-since if the code in dev_pick_tx() changed, it could silently break ixgbe.
+It can't, if you only advertise one transmit queue the kernel
+can never ever choose anything other than queue zero.  It's
+impossible.
 
--PJ Waskiewicz
+Stephen's right, you guys don't need your select queue override.
+
+And if you recall I suspected this from the very beginning.
+
+You guys never ever think out of the box, ever...  if it's
+not straightforward, you guys won't got for it.  That makes
+it very frustrating to get anything done.
+
+
+
+------------------------------------------------------------------------------
+Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
+powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
+easily build your RIAs with Flex Builder, the Eclipse(TM)based development
+software that enables intelligent coding and step-through debugging.
+Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
