@@ -1,130 +1,86 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] 3c59x: convert to net_device_ops
-Date: Sat, 21 Mar 2009 04:51:55 -0700
-Message-ID: <20090321045155.fbdf8dac.akpm@linux-foundation.org>
-References: <20090321113552.GB3380@psychotron.englab.brq.redhat.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Sat, 21 Mar 2009 13:09:35 +0100
+Message-ID: <1237637375.5100.178.camel@johannes.local>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	 <b6a2187b0903160624gb9d207dv301506e589d93ed4@mail.gmail.com>
+	 <1237317742.31814.28.camel@johannes.local>
+	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+	 <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
+	 <1237455534.5100.56.camel@johannes.local>
+	 <b6a2187b0903192155q33510b57l9d5927538a0f4f99@mail.gmail.com>
+	 <1237537967.5100.135.camel@johannes.local>
+	 <b6a2187b0903200304l469e3eeet87c51b1cddb43ea8@mail.gmail.com>
+	 <1237544033.5100.143.camel@johannes.local>
+	 <b6a2187b0903200914r23d635c9obc55b30b7cc04382@mail.gmail.com>
+	 (sfid-20090320_171427_332673_B71D0D63)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	klassert@mathematik.tu-chemnitz.de, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58323 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751496AbZCUMAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 08:00:01 -0400
-In-Reply-To: <20090321113552.GB3380@psychotron.englab.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-yoAsfB/ad+FmHrXW6y3a"
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b6a2187b0903200914r23d635c9obc55b30b7cc04382-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20090320_171427_332673_B71D0D63)
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 21 Mar 2009 12:35:53 +0100 Jiri Pirko <jpirko@redhat.com> wrote:
 
-> I converted this driver to use net_device_ops. I made two structures, one for
-> vortex and one for boomerang start_xmit function. Tested on my test system with
-> 3Com PCI 3c905C Tornado.
+--=-yoAsfB/ad+FmHrXW6y3a
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-linux-next already contains
+On Sat, 2009-03-21 at 00:14 +0800, Jeff Chua wrote:
 
-commit 48b47a5e306c1c119ee81ccd24d487c2df656410
-Author:     Stephen Hemminger <shemminger@linux-foundation.org>
-AuthorDate: Fri Jan 9 13:01:18 2009 +0000
-Commit:     David S. Miller <davem@davemloft.net>
-CommitDate: Wed Jan 21 14:02:25 2009 -0800
+> I went back to 2.6.28 and found out that I could associate as follows
+> (but this would not work in 2.6.29-rc8 ... should work with the
+> patch).
+>=20
+> modprobe -r iwlagn
+> modprobe iwlagn
+> iwconfig wlan0 mode Managed
+> ifconfig wlan0 up
+> iwconfig wlan0 essid "xxx"
+> iwconfig wlan0 key restricted xxx
+> iwconfig wlan0 ap auto channel auto
+> iwlist wlan0 scan >/dev/null
 
-    3c59x: convert to net_device_ops
-    
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Thing is that this works perfectly fine for me, on very similar
+hardware.
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index cdbbb62..b2563d3 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -992,6 +992,42 @@ out:
- 	return rc;
- }
- 
-+static const struct net_device_ops boomrang_netdev_ops = {
-+	.ndo_open		= vortex_open,
-+	.ndo_stop		= vortex_close,
-+	.ndo_start_xmit		= boomerang_start_xmit,
-+	.ndo_tx_timeout		= vortex_tx_timeout,
-+	.ndo_get_stats		= vortex_get_stats,
-+#ifdef CONFIG_PCI
-+	.ndo_do_ioctl 		= vortex_ioctl,
-+#endif
-+	.ndo_set_multicast_list = set_rx_mode,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= poll_vortex,
-+#endif
-+};
-+
-+static const struct net_device_ops vortex_netdev_ops = {
-+	.ndo_open		= vortex_open,
-+	.ndo_stop		= vortex_close,
-+	.ndo_start_xmit		= vortex_start_xmit,
-+	.ndo_tx_timeout		= vortex_tx_timeout,
-+	.ndo_get_stats		= vortex_get_stats,
-+#ifdef CONFIG_PCI
-+	.ndo_do_ioctl 		= vortex_ioctl,
-+#endif
-+	.ndo_set_multicast_list = set_rx_mode,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= poll_vortex,
-+#endif
-+};
-+
- /*
-  * Start up the PCI/EISA device which is described by *gendev.
-  * Return 0 on success.
-@@ -1366,18 +1402,16 @@ static int __devinit vortex_probe1(struct device *gendev,
- 	}
- 
- 	/* The 3c59x-specific entries in the device structure. */
--	dev->open = vortex_open;
- 	if (vp->full_bus_master_tx) {
--		dev->hard_start_xmit = boomerang_start_xmit;
-+		dev->netdev_ops = &boomrang_netdev_ops;
- 		/* Actually, it still should work with iommu. */
- 		if (card_idx < MAX_UNITS &&
- 		    ((hw_checksums[card_idx] == -1 && (vp->drv_flags & HAS_HWCKSM)) ||
- 				hw_checksums[card_idx] == 1)) {
- 			dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 		}
--	} else {
--		dev->hard_start_xmit = vortex_start_xmit;
--	}
-+	} else
-+		dev->netdev_ops =  &vortex_netdev_ops;
- 
- 	if (print_info) {
- 		printk(KERN_INFO "%s: scatter/gather %sabled. h/w checksums %sabled\n",
-@@ -1386,18 +1420,9 @@ static int __devinit vortex_probe1(struct device *gendev,
- 				(dev->features & NETIF_F_IP_CSUM) ? "en":"dis");
- 	}
- 
--	dev->stop = vortex_close;
--	dev->get_stats = vortex_get_stats;
--#ifdef CONFIG_PCI
--	dev->do_ioctl = vortex_ioctl;
--#endif
- 	dev->ethtool_ops = &vortex_ethtool_ops;
--	dev->set_multicast_list = set_rx_mode;
--	dev->tx_timeout = vortex_tx_timeout;
- 	dev->watchdog_timeo = (watchdog * HZ) / 1000;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = poll_vortex;
--#endif
-+
- 	if (pdev) {
- 		vp->pm_state_valid = 1;
-  		pci_save_state(VORTEX_PCI(vp));
+OTOH, maybe it got _fixed_ again. Would you check wireless-testing
+(http://wireless.kernel.org/en/developers/Documentation#wireless-testing.gi=
+t) for me? Or compat-wireless (http://wireless.kernel.org/en/users/Download=
+)
 
+johannes
+
+--=-yoAsfB/ad+FmHrXW6y3a
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJxNj9AAoJEKVg1VMiehFYtR0QAKTf7xrImi8vzq3looDokqgF
+Ky/+xH06/PRSf8VxeB89SSyridRagfky1jalBbx08lpYMD9qQoX9GI92oOJ6JZkk
+trIFHnhtKegYG0+ff95gjqstCsaEY6XFSNLthTfshv5UMfILjmy6QsAjCLbICeLd
+dfuDoB2Rg1/5pRi59Hr7s7DNHeTk1ieOy/2jNgoFpfJZEvElD2zVxFZ9j9gFN8Ny
+yx6IrtnfHTAEyL223RGv87dXp8f//jFlW6/tiJUbvZZDiG8K8qnPVIvNaaTZ8AtW
+QSYAG0Sao59E8qwJ3h5UQpOaB0Gt4vplBVjfxtEO4xXllztE7j9dHVjRcRiN/dZb
+FdtN1WnRw2cgpInGcIf9Mwvds1dcINfIy2W2jpjymNFN7ZX6r84OqoDjGa1Z7bgG
+s9imYFoN/orXewS5er4gvWi8lQhMMoQcIc3dw+po0t9NthwxPW/SaDKJ+BPuX4Ut
+GFKVRExTGUFrrR2H9fzrAd0N7Q1d2UBxDXICIzncymaOjWTMrpMwHT5TT67A/7Xy
++VqRypXBgsr/PlMWt+INgCUpuC4armFAXV6h6W0KLBfQz4QCWNdAEijxGYAI8N10
+YCvUB+fRiIgqnneMMp2uFx8VowxDIk5IAdnFwq/sMUvfmw82ThS8GOXl7sNsIqIn
+GVY6emMiE3Ez2ayNZNj+
+=P6f9
+-----END PGP SIGNATURE-----
+
+--=-yoAsfB/ad+FmHrXW6y3a--
