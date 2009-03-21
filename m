@@ -1,56 +1,199 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [Bugme-new] [Bug 12876] New: irq 18: nobody cared after down-ing
- an e1000 interface
-Date: Fri, 20 Mar 2009 22:05:30 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.1.10.0903202201170.5168@jbrandeb-MOBL1.amr.corp.intel.com>
-References: <bug-12876-10286@http.bugzilla.kernel.org/> <20090315143058.726ad8e9.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"lkundrak@v3.sk" <lkundrak@v3.sk>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21458 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750912AbZCUFFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:05:34 -0400
-In-Reply-To: <20090315143058.726ad8e9.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ofa-general] [PATCH 03/77] infiniband: convert c2 to net_device_ops
+Date: Fri, 20 Mar 2009 22:35:30 -0700
+Message-ID: <20090321053712.797092692@vyatta.com>
+References: <20090321053527.316395697@vyatta.com>
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: David Miller <davem@davemloft.net>, tom@opengridcomputing.com,
+	swise@opengridcomputing.com
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline; filename=infiniband-c2.patch
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 15 Mar 2009, Andrew Morton wrote:
-> > http://bugzilla.kernel.org/show_bug.cgi?id=12876
-> > I get the following OOPS when I down the e1000 network interface:
-> > 
-> > irq 18: nobody cared (try booting with the "irqpoll" option)
-> > Pid: 9014, comm: udevd Tainted: G        W  2.6.29-0.237.rc7.git4.fc11.i586 #1
-> > Call Trace:
-> >  [<c0471f2b>] __report_bad_irq+0x33/0x74
-> >  [<c047205e>] note_interrupt+0xf2/0x150
-> >  [<c04711e0>] ? handle_IRQ_event+0x4f/0x58
-> >  [<c04725e8>] handle_fasteoi_irq+0x94/0xb7
-> >  [<c0472554>] ? handle_fasteoi_irq+0x0/0xb7
-> >  <IRQ>  [<c04045ac>] ? common_interrupt+0x2c/0x40
-> > handlers:
-> > [<c05f3cb6>] (ata_sff_interrupt+0x0/0xb1)
-> > [<c06079ec>] (usb_hcd_irq+0x0/0xa3)
-> > Disabling IRQ #18
-> > 
-> > As you can see, the IRQ 18 is shared with ata_sff and usb_hcd.
-> > 
-> > I've tried to comment out e1000_free_irq() call from e1000_close() and added a
-> > printk() to e1000_intr(). After that, the problem didn't occur, but I've not
-> > seen the output of the printk in e1000_intr() (It was visible while the
-> > interface was up), as if it weren't called. Seems like the way shared
-> > interrupts work is beyond my understanding.
+Convert this driver to new net_device_ops infrastructure.
+Also use default net_device get-stats infrastructure
 
-Please try the patch attached to the bug, Alan Cox pointed out that it was 
-likely the driver was racy during close and was re-enabling interrupts.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I spotted two possible areas where this was possible and put in checks for 
-__E1000_DOWN before re-enabling ints in those spots.
+---
+ drivers/infiniband/hw/amso1100/c2.c          |   41 ++++++++++++---------------
+ drivers/infiniband/hw/amso1100/c2.h          |    2 -
+ drivers/infiniband/hw/amso1100/c2_provider.c |   22 +++++++-------
+ 3 files changed, 30 insertions(+), 35 deletions(-)
 
-I'm offline for a week and I'll reconnect and check back when I return.
+--- a/drivers/infiniband/hw/amso1100/c2.c	2009-03-19 22:40:30.574963980 -0700
++++ b/drivers/infiniband/hw/amso1100/c2.c	2009-03-19 22:42:42.388718732 -0700
+@@ -76,7 +76,6 @@ static irqreturn_t c2_interrupt(int irq,
+ static void c2_tx_timeout(struct net_device *netdev);
+ static int c2_change_mtu(struct net_device *netdev, int new_mtu);
+ static void c2_reset(struct c2_port *c2_port);
+-static struct net_device_stats *c2_get_stats(struct net_device *netdev);
+ 
+ static struct pci_device_id c2_pci_table[] = {
+ 	{ PCI_DEVICE(0x18b8, 0xb001) },
+@@ -349,7 +348,7 @@ static void c2_tx_clean(struct c2_port *
+ 					     elem->hw_desc + C2_TXP_ADDR);
+ 				__raw_writew((__force u16) cpu_to_be16(TXP_HTXD_DONE),
+ 					     elem->hw_desc + C2_TXP_FLAGS);
+-				c2_port->netstats.tx_dropped++;
++				c2_port->netdev->stats.tx_dropped++;
+ 				break;
+ 			} else {
+ 				__raw_writew(0,
+@@ -457,7 +456,7 @@ static void c2_rx_error(struct c2_port *
+ 		     elem->hw_desc + C2_RXP_FLAGS);
+ 
+ 	pr_debug("packet dropped\n");
+-	c2_port->netstats.rx_dropped++;
++	c2_port->netdev->stats.rx_dropped++;
+ }
+ 
+ static void c2_rx_interrupt(struct net_device *netdev)
+@@ -532,8 +531,8 @@ static void c2_rx_interrupt(struct net_d
+ 		netif_rx(skb);
+ 
+ 		netdev->last_rx = jiffies;
+-		c2_port->netstats.rx_packets++;
+-		c2_port->netstats.rx_bytes += buflen;
++		netdev->stats.rx_packets++;
++		netdev->stats.rx_bytes += buflen;
+ 	}
+ 
+ 	/* Save where we left off */
+@@ -797,8 +796,8 @@ static int c2_xmit_frame(struct sk_buff 
+ 	__raw_writew((__force u16) cpu_to_be16(TXP_HTXD_READY),
+ 		     elem->hw_desc + C2_TXP_FLAGS);
+ 
+-	c2_port->netstats.tx_packets++;
+-	c2_port->netstats.tx_bytes += maplen;
++	netdev->stats.tx_packets++;
++	netdev->stats.tx_bytes += maplen;
+ 
+ 	/* Loop thru additional data fragments and queue them */
+ 	if (skb_shinfo(skb)->nr_frags) {
+@@ -823,8 +822,8 @@ static int c2_xmit_frame(struct sk_buff 
+ 			__raw_writew((__force u16) cpu_to_be16(TXP_HTXD_READY),
+ 				     elem->hw_desc + C2_TXP_FLAGS);
+ 
+-			c2_port->netstats.tx_packets++;
+-			c2_port->netstats.tx_bytes += maplen;
++			netdev->stats.tx_packets++;
++			netdev->stats.tx_bytes += maplen;
+ 		}
+ 	}
+ 
+@@ -845,13 +844,6 @@ static int c2_xmit_frame(struct sk_buff 
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static struct net_device_stats *c2_get_stats(struct net_device *netdev)
+-{
+-	struct c2_port *c2_port = netdev_priv(netdev);
+-
+-	return &c2_port->netstats;
+-}
+-
+ static void c2_tx_timeout(struct net_device *netdev)
+ {
+ 	struct c2_port *c2_port = netdev_priv(netdev);
+@@ -880,6 +872,16 @@ static int c2_change_mtu(struct net_devi
+ 	return ret;
+ }
+ 
++static const struct net_device_ops c2_netdev = {
++	.ndo_open 		= c2_up,
++	.ndo_stop 		= c2_down,
++	.ndo_start_xmit		= c2_xmit_frame,
++	.ndo_tx_timeout		= c2_tx_timeout,
++	.ndo_change_mtu		= c2_change_mtu,
++	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
+ /* Initialize network device */
+ static struct net_device *c2_devinit(struct c2_dev *c2dev,
+ 				     void __iomem * mmio_addr)
+@@ -894,12 +896,7 @@ static struct net_device *c2_devinit(str
+ 
+ 	SET_NETDEV_DEV(netdev, &c2dev->pcidev->dev);
+ 
+-	netdev->open = c2_up;
+-	netdev->stop = c2_down;
+-	netdev->hard_start_xmit = c2_xmit_frame;
+-	netdev->get_stats = c2_get_stats;
+-	netdev->tx_timeout = c2_tx_timeout;
+-	netdev->change_mtu = c2_change_mtu;
++	netdev->netdev_ops = &c2_netdev;
+ 	netdev->watchdog_timeo = C2_TX_TIMEOUT;
+ 	netdev->irq = c2dev->pcidev->irq;
+ 
+--- a/drivers/infiniband/hw/amso1100/c2.h	2009-03-19 22:40:30.587964264 -0700
++++ b/drivers/infiniband/hw/amso1100/c2.h	2009-03-19 22:42:42.389902290 -0700
+@@ -369,8 +369,6 @@ struct c2_port {
+ 	unsigned long mem_size;
+ 
+ 	u32 rx_buf_size;
+-
+-	struct net_device_stats netstats;
+ };
+ 
+ /*
+--- a/drivers/infiniband/hw/amso1100/c2_provider.c	2009-03-19 22:40:30.579963953 -0700
++++ b/drivers/infiniband/hw/amso1100/c2_provider.c	2009-03-19 22:42:42.389902290 -0700
+@@ -708,26 +708,27 @@ static int c2_pseudo_xmit_frame(struct s
+ 
+ static int c2_pseudo_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+-	int ret = 0;
+-
+ 	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
+ 		return -EINVAL;
+ 
+ 	netdev->mtu = new_mtu;
+ 
+ 	/* TODO: Tell rnic about new rmda interface mtu */
+-	return ret;
++	return 0;
+ }
+ 
++static const struct net_device_ops c2_pseudo_netdev_ops = {
++	.ndo_open 		= c2_pseudo_up,
++	.ndo_stop 		= c2_pseudo_down,
++	.ndo_start_xmit 	= c2_pseudo_xmit_frame,
++	.ndo_change_mtu 	= c2_pseudo_change_mtu,
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
+ static void setup(struct net_device *netdev)
+ {
+-	netdev->open = c2_pseudo_up;
+-	netdev->stop = c2_pseudo_down;
+-	netdev->hard_start_xmit = c2_pseudo_xmit_frame;
+-	netdev->get_stats = NULL;
+-	netdev->tx_timeout = NULL;
+-	netdev->set_mac_address = NULL;
+-	netdev->change_mtu = c2_pseudo_change_mtu;
++	netdev->netdev_ops = &c2_pseudo_netdev_ops;
++
+ 	netdev->watchdog_timeo = 0;
+ 	netdev->type = ARPHRD_ETHER;
+ 	netdev->mtu = 1500;
+@@ -735,7 +736,6 @@ static void setup(struct net_device *net
+ 	netdev->addr_len = ETH_ALEN;
+ 	netdev->tx_queue_len = 0;
+ 	netdev->flags |= IFF_NOARP;
+-	return;
+ }
+ 
+ static struct net_device *c2_pseudo_netdev_init(struct c2_dev *c2dev)
+
+-- 
