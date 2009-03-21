@@ -1,119 +1,82 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 01/77] atm: convert mpc device to using netdev_ops
-Date: Fri, 20 Mar 2009 22:35:28 -0700
-Message-ID: <20090321053712.648437543@vyatta.com>
+Subject: [PATCH 74/77] ipw2200: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:41 -0700
+Message-ID: <20090321053718.224939952@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, chas@cmf.nrl.navy.mil
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jkosina@suse.cz,
+	dstreba@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36630 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36739 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760992AbZCUFsS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:18 -0400
-Content-Disposition: inline; filename=atm-mpc.patch
+	id S1761166AbZCUFsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 01:48:30 -0400
+Content-Disposition: inline; filename=ipw2200.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This converts the mpc device to using new netdevice_ops.
-Compile tested only, needs more than usual review since
-device was swaping pointers around etc.
-
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- net/atm/mpc.c |   32 ++++++++++++++------------------
- net/atm/mpc.h |    5 ++++-
- 2 files changed, 18 insertions(+), 19 deletions(-)
-
---- a/net/atm/mpc.c	2009-03-19 22:40:30.534964257 -0700
-+++ b/net/atm/mpc.c	2009-03-19 22:42:40.038902168 -0700
-@@ -286,33 +286,32 @@ static void start_mpc(struct mpoa_client
- {
- 
- 	dprintk("mpoa: (%s) start_mpc:\n", mpc->dev->name);
--	if (dev->hard_start_xmit == NULL) {
--		printk("mpoa: (%s) start_mpc: dev->hard_start_xmit == NULL, not starting\n",
--		       dev->name);
--		return;
-+	if (!dev->netdev_ops)
-+		printk("mpoa: (%s) start_mpc  not starting\n", dev->name);
-+	else {
-+		mpc->old_ops = dev->netdev_ops;
-+		mpc->new_ops = *mpc->old_ops;
-+		mpc->new_ops.ndo_start_xmit = mpc_send_packet;
-+		dev->netdev_ops = &mpc->new_ops;
- 	}
--	mpc->old_hard_start_xmit = dev->hard_start_xmit;
--	dev->hard_start_xmit = mpc_send_packet;
--
--	return;
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c	2009-03-20 21:17:26.008902901 -0700
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c	2009-03-20 21:17:55.282652680 -0700
+@@ -11529,6 +11529,15 @@ static int ipw_prom_hard_start_xmit(stru
+ 	return -EOPNOTSUPP;
  }
  
- static void stop_mpc(struct mpoa_client *mpc)
++static const struct net_device_ops ipw_prom_netdev_ops = {
++	.ndo_open 		= ipw_prom_open,
++	.ndo_stop		= ipw_prom_stop,
++	.ndo_start_xmit		= ipw_prom_hard_start_xmit,
++	.ndo_change_mtu		= ieee80211_change_mtu,
++	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
+ static int ipw_prom_alloc(struct ipw_priv *priv)
  {
--
-+	struct net_device *dev = mpc->dev;
- 	dprintk("mpoa: (%s) stop_mpc:", mpc->dev->name);
+ 	int rc = 0;
+@@ -11548,9 +11557,7 @@ static int ipw_prom_alloc(struct ipw_pri
+ 	memcpy(priv->prom_net_dev->dev_addr, priv->mac_addr, ETH_ALEN);
  
- 	/* Lets not nullify lec device's dev->hard_start_xmit */
--	if (mpc->dev->hard_start_xmit != mpc_send_packet) {
-+	if (dev->netdev_ops != &mpc->new_ops) {
- 		dprintk(" mpc already stopped, not fatal\n");
- 		return;
- 	}
- 	dprintk("\n");
--	mpc->dev->hard_start_xmit = mpc->old_hard_start_xmit;
--	mpc->old_hard_start_xmit = NULL;
--	/* close_shortcuts(mpc);    ??? FIXME */
+ 	priv->prom_net_dev->type = ARPHRD_IEEE80211_RADIOTAP;
+-	priv->prom_net_dev->open = ipw_prom_open;
+-	priv->prom_net_dev->stop = ipw_prom_stop;
+-	priv->prom_net_dev->hard_start_xmit = ipw_prom_hard_start_xmit;
++	priv->prom_net_dev->netdev_ops = &ipw_prom_netdev_ops;
  
--	return;
-+	dev->netdev_ops = mpc->old_ops;
-+	mpc->old_ops = NULL;
-+
-+	/* close_shortcuts(mpc);    ??? FIXME */
- }
+ 	priv->prom_priv->ieee->iw_mode = IW_MODE_MONITOR;
+ 	SET_NETDEV_DEV(priv->prom_net_dev, &priv->pci_dev->dev);
+@@ -11578,6 +11585,17 @@ static void ipw_prom_free(struct ipw_pri
  
- static const char *mpoa_device_type_string(char type) __attribute__ ((unused));
-@@ -531,7 +530,6 @@ static int send_via_shortcut(struct sk_b
-  */
- static int mpc_send_packet(struct sk_buff *skb, struct net_device *dev)
- {
--	int retval;
- 	struct mpoa_client *mpc;
- 	struct ethhdr *eth;
- 	int i = 0;
-@@ -561,9 +559,7 @@ static int mpc_send_packet(struct sk_buf
- 	}
+ #endif
  
-  non_ip:
--	retval = mpc->old_hard_start_xmit(skb,dev);
--
--	return retval;
-+	return mpc->old_ops->ndo_start_xmit(skb,dev);
- }
++static const struct net_device_ops ipw_netdev_ops = {
++	.ndo_init		= ipw_net_init,
++	.ndo_open		= ipw_net_open,
++	.ndo_stop		= ipw_net_stop,
++	.ndo_set_multicast_list	= ipw_net_set_multicast_list,
++	.ndo_set_mac_address	= ipw_net_set_mac_address,
++	.ndo_start_xmit		= ieee80211_xmit,
++	.ndo_change_mtu		= ieee80211_change_mtu,
++	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
++};
  
- static int atm_mpoa_vcc_attach(struct atm_vcc *vcc, void __user *arg)
---- a/net/atm/mpc.h	2009-03-19 22:40:30.528964315 -0700
-+++ b/net/atm/mpc.h	2009-03-19 22:42:40.038902168 -0700
-@@ -15,7 +15,7 @@ struct mpoa_client {
- 	struct mpoa_client *next;
- 	struct net_device *dev;      /* lec in question                     */
- 	int dev_num;                 /* e.g. 2 for lec2                     */
--	int (*old_hard_start_xmit)(struct sk_buff *skb, struct net_device *dev);
-+
- 	struct atm_vcc *mpoad_vcc;   /* control channel to mpoad            */
- 	uint8_t mps_ctrl_addr[ATM_ESA_LEN];  /* MPS control ATM address     */
- 	uint8_t our_ctrl_addr[ATM_ESA_LEN];  /* MPC's control ATM address   */
-@@ -31,6 +31,9 @@ struct mpoa_client {
- 	uint8_t *mps_macs;           /* array of MPS MAC addresses, >=1     */
- 	int number_of_mps_macs;      /* number of the above MAC addresses   */
- 	struct mpc_parameters parameters;  /* parameters for this client    */
-+
-+	const struct net_device_ops *old_ops;
-+	struct net_device_ops new_ops;
- };
+ static int __devinit ipw_pci_probe(struct pci_dev *pdev,
+ 				   const struct pci_device_id *ent)
+@@ -11679,11 +11697,7 @@ static int __devinit ipw_pci_probe(struc
+ 	priv->ieee->perfect_rssi = -20;
+ 	priv->ieee->worst_rssi = -85;
  
- 
+-	net_dev->open = ipw_net_open;
+-	net_dev->stop = ipw_net_stop;
+-	net_dev->init = ipw_net_init;
+-	net_dev->set_multicast_list = ipw_net_set_multicast_list;
+-	net_dev->set_mac_address = ipw_net_set_mac_address;
++	net_dev->netdev_ops = &ipw_netdev_ops;
+ 	priv->wireless_data.spy_data = &priv->ieee->spy_data;
+ 	net_dev->wireless_data = &priv->wireless_data;
+ 	net_dev->wireless_handlers = &ipw_wx_handler_def;
 
 -- 
 
