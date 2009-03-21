@@ -1,85 +1,73 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 49/77] cycx: convert to net_device_ops
-Date: Fri, 20 Mar 2009 22:36:16 -0700
-Message-ID: <20090321053716.272212792@vyatta.com>
+Subject: [PATCH 48/77] dlci: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:15 -0700
+Message-ID: <20090321053716.185935379@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36656 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36653 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761010AbZCUFsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761007AbZCUFsS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 21 Mar 2009 01:48:18 -0400
-Content-Disposition: inline; filename=cycx-netdev.patch
+Content-Disposition: inline; filename=dlci-netdev.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/wan/cycx_x25.c	2009-03-20 17:04:44.887089081 -0700
-+++ b/drivers/net/wan/cycx_x25.c	2009-03-20 17:06:13.508715060 -0700
-@@ -355,12 +355,6 @@ static int cycx_wan_update(struct wan_de
- 	return 0;
+--- a/drivers/net/wan/dlci.c	2009-03-20 16:39:20.344088959 -0700
++++ b/drivers/net/wan/dlci.c	2009-03-20 17:04:52.506777503 -0700
+@@ -200,7 +200,7 @@ static int dlci_transmit(struct sk_buff 
+ 
+ 	netif_stop_queue(dev);
+ 	
+-	ret = dlp->slave->hard_start_xmit(skb, dlp->slave);
++	ret = dlp->slave->netdev_ops->ndo_start_xmit(skb, dlp->slave);
+ 	switch (ret)
+ 	{
+ 		case DLCI_RET_OK:
+@@ -295,11 +295,9 @@ static int dlci_dev_ioctl(struct net_dev
+ 
+ static int dlci_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	struct dlci_local *dlp;
+-
+-	dlp = netdev_priv(dev);
++	struct dlci_local *dlp = netdev_priv(dev);
+ 
+-	return((*dlp->slave->change_mtu)(dlp->slave, new_mtu));
++	return dev_set_mtu(dlp->slave, new_mtu);
  }
  
--/* callback to initialize device */
--static void cycx_x25_chan_setup(struct net_device *dev)
--{
--	dev->init = cycx_netdevice_init;
--}
--
- /* Create new logical channel.
-  * This routine is called by the router when ROUTER_IFNEW IOCTL is being
-  * handled.
-@@ -476,6 +470,27 @@ static const struct header_ops cycx_head
- 	.rebuild = cycx_netdevice_rebuild_header,
+ static int dlci_open(struct net_device *dev)
+@@ -479,17 +477,21 @@ static const struct header_ops dlci_head
+ 	.create	= dlci_header,
  };
  
-+static const struct net_device_ops cycx_netdev_ops = {
-+	.ndo_init	= cycx_netdevice_init,
-+	.ndo_open	= cycx_netdevice_open,
-+	.ndo_stop	= cycx_netdevice_stop,
-+	.ndo_start_xmit	= cycx_netdevice_hard_start_xmit,
-+	.ndo_get_stats	= cycx_netdevice_get_stats,
++static const struct net_device_ops dlci_netdev_ops = {
++	.ndo_open	= dlci_open,
++	.ndo_stop	= dlci_close,
++	.ndo_do_ioctl	= dlci_dev_ioctl,
++	.ndo_start_xmit	= dlci_transmit,
++	.ndo_change_mtu	= dlci_change_mtu,
 +};
 +
-+static void cycx_x25_chan_setup(struct net_device *dev)
-+{
-+	/* Initialize device driver entry points */
-+	dev->netdev_ops		= &cycx_netdev_ops;
-+	dev->header_ops		= &cycx_header_ops;
-+
-+	/* Initialize media-specific parameters */
-+	dev->mtu		= CYCX_X25_CHAN_MTU;
-+	dev->type		= ARPHRD_HWX25;	/* ARP h/w type */
-+	dev->hard_header_len	= 0;		/* media header length */
-+	dev->addr_len		= 0;		/* hardware address length */
-+}
-+
- /* Initialize Linux network interface.
-  *
-  * This routine is called only once for each interface, during Linux network
-@@ -487,20 +502,6 @@ static int cycx_netdevice_init(struct ne
- 	struct cycx_device *card = chan->card;
- 	struct wan_device *wandev = &card->wandev;
+ static void dlci_setup(struct net_device *dev)
+ {
+ 	struct dlci_local *dlp = netdev_priv(dev);
  
--	/* Initialize device driver entry points */
--	dev->open		= cycx_netdevice_open;
--	dev->stop		= cycx_netdevice_stop;
--	dev->header_ops		= &cycx_header_ops;
--
--	dev->hard_start_xmit	= cycx_netdevice_hard_start_xmit;
--	dev->get_stats		= cycx_netdevice_get_stats;
--
--	/* Initialize media-specific parameters */
--	dev->mtu		= CYCX_X25_CHAN_MTU;
--	dev->type		= ARPHRD_HWX25;	/* ARP h/w type */
--	dev->hard_header_len	= 0;		/* media header length */
--	dev->addr_len		= 0;		/* hardware address length */
--
- 	if (!chan->svc)
- 		*(__be16*)dev->dev_addr = htons(chan->lcn);
+ 	dev->flags		= 0;
+-	dev->open		= dlci_open;
+-	dev->stop		= dlci_close;
+-	dev->do_ioctl		= dlci_dev_ioctl;
+-	dev->hard_start_xmit	= dlci_transmit;
+ 	dev->header_ops		= &dlci_header_ops;
+-	dev->change_mtu		= dlci_change_mtu;
++	dev->netdev_ops		= &dlci_netdev_ops;
+ 	dev->destructor		= free_netdev;
  
+ 	dlp->receive		= dlci_receive;
 
 -- 
 
