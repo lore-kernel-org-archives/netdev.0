@@ -1,115 +1,63 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 64/77] zd1201: convert to internal net_device_stats
-Date: Fri, 20 Mar 2009 22:36:31 -0700
-Message-ID: <20090321053717.440414565@vyatta.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 34/77] pcmcia: convert 3c589 to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:01 -0700
+Message-ID: <20090321053715.114984260@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, pe1rxq-QXXXXQs8DbXYtjvyW6yDsg@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline; filename=zd1201-stats.patch
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:36603 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760921AbZCUFsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 01:48:16 -0400
+Content-Disposition: inline; filename=3c589.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/wireless/zd1201.c	2009-03-20 21:45:40.866964137 -0700
-+++ b/drivers/net/wireless/zd1201.c	2009-03-20 22:26:00.356902321 -0700
-@@ -328,8 +328,8 @@ static void zd1201_usbrx(struct urb *urb
- 			memcpy(skb_put(skb, 2), &data[datalen-24], 2);
- 			memcpy(skb_put(skb, len), data, len);
- 			skb->protocol = eth_type_trans(skb, zd->dev);
--			zd->stats.rx_packets++;
--			zd->stats.rx_bytes += skb->len;
-+			zd->dev->stats.rx_packets++;
-+			zd->dev->stats.rx_bytes += skb->len;
- 			netif_rx(skb);
- 			goto resubmit;
- 		}
-@@ -384,8 +384,8 @@ static void zd1201_usbrx(struct urb *urb
- 			memcpy(skb_put(skb, len), data+8, len);
- 		}
- 		skb->protocol = eth_type_trans(skb, zd->dev);
--		zd->stats.rx_packets++;
--		zd->stats.rx_bytes += skb->len;
-+		zd->dev->stats.rx_packets++;
-+		zd->dev->stats.rx_bytes += skb->len;
- 		netif_rx(skb);
- 	}
- resubmit:
-@@ -787,7 +787,7 @@ static int zd1201_hard_start_xmit(struct
- 	struct urb *urb = zd->tx_urb;
+--- a/drivers/net/pcmcia/3c589_cs.c	2009-03-20 15:23:42.903968610 -0700
++++ b/drivers/net/pcmcia/3c589_cs.c	2009-03-20 15:29:37.743901982 -0700
+@@ -169,6 +169,19 @@ static void tc589_detach(struct pcmcia_d
  
- 	if (!zd->mac_enabled || zd->monitor) {
--		zd->stats.tx_dropped++;
-+		dev->stats.tx_dropped++;
- 		kfree_skb(skb);
- 		return 0;
- 	}
-@@ -817,12 +817,12 @@ static int zd1201_hard_start_xmit(struct
+ ======================================================================*/
  
- 	err = usb_submit_urb(zd->tx_urb, GFP_ATOMIC);
- 	if (err) {
--		zd->stats.tx_errors++;
-+		dev->stats.tx_errors++;
- 		netif_start_queue(dev);
- 		return err;
- 	}
--	zd->stats.tx_packets++;
--	zd->stats.tx_bytes += skb->len;
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
- 	dev->trans_start = jiffies;
- 	kfree_skb(skb);
- 
-@@ -838,7 +838,7 @@ static void zd1201_tx_timeout(struct net
- 	dev_warn(&zd->usb->dev, "%s: TX timeout, shooting down urb\n",
- 	    dev->name);
- 	usb_unlink_urb(zd->tx_urb);
--	zd->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 	/* Restart the timeout to quiet the watchdog: */
- 	dev->trans_start = jiffies;
- }
-@@ -861,13 +861,6 @@ static int zd1201_set_mac_address(struct
- 	return zd1201_mac_reset(zd);
- }
- 
--static struct net_device_stats *zd1201_get_stats(struct net_device *dev)
--{
--	struct zd1201 *zd = netdev_priv(dev);
--
--	return &zd->stats;
--}
--
- static struct iw_statistics *zd1201_get_wireless_stats(struct net_device *dev)
++static const struct net_device_ops el3_netdev_ops = {
++	.ndo_open 		= el3_open,
++	.ndo_stop 		= el3_close,
++	.ndo_start_xmit		= el3_start_xmit,
++	.ndo_tx_timeout 	= el3_tx_timeout,
++	.ndo_set_config		= el3_config,
++	.ndo_get_stats		= el3_get_stats,
++	.ndo_set_multicast_list = set_multicast_list,
++	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
+ static int tc589_probe(struct pcmcia_device *link)
  {
- 	struct zd1201 *zd = netdev_priv(dev);
-@@ -1778,9 +1771,7 @@ static int zd1201_probe(struct usb_inter
+     struct el3_private *lp;
+@@ -195,17 +208,9 @@ static int tc589_probe(struct pcmcia_dev
+     link->conf.IntType = INT_MEMORY_AND_IO;
+     link->conf.ConfigIndex = 1;
  
- 	dev->open = zd1201_net_open;
- 	dev->stop = zd1201_net_stop;
--	dev->get_stats = zd1201_get_stats;
--	dev->wireless_handlers =
--	    (struct iw_handler_def *)&zd1201_iw_handlers;
-+	dev->wireless_handlers = &zd1201_iw_handlers;
- 	dev->hard_start_xmit = zd1201_hard_start_xmit;
- 	dev->watchdog_timeo = ZD1201_TX_TIMEOUT;
- 	dev->tx_timeout = zd1201_tx_timeout;
---- a/drivers/net/wireless/zd1201.h	2009-03-20 21:45:40.859963944 -0700
-+++ b/drivers/net/wireless/zd1201.h	2009-03-20 22:26:00.356902321 -0700
-@@ -26,7 +26,6 @@ struct zd1201 {
- 	struct usb_device	*usb;
- 	int			removed;
- 	struct net_device	*dev;
--	struct net_device_stats stats;
- 	struct iw_statistics	iwstats;
+-    /* The EL3-specific entries in the device structure. */
+-    dev->hard_start_xmit = &el3_start_xmit;
+-    dev->set_config = &el3_config;
+-    dev->get_stats = &el3_get_stats;
+-    dev->set_multicast_list = &set_multicast_list;
+-    dev->open = &el3_open;
+-    dev->stop = &el3_close;
+-#ifdef HAVE_TX_TIMEOUT
+-    dev->tx_timeout = el3_tx_timeout;
++    dev->netdev_ops = &el3_netdev_ops;
+     dev->watchdog_timeo = TX_TIMEOUT;
+-#endif
++
+     SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
  
- 	int			endp_in;
+     return tc589_config(link);
 
 -- 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
