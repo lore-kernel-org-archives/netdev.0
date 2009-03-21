@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH v2 10/13] powerpc/82xx: Rework Embedded Planet ep8248e
-	platform to use of_mdio
-Date: Sat, 21 Mar 2009 16:29:07 -0600
-Message-ID: <20090321222906.20493.32061.stgit@localhost.localdomain>
+Subject: [PATCH v2 09/13] net: Rework pasemi_mac driver to use of_mdio
+	infrastructure
+Date: Sat, 21 Mar 2009 16:29:01 -0600
+Message-ID: <20090321222901.20493.67103.stgit@localhost.localdomain>
 References: <20090321222047.20493.87335.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,57 +11,149 @@ Cc: afleming@freescale.com, galak@kernel.crashing.org,
 	davem@davemloft.net
 To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, olof@lixom.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:30079 "EHLO
+Received: from wf-out-1314.google.com ([209.85.200.173]:31077 "EHLO
 	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756174AbZCUW3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 18:29:12 -0400
-Received: by wf-out-1314.google.com with SMTP id 29so2085855wff.4
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2009 15:29:10 -0700 (PDT)
+	with ESMTP id S1756111AbZCUW3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 18:29:11 -0400
+Received: by wf-out-1314.google.com with SMTP id 29so2085459wff.4
+        for <netdev@vger.kernel.org>; Sat, 21 Mar 2009 15:29:09 -0700 (PDT)
 In-Reply-To: <20090321222047.20493.87335.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Grant Likely <grant.likely@secretlab.ca>
 
-This patch modifies the bitbanged MDIO driver in the ep8248e platform
-code to use the common of_mdio infrastructure.
+This patch simplifies the driver by making use of more common code.
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- arch/powerpc/platforms/82xx/ep8248e.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+ arch/powerpc/platforms/pasemi/gpio_mdio.c |   29 ++++-------------------------
+ drivers/net/pasemi_mac.c                  |   19 +++----------------
+ drivers/net/pasemi_mac.h                  |    1 -
+ 3 files changed, 7 insertions(+), 42 deletions(-)
 
 
-diff --git a/arch/powerpc/platforms/82xx/ep8248e.c b/arch/powerpc/platforms/82xx/ep8248e.c
-index 0eb6d7f..bd323b5 100644
---- a/arch/powerpc/platforms/82xx/ep8248e.c
-+++ b/arch/powerpc/platforms/82xx/ep8248e.c
-@@ -14,6 +14,7 @@
+diff --git a/arch/powerpc/platforms/pasemi/gpio_mdio.c b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+index 75cc165..26e8f36 100644
+--- a/arch/powerpc/platforms/pasemi/gpio_mdio.c
++++ b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+@@ -29,7 +29,7 @@
+ #include <linux/ioport.h>
  #include <linux/interrupt.h>
- #include <linux/fsl_devices.h>
- #include <linux/mdio-bitbang.h>
+ #include <linux/phy.h>
+-#include <linux/platform_device.h>
 +#include <linux/of_mdio.h>
  #include <linux/of_platform.h>
  
- #include <asm/io.h>
-@@ -130,17 +131,13 @@ static int __devinit ep8248e_mdio_probe(struct of_device *ofdev,
- 	if (!bus)
- 		return -ENOMEM;
+ #define DELAY 1
+@@ -39,6 +39,7 @@ static void __iomem *gpio_regs;
+ struct gpio_priv {
+ 	int mdc_pin;
+ 	int mdio_pin;
++	int mdio_irqs[PHY_MAX_ADDR];
+ };
  
--	bus->phy_mask = 0;
- 	bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
+ #define MDC_PIN(bus)	(((struct gpio_priv *)bus->priv)->mdc_pin)
+@@ -244,27 +245,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", *prop);
+ 	new_bus->priv = priv;
  
--	for (i = 0; i < PHY_MAX_ADDR; i++)
--		bus->irq[i] = -1;
+-	new_bus->phy_mask = 0;
 -
- 	bus->name = "ep8248e-mdio-bitbang";
- 	bus->parent = &ofdev->dev;
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%x", res.start);
+-	new_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+-
+-	if (!new_bus->irq)
+-		goto out_free_bus;
+-
+-	for (i = 0; i < PHY_MAX_ADDR; i++)
+-		new_bus->irq[i] = NO_IRQ;
+-
+-	for (phy_dn = of_get_next_child(np, NULL);
+-	     phy_dn != NULL;
+-	     phy_dn = of_get_next_child(np, phy_dn)) {
+-		const unsigned int *ip, *regp;
+-
+-		ip = of_get_property(phy_dn, "interrupts", NULL);
+-		regp = of_get_property(phy_dn, "reg", NULL);
+-		if (!ip || !regp || *regp >= PHY_MAX_ADDR)
+-			continue;
+-		new_bus->irq[*regp] = irq_create_mapping(NULL, *ip);
+-	}
++	new_bus->irq = priv->mdio_irqs;
  
--	return mdiobus_register(bus);
-+	return of_mdiobus_register(bus, ofdev->node);
- }
+ 	prop = of_get_property(np, "mdc-pin", NULL);
+ 	priv->mdc_pin = *prop;
+@@ -275,7 +256,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	new_bus->parent = dev;
+ 	dev_set_drvdata(dev, new_bus);
  
- static int ep8248e_mdio_remove(struct of_device *ofdev)
+-	err = mdiobus_register(new_bus);
++	err = of_mdiobus_register(new_bus, np);
+ 
+ 	if (err != 0) {
+ 		printk(KERN_ERR "%s: Cannot register as MDIO bus, err %d\n",
+@@ -286,8 +267,6 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	return 0;
+ 
+ out_free_irq:
+-	kfree(new_bus->irq);
+-out_free_bus:
+ 	kfree(new_bus);
+ out_free_priv:
+ 	kfree(priv);
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index d0349e7..8c92d1f 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -1086,34 +1086,21 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	struct device_node *dn, *phy_dn;
+ 	struct phy_device *phydev;
+-	unsigned int phy_id;
+ 	const phandle *ph;
+ 	const unsigned int *prop;
+ 	struct resource r;
+ 	int ret;
+ 
+ 	dn = pci_device_to_OF_node(mac->pdev);
+-	ph = of_get_property(dn, "phy-handle", NULL);
+-	if (!ph)
+-		return -ENODEV;
+-	phy_dn = of_find_node_by_phandle(*ph);
+-
+-	prop = of_get_property(phy_dn, "reg", NULL);
+-	ret = of_address_to_resource(phy_dn->parent, 0, &r);
+-	if (ret)
+-		goto err;
+-
+-	phy_id = *prop;
+-	snprintf(mac->phy_id, sizeof(mac->phy_id), "%x:%02x",
+-		 (int)r.start, phy_id);
+-
++	phy_dn = of_parse_phandle(dn, "phy-handle", 0);
+ 	of_node_put(phy_dn);
+ 
+ 	mac->link = 0;
+ 	mac->speed = 0;
+ 	mac->duplex = -1;
+ 
+-	phydev = phy_connect(dev, mac->phy_id, &pasemi_adjust_link, 0, PHY_INTERFACE_MODE_SGMII);
++	phydev = of_phy_connect(dev, phy_dn, &pasemi_adjust_link, 0,
++				PHY_INTERFACE_MODE_SGMII);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		printk(KERN_ERR "%s: Could not attach to phy\n", dev->name);
+diff --git a/drivers/net/pasemi_mac.h b/drivers/net/pasemi_mac.h
+index 1a115ec..e2f4efa 100644
+--- a/drivers/net/pasemi_mac.h
++++ b/drivers/net/pasemi_mac.h
+@@ -100,7 +100,6 @@ struct pasemi_mac {
+ 	int	duplex;
+ 
+ 	unsigned int	msg_enable;
+-	char	phy_id[BUS_ID_SIZE];
+ };
+ 
+ /* Software status descriptor (ring_info) */
 
