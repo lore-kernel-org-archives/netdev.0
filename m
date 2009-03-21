@@ -1,61 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 37/77] pcmcia: convert fmvj18x driver to net_device_ops
-Date: Fri, 20 Mar 2009 22:36:04 -0700
-Message-ID: <20090321053715.337103339@vyatta.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 65/77] zd1201: convert to net_device_ops
+Date: Fri, 20 Mar 2009 22:36:32 -0700
+Message-ID: <20090321053717.514936473@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36614 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760959AbZCUFsR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:17 -0400
-Content-Disposition: inline; filename=fmv-netops.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, pe1rxq-QXXXXQs8DbXYtjvyW6yDsg@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=zd1201-ops.patch
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 
---- a/drivers/net/pcmcia/fmvj18x_cs.c	2009-03-20 15:33:28.183090032 -0700
-+++ b/drivers/net/pcmcia/fmvj18x_cs.c	2009-03-20 15:35:39.076839897 -0700
-@@ -227,6 +227,18 @@ typedef struct local_info_t {
- #define BANK_1U              0x24 /* bank 1 (CONFIG_1) */
- #define BANK_2U              0x28 /* bank 2 (CONFIG_1) */
+
+--- a/drivers/net/wireless/zd1201.c	2009-03-20 22:26:00.356902321 -0700
++++ b/drivers/net/wireless/zd1201.c	2009-03-20 22:26:01.715027053 -0700
+@@ -1717,6 +1717,18 @@ static const struct iw_handler_def zd120
+ 	.get_wireless_stats	= zd1201_get_wireless_stats,
+ };
  
-+static const struct net_device_ops fjn_netdev_ops = {
-+	.ndo_open 		= fjn_open,
-+	.ndo_stop		= fjn_close,
-+	.ndo_start_xmit 	= fjn_start_xmit,
-+	.ndo_tx_timeout 	= fjn_tx_timeout,
-+	.ndo_set_config 	= fjn_config,
-+	.ndo_set_multicast_list = set_rx_mode,
++static const struct net_device_ops zd1201_netdev_ops = {
++	.ndo_open		= zd1201_net_open,
++	.ndo_stop		= zd1201_net_stop,
++	.ndo_start_xmit		= zd1201_hard_start_xmit,
++	.ndo_tx_timeout		= zd1201_tx_timeout,
++	.ndo_set_multicast_list = zd1201_set_multicast,
++	.ndo_set_mac_address	= zd1201_set_mac_address,
 +	.ndo_change_mtu		= eth_change_mtu,
 +	.ndo_set_mac_address 	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
- static int fmvj18x_probe(struct pcmcia_device *link)
+ static int zd1201_probe(struct usb_interface *interface,
+ 			const struct usb_device_id *id)
  {
-     local_info_t *lp;
-@@ -258,16 +270,9 @@ static int fmvj18x_probe(struct pcmcia_d
-     link->conf.Attributes = CONF_ENABLE_IRQ;
-     link->conf.IntType = INT_MEMORY_AND_IO;
+@@ -1769,14 +1781,9 @@ static int zd1201_probe(struct usb_inter
+ 	if (err)
+ 		goto err_start;
  
--    /* The FMVJ18x specific entries in the device structure. */
--    dev->hard_start_xmit = &fjn_start_xmit;
--    dev->set_config = &fjn_config;
--    dev->set_multicast_list = &set_rx_mode;
--    dev->open = &fjn_open;
--    dev->stop = &fjn_close;
--#ifdef HAVE_TX_TIMEOUT
--    dev->tx_timeout = fjn_tx_timeout;
-+    dev->netdev_ops = &fjn_netdev_ops;
-     dev->watchdog_timeo = TX_TIMEOUT;
--#endif
-+
-     SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+-	dev->open = zd1201_net_open;
+-	dev->stop = zd1201_net_stop;
++	dev->netdev_ops = &zd1201_netdev_ops;
+ 	dev->wireless_handlers = &zd1201_iw_handlers;
+-	dev->hard_start_xmit = zd1201_hard_start_xmit;
+ 	dev->watchdog_timeo = ZD1201_TX_TIMEOUT;
+-	dev->tx_timeout = zd1201_tx_timeout;
+-	dev->set_multicast_list = zd1201_set_multicast;
+-	dev->set_mac_address = zd1201_set_mac_address;
+ 	strcpy(dev->name, "wlan%d");
  
-     return fmvj18x_config(link);
+ 	err = zd1201_getconfig(zd, ZD1201_RID_CNFOWNMACADDR, 
 
 -- 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
