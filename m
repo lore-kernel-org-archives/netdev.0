@@ -1,32 +1,48 @@
-From: "WEBMAIL SUPPORT TEAM" <icut4u001@myfairpoint.net>
-Subject: *****CONFIRM YOUR EMAIL ACCOUNT*****
-Date: Sat, 21 Mar 2009 06:16:01 -0400
-Message-ID: <20090321061601.43vujl9bbku0ws0s@webmail.myfairpoint.net>
+From: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.29-rc8: Reported regressions from 2.6.28
+Date: Sat, 21 Mar 2009 23:08:11 +0800
+Message-ID: <b6a2187b0903210808m7586fdc2g53e72aa269d6e353@mail.gmail.com>
+References: <MiincthRUSI.A.eKC.F4BvJB@chimera>
+	 <b6a2187b0903181958ke11abe7tdcbc4efeb950954d@mail.gmail.com>
+	 <b6a2187b0903182149x77e416ecuf73be2970173c601@mail.gmail.com>
+	 <1237455534.5100.56.camel@johannes.local>
+	 <b6a2187b0903192155q33510b57l9d5927538a0f4f99@mail.gmail.com>
+	 <1237537967.5100.135.camel@johannes.local>
+	 <b6a2187b0903200304l469e3eeet87c51b1cddb43ea8@mail.gmail.com>
+	 <1237544033.5100.143.camel@johannes.local>
+	 <b6a2187b0903200914r23d635c9obc55b30b7cc04382@mail.gmail.com>
+	 <1237637375.5100.178.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail104c26.carrierzone.com ([64.29.152.114]:49937 "EHLO
-	mail104c26.carrierzone.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752914AbZCUNkl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 09:40:41 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1237637375.5100.178.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dear Subscriber,
-We would like to inform you that we are currently carrying
-out scheduled maintenance and upgrade of our webmail service
-and as a result of this; our E-mail client has been changed
-and your original password will be reset. We are sorry for
-any inconvenience caused.=20
-To maintain your E-mail account, you must reply to this
-email immediately and enter your current password here
-(******).=20
-=46ailure to do this within 48 hours will immediately render
-your email account deactivated from our database.=20
-Thank you for using Our webmail.=20
-WEBMAIL SUPPORT TEAM.=20
-=C2=A9Networks All Rights Reserved.=20
+On Sat, Mar 21, 2009 at 8:09 PM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> Thing is that this works perfectly fine for me, on very similar
+> hardware.
+
+I've set hidden SSID + mac address filtering (only allow my notebook
+MAC address) as well as 128 WEP. And no problem to associate with
+non-hidden AP.
+
+> OTOH, maybe it got _fixed_ again. Would you check wireless-testing
+> (http://wireless.kernel.org/en/developers/Documentation#wireless-testing.git) for me? Or compat-wireless (http://wireless.kernel.org/en/users/Download)
+
+I'll try that tomorrow. Seems a lot to pull from git.
+
+Thanks,
+Jeff.
