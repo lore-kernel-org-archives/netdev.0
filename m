@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] net/*: use linux/kernel.h swap()
-Date: Sat, 21 Mar 2009 13:36:24 -0700 (PDT)
-Message-ID: <20090321.133624.165728995.davem@davemloft.net>
-References: <Pine.LNX.4.64.0903192305360.30791@wrl-59.cs.helsinki.fi>
-	<Pine.LNX.4.64.0903211514370.31762@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH] atm: lec use dev_change_mtu
+Date: Sat, 21 Mar 2009 13:37:47 -0700 (PDT)
+Message-ID: <20090321.133747.261240938.davem@davemloft.net>
+References: <20090319172400.239594f8@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41101
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41104
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754034AbZCUUgh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 16:36:37 -0400
-In-Reply-To: <Pine.LNX.4.64.0903211514370.31762@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1752605AbZCUUiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 16:38:00 -0400
+In-Reply-To: <20090319172400.239594f8@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sat, 21 Mar 2009 15:16:09 +0200 (EET)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 19 Mar 2009 17:24:00 -0700
 
->=20
-> tcp_sack_swap seems unnecessary so I pushed swap to the caller.
-> Also removed comment that seemed then pointless, and added include
-> when not already there. Compile tested.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Rather than calling device pointer directly (which is incorrect with
+> net_device_ops), use the standard dev_change_mtu. Compile tested only.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thanks.
+Applied.
