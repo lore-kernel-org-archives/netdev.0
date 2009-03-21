@@ -1,75 +1,120 @@
 From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 72/77] ipw2x00: convert infrastructure for use by net_device_ops
-Date: Fri, 20 Mar 2009 22:36:39 -0700
-Message-ID: <20090321053718.065171867@vyatta.com>
+Subject: [PATCH 68/77] prism54: convert to internal net_device_stats
+Date: Fri, 20 Mar 2009 22:36:35 -0700
+Message-ID: <20090321053717.765575826@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, jkosina-AlSwsSmVLrQ@public.gmane.org,
-	dstreba-AlSwsSmVLrQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline; filename=ipw-netdev.patch
+Content-Disposition: inline; filename=lscpi-stats.patch
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Expose routines so drivers can hook. Only set ptrs in netdev
-if using old compat code.
+Also, make ethtool_ops const as it should be, and get rid
+of useless cast.
 
 Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 
 ---
- drivers/net/wireless/ipw2x00/ieee80211.h     |    1 +
- drivers/net/wireless/ipw2x00/libipw_module.c |    5 ++++-
- drivers/net/wireless/ipw2x00/libipw_tx.c     |    1 +
- 3 files changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/wireless/prism54/islpci_dev.c |   14 --------------
+ drivers/net/wireless/prism54/islpci_dev.h |    3 ---
+ drivers/net/wireless/prism54/islpci_eth.c |   13 ++++++-------
+ 3 files changed, 6 insertions(+), 24 deletions(-)
 
---- a/drivers/net/wireless/ipw2x00/libipw_module.c	2009-03-20 21:39:32.901088992 -0700
-+++ b/drivers/net/wireless/ipw2x00/libipw_module.c	2009-03-20 21:39:34.508964994 -0700
-@@ -131,13 +131,14 @@ static void ieee80211_networks_initializ
- 			      &ieee->network_free_list);
+--- a/drivers/net/wireless/prism54/islpci_dev.c	2009-03-20 18:37:36.129838594 -0700
++++ b/drivers/net/wireless/prism54/islpci_dev.c	2009-03-20 18:37:36.137839156 -0700
+@@ -43,7 +43,6 @@
+ 
+ static int prism54_bring_down(islpci_private *);
+ static int islpci_alloc_memory(islpci_private *);
+-static struct net_device_stats *islpci_statistics(struct net_device *);
+ 
+ /* Temporary dummy MAC address to use until firmware is loaded.
+  * The idea there is that some tools (such as nameif) may query
+@@ -614,18 +613,6 @@ islpci_reset(islpci_private *priv, int r
+ 	return rc;
  }
  
--static int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
-+int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	if ((new_mtu < 68) || (new_mtu > IEEE80211_DATA_LEN))
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
+-static struct net_device_stats *
+-islpci_statistics(struct net_device *ndev)
+-{
+-	islpci_private *priv = netdev_priv(ndev);
+-
+-#if VERBOSE > SHOW_ERROR_MESSAGES
+-	DEBUG(SHOW_FUNCTION_CALLS, "islpci_statistics\n");
+-#endif
+-
+-	return &priv->statistics;
+-}
+-
+ /******************************************************************************
+     Network device configuration functions
+ ******************************************************************************/
+@@ -811,7 +798,6 @@ static const struct ethtool_ops islpci_e
+ static const struct net_device_ops islpci_netdev_ops = {
+ 	.ndo_open 		= islpci_open,
+ 	.ndo_stop		= islpci_close,
+-	.ndo_get_stats		= islpci_statistics,
+ 	.ndo_do_ioctl		= prism54_ioctl,
+ 	.ndo_start_xmit		= islpci_eth_transmit,
+ 	.ndo_tx_timeout		= islpci_eth_tx_timeout,
+--- a/drivers/net/wireless/prism54/islpci_dev.h	2009-03-20 18:36:43.697901654 -0700
++++ b/drivers/net/wireless/prism54/islpci_dev.h	2009-03-20 18:37:36.137839156 -0700
+@@ -158,9 +158,6 @@ typedef struct {
+ 	dma_addr_t pci_map_tx_address[ISL38XX_CB_TX_QSIZE];
+ 	dma_addr_t pci_map_rx_address[ISL38XX_CB_RX_QSIZE];
+ 
+-	/* driver network interface members */
+-	struct net_device_stats statistics;
+-
+ 	/* wait for a reset interrupt */
+ 	wait_queue_head_t reset_done;
+ 
+--- a/drivers/net/wireless/prism54/islpci_eth.c	2009-03-20 18:37:59.821964445 -0700
++++ b/drivers/net/wireless/prism54/islpci_eth.c	2009-03-20 18:38:59.740714710 -0700
+@@ -231,8 +231,8 @@ islpci_eth_transmit(struct sk_buff *skb,
+ 
+ 	/* set the transmission time */
+ 	ndev->trans_start = jiffies;
+-	priv->statistics.tx_packets++;
+-	priv->statistics.tx_bytes += skb->len;
++	ndev->stats.tx_packets++;
++	ndev->stats.tx_bytes += skb->len;
+ 
+ 	/* trigger the device */
+ 	islpci_trigger(priv);
+@@ -243,7 +243,7 @@ islpci_eth_transmit(struct sk_buff *skb,
  	return 0;
- }
-+EXPORT_SYMBOL(ieee80211_change_mtu);
  
- struct net_device *alloc_ieee80211(int sizeof_priv)
- {
-@@ -153,8 +154,10 @@ struct net_device *alloc_ieee80211(int s
- 		goto failed;
+       drop_free:
+-	priv->statistics.tx_dropped++;
++	ndev->stats.tx_dropped++;
+ 	spin_unlock_irqrestore(&priv->slock, flags);
+ 	dev_kfree_skb(skb);
+ 	return err;
+@@ -408,8 +408,8 @@ islpci_eth_receive(islpci_private *priv)
+ 		skb->protocol = eth_type_trans(skb, ndev);
  	}
- 	ieee = netdev_priv(dev);
-+#ifdef CONFIG_COMPAT_NET_DEV_OPS
- 	dev->hard_start_xmit = ieee80211_xmit;
- 	dev->change_mtu = ieee80211_change_mtu;
-+#endif
+ 	skb->ip_summed = CHECKSUM_NONE;
+-	priv->statistics.rx_packets++;
+-	priv->statistics.rx_bytes += size;
++	ndev->stats.rx_packets++;
++	ndev->stats.rx_bytes += size;
  
- 	ieee->dev = dev;
+ 	/* deliver the skb to the network layer */
+ #ifdef ISLPCI_ETH_DEBUG
+@@ -497,10 +497,9 @@ void
+ islpci_eth_tx_timeout(struct net_device *ndev)
+ {
+ 	islpci_private *priv = netdev_priv(ndev);
+-	struct net_device_stats *statistics = &priv->statistics;
  
---- a/drivers/net/wireless/ipw2x00/ieee80211.h	2009-03-20 21:39:32.900089558 -0700
-+++ b/drivers/net/wireless/ipw2x00/ieee80211.h	2009-03-20 21:39:34.509964918 -0700
-@@ -1016,6 +1016,7 @@ static inline int ieee80211_is_cck_rate(
- /* ieee80211.c */
- extern void free_ieee80211(struct net_device *dev);
- extern struct net_device *alloc_ieee80211(int sizeof_priv);
-+extern int ieee80211_change_mtu(struct net_device *dev, int new_mtu);
+ 	/* increment the transmit error counter */
+-	statistics->tx_errors++;
++	ndev->stats.tx_errors++;
  
- extern void ieee80211_networks_age(struct ieee80211_device *ieee,
- 				   unsigned long age_secs);
---- a/drivers/net/wireless/ipw2x00/libipw_tx.c	2009-03-20 21:39:59.063966304 -0700
-+++ b/drivers/net/wireless/ipw2x00/libipw_tx.c	2009-03-20 21:40:37.667839502 -0700
-@@ -541,5 +541,6 @@ int ieee80211_xmit(struct sk_buff *skb, 
- 	dev->stats.tx_errors++;
- 	return 1;
- }
-+EXPORT_SYMBOL(ieee80211_xmit);
- 
- EXPORT_SYMBOL(ieee80211_txb_free);
+ 	if (!priv->reset_task_pending) {
+ 		printk(KERN_WARNING
 
 -- 
 
