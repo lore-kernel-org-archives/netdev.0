@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] fsl_pq_mdio: Revive Gianfar TBI PHY support
-Date: Sat, 21 Mar 2009 13:30:16 -0700 (PDT)
-Message-ID: <20090321.133016.135139160.davem@davemloft.net>
-References: <20090319155232.GA5419@oksana.dev.rtsoft.ru>
-	<5D5BAD65-6ED3-4B07-9106-7DD2A715B6BA@freescale.com>
+Subject: Re: [PATCH] dca: add missing copyright/license headers
+Date: Sat, 21 Mar 2009 13:31:30 -0700 (PDT)
+Message-ID: <20090321.133130.59761269.davem@davemloft.net>
+References: <20090319160244.24380.31212.stgit@linux.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: afleming@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <5D5BAD65-6ED3-4B07-9106-7DD2A715B6BA@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: dan.j.williams@intel.com, shannon.nelson@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: maciej.sosnowski@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55794
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753107AbZCUUbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 16:31:43 -0400
+In-Reply-To: <20090319160244.24380.31212.stgit@linux.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@freescale.com>
-Date: Thu, 19 Mar 2009 10:56:59 -0500
+From: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Date: Thu, 19 Mar 2009 17:03:06 +0100
 
+> In two dca files copyright and license headers are missing.
+> This patch adds them there.
 > 
-> On Mar 19, 2009, at 10:52 AM, Anton Vorontsov wrote:
-> 
-> > commit 1577ecef766650a57fceb171acee2b13cbfaf1d3 ("netdev: Merge UCC
-> > and gianfar MDIO bus drivers") broke the TSEC TBI PHY support: the
- ...
-> > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> 
-> Acked-by: Andy Fleming <afleming@freescale.com>
+> Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
 
-Applied
+Applied, thanks.
