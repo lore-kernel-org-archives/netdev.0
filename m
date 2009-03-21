@@ -1,62 +1,66 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.29-rc8-git5: Reported regressions from 2.6.28
-Date: Sat, 21 Mar 2009 21:05:34 +0100
-Message-ID: <20090321200534.GA30238@elte.hu>
-References: <GPBuLTara4J.A.3kH.TZTxJB@chimera>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [Bug #12868] iproute2 and regressing "ipv6: convert tunnels to net_device_ops"
+Date: Sat, 21 Mar 2009 21:16:48 +0100
+Message-ID: <87iqm2hbrj.fsf__13109.4428048984$1237666876$gmane$org@nemi.mork.no>
+References: <HPkmj74uawF.A.iqE.M8TxJB@chimera>
+	<fnEpM0mQZjO.A.o3E.S8TxJB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Wu Fengguang <fengguang.wu@intel.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <GPBuLTara4J.A.3kH.TZTxJB@chimera>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List
+	<public-linux-kernel-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org>,
+	Kernel Testers List
+	<public-kernel-testers-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org>,
+	"Jan Engelhardt"
+	<public-jengelh-nopoi9nDyk+ELgA04lAiVw@hugh.gmane.org>,
+	"netdev" <public-netdev-u79uwXL29TY76Z2rM5mHXA@hugh.gmane.org>,
+	"Stephen Hemminger"
+	<public-shemminger-ZtmgI6mnKB3QT0dZR+AlfA@hugh.gmane.org>
+To: "Rafael J. Wysocki" <public-rjw-KKrjLPT3xs0@hugh.gmane.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from blaine.gmane.org ([80.91.229.8]:48699 "EHLO hugh.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753238AbZCUUTT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 16:19:19 -0400
+Received: from public by hugh.gmane.org with local (Exim 4.63)
+	(envelope-from <public@hugh.gmane.org>)
+	id 1Ll7f0-0001hi-BU
+	for netdev@vger.kernel.org; Sat, 21 Mar 2009 21:19:14 +0100
+In-Reply-To: <fnEpM0mQZjO.A.o3E.S8TxJB@chimera> (Rafael J. Wysocki's message
+	of "Sat, 21 Mar 2009 18:07:29 +0100 (CET)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-* Rafael J. Wysocki <rjw@sisk.pl> wrote:
 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12809
-> Subject		: iozone regression with 2.6.29-rc6
-> Submitter	: Lin Ming <ming.m.lin@intel.com>
-> Date		: 2009-02-27 9:13 (23 days old)
-> First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1cf6e7d83bf334cc5916137862c920a97aabc018
-> References	: http://marc.info/?l=linux-kernel&m=123572630504360&w=4
-> 		  http://lkml.org/lkml/2009/3/14/265
-> Handled-By	: Wu Fengguang <fengguang.wu@intel.com>
 
-I think this was tracked back to the effective halving of 
-dirty_ratio by 1cf6e7d83 ("mm: task dirty accounting fix") and 
-doubling the ratio fixed the iozone regression.
+"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org> writes:
 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12800
-> Subject		: x86 PAT invalid vm_insert_pfn assumptions
-> Submitter	: Thomas Hellstrom <thellstrom@vmware.com>
-> Date		: 2009-03-02 01:40 (20 days old)
+> This message has been generated automatically as a part of a report
+> of regressions introduced between 2.6.27 and 2.6.28.
+>
+> The following bug entry is on the current list of known regressions
+> introduced between 2.6.27 and 2.6.28.  Please verify if it still shou=
+ld
+> be listed and let me know (either way).
+>
+>
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12868
+> Subject		: iproute2 and regressing "ipv6: convert tunnels to net_devi=
+ce_ops"
+> Submitter	: Jan Engelhardt <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gma=
+ne.org>
+> Date		: 2009-03-09 14:46 (13 days old)
+> First-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
+s/linux-2.6.git;a=3Dcommit;h=3D1326c3d5a4b792a2b15877feb7fb691f8945d203
+> References	: http://marc.info/?l=3Dlinux-netdev&m=3D123660999632730&w=
+=3D4
 
-fix queued up for .30:
 
- 895791d: VM, x86, PAT: add a new vm flag to track full pfnmap at mmap
- 4bb9c5c: VM, x86, PAT: Change is_linear_pfn_mapping to not use vm_pgoff
+This is fixed by commit 1b1d8f73a44fe1796a73a97ebcb08cad18b97f07
+currently in davem's net-2.6 tree.
 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12763
-> Subject		: Different cpu MHz values for processor0 and processor1
-> Submitter	: Matthew A. Bockol <mbockol@carleton.edu>
-> Date		: 2009-02-21 5:42 (29 days old)
-> References	: http://marc.info/?l=linux-kernel&m=123519687807246&w=4
 
-first-bad-commit:
+Bj=C3=B8rn
 
-d96f94c: ACPI: Enable bit 11 in _PDC to advertise hw coord
 
-	Ingo
