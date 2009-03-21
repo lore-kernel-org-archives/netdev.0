@@ -1,53 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ixgbe: fix select_queue management
-	(v2)
-Date: Sat, 21 Mar 2009 00:33:38 -0700 (PDT)
-Message-ID: <20090321.003338.103826980.davem@davemloft.net>
-References: <Pine.WNT.4.64.0903202033090.16644@ppwaskie-MOBL2.amr.corp.intel.com>
-	<20090320214515.5af3a6f4@nehalam>
-	<Pine.WNT.4.64.0903202319050.12360@ppwaskie-MOBL2.amr.corp.intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/2] sysctl: lockdep support.
+Date: Sat, 21 Mar 2009 00:39:28 -0700
+Message-ID: <m1iqm3xr2n.fsf_-_@fess.ebiederm.org>
+References: <49B91A7E.76E4.0078.0@novell.com>
+	<tip-6a09dfa870ba0ed21b1124539968a36b42660661@git.kernel.org>
+	<1236934491.5188.209.camel@laptop> <49BA33BE.76E4.0078.0@novell.com>
+	<1236937423.22914.3698.camel@twins> <20090313103828.GB31094@elte.hu>
+	<m1d4cd9n4k.fsf@fess.ebiederm.org> <20090320085205.GB16021@elte.hu>
+	<m14oxo8qis.fsf@fess.ebiederm.org> <20090320182404.GA31629@elte.hu>
+	<1237575134.4667.5.camel@laptop> <1237577688.4667.68.camel@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	shemminger@vyatta.com, jeffrey.t.kirsher@intel.com
-To: peter.p.waskiewicz.jr@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.WNT.4.64.0903202319050.12360@ppwaskie-MOBL2.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Jan Beulich <jbeulich@novell.com>,
+	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
+	linux-kernel@vger.kernel.org, Gautham R Shenoy <ego@in.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>, <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:52056 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753336AbZCUHjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 03:39:43 -0400
+In-Reply-To: <1237577688.4667.68.camel@laptop> (Peter Zijlstra's message of "Fri\, 20 Mar 2009 20\:34\:48 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Fri, 20 Mar 2009 23:21:38 -0700 (Pacific Daylight Time)
 
-> I see your point, but it is a hack in my opinion.  The device will have 8 
-> real Tx queues, not 1.  I'd much rather go with the original proposal, 
-> since if the code in dev_pick_tx() changed, it could silently break ixgbe.
+The problem:  There is a class of deadlocks that we currently
+have in the kernel that lockdep does not recognize. 
 
-It can't, if you only advertise one transmit queue the kernel
-can never ever choose anything other than queue zero.  It's
-impossible.
+In particular with the network stack we can have:
 
-Stephen's right, you guys don't need your select queue override.
-
-And if you recall I suspected this from the very beginning.
-
-You guys never ever think out of the box, ever...  if it's
-not straightforward, you guys won't got for it.  That makes
-it very frustrating to get anything done.
+rtnl_lock();                         use_table();
+unregister_netdevice();              rtnl_lock();
+unregister_sysctl_table();           ....
+wait_for_completion();               rtnl_lock();
+....                                 unuse_table()
+rtnl_unlock();                       complete();
 
 
 
-------------------------------------------------------------------------------
-Apps built with the Adobe(R) Flex(R) framework and Flex Builder(TM) are
-powering Web 2.0 with engaging, cross-platform capabilities. Quickly and
-easily build your RIAs with Flex Builder, the Eclipse(TM)based development
-software that enables intelligent coding and step-through debugging.
-Download the free 60 day trial. http://p.sf.net/sfu/www-adobe-com
+Where we never make it to the lines labled ....
+
+My patch following patches treats the sysctl use count as a read/writer
+lock for purposes of lockdep.
+
+The code works but I'm not certain I have plugged into lockdep quite
+correctly.
+
+Eric
+
