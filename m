@@ -1,197 +1,92 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [Updated patch] Re: [PATCH] igb: fix kexec with igb
-Date: Sat, 21 Mar 2009 23:04:59 +0100
-Message-ID: <200903212305.00077.rjw@sisk.pl>
-References: <49B1F934.5050006@kernel.org> <200903082232.36660.rjw@sisk.pl> <49B84B2E.6080701@kernel.org>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH v2 00/13] Rework network drivers to use of_mdio common code
+Date: Sat, 21 Mar 2009 16:28:10 -0600
+Message-ID: <20090321222047.20493.87335.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Yinghai Lu <yinghai@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756442AbZCUWFe@vger.kernel.org>
-In-Reply-To: <49B84B2E.6080701@kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: afleming@freescale.com, galak@kernel.crashing.org,
+	davem@davemloft.net
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, olof@lixom.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.173]:31077 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752146AbZCUW2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 18:28:16 -0400
+Received: by wf-out-1314.google.com with SMTP id 29so2085459wff.4
+        for <netdev@vger.kernel.org>; Sat, 21 Mar 2009 15:28:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12 March 2009, Yinghai Lu wrote:
-> Rafael J. Wysocki wrote:
-> > On Sunday 08 March 2009, Rafael J. Wysocki wrote:
-> >> On Sunday 08 March 2009, Yinghai Lu wrote:
-> >>> Rafael J. Wysocki wrote:
-> >>>> On Saturday 07 March 2009, Yinghai Lu wrote:
-> >>>>> On Fri, Mar 6, 2009 at 11:18 PM, Jesse Brandeburg
-> >>>>> <jesse.brandeburg@gmail.com> wrote:
-> >>>>>> On Fri, Mar 6, 2009 at 8:33 PM, Yinghai Lu <yinghai@kernel.org> wrote:
-> >>>>>>> Impact: could probe igb
-> >>>>>>>
-> >>>>>>> Found one system with 82575EB, in the kernel that is kexeced, probe igb
-> >>>>>>> failed with -2.
-> >>>>>>>
-> >>>>>>> it looks like the same behavior happened on forcedeth.
-> >>>>>>>
-> >>>>>>> try to check system_state to make sure if put it on D3
-> >>>>>>>
-> >>>>>>> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-> >>>>>>>
-> >>>>>>> ---
-> >>>>>>>  drivers/net/igb/igb_main.c |   19 ++++++++++++++-----
-> >>>>>>>  1 file changed, 14 insertions(+), 5 deletions(-)
-> >>>>>> I see the point of the patch, but I know for a fact that ixgbe when
-> >>>>>> enabled for MSI-X also doesn't work with kexec.
-> >>>>>>
-> >>>>>> so my questions are:
-> >>>>>> are you going to change every driver?
-> >>>>> i tend to only change driver that i have related HW.
-> >>>>>
-> >>>>>> why can't this be fixed in core kernel code instead?
-> >>>>> will check it.
-> >>>>>
-> >>>>>> Shouldn't pci_enable_device take it out of D3?
-> >>>>>> Or maybe it should be taken out of D3 immediately if someone tries to
-> >>>>>> ioremap any of the BARx registers?
-> >>>>> looks like second kernel can not detect the state any more.
-> >>>> In fact pci_enable_device() calls pci_set_power_state(dev, PCI_D0) as the first
-> >>>> thing.  The question is why it doesn't work as expected.
-> >>> not sure... please check the version for forcedeth that you made.
-> >>>
-> >>> commit 3cb5599a84c557c0dd9a19feb63a3788268cf249
-> >>> Author: Rafael J. Wysocki <rjw@sisk.pl>
-> >>> Date:   Fri Sep 5 14:00:19 2008 -0700
-> >>>
-> >>>     forcedeth: fix kexec regression
-> >>>     
-> >>>     Fix regression tracked as http://bugzilla.kernel.org/show_bug.cgi?id=11361
-> >>>     and caused by commit f735a2a1a4f2a0f5cd823ce323e82675990469e2 ("[netdrvr]
-> >>>     forcedeth: setup wake-on-lan before shutting down") that makes network
-> >>>     adapters integrated into the NVidia MCP55 chipsets fail to work in kexeced
-> >>>     kernels.  The problem appears to be that if the adapter is put into D3_hot
-> >>>     during ->shutdown(), it cannot be brought back into D0 after kexec (ref.
-> >>>     http://marc.info/?l=linux-kernel&m=121900062814967&w=4).  Therefore, only
-> >>>     put forcedeth into D3 during ->shutdown() if the system is to be powered
-> >>>     off.
-> >> Thanks, I remember now.
-> > 
-> > In which case you need to rework igb_shutdown() rather than igb_suspend().
-> > 
-> > Something like the patch below, perhaps (totally untested).
-> 
-> it works, David, can you picked it up
+This series reworks some of the phylib code and adds of_mdio helper
+functions to make it easier for device drivers to retrieve the PHY
+configuration by reading the OF device tree.
 
-Still, Yinghai, can you please also test the patch below?  It fixes all
-shortcomings in the driver's suspend and shutdown methods I was talking about
-in one of the previous messages.  If it works, IMO it will be a preferable fix
-(in particular, it would be good to check if WoL still works with it,
-but I don't have the hardware).
+Most of these changes have been only compile tested, but not booted on
+real hardware.  Exceptions are mpc52xx and ll_temac which have been tested,
+and pasemi which hasn't even been compile tested because my 64bit
+environment is broken at the moment.
 
-Thanks,
-Rafael
+For those with access to hardware, please test and provide me with feedback.
 
----
-From: Rafael J. Wysocki <rjw@sisk.pl>
-Subject: net/igb: Fix kexec with igb (rev. 3)
-Impact: Fix
+This series also adds a new network driver for the Xilinx ll_temac
+10/100/1000 MAC.
 
-Yinghai Lu found one system with 82575EB where, in the kernel that is
-kexeced, probe igb failed with -2, the reason being that the adapter
-could not be brought back from D3 by the kexec kernel, most probably
-due to quirky hardware (it looks like the same behavior happened on
-forcedeth).
+For those who are interested, this series is available on my git server at:
 
-Prevent igb from putting the adapter into D3 during shutdown except
-when we going to power off the system.  For this purpose, seperate
-igb_shutdown() from igb_suspend() and use the appropriate PCI PM
-callbacks in both of them.
+git://git.secretlab.ca/git/linux-2.6-mpc52xx test
 
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-Reported-by: Yinghai Lu <yinghai@kernel.org>
----
- drivers/net/igb/igb_main.c |   42 ++++++++++++++++++++++++++++++------------
- 1 file changed, 30 insertions(+), 12 deletions(-)
+Right now it is based on current mainline plus a bunch of patches that I've
+already got in Benh's -next tree (but is not actually based on Benh's tree).
+I'll probably rebase before I post v3
 
-Index: linux-2.6/drivers/net/igb/igb_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/igb/igb_main.c
-+++ linux-2.6/drivers/net/igb/igb_main.c
-@@ -4277,7 +4277,7 @@ int igb_set_spd_dplx(struct igb_adapter 
- }
- 
- 
--static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct igb_adapter *adapter = netdev_priv(netdev);
-@@ -4336,15 +4336,9 @@ static int igb_suspend(struct pci_dev *p
- 		wr32(E1000_WUFC, 0);
- 	}
- 
--	/* make sure adapter isn't asleep if manageability/wol is enabled */
--	if (wufc || adapter->en_mng_pt) {
--		pci_enable_wake(pdev, PCI_D3hot, 1);
--		pci_enable_wake(pdev, PCI_D3cold, 1);
--	} else {
-+	*enable_wake = wufc || adapter->en_mng_pt;
-+	if (!*enable_wake)
- 		igb_shutdown_fiber_serdes_link_82575(hw);
--		pci_enable_wake(pdev, PCI_D3hot, 0);
--		pci_enable_wake(pdev, PCI_D3cold, 0);
--	}
- 
- 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
- 	 * would have already happened in close and is redundant. */
-@@ -4352,12 +4346,29 @@ static int igb_suspend(struct pci_dev *p
- 
- 	pci_disable_device(pdev);
- 
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
--
- 	return 0;
- }
- 
- #ifdef CONFIG_PM
-+static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	int retval;
-+	bool wake;
-+
-+	retval = __igb_shutdown(pdev, &wake);
-+	if (retval)
-+		return retval;
-+
-+	if (wake) {
-+		pci_prepare_to_sleep(pdev);
-+	} else {
-+		pci_wake_from_d3(pdev, false);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
-+
-+	return 0;
-+}
-+
- static int igb_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -4412,7 +4423,14 @@ static int igb_resume(struct pci_dev *pd
- 
- static void igb_shutdown(struct pci_dev *pdev)
- {
--	igb_suspend(pdev, PMSG_SUSPEND);
-+	bool wake;
-+
-+	__igb_shutdown(pdev, &wake);
-+
-+	if (system_state == SYSTEM_POWER_OFF) {
-+		pci_wake_from_d3(pdev, wake);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
+Changes since v1:
+- Add ll_temac driver
+- Clean up of_node_put() calls
+- removal of dead code from ucc_geth driver
+- Fix changes to gianfar driver to not try to connect to tbi phy.
+
+
+diffstat:
+ arch/powerpc/boot/dts/virtex440-ml507.dts |   14 +-
+ arch/powerpc/platforms/82xx/ep8248e.c     |    7 +-
+ arch/powerpc/platforms/pasemi/gpio_mdio.c |   29 +-
+ drivers/net/Kconfig                       |    8 +
+ drivers/net/Makefile                      |    2 +
+ drivers/net/fec_mpc52xx.c                 |  228 +++----
+ drivers/net/fec_mpc52xx_phy.c             |   26 +-
+ drivers/net/fs_enet/fs_enet-main.c        |   69 +--
+ drivers/net/fs_enet/mii-bitbang.c         |   29 +-
+ drivers/net/fs_enet/mii-fec.c             |   26 +-
+ drivers/net/gianfar.c                     |  103 ++--
+ drivers/net/gianfar.h                     |    3 +-
+ drivers/net/gianfar_mii.c                 |   52 +--
+ drivers/net/pasemi_mac.c                  |   19 +-
+ drivers/net/pasemi_mac.h                  |    1 -
+ drivers/net/phy/marvell.c                 |    2 +
+ drivers/net/phy/mdio_bus.c                |   29 +-
+ drivers/net/phy/phy_device.c              |  163 ++++--
+ drivers/net/ucc_geth.c                    |   65 +--
+ drivers/net/ucc_geth.h                    |    2 -
+ drivers/net/ucc_geth_mii.c                |   17 +-
+ drivers/net/xilinx_temac.c                |  970 +++++++++++++++++++++++++++++
+ drivers/net/xilinx_temac.h                |  374 +++++++++++
+ drivers/net/xilinx_temac_mdio.c           |  119 ++++
+ drivers/of/Kconfig                        |    6 +
+ drivers/of/Makefile                       |    1 +
+ drivers/of/base.c                         |   24 +
+ drivers/of/of_mdio.c                      |  139 ++++
+ include/linux/fs_enet_pd.h                |    6 +-
+ include/linux/of.h                        |    3 +
+ include/linux/of_mdio.h                   |   22 +
+ include/linux/phy.h                       |    6 +
+ 32 files changed, 1989 insertions(+), 575 deletions(-)
+ create mode 100644 drivers/net/xilinx_temac.c
+ create mode 100644 drivers/net/xilinx_temac.h
+ create mode 100644 drivers/net/xilinx_temac_mdio.c
+ create mode 100644 drivers/of/of_mdio.c
+ create mode 100644 include/linux/of_mdio.h
+
+--
+Grant Likely, B.Sc. P.Eng.
+Secret Lab Technologies Ltd.
