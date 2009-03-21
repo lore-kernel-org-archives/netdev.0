@@ -1,68 +1,115 @@
 From: Vojtech Pavlik <vojtech@suse.cz>
-Subject: Re: [PATCH 22/77] usbnet: convert catc device to net_device_ops
-Date: Sat, 21 Mar 2009 14:02:33 +0100
-Message-ID: <20090321130233.GA14353@suse.cz>
-References: <20090321053527.316395697@vyatta.com> <20090321053714.207963951@vyatta.com> <200903210201.15098.david-b@pacbell.net>
+Subject: Re: [PATCH 23/77] usbnet: convert to internal net_device stats
+Date: Sat, 21 Mar 2009 14:02:43 +0100
+Message-ID: <20090321130243.GB14353@suse.cz>
+References: <20090321053527.316395697@vyatta.com> <20090321053714.283096585@vyatta.com> <200903210201.53630.david-b@pacbell.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:51594 "EHLO mx2.suse.de"
+Received: from cantor.suse.de ([195.135.220.2]:50241 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752454AbZCUNCn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 09:02:43 -0400
+	id S1754607AbZCUNCx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2009 09:02:53 -0400
 Content-Disposition: inline
-In-Reply-To: <200903210201.15098.david-b@pacbell.net>
+In-Reply-To: <200903210201.53630.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 21, 2009 at 02:01:14AM -0700, David Brownell wrote:
+On Sat, Mar 21, 2009 at 02:01:53AM -0700, David Brownell wrote:
 > On Friday 20 March 2009, Stephen Hemminger wrote:
 > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> OK by me, but I cc'd Vojtech who was the last maintainer of this code.
+> ... ditto ...
 
-OK by me, too.
+And here ok, too.
 
 > 
-> 
-> > --- a/drivers/net/usb/catc.c	2009-03-20 12:10:10.851651580 -0700
-> > +++ b/drivers/net/usb/catc.c	2009-03-20 12:10:23.060839265 -0700
-> > @@ -743,6 +743,18 @@ static int catc_stop(struct net_device *
-> >  	return 0;
+> > --- a/drivers/net/usb/rtl8150.c	2009-03-20 12:11:35.825901868 -0700
+> > +++ b/drivers/net/usb/rtl8150.c	2009-03-20 12:12:47.085715442 -0700
+> > @@ -155,7 +155,6 @@ struct rtl8150 {
+> >  	unsigned long flags;
+> >  	struct usb_device *udev;
+> >  	struct tasklet_struct tl;
+> > -	struct net_device_stats stats;
+> >  	struct net_device *netdev;
+> >  	struct urb *rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
+> >  	struct sk_buff *tx_skb, *rx_skb;
+> > @@ -463,8 +462,8 @@ static void read_bulk_callback(struct ur
+> >  	skb_put(dev->rx_skb, pkt_len);
+> >  	dev->rx_skb->protocol = eth_type_trans(dev->rx_skb, netdev);
+> >  	netif_rx(dev->rx_skb);
+> > -	dev->stats.rx_packets++;
+> > -	dev->stats.rx_bytes += pkt_len;
+> > +	netdev->stats.rx_packets++;
+> > +	netdev->stats.rx_bytes += pkt_len;
+> >  
+> >  	spin_lock(&dev->rx_pool_lock);
+> >  	skb = pull_skb(dev);
+> > @@ -573,13 +572,13 @@ static void intr_callback(struct urb *ur
+> >  
+> >  	d = urb->transfer_buffer;
+> >  	if (d[0] & TSR_ERRORS) {
+> > -		dev->stats.tx_errors++;
+> > +		dev->netdev->stats.tx_errors++;
+> >  		if (d[INT_TSR] & (TSR_ECOL | TSR_JBR))
+> > -			dev->stats.tx_aborted_errors++;
+> > +			dev->netdev->stats.tx_aborted_errors++;
+> >  		if (d[INT_TSR] & TSR_LCOL)
+> > -			dev->stats.tx_window_errors++;
+> > +			dev->netdev->stats.tx_window_errors++;
+> >  		if (d[INT_TSR] & TSR_LOSS_CRS)
+> > -			dev->stats.tx_carrier_errors++;
+> > +			dev->netdev->stats.tx_carrier_errors++;
+> >  	}
+> >  	/* Report link status changes to the network stack */
+> >  	if ((d[INT_MSR] & MSR_LINK) == 0) {
+> > @@ -697,17 +696,12 @@ static void disable_net_traffic(rtl8150_
+> >  	set_registers(dev, CR, 1, &cr);
 > >  }
 > >  
-> > +static const struct net_device_ops catc_netdev_ops = {
-> > +	.ndo_open		= catc_open,
-> > +	.ndo_stop		= catc_stop,
-> > +	.ndo_start_xmit		= catc_start_xmit,
-> > +
-> > +	.ndo_tx_timeout		= catc_tx_timeout,
-> > +	.ndo_set_multicast_list = catc_set_multicast_list,
-> > +	.ndo_change_mtu		= eth_change_mtu,
-> > +	.ndo_set_mac_address 	= eth_mac_addr,
-> > +	.ndo_validate_addr	= eth_validate_addr,
-> > +};
-> > +
-> >  /*
-> >   * USB probe, disconnect.
-> >   */
-> > @@ -767,12 +779,8 @@ static int catc_probe(struct usb_interfa
+> > -static struct net_device_stats *rtl8150_netdev_stats(struct net_device *dev)
+> > -{
+> > -	return &((rtl8150_t *)netdev_priv(dev))->stats;
+> > -}
+> > -
+> >  static void rtl8150_tx_timeout(struct net_device *netdev)
+> >  {
+> >  	rtl8150_t *dev = netdev_priv(netdev);
+> >  	dev_warn(&netdev->dev, "Tx timeout.\n");
+> >  	usb_unlink_urb(dev->tx_urb);
+> > -	dev->stats.tx_errors++;
+> > +	netdev->stats.tx_errors++;
+> >  }
 > >  
-> >  	catc = netdev_priv(netdev);
+> >  static void rtl8150_set_multicast(struct net_device *netdev)
+> > @@ -747,12 +741,12 @@ static int rtl8150_start_xmit(struct sk_
+> >  			netif_device_detach(dev->netdev);
+> >  		else {
+> >  			dev_warn(&netdev->dev, "failed tx_urb %d\n", res);
+> > -			dev->stats.tx_errors++;
+> > +			netdev->stats.tx_errors++;
+> >  			netif_start_queue(netdev);
+> >  		}
+> >  	} else {
+> > -		dev->stats.tx_packets++;
+> > -		dev->stats.tx_bytes += skb->len;
+> > +		netdev->stats.tx_packets++;
+> > +		netdev->stats.tx_bytes += skb->len;
+> >  		netdev->trans_start = jiffies;
+> >  	}
 > >  
-> > -	netdev->open = catc_open;
-> > -	netdev->hard_start_xmit = catc_hard_start_xmit;
-> > -	netdev->stop = catc_stop;
-> > -	netdev->tx_timeout = catc_tx_timeout;
-> > +	netdev->netdev_ops = &catc_netdev_ops;
-> >  	netdev->watchdog_timeo = TX_TIMEOUT;
-> > -	netdev->set_multicast_list = catc_set_multicast_list;
+> > @@ -931,7 +925,7 @@ static int rtl8150_probe(struct usb_inte
+> >  	netdev->hard_start_xmit = rtl8150_start_xmit;
+> >  	netdev->set_multicast_list = rtl8150_set_multicast;
+> >  	netdev->set_mac_address = rtl8150_set_mac_address;
+> > -	netdev->get_stats = rtl8150_netdev_stats;
+> > +
 > >  	SET_ETHTOOL_OPS(netdev, &ops);
+> >  	dev->intr_interval = 100;	/* 100ms */
 > >  
-> >  	catc->usbdev = usbdev;
 > > 
 > > -- 
 > > 
