@@ -1,50 +1,79 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 32/77] usbnet: convert rndis driver to use dev_get_stats
-Date: Fri, 20 Mar 2009 22:35:59 -0700
-Message-ID: <20090321053714.963078292@vyatta.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 72/77] ipw2x00: convert infrastructure for use by net_device_ops
+Date: Fri, 20 Mar 2009 22:36:39 -0700
+Message-ID: <20090321053718.065171867@vyatta.com>
 References: <20090321053527.316395697@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, dbrownell@users.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36616 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760970AbZCUFsR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2009 01:48:17 -0400
-Content-Disposition: inline; filename=rndis.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, jkosina-AlSwsSmVLrQ@public.gmane.org,
+	dstreba-AlSwsSmVLrQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=ipw-netdev.patch
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-dev_get_stats() handles all issues with net_device_ops
+Expose routines so drivers can hook. Only set ptrs in netdev
+if using old compat code.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 
 ---
- drivers/usb/gadget/rndis.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/wireless/ipw2x00/ieee80211.h     |    1 +
+ drivers/net/wireless/ipw2x00/libipw_module.c |    5 ++++-
+ drivers/net/wireless/ipw2x00/libipw_tx.c     |    1 +
+ 3 files changed, 6 insertions(+), 1 deletion(-)
 
---- a/drivers/usb/gadget/rndis.c	2009-03-20 12:18:22.054027493 -0700
-+++ b/drivers/usb/gadget/rndis.c	2009-03-20 12:18:28.620714647 -0700
-@@ -170,7 +170,7 @@ gen_ndis_query_resp (int configNr, u32 O
- 	int			i, count;
- 	rndis_query_cmplt_type	*resp;
- 	struct net_device	*net;
--	struct net_device_stats	*stats;
-+	const struct net_device_stats	*stats;
+--- a/drivers/net/wireless/ipw2x00/libipw_module.c	2009-03-20 21:39:32.901088992 -0700
++++ b/drivers/net/wireless/ipw2x00/libipw_module.c	2009-03-20 21:39:34.508964994 -0700
+@@ -131,13 +131,14 @@ static void ieee80211_networks_initializ
+ 			      &ieee->network_free_list);
+ }
  
- 	if (!r) return -ENOMEM;
- 	resp = (rndis_query_cmplt_type *) r->buf;
-@@ -193,10 +193,7 @@ gen_ndis_query_resp (int configNr, u32 O
- 	resp->InformationBufferOffset = cpu_to_le32 (16);
+-static int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
++int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	if ((new_mtu < 68) || (new_mtu > IEEE80211_DATA_LEN))
+ 		return -EINVAL;
+ 	dev->mtu = new_mtu;
+ 	return 0;
+ }
++EXPORT_SYMBOL(ieee80211_change_mtu);
  
- 	net = rndis_per_dev_params[configNr].dev;
--	if (net->get_stats)
--		stats = net->get_stats(net);
--	else
--		stats = NULL;
-+	stats = dev_get_stats(net);
+ struct net_device *alloc_ieee80211(int sizeof_priv)
+ {
+@@ -153,8 +154,10 @@ struct net_device *alloc_ieee80211(int s
+ 		goto failed;
+ 	}
+ 	ieee = netdev_priv(dev);
++#ifdef CONFIG_COMPAT_NET_DEV_OPS
+ 	dev->hard_start_xmit = ieee80211_xmit;
+ 	dev->change_mtu = ieee80211_change_mtu;
++#endif
  
- 	switch (OID) {
+ 	ieee->dev = dev;
  
+--- a/drivers/net/wireless/ipw2x00/ieee80211.h	2009-03-20 21:39:32.900089558 -0700
++++ b/drivers/net/wireless/ipw2x00/ieee80211.h	2009-03-20 21:39:34.509964918 -0700
+@@ -1016,6 +1016,7 @@ static inline int ieee80211_is_cck_rate(
+ /* ieee80211.c */
+ extern void free_ieee80211(struct net_device *dev);
+ extern struct net_device *alloc_ieee80211(int sizeof_priv);
++extern int ieee80211_change_mtu(struct net_device *dev, int new_mtu);
+ 
+ extern void ieee80211_networks_age(struct ieee80211_device *ieee,
+ 				   unsigned long age_secs);
+--- a/drivers/net/wireless/ipw2x00/libipw_tx.c	2009-03-20 21:39:59.063966304 -0700
++++ b/drivers/net/wireless/ipw2x00/libipw_tx.c	2009-03-20 21:40:37.667839502 -0700
+@@ -541,5 +541,6 @@ int ieee80211_xmit(struct sk_buff *skb, 
+ 	dev->stats.tx_errors++;
+ 	return 1;
+ }
++EXPORT_SYMBOL(ieee80211_xmit);
+ 
+ EXPORT_SYMBOL(ieee80211_txb_free);
 
 -- 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
