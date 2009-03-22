@@ -1,59 +1,71 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH net-next] Adding licensing to bnx2x_init_values.h
-Date: Sun, 22 Mar 2009 13:14:54 +0200
-Message-ID: <1237720494.10353.1.camel@lb-tlvb-eliezer>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: driver-core tree build failure
+Date: Sun, 22 Mar 2009 23:22:37 +1100
+Message-ID: <20090322232237.1db2e976.sfr@canb.auug.org.au>
+References: <20090316204703.f2f354f9.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3837 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752916AbZCVLQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Mar 2009 07:16:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090316204703.f2f354f9.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Subject: [PATCH net-next] Adding licensing to bnx2x_init_values.h
+Hi Greg, Dave,
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+On Mon, 16 Mar 2009 20:47:03 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> Dave, this could apply to net-current (or net after you merge
+> net-current) or Greg could put it in driver-core after net-current gets
+> merged into Linus' tree.
+
+The dnet driver is now upstream, so can one of you add this to your tree,
+please?  Apologies if I missed it.
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 16 Mar 2009 20:37:10 +1100
+Subject: [PATCH] net: update dnet.c for bus_id removal
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- drivers/net/bnx2x_init_values.h |   18 +++++++++++++++++-
- 1 files changed, 17 insertions(+), 1 deletions(-)
+ drivers/net/dnet.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bnx2x_init_values.h b/drivers/net/bnx2x_init_values.h
-index 6e18a55..1f22c9a 100644
---- a/drivers/net/bnx2x_init_values.h
-+++ b/drivers/net/bnx2x_init_values.h
-@@ -1,7 +1,23 @@
- #ifndef __BNX2X_INIT_VALUES_H__
- #define __BNX2X_INIT_VALUES_H__
+diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
+index 5c347f7..1b40632 100644
+--- a/drivers/net/dnet.c
++++ b/drivers/net/dnet.c
+@@ -280,11 +280,11 @@ static int dnet_mii_probe(struct net_device *dev)
  
--/* This array contains the list of operations needed to initialize the chip.
-+/* bnx2x_init_values.h: Broadcom NX2 10G network driver.
-+ *
-+ * Copyright (c) 2007-2009 Broadcom Corporation
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation, except as noted below.
-+ *
-+ * This file contains firmware data derived from proprietary unpublished
-+ * source code, Copyright (c) 2007-2009 Broadcom Corporation.
-+ *
-+ * Permission is hereby granted for the distribution of this firmware data
-+ * in hexadecimal or equivalent format, provided this copyright notice is
-+ * accompanying it.
-+ *
-+ *
-+ * This array contains the list of operations needed to initialize the chip.
-  *
-  * For each block in the chip there are three init stages:
-  * common - HW used by both ports,
+ 	/* attach the mac to the phy */
+ 	if (bp->capabilities & DNET_HAS_RMII) {
+-		phydev = phy_connect(dev, phydev->dev.bus_id,
++		phydev = phy_connect(dev, dev_name(&phydev->dev),
+ 				     &dnet_handle_link_change, 0,
+ 				     PHY_INTERFACE_MODE_RMII);
+ 	} else {
+-		phydev = phy_connect(dev, phydev->dev.bus_id,
++		phydev = phy_connect(dev, dev_name(&phydev->dev),
+ 				     &dnet_handle_link_change, 0,
+ 				     PHY_INTERFACE_MODE_MII);
+ 	}
+@@ -927,7 +927,7 @@ static int __devinit dnet_probe(struct platform_device *pdev)
+ 	phydev = bp->phy_dev;
+ 	dev_info(&pdev->dev, "attached PHY driver [%s] "
+ 	       "(mii_bus:phy_addr=%s, irq=%d)\n",
+-	       phydev->drv->name, phydev->dev.bus_id, phydev->irq);
++	       phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+ 
+ 	return 0;
+ 
 -- 
-1.5.4.3
+1.6.2
 
 
 
-
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
