@@ -1,30 +1,33 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [PATCH] Phonet:fix build problem
-Date: Sun, 22 Mar 2009 12:06:29 -0400
-Message-ID: <20090322160629.GA23227@bombadil.infradead.org>
-References: <20090320115838.GA26371@orion> <20090321.165950.248659848.davem@davemloft.net> <a4423d670903211719m76baeab0k51f054058d6f5134@mail.gmail.com> <1237694320.25297.3.camel@localhost.localdomain>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] [PATCH 03/77] infiniband: convert c2 to
+	net_device_ops
+Date: Sun, 22 Mar 2009 09:12:57 -0700
+Message-ID: <ada4oxly1rq.fsf@cisco.com>
+References: <20090321053527.316395697@vyatta.com>
+	<20090321053712.797092692@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Beregalov <a.beregalov@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kyle@mcmartin.ca,
-	linux-parisc@vger.kernel.org
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1237694320.25297.3.camel@localhost.localdomain>
-Sender: linux-parisc-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20090321053712.797092692@vyatta.com> (Stephen Hemminger's
+	message of "Fri, 20 Mar 2009 22:35:30 -0700")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 22, 2009 at 03:58:40AM +0000, James Bottomley wrote:
-> > > I think that platform's atomic_add() implementation should
-> > > be fixed instead.
-> > 
-> > It is parisc, CC added.
-> 
-> Looks like a macro argument screw up in atomic.h
-> 
-> This should fix it (uncompiled, of course).
-> 
+Don't I already have this queued in my for-next branch?
 
-Looks correct to me. Applied. Thanks everyone.
+Or is this an updated version?
+
+[And same applies to the nes driver changes]
+
+ - R.
