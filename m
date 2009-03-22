@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 05/77] infiniband: convert ipoib to
-	net_device_ops
-Date: Sat, 21 Mar 2009 19:34:21 -0700 (PDT)
-Message-ID: <20090321.193421.174174760.davem@davemloft.net>
+Subject: Re: [PATCH 02/77] atm: cconvert clip driver to net_device_ops
+Date: Sat, 21 Mar 2009 19:34:14 -0700 (PDT)
+Message-ID: <20090321.193414.181804719.davem@davemloft.net>
 References: <20090321053527.316395697@vyatta.com>
-	<20090321053712.940955485@vyatta.com>
+	<20090321053712.726058041@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org
 To: shemminger@vyatta.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20090321053712.940955485@vyatta.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45538
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752496AbZCVCe1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2009 22:34:27 -0400
+In-Reply-To: <20090321053712.726058041@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 20 Mar 2009 22:35:32 -0700
+Date: Fri, 20 Mar 2009 22:35:29 -0700
 
 > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
