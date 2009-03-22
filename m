@@ -1,22 +1,21 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 57/77] wavelan: convert to internal net_device_stats
-Date: Sat, 21 Mar 2009 22:47:51 -0700 (PDT)
-Message-ID: <20090321.224751.128845521.davem@davemloft.net>
+Subject: Re: [PATCH 59/77] airo: convert to net_device_ops
+Date: Sat, 21 Mar 2009 22:48:01 -0700 (PDT)
+Message-ID: <20090321.224801.227765710.davem@davemloft.net>
 References: <20090321053527.316395697@vyatta.com>
-	<20090321053716.884788530@vyatta.com>
+	<20090321053717.048069302@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090321053716.884788530-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <20090321053717.048069302-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Date: Fri, 20 Mar 2009 22:36:24 -0700
+Date: Fri, 20 Mar 2009 22:36:26 -0700
 
 > Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 
