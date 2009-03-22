@@ -1,38 +1,30 @@
-From: Dave Boutcher <daveboutcher@gmail.com>
-Subject: Re: [PATCH] e1000: fix loss of multicast packets
-Date: Sun, 22 Mar 2009 13:05:19 -0500
-Message-ID: <91bdcedb0903221105yafce0f4w1733a703c397bb7b@mail.gmail.com>
-References: <20090320204415.25109.57486.stgit@lindenhurst-2.jf.intel.com>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: Status update on Sun Neptune 10Gbit fibre using the NIU-driver.
+Date: Sun, 22 Mar 2009 19:17:08 +0100
+Message-ID: <49C680A4.5020706@krogh.cc>
+References: <49C600CE.70704@krogh.cc> <49C65AFC.3080300@cosmosbay.com> <49C67CF4.5080202@krogh.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:35149 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879AbZCVSFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2009 14:05:22 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so1814533yxl.1
-        for <netdev@vger.kernel.org>; Sun, 22 Mar 2009 11:05:20 -0700 (PDT)
-In-Reply-To: <20090320204415.25109.57486.stgit@lindenhurst-2.jf.intel.com>
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:49612 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751134AbZCVSRG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Mar 2009 14:17:06 -0400
+In-Reply-To: <49C67CF4.5080202@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 20, 2009 at 3:44 PM, Jesse Brandeburg
-<jesse.brandeburg@intel.com> wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> This driver fix prepares an array all at once in memory and programs it in
-> one shot to the hardware, not requiring an "erase" cycle.
->
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: Dave Boutcher <daveboutcher@gmail.com>
+Jesper Krogh wrote:
+> Eric Dumazet wrote:
+>> Also, testing 2.6.29 could be interesting, since UDP receive
+>> path doesnt need to use a global rwlock anymore.
+> 
+> ... That gained yet another 100MB/s.. now peaking out around 1050-1060MB/s.
 
-Jesse, I just with this patch in my e1000 environment and it works
-great.  Almost 1,000,000 packets exchanged with active
-membership join/drops going on and no packets lost.  Thanks
-for the fast turnaround.
+Am I wrong thinking that theoretical max should be around 1150-1200MB/s ?
 
-Thanks,
 -- 
-Dave B
+Jesper
