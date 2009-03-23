@@ -1,41 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: fix unaligned memory access in tcp_sack
-Date: Mon, 23 Mar 2009 13:48:24 +0100
-Message-ID: <49C78518.2010106@trash.net>
-References: <878wmx3pfk.fsf@netris.org> <20090322.211730.224794112.davem@davemloft.net>
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
+Date: Mon, 23 Mar 2009 13:59:15 +0100
+Message-ID: <OF387EC803.F810F72A-ONC1257582.00468C6E-C1257582.00475783@transmode.se>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mhw@netris.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: avorontsov@ru.mvista.com, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37914 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752936AbZCWMsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 08:48:32 -0400
-In-Reply-To: <20090322.211730.224794112.davem@davemloft.net>
+Received: from gw1.transmode.se ([213.115.205.20]:59835 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754633AbZCWM7R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2009 08:59:17 -0400
+In-Reply-To: <49C780AD.70704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Mark H. Weaver" <mhw@netris.org>
-> Date: Sun, 22 Mar 2009 23:09:51 -0400
+Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:29:33:
+> Joakim Tjernlund wrote:
+> > Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:15:45:
+> >> Joakim Tjernlund wrote:
+> >>> doing a "ping -f -l 3" on my host towards my board on linus tree as 
+of 
+> > 
+> >>> Friday results in lots of:
+> >>> nf_conntrack: table full, dropping packet.
+> >>> nf_conntrack: table full, dropping packet.
+> >>> nf_conntrack: table full, dropping packet.
+> >>> __ratelimit: 11 callbacks suppressed
+> >>> nf_conntrack: table full, dropping packet.
+> >>> nf_conntrack: table full, dropping packet.
+> >>> nf_conntrack: table full, dropping packet.
+> >>> nf_conntrack: table full, dropping packet.
+> >>>
+> >>> for ucc_geth on a MPC832x.
+> >>> This really looks strange to me, ideas?
+> >> What does /proc/net/netfilter/nf_conntrack show?
+> > 
+> > There is no /proc/net/netfilter/nf_conntrack. There is a
+> > /proc/net/nf_conntrack though and it is empty. If I telnet
+> > to the board I see:
 > 
->> This patch fixes an unaligned memory access in tcp_sack while reading
->> sequence numbers from TCP selective acknowledgement options.  Prior to
->> applying this patch, upstream linux-2.6.27.20 was occasionally
->> generating messages like this on my sparc64 system:
->>
->>   [54678.532071] Kernel unaligned access at TPC[6b17d4] tcp_packet+0xcd4/0xd00
->>
->> More details provided upon request.  Apologies in advance if I've sent
->> this to the wrong place or not followed proper procedures.
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> That means that something is leaking conntrack references, most likely
+> by leaking skbs. Since I haven't seen any other reports, my guess would
+> be the ucc_geth driver.
 
-Looks good to me. Dave, please apply directly or pull from:
+hmm, I cannot see what in the ucc_geth driver is possibly "leaking". One 
+thing
+I do notice is that the board becomes almost unresponsive during the ping 
+flood.
+Perhaps it is building up a backlog of conntracks during the ping flood?
 
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+ Jocke
 
-Thanks!
