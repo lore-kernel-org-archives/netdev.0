@@ -1,53 +1,31 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.3
-Date: Mon, 23 Mar 2009 21:22:12 +0100
-Message-ID: <49C7EF74.8080801@netfilter.org>
-References: <49C79C90.80804@trash.net> <alpine.LSU.2.00.0903231917540.27630@fbirervta.pbzchgretzou.qr> <49C7E0C3.8050907@trash.net> <alpine.LSU.2.00.0903232020160.32025@fbirervta.pbzchgretzou.qr> <49C7E30B.1000001@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: rndis_wlan netdev ops
+Date: Mon, 23 Mar 2009 13:43:18 -0700 (PDT)
+Message-ID: <20090323.134318.106371116.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter <netfilter@lists.netfilter.org>,
-	netfilter-announce@lists.netfilter.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49C7E30B.1000001@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38032
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754771AbZCWUna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 16:43:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Jan Engelhardt wrote:
->> On Monday 2009-03-23 20:19, Patrick McHardy wrote:
->>   
->>>>   
->>>>       
->>>>> The netfilter coreteam presents:
->>>>>
->>>>>    iptables version 1.4.3
->>>>>
->>>>> the iptables release for the 2.6.29 kernel. It has been some time
->>>>> since the last release and we've had a lot of changes all over the
->>>>> place.[...]
->>>>>     
->>>>>         
->>>> Can you update the freshmeat entry? (Or be courteous to add me to the
->>>> FM project.)
->>>>       
->>> I'll add you to the project when I'm near the password again :)
->>>     
->> Try asking Pablo. Someone ought to have the password, because the 
->> 1.4.2 entry has been made, and there are not that many people
->> being many release managers.
->>   
-> 
-> I do have it, just not in reach right now.
 
-JFYI, I have just submitted the new release to freshmeat.
+This is the only driver that won't build for me with
+the netdev ops compat option disabled.
 
-http://freshmeat.net/projects/iptables/releases/296630
+It's trying to override the ->set_mutlicast_list op value
+of it's parent device.
 
--- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
+Did you hit this one and I just missed it or is it not handled
+yet?
+
+Probably what we'll have to do for this case is allocate a
+netdev_ops copy so that the ->set_multicast_list can be set
+to a new value.  But that defeats the whole purpose of netdev
+ops so I assume you have other plans :-)
