@@ -1,29 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Wrong locking code in udp seq_file infrastructure
-Date: Mon, 23 Mar 2009 15:22:47 -0700 (PDT)
-Message-ID: <20090323.152247.107238119.davem@davemloft.net>
-References: <8763i0fnrm.wl%vmayatsk@redhat.com>
-	<49C799DD.8070504@cosmosbay.com>
+From: Bastian Blank <waldi@debian.org>
+Subject: Re: [PATCH] bnx2: Use request_firmware()
+Date: Mon, 23 Mar 2009 23:29:15 +0100
+Message-ID: <20090323222915.GA29609@wavehammer.waldi.eu.org>
+References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk> <1237503884.16140.23.camel@HP1> <20090319232541.GA19262@wavehammer.waldi.eu.org> <20090320.155030.164080684.davem@davemloft.net> <1237844879.18617.20.camel@HP1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: v.mayatskih@gmail.com, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=utf-8
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49233
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752457AbZCWWW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 18:22:59 -0400
-In-Reply-To: <49C799DD.8070504@cosmosbay.com>
+Received: from wavehammer.waldi.eu.org ([82.139.201.20]:41873 "EHLO
+	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbZCWW3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 18:29:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1237844879.18617.20.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 23 Mar 2009 15:17:01 +0100
-
-> Nice catch Vitaly
+On Mon, Mar 23, 2009 at 02:47:59PM -0700, Michael Chan wrote:
+> I'd also like to add the version information to the bnx2_fw_file_entry
+> struct instead of embedding it in the file name.  It is more flexible
+> this way as each section can have different versions and can be updated
+> separately.  So it will look something like:
 > 
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+> struct bnx2_fw_file_entry {
+> 	__be32 start_addr;
+> 	__be32 version;
+> 	struct bnx2_fw_file_section text;
+> 	struct bnx2_fw_file_section data;
+> 	struct bnx2_fw_file_section sbss;
+> 	struct bnx2_fw_file_section bss;
+> 	struct bnx2_fw_file_section rodata;
+> };
 
-Applied, thanks everyone,
+And how do you want to handle the compatibility? One firmware file have
+to work with many kernels, which was always described as impossible.
 
+Bastian
+
+-- 
+Women are more easily and more deeply terrified ... generating more
+sheer horror than the male of the species.
+		-- Spock, "Wolf in the Fold", stardate 3615.4
