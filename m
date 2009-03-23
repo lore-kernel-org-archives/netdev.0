@@ -1,43 +1,44 @@
-From: "Mark H. Weaver" <mhw@netris.org>
-Subject: [PATCH] netfilter: fix unaligned memory access in tcp_sack
-Date: Sun, 22 Mar 2009 23:09:51 -0400
-Message-ID: <878wmx3pfk.fsf@netris.org>
-Cc: netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] [PATCH 03/77] infiniband: convert c2 to
+	net_device_ops
+Date: Sun, 22 Mar 2009 21:17:04 -0700 (PDT)
+Message-ID: <20090322.211704.141753947.davem@davemloft.net>
+References: <20090321053527.316395697@vyatta.com>
+	<20090321053712.797092692@vyatta.com> <ada4oxly1rq.fsf@cisco.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <ada4oxly1rq.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes an unaligned memory access in tcp_sack while reading
-sequence numbers from TCP selective acknowledgement options.  Prior to
-applying this patch, upstream linux-2.6.27.20 was occasionally
-generating messages like this on my sparc64 system:
+From: Roland Dreier <rdreier@cisco.com>
+Date: Sun, 22 Mar 2009 09:12:57 -0700
 
-  [54678.532071] Kernel unaligned access at TPC[6b17d4] tcp_packet+0xcd4/0xd00
+> Don't I already have this queued in my for-next branch?
+> 
+> Or is this an updated version?
+> 
+> [And same applies to the nes driver changes]
 
-More details provided upon request.  Apologies in advance if I've sent
-this to the wrong place or not followed proper procedures.
+Any chance you can drop the copies in your tree?
 
-   Best,
-    Mark
+The reason I'm asking is that once all the conversions are in
+net-next-2.6 which hit the i386 allmodconfig build there is a change
+we can add (which in fast is in net-next-2.6 now) which exposes a
+config option to turn all of the pre-netdev_ops compatibility stuff
+off.
 
-
---- linux-2.6/net/netfilter/nf_conntrack_proto_tcp.c.orig	2009-03-22 17:51:47.000000000 -0400
-+++ linux-2.6/net/netfilter/nf_conntrack_proto_tcp.c	2009-03-22 22:49:23.000000000 -0400
-@@ -15,6 +15,7 @@
- #include <linux/skbuff.h>
- #include <linux/ipv6.h>
- #include <net/ip6_checksum.h>
-+#include <asm/unaligned.h>
- 
- #include <net/tcp.h>
- 
-@@ -466,7 +467,7 @@ static void tcp_sack(const struct sk_buf
- 				for (i = 0;
- 				     i < (opsize - TCPOLEN_SACK_BASE);
- 				     i += TCPOLEN_SACK_PERBLOCK) {
--					tmp = ntohl(*((__be32 *)(ptr+i)+1));
-+					tmp = get_unaligned_be32((__be32 *)(ptr+i)+1);
- 
- 					if (after(tmp, *sack))
- 						*sack = tmp;
+We can't do that until i386 builds in all configurations.
