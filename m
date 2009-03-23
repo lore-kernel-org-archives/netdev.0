@@ -1,37 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] Re: TCP/IP stack interpretation of
- acceptable packet
-Date: Mon, 23 Mar 2009 11:58:21 -0700 (PDT)
-Message-ID: <20090323.115821.67647014.davem@davemloft.net>
-References: <1237423493.32009.31.camel@Maple>
-	<20090322.215033.192091282.davem@davemloft.net>
-	<20090323122806.GA11935@one.firstfloor.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ANNOUNCE]: Release of iptables-1.4.3
+Date: Mon, 23 Mar 2009 20:19:31 +0100
+Message-ID: <49C7E0C3.8050907@trash.net>
+References: <49C79C90.80804@trash.net> <alpine.LSU.2.00.0903231917540.27630@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: john.dykstra1@gmail.com, mailinglists+netdev@oliverzheng.com,
-	netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter <netfilter@lists.netfilter.org>,
+	netfilter-announce@lists.netfilter.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60578
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753645AbZCWS6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 14:58:33 -0400
-In-Reply-To: <20090323122806.GA11935@one.firstfloor.org>
+Received: from stinky.trash.net ([213.144.137.162]:46709 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754072AbZCWTTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 15:19:34 -0400
+In-Reply-To: <alpine.LSU.2.00.0903231917540.27630@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon, 23 Mar 2009 13:28:06 +0100
+Jan Engelhardt wrote:
+> On Monday 2009-03-23 15:28, Patrick McHardy wrote:
+>
+>   
+>> The netfilter coreteam presents:
+>>
+>>    iptables version 1.4.3
+>>
+>> the iptables release for the 2.6.29 kernel. It has been some time
+>> since the last release and we've had a lot of changes all over the
+>> place.[...]
+>>     
+>
+> Can you update the freshmeat entry? (Or be courteous to add me to the
+> FM project.)
 
-> > I've been mulling over this patch for more than a week :-)
-> > 
-> > Let's put this into net-next-2.6 and let it cook there for
-> > a while.  It is possible I'll backport this into -stable
-> > after some time.
-> 
-> One thing that might be useful for the testing period would 
-> be explicit printk when such a new discard happens? Otherwise
-> it would be difficult to find out if something really goes wrong.
+I'll add you to the project when I'm near the password again :)
 
-No, thanks.
