@@ -1,7 +1,8 @@
 From: Oskar Schirmer <os@emlix.com>
-Subject: [patch 1/3] s6gmac: xtensa s6000 on-chip ethernet driver
-Date: Mon, 23 Mar 2009 15:13:18 +0100
-Message-ID: <1237817600-29471-1-git-send-email-os@emlix.com>
+Subject: [patch 2/3] xtensa: s6105 specific configuration for s6gmac
+Date: Mon, 23 Mar 2009 15:13:19 +0100
+Message-ID: <1237817600-29471-2-git-send-email-os@emlix.com>
+References: <1237817600-29471-1-git-send-email-os@emlix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -9,1149 +10,195 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Oskar Schirmer <os@emlix.com>,
 	=?utf-8?q?Daniel=20Gl=C3=B6ckner?= <dg@emlix.com>
 To: Jeff Garzik <jgarzik@pobox.com>, Chris Zankel <chris@zankel.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757991AbZCWONJ@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.emlix.com ([193.175.82.87]:57594 "EHLO mx1.emlix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757200AbZCWOM0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2009 10:12:26 -0400
+In-Reply-To: <1237817600-29471-1-git-send-email-os@emlix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The s6000 on-chip MAC supports 10/100/1000Mbit and is connected to an
-external PHY via MII or RGMII interface.
+Platform-specific configuration for the s6gmac driver, including the
+PHY interrupt line.
 
-Signed-off-by: Oskar Schirmer <os@emlix.com>
 Signed-off-by: Daniel Gl=C3=B6ckner <dg@emlix.com>
+Signed-off-by: Oskar Schirmer <os@emlix.com>
 ---
- drivers/net/Kconfig  |   11 +
- drivers/net/Makefile |    1 +
- drivers/net/s6gmac.c | 1073 ++++++++++++++++++++++++++++++++++++++++++=
+ arch/xtensa/platforms/s6105/device.c |   91 ++++++++++++++++++++++++++=
 ++++++++
- 3 files changed, 1085 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/s6gmac.c
+ arch/xtensa/platforms/s6105/setup.c  |    9 +++
+ 2 files changed, 100 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index a2f185f..7d752c8 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2365,6 +2365,17 @@ config JME
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called jme.
+diff --git a/arch/xtensa/platforms/s6105/device.c b/arch/xtensa/platfor=
+ms/s6105/device.c
+index 78b08be..963634a 100644
+--- a/arch/xtensa/platforms/s6105/device.c
++++ b/arch/xtensa/platforms/s6105/device.c
+@@ -5,14 +5,27 @@
+  */
 =20
-+config S6GMAC
-+	tristate "S6105 GMAC ethernet support"
-+	depends on XTENSA_VARIANT_S6000
-+	select PHYLIB
-+	help
-+	  This driver supports the on chip ethernet device on the
-+	  S6105 xtensa processor.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called s6gmac.
-+
- endif # NETDEV_1000
-=20
- #
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index aca8492..aa7140c 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -232,6 +232,7 @@ obj-$(CONFIG_ENC28J60) +=3D enc28j60.o
- obj-$(CONFIG_XTENSA_XT2000_SONIC) +=3D xtsonic.o
-=20
- obj-$(CONFIG_MACB) +=3D macb.o
-+obj-$(CONFIG_S6GMAC) +=3D s6gmac.o
-=20
- obj-$(CONFIG_ARM) +=3D arm/
- obj-$(CONFIG_DEV_APPLETALK) +=3D appletalk/
-diff --git a/drivers/net/s6gmac.c b/drivers/net/s6gmac.c
-new file mode 100644
-index 0000000..74bf583
---- /dev/null
-+++ b/drivers/net/s6gmac.c
-@@ -0,0 +1,1073 @@
-+/*
-+ * Ethernet driver for S6105 on chip network device
-+ * (c)2008 emlix GmbH http://www.emlix.com
-+ * Authors:	Oskar Schirmer <os@emlix.com>
-+ *		Daniel Gloeckner <dg@emlix.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/types.h>
-+#include <linux/delay.h>
-+#include <linux/init.h>
-+#include <linux/spinlock.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/if.h>
-+#include <linux/stddef.h>
-+#include <linux/mii.h>
+ #include <linux/kernel.h>
++#include <linux/gpio.h>
+ #include <linux/init.h>
++#include <linux/irq.h>
 +#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <variant/hardware.h>
+ #include <linux/platform_device.h>
+ #include <linux/serial.h>
+ #include <linux/serial_8250.h>
+=20
+ #include <variant/hardware.h>
 +#include <variant/dmac.h>
+=20
++#include <platform/gpio.h>
 +
-+#define DRV_NAME "s6gmac"
-+#define DRV_PRMT DRV_NAME ": "
++#define GPIO3_INTNUM		3
+ #define UART_INTNUM		4
++#define GMAC_INTNUM		5
 +
-+
-+/* register declarations */
-+
-+#define S6_GMAC_MACCONF1	0x000
-+#define S6_GMAC_MACCONF1_TXENA		0
-+#define S6_GMAC_MACCONF1_SYNCTX		1
-+#define S6_GMAC_MACCONF1_RXENA		2
-+#define S6_GMAC_MACCONF1_SYNCRX		3
-+#define S6_GMAC_MACCONF1_TXFLOWCTRL	4
-+#define S6_GMAC_MACCONF1_RXFLOWCTRL	5
-+#define S6_GMAC_MACCONF1_LOOPBACK	8
-+#define S6_GMAC_MACCONF1_RESTXFUNC	16
-+#define S6_GMAC_MACCONF1_RESRXFUNC	17
-+#define S6_GMAC_MACCONF1_RESTXMACCTRL	18
-+#define S6_GMAC_MACCONF1_RESRXMACCTRL	19
-+#define S6_GMAC_MACCONF1_SIMULRES	30
-+#define S6_GMAC_MACCONF1_SOFTRES	31
-+#define S6_GMAC_MACCONF2	0x004
-+#define S6_GMAC_MACCONF2_FULL		0
-+#define S6_GMAC_MACCONF2_CRCENA		1
-+#define S6_GMAC_MACCONF2_PADCRCENA	2
-+#define S6_GMAC_MACCONF2_LENGTHFCHK	4
-+#define S6_GMAC_MACCONF2_HUGEFRAMENA	5
-+#define S6_GMAC_MACCONF2_IFMODE		8
-+#define S6_GMAC_MACCONF2_IFMODE_NIBBLE		1
-+#define S6_GMAC_MACCONF2_IFMODE_BYTE		2
-+#define S6_GMAC_MACCONF2_IFMODE_MASK		3
-+#define S6_GMAC_MACCONF2_PREAMBLELEN	12
-+#define S6_GMAC_MACCONF2_PREAMBLELEN_MASK	0x0F
-+#define S6_GMAC_MACIPGIFG	0x008
-+#define S6_GMAC_MACIPGIFG_B2BINTERPGAP	0
-+#define S6_GMAC_MACIPGIFG_B2BINTERPGAP_MASK	0x7F
-+#define S6_GMAC_MACIPGIFG_MINIFGENFORCE	8
-+#define S6_GMAC_MACIPGIFG_B2BINTERPGAP2	16
-+#define S6_GMAC_MACIPGIFG_B2BINTERPGAP1	24
-+#define S6_GMAC_MACHALFDUPLEX	0x00C
-+#define S6_GMAC_MACHALFDUPLEX_COLLISWIN	0
-+#define S6_GMAC_MACHALFDUPLEX_COLLISWIN_MASK	0x3F
-+#define S6_GMAC_MACHALFDUPLEX_RETXMAX	12
-+#define S6_GMAC_MACHALFDUPLEX_RETXMAX_MASK	0x0F
-+#define S6_GMAC_MACHALFDUPLEX_EXCESSDEF	16
-+#define S6_GMAC_MACHALFDUPLEX_NOBACKOFF	17
-+#define S6_GMAC_MACHALFDUPLEX_BPNOBCKOF	18
-+#define S6_GMAC_MACHALFDUPLEX_ALTBEBENA	19
-+#define S6_GMAC_MACHALFDUPLEX_ALTBEBTRN	20
-+#define S6_GMAC_MACHALFDUPLEX_ALTBEBTR_MASK	0x0F
-+#define S6_GMAC_MACMAXFRAMELEN	0x010
-+#define S6_GMAC_MACMIICONF	0x020
-+#define S6_GMAC_MACMIICONF_CSEL		0
-+#define S6_GMAC_MACMIICONF_CSEL_DIV10		0
-+#define S6_GMAC_MACMIICONF_CSEL_DIV12		1
-+#define S6_GMAC_MACMIICONF_CSEL_DIV14		2
-+#define S6_GMAC_MACMIICONF_CSEL_DIV18		3
-+#define S6_GMAC_MACMIICONF_CSEL_DIV24		4
-+#define S6_GMAC_MACMIICONF_CSEL_DIV34		5
-+#define S6_GMAC_MACMIICONF_CSEL_DIV68		6
-+#define S6_GMAC_MACMIICONF_CSEL_DIV168		7
-+#define S6_GMAC_MACMIICONF_CSEL_MASK		7
-+#define S6_GMAC_MACMIICONF_PREAMBLESUPR	4
-+#define S6_GMAC_MACMIICONF_SCANAUTOINCR	5
-+#define S6_GMAC_MACMIICMD	0x024
-+#define S6_GMAC_MACMIICMD_READ		0
-+#define S6_GMAC_MACMIICMD_SCAN		1
-+#define S6_GMAC_MACMIIADDR	0x028
-+#define S6_GMAC_MACMIIADDR_REG		0
-+#define S6_GMAC_MACMIIADDR_REG_MASK		0x1F
-+#define S6_GMAC_MACMIIADDR_PHY		8
-+#define S6_GMAC_MACMIIADDR_PHY_MASK		0x1F
-+#define S6_GMAC_MACMIICTRL	0x02C
-+#define S6_GMAC_MACMIISTAT	0x030
-+#define S6_GMAC_MACMIIINDI	0x034
-+#define S6_GMAC_MACMIIINDI_BUSY		0
-+#define S6_GMAC_MACMIIINDI_SCAN		1
-+#define S6_GMAC_MACMIIINDI_INVAL	2
-+#define S6_GMAC_MACINTERFSTAT	0x03C
-+#define S6_GMAC_MACINTERFSTAT_LINKFAIL	3
-+#define S6_GMAC_MACINTERFSTAT_EXCESSDEF	9
-+#define S6_GMAC_MACSTATADDR1	0x040
-+#define S6_GMAC_MACSTATADDR2	0x044
-+
-+#define S6_GMAC_FIFOCONF0	0x048
-+#define S6_GMAC_FIFOCONF0_HSTRSTWT	0
-+#define S6_GMAC_FIFOCONF0_HSTRSTSR	1
-+#define S6_GMAC_FIFOCONF0_HSTRSTFR	2
-+#define S6_GMAC_FIFOCONF0_HSTRSTST	3
-+#define S6_GMAC_FIFOCONF0_HSTRSTFT	4
-+#define S6_GMAC_FIFOCONF0_WTMENREQ	8
-+#define S6_GMAC_FIFOCONF0_SRFENREQ	9
-+#define S6_GMAC_FIFOCONF0_FRFENREQ	10
-+#define S6_GMAC_FIFOCONF0_STFENREQ	11
-+#define S6_GMAC_FIFOCONF0_FTFENREQ	12
-+#define S6_GMAC_FIFOCONF0_WTMENRPLY	16
-+#define S6_GMAC_FIFOCONF0_SRFENRPLY	17
-+#define S6_GMAC_FIFOCONF0_FRFENRPLY	18
-+#define S6_GMAC_FIFOCONF0_STFENRPLY	19
-+#define S6_GMAC_FIFOCONF0_FTFENRPLY	20
-+#define S6_GMAC_FIFOCONF1	0x04C
-+#define S6_GMAC_FIFOCONF2	0x050
-+#define S6_GMAC_FIFOCONF2_CFGLWM	0
-+#define S6_GMAC_FIFOCONF2_CFGHWM	16
-+#define S6_GMAC_FIFOCONF3	0x054
-+#define S6_GMAC_FIFOCONF3_CFGFTTH	0
-+#define S6_GMAC_FIFOCONF3_CFGHWMFT	16
-+#define S6_GMAC_FIFOCONF4	0x058
-+#define S6_GMAC_FIFOCONF_RSV_PREVDROP	0
-+#define S6_GMAC_FIFOCONF_RSV_RUNT	1
-+#define S6_GMAC_FIFOCONF_RSV_FALSECAR	2
-+#define S6_GMAC_FIFOCONF_RSV_CODEERR	3
-+#define S6_GMAC_FIFOCONF_RSV_CRCERR	4
-+#define S6_GMAC_FIFOCONF_RSV_LENGTHERR	5
-+#define S6_GMAC_FIFOCONF_RSV_LENRANGE	6
-+#define S6_GMAC_FIFOCONF_RSV_OK		7
-+#define S6_GMAC_FIFOCONF_RSV_MULTICAST	8
-+#define S6_GMAC_FIFOCONF_RSV_BROADCAST	9
-+#define S6_GMAC_FIFOCONF_RSV_DRIBBLE	10
-+#define S6_GMAC_FIFOCONF_RSV_CTRLFRAME	11
-+#define S6_GMAC_FIFOCONF_RSV_PAUSECTRL	12
-+#define S6_GMAC_FIFOCONF_RSV_UNOPCODE	13
-+#define S6_GMAC_FIFOCONF_RSV_VLANTAG	14
-+#define S6_GMAC_FIFOCONF_RSV_LONGEVENT	15
-+#define S6_GMAC_FIFOCONF_RSV_TRUNCATED	16
-+#define S6_GMAC_FIFOCONF_RSV_MASK		0x3FFFF
-+#define S6_GMAC_FIFOCONF5	0x05C
-+#define S6_GMAC_FIFOCONF5_DROPLT64	18
-+#define S6_GMAC_FIFOCONF5_CFGBYTM	19
-+#define S6_GMAC_FIFOCONF5_RXDROPSIZE	20
-+#define S6_GMAC_FIFOCONF5_RXDROPSIZE_MASK	0xF
-+
-+#define S6_GMAC_STAT_REGS	0x080
-+#define S6_GMAC_STAT_SIZE_MIN		12
-+#define S6_GMAC_STATTR64	0x080
-+#define S6_GMAC_STATTR64_SIZE		18
-+#define S6_GMAC_STATTR127	0x084
-+#define S6_GMAC_STATTR127_SIZE		18
-+#define S6_GMAC_STATTR255	0x088
-+#define S6_GMAC_STATTR255_SIZE		18
-+#define S6_GMAC_STATTR511	0x08C
-+#define S6_GMAC_STATTR511_SIZE		18
-+#define S6_GMAC_STATTR1K	0x090
-+#define S6_GMAC_STATTR1K_SIZE		18
-+#define S6_GMAC_STATTRMAX	0x094
-+#define S6_GMAC_STATTRMAX_SIZE		18
-+#define S6_GMAC_STATTRMGV	0x098
-+#define S6_GMAC_STATTRMGV_SIZE		18
-+#define S6_GMAC_STATRBYT	0x09C
-+#define S6_GMAC_STATRBYT_SIZE		24
-+#define S6_GMAC_STATRPKT	0x0A0
-+#define S6_GMAC_STATRPKT_SIZE		18
-+#define S6_GMAC_STATRFCS	0x0A4
-+#define S6_GMAC_STATRFCS_SIZE		12
-+#define S6_GMAC_STATRMCA	0x0A8
-+#define S6_GMAC_STATRMCA_SIZE		18
-+#define S6_GMAC_STATRBCA	0x0AC
-+#define S6_GMAC_STATRBCA_SIZE		22
-+#define S6_GMAC_STATRXCF	0x0B0
-+#define S6_GMAC_STATRXCF_SIZE		18
-+#define S6_GMAC_STATRXPF	0x0B4
-+#define S6_GMAC_STATRXPF_SIZE		12
-+#define S6_GMAC_STATRXUO	0x0B8
-+#define S6_GMAC_STATRXUO_SIZE		12
-+#define S6_GMAC_STATRALN	0x0BC
-+#define S6_GMAC_STATRALN_SIZE		12
-+#define S6_GMAC_STATRFLR	0x0C0
-+#define S6_GMAC_STATRFLR_SIZE		16
-+#define S6_GMAC_STATRCDE	0x0C4
-+#define S6_GMAC_STATRCDE_SIZE		12
-+#define S6_GMAC_STATRCSE	0x0C8
-+#define S6_GMAC_STATRCSE_SIZE		12
-+#define S6_GMAC_STATRUND	0x0CC
-+#define S6_GMAC_STATRUND_SIZE		12
-+#define S6_GMAC_STATROVR	0x0D0
-+#define S6_GMAC_STATROVR_SIZE		12
-+#define S6_GMAC_STATRFRG	0x0D4
-+#define S6_GMAC_STATRFRG_SIZE		12
-+#define S6_GMAC_STATRJBR	0x0D8
-+#define S6_GMAC_STATRJBR_SIZE		12
-+#define S6_GMAC_STATRDRP	0x0DC
-+#define S6_GMAC_STATRDRP_SIZE		12
-+#define S6_GMAC_STATTBYT	0x0E0
-+#define S6_GMAC_STATTBYT_SIZE		24
-+#define S6_GMAC_STATTPKT	0x0E4
-+#define S6_GMAC_STATTPKT_SIZE		18
-+#define S6_GMAC_STATTMCA	0x0E8
-+#define S6_GMAC_STATTMCA_SIZE		18
-+#define S6_GMAC_STATTBCA	0x0EC
-+#define S6_GMAC_STATTBCA_SIZE		18
-+#define S6_GMAC_STATTXPF	0x0F0
-+#define S6_GMAC_STATTXPF_SIZE		12
-+#define S6_GMAC_STATTDFR	0x0F4
-+#define S6_GMAC_STATTDFR_SIZE		12
-+#define S6_GMAC_STATTEDF	0x0F8
-+#define S6_GMAC_STATTEDF_SIZE		12
-+#define S6_GMAC_STATTSCL	0x0FC
-+#define S6_GMAC_STATTSCL_SIZE		12
-+#define S6_GMAC_STATTMCL	0x100
-+#define S6_GMAC_STATTMCL_SIZE		12
-+#define S6_GMAC_STATTLCL	0x104
-+#define S6_GMAC_STATTLCL_SIZE		12
-+#define S6_GMAC_STATTXCL	0x108
-+#define S6_GMAC_STATTXCL_SIZE		12
-+#define S6_GMAC_STATTNCL	0x10C
-+#define S6_GMAC_STATTNCL_SIZE		13
-+#define S6_GMAC_STATTPFH	0x110
-+#define S6_GMAC_STATTPFH_SIZE		12
-+#define S6_GMAC_STATTDRP	0x114
-+#define S6_GMAC_STATTDRP_SIZE		12
-+#define S6_GMAC_STATTJBR	0x118
-+#define S6_GMAC_STATTJBR_SIZE		12
-+#define S6_GMAC_STATTFCS	0x11C
-+#define S6_GMAC_STATTFCS_SIZE		12
-+#define S6_GMAC_STATTXCF	0x120
-+#define S6_GMAC_STATTXCF_SIZE		12
-+#define S6_GMAC_STATTOVR	0x124
-+#define S6_GMAC_STATTOVR_SIZE		12
-+#define S6_GMAC_STATTUND	0x128
-+#define S6_GMAC_STATTUND_SIZE		12
-+#define S6_GMAC_STATTFRG	0x12C
-+#define S6_GMAC_STATTFRG_SIZE		12
-+#define S6_GMAC_STATCARRY(n)	(0x130 + 4*(n))
-+#define S6_GMAC_STATCARRYMSK(n)	(0x138 + 4*(n))
-+#define S6_GMAC_STATCARRY1_RDRP		0
-+#define S6_GMAC_STATCARRY1_RJBR		1
-+#define S6_GMAC_STATCARRY1_RFRG		2
-+#define S6_GMAC_STATCARRY1_ROVR		3
-+#define S6_GMAC_STATCARRY1_RUND		4
-+#define S6_GMAC_STATCARRY1_RCSE		5
-+#define S6_GMAC_STATCARRY1_RCDE		6
-+#define S6_GMAC_STATCARRY1_RFLR		7
-+#define S6_GMAC_STATCARRY1_RALN		8
-+#define S6_GMAC_STATCARRY1_RXUO		9
-+#define S6_GMAC_STATCARRY1_RXPF		10
-+#define S6_GMAC_STATCARRY1_RXCF		11
-+#define S6_GMAC_STATCARRY1_RBCA		12
-+#define S6_GMAC_STATCARRY1_RMCA		13
-+#define S6_GMAC_STATCARRY1_RFCS		14
-+#define S6_GMAC_STATCARRY1_RPKT		15
-+#define S6_GMAC_STATCARRY1_RBYT		16
-+#define S6_GMAC_STATCARRY1_TRMGV	25
-+#define S6_GMAC_STATCARRY1_TRMAX	26
-+#define S6_GMAC_STATCARRY1_TR1K		27
-+#define S6_GMAC_STATCARRY1_TR511	28
-+#define S6_GMAC_STATCARRY1_TR255	29
-+#define S6_GMAC_STATCARRY1_TR127	30
-+#define S6_GMAC_STATCARRY1_TR64		31
-+#define S6_GMAC_STATCARRY2_TDRP		0
-+#define S6_GMAC_STATCARRY2_TPFH		1
-+#define S6_GMAC_STATCARRY2_TNCL		2
-+#define S6_GMAC_STATCARRY2_TXCL		3
-+#define S6_GMAC_STATCARRY2_TLCL		4
-+#define S6_GMAC_STATCARRY2_TMCL		5
-+#define S6_GMAC_STATCARRY2_TSCL		6
-+#define S6_GMAC_STATCARRY2_TEDF		7
-+#define S6_GMAC_STATCARRY2_TDFR		8
-+#define S6_GMAC_STATCARRY2_TXPF		9
-+#define S6_GMAC_STATCARRY2_TBCA		10
-+#define S6_GMAC_STATCARRY2_TMCA		11
-+#define S6_GMAC_STATCARRY2_TPKT		12
-+#define S6_GMAC_STATCARRY2_TBYT		13
-+#define S6_GMAC_STATCARRY2_TFRG		14
-+#define S6_GMAC_STATCARRY2_TUND		15
-+#define S6_GMAC_STATCARRY2_TOVR		16
-+#define S6_GMAC_STATCARRY2_TXCF		17
-+#define S6_GMAC_STATCARRY2_TFCS		18
-+#define S6_GMAC_STATCARRY2_TJBR		19
-+
-+#define S6_GMAC_HOST_PBLKCTRL	0x140
-+#define S6_GMAC_HOST_PBLKCTRL_TXENA	0
-+#define S6_GMAC_HOST_PBLKCTRL_RXENA	1
-+#define S6_GMAC_HOST_PBLKCTRL_TXSRES	2
-+#define S6_GMAC_HOST_PBLKCTRL_RXSRES	3
-+#define S6_GMAC_HOST_PBLKCTRL_TXBSIZ	8
-+#define S6_GMAC_HOST_PBLKCTRL_RXBSIZ	12
-+#define S6_GMAC_HOST_PBLKCTRL_SIZ_16		4
-+#define S6_GMAC_HOST_PBLKCTRL_SIZ_32		5
-+#define S6_GMAC_HOST_PBLKCTRL_SIZ_64		6
-+#define S6_GMAC_HOST_PBLKCTRL_SIZ_128		7
-+#define S6_GMAC_HOST_PBLKCTRL_SIZ_MASK		0xF
-+#define S6_GMAC_HOST_PBLKCTRL_STATENA	16
-+#define S6_GMAC_HOST_PBLKCTRL_STATAUTOZ	17
-+#define S6_GMAC_HOST_PBLKCTRL_STATCLEAR	18
-+#define S6_GMAC_HOST_PBLKCTRL_RGMII	19
-+#define S6_GMAC_HOST_INTMASK	0x144
-+#define S6_GMAC_HOST_INTSTAT	0x148
-+#define S6_GMAC_HOST_INT_TXBURSTOVER	3
-+#define S6_GMAC_HOST_INT_TXPREWOVER	4
-+#define S6_GMAC_HOST_INT_RXBURSTUNDER	5
-+#define S6_GMAC_HOST_INT_RXPOSTRFULL	6
-+#define S6_GMAC_HOST_INT_RXPOSTRUNDER	7
-+#define S6_GMAC_HOST_RXFIFOHWM	0x14C
-+#define S6_GMAC_HOST_CTRLFRAMXP	0x150
-+#define S6_GMAC_HOST_DSTADDRLO(n) (0x160 + 8*(n))
-+#define S6_GMAC_HOST_DSTADDRHI(n) (0x164 + 8*(n))
-+#define S6_GMAC_HOST_DSTMASKLO(n) (0x180 + 8*(n))
-+#define S6_GMAC_HOST_DSTMASKHI(n) (0x184 + 8*(n))
-+
-+#define S6_GMAC_BURST_PREWR	0x1B0
-+#define S6_GMAC_BURST_PREWR_LEN		0
-+#define S6_GMAC_BURST_PREWR_LEN_MASK		((1 << 20) - 1)
-+#define S6_GMAC_BURST_PREWR_CFE		20
-+#define S6_GMAC_BURST_PREWR_PPE		21
-+#define S6_GMAC_BURST_PREWR_FCS		22
-+#define S6_GMAC_BURST_PREWR_PAD		23
-+#define S6_GMAC_BURST_POSTRD	0x1D0
-+#define S6_GMAC_BURST_POSTRD_LEN	0
-+#define S6_GMAC_BURST_POSTRD_LEN_MASK		((1 << 20) - 1)
-+#define S6_GMAC_BURST_POSTRD_DROP	20
-+
-+
-+/* data handling */
-+
-+#define S6_NUM_TX_SKB	8	/* must be larger than TX fifo size */
-+#define S6_NUM_RX_SKB	16
-+#define S6_MAX_FRLEN	1536
-+
-+struct s6gmac {
-+	u32 reg;
-+	u32 tx_dma;
-+	u32 rx_dma;
-+	u32 io;
-+	u8 tx_chan;
-+	u8 rx_chan;
-+	spinlock_t lock;
-+	u8 tx_skb_i, tx_skb_o;
-+	u8 rx_skb_i, rx_skb_o;
-+	struct sk_buff *tx_skb[S6_NUM_TX_SKB];
-+	struct sk_buff *rx_skb[S6_NUM_RX_SKB];
-+	unsigned long carry[sizeof(struct net_device_stats) / sizeof(long)];
-+	unsigned long stats[sizeof(struct net_device_stats) / sizeof(long)];
-+	struct phy_device *phydev;
-+	struct {
-+		struct mii_bus *bus;
-+		int irq[PHY_MAX_ADDR];
-+	} mii;
-+	struct {
-+		unsigned int mbit;
-+		u8 giga;
-+		u8 isup;
-+		u8 full;
-+	} link;
++static const signed char gpio3_irq_mappings[] =3D {
++	S6_INTC_GPIO(3),
++	-1
++};
+=20
+ static const signed char uart_irq_mappings[] =3D {
+ 	S6_INTC_UART(0),
+@@ -20,8 +33,18 @@ static const signed char uart_irq_mappings[] =3D {
+ 	-1,
+ };
+=20
++static const signed char gmac_irq_mappings[] =3D {
++	S6_INTC_GMAC_STAT,
++	S6_INTC_GMAC_ERR,
++	S6_INTC_DMA_HOSTTERMCNT(0),
++	S6_INTC_DMA_HOSTTERMCNT(1),
++	-1
 +};
 +
-+static void s6gmac_rx_fillfifo(struct s6gmac *pd)
-+{
-+	struct sk_buff *skb;
-+	while ((((u8)(pd->rx_skb_i - pd->rx_skb_o)) < S6_NUM_RX_SKB)
-+			&& (!s6dmac_fifo_full(pd->rx_dma, pd->rx_chan))
-+			&& (skb =3D dev_alloc_skb(S6_MAX_FRLEN + 2))) {
-+		pd->rx_skb[(pd->rx_skb_i++) % S6_NUM_RX_SKB] =3D skb;
-+		s6dmac_put_fifo_cache(pd->rx_dma, pd->rx_chan,
-+			pd->io, (u32)skb->data, S6_MAX_FRLEN);
-+	}
-+}
-+
-+static void s6gmac_rx_interrupt(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	u32 pfx;
-+	struct sk_buff *skb;
-+	while (((u8)(pd->rx_skb_i - pd->rx_skb_o)) >
-+			s6dmac_pending_count(pd->rx_dma, pd->rx_chan)) {
-+		skb =3D pd->rx_skb[(pd->rx_skb_o++) % S6_NUM_RX_SKB];
-+		pfx =3D readl(pd->reg + S6_GMAC_BURST_POSTRD);
-+		if (pfx & (1 << S6_GMAC_BURST_POSTRD_DROP)) {
-+			dev_kfree_skb_irq(skb);
-+		} else {
-+			skb_put(skb, (pfx >> S6_GMAC_BURST_POSTRD_LEN)
-+				& S6_GMAC_BURST_POSTRD_LEN_MASK);
-+			skb->dev =3D dev;
-+			skb->protocol =3D eth_type_trans(skb, dev);
-+			skb->ip_summed =3D CHECKSUM_UNNECESSARY;
-+			netif_rx(skb);
-+		}
-+	}
-+}
-+
-+static void s6gmac_tx_interrupt(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	while (((u8)(pd->tx_skb_i - pd->tx_skb_o)) >
-+			s6dmac_pending_count(pd->tx_dma, pd->tx_chan)) {
-+		dev_kfree_skb_irq(pd->tx_skb[(pd->tx_skb_o++) % S6_NUM_TX_SKB]);
-+	}
-+	if (!s6dmac_fifo_full(pd->tx_dma, pd->tx_chan))
-+		netif_wake_queue(dev);
-+}
-+
-+struct s6gmac_statinf {
-+	unsigned reg_size : 4; /* 0: unused */
-+	unsigned reg_off : 6;
-+	unsigned net_index : 6;
-+};
-+
-+#define S6_STATS_B (8 * sizeof(u32))
-+#define S6_STATS_C(b, r, f) [b] =3D { \
-+	BUILD_BUG_ON_ZERO(r##_SIZE < S6_GMAC_STAT_SIZE_MIN) + \
-+	BUILD_BUG_ON_ZERO((r##_SIZE - (S6_GMAC_STAT_SIZE_MIN - 1)) \
-+			>=3D (1<<4)) + \
-+	r##_SIZE - (S6_GMAC_STAT_SIZE_MIN - 1), \
-+	BUILD_BUG_ON_ZERO(((unsigned)((r - S6_GMAC_STAT_REGS) / sizeof(u32)))=
- \
-+			>=3D ((1<<6)-1)) + \
-+	(r - S6_GMAC_STAT_REGS) / sizeof(u32), \
-+	BUILD_BUG_ON_ZERO((offsetof(struct net_device_stats, f)) \
-+			% sizeof(unsigned long)) + \
-+	BUILD_BUG_ON_ZERO((((unsigned)(offsetof(struct net_device_stats, f)) =
-\
-+			/ sizeof(unsigned long)) >=3D (1<<6))) + \
-+	BUILD_BUG_ON_ZERO((sizeof(((struct net_device_stats *)0)->f) \
-+			!=3D sizeof(unsigned long))) + \
-+	(offsetof(struct net_device_stats, f)) / sizeof(unsigned long)},
-+
-+static const struct s6gmac_statinf statinf[2][S6_STATS_B] =3D { {
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RBYT, S6_GMAC_STATRBYT, rx_bytes)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RPKT, S6_GMAC_STATRPKT, rx_packets)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RFCS, S6_GMAC_STATRFCS, rx_crc_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RMCA, S6_GMAC_STATRMCA, multicast)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RALN, S6_GMAC_STATRALN, rx_frame_errors=
-)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RFLR, S6_GMAC_STATRFLR, rx_length_error=
-s)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RCDE, S6_GMAC_STATRCDE, rx_missed_error=
-s)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RUND, S6_GMAC_STATRUND, rx_length_error=
-s)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_ROVR, S6_GMAC_STATROVR, rx_length_error=
-s)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RFRG, S6_GMAC_STATRFRG, rx_crc_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RJBR, S6_GMAC_STATRJBR, rx_crc_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY1_RDRP, S6_GMAC_STATRDRP, rx_dropped)
-+}, {
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TBYT, S6_GMAC_STATTBYT, tx_bytes)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TPKT, S6_GMAC_STATTPKT, tx_packets)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TEDF, S6_GMAC_STATTEDF, tx_aborted_erro=
-rs)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TXCL, S6_GMAC_STATTXCL, tx_aborted_erro=
-rs)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TNCL, S6_GMAC_STATTNCL, collisions)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TDRP, S6_GMAC_STATTDRP, tx_dropped)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TJBR, S6_GMAC_STATTJBR, tx_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TFCS, S6_GMAC_STATTFCS, tx_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TOVR, S6_GMAC_STATTOVR, tx_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TUND, S6_GMAC_STATTUND, tx_errors)
-+	S6_STATS_C(S6_GMAC_STATCARRY2_TFRG, S6_GMAC_STATTFRG, tx_errors)
-+} };
-+
-+static void s6gmac_stats_collect(struct s6gmac *pd,
-+		const struct s6gmac_statinf *inf)
-+{
-+	int b;
-+	for (b =3D 0; b < S6_STATS_B; b++) {
-+		if (inf[b].reg_size) {
-+			pd->stats[inf[b].net_index] +=3D
-+				readl(pd->reg + S6_GMAC_STAT_REGS
-+					+ sizeof(u32) * inf[b].reg_off);
-+		}
-+	}
-+}
-+
-+static void s6gmac_stats_carry(struct s6gmac *pd,
-+		const struct s6gmac_statinf *inf, u32 mask)
-+{
-+	int b;
-+	while (mask) {
-+		b =3D fls(mask) - 1;
-+		mask &=3D ~(1 << b);
-+		pd->carry[inf[b].net_index] +=3D (1 << inf[b].reg_size);
-+	}
-+}
-+
-+static inline u32 s6gmac_stats_pending(struct s6gmac *pd, int carry)
-+{
-+	int r =3D readl(pd->reg + S6_GMAC_STATCARRY(carry)) &
-+		~readl(pd->reg + S6_GMAC_STATCARRYMSK(carry));
-+	return r;
-+}
-+
-+static inline void s6gmac_stats_interrupt(struct s6gmac *pd, int carry=
-)
-+{
-+	u32 mask;
-+	mask =3D s6gmac_stats_pending(pd, carry);
-+	if (mask) {
-+		writel(mask, pd->reg + S6_GMAC_STATCARRY(carry));
-+		s6gmac_stats_carry(pd, &statinf[carry][0], mask);
-+	}
-+}
-+
-+static irqreturn_t s6gmac_interrupt(int irq, void *dev_id)
-+{
-+	struct net_device *dev =3D (struct net_device *)dev_id;
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	if (!dev)
-+		return IRQ_NONE;
-+	spin_lock(&pd->lock);
-+	if (s6dmac_termcnt_irq(pd->rx_dma, pd->rx_chan))
-+		s6gmac_rx_interrupt(dev);
-+	s6gmac_rx_fillfifo(pd);
-+	if (s6dmac_termcnt_irq(pd->tx_dma, pd->tx_chan))
-+		s6gmac_tx_interrupt(dev);
-+	s6gmac_stats_interrupt(pd, 0);
-+	s6gmac_stats_interrupt(pd, 1);
-+	spin_unlock(&pd->lock);
-+	return IRQ_HANDLED;
-+}
-+
-+static inline void s6gmac_set_dstaddr(struct s6gmac *pd, int n,
-+	u32 addrlo, u32 addrhi, u32 masklo, u32 maskhi)
-+{
-+	writel(addrlo, pd->reg + S6_GMAC_HOST_DSTADDRLO(n));
-+	writel(addrhi, pd->reg + S6_GMAC_HOST_DSTADDRHI(n));
-+	writel(masklo, pd->reg + S6_GMAC_HOST_DSTMASKLO(n));
-+	writel(maskhi, pd->reg + S6_GMAC_HOST_DSTMASKHI(n));
-+}
-+
-+static inline void s6gmac_stop_device(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	writel(0, pd->reg + S6_GMAC_MACCONF1);
-+}
-+
-+static inline void s6gmac_init_device(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	int is_rgmii =3D !!(pd->phydev->supported
-+		& (SUPPORTED_1000baseT_Full | SUPPORTED_1000baseT_Half));
-+#if 0
-+	writel(1 << S6_GMAC_MACCONF1_SYNCTX |
-+		1 << S6_GMAC_MACCONF1_SYNCRX |
-+		1 << S6_GMAC_MACCONF1_TXFLOWCTRL |
-+		1 << S6_GMAC_MACCONF1_RXFLOWCTRL |
-+		1 << S6_GMAC_MACCONF1_RESTXFUNC |
-+		1 << S6_GMAC_MACCONF1_RESRXFUNC |
-+		1 << S6_GMAC_MACCONF1_RESTXMACCTRL |
-+		1 << S6_GMAC_MACCONF1_RESRXMACCTRL,
-+		pd->reg + S6_GMAC_MACCONF1);
-+#endif
-+	writel(1 << S6_GMAC_MACCONF1_SOFTRES, pd->reg + S6_GMAC_MACCONF1);
-+	udelay(1000);
-+	writel(1 << S6_GMAC_MACCONF1_TXENA | 1 << S6_GMAC_MACCONF1_RXENA,
-+		pd->reg + S6_GMAC_MACCONF1);
-+	writel(1 << S6_GMAC_HOST_PBLKCTRL_TXSRES |
-+		1 << S6_GMAC_HOST_PBLKCTRL_RXSRES,
-+		pd->reg + S6_GMAC_HOST_PBLKCTRL);
-+	writel(S6_GMAC_HOST_PBLKCTRL_SIZ_128 << S6_GMAC_HOST_PBLKCTRL_TXBSIZ =
-|
-+		S6_GMAC_HOST_PBLKCTRL_SIZ_128 << S6_GMAC_HOST_PBLKCTRL_RXBSIZ |
-+		1 << S6_GMAC_HOST_PBLKCTRL_STATENA |
-+		1 << S6_GMAC_HOST_PBLKCTRL_STATCLEAR |
-+		is_rgmii << S6_GMAC_HOST_PBLKCTRL_RGMII,
-+		pd->reg + S6_GMAC_HOST_PBLKCTRL);
-+	writel(1 << S6_GMAC_MACCONF1_TXENA |
-+		1 << S6_GMAC_MACCONF1_RXENA |
-+		(dev->flags & IFF_LOOPBACK ? 1 : 0)
-+			<< S6_GMAC_MACCONF1_LOOPBACK,
-+		pd->reg + S6_GMAC_MACCONF1);
-+	writel(dev->mtu && (dev->mtu < (S6_MAX_FRLEN - ETH_HLEN-ETH_FCS_LEN))=
- ?
-+			dev->mtu+ETH_HLEN+ETH_FCS_LEN : S6_MAX_FRLEN,
-+		pd->reg + S6_GMAC_MACMAXFRAMELEN);
-+	writel((pd->link.full ? 1 : 0) << S6_GMAC_MACCONF2_FULL |
-+		1 << S6_GMAC_MACCONF2_PADCRCENA |
-+		1 << S6_GMAC_MACCONF2_LENGTHFCHK |
-+		(pd->link.giga ?
-+			S6_GMAC_MACCONF2_IFMODE_BYTE :
-+			S6_GMAC_MACCONF2_IFMODE_NIBBLE)
-+			<< S6_GMAC_MACCONF2_IFMODE |
-+		7 << S6_GMAC_MACCONF2_PREAMBLELEN,
-+		pd->reg + S6_GMAC_MACCONF2);
-+	writel(0, pd->reg + S6_GMAC_MACSTATADDR1);
-+	writel(0, pd->reg + S6_GMAC_MACSTATADDR2);
-+	writel(1 << S6_GMAC_FIFOCONF0_WTMENREQ |
-+		1 << S6_GMAC_FIFOCONF0_SRFENREQ |
-+		1 << S6_GMAC_FIFOCONF0_FRFENREQ |
-+		1 << S6_GMAC_FIFOCONF0_STFENREQ |
-+		1 << S6_GMAC_FIFOCONF0_FTFENREQ,
-+		pd->reg + S6_GMAC_FIFOCONF0);
-+	writel(128 << S6_GMAC_FIFOCONF3_CFGFTTH |
-+		128 << S6_GMAC_FIFOCONF3_CFGHWMFT,
-+		pd->reg + S6_GMAC_FIFOCONF3);
-+	writel((S6_GMAC_FIFOCONF_RSV_MASK & ~(
-+			1 << S6_GMAC_FIFOCONF_RSV_RUNT |
-+			1 << S6_GMAC_FIFOCONF_RSV_CRCERR |
-+			1 << S6_GMAC_FIFOCONF_RSV_OK |
-+			1 << S6_GMAC_FIFOCONF_RSV_DRIBBLE |
-+			1 << S6_GMAC_FIFOCONF_RSV_CTRLFRAME |
-+			1 << S6_GMAC_FIFOCONF_RSV_PAUSECTRL |
-+			1 << S6_GMAC_FIFOCONF_RSV_UNOPCODE |
-+			1 << S6_GMAC_FIFOCONF_RSV_TRUNCATED)) |
-+		1 << S6_GMAC_FIFOCONF5_DROPLT64 |
-+		pd->link.giga << S6_GMAC_FIFOCONF5_CFGBYTM |
-+		1 << S6_GMAC_FIFOCONF5_RXDROPSIZE,
-+		pd->reg + S6_GMAC_FIFOCONF5);
-+	writel(1 << S6_GMAC_FIFOCONF_RSV_RUNT |
-+		1 << S6_GMAC_FIFOCONF_RSV_CRCERR |
-+		1 << S6_GMAC_FIFOCONF_RSV_DRIBBLE |
-+		1 << S6_GMAC_FIFOCONF_RSV_CTRLFRAME |
-+		1 << S6_GMAC_FIFOCONF_RSV_PAUSECTRL |
-+		1 << S6_GMAC_FIFOCONF_RSV_UNOPCODE |
-+		1 << S6_GMAC_FIFOCONF_RSV_TRUNCATED,
-+		pd->reg + S6_GMAC_FIFOCONF4);
-+	s6gmac_set_dstaddr(pd, 0,
-+		0xFFFFFFFF, 0x0000FFFF, 0xFFFFFFFF, 0x0000FFFF);
-+	s6gmac_set_dstaddr(pd, 1,
-+		dev->dev_addr[5] |
-+		dev->dev_addr[4] << 8 |
-+		dev->dev_addr[3] << 16 |
-+		dev->dev_addr[2] << 24,
-+		dev->dev_addr[1] |
-+		dev->dev_addr[0] << 8,
-+		0xFFFFFFFF, 0x0000FFFF);
-+	s6gmac_set_dstaddr(pd, 2,
-+		0x00000000, 0x00000100, 0x00000000, 0x00000100);
-+	s6gmac_set_dstaddr(pd, 3,
-+		0x00000000, 0x00000000, 0x00000000, 0x00000000);
-+	writel(1 << S6_GMAC_HOST_PBLKCTRL_TXENA |
-+		1 << S6_GMAC_HOST_PBLKCTRL_RXENA |
-+		S6_GMAC_HOST_PBLKCTRL_SIZ_128 << S6_GMAC_HOST_PBLKCTRL_TXBSIZ |
-+		S6_GMAC_HOST_PBLKCTRL_SIZ_128 << S6_GMAC_HOST_PBLKCTRL_RXBSIZ |
-+		1 << S6_GMAC_HOST_PBLKCTRL_STATENA |
-+		1 << S6_GMAC_HOST_PBLKCTRL_STATCLEAR |
-+		is_rgmii << S6_GMAC_HOST_PBLKCTRL_RGMII,
-+		pd->reg + S6_GMAC_HOST_PBLKCTRL);
-+}
-+
-+static void s6mii_enable(struct s6gmac *pd)
-+{
-+	writel(readl(pd->reg + S6_GMAC_MACCONF1) &
-+		~(1 << S6_GMAC_MACCONF1_SOFTRES),
-+		pd->reg + S6_GMAC_MACCONF1);
-+	writel((readl(pd->reg + S6_GMAC_MACMIICONF)
-+		& ~(S6_GMAC_MACMIICONF_CSEL_MASK << S6_GMAC_MACMIICONF_CSEL))
-+		| (S6_GMAC_MACMIICONF_CSEL_DIV168 << S6_GMAC_MACMIICONF_CSEL),
-+		pd->reg + S6_GMAC_MACMIICONF);
-+}
-+
-+static int s6mii_busy(struct s6gmac *pd, int tmo)
-+{
-+	while (readl(pd->reg + S6_GMAC_MACMIIINDI)) {
-+		if (--tmo =3D=3D 0)
-+			return -ETIME;
-+		udelay(64);
-+	}
-+	return 0;
-+}
-+
-+static int s6mii_read(struct mii_bus *bus, int phy_addr, int regnum)
-+{
-+	struct s6gmac *pd =3D bus->priv;
-+	s6mii_enable(pd);
-+	if (s6mii_busy(pd, 256))
-+		return -ETIME;
-+	writel(phy_addr << S6_GMAC_MACMIIADDR_PHY |
-+		regnum << S6_GMAC_MACMIIADDR_REG,
-+		pd->reg + S6_GMAC_MACMIIADDR);
-+	writel(1 << S6_GMAC_MACMIICMD_READ, pd->reg + S6_GMAC_MACMIICMD);
-+	writel(0, pd->reg + S6_GMAC_MACMIICMD);
-+	if (s6mii_busy(pd, 256))
-+		return -ETIME;
-+	return (u16)readl(pd->reg + S6_GMAC_MACMIISTAT);
-+}
-+
-+static int s6mii_write(struct mii_bus *bus, int phy_addr, int regnum, =
-u16 value)
-+{
-+	struct s6gmac *pd =3D bus->priv;
-+	s6mii_enable(pd);
-+	if (s6mii_busy(pd, 256))
-+		return -ETIME;
-+	writel(phy_addr << S6_GMAC_MACMIIADDR_PHY |
-+		regnum << S6_GMAC_MACMIIADDR_REG,
-+		pd->reg + S6_GMAC_MACMIIADDR);
-+	writel(value, pd->reg + S6_GMAC_MACMIICTRL);
-+	if (s6mii_busy(pd, 256))
-+		return -ETIME;
-+	return 0;
-+}
-+
-+static int s6mii_reset(struct mii_bus *bus)
-+{
-+	struct s6gmac *pd =3D bus->priv;
-+	s6mii_enable(pd);
-+	if (s6mii_busy(pd, PHY_INIT_TIMEOUT))
-+		return -ETIME;
-+	return 0;
-+}
-+
-+static void s6gmac_set_rgmii_txclock(struct s6gmac *pd)
-+{
-+	u32 pllsel =3D readl(S6_REG_GREG1 + S6_GREG1_PLLSEL);
-+	pllsel &=3D ~(S6_GREG1_PLLSEL_GMAC_MASK << S6_GREG1_PLLSEL_GMAC);
-+	switch (pd->link.mbit) {
-+	case 10:
-+		pllsel |=3D S6_GREG1_PLLSEL_GMAC_2500KHZ << S6_GREG1_PLLSEL_GMAC;
-+		break;
-+	case 100:
-+		pllsel |=3D S6_GREG1_PLLSEL_GMAC_25MHZ << S6_GREG1_PLLSEL_GMAC;
-+		break;
-+	case 1000:
-+		pllsel |=3D S6_GREG1_PLLSEL_GMAC_125MHZ << S6_GREG1_PLLSEL_GMAC;
-+		break;
-+	default:
-+		return;
-+	}
-+	writel(pllsel, S6_REG_GREG1 + S6_GREG1_PLLSEL);
-+}
-+
-+static inline void s6gmac_linkisup(struct net_device *dev, int isup)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	struct phy_device *phydev =3D pd->phydev;
-+
-+	pd->link.full =3D phydev->duplex;
-+	pd->link.giga =3D (phydev->speed =3D=3D 1000);
-+	if (pd->link.mbit !=3D phydev->speed) {
-+		pd->link.mbit =3D phydev->speed;
-+		s6gmac_set_rgmii_txclock(pd);
-+	}
-+	pd->link.isup =3D isup;
-+	if (isup)
-+		netif_carrier_on(dev);
-+	phy_print_status(phydev);
-+}
-+
-+static void s6gmac_adjust_link(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	struct phy_device *phydev =3D pd->phydev;
-+	if (pd->link.isup &&
-+			(!phydev->link ||
-+			(pd->link.mbit !=3D phydev->speed) ||
-+			(pd->link.full !=3D phydev->duplex))) {
-+		pd->link.isup =3D 0;
-+		netif_tx_disable(dev);
-+		if (!phydev->link) {
-+			netif_carrier_off(dev);
-+			phy_print_status(phydev);
-+		}
-+	}
-+	if (!pd->link.isup && phydev->link) {
-+		if (pd->link.full !=3D phydev->duplex) {
-+			u32 maccfg =3D readl(pd->reg + S6_GMAC_MACCONF2);
-+			if (phydev->duplex)
-+				maccfg |=3D 1 << S6_GMAC_MACCONF2_FULL;
-+			else
-+				maccfg &=3D ~(1 << S6_GMAC_MACCONF2_FULL);
-+			writel(maccfg, pd->reg + S6_GMAC_MACCONF2);
-+		}
-+
-+		if (pd->link.giga !=3D (phydev->speed =3D=3D 1000)) {
-+			u32 fifocfg =3D readl(pd->reg + S6_GMAC_FIFOCONF5);
-+			u32 maccfg =3D readl(pd->reg + S6_GMAC_MACCONF2);
-+			maccfg &=3D ~(S6_GMAC_MACCONF2_IFMODE_MASK
-+				     << S6_GMAC_MACCONF2_IFMODE);
-+			if (phydev->speed =3D=3D 1000) {
-+				fifocfg |=3D 1 << S6_GMAC_FIFOCONF5_CFGBYTM;
-+				maccfg |=3D S6_GMAC_MACCONF2_IFMODE_BYTE
-+					   << S6_GMAC_MACCONF2_IFMODE;
-+			} else {
-+				fifocfg &=3D ~(1 << S6_GMAC_FIFOCONF5_CFGBYTM);
-+				maccfg |=3D S6_GMAC_MACCONF2_IFMODE_NIBBLE
-+					   << S6_GMAC_MACCONF2_IFMODE;
-+			}
-+			writel(fifocfg, pd->reg + S6_GMAC_FIFOCONF5);
-+			writel(maccfg, pd->reg + S6_GMAC_MACCONF2);
-+		}
-+
-+		if (!s6dmac_fifo_full(pd->tx_dma, pd->tx_chan))
-+			netif_wake_queue(dev);
-+		s6gmac_linkisup(dev, 1);
-+	}
-+}
-+
-+static inline int s6gmac_phy_start(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	int i =3D 0;
-+	struct phy_device *p =3D NULL;
-+	while ((!(p =3D pd->mii.bus->phy_map[i])) && (i < PHY_MAX_ADDR))
-+		i++;
-+	p =3D phy_connect(dev, p->dev.bus_id, &s6gmac_adjust_link, 0,
-+			PHY_INTERFACE_MODE_RGMII);
-+	if (IS_ERR(p)) {
-+		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
-+		return PTR_ERR(p);
-+	}
-+	p->supported &=3D PHY_GBIT_FEATURES;
-+	p->advertising =3D p->supported;
-+	pd->phydev =3D p;
-+	return 0;
-+}
-+
-+static inline void s6gmac_init_stats(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	u32 mask;
-+	mask =3D	1 << S6_GMAC_STATCARRY1_RDRP |
-+		1 << S6_GMAC_STATCARRY1_RJBR |
-+		1 << S6_GMAC_STATCARRY1_RFRG |
-+		1 << S6_GMAC_STATCARRY1_ROVR |
-+		1 << S6_GMAC_STATCARRY1_RUND |
-+		1 << S6_GMAC_STATCARRY1_RCDE |
-+		1 << S6_GMAC_STATCARRY1_RFLR |
-+		1 << S6_GMAC_STATCARRY1_RALN |
-+		1 << S6_GMAC_STATCARRY1_RMCA |
-+		1 << S6_GMAC_STATCARRY1_RFCS |
-+		1 << S6_GMAC_STATCARRY1_RPKT |
-+		1 << S6_GMAC_STATCARRY1_RBYT;
-+	writel(mask, pd->reg + S6_GMAC_STATCARRY(0));
-+	writel(~mask, pd->reg + S6_GMAC_STATCARRYMSK(0));
-+	mask =3D	1 << S6_GMAC_STATCARRY2_TDRP |
-+		1 << S6_GMAC_STATCARRY2_TNCL |
-+		1 << S6_GMAC_STATCARRY2_TXCL |
-+		1 << S6_GMAC_STATCARRY2_TEDF |
-+		1 << S6_GMAC_STATCARRY2_TPKT |
-+		1 << S6_GMAC_STATCARRY2_TBYT |
-+		1 << S6_GMAC_STATCARRY2_TFRG |
-+		1 << S6_GMAC_STATCARRY2_TUND |
-+		1 << S6_GMAC_STATCARRY2_TOVR |
-+		1 << S6_GMAC_STATCARRY2_TFCS |
-+		1 << S6_GMAC_STATCARRY2_TJBR;
-+	writel(mask, pd->reg + S6_GMAC_STATCARRY(1));
-+	writel(~mask, pd->reg + S6_GMAC_STATCARRYMSK(1));
-+}
-+
-+static inline void s6gmac_init_dmac(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	s6dmac_disable_chan(pd->tx_dma, pd->tx_chan);
-+	s6dmac_disable_chan(pd->rx_dma, pd->rx_chan);
-+	s6dmac_disable_error_irqs(pd->tx_dma, 1 << S6_HIFDMA_GMACTX);
-+	s6dmac_disable_error_irqs(pd->rx_dma, 1 << S6_HIFDMA_GMACRX);
-+}
-+
-+static int s6gmac_tx(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	unsigned long flags;
-+	spin_lock_irqsave(&pd->lock, flags);
-+	dev->trans_start =3D jiffies;
-+	writel(skb->len << S6_GMAC_BURST_PREWR_LEN |
-+		0 << S6_GMAC_BURST_PREWR_CFE |
-+		1 << S6_GMAC_BURST_PREWR_PPE |
-+		1 << S6_GMAC_BURST_PREWR_FCS |
-+		((skb->len < ETH_ZLEN) ? 1 : 0) << S6_GMAC_BURST_PREWR_PAD,
-+		pd->reg + S6_GMAC_BURST_PREWR);
-+	s6dmac_put_fifo_cache(pd->tx_dma, pd->tx_chan,
-+		(u32)skb->data, pd->io, skb->len);
-+	if (s6dmac_fifo_full(pd->tx_dma, pd->tx_chan))
-+		netif_stop_queue(dev);
-+	if (((u8)(pd->tx_skb_i - pd->tx_skb_o)) >=3D S6_NUM_TX_SKB) {
-+		printk(KERN_ERR "GMAC BUG: skb tx ring overflow [%x, %x]\n",
-+			pd->tx_skb_o, pd->tx_skb_i);
-+		BUG();
-+	}
-+	pd->tx_skb[(pd->tx_skb_i++) % S6_NUM_TX_SKB] =3D skb;
-+	spin_unlock_irqrestore(&pd->lock, flags);
-+	return 0;
-+}
-+
-+static void s6gmac_tx_timeout(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	unsigned long flags;
-+	spin_lock_irqsave(&pd->lock, flags);
-+	s6gmac_tx_interrupt(dev);
-+	spin_unlock_irqrestore(&pd->lock, flags);
-+}
-+
-+static int s6gmac_open(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	unsigned long flags;
-+	phy_read_status(pd->phydev);
-+	spin_lock_irqsave(&pd->lock, flags);
-+	pd->link.mbit =3D 0;
-+	s6gmac_linkisup(dev, pd->phydev->link);
-+	s6gmac_init_device(dev);
-+	s6gmac_init_stats(dev);
-+	s6gmac_init_dmac(dev);
-+	s6gmac_rx_fillfifo(pd);
-+	s6dmac_enable_chan(pd->rx_dma, pd->rx_chan,
-+		2, 1, 0, 1, 0, 0, 0, 7, -1, 2, 0, 1);
-+	s6dmac_enable_chan(pd->tx_dma, pd->tx_chan,
-+		2, 0, 1, 0, 0, 0, 0, 7, -1, 2, 0, 1);
-+	writel(0 << S6_GMAC_HOST_INT_TXBURSTOVER |
-+		0 << S6_GMAC_HOST_INT_TXPREWOVER |
-+		0 << S6_GMAC_HOST_INT_RXBURSTUNDER |
-+		0 << S6_GMAC_HOST_INT_RXPOSTRFULL |
-+		0 << S6_GMAC_HOST_INT_RXPOSTRUNDER,
-+		pd->reg + S6_GMAC_HOST_INTMASK);
-+	spin_unlock_irqrestore(&pd->lock, flags);
-+	phy_start(pd->phydev);
-+	netif_start_queue(dev);
-+	return 0;
-+}
-+
-+static int s6gmac_stop(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	unsigned long flags;
-+	netif_stop_queue(dev);
-+	phy_stop(pd->phydev);
-+	spin_lock_irqsave(&pd->lock, flags);
-+	s6gmac_init_dmac(dev);
-+	s6gmac_stop_device(dev);
-+	while (pd->tx_skb_i !=3D pd->tx_skb_o)
-+		dev_kfree_skb(pd->tx_skb[(pd->tx_skb_o++) % S6_NUM_TX_SKB]);
-+	while (pd->rx_skb_i !=3D pd->rx_skb_o)
-+		dev_kfree_skb(pd->rx_skb[(pd->rx_skb_o++) % S6_NUM_RX_SKB]);
-+	spin_unlock_irqrestore(&pd->lock, flags);
-+	return 0;
-+}
-+
-+static struct net_device_stats *s6gmac_stats(struct net_device *dev)
-+{
-+	struct s6gmac *pd =3D netdev_priv(dev);
-+	struct net_device_stats *st =3D (struct net_device_stats *)&pd->stats=
-;
-+	int i;
-+	do {
-+		unsigned long flags;
-+		spin_lock_irqsave(&pd->lock, flags);
-+		for (i =3D 0; i < sizeof(pd->stats) / sizeof(unsigned long); i++)
-+			pd->stats[i] =3D
-+				pd->carry[i] << (S6_GMAC_STAT_SIZE_MIN - 1);
-+		s6gmac_stats_collect(pd, &statinf[0][0]);
-+		s6gmac_stats_collect(pd, &statinf[1][0]);
-+		i =3D s6gmac_stats_pending(pd, 0) |
-+			s6gmac_stats_pending(pd, 1);
-+		spin_unlock_irqrestore(&pd->lock, flags);
-+	} while (i);
-+	st->rx_errors =3D st->rx_crc_errors +
-+			st->rx_frame_errors +
-+			st->rx_length_errors +
-+			st->rx_missed_errors;
-+	st->tx_errors +=3D st->tx_aborted_errors;
-+	return st;
-+}
-+
-+static int __devinit s6gmac_probe(struct platform_device *pdev)
-+{
-+	struct net_device *dev;
-+	struct s6gmac *pd;
-+	int res;
-+	unsigned long i;
-+	struct mii_bus *mb;
-+	dev =3D alloc_etherdev(sizeof(*pd));
-+	if (!dev) {
-+		printk(KERN_ERR DRV_PRMT "etherdev alloc failed, aborting.\n");
-+		return -ENOMEM;
-+	}
-+	dev->open =3D s6gmac_open;
-+	dev->stop =3D s6gmac_stop;
-+	dev->hard_start_xmit =3D s6gmac_tx;
-+	dev->tx_timeout =3D s6gmac_tx_timeout;
-+	dev->watchdog_timeo =3D HZ;
-+	dev->get_stats =3D s6gmac_stats;
-+	dev->irq =3D platform_get_irq(pdev, 0);
-+	pd =3D netdev_priv(dev);
-+	memset(pd, 0, sizeof(*pd));
-+	spin_lock_init(&pd->lock);
-+	pd->reg =3D platform_get_resource(pdev, IORESOURCE_MEM, 0)->start;
-+	i =3D platform_get_resource(pdev, IORESOURCE_DMA, 0)->start;
-+	pd->tx_dma =3D DMA_MASK_DMAC(i);
-+	pd->tx_chan =3D DMA_INDEX_CHNL(i);
-+	i =3D platform_get_resource(pdev, IORESOURCE_DMA, 1)->start;
-+	pd->rx_dma =3D DMA_MASK_DMAC(i);
-+	pd->rx_chan =3D DMA_INDEX_CHNL(i);
-+	pd->io =3D platform_get_resource(pdev, IORESOURCE_IO, 0)->start;
-+	res =3D request_irq(dev->irq, &s6gmac_interrupt, 0, dev->name, dev);
-+	if (res) {
-+		printk(KERN_ERR DRV_PRMT "irq request failed: %d\n", dev->irq);
-+		goto errirq;
-+	}
-+	res =3D register_netdev(dev);
-+	if (res) {
-+		printk(KERN_ERR DRV_PRMT "error registering device %s\n",
-+			dev->name);
-+		goto errdev;
-+	}
-+	mb =3D mdiobus_alloc();
-+	if (!mb) {
-+		printk(KERN_ERR DRV_PRMT "error allocating mii bus\n");
-+		goto errmii;
-+	}
-+	mb->name =3D "s6gmac_mii";
-+	mb->read =3D s6mii_read;
-+	mb->write =3D s6mii_write;
-+	mb->reset =3D s6mii_reset;
-+	mb->priv =3D pd;
-+	snprintf(mb->id, MII_BUS_ID_SIZE, "0");
-+	mb->phy_mask =3D ~(1 << 0);
-+	mb->irq =3D &pd->mii.irq[0];
-+	for (i =3D 0; i < PHY_MAX_ADDR; i++) {
-+		int n =3D platform_get_irq(pdev, i + 1);
-+		if (n < 0)
-+			n =3D PHY_POLL;
-+		pd->mii.irq[i] =3D n;
-+	}
-+	mdiobus_register(mb);
-+	pd->mii.bus =3D mb;
-+	res =3D s6gmac_phy_start(dev);
-+	if (res)
-+		return res;
-+	platform_set_drvdata(pdev, dev);
-+	return 0;
-+errmii:
-+	unregister_netdev(dev);
-+errdev:
-+	free_irq(dev->irq, dev);
-+errirq:
-+	free_netdev(dev);
-+	return res;
-+}
-+
-+static int __devexit s6gmac_remove(struct platform_device *pdev)
-+{
-+	struct net_device *dev =3D platform_get_drvdata(pdev);
-+	if (dev) {
-+		struct s6gmac *pd =3D netdev_priv(dev);
-+		mdiobus_unregister(pd->mii.bus);
-+		unregister_netdev(dev);
-+		free_irq(dev->irq, dev);
-+		free_netdev(dev);
-+		platform_set_drvdata(pdev, NULL);
-+	}
-+	return 0;
-+}
-+
-+static struct platform_driver s6gmac_driver =3D {
-+	.probe =3D s6gmac_probe,
-+	.remove =3D __devexit_p(s6gmac_remove),
-+	.driver =3D {
-+		.name =3D "s6gmac",
-+		.owner =3D THIS_MODULE,
+ const signed char *platform_irq_mappings[NR_IRQS] =3D {
++	[GPIO3_INTNUM] =3D gpio3_irq_mappings,
+ 	[UART_INTNUM] =3D uart_irq_mappings,
++	[GMAC_INTNUM] =3D gmac_irq_mappings,
+ };
+=20
+ static struct plat_serial8250_port serial_platform_data[] =3D {
+@@ -46,6 +69,66 @@ static struct plat_serial8250_port serial_platform_d=
+ata[] =3D {
+ 	{ },
+ };
+=20
++static struct resource s6_gmac_resource[] =3D {
++	{
++		.name   =3D "mem",
++		.start  =3D (resource_size_t)S6_REG_GMAC,
++		.end    =3D (resource_size_t)S6_REG_GMAC + 0x10000 - 1,
++		.flags  =3D IORESOURCE_MEM,
++	},
++	{
++		.name   =3D "dma",
++		.start  =3D (resource_size_t)
++			DMA_CHNL(S6_REG_HIFDMA, S6_HIFDMA_GMACTX),
++		.end    =3D (resource_size_t)
++			DMA_CHNL(S6_REG_HIFDMA, S6_HIFDMA_GMACTX) + 0x100 - 1,
++		.flags  =3D IORESOURCE_DMA,
++	},
++	{
++		.name   =3D "dma",
++		.start  =3D (resource_size_t)
++			DMA_CHNL(S6_REG_HIFDMA, S6_HIFDMA_GMACRX),
++		.end    =3D (resource_size_t)
++			DMA_CHNL(S6_REG_HIFDMA, S6_HIFDMA_GMACRX) + 0x100 - 1,
++		.flags  =3D IORESOURCE_DMA,
++	},
++	{
++		.name   =3D "io",
++		.start  =3D (resource_size_t)S6_MEM_GMAC,
++		.end    =3D (resource_size_t)S6_MEM_GMAC + 0x2000000 - 1,
++		.flags  =3D IORESOURCE_IO,
++	},
++	{
++		.name   =3D "irq",
++		.start  =3D (resource_size_t)GMAC_INTNUM,
++		.flags  =3D IORESOURCE_IRQ,
++	},
++	{
++		.name   =3D "irq",
++		.start  =3D (resource_size_t)PHY_POLL,
++		.flags  =3D IORESOURCE_IRQ,
 +	},
 +};
 +
-+static int __init s6gmac_init(void)
++static int __init prepare_phy_irq(int pin)
 +{
-+	printk(KERN_INFO DRV_PRMT "S6 GMAC ethernet driver\n");
-+	return platform_driver_register(&s6gmac_driver);
++	int irq;
++	if (gpio_request(pin, "s6gmac_phy") < 0)
++		goto fail;
++	if (gpio_direction_input(pin) < 0)
++		goto free;
++	irq =3D gpio_to_irq(pin);
++	if (irq < 0)
++		goto free;
++	if (set_irq_type(irq, IRQ_TYPE_LEVEL_LOW) < 0)
++		goto free;
++	return irq;
++free:
++	gpio_free(pin);
++fail:
++	return PHY_POLL;
 +}
 +
+ static struct platform_device platform_devices[] =3D {
+ 	{
+ 		.name =3D "serial8250",
+@@ -54,12 +137,20 @@ static struct platform_device platform_devices[] =3D=
+ {
+ 			.platform_data =3D serial_platform_data,
+ 		},
+ 	},
++	{
++		.name =3D "s6gmac",
++		.id =3D 0,
++		.resource =3D s6_gmac_resource,
++		.num_resources =3D ARRAY_SIZE(s6_gmac_resource),
++	},
+ };
+=20
+ static int __init device_init(void)
+ {
+ 	int i;
+=20
++	s6_gmac_resource[5].start =3D prepare_phy_irq(GPIO_PHY_IRQ);
 +
-+static void __exit s6gmac_exit(void)
-+{
-+	platform_driver_unregister(&s6gmac_driver);
-+}
+ 	for (i =3D 0; i < ARRAY_SIZE(platform_devices); i++)
+ 		platform_device_register(&platform_devices[i]);
+ 	return 0;
+diff --git a/arch/xtensa/platforms/s6105/setup.c b/arch/xtensa/platform=
+s/s6105/setup.c
+index 1dbf133..e64db1c 100644
+--- a/arch/xtensa/platforms/s6105/setup.c
++++ b/arch/xtensa/platforms/s6105/setup.c
+@@ -35,12 +35,21 @@ void __init platform_setup(char **cmdline)
+ {
+ 	unsigned long reg;
+=20
++	reg =3D readl(S6_REG_GREG1 + S6_GREG1_PLLSEL);
++	reg &=3D ~(S6_GREG1_PLLSEL_GMAC_MASK << S6_GREG1_PLLSEL_GMAC |
++		S6_GREG1_PLLSEL_GMII_MASK << S6_GREG1_PLLSEL_GMII);
++	reg |=3D S6_GREG1_PLLSEL_GMAC_125MHZ << S6_GREG1_PLLSEL_GMAC |
++		S6_GREG1_PLLSEL_GMII_125MHZ << S6_GREG1_PLLSEL_GMII;
++	writel(reg, S6_REG_GREG1 + S6_GREG1_PLLSEL);
 +
-+module_init(s6gmac_init);
-+module_exit(s6gmac_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("S6105 on chip Ethernet driver");
-+MODULE_AUTHOR("Oskar Schirmer <os@emlix.com>");
+ 	reg =3D readl(S6_REG_GREG1 + S6_GREG1_CLKGATE);
+ 	reg &=3D ~(1 << S6_GREG1_BLOCK_SB);
++	reg &=3D ~(1 << S6_GREG1_BLOCK_GMAC);
+ 	writel(reg, S6_REG_GREG1 + S6_GREG1_CLKGATE);
+=20
+ 	reg =3D readl(S6_REG_GREG1 + S6_GREG1_BLOCKENA);
+ 	reg |=3D 1 << S6_GREG1_BLOCK_SB;
++	reg |=3D 1 << S6_GREG1_BLOCK_GMAC;
+ 	writel(reg, S6_REG_GREG1 + S6_GREG1_BLOCKENA);
+=20
+ 	printk(KERN_NOTICE "S6105 on Stretch S6000 - "
 --=20
 1.6.2.107.ge47ee
+
