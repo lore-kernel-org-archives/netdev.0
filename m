@@ -1,38 +1,52 @@
-From: Bastian Blank <waldi@debian.org>
-Subject: Re: [PATCH] bnx2: Use request_firmware()
-Date: Mon, 23 Mar 2009 23:32:38 +0100
-Message-ID: <20090323223238.GB29609@wavehammer.waldi.eu.org>
-References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk> <1237503884.16140.23.camel@HP1> <20090319232541.GA19262@wavehammer.waldi.eu.org> <20090320.155030.164080684.davem@davemloft.net> <1237844879.18617.20.camel@HP1>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
+Date: Mon, 23 Mar 2009 23:42:22 +0100
+Message-ID: <20090323224222.GA18951@electric-eye.fr.zoreil.com>
+References: <200903172034.55241.fzu@wemgehoertderstaat.de> <200903200240.50183.fzu@wemgehoertderstaat.de> <20090322211629.GA23095@electric-eye.fr.zoreil.com> <200903230053.29125.fzu@wemgehoertderstaat.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"davem@davemloft.org" <davem@davemloft.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
+To: Karsten Wiese <fzu@wemgehoertderstaat.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wavehammer.waldi.eu.org ([82.139.201.20]:49036 "EHLO
-	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754059AbZCWWcl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 18:32:41 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58389 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751408AbZCWWjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 18:39:01 -0400
 Content-Disposition: inline
-In-Reply-To: <1237844879.18617.20.camel@HP1>
+In-Reply-To: <200903230053.29125.fzu@wemgehoertderstaat.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2009 at 02:47:59PM -0700, Michael Chan wrote:
-> I'd also like to add the version information to the bnx2_fw_file_entry
-> struct instead of embedding it in the file name.  It is more flexible
-> this way as each section can have different versions and can be updated
-> separately.
+Karsten Wiese <fzu@wemgehoertderstaat.de> :
+[...]
+> Yes, deavtivated in BIOS.
 
-Only if the firmwares are compatible enough. Can I pull the firmwares from a
-2.6.21 kernel and ask a .29 to use them? One argument was always that
-the firmware is coupled with the code.
+Ok, it starts to make some sense.
 
-Bastian
+Does the patch below make a difference ?
 
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 4b7cb38..b5a7358 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2011,8 +2011,6 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		}
+ 	}
+ 
+-	pci_set_master(pdev);
+-
+ 	/* ioremap MMIO region */
+ 	ioaddr = ioremap(pci_resource_start(pdev, region), R8169_REGS_SIZE);
+ 	if (!ioaddr) {
+@@ -2039,6 +2037,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		msleep_interruptible(1);
+ 	}
+ 
++	pci_set_master(pdev);
++
+ 	/* Identify chip attached to board */
+ 	rtl8169_get_mac_version(tp, ioaddr);
+ 
 -- 
-Worlds are conquered, galaxies destroyed -- but a woman is always a woman.
-		-- Kirk, "The Conscience of the King", stardate 2818.9
+Ueimor
+
