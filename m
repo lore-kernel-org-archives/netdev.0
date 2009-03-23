@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge: use the maximum hard_header_len of ports
- for bridging device
-Date: Mon, 23 Mar 2009 01:16:16 -0700 (PDT)
-Message-ID: <20090323.011616.46450004.davem@davemloft.net>
-References: <2a27d3730903230059s5f6aa886k30515bd6429a1e71@mail.gmail.com>
-	<20090323.010247.82335962.davem@davemloft.net>
-	<2a27d3730903230115r52fb73f0q87c496eda19ba88c@mail.gmail.com>
+Subject: Re: [PATCH] atl1c: remove duplicated #include
+Date: Mon, 23 Mar 2009 01:19:06 -0700 (PDT)
+Message-ID: <20090323.011906.86734711.davem@davemloft.net>
+References: <1237614563-3644-1-git-send-email-weiyi.huang@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: leoli@freescale.com
+Cc: jie.yang@atheros.com, netdev@vger.kernel.org
+To: weiyi.huang@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51911
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39760
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754552AbZCWIQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 04:16:29 -0400
-In-Reply-To: <2a27d3730903230115r52fb73f0q87c496eda19ba88c@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1755710AbZCWITS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 04:19:18 -0400
+In-Reply-To: <1237614563-3644-1-git-send-email-weiyi.huang@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Yang <leoli@freescale.com>
-Date: Mon, 23 Mar 2009 16:15:34 +0800
+From: Huang Weiyi <weiyi.huang@gmail.com>
+Date: Sat, 21 Mar 2009 13:49:23 +0800
 
-> I was wondering if this one failed to get your attention.
+> Remove duplicated #include in drivers/net/atl1c/atl1c.h.
+> 
+> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
 
-yeah, happens all the time
+Applied, th anks.
