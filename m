@@ -1,35 +1,43 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] netconsole: fix BUG during net device "upping"
-Date: Sun, 22 Mar 2009 20:20:58 -0500
-Message-ID: <1237771258.4231.134.camel@calx>
-References: <49C61AAA.8050507@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Keiichi Kii <k-keiichi@bx.jp.nec.com>, stable@kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Marcin Slusarz <marcin.slusarz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:38849 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753553AbZCWBcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Mar 2009 21:32:20 -0400
-In-Reply-To: <49C61AAA.8050507@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Mark H. Weaver" <mhw@netris.org>
+Subject: [PATCH] netfilter: fix unaligned memory access in tcp_sack
+Date: Sun, 22 Mar 2009 23:09:51 -0400
+Message-ID: <878wmx3pfk.fsf@netris.org>
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2009-03-22 at 12:02 +0100, Marcin Slusarz wrote:
-> When ndo_open (eg skge_up) function printks something, netconsole decides
-> it can use this device because it checks state only (netif_running) which is
-> set before ndo_open. Check device flags too.
+This patch fixes an unaligned memory access in tcp_sack while reading
+sequence numbers from TCP selective acknowledgement options.  Prior to
+applying this patch, upstream linux-2.6.27.20 was occasionally
+generating messages like this on my sparc64 system:
 
-That's fairly unfortunate semantics for netif_running. But if Dave
-agrees that it's reasonable for that to be set to true at this point in
-time, then I guess we'll go with it.
+  [54678.532071] Kernel unaligned access at TPC[6b17d4] tcp_packet+0xcd4/0xd00
 
--- 
-http://selenic.com : development and support for Mercurial and Linux
+More details provided upon request.  Apologies in advance if I've sent
+this to the wrong place or not followed proper procedures.
+
+   Best,
+    Mark
 
 
+--- linux-2.6/net/netfilter/nf_conntrack_proto_tcp.c.orig	2009-03-22 17:51:47.000000000 -0400
++++ linux-2.6/net/netfilter/nf_conntrack_proto_tcp.c	2009-03-22 22:49:23.000000000 -0400
+@@ -15,6 +15,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/ipv6.h>
+ #include <net/ip6_checksum.h>
++#include <asm/unaligned.h>
+ 
+ #include <net/tcp.h>
+ 
+@@ -466,7 +467,7 @@ static void tcp_sack(const struct sk_buf
+ 				for (i = 0;
+ 				     i < (opsize - TCPOLEN_SACK_BASE);
+ 				     i += TCPOLEN_SACK_PERBLOCK) {
+-					tmp = ntohl(*((__be32 *)(ptr+i)+1));
++					tmp = get_unaligned_be32((__be32 *)(ptr+i)+1);
+ 
+ 					if (after(tmp, *sack))
+ 						*sack = tmp;
