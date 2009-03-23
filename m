@@ -1,80 +1,92 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
-Date: Mon, 23 Mar 2009 14:09:42 +0100
-Message-ID: <OF1DAB7314.0782CAC0-ONC1257582.0047DC36-C1257582.00484C76@transmode.se>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF387EC803.F810F72A-ONC1257582.00468C6E-C1257582.00475783@LocalDomain>
+From: Oskar Schirmer <os@emlix.com>
+Subject: [patch 3/3] xtensa: enable s6gmac in s6105_defconfig
+Date: Mon, 23 Mar 2009 15:13:20 +0100
+Message-ID: <1237817600-29471-3-git-send-email-os@emlix.com>
+References: <1237817600-29471-1-git-send-email-os@emlix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: avorontsov@ru.mvista.com, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org
-To: leoli@freescale.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	=?utf-8?q?Daniel=20Gl=C3=B6ckner?= <dg@emlix.com>
+To: Jeff Garzik <jgarzik@pobox.com>, Chris Zankel <chris@zankel.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:52846 "EHLO gw1.transmode.se"
+Received: from mx1.emlix.com ([193.175.82.87]:54682 "EHLO mx1.emlix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751898AbZCWNJp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2009 09:09:45 -0400
-In-Reply-To: <OF387EC803.F810F72A-ONC1257582.00468C6E-C1257582.00475783@LocalDomain>
+	id S1755559AbZCWOMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2009 10:12:25 -0400
+In-Reply-To: <1237817600-29471-1-git-send-email-os@emlix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund/Transmode wrote on 23/03/2009 13:59:15:
-> 
-> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:29:33:
-> > Joakim Tjernlund wrote:
-> > > Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:15:45:
-> > >> Joakim Tjernlund wrote:
-> > >>> doing a "ping -f -l 3" on my host towards my board on linus tree 
-as of 
-> > > 
-> > >>> Friday results in lots of:
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>> __ratelimit: 11 callbacks suppressed
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>> nf_conntrack: table full, dropping packet.
-> > >>>
-> > >>> for ucc_geth on a MPC832x.
-> > >>> This really looks strange to me, ideas?
-> > >> What does /proc/net/netfilter/nf_conntrack show?
-> > > 
-> > > There is no /proc/net/netfilter/nf_conntrack. There is a
-> > > /proc/net/nf_conntrack though and it is empty. If I telnet
-> > > to the board I see:
-> > 
-> > That means that something is leaking conntrack references, most likely
-> > by leaking skbs. Since I haven't seen any other reports, my guess 
-would
-> > be the ucc_geth driver.
+=46rom: Daniel Gl=C3=B6ckner <dg@emlix.com>
 
-> hmm, I cannot see what in the ucc_geth driver is possibly "leaking". One 
-thing
-> I do notice is that the board becomes almost unresponsive during the 
-ping flood.
-> Perhaps it is building up a backlog of conntracks during the ping flood?
-> 
->  Jocke
+Signed-off-by: Daniel Gl=C3=B6ckner <dg@emlix.com>
+---
+ arch/xtensa/configs/s6105_defconfig |   49 +++++++++++++++++++++++++++=
++++++++-
+ 1 files changed, 48 insertions(+), 1 deletions(-)
 
-next hmm, ethtool -S eth0 shows:
-...
- rx-mismatch-drop-frames: 13
-...
+diff --git a/arch/xtensa/configs/s6105_defconfig b/arch/xtensa/configs/=
+s6105_defconfig
+index 6e1deff..a130c8d 100644
+--- a/arch/xtensa/configs/s6105_defconfig
++++ b/arch/xtensa/configs/s6105_defconfig
+@@ -264,7 +264,54 @@ CONFIG_HAVE_IDE=3Dy
+ # CONFIG_SCSI_NETLINK is not set
+ # CONFIG_ATA is not set
+ # CONFIG_MD is not set
+-# CONFIG_NETDEVICES is not set
++CONFIG_NETDEVICES=3Dy
++# CONFIG_DUMMY is not set
++# CONFIG_BONDING is not set
++# CONFIG_MACVLAN is not set
++# CONFIG_EQUALIZER is not set
++# CONFIG_TUN is not set
++# CONFIG_VETH is not set
++CONFIG_PHYLIB=3Dy
++
++#
++# MII PHY device drivers
++#
++# CONFIG_MARVELL_PHY is not set
++# CONFIG_DAVICOM_PHY is not set
++# CONFIG_QSEMI_PHY is not set
++# CONFIG_LXT_PHY is not set
++# CONFIG_CICADA_PHY is not set
++# CONFIG_VITESSE_PHY is not set
++CONFIG_SMSC_PHY=3Dy
++# CONFIG_BROADCOM_PHY is not set
++# CONFIG_ICPLUS_PHY is not set
++# CONFIG_REALTEK_PHY is not set
++# CONFIG_NATIONAL_PHY is not set
++# CONFIG_STE10XP is not set
++# CONFIG_LSI_ET1011C_PHY is not set
++# CONFIG_FIXED_PHY is not set
++# CONFIG_MDIO_BITBANG is not set
++# CONFIG_NET_ETHERNET is not set
++CONFIG_NETDEV_1000=3Dy
++CONFIG_S6GMAC=3Dy
++# CONFIG_NETDEV_10000 is not set
++
++#
++# Wireless LAN
++#
++# CONFIG_WLAN_PRE80211 is not set
++# CONFIG_WLAN_80211 is not set
++# CONFIG_IWLWIFI_LEDS is not set
++
++#
++# Enable WiMAX (Networking options) to see the WiMAX drivers
++#
++# CONFIG_WAN is not set
++# CONFIG_PPP is not set
++# CONFIG_SLIP is not set
++# CONFIG_NETCONSOLE is not set
++# CONFIG_NETPOLL is not set
++# CONFIG_NET_POLL_CONTROLLER is not set
+ # CONFIG_ISDN is not set
+ # CONFIG_PHONE is not set
+=20
+--=20
+1.6.2.107.ge47ee
 
-13 matches the number of lost frames after I stop the ping flood.
-
-The MPC832x manual says this(if i found the correct counter):
-
-REBASE+2C MisMatchDrop 32 Counts number of frames dropped due to MAC 
-filtering process, (e.g.
-                          Address Mismatch, Type mismatch) and that would 
-otherwise
-                          considered good frame that would be transferred 
-to upper layers
-
-Why would a ping flood result in Address Mismatch or Type mismatch?
-
-Leo?
-
-  Jocke
