@@ -1,120 +1,169 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] Wrong locking code in udp seq_file infrastructure
-Date: Mon, 23 Mar 2009 15:17:01 +0100
-Message-ID: <49C799DD.8070504@cosmosbay.com>
-References: <8763i0fnrm.wl%vmayatsk@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH] netlink: add NETLINK_NO_ENOBUFS socket flag
+Date: Mon, 23 Mar 2009 15:18:59 +0100
+Message-ID: <20090323141858.6808.50788.stgit@Decadence>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vitaly Mayatskikh <v.mayatskih@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54304 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757673AbZCWORO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 10:17:14 -0400
-In-Reply-To: <8763i0fnrm.wl%vmayatsk@redhat.com>
+Received: from mail.us.es ([193.147.175.20]:51105 "EHLO us.es"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755555AbZCWOT0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2009 10:19:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vitaly Mayatskikh a =E9crit :
-> Reading zero bytes from /proc/net/udp or other similar files which us=
-e
-> the same seq_file udp infrastructure panics kernel in that way:
->=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> [ BUG: bad unlock balance detected! ]
-> -------------------------------------
-> read/1985 is trying to release lock (&table->hash[i].lock) at:
-> [<ffffffff81321d83>] udp_seq_stop+0x27/0x29
-> but there are no more locks to release!
->=20
-> other info that might help us debug this:
-> 1 lock held by read/1985:
->  #0:  (&p->lock){--..}, at: [<ffffffff810eefb6>] seq_read+0x38/0x348
->=20
-> stack backtrace:
-> Pid: 1985, comm: read Not tainted 2.6.29-rc8 #9
-> Call Trace:
->  [<ffffffff81321d83>] ? udp_seq_stop+0x27/0x29
->  [<ffffffff8106dab9>] print_unlock_inbalance_bug+0xd6/0xe1
->  [<ffffffff8106db62>] lock_release_non_nested+0x9e/0x1c6
->  [<ffffffff810ef030>] ? seq_read+0xb2/0x348
->  [<ffffffff8106bdba>] ? mark_held_locks+0x68/0x86
->  [<ffffffff81321d83>] ? udp_seq_stop+0x27/0x29
->  [<ffffffff8106dde7>] lock_release+0x15d/0x189
->  [<ffffffff8137163c>] _spin_unlock_bh+0x1e/0x34
->  [<ffffffff81321d83>] udp_seq_stop+0x27/0x29
->  [<ffffffff810ef239>] seq_read+0x2bb/0x348
->  [<ffffffff810eef7e>] ? seq_read+0x0/0x348
->  [<ffffffff8111aedd>] proc_reg_read+0x90/0xaf
->  [<ffffffff810d878f>] vfs_read+0xa6/0x103
->  [<ffffffff8106bfac>] ? trace_hardirqs_on_caller+0x12f/0x153
->  [<ffffffff810d88a2>] sys_read+0x45/0x69
->  [<ffffffff8101123a>] system_call_fastpath+0x16/0x1b
-> BUG: scheduling while atomic: read/1985/0xffffff00
-> INFO: lockdep is turned off.
-> Modules linked in: cpufreq_ondemand acpi_cpufreq freq_table dm_multip=
-ath kvm ppdev snd_hda_codec_analog snd_hda_intel snd_hda_codec snd_hwde=
-p snd_seq_dummy snd_seq_oss snd_seq_midi_event arc4 snd_s
-> eq ecb thinkpad_acpi snd_seq_device iwl3945 hwmon sdhci_pci snd_pcm_o=
-ss sdhci rfkill mmc_core snd_mixer_oss i2c_i801 mac80211 yenta_socket r=
-icoh_mmc i2c_core iTCO_wdt snd_pcm iTCO_vendor_support rs
-> rc_nonstatic snd_timer snd lib80211 cfg80211 soundcore snd_page_alloc=
- video parport_pc output parport e1000e [last unloaded: scsi_wait_scan]
-> Pid: 1985, comm: read Not tainted 2.6.29-rc8 #9
-> Call Trace:
->  [<ffffffff8106b456>] ? __debug_show_held_locks+0x1b/0x24
->  [<ffffffff81043660>] __schedule_bug+0x7e/0x83
->  [<ffffffff8136ede9>] schedule+0xce/0x838
->  [<ffffffff810d7972>] ? fsnotify_access+0x5f/0x67
->  [<ffffffff810112d0>] ? sysret_careful+0xb/0x37
->  [<ffffffff8106be9c>] ? trace_hardirqs_on_caller+0x1f/0x153
->  [<ffffffff8137127b>] ? trace_hardirqs_on_thunk+0x3a/0x3f
->  [<ffffffff810112f6>] sysret_careful+0x31/0x37
-> read[1985]: segfault at 7fffc479bfe8 ip 0000003e7420a180 sp 00007fffc=
-479bfa0 error 6
-> Kernel panic - not syncing: Aiee, killing interrupt handler!
->=20
-> udp_seq_stop() tries to unlock not yet locked spinlock. The lock was =
-lost
-> during splitting global udp_hash_lock to subsequent spinlocks.
->=20
-> Signed-off by: Vitaly Mayatskikh <v.mayatskih@gmail.com>
->=20
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index c47c989..c8bee18 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1614,7 +1614,8 @@ static struct sock *udp_get_next(struct seq_fil=
-e *seq, struct sock *sk)
->  	} while (sk && (!net_eq(sock_net(sk), net) || sk->sk_family !=3D st=
-ate->family));
-> =20
->  	if (!sk) {
-> -		spin_unlock_bh(&state->udp_table->hash[state->bucket].lock);
-> +		if (state->bucket < UDP_HTABLE_SIZE)
-> +			spin_unlock_bh(&state->udp_table->hash[state->bucket].lock);
->  		return udp_get_first(seq, state->bucket + 1);
->  	}
->  	return sk;
-> @@ -1632,6 +1633,9 @@ static struct sock *udp_get_idx(struct seq_file=
- *seq, loff_t pos)
-> =20
->  static void *udp_seq_start(struct seq_file *seq, loff_t *pos)
->  {
-> +	struct udp_iter_state *state =3D seq->private;
-> +	state->bucket =3D UDP_HTABLE_SIZE;
-> +
->  	return *pos ? udp_get_idx(seq, *pos-1) : SEQ_START_TOKEN;
->  }
-> =20
->=20
+This patch adds the NETLINK_NO_ENOBUFS socket flag. This flag can
+be used by unicast and broadcast listeners to avoid receiving
+ENOBUFS errors.
 
-Oops...
+Generally speaking, ENOBUFS errors are useful to notify two things
+to the listener:
 
-Nice catch Vitaly
+a) You may increase the receiver buffer size via setsockopt().
+b) You have lost messages, you may be out of sync.
 
-Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+In some cases, ignoring ENOBUFS errors can be useful. For example:
+
+a) nfnetlink_queue: this subsystem does not have any sort of resync
+method and you can decide to ignore ENOBUFS once you have set a
+given buffer size.
+
+b) ctnetlink: you can use this together with the socket flag
+NETLINK_BROADCAST_SEND_ERROR to stop getting ENOBUFS errors as
+you do not need to resync (packets whose event are not delivered
+are drop to provide reliable logging and state-synchronization).
+
+Moreover, the use of NETLINK_NO_ENOBUFS also reduces a "go up, go down"
+effect in terms of performance which is due to the netlink congestion
+control when the listener cannot back off. The effect is the following:
+
+1) throughput rate goes up and netlink messages are inserted in the
+receiver buffer.
+2) Then, netlink buffer fills and overruns (set on nlk->state bit 0).
+3) While the listener empties the receiver buffer, netlink keeps
+dropping messages. Thus, throughput goes dramatically down.
+4) Then, once the listener has emptied the buffer (nlk->state
+bit 0 is set off), goto step 1.
+
+This effect is easy to trigger with netlink broadcast under heavy
+load, and it is more noticeable when using a big receiver buffer.
+You can find some results in [1] that show this problem.
+
+[1] http://1984.lsi.us.es/linux/netlink/
+
+This patch also includes the use of sk_drop to account the number of
+netlink messages drop due to overrun. This value is shown in
+/proc/net/netlink.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+
+ include/linux/netlink.h  |    1 +
+ net/netlink/af_netlink.c |   38 ++++++++++++++++++++++++++++++++------
+ 2 files changed, 33 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 1e6bf99..5ba398e 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -104,6 +104,7 @@ struct nlmsgerr
+ #define NETLINK_DROP_MEMBERSHIP	2
+ #define NETLINK_PKTINFO		3
+ #define NETLINK_BROADCAST_ERROR	4
++#define NETLINK_NO_ENOBUFS	5
+ 
+ struct nl_pktinfo
+ {
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index dc93836..f669a38 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -86,6 +86,7 @@ struct netlink_sock {
+ #define NETLINK_KERNEL_SOCKET	0x1
+ #define NETLINK_RECV_PKTINFO	0x2
+ #define NETLINK_BROADCAST_SEND_ERROR	0x4
++#define NETLINK_RECV_NO_ENOBUFS	0x8
+ 
+ static inline struct netlink_sock *nlk_sk(struct sock *sk)
+ {
+@@ -717,10 +718,15 @@ static int netlink_getname(struct socket *sock, struct sockaddr *addr,
+ 
+ static void netlink_overrun(struct sock *sk)
+ {
+-	if (!test_and_set_bit(0, &nlk_sk(sk)->state)) {
+-		sk->sk_err = ENOBUFS;
+-		sk->sk_error_report(sk);
++	struct netlink_sock *nlk = nlk_sk(sk);
++
++	if (!(nlk->flags & NETLINK_RECV_NO_ENOBUFS)) {
++		if (!test_and_set_bit(0, &nlk_sk(sk)->state)) {
++			sk->sk_err = ENOBUFS;
++			sk->sk_error_report(sk);
++		}
+ 	}
++	atomic_inc(&sk->sk_drops);
+ }
+ 
+ static struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
+@@ -1183,6 +1189,15 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 			nlk->flags &= ~NETLINK_BROADCAST_SEND_ERROR;
+ 		err = 0;
+ 		break;
++	case NETLINK_NO_ENOBUFS:
++		if (val) {
++			nlk->flags |= NETLINK_RECV_NO_ENOBUFS;
++			clear_bit(0, &nlk->state);
++			wake_up_interruptible(&nlk->wait);
++		} else
++			nlk->flags &= ~NETLINK_RECV_NO_ENOBUFS;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -1225,6 +1240,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
+ 			return -EFAULT;
+ 		err = 0;
+ 		break;
++	case NETLINK_NO_ENOBUFS:
++		if (len < sizeof(int))
++			return -EINVAL;
++		len = sizeof(int);
++		val = nlk->flags & NETLINK_RECV_NO_ENOBUFS ? 1 : 0;
++		if (put_user(len, optlen) ||
++		    put_user(val, optval))
++			return -EFAULT;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -1881,12 +1906,12 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN)
+ 		seq_puts(seq,
+ 			 "sk       Eth Pid    Groups   "
+-			 "Rmem     Wmem     Dump     Locks\n");
++			 "Rmem     Wmem     Dump     Locks     Drops\n");
+ 	else {
+ 		struct sock *s = v;
+ 		struct netlink_sock *nlk = nlk_sk(s);
+ 
+-		seq_printf(seq, "%p %-3d %-6d %08x %-8d %-8d %p %d\n",
++		seq_printf(seq, "%p %-3d %-6d %08x %-8d %-8d %p %-8d %-8d\n",
+ 			   s,
+ 			   s->sk_protocol,
+ 			   nlk->pid,
+@@ -1894,7 +1919,8 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
+ 			   atomic_read(&s->sk_rmem_alloc),
+ 			   atomic_read(&s->sk_wmem_alloc),
+ 			   nlk->cb,
+-			   atomic_read(&s->sk_refcnt)
++			   atomic_read(&s->sk_refcnt),
++			   atomic_read(&s->sk_drops)
+ 			);
+ 
+ 	}
 
