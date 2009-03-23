@@ -1,34 +1,45 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH net-next-2.6] Re: TCP/IP stack interpretation of acceptable packet
-Date: Mon, 23 Mar 2009 13:28:06 +0100
-Message-ID: <20090323122806.GA11935@one.firstfloor.org>
-References: <2ff60cd60902241459q1de39054lb3dc5233f13b69c3@mail.gmail.com> <1237423493.32009.31.camel@Maple> <20090322.215033.192091282.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
+Date: Mon, 23 Mar 2009 13:29:33 +0100
+Message-ID: <49C780AD.70704@trash.net>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john.dykstra1@gmail.com, mailinglists+netdev@oliverzheng.com,
-	netdev@vger.kernel.org, andi@firstfloor.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: avorontsov@ru.mvista.com, netdev@vger.kernel.org
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:48155 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898AbZCWM1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 08:27:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20090322.215033.192091282.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:37505 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898AbZCWM3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 08:29:40 -0400
+In-Reply-To: <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I've been mulling over this patch for more than a week :-)
+Joakim Tjernlund wrote:
+> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:15:45:
+>> Joakim Tjernlund wrote:
+>>> doing a "ping -f -l 3" on my host towards my board on linus tree as of 
 > 
-> Let's put this into net-next-2.6 and let it cook there for
-> a while.  It is possible I'll backport this into -stable
-> after some time.
+>>> Friday results in lots of:
+>>> nf_conntrack: table full, dropping packet.
+>>> nf_conntrack: table full, dropping packet.
+>>> nf_conntrack: table full, dropping packet.
+>>> __ratelimit: 11 callbacks suppressed
+>>> nf_conntrack: table full, dropping packet.
+>>> nf_conntrack: table full, dropping packet.
+>>> nf_conntrack: table full, dropping packet.
+>>> nf_conntrack: table full, dropping packet.
+>>>
+>>> for ucc_geth on a MPC832x.
+>>> This really looks strange to me, ideas?
+>> What does /proc/net/netfilter/nf_conntrack show?
+> 
+> There is no /proc/net/netfilter/nf_conntrack. There is a
+> /proc/net/nf_conntrack though and it is empty. If I telnet
+> to the board I see:
 
-One thing that might be useful for the testing period would 
-be explicit printk when such a new discard happens? Otherwise
-it would be difficult to find out if something really goes wrong.
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+That means that something is leaking conntrack references, most likely
+by leaking skbs. Since I haven't seen any other reports, my guess would
+be the ucc_geth driver.
