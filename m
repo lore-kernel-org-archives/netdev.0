@@ -1,16 +1,21 @@
 From: Bastian Blank <waldi@debian.org>
 Subject: Re: [PATCH] bnx2: Use request_firmware()
-Date: Mon, 23 Mar 2009 23:29:15 +0100
-Message-ID: <20090323222915.GA29609@wavehammer.waldi.eu.org>
+Date: Mon, 23 Mar 2009 23:32:38 +0100
+Message-ID: <20090323223238.GB29609@wavehammer.waldi.eu.org>
 References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk> <1237503884.16140.23.camel@HP1> <20090319232541.GA19262@wavehammer.waldi.eu.org> <20090320.155030.164080684.davem@davemloft.net> <1237844879.18617.20.camel@HP1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"davem@davemloft.org" <davem@davemloft.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wavehammer.waldi.eu.org ([82.139.201.20]:41873 "EHLO
+Received: from wavehammer.waldi.eu.org ([82.139.201.20]:49036 "EHLO
 	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457AbZCWW3S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 18:29:18 -0400
+	with ESMTP id S1754059AbZCWWcl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 18:32:41 -0400
 Content-Disposition: inline
 In-Reply-To: <1237844879.18617.20.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
@@ -20,24 +25,14 @@ On Mon, Mar 23, 2009 at 02:47:59PM -0700, Michael Chan wrote:
 > I'd also like to add the version information to the bnx2_fw_file_entry
 > struct instead of embedding it in the file name.  It is more flexible
 > this way as each section can have different versions and can be updated
-> separately.  So it will look something like:
-> 
-> struct bnx2_fw_file_entry {
-> 	__be32 start_addr;
-> 	__be32 version;
-> 	struct bnx2_fw_file_section text;
-> 	struct bnx2_fw_file_section data;
-> 	struct bnx2_fw_file_section sbss;
-> 	struct bnx2_fw_file_section bss;
-> 	struct bnx2_fw_file_section rodata;
-> };
+> separately.
 
-And how do you want to handle the compatibility? One firmware file have
-to work with many kernels, which was always described as impossible.
+Only if the firmwares are compatible enough. Can I pull the firmwares from a
+2.6.21 kernel and ask a .29 to use them? One argument was always that
+the firmware is coupled with the code.
 
 Bastian
 
 -- 
-Women are more easily and more deeply terrified ... generating more
-sheer horror than the male of the species.
-		-- Spock, "Wolf in the Fold", stardate 3615.4
+Worlds are conquered, galaxies destroyed -- but a woman is always a woman.
+		-- Kirk, "The Conscience of the King", stardate 2818.9
