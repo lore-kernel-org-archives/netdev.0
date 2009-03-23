@@ -1,42 +1,29 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] net/bridge: use the maximum hard_header_len of ports
- for bridging device
-Date: Mon, 23 Mar 2009 08:51:22 -0700
-Message-ID: <20090323085122.4c9d21f2@nehalam>
-References: <1237539869-30721-1-git-send-email-leoli@freescale.com>
+From: <servidorDeCorrreo@canamashnos.com>
+Subject: =?utf-8?Q?=5BMailServer_Notification=5DNotific?=
+	=?utf-8?Q?aci=C3=B3n_de_bloqueo_de_adjuntos.?=
+Date: Mon, 23 Mar 2009 17:09:55 +0100
+Message-ID: <004801c9abd1$ce70e6f0$0500a8c0@orangeslegamin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>
-To: Li Yang <leoli@freescale.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <netfilter@lists.netfilter.org>,
+	<netfilter-announce@lists.netfilter.org>
+To: <netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59829 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754220AbZCWPvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 11:51:35 -0400
-In-Reply-To: <1237539869-30721-1-git-send-email-leoli@freescale.com>
+Received: from 194.106.17.209.static.user.ono.com ([194.106.17.209]:15540 "EHLO
+	olservidor2.orangeslegamin.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755116AbZCWQX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 12:23:59 -0400
+Content-Class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Mar 2009 17:04:29 +0800
-Li Yang <leoli@freescale.com> wrote:
-
-> The bridging device used a constant hard_header_len.  This will cause
-> headroom shortage for ports with additional hardware header.  The patch
-> makes bridging device to use the maximum value of all ports.
-> 
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> ---
-
-That ensures big enough header for locally generated packets, but
-any drivers that need bigger headroom still must handle bridged packets
-that come in with smaller space. When bridging packets, the skb comes
-from the allocation by the receiving driver. Almost all drivers will
-use dev_alloc_skb() which will allocate NET_SKB_PAD (16) bytes of
-additional headroom. This is used to hold copy of ethernet header for
-the bridge/netfilter code.
-
-So your patch is fine as an optimization but a driver can not safely
-depend on any additional headroom. The driver must check if there
-is space, and if no space is available, reallocate and copy.
+Advertencia al destinatario: Medidas adoptadas por el bloqueo de archiv=
+os adjuntos.
+Servidor: OLSERVIDOR2
+=46echa: 23/03/2009 17:09:53
+Adjunto: FICHERO BORRADO POR EL ANTIVIRUS DE EXCHANGE.TXT
+Acci=C3=B3n: Replace
+Remitente: netfilter-announce-bounces@lists.netfilter.org;
+Destinatario: netfilter-devel@vger.kernel.org;netdev@vger.kernel.org;ne=
+tfilter@lists.netfilter.org;netfilter-announce@lists.netfilter.org;
