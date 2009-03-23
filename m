@@ -1,138 +1,83 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] netlink: add NETLINK_NO_ENOBUFS socket flag
-Date: Mon, 23 Mar 2009 10:33:53 +0100
-Message-ID: <20090323093353.14253.76823.stgit@Decadence>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH 24/77] usbnet: convert rtl driver to net_device_ops
+Date: Mon, 23 Mar 2009 11:17:14 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.0903231117040.4857@bender.nucleusys.com>
+References: <20090321053527.316395697@vyatta.com> <20090321053714.361988448@vyatta.com> <200903210203.43124.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Petko Manolov <petkan@users.sourceforge.net>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59063 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752173AbZCWJeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2009 05:34:11 -0400
+Received: from lan.nucleusys.com ([78.83.248.164]:37818 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755286AbZCWJ5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 05:57:38 -0400
+In-Reply-To: <200903210203.43124.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the NETLINK_NO_ENOBUFS socket flag. This flag can
-be used by unicast and broadcast listeners to avoid receiving
-ENOBUFS errors.
+ACK :-)
 
-Generally speaking, ENOBUFS errors are useful to notify two things
-to the listener:
 
-a) You may increase the receiver buffer size via setsockopt().
-b) You have lost messages, you may be out of sync.
+cheers,
+Petko
 
-In some cases, ignoring ENOBUFS errors can be useful. For example:
 
-a) nfnetlink_queue: this subsystem does not have any sort of resync
-method and you can decide to ignore ENOBUFS once you have set a
-given buffer size.
 
-b) ctnetlink: you can use this together with the socket flag
-NETLINK_BROADCAST_SEND_ERROR to stop getting ENOBUFS errors as
-you do not need to resync (packets whose event are not delivered
-are drop to provide reliable logging and state-synchronization).
+On Sat, 21 Mar 2009, David Brownell wrote:
 
-Moreover, the use of NETLINK_NO_ENOBUFS also reduces a "go up, go down"
-effect in terms of performance which is due to the netlink congestion
-control when the listener cannot back off. The effect is the following:
-
-1) throughput rate goes up and netlink messages are inserted in the
-receiver buffer.
-2) Then, netlink buffer fills and overruns (set on nlk->state bit 0).
-3) While the listener empties the receiver buffer, netlink keeps
-dropping messages. Thus, throughput goes dramatically down.
-4) Then, once the listener has emptied the buffer (nlk->state
-bit 0 is set off), goto step 1.
-
-This effect is easier to trigger with netlink broadcast under heavy
-load, and it is more noticeable when using a big receiver buffer.
-You can find some results in [1] that show this problem.
-
-[1] http://1984.lsi.us.es/linux/netlink/
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
- include/linux/netlink.h  |    1 +
- net/netlink/af_netlink.c |   30 +++++++++++++++++++++++++++---
- 2 files changed, 28 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 1e6bf99..5ba398e 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -104,6 +104,7 @@ struct nlmsgerr
- #define NETLINK_DROP_MEMBERSHIP	2
- #define NETLINK_PKTINFO		3
- #define NETLINK_BROADCAST_ERROR	4
-+#define NETLINK_NO_ENOBUFS	5
- 
- struct nl_pktinfo
- {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index dc93836..1c76c8e 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -86,6 +86,7 @@ struct netlink_sock {
- #define NETLINK_KERNEL_SOCKET	0x1
- #define NETLINK_RECV_PKTINFO	0x2
- #define NETLINK_BROADCAST_SEND_ERROR	0x4
-+#define NETLINK_RECV_NO_ENOBUFS	0x8
- 
- static inline struct netlink_sock *nlk_sk(struct sock *sk)
- {
-@@ -717,9 +718,13 @@ static int netlink_getname(struct socket *sock, struct sockaddr *addr,
- 
- static void netlink_overrun(struct sock *sk)
- {
--	if (!test_and_set_bit(0, &nlk_sk(sk)->state)) {
--		sk->sk_err = ENOBUFS;
--		sk->sk_error_report(sk);
-+	struct netlink_sock *nlk = nlk_sk(sk);
-+
-+	if (!(nlk->flags & NETLINK_RECV_NO_ENOBUFS)) {
-+		if (!test_and_set_bit(0, &nlk_sk(sk)->state)) {
-+			sk->sk_err = ENOBUFS;
-+			sk->sk_error_report(sk);
-+		}
- 	}
- }
- 
-@@ -1183,6 +1188,15 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 			nlk->flags &= ~NETLINK_BROADCAST_SEND_ERROR;
- 		err = 0;
- 		break;
-+	case NETLINK_NO_ENOBUFS:
-+		if (val) {
-+			nlk->flags |= NETLINK_RECV_NO_ENOBUFS;
-+			clear_bit(0, &nlk->state);
-+			wake_up_interruptible(&nlk->wait);
-+		} else
-+			nlk->flags &= ~NETLINK_RECV_NO_ENOBUFS;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -1225,6 +1239,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 			return -EFAULT;
- 		err = 0;
- 		break;
-+	case NETLINK_NO_ENOBUFS:
-+		if (len < sizeof(int))
-+			return -EINVAL;
-+		len = sizeof(int);
-+		val = nlk->flags & NETLINK_RECV_NO_ENOBUFS ? 1 : 0;
-+		if (put_user(len, optlen) ||
-+		    put_user(val, optval))
-+			return -EFAULT;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-
+> On Friday 20 March 2009, Stephen Hemminger wrote:
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+> cc'd the maintainer ... by the way, note that
+> "usbnet" != "everything in drivers/net/usb" ...
+>
+>
+>> --- a/drivers/net/usb/rtl8150.c	2009-03-20 12:12:47.085715442 -0700
+>> +++ b/drivers/net/usb/rtl8150.c	2009-03-20 12:13:41.757841762 -0700
+>> @@ -891,6 +891,19 @@ static int rtl8150_ioctl(struct net_devi
+>>  	return res;
+>>  }
+>>
+>> +static const struct net_device_ops rtl8150_netdev_ops = {
+>> +	.ndo_open		= rtl8150_open,
+>> +	.ndo_stop		= rtl8150_close,
+>> +	.ndo_do_ioctl		= rtl8150_ioctl,
+>> +	.ndo_start_xmit		= rtl8150_start_xmit,
+>> +	.ndo_tx_timeout 	= rtl8150_tx_timeout,
+>> +	.ndo_set_multicast_list = rtl8150_set_multicast,
+>> +	.ndo_set_mac_address	= rtl8150_set_mac_address,
+>> +
+>> +	.ndo_change_mtu		= eth_change_mtu,
+>> +	.ndo_validate_addr	= eth_validate_addr,
+>> +};
+>> +
+>>  static int rtl8150_probe(struct usb_interface *intf,
+>>  			 const struct usb_device_id *id)
+>>  {
+>> @@ -917,15 +930,8 @@ static int rtl8150_probe(struct usb_inte
+>>
+>>  	dev->udev = udev;
+>>  	dev->netdev = netdev;
+>> -	netdev->open = rtl8150_open;
+>> -	netdev->stop = rtl8150_close;
+>> -	netdev->do_ioctl = rtl8150_ioctl;
+>> +	netdev->netdev_ops = &rtl8150_netdev_ops;
+>>  	netdev->watchdog_timeo = RTL8150_TX_TIMEOUT;
+>> -	netdev->tx_timeout = rtl8150_tx_timeout;
+>> -	netdev->hard_start_xmit = rtl8150_start_xmit;
+>> -	netdev->set_multicast_list = rtl8150_set_multicast;
+>> -	netdev->set_mac_address = rtl8150_set_mac_address;
+>> -
+>>  	SET_ETHTOOL_OPS(netdev, &ops);
+>>  	dev->intr_interval = 100;	/* 100ms */
+>>
+>>
+>> --
+>>
+>>
+>
+>
+>
