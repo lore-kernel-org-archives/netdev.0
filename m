@@ -1,42 +1,35 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netlink: add NETLINK_NO_ENOBUFS socket flag
-Date: Mon, 23 Mar 2009 13:14:21 +0100
-Message-ID: <49C77D1D.7010204@trash.net>
-References: <20090323093353.14253.76823.stgit@Decadence> <49C77971.8080302@trash.net> <49C77C89.1010108@netfilter.org>
+Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
+Date: Mon, 23 Mar 2009 13:15:45 +0100
+Message-ID: <49C77D71.8090709@trash.net>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netdev@vger.kernel.org, avorontsov@ru.mvista.com
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37199 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:37229 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753922AbZCWMO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 08:14:27 -0400
-In-Reply-To: <49C77C89.1010108@netfilter.org>
+	with ESMTP id S1753922AbZCWMPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 08:15:53 -0400
+In-Reply-To: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso wrote:
-> Patrick McHardy wrote:
->> - NETLINK_NO_CONGESTION_CONTROL seems a bit more descriptive than
->>   "NO_ENOBUFS"
->>
->> - The ENOBUFS error itself is actually not the problem, but the
->>   congestion handling. It still makes sense to notify userspace
->>   of congestion. I'd suggest to deliver the error, but avoid setting
->>   the congestion bit.
+Joakim Tjernlund wrote:
+> doing a "ping -f -l 3" on my host towards my board on linus tree as of 
+> Friday results in lots of:
+> nf_conntrack: table full, dropping packet.
+> nf_conntrack: table full, dropping packet.
+> nf_conntrack: table full, dropping packet.
+> __ratelimit: 11 callbacks suppressed
+> nf_conntrack: table full, dropping packet.
+> nf_conntrack: table full, dropping packet.
+> nf_conntrack: table full, dropping packet.
+> nf_conntrack: table full, dropping packet.
 > 
-> I thought about this choice but I see one problem with this. The ENOBUFS
-> error is attached to the congestion control.
+> for ucc_geth on a MPC832x.
+> This really looks strange to me, ideas?
 
-What do you mean by "attached to"? Congestion control is done by
-setting and testing bit 0 of nlk->state.
-
-> If we keep reporting
-> ENOBUFS errors to userspace with no congestion control, the listener may
-> keep receiving ENOBUFS indefinitely. In other words, the congestion
-> control seems to me like a way to avoid spamming ENOBUFS errors to
-> userspace.
-
-The error will be cleared by the next call to recvmsg().
+What does /proc/net/netfilter/nf_conntrack show?
