@@ -1,30 +1,58 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: ucc_geth: nf_conntrack: table full, dropping packet.
-Date: Mon, 23 Mar 2009 11:42:20 +0100
-Message-ID: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: Re: [PATCH 06/77] irda: net_device_ops ioctl fix
+Date: Mon, 23 Mar 2009 12:33:17 +0100
+Message-ID: <20090323113317.GB8199@sortiz.org>
+References: <20090321053527.316395697@vyatta.com> <20090321053713.012084771@vyatta.com>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-To: netdev@vger.kernel.org, avorontsov@ru.mvista.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:56753 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752115AbZCWKmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2009 06:42:22 -0400
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:60725 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751810AbZCWLbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 07:31:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20090321053713.012084771@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-doing a "ping -f -l 3" on my host towards my board on linus tree as of 
-Friday results in lots of:
-nf_conntrack: table full, dropping packet.
-nf_conntrack: table full, dropping packet.
-nf_conntrack: table full, dropping packet.
-__ratelimit: 11 callbacks suppressed
-nf_conntrack: table full, dropping packet.
-nf_conntrack: table full, dropping packet.
-nf_conntrack: table full, dropping packet.
-nf_conntrack: table full, dropping packet.
+Thanks Stephen...
 
-for ucc_geth on a MPC832x.
-This really looks strange to me, ideas?
+On Fri, Mar 20, 2009 at 10:35:33PM -0700, Stephen Hemminger wrote:
+> Need to reference net_device_ops not old pointer.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Samuel Ortiz <samuel@sortiz.org>
+ 
+> 
+> ---
+>  net/irda/irda_device.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> --- a/net/irda/irda_device.c	2009-03-19 22:40:30.469964248 -0700
+> +++ b/net/irda/irda_device.c	2009-03-19 22:42:44.867089916 -0700
+> @@ -149,13 +149,14 @@ int irda_device_is_receiving(struct net_
+>  
+>  	IRDA_DEBUG(2, "%s()\n", __func__);
+>  
+> -	if (!dev->do_ioctl) {
+> +	if (!dev->netdev_ops->ndo_do_ioctl) {
+>  		IRDA_ERROR("%s: do_ioctl not impl. by device driver\n",
+>  			   __func__);
+>  		return -1;
+>  	}
+>  
+> -	ret = dev->do_ioctl(dev, (struct ifreq *) &req, SIOCGRECEIVING);
+> +	ret = (dev->netdev_ops->ndo_do_ioctl)(dev, (struct ifreq *) &req,
+> +					      SIOCGRECEIVING);
+>  	if (ret < 0)
+>  		return ret;
+>  
+> 
+> -- 
 
- Jocke
+-- 
+Intel Open Source Technology Centre
+http://oss.intel.com/
