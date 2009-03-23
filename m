@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [ofa-general] [PATCH 03/77] infiniband: convert c2 to
-	net_device_ops
-Date: Sun, 22 Mar 2009 21:17:04 -0700 (PDT)
-Message-ID: <20090322.211704.141753947.davem@davemloft.net>
-References: <20090321053527.316395697@vyatta.com>
-	<20090321053712.797092692@vyatta.com> <ada4oxly1rq.fsf@cisco.com>
+Subject: Re: [PATCH] netfilter: fix unaligned memory access in tcp_sack
+Date: Sun, 22 Mar 2009 21:17:30 -0700 (PDT)
+Message-ID: <20090322.211730.224794112.davem@davemloft.net>
+References: <878wmx3pfk.fsf@netris.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <ada4oxly1rq.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: mhw@netris.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47532
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750774AbZCWERn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 00:17:43 -0400
+In-Reply-To: <878wmx3pfk.fsf@netris.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Sun, 22 Mar 2009 09:12:57 -0700
+From: "Mark H. Weaver" <mhw@netris.org>
+Date: Sun, 22 Mar 2009 23:09:51 -0400
 
-> Don't I already have this queued in my for-next branch?
+> This patch fixes an unaligned memory access in tcp_sack while reading
+> sequence numbers from TCP selective acknowledgement options.  Prior to
+> applying this patch, upstream linux-2.6.27.20 was occasionally
+> generating messages like this on my sparc64 system:
 > 
-> Or is this an updated version?
+>   [54678.532071] Kernel unaligned access at TPC[6b17d4] tcp_packet+0xcd4/0xd00
 > 
-> [And same applies to the nes driver changes]
+> More details provided upon request.  Apologies in advance if I've sent
+> this to the wrong place or not followed proper procedures.
 
-Any chance you can drop the copies in your tree?
-
-The reason I'm asking is that once all the conversions are in
-net-next-2.6 which hit the i386 allmodconfig build there is a change
-we can add (which in fast is in net-next-2.6 now) which exposes a
-config option to turn all of the pre-netdev_ops compatibility stuff
-off.
-
-We can't do that until i386 builds in all configurations.
+Acked-by: David S. Miller <davem@davemloft.net>
