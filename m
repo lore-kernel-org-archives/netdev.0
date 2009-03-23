@@ -1,36 +1,44 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: Linux kernel support for mesh network multicast routing
-Date: Mon, 23 Mar 2009 14:16:22 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0903231413580.12221@qirst.com>
-References: <200903230923.05372.hrogge@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ucc_geth: Convert to net_device_ops
+Date: Mon, 23 Mar 2009 11:49:28 -0700 (PDT)
+Message-ID: <20090323.114928.01832203.davem@davemloft.net>
+References: <OF2EE08546.DF677136-ONC1257582.0037C87E-C1257582.00388BCE@transmode.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Henning Rogge <hrogge@googlemail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: leoli@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, avorontsov@ru.mvista.com
+To: Joakim.Tjernlund@transmode.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:39825 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753590AbZCWSaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 14:30:04 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id EFD8E82CB88
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2009 14:26:44 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id Etmm+u4xErTt for <netdev@vger.kernel.org>;
-	Mon, 23 Mar 2009 14:26:37 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id BFC3882CE73
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2009 14:26:33 -0400 (EDT)
-In-Reply-To: <200903230923.05372.hrogge@googlemail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59020
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751083AbZCWStl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 14:49:41 -0400
+In-Reply-To: <OF2EE08546.DF677136-ONC1257582.0037C87E-C1257582.00388BCE@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Mar 2009, Henning Rogge wrote:
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Mon, 23 Mar 2009 11:17:39 +0100
 
-> At the moment OLSR.org does only support unicast routing (by setting routes in
-> the linux kernel to do the hop-by-hop forwarding), but we would like to add
-> the ability to use multicast too. OLSR is a proactive routing protocol, so
-> each routing daemon has information about the whole network topology.
+> Sorry for the WS damaged patch, but my current company mailer cannot
+> handle inline patches. Due to this we are setting up a new mail system
+> but it will be a few days before this is ready.
+> Therefore I am attaching this patch as well, use that one
+> to apply instaed of the inline variant.
 
-Have you looked at mrouted?
+This patch has other problems, anyways.
+
+> +#if 0
+> +/* not yet */
+> +       .ndo_set_mac_address    = ucc_geth_set_mac_address,
+> +       .ndo_change_mtu         = ucc_geth_change_mtu,
+> +       .ndo_do_ioctl           = ucc_geth_do_ioctl,
+> +#endif
+
+Don't do stuff like this, please.  Even the code you are
+copying from doesn't have the set_mac_address method
+assignment proceted by #if 0 stuff.
+
+Just get rid of all the unused stuff completely.
+
