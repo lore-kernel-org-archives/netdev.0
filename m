@@ -1,89 +1,80 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 12/41: xt_physdev: unfold two loops in physdev_mt()
-Date: Tue, 24 Mar 2009 15:03:23 +0100 (MET)
-Message-ID: <20090324140319.31401.12638.sendpatchset@x2.localnet>
+Subject: netfilter 10/41: xt_physdev fixes
+Date: Tue, 24 Mar 2009 15:03:20 +0100 (MET)
+Message-ID: <20090324140316.31401.31990.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34741 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:34762 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758177AbZCXODZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:25 -0400
+	with ESMTP id S1755461AbZCXODX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:23 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit eacc17fb64f03b6c268aaf6cea320100d19d8af5
+commit 4f1c3b7e7ee4d841c8af3a074dc361d6a7a77803
 Author: Eric Dumazet <dada1@cosmosbay.com>
-Date:   Thu Feb 19 11:17:17 2009 +0100
+Date:   Wed Feb 18 19:11:39 2009 +0100
 
-    netfilter: xt_physdev: unfold two loops in physdev_mt()
+    netfilter: xt_physdev fixes
     
-    xt_physdev netfilter module can use an ifname_compare() helper
-    so that two loops are unfolded.
+    1) physdev_mt() incorrectly assumes nulldevname[] is aligned on an int
+    
+    2) It also uses word comparisons, while it could use long word ones.
     
     Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-index 4b13ef7..44a234e 100644
+index 1bcdfc1..4b13ef7 100644
 --- a/net/netfilter/xt_physdev.c
 +++ b/net/netfilter/xt_physdev.c
-@@ -20,10 +20,27 @@ MODULE_DESCRIPTION("Xtables: Bridge physical device match");
- MODULE_ALIAS("ipt_physdev");
- MODULE_ALIAS("ip6t_physdev");
- 
-+static unsigned long ifname_compare(const char *_a, const char *_b, const char *_mask)
-+{
-+	const unsigned long *a = (const unsigned long *)_a;
-+	const unsigned long *b = (const unsigned long *)_b;
-+	const unsigned long *mask = (const unsigned long *)_mask;
-+	unsigned long ret;
-+
-+	ret = (a[0] ^ b[0]) & mask[0];
-+	if (IFNAMSIZ > sizeof(unsigned long))
-+		ret |= (a[1] ^ b[1]) & mask[1];
-+	if (IFNAMSIZ > 2 * sizeof(unsigned long))
-+		ret |= (a[2] ^ b[2]) & mask[2];
-+	if (IFNAMSIZ > 3 * sizeof(unsigned long))
-+		ret |= (a[3] ^ b[3]) & mask[3];
-+	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
-+	return ret;
-+}
-+
- static bool
+@@ -24,9 +24,9 @@ static bool
  physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
  {
--	int i;
- 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	int i;
+-	static const char nulldevname[IFNAMSIZ];
++	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
  	const struct xt_physdev_info *info = par->matchinfo;
- 	unsigned long ret;
-@@ -68,11 +85,7 @@ physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+-	bool ret;
++	unsigned long ret;
+ 	const char *indev, *outdev;
+ 	const struct nf_bridge_info *nf_bridge;
+ 
+@@ -68,10 +68,10 @@ physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
  	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
  		goto match_outdev;
  	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
--	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
--		ret |= (((const unsigned long *)indev)[i]
--			^ ((const unsigned long *)info->physindev)[i])
--			& ((const unsigned long *)info->in_mask)[i];
--	}
-+	ret = ifname_compare(indev, info->physindev, info->in_mask);
+-	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
+-		ret |= (((const unsigned int *)indev)[i]
+-			^ ((const unsigned int *)info->physindev)[i])
+-			& ((const unsigned int *)info->in_mask)[i];
++	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
++		ret |= (((const unsigned long *)indev)[i]
++			^ ((const unsigned long *)info->physindev)[i])
++			& ((const unsigned long *)info->in_mask)[i];
+ 	}
  
  	if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
- 		return false;
-@@ -82,11 +95,8 @@ match_outdev:
+@@ -82,13 +82,12 @@ match_outdev:
  		return true;
  	outdev = nf_bridge->physoutdev ?
  		 nf_bridge->physoutdev->name : nulldevname;
--	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
--		ret |= (((const unsigned long *)outdev)[i]
--			^ ((const unsigned long *)info->physoutdev)[i])
--			& ((const unsigned long *)info->out_mask)[i];
--	}
-+	ret = ifname_compare(outdev, info->physoutdev, info->out_mask);
-+
- 	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
+-	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
+-		ret |= (((const unsigned int *)outdev)[i]
+-			^ ((const unsigned int *)info->physoutdev)[i])
+-			& ((const unsigned int *)info->out_mask)[i];
++	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
++		ret |= (((const unsigned long *)outdev)[i]
++			^ ((const unsigned long *)info->physoutdev)[i])
++			& ((const unsigned long *)info->out_mask)[i];
+ 	}
+-
+-	return ret ^ !(info->invert & XT_PHYSDEV_OP_OUT);
++	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
  }
  
+ static bool physdev_mt_check(const struct xt_mtchk_param *par)
