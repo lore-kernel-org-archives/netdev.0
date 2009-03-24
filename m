@@ -1,90 +1,61 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 13/41: ip6_tables: unfold two loops in ip6_packet_match()
-Date: Tue, 24 Mar 2009 15:03:24 +0100 (MET)
-Message-ID: <20090324140320.31401.37849.sendpatchset@x2.localnet>
+Subject: netfilter 03/41: x_tables: change elements in x_tables
+Date: Tue, 24 Mar 2009 15:03:10 +0100 (MET)
+Message-ID: <20090324140306.31401.91924.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34743 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756831AbZCXODN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:13 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 323dbf96382f057d035afce0237f08e18571ac1d
-Author: Eric Dumazet <dada1@cosmosbay.com>
-Date:   Thu Feb 19 11:18:23 2009 +0100
+commit 4a2f965ca5a4e2593744bf75425d85e0e8ff814a
+Author: Stephen Hemminger <shemminger@vyatta.com>
+Date:   Wed Feb 18 16:29:44 2009 +0100
 
-    netfilter: ip6_tables: unfold two loops in ip6_packet_match()
+    netfilter: x_tables: change elements in x_tables
     
-    ip6_tables netfilter module can use an ifname_compare() helper
-    so that two loops are unfolded.
+    Change to proper type on private pointer rather than anonymous void.
+    Keep active elements on same cache line.
     
-    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index a33485d..d64594b 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -89,6 +89,25 @@ ip6t_ext_hdr(u8 nexthdr)
- 		 (nexthdr == IPPROTO_DSTOPTS) );
- }
- 
-+static unsigned long ifname_compare(const char *_a, const char *_b,
-+				    const unsigned char *_mask)
-+{
-+	const unsigned long *a = (const unsigned long *)_a;
-+	const unsigned long *b = (const unsigned long *)_b;
-+	const unsigned long *mask = (const unsigned long *)_mask;
-+	unsigned long ret;
-+
-+	ret = (a[0] ^ b[0]) & mask[0];
-+	if (IFNAMSIZ > sizeof(unsigned long))
-+		ret |= (a[1] ^ b[1]) & mask[1];
-+	if (IFNAMSIZ > 2 * sizeof(unsigned long))
-+		ret |= (a[2] ^ b[2]) & mask[2];
-+	if (IFNAMSIZ > 3 * sizeof(unsigned long))
-+		ret |= (a[3] ^ b[3]) & mask[3];
-+	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
-+	return ret;
-+}
-+
- /* Returns whether matches rule or not. */
- /* Performance critical - called for every packet */
- static inline bool
-@@ -99,7 +118,6 @@ ip6_packet_match(const struct sk_buff *skb,
- 		 unsigned int *protoff,
- 		 int *fragoff, bool *hotdrop)
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index c7ee874..9fac88f 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -349,9 +349,6 @@ struct xt_table
  {
--	size_t i;
- 	unsigned long ret;
- 	const struct ipv6hdr *ipv6 = ipv6_hdr(skb);
+ 	struct list_head list;
  
-@@ -120,12 +138,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 		return false;
- 	}
+-	/* A unique name... */
+-	const char name[XT_TABLE_MAXNAMELEN];
+-
+ 	/* What hooks you will enter on */
+ 	unsigned int valid_hooks;
  
--	/* Look for ifname matches; this should unroll nicely. */
--	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
--		ret |= (((const unsigned long *)indev)[i]
--			^ ((const unsigned long *)ip6info->iniface)[i])
--			& ((const unsigned long *)ip6info->iniface_mask)[i];
--	}
-+	ret = ifname_compare(indev, ip6info->iniface, ip6info->iniface_mask);
+@@ -359,13 +356,15 @@ struct xt_table
+ 	rwlock_t lock;
  
- 	if (FWINV(ret != 0, IP6T_INV_VIA_IN)) {
- 		dprintf("VIA in mismatch (%s vs %s).%s\n",
-@@ -134,11 +147,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 		return false;
- 	}
+ 	/* Man behind the curtain... */
+-	//struct ip6t_table_info *private;
+-	void *private;
++	struct xt_table_info *private;
  
--	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
--		ret |= (((const unsigned long *)outdev)[i]
--			^ ((const unsigned long *)ip6info->outiface)[i])
--			& ((const unsigned long *)ip6info->outiface_mask)[i];
--	}
-+	ret = ifname_compare(outdev, ip6info->outiface, ip6info->outiface_mask);
+ 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
+ 	struct module *me;
  
- 	if (FWINV(ret != 0, IP6T_INV_VIA_OUT)) {
- 		dprintf("VIA out mismatch (%s vs %s).%s\n",
+ 	u_int8_t af;		/* address/protocol family */
++
++	/* A unique name... */
++	const char name[XT_TABLE_MAXNAMELEN];
+ };
+ 
+ #include <linux/netfilter_ipv4.h>
