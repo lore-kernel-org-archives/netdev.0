@@ -1,31 +1,73 @@
 From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 0/9] s390: lcs / ctcm / claw / netiucv patches for 2.6.29
-Date: Tue, 24 Mar 2009 13:29:04 +0100
-Message-ID: <20090324122904.744942000@linux.vnet.ibm.com>
-Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
+Subject: [patch 1/9] [PATCH] Use kthread instead of kernel_thread
+Date: Tue, 24 Mar 2009 13:29:05 +0100
+Message-ID: <20090324124335.274930000@linux.vnet.ibm.com>
+References: <20090324122904.744942000@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	Klaus-Dieter Wacker <kdwacker@de.ibm.com>,
+	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:36551 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756517AbZCXMni (ORCPT
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:53478 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815AbZCXMni (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 08:43:38 -0400
+Content-Disposition: inline; filename=604-lcs-threads.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+From: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
 
-here are a couple of drivers/s390/net-patches for 2.6.29 :
+Lcs uses low-level kernel_thread implementation.
+All drivers should use <linux/kthread.h> API instead.
 
-1/9: lcs:     exploit <linux/kthread.h>          - Klaus-Dieter Wacker
-2/9: lcs:     hard_start_xmit return codes       - Klaus-Dieter Wacker
-3/9: netiucv: hard_start_xmit return codes       - Ursula Braun
-4/9: claw:    hard_start_xmit return codes       - Ursula Braun
-5/9: ctcm:    hard_start_xmit return codes       - Ursula Braun
-6/9: ctcm:    avoid wraparound in length of incoming data - Roel Kluin
-7/9: ctcm:    minor findings from code analysis tool      - Joel Fowler
-8/9: claw:    convert printk messages to kmsg api    - Andy Richter
-9/9: claw:    minor findings from code analysis tool - Andy Richter
+Signed-off-by: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
 
-Thanks and regards,
-Ursula
+ drivers/s390/net/lcs.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff -urpN linux-2.6/drivers/s390/net/lcs.c linux-2.6-patched/drivers/s390/net/lcs.c
+--- linux-2.6/drivers/s390/net/lcs.c	2009-03-04 15:58:03.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/lcs.c	2009-03-04 15:58:28.000000000 +0100
+@@ -39,6 +39,7 @@
+ #include <linux/in.h>
+ #include <linux/igmp.h>
+ #include <linux/delay.h>
++#include <linux/kthread.h>
+ #include <net/arp.h>
+ #include <net/ip.h>
+ 
+@@ -1259,7 +1260,6 @@ lcs_register_mc_addresses(void *data)
+ 	struct in_device *in4_dev;
+ 
+ 	card = (struct lcs_card *) data;
+-	daemonize("regipm");
+ 
+ 	if (!lcs_do_run_thread(card, LCS_SET_MC_THREAD))
+ 		return 0;
+@@ -1753,11 +1753,10 @@ lcs_start_kernel_thread(struct work_stru
+ 	struct lcs_card *card = container_of(work, struct lcs_card, kernel_thread_starter);
+ 	LCS_DBF_TEXT(5, trace, "krnthrd");
+ 	if (lcs_do_start_thread(card, LCS_RECOVERY_THREAD))
+-		kernel_thread(lcs_recovery, (void *) card, SIGCHLD);
++		kthread_run(lcs_recovery, card, "lcs_recover");
+ #ifdef CONFIG_IP_MULTICAST
+ 	if (lcs_do_start_thread(card, LCS_SET_MC_THREAD))
+-		kernel_thread(lcs_register_mc_addresses,
+-				(void *) card, SIGCHLD);
++		kthread_run(lcs_register_mc_addresses, card, "regipm");
+ #endif
+ }
+ 
+@@ -2258,7 +2257,6 @@ lcs_recovery(void *ptr)
+         int rc;
+ 
+ 	card = (struct lcs_card *) ptr;
+-	daemonize("lcs_recover");
+ 
+ 	LCS_DBF_TEXT(4, trace, "recover1");
+ 	if (!lcs_do_run_thread(card, LCS_RECOVERY_THREAD))
+
