@@ -1,116 +1,54 @@
 From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 7/9] [PATCH] ctcm: fix minor findings from code analysis tool
-Date: Tue, 24 Mar 2009 14:27:49 +0100
-Message-ID: <20090324133049.636630000@linux.vnet.ibm.com>
+Subject: [patch 2/9] [PATCH] lcs: invalid return codes from hard_start_xmit.
+Date: Tue, 24 Mar 2009 14:27:44 +0100
+Message-ID: <20090324133048.969199000@linux.vnet.ibm.com>
 References: <20090324132742.300929000@linux.vnet.ibm.com>
 Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	"Joel A. Fowler" <fowlerja@us.ibm.com>,
+	Klaus-Dieter Wacker <kdwacker@de.ibm.com>,
 	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.17.162]:40734 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760693AbZCXNax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 09:30:53 -0400
-Content-Disposition: inline; filename=626-ctcm-beam.diff
+Received: from mtagate1.de.ibm.com ([195.212.17.161]:53715 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759966AbZCXNaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 09:30:52 -0400
+Content-Disposition: inline; filename=608-lcs-rc.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joel A. Fowler <fowlerja@us.ibm.com>
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
 
-This patch fixes problems in the ctcm driver identified by
-static code analysis:
-o remove an unnecessary always true condition in ctcm_unpack_skb
-o remove duplicate assignment in ctc_mpc_alloc_channel
-o remove an unnecessary always true condition in ctcmpc_send_sweep_resp
-o remove duplicate initialization in ctcmpc_unpack_skb
-o shorten if condition in mpc_action_go_inop
-o remove INOP event if mpc group is undefined in mpc_action_doxid7
+Lcs hard_start_xmit routine issued return codes other than
+defined for this interface. Now lcs returns only either
+NETDEV_TX_OK or NETDEV_TX_BUSY.
 
-Signed-off-by: Joel A. Fowler <fowlerja@us.ibm.com>
+Signed-off-by: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 ---
 
- drivers/s390/net/ctcm_main.c |    8 +++-----
- drivers/s390/net/ctcm_mpc.c  |   17 +++++------------
- 2 files changed, 8 insertions(+), 17 deletions(-)
+ drivers/s390/net/lcs.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: linux-2.6-uschi/drivers/s390/net/ctcm_main.c
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/ctcm_main.c
-+++ linux-2.6-uschi/drivers/s390/net/ctcm_main.c
-@@ -168,11 +168,9 @@ void ctcm_unpack_skb(struct channel *ch,
- 		if (len > 0) {
- 			skb_pull(pskb, header->length);
- 			if (skb_tailroom(pskb) < LL_HEADER_LENGTH) {
--				if (!(ch->logflags & LOG_FLAG_OVERRUN)) {
--					CTCM_DBF_DEV_NAME(TRACE, dev,
--						"Overrun in ctcm_unpack_skb");
--					ch->logflags |= LOG_FLAG_OVERRUN;
--				}
-+				CTCM_DBF_DEV_NAME(TRACE, dev,
-+					"Overrun in ctcm_unpack_skb");
-+				ch->logflags |= LOG_FLAG_OVERRUN;
- 				return;
- 			}
- 			skb_put(pskb, LL_HEADER_LENGTH);
-Index: linux-2.6-uschi/drivers/s390/net/ctcm_mpc.c
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/ctcm_mpc.c
-+++ linux-2.6-uschi/drivers/s390/net/ctcm_mpc.c
-@@ -393,7 +393,6 @@ int ctc_mpc_alloc_channel(int port_num, 
- 		} else {
- 			/* there are problems...bail out	    */
- 			/* there may be a state mismatch so restart */
--			grp->port_persist = 1;
- 			fsm_event(grp->fsm, MPCG_EVENT_INOP, dev);
- 			grp->allocchan_callback_retries = 0;
+diff -urpN linux-2.6/drivers/s390/net/lcs.c linux-2.6-patched/drivers/s390/net/lcs.c
+--- linux-2.6/drivers/s390/net/lcs.c	2009-03-04 15:58:28.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/lcs.c	2009-03-04 15:58:29.000000000 +0100
+@@ -1562,7 +1562,7 @@ __lcs_start_xmit(struct lcs_card *card, 
+ 	if (skb == NULL) {
+ 		card->stats.tx_dropped++;
+ 		card->stats.tx_errors++;
+-		return -EIO;
++		return 0;
+ 	}
+ 	if (card->state != DEV_STATE_UP) {
+ 		dev_kfree_skb(skb);
+@@ -1587,7 +1587,7 @@ __lcs_start_xmit(struct lcs_card *card, 
+ 		card->tx_buffer = lcs_get_buffer(&card->write);
+ 		if (card->tx_buffer == NULL) {
+ 			card->stats.tx_dropped++;
+-			rc = -EBUSY;
++			rc = NETDEV_TX_BUSY;
+ 			goto out;
  		}
-@@ -699,11 +698,9 @@ static void ctcmpc_send_sweep_resp(struc
- 	return;
- 
- done:
--	if (rc != 0) {
--		grp->in_sweep = 0;
--		ctcm_clear_busy_do(dev);
--		fsm_event(grp->fsm, MPCG_EVENT_INOP, dev);
--	}
-+	grp->in_sweep = 0;
-+	ctcm_clear_busy_do(dev);
-+	fsm_event(grp->fsm, MPCG_EVENT_INOP, dev);
- 
- 	return;
- }
-@@ -1118,7 +1115,6 @@ static void ctcmpc_unpack_skb(struct cha
- 
- 		if (unlikely(fsm_getstate(grp->fsm) != MPCG_STATE_READY))
- 					goto done;
--		pdu_last_seen = 0;
- 		while ((pskb->len > 0) && !pdu_last_seen) {
- 			curr_pdu = (struct pdu *)pskb->data;
- 
-@@ -1396,8 +1392,7 @@ static void mpc_action_go_inop(fsm_insta
- 				CTCM_FUNTAIL, dev->name);
- 	if ((grp->saved_state != MPCG_STATE_RESET) ||
- 		/* dealloc_channel has been called */
--			((grp->saved_state == MPCG_STATE_RESET) &&
--						(grp->port_persist == 0)))
-+		(grp->port_persist == 0))
- 		fsm_deltimer(&priv->restart_timer);
- 
- 	wch = priv->channel[WRITE];
-@@ -1917,10 +1912,8 @@ static void mpc_action_doxid7(fsm_instan
- 
- 	if (priv)
- 		grp = priv->mpcg;
--	if (grp == NULL) {
--		fsm_event(grp->fsm, MPCG_EVENT_INOP, dev);
-+	if (grp == NULL)
- 		return;
--	}
- 
- 	for (direction = READ; direction <= WRITE; direction++)	{
- 		struct channel *ch = priv->channel[direction];
+ 		card->tx_buffer->callback = lcs_txbuffer_cb;
 
