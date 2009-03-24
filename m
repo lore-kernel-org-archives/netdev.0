@@ -1,133 +1,108 @@
-From: Richard Zhao <linuxzsc@gmail.com>
-Subject: Re: [PATCH 2/3] ARM: mxc: add mx31pdk Lan9217 support
-Date: Tue, 24 Mar 2009 16:59:43 +0800
-Message-ID: <4e090d470903240159y6bea45a7w57e627a31fd43fc9@mail.gmail.com>
-References: <4e090d470903232344x162ca791q3007954d064ccd00@mail.gmail.com>
-	 <20090324075809.GF25436@pengutronix.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
+Date: Tue, 24 Mar 2009 10:12:53 +0100
+Message-ID: <49C8A415.1090606@cosmosbay.com>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Richard Zhao <linuxzsc@gmail.com>, kernel@pengutronix.de,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	steve.glendinning@smsc.com, netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, avorontsov@ru.mvista.com,
+	netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:36089 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753651AbZCXI7p convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 04:59:45 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so1731080wah.21
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2009 01:59:43 -0700 (PDT)
-In-Reply-To: <20090324075809.GF25436@pengutronix.de>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48390 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753651AbZCXJNM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 05:13:12 -0400
+In-Reply-To: <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2009 at 3:58 PM, Sascha Hauer <s.hauer@pengutronix.de> =
-wrote:
-> On Tue, Mar 24, 2009 at 02:44:41PM +0800, Richard Zhao wrote:
->> Signed-off-by: Richard Zhao <linuxzsc@gmail.com>
->>
->> diff --git a/arch/arm/mach-mx3/mx31pdk.c b/arch/arm/mach-mx3/mx31pdk=
-=2Ec
->> index aa7e3c5..45cef70 100644
->> --- a/arch/arm/mach-mx3/mx31pdk.c
->> +++ b/arch/arm/mach-mx3/mx31pdk.c
->> @@ -32,6 +32,8 @@
->> =A0#include <mach/board-mx31pdk.h>
->> =A0#include <mach/imx-uart.h>
->> =A0#include <mach/iomux-mx3.h>
->> +#include <linux/platform_device.h>
->> +#include <linux/smsc911x.h>
->> =A0#include "devices.h"
->> =A0#include "3stack-debug.h"
->>
->> @@ -57,6 +59,43 @@ static inline void mxc_init_imx_uart(void)
->> =A0 =A0 =A0 mxc_register_device(&mxc_uart_device0, &uart_pdata);
->> =A0}
->>
->> +/*lan9217 device*/
->> +#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
->
-> IMO it is not worth to clutter the code with ifdefs just to save some
-> bytes of binary space, but ok, that's just my two cents.
->
-Hi Sascha,
+Joakim Tjernlund a =E9crit :
+> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 18:49:15:
+>> Joakim Tjernlund wrote:
+>>> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:29:33:
+>>>
+>>>
+>>>>> There is no /proc/net/netfilter/nf_conntrack. There is a
+>>>>> /proc/net/nf_conntrack though and it is empty. If I telnet
+>>>>> to the board I see:
+>>>>>
+>>>> That means that something is leaking conntrack references, most=20
+> likely
+>>>> by leaking skbs. Since I haven't seen any other reports, my guess=20
+> would
+>>>> be the ucc_geth driver.
+>>>>
+>>> Mucking around with the ucc_geth driver I found that if I:
+>>>  - Move TX from IRQ to NAPI context
+>>>  - double the weight.
+>>>  - after booting up, wait a few mins until the JFFS2 GC kernel thre=
+ad=20
+> has=20
+>>> stopped
+>>>    scanning the FS=20
+>>>
+>>> Then the "nf_conntrack: table full, dropping packet." msgs stops.
+>>> Does this seem right to you guys?
+>> No. As I said, something seems to be leaking packets. You should be
+>> able to confirm that by checking the sk_buff slabs in /proc/slabinfo=
+=2E
+>> If that *doesn't* show any signs of a leak, please run "conntrack -E=
+"
+>> to capture the conntrack events before the "table full" message
+>> appears and post the output.
+>=20
+> skbuff does not differ much, but others do
+>=20
+> Before ping:
+>   skbuff_fclone_cache    0      0    352   11    1 : tunables   54   =
+27 0=20
+> : slabdata      0      0      0
+>   skbuff_head_cache     20     20    192   20    1 : tunables  120   =
+60 0=20
+> : slabdata      1      1      0
+>   size-64              731    767     64   59    1 : tunables  120   =
+60 0=20
+> : slabdata     13     13      0
+>   nf_conntrack          10     19    208   19    1 : tunables  120   =
+60 0=20
+> : slabdata      1      1      0
+>=20
+> During ping:=20
+>   skbuff_fclone_cache    0      0    352   11    1 : tunables   54   =
+27 0=20
+> : slabdata      0      0      0
+>   skbuff_head_cache     40     40    192   20    1 : tunables  120   =
+60 0=20
+> : slabdata      2      2      0
+>   size-64             8909   8909     64   59    1 : tunables  120   =
+60 0=20
+> : slabdata    151    151      0
+>   nf_conntrack        5111   5111    208   19    1 : tunables  120   =
+60 0=20
+> : slabdata    269    269      0
+>=20
+> This feels more like the freeing of conntrack objects are delayed and=
+=20
+> builds up when ping flooding.
+>=20
+> Don't have "conntrack -E" for my embedded board so that will have to =
+wait=20
+> a bit longer.
 
-ok, I will remove the ifdefs.
+I dont understand how your ping can use so many conntrack entries...
 
-Thanks
-Richard
->> +static struct resource smsc911x_resources[] =3D {
->> + =A0 =A0 {
->> + =A0 =A0 =A0.start =3D LAN9217_BASE_ADDR,
->> + =A0 =A0 =A0.end =3D LAN9217_BASE_ADDR + 0x100,
->> + =A0 =A0 =A0.flags =3D IORESOURCE_MEM,
->> + =A0 =A0 =A0},
->> + =A0 =A0 {
->> + =A0 =A0 =A0.start =3D LAN9217_IRQ,
->> + =A0 =A0 =A0.end =3D LAN9217_IRQ,
->> + =A0 =A0 =A0.flags =3D IORESOURCE_IRQ,
->> + =A0 =A0 =A0},
->> +};
->
-> static struct resource smsc911x_resources[] =3D {
-> =A0 =A0 =A0 =A0{
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.start =3D LAN9217_BASE_ADDR,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.end =3D LAN9217_BASE_ADDR + 0x100,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.flags =3D IORESOURCE_MEM,
-> =A0 =A0 =A0 =A0},{
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.start =3D LAN9217_IRQ,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.end =3D LAN9217_IRQ,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.flags =3D IORESOURCE_IRQ,
-> =A0 =A0 =A0 =A0},
-> };
->
->> +
->> +static struct smsc911x_platform_config smsc911x_platconfig =3D {
->> + =A0 =A0 .irq_polarity =A0 =3D SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
->> + =A0 =A0 .irq_type =A0 =A0 =A0 =3D SMSC911X_IRQ_TYPE_OPEN_DRAIN,
->> + =A0 =A0 .flags =A0 =A0 =A0 =A0 =A0=3D SMSC911X_USE_16BIT | SMSC911=
-X_USE_INTERPHY,
->> +};
->> +
->> +static struct platform_device smsc_lan9217_device =3D {
->> + =A0 =A0 .name =3D "smsc911x",
->> + =A0 =A0 .id =3D 0,
->> + =A0 =A0 .num_resources =3D ARRAY_SIZE(smsc911x_resources),
->> + =A0 =A0 .resource =3D smsc911x_resources,
->> +};
->> +static void mxc_init_enet(void)
->> +{
->> + =A0 =A0 mxc_register_device(&smsc_lan9217_device, &smsc911x_platco=
-nfig);
->> +}
->> +#else
->> +static inline void mxc_init_enet(void)
->> +{
->> +}
->> +#endif
->> +
->> =A0static u32 brd_io;
->>
->> =A0static void mxc_expio_irq_handler(u32 irq, struct irq_desc *desc)
->> @@ -217,6 +256,7 @@ static void __init mxc_board_init(void)
->> =A0{
->> =A0 =A0 =A0 mxc_init_imx_uart();
->> =A0 =A0 =A0 mxc_expio_init();
->> + =A0 =A0 mxc_init_enet();
->> =A0}
->>
->> =A0static void __init mx31pdk_timer_init(void)
->> --
->> 1.5.6.3
->>
->
-> --
-> Pengutronix e.K. =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-| =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 |
-> Industrial Linux Solutions =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | http://w=
-ww.pengutronix.de/ =A0|
-> Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0=
- =A0 =A0|
-> Amtsgericht Hildesheim, HRA 2686 =A0 =A0 =A0 =A0 =A0 | Fax: =A0 +49-5=
-121-206917-5555 |
->
+Then, as I said yesterday, I believe you have a RCU delay, because of
+a misbehaving driver or something...
+
+grep RCU .config
+grep CONFIG_SMP .config
+
+You could change qhimark from 10000 to 1000 in kernel/rcuclassic.c (lin=
+e 80)
+as a workaround. It should force a quiescent state after 1000 freed con=
+ntracks.
+
+
