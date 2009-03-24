@@ -1,302 +1,338 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 22/41: use a linked list of loggers
-Date: Tue, 24 Mar 2009 15:03:36 +0100 (MET)
-Message-ID: <20090324140332.31401.93363.sendpatchset@x2.localnet>
+Subject: netfilter 32/41: xtables: avoid pointer to self
+Date: Tue, 24 Mar 2009 15:03:49 +0100 (MET)
+Message-ID: <20090324140345.31401.2706.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34797 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758384AbZCXODj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:39 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222
-Author: Eric Leblond <eric@inl.fr>
-Date:   Mon Mar 16 14:54:21 2009 +0100
+commit acc738fec03bdaa5b77340c32a82fbfedaaabef0
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Mon Mar 16 15:35:29 2009 +0100
 
-    netfilter: use a linked list of loggers
+    netfilter: xtables: avoid pointer to self
     
-    This patch modifies nf_log to use a linked list of loggers for each
-    protocol. This list of loggers is read and write protected with a
-    mutex.
+    Commit 784544739a25c30637397ace5489eeb6e15d7d49 (netfilter: iptables:
+    lock free counters) broke a number of modules whose rule data referenced
+    itself. A reallocation would not reestablish the correct references, so
+    it is best to use a separate struct that does not fall under RCU.
     
-    This patch separates registration and binding. To be used as
-    logging module, a module has to register calling nf_log_register()
-    and to bind to a protocol it has to call nf_log_bind_pf().
-    This patch also converts the logging modules to the new API. For nfnetlink_log,
-    it simply switchs call to register functions to call to bind function and
-    adds a call to nf_log_register() during init. For other modules, it just
-    remove a const flag from the logger structure and replace it with a
-    __read_mostly.
-    
-    Signed-off-by: Eric Leblond <eric@inl.fr>
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index 7182c06..920997f 100644
---- a/include/net/netfilter/nf_log.h
-+++ b/include/net/netfilter/nf_log.h
-@@ -1,6 +1,8 @@
- #ifndef _NF_LOG_H
- #define _NF_LOG_H
+diff --git a/include/linux/netfilter/xt_limit.h b/include/linux/netfilter/xt_limit.h
+index b3ce653..fda222c 100644
+--- a/include/linux/netfilter/xt_limit.h
++++ b/include/linux/netfilter/xt_limit.h
+@@ -4,6 +4,8 @@
+ /* timings are in milliseconds. */
+ #define XT_LIMIT_SCALE 10000
  
-+#include <linux/netfilter.h>
++struct xt_limit_priv;
 +
- /* those NF_LOG_* defines and struct nf_loginfo are legacy definitios that will
-  * disappear once iptables is replaced with pkttables.  Please DO NOT use them
-  * for any new code! */
-@@ -40,12 +42,15 @@ struct nf_logger {
- 	struct module	*me;
- 	nf_logfn 	*logfn;
- 	char		*name;
-+	struct list_head	list[NFPROTO_NUMPROTO];
- };
+ /* 1/10,000 sec period => max of 10,000/sec.  Min rate is then 429490
+    seconds, or one every 59 hours. */
+ struct xt_rateinfo {
+@@ -11,11 +13,10 @@ struct xt_rateinfo {
+ 	u_int32_t burst;  /* Period multiplier for upper limit. */
  
- /* Function to register/unregister log function. */
--int nf_log_register(u_int8_t pf, const struct nf_logger *logger);
--void nf_log_unregister(const struct nf_logger *logger);
--void nf_log_unregister_pf(u_int8_t pf);
-+int nf_log_register(u_int8_t pf, struct nf_logger *logger);
-+void nf_log_unregister(struct nf_logger *logger);
+ 	/* Used internally by the kernel */
+-	unsigned long prev;
+-	u_int32_t credit;
++	unsigned long prev; /* moved to xt_limit_priv */
++	u_int32_t credit; /* moved to xt_limit_priv */
+ 	u_int32_t credit_cap, cost;
+ 
+-	/* Ugly, ugly fucker. */
+-	struct xt_rateinfo *master;
++	struct xt_limit_priv *master;
+ };
+ #endif /*_XT_RATE_H*/
+diff --git a/include/linux/netfilter/xt_quota.h b/include/linux/netfilter/xt_quota.h
+index 4c8368d..8dc89df 100644
+--- a/include/linux/netfilter/xt_quota.h
++++ b/include/linux/netfilter/xt_quota.h
+@@ -6,13 +6,15 @@ enum xt_quota_flags {
+ };
+ #define XT_QUOTA_MASK		0x1
+ 
++struct xt_quota_priv;
 +
-+int nf_log_bind_pf(u_int8_t pf, const struct nf_logger *logger);
-+void nf_log_unbind_pf(u_int8_t pf);
+ struct xt_quota_info {
+ 	u_int32_t		flags;
+ 	u_int32_t		pad;
  
- /* Calls the registered backend logging function */
- void nf_log_packet(u_int8_t pf,
-diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
-index 27a78fb..acc44c6 100644
---- a/net/ipv4/netfilter/ipt_LOG.c
-+++ b/net/ipv4/netfilter/ipt_LOG.c
-@@ -464,7 +464,7 @@ static struct xt_target log_tg_reg __read_mostly = {
- 	.me		= THIS_MODULE,
+ 	/* Used internally by the kernel */
+ 	aligned_u64		quota;
+-	struct xt_quota_info	*master;
++	struct xt_quota_priv	*master;
  };
  
--static const struct nf_logger ipt_log_logger ={
-+static struct nf_logger ipt_log_logger __read_mostly = {
- 	.name		= "ipt_LOG",
- 	.logfn		= &ipt_log_packet,
- 	.me		= THIS_MODULE,
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index 18a2826..d32cc4b 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -379,7 +379,7 @@ static struct xt_target ulog_tg_reg __read_mostly = {
- 	.me		= THIS_MODULE,
+ #endif /* _XT_QUOTA_H */
+diff --git a/include/linux/netfilter/xt_statistic.h b/include/linux/netfilter/xt_statistic.h
+index 3d38bc9..8f521ab 100644
+--- a/include/linux/netfilter/xt_statistic.h
++++ b/include/linux/netfilter/xt_statistic.h
+@@ -13,6 +13,8 @@ enum xt_statistic_flags {
+ };
+ #define XT_STATISTIC_MASK		0x1
+ 
++struct xt_statistic_priv;
++
+ struct xt_statistic_info {
+ 	u_int16_t			mode;
+ 	u_int16_t			flags;
+@@ -23,11 +25,10 @@ struct xt_statistic_info {
+ 		struct {
+ 			u_int32_t	every;
+ 			u_int32_t	packet;
+-			/* Used internally by the kernel */
+-			u_int32_t	count;
++			u_int32_t	count; /* unused */
+ 		} nth;
+ 	} u;
+-	struct xt_statistic_info	*master __attribute__((aligned(8)));
++	struct xt_statistic_priv *master __attribute__((aligned(8)));
  };
  
--static struct nf_logger ipt_ulog_logger = {
-+static struct nf_logger ipt_ulog_logger __read_mostly = {
- 	.name		= "ipt_ULOG",
- 	.logfn		= ipt_logfn,
- 	.me		= THIS_MODULE,
-diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
-index 37adf5a..7018cac 100644
---- a/net/ipv6/netfilter/ip6t_LOG.c
-+++ b/net/ipv6/netfilter/ip6t_LOG.c
-@@ -477,7 +477,7 @@ static struct xt_target log_tg6_reg __read_mostly = {
- 	.me 		= THIS_MODULE,
- };
+ #endif /* _XT_STATISTIC_H */
+diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
+index c908d69..2e8089e 100644
+--- a/net/netfilter/xt_limit.c
++++ b/net/netfilter/xt_limit.c
+@@ -14,6 +14,11 @@
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_limit.h>
  
--static const struct nf_logger ip6t_logger = {
-+static struct nf_logger ip6t_logger __read_mostly = {
- 	.name		= "ip6t_LOG",
- 	.logfn		= &ip6t_log_packet,
- 	.me		= THIS_MODULE,
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index fa8ae5d..a228b5f 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -16,56 +16,60 @@
- #define NF_LOG_PREFIXLEN		128
- 
- static const struct nf_logger *nf_loggers[NFPROTO_NUMPROTO] __read_mostly;
-+static struct list_head nf_loggers_l[NFPROTO_NUMPROTO] __read_mostly;
- static DEFINE_MUTEX(nf_log_mutex);
- 
--/* return EBUSY if somebody else is registered, EEXIST if the same logger
-- * is registred, 0 on success. */
--int nf_log_register(u_int8_t pf, const struct nf_logger *logger)
-+static struct nf_logger *__find_logger(int pf, const char *str_logger)
++struct xt_limit_priv {
++	unsigned long prev;
++	uint32_t credit;
++};
++
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Herve Eychenne <rv@wallfire.org>");
+ MODULE_DESCRIPTION("Xtables: rate-limit match");
+@@ -60,18 +65,18 @@ static DEFINE_SPINLOCK(limit_lock);
+ static bool
+ limit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
  {
--	int ret;
-+	struct nf_logger *t;
+-	struct xt_rateinfo *r =
+-		((const struct xt_rateinfo *)par->matchinfo)->master;
++	const struct xt_rateinfo *r = par->matchinfo;
++	struct xt_limit_priv *priv = r->master;
+ 	unsigned long now = jiffies;
  
--	if (pf >= ARRAY_SIZE(nf_loggers))
--		return -EINVAL;
--
--	/* Any setup of logging members must be done before
--	 * substituting pointer. */
--	ret = mutex_lock_interruptible(&nf_log_mutex);
--	if (ret < 0)
--		return ret;
--
--	if (!nf_loggers[pf])
--		rcu_assign_pointer(nf_loggers[pf], logger);
--	else if (nf_loggers[pf] == logger)
--		ret = -EEXIST;
--	else
--		ret = -EBUSY;
-+	list_for_each_entry(t, &nf_loggers_l[pf], list[pf]) {
-+		if (!strnicmp(str_logger, t->name, strlen(t->name)))
-+			return t;
-+	}
+ 	spin_lock_bh(&limit_lock);
+-	r->credit += (now - xchg(&r->prev, now)) * CREDITS_PER_JIFFY;
+-	if (r->credit > r->credit_cap)
+-		r->credit = r->credit_cap;
++	priv->credit += (now - xchg(&priv->prev, now)) * CREDITS_PER_JIFFY;
++	if (priv->credit > r->credit_cap)
++		priv->credit = r->credit_cap;
  
--	mutex_unlock(&nf_log_mutex);
--	return ret;
-+	return NULL;
- }
--EXPORT_SYMBOL(nf_log_register);
- 
--void nf_log_unregister_pf(u_int8_t pf)
-+/* return EEXIST if the same logger is registred, 0 on success. */
-+int nf_log_register(u_int8_t pf, struct nf_logger *logger)
- {
-+	const struct nf_logger *llog;
-+
- 	if (pf >= ARRAY_SIZE(nf_loggers))
--		return;
-+		return -EINVAL;
-+
- 	mutex_lock(&nf_log_mutex);
--	rcu_assign_pointer(nf_loggers[pf], NULL);
-+
-+	if (pf == NFPROTO_UNSPEC) {
-+		int i;
-+		for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
-+			list_add_tail(&(logger->list[i]), &(nf_loggers_l[i]));
-+	} else {
-+		/* register at end of list to honor first register win */
-+		list_add_tail(&logger->list[pf], &nf_loggers_l[pf]);
-+		llog = rcu_dereference(nf_loggers[pf]);
-+		if (llog == NULL)
-+			rcu_assign_pointer(nf_loggers[pf], logger);
-+	}
-+
- 	mutex_unlock(&nf_log_mutex);
- 
--	/* Give time to concurrent readers. */
--	synchronize_rcu();
-+	return 0;
- }
--EXPORT_SYMBOL(nf_log_unregister_pf);
-+EXPORT_SYMBOL(nf_log_register);
- 
--void nf_log_unregister(const struct nf_logger *logger)
-+void nf_log_unregister(struct nf_logger *logger)
- {
-+	const struct nf_logger *c_logger;
- 	int i;
- 
- 	mutex_lock(&nf_log_mutex);
- 	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
--		if (nf_loggers[i] == logger)
-+		c_logger = rcu_dereference(nf_loggers[i]);
-+		if (c_logger == logger)
- 			rcu_assign_pointer(nf_loggers[i], NULL);
-+		list_del(&logger->list[i]);
+-	if (r->credit >= r->cost) {
++	if (priv->credit >= r->cost) {
+ 		/* We're not limited. */
+-		r->credit -= r->cost;
++		priv->credit -= r->cost;
+ 		spin_unlock_bh(&limit_lock);
+ 		return true;
  	}
- 	mutex_unlock(&nf_log_mutex);
- 
-@@ -73,6 +77,27 @@ void nf_log_unregister(const struct nf_logger *logger)
- }
- EXPORT_SYMBOL(nf_log_unregister);
- 
-+int nf_log_bind_pf(u_int8_t pf, const struct nf_logger *logger)
-+{
-+	mutex_lock(&nf_log_mutex);
-+	if (__find_logger(pf, logger->name) == NULL) {
-+		mutex_unlock(&nf_log_mutex);
-+		return -ENOENT;
-+	}
-+	rcu_assign_pointer(nf_loggers[pf], logger);
-+	mutex_unlock(&nf_log_mutex);
-+	return 0;
-+}
-+EXPORT_SYMBOL(nf_log_bind_pf);
-+
-+void nf_log_unbind_pf(u_int8_t pf)
-+{
-+	mutex_lock(&nf_log_mutex);
-+	rcu_assign_pointer(nf_loggers[pf], NULL);
-+	mutex_unlock(&nf_log_mutex);
-+}
-+EXPORT_SYMBOL(nf_log_unbind_pf);
-+
- void nf_log_packet(u_int8_t pf,
- 		   unsigned int hooknum,
- 		   const struct sk_buff *skb,
-@@ -163,10 +188,15 @@ static const struct file_operations nflog_file_ops = {
- 
- int __init netfilter_log_init(void)
+@@ -95,6 +100,7 @@ user2credits(u_int32_t user)
+ static bool limit_mt_check(const struct xt_mtchk_param *par)
  {
-+	int i;
- #ifdef CONFIG_PROC_FS
- 	if (!proc_create("nf_log", S_IRUGO,
- 			 proc_net_netfilter, &nflog_file_ops))
- 		return -1;
- #endif
+ 	struct xt_rateinfo *r = par->matchinfo;
++	struct xt_limit_priv *priv;
+ 
+ 	/* Check for overflow. */
+ 	if (r->burst == 0
+@@ -104,19 +110,30 @@ static bool limit_mt_check(const struct xt_mtchk_param *par)
+ 		return false;
+ 	}
+ 
+-	/* For SMP, we only want to use one set of counters. */
+-	r->master = r;
++	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
++	if (priv == NULL)
++		return -ENOMEM;
 +
-+	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
-+		INIT_LIST_HEAD(&(nf_loggers_l[i]));
-+
- 	return 0;
- }
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index fa49dc7..3eae3fc 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -691,7 +691,7 @@ nfulnl_recv_unsupp(struct sock *ctnl, struct sk_buff *skb,
- 	return -ENOTSUPP;
++	/* For SMP, we only want to use one set of state. */
++	r->master = priv;
+ 	if (r->cost == 0) {
+ 		/* User avg in seconds * XT_LIMIT_SCALE: convert to jiffies *
+ 		   128. */
+-		r->prev = jiffies;
+-		r->credit = user2credits(r->avg * r->burst);	 /* Credits full. */
++		priv->prev = jiffies;
++		priv->credit = user2credits(r->avg * r->burst); /* Credits full. */
+ 		r->credit_cap = user2credits(r->avg * r->burst); /* Credits full. */
+ 		r->cost = user2credits(r->avg);
+ 	}
+ 	return true;
  }
  
--static const struct nf_logger nfulnl_logger = {
-+static struct nf_logger nfulnl_logger __read_mostly = {
- 	.name	= "nfnetlink_log",
- 	.logfn	= &nfulnl_log_packet,
- 	.me	= THIS_MODULE,
-@@ -723,9 +723,9 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 		/* Commands without queue context */
- 		switch (cmd->command) {
- 		case NFULNL_CFG_CMD_PF_BIND:
--			return nf_log_register(pf, &nfulnl_logger);
-+			return nf_log_bind_pf(pf, &nfulnl_logger);
- 		case NFULNL_CFG_CMD_PF_UNBIND:
--			nf_log_unregister_pf(pf);
-+			nf_log_unbind_pf(pf);
- 			return 0;
++static void limit_mt_destroy(const struct xt_mtdtor_param *par)
++{
++	const struct xt_rateinfo *info = par->matchinfo;
++
++	kfree(info->master);
++}
++
+ #ifdef CONFIG_COMPAT
+ struct compat_xt_rateinfo {
+ 	u_int32_t avg;
+@@ -167,6 +184,7 @@ static struct xt_match limit_mt_reg __read_mostly = {
+ 	.family           = NFPROTO_UNSPEC,
+ 	.match            = limit_mt,
+ 	.checkentry       = limit_mt_check,
++	.destroy          = limit_mt_destroy,
+ 	.matchsize        = sizeof(struct xt_rateinfo),
+ #ifdef CONFIG_COMPAT
+ 	.compatsize       = sizeof(struct compat_xt_rateinfo),
+diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
+index c84fce5..01dd07b 100644
+--- a/net/netfilter/xt_quota.c
++++ b/net/netfilter/xt_quota.c
+@@ -9,6 +9,10 @@
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_quota.h>
+ 
++struct xt_quota_priv {
++	uint64_t quota;
++};
++
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Sam Johnston <samj@samj.net>");
+ MODULE_DESCRIPTION("Xtables: countdown quota match");
+@@ -20,18 +24,20 @@ static DEFINE_SPINLOCK(quota_lock);
+ static bool
+ quota_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ {
+-	struct xt_quota_info *q =
+-		((const struct xt_quota_info *)par->matchinfo)->master;
++	struct xt_quota_info *q = (void *)par->matchinfo;
++	struct xt_quota_priv *priv = q->master;
+ 	bool ret = q->flags & XT_QUOTA_INVERT;
+ 
+ 	spin_lock_bh(&quota_lock);
+-	if (q->quota >= skb->len) {
+-		q->quota -= skb->len;
++	if (priv->quota >= skb->len) {
++		priv->quota -= skb->len;
+ 		ret = !ret;
+ 	} else {
+ 		/* we do not allow even small packets from now on */
+-		q->quota = 0;
++		priv->quota = 0;
+ 	}
++	/* Copy quota back to matchinfo so that iptables can display it */
++	q->quota = priv->quota;
+ 	spin_unlock_bh(&quota_lock);
+ 
+ 	return ret;
+@@ -43,17 +49,28 @@ static bool quota_mt_check(const struct xt_mtchk_param *par)
+ 
+ 	if (q->flags & ~XT_QUOTA_MASK)
+ 		return false;
+-	/* For SMP, we only want to use one set of counters. */
+-	q->master = q;
++
++	q->master = kmalloc(sizeof(*q->master), GFP_KERNEL);
++	if (q->master == NULL)
++		return -ENOMEM;
++
+ 	return true;
+ }
+ 
++static void quota_mt_destroy(const struct xt_mtdtor_param *par)
++{
++	const struct xt_quota_info *q = par->matchinfo;
++
++	kfree(q->master);
++}
++
+ static struct xt_match quota_mt_reg __read_mostly = {
+ 	.name       = "quota",
+ 	.revision   = 0,
+ 	.family     = NFPROTO_UNSPEC,
+ 	.match      = quota_mt,
+ 	.checkentry = quota_mt_check,
++	.destroy    = quota_mt_destroy,
+ 	.matchsize  = sizeof(struct xt_quota_info),
+ 	.me         = THIS_MODULE,
+ };
+diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
+index 0d75141..d8c0f8f 100644
+--- a/net/netfilter/xt_statistic.c
++++ b/net/netfilter/xt_statistic.c
+@@ -16,6 +16,10 @@
+ #include <linux/netfilter/xt_statistic.h>
+ #include <linux/netfilter/x_tables.h>
+ 
++struct xt_statistic_priv {
++	uint32_t count;
++};
++
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
+ MODULE_DESCRIPTION("Xtables: statistics-based matching (\"Nth\", random)");
+@@ -27,7 +31,7 @@ static DEFINE_SPINLOCK(nth_lock);
+ static bool
+ statistic_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ {
+-	struct xt_statistic_info *info = (void *)par->matchinfo;
++	const struct xt_statistic_info *info = par->matchinfo;
+ 	bool ret = info->flags & XT_STATISTIC_INVERT;
+ 
+ 	switch (info->mode) {
+@@ -36,10 +40,9 @@ statistic_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ 			ret = !ret;
+ 		break;
+ 	case XT_STATISTIC_MODE_NTH:
+-		info = info->master;
+ 		spin_lock_bh(&nth_lock);
+-		if (info->u.nth.count++ == info->u.nth.every) {
+-			info->u.nth.count = 0;
++		if (info->master->count++ == info->u.nth.every) {
++			info->master->count = 0;
+ 			ret = !ret;
  		}
- 	}
-@@ -950,17 +950,25 @@ static int __init nfnetlink_log_init(void)
- 		goto cleanup_netlink_notifier;
- 	}
- 
-+	status = nf_log_register(NFPROTO_UNSPEC, &nfulnl_logger);
-+	if (status < 0) {
-+		printk(KERN_ERR "log: failed to register logger\n");
-+		goto cleanup_subsys;
-+	}
+ 		spin_unlock_bh(&nth_lock);
+@@ -56,16 +59,31 @@ static bool statistic_mt_check(const struct xt_mtchk_param *par)
+ 	if (info->mode > XT_STATISTIC_MODE_MAX ||
+ 	    info->flags & ~XT_STATISTIC_MASK)
+ 		return false;
+-	info->master = info;
 +
- #ifdef CONFIG_PROC_FS
- 	if (!proc_create("nfnetlink_log", 0440,
- 			 proc_net_netfilter, &nful_file_ops))
--		goto cleanup_subsys;
-+		goto cleanup_logger;
- #endif
- 	return status;
++	info->master = kzalloc(sizeof(*info->master), GFP_KERNEL);
++	if (info->master == NULL) {
++		printk(KERN_ERR KBUILD_MODNAME ": Out of memory\n");
++		return false;
++	}
++	info->master->count = info->u.nth.count;
++
+ 	return true;
+ }
  
- #ifdef CONFIG_PROC_FS
-+cleanup_logger:
-+	nf_log_unregister(&nfulnl_logger);
-+#endif
- cleanup_subsys:
- 	nfnetlink_subsys_unregister(&nfulnl_subsys);
--#endif
- cleanup_netlink_notifier:
- 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
- 	return status;
++static void statistic_mt_destroy(const struct xt_mtdtor_param *par)
++{
++	const struct xt_statistic_info *info = par->matchinfo;
++
++	kfree(info->master);
++}
++
+ static struct xt_match xt_statistic_mt_reg __read_mostly = {
+ 	.name       = "statistic",
+ 	.revision   = 0,
+ 	.family     = NFPROTO_UNSPEC,
+ 	.match      = statistic_mt,
+ 	.checkentry = statistic_mt_check,
++	.destroy    = statistic_mt_destroy,
+ 	.matchsize  = sizeof(struct xt_statistic_info),
+ 	.me         = THIS_MODULE,
+ };
