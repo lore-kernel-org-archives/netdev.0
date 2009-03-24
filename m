@@ -1,49 +1,117 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Scott James Remnant <scott@ubuntu.com>
 Subject: Re: Network Device Naming mechanism and policy
-Date: Tue, 24 Mar 2009 17:00:57 +0000
-Message-ID: <20090324170057.5d09d5f0@lxorguk.ukuu.org.uk>
+Date: Tue, 24 Mar 2009 17:02:19 +0000
+Message-ID: <1237914139.22009.18.camel@quest>
 References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
-	<49C9087C.5070907@trash.net>
-	<1237912858.9082.39.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:44769 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762593AbZCXRAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 13:00:43 -0400
-In-Reply-To: <1237912858.9082.39.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-0XiESFhSqq8PLyGJHAgy"
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20090324154617.GA16332@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> If the MAC address isn't a UUID for the device, then *what* is?
 
-MAC is technically per system if desired (eg old Sun boxes) and that is
-quite valid by IEE802.3. In that case you need MAC + topology.
+--=-0XiESFhSqq8PLyGJHAgy
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-If you are running DECnet your system runs on assigned MAC addresses so
-you also have to be careful to use the EPROM MAC (if one exists which is
-99.9% of the time) + topology.
+On Tue, 2009-03-24 at 10:46 -0500, Matt Domsch wrote:
 
-> Either people want (a) a name assigned to a specific device (which
-> implies a UUID like a MAC address stored on that device somewhere
-> accessible to the driver at plug/boot time), or they want (b) to assign
-> a name to a *position* on the PCI or USB or firewire or whatever bus, or
-> they (c) don't care about this at all.
+>    b) udev may run modprobes in parallel.  It guarantees that the
+>       events and modprobes are begun in order, but makes no guarantee
+>       that one event's modprobe completes before beginning a second
+>       modprobe.  This leads to naming races in the kernel, as drivers
+>       begun in parallel, which discover their own devices, present
+>       them to the kernel for name assignment.
+>=20
+Also bear in mind that a module completing init() does not necessarily
+mean that the interfaces have been created.  If the driver requires
+firmware, it will call out to userspace, and may not register the
+interface until well afterwards.
 
-I'd argue the fumdamental problem is that I can do this
+One could even construct a pathological case where only a virtual device
+was registered, and userspace was required to add logical interfaces
+(most likely in a udev rule).
 
-	ln -s /dev/sda /dev/thebigdiskunderthefridge
+> 2) udev may have rules to change the device names.  This is most often
+>    seen in the '70-persistent-net.rules' file.  Here we have
+>    additional challenges:
+>=20
+>    a) this does not exist the first time devices are discovered; the
+>       naming may be incorrect during first discovery, leading to the
+>       names being permanently incorrect (unless this file is edited).
+>=20
+Well, the obvious fix to this is to make sure the names are always
+correct :)
 
-but cannot ln -s /dev/eth0 /dev/ethernet/slot0
+>    c) udev may not always be able to change a device's name.  If udev
+>       uses the kernel assignment namespace (ethN), then a rename of
+>       eth0->eth1 may require renaming eth1->eth0 (or something else).
+>       Udev operates on a single device instance at a time, it becomes
+>       difficult to switch names around for multiple devices, within
+>       the single namespace.
+>=20
+Actually udev handles this by using a temporary name.  When renaming
+eth0->eth1 it actually uses an intermediate name first.  This allows it
+to simultaneously swap eth0<->eth1 since one unblocks the other
+(actually both unblock each other).
 
-and the SIOCGIF/SIF BSD style ioctl interface doesn't do pathnames or
-file handles of network devices.
+There is a failure case where two devices both end up trying to get the
+same name, in which case one will lock with a "_rename" name.  There was
+an early debate in Ubuntu when we first wrote this code about using
+later names (eth2, eth3, etc.) but we realised that just hides the
+problem (and it happens again if you plug in a pccard or something that
+wants eth2).
 
-Anyone feel up to putting all the network devices into dev space and
-fixing the ioctls ;)
+Since this is always a bug, making the problem visible was a "good
+thing".
+
+> biosdevname (http://linux.dell.com/projects.shtml#biosdevname) takes a
+> stab at this.  It can be integrated into udev, such that the
+> 70-persistent-net.rules file is never used, and the naming for each
+> device comes from several different policies.  Its primary drawback is
+> that it changes the device namespace, which some sysadmins, and tools,
+> may not like.  Names for devices become eth_s0_0 for the first
+> onboard NIC, eth_s0_1 for the second; eth_s3_3 for the fourth port
+> on PCI Slot #3, etc.
+>=20
+While this works for PCI slots, it already doesn't scale to other buses.
+For example what slot number is the pccard slot?  If you have two
+different pccard devices, would they get assigned the same name (udev
+currently assigns them different names).
+
+Now consider USB.  Would the device name change depending on which USB
+port you plugged it into?  Or is USB just a single slot, in which case
+what happens when you have two USB ethernet devices?
+
+The Apple USB Ethernet device in my iPhone is not the USB Wireless
+adapter I own, both have very different networking configurations.
+
+it's not ideal in the laptop world.  Consider a user with two different=20
+
+> Option 3: INSERT YOUR IDEA HERE
+>=20
+I quite liked the idea of /dev/eth0, then we could just use symlinks.
+
+Scott
+--=20
+Scott James Remnant
+scott@ubuntu.com
+
+--=-0XiESFhSqq8PLyGJHAgy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAknJEhsACgkQSnQiFMl4yK7JiQCfXV1ZjDI3yuvJV4fpusS3hK1P
+r7EAoLCDcnV4A02DD694ovmC1cxjySib
+=HQPX
+-----END PGP SIGNATURE-----
+
+--=-0XiESFhSqq8PLyGJHAgy--
+
