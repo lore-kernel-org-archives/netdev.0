@@ -1,44 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] conntrack: Reduce conntrack count in	nf_conntrack_free()
-Date: Tue, 24 Mar 2009 16:21:43 +0100
-Message-ID: <49C8FA87.2030106@trash.net>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>	 <49C77D71.8090709@trash.net>	 <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>	 <49C780AD.70704@trash.net>	 <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se>	 <49C7CB9B.1040409@trash.net>	 <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>	 <49C8A415.1090606@cosmosbay.com>	 <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>	 <49C8CCF4.5050104@cosmosbay.com> <1237907850.12351.80.camel@sakura.staff.proxad.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: Use request_firmware()
+Date: Tue, 24 Mar 2009 08:27:33 -0700
+Message-ID: <C27F8246C663564A84BB7AB34397724216584482DA@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <20090324074213.GA4576@wavehammer.waldi.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	avorontsov@ru.mvista.com, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: mbizon@freebox.fr
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Rick Jones" <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "'Bastian Blank'" <waldi@debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36574 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751766AbZCXPVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 11:21:51 -0400
-In-Reply-To: <1237907850.12351.80.camel@sakura.staff.proxad.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:2720 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760253AbZCXP1n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 11:27:43 -0400
+In-Reply-To: <20090324074213.GA4576@wavehammer.waldi.eu.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maxime Bizon wrote:
-> On Tue, 2009-03-24 at 13:07 +0100, Eric Dumazet wrote:
-> 
->> We use RCU to defer freeing of conntrack structures. In DOS situation,
->> RCU might accumulate about 10.000 elements per CPU in its internal
->> queues. To get accurate conntrack counts (at the expense of slightly
->> more RAM used), we might consider conntrack counter not taking into
->> account "about to be freed elements, waiting in RCU queues". We thus
->> decrement it in nf_conntrack_free(), not in the RCU callback.
-> 
-> Your patch fixes the problem on my board too (embedded mips router
-> 250Mhz), thanks.
-> 
-> Yet I'm concerned about what you said concerning RAM usage. I have a
-> very small amount on memory left on my board (less than 4M), and I tuned
-> ip route cache size and nf_conntrack_max to make sure I won't go OOM.
-> 
-> With your patch, does it mean 10000 conntrack entries can be allocated
-> while nf_conntrack_max is say only 2048 ?
+Bastian Blank wrote:
 
-Temporarily under worst-case circumstances, yes. Eric is already working
-on his proposed improvement though :)
+> What is the advantage of this? I always saw updates to more than one
+> firmware at once in the past. The question is not: is it
+> possible, but:
+> it is necessary.
+>
+
+Looking at the git history, about 3 out of 7 times, bnx2_fw.h was
+partially updated.  About 2 out of 8 times bnx2_fw2.h was partially
+updated.  The next planned update for net-next is a partial update.
+
+Either way will work.  Using separate files will reduce the amount
+of patch churn during partial updates.  That's the advantage.
+
