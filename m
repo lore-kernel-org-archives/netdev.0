@@ -1,56 +1,38 @@
-From: david@lang.hm
-Subject: Re: Network Device Naming mechanism and policy
-Date: Tue, 24 Mar 2009 11:51:29 -0700 (PDT)
-Message-ID: <alpine.DEB.1.10.0903241150020.16753@asgard.lang.hm>
-References: <20090324154617.GA16332@auslistsprd01.us.dell.com>  <49C9087C.5070907@trash.net> <1237912858.9082.39.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ucc_geth: Fix build breakage caused by a merge
+Date: Tue, 24 Mar 2009 12:07:02 -0700 (PDT)
+Message-ID: <20090324.120702.232678762.davem@davemloft.net>
+References: <382F4B5D-93C4-41BB-A00A-8A6C240CD170@kernel.crashing.org>
+	<20090324153734.GA8276@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.lang.hm ([64.81.33.126]:40544 "EHLO bifrost.lang.hm"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752698AbZCXSvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 14:51:51 -0400
-In-Reply-To: <1237912858.9082.39.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com,
+	Joakim.Tjernlund@transmode.se, netdev@vger.kernel.org
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090324153734.GA8276@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Mar 2009, Dan Williams wrote:
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Tue, 24 Mar 2009 18:37:34 +0300
 
-> On Tue, 2009-03-24 at 17:21 +0100, Patrick McHardy wrote:
->> Matt Domsch wrote:
->>> 2) udev may have rules to change the device names.  This is most often
->>>    seen in the '70-persistent-net.rules' file.  Here we have
->>>    additional challenges:
->>>
->>> ...
->>>
->>>    c) udev may not always be able to change a device's name.  If udev
->>>       uses the kernel assignment namespace (ethN), then a rename of
->>>       eth0->eth1 may require renaming eth1->eth0 (or something else).
->>>       Udev operates on a single device instance at a time, it becomes
->>>       difficult to switch names around for multiple devices, within
->>>       the single namespace.
->>
->> I would classify this as a bug, especially the fact that udev doesn't
->> undo a failed rename, so you end up with ethX_rename. Virtual devices
->> using the same MAC address trigger this reliably unless you add
->> exceptions to the udev rules.
->
-> Any particular reason the MAC addresses are the same?  This came up a
-> while ago with the 'dnet' device in the thread "Dave DNET ethernet
-> controller".
->
-> If the MAC address isn't a UUID for the device, then *what* is?
+> This patch fixes following build error:
+> 
+>   CC      ucc_geth.o
+> ucc_geth.c: In function 'ucc_geth_probe':
+> ucc_geth.c:3644: error: implicit declaration of function 'uec_mdio_bus_name'
+> make[2]: *** [ucc_geth.o] Error 1
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
-I have seen systems (I think they were Sun boxes) where the _machine_ had 
-a MAC address, and it used that same MAC on all interfaces.
-
-this is convienient for some things, but not for others.
-
-what's unique and reproducable is the discovery order
-
-David Lang
+Applied, thanks Anton.
