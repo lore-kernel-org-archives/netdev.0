@@ -1,53 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 15/41: nf_conntrack: table max size should hold at least table size
-Date: Tue, 24 Mar 2009 15:03:27 +0100 (MET)
-Message-ID: <20090324140323.31401.2934.sendpatchset@x2.localnet>
+Subject: netfilter 06/41: log invalid new icmpv6 packet with nf_log_packet()
+Date: Tue, 24 Mar 2009 15:03:14 +0100 (MET)
+Message-ID: <20090324140310.31401.69352.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34741 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757315AbZCXODQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:16 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit e478075c6f07a383c378fb400edc1a7407a941b0
-Author: Hagen Paul Pfeifer <hagen@jauu.net>
-Date:   Fri Feb 20 10:47:09 2009 +0100
+commit 55df4ac0c927c7f1f84e6d75532f0ca45d391e64
+Author: Eric Leblond <eric@inl.fr>
+Date:   Wed Feb 18 16:30:56 2009 +0100
 
-    netfilter: nf_conntrack: table max size should hold at least table size
+    netfilter: log invalid new icmpv6 packet with nf_log_packet()
     
-    Table size is defined as unsigned, wheres the table maximum size is
-    defined as a signed integer. The calculation of max is 8 or 4,
-    multiplied the table size. Therefore the max value is aligned to
-    unsigned.
+    This patch adds a logging message for invalid new icmpv6 packet.
     
-    Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+    Signed-off-by: Eric Leblond <eric@inl.fr>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 2e0c536..4dfb793 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -287,7 +287,7 @@ static inline int nf_ct_is_untracked(const struct sk_buff *skb)
- 
- extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
- extern unsigned int nf_conntrack_htable_size;
--extern int nf_conntrack_max;
-+extern unsigned int nf_conntrack_max;
- 
- #define NF_CT_STAT_INC(net, count)	\
- 	(per_cpu_ptr((net)->ct.stat, raw_smp_processor_id())->count++)
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 90ce9dd..f3aa4e6 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -54,7 +54,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_lock);
- unsigned int nf_conntrack_htable_size __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
- 
--int nf_conntrack_max __read_mostly;
-+unsigned int nf_conntrack_max __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_max);
- 
- struct nf_conn nf_conntrack_untracked __read_mostly;
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index c323643..165b256 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -126,6 +126,10 @@ static bool icmpv6_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 		pr_debug("icmpv6: can't create new conn with type %u\n",
+ 			 type + 128);
+ 		nf_ct_dump_tuple_ipv6(&ct->tuplehash[0].tuple);
++		if (LOG_INVALID(nf_ct_net(ct), IPPROTO_ICMPV6))
++			nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
++				      "nf_ct_icmpv6: invalid new with type %d ",
++				      type + 128);
+ 		return false;
+ 	}
+ 	atomic_set(&ct->proto.icmp.count, 0);
