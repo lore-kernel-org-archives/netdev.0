@@ -1,32 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 25/41: Kconfig spelling fixes (trivial)
-Date: Tue, 24 Mar 2009 13:35:40 -0700 (PDT)
-Message-ID: <20090324.133540.209793964.davem@davemloft.net>
-References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-	<20090324140336.31401.95313.sendpatchset@x2.localnet>
-	<alpine.LSU.2.00.0903241518400.32642@fbirervta.pbzchgretzou.qr>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: Network Device Naming mechanism and policy
+Date: Tue, 24 Mar 2009 21:02:14 +0000
+Message-ID: <20090324210214.7ae65c06@lxorguk.ukuu.org.uk>
+References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
+	<49C9087C.5070907@trash.net>
+	<1237912858.9082.39.camel@localhost.localdomain>
+	<alpine.DEB.1.10.0903241150020.16753@asgard.lang.hm>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: jengelh@medozas.de
+Cc: Dan Williams <dcbw@redhat.com>, Patrick McHardy <kaber@trash.net>,
+	Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
+To: david@lang.hm
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47199
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753017AbZCXUfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 16:35:53 -0400
-In-Reply-To: <alpine.LSU.2.00.0903241518400.32642@fbirervta.pbzchgretzou.qr>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:49731 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751335AbZCXVBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 17:01:47 -0400
+In-Reply-To: <alpine.DEB.1.10.0903241150020.16753@asgard.lang.hm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
-Date: Tue, 24 Mar 2009 15:20:08 +0100 (CET)
-
-> netfilter: trivial Kconfig spelling fixes
+> this is convienient for some things, but not for others.
 > 
-> Supplements commit 67c0d57930ff9a24c6c34abee1b01f7716a9b0e2.
-> 
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+> what's unique and reproducable is the discovery order
 
-Applied.
+Not in the case of things like USB...
