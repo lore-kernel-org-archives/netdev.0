@@ -1,52 +1,66 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 3/3] smsc911x: add flag SMSC911X_USE_INTERPHY
-Date: Tue, 24 Mar 2009 09:52:48 +0100
-Message-ID: <20090324085248.GH25436@pengutronix.de>
-References: <4e090d470903232347g2b6e91a7o385af2e66f05a936@mail.gmail.com> <20090324075105.GE25436@pengutronix.de> <4e090d470903240136y1b553b10gda626b3a9bb661f5@mail.gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 2.6.27/28-stable] bas_gigaset: correctly allocate USB
+ interrupt transfer buffer
+Date: Tue, 24 Mar 2009 10:54:32 +0200
+Message-ID: <49C89FC8.9080904@imap.cc>
+References: <20090323-patch-01.tilman@imap.cc> <20090323.150005.113220590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, kernel@pengutronix.de
-To: Richard Zhao <linuxzsc@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigF0F76293D8EDB051E04E63F4"
+Cc: stable@kernel.org, kawk@users.sourceforge.net, hjlipp@web.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:55643 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753927AbZCXIxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 04:53:13 -0400
-Content-Disposition: inline
-In-Reply-To: <4e090d470903240136y1b553b10gda626b3a9bb661f5@mail.gmail.com>
+Received: from posthamster.phnxsoft.com ([195.227.45.4]:1503 "EHLO
+	posthamster.phnxsoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755259AbZCXI7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 04:59:11 -0400
+In-Reply-To: <20090323.150005.113220590.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2009 at 04:36:08PM +0800, Richard Zhao wrote:
-> On Tue, Mar 24, 2009 at 3:51 PM, Sascha Hauer <s.hauer@pengutronix.de> wrote:
-> > Hi Richard,
-> >
-> > On Tue, Mar 24, 2009 at 02:47:25PM +0800, Richard Zhao wrote:
-> >> mx31pdk board don't have external PHY, but it wrongly pull up MDIO.
-> >> So, add flag SMSC911X_USE_INTERPHY to force using internal PHY.
-> >
-> > This patch is outdated. Linux-next already contains a
-> > SMSC911X_FORCE_INTERNAL_PHY for exactly this reason.
-> >
-> > Sascha
-> >
-> Hi Sascha,
-> 
-> Sorry I didn't check linux-next. Do I need always to create mxc
-> patches based on linux-nex?
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigF0F76293D8EDB051E04E63F4
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-No, but you should keep an eye on it to check for changes.
+On Mon, 23 Mar 2009 15:00:05 -0700 (PDT), David Miller wrote:
+> From: Tilman Schmidt <tilman@imap.cc>
+> Date: Mon, 23 Mar 2009 22:47:06 +0100 (CET)
+>=20
+>> the following patch backports the Gigaset driver bugfix merged for
+>> 2.6.29 as commit 170ebf85160dd128e1c4206cc197cce7d1424705 to both
+>> v2.6.27.x and v2.6.28.x. I would appreciate to see it included in
+>> your stable series.
+>=20
+> If you ask me I can and will do it during my networking patch
+> -stable submission.
 
-> And I don't know why the smsc911x patch commited on Feb 1 on
-> linux-next still not be merged to mainline?
+Thanks. Please do so.
 
-Have a look at Documentation/development-process in the Kernel sources.
+Regards,
+Tilman
 
-Sascha
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+
+--------------enigF0F76293D8EDB051E04E63F4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFJyJ/TQ3+did9BuFsRAuRkAJ0UU27JivQR/wea8k8X5oCFYaCnMQCfSsHY
+/blVuLAGB/4H/q5K2MLx5fA=
+=wXEu
+-----END PGP SIGNATURE-----
+
+--------------enigF0F76293D8EDB051E04E63F4--
