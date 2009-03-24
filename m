@@ -1,81 +1,44 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
-Date: Tue, 24 Mar 2009 09:22:24 +0100
-Message-ID: <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net>
+From: Richard Zhao <linuxzsc@gmail.com>
+Subject: Re: [PATCH 3/3] smsc911x: add flag SMSC911X_USE_INTERPHY
+Date: Tue, 24 Mar 2009 16:36:08 +0800
+Message-ID: <4e090d470903240136y1b553b10gda626b3a9bb661f5@mail.gmail.com>
+References: <4e090d470903232347g2b6e91a7o385af2e66f05a936@mail.gmail.com>
+	 <20090324075105.GE25436@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: avorontsov@ru.mvista.com, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Richard Zhao <linuxzsc@gmail.com>, steve.glendinning@smsc.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	kernel@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:48998 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755432AbZCXIWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 04:22:30 -0400
-In-Reply-To: <49C7CB9B.1040409@trash.net>
+Received: from rv-out-0506.google.com ([209.85.198.233]:46013 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753927AbZCXIgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 04:36:12 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so2195302rvb.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2009 01:36:08 -0700 (PDT)
+In-Reply-To: <20090324075105.GE25436@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 18:49:15:
-> 
-> Joakim Tjernlund wrote:
-> > Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:29:33:
-> >
-> > 
-> >>> There is no /proc/net/netfilter/nf_conntrack. There is a
-> >>> /proc/net/nf_conntrack though and it is empty. If I telnet
-> >>> to the board I see:
-> >>> 
-> >> That means that something is leaking conntrack references, most 
-likely
-> >> by leaking skbs. Since I haven't seen any other reports, my guess 
-would
-> >> be the ucc_geth driver.
-> >> 
-> >
-> > Mucking around with the ucc_geth driver I found that if I:
-> >  - Move TX from IRQ to NAPI context
-> >  - double the weight.
-> >  - after booting up, wait a few mins until the JFFS2 GC kernel thread 
-has 
-> > stopped
-> >    scanning the FS 
-> >
-> > Then the "nf_conntrack: table full, dropping packet." msgs stops.
-> > Does this seem right to you guys?
-> 
-> No. As I said, something seems to be leaking packets. You should be
-> able to confirm that by checking the sk_buff slabs in /proc/slabinfo.
-> If that *doesn't* show any signs of a leak, please run "conntrack -E"
-> to capture the conntrack events before the "table full" message
-> appears and post the output.
+On Tue, Mar 24, 2009 at 3:51 PM, Sascha Hauer <s.hauer@pengutronix.de> wrote:
+> Hi Richard,
+>
+> On Tue, Mar 24, 2009 at 02:47:25PM +0800, Richard Zhao wrote:
+>> mx31pdk board don't have external PHY, but it wrongly pull up MDIO.
+>> So, add flag SMSC911X_USE_INTERPHY to force using internal PHY.
+>
+> This patch is outdated. Linux-next already contains a
+> SMSC911X_FORCE_INTERNAL_PHY for exactly this reason.
+>
+> Sascha
+>
+Hi Sascha,
 
-skbuff does not differ much, but others do
+Sorry I didn't check linux-next. Do I need always to create mxc
+patches based on linux-nex?
+And I don't know why the smsc911x patch commited on Feb 1 on
+linux-next still not be merged to mainline?
 
-Before ping:
-  skbuff_fclone_cache    0      0    352   11    1 : tunables   54   27 0 
-: slabdata      0      0      0
-  skbuff_head_cache     20     20    192   20    1 : tunables  120   60 0 
-: slabdata      1      1      0
-  size-64              731    767     64   59    1 : tunables  120   60 0 
-: slabdata     13     13      0
-  nf_conntrack          10     19    208   19    1 : tunables  120   60 0 
-: slabdata      1      1      0
-
-During ping: 
-  skbuff_fclone_cache    0      0    352   11    1 : tunables   54   27 0 
-: slabdata      0      0      0
-  skbuff_head_cache     40     40    192   20    1 : tunables  120   60 0 
-: slabdata      2      2      0
-  size-64             8909   8909     64   59    1 : tunables  120   60 0 
-: slabdata    151    151      0
-  nf_conntrack        5111   5111    208   19    1 : tunables  120   60 0 
-: slabdata    269    269      0
-
-This feels more like the freeing of conntrack objects are delayed and 
-builds up when ping flooding.
-
-Don't have "conntrack -E" for my embedded board so that will have to wait 
-a bit longer.
-
- Jocke
+Thanks
+Richard
