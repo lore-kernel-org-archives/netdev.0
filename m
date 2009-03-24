@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/dnet.c needs <linux/io.h>
-Date: Tue, 24 Mar 2009 13:19:59 -0700 (PDT)
-Message-ID: <20090324.131959.233890622.davem@davemloft.net>
-References: <Pine.LNX.4.64.0903242042060.19647@anakin>
+Subject: Re: next-20090318: sunhme does not transmit packets
+Date: Tue, 24 Mar 2009 13:23:55 -0700 (PDT)
+Message-ID: <20090324.132355.234010341.davem@davemloft.net>
+References: <a4423d670903240432m1a4e8e08x9c97a0947d89800a@mail.gmail.com>
+	<a4423d670903240846j252a825cy1e8a50b5ac3a11ef@mail.gmail.com>
+	<a4423d670903240850w223cdb74k7165ffd70cd7b357@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yanok@emcraft.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
+Cc: roel.kluin@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	kernel-testers@vger.kernel.org
+To: a.beregalov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53662
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53297
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753951AbZCXUUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 16:20:12 -0400
-In-Reply-To: <Pine.LNX.4.64.0903242042060.19647@anakin>
+	by vger.kernel.org with ESMTP id S1758806AbZCXUYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 16:24:07 -0400
+In-Reply-To: <a4423d670903240850w223cdb74k7165ffd70cd7b357@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 24 Mar 2009 20:43:25 +0100 (CET)
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Tue, 24 Mar 2009 18:50:55 +0300
 
-> On m68k:
-> | drivers/net/dnet.c: In function 'dnet_readw_mac':
-> | drivers/net/dnet.c:36: error: implicit declaration of function 'writel'
-> | drivers/net/dnet.c:43: error: implicit declaration of function 'readl'
-> | drivers/net/dnet.c: In function 'dnet_probe':
-> | drivers/net/dnet.c:873: error: implicit declaration of function 'ioremap'
-> | drivers/net/dnet.c:873: warning: assignment makes pointer from integer without a cast
-> | drivers/net/dnet.c:939: error: implicit declaration of function 'iounmap'
+> 2009/3/24 Alexander Beregalov <a.beregalov@gmail.com>:
+> > e4a389a9b5c892446b5de2038bdc0cca8703c615 is first bad commit
 > 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> No, it is wrong, sorry.
+> I will do more tests tomorrow.
 
-Applied, thanks!
+I bet it is the problem we are discussing here:
+
+	http://marc.info/?l=linux-kernel&m=123789980524715&w=2
+
+Herbert has posted two patches to try and fix this issue,
+you can try the second one to see if it solves your bug
+too.
