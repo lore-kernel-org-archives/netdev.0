@@ -1,72 +1,64 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: netfilter 25/41: Kconfig spelling fixes (trivial)
-Date: Tue, 24 Mar 2009 15:20:08 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0903241518400.32642@fbirervta.pbzchgretzou.qr>
-References: <20090324140302.31401.37732.sendpatchset@x2.localnet> <20090324140336.31401.95313.sendpatchset@x2.localnet>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH] conntrack: Reduce conntrack count in
+	nf_conntrack_free()
+Date: Tue, 24 Mar 2009 16:17:30 +0100
+Message-ID: <1237907850.12351.80.camel@sakura.staff.proxad.net>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>
+	 <49C77D71.8090709@trash.net>
+	 <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>
+	 <49C780AD.70704@trash.net>
+	 <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se>
+	 <49C7CB9B.1040409@trash.net>
+	 <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
+	 <49C8A415.1090606@cosmosbay.com>
+	 <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>
+	 <49C8CCF4.5050104@cosmosbay.com>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	avorontsov@ru.mvista.com, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:42830 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761612AbZCXOUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:20:11 -0400
-In-Reply-To: <20090324140336.31401.95313.sendpatchset@x2.localnet>
+Received: from smtpfb2-g21.free.fr ([212.27.42.10]:42329 "EHLO
+	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756798AbZCXPUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 11:20:15 -0400
+Received: from smtp4-g21.free.fr (smtp4-g21.free.fr [212.27.42.4])
+	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 13CDB1211DA
+	for <netdev@vger.kernel.org>; Tue, 24 Mar 2009 16:18:48 +0100 (CET)
+In-Reply-To: <49C8CCF4.5050104@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Tuesday 2009-03-24 15:03, Patrick McHardy wrote:
->commit 67c0d57930ff9a24c6c34abee1b01f7716a9b0e2
->Author: Stephen Hemminger <sheminger@vyatta.com>
->Date:   Mon Mar 16 15:17:23 2009 +0100
->
->    netfilter: Kconfig spelling fixes (trivial)
->    
->    Signed-off-by: Stephen Hemminger <sheminger@vyatta.com>
->    Signed-off-by: Patrick McHardy <kaber@trash.net>
+On Tue, 2009-03-24 at 13:07 +0100, Eric Dumazet wrote:
 
-Please add this patch as a followup commit.
+Hi Eric,
 
+> We use RCU to defer freeing of conntrack structures. In DOS situation,
+> RCU might accumulate about 10.000 elements per CPU in its internal
+> queues. To get accurate conntrack counts (at the expense of slightly
+> more RAM used), we might consider conntrack counter not taking into
+> account "about to be freed elements, waiting in RCU queues". We thus
+> decrement it in nf_conntrack_free(), not in the RCU callback.
 
-parent 1d45209d89e647e9f27e4afa1f47338df73bc112 (v2.6.29-rc5-881-g1d45209)
-commit 85982fcfd17fbb1000302e253f82edd88efa180c
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Tue Mar 24 15:18:17 2009 +0100
+Your patch fixes the problem on my board too (embedded mips router
+250Mhz), thanks.
 
-netfilter: trivial Kconfig spelling fixes
+Yet I'm concerned about what you said concerning RAM usage. I have a
+very small amount on memory left on my board (less than 4M), and I tuned
+ip route cache size and nf_conntrack_max to make sure I won't go OOM.
 
-Supplements commit 67c0d57930ff9a24c6c34abee1b01f7716a9b0e2.
+With your patch, does it mean 10000 conntrack entries can be allocated
+while nf_conntrack_max is say only 2048 ?
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- net/ipv6/netfilter/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Regards,
 
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 625353a..29d643b 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -101,7 +101,7 @@ config IP6_NF_MATCH_HL
- 	---help---
- 	This is a backwards-compat option for the user's convenience
- 	(e.g. when running oldconfig). It selects
--	COFNIG_NETFILTER_XT_MATCH_HL.
-+	CONFIG_NETFILTER_XT_MATCH_HL.
- 
- config IP6_NF_MATCH_IPV6HEADER
- 	tristate '"ipv6header" IPv6 Extension Headers Match'
-@@ -137,7 +137,7 @@ config IP6_NF_TARGET_HL
- 	---help---
- 	This is a backwards-compat option for the user's convenience
- 	(e.g. when running oldconfig). It selects
--	COFNIG_NETFILTER_XT_TARGET_HL.
-+	CONFIG_NETFILTER_XT_TARGET_HL.
- 
- config IP6_NF_TARGET_LOG
- 	tristate "LOG target support"
 -- 
-# Created with git-export-patch
+Maxime
+
+
