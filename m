@@ -1,47 +1,30 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [PATCH] bnx2: Use request_firmware()
-Date: Mon, 23 Mar 2009 16:28:51 -0700
-Message-ID: <1237850931.18617.39.camel@HP1>
-References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk>
- <1237503884.16140.23.camel@HP1>
- <20090319232541.GA19262@wavehammer.waldi.eu.org>
- <20090320.155030.164080684.davem@davemloft.net>
- <1237844879.18617.20.camel@HP1>
- <20090323223238.GB29609@wavehammer.waldi.eu.org>
+Date: Mon, 23 Mar 2009 17:14:36 -0700
+Message-ID: <49C825EC.50100@hp.com>
+References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk>	<1237503884.16140.23.camel@HP1>	<20090319232541.GA19262@wavehammer.waldi.eu.org>	<20090320.155030.164080684.davem@davemloft.net>	<1237844879.18617.20.camel@HP1>	<20090323222915.GA29609@wavehammer.waldi.eu.org> <1237850656.18617.34.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"davem@davemloft.org" <davem@davemloft.org>,
+Cc: Bastian Blank <waldi@debian.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Bastian Blank" <waldi@debian.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4826 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752457AbZCWXeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2009 19:34:13 -0400
-In-Reply-To: <20090323223238.GB29609@wavehammer.waldi.eu.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:43032 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbZCXAOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 20:14:39 -0400
+In-Reply-To: <1237850656.18617.34.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Michael Chan wrote:
+> May be I'll break up each firmware section into a
+> different file and the file name will be updated with each version.
+> This will allow different sections to be updated separately and older
+> kernels will still have access to the older firmware.
 
-On Mon, 2009-03-23 at 15:32 -0700, Bastian Blank wrote:
-> On Mon, Mar 23, 2009 at 02:47:59PM -0700, Michael Chan wrote:
-> > I'd also like to add the version information to the
-> bnx2_fw_file_entry
-> > struct instead of embedding it in the file name.  It is more
-> flexible
-> > this way as each section can have different versions and can be
-> updated
-> > separately.
-> 
-> Only if the firmwares are compatible enough. Can I pull the firmwares
-> from a
-> 2.6.21 kernel and ask a .29 to use them? One argument was always that
-> the firmware is coupled with the code.
+Is that really necessary?  It is enough "fun" finding just the one firmware file 
+as it is.
 
-No, this won't work.  Please see new proposal to breakup firmware into
-multiple files.
-
-
+rick jones
