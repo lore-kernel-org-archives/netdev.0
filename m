@@ -1,57 +1,80 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000: fix loss of multicast packets
-Date: Mon, 23 Mar 2009 19:53:54 -0700
-Message-ID: <9929d2390903231953v463a3426jb6b698b0e9a4f51f@mail.gmail.com>
-References: <20090320204415.25109.57486.stgit@lindenhurst-2.jf.intel.com>
-	 <91bdcedb0903221105yafce0f4w1733a703c397bb7b@mail.gmail.com>
-	 <20090323.010957.163908188.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] bnx2: Use request_firmware()
+Date: Tue, 24 Mar 2009 04:27:23 +0000
+Message-ID: <20090324042723.GJ3051@decadent.org.uk>
+References: <1237501747.4126.10.camel@deadeye.i.decadent.org.uk> <1237503884.16140.23.camel@HP1> <20090319232541.GA19262@wavehammer.waldi.eu.org> <20090320.155030.164080684.davem@davemloft.net> <1237844879.18617.20.camel@HP1> <20090323222915.GA29609@wavehammer.waldi.eu.org> <1237850656.18617.34.camel@HP1> <49C825EC.50100@hp.com> <1237857085.18617.47.camel@HP1> <49C836D0.1080304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: daveboutcher@gmail.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="TybLhxa8M7aNoW+V"
+Cc: Michael Chan <mchan@broadcom.com>,
+	Bastian Blank <waldi@debian.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:12642 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753744AbZCXCx4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2009 22:53:56 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so2399710yxl.1
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2009 19:53:54 -0700 (PDT)
-In-Reply-To: <20090323.010957.163908188.davem@davemloft.net>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57287 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750721AbZCXE1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 00:27:31 -0400
+Content-Disposition: inline
+In-Reply-To: <49C836D0.1080304@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2009 at 1:09 AM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Dave Boutcher <daveboutcher@gmail.com>
-> Date: Sun, 22 Mar 2009 13:05:19 -0500
->
->> On Fri, Mar 20, 2009 at 3:44 PM, Jesse Brandeburg
->> <jesse.brandeburg@intel.com> wrote:
->> > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> > This driver fix prepares an array all at once in memory and progra=
-ms it in
->> > one shot to the hardware, not requiring an "erase" cycle.
->> >
->> > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> > CC: Dave Boutcher <daveboutcher@gmail.com>
->>
->> Jesse, I just with this patch in my e1000 environment and it works
->> great. =C2=A0Almost 1,000,000 packets exchanged with active
->> membership join/drops going on and no packets lost. =C2=A0Thanks
->> for the fast turnaround.
->
-> Thanks for testing Dave.
->
-> Intel folks, can we get this formally submitted soon?
->
-> Thanks.
-> --
 
-Yes, I have it in my queue.  It should be in the next series of fixes
-I will be sending out.
+--TybLhxa8M7aNoW+V
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
---=20
-Cheers,
-Jeff
+On Mon, 2009-03-23 at 18:26 -0700, Rick Jones wrote:
+> Michael Chan wrote:
+> > On Mon, 2009-03-23 at 17:14 -0700, Rick Jones wrote:
+> >=20
+> >>Michael Chan wrote:
+> >>
+> >>>May be I'll break up each firmware section into a
+> >>>different file and the file name will be updated with each version.
+> >>>This will allow different sections to be updated separately and older
+> >>>kernels will still have access to the older firmware.
+> >>
+> >>Is that really necessary?  It is enough "fun" finding just the one firm=
+ware file=20
+> >>as it is.
+> >=20
+> >=20
+> > If all the firmware sections are in the same file, much of the firmware
+> > file will be duplicated in a new file when we update just one section.
+>=20
+> So?  Perhaps I'm just experiencing distro pain which may not continue to =
+exist or=20
+> which may not matter to netdev, but when one is installing to a system th=
+at uses=20
+> a core NIC which has firmware cast-out into "non-free" siberia, life is "=
+fun"=20
+> enough making sure one has the one firmware file let alone N of them.
+[...]
+
+If you're referring to Debian, that is exactly what Bastian and I are
+working on.  Sourceless firmware is considered non-free, but it can
+still be packaged, as the bnx2 firmware already has been.  We've also
+had some discussions with David Woodhouse about semi-automatically
+packaging all of the firmware that's now in the firmware subdirectory
+and is clearly licensed.
+
+Ben.
+
+
+--TybLhxa8M7aNoW+V
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iD8DBQFJyGEr79ZNCRIGYgcRAr9bAJ4kfrYL2FgQPG1ZR2Kkfn9df/deaQCgpv02
+lsWBD66l2o8DsYmDwL/BhLo=
+=Tqb9
+-----END PGP SIGNATURE-----
+
+--TybLhxa8M7aNoW+V--
