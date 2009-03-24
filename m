@@ -1,29 +1,128 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
-Date: Tue, 24 Mar 2009 14:28:01 +0100
-Message-ID: <49C8DFE1.30607@trash.net>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se> <49C8A415.1090606@cosmosbay.com> <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se> <49C8CCF4.5050104@cosmosbay.com> <OF0CA19511.F677CAFF-ONC1257583.0047FA24-C1257583.00494BDB@transmode.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, avorontsov@ru.mvista.com,
-	netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 9/9] [PATCH] claw: fix minor findings from code analysis tool
+Date: Tue, 24 Mar 2009 14:27:51 +0100
+Message-ID: <20090324133049.899501000@linux.vnet.ibm.com>
+References: <20090324132742.300929000@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	"Andrew H. Richter" <richtera@us.ibm.com>,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33854 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753572AbZCXN2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 09:28:09 -0400
-In-Reply-To: <OF0CA19511.F677CAFF-ONC1257583.0047FA24-C1257583.00494BDB@transmode.se>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:54483 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757396AbZCXNbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 09:31:42 -0400
+Content-Disposition: inline; filename=628-claw-beam.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund wrote:
-> Eric Dumazet <dada1@cosmosbay.com> wrote on 24/03/2009 13:07:16:
->> [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
-> 
-> The patch fixes the problem and the system feels a bit more responsive 
-> too, thanks.
+From: Andrew H. Richter <richtera@us.ibm.com>
 
-Applied, thanks everyone.
+This patch fixes two problems in the claw driver identified by
+static code analysis:
+o Change in case differentiation of received sense codes
+o Use correct data length in claw hard_start_xmit routine
+
+Signed-off-by: Andrew H. Richter <richtera@us.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
+
+ drivers/s390/net/claw.c |   44 ++++++++++++++++++++------------------------
+ 1 file changed, 20 insertions(+), 24 deletions(-)
+
+Index: linux-2.6-uschi/drivers/s390/net/claw.c
+===================================================================
+--- linux-2.6-uschi.orig/drivers/s390/net/claw.c
++++ linux-2.6-uschi/drivers/s390/net/claw.c
+@@ -1033,7 +1033,7 @@ static int
+ pages_to_order_of_mag(int num_of_pages)
+ {
+ 	int	order_of_mag=1;		/* assume 2 pages */
+-	int	nump=2;
++	int	nump;
+ 
+ 	CLAW_DBF_TEXT_(5, trace, "pages%d", num_of_pages);
+ 	if (num_of_pages == 1)   {return 0; }  /* magnitude of 0 = 1 page */
+@@ -1187,37 +1187,31 @@ ccw_check_unit_check(struct chbk * p_ch,
+ 	dev_warn(dev, "The communication peer of %s disconnected\n",
+ 		ndev->name);
+ 
+-        if (sense & 0x40) {
+-                if (sense & 0x01) {
++	if (sense & 0x40) {
++		if (sense & 0x01) {
+ 			dev_warn(dev, "The remote channel adapter for"
+ 				" %s has been reset\n",
+ 				ndev->name);
+-                }
+-        }
+-        else if (sense & 0x20) {
+-                if (sense & 0x04) {
++		}
++	} else if (sense & 0x20) {
++		if (sense & 0x04) {
+ 			dev_warn(dev, "A data streaming timeout occurred"
+ 				" for %s\n",
+ 				ndev->name);
+-                }
+-                else  {
+-			dev_warn(dev, "A data transfer parity error occurred"
+-				" for %s\n",
+-				ndev->name);
+-                }
+-        }
+-        else if (sense & 0x10) {
+-                if (sense & 0x20) {
++		} else if (sense & 0x10) {
+ 			dev_warn(dev, "The remote channel adapter for %s"
+ 				" is faulty\n",
+ 				ndev->name);
+-                }
+-                else {
+-			dev_warn(dev, "A read data parity error occurred"
++		} else {
++			dev_warn(dev, "A data transfer parity error occurred"
+ 				" for %s\n",
+ 				ndev->name);
+-                }
+-        }
++		}
++	} else if (sense & 0x10) {
++		dev_warn(dev, "A read data parity error occurred"
++			" for %s\n",
++			ndev->name);
++	}
+ 
+ }   /*    end of ccw_check_unit_check    */
+ 
+@@ -1254,7 +1248,7 @@ find_link(struct net_device *dev, char *
+ 			break;
+ 	}
+ 
+-        return 0;
++	return rc;
+ }    /*    end of find_link    */
+ 
+ /*-------------------------------------------------------------------*
+@@ -1366,7 +1360,10 @@ claw_hw_tx(struct sk_buff *skb, struct n
+                 privptr->p_write_free_chain=p_this_ccw->next;
+                 p_this_ccw->next=NULL;
+                 --privptr->write_free_count; /* -1 */
+-                bytesInThisBuffer=len_of_data;
++		if (len_of_data >= privptr->p_env->write_size)
++			bytesInThisBuffer = privptr->p_env->write_size;
++		else
++			bytesInThisBuffer = len_of_data;
+                 memcpy( p_this_ccw->p_buffer,pDataAddress, bytesInThisBuffer);
+                 len_of_data-=bytesInThisBuffer;
+                 pDataAddress+=(unsigned long)bytesInThisBuffer;
+@@ -2517,7 +2514,6 @@ unpack_read(struct net_device *dev )
+ 	p_dev = &privptr->channel[READ].cdev->dev;
+ 	p_env = privptr->p_env;
+         p_this_ccw=privptr->p_read_active_first;
+-        i=0;
+ 	while (p_this_ccw!=NULL && p_this_ccw->header.flag!=CLAW_PENDING) {
+ 		pack_off = 0;
+ 		p = 0;
+
