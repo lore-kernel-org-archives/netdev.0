@@ -1,42 +1,64 @@
 From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 4/9] [PATCH] claw: invalid return codes from hard_start_xmit
-Date: Tue, 24 Mar 2009 14:27:46 +0100
-Message-ID: <20090324133049.239518000@linux.vnet.ibm.com>
+Subject: [patch 6/9] [PATCH] ctcm: avoid wraparound in length of incoming data
+Date: Tue, 24 Mar 2009 14:27:48 +0100
+Message-ID: <20090324133049.499414000@linux.vnet.ibm.com>
 References: <20090324132742.300929000@linux.vnet.ibm.com>
 Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	Roel Kluin <roel.kluin@gmail.com>,
 	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.17.162]:40726 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760686AbZCXNax (ORCPT
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:49762 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758582AbZCXNax (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 09:30:53 -0400
-Content-Disposition: inline; filename=611-claw-rc-warning.diff
+Content-Disposition: inline; filename=625-ctcm-wraparound.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Roel Kluin <roel.kluin@gmail.com>
 
-Avoid kernel warnings by using the correct hard_start_xmit return
-code NETDEV_TX_BUSY for skb requeuing.
+Since the receive code should tolerate any incoming garbage, it
+should be protected against a potential wraparound when manipulating
+length values within incoming data. 
+block_len is unsigned, so a too large subtraction will cause a
+wraparound.
 
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 ---
 
- drivers/s390/net/claw.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/s390/net/ctcm_fsms.c |    5 ++---
+ drivers/s390/net/ctcm_main.c |    3 ++-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff -urpN linux-2.6/drivers/s390/net/claw.c linux-2.6-patched/drivers/s390/net/claw.c
---- linux-2.6/drivers/s390/net/claw.c	2008-12-25 00:26:37.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/claw.c	2009-03-04 15:58:30.000000000 +0100
-@@ -335,6 +335,8 @@ claw_tx(struct sk_buff *skb, struct net_
-         rc=claw_hw_tx( skb, dev, 1 );
-         spin_unlock_irqrestore(get_ccwdev_lock(p_ch->cdev), saveflags);
- 	CLAW_DBF_TEXT_(4, trace, "clawtx%d", rc);
-+	if (rc)
-+		rc = NETDEV_TX_BUSY;
-         return rc;
- }   /*  end of claw_tx */
- 
+diff -urpN linux-2.6/drivers/s390/net/ctcm_fsms.c linux-2.6-patched/drivers/s390/net/ctcm_fsms.c
+--- linux-2.6/drivers/s390/net/ctcm_fsms.c	2009-03-19 11:15:52.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/ctcm_fsms.c	2009-03-19 11:16:39.000000000 +0100
+@@ -410,9 +410,8 @@ static void chx_rx(fsm_instance *fi, int
+ 		priv->stats.rx_length_errors++;
+ 						goto again;
+ 	}
+-	block_len -= 2;
+-	if (block_len > 0) {
+-		*((__u16 *)skb->data) = block_len;
++	if (block_len > 2) {
++		*((__u16 *)skb->data) = block_len - 2;
+ 		ctcm_unpack_skb(ch, skb);
+ 	}
+  again:
+diff -urpN linux-2.6/drivers/s390/net/ctcm_main.c linux-2.6-patched/drivers/s390/net/ctcm_main.c
+--- linux-2.6/drivers/s390/net/ctcm_main.c	2009-03-19 11:16:39.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/ctcm_main.c	2009-03-19 11:16:39.000000000 +0100
+@@ -105,7 +105,8 @@ void ctcm_unpack_skb(struct channel *ch,
+ 			return;
+ 		}
+ 		pskb->protocol = ntohs(header->type);
+-		if (header->length <= LL_HEADER_LENGTH) {
++		if ((header->length <= LL_HEADER_LENGTH) ||
++		    (len <= LL_HEADER_LENGTH)) {
+ 			if (!(ch->logflags & LOG_FLAG_ILLEGALSIZE)) {
+ 				CTCM_DBF_TEXT_(ERROR, CTC_DBF_ERROR,
+ 					"%s(%s): Illegal packet size %d(%d,%d)"
 
