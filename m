@@ -1,47 +1,35 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Revert "gro: Fix legacy path napi_complete crash", (was: Re:
-	Linux 2.6.29)
-Date: Tue, 24 Mar 2009 14:12:08 +0100
-Message-ID: <20090324131208.GA10157@elte.hu>
-References: <alpine.LFD.2.00.0903231617550.3032@localhost.localdomain> <20090324130202.GA32469@elte.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Frank Blaschka <blaschka@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thoma
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:36367 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758095AbZCXNMw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 09:12:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20090324130202.GA32469@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: make sure ucc_geth.c fixed-link support still works in net-next
+Date: Tue, 24 Mar 2009 08:15:13 -0500
+Message-ID: <382F4B5D-93C4-41BB-A00A-8A6C240CD170@kernel.crashing.org>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+Content-Transfer-Encoding: 7bit
+Cc: LinuxPPC Mailing List <linuxppc-dev@ozlabs.org>,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>, netdev@vger.kernel.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Andy Fleming <afleming@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
+Anton, Andy
 
-(netdev Cc:-ed)
+Can you take a look at the recent net-next tree and make sure that the  
+merge between the fsl_pq_mdio.c support and the patch that went into  
+2.6.29 to fix fixed-link support in ucc_geth.c is correct and still  
+works.
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+See commits:
+	Merge branch master... (8be7cdccacfbfc707e7370cad9bb168defed636f)
+	ucc_geth: Fix merge error. (039a6f6a39d2aa30ee53afdb213ea6dd4482928b)
 
-> Yesterday about half of my testboxes (3 out of 7) started getting 
-> weird networking failures: their network interface just got stuck 
-> completely - no rx and no tx at all. Restarting the interface did 
-> not help.
-
-> I've attached the reproducer (non-SMP) .config. The system has:
-
-Note, the .config is randconfig derived. There was a stage of the 
-tests when about every ~5-10th randconfig was failing, so i dont 
-think it's a rare config combo that triggers this. (but there were 
-other stages where 30 randconfig in a row went fine so it's hard to 
-tell.)
-
-In the worst case the hang needed 2 million packets to trigger - 
-that's why i set the limit in the tests to 6 million packets.
-
-	Ingo
+- k
