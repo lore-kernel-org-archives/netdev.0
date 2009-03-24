@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/41: x_tables: remove unneeded initializations
-Date: Tue, 24 Mar 2009 15:03:12 +0100 (MET)
-Message-ID: <20090324140308.31401.86155.sendpatchset@x2.localnet>
+Subject: netfilter 18/41: ip_tables: unfold two critical loops in ip_packet_match()
+Date: Tue, 24 Mar 2009 15:03:31 +0100 (MET)
+Message-ID: <20090324140327.31401.72576.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -9,143 +9,88 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stinky.trash.net ([213.144.137.162]:34741 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758057AbZCXODO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:14 -0400
+	with ESMTP id S1755813AbZCXODd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:33 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 9c8222b9e71b690c8388bb0ebe5c3e5a1469e884
-Author: Stephen Hemminger <shemminger@vyatta.com>
-Date:   Wed Feb 18 16:30:20 2009 +0100
+commit 08361aa807ae5e5007cd226ca9e34287512de737
+Author: Eric Dumazet <dada1@cosmosbay.com>
+Date:   Fri Feb 20 11:03:33 2009 +0100
 
-    netfilter: x_tables: remove unneeded initializations
+    netfilter: ip_tables: unfold two critical loops in ip_packet_match()
     
-    Later patches change the locking on xt_table and the initialization of
-    the lock element is not needed since the lock is always initialized in
-    xt_table_register anyway.
+    While doing oprofile tests I noticed two loops are not properly unrolled by gcc
     
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Using a hand coded unrolled loop provides nice speedup : ipt_do_table
+    credited of 2.52 % of cpu instead of 3.29 % in tbench.
+    
+    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index e091187..6ecfdae 100644
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -48,8 +48,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
--	.private	= NULL,
- 	.me		= THIS_MODULE,
- 	.af		= NFPROTO_ARP,
- };
-diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
-index 52cb693..c30a969 100644
---- a/net/ipv4/netfilter/iptable_filter.c
-+++ b/net/ipv4/netfilter/iptable_filter.c
-@@ -56,7 +56,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
-diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
-index 3929d20..4087614 100644
---- a/net/ipv4/netfilter/iptable_mangle.c
-+++ b/net/ipv4/netfilter/iptable_mangle.c
-@@ -67,7 +67,6 @@ static struct
- static struct xt_table packet_mangler = {
- 	.name		= "mangle",
- 	.valid_hooks	= MANGLE_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
-diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
-index 7f65d18..e5356da 100644
---- a/net/ipv4/netfilter/iptable_raw.c
-+++ b/net/ipv4/netfilter/iptable_raw.c
-@@ -39,7 +39,6 @@ static struct
- static struct xt_table packet_raw = {
- 	.name = "raw",
- 	.valid_hooks =  RAW_VALID_HOOKS,
--	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
- 	.me = THIS_MODULE,
- 	.af = AF_INET,
- };
-diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
-index a52a35f..29ab630 100644
---- a/net/ipv4/netfilter/iptable_security.c
-+++ b/net/ipv4/netfilter/iptable_security.c
-@@ -60,7 +60,6 @@ static struct
- static struct xt_table security_table = {
- 	.name		= "security",
- 	.valid_hooks	= SECURITY_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
-diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
-index a7eb047..6348a79 100644
---- a/net/ipv4/netfilter/nf_nat_rule.c
-+++ b/net/ipv4/netfilter/nf_nat_rule.c
-@@ -61,7 +61,6 @@ static struct
- static struct xt_table nat_table = {
- 	.name		= "nat",
- 	.valid_hooks	= NAT_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
-diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
-index 40d2e36..ef5a0a3 100644
---- a/net/ipv6/netfilter/ip6table_filter.c
-+++ b/net/ipv6/netfilter/ip6table_filter.c
-@@ -54,7 +54,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
-diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
-index d0b31b2..ab0d398 100644
---- a/net/ipv6/netfilter/ip6table_mangle.c
-+++ b/net/ipv6/netfilter/ip6table_mangle.c
-@@ -60,7 +60,6 @@ static struct
- static struct xt_table packet_mangler = {
- 	.name		= "mangle",
- 	.valid_hooks	= MANGLE_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
-diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
-index 109fab6..4b792b6 100644
---- a/net/ipv6/netfilter/ip6table_raw.c
-+++ b/net/ipv6/netfilter/ip6table_raw.c
-@@ -38,7 +38,6 @@ static struct
- static struct xt_table packet_raw = {
- 	.name = "raw",
- 	.valid_hooks = RAW_VALID_HOOKS,
--	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
- 	.me = THIS_MODULE,
- 	.af = AF_INET6,
- };
-diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
-index 20bc52f..0ea37ff 100644
---- a/net/ipv6/netfilter/ip6table_security.c
-+++ b/net/ipv6/netfilter/ip6table_security.c
-@@ -59,7 +59,6 @@ static struct
- static struct xt_table security_table = {
- 	.name		= "security",
- 	.valid_hooks	= SECURITY_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 08cde5b..e5294ae 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -74,6 +74,25 @@ do {								\
+ 
+    Hence the start of any table is given by get_table() below.  */
+ 
++static unsigned long ifname_compare(const char *_a, const char *_b,
++				    const unsigned char *_mask)
++{
++	const unsigned long *a = (const unsigned long *)_a;
++	const unsigned long *b = (const unsigned long *)_b;
++	const unsigned long *mask = (const unsigned long *)_mask;
++	unsigned long ret;
++
++	ret = (a[0] ^ b[0]) & mask[0];
++	if (IFNAMSIZ > sizeof(unsigned long))
++		ret |= (a[1] ^ b[1]) & mask[1];
++	if (IFNAMSIZ > 2 * sizeof(unsigned long))
++		ret |= (a[2] ^ b[2]) & mask[2];
++	if (IFNAMSIZ > 3 * sizeof(unsigned long))
++		ret |= (a[3] ^ b[3]) & mask[3];
++	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
++	return ret;
++}
++
+ /* Returns whether matches rule or not. */
+ /* Performance critical - called for every packet */
+ static inline bool
+@@ -83,7 +102,6 @@ ip_packet_match(const struct iphdr *ip,
+ 		const struct ipt_ip *ipinfo,
+ 		int isfrag)
+ {
+-	size_t i;
+ 	unsigned long ret;
+ 
+ #define FWINV(bool, invflg) ((bool) ^ !!(ipinfo->invflags & (invflg)))
+@@ -103,12 +121,7 @@ ip_packet_match(const struct iphdr *ip,
+ 		return false;
+ 	}
+ 
+-	/* Look for ifname matches; this should unroll nicely. */
+-	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+-		ret |= (((const unsigned long *)indev)[i]
+-			^ ((const unsigned long *)ipinfo->iniface)[i])
+-			& ((const unsigned long *)ipinfo->iniface_mask)[i];
+-	}
++	ret = ifname_compare(indev, ipinfo->iniface, ipinfo->iniface_mask);
+ 
+ 	if (FWINV(ret != 0, IPT_INV_VIA_IN)) {
+ 		dprintf("VIA in mismatch (%s vs %s).%s\n",
+@@ -117,11 +130,7 @@ ip_packet_match(const struct iphdr *ip,
+ 		return false;
+ 	}
+ 
+-	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+-		ret |= (((const unsigned long *)outdev)[i]
+-			^ ((const unsigned long *)ipinfo->outiface)[i])
+-			& ((const unsigned long *)ipinfo->outiface_mask)[i];
+-	}
++	ret = ifname_compare(outdev, ipinfo->outiface, ipinfo->outiface_mask);
+ 
+ 	if (FWINV(ret != 0, IPT_INV_VIA_OUT)) {
+ 		dprintf("VIA out mismatch (%s vs %s).%s\n",
