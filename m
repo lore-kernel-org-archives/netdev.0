@@ -1,31 +1,66 @@
 From: David Miller <davem@davemloft.net>
-Subject: The Plan
-Date: Tue, 24 Mar 2009 15:35:06 -0700 (PDT)
-Message-ID: <20090324.153506.44330862.davem@davemloft.net>
+Subject: Re: [ANNOUNCE] iproute2 v2.6.29
+Date: Tue, 24 Mar 2009 15:38:22 -0700 (PDT)
+Message-ID: <20090324.153822.75287783.davem@davemloft.net>
+References: <20090324153427.3ff0dfdb@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45154
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33252
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750771AbZCXWfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 18:35:18 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 7CCF735C12E
-	for <netdev@vger.kernel.org>; Tue, 24 Mar 2009 15:35:06 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S1752826AbZCXWif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 18:38:35 -0400
+In-Reply-To: <20090324153427.3ff0dfdb@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Everything in net-2.6 right now, as well as the final fix
-we come up with for the GRO issue will get sucked into
-net-next-2.6 as well as queued up for -stable.
-
-Everything in patchwork right now will either be merged
-into net-next-2.6 or tossed.
-
-I'll likely send my pull request to Linus tomorrow.
-
-Once that goes in, both net-2.6 and net-next-2.6 will become
-fresh clones of Linus's tree.
+RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlhdHRhLmNvbT4NCkRhdGU6IFR1
+ZSwgMjQgTWFyIDIwMDkgMTU6MzQ6MjcgLTA3MDANCg0KPiBUcnlpbmcgdG8gc3RheSBvbiB0b3Ag
+b2YgdGhpbmdzIChmb3IgYSBjaGFuZ2UpLg0KPiANCj4gTmV3IHZlcnNpb24gb2YgaXByb3V0ZTIg
+dXRpbGl0aWVzIHRoYXQgaW5jbHVkZXMgYnVnIGZpeGVzIGFuZA0KPiBzdXBwb3J0IGZvciBhbGwg
+dGhlIG5ldyBmZWF0dXJlcyBpbiBrZXJuZWwgMi42LjI5Lg0KPiANCj4gICBodHRwOi8vZGV2cmVz
+b3VyY2VzLmxpbnV4LWZvdW5kYXRpb24ub3JnL2Rldi9pcHJvdXRlMi9kb3dubG9hZC9pcHJvdXRl
+Mi0yLjYuMjkudGFyLmJ6Mg0KDQpTb21lIGJ1aWxkIGZhaWx1cmVzIGhlcmU6DQoNCmdjYyAtRF9H
+TlVfU09VUkNFIC1PMiAtV3N0cmljdC1wcm90b3R5cGVzIC1XYWxsIC1JLi4vaW5jbHVkZSAtRFJF
+U09MVkVfSE9TVE5BTUVTIC1ETElCRElSPVwiL3Vzci9saWIvXCIgICAtYyAtbyBsaW5rX2dyZS5v
+IGxpbmtfZ3JlLmMNCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBsaW5rX2dyZS5jOjE1Og0KLi4vaW5j
+bHVkZS9saW51eC9pZl90dW5uZWwuaDozMzogZXJyb3I6IGZpZWxkIOKAmGlwaOKAmSBoYXMgaW5j
+b21wbGV0ZSB0eXBlDQpsaW5rX2dyZS5jOiBJbiBmdW5jdGlvbiDigJhncmVfcGFyc2Vfb3B04oCZ
+Og0KbGlua19ncmUuYzoxMzY6IHdhcm5pbmc6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0
+aW9uIOKAmF9fY29uc3RhbnRfaHRvbnPigJkNCg0KSSBzZWVtIHRvIHJlbWVtYmVyIG1lc3Npbmcg
+d2l0aCB0aGUga2VybmVsIGhlYWRlcnMgaW4gdGhpcw0KYXJlYSByZWNlbnRseS4uLiB5ZXMsIGlu
+ZGVlZDoNCg0KY29tbWl0IDBhZmQ0YTIxYmE3ZDc1ZTkzZmE3OWNmMDVkN2EyMTc3NGUxNDljMGYN
+CkF1dGhvcjogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogICBN
+b24gRmViIDIgMTM6Mjc6NDQgMjAwOSAtMDgwMA0KDQogICAgbmV0OiBGaXggdXNlcmxhbmQgYnJl
+YWthZ2Ugd3J0LiBsaW51eC9pZl90dW5uZWwuaA0KICAgIA0KICAgIFJlcG9ydGVkIGJ5IEFuZHJl
+dyBXYWxyb25kIDxhbmRyZXdAd2Fscm9uZC5vcmc+DQogICAgDQogICAgQ2hhbmdlc2V0IGMxOWU2
+NTRkZGJlMzgzMTI1MmY2MWU3NmE3NGQ2NjFlMWE3NTU1MzANCiAgICAoImdyZTogQWRkIG5ldGxp
+bmsgaW50ZXJmYWNlIikgYWRkZWQgYW4gaW5jbHVkZQ0KICAgIG9mIGxpbnV4L2lwLmggdG8gbGlu
+dXgvaWZfdHVubmVsLmgNCiAgICANCiAgICBXZSBjYW4ndCByZWFsbHkgbGV0IHRoYXQgZ2V0IGV4
+cG9zZWQgdG8gdXNlcnNwYWNlDQogICAgYmVjYXVzZSB0aGlzIGNvbmZsaWN0cyB3aXRoIHR5cGVz
+IGRlZmluZWQgaW4gbmV0aW5ldC9pcC5oDQogICAgd2hpY2ggdXNlcmxhbmQgaXMgYWxtb3N0IGNl
+cnRhaW5seSBnb2luZyB0byBoYXZlIGluY2x1ZGVkDQogICAgZWl0aGVyIGV4cGxpY2l0bHkgb3Ig
+aW1wbGljaXRseS4NCiAgICANCiAgICBTbyBndWFyZCB0aGlzIGluY2x1ZGUgd2l0aCBhIF9fS0VS
+TkVMX18gaWZkZWYuDQogICAgDQogICAgU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxk
+YXZlbUBkYXZlbWxvZnQubmV0Pg0KDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9LYnVpbGQg
+Yi9pbmNsdWRlL2xpbnV4L0tidWlsZA0KaW5kZXggMTJlOWEyOS4uNmE5YmI5NyAxMDA2NDQNCi0t
+LSBhL2luY2x1ZGUvbGludXgvS2J1aWxkDQorKysgYi9pbmNsdWRlL2xpbnV4L0tidWlsZA0KQEAg
+LTg5LDcgKzg5LDYgQEAgaGVhZGVyLXkgKz0gaWZfcHBwLmgNCiBoZWFkZXIteSArPSBpZl9zbGlw
+LmgNCiBoZWFkZXIteSArPSBpZl9zdHJpcC5oDQogaGVhZGVyLXkgKz0gaWZfdHVuLmgNCi1oZWFk
+ZXIteSArPSBpZl90dW5uZWwuaA0KIGhlYWRlci15ICs9IGluX3JvdXRlLmgNCiBoZWFkZXIteSAr
+PSBpb2N0bC5oDQogaGVhZGVyLXkgKz0gaXA2X3R1bm5lbC5oDQpAQCAtMjM1LDYgKzIzNCw3IEBA
+IHVuaWZkZWYteSArPSBpZl9waG9uZXQuaA0KIHVuaWZkZWYteSArPSBpZl9wcHBvbDJ0cC5oDQog
+dW5pZmRlZi15ICs9IGlmX3BwcG94LmgNCiB1bmlmZGVmLXkgKz0gaWZfdHIuaA0KK3VuaWZkZWYt
+eSArPSBpZl90dW5uZWwuaA0KIHVuaWZkZWYteSArPSBpZl92bGFuLmgNCiB1bmlmZGVmLXkgKz0g
+aWdtcC5oDQogdW5pZmRlZi15ICs9IGluZXRfZGlhZy5oDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9s
+aW51eC9pZl90dW5uZWwuaCBiL2luY2x1ZGUvbGludXgvaWZfdHVubmVsLmgNCmluZGV4IGFlYWIy
+Y2IuLjgyYzQzNjIgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL2xpbnV4L2lmX3R1bm5lbC5oDQorKysg
+Yi9pbmNsdWRlL2xpbnV4L2lmX3R1bm5lbC5oDQpAQCAtMiw3ICsyLDEwIEBADQogI2RlZmluZSBf
+SUZfVFVOTkVMX0hfDQogDQogI2luY2x1ZGUgPGxpbnV4L3R5cGVzLmg+DQorDQorI2lmZGVmIF9f
+S0VSTkVMX18NCiAjaW5jbHVkZSA8bGludXgvaXAuaD4NCisjZW5kaWYNCiANCiAjZGVmaW5lIFNJ
+T0NHRVRUVU5ORUwgICAoU0lPQ0RFVlBSSVZBVEUgKyAwKQ0KICNkZWZpbmUgU0lPQ0FERFRVTk5F
+TCAgIChTSU9DREVWUFJJVkFURSArIDEpDQo=
