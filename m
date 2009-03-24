@@ -1,97 +1,56 @@
 From: david@lang.hm
 Subject: Re: Network Device Naming mechanism and policy
-Date: Tue, 24 Mar 2009 11:49:26 -0700 (PDT)
-Message-ID: <alpine.DEB.1.10.0903241140530.16753@asgard.lang.hm>
-References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
+Date: Tue, 24 Mar 2009 11:51:29 -0700 (PDT)
+Message-ID: <alpine.DEB.1.10.0903241150020.16753@asgard.lang.hm>
+References: <20090324154617.GA16332@auslistsprd01.us.dell.com>  <49C9087C.5070907@trash.net> <1237912858.9082.39.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760247AbZCXSty@vger.kernel.org>
-In-Reply-To: <20090324154617.GA16332@auslistsprd01.us.dell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.lang.hm ([64.81.33.126]:40544 "EHLO bifrost.lang.hm"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752698AbZCXSvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 14:51:51 -0400
+In-Reply-To: <1237912858.9082.39.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Mar 2009, Matt Domsch wrote:
+On Tue, 24 Mar 2009, Dan Williams wrote:
 
-> You may recall http://lkml.org/lkml/2006/9/29/268, wherein I described
-> network device enumeration and naming challenges, and several possible
-> fixes.  Of these, Fix #1 (fix the PCI device list to be sorted
-> breadth-first) has been implemented in the kernel, and Fix #3 (system
-> board routing rules) have been implemented on Dell PowerEdge 10G and
-> 11G servers (11G begin selling RSN).
+> On Tue, 2009-03-24 at 17:21 +0100, Patrick McHardy wrote:
+>> Matt Domsch wrote:
+>>> 2) udev may have rules to change the device names.  This is most often
+>>>    seen in the '70-persistent-net.rules' file.  Here we have
+>>>    additional challenges:
+>>>
+>>> ...
+>>>
+>>>    c) udev may not always be able to change a device's name.  If udev
+>>>       uses the kernel assignment namespace (ethN), then a rename of
+>>>       eth0->eth1 may require renaming eth1->eth0 (or something else).
+>>>       Udev operates on a single device instance at a time, it becomes
+>>>       difficult to switch names around for multiple devices, within
+>>>       the single namespace.
+>>
+>> I would classify this as a bug, especially the fact that udev doesn't
+>> undo a failed rename, so you end up with ethX_rename. Virtual devices
+>> using the same MAC address trigger this reliably unless you add
+>> exceptions to the udev rules.
 >
-> However, these have not been completely satisfactory.  In particular,
-> it keeps getting harder and harder to route PCI-Express lanes to
-> guarantee the same ordering between a depth-first and breadth-first
-> walk, and it turns out, that isn't sufficient anyhow.
+> Any particular reason the MAC addresses are the same?  This came up a
+> while ago with the 'dnet' device in the thread "Dave DNET ethernet
+> controller".
 >
->
-> Problem:  Users expect on-motherboard NICs to be named eth0..ethN.  This can be difficult to achieve.
+> If the MAC address isn't a UUID for the device, then *what* is?
 
-I dispute this statement.
+I have seen systems (I think they were Sun boxes) where the _machine_ had 
+a MAC address, and it used that same MAC on all interfaces.
 
-I have several hundred servers that have the on-motherboard NICs as the 
-last ones.
+this is convienient for some things, but not for others.
 
-anyone who's been making the assumption you describe will have been 
-running into problems for many years.
-
-it's just not a valid assumption.
-
-> Ethernet device names are initially assigned by the kernel, and may be
-> changed by udev or nameif in userspace.  The initial name assigned by
-> the kernel is in monotonically increasing order, starting with eth0.
-> In this instance, the enumeration directly leads to an assigned name.
->
-> Complications:
->
-> 1) Devices are discovered, and presented to the kernel for name
->   assignment, based on several factors:
->
->   a) the kernel hotplug mechanism emits events for udev to catch, to
->
->
->   b) udev may run modprobes in parallel.  It guarantees that the
->
->      To get any consistent ordering now, one of two things must
->      happen:
->
->      i) drivers must be loaded before udev begins loading drivers
->         (either very early in initscripts, or in the inital ramdisk).
->     ii) something must "fix up" the kernel-assigned names after
->         udev's modprobes complete.  udev does this as well.
->
-> 2) udev may have rules to change the device names.  This is most often
->   seen in the '70-persistent-net.rules' file.  Here we have
->   additional challenges:
->
->   a) this does not exist the first time devices are discovered; the
->
->   b) it introduces state (MAC addresses) to the system, on a system
->
->   c) udev may not always be able to change a device's name.  If udev
->
-
-not everyone uses udev. I compile the nessasary drivers into the kernel 
-and don't need udev to get interfaces.
-
-> 3) End users have the (reasonable?) expectation that NIC ports
-
-as noted above, only some users have this unrealistic expectation.
-
-> 4) When adding a network card to an existing system, what should the
->   ports on the new card be named?  If it is added, they will be named
->   ethN+1... above the existing named cards.  This means a (new)
->   add-in card in PCI slot 3 may have ports named eth5 and eth6, while
->   an add-in card in PCI slot 5 may have ports named eth2 and eth3.
->   This is not intuitive.
-
-this approach causes serious problems in a few cases, including
-
-1. a NIC goes bad and you replace it. now all the configs change
-
-2. you reinstall a box and it's interface names change.
+what's unique and reproducable is the discovery order
 
 David Lang
