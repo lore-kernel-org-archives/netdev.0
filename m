@@ -1,37 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: cleanup rx/tx rate calculations
-Date: Tue, 24 Mar 2009 16:40:57 -0700 (PDT)
-Message-ID: <20090324.164057.66047165.davem@davemloft.net>
-References: <bdc3ac9f0903230451o60d3392akb390c9f5dc9aab20@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Network Device Naming mechanism and policy
+Date: Tue, 24 Mar 2009 16:14:48 -0700
+Message-ID: <20090324231448.GA21479@kroah.com>
+References: <20090324154617.GA16332@auslistsprd01.us.dell.com> <49C9087C.5070907@trash.net> <1237912858.9082.39.camel@localhost.localdomain> <alpine.DEB.1.10.0903241150020.16753@asgard.lang.hm> <20090324210214.7ae65c06@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: david@lang.hm, Dan Williams <dcbw@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Matt Domsch <Matt_Domsch@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47848
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755833AbZCXXlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 19:41:10 -0400
-In-Reply-To: <bdc3ac9f0903230451o60d3392akb390c9f5dc9aab20@mail.gmail.com>
+Received: from kroah.org ([198.145.64.141]:38367 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753802AbZCXXvB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 19:51:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20090324210214.7ae65c06@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@gmail.com>
-Date: Mon, 23 Mar 2009 17:21:09 +0530
-
-> Hi, Pls accept this patch to cleanup rx/tx rate calculations as follows:
-> - check for jiffies wraparound
-> - remove typecast of a denominator
-> - do rate calculation only in workqueue context periodically
+On Tue, Mar 24, 2009 at 09:02:14PM +0000, Alan Cox wrote:
+> > this is convienient for some things, but not for others.
+> > 
+> > what's unique and reproducable is the discovery order
 > 
-> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+> Not in the case of things like USB...
 
-Your email client corrupted the patch, breaking up long lines
-with newlines.
+Or even PCI.
 
-I fixed it up, but I will not do so next time and instead I
-will kick the patch back to you or simply ignore the submission.
-So please get this fixed.
-
-Thanks.
+/me pats his laptop that reassigns PCI device ids randomly every 3rd or so boot.
