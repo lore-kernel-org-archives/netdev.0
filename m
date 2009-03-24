@@ -1,55 +1,50 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: BUG in 2.6.29 final: broken network connection
-Date: Tue, 24 Mar 2009 22:45:36 +0100
-Message-ID: <20090324214536.GA29509@elte.hu>
-References: <200903241812.14577.sinter.salt@gmx.de> <200903241918.29929.sinter.salt@gmx.de> <20090324194254.GB26930@elte.hu> <200903242149.59640.sinter.salt@gmx.de>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: netfilter 07/41: arp_tables: unfold two critical loops in
+ arp_packet_match()
+Date: Tue, 24 Mar 2009 22:52:26 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0903242243040.3974@fbirervta.pbzchgretzou.qr>
+References: <20090324.132954.148903398.davem@davemloft.net> <49C94B6A.5020304@cosmosbay.com> <alpine.LSU.2.00.0903242215590.26397@fbirervta.pbzchgretzou.qr> <20090324.141848.119353425.davem@davemloft.net> <alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr>
+ <49C952FE.7070202@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: sinter <sinter.salt@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:44707 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753160AbZCXVpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 17:45:51 -0400
-Content-Disposition: inline
-In-Reply-To: <200903242149.59640.sinter.salt@gmx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49C952FE.7070202@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-* sinter <sinter.salt@gmx.de> wrote:
+On Tuesday 2009-03-24 22:39, Eric Dumazet wrote:
+>>> memcmp() can't make any assumptions about alignment.
+>>> Whereas we _know_ this thing is exactly 16-bit aligned.
+>>>
+>>> All of the optimized memcmp() implementations look for
+>>> 32-bit alignment and punt to byte at a time comparison
+>>> loops if things are not aligned enough.
+>> 
+>> Yes, I seem to remember glibc doing something like
+>> [...]
+>> Is the cost of testing for non-4-divisibility expensive enough
+>> to warrant not usnig memcmp?
+>> 
+>> Irrespective of all that, I think putting the interface comparison
+>> code should be agglomerated in a function/header so that it is
+>> replicated across iptables, ip6tables, ebtables, arptables, etc.
+>
+>memcmp() is fine, but how is it solving the masking problem we have ?
 
-> > And there's an easy solution for you in any case: you can wait 
-> > for .29.1 which i'm sure will be out quickly.
-> 
-> And what top-class advice would you give me if I would have found 
-> that serious bug in .29.8 or in .29.9? Due to your answer every 
-> shit is possible and nothing is impossible, or did I get something 
-> wrong?
+You are right; we would have to calculate the prefix length of the
+mask first. (And I think we can assume that there will not be any 1s
+in the mask after the first 0.) It would consume CPU indeed.
 
-You got it exactly right.
+>Also in the case of arp_tables, _a is long word aligned, while _b and _mask
+>are not.
+>
+>If you look various ifname_compare(), we have two different implementations.
+>
+>So yes, a factorization is possible for three ip_tables.c, ip6_tables.c and
+> xt_physdev.c.
 
-This world is ruled by probabilities, and generally everything is 
-possible - even a bug slipping into a .0 release that you could 
-trigger personally, even though -rc1 through -rc8 worked just fine 
-for you.
-
-Such things happened before, and they can happen again. Yes, it can 
-hit you - and it did hit me too and i'm not complaining.
-
-We still try our best to reduce the probabilities. We cannot, 
-however, unfortunately, bring them down to zero. The fix looked 
-reasonable and the justification of it fixing a live crash looked 
-reasonable too.
-
-What we can do, and what we did do, was to provide people (you 
-included) with a fix within 12 hours after the code having been 
-released.
-
-That's the deal really.
-
-	Ingo
+Very well.
