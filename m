@@ -1,63 +1,112 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 28/41: ctnetlink: cleanup conntrack update preliminary checkings
-Date: Tue, 24 Mar 2009 15:03:44 +0100 (MET)
-Message-ID: <20090324140340.31401.72133.sendpatchset@x2.localnet>
+Subject: netfilter 27/41: ctnetlink: cleanup master conntrack assignation
+Date: Tue, 24 Mar 2009 15:03:43 +0100 (MET)
+Message-ID: <20090324140338.31401.95818.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34812 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758437AbZCXODp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:45 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit e098360f159b3358f085543eb6dc2eb500d6667c
+commit 7ec4749675bf33ea639bbcca8a5365ccc5091a6a
 Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Mon Mar 16 15:27:22 2009 +0100
+Date:   Mon Mar 16 15:25:46 2009 +0100
 
-    netfilter: ctnetlink: cleanup conntrack update preliminary checkings
+    netfilter: ctnetlink: cleanup master conntrack assignation
     
-    This patch moves the preliminary checkings that must be fulfilled
-    to update a conntrack, which are the following:
-    
-     * NAT manglings cannot be updated
-     * Changing the master conntrack is not allowed.
-    
+    This patch moves the assignation of the master conntrack to
+    ctnetlink_create_conntrack(), which is where it really belongs.
     This patch is a cleanup.
     
     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index cca22d5..b67db69 100644
+index cb78aa0..cca22d5 100644
 --- a/net/netfilter/nf_conntrack_netlink.c
 +++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1062,6 +1062,10 @@ ctnetlink_change_conntrack(struct nf_conn *ct, struct nlattr *cda[])
+@@ -1128,9 +1128,9 @@ static int
+ ctnetlink_create_conntrack(struct nlattr *cda[],
+ 			   struct nf_conntrack_tuple *otuple,
+ 			   struct nf_conntrack_tuple *rtuple,
+-			   struct nf_conn *master_ct,
+ 			   u32 pid,
+-			   int report)
++			   int report,
++			   u8 u3)
  {
- 	int err;
+ 	struct nf_conn *ct;
+ 	int err = -EINVAL;
+@@ -1241,7 +1241,22 @@ ctnetlink_create_conntrack(struct nlattr *cda[],
+ #endif
  
-+	/* only allow NAT changes and master assignation for new conntracks */
-+	if (cda[CTA_NAT_SRC] || cda[CTA_NAT_DST] || cda[CTA_TUPLE_MASTER])
-+		return -EOPNOTSUPP;
+ 	/* setup master conntrack: this is a confirmed expectation */
+-	if (master_ct) {
++	if (cda[CTA_TUPLE_MASTER]) {
++		struct nf_conntrack_tuple master;
++		struct nf_conntrack_tuple_hash *master_h;
++		struct nf_conn *master_ct;
 +
- 	if (cda[CTA_HELP]) {
- 		err = ctnetlink_change_helper(ct, cda);
- 		if (err < 0)
-@@ -1323,17 +1327,6 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 	if (!(nlh->nlmsg_flags & NLM_F_EXCL)) {
- 		struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
++		err = ctnetlink_parse_tuple(cda, &master, CTA_TUPLE_MASTER, u3);
++		if (err < 0)
++			goto err;
++
++		master_h = __nf_conntrack_find(&init_net, &master);
++		if (master_h == NULL) {
++			err = -ENOENT;
++			goto err;
++		}
++		master_ct = nf_ct_tuplehash_to_ctrack(master_h);
++		nf_conntrack_get(&master_ct->ct_general);
+ 		__set_bit(IPS_EXPECTED_BIT, &ct->status);
+ 		ct->master = master_ct;
+ 	}
+@@ -1289,39 +1304,15 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 		h = __nf_conntrack_find(&init_net, &rtuple);
  
--		/* we only allow nat config for new conntracks */
--		if (cda[CTA_NAT_SRC] || cda[CTA_NAT_DST]) {
--			err = -EOPNOTSUPP;
--			goto out_unlock;
--		}
--		/* can't link an existing conntrack to a master */
+ 	if (h == NULL) {
+-		struct nf_conntrack_tuple master;
+-		struct nf_conntrack_tuple_hash *master_h = NULL;
+-		struct nf_conn *master_ct = NULL;
+-
 -		if (cda[CTA_TUPLE_MASTER]) {
--			err = -EOPNOTSUPP;
--			goto out_unlock;
+-			err = ctnetlink_parse_tuple(cda,
+-						    &master,
+-						    CTA_TUPLE_MASTER,
+-						    u3);
+-			if (err < 0)
+-				goto out_unlock;
+-
+-			master_h = __nf_conntrack_find(&init_net, &master);
+-			if (master_h == NULL) {
+-				err = -ENOENT;
+-				goto out_unlock;
+-			}
+-			master_ct = nf_ct_tuplehash_to_ctrack(master_h);
+-			nf_conntrack_get(&master_ct->ct_general);
 -		}
 -
- 		err = ctnetlink_change_conntrack(ct, cda);
- 		if (err == 0) {
- 			nf_conntrack_get(&ct->ct_general);
+ 		err = -ENOENT;
+ 		if (nlh->nlmsg_flags & NLM_F_CREATE)
+ 			err = ctnetlink_create_conntrack(cda,
+ 							 &otuple,
+ 							 &rtuple,
+-							 master_ct,
+ 							 NETLINK_CB(skb).pid,
+-							 nlmsg_report(nlh));
++							 nlmsg_report(nlh),
++							 u3);
+ 		spin_unlock_bh(&nf_conntrack_lock);
+-		if (err < 0 && master_ct)
+-			nf_ct_put(master_ct);
+-
+ 		return err;
+ 	}
+ 	/* implicit 'else' */
