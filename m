@@ -1,101 +1,114 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 11/41: xtables: add backward-compat options
-Date: Tue, 24 Mar 2009 15:03:21 +0100 (MET)
-Message-ID: <20090324140317.31401.63621.sendpatchset@x2.localnet>
+Subject: netfilter 29/41: ctnetlink: move event reporting for new entries outside the lock
+Date: Tue, 24 Mar 2009 15:03:45 +0100 (MET)
+Message-ID: <20090324140341.31401.12851.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34767 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:34818 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758083AbZCXODY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:24 -0400
+	with ESMTP id S1758299AbZCXODs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:48 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 4323362e49bd10b8ff3fe5cf183fdd52662ff4a3
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Thu Feb 19 11:16:03 2009 +0100
+commit f0a3c0869f3b0ef93d9df044e9a41e40086d4c97
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Mon Mar 16 15:28:09 2009 +0100
 
-    netfilter: xtables: add backward-compat options
+    netfilter: ctnetlink: move event reporting for new entries outside the lock
     
-    Concern has been expressed about the changing Kconfig options.
-    Provide the old options that forward-select.
+    This patch moves the event reporting outside the lock section. With
+    this patch, the creation and update of entries is homogeneous from
+    the event reporting perspective. Moreover, as the event reporting is
+    done outside the lock section, the netlink broadcast delivery can
+    benefit of the yield() call under congestion.
     
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 40ad41f..f8d6180 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -92,6 +92,15 @@ config IP_NF_MATCH_ECN
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index b67db69..9fb7cf7 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1128,12 +1128,10 @@ ctnetlink_event_report(struct nf_conn *ct, u32 pid, int report)
+ 				  report);
+ }
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
+-static int
++static struct nf_conn *
+ ctnetlink_create_conntrack(struct nlattr *cda[],
+ 			   struct nf_conntrack_tuple *otuple,
+ 			   struct nf_conntrack_tuple *rtuple,
+-			   u32 pid,
+-			   int report,
+ 			   u8 u3)
+ {
+ 	struct nf_conn *ct;
+@@ -1142,7 +1140,7 @@ ctnetlink_create_conntrack(struct nlattr *cda[],
  
-+config IP_NF_MATCH_TTL
-+	tristate '"ttl" match support'
-+	depends on NETFILTER_ADVANCED
-+	select NETFILTER_XT_MATCH_HL
-+	---help---
-+	This is a backwards-compat option for the user's convenience
-+	(e.g. when running oldconfig). It selects
-+	COFNIG_NETFILTER_XT_MATCH_HL.
+ 	ct = nf_conntrack_alloc(&init_net, otuple, rtuple, GFP_ATOMIC);
+ 	if (IS_ERR(ct))
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	if (!cda[CTA_TIMEOUT])
+ 		goto err;
+@@ -1265,18 +1263,14 @@ ctnetlink_create_conntrack(struct nlattr *cda[],
+ 		ct->master = master_ct;
+ 	}
+ 
+-	nf_conntrack_get(&ct->ct_general);
+ 	add_timer(&ct->timeout);
+ 	nf_conntrack_hash_insert(ct);
+ 	rcu_read_unlock();
+-	ctnetlink_event_report(ct, pid, report);
+-	nf_ct_put(ct);
+-
+-	return 0;
+ 
++	return ct;
+ err:
+ 	nf_conntrack_free(ct);
+-	return err;
++	return ERR_PTR(err);
+ }
+ 
+ static int
+@@ -1309,14 +1303,25 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 
+ 	if (h == NULL) {
+ 		err = -ENOENT;
+-		if (nlh->nlmsg_flags & NLM_F_CREATE)
+-			err = ctnetlink_create_conntrack(cda,
+-							 &otuple,
+-							 &rtuple,
+-							 NETLINK_CB(skb).pid,
+-							 nlmsg_report(nlh),
+-							 u3);
+-		spin_unlock_bh(&nf_conntrack_lock);
++		if (nlh->nlmsg_flags & NLM_F_CREATE) {
++			struct nf_conn *ct;
 +
- # `filter', generic and specific targets
- config IP_NF_FILTER
- 	tristate "Packet filtering"
-@@ -313,6 +322,15 @@ config IP_NF_TARGET_ECN
- 
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config IP_NF_TARGET_TTL
-+	tristate '"TTL" target support'
-+	depends on NETFILTER_ADVANCED
-+	select NETFILTER_XT_TARGET_HL
-+	---help---
-+	This is a backwards-compat option for the user's convenience
-+	(e.g. when running oldconfig). It selects
-+	COFNIG_NETFILTER_XT_TARGET_HL.
++			ct = ctnetlink_create_conntrack(cda, &otuple,
++							&rtuple, u3);
++			if (IS_ERR(ct)) {
++				err = PTR_ERR(ct);
++				goto out_unlock;
++			}
++			err = 0;
++			nf_conntrack_get(&ct->ct_general);
++			spin_unlock_bh(&nf_conntrack_lock);
++			ctnetlink_event_report(ct,
++					       NETLINK_CB(skb).pid,
++					       nlmsg_report(nlh));
++			nf_ct_put(ct);
++		} else
++			spin_unlock_bh(&nf_conntrack_lock);
 +
- # raw + specific targets
- config IP_NF_RAW
- 	tristate  'raw table support (required for NOTRACK/TRACE)'
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 4a8d7ec..625353a 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -94,6 +94,15 @@ config IP6_NF_MATCH_OPTS
- 
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config IP6_NF_MATCH_HL
-+	tristate '"hl" hoplimit match support'
-+	depends on NETFILTER_ADVANCED
-+	select NETFILTER_XT_MATCH_HL
-+	---help---
-+	This is a backwards-compat option for the user's convenience
-+	(e.g. when running oldconfig). It selects
-+	COFNIG_NETFILTER_XT_MATCH_HL.
-+
- config IP6_NF_MATCH_IPV6HEADER
- 	tristate '"ipv6header" IPv6 Extension Headers Match'
- 	default m if NETFILTER_ADVANCED=n
-@@ -121,6 +130,15 @@ config IP6_NF_MATCH_RT
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
- # The targets
-+config IP6_NF_TARGET_HL
-+	tristate '"HL" hoplimit target support'
-+	depends on NETFILTER_ADVANCED
-+	select NETFILTER_XT_TARGET_HL
-+	---help---
-+	This is a backwards-compat option for the user's convenience
-+	(e.g. when running oldconfig). It selects
-+	COFNIG_NETFILTER_XT_TARGET_HL.
-+
- config IP6_NF_TARGET_LOG
- 	tristate "LOG target support"
- 	default m if NETFILTER_ADVANCED=n
+ 		return err;
+ 	}
+ 	/* implicit 'else' */
