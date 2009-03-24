@@ -1,108 +1,72 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
-Date: Tue, 24 Mar 2009 14:41:32 +0100
-Message-ID: <OF909C1D50.039CA234-ONC1257583.004A94AC-C1257583.004B3666@transmode.se>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se> <49C8A415.1090606@cosmosbay.com> <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se> <49C8CCF4.5050104@cosmosbay.com> <OF0CA19511.F677CAFF-ONC1257583.0047FA24-C1257583.00494BDB@transmode.se> <49C8E039.4040505@cosmosbay.com>
+Date: Tue, 24 Mar 2009 14:47:57 +0100
+Message-ID: <49C8E48D.2070501@cosmosbay.com>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se> <49C8A415.1090606@cosmosbay.com> <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se> <49C8CCF4.5050104@cosmosbay.com> <49C8D13D.10307@cosmosbay.com> <49C8D58A.6060401@trash.net> <49C8E0D3.1010202@cosmosbay.com> <49C8E268.6090507@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: avorontsov@ru.mvista.com, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	avorontsov@ru.mvista.com, netdev@vger.kernel.org,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:33379 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756909AbZCXNle (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 09:41:34 -0400
-In-Reply-To: <49C8E039.4040505@cosmosbay.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50647 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751766AbZCXNso convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 09:48:44 -0400
+In-Reply-To: <49C8E268.6090507@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> wrote on 24/03/2009 14:29:29:
+Patrick McHardy a =E9crit :
+> Eric Dumazet wrote:
+>> Patrick McHardy a =E9crit :
+>>>> I forgot to say this is what we do for 'struct file' freeing as
+>>>> well. We
+>>>> decrement nr_files in file_free(), not in file_free_rcu()
+>>>
+>>> While temporarily exceeding the limit by up to 10000 entries is
+>>> quite a lot, I guess the important thing is that it can't grow
+>>> unbounded, so I think this patch is fine.
+>>>
+>>
+>> Maybe we could use SLAB_DESTROY_BY_RCU thing and no more call_rcu()
+>> queueing
+>> problem. That would better use CPU caches as well...
+>=20
+> I'm not sure I understand the rules correctly, but we'd still
+> have to wait for the grace period before an object can be reused,
+> no?
 
-[SNIP]
+No we dont have to, but we must do additionnal checks after getting
+a reference on object found on lookup.
+(We must re-check the keys used during search)
 
-> >>>> You could change qhimark from 10000 to 1000 in kernel/rcuclassic.c 
-> > (line 
-> >>> 80)
-> >>>> as a workaround. It should force a quiescent state after 1000 freed 
+This re-check is not very expensive since everything is hot in cpu cach=
+e.
 
-> >>> conntracks.
-> >>>
-> >>> right, doing this almost killed all conntrack messages, had to 
-stress 
-> > it 
-> >>> pretty
-> >>> hard before I saw handful "nf_conntrack: table full, dropping 
-packet"
-> >>>
-> >>> RCU is not my cup of tea, do you have any ideas were to look?
-> >> In a stress situation, you feed more deleted conntracks to call_rcu() 
+Check Documentation/RCU/rculist_nulls.txt for some documentation.
 
-> > than
-> >> the blimit (10 real freeing per RCU softirq invocation). 
-> >>
-> >> So with default qhimark being 10000, this means about 10000 
-conntracks
-> >> can sit in RCU (per CPU) before being really freed.
-> >>
-> >> Only when hitting 10000, RCU enters a special mode to free all queued 
+1) Lookup algo
+--------------
 
-> > items, instead
-> >> of a small batch of 10
-> >>
-> >> To solve your problem we can :
-> >>
-> >> 1) reduce qhimark from 10000 to 1000 (for example)
-> >>    Probably should be done to reduce some spikes in RCU code when 
-> > freeing
-> >>    whole 10000 elements...
-> >> OR
-> >> 2) change conntrack tunable (max conntrack entries on your machine)
-> >> OR
-> >> 3) change net/netfilter/nf_conntrack_core.c to decrement 
-net->ct.count
-> >>   in nf_conntrack_free() instead of callback.
-> >>
-> >> [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
-> > 
-> > The patch fixes the problem and the system feels a bit more responsive 
-
-> > too, thanks.
-> > I guess I should probably do both 1) and 3) as my board is pretty slow 
-
-> > too.
-> > 
-> > Been trying to figure out a good value for NAPI weigth too. Currently 
-my
-> > HW RX and TX queues are 16 pkgs deep and weigth is 16 too. If I move 
-TX 
-> > processing
-> > to NAPI context AND increase weigth to 32, the system is a lot more 
-> > responsive during
-> > ping flooding. Does weigth 32 make sense when the HW TX and RX queues 
-are 
-> > 16?
-> 
-> If you only have one NIC, I dont understand why changing weight should 
-make
-> a difference. Are you referring to dev_weight or netdev_budget ?
-> 
-> # cat /proc/sys/net/core/dev_weight
-> 64
-> # cat /proc/sys/net/core/netdev_budget
-> 300
-
-I mean this call in ucc_geth:
-  netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, UCC_GETH_DEV_WEIGHT);
-UCC_GETH_DEV_WEIGHT is 16
-
-Noticed that rcuclassic.c has a 
-  module_param(qhimark, int, 0);
-But I can't figure out hot to set this qhimark from the cmdline.
- rcuclassic.c is not a module(I don't use modules at all)
-
- Jocke
- Jocke
+rcu_read_lock()
+begin:
+obj =3D lockless_lookup(key);
+if (obj) {
+  if (!try_get_ref(obj)) // might fail for free objects
+    goto begin;
+  /*
+   * Because a writer could delete object, and a writer could
+   * reuse these object before the RCU grace period, we
+   * must check key after geting the reference on object
+   */
+  if (obj->key !=3D key) { // not the object we expected
+     put_ref(obj);
+     goto begin;
+   }
+}
+rcu_read_unlock();
 
 
