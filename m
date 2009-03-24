@@ -1,30 +1,47 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: network traffic stop with 2.6.29 after ftp put
-Date: Tue, 24 Mar 2009 16:41:49 +0100
-Message-ID: <BAY103-DAV1251BBA7FBA4243359906AB2930@phx.gbl>
-References: <BAY103-DAV683AFCEC466B8F2E6D8EBB2930@phx.gbl> <BAY103-DAV100CC8DA92566937097718B2930@phx.gbl> <49C8C26B.7070802@cosmosbay.com> <BAY103-DAV11986CBE87674225EDC31EB2930@phx.gbl> <49C8E7FF.7020906@cosmosbay.com>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: Re: next-20090318: sunhme does not transmit packets
+Date: Tue, 24 Mar 2009 18:46:09 +0300
+Message-ID: <a4423d670903240846j252a825cy1e8a50b5ac3a11ef@mail.gmail.com>
+References: <a4423d670903180958j4847717eh99a41534633dd314@mail.gmail.com>
+	 <20090318.234451.38898787.davem@davemloft.net>
+	 <a4423d670903190116p157b2ebfl69d270e0576c6d9a@mail.gmail.com>
+	 <20090322.215110.261185328.davem@davemloft.net>
+	 <a4423d670903240432m1a4e8e08x9c97a0947d89800a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>
-To: "Eric Dumazet" <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s25.bay0.hotmail.com ([65.54.246.161]:22982 "EHLO
-	bay0-omc2-s25.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756576AbZCXPm2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 11:42:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org,
+	Kernel Testers List <kernel-testers@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Roel Kluin <roel.kluin@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761594AbZCXPq1@vger.kernel.org>
+In-Reply-To: <a4423d670903240432m1a4e8e08x9c97a0947d89800a@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
+2009/3/24 Alexander Beregalov <a.beregalov@gmail.com>:
+>>> 2009/3/19 David Miller <davem@davemloft.net>:
+>>> > Does the current vanilla kernel work fine?
+>>>
+>>> Yes. The problem happens only with -next tree.
+>>
+>> I have one of my ultra10s up and will try to reproduce and diagnose
+>> this locally.
+>
+> Hi David
+>
+> 2.6.29 also does not work.
+>
+> The guilty patch should be between 2.6.29-rc8 and final 2.6.29
+>
+> even more narrow - 59fcbdd..v2.6.29
+>
+> I can try to bisect.
 
-> You probably have the problem Ingo reported on lkml, please try Herbert
-> fix :
-> 
-> http://marc.info/?l=linux-kernel&m=123790184128396&w=2
+e4a389a9b5c892446b5de2038bdc0cca8703c615 is first bad commit
+commit e4a389a9b5c892446b5de2038bdc0cca8703c615
+Author: Roel Kluin <roel.kluin@gmail.com>
+Date:   Wed Mar 18 23:12:13 2009 -0700
 
-yes this patch fix the problem.
-Thanks Eric and thanks Herbert.
-
+    net: kfree(napi->skb) => kfree_skb
