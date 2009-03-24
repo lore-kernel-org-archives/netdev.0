@@ -1,87 +1,58 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: nefilter 40/41: nfnetlink: add nfnetlink_set_err and use it in ctnetlink
-Date: Tue, 24 Mar 2009 15:04:00 +0100 (MET)
-Message-ID: <20090324140356.31401.64545.sendpatchset@x2.localnet>
+Subject: netfilter 21/41: xt_hashlimit fix
+Date: Tue, 24 Mar 2009 15:03:35 +0100 (MET)
+Message-ID: <20090324140330.31401.74214.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34794 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758357AbZCXODh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:37 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit dd5b6ce6fd465eab90357711c8e8124dc3a31ff0
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Mon Mar 23 13:21:06 2009 +0100
+commit 28337ff5438a640afa713d874d076e3a8a9150da
+Author: Eric Dumazet <dada1@cosmosbay.com>
+Date:   Tue Feb 24 15:30:29 2009 +0100
 
-    nefilter: nfnetlink: add nfnetlink_set_err and use it in ctnetlink
+    netfilter: xt_hashlimit fix
     
-    This patch adds nfnetlink_set_err() to propagate the error to netlink
-    broadcast listener in case of memory allocation errors in the
-    message building.
+    Commit 784544739a25c30637397ace5489eeb6e15d7d49
+    (netfilter: iptables: lock free counters) broke xt_hashlimit netfilter module :
     
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    This module was storing a pointer inside its xt_hashlimit_info, and this pointer
+    is not relocated when we temporarly switch tables (iptables -L).
+    
+    This hack is not not needed at all (probably a leftover from
+    ancient time), as each cpu should and can access to its own copy.
+    
+    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index 7d8e045..135e5cf 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -76,6 +76,7 @@ extern int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
- extern int nfnetlink_has_listeners(unsigned int group);
- extern int nfnetlink_send(struct sk_buff *skb, u32 pid, unsigned group, 
- 			  int echo);
-+extern void nfnetlink_set_err(u32 pid, u32 group, int error);
- extern int nfnetlink_unicast(struct sk_buff *skb, u_int32_t pid, int flags);
- 
- extern void nfnl_lock(void);
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index d1fe9d1..1b75c9e 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -518,6 +518,7 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
- nla_put_failure:
- 	rcu_read_unlock();
- nlmsg_failure:
-+	nfnetlink_set_err(0, group, -ENOBUFS);
- 	kfree_skb(skb);
- 	return NOTIFY_DONE;
- }
-@@ -1514,6 +1515,7 @@ static int ctnetlink_expect_event(struct notifier_block *this,
- nla_put_failure:
- 	rcu_read_unlock();
- nlmsg_failure:
-+	nfnetlink_set_err(0, 0, -ENOBUFS);
- 	kfree_skb(skb);
- 	return NOTIFY_DONE;
- }
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 9c0ba17..2785d66 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -113,6 +113,12 @@ int nfnetlink_send(struct sk_buff *skb, u32 pid, unsigned group, int echo)
- }
- EXPORT_SYMBOL_GPL(nfnetlink_send);
- 
-+void nfnetlink_set_err(u32 pid, u32 group, int error)
-+{
-+	netlink_set_err(nfnl, pid, group, error);
-+}
-+EXPORT_SYMBOL_GPL(nfnetlink_set_err);
-+
- int nfnetlink_unicast(struct sk_buff *skb, u_int32_t pid, int flags)
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 2482055..a5b5369 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -565,8 +565,7 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
+ static bool
+ hashlimit_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
  {
- 	return netlink_unicast(nfnl, skb, pid, flags);
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 6ee69c2..5b33879 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1106,6 +1106,7 @@ void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
+-	const struct xt_hashlimit_info *r =
+-		((const struct xt_hashlimit_info *)par->matchinfo)->u.master;
++	const struct xt_hashlimit_info *r = par->matchinfo;
+ 	struct xt_hashlimit_htable *hinfo = r->hinfo;
+ 	unsigned long now = jiffies;
+ 	struct dsthash_ent *dh;
+@@ -702,8 +701,6 @@ static bool hashlimit_mt_check_v0(const struct xt_mtchk_param *par)
+ 	}
+ 	mutex_unlock(&hlimit_mutex);
  
- 	read_unlock(&nl_table_lock);
+-	/* Ugly hack: For SMP, we only want to use one set */
+-	r->u.master = r;
+ 	return true;
  }
-+EXPORT_SYMBOL(netlink_set_err);
  
- /* must be called with netlink table grabbed */
- static void netlink_update_socket_mc(struct netlink_sock *nlk,
