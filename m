@@ -1,1265 +1,207 @@
-From: Andrey Panin <pazke@donpac.ru>
-Subject: Re: [PATCH] net: Add support for the OpenCores 10/100 Mbps Ethernet MAC.
-Date: Tue, 24 Mar 2009 15:01:57 +0300
-Message-ID: <20090324120157.GB6859@ports.donpac.ru>
-References: <1237889923-32257-1-git-send-email-thierry.reding@avionic-design.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
+Date: Tue, 24 Mar 2009 13:07:16 +0100
+Message-ID: <49C8CCF4.5050104@cosmosbay.com>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se> <49C8A415.1090606@cosmosbay.com> <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thierry Reding <thierry.reding@avionic-design.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: avorontsov@ru.mvista.com, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ports.donpac.ru ([80.254.111.81]:59260 "EHLO ports.donpac.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753878AbZCXMCB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 08:02:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1237889923-32257-1-git-send-email-thierry.reding@avionic-design.de>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46511 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752179AbZCXMIO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 08:08:14 -0400
+In-Reply-To: <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 083, 03 24, 2009 at 11:18:43AM +0100, Thierry Reding wrote:
-> This patch adds a platform device driver that supports the OpenCores 10/100
-> Mbps Ethernet MAC.
-> 
-> The driver expects three resources: one IORESOURCE_MEM resource defines the
-> memory region for the core's memory-mapped registers while a second
-> IORESOURCE_MEM resource defines the network packet buffer space. The third
-> resource, of type IORESOURCE_IRQ, associates an interrupt with the driver.
-> 
-> Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
-> 
-> ---
->  drivers/net/Kconfig  |    7 +
->  drivers/net/Makefile |    1 +
->  drivers/net/ethoc.c  | 1153 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  include/net/ethoc.h  |   22 +
->  4 files changed, 1183 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 62d732a..fab21ca 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -963,6 +963,13 @@ config ENC28J60_WRITEVERIFY
->  	  Enable the verify after the buffer write useful for debugging purpose.
->  	  If unsure, say N.
->  
-> +config ETHOC
-> +	tristate "OpenCores 10/100 Mbps Ethernet MAC support"
-> +	depends on NET_ETHERNET
-> +	select PHYLIB
-> +	help
-> +	  Say Y here if you want to use the OpenCores 10/100 Mbps Ethernet MAC.
-> +
->  config SMC911X
->  	tristate "SMSC LAN911[5678] support"
->  	select CRC32
-> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-> index 471baaf..ac3d6f7 100644
-> --- a/drivers/net/Makefile
-> +++ b/drivers/net/Makefile
-> @@ -229,6 +229,7 @@ obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
->  pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
->  obj-$(CONFIG_MLX4_CORE) += mlx4/
->  obj-$(CONFIG_ENC28J60) += enc28j60.o
-> +obj-$(CONFIG_ETHOC) += ethoc.o
->  
->  obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
->  
-> diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-> new file mode 100644
-> index 0000000..05e6bb3
-> --- /dev/null
-> +++ b/drivers/net/ethoc.c
-> @@ -0,0 +1,1153 @@
-> +/*
-> + * linux/drivers/net/ethoc.c
-> + *
-> + * Copyright (C) 2007-2008 Avionic Design Development GmbH
-> + * Copyright (C) 2008-2009 Avionic Design GmbH
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + *
-> + * Written by Thierry Reding <thierry.reding@avionic-design.de>
-> + */
-> +
-> +#include <linux/etherdevice.h>
-> +#include <linux/io.h>
-> +#include <linux/mii.h>
-> +#include <linux/phy.h>
-> +#include <linux/platform_device.h>
-> +#include <net/ethoc.h>
-> +
-> +/* register offsets */
-> +#define	MODER		0x00
-> +#define	INT_SOURCE	0x04
-> +#define	INT_MASK	0x08
-> +#define	IPGT		0x0c
-> +#define	IPGR1		0x10
-> +#define	IPGR2		0x14
-> +#define	PACKETLEN	0x18
-> +#define	COLLCONF	0x1c
-> +#define	TX_BD_NUM	0x20
-> +#define	CTRLMODER	0x24
-> +#define	MIIMODER	0x28
-> +#define	MIICOMMAND	0x2c
-> +#define	MIIADDRESS	0x30
-> +#define	MIITX_DATA	0x34
-> +#define	MIIRX_DATA	0x38
-> +#define	MIISTATUS	0x3c
-> +#define	MAC_ADDR0	0x40
-> +#define	MAC_ADDR1	0x44
-> +#define	ETH_HASH0	0x48
-> +#define	ETH_HASH1	0x4c
-> +#define	ETH_TXCTRL	0x50
-> +
-> +/* mode register */
-> +#define	MODER_RXEN	(1 <<  0) /* receive enable */
-> +#define	MODER_TXEN	(1 <<  1) /* transmit enable */
-> +#define	MODER_NOPRE	(1 <<  2) /* no preamble */
-> +#define	MODER_BRO	(1 <<  3) /* broadcast address */
-> +#define	MODER_IAM	(1 <<  4) /* individual address mode */
-> +#define	MODER_PRO	(1 <<  5) /* promiscuous mode */
-> +#define	MODER_IFG	(1 <<  6) /* interframe gap for incoming frames */
-> +#define	MODER_LOOP	(1 <<  7) /* loopback */
-> +#define	MODER_NBO	(1 <<  8) /* no back-off */
-> +#define	MODER_EDE	(1 <<  9) /* excess defer enable */
-> +#define	MODER_FULLD	(1 << 10) /* full duplex */
-> +#define	MODER_RESET	(1 << 11) /* FIXME: reset (undocumented) */
-> +#define	MODER_DCRC	(1 << 12) /* delayed CRC enable */
-> +#define	MODER_CRC	(1 << 13) /* CRC enable */
-> +#define	MODER_HUGE	(1 << 14) /* huge packets enable */
-> +#define	MODER_PAD	(1 << 15) /* padding enabled */
-> +#define	MODER_RSM	(1 << 16) /* receive small packets */
-> +
-> +/* interrupt source and mask registers */
-> +#define	INT_MASK_TXF	(1 << 0) /* transmit frame */
-> +#define	INT_MASK_TXE	(1 << 1) /* transmit error */
-> +#define	INT_MASK_RXF	(1 << 2) /* receive frame */
-> +#define	INT_MASK_RXE	(1 << 3) /* receive error */
-> +#define	INT_MASK_BUSY	(1 << 4)
-> +#define	INT_MASK_TXC	(1 << 5) /* transmit control frame */
-> +#define	INT_MASK_RXC	(1 << 6) /* receive control frame */
-> +
-> +#define	INT_MASK_TX	(INT_MASK_TXF | INT_MASK_TXE)
-> +#define	INT_MASK_RX	(INT_MASK_RXF | INT_MASK_RXE)
-> +
-> +#define	INT_MASK_ALL ( \
-> +		INT_MASK_TXF | INT_MASK_TXE | \
-> +		INT_MASK_RXF | INT_MASK_RXE | \
-> +		INT_MASK_TXC | INT_MASK_RXC | \
-> +		INT_MASK_BUSY \
-> +	)
-> +
-> +/* packet length register */
-> +#define	PACKETLEN_MIN(min)		(((min) & 0xffff) << 16)
-> +#define	PACKETLEN_MAX(max)		(((max) & 0xffff) <<  0)
-> +#define	PACKETLEN_MIN_MAX(min, max)	(PACKETLEN_MIN(min) | \
-> +					PACKETLEN_MAX(max))
-> +
-> +/* transmit buffer number register */
-> +#define	TX_BD_NUM_VAL(x)	(((x) <= 0x80) ? (x) : 0x80)
-> +
-> +/* control module mode register */
-> +#define	CTRLMODER_PASSALL	(1 << 0) /* pass all receive frames */
-> +#define	CTRLMODER_RXFLOW	(1 << 1) /* receive control flow */
-> +#define	CTRLMODER_TXFLOW	(1 << 2) /* transmit control flow */
-> +
-> +/* MII mode register */
-> +#define	MIIMODER_CLKDIV(x)	((x) & 0xfe) /* needs to be an even number */
-> +#define	MIIMODER_NOPRE		(1 << 8) /* no preamble */
-> +
-> +/* MII command register */
-> +#define	MIICOMMAND_SCAN		(1 << 0) /* scan status */
-> +#define	MIICOMMAND_READ		(1 << 1) /* read status */
-> +#define	MIICOMMAND_WRITE	(1 << 2) /* write control data */
-> +
-> +/* MII address register */
-> +#define	MIIADDRESS_FIAD(x)		(((x) & 0x1f) << 0)
-> +#define	MIIADDRESS_RGAD(x)		(((x) & 0x1f) << 8)
-> +#define	MIIADDRESS_ADDR(phy, reg)	(MIIADDRESS_FIAD(phy) | \
-> +					MIIADDRESS_RGAD(reg))
-> +
-> +/* MII transmit data register */
-> +#define	MIITX_DATA_VAL(x)	((x) & 0xffff)
-> +
-> +/* MII receive data register */
-> +#define	MIIRX_DATA_VAL(x)	((x) & 0xffff)
-> +
-> +/* MII status register */
-> +#define	MIISTATUS_LINKFAIL	(1 << 0)
-> +#define	MIISTATUS_BUSY		(1 << 1)
-> +#define	MIISTATUS_INVALID	(1 << 2)
-> +
-> +/* TX buffer descriptor */
-> +#define	TX_BD_CS		(1 <<  0) /* carrier sense lost */
-> +#define	TX_BD_DF		(1 <<  1) /* defer indication */
-> +#define	TX_BD_LC		(1 <<  2) /* late collision */
-> +#define	TX_BD_RL		(1 <<  3) /* retransmission limit */
-> +#define	TX_BD_RETRY_MASK	(0x00f0)
-> +#define	TX_BD_RETRY(x)		(((x) & 0x00f0) >>  4)
-> +#define	TX_BD_UR		(1 <<  8) /* transmitter underrun */
-> +#define	TX_BD_CRC		(1 << 11) /* TX CRC enable */
-> +#define	TX_BD_PAD		(1 << 12) /* pad enable for short packets */
-> +#define	TX_BD_WRAP		(1 << 13)
-> +#define	TX_BD_IRQ		(1 << 14) /* interrupt request enable */
-> +#define	TX_BD_READY		(1 << 15) /* TX buffer ready */
-> +#define	TX_BD_LEN(x)		(((x) & 0xffff) << 16)
-> +#define	TX_BD_LEN_MASK		(0xffff << 16)
-> +
-> +#define	TX_BD_STATS		(TX_BD_CS | TX_BD_DF | TX_BD_LC | \
-> +				TX_BD_RL | TX_BD_RETRY_MASK | TX_BD_UR)
-> +
-> +/* RX buffer descriptor */
-> +#define	RX_BD_LC	(1 <<  0) /* late collision */
-> +#define	RX_BD_CRC	(1 <<  1) /* RX CRC error */
-> +#define	RX_BD_SF	(1 <<  2) /* short frame */
-> +#define	RX_BD_TL	(1 <<  3) /* too long */
-> +#define	RX_BD_DN	(1 <<  4) /* dribble nibble */
-> +#define	RX_BD_IS	(1 <<  5) /* invalid symbol */
-> +#define	RX_BD_OR	(1 <<  6) /* receiver overrun */
-> +#define	RX_BD_MISS	(1 <<  7)
-> +#define	RX_BD_CF	(1 <<  8) /* control frame */
-> +#define	RX_BD_WRAP	(1 << 13)
-> +#define	RX_BD_IRQ	(1 << 14) /* interrupt request enable */
-> +#define	RX_BD_EMPTY	(1 << 15)
-> +#define	RX_BD_LEN(x)	(((x) & 0xffff) << 16)
-> +
-> +#define	RX_BD_STATS	(RX_BD_LC | RX_BD_CRC | RX_BD_SF | RX_BD_TL | \
-> +			RX_BD_DN | RX_BD_IS | RX_BD_OR | RX_BD_MISS)
-> +
-> +#define	ETHOC_BUFSIZ	1536
-> +#define	ETHOC_ZLEN	64
-> +#define	ETHOC_BD_BASE	0x400
-> +#define	ETHOC_TIMEOUT	(HZ / 2)
-> +
-> +/**
-> + * struct ethoc -
-> + */
-> +struct ethoc {
-> +	void __iomem *iobase;
-> +	void __iomem *membase;
-> +
-> +	unsigned int num_tx;
-> +	unsigned int cur_tx;
-> +	unsigned int dty_tx;
-> +
-> +	unsigned int num_rx;
-> +	unsigned int cur_rx;
-> +
-> +	struct net_device *netdev;
-> +	struct napi_struct napi;
-> +	struct net_device_stats stats;
-> +	u32 msg_enable;
-> +
-> +	spinlock_t rx_lock;
-> +	spinlock_t lock;
-> +
-> +#ifdef CONFIG_MII
-> +	struct phy_device *phy;
-> +	struct mii_bus *mdio;
-> +	s8 phy_id;
-> +#endif
-> +};
-> +
-> +struct ethoc_bd {
-> +	u32 stat;
-> +	u32 addr;
-> +};
-> +
-> +static u32 ethoc_read(struct ethoc *dev, loff_t offset)
-> +{
-> +	return ioread32(dev->iobase + offset);
-> +}
-> +
-> +static void ethoc_write(struct ethoc *dev, loff_t offset, u32 data)
-> +{
-> +	iowrite32(data, dev->iobase + offset);
-> +}
-> +
-> +static void ethoc_read_bd(struct ethoc *dev, int index, struct ethoc_bd *bd)
-> +{
-> +	loff_t offset = ETHOC_BD_BASE + (index * sizeof(struct ethoc_bd));
-> +	bd->stat = ethoc_read(dev, offset + 0);
-> +	bd->addr = ethoc_read(dev, offset + 4);
-> +}
-> +
-> +static void ethoc_write_bd(struct ethoc *dev, int index,
-> +		const struct ethoc_bd *bd)
-> +{
-> +	loff_t offset = ETHOC_BD_BASE + (index * sizeof(struct ethoc_bd));
-> +	ethoc_write(dev, offset + 0, bd->stat);
-> +	ethoc_write(dev, offset + 4, bd->addr);
-> +}
-> +
-> +static void ethoc_enable_irq(struct ethoc *dev, u32 mask)
-> +{
-> +	u32 imask = ethoc_read(dev, INT_MASK);
-> +	imask |= mask;
-> +	ethoc_write(dev, INT_MASK, imask);
-> +}
-> +
-> +static void ethoc_disable_irq(struct ethoc *dev, u32 mask)
-> +{
-> +	u32 imask = ethoc_read(dev, INT_MASK);
-> +	imask &= ~mask;
-> +	ethoc_write(dev, INT_MASK, imask);
-> +}
-> +
-> +static void ethoc_ack_irq(struct ethoc *dev, u32 mask)
-> +{
-> +	ethoc_write(dev, INT_SOURCE, mask);
-> +}
-> +
-> +static void ethoc_copy_to_io(void __iomem *dest, struct sk_buff *src)
-> +{
-> +	size_t size = (src->len & 0x3) ? (src->len & ~0x3) + 4 : src->len;
-> +	u8 buffer[ETHOC_BUFSIZ];
-> +
-> +	memset(buffer, 0, size);
-> +	skb_copy_and_csum_dev(src, buffer);
-> +	memcpy(dest, buffer, size);
-> +}
-> +
-> +static void ethoc_copy_from_io(struct sk_buff *dest, const void __iomem *src,
-> +		size_t count)
-> +{
-> +	ssize_t size = (count & 0x3) ? (count & ~0x3) + 4 : count;
-> +	u8 buffer[ETHOC_BUFSIZ];
-> +
-> +	memcpy(buffer, src, size);
-> +	memcpy(skb_put(dest, count), buffer, count);
-> +}
-> +
-> +static void ethoc_enable_rx_and_tx(struct ethoc *dev)
-> +{
-> +	u32 mode = ethoc_read(dev, MODER);
-> +	mode |= MODER_RXEN | MODER_TXEN;
-> +	ethoc_write(dev, MODER, mode);
-> +}
-> +
-> +static void ethoc_disable_rx_and_tx(struct ethoc *dev)
-> +{
-> +	u32 mode = ethoc_read(dev, MODER);
-> +	mode &= ~(MODER_RXEN | MODER_TXEN);
-> +	ethoc_write(dev, MODER, mode);
-> +}
-> +
-> +static int ethoc_init_ring(struct ethoc *dev)
-> +{
-> +	struct ethoc_bd bd;
-> +	int i;
-> +
-> +	dev->cur_tx = 0;
-> +	dev->dty_tx = 0;
-> +	dev->cur_rx = 0;
-> +
-> +	/* setup transmission buffers */
-> +	bd.addr = 0;
-> +	bd.stat = TX_BD_IRQ | TX_BD_CRC;
-> +
-> +	for (i = 0; i < dev->num_tx; i++) {
-> +		if (i == dev->num_tx - 1)
-> +			bd.stat |= TX_BD_WRAP;
-> +
-> +		ethoc_write_bd(dev, i, &bd);
-> +		bd.addr += ETHOC_BUFSIZ;
-> +	}
-> +
-> +	bd.addr = dev->num_tx * ETHOC_BUFSIZ;
-> +	bd.stat = RX_BD_EMPTY | RX_BD_IRQ;
-> +
-> +	for (i = 0; i < dev->num_rx; i++) {
-> +		if (i == dev->num_rx - 1)
-> +			bd.stat |= RX_BD_WRAP;
-> +
-> +		ethoc_write_bd(dev, dev->num_tx + i, &bd);
-> +		bd.addr += ETHOC_BUFSIZ;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int ethoc_reset(struct ethoc *dev)
-> +{
-> +	u32 mode;
-> +
-> +	/* TODO: reset controller? */
-> +
-> +	ethoc_disable_rx_and_tx(dev);
-> +
-> +	/* TODO: setup registers */
-> +
-> +	/* enable FCS generation and automatic padding */
-> +	mode = ethoc_read(dev, MODER);
-> +	mode |= MODER_CRC | MODER_PAD;
-> +	ethoc_write(dev, MODER, mode);
-> +
-> +	/* set full-duplex mode */
-> +	mode = ethoc_read(dev, MODER);
-> +	mode |= MODER_FULLD;
-> +	ethoc_write(dev, MODER, mode);
-> +	ethoc_write(dev, IPGT, 0x15);
-> +
-> +	ethoc_ack_irq(dev, INT_MASK_ALL);
-> +	ethoc_enable_irq(dev, INT_MASK_ALL);
-> +	ethoc_enable_rx_and_tx(dev);
-> +	return 0;
-> +}
-> +
-> +/* function prototypes */
-> +static int ethoc_set_mac_address(struct net_device *dev, void *addr);
-> +static int ethoc_get_mac_address(struct net_device *dev, void *addr);
-> +static int ethoc_rx(struct net_device *dev, int budget);
-> +static void ethoc_tx(struct net_device *dev);
-> +static irqreturn_t ethoc_interrupt(int irq, void *dev_id);
-> +
-> +#ifdef CONFIG_MII
-> +#define	MII_TIMEOUT	(1 + (HZ / 5))
-> +
-> +static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
-> +{
-> +	unsigned long timeout = jiffies + MII_TIMEOUT;
-> +	struct ethoc *priv = bus->priv;
-> +
-> +	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
-> +	ethoc_write(priv, MIICOMMAND, MIICOMMAND_READ);
-> +
-> +	while (time_before(jiffies, timeout)) {
-> +		u32 status = ethoc_read(priv, MIISTATUS);
-> +		if (!(status & MIISTATUS_BUSY)) {
-> +			u32 data = ethoc_read(priv, MIIRX_DATA);
-> +			/* reset MII command register */
-> +			ethoc_write(priv, MIICOMMAND, 0);
-> +			return data;
-> +		}
-> +
-> +		schedule();
-> +	}
-> +
-> +	return -EBUSY;
-> +}
-> +
-> +static int ethoc_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
-> +{
-> +	unsigned long timeout = jiffies + MII_TIMEOUT;
-> +	struct ethoc *priv = bus->priv;
-> +
-> +	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
-> +	ethoc_write(priv, MIITX_DATA, val);
-> +	ethoc_write(priv, MIICOMMAND, MIICOMMAND_WRITE);
-> +
-> +	while (time_before(jiffies, timeout)) {
-> +		u32 stat = ethoc_read(priv, MIISTATUS);
-> +		if (!(stat & MIISTATUS_BUSY))
-> +			return 0;
-> +
-> +		schedule();
-> +	}
-> +
-> +	return -EBUSY;
-> +}
-> +
-> +static int ethoc_mdio_reset(struct mii_bus *bus)
-> +{
-> +	return 0;
-> +}
-> +
-> +static void ethoc_mdio_poll(struct net_device *dev)
-> +{
-> +}
-> +
-> +static int ethoc_mdio_probe(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	struct phy_device *phy;
-> +	int i;
-> +
-> +	for (i = 0; i < PHY_MAX_ADDR; i++) {
-> +		phy = priv->mdio->phy_map[i];
-> +		if (phy) {
-> +			if (priv->phy_id != -1) {
-> +				/* attach to specified PHY */
-> +				if (priv->phy_id == phy->addr)
-> +					break;
-> +			} else {
-> +				/* autoselect PHY if none was specified */
-> +				if (phy->addr != 0)
-> +					break;
-> +			}
-> +		}
-> +	}
-> +
-> +	if (!phy) {
-> +		dev_err(&dev->dev, "no PHY found\n");
-> +		return -ENXIO;
-> +	}
-> +
-> +	phy = phy_connect(dev, phy->dev.bus_id, &ethoc_mdio_poll, 0,
-> +			PHY_INTERFACE_MODE_GMII);
-> +	if (IS_ERR(phy)) {
-> +		dev_err(&dev->dev, "could not attach to PHY\n");
-> +		return PTR_ERR(phy);
-> +	}
-> +
-> +	priv->phy = phy;
-> +	return 0;
-> +}
-> +#endif /* CONFIG_MII */
-> +
-> +static int ethoc_open(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	unsigned int min_tx = 2;
-> +	unsigned int num_bd;
-> +	int ret;
-> +
-> +	ret = request_irq(dev->irq, ethoc_interrupt, IRQF_SHARED,
-> +			dev->name, dev);
-> +	if (ret)
-> +		return ret;
-> +
-> +	/* calculate the number of TX/RX buffers */
-> +	num_bd = (dev->mem_end - dev->mem_start + 1) / ETHOC_BUFSIZ;
-> +	priv->num_tx = min(min_tx, num_bd / 4);
-> +	priv->num_rx = num_bd - priv->num_tx;
-> +	ethoc_write(priv, TX_BD_NUM, priv->num_tx);
-> +
-> +	ethoc_init_ring(priv);
-> +	ethoc_reset(priv);
-> +
-> +	if (netif_queue_stopped(dev)) {
-> +		dev_dbg(&dev->dev, " resuming queue\n");
-> +		netif_wake_queue(dev);
-> +	} else {
-> +		dev_dbg(&dev->dev, " starting queue\n");
-> +		netif_start_queue(dev);
-> +	}
-> +
-> +#ifdef CONFIG_MII
-> +	phy_start(priv->phy);
-> +#endif
-> +	napi_enable(&priv->napi);
-> +
-> +	if (netif_msg_ifup(priv)) {
-> +		dev_info(&dev->dev, "I/O: %08lx Memory: %08lx-%08lx\n",
-> +				dev->base_addr, dev->mem_start, dev->mem_end);
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int ethoc_stop(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +
-> +	napi_disable(&priv->napi);
-> +#ifdef CONFIG_MII
-> +	if (priv->phy)
-> +		phy_stop(priv->phy);
-> +#endif
-> +
-> +	ethoc_disable_rx_and_tx(priv);
-> +	free_irq(dev->irq, dev);
-> +
-> +	if (!netif_queue_stopped(dev))
-> +		netif_stop_queue(dev);
-> +
-> +	return 0;
-> +}
-> +
-> +#ifdef CONFIG_MII
-> +static int ethoc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	struct mii_ioctl_data *mdio = if_mii(ifr);
-> +	struct phy_device *phy = NULL;
-> +
-> +	if (!netif_running(dev))
-> +		return -EINVAL;
-> +
-> +	if (cmd != SIOCGMIIPHY) {
-> +		if (mdio->phy_id >= PHY_MAX_ADDR)
-> +			return -ERANGE;
-> +
-> +		phy = priv->mdio->phy_map[mdio->phy_id];
-> +		if (!phy)
-> +			return -ENODEV;
-> +	} else {
-> +		phy = priv->phy;
-> +	}
-> +
-> +	return phy_mii_ioctl(phy, mdio, cmd);
-> +}
-> +#else
-> +static int ethoc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-> +{
-> +	return -ENOSYS;
-> +}
-> +#endif
-> +
-> +static int ethoc_config(struct net_device *dev, struct ifmap *map)
-> +{
-> +	return -ENOSYS;
-> +}
-> +
-> +static int ethoc_set_mac_address(struct net_device *dev, void *addr)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	u8 *mac = (u8 *)addr;
-> +
-> +	ethoc_write(priv, MAC_ADDR0, (mac[2] << 24) | (mac[3] << 16) |
-> +				     (mac[4] <<  8) | (mac[5] <<  0));
-> +	ethoc_write(priv, MAC_ADDR1, (mac[0] <<  8) | (mac[1] <<  0));
-> +
-> +	return 0;
-> +}
-> +
-> +static int ethoc_get_mac_address(struct net_device *dev, void *addr)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	u8 *mac = (u8 *)addr;
-> +	u32 reg;
-> +
-> +	reg = ethoc_read(priv, MAC_ADDR0);
-> +	mac[2] = (reg >> 24) & 0xff;
-> +	mac[3] = (reg >> 16) & 0xff;
-> +	mac[4] = (reg >>  8) & 0xff;
-> +	mac[5] = (reg >>  0) & 0xff;
-> +
-> +	reg = ethoc_read(priv, MAC_ADDR1);
-> +	mac[0] = (reg >>  8) & 0xff;
-> +	mac[1] = (reg >>  0) & 0xff;
-> +
-> +	return 0;
-> +}
-> +
-> +static int ethoc_get_multicast_bit(struct dev_mc_list *mc)
-> +{
-> +	u32 crc = 0xffffffff;
-> +	u32 carry;
-> +	int i, j;
-> +
-> +	for (i = 0; i < mc->dmi_addrlen; i++) {
-> +		u8 byte = mc->dmi_addr[i];
-> +
-> +		for (j = 0; j < 8; j++) {
-> +			carry = ((crc & 0x80000000) ? 1 : 0) ^ (byte & 0x1);
-> +			byte >>= 1;
-> +			crc <<= 1;
-> +
-> +			if (carry)
-> +				crc = (crc ^ 0x04c11db6) | carry;
-> +		}
-> +	}
+Joakim Tjernlund a =E9crit :
+> Eric Dumazet <dada1@cosmosbay.com> wrote on 24/03/2009 10:12:53:
+>> Joakim Tjernlund a =E9crit :
+>>> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 18:49:15:
+>>>> Joakim Tjernlund wrote:
+>>>>> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:29:33:
+>>>>>
+>>>>>
+>>>>>>> There is no /proc/net/netfilter/nf_conntrack. There is a
+>>>>>>> /proc/net/nf_conntrack though and it is empty. If I telnet
+>>>>>>> to the board I see:
+>>>>>>>
+>>>>>> That means that something is leaking conntrack references, most=20
+>>> likely
+>>>>>> by leaking skbs. Since I haven't seen any other reports, my gues=
+s=20
+>>> would
+>>>>>> be the ucc_geth driver.
+>>>>>>
+>>>>> Mucking around with the ucc_geth driver I found that if I:
+>>>>>  - Move TX from IRQ to NAPI context
+>>>>>  - double the weight.
+>>>>>  - after booting up, wait a few mins until the JFFS2 GC kernel=20
+> thread=20
+>>> has=20
+>>>>> stopped
+>>>>>    scanning the FS=20
+>>>>>
+>>>>> Then the "nf_conntrack: table full, dropping packet." msgs stops.
+>>>>> Does this seem right to you guys?
+>>>> No. As I said, something seems to be leaking packets. You should b=
+e
+>>>> able to confirm that by checking the sk_buff slabs in /proc/slabin=
+fo.
+>>>> If that *doesn't* show any signs of a leak, please run "conntrack =
+-E"
+>>>> to capture the conntrack events before the "table full" message
+>>>> appears and post the output.
+>>> skbuff does not differ much, but others do
+>>>
+>>> Before ping:
+>>>   skbuff_fclone_cache    0      0    352   11    1 : tunables   54 =
+27=20
+> 0=20
+>>> : slabdata      0      0      0
+>>>   skbuff_head_cache     20     20    192   20    1 : tunables  120 =
+60=20
+> 0=20
+>>> : slabdata      1      1      0
+>>>   size-64              731    767     64   59    1 : tunables  120 =
+60=20
+> 0=20
+>>> : slabdata     13     13      0
+>>>   nf_conntrack          10     19    208   19    1 : tunables  120 =
+60=20
+> 0=20
+>>> : slabdata      1      1      0
+>>>
+>>> During ping:=20
+>>>   skbuff_fclone_cache    0      0    352   11    1 : tunables   54 =
+27=20
+> 0=20
+>>> : slabdata      0      0      0
+>>>   skbuff_head_cache     40     40    192   20    1 : tunables  120 =
+60=20
+> 0=20
+>>> : slabdata      2      2      0
+>>>   size-64             8909   8909     64   59    1 : tunables  120 =
+60=20
+> 0=20
+>>> : slabdata    151    151      0
+>>>   nf_conntrack        5111   5111    208   19    1 : tunables  120 =
+60=20
+> 0=20
+>>> : slabdata    269    269      0
+>>>
+>>> This feels more like the freeing of conntrack objects are delayed a=
+nd=20
+>>> builds up when ping flooding.
+>>>
+>>> Don't have "conntrack -E" for my embedded board so that will have t=
+o=20
+> wait=20
+>>> a bit longer.
+>> I dont understand how your ping can use so many conntrack entries...
+>>
+>> Then, as I said yesterday, I believe you have a RCU delay, because o=
+f
+>> a misbehaving driver or something...
+>>
+>> grep RCU .config
+> grep RCU .config
+> # RCU Subsystem
+> CONFIG_CLASSIC_RCU=3Dy
+> # CONFIG_TREE_RCU is not set
+> # CONFIG_PREEMPT_RCU is not set
+> # CONFIG_TREE_RCU_TRACE is not set
+> # CONFIG_PREEMPT_RCU_TRACE is not set
+> # CONFIG_RCU_TORTURE_TEST is not set
+> # CONFIG_RCU_CPU_STALL_DETECTOR is not set
+>=20
+>> grep CONFIG_SMP .config
+> grep CONFIG_SMP .config
+> # CONFIG_SMP is not set
+>=20
+>> You could change qhimark from 10000 to 1000 in kernel/rcuclassic.c (=
+line=20
+> 80)
+>> as a workaround. It should force a quiescent state after 1000 freed=20
+> conntracks.
+>=20
+> right, doing this almost killed all conntrack messages, had to stress=
+ it=20
+> pretty
+> hard before I saw handful "nf_conntrack: table full, dropping packet"
+>=20
+> RCU is not my cup of tea, do you have any ideas were to look?
 
-This looks like yet another crc32 implementation, consider using ether_crc_le()
+In a stress situation, you feed more deleted conntracks to call_rcu() t=
+han
+the blimit (10 real freeing per RCU softirq invocation).=20
 
-> +
-> +	return (crc >> 26) & 0x3f;
-> +}
-> +
-> +static void ethoc_set_multicast_list(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	u32 mode = ethoc_read(priv, MODER);
-> +	struct dev_mc_list *mc = NULL;
-> +	u32 hash[2] = { 0, 0 };
-> +
-> +	/* set loopback mode if requested */
-> +	if (dev->flags & IFF_LOOPBACK)
-> +		mode |=  MODER_LOOP;
-> +	else
-> +		mode &= ~MODER_LOOP;
-> +
-> +	/* receive broadcast frames if requested */
-> +	if (dev->flags & IFF_BROADCAST)
-> +		mode &= ~MODER_BRO;
-> +	else
-> +		mode |=  MODER_BRO;
-> +
-> +	/* enable promiscuous mode if requested */
-> +	if (dev->flags & IFF_PROMISC)
-> +		mode |=  MODER_PRO;
-> +	else
-> +		mode &= ~MODER_PRO;
-> +
-> +	ethoc_write(priv, MODER, mode);
-> +
-> +	/* receive multicast frames */
-> +	if (dev->flags & IFF_ALLMULTI) {
-> +		hash[0] = 0xffffffff;
-> +		hash[1] = 0xffffffff;
-> +	} else {
-> +		for (mc = dev->mc_list; mc; mc = mc->next) {
-> +			int bit = ethoc_get_multicast_bit(mc);
-> +			hash[bit >> 5] |= 1 << (bit & 0x1f);
-> +		}
-> +	}
-> +
-> +	ethoc_write(priv, ETH_HASH0, hash[0]);
-> +	ethoc_write(priv, ETH_HASH1, hash[1]);
-> +}
-> +
-> +static int ethoc_change_mtu(struct net_device *dev, int new_mtu)
-> +{
-> +	return -ENOSYS;
-> +}
-> +
-> +static void ethoc_tx_timeout(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	u32 pending = ethoc_read(priv, INT_SOURCE);
-> +	if (likely(pending))
-> +		ethoc_interrupt(dev->irq, dev);
-> +}
-> +
-> +static struct net_device_stats *ethoc_stats(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	return &priv->stats;
-> +}
-> +
-> +static int ethoc_poll(struct napi_struct *napi, int budget)
-> +{
-> +	struct ethoc *priv = container_of(napi, struct ethoc, napi);
-> +	int work_done = 0;
-> +
-> +	work_done = ethoc_rx(priv->netdev, budget);
-> +	if (work_done < budget) {
-> +		ethoc_enable_irq(priv, INT_MASK_RX);
-> +		netif_rx_complete(napi);
-> +	}
-> +
-> +	return work_done;
-> +}
-> +
-> +static int ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	struct ethoc_bd bd;
-> +	unsigned int entry;
-> +	void *dest;
-> +
-> +	if (unlikely(skb->len > ETHOC_BUFSIZ)) {
-> +		priv->stats.tx_errors++;
-> +		return -EMSGSIZE;
-> +	}
-> +
-> +	entry = priv->cur_tx % priv->num_tx;
-> +	spin_lock_irq(&priv->lock);
-> +	priv->cur_tx++;
-> +
-> +	ethoc_read_bd(priv, entry, &bd);
-> +	if (unlikely(skb->len < ETHOC_ZLEN))
-> +		bd.stat |=  TX_BD_PAD;
-> +	else
-> +		bd.stat &= ~TX_BD_PAD;
-> +
-> +	dest = priv->membase + bd.addr;
-> +	ethoc_copy_to_io(dest, skb);
-> +
-> +	bd.stat &= ~(TX_BD_STATS | TX_BD_LEN_MASK);
-> +	bd.stat |= TX_BD_LEN(skb->len);
-> +	ethoc_write_bd(priv, entry, &bd);
-> +
-> +	bd.stat |= TX_BD_READY;
-> +	ethoc_write_bd(priv, entry, &bd);
-> +
-> +	if (priv->cur_tx == (priv->dty_tx + priv->num_tx)) {
-> +		dev_dbg(&dev->dev, "stopping queue\n");
-> +		netif_stop_queue(dev);
-> +	}
-> +
-> +	dev->trans_start = jiffies;
-> +	dev_kfree_skb(skb);
-> +
-> +	spin_unlock_irq(&priv->lock);
-> +	return NETDEV_TX_OK;
-> +}
-> +
-> +static unsigned int ethoc_update_rx_stats(struct ethoc *dev,
-> +		struct ethoc_bd *bd)
-> +{
-> +	struct net_device *netdev = dev->netdev;
-> +	unsigned int ret = 0;
-> +
-> +	if (bd->stat & RX_BD_TL) {
-> +		dev_err(&netdev->dev, "RX: frame too long\n");
-> +		dev->stats.rx_length_errors++;
-> +		ret++;
-> +	}
-> +
-> +	if (bd->stat & RX_BD_SF) {
-> +		dev_err(&netdev->dev, "RX: frame too short\n");
-> +		dev->stats.rx_length_errors++;
-> +		ret++;
-> +	}
-> +
-> +	if (bd->stat & RX_BD_DN) {
-> +		dev_err(&netdev->dev, "RX: dribble nibble\n");
-> +		dev->stats.rx_frame_errors++;
-> +	}
-> +
-> +	if (bd->stat & RX_BD_CRC) {
-> +		dev_err(&netdev->dev, "RX: wrong CRC\n");
-> +		dev->stats.rx_crc_errors++;
-> +		ret++;
-> +	}
-> +
-> +	if (bd->stat & RX_BD_OR) {
-> +		dev_err(&netdev->dev, "RX: overrun\n");
-> +		dev->stats.rx_over_errors++;
-> +		ret++;
-> +	}
-> +
-> +	if (bd->stat & RX_BD_MISS)
-> +		dev->stats.rx_missed_errors++;
-> +
-> +	if (bd->stat & RX_BD_LC) {
-> +		dev_err(&netdev->dev, "RX: late collision\n");
-> +		dev->stats.collisions++;
-> +		ret++;
-> +	}
-> +
-> +	return ret;
-> +}
-> +
-> +static int ethoc_rx(struct net_device *dev, int limit)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	int count;
-> +
-> +	for (count = 0; count < limit; ++count) {
-> +		unsigned int entry;
-> +		struct ethoc_bd bd;
-> +
-> +		entry = priv->num_tx + (priv->cur_rx % priv->num_rx);
-> +		ethoc_read_bd(priv, entry, &bd);
-> +		if (bd.stat & RX_BD_EMPTY)
-> +			break;
-> +
-> +		if (ethoc_update_rx_stats(priv, &bd) == 0) {
-> +			int size = bd.stat >> 16;
-> +			struct sk_buff *skb = netdev_alloc_skb(dev, size);
-> +			if (likely(skb)) {
-> +				void *src = priv->membase + bd.addr;
-> +				ethoc_copy_from_io(skb, src, size);
-> +				skb->protocol = eth_type_trans(skb, dev);
-> +				dev->last_rx = jiffies;
-> +				priv->stats.rx_packets++;
-> +				priv->stats.rx_bytes += size;
-> +				netif_receive_skb(skb);
-> +			} else {
-> +				if (net_ratelimit())
-> +					dev_warn(&dev->dev, "low on memory - "
-> +							"packet dropped\n");
-> +
-> +				priv->stats.rx_dropped++;
-> +				break;
-> +			}
-> +		}
-> +
-> +		/* clear the buffer descriptor so it can be reused */
-> +		bd.stat &= ~RX_BD_STATS;
-> +		bd.stat |=  RX_BD_EMPTY;
-> +		ethoc_write_bd(priv, entry, &bd);
-> +		priv->cur_rx++;
-> +	}
-> +
-> +	return count;
-> +}
-> +
-> +static int ethoc_update_tx_stats(struct ethoc *dev, struct ethoc_bd *bd)
-> +{
-> +	struct net_device *netdev = dev->netdev;
-> +
-> +	if (bd->stat & TX_BD_LC) {
-> +		dev_err(&netdev->dev, "TX: late collision\n");
-> +		dev->stats.tx_window_errors++;
-> +	}
-> +
-> +	if (bd->stat & TX_BD_RL) {
-> +		dev_err(&netdev->dev, "TX: retransmit limit\n");
-> +		dev->stats.tx_aborted_errors++;
-> +	}
-> +
-> +	if (bd->stat & TX_BD_UR) {
-> +		dev_err(&netdev->dev, "TX: underrun\n");
-> +		dev->stats.tx_fifo_errors++;
-> +	}
-> +
-> +	if (bd->stat & TX_BD_CS) {
-> +		dev_err(&netdev->dev, "TX: carrier sense lost\n");
-> +		dev->stats.tx_carrier_errors++;
-> +	}
-> +
-> +	if (bd->stat & TX_BD_STATS)
-> +		dev->stats.tx_errors++;
-> +
-> +	dev->stats.collisions += (bd->stat >> 4) & 0xf;
-> +	dev->stats.tx_bytes += bd->stat >> 16;
-> +	dev->stats.tx_packets++;
-> +	return 0;
-> +}
-> +
-> +static void ethoc_tx(struct net_device *dev)
-> +{
-> +	struct ethoc *priv = netdev_priv(dev);
-> +
-> +	spin_lock(&priv->lock);
-> +
-> +	while (priv->dty_tx != priv->cur_tx) {
-> +		unsigned int entry = priv->dty_tx % priv->num_tx;
-> +		struct ethoc_bd bd;
-> +
-> +		ethoc_read_bd(priv, entry, &bd);
-> +		if (bd.stat & TX_BD_READY)
-> +			break;
-> +
-> +		entry = (++priv->dty_tx) % priv->num_tx;
-> +		(void)ethoc_update_tx_stats(priv, &bd);
-> +	}
-> +
-> +	if ((priv->cur_tx - priv->dty_tx) <= (priv->num_tx / 2))
-> +		netif_wake_queue(dev);
-> +
-> +	ethoc_ack_irq(priv, INT_MASK_TX);
-> +	spin_unlock(&priv->lock);
-> +}
-> +
-> +static irqreturn_t ethoc_interrupt(int irq, void *dev_id)
-> +{
-> +	struct net_device *dev = (struct net_device *)dev_id;
-> +	struct ethoc *priv = netdev_priv(dev);
-> +	u32 pending;
-> +
-> +	ethoc_disable_irq(priv, INT_MASK_ALL);
-> +	pending = ethoc_read(priv, INT_SOURCE);
-> +	if (unlikely(pending == 0)) {
-> +		ethoc_enable_irq(priv, INT_MASK_ALL);
-> +		return IRQ_NONE;
-> +	}
-> +
-> +	ethoc_ack_irq(priv, INT_MASK_ALL);
-> +
-> +	if (pending & INT_MASK_BUSY) {
-> +		dev_err(&dev->dev, "packet dropped\n");
-> +		priv->stats.rx_dropped++;
-> +	}
-> +
-> +	if (pending & INT_MASK_RX) {
-> +		if (netif_rx_schedule_prep(&priv->napi))
-> +			__netif_rx_schedule(&priv->napi);
-> +	} else {
-> +		ethoc_enable_irq(priv, INT_MASK_RX);
-> +	}
-> +
-> +	if (pending & INT_MASK_TX)
-> +		ethoc_tx(dev);
-> +
-> +	ethoc_enable_irq(priv, INT_MASK_ALL & ~INT_MASK_RX);
-> +	return IRQ_HANDLED;
-> +}
-> +
-> +/**
-> + * ethoc_probe() - initialize OpenCores ethernet MAC
-> + * pdev:	platform device
-> + */
-> +static int ethoc_probe(struct platform_device *pdev)
-> +{
-> +	struct net_device *netdev = NULL;
-> +	struct resource *res = NULL;
-> +	struct resource *mmio = NULL;
-> +	struct resource *mem = NULL;
-> +	struct ethoc *priv = NULL;
-> +	unsigned int phy;
-> +	int ret = 0;
-> +
-> +	/* allocate networking device */
-> +	netdev = alloc_etherdev(sizeof(struct ethoc));
-> +	if (!netdev) {
-> +		dev_err(&pdev->dev, "cannot allocate network device\n");
-> +		ret = -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	SET_NETDEV_DEV(netdev, &pdev->dev);
-> +	platform_set_drvdata(pdev, netdev);
-> +
-> +	/* obtain I/O memory space */
-> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	if (!res) {
-> +		dev_err(&pdev->dev, "cannot obtain I/O memory space\n");
-> +		ret = -ENXIO;
-> +		goto free;
-> +	}
-> +
-> +	mmio = devm_request_mem_region(&pdev->dev, res->start,
-> +			res->end - res->start + 1, res->name);
-> +	if (!res) {
-> +		dev_err(&pdev->dev, "cannot request I/O memory space\n");
-> +		ret = -ENXIO;
-> +		goto free;
-> +	}
-> +
-> +	netdev->base_addr = mmio->start;
-> +
-> +	/* obtain buffer memory space */
-> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-> +	if (!res) {
-> +		dev_err(&pdev->dev, "cannot obtain memory space\n");
-> +		ret = -ENXIO;
-> +		goto free;
-> +	}
-> +
-> +	mem = devm_request_mem_region(&pdev->dev, res->start,
-> +			res->end - res->start + 1, res->name);
-> +	if (!mem) {
-> +		dev_err(&pdev->dev, "cannot request memory space\n");
-> +		ret = -ENXIO;
-> +		goto free;
-> +	}
-> +
-> +	netdev->mem_start = mem->start;
-> +	netdev->mem_end   = mem->end;
-> +
-> +	/* obtain device IRQ number */
-> +	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> +	if (!res) {
-> +		dev_err(&pdev->dev, "cannot obtain IRQ\n");
-> +		ret = -ENXIO;
-> +		goto free;
-> +	}
-> +
-> +	netdev->irq = res->start;
-> +
-> +	/* setup driver-private data */
-> +	priv = netdev_priv(netdev);
-> +	priv->netdev = netdev;
-> +
-> +	priv->iobase = devm_ioremap_nocache(&pdev->dev, netdev->base_addr,
-> +			mmio->end - mmio->start + 1);
-> +	if (!priv->iobase) {
-> +		dev_err(&pdev->dev, "cannot remap I/O memory space\n");
-> +		ret = -ENXIO;
-> +		goto error;
-> +	}
-> +
-> +	priv->membase = devm_ioremap_nocache(&pdev->dev, netdev->mem_start,
-> +			mem->end - mem->start + 1);
-> +	if (!priv->membase) {
-> +		dev_err(&pdev->dev, "cannot remap memory space\n");
-> +		ret = -ENXIO;
-> +		goto error;
-> +	}
-> +
-> +	/* Allow the platform setup code to pass in a MAC address. */
-> +	if (pdev->dev.platform_data) {
-> +		struct ethoc_platform_data *pdata =
-> +			(struct ethoc_platform_data *)pdev->dev.platform_data;
-> +		memcpy(netdev->dev_addr, pdata->hwaddr, IFHWADDRLEN);
-> +		priv->phy_id = pdata->phy_id;
-> +	}
-> +
-> +	/* Check that the given MAC address is valid. If it isn't, read the
-> +	 * current MAC from the controller. */
-> +	if (!is_valid_ether_addr(netdev->dev_addr))
-> +		ethoc_get_mac_address(netdev, netdev->dev_addr);
-> +
-> +	/* Check the MAC again for validity, if it still isn't choose and
-> +	 * program a random one. */
-> +	if (!is_valid_ether_addr(netdev->dev_addr))
-> +		random_ether_addr(netdev->dev_addr);
-> +
-> +	ethoc_set_mac_address(netdev, netdev->dev_addr);
-> +
-> +#ifdef CONFIG_MII
-> +	/* register MII bus */
-> +	priv->mdio = mdiobus_alloc();
-> +	if (!priv->mdio) {
-> +		ret = -ENOMEM;
-> +		goto free;
-> +	}
-> +
-> +	priv->mdio->name = "ethoc-mdio";
-> +	snprintf(priv->mdio->id, MII_BUS_ID_SIZE, "%s-%d",
-> +			priv->mdio->name, pdev->id);
-> +	priv->mdio->read = ethoc_mdio_read;
-> +	priv->mdio->write = ethoc_mdio_write;
-> +	priv->mdio->reset = ethoc_mdio_reset;
-> +	priv->mdio->priv = priv;
-> +
-> +	priv->mdio->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-> +	if (!priv->mdio->irq) {
-> +		ret = -ENOMEM;
-> +		goto free_mdio;
-> +	}
-> +
-> +	for (phy = 0; phy < PHY_MAX_ADDR; phy++)
-> +		priv->mdio->irq[phy] = PHY_POLL;
-> +
-> +	ret = mdiobus_register(priv->mdio);
-> +	if (ret) {
-> +		dev_err(&netdev->dev, "failed to register MDIO bus\n");
-> +		goto free_mdio;
-> +	}
-> +
-> +	ret = ethoc_mdio_probe(netdev);
-> +	if (ret) {
-> +		dev_err(&netdev->dev, "failed to probe MDIO bus\n");
-> +		goto error;
-> +	}
-> +#endif /* CONFIG_MII */
-> +
-> +	ether_setup(netdev);
-> +
-> +	/* setup the net_device structure */
-> +	netdev->open = ethoc_open;
-> +	netdev->stop = ethoc_stop;
-> +	netdev->do_ioctl = ethoc_ioctl;
-> +	netdev->set_config = ethoc_config;
-> +	netdev->set_mac_address = ethoc_set_mac_address;
-> +	netdev->set_multicast_list = ethoc_set_multicast_list;
-> +	netdev->change_mtu = ethoc_change_mtu;
-> +	netdev->tx_timeout = ethoc_tx_timeout;
-> +	netdev->get_stats = ethoc_stats;
-> +	netdev->hard_start_xmit = ethoc_start_xmit;
-> +	netdev->watchdog_timeo = ETHOC_TIMEOUT;
-> +	netdev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
-> +
-> +	/* setup NAPI */
-> +	memset(&priv->napi, 0, sizeof(priv->napi));
-> +	netif_napi_add(netdev, &priv->napi, ethoc_poll, 64);
-> +
-> +	spin_lock_init(&priv->rx_lock);
-> +	spin_lock_init(&priv->lock);
-> +
-> +	ret = register_netdev(netdev);
-> +	if (ret < 0) {
-> +		dev_err(&netdev->dev, "failed to register interface\n");
-> +		goto error;
-> +	}
-> +
-> +	goto out;
-> +
-> +error:
-> +	mdiobus_unregister(priv->mdio);
-> +free_mdio:
-> +	kfree(priv->mdio->irq);
-> +	mdiobus_free(priv->mdio);
-> +free:
-> +	free_netdev(netdev);
-> +out:
-> +	return ret;
-> +}
-> +
-> +/**
-> + * ethoc_remove() - shutdown OpenCores ethernet MAC
-> + * @pdev:	platform device
-> + */
-> +static int ethoc_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *netdev = platform_get_drvdata(pdev);
-> +	struct ethoc *priv = netdev_priv(netdev);
-> +
-> +	platform_set_drvdata(pdev, NULL);
-> +
-> +	if (netdev) {
-> +#ifdef CONFIG_MII
-> +		phy_disconnect(priv->phy);
-> +		priv->phy = NULL;
-> +
-> +		if (priv->mdio) {
-> +			mdiobus_unregister(priv->mdio);
-> +			kfree(priv->mdio->irq);
-> +			mdiobus_free(priv->mdio);
-> +		}
-> +#endif
-> +
-> +		unregister_netdev(netdev);
-> +		free_netdev(netdev);
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +#ifdef CONFIG_PM
-> +static int ethoc_suspend(struct platform_device *pdev, pm_message_t state)
-> +{
-> +	return -ENOSYS;
-> +}
-> +
-> +static int ethoc_resume(struct platform_device *pdev)
-> +{
-> +	return -ENOSYS;
-> +}
-> +#else
-> +# define ethoc_suspend NULL
-> +# define ethoc_resume  NULL
-> +#endif
-> +
-> +static struct platform_driver ethoc_driver = {
-> +	.probe   = ethoc_probe,
-> +	.remove  = ethoc_remove,
-> +	.suspend = ethoc_suspend,
-> +	.resume  = ethoc_resume,
-> +	.driver  = {
-> +		.name = "ethoc",
-> +	},
-> +};
-> +
-> +static int __init ethoc_init(void)
-> +{
-> +	return platform_driver_register(&ethoc_driver);
-> +}
-> +
-> +static void __exit ethoc_exit(void)
-> +{
-> +	platform_driver_unregister(&ethoc_driver);
-> +}
-> +
-> +module_init(ethoc_init);
-> +module_exit(ethoc_exit);
-> +
-> +MODULE_AUTHOR("Thierry Reding <thierry.reding@avionic-design.de>");
-> +MODULE_DESCRIPTION("OpenCores Ethernet MAC driver");
-> +MODULE_LICENSE("GPL v2");
-> +
-> diff --git a/include/net/ethoc.h b/include/net/ethoc.h
-> new file mode 100644
-> index 0000000..96f3789
-> --- /dev/null
-> +++ b/include/net/ethoc.h
-> @@ -0,0 +1,22 @@
-> +/*
-> + * linux/include/net/ethoc.h
-> + *
-> + * Copyright (C) 2008-2009 Avionic Design GmbH
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + *
-> + * Written by Thierry Reding <thierry.reding@avionic-design.de>
-> + */
-> +
-> +#ifndef LINUX_NET_ETHOC_H
-> +#define LINUX_NET_ETHOC_H 1
-> +
-> +struct ethoc_platform_data {
-> +	u8 hwaddr[IFHWADDRLEN];
-> +	s8 phy_id;
-> +};
-> +
-> +#endif /* !LINUX_NET_ETHOC_H */
-> +
-> -- 
-> tg: (8e0ee43..) adx/net/ethoc (depends on: adx/master)
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+So with default qhimark being 10000, this means about 10000 conntracks
+can sit in RCU (per CPU) before being really freed.
+
+Only when hitting 10000, RCU enters a special mode to free all queued i=
+tems, instead
+of a small batch of 10
+
+To solve your problem we can :
+
+1) reduce qhimark from 10000 to 1000 (for example)
+   Probably should be done to reduce some spikes in RCU code when freei=
+ng
+   whole 10000 elements...
+OR
+2) change conntrack tunable (max conntrack entries on your machine)
+OR
+3) change net/netfilter/nf_conntrack_core.c to decrement net->ct.count
+  in nf_conntrack_free() instead of callback.
+
+[PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
+
+We use RCU to defer freeing of conntrack structures. In DOS situation, =
+RCU might
+accumulate about 10.000 elements per CPU in its internal queues. To get=
+ accurate
+conntrack counts (at the expense of slightly more RAM used), we might c=
+onsider
+conntrack counter not taking into account "about to be freed elements, =
+waiting
+in RCU queues". We thus decrement it in nf_conntrack_free(), not in the=
+ RCU
+callback.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_connt=
+rack_core.c
+index f4935e3..6478dc7 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -516,16 +516,17 @@ EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
+ static void nf_conntrack_free_rcu(struct rcu_head *head)
+ {
+ 	struct nf_conn *ct =3D container_of(head, struct nf_conn, rcu);
+-	struct net *net =3D nf_ct_net(ct);
+=20
+ 	nf_ct_ext_free(ct);
+ 	kmem_cache_free(nf_conntrack_cachep, ct);
+-	atomic_dec(&net->ct.count);
+ }
+=20
+ void nf_conntrack_free(struct nf_conn *ct)
+ {
++	struct net *net =3D nf_ct_net(ct);
++
+ 	nf_ct_ext_destroy(ct);
++	atomic_dec(&net->ct.count);
+ 	call_rcu(&ct->rcu, nf_conntrack_free_rcu);
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_free);
+
+
+
