@@ -1,108 +1,46 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: ucc_geth: nf_conntrack: table full, dropping packet.
-Date: Tue, 24 Mar 2009 10:12:53 +0100
-Message-ID: <49C8A415.1090606@cosmosbay.com>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] smsc911x: add flag SMSC911X_USE_INTERPHY
+Date: Tue, 24 Mar 2009 02:18:26 -0700 (PDT)
+Message-ID: <20090324.021826.102378372.davem@davemloft.net>
+References: <4e090d470903232347g2b6e91a7o385af2e66f05a936@mail.gmail.com>
+	<20090324075105.GE25436@pengutronix.de>
+	<4e090d470903240136y1b553b10gda626b3a9bb661f5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, avorontsov@ru.mvista.com,
-	netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk, kernel@pengutronix.de
+To: linuxzsc@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48390 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753651AbZCXJNM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 05:13:12 -0400
-In-Reply-To: <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53175
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755569AbZCXJSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 05:18:39 -0400
+In-Reply-To: <4e090d470903240136y1b553b10gda626b3a9bb661f5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund a =E9crit :
-> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 18:49:15:
->> Joakim Tjernlund wrote:
->>> Patrick McHardy <kaber@trash.net> wrote on 23/03/2009 13:29:33:
->>>
->>>
->>>>> There is no /proc/net/netfilter/nf_conntrack. There is a
->>>>> /proc/net/nf_conntrack though and it is empty. If I telnet
->>>>> to the board I see:
->>>>>
->>>> That means that something is leaking conntrack references, most=20
-> likely
->>>> by leaking skbs. Since I haven't seen any other reports, my guess=20
-> would
->>>> be the ucc_geth driver.
->>>>
->>> Mucking around with the ucc_geth driver I found that if I:
->>>  - Move TX from IRQ to NAPI context
->>>  - double the weight.
->>>  - after booting up, wait a few mins until the JFFS2 GC kernel thre=
-ad=20
-> has=20
->>> stopped
->>>    scanning the FS=20
->>>
->>> Then the "nf_conntrack: table full, dropping packet." msgs stops.
->>> Does this seem right to you guys?
->> No. As I said, something seems to be leaking packets. You should be
->> able to confirm that by checking the sk_buff slabs in /proc/slabinfo=
-=2E
->> If that *doesn't* show any signs of a leak, please run "conntrack -E=
-"
->> to capture the conntrack events before the "table full" message
->> appears and post the output.
->=20
-> skbuff does not differ much, but others do
->=20
-> Before ping:
->   skbuff_fclone_cache    0      0    352   11    1 : tunables   54   =
-27 0=20
-> : slabdata      0      0      0
->   skbuff_head_cache     20     20    192   20    1 : tunables  120   =
-60 0=20
-> : slabdata      1      1      0
->   size-64              731    767     64   59    1 : tunables  120   =
-60 0=20
-> : slabdata     13     13      0
->   nf_conntrack          10     19    208   19    1 : tunables  120   =
-60 0=20
-> : slabdata      1      1      0
->=20
-> During ping:=20
->   skbuff_fclone_cache    0      0    352   11    1 : tunables   54   =
-27 0=20
-> : slabdata      0      0      0
->   skbuff_head_cache     40     40    192   20    1 : tunables  120   =
-60 0=20
-> : slabdata      2      2      0
->   size-64             8909   8909     64   59    1 : tunables  120   =
-60 0=20
-> : slabdata    151    151      0
->   nf_conntrack        5111   5111    208   19    1 : tunables  120   =
-60 0=20
-> : slabdata    269    269      0
->=20
-> This feels more like the freeing of conntrack objects are delayed and=
-=20
-> builds up when ping flooding.
->=20
-> Don't have "conntrack -E" for my embedded board so that will have to =
-wait=20
-> a bit longer.
+From: Richard Zhao <linuxzsc@gmail.com>
+Date: Tue, 24 Mar 2009 16:36:08 +0800
 
-I dont understand how your ping can use so many conntrack entries...
+> On Tue, Mar 24, 2009 at 3:51 PM, Sascha Hauer <s.hauer@pengutronix.de> wrote:
+> > Hi Richard,
+> >
+> > On Tue, Mar 24, 2009 at 02:47:25PM +0800, Richard Zhao wrote:
+> >> mx31pdk board don't have external PHY, but it wrongly pull up MDIO.
+> >> So, add flag SMSC911X_USE_INTERPHY to force using internal PHY.
+> >
+> > This patch is outdated. Linux-next already contains a
+> > SMSC911X_FORCE_INTERNAL_PHY for exactly this reason.
+> >
+> > Sascha
+> >
+> Hi Sascha,
+> 
+> Sorry I didn't check linux-next. Do I need always to create mxc
+> patches based on linux-nex?
+> And I don't know why the smsc911x patch commited on Feb 1 on
+> linux-next still not be merged to mainline?
 
-Then, as I said yesterday, I believe you have a RCU delay, because of
-a misbehaving driver or something...
-
-grep RCU .config
-grep CONFIG_SMP .config
-
-You could change qhimark from 10000 to 1000 in kernel/rcuclassic.c (lin=
-e 80)
-as a workaround. It should force a quiescent state after 1000 freed con=
-ntracks.
-
-
+Because it was not a critical regression fix, so it goes
+to net-next-2.6 until the merge window opens up.
