@@ -1,37 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ANNOUNCE] iproute2 v2.6.29
-Date: Tue, 24 Mar 2009 15:34:27 -0700
-Message-ID: <20090324153427.3ff0dfdb@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: The Plan
+Date: Tue, 24 Mar 2009 15:35:06 -0700 (PDT)
+Message-ID: <20090324.153506.44330862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45154
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750771AbZCXWfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 18:35:18 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 7CCF735C12E
+	for <netdev@vger.kernel.org>; Tue, 24 Mar 2009 15:35:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Trying to stay on top of things (for a change).
 
-New version of iproute2 utilities that includes bug fixes and
-support for all the new features in kernel 2.6.29.
+Everything in net-2.6 right now, as well as the final fix
+we come up with for the GRO issue will get sucked into
+net-next-2.6 as well as queued up for -stable.
 
-  http://devresources.linux-foundation.org/dev/iproute2/download/iproute2-2.6.29.tar.bz2
+Everything in patchwork right now will either be merged
+into net-next-2.6 or tossed.
 
-Denys Fedoryschenko (1):
-      Fix memory leak in local options
+I'll likely send my pull request to Linus tomorrow.
 
-Jamal Hadi Salim (1):
-      Breakage noticed when debian upgraded to xtables (iptables > 1.4.1)
-
-Patrick McHardy (1):
-      iproute: add DRR support
-
-Stephen Hemminger (7):
-      fix uninitialized memory in tc_skbedit
-      Add missing limits.h
-      Add DHCP as routing protocol
-      Add support for IFALIAS
-      Handle default hoplimit
-      Use sanatized headers from 2.6.29
-      Update snapshot
+Once that goes in, both net-2.6 and net-next-2.6 will become
+fresh clones of Linus's tree.
