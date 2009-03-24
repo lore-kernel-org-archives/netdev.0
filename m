@@ -1,19 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: Add dependent headers to trace/skb.h
-Date: Tue, 24 Mar 2009 14:25:10 -0700 (PDT)
-Message-ID: <20090324.142510.07294559.davem@davemloft.net>
+Subject: Re: netfilter 07/41: arp_tables: unfold two critical loops in
+ arp_packet_match()
+Date: Tue, 24 Mar 2009 14:25:57 -0700 (PDT)
+Message-ID: <20090324.142557.198996961.davem@davemloft.net>
+References: <alpine.LSU.2.00.0903242215590.26397@fbirervta.pbzchgretzou.qr>
+	<20090324.141848.119353425.davem@davemloft.net>
+	<alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: jistone@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53461
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752665AbZCXVZX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 17:25:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dada1@cosmosbay.com, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: jengelh@medozas.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Jan Engelhardt <jengelh@medozas.de>
+Date: Tue, 24 Mar 2009 22:23:23 +0100 (CET)
 
-Applied, thanks.
+> Is the cost of testing for non-4-divisibility expensive enough
+> to warrant not usnig memcmp?
+
+I think so.  This is the fast path of these things.
+
+> Irrespective of all that, I think putting the interface comparison
+> code should be agglomerated in a function/header so that it is
+> replicated across iptables, ip6tables, ebtables, arptables, etc.
+
+Agreed.
