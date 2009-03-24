@@ -1,80 +1,42 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 10/41: xt_physdev fixes
-Date: Tue, 24 Mar 2009 15:03:20 +0100 (MET)
-Message-ID: <20090324140316.31401.31990.sendpatchset@x2.localnet>
+Subject: netfilter 02/41: remove unneeded goto
+Date: Tue, 24 Mar 2009 15:03:09 +0100 (MET)
+Message-ID: <20090324140305.31401.99275.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34762 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755461AbZCXODX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:23 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 4f1c3b7e7ee4d841c8af3a074dc361d6a7a77803
-Author: Eric Dumazet <dada1@cosmosbay.com>
-Date:   Wed Feb 18 19:11:39 2009 +0100
+commit fecea3a389c89de9afae2eda74fad894d5677229
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Wed Feb 18 16:29:08 2009 +0100
 
-    netfilter: xt_physdev fixes
+    netfilter: remove unneeded goto
     
-    1) physdev_mt() incorrectly assumes nulldevname[] is aligned on an int
-    
-    2) It also uses word comparisons, while it could use long word ones.
-    
-    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-index 1bcdfc1..4b13ef7 100644
---- a/net/netfilter/xt_physdev.c
-+++ b/net/netfilter/xt_physdev.c
-@@ -24,9 +24,9 @@ static bool
- physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
- 	int i;
--	static const char nulldevname[IFNAMSIZ];
-+	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
- 	const struct xt_physdev_info *info = par->matchinfo;
--	bool ret;
-+	unsigned long ret;
- 	const char *indev, *outdev;
- 	const struct nf_bridge_info *nf_bridge;
- 
-@@ -68,10 +68,10 @@ physdev_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
- 		goto match_outdev;
- 	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
--	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
--		ret |= (((const unsigned int *)indev)[i]
--			^ ((const unsigned int *)info->physindev)[i])
--			& ((const unsigned int *)info->in_mask)[i];
-+	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
-+		ret |= (((const unsigned long *)indev)[i]
-+			^ ((const unsigned long *)info->physindev)[i])
-+			& ((const unsigned long *)info->in_mask)[i];
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index a90ac83..5bb3473 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -174,7 +174,6 @@ next_hook:
+ 			     outdev, &elem, okfn, hook_thresh);
+ 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
+ 		ret = 1;
+-		goto unlock;
+ 	} else if (verdict == NF_DROP) {
+ 		kfree_skb(skb);
+ 		ret = -EPERM;
+@@ -183,7 +182,6 @@ next_hook:
+ 			      verdict >> NF_VERDICT_BITS))
+ 			goto next_hook;
  	}
- 
- 	if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
-@@ -82,13 +82,12 @@ match_outdev:
- 		return true;
- 	outdev = nf_bridge->physoutdev ?
- 		 nf_bridge->physoutdev->name : nulldevname;
--	for (i = 0, ret = false; i < IFNAMSIZ/sizeof(unsigned int); i++) {
--		ret |= (((const unsigned int *)outdev)[i]
--			^ ((const unsigned int *)info->physoutdev)[i])
--			& ((const unsigned int *)info->out_mask)[i];
-+	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
-+		ret |= (((const unsigned long *)outdev)[i]
-+			^ ((const unsigned long *)info->physoutdev)[i])
-+			& ((const unsigned long *)info->out_mask)[i];
- 	}
--
--	return ret ^ !(info->invert & XT_PHYSDEV_OP_OUT);
-+	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
+-unlock:
+ 	rcu_read_unlock();
+ 	return ret;
  }
- 
- static bool physdev_mt_check(const struct xt_mtchk_param *par)
