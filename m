@@ -1,31 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Fix irq masking in rtl8169_interrupt()
-Date: Tue, 24 Mar 2009 21:18:19 +0100
-Message-ID: <20090324201819.GA22366@electric-eye.fr.zoreil.com>
-References: <200903172034.55241.fzu@wemgehoertderstaat.de> <20090323224222.GA18951@electric-eye.fr.zoreil.com> <200903240138.32805.fzu@wemgehoertderstaat.de> <200903241454.15853.fzu@wemgehoertderstaat.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers/net/dnet.c needs <linux/io.h>
+Date: Tue, 24 Mar 2009 13:19:59 -0700 (PDT)
+Message-ID: <20090324.131959.233890622.davem@davemloft.net>
+References: <Pine.LNX.4.64.0903242042060.19647@anakin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Rafael Wysocki <rjw@sisk.pl>
-To: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yanok@emcraft.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35864 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753302AbZCXUOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 16:14:41 -0400
-Content-Disposition: inline
-In-Reply-To: <200903241454.15853.fzu@wemgehoertderstaat.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53662
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753951AbZCXUUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 16:20:12 -0400
+In-Reply-To: <Pine.LNX.4.64.0903242042060.19647@anakin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Karsten Wiese <fzu@wemgehoertderstaat.de> :
-[...]
-> patch below helps.
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Tue, 24 Mar 2009 20:43:25 +0100 (CET)
 
-Thanks.
+> On m68k:
+> | drivers/net/dnet.c: In function 'dnet_readw_mac':
+> | drivers/net/dnet.c:36: error: implicit declaration of function 'writel'
+> | drivers/net/dnet.c:43: error: implicit declaration of function 'readl'
+> | drivers/net/dnet.c: In function 'dnet_probe':
+> | drivers/net/dnet.c:873: error: implicit declaration of function 'ioremap'
+> | drivers/net/dnet.c:873: warning: assignment makes pointer from integer without a cast
+> | drivers/net/dnet.c:939: error: implicit declaration of function 'iounmap'
+> 
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-I'll wrap it up without the change to R8169_MSG_DEFAULT:
-- it can be set through ethtool and a module option
-- the current default is not a clear nuisance
-
--- 
-Ueimor
+Applied, thanks!
