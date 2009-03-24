@@ -1,69 +1,30 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] ucc_geth: Fix build breakage caused by a merge
-Date: Tue, 24 Mar 2009 18:37:34 +0300
-Message-ID: <20090324153734.GA8276@oksana.dev.rtsoft.ru>
-References: <382F4B5D-93C4-41BB-A00A-8A6C240CD170@kernel.crashing.org>
-Reply-To: avorontsov@ru.mvista.com
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: network traffic stop with 2.6.29 after ftp put
+Date: Tue, 24 Mar 2009 16:41:49 +0100
+Message-ID: <BAY103-DAV1251BBA7FBA4243359906AB2930@phx.gbl>
+References: <BAY103-DAV683AFCEC466B8F2E6D8EBB2930@phx.gbl> <BAY103-DAV100CC8DA92566937097718B2930@phx.gbl> <49C8C26B.7070802@cosmosbay.com> <BAY103-DAV11986CBE87674225EDC31EB2930@phx.gbl> <49C8E7FF.7020906@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: LinuxPPC Mailing List <linuxppc-dev@ozlabs.org>,
-	Andy Fleming <afleming@freescale.com>,
-	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <382F4B5D-93C4-41BB-A00A-8A6C240CD170@kernel.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
+To: "Eric Dumazet" <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bay0-omc2-s25.bay0.hotmail.com ([65.54.246.161]:22982 "EHLO
+	bay0-omc2-s25.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756576AbZCXPm2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 11:42:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes following build error:
+Eric Dumazet wrote:
 
-  CC      ucc_geth.o
-ucc_geth.c: In function 'ucc_geth_probe':
-ucc_geth.c:3644: error: implicit declaration of function 'uec_mdio_bus_name'
-make[2]: *** [ucc_geth.o] Error 1
+> You probably have the problem Ingo reported on lkml, please try Herbert
+> fix :
+> 
+> http://marc.info/?l=linux-kernel&m=123790184128396&w=2
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
+yes this patch fix the problem.
+Thanks Eric and thanks Herbert.
 
-On Tue, Mar 24, 2009 at 08:15:13AM -0500, Kumar Gala wrote:
-> Anton, Andy
->
-> Can you take a look at the recent net-next tree and make sure that the  
-> merge between the fsl_pq_mdio.c support and the patch that went into  
-> 2.6.29 to fix fixed-link support in ucc_geth.c is correct and still  
-> works.
->
-> See commits:
-> 	Merge branch master... (8be7cdccacfbfc707e7370cad9bb168defed636f)
-> 	ucc_geth: Fix merge error. (039a6f6a39d2aa30ee53afdb213ea6dd4482928b)
-
-Thanks for heads up, there is indeed a small issue.
-
- drivers/net/ucc_geth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 5f866e2..0b67512 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3641,7 +3641,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 		if (err)
- 			return -1;
- 
--		uec_mdio_bus_name(bus_name, mdio);
-+		fsl_pq_mdio_bus_name(bus_name, mdio);
- 		snprintf(ug_info->phy_bus_id, sizeof(ug_info->phy_bus_id),
- 			"%s:%02x", bus_name, *prop);
- 	}
--- 
-1.5.6.5
