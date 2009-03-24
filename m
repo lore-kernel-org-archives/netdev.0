@@ -1,34 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ucc_geth: Convert to net_device_ops
-Date: Tue, 24 Mar 2009 15:49:02 -0700 (PDT)
-Message-ID: <20090324.154902.206324978.davem@davemloft.net>
-References: <OFA0B803BB.DEC93B9A-ONC1257583.0039CF3E-C1257583.003A55BA@transmode.se>
-	<20090324.142209.234280606.davem@davemloft.net>
-	<OF603BDF0B.B740DD77-ONC1257583.007CAD9B-C1257583.007CFD35@transmode.se>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [ANNOUNCE] iproute2 v2.6.29
+Date: Tue, 24 Mar 2009 15:48:18 -0700
+Message-ID: <20090324154818.25833859@nehalam>
+References: <20090324153427.3ff0dfdb@nehalam>
+	<20090324.153822.75287783.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, leoli@freescale.com, netdev@vger.kernel.org
-To: Joakim.Tjernlund@transmode.se
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <OF603BDF0B.B740DD77-ONC1257583.007CAD9B-C1257583.007CFD35@transmode.se>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20090324.153822.75287783.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Date: Tue, 24 Mar 2009 23:45:13 +0100
+On Tue, 24 Mar 2009 15:38:22 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> I don't follow. Are these mandatory now? They were not in the old
-> impl. either.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Tue, 24 Mar 2009 15:34:27 -0700
+> 
+> > Trying to stay on top of things (for a change).
+> > 
+> > New version of iproute2 utilities that includes bug fixes and
+> > support for all the new features in kernel 2.6.29.
+> > 
+> >   http://devresources.linux-foundation.org/dev/iproute2/download/iproute2-2.6.29.tar.bz2
+> 
 
-See ether_setup() which is called indirectly via alloc_etherdev().
+Thanks including <linux/ip.h> fixed that.
 
-Yawn...
+  http://devresources.linux-foundation.org/dev/iproute2/download/iproute2-2.6.29-1.tar.bz2
