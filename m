@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: The Plan
-Date: Tue, 24 Mar 2009 15:48:06 -0700 (PDT)
-Message-ID: <20090324.154806.58768796.davem@davemloft.net>
-References: <20090324.153506.44330862.davem@davemloft.net>
-	<78C9135A3D2ECE4B8162EBDCE82CAD7705122432@nekter>
+Subject: Re: [PATCH] ucc_geth: Convert to net_device_ops
+Date: Tue, 24 Mar 2009 15:49:02 -0700 (PDT)
+Message-ID: <20090324.154902.206324978.davem@davemloft.net>
+References: <OFA0B803BB.DEC93B9A-ONC1257583.0039CF3E-C1257583.003A55BA@transmode.se>
+	<20090324.142209.234280606.davem@davemloft.net>
+	<OF603BDF0B.B740DD77-ONC1257583.007CAD9B-C1257583.007CFD35@transmode.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ramkrishna.Vepa@neterion.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51503
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751298AbZCXWsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 18:48:18 -0400
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705122432@nekter>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, leoli@freescale.com, netdev@vger.kernel.org
+To: Joakim.Tjernlund@transmode.se
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <OF603BDF0B.B740DD77-ONC1257583.007CAD9B-C1257583.007CFD35@transmode.se>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Date: Tue, 24 Mar 2009 18:43:15 -0400
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Tue, 24 Mar 2009 23:45:13 +0100
 
-> We were planning to resubmit the new vxge driver later today to net-2.6.
-> Can we proceed with this plan of action?
+> I don't follow. Are these mandatory now? They were not in the old
+> impl. either.
 
-It's a new driver, so sure.
+See ether_setup() which is called indirectly via alloc_etherdev().
+
+Yawn...
