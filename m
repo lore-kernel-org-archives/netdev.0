@@ -1,74 +1,51 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 23/41: print the list of register loggers
-Date: Tue, 24 Mar 2009 15:03:37 +0100 (MET)
-Message-ID: <20090324140333.31401.13004.sendpatchset@x2.localnet>
+Subject: netfilter 31/41: auto-load ip_queue module when socket opened
+Date: Tue, 24 Mar 2009 15:03:48 +0100 (MET)
+Message-ID: <20090324140344.31401.98568.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34809 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758524AbZCXODu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:50 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit c7a913cd5535554d6f5d5e1f5ef46c4307cf2afc
-Author: Eric Leblond <eric@inl.fr>
-Date:   Mon Mar 16 14:55:27 2009 +0100
+commit 95ba434f898c3cb5c7457dce265bf0ab72ba8ce9
+Author: Scott James Remnant <scott@canonical.com>
+Date:   Mon Mar 16 15:31:10 2009 +0100
 
-    netfilter: print the list of register loggers
+    netfilter: auto-load ip_queue module when socket opened
     
-    This patch modifies the proc output to add display of registered
-    loggers. The content of /proc/net/netfilter/nf_log is modified. Instead
-    of displaying a protocol per line with format:
-    	proto:logger
-    it now displays:
-    	proto:logger (comma_separated_list_of_loggers)
-    NONE is used as keyword if no logger is used.
+    The ip_queue module is missing the net-pf-16-proto-3 alias that would
+    causae it to be auto-loaded when a socket of that type is opened.  This
+    patch adds the alias.
     
-    Signed-off-by: Eric Leblond <eric@inl.fr>
+    Signed-off-by: Scott James Remnant <scott@canonical.com>
+    Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index a228b5f..4fcbcc7 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -154,13 +154,37 @@ static int seq_show(struct seq_file *s, void *v)
- {
- 	loff_t *pos = v;
- 	const struct nf_logger *logger;
-+	struct nf_logger *t;
-+	int ret;
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 432ce9d..5f22c91 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -24,6 +24,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/security.h>
++#include <linux/net.h>
+ #include <linux/mutex.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+@@ -640,6 +641,7 @@ static void __exit ip_queue_fini(void)
+ MODULE_DESCRIPTION("IPv4 packet queue handler");
+ MODULE_AUTHOR("James Morris <jmorris@intercode.com.au>");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_FIREWALL);
  
- 	logger = rcu_dereference(nf_loggers[*pos]);
- 
- 	if (!logger)
--		return seq_printf(s, "%2lld NONE\n", *pos);
-+		ret = seq_printf(s, "%2lld NONE (", *pos);
-+	else
-+		ret = seq_printf(s, "%2lld %s (", *pos, logger->name);
-+
-+	if (ret < 0)
-+		return ret;
-+
-+	mutex_lock(&nf_log_mutex);
-+	list_for_each_entry(t, &nf_loggers_l[*pos], list[*pos]) {
-+		ret = seq_printf(s, "%s", t->name);
-+		if (ret < 0) {
-+			mutex_unlock(&nf_log_mutex);
-+			return ret;
-+		}
-+		if (&t->list[*pos] != nf_loggers_l[*pos].prev) {
-+			ret = seq_printf(s, ",");
-+			if (ret < 0) {
-+				mutex_unlock(&nf_log_mutex);
-+				return ret;
-+			}
-+		}
-+	}
-+	mutex_unlock(&nf_log_mutex);
- 
--	return seq_printf(s, "%2lld %s\n", *pos, logger->name);
-+	return seq_printf(s, ")\n");
- }
- 
- static const struct seq_operations nflog_seq_ops = {
+ module_init(ip_queue_init);
+ module_exit(ip_queue_fini);
