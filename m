@@ -1,41 +1,80 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 26/41: conntrack: increase drop stats if sequence adjustment fails
-Date: Tue, 24 Mar 2009 15:03:41 +0100 (MET)
-Message-ID: <20090324140337.31401.64697.sendpatchset@x2.localnet>
+Subject: netfilter 16/41: fix hardcoded size assumptions
+Date: Tue, 24 Mar 2009 15:03:28 +0100 (MET)
+Message-ID: <20090324140324.31401.4625.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:34780 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758177AbZCXODb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 10:03:31 -0400
 In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 1db7a748dfd50d7615913730763c024444900030
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Mon Mar 16 15:18:50 2009 +0100
+commit af07d241dc76f0a52c7ff04df3a3970020fe6157
+Author: Hagen Paul Pfeifer <hagen@jauu.net>
+Date:   Fri Feb 20 10:48:06 2009 +0100
 
-    netfilter: conntrack: increase drop stats if sequence adjustment fails
+    netfilter: fix hardcoded size assumptions
     
-    This patch increases the statistics of packets drop if the sequence
-    adjustment fails in ipv4_confirm().
+    get_random_bytes() is sometimes called with a hard coded size assumption
+    of an integer. This could not be true for next centuries. This patch
+    replace it with a compile time statement.
     
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 4beb04f..8b681f2 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -120,8 +120,10 @@ static unsigned int ipv4_confirm(unsigned int hooknum,
- 		typeof(nf_nat_seq_adjust_hook) seq_adjust;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index f3aa4e6..2235432 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -472,7 +472,8 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
+ 	struct nf_conn *ct;
  
- 		seq_adjust = rcu_dereference(nf_nat_seq_adjust_hook);
--		if (!seq_adjust || !seq_adjust(skb, ct, ctinfo))
-+		if (!seq_adjust || !seq_adjust(skb, ct, ctinfo)) {
-+			NF_CT_STAT_INC_ATOMIC(nf_ct_net(ct), drop);
- 			return NF_DROP;
-+		}
+ 	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+-		get_random_bytes(&nf_conntrack_hash_rnd, 4);
++		get_random_bytes(&nf_conntrack_hash_rnd,
++				sizeof(nf_conntrack_hash_rnd));
+ 		nf_conntrack_hash_rnd_initted = 1;
  	}
- out:
- 	/* We've seen it coming out the other side: confirm it */
+ 
+@@ -1103,7 +1104,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ 
+ 	/* We have to rehahs for the new table anyway, so we also can
+ 	 * use a newrandom seed */
+-	get_random_bytes(&rnd, 4);
++	get_random_bytes(&rnd, sizeof(rnd));
+ 
+ 	/* Lookups in the old hash might happen in parallel, which means we
+ 	 * might get false negatives during connection lookup. New connections
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 3a8a34a..357ba39 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -72,7 +72,8 @@ static unsigned int nf_ct_expect_dst_hash(const struct nf_conntrack_tuple *tuple
+ 	unsigned int hash;
+ 
+ 	if (unlikely(!nf_ct_expect_hash_rnd_initted)) {
+-		get_random_bytes(&nf_ct_expect_hash_rnd, 4);
++		get_random_bytes(&nf_ct_expect_hash_rnd,
++				 sizeof(nf_ct_expect_hash_rnd));
+ 		nf_ct_expect_hash_rnd_initted = 1;
+ 	}
+ 
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index f97fded..2482055 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -149,7 +149,7 @@ dsthash_alloc_init(struct xt_hashlimit_htable *ht,
+ 	/* initialize hash with random val at the time we allocate
+ 	 * the first hashtable entry */
+ 	if (!ht->rnd_initialized) {
+-		get_random_bytes(&ht->rnd, 4);
++		get_random_bytes(&ht->rnd, sizeof(ht->rnd));
+ 		ht->rnd_initialized = 1;
+ 	}
+ 
