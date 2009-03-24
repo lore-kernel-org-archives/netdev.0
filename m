@@ -1,69 +1,55 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: netfilter 07/41: arp_tables: unfold two critical loops in arp_packet_match()
-Date: Tue, 24 Mar 2009 22:39:10 +0100
-Message-ID: <49C952FE.7070202@cosmosbay.com>
-References: <20090324.132954.148903398.davem@davemloft.net> <49C94B6A.5020304@cosmosbay.com> <alpine.LSU.2.00.0903242215590.26397@fbirervta.pbzchgretzou.qr> <20090324.141848.119353425.davem@davemloft.net> <alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: BUG in 2.6.29 final: broken network connection
+Date: Tue, 24 Mar 2009 22:45:36 +0100
+Message-ID: <20090324214536.GA29509@elte.hu>
+References: <200903241812.14577.sinter.salt@gmx.de> <200903241918.29929.sinter.salt@gmx.de> <20090324194254.GB26930@elte.hu> <200903242149.59640.sinter.salt@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Jan Engelhardt a =E9crit :
-> On Tuesday 2009-03-24 22:18, David Miller wrote:
->>>> Arches without efficient unaligned access can still perform a loop
->>>> assuming 16bit alignment in ifname_compare()
->>> Allow me some skepticism, but the code looks pretty much like a
->>> standard memcmp.
->> memcmp() can't make any assumptions about alignment.
->> Whereas we _know_ this thing is exactly 16-bit aligned.
->>
->> All of the optimized memcmp() implementations look for
->> 32-bit alignment and punt to byte at a time comparison
->> loops if things are not aligned enough.
->=20
-> Yes, I seem to remember glibc doing something like
->=20
->  if ((addr & 0x03) !=3D 0) {
->      // process single bytes (increment addr as you go)
->      // until addr & 0x03 =3D=3D 0.
->  }
->=20
->  /* optimized loop here. also increases addr */
->=20
->  if ((addr & 0x03) !=3D 0)
->      // still bytes left after loop - process on a per-byte basis
->=20
-> Is the cost of testing for non-4-divisibility expensive enough
-> to warrant not usnig memcmp?
->=20
-> Irrespective of all that, I think putting the interface comparison
-> code should be agglomerated in a function/header so that it is
-> replicated across iptables, ip6tables, ebtables, arptables, etc.
-
-memcmp() is fine, but how is it solving the masking problem we have ?
-
-Also in the case of arp_tables, _a is long word aligned, while _b and _=
-mask are not.
-
-memcmp() in this case is slower, (and dont handle mask thing)
-
-If you look various ifname_compare(), we have two different implementat=
-ions.
-
-So yes, a factorization is possible for three ip_tables.c, ip6_tables.c=
- and xt_physdev.c
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: sinter <sinter.salt@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:44707 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753160AbZCXVpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 17:45:51 -0400
+Content-Disposition: inline
+In-Reply-To: <200903242149.59640.sinter.salt@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+* sinter <sinter.salt@gmx.de> wrote:
 
+> > And there's an easy solution for you in any case: you can wait 
+> > for .29.1 which i'm sure will be out quickly.
+> 
+> And what top-class advice would you give me if I would have found 
+> that serious bug in .29.8 or in .29.9? Due to your answer every 
+> shit is possible and nothing is impossible, or did I get something 
+> wrong?
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You got it exactly right.
+
+This world is ruled by probabilities, and generally everything is 
+possible - even a bug slipping into a .0 release that you could 
+trigger personally, even though -rc1 through -rc8 worked just fine 
+for you.
+
+Such things happened before, and they can happen again. Yes, it can 
+hit you - and it did hit me too and i'm not complaining.
+
+We still try our best to reduce the probabilities. We cannot, 
+however, unfortunately, bring them down to zero. The fix looked 
+reasonable and the justification of it fixing a live crash looked 
+reasonable too.
+
+What we can do, and what we did do, was to provide people (you 
+included) with a fix within 12 hours after the code having been 
+released.
+
+That's the deal really.
+
+	Ingo
