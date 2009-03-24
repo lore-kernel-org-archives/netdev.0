@@ -1,53 +1,97 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] conntrack: Reduce conntrack count in	nf_conntrack_free()
-Date: Tue, 24 Mar 2009 19:29:03 +0100
-Message-ID: <OFD3FEDA47.35EA7C76-ONC1257583.00655DA0-C1257583.00658959@transmode.se>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>	 <49C77D71.8090709@trash.net>
-	 <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>
-	 <49C780AD.70704@trash.net>	 <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se>
-	 <49C7CB9B.1040409@trash.net>	 <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>
-	 <49C8A415.1090606@cosmosbay.com>	 <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>
-	 <49C8CCF4.5050104@cosmosbay.com> <1237907850.12351.80.camel@sakura.staff.proxad.net>
+From: david@lang.hm
+Subject: Re: Network Device Naming mechanism and policy
+Date: Tue, 24 Mar 2009 11:49:26 -0700 (PDT)
+Message-ID: <alpine.DEB.1.10.0903241140530.16753@asgard.lang.hm>
+References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: avorontsov@ru.mvista.com, Eric Dumazet <dada1@cosmosbay.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: mbizon@freebox.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:33409 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755496AbZCXS3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 14:29:08 -0400
-In-Reply-To: <1237907850.12351.80.camel@sakura.staff.proxad.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760247AbZCXSty@vger.kernel.org>
+In-Reply-To: <20090324154617.GA16332@auslistsprd01.us.dell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Maxime Bizon <mbizon@freebox.fr> wrote on 24/03/2009 16:17:30:
-> 
-> 
-> On Tue, 2009-03-24 at 13:07 +0100, Eric Dumazet wrote:
-> 
-> Hi Eric,
-> 
-> > We use RCU to defer freeing of conntrack structures. In DOS situation,
-> > RCU might accumulate about 10.000 elements per CPU in its internal
-> > queues. To get accurate conntrack counts (at the expense of slightly
-> > more RAM used), we might consider conntrack counter not taking into
-> > account "about to be freed elements, waiting in RCU queues". We thus
-> > decrement it in nf_conntrack_free(), not in the RCU callback.
-> 
-> Your patch fixes the problem on my board too (embedded mips router
-> 250Mhz), thanks.
-> 
-> Yet I'm concerned about what you said concerning RAM usage. I have a
-> very small amount on memory left on my board (less than 4M), and I tuned
-> ip route cache size and nf_conntrack_max to make sure I won't go OOM.
-> 
-> With your patch, does it mean 10000 conntrack entries can be allocated
-> while nf_conntrack_max is say only 2048 ?
+On Tue, 24 Mar 2009, Matt Domsch wrote:
 
-Just add "rcuclassic.qhimark=2048" to your cmdline.
+> You may recall http://lkml.org/lkml/2006/9/29/268, wherein I described
+> network device enumeration and naming challenges, and several possible
+> fixes.  Of these, Fix #1 (fix the PCI device list to be sorted
+> breadth-first) has been implemented in the kernel, and Fix #3 (system
+> board routing rules) have been implemented on Dell PowerEdge 10G and
+> 11G servers (11G begin selling RSN).
+>
+> However, these have not been completely satisfactory.  In particular,
+> it keeps getting harder and harder to route PCI-Express lanes to
+> guarantee the same ordering between a depth-first and breadth-first
+> walk, and it turns out, that isn't sufficient anyhow.
+>
+>
+> Problem:  Users expect on-motherboard NICs to be named eth0..ethN.  This can be difficult to achieve.
 
- Jocke
+I dispute this statement.
 
+I have several hundred servers that have the on-motherboard NICs as the 
+last ones.
+
+anyone who's been making the assumption you describe will have been 
+running into problems for many years.
+
+it's just not a valid assumption.
+
+> Ethernet device names are initially assigned by the kernel, and may be
+> changed by udev or nameif in userspace.  The initial name assigned by
+> the kernel is in monotonically increasing order, starting with eth0.
+> In this instance, the enumeration directly leads to an assigned name.
+>
+> Complications:
+>
+> 1) Devices are discovered, and presented to the kernel for name
+>   assignment, based on several factors:
+>
+>   a) the kernel hotplug mechanism emits events for udev to catch, to
+>
+>
+>   b) udev may run modprobes in parallel.  It guarantees that the
+>
+>      To get any consistent ordering now, one of two things must
+>      happen:
+>
+>      i) drivers must be loaded before udev begins loading drivers
+>         (either very early in initscripts, or in the inital ramdisk).
+>     ii) something must "fix up" the kernel-assigned names after
+>         udev's modprobes complete.  udev does this as well.
+>
+> 2) udev may have rules to change the device names.  This is most often
+>   seen in the '70-persistent-net.rules' file.  Here we have
+>   additional challenges:
+>
+>   a) this does not exist the first time devices are discovered; the
+>
+>   b) it introduces state (MAC addresses) to the system, on a system
+>
+>   c) udev may not always be able to change a device's name.  If udev
+>
+
+not everyone uses udev. I compile the nessasary drivers into the kernel 
+and don't need udev to get interfaces.
+
+> 3) End users have the (reasonable?) expectation that NIC ports
+
+as noted above, only some users have this unrealistic expectation.
+
+> 4) When adding a network card to an existing system, what should the
+>   ports on the new card be named?  If it is added, they will be named
+>   ethN+1... above the existing named cards.  This means a (new)
+>   add-in card in PCI slot 3 may have ports named eth5 and eth6, while
+>   an add-in card in PCI slot 5 may have ports named eth2 and eth3.
+>   This is not intuitive.
+
+this approach causes serious problems in a few cases, including
+
+1. a NIC goes bad and you replace it. now all the configs change
+
+2. you reinstall a box and it's interface names change.
+
+David Lang
