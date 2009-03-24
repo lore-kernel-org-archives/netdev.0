@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 32/41: xtables: avoid pointer to self
-Date: Tue, 24 Mar 2009 15:03:49 +0100 (MET)
-Message-ID: <20090324140345.31401.2706.sendpatchset@x2.localnet>
+Subject: netfilter 35/41: xtables: add cluster match
+Date: Tue, 24 Mar 2009 15:03:53 +0100 (MET)
+Message-ID: <20090324140349.31401.91299.sendpatchset@x2.localnet>
 References: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,328 +11,309 @@ In-Reply-To: <20090324140302.31401.37732.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit acc738fec03bdaa5b77340c32a82fbfedaaabef0
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Mon Mar 16 15:35:29 2009 +0100
+commit 0269ea4937343536ec7e85649932bc8c9686ea78
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Mon Mar 16 17:10:36 2009 +0100
 
-    netfilter: xtables: avoid pointer to self
+    netfilter: xtables: add cluster match
     
-    Commit 784544739a25c30637397ace5489eeb6e15d7d49 (netfilter: iptables:
-    lock free counters) broke a number of modules whose rule data referenced
-    itself. A reallocation would not reestablish the correct references, so
-    it is best to use a separate struct that does not fall under RCU.
+    This patch adds the iptables cluster match. This match can be used
+    to deploy gateway and back-end load-sharing clusters. The cluster
+    can be composed of 32 nodes maximum (although I have only tested
+    this with two nodes, so I cannot tell what is the real scalability
+    limit of this solution in terms of cluster nodes).
     
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+    Assuming that all the nodes see all packets (see below for an
+    example on how to do that if your switch does not allow this), the
+    cluster match decides if this node has to handle a packet given:
+    
+    	(jhash(source IP) % total_nodes) & node_mask
+    
+    For related connections, the master conntrack is used. The following
+    is an example of its use to deploy a gateway cluster composed of two
+    nodes (where this is the node 1):
+    
+    iptables -I PREROUTING -t mangle -i eth1 -m cluster \
+    	--cluster-total-nodes 2 --cluster-local-node 1 \
+    	--cluster-proc-name eth1 -j MARK --set-mark 0xffff
+    iptables -A PREROUTING -t mangle -i eth1 \
+    	-m mark ! --mark 0xffff -j DROP
+    iptables -A PREROUTING -t mangle -i eth2 -m cluster \
+    	--cluster-total-nodes 2 --cluster-local-node 1 \
+    	--cluster-proc-name eth2 -j MARK --set-mark 0xffff
+    iptables -A PREROUTING -t mangle -i eth2 \
+    	-m mark ! --mark 0xffff -j DROP
+    
+    And the following commands to make all nodes see the same packets:
+    
+    ip maddr add 01:00:5e:00:01:01 dev eth1
+    ip maddr add 01:00:5e:00:01:02 dev eth2
+    arptables -I OUTPUT -o eth1 --h-length 6 \
+    	-j mangle --mangle-mac-s 01:00:5e:00:01:01
+    arptables -I INPUT -i eth1 --h-length 6 \
+    	--destination-mac 01:00:5e:00:01:01 \
+    	-j mangle --mangle-mac-d 00:zz:yy:xx:5a:27
+    arptables -I OUTPUT -o eth2 --h-length 6 \
+    	-j mangle --mangle-mac-s 01:00:5e:00:01:02
+    arptables -I INPUT -i eth2 --h-length 6 \
+    	--destination-mac 01:00:5e:00:01:02 \
+    	-j mangle --mangle-mac-d 00:zz:yy:xx:5a:27
+    
+    In the case of TCP connections, pickup facility has to be disabled
+    to avoid marking TCP ACK packets coming in the reply direction as
+    valid.
+    
+    echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
+    
+    BTW, some final notes:
+    
+     * This match mangles the skbuff pkt_type in case that it detects
+    PACKET_MULTICAST for a non-multicast address. This may be done in
+    a PKTTYPE target for this sole purpose.
+     * This match supersedes the CLUSTERIP target.
+    
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter/xt_limit.h b/include/linux/netfilter/xt_limit.h
-index b3ce653..fda222c 100644
---- a/include/linux/netfilter/xt_limit.h
-+++ b/include/linux/netfilter/xt_limit.h
-@@ -4,6 +4,8 @@
- /* timings are in milliseconds. */
- #define XT_LIMIT_SCALE 10000
- 
-+struct xt_limit_priv;
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index 947b47d..af9d2fb 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -21,6 +21,7 @@ header-y += xt_connbytes.h
+ header-y += xt_connlimit.h
+ header-y += xt_connmark.h
+ header-y += xt_conntrack.h
++header-y += xt_cluster.h
+ header-y += xt_dccp.h
+ header-y += xt_dscp.h
+ header-y += xt_esp.h
+diff --git a/include/linux/netfilter/xt_cluster.h b/include/linux/netfilter/xt_cluster.h
+new file mode 100644
+index 0000000..5e0a0d0
+--- /dev/null
++++ b/include/linux/netfilter/xt_cluster.h
+@@ -0,0 +1,15 @@
++#ifndef _XT_CLUSTER_MATCH_H
++#define _XT_CLUSTER_MATCH_H
 +
- /* 1/10,000 sec period => max of 10,000/sec.  Min rate is then 429490
-    seconds, or one every 59 hours. */
- struct xt_rateinfo {
-@@ -11,11 +13,10 @@ struct xt_rateinfo {
- 	u_int32_t burst;  /* Period multiplier for upper limit. */
- 
- 	/* Used internally by the kernel */
--	unsigned long prev;
--	u_int32_t credit;
-+	unsigned long prev; /* moved to xt_limit_priv */
-+	u_int32_t credit; /* moved to xt_limit_priv */
- 	u_int32_t credit_cap, cost;
- 
--	/* Ugly, ugly fucker. */
--	struct xt_rateinfo *master;
-+	struct xt_limit_priv *master;
- };
- #endif /*_XT_RATE_H*/
-diff --git a/include/linux/netfilter/xt_quota.h b/include/linux/netfilter/xt_quota.h
-index 4c8368d..8dc89df 100644
---- a/include/linux/netfilter/xt_quota.h
-+++ b/include/linux/netfilter/xt_quota.h
-@@ -6,13 +6,15 @@ enum xt_quota_flags {
- };
- #define XT_QUOTA_MASK		0x1
- 
-+struct xt_quota_priv;
-+
- struct xt_quota_info {
- 	u_int32_t		flags;
- 	u_int32_t		pad;
- 
- 	/* Used internally by the kernel */
- 	aligned_u64		quota;
--	struct xt_quota_info	*master;
-+	struct xt_quota_priv	*master;
- };
- 
- #endif /* _XT_QUOTA_H */
-diff --git a/include/linux/netfilter/xt_statistic.h b/include/linux/netfilter/xt_statistic.h
-index 3d38bc9..8f521ab 100644
---- a/include/linux/netfilter/xt_statistic.h
-+++ b/include/linux/netfilter/xt_statistic.h
-@@ -13,6 +13,8 @@ enum xt_statistic_flags {
- };
- #define XT_STATISTIC_MASK		0x1
- 
-+struct xt_statistic_priv;
-+
- struct xt_statistic_info {
- 	u_int16_t			mode;
- 	u_int16_t			flags;
-@@ -23,11 +25,10 @@ struct xt_statistic_info {
- 		struct {
- 			u_int32_t	every;
- 			u_int32_t	packet;
--			/* Used internally by the kernel */
--			u_int32_t	count;
-+			u_int32_t	count; /* unused */
- 		} nth;
- 	} u;
--	struct xt_statistic_info	*master __attribute__((aligned(8)));
-+	struct xt_statistic_priv *master __attribute__((aligned(8)));
- };
- 
- #endif /* _XT_STATISTIC_H */
-diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
-index c908d69..2e8089e 100644
---- a/net/netfilter/xt_limit.c
-+++ b/net/netfilter/xt_limit.c
-@@ -14,6 +14,11 @@
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_limit.h>
- 
-+struct xt_limit_priv {
-+	unsigned long prev;
-+	uint32_t credit;
++enum xt_cluster_flags {
++	XT_CLUSTER_F_INV	= (1 << 0)
 +};
 +
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Herve Eychenne <rv@wallfire.org>");
- MODULE_DESCRIPTION("Xtables: rate-limit match");
-@@ -60,18 +65,18 @@ static DEFINE_SPINLOCK(limit_lock);
- static bool
- limit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
--	struct xt_rateinfo *r =
--		((const struct xt_rateinfo *)par->matchinfo)->master;
-+	const struct xt_rateinfo *r = par->matchinfo;
-+	struct xt_limit_priv *priv = r->master;
- 	unsigned long now = jiffies;
- 
- 	spin_lock_bh(&limit_lock);
--	r->credit += (now - xchg(&r->prev, now)) * CREDITS_PER_JIFFY;
--	if (r->credit > r->credit_cap)
--		r->credit = r->credit_cap;
-+	priv->credit += (now - xchg(&priv->prev, now)) * CREDITS_PER_JIFFY;
-+	if (priv->credit > r->credit_cap)
-+		priv->credit = r->credit_cap;
- 
--	if (r->credit >= r->cost) {
-+	if (priv->credit >= r->cost) {
- 		/* We're not limited. */
--		r->credit -= r->cost;
-+		priv->credit -= r->cost;
- 		spin_unlock_bh(&limit_lock);
- 		return true;
- 	}
-@@ -95,6 +100,7 @@ user2credits(u_int32_t user)
- static bool limit_mt_check(const struct xt_mtchk_param *par)
- {
- 	struct xt_rateinfo *r = par->matchinfo;
-+	struct xt_limit_priv *priv;
- 
- 	/* Check for overflow. */
- 	if (r->burst == 0
-@@ -104,19 +110,30 @@ static bool limit_mt_check(const struct xt_mtchk_param *par)
- 		return false;
- 	}
- 
--	/* For SMP, we only want to use one set of counters. */
--	r->master = r;
-+	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
-+	if (priv == NULL)
-+		return -ENOMEM;
++struct xt_cluster_match_info {
++	u_int32_t		total_nodes;
++	u_int32_t		node_mask;
++	u_int32_t		hash_seed;
++	u_int32_t		flags;
++};
 +
-+	/* For SMP, we only want to use one set of state. */
-+	r->master = priv;
- 	if (r->cost == 0) {
- 		/* User avg in seconds * XT_LIMIT_SCALE: convert to jiffies *
- 		   128. */
--		r->prev = jiffies;
--		r->credit = user2credits(r->avg * r->burst);	 /* Credits full. */
-+		priv->prev = jiffies;
-+		priv->credit = user2credits(r->avg * r->burst); /* Credits full. */
- 		r->credit_cap = user2credits(r->avg * r->burst); /* Credits full. */
- 		r->cost = user2credits(r->avg);
- 	}
- 	return true;
- }
++#endif /* _XT_CLUSTER_MATCH_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index cdbaaff..2562d05 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -527,6 +527,22 @@ config NETFILTER_XT_TARGET_TCPOPTSTRIP
+ 	  This option adds a "TCPOPTSTRIP" target, which allows you to strip
+ 	  TCP options from TCP packets.
  
-+static void limit_mt_destroy(const struct xt_mtdtor_param *par)
++config NETFILTER_XT_MATCH_CLUSTER
++	tristate '"cluster" match support'
++	depends on NF_CONNTRACK
++	depends on NETFILTER_ADVANCED
++	---help---
++	  This option allows you to build work-load-sharing clusters of
++	  network servers/stateful firewalls without having a dedicated
++	  load-balancing router/server/switch. Basically, this match returns
++	  true when the packet must be handled by this cluster node. Thus,
++	  all nodes see all packets and this match decides which node handles
++	  what packets. The work-load sharing algorithm is based on source
++	  address hashing.
++
++	  If you say Y or M here, try `iptables -m cluster --help` for
++	  more information.
++
+ config NETFILTER_XT_MATCH_COMMENT
+ 	tristate  '"comment" match support'
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 7a9b839..6282060 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -59,6 +59,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_TCPOPTSTRIP) += xt_TCPOPTSTRIP.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_TRACE) += xt_TRACE.o
+ 
+ # matches
++obj-$(CONFIG_NETFILTER_XT_MATCH_CLUSTER) += xt_cluster.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_CONNBYTES) += xt_connbytes.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_CONNLIMIT) += xt_connlimit.o
+diff --git a/net/netfilter/xt_cluster.c b/net/netfilter/xt_cluster.c
+new file mode 100644
+index 0000000..ad5bd89
+--- /dev/null
++++ b/net/netfilter/xt_cluster.c
+@@ -0,0 +1,164 @@
++/*
++ * (C) 2008-2009 Pablo Neira Ayuso <pablo@netfilter.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/jhash.h>
++#include <linux/ip.h>
++#include <net/ipv6.h>
++
++#include <linux/netfilter/x_tables.h>
++#include <net/netfilter/nf_conntrack.h>
++#include <linux/netfilter/xt_cluster.h>
++
++static inline u_int32_t nf_ct_orig_ipv4_src(const struct nf_conn *ct)
 +{
-+	const struct xt_rateinfo *info = par->matchinfo;
-+
-+	kfree(info->master);
++	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
 +}
 +
- #ifdef CONFIG_COMPAT
- struct compat_xt_rateinfo {
- 	u_int32_t avg;
-@@ -167,6 +184,7 @@ static struct xt_match limit_mt_reg __read_mostly = {
- 	.family           = NFPROTO_UNSPEC,
- 	.match            = limit_mt,
- 	.checkentry       = limit_mt_check,
-+	.destroy          = limit_mt_destroy,
- 	.matchsize        = sizeof(struct xt_rateinfo),
- #ifdef CONFIG_COMPAT
- 	.compatsize       = sizeof(struct compat_xt_rateinfo),
-diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
-index c84fce5..01dd07b 100644
---- a/net/netfilter/xt_quota.c
-+++ b/net/netfilter/xt_quota.c
-@@ -9,6 +9,10 @@
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_quota.h>
- 
-+struct xt_quota_priv {
-+	uint64_t quota;
-+};
-+
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Sam Johnston <samj@samj.net>");
- MODULE_DESCRIPTION("Xtables: countdown quota match");
-@@ -20,18 +24,20 @@ static DEFINE_SPINLOCK(quota_lock);
- static bool
- quota_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
--	struct xt_quota_info *q =
--		((const struct xt_quota_info *)par->matchinfo)->master;
-+	struct xt_quota_info *q = (void *)par->matchinfo;
-+	struct xt_quota_priv *priv = q->master;
- 	bool ret = q->flags & XT_QUOTA_INVERT;
- 
- 	spin_lock_bh(&quota_lock);
--	if (q->quota >= skb->len) {
--		q->quota -= skb->len;
-+	if (priv->quota >= skb->len) {
-+		priv->quota -= skb->len;
- 		ret = !ret;
- 	} else {
- 		/* we do not allow even small packets from now on */
--		q->quota = 0;
-+		priv->quota = 0;
- 	}
-+	/* Copy quota back to matchinfo so that iptables can display it */
-+	q->quota = priv->quota;
- 	spin_unlock_bh(&quota_lock);
- 
- 	return ret;
-@@ -43,17 +49,28 @@ static bool quota_mt_check(const struct xt_mtchk_param *par)
- 
- 	if (q->flags & ~XT_QUOTA_MASK)
- 		return false;
--	/* For SMP, we only want to use one set of counters. */
--	q->master = q;
-+
-+	q->master = kmalloc(sizeof(*q->master), GFP_KERNEL);
-+	if (q->master == NULL)
-+		return -ENOMEM;
-+
- 	return true;
- }
- 
-+static void quota_mt_destroy(const struct xt_mtdtor_param *par)
++static inline const void *nf_ct_orig_ipv6_src(const struct nf_conn *ct)
 +{
-+	const struct xt_quota_info *q = par->matchinfo;
-+
-+	kfree(q->master);
++	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip6;
 +}
 +
- static struct xt_match quota_mt_reg __read_mostly = {
- 	.name       = "quota",
- 	.revision   = 0,
- 	.family     = NFPROTO_UNSPEC,
- 	.match      = quota_mt,
- 	.checkentry = quota_mt_check,
-+	.destroy    = quota_mt_destroy,
- 	.matchsize  = sizeof(struct xt_quota_info),
- 	.me         = THIS_MODULE,
- };
-diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
-index 0d75141..d8c0f8f 100644
---- a/net/netfilter/xt_statistic.c
-+++ b/net/netfilter/xt_statistic.c
-@@ -16,6 +16,10 @@
- #include <linux/netfilter/xt_statistic.h>
- #include <linux/netfilter/x_tables.h>
- 
-+struct xt_statistic_priv {
-+	uint32_t count;
-+};
++static inline u_int32_t
++xt_cluster_hash_ipv4(u_int32_t ip, const struct xt_cluster_match_info *info)
++{
++	return jhash_1word(ip, info->hash_seed);
++}
 +
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
- MODULE_DESCRIPTION("Xtables: statistics-based matching (\"Nth\", random)");
-@@ -27,7 +31,7 @@ static DEFINE_SPINLOCK(nth_lock);
- static bool
- statistic_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
--	struct xt_statistic_info *info = (void *)par->matchinfo;
-+	const struct xt_statistic_info *info = par->matchinfo;
- 	bool ret = info->flags & XT_STATISTIC_INVERT;
- 
- 	switch (info->mode) {
-@@ -36,10 +40,9 @@ statistic_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 			ret = !ret;
- 		break;
- 	case XT_STATISTIC_MODE_NTH:
--		info = info->master;
- 		spin_lock_bh(&nth_lock);
--		if (info->u.nth.count++ == info->u.nth.every) {
--			info->u.nth.count = 0;
-+		if (info->master->count++ == info->u.nth.every) {
-+			info->master->count = 0;
- 			ret = !ret;
- 		}
- 		spin_unlock_bh(&nth_lock);
-@@ -56,16 +59,31 @@ static bool statistic_mt_check(const struct xt_mtchk_param *par)
- 	if (info->mode > XT_STATISTIC_MODE_MAX ||
- 	    info->flags & ~XT_STATISTIC_MASK)
- 		return false;
--	info->master = info;
++static inline u_int32_t
++xt_cluster_hash_ipv6(const void *ip, const struct xt_cluster_match_info *info)
++{
++	return jhash2(ip, NF_CT_TUPLE_L3SIZE / sizeof(__u32), info->hash_seed);
++}
 +
-+	info->master = kzalloc(sizeof(*info->master), GFP_KERNEL);
-+	if (info->master == NULL) {
-+		printk(KERN_ERR KBUILD_MODNAME ": Out of memory\n");
++static inline u_int32_t
++xt_cluster_hash(const struct nf_conn *ct,
++		const struct xt_cluster_match_info *info)
++{
++	u_int32_t hash = 0;
++
++	switch(nf_ct_l3num(ct)) {
++	case AF_INET:
++		hash = xt_cluster_hash_ipv4(nf_ct_orig_ipv4_src(ct), info);
++		break;
++	case AF_INET6:
++		hash = xt_cluster_hash_ipv6(nf_ct_orig_ipv6_src(ct), info);
++		break;
++	default:
++		WARN_ON(1);
++		break;
++	}
++	return (((u64)hash * info->total_nodes) >> 32);
++}
++
++static inline bool
++xt_cluster_is_multicast_addr(const struct sk_buff *skb, u_int8_t family)
++{
++	bool is_multicast = false;
++
++	switch(family) {
++	case NFPROTO_IPV4:
++		is_multicast = ipv4_is_multicast(ip_hdr(skb)->daddr);
++		break;
++	case NFPROTO_IPV6:
++		is_multicast = ipv6_addr_type(&ipv6_hdr(skb)->daddr) &
++						IPV6_ADDR_MULTICAST;
++		break;
++	default:
++		WARN_ON(1);
++		break;
++	}
++	return is_multicast;
++}
++
++static bool
++xt_cluster_mt(const struct sk_buff *skb, const struct xt_match_param *par)
++{
++	struct sk_buff *pskb = (struct sk_buff *)skb;
++	const struct xt_cluster_match_info *info = par->matchinfo;
++	const struct nf_conn *ct;
++	enum ip_conntrack_info ctinfo;
++	unsigned long hash;
++
++	/* This match assumes that all nodes see the same packets. This can be
++	 * achieved if the switch that connects the cluster nodes support some
++	 * sort of 'port mirroring'. However, if your switch does not support
++	 * this, your cluster nodes can reply ARP request using a multicast MAC
++	 * address. Thus, your switch will flood the same packets to the
++	 * cluster nodes with the same multicast MAC address. Using a multicast
++	 * link address is a RFC 1812 (section 3.3.2) violation, but this works
++	 * fine in practise.
++	 *
++	 * Unfortunately, if you use the multicast MAC address, the link layer
++	 * sets skbuff's pkt_type to PACKET_MULTICAST, which is not accepted
++	 * by TCP and others for packets coming to this node. For that reason,
++	 * this match mangles skbuff's pkt_type if it detects a packet
++	 * addressed to a unicast address but using PACKET_MULTICAST. Yes, I
++	 * know, matches should not alter packets, but we are doing this here
++	 * because we would need to add a PKTTYPE target for this sole purpose.
++	 */
++	if (!xt_cluster_is_multicast_addr(skb, par->family) &&
++	    skb->pkt_type == PACKET_MULTICAST) {
++	    	pskb->pkt_type = PACKET_HOST;
++	}
++
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct == NULL)
++		return false;
++
++	if (ct == &nf_conntrack_untracked)
++		return false;
++
++	if (ct->master)
++		hash = xt_cluster_hash(ct->master, info);
++	else
++		hash = xt_cluster_hash(ct, info);
++
++	return !!((1 << hash) & info->node_mask) ^
++	       !!(info->flags & XT_CLUSTER_F_INV);
++}
++
++static bool xt_cluster_mt_checkentry(const struct xt_mtchk_param *par)
++{
++	struct xt_cluster_match_info *info = par->matchinfo;
++
++	if (info->node_mask >= (1 << info->total_nodes)) {
++		printk(KERN_ERR "xt_cluster: this node mask cannot be "
++				"higher than the total number of nodes\n");
 +		return false;
 +	}
-+	info->master->count = info->u.nth.count;
-+
- 	return true;
- }
- 
-+static void statistic_mt_destroy(const struct xt_mtdtor_param *par)
-+{
-+	const struct xt_statistic_info *info = par->matchinfo;
-+
-+	kfree(info->master);
++	return true;
 +}
 +
- static struct xt_match xt_statistic_mt_reg __read_mostly = {
- 	.name       = "statistic",
- 	.revision   = 0,
- 	.family     = NFPROTO_UNSPEC,
- 	.match      = statistic_mt,
- 	.checkentry = statistic_mt_check,
-+	.destroy    = statistic_mt_destroy,
- 	.matchsize  = sizeof(struct xt_statistic_info),
- 	.me         = THIS_MODULE,
- };
++static struct xt_match xt_cluster_match __read_mostly = {
++	.name		= "cluster",
++	.family		= NFPROTO_UNSPEC,
++	.match		= xt_cluster_mt,
++	.checkentry	= xt_cluster_mt_checkentry,
++	.matchsize	= sizeof(struct xt_cluster_match_info),
++	.me		= THIS_MODULE,
++};
++
++static int __init xt_cluster_mt_init(void)
++{
++	return xt_register_match(&xt_cluster_match);
++}
++
++static void __exit xt_cluster_mt_fini(void)
++{
++	xt_unregister_match(&xt_cluster_match);
++}
++
++MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Xtables: hash-based cluster match");
++MODULE_ALIAS("ipt_cluster");
++MODULE_ALIAS("ip6t_cluster");
++module_init(xt_cluster_mt_init);
++module_exit(xt_cluster_mt_fini);
