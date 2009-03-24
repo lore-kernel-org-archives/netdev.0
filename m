@@ -1,74 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE]: Release of iptables-1.4.3.1
-Date: Tue, 24 Mar 2009 14:08:11 +0100
-Message-ID: <49C8DB3B.909@netfilter.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Revert "gro: Fix legacy path napi_complete crash", (was: Re:
+	Linux 2.6.29)
+Date: Tue, 24 Mar 2009 14:12:08 +0100
+Message-ID: <20090324131208.GA10157@elte.hu>
+References: <alpine.LFD.2.00.0903231617550.3032@localhost.localdomain> <20090324130202.GA32469@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010306040001040504080508"
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------010306040001040504080508
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-The netfilter coreteam presents:
-
-     iptables version 1.4.3.1
-
-the iptables release for the 2.6.29 kernel. This version includes a
-compilation fix and a couple of minor fixes:
-
-- compilation error fix from Peter Volkov
-
-- documentation update from Jan Engelhardt
-
-- cleanup error reporting by myself.
-
-Check out the Changelog for more details.
-
-Remember that this release (and 1.4.3) starts enforcing the deprecation
-of NAT filtering that was added in 1.4.2-rc1, filtering rules in the NAT
-tables will cause an error instead of a warning from now on. Please make
-sure your rulesets are update appropriately.
-
-Version 1.4.3.1 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team.
-Happy firewalling!
-
--- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
-
---------------010306040001040504080508
-Content-Type: text/plain;
- name="changes-iptables-1.4.3.1.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="changes-iptables-1.4.3.1.txt"
-
-Jan Engelhardt (2):
-      iptables-save: minor corrections to the manpage markup
-      libxt_hashlimit: add missing space for iptables-save output
-
-Pablo Neira Ayuso (2):
-      build: bump version to 1.4.3.1
-      iptables: refer to dmesg if we hit EINVAL
-
-Peter Volkov (2):
-      libxtables: fix compile error due to incomplete change
-      build: fix linker issue when LDFLAGS contains --as-needed
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Frank Blaschka <blaschka@linux.vnet.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thoma
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:36367 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758095AbZCXNMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 09:12:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20090324130202.GA32469@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---------------010306040001040504080508--
+(netdev Cc:-ed)
+
+* Ingo Molnar <mingo@elte.hu> wrote:
+
+> Yesterday about half of my testboxes (3 out of 7) started getting 
+> weird networking failures: their network interface just got stuck 
+> completely - no rx and no tx at all. Restarting the interface did 
+> not help.
+
+> I've attached the reproducer (non-SMP) .config. The system has:
+
+Note, the .config is randconfig derived. There was a stage of the 
+tests when about every ~5-10th randconfig was failing, so i dont 
+think it's a rare config combo that triggers this. (but there were 
+other stages where 30 randconfig in a row went fine so it's hard to 
+tell.)
+
+In the worst case the hang needed 2 million packets to trigger - 
+that's why i set the limit in the tests to 6 million packets.
+
+	Ingo
