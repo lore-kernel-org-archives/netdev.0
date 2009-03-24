@@ -1,17 +1,17 @@
 From: Andrey Panin <pazke@donpac.ru>
 Subject: Re: [PATCH] net: Add support for the OpenCores 10/100 Mbps Ethernet MAC.
-Date: Tue, 24 Mar 2009 14:13:59 +0300
-Message-ID: <20090324111359.GA6859@ports.donpac.ru>
+Date: Tue, 24 Mar 2009 15:01:57 +0300
+Message-ID: <20090324120157.GB6859@ports.donpac.ru>
 References: <1237889923-32257-1-git-send-email-thierry.reding@avionic-design.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Thierry Reding <thierry.reding@avionic-design.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ports.donpac.ru ([80.254.111.81]:33270 "EHLO ports.donpac.ru"
+Received: from ports.donpac.ru ([80.254.111.81]:59260 "EHLO ports.donpac.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753984AbZCXLzk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 07:55:40 -0400
+	id S1753878AbZCXMCB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 08:02:01 -0400
 Content-Disposition: inline
 In-Reply-To: <1237889923-32257-1-git-send-email-thierry.reding@avionic-design.de>
 Sender: netdev-owner@vger.kernel.org
@@ -316,9 +316,7 @@ On 083, 03 24, 2009 at 11:18:43AM +0100, Thierry Reding wrote:
 > +{
 > +	size_t size = (src->len & 0x3) ? (src->len & ~0x3) + 4 : src->len;
 > +	u8 buffer[ETHOC_BUFSIZ];
-
-Using 1536 bytes of stack is not very nice.
-
+> +
 > +	memset(buffer, 0, size);
 > +	skb_copy_and_csum_dev(src, buffer);
 > +	memcpy(dest, buffer, size);
@@ -329,9 +327,7 @@ Using 1536 bytes of stack is not very nice.
 > +{
 > +	ssize_t size = (count & 0x3) ? (count & ~0x3) + 4 : count;
 > +	u8 buffer[ETHOC_BUFSIZ];
-
-Same here.
-
+> +
 > +	memcpy(buffer, src, size);
 > +	memcpy(skb_put(dest, count), buffer, count);
 > +}
@@ -657,6 +653,9 @@ Same here.
 > +				crc = (crc ^ 0x04c11db6) | carry;
 > +		}
 > +	}
+
+This looks like yet another crc32 implementation, consider using ether_crc_le()
+
 > +
 > +	return (crc >> 26) & 0x3f;
 > +}
