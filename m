@@ -1,50 +1,45 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: netfilter 07/41: arp_tables: unfold two critical loops in
- arp_packet_match()
-Date: Tue, 24 Mar 2009 22:52:26 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0903242243040.3974@fbirervta.pbzchgretzou.qr>
-References: <20090324.132954.148903398.davem@davemloft.net> <49C94B6A.5020304@cosmosbay.com> <alpine.LSU.2.00.0903242215590.26397@fbirervta.pbzchgretzou.qr> <20090324.141848.119353425.davem@davemloft.net> <alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr>
- <49C952FE.7070202@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 8/9] [PATCH] kmsg: convert claw printk messages to kmsg
+ api.
+Date: Tue, 24 Mar 2009 15:28:50 -0700 (PDT)
+Message-ID: <20090324.152850.127356060.davem@davemloft.net>
+References: <20090324132742.300929000@linux.vnet.ibm.com>
+	<20090324133049.771837000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49C952FE.7070202@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	richtera@us.ibm.com
+To: ursula.braun@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53090
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753391AbZCXW3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 18:29:04 -0400
+In-Reply-To: <20090324133049.771837000@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Date: Tue, 24 Mar 2009 14:27:50 +0100
 
-On Tuesday 2009-03-24 22:39, Eric Dumazet wrote:
->>> memcmp() can't make any assumptions about alignment.
->>> Whereas we _know_ this thing is exactly 16-bit aligned.
->>>
->>> All of the optimized memcmp() implementations look for
->>> 32-bit alignment and punt to byte at a time comparison
->>> loops if things are not aligned enough.
->> 
->> Yes, I seem to remember glibc doing something like
->> [...]
->> Is the cost of testing for non-4-divisibility expensive enough
->> to warrant not usnig memcmp?
->> 
->> Irrespective of all that, I think putting the interface comparison
->> code should be agglomerated in a function/header so that it is
->> replicated across iptables, ip6tables, ebtables, arptables, etc.
->
->memcmp() is fine, but how is it solving the masking problem we have ?
+> From: Andy Richter <richtera@us.ibm.com>
+> 
+> Signed-off-by: Andy Richter <richtera@us.ibm.com>
+> Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 
-You are right; we would have to calculate the prefix length of the
-mask first. (And I think we can assume that there will not be any 1s
-in the mask after the first 0.) It would consume CPU indeed.
+This patch was already added to net-next-2.6 on January 20th:
 
->Also in the case of arp_tables, _a is long word aligned, while _b and _mask
->are not.
->
->If you look various ifname_compare(), we have two different implementations.
->
->So yes, a factorization is possible for three ip_tables.c, ip6_tables.c and
-> xt_physdev.c.
+commit 4811fcb79cee80c683237cfd15ca214e1d78c548
+Author: Andy Richter <richtera@us.ibm.com>
+Date:   Tue Jan 20 06:14:33 2009 +0000
 
-Very well.
+    kmsg: convert claw printk messages
+    
+    claw printks are converted to dev_xxx and pr_xxx macros.
+    
+    Signed-off-by: Andy Richter <richtera@us.ibm.com>
+    Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
