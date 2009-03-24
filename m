@@ -1,70 +1,108 @@
 From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 3/3] smsc911x: add flag SMSC911X_USE_INTERPHY
-Date: Tue, 24 Mar 2009 08:51:05 +0100
-Message-ID: <20090324075105.GE25436@pengutronix.de>
-References: <4e090d470903232347g2b6e91a7o385af2e66f05a936@mail.gmail.com>
+Subject: Re: [PATCH 2/3] ARM: mxc: add mx31pdk Lan9217 support
+Date: Tue, 24 Mar 2009 08:58:09 +0100
+Message-ID: <20090324075809.GF25436@pengutronix.de>
+References: <4e090d470903232344x162ca791q3007954d064ccd00@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk, kernel@pengutronix.de
+Cc: kernel@pengutronix.de, linux-arm-kernel@lists.arm.linux.org.uk,
+	steve.glendinning@smsc.com, netdev@vger.kernel.org
 To: Richard Zhao <linuxzsc@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58704 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58356 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038AbZCXHvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 03:51:32 -0400
+	with ESMTP id S1751700AbZCXH6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 03:58:36 -0400
 Content-Disposition: inline
-In-Reply-To: <4e090d470903232347g2b6e91a7o385af2e66f05a936@mail.gmail.com>
+In-Reply-To: <4e090d470903232344x162ca791q3007954d064ccd00@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
-
-On Tue, Mar 24, 2009 at 02:47:25PM +0800, Richard Zhao wrote:
-> mx31pdk board don't have external PHY, but it wrongly pull up MDIO.
-> So, add flag SMSC911X_USE_INTERPHY to force using internal PHY.
-
-This patch is outdated. Linux-next already contains a
-SMSC911X_FORCE_INTERNAL_PHY for exactly this reason.
-
-Sascha
-
-> 
+On Tue, Mar 24, 2009 at 02:44:41PM +0800, Richard Zhao wrote:
 > Signed-off-by: Richard Zhao <linuxzsc@gmail.com>
 > 
-> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-> index d1590ac..60f7b74 100644
-> --- a/drivers/net/smsc911x.c
-> +++ b/drivers/net/smsc911x.c
-> @@ -831,10 +831,12 @@ static int __devinit smsc911x_mii_init(struct
-> platform_device *pdev,
->  	case 0x01150000:
->  	case 0x117A0000:
->  	case 0x115A0000:
-> -		/* External PHY supported, try to autodetect */
-> -		if (smsc911x_phy_initialise_external(pdata) < 0) {
-> -			SMSC_TRACE(HW, "No external PHY detected, "
-> -				"using internal PHY");
-> +		if (!(pdata->config & SMSC911X_USE_INTERPHY)) {
-> +			/* External PHY supported, try to autodetect */
-> +			if (smsc911x_phy_initialise_external(pdata) < 0) {
-> +				SMSC_TRACE(HW, "No external PHY detected, "
-> +					"using internal PHY");
-> +			}
->  		}
->  		break;
->  	default:
-> diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
-> index 1cbf031..42b088d 100644
-> --- a/include/linux/smsc911x.h
-> +++ b/include/linux/smsc911x.h
-> @@ -43,5 +43,6 @@ struct smsc911x_platform_config {
->  /* Constants for flags */
->  #define SMSC911X_USE_16BIT 			(BIT(0))
->  #define SMSC911X_USE_32BIT 			(BIT(1))
-> +#define SMSC911X_USE_INTERPHY 			(BIT(2))
+> diff --git a/arch/arm/mach-mx3/mx31pdk.c b/arch/arm/mach-mx3/mx31pdk.c
+> index aa7e3c5..45cef70 100644
+> --- a/arch/arm/mach-mx3/mx31pdk.c
+> +++ b/arch/arm/mach-mx3/mx31pdk.c
+> @@ -32,6 +32,8 @@
+>  #include <mach/board-mx31pdk.h>
+>  #include <mach/imx-uart.h>
+>  #include <mach/iomux-mx3.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/smsc911x.h>
+>  #include "devices.h"
+>  #include "3stack-debug.h"
 > 
->  #endif /* __LINUX_SMSC911X_H__ */
+> @@ -57,6 +59,43 @@ static inline void mxc_init_imx_uart(void)
+>  	mxc_register_device(&mxc_uart_device0, &uart_pdata);
+>  }
+> 
+> +/*lan9217 device*/
+> +#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
+
+IMO it is not worth to clutter the code with ifdefs just to save some
+bytes of binary space, but ok, that's just my two cents.
+
+> +static struct resource smsc911x_resources[] = {
+> +	{
+> +	 .start = LAN9217_BASE_ADDR,
+> +	 .end = LAN9217_BASE_ADDR + 0x100,
+> +	 .flags = IORESOURCE_MEM,
+> +	 },
+> +	{
+> +	 .start = LAN9217_IRQ,
+> +	 .end = LAN9217_IRQ,
+> +	 .flags = IORESOURCE_IRQ,
+> +	 },
+> +};
+
+static struct resource smsc911x_resources[] = {
+	{
+		.start = LAN9217_BASE_ADDR,
+		.end = LAN9217_BASE_ADDR + 0x100,
+		.flags = IORESOURCE_MEM,
+	},{
+		.start = LAN9217_IRQ,
+		.end = LAN9217_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+> +
+> +static struct smsc911x_platform_config smsc911x_platconfig = {
+> +	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+> +	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
+> +	.flags		= SMSC911X_USE_16BIT | SMSC911X_USE_INTERPHY,
+> +};
+> +
+> +static struct platform_device smsc_lan9217_device = {
+> +	.name = "smsc911x",
+> +	.id = 0,
+> +	.num_resources = ARRAY_SIZE(smsc911x_resources),
+> +	.resource = smsc911x_resources,
+> +};
+> +static void mxc_init_enet(void)
+> +{
+> +	mxc_register_device(&smsc_lan9217_device, &smsc911x_platconfig);
+> +}
+> +#else
+> +static inline void mxc_init_enet(void)
+> +{
+> +}
+> +#endif
+> +
+>  static u32 brd_io;
+> 
+>  static void mxc_expio_irq_handler(u32 irq, struct irq_desc *desc)
+> @@ -217,6 +256,7 @@ static void __init mxc_board_init(void)
+>  {
+>  	mxc_init_imx_uart();
+>  	mxc_expio_init();
+> +	mxc_init_enet();
+>  }
+> 
+>  static void __init mx31pdk_timer_init(void)
 > -- 
 > 1.5.6.3
 > 
