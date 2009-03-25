@@ -1,42 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [RFC] net: release dst entry in dev_queue_xmit()
-Date: Wed, 25 Mar 2009 22:12:02 +0100
-Message-ID: <20090325211202.GC2928@ami.dom.local>
-References: <49C380A6.4000904@cosmosbay.com> <20090324.234354.43714160.davem@davemloft.net> <49C9D99A.2040900@cosmosbay.com> <20090325.001720.238121238.davem@davemloft.net> <49CA7658.4010400@gmail.com> <49CA7AD7.8040401@cosmosbay.com> <20090325191850.GA2928@ami.dom.local> <49CA8895.8020105@cosmosbay.com> <20090325195424.GB2928@ami.dom.local> <49CA93F5.0@cosmosbay.com>
+Date: Wed, 25 Mar 2009 22:20:55 +0100
+Message-ID: <49CAA037.8060901@trash.net>
+References: <49C380A6.4000904@cosmosbay.com> <20090324.234354.43714160.davem@davemloft.net> <49C9D99A.2040900@cosmosbay.com> <20090325.001720.238121238.davem@davemloft.net> <49CA7658.4010400@gmail.com> <49CA7AD7.8040401@cosmosbay.com> <20090325191850.GA2928@ami.dom.local> <49CA8895.8020105@cosmosbay.com> <20090325195424.GB2928@ami.dom.local> <49CA93F5.0@cosmosbay.com> <20090325211202.GC2928@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.187]:10823 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830AbZCYVNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 17:13:41 -0400
-Received: by ti-out-0910.google.com with SMTP id i7so121220tid.23
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 14:13:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <49CA93F5.0@cosmosbay.com>
+Received: from stinky.trash.net ([213.144.137.162]:40339 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751201AbZCYVU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 17:20:59 -0400
+In-Reply-To: <20090325211202.GC2928@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 25, 2009 at 09:28:37PM +0100, Eric Dumazet wrote:
-> Jarek Poplawski a =E9crit :
->=20
-> > I guess you've considered the loopback too...
-> >=20
->=20
-> I had for the first patch (carefuly avoiding loopback being not respo=
-nsive) :
-> I was releasing dst only if enqueue() was called.
->=20
-> You are right, loopback doesnt work anymore with last patch,
-> and I have no idea why...
->=20
-> Do you know why ?
+Jarek Poplawski wrote:
+> On Wed, Mar 25, 2009 at 09:28:37PM +0100, Eric Dumazet wrote:
+>  =20
+>> Jarek Poplawski a =E9crit :
+>>
+>>    =20
+>>> I guess you've considered the loopback too...
+>>>
+>>>      =20
+>> I had for the first patch (carefuly avoiding loopback being not resp=
+onsive) :
+>> I was releasing dst only if enqueue() was called.
+>>
+>> You are right, loopback doesnt work anymore with last patch,
+>> and I have no idea why...
+>>
+>> Do you know why ?
+>>    =20
+>
+> Hmm.. isn't this test for dst =3D=3D NULL in ip_rcv_finish expected t=
+o be
+> negative for loopback source?
 
-Hmm.. isn't this test for dst =3D=3D NULL in ip_rcv_finish expected to =
-be
-negative for loopback source?
-
-Jarek P.
+ip_route_input() doesn't accept loopback addresses, so loopback packets
+already need to have a dst_entry attached.
