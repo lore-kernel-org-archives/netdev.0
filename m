@@ -1,40 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter spurious ELOOP
-Date: Wed, 25 Mar 2009 18:07:36 +0100
-Message-ID: <49CA64D8.9040602@trash.net>
-References: <200903242302.n2ON25u4024288@givry.fdupont.fr> <20090324.162808.114465835.davem@davemloft.net>
+Subject: Re: [patch 1/6] ctnetlink: add callbacks to the per-proto nlattrs
+Date: Wed, 25 Mar 2009 18:25:35 +0100
+Message-ID: <49CA690F.20107@trash.net>
+References: <20090316220659.756862181@jonathan.eitzenberger.org> <20090316221135.741449312@jonathan.eitzenberger.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Francis.Dupont@fdupont.fr, linux-kernel@vger.kernel.org,
-	coreteam@netfilter.org, Francis_Dupont@isc.org,
+Cc: David Miller <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090324.162808.114465835.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Holger Eitzenberger <holger@eitzenberger.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:35325 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753961AbZCYRZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 13:25:42 -0400
+In-Reply-To: <20090316221135.741449312@jonathan.eitzenberger.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Francis Dupont <Francis.Dupont@fdupont.fr>
-> Date: Wed, 25 Mar 2009 00:02:05 +0100
+Holger Eitzenberger wrote:
+> There is added a single callback for the l3 proto helper.  The two
+> callbacks for the l4 protos are necessary because of the general
+> structure of a ctnetlink event, which is in short:
 > 
-> Adding correct CC:'s
+>  CTA_TUPLE_ORIG
+>    <l3/l4-proto-attributes>
+>  CTA_TUPLE_REPLY
+>    <l3/l4-proto-attributes>
+>  CTA_ID
+>  ...
+>  CTA_PROTOINFO
+>    <l4-proto-attributes>
+>  CTA_TUPLE_MASTER
+>    <l3/l4-proto-attributes>
 > 
->> summary: iptables command gets spurious ELOOP errors
->>
->> report: when a rule with a target like MARK --set-mark 0x80000001
->> then adding new other rules can failed with "Too many levels of symbolic
->> links" (aka ELOOP) error.
->> The problem is in kernel net/ipv4/netfilter/ip_tables.c in the 
->> mark_source_chains() routine which checks the verdict field of
->> targets even for not standard targets.
->>
->> keywords: netfilter target eloop
->>
->> environment: recent gentoo and fedora. Problem not fixed in
->> linux-2.6.29 (last stable version taken from kernel.org some minutes ago).
+> Therefore the formular is
+> 
+>  size := sizeof(generic-nlas) + 3 * sizeof(tuple_nlas) + sizeof(protoinfo_nlas)
+> 
+> Some of the NLAs are optional, e. g. CTA_TUPLE_MASTER, which is only
+> set if it's an expected connection.  But the number of optional NLAs is
+> small enough to prevent netlink_trim() from reallocating if calculated
+> properly.
 
-Just to clarify: does the problem happens when you have the MARK rule
-above in a user-defined chain that has more then one jump leading to
-it or does it also happen in other cases?
+Applied, thanks.
