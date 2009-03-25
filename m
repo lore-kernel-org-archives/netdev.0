@@ -1,104 +1,181 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Wed, 25 Mar 2009 16:16:24 +0100
-Message-ID: <OF73F7C45F.ACAACBF8-ONC1257584.0052EC21-C1257584.0053E5EF@transmode.se>
-References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
-	<49CA39EA.6020208@cosmosbay.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] bonding: allow bond in mode balance-alb to work properly
+	in bridge -try3
+Date: Wed, 25 Mar 2009 16:19:38 +0100
+Message-ID: <20090325151937.GI3437@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: 'linuxppc-dev Development' <linuxppc-dev@ozlabs.org>, leoli@freescale.com,
-	Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <49CA39EA.6020208@cosmosbay.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	kaber@trash.net, mschmidt@redhat.com, dada1@cosmosbay.com
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:37419 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753824AbZCYPVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2009 11:21:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> wrote on 25/03/2009 15:04:26:
-> Joakim Tjernlund a =E9crit :
-> >>From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:00:00 2001
-> > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > Date: Tue, 24 Mar 2009 10:19:27 +0100
-> > Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-> >  Also increase NAPI weight somewhat.
-> >  This will make the system alot more responsive while
-> >  ping flooding the ucc_geth ethernet interaface.
-> > =
+(resend, using compare_ether_addr_64bits instead of memcmp)
 
-> > =
+Hi all.
 
-> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > ---
-> >  drivers/net/ucc_geth.c |   30 +++++++++++-------------------
-> >  drivers/net/ucc_geth.h |    2 +-
-> >  2 files changed, 12 insertions(+), 20 deletions(-)
-> > =
+The problem is described in following bugzilla:
+https://bugzilla.redhat.com/show_bug.cgi?id=487763
 
-> > diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> > index 097aed8..7d5d110 100644
-> > --- a/drivers/net/ucc_geth.c
-> > +++ b/drivers/net/ucc_geth.c
-> > @@ -3214,7 +3214,7 @@ static int ucc_geth_tx(struct net_device *dev, =
+Basically here's what's going on. In every mode, bonding interface uses the same
+mac address for all enslaved devices. Except for mode balance-alb. When you put
+this kind of bond device into a bridge it will only add one of mac adresses into
+a hash list of mac addresses, say X. This mac address is marked as local. But
+this bonding interface also has mac address Y. Now then packet arrives with
+destination address Y, this address is not marked as local and the packed looks
+like it needs to be forwarded. This packet is then lost which is wrong.
 
-u8 txQ)
-> >        dev->stats.tx_packets++;
-> > =
+Notice that interfaces can be added and removed from bond while it is in bridge.
 
-> >        /* Free the sk buffer associated with this TxBD */
-> > -      dev_kfree_skb_irq(ugeth->
-> > +      dev_kfree_skb(ugeth->
-> >                tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]]);
-> >        ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]] =3D NULL;
-> >        ugeth->skb_dirtytx[txQ] =3D
-> > @@ -3248,9 +3248,16 @@ static int ucc_geth_poll(struct napi_struct =
+This patch solves the situation in the bonding without touching bridge code,
+as Patrick suggested. For every incoming frame to bonding it searches the
+destination address in slaves list and if any of slave addresses matches, it
+rewrites the address in frame by the adress of bonding master. This ensures that
+all frames comming thru the bonding in alb mode have the same address.
 
-*napi, int budget)
-> >     for (i =3D 0; i < ug_info->numQueuesRx; i++)
-> >        howmany +=3D ucc_geth_rx(ugeth, i, budget - howmany);
-> > =
+Jirka
 
-> =
 
-> Cant you test (ucce & UCCE_TX_EVENTS) or something here to avoid
-> taking lock and checking queues if not necessary ?
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Probably, but I want this patch as simple as possible. There
-are lots of optimizations left to do in this driver.
-
-> =
-
-> > +   /* Tx event processing */
-> > +   spin_lock(&ugeth->lock);
-> > +   for (i =3D 0; i < ug_info->numQueuesTx; i++) {
-> > +      ucc_geth_tx(ugeth->dev, i);
-> > +   }
-> > +   spin_unlock(&ugeth->lock);
-> > +
-> =
-
-> Why tx completions dont change "howmany" ?
-> It seems strange you changed UCC_GETH_DEV_WEIGHT if not taking into =
-
-account tx event above...
-
-This is unclear and last I checked not very common amongst other drivers =
-
-in the
-tree.
-
-UCC_GETH_DEV_WEIGHT needs to be a bit bigger than the number of RX HW =
-
-buffers avaliable,
-otherwise one won't be able to drain the whole queue in one go. Changing
-weight to something bigger made a big difference.
-
- Jocke
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 27fb7f5..83998f4 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1762,6 +1762,26 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	return 0;
+ }
+ 
++void bond_alb_change_dest(struct sk_buff *skb)
++{
++	struct net_device *bond_dev = skb->dev;
++	struct bonding *bond = netdev_priv(bond_dev);
++	unsigned char *dest = eth_hdr(skb)->h_dest;
++	struct slave *slave;
++	int i;
++
++	if (!compare_ether_addr_64bits(dest, bond_dev->dev_addr))
++		return;
++	read_lock(&bond->lock);
++	bond_for_each_slave(bond, slave, i) {
++		if (!compare_ether_addr_64bits(slave->dev->dev_addr, dest)) {
++			memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
++			break;
++		}
++	}
++	read_unlock(&bond->lock);
++}
++
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ {
+ 	if (bond->alb_info.current_alb_vlan &&
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index 50968f8..77f36fb 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -127,6 +127,7 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+ void bond_alb_monitor(struct work_struct *);
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
++void bond_alb_change_dest(struct sk_buff *skb);
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
+ #endif /* __BOND_ALB_H__ */
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3d76686..b62fdc4 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4294,6 +4294,19 @@ unwind:
+ 	return res;
+ }
+ 
++/*
++ * Called via bond_change_dest_hook.
++ * note: already called with rcu_read_lock (preempt_disabled)
++ */
++void bond_change_dest(struct sk_buff *skb)
++{
++	struct net_device *bond_dev = skb->dev;
++	struct bonding *bond = netdev_priv(bond_dev);
++
++	if (bond->params.mode == BOND_MODE_ALB)
++		bond_alb_change_dest(skb);
++}
++
+ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+@@ -5243,6 +5256,8 @@ static int __init bonding_init(void)
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
+ 	bond_register_ipv6_notifier();
+ 
++	bond_change_dest_hook = bond_change_dest;
++
+ 	goto out;
+ err:
+ 	list_for_each_entry(bond, &bond_dev_list, bond_list) {
+@@ -5266,6 +5281,8 @@ static void __exit bonding_exit(void)
+ 	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
+ 	bond_unregister_ipv6_notifier();
+ 
++	bond_change_dest_hook = NULL;
++
+ 	bond_destroy_sysfs();
+ 
+ 	rtnl_lock();
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ca849d2..df92b70 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -375,5 +375,7 @@ static inline void bond_unregister_ipv6_notifier(void)
+ }
+ #endif
+ 
++extern void (*bond_change_dest_hook)(struct sk_buff *skb);
++
+ #endif /* _LINUX_BONDING_H */
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e3fe5c7..abe68d9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2061,6 +2061,13 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ }
+ 
++#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
++void (*bond_change_dest_hook)(struct sk_buff *skb) __read_mostly;
++EXPORT_SYMBOL(bond_change_dest_hook);
++#else
++#define bond_change_dest_hook(skb) do {} while (0)
++#endif
++
+ #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
+ /* These hooks defined here for ATM */
+ struct net_bridge;
+@@ -2251,10 +2258,12 @@ int netif_receive_skb(struct sk_buff *skb)
+ 	null_or_orig = NULL;
+ 	orig_dev = skb->dev;
+ 	if (orig_dev->master) {
+-		if (skb_bond_should_drop(skb))
++		if (skb_bond_should_drop(skb)) {
+ 			null_or_orig = orig_dev; /* deliver only exact match */
+-		else
++		} else {
+ 			skb->dev = orig_dev->master;
++			bond_change_dest_hook(skb);
++		}
+ 	}
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
