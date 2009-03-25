@@ -1,154 +1,128 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-2.6 PATCH 7/10] Neterion: New driver: Main entry points
-Date: Wed, 25 Mar 2009 08:30:08 -0700
-Message-ID: <20090325083008.0179381d@nehalam>
-References: <1237968795.1655.271.camel@flash>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] bonding: select current active slave when enslaving device
+	for mode tlb and alb
+Date: Wed, 25 Mar 2009 16:50:23 +0100
+Message-ID: <20090325155022.GJ3437@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: ram.vepa@neterion.com
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	davem@davemloft.net, jgarzik@pobox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39277 "EHLO mail.vyatta.com"
+Received: from mx2.redhat.com ([66.187.237.31]:60711 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755430AbZCYPa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 11:30:26 -0400
-In-Reply-To: <1237968795.1655.271.camel@flash>
+	id S1758911AbZCYPui (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2009 11:50:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25 Mar 2009 00:13:33 -0800
-Ramkrishna Vepa <ram.vepa@neterion.com> wrote:
+Hi.
 
-> This patch implements all the driver entry point functions.
-> - Definition of all module loadable paramters.
-> - Implementation of all driver entry point functions.
-> - Changes from previous submission -
->  - Incorporated following review comments from Ben Hutchings
-> 	- NAPI is always enabled (no option to turn it OFF).
-> 	- Loadable parameters
-> 	 rx_steering_type: This loadable option is removed. 
-> 	 ring_blocks: This loadable option is removed.
-> 	 The driver default settings work well in most if not all cases. 
-> 	 Another patch to configure these parameters with ethtool will be
-> 	 released in the future.
->  - LRO has been deprecated in favour of GRO - Bill Fink & Dave Miller's comment
->  - Fixed sparse warnings - Reported by Andi Kleen
->  - Removed unused variables 
-> 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
-> Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-> ---
-> diff -Nurp patch_6/drivers/net/vxge/vxge-main.c patch_7/drivers/net/vxge/vxge-main.c
-> --- patch_6/drivers/net/vxge/vxge-main.c	1969-12-31 16:00:00.000000000 -0800
-> +++ patch_7/drivers/net/vxge/vxge-main.c	2009-03-24 13:34:33.000000000 -0700
-> @@ -0,0 +1,4844 @@
-> +/******************************************************************************
-> +* This software may be used and distributed according to the terms of
-> +* the GNU General Public License (GPL), incorporated herein by reference.
-> +* Drivers based on or derived from this code fall under the GPL and must
-> +* retain the authorship, copyright and license notice.  This file is not
-> +* a complete program and may only be used when the entire operating
-> +* system is licensed under the GPL.
-> +* See the file COPYING in this distribution for more information.
-> +*
-> +* vxge-main.c: Driver for Neterion Inc's X3100 Series 10GbE PCIe I/O
-> +*              Virtualized Server Adapter.
-> +* Copyright(c) 2002-2009 Neterion Inc.
-> +*
-> +* The module loadable parameters that are supported by the driver and a brief
-> +* explanation of all the variables:
-> +* vlan_tag_strip:
-> +*	Strip VLAN Tag enable/disable. Instructs the device to remove
-> +*	the VLAN tag from all received tagged frames that are not
-> +*	replicated at the internal L2 switch.
-> +*		0 - Do not strip the VLAN tag.
-> +*		1 - Strip the VLAN tag.
-> +*
-> +* addr_learn_en:
-> +*	Enable Receive Traffic Steering using MAC destination address.
-> +*		0 - DISABLE
-> +*		1 - ENABLE
-> +*
-> +* gro:
-> +*	Enable Generic Receive Offload (GRO)
-> +*		0 - DISABLE
-> +*		1 - ENABLE
-> +*
-> +* max_config_port:
-> +*	Maximum number of port to be supported.
-> +*		MIN -1 and MAX - 2
-> +*
-> +* fifo_indicate_max_pkts:
-> +*	Sets the maximum number of transmit frames to be processed within
-> +*	single interrupt.
-> +*		MIN - 1 and MAX - 65536
-> +*
-> +* ring_indicate_max_pkts:
-> +*	Sets the maximum number of received frames to be processed within
-> +*	single interrupt.
-> +*		MIN - 1 and MAX - 65536
-> +*
-> +* max_config_vpath:
-> +*	This configures the maximum no of VPATH configures for each
-> +* 	device function.
-> +*		MIN - 1 and MAX - 17
-> +*
-> +* max_config_dev:
-> +*	This configures maximum no of Device function to be enabled.
-> +*		MIN - 1 and MAX - 17
-> +*
-> +* intr_type:
-> +*	This configures the type of interrupt.
-> +*		0 - INTA
-> +*		1 - Reserved
-> +*		2 - MSIX
-> +*		3 - EMULATED_INTA
-> +*
-> +* exec_mode:
-> +*	This is set make enable the debug mode by default.
-> +*		0 - DISABLE
-> +*		1 - ENABLE
-> +*
-> +* tx_steering_type:
-> +* 	This parameter is for configuring the transmit steering.
-> +*		0 - No steering
-> +*		1 - Priority steering
-> +*		2 - Vlan steering
-> +*		3 - Multiqueue steering
-> +*		4 - Port steering (default)
-> +*
-> +* tx_pause_enable:
-> +*	This parameter enables pause frame generation.
-> +*		0 - Disable
-> +*		1 - Enable
-> +*
-> +* rx_pause_enable:
-> +*	This parameter enables response to received pause frames
-> +*		0 - Disable
-> +*		1 - Enable.
-> +*
-> +************************************
+I've hit an issue on my system when I've been using RealTek RTL8139D cards in
+bonding interface in mode balancing-alb. When I enslave a card, the current
+active slave (bond->curr_active_slave) is not set and the link is therefore
+not functional.
 
-Module parameters are a method of last resort. Module parameters are
-a pain for customers because they are hard to configure, and only work
-on one device driver. They should not be used if anything else is available.
+----
+# cat /proc/net/bonding/bond0
+Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
 
-Therefore the following can be replaced by existing ethtool hooks
-	gro	    -> ethtool_get_gro, ethtool_set_gro
-        tx/rx_pause -> ethtool_get_pauseparm, ethtool_set_pauseparm
+Bonding Mode: adaptive load balancing
+Primary Slave: None
+Currently Active Slave: None
+MII Status: up
+MII Polling Interval (ms): 100
+Up Delay (ms): 0
+Down Delay (ms): 0
 
-I would like to see the following added to ethtool, go ahead and propose
-some additions to ethtool that do what you need for addr_learn_en and
-tx_steering_type.
+Slave Interface: eth1
+MII Status: up
+Link Failure Count: 0
+Permanent HW addr: 00:1f:1f:01:2f:22
+----
 
-Not sure what exec_mode does but why not call it 'debug'
+The thing that gets it right is when I unplug the cable and then I put it back
+into the NIC. Then the current active slave is set to eth1 and link is working
+just fine. Here is dmesg log with bonding DEBUG messages turned on:
+----
+ADDRCONF(NETDEV_UP): bond0: link is not ready
+event_dev: bond0, event: 1
+IFF_MASTER
+event_dev: bond0, event: 8
+IFF_MASTER
+bond_ioctl: master=bond0, cmd=35216
+slave_dev=cac5d800: 
+slave_dev->name=eth1: 
+eth1: ! NETIF_F_VLAN_CHALLENGED
+event_dev: eth1, event: 8
+eth1: link up, 100Mbps, full-duplex, lpa 0xC5E1
+event_dev: eth1, event: 1
+event_dev: eth1, event: 8
+IFF_SLAVE
+Initial state of slave_dev is BOND_LINK_UP
+bonding: bond0: enslaving eth1 as an active interface with an up link.
+ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+event_dev: bond0, event: 4
+IFF_MASTER
+bond0: no IPv6 routers present
 
-The intr_type parameter should be unnecessary, assuming the driver does
-the right thing based on bus methods.  If you are worried about buggy MSIX
-hardware, then please do a simulated irq to test IRQ routing.
-        
-Most drivers just use the NAPI weight to control the parameter you
-are setting with ring_indicate_max_pkts. The weight value is changeable
-at runtime with sysfs.
+<<<<cable unplug>>>>
+
+eth1: link down
+event_dev: eth1, event: 4
+IFF_SLAVE
+bonding: bond0: link status definitely down for interface eth1, disabling it
+event_dev: bond0, event: 4
+IFF_MASTER
+
+<<<<cable plug>>>>
+
+eth1: link up, 100Mbps, full-duplex, lpa 0xC5E1
+event_dev: eth1, event: 4
+IFF_SLAVE
+bonding: bond0: link status definitely up for interface eth1.
+bonding: bond0: making interface eth1 the new active one.
+event_dev: eth1, event: 8
+IFF_SLAVE
+event_dev: eth1, event: 8
+IFF_SLAVE
+bonding: bond0: first active interface up!
+event_dev: bond0, event: 4
+IFF_MASTER
+----
+
+The current active slave is set by calling bond_select_active_slave() function
+from bond_miimon_commit() function when the slave (eth1) link goes to state up.
+
+I also tested this on other machine with Broadcom NetXtreme II BCM5708
+1000Base-T NIC and there all works fine. The thing is that this adapter is down
+and goes up after few seconds after it is enslaved.
+
+This patch calls bond_select_active_slave() in bond_enslave() function for modes
+alb and tlb and makes sure that the current active slave is set up properly even
+when the slave state is already up. Tested on both systems, works fine.
+
+Notice: The same problem can maybe also occrur in mode 8023AD but I'm unable to
+test that.
+
+Jirka
+
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+ drivers/net/bonding/bond_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e0578fe..ba64666 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1710,6 +1710,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	case BOND_MODE_ALB:
+ 		new_slave->state = BOND_STATE_ACTIVE;
+ 		bond_set_slave_inactive_flags(new_slave);
++		bond_select_active_slave(bond);
+ 		break;
+ 	default:
+ 		pr_debug("This slave is always active in trunk mode\n");
