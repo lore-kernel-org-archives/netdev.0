@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: Fix bind conficts with v4-mapped addresses
-Date: Tue, 24 Mar 2009 23:27:06 -0700 (PDT)
-Message-ID: <20090324.232706.242706646.davem@davemloft.net>
-References: <1237947891-26825-1-git-send-email-vladislav.yasevich@hp.com>
+Subject: Re: [net-next PATCH] e1000e: add support for 82574 device ID 0x10F6
+Date: Tue, 24 Mar 2009 23:28:12 -0700 (PDT)
+Message-ID: <20090324.232812.31813270.davem@davemloft.net>
+References: <20090325013257.12263.34349.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46740
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40101
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753439AbZCYG1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 02:27:18 -0400
-In-Reply-To: <1237947891-26825-1-git-send-email-vladislav.yasevich@hp.com>
+	by vger.kernel.org with ESMTP id S1754131AbZCYG2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 02:28:24 -0400
+In-Reply-To: <20090325013257.12263.34349.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 24 Mar 2009 22:24:47 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 24 Mar 2009 18:32:58 -0700
 
+> Add device ID for a new variant of the 82574 adapter.
 > 
-> This is an updated patch series to fix up bind() conflicts between v4-mapped
-> and IPv6 addresses.
-> 
-> These patches correct the following problems:
->     1) Disallow binding of a v4-mapped address on a IPV6_V6ONLY socket.
->     2) Allow IPv4 wildcards to bind at the same time as a native IPv6 address.
->     3) Make v4-mapped bind()s consitant with IPv4 native binds.
->     4) Fix conflict resolutions between v4-mapped addresses, v4 addresses, and v6
->        addresses
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Acked-by: John Ronciak <john.ronciak@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-All applied, thanks Vlad.
+Applied, thanks.
