@@ -1,34 +1,44 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [net-2.6 PATCH 7/10] Neterion: New driver: Main entry points
-Date: Wed, 25 Mar 2009 19:47:01 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705122720@nekter>
-References: <1237968795.1655.271.camel@flash> <20090325083008.0179381d@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/6] s390: qeth fixes for 2.6.30
+Date: Wed, 25 Mar 2009 16:47:04 -0700 (PDT)
+Message-ID: <20090325.164704.89679614.davem@davemloft.net>
+References: <20090325065713.054133000@de.ibm.com>
+	<20090325.000817.183932373.davem@davemloft.net>
+	<49C9EA6A.90808@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	"Netdev" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: blaschka@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:32456 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751670AbZCYXrG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 19:47:06 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090325083008.0179381d@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60952
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752095AbZCYXrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 19:47:17 -0400
+In-Reply-To: <49C9EA6A.90808@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
-> > +* addr_learn_en:
-> > +*	Enable Receive Traffic Steering using MAC destination address.
-> > +*		0 - DISABLE
-> > +*		1 - ENABLE
-[Ram] I should have described this option better! This option is used in
-the Xen and other virtual environments to learn the mac address of the
-interface on guest OS and then programme the receive steering logic to
-steer the received packets to respective VF. This is to avoid having the
-nic in promiscuous mode for obvious reasons.
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Date: Wed, 25 Mar 2009 09:25:14 +0100
 
-Ram
+> > Your EDDP was slow because the implementation was incredibly
+> > sub-optimal.  %90 of the code is doing copies and fiddling
+> > with SKB internals.
+> 
+> I did not wrote the EDDP code but this was my impression too. Thanks for
+> confirming my study. Also the filling of the hardware buffers was not
+> efficient and passing more buffers to the hw was expensive too.
+
+I keep meaning to get back to a project I was working on that
+would make generic the by-hand TSO that drivers such as
+drivers/net/sfc/ are doing.
+
+Just like this EDDP code seems to have been doing, they claim
+to be TSO capable as a device but it is all done in software.
+
+The hope is to write a generic framework, and skb_dma_map() and
+skb_dma_unmap() were created as initial infrastructure for that.
+
+Anyways, if I ever complete that project, drivers like qeth
+could try to make use of it and do some perf tests.
