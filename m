@@ -1,59 +1,80 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC] net: release dst entry in dev_queue_xmit()
-Date: Wed, 25 Mar 2009 20:40:05 +0100
-Message-ID: <49CA8895.8020105@cosmosbay.com>
-References: <49C380A6.4000904@cosmosbay.com> <20090324.234354.43714160.davem@davemloft.net> <49C9D99A.2040900@cosmosbay.com> <20090325.001720.238121238.davem@davemloft.net> <49CA7658.4010400@gmail.com> <49CA7AD7.8040401@cosmosbay.com> <20090325191850.GA2928@ami.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] conntrack: use SLAB_DESTROY_BY_RCU for nf_conn structs
+Date: Wed, 25 Mar 2009 20:41:08 +0100
+Message-ID: <49CA88D4.6010808@trash.net>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>	 <49C77D71.8090709@trash.net>	 <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>	 <49C780AD.70704@trash.net>	 <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se>	 <49C7CB9B.1040409@trash.net>	 <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>	 <49C8A415.1090606@cosmosbay.com>	 <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>	 <49C8CCF4.5050104@cosmosbay.com> <1237907850.12351.80.camel@sakura.staff.proxad.net> <49C8FBCA.40402@cosmosbay.com> <49CA6F9A.9010806@cosmosbay.com> <49CA7255.20807@trash.net> <49CA74CA.1040603@cosmosbay.com> <49CA76C4.2090409@trash.net> <49CA7DAF.9070207@cosmosbay.com> <49CA7F45.5020800@trash.n
+ et> <49CA8350.5040407@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:51032 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752599AbZCYTkP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 15:40:15 -0400
-In-Reply-To: <20090325191850.GA2928@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mbizon@freebox.fr, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	avorontsov@ru.mvista.com, netdev@vger.kernel.org,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49CA8350.5040407@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski a =E9crit :
-> On Wed, Mar 25, 2009 at 07:41:27PM +0100, Eric Dumazet wrote:
->> Jarek Poplawski a =E9crit :
->>> David Miller wrote, On 03/25/2009 08:17 AM:
->>>
->>>> From: Eric Dumazet <dada1@cosmosbay.com>
->>>> Date: Wed, 25 Mar 2009 08:13:30 +0100
->>>>
->>>>> If done in dev_hard_start_xmit(), skb could be requeued (because =
-of
->>>>> NETDEV_TX_BUSY).  Then if requeued, maybe at this time, dst being
->>>>> NULL is not a problem ?
->>>> Usually it should be OK because the packet schedulers have
->>>> a sort-of one-behind state that allows them to reinsert
->>>> the SKB into their queue datastructures without reclassifying.
->>>
->>> Actually, since David has dumped requeuing there is no reinserting;
->>> this last one "requeued" skb is buffered at the top in q->gso_skb
->>> and waiting for better times.
->> Yes indeed, this is what I thought too, thanks Jarek.
+Eric Dumazet wrote:
+> Patrick McHardy a =E9crit :
+>>>      NF_CT_ASSERT(ct);
+>>> +    if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+>>> +        return 0;
+>> Can we assume the next pointer still points to the next entry
+>> in the same chain after the refcount dropped to zero?
+>>
 >=20
-> Alas I'm a bit concerned with virtual devs, e.g. now I'm looking at
-> xmits in macvlan and pppoe. Maybe this patch should exclude them?
+> We are looking chain N.
+> If we cannot atomic_inc() refcount, we got some deleted entry.
+> If we could atomic_inc, we can meet an entry that just moved to anoth=
+er chain X
 >=20
+> When hitting its end, we continue the search to the N+1 chain so we o=
+nly=20
+> skip the end of previous chain (N). We can 'forget' some entries, we =
+can print
+> several time one given entry.
+>=20
+>=20
+> We could solve this by :
+>=20
+> 1) Checking hash value : if not one expected ->=20
+>    Going back to head of chain N, (potentially re-printing already ha=
+ndled entries)
+>    So it is not a *perfect* solution.
+>=20
+> 2) Use a locking to forbid writers (as done in UDP/TCP), but it is ex=
+pensive and
+> wont solve other problem :
+>=20
+> We wont avoid emitting same entry several time anyway (this is a flaw=
+ of=20
+> current seq_file handling, since we 'count' entries to be skiped, and=
+ this is
+> wrong if some entries were deleted or inserted meanwhile)
+>=20
+> We have same problem on /proc/net/udp & /proc/net/tcp, I am not sure =
+we should care...
 
-Yes, MACVLAN :) its macvlan_start_xmit() function calls
-dev_queue_xmit(skb) again, so we go back to packet schedulers and
-classifiers, they might need dst again :(
+I think double entries are not a problem, as you say, there
+are already other cases where this can happen. But I think we
+should try our best that every entry present at the start and
+still present at the end of a dump is also contained in the
+dump, otherwise the guantees seem to weak to still be useful.
+Your first proposal would do exactly that, right?
 
-Only other potential problem I found was in=20
-drivers/net/appletalk/ipddp.c
+> Also, current resizing code can give to a /proc/net/ip_conntrack read=
+er a problem, since
+> hash table can switch while its doing its dumping : many entries migh=
+t be lost or regiven...
 
-static int ipddp_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-__be32 paddr =3D ((struct rtable*)skb->dst)->rt_gateway;
-
-Not sure this driver is still supported, or if this paddr can be found =
-elsewhere...
- __sk_dst_get(skb->sk) ???
-
+Thats true. But its a very rare operation, so I think its mainly
+a documentation issue.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
