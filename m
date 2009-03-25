@@ -1,35 +1,53 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: network traffic stop with 2.6.29 after ftp put
-Date: Wed, 25 Mar 2009 09:10:29 +0100
-Message-ID: <BAY103-DAV114D2F6EE08154E75BB064B2900@phx.gbl>
-References: <BAY103-DAV683AFCEC466B8F2E6D8EBB2930@phx.gbl> <BAY103-DAV100CC8DA92566937097718B2930@phx.gbl> <49C8C26B.7070802@cosmosbay.com> <BAY103-DAV11986CBE87674225EDC31EB2930@phx.gbl> <49C8E7FF.7020906@cosmosbay.com> <BAY103-DAV1251BBA7FBA4243359906AB2930@phx.gbl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 5/10] Neterion: New driver: Hardware init &
+ configuration
+Date: Wed, 25 Mar 2009 01:12:20 -0700 (PDT)
+Message-ID: <20090325.011220.227287174.davem@davemloft.net>
+References: <1237968776.1655.267.camel@flash>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>
-To: "Eric Dumazet" <dada1@cosmosbay.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ram.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s2.bay0.hotmail.com ([65.54.246.138]:9936 "EHLO
-	bay0-omc2-s2.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750768AbZCYILM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 04:11:12 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43847
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751135AbZCYIMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 04:12:32 -0400
+In-Reply-To: <1237968776.1655.267.camel@flash>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marco Berizzi wrote:
-> Eric Dumazet wrote:
-> 
-> > You probably have the problem Ingo reported on lkml, please try Herbert
-> > fix :
-> > 
-> > http://marc.info/?l=linux-kernel&m=123790184128396&w=2
-> 
-> yes this patch fix the problem.
-> Thanks Eric and thanks Herbert.
+From: Ramkrishna Vepa <ram.vepa@neterion.com>
+Date: 25 Mar 2009 00:13:12 -0800
 
-no, it doesn't fix the problem.
-This morning I got the same problem
-(I was reading the kernel mailing list
-on lkml.indiana.edu with firefox)
+> This patch takes care of Initialization and configuration steps of
+> Neterion Inc's X3100 Series 10GbE PCIe I/O Virtualized Server Adapter.
+
+This driver won't build on 32-bit platforms, not even x86.
+
+You didn't build test on i386?
+
+You have to provide a readq/writeq implementation on 32-bit
+machines so that you can choose in what order it is safe
+to read/write the upper and lower 32-bit halfs of a 64-bit
+register.
+
+See the following from drivers/net/niu.c:
+
+#ifndef readq
+static u64 readq(void __iomem *reg)
+{
+	return ((u64) readl(reg)) | (((u64) readl(reg + 4UL)) << 32);
+}
+
+static void writeq(u64 val, void __iomem *reg)
+{
+	writel(val & 0xffffffff, reg);
+	writel(val >> 32, reg + 0x4UL);
+}
+#endif
+
+And DO NOT JUST COPY THIS!  Think about how your hardware behaves
+if the 64-bit registers are accessed 32-bits at a time, especially
+wrt. state clearing when reading interrupt status registers.
