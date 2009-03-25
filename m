@@ -1,63 +1,50 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH v2 3/4] ipv6: Make v4-mapped bindings consitant with IPv4
-Date: Tue, 24 Mar 2009 22:24:50 -0400
-Message-ID: <1237947891-26825-4-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH v2 2/4] ipv6: Allow ipv4 wildcard binds after ipv6 address binds
+Date: Tue, 24 Mar 2009 22:24:49 -0400
+Message-ID: <1237947891-26825-3-git-send-email-vladislav.yasevich@hp.com>
 References: <1237947891-26825-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:5815 "EHLO
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:5797 "EHLO
 	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756827AbZCYCZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 22:25:02 -0400
+	with ESMTP id S1754435AbZCYCY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 22:24:58 -0400
 In-Reply-To: <1237947891-26825-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Binding to a v4-mapped address on an AF_INET6 socket should
-produce the same result as binding to an IPv4 address on
-AF_INET socket.  The two are interchangable as v4-mapped
-address is really a portability aid.
+The IPv4 wildcard (0.0.0.0) address does not intersect
+in any way with explicit IPv6 addresses.  These two should
+be permitted, but the IPv4 conflict code checks the ipv6only
+bit as part of the test.  Since binding to an explicit IPv6
+address restricts the socket to only that IPv6 address, the
+side-effect is that the socket behaves as v6-only.  By
+explicitely setting ipv6only in this case, allows the 2 binds
+to succeed.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/ipv6/af_inet6.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
+ net/ipv6/af_inet6.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 9b6a37d..61f5538 100644
+index 7f092fa..9b6a37d 100644
 --- a/net/ipv6/af_inet6.c
 +++ b/net/ipv6/af_inet6.c
-@@ -276,6 +276,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+@@ -346,8 +346,11 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 		goto out;
+ 	}
  
- 	/* Check if the address belongs to the host. */
- 	if (addr_type == IPV6_ADDR_MAPPED) {
-+		int chk_addr_ret;
-+
- 		/* Binding to v4-mapped address on a v6-only socket
- 		 * makes no sense
- 		 */
-@@ -283,11 +285,17 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			err = -EINVAL;
- 			goto out;
- 		}
-+
-+		/* Reproduce AF_INET checks to make the bindings consitant */
- 		v4addr = addr->sin6_addr.s6_addr32[3];
--		if (inet_addr_type(net, v4addr) != RTN_LOCAL) {
--			err = -EADDRNOTAVAIL;
-+		chk_addr_ret = inet_addr_type(net, v4addr);
-+		if (!sysctl_ip_nonlocal_bind &&
-+		    !(inet->freebind || inet->transparent) &&
-+		    v4addr != htonl(INADDR_ANY) &&
-+		    chk_addr_ret != RTN_LOCAL &&
-+		    chk_addr_ret != RTN_MULTICAST &&
-+		    chk_addr_ret != RTN_BROADCAST)
- 			goto out;
--		}
- 	} else {
- 		if (addr_type != IPV6_ADDR_ANY) {
- 			struct net_device *dev = NULL;
+-	if (addr_type != IPV6_ADDR_ANY)
++	if (addr_type != IPV6_ADDR_ANY) {
+ 		sk->sk_userlocks |= SOCK_BINDADDR_LOCK;
++		if (addr_type != IPV6_ADDR_MAPPED)
++			np->ipv6only = 1;
++	}
+ 	if (snum)
+ 		sk->sk_userlocks |= SOCK_BINDPORT_LOCK;
+ 	inet->sport = htons(inet->num);
 -- 
 1.5.4.3
 
