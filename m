@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: release dst entry in dev_queue_xmit()
-Date: Wed, 25 Mar 2009 00:17:20 -0700 (PDT)
-Message-ID: <20090325.001720.238121238.davem@davemloft.net>
-References: <49C380A6.4000904@cosmosbay.com>
-	<20090324.234354.43714160.davem@davemloft.net>
-	<49C9D99A.2040900@cosmosbay.com>
+From: Ramkrishna Vepa <ram.vepa@neterion.com>
+Subject: [net-2.6 PATCH 0/10] Neterion: New driver: vxge: Resubmission
+Date: 25 Mar 2009 00:12:17 -0800
+Message-ID: <1237968736.1655.256.camel@flash>
+Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: Netdev <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35127
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752150AbZCYHRc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 03:17:32 -0400
-In-Reply-To: <49C9D99A.2040900@cosmosbay.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:43779 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754223AbZCYH1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 03:27:35 -0400
+Received: from guinness.s2io.com (localhost [127.0.0.1])
+	by barracuda.s2io.com (Spam Firewall) with ESMTP id CF82420DE6F1
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:27:29 -0400 (EDT)
+Received: from guinness.s2io.com (142-46-210.147.tel-ott.com [142.46.210.147]) by barracuda.s2io.com with ESMTP id bny4eqQG1axMiIoI for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:27:29 -0400 (EDT)
+Received: from [10.16.17.101] ([10.16.17.101])
+	by guinness.s2io.com (8.12.6/8.12.6) with ESMTP id n2P7RQAV029516
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:27:28 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 25 Mar 2009 08:13:30 +0100
+The following series of 10 patches are a resubmission of Neterion's new driver,
+"vxge", for our latest PCIe based X3100 10GbE Server/Storage Adapter. 
 
-> If done in dev_hard_start_xmit(), skb could be requeued (because of
-> NETDEV_TX_BUSY).  Then if requeued, maybe at this time, dst being
-> NULL is not a problem ?
+Changes from the last submission include fixes from comments from Ben 
+Hutchings, Andi Kleen, Bill Fink and David Miller. The details of the fixes are
+in the individual patches.
 
-Usually it should be OK because the packet schedulers have
-a sort-of one-behind state that allows them to reinsert
-the SKB into their queue datastructures without reclassifying.
+Regards,
 
-But I'm not %100 sure there isn't some case that might still
-need skb->dst there.
+Ram
+
+
+
