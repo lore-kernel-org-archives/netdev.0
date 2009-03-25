@@ -1,59 +1,106 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] conntrack: use SLAB_DESTROY_BY_RCU for nf_conn structs
-Date: Wed, 25 Mar 2009 19:24:04 +0100
-Message-ID: <49CA76C4.2090409@trash.net>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>	 <49C77D71.8090709@trash.net>	 <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>	 <49C780AD.70704@trash.net>	 <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se>	 <49C7CB9B.1040409@trash.net>	 <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>	 <49C8A415.1090606@cosmosbay.com>	 <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>	 <49C8CCF4.5050104@cosmosbay.com> <1237907850.12351.80.camel@sakura.staff.proxad.net> <49C8FBCA.40402@cosmosbay.com> <49CA6F9A.9010806@cosmosbay.com> <49CA7255.20807@trash.net> <49CA74CA.1040603@cosmosbay.com>
+Subject: Re: netfilter spurious ELOOP
+Date: Wed, 25 Mar 2009 19:38:17 +0100
+Message-ID: <49CA7A19.8040805@trash.net>
+References: <200903242302.n2ON25u4024288@givry.fdupont.fr> <20090324.162808.114465835.davem@davemloft.net> <49CA64D8.9040602@trash.net> <20090325173742.3C509E601C@farside.isc.org> <49CA741D.3080705@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mbizon@freebox.fr, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	avorontsov@ru.mvista.com, netdev@vger.kernel.org,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: multipart/mixed;
+ boundary="------------080806050102030902050107"
+Cc: David Miller <davem@davemloft.net>, Francis.Dupont@fdupont.fr,
+	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Francis Dupont <Francis_Dupont@isc.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49CA74CA.1040603@cosmosbay.com>
+In-Reply-To: <49CA741D.3080705@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Patrick McHardy a =E9crit :
->>> +static struct hlist_nulls_node *ct_get_first(struct seq_file *seq)
->>>  {
->>>      struct net *net =3D seq_file_net(seq);
->>>      struct ct_iter_state *st =3D seq->private;
->>> -    struct hlist_node *n;
->>> +    struct hlist_nulls_node *n;
->>> =20
->>>      for (st->bucket =3D 0;
->>>           st->bucket < nf_conntrack_htable_size;
->>>           st->bucket++) {
->>>          n =3D rcu_dereference(net->ct.hash[st->bucket].first);
->>> -        if (n)
->>> +        if (!is_a_nulls(n))
->>>              return n;
->>>      }
->>>      return NULL;
->>>  }
->> Don't we need to make sure the entry is not reused while dumping
->> it?
->>
->=20
-> Ah yes, I forgot that for UDP/TCP I had to change locking on this par=
-t.
-> Because messing with reference count was crazy...
-> But in UDP/TCP we have different spinlock for each chain, so hold tim=
-e
-> was small enough.
->=20
-> So I guess that with central conntrack lock, we need to take referenc=
-es on entries
-> while dumping them.
+This is a multi-part message in MIME format.
+--------------080806050102030902050107
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yes, I think so too.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Patrick McHardy wrote:
+> Thanks, that answers my question. I'll apply your patch and send it to
+> -stable once its in the mainline kernel.
+
+The same bug was also present in ip6_tables and arp_tables.
+This is the patch I've committed:
+
+
+
+--------------080806050102030902050107
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit 1f9352ae2253a97b07b34dcf16ffa3b4ca12c558
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Wed Mar 25 19:26:35 2009 +0100
+
+    netfilter: {ip,ip6,arp}_tables: fix incorrect loop detection
+    
+    Commit e1b4b9f ([NETFILTER]: {ip,ip6,arp}_tables: fix exponential worst-case
+    search for loops) introduced a regression in the loop detection algorithm,
+    causing sporadic incorrectly detected loops.
+    
+    When a chain has already been visited during the check, it is treated as
+    having a standard target containing a RETURN verdict directly at the
+    beginning in order to not check it again. The real target of the first
+    rule is then incorrectly treated as STANDARD target and checked not to
+    contain invalid verdicts.
+    
+    Fix by making sure the rule does actually contain a standard target.
+    
+    Based on patch by Francis Dupont <Francis_Dupont@isc.org>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 4b35dba..4f454ce 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -388,7 +388,9 @@ static int mark_source_chains(struct xt_table_info *newinfo,
+ 			    && unconditional(&e->arp)) || visited) {
+ 				unsigned int oldpos, size;
+ 
+-				if (t->verdict < -NF_MAX_VERDICT - 1) {
++				if ((strcmp(t->target.u.user.name,
++					    ARPT_STANDARD_TARGET) == 0) &&
++				    t->verdict < -NF_MAX_VERDICT - 1) {
+ 					duprintf("mark_source_chains: bad "
+ 						"negative verdict (%i)\n",
+ 								t->verdict);
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 41c59e3..82ee7c9 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -488,7 +488,9 @@ mark_source_chains(struct xt_table_info *newinfo,
+ 			    && unconditional(&e->ip)) || visited) {
+ 				unsigned int oldpos, size;
+ 
+-				if (t->verdict < -NF_MAX_VERDICT - 1) {
++				if ((strcmp(t->target.u.user.name,
++			    		    IPT_STANDARD_TARGET) == 0) &&
++				    t->verdict < -NF_MAX_VERDICT - 1) {
+ 					duprintf("mark_source_chains: bad "
+ 						"negative verdict (%i)\n",
+ 								t->verdict);
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index e59662b..e89cfa3 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -517,7 +517,9 @@ mark_source_chains(struct xt_table_info *newinfo,
+ 			    && unconditional(&e->ipv6)) || visited) {
+ 				unsigned int oldpos, size;
+ 
+-				if (t->verdict < -NF_MAX_VERDICT - 1) {
++				if ((strcmp(t->target.u.user.name,
++					    IP6T_STANDARD_TARGET) == 0) &&
++				    t->verdict < -NF_MAX_VERDICT - 1) {
+ 					duprintf("mark_source_chains: bad "
+ 						"negative verdict (%i)\n",
+ 								t->verdict);
+
+--------------080806050102030902050107--
