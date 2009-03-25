@@ -1,124 +1,103 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Wed, 25 Mar 2009 14:30:49 +0100
-Message-ID: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
-Reply-To: joakim.tjernlund@transmode.se
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
+Date: Wed, 25 Mar 2009 14:39:16 +0100
+Message-ID: <49CA3404.3090609@trash.net>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se> <49C8A415.1090606@cosmosbay.com> <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se> <49C8CCF4.5050104@cosmosbay.com> <49C8D13D.10307@cosmosbay.com> <49C8D58A.6060401@trash.net> <49C8E0D3.1010202@cosmosbay.com> <49C8E268.6090507@trash.net> <49C8E48D.2070501@cosmosbay.com> <49C8F871.9070600@cosmosbay.com> <49C8F8E0.9050502@trash.net> <49C9AAAC.30607@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com, leoli@freescale.com,
-	'linuxppc-dev Development' <linuxppc-dev@ozlabs.org>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:47074 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756157AbZCYNax (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 09:30:53 -0400
-Received: from tmnt04.transmode.se (tmnt04.transmode.se [192.168.46.15])
-	by gw1.transmode.se (Postfix) with ESMTP id A6490C6293
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 14:30:49 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49C9AAAC.30607@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:00:00 2001
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Date: Tue, 24 Mar 2009 10:19:27 +0100
-Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
- Also increase NAPI weight somewhat.
- This will make the system alot more responsive while
- ping flooding the ucc_geth ethernet interaface.
+Eric Dumazet wrote:
+> I have a litle problem on __nf_conntrack_find() being exported.
+> 
+> Problem is that with SLAB_DESTROY_BY_RCU we must take a reference on object
+> to recheck it. So ideally  only nf_conntrack_find_get() should be used,
+> or callers of __nf_conntrack_find() should lock nf_conntrack_lock
+> (as properly done for example in net/netfilter/nf_conntrack_netlink.c, line 1292)
+> 
+> Here is preliminary patch for review (not tested at all, its 4h50 am here :) )
+> 
+> Could you help me, by checking __nf_conntrack_find() use in net/netfilter/xt_connlimit.c ?
+> and line 1246 of net/netfilter/nf_conntrack_netlink.c
+> 
+> This part is a litle bit gray for me. :)
 
+In case of xt_connlimit, it seems fine to just take a reference.
+In case of ctnetlink, keeping the unreferenced lookup under the
+lock seems fine. We unfortunately have to export some internals
+like nf_conntrack lock for ctnetlink anyways, so I don't think
+it would be worth to change it to take references and unexport
+the lookup function.
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
----
- drivers/net/ucc_geth.c |   30 +++++++++++-------------------
- drivers/net/ucc_geth.h |    2 +-
- 2 files changed, 12 insertions(+), 20 deletions(-)
+> +/*
+> + * Warning :
+> + * - Caller must take a reference on returned object
+> + *   and recheck nf_ct_tuple_equal(tuple, &h->tuple)
+> + * OR
+> + * - Caller must lock nf_conntrack_lock before calling this function
+> + */
+>  struct nf_conntrack_tuple_hash *
+>  __nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple)
+>  {
+>  	struct nf_conntrack_tuple_hash *h;
+> -	struct hlist_node *n;
+> +	struct hlist_nulls_node *n;
+>  	unsigned int hash = hash_conntrack(tuple);
+>  
+>  	/* Disable BHs the entire time since we normally need to disable them
+>  	 * at least once for the stats anyway.
+>  	 */
+>  	local_bh_disable();
+> -	hlist_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnode) {
+> +begin:
+> +	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnnode) {
+>  		if (nf_ct_tuple_equal(tuple, &h->tuple)) {
+>  			NF_CT_STAT_INC(net, found);
+>  			local_bh_enable();
+> @@ -261,6 +270,13 @@ __nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple)
+>  		}
+>  		NF_CT_STAT_INC(net, searched);
+>  	}
+> +	/*
+> +	 * if the nulls value we got at the end of this lookup is
+> +	 * not the expected one, we must restart lookup.
+> +	 * We probably met an item that was moved to another chain.
+> +	 */
+> +	if (get_nulls_value(n) != hash)
+> +		goto begin;
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 097aed8..7d5d110 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3214,7 +3214,7 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
- 		dev->stats.tx_packets++;
- 
- 		/* Free the sk buffer associated with this TxBD */
--		dev_kfree_skb_irq(ugeth->
-+		dev_kfree_skb(ugeth->
- 				  tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]]);
- 		ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]] = NULL;
- 		ugeth->skb_dirtytx[txQ] =
-@@ -3248,9 +3248,16 @@ static int ucc_geth_poll(struct napi_struct *napi, int budget)
- 	for (i = 0; i < ug_info->numQueuesRx; i++)
- 		howmany += ucc_geth_rx(ugeth, i, budget - howmany);
- 
-+	/* Tx event processing */
-+	spin_lock(&ugeth->lock);
-+	for (i = 0; i < ug_info->numQueuesTx; i++) {
-+		ucc_geth_tx(ugeth->dev, i);
-+	}
-+	spin_unlock(&ugeth->lock);
-+
- 	if (howmany < budget) {
- 		netif_rx_complete(napi);
--		setbits32(ugeth->uccf->p_uccm, UCCE_RX_EVENTS);
-+		setbits32(ugeth->uccf->p_uccm, UCCE_RX_EVENTS | UCCE_TX_EVENTS);
- 	}
- 
- 	return howmany;
-@@ -3264,8 +3271,6 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
- 	struct ucc_geth_info *ug_info;
- 	register u32 ucce;
- 	register u32 uccm;
--	register u32 tx_mask;
--	u8 i;
- 
- 	ugeth_vdbg("%s: IN", __func__);
- 
-@@ -3279,27 +3284,14 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
- 	out_be32(uccf->p_ucce, ucce);
- 
- 	/* check for receive events that require processing */
--	if (ucce & UCCE_RX_EVENTS) {
-+	if (ucce & (UCCE_RX_EVENTS | UCCE_TX_EVENTS)) {
- 		if (netif_rx_schedule_prep(&ugeth->napi)) {
--			uccm &= ~UCCE_RX_EVENTS;
-+			uccm &= ~(UCCE_RX_EVENTS | UCCE_TX_EVENTS);
- 			out_be32(uccf->p_uccm, uccm);
- 			__netif_rx_schedule(&ugeth->napi);
- 		}
- 	}
- 
--	/* Tx event processing */
--	if (ucce & UCCE_TX_EVENTS) {
--		spin_lock(&ugeth->lock);
--		tx_mask = UCC_GETH_UCCE_TXB0;
--		for (i = 0; i < ug_info->numQueuesTx; i++) {
--			if (ucce & tx_mask)
--				ucc_geth_tx(dev, i);
--			ucce &= ~tx_mask;
--			tx_mask <<= 1;
--		}
--		spin_unlock(&ugeth->lock);
--	}
--
- 	/* Errors and other events */
- 	if (ucce & UCCE_OTHER) {
- 		if (ucce & UCC_GETH_UCCE_BSY)
-diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
-index 44218b8..ea30aa7 100644
---- a/drivers/net/ucc_geth.h
-+++ b/drivers/net/ucc_geth.h
-@@ -843,7 +843,7 @@ struct ucc_geth_hardware_statistics {
- /* Driver definitions */
- #define TX_BD_RING_LEN                          0x10
- #define RX_BD_RING_LEN                          0x10
--#define UCC_GETH_DEV_WEIGHT                     TX_BD_RING_LEN
-+#define UCC_GETH_DEV_WEIGHT                     (RX_BD_RING_LEN+TX_BD_RING_LEN/2)
- 
- #define TX_RING_MOD_MASK(size)                  (size-1)
- #define RX_RING_MOD_MASK(size)                  (size-1)
--- 
-1.6.1.3
+Are you sure this is enough? An entry might have been reused and added
+to the same chain I think, so I think we need to recheck the tuple.
 
+>  	local_bh_enable();
+>  
+>  	return NULL;
+> @@ -275,11 +291,18 @@ nf_conntrack_find_get(struct net *net, const struct nf_conntrack_tuple *tuple)
+>  	struct nf_conn *ct;
+>  
+>  	rcu_read_lock();
+> +begin:
+>  	h = __nf_conntrack_find(net, tuple);
+>  	if (h) {
+>  		ct = nf_ct_tuplehash_to_ctrack(h);
+>  		if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+>  			h = NULL;
+> +		else {
+> +			if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple))) {
+> +				nf_ct_put(ct);
+> +				goto begin;
 
+Ah I see, the hash comparison above is only an optimization?
+
+> +			}
+> +		}
+>  	}
+>  	rcu_read_unlock();
+>  
