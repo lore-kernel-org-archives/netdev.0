@@ -1,52 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 15/61] net: struct device - replace bus_id with
- dev_name(), dev_set_name()
-Date: Tue, 24 Mar 2009 20:31:11 -0700
-Message-ID: <20090324203111.0d3f5de1@nehalam>
-References: <20090325001659.GA22461@kroah.com>
-	<1237940825-22904-15-git-send-email-gregkh@suse.de>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: [PATCH] net: remove two duplicated include
+Date: Wed, 25 Mar 2009 11:31:32 +0800
+Message-ID: <20090325033132.GA7060@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Kay Sievers <kay.sievers@vrfy.org>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757317AbZCYDbo@vger.kernel.org>
-In-Reply-To: <1237940825-22904-15-git-send-email-gregkh@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.zeuux.org ([210.51.160.52]:50014 "EHLO z.billxu.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754196AbZCYDeg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2009 23:34:36 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Mar 2009 17:26:19 -0700
-Greg Kroah-Hartman <gregkh@suse.de> wrote:
+net: remove two duplicated include
 
-> From: Kay Sievers <kay.sievers@vrfy.org>
-> 
-> Cc: davem@davemloft.net
-> Cc: netdev@vger.kernel.org
-> Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
-> Signed-off-by: Kay Sievers <kay.sievers@vrfy.org>
-> ---
->  drivers/net/arm/ks8695net.c  |    2 +-
->  drivers/net/au1000_eth.c     |    8 ++++----
->  drivers/net/bfin_mac.c       |   12 ++++++------
->  drivers/net/bmac.c           |    2 +-
->  drivers/net/cpmac.c          |    2 +-
->  drivers/net/declance.c       |    6 +++---
->  drivers/net/depca.c          |    6 +++---
->  drivers/net/ehea/ehea_main.c |    2 +-
->  drivers/net/jazzsonic.c      |    6 ++++--
->  drivers/net/macb.c           |   10 +++++-----
->  drivers/net/macsonic.c       |   15 ++++++++-------
->  drivers/net/mv643xx_eth.c    |    2 +-
->  drivers/net/sb1250-mac.c     |   10 +++++-----
->  drivers/net/smc911x.c        |    2 +-
->  drivers/net/smc91x.c         |    2 +-
->  drivers/net/smsc911x.c       |    7 ++++---
->  drivers/net/smsc9420.c       |    4 ++--
->  drivers/net/tc35815.c        |    4 ++--
->  drivers/net/xtsonic.c        |    2 +-
->  19 files changed, 54 insertions(+), 50 deletions(-)
-> 
+Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+---
+ drivers/net/atl1c/atl1c.h |    1 -
+ drivers/net/dnet.c        |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
 
-I know this is needed, but could please put some more explicit rational
-in changelog.
+diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
+index ac11b84..e1658ef 100644
+--- a/drivers/net/atl1c/atl1c.h
++++ b/drivers/net/atl1c/atl1c.h
+@@ -45,7 +45,6 @@
+ #include <linux/vmalloc.h>
+ #include <linux/pagemap.h>
+ #include <linux/tcp.h>
+-#include <linux/mii.h>
+ #include <linux/ethtool.h>
+ #include <linux/if_vlan.h>
+ #include <linux/workqueue.h>
+diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
+index 5c347f7..8a98d40 100644
+--- a/drivers/net/dnet.c
++++ b/drivers/net/dnet.c
+@@ -21,7 +21,6 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
+-#include <linux/platform_device.h>
+ 
+ #include "dnet.h"
+ 
+-- 
+1.5.6.3
+
