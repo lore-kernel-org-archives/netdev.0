@@ -1,60 +1,59 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Wed, 25 Mar 2009 22:55:07 +0100
-Message-ID: <OF2B9DF8FC.AFC932DD-ONC1257584.00783408-C1257584.007866EA@transmode.se>
-References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>	<49CA39EA.6020208@cosmosbay.com>
-	<20090325.144041.128558998.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH v3] igbvf: add new driver to support 82576
+	virtual functions
+Date: Wed, 25 Mar 2009 15:00:18 -0700
+Message-ID: <9929d2390903251500xd0ceeb3n31779e9e8f72dbde@mail.gmail.com>
+References: <20090325215248.28529.62295.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, leoli@freescale.com,
-	dada1@cosmosbay.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090325.144041.128558998.davem@davemloft.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.31]:47060 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753466AbZCYWAV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 18:00:21 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so243411ywb.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 15:00:19 -0700 (PDT)
+In-Reply-To: <20090325215248.28529.62295.stgit@lost.foo-projects.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote on 25/03/2009 22:40:41:
-> =
+On Wed, Mar 25, 2009 at 2:52 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>
+> This adds an igbvf driver to handle virtual functions provided by the
+> igb driver when SR-IOV has been enabled. =C2=A0A virtual function is =
+a
+> lightweight pci-e function that supports a single queue and shares
+> resources with the 82576 physical function contained within the igb
+> driver.
+>
+> To spawn virtual functions from the igb driver all that is needed is =
+to
+> issue a echo X > /sys/class/ethY/num_vfs. =C2=A0X can be a value betw=
+een 0 and
+> 7, 0 will disable SR-IOV functionality for the port and is the defaul=
+t. =C2=A0If
+> the num_vfs sysfs entry is not present then the device does not have =
+SR-IOV
+> capability enabled either in software or hardware.
+>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
 
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 25 Mar 2009 15:04:26 +0100
-> =
+Only difference between v2 and v3 is the addition of the following line
 
-> > Joakim Tjernlund a =E9crit :
-> > > +   /* Tx event processing */
-> > > +   spin_lock(&ugeth->lock);
-> > > +   for (i =3D 0; i < ug_info->numQueuesTx; i++) {
-> > > +      ucc_geth_tx(ugeth->dev, i);
-> > > +   }
-> > > +   spin_unlock(&ugeth->lock);
-> > > +
-> > =
+> +#include <linux/vmalloc.h>
 
-> > Why tx completions dont change "howmany" ?
-> > It seems strange you changed UCC_GETH_DEV_WEIGHT if not taking into =
+into drivers/net/igbvf/ethtool.c.  We verified that this fixes the
+compilation issues on PPC.
 
-account tx event above...
-> =
-
-> He should leave howmany alone for TX work and use a weight
-> value of 64 just like most other drivers in the tree do.
-
-OK, will change this to 64.
-
-> =
-
-> Due to the abuse and random ignorant fiddling of the
-> weight value, I am going to make it something the core
-> rather than drivers choose.
-
-Good, I had a hard time finding info how one should use it anyway. =
+--=20
+Cheers,
+Jeff
