@@ -1,66 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Re: Next March 25: net/netfilter/xt_LED build failure.
-Date: Wed, 25 Mar 2009 15:08:16 +0100
-Message-ID: <49CA3AD0.1090601@trash.net>
-References: <20090325135759.4397.53055.sendpatchset@subratamodak.linux.ibm.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Wed, 25 Mar 2009 17:25:40 +0300
+Message-ID: <20090325142540.GA20944@oksana.dev.rtsoft.ru>
+References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050107060906090309050505"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sachin Sant <sachinp@in.ibm.com>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Adam Nielsen <a.nielsen@shikadi.net>
-To: Subrata Modak <tosubrata@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761290AbZCYOIk@vger.kernel.org>
-In-Reply-To: <20090325135759.4397.53055.sendpatchset@subratamodak.linux.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>, leoli@freescale.com,
+	'linuxppc-dev Development' <linuxppc-dev@ozlabs.org>
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050107060906090309050505
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+On Wed, Mar 25, 2009 at 02:30:49PM +0100, Joakim Tjernlund wrote:
+> >>From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:00:00 2001
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Date: Tue, 24 Mar 2009 10:19:27 +0100
+> Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
+>  Also increase NAPI weight somewhat.
+>  This will make the system alot more responsive while
+>  ping flooding the ucc_geth ethernet interaface.
 
-Subrata Modak wrote:
-> The following patch will solve the build problem reported by Sachin.
-> But would leave the following warnings. I hope we can ignore them:
-> 
-> net/netfilter/xt_LED.c: In function â��led_timeout_callbackâ��:
-> net/netfilter/xt_LED.c:78: warning: unused variable â��ledinternalâ��
-> net/netfilter/xt_LED.c: In function â��led_tg_checkâ��:
-> net/netfilter/xt_LED.c:87: warning: unused variable â��errâ��
-> 
-> Signed-Off-By: Subrata Modak<subrata@linux.vnet.ibm.com>
-> ---
-> 
-> --- a/linux-2.6.29/net/netfilter/xt_LED.c	2009-03-25 18:38:08.000000000 +0530
-> +++ b/linux-2.6.29/net/netfilter/xt_LED.c	2009-03-25 18:26:55.000000000 +0530
-> @@ -99,6 +99,7 @@ static bool led_tg_check(const struct xt
->  
->  	ledinternal->netfilter_led_trigger.name = ledinfo->id;
->  
-> +#ifdef CONFIG_LEDS_TRIGGERS
-...
+Some time ago I've tried a similar thing for this driver, but during
+tcp (or udp I don't quite remember) netperf tests I was getting tx
+watchdog timeouts after ~2-5 minutes of work. I was testing with a
+gigabit and 100 Mbit link, with 100 Mbit link the issue was not
+reproducible.
 
+Though, I recalling I was doing a bit more than your patch: I was
+also clearing the TX events in the ucce register before calling
+ucc_geth_tx, that way I was trying to avoid stale interrupts. That
+helped to increase an overall performance (not only responsiveness),
+but as I said my approach didn't pass the tests.
 
-Does this patch fix it?
+I don't really think that your patch may cause this, but can you
+try netperf w/ this patch applied anyway? And see if it really
+doesn't cause any issues under stress?
 
---------------050107060906090309050505
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="x"
+Thanks,
 
-ZGlmZiAtLWdpdCBhL25ldC9uZXRmaWx0ZXIvS2NvbmZpZyBiL25ldC9uZXRmaWx0ZXIvS2Nv
-bmZpZwppbmRleCAyNTYyZDA1Li4yYzk2N2U0IDEwMDY0NAotLS0gYS9uZXQvbmV0ZmlsdGVy
-L0tjb25maWcKKysrIGIvbmV0L25ldGZpbHRlci9LY29uZmlnCkBAIC0zNzQsNyArMzc0LDcg
-QEAgY29uZmlnIE5FVEZJTFRFUl9YVF9UQVJHRVRfSEwKIAogY29uZmlnIE5FVEZJTFRFUl9Y
-VF9UQVJHRVRfTEVECiAJdHJpc3RhdGUgJyJMRUQiIHRhcmdldCBzdXBwb3J0JwotCWRlcGVu
-ZHMgb24gTEVEU19DTEFTUworCWRlcGVuZHMgb24gTEVEU19DTEFTUyAmJiBMRURfVFJJR0dF
-UlMKIAlkZXBlbmRzIG9uIE5FVEZJTFRFUl9BRFZBTkNFRAogCWhlbHAKIAkgIFRoaXMgb3B0
-aW9uIGFkZHMgYSBgTEVEJyB0YXJnZXQsIHdoaWNoIGFsbG93cyB5b3UgdG8gYmxpbmsgTEVE
-cyBpbgo=
---------------050107060906090309050505--
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
