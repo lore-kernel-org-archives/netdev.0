@@ -1,102 +1,76 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [net-2.6 PATCH 7/10] Neterion: New driver: Main entry points
-Date: Wed, 25 Mar 2009 19:26:28 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705122717@nekter>
-References: <1237968795.1655.271.camel@flash> <20090325083008.0179381d@nehalam>
+From: Adam Richter <adam_richter2004@yahoo.com>
+Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
+Date: Wed, 25 Mar 2009 16:24:47 -0700 (PDT)
+Message-ID: <774003.62326.qm@web57708.mail.re3.yahoo.com>
+Reply-To: adam_richter2004@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	"Netdev" <netdev@vger.kernel.org>,
-	"Leonid Grossman" <Leonid.Grossman@neterion.com>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: berkley@cs.wustl.edu
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:31920 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753173AbZCYX0c convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 19:26:32 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090325083008.0179381d@nehalam>
+Received: from web57708.mail.re3.yahoo.com ([68.142.236.71]:42004 "HELO
+	web57708.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752893AbZCYXb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 19:31:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
-My replies are inline -
 
-> Module parameters are a method of last resort. Module parameters are
-> a pain for customers because they are hard to configure, and only work
-> on one device driver. They should not be used if anything else is
-> available.
-[Ram] Agreed. The reason we have some of these options is due to
-customer feedback who want the interface to come up on a boot with a
-configuration that is different from the driver default. This may be a
-feature that we could add to ethtool, by giving an option to change
-driver configurations and persist over a boot.
+	I am experiencing what is probably the same forcedeth ethernet
+hang with FORCEDETH_NAPI disabled as reported by Berkley Shands.  I
+want to add the following additional data (items 2-7 basically just
+confirm what one would expect):
 
-> 
-> Therefore the following can be replaced by existing ethtool hooks
-> 	gro	    -> ethtool_get_gro, ethtool_set_gro
-[Ram] Will change.
->         tx/rx_pause -> ethtool_get_pauseparm, ethtool_set_pauseparm
-[Ram] We have an ethtool option already for this parameter but needed
-the configuration to persist over a boot as noted above. Do you have a
-suggestion to get around it?
+	1) I can narrow where the problem was introduced.  The problem
+	   does not occur for me in 2.6.29-rc8-git6, the last git snapshot
+	   before 2.6.29.  There are no changes to forcedeth.c between
+	   these versions.
 
-> 
-> I would like to see the following added to ethtool, go ahead and
-propose
-> some additions to ethtool that do what you need for addr_learn_en and
-> tx_steering_type.
-[Ram] Here's a proposal/wish list. Please let me know what you feel -
+	2) The amount of time it takes to reproduce the problem seems
+	   to depend on networking utilization.  I can reproduce the
+	   problem in about 30 seconds by doing "ping -f" to a
+	   computer on my local ethernet for about one minute.
+	   Otherwise, my computer, which normally does not do much
+	   network communication takes about an hour to exhibit the
+	   problem.
 
-addr_len_en - enable/disable/query
+	3) I can recover by doing "rmmod forcedeth ; modprobe forcedeth"
+	   even without recompiling with NAPI enabled, but the
+	   problem seems to recur more quickly, until reloading the
+	   forcedeth module no longer seems to work.  (I infer from
+	   Berkley Shands' message that reloading the module
+	   recompiled with NAPI enabled will cause the problem not
+	   to recur.)
 
-tx_steering - 
-	Steering options - mac + vlan id, priority, multi queue
-	Configuration - enable/disable/query
-Note: Ideally the same scheme needs to be used for both rx & tx but to
-make this work for all nics, allow the steering option to be configured
-independently for each direction.
+	4) Given that this looks like a NAPI problem, it should come
+	   as no surprise that ethernet transmit still works when the
+	   problem is occuring.  I know this because I can run ping
+	   from the effected machine to a target machine running
+	   tcpdump, and the target machine sees the ping packets.
 
-Here is a list of other ethtool hooks required for IOV management. The
-sysfs interface is ideal for the management but unfortunately is not
-recommended for large amounts of data.
+	5) When the problem occurs, "ifconfig eth0" reports a gradually
+	   increasing count of "RX packets" (I assume from random
+	   broadcast packets originating elsewhere on the local
+	   ethernet), and no obvious signs of trouble:
+ 
+          RX packets:2092 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:34 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:177338 (173.1 KB)  TX bytes:6732 (6.5 KB)
 
-Get number of device mac addresses supported
-Get number of device vlans supported
-Get device vlan id table
-Get device mac address table
+	6) No complaints on the kernel console appear when
+	   ethernet receive stops working.
 
-Get number of virtual functions
-Get virtual function stats
-Get number of virtual function mac addresses
-Get number of virtual function vlans
-Get virtual function vlan id table
-Get virtual function mac address table
+	7) When the problem occurs, the other functions of the
+	   computer apparently continue to work fine.  In particular,
+	   I can reboot the computer from a user program without
+	   incident.
 
-> 
-> Not sure what exec_mode does but why not call it 'debug'
-[Ram] Yes, this is a debug option. When enabled, and if an error
-condition occurs, the driver will mask all interrupts, not clear the
-source of the alarm and gracefully stop all io's. A diagnostic dump of
-registers and stats at this point reveals very useful information.
+	When I can find some time, I plan to try to narrow the problem
+with git bisect, but that may not be today.
 
-> 
-> The intr_type parameter should be unnecessary, assuming the driver
-does
-> the right thing based on bus methods.  If you are worried about buggy
-MSIX
-> hardware, then please do a simulated irq to test IRQ routing.
-[Ram]Will do. It was left for historical reasons in the event one may
-encounter a buggy system.
+Adam Richter
 
-> 
-> Most drivers just use the NAPI weight to control the parameter you
-> are setting with ring_indicate_max_pkts. The weight value is
-changeable
-> at runtime with sysfs.
-[Ram] Agreed. Will make the change.
 
-Thanks,
-Ram
+
+      
