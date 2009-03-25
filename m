@@ -1,259 +1,181 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
-Date: Wed, 25 Mar 2009 08:36:03 -0400
-Message-ID: <49CA2533.3000408@hp.com>
-References: <> <1237945752-14362-1-git-send-email-brian.haley@hp.com> <49C99315.6070504@hp.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] bonding: allow bond in mode balance-alb to work properly
+	in bridge -try2
+Date: Wed, 25 Mar 2009 14:04:43 +0100
+Message-ID: <20090325130443.GG3437@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, linux@kolla.no,
-	netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	kaber@trash.net, mschmidt@redhat.com
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:27741 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758244AbZCYMgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 08:36:08 -0400
-In-Reply-To: <49C99315.6070504@hp.com>
+Received: from mx2.redhat.com ([66.187.237.31]:35944 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753934AbZCYNHN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2009 09:07:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oh,  and another issue I just figured out this morning...
+(resend)
 
-Vlad Yasevich wrote:
-> Brian Haley wrote:
->> This is the quick and easy patch to add autoconf and
->> disable_ipv6 module parameters to IPv6.  I don't think anything
->> more complicated is needed, assuming you play with the /etc
->> configuration files.
->>
->> For example, if you wanted to enable IPv6 just on 'lo' you
->> would:
->>
->> 1. Add "ipv6" to /etc/modules (if you don't, step #3 might fail)
->>
->> 2. Add this to /etc/modprobe.conf:
->>
->> 	options ipv6 disable_ipv6=1
->>
->> 3. Add these to /etc/sysctl.conf:
->>
->> 	net.ipv6.conf.all.disable_ipv6=0
->> 	net.ipv6.conf.lo.disable_ipv6=0
-> 
-> This is kind of confusing.  First you say, disable IPv6, then you say enable IPv6, but
-> nothing happens.  Unless you typo-ed the 'all.disable_ipv6 = 0'...
-> 
-> Also, it looks like if someone decides to switch IPv6 back on for a particular
-> interface, they would have to wait until the next RA to get an address.  Not an
-> optimum solution.
-> 
->> # ip -6 a
->> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
->>     inet6 ::1/128 scope host 
->>        valid_lft forever preferred_lft forever
->>
->> The wording can probably be cleaned-up a little in ipv6.txt,
->> comments welcome.
->>
->>
->> ---------------------------------------------------------------
->>
->> Add 'autoconf' and 'disable_ipv6' parameters to the IPv6 module.
->>
->> The first controls if IPv6 addresses are autoconfigured from
->> prefixes received in Router Advertisements.  The IPv6 loopback
->> (::1) and link-local addresses are still configured.
+Hi all.
 
-You are letting link-locals to autoconfigure, but did not correctly
-finish DAD, because once you set disable_ipv6, ip6_output and ipv6_rcv
-will drop all IPv6 packets.
+The problem is described in following bugzilla:
+https://bugzilla.redhat.com/show_bug.cgi?id=487763
 
-Then later, when you re-enable IPv6, you will not run DAD because the
-interface will think that it's already finished.
+Basically here's what's going on. In every mode, bonding interface uses the same
+mac address for all enslaved devices. Except for mode balance-alb. When you put
+this kind of bond device into a bridge it will only add one of mac adresses into
+a hash list of mac addresses, say X. This mac address is marked as local. But
+this bonding interface also has mac address Y. Now then packet arrives with
+destination address Y, this address is not marked as local and the packed looks
+like it needs to be forwarded. This packet is then lost which is wrong.
 
-So there is a possibility of duplicates not being detected.
+Notice that interfaces can be added and removed from bond while it is in bridge.
 
--vlad
+This patch solves the situation in the bonding without touching bridge code,
+as Patrick suggested. For every incoming frame to bonding it searches the
+destination address in slaves list and if any of slave addresses matches, it
+rewrites the address in frame by the adress of bonding master. This ensures that
+all frames comming thru the bonding in alb mode have the same address.
 
->>
->> The second controls if IPv6 addresses are desired at all.  No
->> IPv6 addresses will be added to any interfaces.
->>
->> Signed-off-by: Brian Haley <brian.haley@hp.com>
->> ---
->>  Documentation/networking/ipv6.txt |   37 +++++++++++++++++++++++++++++++++++++
->>  include/linux/ipv6.h              |    6 ++++++
->>  net/ipv6/addrconf.c               |   12 +++++++++---
->>  net/ipv6/af_inet6.c               |   22 +++++++++++++++++-----
->>  4 files changed, 69 insertions(+), 8 deletions(-)
->>
->> diff --git a/Documentation/networking/ipv6.txt b/Documentation/networking/ipv6.txt
->> index 268e5c1..9fd7e21 100644
->> --- a/Documentation/networking/ipv6.txt
->> +++ b/Documentation/networking/ipv6.txt
->> @@ -33,3 +33,40 @@ disable
->>  
->>  		A reboot is required to enable IPv6.
->>  
->> +autoconf
->> +
->> +	Specifies whether to enable IPv6 address autoconfiguration
->> +	on all interfaces.  This might be used when one does not wish
->> +	for addresses to be automatically generated from prefixes
->> +	received in Router Advertisements.
->> +
->> +	The possible values and their effects are:
->> +
->> +	0
->> +		IPv6 address autoconfiguration is disabled on all interfaces.
->> +
->> +		Only the IPv6 loopback address (::1) and link-local addresses
->> +		will be added to interfaces.
->> +
->> +	1
->> +		IPv6 address autoconfiguration is enabled on all interfaces.
->> +
->> +		This is the default value.
->> +
->> +disable_ipv6
->> +
->> +	Specifies whether to disable IPv6 on all interfaces.
->> +	This might be used when no IPv6 addresses are desired.
->> +
->> +	The possible values and their effects are:
->> +
->> +	0
->> +		IPv6 is enabled on all interfaces.
->> +
->> +		This is the default value.
->> +
->> +	1
->> +		IPv6 is disabled on all interfaces.
->> +
->> +		No IPv6 addresses will be added to interfaces.
->> +
->> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
->> index 476d946..c662efa 100644
->> --- a/include/linux/ipv6.h
->> +++ b/include/linux/ipv6.h
->> @@ -169,6 +169,12 @@ struct ipv6_devconf {
->>  	__s32		accept_dad;
->>  	void		*sysctl;
->>  };
->> +
->> +struct ipv6_params {
->> +	__s32 disable_ipv6;
->> +	__s32 autoconf;
->> +};
->> +extern struct ipv6_params ipv6_defaults;
->>  #endif
->>  
->>  /* index values for the variables in ipv6_devconf */
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 8499da9..da6f01e 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -1784,6 +1784,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
->>  	__u32 prefered_lft;
->>  	int addr_type;
->>  	struct inet6_dev *in6_dev;
->> +	struct net *net = dev_net(dev);
->>  
->>  	pinfo = (struct prefix_info *) opt;
->>  
->> @@ -1841,7 +1842,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
->>  		if (addrconf_finite_timeout(rt_expires))
->>  			rt_expires *= HZ;
->>  
->> -		rt = rt6_lookup(dev_net(dev), &pinfo->prefix, NULL,
->> +		rt = rt6_lookup(net, &pinfo->prefix, NULL,
->>  				dev->ifindex, 1);
->>  
->>  		if (rt && addrconf_is_prefix_route(rt)) {
->> @@ -1874,11 +1875,11 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len)
->>  
->>  	/* Try to figure out our local address for this prefix */
->>  
->> -	if (pinfo->autoconf && in6_dev->cnf.autoconf) {
->> +	if (pinfo->autoconf && in6_dev->cnf.autoconf &&
->> +	    net->ipv6.devconf_all->autoconf) {
->>  		struct inet6_ifaddr * ifp;
->>  		struct in6_addr addr;
->>  		int create = 0, update_lft = 0;
->> -		struct net *net = dev_net(dev);
->>  
->>  		if (pinfo->prefix_len == 64) {
->>  			memcpy(&addr, &pinfo->prefix, 8);
->> @@ -4378,6 +4379,11 @@ static int addrconf_init_net(struct net *net)
->>  		dflt = kmemdup(dflt, sizeof(ipv6_devconf_dflt), GFP_KERNEL);
->>  		if (dflt == NULL)
->>  			goto err_alloc_dflt;
->> +	} else {
->> +		/* these will be inherited by all namespaces */
->> +		all->autoconf = dflt->autoconf = ipv6_defaults.autoconf;
->> +		all->disable_ipv6 = dflt->disable_ipv6 =
->> +			ipv6_defaults.disable_ipv6;
-> 
-> Why set 'all'?  Since no interfaces are created yet, setting dflt accomplishes
-> what you want.
-> 
-> -vlad
-> 
->>  	}
->>  
->>  	net->ipv6.devconf_all = all;
->> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
->> index fbf533c..7278dce 100644
->> --- a/net/ipv6/af_inet6.c
->> +++ b/net/ipv6/af_inet6.c
->> @@ -72,9 +72,21 @@ MODULE_LICENSE("GPL");
->>  static struct list_head inetsw6[SOCK_MAX];
->>  static DEFINE_SPINLOCK(inetsw6_lock);
->>  
->> -static int disable_ipv6 = 0;
->> -module_param_named(disable, disable_ipv6, int, 0);
->> -MODULE_PARM_DESC(disable, "Disable IPv6 such that it is non-functional");
->> +struct ipv6_params ipv6_defaults = {
->> +	.disable_ipv6 = 0,
->> +	.autoconf = 1,
->> +};
->> +
->> +static int disable_ipv6_mod = 0;
->> +
->> +module_param_named(disable, disable_ipv6_mod, int, 0444);
->> +MODULE_PARM_DESC(disable, "Disable IPv6 module such that it is non-functional");
->> +
->> +module_param_named(disable_ipv6, ipv6_defaults.disable_ipv6, int, 0444);
->> +MODULE_PARM_DESC(disable_ipv6, "Disable IPv6 on all interfaces");
->> +
->> +module_param_named(autoconf, ipv6_defaults.autoconf, int, 0444);
->> +MODULE_PARM_DESC(autoconf, "Enable IPv6 address autoconfiguration on all interfaces");
->>  
->>  static __inline__ struct ipv6_pinfo *inet6_sk_generic(struct sock *sk)
->>  {
->> @@ -1013,7 +1025,7 @@ static int __init inet6_init(void)
->>  	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
->>  		INIT_LIST_HEAD(r);
->>  
->> -	if (disable_ipv6) {
->> +	if (disable_ipv6_mod) {
->>  		printk(KERN_INFO
->>  		       "IPv6: Loaded, but administratively disabled, "
->>  		       "reboot required to enable\n");
->> @@ -1202,7 +1214,7 @@ module_init(inet6_init);
->>  
->>  static void __exit inet6_exit(void)
->>  {
->> -	if (disable_ipv6)
->> +	if (disable_ipv6_mod)
->>  		return;
->>  
->>  	/* First of all disallow new sockets creation. */
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Jirka
 
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 27fb7f5..2838be0 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1762,6 +1762,26 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	return 0;
+ }
+ 
++void bond_alb_change_dest(struct sk_buff *skb)
++{
++	struct net_device *bond_dev = skb->dev;
++	struct bonding *bond = netdev_priv(bond_dev);
++	unsigned char *dest = eth_hdr(skb)->h_dest;
++	struct slave *slave;
++	int i;
++
++	if (!memcmp(dest, bond_dev->dev_addr, ETH_ALEN))
++		return;
++	read_lock(&bond->lock);
++	bond_for_each_slave(bond, slave, i) {
++		if (!memcmp(slave->dev->dev_addr, dest, ETH_ALEN)) {
++			memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
++			break;
++		}
++	}
++	read_unlock(&bond->lock);
++}
++
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ {
+ 	if (bond->alb_info.current_alb_vlan &&
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index 50968f8..77f36fb 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -127,6 +127,7 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+ void bond_alb_monitor(struct work_struct *);
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
++void bond_alb_change_dest(struct sk_buff *skb);
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
+ #endif /* __BOND_ALB_H__ */
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3d76686..b62fdc4 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4294,6 +4294,19 @@ unwind:
+ 	return res;
+ }
+ 
++/*
++ * Called via bond_change_dest_hook.
++ * note: already called with rcu_read_lock (preempt_disabled)
++ */
++void bond_change_dest(struct sk_buff *skb)
++{
++	struct net_device *bond_dev = skb->dev;
++	struct bonding *bond = netdev_priv(bond_dev);
++
++	if (bond->params.mode == BOND_MODE_ALB)
++		bond_alb_change_dest(skb);
++}
++
+ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+@@ -5243,6 +5256,8 @@ static int __init bonding_init(void)
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
+ 	bond_register_ipv6_notifier();
+ 
++	bond_change_dest_hook = bond_change_dest;
++
+ 	goto out;
+ err:
+ 	list_for_each_entry(bond, &bond_dev_list, bond_list) {
+@@ -5266,6 +5281,8 @@ static void __exit bonding_exit(void)
+ 	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
+ 	bond_unregister_ipv6_notifier();
+ 
++	bond_change_dest_hook = NULL;
++
+ 	bond_destroy_sysfs();
+ 
+ 	rtnl_lock();
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ca849d2..df92b70 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -375,5 +375,7 @@ static inline void bond_unregister_ipv6_notifier(void)
+ }
+ #endif
+ 
++extern void (*bond_change_dest_hook)(struct sk_buff *skb);
++
+ #endif /* _LINUX_BONDING_H */
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e3fe5c7..abe68d9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2061,6 +2061,13 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ }
+ 
++#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
++void (*bond_change_dest_hook)(struct sk_buff *skb) __read_mostly;
++EXPORT_SYMBOL(bond_change_dest_hook);
++#else
++#define bond_change_dest_hook(skb) do {} while (0)
++#endif
++
+ #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
+ /* These hooks defined here for ATM */
+ struct net_bridge;
+@@ -2251,10 +2258,12 @@ int netif_receive_skb(struct sk_buff *skb)
+ 	null_or_orig = NULL;
+ 	orig_dev = skb->dev;
+ 	if (orig_dev->master) {
+-		if (skb_bond_should_drop(skb))
++		if (skb_bond_should_drop(skb)) {
+ 			null_or_orig = orig_dev; /* deliver only exact match */
+-		else
++		} else {
+ 			skb->dev = orig_dev->master;
++			bond_change_dest_hook(skb);
++		}
+ 	}
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
