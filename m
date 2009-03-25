@@ -1,89 +1,67 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH] gianfar: reallocate skb when headroom is not enough for fcb
-Date: Wed, 25 Mar 2009 17:15:33 +0800
-Message-ID: <1237972533-11195-1-git-send-email-leoli@freescale.com>
-References: <20090325.000643.55804624.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
-To: davem@davemloft.net
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: igbvf: add new driver to support 82576 virtual functions
+Date: Wed, 25 Mar 2009 02:03:29 -0700
+Message-ID: <9929d2390903250203u42b50b54j2db3464967d48702@mail.gmail.com>
+References: <20090324.233843.61607506.davem@davemloft.net>
+	 <9929d2390903250145q2aae3046wb378d190576642c7@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Yu Zhao <yu.zhao@intel.com>,
+	Matthew Wilcox <willy@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:42823 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991AbZCYIui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 04:50:38 -0400
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n2P8o6wX001070
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 01:50:36 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id n2P8o460009521
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:50:05 -0500 (CDT)
-In-Reply-To: <20090325.000643.55804624.davem@davemloft.net>
+Received: from yx-out-2324.google.com ([74.125.44.28]:43092 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173AbZCYJDb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 05:03:31 -0400
+Received: by yx-out-2324.google.com with SMTP id 31so2941447yxl.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 02:03:29 -0700 (PDT)
+In-Reply-To: <9929d2390903250145q2aae3046wb378d190576642c7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gianfar uses a hardware header FCB for offloading.  However when used
-with bridging or IP forwarding, TX skb might not have enough headroom
-for the FCB.  Reallocate skb for such cases.
+On Wed, Mar 25, 2009 at 1:45 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> On Tue, Mar 24, 2009 at 11:38 PM, David Miller <davem@davemloft.net> =
+wrote:
+>>
+>> This breaks the build:
+>>
+>> drivers/net/igbvf/ethtool.c: In function 'igbvf_set_ringparam':
+>> drivers/net/igbvf/ethtool.c:299: error: implicit declaration of func=
+tion 'vmalloc'
+>> drivers/net/igbvf/ethtool.c:299: warning: assignment makes pointer f=
+rom integer without a cast
+>> drivers/net/igbvf/ethtool.c:346: error: implicit declaration of func=
+tion 'vfree'
+>> --
+>
+> Sorry Dave, I thought this was called out earlier, but I see it was
+> not. =C2=A0The igbvf driver requires the following patches applied to=
+ your
+> tree to have them compile. =C2=A0Last I heard, these SR-IOV patches w=
+ere
+> accepted for 2.6.30, in the PCI tree.
+>
+> Yu, can you confirm that these patches have been accepted for 2.6.30?
+>
+> Summary:
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751955907397&w=3D2
+> Patches:
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751956107417&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751956207423&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751981407629&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751981507632&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751981707644&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751981607635&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751981607638&w=3D2
+> http://marc.info/?l=3Dlinux-kernel&m=3D123751981707641&w=3D2
 
-Signed-off-by: Li Yang <leoli@freescale.com>
----
- drivers/net/gianfar.c |   31 +++++++++++++++++++++----------
- 1 files changed, 21 insertions(+), 10 deletions(-)
+I confirmed that Jesse Barnes has these SR-IOV patches queued up for 2.=
+6.30.
+http://marc.info/?l=3Dlinux-kernel&m=3D123757169806111&w=3D2
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 9831b3f..29dc4ee 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1206,10 +1206,19 @@ static int gfar_enet_open(struct net_device *dev)
- 	return err;
- }
- 
--static inline struct txfcb *gfar_add_fcb(struct sk_buff *skb)
-+static inline struct txfcb *gfar_add_fcb(struct sk_buff **skbp)
- {
--	struct txfcb *fcb = (struct txfcb *)skb_push (skb, GMAC_FCB_LEN);
--
-+	struct txfcb *fcb;
-+	struct sk_buff *skb = *skbp;
-+
-+	if (unlikely(skb_headroom(skb) < GMAC_FCB_LEN)) {
-+		struct sk_buff *old_skb = skb;
-+		skb = skb_realloc_headroom(old_skb, GMAC_FCB_LEN);
-+		if (!skb)
-+			return NULL;
-+		dev_kfree_skb_any(old_skb);
-+	}
-+	fcb = (struct txfcb *)skb_push(skb, GMAC_FCB_LEN);
- 	cacheable_memzero(fcb, GMAC_FCB_LEN);
- 
- 	return fcb;
-@@ -1330,18 +1339,20 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Set up checksumming */
- 	if (CHECKSUM_PARTIAL == skb->ip_summed) {
--		fcb = gfar_add_fcb(skb);
--		lstatus |= BD_LFLAG(TXBD_TOE);
--		gfar_tx_checksum(skb, fcb);
-+		fcb = gfar_add_fcb(&skb);
-+		if (likely(fcb != NULL)) {
-+			lstatus |= BD_LFLAG(TXBD_TOE);
-+			gfar_tx_checksum(skb, fcb);
-+		}
- 	}
- 
- 	if (priv->vlgrp && vlan_tx_tag_present(skb)) {
--		if (unlikely(NULL == fcb)) {
--			fcb = gfar_add_fcb(skb);
-+		if (unlikely(NULL == fcb))
-+			fcb = gfar_add_fcb(&skb);
-+		if (likely(fcb != NULL)) {
- 			lstatus |= BD_LFLAG(TXBD_TOE);
-+			gfar_tx_vlan(skb, fcb);
- 		}
--
--		gfar_tx_vlan(skb, fcb);
- 	}
- 
- 	/* setup the TxBD length and buffer pointer for the first BD */
--- 
-1.5.4
-
+--=20
+Cheers,
+Jeff
