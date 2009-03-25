@@ -1,106 +1,122 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter spurious ELOOP
-Date: Wed, 25 Mar 2009 19:38:17 +0100
-Message-ID: <49CA7A19.8040805@trash.net>
-References: <200903242302.n2ON25u4024288@givry.fdupont.fr> <20090324.162808.114465835.davem@davemloft.net> <49CA64D8.9040602@trash.net> <20090325173742.3C509E601C@farside.isc.org> <49CA741D.3080705@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] net: release dst entry in dev_queue_xmit()
+Date: Wed, 25 Mar 2009 19:41:27 +0100
+Message-ID: <49CA7AD7.8040401@cosmosbay.com>
+References: <49C380A6.4000904@cosmosbay.com>	<20090324.234354.43714160.davem@davemloft.net>	<49C9D99A.2040900@cosmosbay.com> <20090325.001720.238121238.davem@davemloft.net> <49CA7658.4010400@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080806050102030902050107"
-Cc: David Miller <davem@davemloft.net>, Francis.Dupont@fdupont.fr,
-	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Francis Dupont <Francis_Dupont@isc.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49CA741D.3080705@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50423 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763487AbZCYSlh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 14:41:37 -0400
+In-Reply-To: <49CA7658.4010400@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080806050102030902050107
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Jarek Poplawski a =E9crit :
+> David Miller wrote, On 03/25/2009 08:17 AM:
+>=20
+>> From: Eric Dumazet <dada1@cosmosbay.com>
+>> Date: Wed, 25 Mar 2009 08:13:30 +0100
+>>
+>>> If done in dev_hard_start_xmit(), skb could be requeued (because of
+>>> NETDEV_TX_BUSY).  Then if requeued, maybe at this time, dst being
+>>> NULL is not a problem ?
+>> Usually it should be OK because the packet schedulers have
+>> a sort-of one-behind state that allows them to reinsert
+>> the SKB into their queue datastructures without reclassifying.
+>=20
+>=20
+> Actually, since David has dumped requeuing there is no reinserting;
+> this last one "requeued" skb is buffered at the top in q->gso_skb
+> and waiting for better times.
 
-Patrick McHardy wrote:
-> Thanks, that answers my question. I'll apply your patch and send it to
-> -stable once its in the mainline kernel.
+Yes indeed, this is what I thought too, thanks Jarek.
 
-The same bug was also present in ip6_tables and arp_tables.
-This is the patch I've committed:
+I tested following patch today on my machine, but obviously could not t=
+ry=20
+all possible quirks :)
 
+[PATCH] net: release dst entry in dev_hard_start_xmit()
 
+One point of contention in high network loads is the dst_release() perf=
+ormed
+when a transmited skb is freed. This is because NIC tx completion calls=
+ skb free
+long after original call to dev_queue_xmit(skb).
 
---------------080806050102030902050107
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+CPU cache is cold and the atomic op in dst_release() stalls. On SMP, th=
+is is
+quite visible if one CPU is 100% handling softirqs for a network device=
+,
+since dst_clone() is done by other cpus, involving cache line ping pong=
+s.
 
-commit 1f9352ae2253a97b07b34dcf16ffa3b4ca12c558
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Mar 25 19:26:35 2009 +0100
+I believe we can release dst in dev_hard_start_xmit(), while cpu cache =
+is hot, since
+caller of dev_queue_xmit() had to hold a reference on dst right before.=
+ This reduce
+work to be done by softirq handler, and decrease cache misses.
 
-    netfilter: {ip,ip6,arp}_tables: fix incorrect loop detection
-    
-    Commit e1b4b9f ([NETFILTER]: {ip,ip6,arp}_tables: fix exponential worst-case
-    search for loops) introduced a regression in the loop detection algorithm,
-    causing sporadic incorrectly detected loops.
-    
-    When a chain has already been visited during the check, it is treated as
-    having a standard target containing a RETURN verdict directly at the
-    beginning in order to not check it again. The real target of the first
-    rule is then incorrectly treated as STANDARD target and checked not to
-    contain invalid verdicts.
-    
-    Fix by making sure the rule does actually contain a standard target.
-    
-    Based on patch by Francis Dupont <Francis_Dupont@isc.org>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+I also believe only pktgen can call dev_queue_xmit() with skb which hav=
+e
+a skb->users !=3D 1. But pkthen skbs have a NULL dst entry.
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 4b35dba..4f454ce 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -388,7 +388,9 @@ static int mark_source_chains(struct xt_table_info *newinfo,
- 			    && unconditional(&e->arp)) || visited) {
- 				unsigned int oldpos, size;
- 
--				if (t->verdict < -NF_MAX_VERDICT - 1) {
-+				if ((strcmp(t->target.u.user.name,
-+					    ARPT_STANDARD_TARGET) == 0) &&
-+				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
- 								t->verdict);
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 41c59e3..82ee7c9 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -488,7 +488,9 @@ mark_source_chains(struct xt_table_info *newinfo,
- 			    && unconditional(&e->ip)) || visited) {
- 				unsigned int oldpos, size;
- 
--				if (t->verdict < -NF_MAX_VERDICT - 1) {
-+				if ((strcmp(t->target.u.user.name,
-+			    		    IPT_STANDARD_TARGET) == 0) &&
-+				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
- 								t->verdict);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index e59662b..e89cfa3 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -517,7 +517,9 @@ mark_source_chains(struct xt_table_info *newinfo,
- 			    && unconditional(&e->ipv6)) || visited) {
- 				unsigned int oldpos, size;
- 
--				if (t->verdict < -NF_MAX_VERDICT - 1) {
-+				if ((strcmp(t->target.u.user.name,
-+					    IP6T_STANDARD_TARGET) == 0) &&
-+				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
- 								t->verdict);
+I added a WARN_ON_ONCE() to catch other cases, and not release skb->dst
+if skb->users !=3D 1
 
---------------080806050102030902050107--
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e3fe5c7..a622db6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1664,6 +1664,26 @@ static int dev_gso_segment(struct sk_buff *skb)
+ 	return 0;
+ }
+=20
++
++/*
++ * Release dst while its refcnt is likely hot in CPU cache, instead
++ * of waiting NIC tx completion.
++ * We inline dst_release() code for performance reason
++ */
++static void release_skb_dst(struct sk_buff *skb)
++{
++	if (likely(skb->dst)) {
++		if (!WARN_ON_ONCE(atomic_read(&skb->users) !=3D 1)) {
++			int newrefcnt;
++
++			smp_mb__before_atomic_dec();
++			newrefcnt =3D atomic_dec_return(&skb->dst->__refcnt);
++			WARN_ON(newrefcnt < 0);
++			skb->dst =3D NULL;
++		}
++	}
++}
++
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			struct netdev_queue *txq)
+ {
+@@ -1681,6 +1701,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, stru=
+ct net_device *dev,
+ 				goto gso;
+ 		}
+=20
++		release_skb_dst(skb);
+ 		return ops->ndo_start_xmit(skb, dev);
+ 	}
+=20
+@@ -1691,6 +1712,7 @@ gso:
+=20
+ 		skb->next =3D nskb->next;
+ 		nskb->next =3D NULL;
++		release_skb_dst(nskb);
+ 		rc =3D ops->ndo_start_xmit(nskb, dev);
+ 		if (unlikely(rc)) {
+ 			nskb->next =3D skb->next;
+
