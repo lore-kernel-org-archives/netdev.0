@@ -1,504 +1,58 @@
-From: Greg Kroah-Hartman <gregkh@suse.de>
-Subject: [PATCH 15/61] net: struct device - replace bus_id with dev_name(), dev_set_name()
-Date: Tue, 24 Mar 2009 17:26:19 -0700
-Message-ID: <1237940825-22904-15-git-send-email-gregkh@suse.de>
-References: <20090325001659.GA22461@kroah.com>
-Cc: Kay Sievers <kay.sievers@vrfy.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH] e1000e: add support for 82574 device ID 0x10F6
+Date: Tue, 24 Mar 2009 18:32:58 -0700
+Message-ID: <20090325013257.12263.34349.stgit@lost.foo-projects.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:54076 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756786AbZCYA3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2009 20:29:47 -0400
-In-Reply-To: <20090325001659.GA22461@kroah.com>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:53371
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752074AbZCYBdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2009 21:33:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kay Sievers <kay.sievers@vrfy.org>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Cc: davem@davemloft.net
-Cc: netdev@vger.kernel.org
-Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
-Signed-off-by: Kay Sievers <kay.sievers@vrfy.org>
+Add device ID for a new variant of the 82574 adapter.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Acked-by: John Ronciak <john.ronciak@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/arm/ks8695net.c  |    2 +-
- drivers/net/au1000_eth.c     |    8 ++++----
- drivers/net/bfin_mac.c       |   12 ++++++------
- drivers/net/bmac.c           |    2 +-
- drivers/net/cpmac.c          |    2 +-
- drivers/net/declance.c       |    6 +++---
- drivers/net/depca.c          |    6 +++---
- drivers/net/ehea/ehea_main.c |    2 +-
- drivers/net/jazzsonic.c      |    6 ++++--
- drivers/net/macb.c           |   10 +++++-----
- drivers/net/macsonic.c       |   15 ++++++++-------
- drivers/net/mv643xx_eth.c    |    2 +-
- drivers/net/sb1250-mac.c     |   10 +++++-----
- drivers/net/smc911x.c        |    2 +-
- drivers/net/smc91x.c         |    2 +-
- drivers/net/smsc911x.c       |    7 ++++---
- drivers/net/smsc9420.c       |    4 ++--
- drivers/net/tc35815.c        |    4 ++--
- drivers/net/xtsonic.c        |    2 +-
- 19 files changed, 54 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
-index f3a1274..35cd264 100644
---- a/drivers/net/arm/ks8695net.c
-+++ b/drivers/net/arm/ks8695net.c
-@@ -1059,7 +1059,7 @@ ks8695_get_drvinfo(struct net_device *ndev, struct ethtool_drvinfo *info)
- {
- 	strlcpy(info->driver, MODULENAME, sizeof(info->driver));
- 	strlcpy(info->version, MODULEVERSION, sizeof(info->version));
--	strlcpy(info->bus_info, ndev->dev.parent->bus_id,
-+	strlcpy(info->bus_info, dev_name(ndev->dev.parent),
- 		sizeof(info->bus_info));
- }
+ drivers/net/e1000e/hw.h     |    1 +
+ drivers/net/e1000e/netdev.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 11a2f20..d8b8229 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -339,6 +339,7 @@ enum e1e_registers {
+ #define E1000_DEV_ID_82573E_IAMT		0x108C
+ #define E1000_DEV_ID_82573L			0x109A
+ #define E1000_DEV_ID_82574L			0x10D3
++#define E1000_DEV_ID_82574LA			0x10F6
+ #define E1000_DEV_ID_82583V                     0x150C
  
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 9c875bb..79aec32 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -355,8 +355,8 @@ static int mii_probe (struct net_device *dev)
- 	/* now we are supposed to have a proper phydev, to attach to... */
- 	BUG_ON(phydev->attached_dev);
+ #define E1000_DEV_ID_80003ES2LAN_COPPER_DPT	0x1096
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index f388a01..15424ba 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5130,6 +5130,7 @@ static struct pci_device_id e1000_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82573L), board_82573 },
  
--	phydev = phy_connect(dev, phydev->dev.bus_id, &au1000_adjust_link, 0,
--			PHY_INTERFACE_MODE_MII);
-+	phydev = phy_connect(dev, dev_name(&phydev->dev), &au1000_adjust_link,
-+			0, PHY_INTERFACE_MODE_MII);
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82574L), board_82574 },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82574LA), board_82574 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82583V), board_82583 },
  
- 	if (IS_ERR(phydev)) {
- 		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
-@@ -381,8 +381,8 @@ static int mii_probe (struct net_device *dev)
- 	aup->phy_dev = phydev;
- 
- 	printk(KERN_INFO "%s: attached PHY driver [%s] "
--	       "(mii_bus:phy_addr=%s, irq=%d)\n",
--	       dev->name, phydev->drv->name, phydev->dev.bus_id, phydev->irq);
-+	       "(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
-+	       phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
- 
- 	return 0;
- }
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 78e31aa..9afe809 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -415,11 +415,11 @@ static int mii_probe(struct net_device *dev)
- 	}
- 
- #if defined(CONFIG_BFIN_MAC_RMII)
--	phydev = phy_connect(dev, phydev->dev.bus_id, &bfin_mac_adjust_link, 0,
--			PHY_INTERFACE_MODE_RMII);
-+	phydev = phy_connect(dev, dev_name(&phydev->dev), &bfin_mac_adjust_link,
-+			0, PHY_INTERFACE_MODE_RMII);
- #else
--	phydev = phy_connect(dev, phydev->dev.bus_id, &bfin_mac_adjust_link, 0,
--			PHY_INTERFACE_MODE_MII);
-+	phydev = phy_connect(dev, dev_name(&phydev->dev), &bfin_mac_adjust_link,
-+			0, PHY_INTERFACE_MODE_MII);
- #endif
- 
- 	if (IS_ERR(phydev)) {
-@@ -447,7 +447,7 @@ static int mii_probe(struct net_device *dev)
- 	printk(KERN_INFO "%s: attached PHY driver [%s] "
- 	       "(mii_bus:phy_addr=%s, irq=%d, mdc_clk=%dHz(mdc_div=%d)"
- 	       "@sclk=%dMHz)\n",
--	       DRV_NAME, phydev->drv->name, phydev->dev.bus_id, phydev->irq,
-+	       DRV_NAME, phydev->drv->name, dev_name(&phydev->dev), phydev->irq,
- 	       MDC_CLK, mdc_div, sclk/1000000);
- 
- 	return 0;
-@@ -488,7 +488,7 @@ static void bfin_mac_ethtool_getdrvinfo(struct net_device *dev,
- 	strcpy(info->driver, DRV_NAME);
- 	strcpy(info->version, DRV_VERSION);
- 	strcpy(info->fw_version, "N/A");
--	strcpy(info->bus_info, dev->dev.bus_id);
-+	strcpy(info->bus_info, dev_name(&dev->dev));
- }
- 
- static struct ethtool_ops bfin_mac_ethtool_ops = {
-diff --git a/drivers/net/bmac.c b/drivers/net/bmac.c
-index 8a546a3..1ab5837 100644
---- a/drivers/net/bmac.c
-+++ b/drivers/net/bmac.c
-@@ -1240,7 +1240,7 @@ static void bmac_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *inf
- {
- 	struct bmac_data *bp = netdev_priv(dev);
- 	strcpy(info->driver, "bmac");
--	strcpy(info->bus_info, bp->mdev->ofdev.dev.bus_id);
-+	strcpy(info->bus_info, dev_name(&bp->mdev->ofdev.dev));
- }
- 
- static const struct ethtool_ops bmac_ethtool_ops = {
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index f665487..79741c5 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -1161,7 +1161,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
- 	priv->msg_enable = netif_msg_init(debug_level, 0xff);
- 	memcpy(dev->dev_addr, pdata->dev_addr, sizeof(dev->dev_addr));
- 
--	priv->phy = phy_connect(dev, cpmac_mii->phy_map[phy_id]->dev.bus_id,
-+	priv->phy = phy_connect(dev, dev_name(&cpmac_mii->phy_map[phy_id]->dev),
- 				&cpmac_adjust_link, 0, PHY_INTERFACE_MODE_MII);
- 	if (IS_ERR(priv->phy)) {
- 		if (netif_msg_drv(priv))
-diff --git a/drivers/net/declance.c b/drivers/net/declance.c
-index 7ce3053..861c867 100644
---- a/drivers/net/declance.c
-+++ b/drivers/net/declance.c
-@@ -1027,7 +1027,7 @@ static int __init dec_lance_probe(struct device *bdev, const int type)
- 		printk(version);
- 
- 	if (bdev)
--		snprintf(name, sizeof(name), "%s", bdev->bus_id);
-+		snprintf(name, sizeof(name), "%s", dev_name(bdev));
- 	else {
- 		i = 0;
- 		dev = root_lance_dev;
-@@ -1105,10 +1105,10 @@ static int __init dec_lance_probe(struct device *bdev, const int type)
- 
- 		start = to_tc_dev(bdev)->resource.start;
- 		len = to_tc_dev(bdev)->resource.end - start + 1;
--		if (!request_mem_region(start, len, bdev->bus_id)) {
-+		if (!request_mem_region(start, len, dev_name(bdev))) {
- 			printk(KERN_ERR
- 			       "%s: Unable to reserve MMIO resource\n",
--			       bdev->bus_id);
-+			       dev_name(bdev));
- 			ret = -EBUSY;
- 			goto err_out_dev;
- 		}
-diff --git a/drivers/net/depca.c b/drivers/net/depca.c
-index e4cef49..55625db 100644
---- a/drivers/net/depca.c
-+++ b/drivers/net/depca.c
-@@ -606,8 +606,8 @@ static int __init depca_hw_init (struct net_device *dev, struct device *device)
- 	if (!mem_start || lp->adapter < DEPCA || lp->adapter >=unknown)
- 		return -ENXIO;
- 
--	printk ("%s: %s at 0x%04lx",
--	        device->bus_id, depca_signature[lp->adapter], ioaddr);
-+	printk("%s: %s at 0x%04lx",
-+	       dev_name(device), depca_signature[lp->adapter], ioaddr);
- 
- 	switch (lp->depca_bus) {
- #ifdef CONFIG_MCA
-@@ -669,7 +669,7 @@ static int __init depca_hw_init (struct net_device *dev, struct device *device)
- 
- 	spin_lock_init(&lp->lock);
- 	sprintf(lp->adapter_name, "%s (%s)",
--		depca_signature[lp->adapter], device->bus_id);
-+		depca_signature[lp->adapter], dev_name(device));
- 	status = -EBUSY;
- 
- 	/* Initialisation Block */
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index dfe9226..8e7c165 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -3040,7 +3040,7 @@ static struct device *ehea_register_port(struct ehea_port *port,
- 	port->ofdev.dev.parent = &port->adapter->ofdev->dev;
- 	port->ofdev.dev.bus = &ibmebus_bus_type;
- 
--	sprintf(port->ofdev.dev.bus_id, "port%d", port_name_cnt++);
-+	dev_set_name(&port->ofdev.dev, "port%d", port_name_cnt++);
- 	port->ofdev.dev.release = logical_port_release;
- 
- 	ret = of_device_register(&port->ofdev);
-diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
-index 334ff9e..14248cf 100644
---- a/drivers/net/jazzsonic.c
-+++ b/drivers/net/jazzsonic.c
-@@ -131,7 +131,8 @@ static int __init sonic_probe1(struct net_device *dev)
- 	if (sonic_debug  &&  version_printed++ == 0)
- 		printk(version);
- 
--	printk(KERN_INFO "%s: Sonic ethernet found at 0x%08lx, ", lp->device->bus_id, dev->base_addr);
-+	printk(KERN_INFO "%s: Sonic ethernet found at 0x%08lx, ",
-+	       dev_name(lp->device), dev->base_addr);
- 
- 	/*
- 	 * Put the sonic into software reset, then
-@@ -156,7 +157,8 @@ static int __init sonic_probe1(struct net_device *dev)
- 	if ((lp->descriptors = dma_alloc_coherent(lp->device,
- 				SIZEOF_SONIC_DESC * SONIC_BUS_SCALE(lp->dma_bitmode),
- 				&lp->descriptors_laddr, GFP_KERNEL)) == NULL) {
--		printk(KERN_ERR "%s: couldn't alloc DMA memory for descriptors.\n", lp->device->bus_id);
-+		printk(KERN_ERR "%s: couldn't alloc DMA memory for descriptors.\n",
-+		       dev_name(lp->device));
- 		goto out;
- 	}
- 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index f6c4936..f408654 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -211,10 +211,10 @@ static int macb_mii_probe(struct net_device *dev)
- 
- 	/* attach the mac to the phy */
- 	if (pdata && pdata->is_rmii) {
--		phydev = phy_connect(dev, phydev->dev.bus_id,
-+		phydev = phy_connect(dev, dev_name(&phydev->dev),
- 			&macb_handle_link_change, 0, PHY_INTERFACE_MODE_RMII);
- 	} else {
--		phydev = phy_connect(dev, phydev->dev.bus_id,
-+		phydev = phy_connect(dev, dev_name(&phydev->dev),
- 			&macb_handle_link_change, 0, PHY_INTERFACE_MODE_MII);
- 	}
- 
-@@ -1077,7 +1077,7 @@ static void macb_get_drvinfo(struct net_device *dev,
- 
- 	strcpy(info->driver, bp->pdev->dev.driver->name);
- 	strcpy(info->version, "$Revision: 1.14 $");
--	strcpy(info->bus_info, bp->pdev->dev.bus_id);
-+	strcpy(info->bus_info, dev_name(&bp->pdev->dev));
- }
- 
- static struct ethtool_ops macb_ethtool_ops = {
-@@ -1234,8 +1234,8 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- 	phydev = bp->phy_dev;
- 	printk(KERN_INFO "%s: attached PHY driver [%s] "
--		"(mii_bus:phy_addr=%s, irq=%d)\n",
--		dev->name, phydev->drv->name, phydev->dev.bus_id, phydev->irq);
-+		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
-+		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
- 
- 	return 0;
- 
-diff --git a/drivers/net/macsonic.c b/drivers/net/macsonic.c
-index 205bb05..527166e 100644
---- a/drivers/net/macsonic.c
-+++ b/drivers/net/macsonic.c
-@@ -176,7 +176,8 @@ static int __init macsonic_init(struct net_device *dev)
- 	if ((lp->descriptors = dma_alloc_coherent(lp->device,
- 	            SIZEOF_SONIC_DESC * SONIC_BUS_SCALE(lp->dma_bitmode),
- 	            &lp->descriptors_laddr, GFP_KERNEL)) == NULL) {
--		printk(KERN_ERR "%s: couldn't alloc DMA memory for descriptors.\n", lp->device->bus_id);
-+		printk(KERN_ERR "%s: couldn't alloc DMA memory for descriptors.\n",
-+		       dev_name(lp->device));
- 		return -ENOMEM;
- 	}
- 
-@@ -337,7 +338,7 @@ static int __init mac_onboard_sonic_probe(struct net_device *dev)
- 		sonic_version_printed = 1;
- 	}
- 	printk(KERN_INFO "%s: onboard / comm-slot SONIC at 0x%08lx\n",
--	       lp->device->bus_id, dev->base_addr);
-+	       dev_name(lp->device), dev->base_addr);
- 
- 	/* The PowerBook's SONIC is 16 bit always. */
- 	if (macintosh_config->ident == MAC_MODEL_PB520) {
-@@ -370,10 +371,10 @@ static int __init mac_onboard_sonic_probe(struct net_device *dev)
- 	}
- 	printk(KERN_INFO
- 	       "%s: revision 0x%04x, using %d bit DMA and register offset %d\n",
--	       lp->device->bus_id, sr, lp->dma_bitmode?32:16, lp->reg_offset);
-+	       dev_name(lp->device), sr, lp->dma_bitmode?32:16, lp->reg_offset);
- 
- #if 0 /* This is sometimes useful to find out how MacOS configured the card. */
--	printk(KERN_INFO "%s: DCR: 0x%04x, DCR2: 0x%04x\n", lp->device->bus_id,
-+	printk(KERN_INFO "%s: DCR: 0x%04x, DCR2: 0x%04x\n", dev_name(lp->device),
- 	       SONIC_READ(SONIC_DCR) & 0xffff, SONIC_READ(SONIC_DCR2) & 0xffff);
- #endif
- 
-@@ -525,12 +526,12 @@ static int __init mac_nubus_sonic_probe(struct net_device *dev)
- 		sonic_version_printed = 1;
- 	}
- 	printk(KERN_INFO "%s: %s in slot %X\n",
--	       lp->device->bus_id, ndev->board->name, ndev->board->slot);
-+	       dev_name(lp->device), ndev->board->name, ndev->board->slot);
- 	printk(KERN_INFO "%s: revision 0x%04x, using %d bit DMA and register offset %d\n",
--	       lp->device->bus_id, SONIC_READ(SONIC_SR), dma_bitmode?32:16, reg_offset);
-+	       dev_name(lp->device), SONIC_READ(SONIC_SR), dma_bitmode?32:16, reg_offset);
- 
- #if 0 /* This is sometimes useful to find out how MacOS configured the card. */
--	printk(KERN_INFO "%s: DCR: 0x%04x, DCR2: 0x%04x\n", lp->device->bus_id,
-+	printk(KERN_INFO "%s: DCR: 0x%04x, DCR2: 0x%04x\n", dev_name(lp->device),
- 	       SONIC_READ(SONIC_DCR) & 0xffff, SONIC_READ(SONIC_DCR2) & 0xffff);
- #endif
- 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index b0bc3bc..fe4e158 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -2588,7 +2588,7 @@ static void phy_init(struct mv643xx_eth_private *mp, int speed, int duplex)
- 
- 	phy_reset(mp);
- 
--	phy_attach(mp->dev, phy->dev.bus_id, 0, PHY_INTERFACE_MODE_GMII);
-+	phy_attach(mp->dev, dev_name(&phy->dev), 0, PHY_INTERFACE_MODE_GMII);
- 
- 	if (speed == 0) {
- 		phy->autoneg = AUTONEG_ENABLE;
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 31e38fa..845431c 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -2478,7 +2478,7 @@ static int sbmac_mii_probe(struct net_device *dev)
- 		return -ENXIO;
- 	}
- 
--	phy_dev = phy_connect(dev, phy_dev->dev.bus_id, &sbmac_mii_poll, 0,
-+	phy_dev = phy_connect(dev, dev_name(&phy_dev->dev), &sbmac_mii_poll, 0,
- 			      PHY_INTERFACE_MODE_GMII);
- 	if (IS_ERR(phy_dev)) {
- 		printk(KERN_ERR "%s: could not attach to PHY\n", dev->name);
-@@ -2500,7 +2500,7 @@ static int sbmac_mii_probe(struct net_device *dev)
- 
- 	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
- 		dev->name, phy_dev->drv->name,
--		phy_dev->dev.bus_id, phy_dev->irq);
-+		dev_name(&phy_dev->dev), phy_dev->irq);
- 
- 	sc->phy_dev = phy_dev;
- 
-@@ -2697,7 +2697,7 @@ static int __init sbmac_probe(struct platform_device *pldev)
- 	sbm_base = ioremap_nocache(res->start, res->end - res->start + 1);
- 	if (!sbm_base) {
- 		printk(KERN_ERR "%s: unable to map device registers\n",
--		       pldev->dev.bus_id);
-+		       dev_name(&pldev->dev));
- 		err = -ENOMEM;
- 		goto out_out;
- 	}
-@@ -2708,7 +2708,7 @@ static int __init sbmac_probe(struct platform_device *pldev)
- 	 * If we find a zero, skip this MAC.
- 	 */
- 	sbmac_orig_hwaddr = __raw_readq(sbm_base + R_MAC_ETHERNET_ADDR);
--	pr_debug("%s: %sconfiguring MAC at 0x%08Lx\n", pldev->dev.bus_id,
-+	pr_debug("%s: %sconfiguring MAC at 0x%08Lx\n", dev_name(&pldev->dev),
- 		 sbmac_orig_hwaddr ? "" : "not ", (long long)res->start);
- 	if (sbmac_orig_hwaddr == 0) {
- 		err = 0;
-@@ -2721,7 +2721,7 @@ static int __init sbmac_probe(struct platform_device *pldev)
- 	dev = alloc_etherdev(sizeof(struct sbmac_softc));
- 	if (!dev) {
- 		printk(KERN_ERR "%s: unable to allocate etherdev\n",
--		       pldev->dev.bus_id);
-+		       dev_name(&pldev->dev));
- 		err = -ENOMEM;
- 		goto out_unmap;
- 	}
-diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
-index 223cde0..2936103 100644
---- a/drivers/net/smc911x.c
-+++ b/drivers/net/smc911x.c
-@@ -1545,7 +1545,7 @@ smc911x_ethtool_getdrvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- {
- 	strncpy(info->driver, CARDNAME, sizeof(info->driver));
- 	strncpy(info->version, version, sizeof(info->version));
--	strncpy(info->bus_info, dev->dev.parent->bus_id, sizeof(info->bus_info));
-+	strncpy(info->bus_info, dev_name(dev->dev.parent), sizeof(info->bus_info));
- }
- 
- static int smc911x_ethtool_nwayreset(struct net_device *dev)
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index b215a8d..0b6da95 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -1614,7 +1614,7 @@ smc_ethtool_getdrvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- {
- 	strncpy(info->driver, CARDNAME, sizeof(info->driver));
- 	strncpy(info->version, version, sizeof(info->version));
--	strncpy(info->bus_info, dev->dev.parent->bus_id, sizeof(info->bus_info));
-+	strncpy(info->bus_info, dev_name(dev->dev.parent), sizeof(info->bus_info));
- }
- 
- static int smc_ethtool_nwayreset(struct net_device *dev)
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index d1590ac..ab18ee0 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -769,7 +769,7 @@ static int smsc911x_mii_probe(struct net_device *dev)
- 		return -ENODEV;
- 	}
- 
--	phydev = phy_connect(dev, phydev->dev.bus_id,
-+	phydev = phy_connect(dev, dev_name(&phydev->dev),
- 		&smsc911x_phy_adjust_link, 0, pdata->config.phy_interface);
- 
- 	if (IS_ERR(phydev)) {
-@@ -778,7 +778,8 @@ static int smsc911x_mii_probe(struct net_device *dev)
- 	}
- 
- 	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
--		dev->name, phydev->drv->name, phydev->dev.bus_id, phydev->irq);
-+		dev->name, phydev->drv->name,
-+		dev_name(&phydev->dev), phydev->irq);
- 
- 	/* mask with MAC supported features */
- 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
-@@ -1549,7 +1550,7 @@ static void smsc911x_ethtool_getdrvinfo(struct net_device *dev,
- {
- 	strlcpy(info->driver, SMSC_CHIPNAME, sizeof(info->driver));
- 	strlcpy(info->version, SMSC_DRV_VERSION, sizeof(info->version));
--	strlcpy(info->bus_info, dev->dev.parent->bus_id,
-+	strlcpy(info->bus_info, dev_name(dev->dev.parent),
- 		sizeof(info->bus_info));
- }
- 
-diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
-index 4e15ae0..72f1348 100644
---- a/drivers/net/smsc9420.c
-+++ b/drivers/net/smsc9420.c
-@@ -1160,7 +1160,7 @@ static int smsc9420_mii_probe(struct net_device *dev)
- 	smsc_info(PROBE, "PHY addr %d, phy_id 0x%08X", phydev->addr,
- 		phydev->phy_id);
- 
--	phydev = phy_connect(dev, phydev->dev.bus_id,
-+	phydev = phy_connect(dev, dev_name(&phydev->dev),
- 		&smsc9420_phy_adjust_link, 0, PHY_INTERFACE_MODE_MII);
- 
- 	if (IS_ERR(phydev)) {
-@@ -1169,7 +1169,7 @@ static int smsc9420_mii_probe(struct net_device *dev)
- 	}
- 
- 	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
--		dev->name, phydev->drv->name, phydev->dev.bus_id, phydev->irq);
-+		dev->name, phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
- 
- 	/* mask with MAC supported features */
- 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index bcd0e60..e1f8eb9 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -725,7 +725,7 @@ static int tc_mii_probe(struct net_device *dev)
- 	}
- 
- 	/* attach the mac to the phy */
--	phydev = phy_connect(dev, phydev->dev.bus_id,
-+	phydev = phy_connect(dev, dev_name(&phydev->dev),
- 			     &tc_handle_link_change, 0,
- 			     lp->chiptype == TC35815_TX4939 ?
- 			     PHY_INTERFACE_MODE_RMII : PHY_INTERFACE_MODE_MII);
-@@ -735,7 +735,7 @@ static int tc_mii_probe(struct net_device *dev)
- 	}
- 	printk(KERN_INFO "%s: attached PHY driver [%s] "
- 		"(mii_bus:phy_addr=%s, id=%x)\n",
--		dev->name, phydev->drv->name, phydev->dev.bus_id,
-+		dev->name, phydev->drv->name, dev_name(&phydev->dev),
- 		phydev->phy_id);
- 
- 	/* mask with MAC supported features */
-diff --git a/drivers/net/xtsonic.c b/drivers/net/xtsonic.c
-index 03a3f34..a12a721 100644
---- a/drivers/net/xtsonic.c
-+++ b/drivers/net/xtsonic.c
-@@ -183,7 +183,7 @@ static int __init sonic_probe1(struct net_device *dev)
- 
- 	if (lp->descriptors == NULL) {
- 		printk(KERN_ERR "%s: couldn't alloc DMA memory for "
--				" descriptors.\n", lp->device->bus_id);
-+				" descriptors.\n", dev_name(lp->device));
- 		goto out;
- 	}
- 
--- 
-1.6.2
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_80003ES2LAN_COPPER_DPT),
 
