@@ -1,120 +1,139 @@
-From: Subrata Modak <tosubrata@gmail.com>
-Subject: [PATCH] Re: Next March 25: net/netfilter/xt_LED build failure.
-Date: Wed, 25 Mar 2009 19:27:59 +0530
-Message-ID: <20090325135759.4397.53055.sendpatchset@subratamodak.linux.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Wed, 25 Mar 2009 15:04:26 +0100
+Message-ID: <49CA39EA.6020208@cosmosbay.com>
+References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sachin Sant <sachinp@in.ibm.com>,
-	Subrata Modak <tosubrata@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>, avorontsov@ru.mvista.com,
+	leoli@freescale.com,
+	"'linuxppc-dev Development'" <linuxppc-dev@ozlabs.org>
+To: joakim.tjernlund@transmode.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35744 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753281AbZCYOFM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 10:05:12 -0400
+In-Reply-To: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Joakim Tjernlund a =E9crit :
+>>From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:00:00 200=
+1
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Date: Tue, 24 Mar 2009 10:19:27 +0100
+> Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context=
+=2E
+>  Also increase NAPI weight somewhat.
+>  This will make the system alot more responsive while
+>  ping flooding the ucc_geth ethernet interaface.
+>=20
+>=20
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> ---
+>  drivers/net/ucc_geth.c |   30 +++++++++++-------------------
+>  drivers/net/ucc_geth.h |    2 +-
+>  2 files changed, 12 insertions(+), 20 deletions(-)
+>=20
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> index 097aed8..7d5d110 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -3214,7 +3214,7 @@ static int ucc_geth_tx(struct net_device *dev, =
+u8 txQ)
+>  		dev->stats.tx_packets++;
+> =20
+>  		/* Free the sk buffer associated with this TxBD */
+> -		dev_kfree_skb_irq(ugeth->
+> +		dev_kfree_skb(ugeth->
+>  				  tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]]);
+>  		ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]] =3D NULL;
+>  		ugeth->skb_dirtytx[txQ] =3D
+> @@ -3248,9 +3248,16 @@ static int ucc_geth_poll(struct napi_struct *n=
+api, int budget)
+>  	for (i =3D 0; i < ug_info->numQueuesRx; i++)
+>  		howmany +=3D ucc_geth_rx(ugeth, i, budget - howmany);
+> =20
 
->Today's next randconfig build on x86 failed with following error.
->
->net/netfilter/xt_LED.c:40: error: field netfilter_led_trigger has inco=
-mplete type
->net/netfilter/xt_LED.c: In function led_timeout_callback:
->net/netfilter/xt_LED.c:78: warning: unused variable ledinternal
->net/netfilter/xt_LED.c: In function led_tg_check:
->net/netfilter/xt_LED.c:102: error: implicit declaration of function le=
-d_trigger_register
->net/netfilter/xt_LED.c: In function led_tg_destroy:
->net/netfilter/xt_LED.c:135: error: implicit declaration of function le=
-d_trigger_unregister
->
->CONFIG_LED_TRIGGER is not set.
->
->complete .config attached.
+Cant you test (ucce & UCCE_TX_EVENTS) or something here to avoid
+taking lock and checking queues if not necessary ?
 
-The following patch will solve the build problem reported by Sachin.
-But would leave the following warnings. I hope we can ignore them:
+> +	/* Tx event processing */
+> +	spin_lock(&ugeth->lock);
+> +	for (i =3D 0; i < ug_info->numQueuesTx; i++) {
+> +		ucc_geth_tx(ugeth->dev, i);
+> +	}
+> +	spin_unlock(&ugeth->lock);
+> +
 
-net/netfilter/xt_LED.c: In function =E2=80=98led_timeout_callback=E2=80=
-=99:
-net/netfilter/xt_LED.c:78: warning: unused variable =E2=80=98ledinterna=
-l=E2=80=99
-net/netfilter/xt_LED.c: In function =E2=80=98led_tg_check=E2=80=99:
-net/netfilter/xt_LED.c:87: warning: unused variable =E2=80=98err=E2=80=99
+Why tx completions dont change "howmany" ?
+It seems strange you changed UCC_GETH_DEV_WEIGHT if not taking into acc=
+ount tx event above...
 
-Signed-Off-By: Subrata Modak<subrata@linux.vnet.ibm.com>
----
 
---- a/linux-2.6.29/include/linux/leds.h	2009-03-25 18:38:07.000000000 +=
-0530
-+++ b/linux-2.6.29/include/linux/leds.h	2009-03-25 18:24:55.000000000 +=
-0530
-@@ -73,9 +73,6 @@ extern void led_classdev_resume(struct l
- /*
-  * LED Triggers
-  */
--#ifdef CONFIG_LEDS_TRIGGERS
--
--#define TRIG_NAME_MAX 50
-=20
- struct led_trigger {
- 	/* Trigger Properties */
-@@ -91,6 +88,10 @@ struct led_trigger {
- 	struct list_head  next_trig;
- };
-=20
-+#ifdef CONFIG_LEDS_TRIGGERS
-+
-+#define TRIG_NAME_MAX 50
-+
- /* Registration functions for complex triggers */
- extern int led_trigger_register(struct led_trigger *trigger);
- extern void led_trigger_unregister(struct led_trigger *trigger);
---- a/linux-2.6.29/net/netfilter/xt_LED.c	2009-03-25 18:38:08.000000000=
- +0530
-+++ b/linux-2.6.29/net/netfilter/xt_LED.c	2009-03-25 18:26:55.000000000=
- +0530
-@@ -99,6 +99,7 @@ static bool led_tg_check(const struct xt
-=20
- 	ledinternal->netfilter_led_trigger.name =3D ledinfo->id;
-=20
-+#ifdef CONFIG_LEDS_TRIGGERS
- 	err =3D led_trigger_register(&ledinternal->netfilter_led_trigger);
- 	if (err) {
- 		printk(KERN_CRIT KBUILD_MODNAME
-@@ -108,7 +109,7 @@ static bool led_tg_check(const struct xt
- 				": Trigger name is already in use.\n");
- 		goto exit_alloc;
- 	}
--
-+#endif
- 	/* See if we need to set up a timer */
- 	if (ledinfo->delay > 0)
- 		setup_timer(&ledinternal->timer, led_timeout_callback,
-@@ -118,8 +119,10 @@ static bool led_tg_check(const struct xt
-=20
- 	return true;
-=20
-+#ifdef CONFIG_LEDS_TRIGGERS
- exit_alloc:
- 	kfree(ledinternal);
-+#endif
-=20
- 	return false;
- }
-@@ -132,7 +135,9 @@ static void led_tg_destroy(const struct=20
- 	if (ledinfo->delay > 0)
- 		del_timer_sync(&ledinternal->timer);
-=20
-+#ifdef CONFIG_LEDS_TRIGGERS
- 	led_trigger_unregister(&ledinternal->netfilter_led_trigger);
-+#endif
- 	kfree(ledinternal);
- }
+>  	if (howmany < budget) {
+>  		netif_rx_complete(napi);
+> -		setbits32(ugeth->uccf->p_uccm, UCCE_RX_EVENTS);
+> +		setbits32(ugeth->uccf->p_uccm, UCCE_RX_EVENTS | UCCE_TX_EVENTS);
+>  	}
+> =20
+>  	return howmany;
+> @@ -3264,8 +3271,6 @@ static irqreturn_t ucc_geth_irq_handler(int irq=
+, void *info)
+>  	struct ucc_geth_info *ug_info;
+>  	register u32 ucce;
+>  	register u32 uccm;
+> -	register u32 tx_mask;
+> -	u8 i;
+> =20
+>  	ugeth_vdbg("%s: IN", __func__);
+> =20
+> @@ -3279,27 +3284,14 @@ static irqreturn_t ucc_geth_irq_handler(int i=
+rq, void *info)
+>  	out_be32(uccf->p_ucce, ucce);
+> =20
+>  	/* check for receive events that require processing */
+> -	if (ucce & UCCE_RX_EVENTS) {
+> +	if (ucce & (UCCE_RX_EVENTS | UCCE_TX_EVENTS)) {
+>  		if (netif_rx_schedule_prep(&ugeth->napi)) {
+> -			uccm &=3D ~UCCE_RX_EVENTS;
+> +			uccm &=3D ~(UCCE_RX_EVENTS | UCCE_TX_EVENTS);
+>  			out_be32(uccf->p_uccm, uccm);
+>  			__netif_rx_schedule(&ugeth->napi);
+>  		}
+>  	}
+> =20
+> -	/* Tx event processing */
+> -	if (ucce & UCCE_TX_EVENTS) {
+> -		spin_lock(&ugeth->lock);
+> -		tx_mask =3D UCC_GETH_UCCE_TXB0;
+> -		for (i =3D 0; i < ug_info->numQueuesTx; i++) {
+> -			if (ucce & tx_mask)
+> -				ucc_geth_tx(dev, i);
+> -			ucce &=3D ~tx_mask;
+> -			tx_mask <<=3D 1;
+> -		}
+> -		spin_unlock(&ugeth->lock);
+> -	}
+> -
+>  	/* Errors and other events */
+>  	if (ucce & UCCE_OTHER) {
+>  		if (ucce & UCC_GETH_UCCE_BSY)
+> diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+> index 44218b8..ea30aa7 100644
+> --- a/drivers/net/ucc_geth.h
+> +++ b/drivers/net/ucc_geth.h
+> @@ -843,7 +843,7 @@ struct ucc_geth_hardware_statistics {
+>  /* Driver definitions */
+>  #define TX_BD_RING_LEN                          0x10
+>  #define RX_BD_RING_LEN                          0x10
+> -#define UCC_GETH_DEV_WEIGHT                     TX_BD_RING_LEN
+> +#define UCC_GETH_DEV_WEIGHT                     (RX_BD_RING_LEN+TX_B=
+D_RING_LEN/2)
+> =20
+>  #define TX_RING_MOD_MASK(size)                  (size-1)
+>  #define RX_RING_MOD_MASK(size)                  (size-1)
 
---
-Regards--
-Subrata
-=20
+
