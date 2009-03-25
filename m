@@ -1,49 +1,43 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
-Date: Wed, 25 Mar 2009 11:54:02 -0400
-Message-ID: <49CA539A.4080202@hp.com>
-References: <> <1237945752-14362-1-git-send-email-brian.haley@hp.com> <49C99315.6070504@hp.com> <49CA2533.3000408@hp.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: Next March 25: staging/epl build break.
+Date: Wed, 25 Mar 2009 09:04:00 -0700
+Message-ID: <49CA55F0.9030203@oracle.com>
+References: <20090325191229.0e17eaf6.sfr@canb.auug.org.au> <49CA18D9.6080302@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, linux@kolla.no,
-	netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Greg KH <greg@kroah.com>, netdev@vger.kernel.org
+To: Sachin Sant <sachinp@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:43990 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753943AbZCYPyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 11:54:10 -0400
-In-Reply-To: <49CA2533.3000408@hp.com>
+Received: from acsinet12.oracle.com ([141.146.126.234]:22301 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754700AbZCYQFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 12:05:07 -0400
+In-Reply-To: <49CA18D9.6080302@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich wrote:
-> Oh,  and another issue I just figured out this morning...
-
->>> Add 'autoconf' and 'disable_ipv6' parameters to the IPv6 module.
->>>
->>> The first controls if IPv6 addresses are autoconfigured from
->>> prefixes received in Router Advertisements.  The IPv6 loopback
->>> (::1) and link-local addresses are still configured.
+Sachin Sant wrote:
+> Today's next x86 randconfig build failed with
 > 
-> You are letting link-locals to autoconfigure, but did not correctly
-> finish DAD, because once you set disable_ipv6, ip6_output and ipv6_rcv
-> will drop all IPv6 packets.
-> 
-> Then later, when you re-enable IPv6, you will not run DAD because the
-> interface will think that it's already finished.
-> 
-> So there is a possibility of duplicates not being detected.
+> drivers/staging/epl/VirtualEthernetLinux.c: In function VEthAddInstance:
+> drivers/staging/epl/VirtualEthernetLinux.c:302: error: struct net_device
+> has no member named open
+> drivers/staging/epl/VirtualEthernetLinux.c:303: error: struct net_device
+> has no member named stop
+> drivers/staging/epl/VirtualEthernetLinux.c:304: error: struct net_device
+> has no member named get_stats
+> drivers/staging/epl/VirtualEthernetLinux.c:305: error: struct net_device
+> has no member named hard_start_xmit
+> drivers/staging/epl/VirtualEthernetLinux.c:306: error: struct net_device
+> has no member named tx_timeout
 
-If you just set autoconf=0 and don't set disable_ipv6=1, then DAD will 
-complete for the link-locals just fine.  If you "disable" them both you 
-won't get any addresses at all.
 
-So I guess your point is that if you then enable IPv6 on an interface 
-and it gets a prefix in an RA, you'll add a global without having 
-link-local?  It almost looked like the code in addrconf_prefix_rcv() 
-prevented that from happening (ipv6_inherit_eui64()), but it doesn't.
+There are lots of build errors similar to this, in appletalk, irda,
+tokenring, etc etc...
 
--Brian
 
+-- 
+~Randy
