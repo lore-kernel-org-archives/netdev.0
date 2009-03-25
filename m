@@ -1,189 +1,27 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: allow bond in mode balance-alb to work properly in bridge -try3
-Date: Wed, 25 Mar 2009 09:31:53 -0700
-Message-ID: <28445.1237998713@death.nxdomain.ibm.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090325151937.GI3437@psychotron.englab.brq.redhat.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, davem@davemloft.net,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	bonding-devel@lists.sourceforge.net, kaber@trash.net,
-	mschmidt@redhat.com, dada1@cosmosbay.com
-To: Jiri Pirko <jpirko@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: factorize ifname_compare()
+Date: Wed, 25 Mar 2009 17:32:21 +0100
+Message-ID: <49CA5C95.50409@trash.net>
+References: <20090324.132954.148903398.davem@davemloft.net> <49C94B6A.5020304@cosmosbay.com> <alpine.LSU.2.00.0903242215590.26397@fbirervta.pbzchgretzou.qr> <20090324.141848.119353425.davem@davemloft.net> <alpine.LSU.2.00.0903242220280.26397@fbirervta.pbzchgretzou.qr> <49C952FE.7070202@cosmosbay.com> <alpine.LSU.2.00.0903242243040.3974@fbirervta.pbzchgretzou.qr> <49CA150B.2080203@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Jan Engelhardt <jengelh@medozas.de>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:40474 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754898AbZCYQby (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 12:31:54 -0400
-In-reply-to: <20090325151937.GI3437@psychotron.englab.brq.redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:34204 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758345AbZCYQc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 12:32:28 -0400
+In-Reply-To: <49CA150B.2080203@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jpirko@redhat.com> wrote:
+Eric Dumazet wrote:
+> [PATCH] netfilter: factorize ifname_compare()
+> 
+> We use same not trivial helper function in four places. We can factorize it.
 
->Basically here's what's going on. In every mode, bonding interface uses the same
->mac address for all enslaved devices. Except for mode balance-alb. 
-
-	I think you mean "only balance-alb will simultaneously use
-multiple MAC addresses across different slaves."  Yes?
-
-	I ask because the active-backup mode with fail_over_mac=active
-will change the bond's MAC to always be the MAC of whatever the
-currently active slave is, but I don't think that will trigger the
-problem you're talking about (because it'll only use one MAC at a time).
-
->[...] When you put
->this kind of bond device into a bridge it will only add one of mac adresses into
->a hash list of mac addresses, say X. This mac address is marked as local. But
->this bonding interface also has mac address Y. Now then packet arrives with
->destination address Y, this address is not marked as local and the packed looks
->like it needs to be forwarded. This packet is then lost which is wrong.
->
->Notice that interfaces can be added and removed from bond while it is in bridge.
->
->This patch solves the situation in the bonding without touching bridge code,
->as Patrick suggested. For every incoming frame to bonding it searches the
->destination address in slaves list and if any of slave addresses matches, it
->rewrites the address in frame by the adress of bonding master. This ensures that
->all frames comming thru the bonding in alb mode have the same address.
->
->Jirka
->
->
->Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index 27fb7f5..83998f4 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -1762,6 +1762,26 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
-> 	return 0;
-> }
->
->+void bond_alb_change_dest(struct sk_buff *skb)
->+{
->+	struct net_device *bond_dev = skb->dev;
->+	struct bonding *bond = netdev_priv(bond_dev);
->+	unsigned char *dest = eth_hdr(skb)->h_dest;
->+	struct slave *slave;
->+	int i;
->+
->+	if (!compare_ether_addr_64bits(dest, bond_dev->dev_addr))
->+		return;
->+	read_lock(&bond->lock);
->+	bond_for_each_slave(bond, slave, i) {
->+		if (!compare_ether_addr_64bits(slave->dev->dev_addr, dest)) {
->+			memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
->+			break;
->+		}
->+	}
->+	read_unlock(&bond->lock);
->+}
->+
-> void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
-> {
-> 	if (bond->alb_info.current_alb_vlan &&
->diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
->index 50968f8..77f36fb 100644
->--- a/drivers/net/bonding/bond_alb.h
->+++ b/drivers/net/bonding/bond_alb.h
->@@ -127,6 +127,7 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
-> int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
-> void bond_alb_monitor(struct work_struct *);
-> int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
->+void bond_alb_change_dest(struct sk_buff *skb);
-> void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
-> #endif /* __BOND_ALB_H__ */
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 3d76686..b62fdc4 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -4294,6 +4294,19 @@ unwind:
-> 	return res;
-> }
->
->+/*
->+ * Called via bond_change_dest_hook.
->+ * note: already called with rcu_read_lock (preempt_disabled)
->+ */
->+void bond_change_dest(struct sk_buff *skb)
->+{
->+	struct net_device *bond_dev = skb->dev;
->+	struct bonding *bond = netdev_priv(bond_dev);
->+
->+	if (bond->params.mode == BOND_MODE_ALB)
->+		bond_alb_change_dest(skb);
->+}
->+
-> static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
-> {
-> 	struct bonding *bond = netdev_priv(bond_dev);
->@@ -5243,6 +5256,8 @@ static int __init bonding_init(void)
-> 	register_inetaddr_notifier(&bond_inetaddr_notifier);
-> 	bond_register_ipv6_notifier();
->
->+	bond_change_dest_hook = bond_change_dest;
->+
-> 	goto out;
-> err:
-> 	list_for_each_entry(bond, &bond_dev_list, bond_list) {
->@@ -5266,6 +5281,8 @@ static void __exit bonding_exit(void)
-> 	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
-> 	bond_unregister_ipv6_notifier();
->
->+	bond_change_dest_hook = NULL;
->+
-> 	bond_destroy_sysfs();
->
-> 	rtnl_lock();
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index ca849d2..df92b70 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -375,5 +375,7 @@ static inline void bond_unregister_ipv6_notifier(void)
-> }
-> #endif
->
->+extern void (*bond_change_dest_hook)(struct sk_buff *skb);
->+
-> #endif /* _LINUX_BONDING_H */
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index e3fe5c7..abe68d9 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -2061,6 +2061,13 @@ static inline int deliver_skb(struct sk_buff *skb,
-> 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
-> }
->
->+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
->+void (*bond_change_dest_hook)(struct sk_buff *skb) __read_mostly;
->+EXPORT_SYMBOL(bond_change_dest_hook);
->+#else
->+#define bond_change_dest_hook(skb) do {} while (0)
->+#endif
->+
-> #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
-> /* These hooks defined here for ATM */
-> struct net_bridge;
->@@ -2251,10 +2258,12 @@ int netif_receive_skb(struct sk_buff *skb)
-> 	null_or_orig = NULL;
-> 	orig_dev = skb->dev;
-> 	if (orig_dev->master) {
->-		if (skb_bond_should_drop(skb))
->+		if (skb_bond_should_drop(skb)) {
-> 			null_or_orig = orig_dev; /* deliver only exact match */
->-		else
->+		} else {
-> 			skb->dev = orig_dev->master;
->+			bond_change_dest_hook(skb);
-
-	Since you put the hook outside of the skb_bond_should_drop
-function, does the VLAN accelerated receive path do the right thing if,
-e.g., there's a VLAN on top of bonding and that VLAN is part of the
-bridge?
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Applied, thanks a lot Eric.
