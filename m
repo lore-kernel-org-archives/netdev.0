@@ -1,61 +1,72 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Wed, 25 Mar 2009 16:21:00 +0100
-Message-ID: <OF6FCD73B2.9477636F-ONC1257584.0053EFCE-C1257584.005451CC@transmode.se>
-References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se> <20090325142540.GA20944@oksana.dev.rtsoft.ru>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
+Date: Wed, 25 Mar 2009 11:22:33 -0400
+Message-ID: <49CA4C39.7020701@hp.com>
+References: <> <1237945752-14362-1-git-send-email-brian.haley@hp.com> <49C99315.6070504@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: leoli@freescale.com,
-	'linuxppc-dev Development' <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>
-To: avorontsov@ru.mvista.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, linux@kolla.no,
+	netdev@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:58975 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755143AbZCYPVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 11:21:04 -0400
-In-Reply-To: <20090325142540.GA20944@oksana.dev.rtsoft.ru>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:25958 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173AbZCYPWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 11:22:38 -0400
+In-Reply-To: <49C99315.6070504@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Vorontsov <avorontsov@ru.mvista.com> wrote on 25/03/2009 15:25:40:
+Vlad Yasevich wrote:
+> Brian Haley wrote:
+>> This is the quick and easy patch to add autoconf and
+>> disable_ipv6 module parameters to IPv6.  I don't think anything
+>> more complicated is needed, assuming you play with the /etc
+>> configuration files.
+>>
+>> For example, if you wanted to enable IPv6 just on 'lo' you
+>> would:
+>>
+>> 1. Add "ipv6" to /etc/modules (if you don't, step #3 might fail)
+>>
+>> 2. Add this to /etc/modprobe.conf:
+>>
+>> 	options ipv6 disable_ipv6=1
+>>
+>> 3. Add these to /etc/sysctl.conf:
+>>
+>> 	net.ipv6.conf.all.disable_ipv6=0
+>> 	net.ipv6.conf.lo.disable_ipv6=0
 > 
-> On Wed, Mar 25, 2009 at 02:30:49PM +0100, Joakim Tjernlund wrote:
-> > >>From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:00:00 
-2001
-> > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-> > Date: Tue, 24 Mar 2009 10:19:27 +0100
-> > Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-> >  Also increase NAPI weight somewhat.
-> >  This will make the system alot more responsive while
-> >  ping flooding the ucc_geth ethernet interaface.
+> This is kind of confusing.  First you say, disable IPv6, then you say enable IPv6, but
+> nothing happens.  Unless you typo-ed the 'all.disable_ipv6 = 0'...
+
+Well, at least on my test system, this worked.  Loading the IPv6 module 
+with disable_ipv6=1 sets the .all and .default (and all interfaces) to 
+disable, then sysctl turns them back on selectively.  If you don't 
+enable the .all.disable_ipv6 knob nothing will actually work - see the 
+change in addrconf_prefix_rcv().  You still have to enable it on each 
+interface for anything to happen.
+
+> Also, it looks like if someone decides to switch IPv6 back on for a particular
+> interface, they would have to wait until the next RA to get an address.  Not an
+> optimum solution.
+
+Yes, if someone later-on enables IPv6 on an interface they'll need to 
+ifdown/ifup.
+
+>> +	} else {
+>> +		/* these will be inherited by all namespaces */
+>> +		all->autoconf = dflt->autoconf = ipv6_defaults.autoconf;
+>> +		all->disable_ipv6 = dflt->disable_ipv6 =
+>> +			ipv6_defaults.disable_ipv6;
 > 
-> Some time ago I've tried a similar thing for this driver, but during
-> tcp (or udp I don't quite remember) netperf tests I was getting tx
-> watchdog timeouts after ~2-5 minutes of work. I was testing with a
-> gigabit and 100 Mbit link, with 100 Mbit link the issue was not
-> reproducible.
-> 
-> Though, I recalling I was doing a bit more than your patch: I was
-> also clearing the TX events in the ucce register before calling
-> ucc_geth_tx, that way I was trying to avoid stale interrupts. That
+> Why set 'all'?  Since no interfaces are created yet, setting dflt accomplishes
+> what you want.
 
-Sure, but that is another patch I think.
+Yeah, that's probably not necessary, I assumed if the user passed the 
+parameter and saw .all.foo different than .default.foo they might be 
+confused.
 
-> helped to increase an overall performance (not only responsiveness),
-> but as I said my approach didn't pass the tests.
-> 
-> I don't really think that your patch may cause this, but can you
-> try netperf w/ this patch applied anyway? And see if it really
-> doesn't cause any issues under stress?
-
-Ran this on my host against my target board:
- netperf -t UDP_RR  -H 192.168.1.16
- netperf -t UDP_STREAM -H 192.168.1.16
- netperf -t TCP_STREAM -H 192.168.1.16
- netperf -t TCP_SENDFILE -H 192.168.1.16
- netperf -t TCP_MAERTS -H 192.168.1.16
- netperf -t TCP_RR -H 192.168.1.16
- netperf -t TCP_CRR -H 192.168.1.16
-
-Didn't notice any timeouts, but I only have 100Mbit interfaces.
+-Brian
