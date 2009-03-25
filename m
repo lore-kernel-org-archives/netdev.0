@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge: use the maximum hard_header_len of ports
- for bridging device
-Date: Wed, 25 Mar 2009 14:35:58 -0700 (PDT)
-Message-ID: <20090325.143558.35670359.davem@davemloft.net>
-References: <20090323085122.4c9d21f2@nehalam>
-	<20090323.152028.205335400.davem@davemloft.net>
-	<2a27d3730903250143u58a3c67dp132a8a5755d50d93@mail.gmail.com>
+Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Wed, 25 Mar 2009 14:39:39 -0700 (PDT)
+Message-ID: <20090325.143939.207077477.davem@davemloft.net>
+References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: leoli@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37779
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752145AbZCYVgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 17:36:10 -0400
-In-Reply-To: <2a27d3730903250143u58a3c67dp132a8a5755d50d93@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, leoli@freescale.com, linuxppc-dev@ozlabs.org
+To: joakim.tjernlund@transmode.se
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Li Yang <leoli@freescale.com>
-Date: Wed, 25 Mar 2009 16:43:53 +0800
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Date: Wed, 25 Mar 2009 14:30:49 +0100
 
-> Dynamically adjusting is a good idea, but the rx_alloc_extra can only
-> go up not the other way down in your code.
+> >From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:00:00 2001
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Date: Tue, 24 Mar 2009 10:19:27 +0100
+> Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
+>  Also increase NAPI weight somewhat.
+>  This will make the system alot more responsive while
+>  ping flooding the ucc_geth ethernet interaface.
+> 
+> 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
-That's not a problem.
+The weight is not for the sake of your device, it's for
+the sake of fairness with others.
 
-> Another thought is that if you re-allocate skb here the driver would
-> be saved from checking the headroom in the fastpath, am I right?
+Please just use 64, like every other driver does.
 
-You're going to need it for other paths.  There are other kinds of
-tunnels et al. that eat that headroom space on you.
+I'm not applying this.
