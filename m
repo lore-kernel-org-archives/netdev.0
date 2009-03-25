@@ -1,44 +1,35 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: Network Device Naming mechanism and policy
-Date: Wed, 25 Mar 2009 14:22:19 -0600
-Message-ID: <49CA927B.9080709@nortel.com>
-References: <20090324154617.GA16332@auslistsprd01.us.dell.com> <20090324.155756.214460004.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] net: release dst entry in dev_queue_xmit()
+Date: Wed, 25 Mar 2009 21:28:37 +0100
+Message-ID: <49CA93F5.0@cosmosbay.com>
+References: <49C380A6.4000904@cosmosbay.com> <20090324.234354.43714160.davem@davemloft.net> <49C9D99A.2040900@cosmosbay.com> <20090325.001720.238121238.davem@davemloft.net> <49CA7658.4010400@gmail.com> <49CA7AD7.8040401@cosmosbay.com> <20090325191850.GA2928@ami.dom.local> <49CA8895.8020105@cosmosbay.com> <20090325195424.GB2928@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Matt_Domsch@dell.com, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:58872 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133AbZCYUWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 16:22:42 -0400
-In-Reply-To: <20090324.155756.214460004.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58679 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754071AbZCYU2s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 16:28:48 -0400
+In-Reply-To: <20090325195424.GB2928@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Matt Domsch <Matt_Domsch@dell.com>
-> Date: Tue, 24 Mar 2009 10:46:17 -0500
-> 
->> Problem: Users expect on-motherboard NICs to be named eth0..ethN.
->> This can be difficult to achieve.
-> 
-> I learned a long time ago that eth0 et al. have zero meaning.
-> 
-> If the system firmware folks gave us topology information with respect
-> to these things, we could export something that tools such as
-> NetworkManager, iproute2, etc. could use.
+Jarek Poplawski a =E9crit :
 
-<snip>
+> I guess you've considered the loopback too...
+>=20
 
-> I guess it's easier to spew about MAC addresses and other
-> irrelevant topics than try to solve this problem properly. :-)
+I had for the first patch (carefuly avoiding loopback being not respons=
+ive) :
+I was releasing dst only if enqueue() was called.
 
-What about things like USB network adapters where the topology is not 
-fixed?  Presumably we would want to use some sort of unique identifier, 
-and the MAC comes to mind.  Of course, then you run into the problem of 
-how to deal with duplicate MACs.
+You are right, loopback doesnt work anymore with last patch,
+and I have no idea why...
 
-Chris
+Do you know why ?
+
+Thank you
+
