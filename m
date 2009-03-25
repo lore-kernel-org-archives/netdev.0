@@ -1,38 +1,40 @@
 From: Ramkrishna Vepa <ram.vepa@neterion.com>
-Subject: [net-2.6 PATCH 0/10] Neterion: New driver: vxge: Resubmission
-Date: 25 Mar 2009 00:12:21 -0800
-Message-ID: <1237968736.1655.257.camel@flash>
+Subject: [net-2.6 PATCH 3/10] Neterion: New driver: pci_ids
+Date: 25 Mar 2009 00:12:36 -0800
+Message-ID: <1237968756.1655.263.camel@flash>
 Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+Cc: Netdev <netdev@vger.kernel.org>,
+	Ramkrishna Vepa <ram.vepa@neterion.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:43783 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:43796 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755784AbZCYH1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 03:27:37 -0400
-Received: from guinness.s2io.com (localhost [127.0.0.1])
-	by barracuda.s2io.com (Spam Firewall) with ESMTP id D3CBB20DE6F1
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:27:31 -0400 (EDT)
-Received: from guinness.s2io.com (142-46-210.147.tel-ott.com [142.46.210.147]) by barracuda.s2io.com with ESMTP id M2ZMf5a4BaFH6VRj for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:27:31 -0400 (EDT)
-Received: from [10.16.17.101] ([10.16.17.101])
-	by guinness.s2io.com (8.12.6/8.12.6) with ESMTP id n2P7RUAV029519
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2009 03:27:31 -0400 (EDT)
+	with ESMTP id S1758580AbZCYH1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 03:27:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series of 10 patches are a resubmission of Neterion's new driver,
-"vxge", for our latest PCIe based X3100 10GbE Server/Storage Adapter. 
+- Update device ID of X3100 Series 10GbE PCIe I/O Virtualized Server Adapter.
 
-Changes from the last submission include fixes from comments from Ben 
-Hutchings, Andi Kleen, Bill Fink and David Miller. The details of the fixes are
-in the individual patches.
-
-Regards,
-
-Ram
+Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
+Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+---
+diff -Nurp patch_2/include/linux/pci_ids.h patch_3/include/linux/pci_ids.h
+--- patch_2/include/linux/pci_ids.h	2009-03-23 09:17:41.000000000 -0700
++++ patch_3/include/linux/pci_ids.h	2009-03-23 09:17:41.000000000 -0700
+@@ -2209,6 +2209,8 @@
+ #define	PCI_DEVICE_ID_S2IO_UNI		0x5831
+ #define PCI_DEVICE_ID_HERC_WIN		0x5732
+ #define PCI_DEVICE_ID_HERC_UNI		0x5832
++#define PCI_DEVICE_ID_TITAN_WIN		0x5733
++#define PCI_DEVICE_ID_TITAN_UNI		0x5833
+ 
+ #define PCI_VENDOR_ID_SITECOM		0x182d
+ #define PCI_DEVICE_ID_SITECOM_DC105V2	0x3069
 
 
 
