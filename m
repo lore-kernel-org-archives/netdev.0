@@ -1,52 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge: use the maximum hard_header_len of ports
- for bridging device
-Date: Wed, 25 Mar 2009 00:06:43 -0700 (PDT)
-Message-ID: <20090325.000643.55804624.davem@davemloft.net>
-References: <1237539869-30721-1-git-send-email-leoli@freescale.com>
-	<20090324.234051.60226102.davem@davemloft.net>
-	<2a27d3730903250005w2e773b01x1e9ec0606fc0e3d4@mail.gmail.com>
+Subject: Re: [patch 0/6] s390: qeth fixes for 2.6.30
+Date: Wed, 25 Mar 2009 00:08:17 -0700 (PDT)
+Message-ID: <20090325.000817.183932373.davem@davemloft.net>
+References: <20090325065713.054133000@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: leoli@freescale.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33625
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47584
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754951AbZCYHGz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 03:06:55 -0400
-In-Reply-To: <2a27d3730903250005w2e773b01x1e9ec0606fc0e3d4@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756099AbZCYHIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 03:08:30 -0400
+In-Reply-To: <20090325065713.054133000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Li Yang <leoli@freescale.com>
-Date: Wed, 25 Mar 2009 15:05:20 +0800
+From: frank.blaschka@de.ibm.com
+Date: Wed, 25 Mar 2009 07:57:13 +0100
 
-> On Wed, Mar 25, 2009 at 2:40 PM, David Miller <davem@davemloft.net> w=
-rote:
-> > From: Li Yang <leoli@freescale.com>
-> > Date: Fri, 20 Mar 2009 17:04:29 +0800
-> >
-> >> The bridging device used a constant hard_header_len. =A0This will =
-cause
-> >> headroom shortage for ports with additional hardware header. =A0Th=
-e patch
-> >> makes bridging device to use the maximum value of all ports.
-> >>
-> >> Signed-off-by: Li Yang <leoli@freescale.com>
-> >
-> > Your driver must be able to cope with any amount of
-> > available headroom, no matter what hacks we put into
-> > the bridging layer.
-> >
-> > Please fix your driver, I'm not applying this patch.
->=20
-> Ok.  But it's not good to reallocate every packet generated locally.
-> Why not take this patch too?
+> here are a couple of qeth fixes for 2.6.30
 
-Because as Stephen showed it didn't handle all cases.
+Any particular reason you wait until right when the
+merge window opens to send me stuff?
 
-Look at the patch I posted, that's the way to go.
+I said on netdev that I wanted to empty my patchwork
+queue then submit the tree to Linus.
+
+So then you send me more stuff on top of that? :-/
+
+Please don't wait until the last moment next time.
+
+> shortlog:
+> Kay Sievers (1)
+> qeth: struct device - replace bus_id with dev_name(), dev_set_name()
+
+Applied.
+
+> Klaus-Dieter Wacker (1)
+> qeth: unregister MAC addresses during recovery
+
+Applied.
+
+> Ursula Braun (1)
+> qeth: check for completion of a running recovery
+
+Applied.
+
+> Heiko Carstens(1)
+> qeth: fix wait_event_timeout handling
+
+Applied.
+
+> Frank Blaschka (2)
+> qeth: add statistics for tx csum
+> qeth: remove EDDP
+
+Your EDDP was slow because the implementation was incredibly
+sub-optimal.  %90 of the code is doing copies and fiddling
+with SKB internals.
