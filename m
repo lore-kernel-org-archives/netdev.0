@@ -1,71 +1,41 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: igbvf: add new driver to support 82576 virtual functions
-Date: Wed, 25 Mar 2009 09:10:48 -0700
-Message-ID: <49CA5788.2000402@intel.com>
-References: <20090324.233843.61607506.davem@davemloft.net> <9929d2390903250145q2aae3046wb378d190576642c7@mail.gmail.com> <9929d2390903250203u42b50b54j2db3464967d48702@mail.gmail.com> <20090325094742.GA7760@yzhao-otc.sh.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: Use hlist_add_head_rcu() in nf_conntrack_set_hashsize()
+Date: Wed, 25 Mar 2009 17:26:47 +0100
+Message-ID: <49CA5B47.4010400@trash.net>
+References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se>	 <49C77D71.8090709@trash.net>	 <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se>	 <49C780AD.70704@trash.net>	 <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se>	 <49C7CB9B.1040409@trash.net>	 <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se>	 <49C8A415.1090606@cosmosbay.com>	 <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se>	 <49C8CCF4.5050104@cosmosbay.com> <1237907850.12351.80.camel@sakura.staff.proxad.net> <49C8FBCA.40402@cosmosbay.com> <49C93A8D.8000603@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Matthew Wilcox <willy@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Zhao, Yu" <yu.zhao@intel.com>
+Cc: mbizon@freebox.fr, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	avorontsov@ru.mvista.com, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:14690 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759613AbZCYQLI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 12:11:08 -0400
-In-Reply-To: <20090325094742.GA7760@yzhao-otc.sh.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:34071 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753130AbZCYQ05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 12:26:57 -0400
+In-Reply-To: <49C93A8D.8000603@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Zhao, Yu wrote:
-> On Wed, Mar 25, 2009 at 05:03:29PM +0800, Kirsher, Jeffrey T wrote:
->> On Wed, Mar 25, 2009 at 1:45 AM, Jeff Kirsher
->> <jeffrey.t.kirsher@intel.com> wrote:
->>> On Tue, Mar 24, 2009 at 11:38 PM, David Miller <davem@davemloft.net> wrote:
->>>> This breaks the build:
->>>>
->>>> drivers/net/igbvf/ethtool.c: In function 'igbvf_set_ringparam':
->>>> drivers/net/igbvf/ethtool.c:299: error: implicit declaration of function 'vmalloc'
->>>> drivers/net/igbvf/ethtool.c:299: warning: assignment makes pointer from integer without a cast
->>>> drivers/net/igbvf/ethtool.c:346: error: implicit declaration of function 'vfree'
->>>> --
->>> Sorry Dave, I thought this was called out earlier, but I see it was
->>> not.  The igbvf driver requires the following patches applied to your
->>> tree to have them compile.  Last I heard, these SR-IOV patches were
->>> accepted for 2.6.30, in the PCI tree.
->>>
->>> Yu, can you confirm that these patches have been accepted for 2.6.30?
->>>
->>> Summary:
->>> http://marc.info/?l=linux-kernel&m=123751955907397&w=2
->>> Patches:
->>> http://marc.info/?l=linux-kernel&m=123751956107417&w=2
->>> http://marc.info/?l=linux-kernel&m=123751956207423&w=2
->>> http://marc.info/?l=linux-kernel&m=123751981407629&w=2
->>> http://marc.info/?l=linux-kernel&m=123751981507632&w=2
->>> http://marc.info/?l=linux-kernel&m=123751981707644&w=2
->>> http://marc.info/?l=linux-kernel&m=123751981607635&w=2
->>> http://marc.info/?l=linux-kernel&m=123751981607638&w=2
->>> http://marc.info/?l=linux-kernel&m=123751981707641&w=2
->> I confirmed that Jesse Barnes has these SR-IOV patches queued up for 2.6.30.
->> http://marc.info/?l=linux-kernel&m=123757169806111&w=2
+Eric Dumazet wrote:
+> While working on this stuff, I found one suspect use of hlist_add_head()
 > 
-> Yes, it's in Jesse's linux-next branch:
-> http://git.kernel.org/?p=linux/kernel/git/jbarnes/pci-2.6.git;a=shortlog;h=linux-next
+> Its not a hot path, I believe following patch would make sure nothing
+> wrong happens.
 > 
-> Thanks,
-> Yu
+> If a chain contains element A and B, then we might build a new table
+> with a new chain containing B and A (in this reverse order), and
+> a cpu could see A->next = B (new pointer),  B->next = A (old pointer)
 
-The problem isn't the SR-IOV patches it is a difference in 
-architectures.  The x86/x86_64 architecture lets you be a bit more 
-sloppy when it comes to including vmalloc.  I've seen it in the past 
-with igb, and I suspect that is why we didn't catch this in testing.  We 
-just need to add a #include of vmalloc.h in ethtool.c and the issue 
-should be fixed.
+I think you're right.
 
-Thanks,
+> [PATCH] netfilter: Use hlist_add_head_rcu() in nf_conntrack_set_hashsize()
+> 
+> Using hlist_add_head() in nf_conntrack_set_hashsize() is quite dangerous.
+> Without any barrier, one CPU could see a loop while doing its lookup.
+> Its true new table cannot be seen by another cpu, but previous table is still
+> readable.
 
-Alex
+Applied, thanks Eric.
