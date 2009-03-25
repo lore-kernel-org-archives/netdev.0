@@ -1,171 +1,120 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] conntrack: Reduce conntrack count in nf_conntrack_free()
-Date: Wed, 25 Mar 2009 14:44:34 +0100
-Message-ID: <49CA3542.5020601@cosmosbay.com>
-References: <OF1FEA88FD.D6B88765-ONC1257582.003A487F-C1257582.003ACE3A@transmode.se> <49C77D71.8090709@trash.net> <OF8A05682D.BA831A09-ONC1257582.0043892E-C1257582.004440BD@transmode.se> <49C780AD.70704@trash.net> <OF20814141.D78C9170-ONC1257582.0060B64A-C1257582.00614FDC@transmode.se> <49C7CB9B.1040409@trash.net> <OFBD3D31D8.7AD81126-ONC1257583.002C5C2B-C1257583.002DFF13@transmode.se> <49C8A415.1090606@cosmosbay.com> <OF9168DCC3.5E31F8E4-ONC1257583.003B48CC-C1257583.003C0A5E@transmode.se> <49C8CCF4.5050104@cosmosbay.com> <49C8D13D.10307@cosmosbay.com> <49C8D58A.6060401@trash.net> <49C8E0D3.1010202@cosmosbay.com> <49C8E268.6090507@trash.net> <49C8E48D.2070501@cosmosbay.com> <49C8F871.9070600@cosmosbay.com> <49C8F8E0.9050502@trash.net> <49C9AAAC.30607@cosmosbay.com> <49CA3404.3090609@trash.
- net>
+From: Subrata Modak <tosubrata@gmail.com>
+Subject: [PATCH] Re: Next March 25: net/netfilter/xt_LED build failure.
+Date: Wed, 25 Mar 2009 19:27:59 +0530
+Message-ID: <20090325135759.4397.53055.sendpatchset@subratamodak.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45876 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759553AbZCYNoh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 09:44:37 -0400
-In-Reply-To: <49CA3404.3090609@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sachin Sant <sachinp@in.ibm.com>,
+	Subrata Modak <tosubrata@gmail.com>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy a =E9crit :
-> Eric Dumazet wrote:
->> I have a litle problem on __nf_conntrack_find() being exported.
->>
->> Problem is that with SLAB_DESTROY_BY_RCU we must take a reference on
->> object
->> to recheck it. So ideally  only nf_conntrack_find_get() should be us=
-ed,
->> or callers of __nf_conntrack_find() should lock nf_conntrack_lock
->> (as properly done for example in net/netfilter/nf_conntrack_netlink.=
-c,
->> line 1292)
->>
->> Here is preliminary patch for review (not tested at all, its 4h50 am
->> here :) )
->>
->> Could you help me, by checking __nf_conntrack_find() use in
->> net/netfilter/xt_connlimit.c ?
->> and line 1246 of net/netfilter/nf_conntrack_netlink.c
->>
->> This part is a litle bit gray for me. :)
->=20
-> In case of xt_connlimit, it seems fine to just take a reference.
-> In case of ctnetlink, keeping the unreferenced lookup under the
-> lock seems fine. We unfortunately have to export some internals
-> like nf_conntrack lock for ctnetlink anyways, so I don't think
-> it would be worth to change it to take references and unexport
-> the lookup function.
->=20
->> +/*
->> + * Warning :
->> + * - Caller must take a reference on returned object
->> + *   and recheck nf_ct_tuple_equal(tuple, &h->tuple)
->> + * OR
->> + * - Caller must lock nf_conntrack_lock before calling this functio=
-n
->> + */
->>  struct nf_conntrack_tuple_hash *
->>  __nf_conntrack_find(struct net *net, const struct nf_conntrack_tupl=
-e
->> *tuple)
->>  {
->>      struct nf_conntrack_tuple_hash *h;
->> -    struct hlist_node *n;
->> +    struct hlist_nulls_node *n;
->>      unsigned int hash =3D hash_conntrack(tuple);
->> =20
->>      /* Disable BHs the entire time since we normally need to disabl=
-e
->> them
->>       * at least once for the stats anyway.
->>       */
->>      local_bh_disable();
->> -    hlist_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnode) {
->> +begin:
->> +    hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnnod=
-e) {
->>          if (nf_ct_tuple_equal(tuple, &h->tuple)) {
->>              NF_CT_STAT_INC(net, found);
->>              local_bh_enable();
->> @@ -261,6 +270,13 @@ __nf_conntrack_find(struct net *net, const stru=
-ct
->> nf_conntrack_tuple *tuple)
->>          }
->>          NF_CT_STAT_INC(net, searched);
->>      }
->> +    /*
->> +     * if the nulls value we got at the end of this lookup is
->> +     * not the expected one, we must restart lookup.
->> +     * We probably met an item that was moved to another chain.
->> +     */
->> +    if (get_nulls_value(n) !=3D hash)
->> +        goto begin;
->=20
-> Are you sure this is enough? An entry might have been reused and adde=
-d
-> to the same chain I think, so I think we need to recheck the tuple.
+Hi David,
 
-Yes, done in caller
+>Today's next randconfig build on x86 failed with following error.
+>
+>net/netfilter/xt_LED.c:40: error: field netfilter_led_trigger has inco=
+mplete type
+>net/netfilter/xt_LED.c: In function led_timeout_callback:
+>net/netfilter/xt_LED.c:78: warning: unused variable ledinternal
+>net/netfilter/xt_LED.c: In function led_tg_check:
+>net/netfilter/xt_LED.c:102: error: implicit declaration of function le=
+d_trigger_register
+>net/netfilter/xt_LED.c: In function led_tg_destroy:
+>net/netfilter/xt_LED.c:135: error: implicit declaration of function le=
+d_trigger_unregister
+>
+>CONFIG_LED_TRIGGER is not set.
+>
+>complete .config attached.
 
->=20
->>      local_bh_enable();
->> =20
->>      return NULL;
->> @@ -275,11 +291,18 @@ nf_conntrack_find_get(struct net *net, const
->> struct nf_conntrack_tuple *tuple)
->>      struct nf_conn *ct;
->> =20
->>      rcu_read_lock();
->> +begin:
->>      h =3D __nf_conntrack_find(net, tuple);
->>      if (h) {
->>          ct =3D nf_ct_tuplehash_to_ctrack(h);
->>          if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
->>              h =3D NULL;
->> +        else {
->> +            if (unlikely(!nf_ct_tuple_equal(tuple, &h->tuple))) {
->> +                nf_ct_put(ct);
->> +                goto begin;
->=20
-> Ah I see, the hash comparison above is only an optimization?
->=20
->> +            }
->> +        }
->>      }
->>      rcu_read_unlock();
->> =20
->=20
->=20
+The following patch will solve the build problem reported by Sachin.
+But would leave the following warnings. I hope we can ignore them:
 
-check net/ipv4/udp.c for an example (__udp4_lib_lookup())
+net/netfilter/xt_LED.c: In function =E2=80=98led_timeout_callback=E2=80=
+=99:
+net/netfilter/xt_LED.c:78: warning: unused variable =E2=80=98ledinterna=
+l=E2=80=99
+net/netfilter/xt_LED.c: In function =E2=80=98led_tg_check=E2=80=99:
+net/netfilter/xt_LED.c:87: warning: unused variable =E2=80=98err=E2=80=99
 
-In case of UDP, key check is not returning true/false, but a score.
-So UDP case is a litle bit more complex than conntrack case.
+Signed-Off-By: Subrata Modak<subrata@linux.vnet.ibm.com>
+---
 
+--- a/linux-2.6.29/include/linux/leds.h	2009-03-25 18:38:07.000000000 +=
+0530
++++ b/linux-2.6.29/include/linux/leds.h	2009-03-25 18:24:55.000000000 +=
+0530
+@@ -73,9 +73,6 @@ extern void led_classdev_resume(struct l
+ /*
+  * LED Triggers
+  */
+-#ifdef CONFIG_LEDS_TRIGGERS
+-
+-#define TRIG_NAME_MAX 50
+=20
+ struct led_trigger {
+ 	/* Trigger Properties */
+@@ -91,6 +88,10 @@ struct led_trigger {
+ 	struct list_head  next_trig;
+ };
+=20
++#ifdef CONFIG_LEDS_TRIGGERS
++
++#define TRIG_NAME_MAX 50
++
+ /* Registration functions for complex triggers */
+ extern int led_trigger_register(struct led_trigger *trigger);
+ extern void led_trigger_unregister(struct led_trigger *trigger);
+--- a/linux-2.6.29/net/netfilter/xt_LED.c	2009-03-25 18:38:08.000000000=
+ +0530
++++ b/linux-2.6.29/net/netfilter/xt_LED.c	2009-03-25 18:26:55.000000000=
+ +0530
+@@ -99,6 +99,7 @@ static bool led_tg_check(const struct xt
+=20
+ 	ledinternal->netfilter_led_trigger.name =3D ledinfo->id;
+=20
++#ifdef CONFIG_LEDS_TRIGGERS
+ 	err =3D led_trigger_register(&ledinternal->netfilter_led_trigger);
+ 	if (err) {
+ 		printk(KERN_CRIT KBUILD_MODNAME
+@@ -108,7 +109,7 @@ static bool led_tg_check(const struct xt
+ 				": Trigger name is already in use.\n");
+ 		goto exit_alloc;
+ 	}
+-
++#endif
+ 	/* See if we need to set up a timer */
+ 	if (ledinfo->delay > 0)
+ 		setup_timer(&ledinternal->timer, led_timeout_callback,
+@@ -118,8 +119,10 @@ static bool led_tg_check(const struct xt
+=20
+ 	return true;
+=20
++#ifdef CONFIG_LEDS_TRIGGERS
+ exit_alloc:
+ 	kfree(ledinternal);
++#endif
+=20
+ 	return false;
+ }
+@@ -132,7 +135,9 @@ static void led_tg_destroy(const struct=20
+ 	if (ledinfo->delay > 0)
+ 		del_timer_sync(&ledinternal->timer);
+=20
++#ifdef CONFIG_LEDS_TRIGGERS
+ 	led_trigger_unregister(&ledinternal->netfilter_led_trigger);
++#endif
+ 	kfree(ledinternal);
+ }
 
-        rcu_read_lock();
-begin:
-        result =3D NULL;
-        badness =3D -1;
-        sk_nulls_for_each_rcu(sk, node, &hslot->head) {
-                score =3D compute_score(sk, net, saddr, hnum, sport,
-                                      daddr, dport, dif);
-                if (score > badness) {
-                        result =3D sk;
-                        badness =3D score;
-                }
-        }
-        /*
-         * if the nulls value we got at the end of this lookup is
-         * not the expected one, we must restart lookup.
-         * We probably met an item that was moved to another chain.
-         */
-        if (get_nulls_value(node) !=3D hash)
-                goto begin;
-
-        if (result) {
-                if (unlikely(!atomic_inc_not_zero(&result->sk_refcnt)))
-                        result =3D NULL;
-                else if (unlikely(compute_score(result, net, saddr, hnu=
-m, sport,
-                                  daddr, dport, dif) < badness)) {
-                        sock_put(result);
-                        goto begin;
-                }
-        }
-        rcu_read_unlock();
-        return result;
-
-
+--
+Regards--
+Subrata
+=20
