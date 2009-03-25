@@ -1,44 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/6] s390: qeth fixes for 2.6.30
-Date: Wed, 25 Mar 2009 16:47:04 -0700 (PDT)
-Message-ID: <20090325.164704.89679614.davem@davemloft.net>
-References: <20090325065713.054133000@de.ibm.com>
-	<20090325.000817.183932373.davem@davemloft.net>
-	<49C9EA6A.90808@linux.vnet.ibm.com>
+Subject: Re: [net-next PATCH v3] igbvf: add new driver to support 82576
+ virtual functions
+Date: Wed, 25 Mar 2009 16:58:47 -0700 (PDT)
+Message-ID: <20090325.165847.234084422.davem@davemloft.net>
+References: <20090325215248.28529.62295.stgit@lost.foo-projects.org>
+	<20090325150322.40e0a1e6@nehalam>
+	<49CAB13B.7070601@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: blaschka@linux.vnet.ibm.com
+Cc: shemminger@vyatta.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60952
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39244
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752095AbZCYXrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 19:47:17 -0400
-In-Reply-To: <49C9EA6A.90808@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1752251AbZCYX7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 19:59:00 -0400
+In-Reply-To: <49CAB13B.7070601@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Date: Wed, 25 Mar 2009 09:25:14 +0100
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Wed, 25 Mar 2009 15:33:31 -0700
 
-> > Your EDDP was slow because the implementation was incredibly
-> > sub-optimal.  %90 of the code is doing copies and fiddling
-> > with SKB internals.
+> The sysfs part of this is already in net-next as it isn't part of
+> the igbvf driver it is part of igb.  It was added in over a month
+> ago: http://patchwork.ozlabs.org/patch/23471/
 > 
-> I did not wrote the EDDP code but this was my impression too. Thanks for
-> confirming my study. Also the filling of the hardware buffers was not
-> efficient and passing more buffers to the hw was expensive too.
+> I will see what we can do to make use of a netlink interface.  I'm
+> honestly not even sure if it will work well for this kind of setup
+> since the VF driver won't even be running on the same OS in most
+> cases.  For now the sysfs code in igb is actually quite minimal, and
+> the main goal was to keep the interface as simple as possible which
+> is what I have done.
 
-I keep meaning to get back to a project I was working on that
-would make generic the by-hand TSO that drivers such as
-drivers/net/sfc/ are doing.
+I have to agree with Stephen that the way to create new links
+of virtual and similar devices is to use rtnl_link.
 
-Just like this EDDP code seems to have been doing, they claim
-to be TSO capable as a device but it is all done in software.
+We have very good infrastructure for this, and if I understand
+things correctly iproute2 might even work with an igb using
+rtnl_link with zero modifications to the tool sources.
 
-The hope is to write a generic framework, and skb_dma_map() and
-skb_dma_unmap() were created as initial infrastructure for that.
+Please fix this up, it's a very reasonable request for such
+a large new piece of driver infrastructure.  And since this is
+a new driver, you have no time constraints for submission either.
 
-Anyways, if I ever complete that project, drivers like qeth
-could try to make use of it and do some perf tests.
