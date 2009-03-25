@@ -1,89 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] gianfar: reallocate skb when headroom is not enough for
- fcb
-Date: Wed, 25 Mar 2009 08:53:33 -0700
-Message-ID: <20090325085333.4bb73f55@nehalam>
-References: <20090325.000643.55804624.davem@davemloft.net>
-	<1237972533-11195-1-git-send-email-leoli@freescale.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
+Date: Wed, 25 Mar 2009 11:54:02 -0400
+Message-ID: <49CA539A.4080202@hp.com>
+References: <> <1237945752-14362-1-git-send-email-brian.haley@hp.com> <49C99315.6070504@hp.com> <49CA2533.3000408@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>
-To: Li Yang <leoli@freescale.com>
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, linux@kolla.no,
+	netdev@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40536 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762332AbZCYPxl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 11:53:41 -0400
-In-Reply-To: <1237972533-11195-1-git-send-email-leoli@freescale.com>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:43990 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753943AbZCYPyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 11:54:10 -0400
+In-Reply-To: <49CA2533.3000408@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Mar 2009 17:15:33 +0800
-Li Yang <leoli@freescale.com> wrote:
+Vlad Yasevich wrote:
+> Oh,  and another issue I just figured out this morning...
 
-> Gianfar uses a hardware header FCB for offloading.  However when used
-> with bridging or IP forwarding, TX skb might not have enough headroom
-> for the FCB.  Reallocate skb for such cases.
+>>> Add 'autoconf' and 'disable_ipv6' parameters to the IPv6 module.
+>>>
+>>> The first controls if IPv6 addresses are autoconfigured from
+>>> prefixes received in Router Advertisements.  The IPv6 loopback
+>>> (::1) and link-local addresses are still configured.
 > 
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> ---
->  drivers/net/gianfar.c |   31 +++++++++++++++++++++----------
->  1 files changed, 21 insertions(+), 10 deletions(-)
+> You are letting link-locals to autoconfigure, but did not correctly
+> finish DAD, because once you set disable_ipv6, ip6_output and ipv6_rcv
+> will drop all IPv6 packets.
 > 
-> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-> index 9831b3f..29dc4ee 100644
-> --- a/drivers/net/gianfar.c
-> +++ b/drivers/net/gianfar.c
-> @@ -1206,10 +1206,19 @@ static int gfar_enet_open(struct net_device *dev)
->  	return err;
->  }
->  
-> -static inline struct txfcb *gfar_add_fcb(struct sk_buff *skb)
-> +static inline struct txfcb *gfar_add_fcb(struct sk_buff **skbp)
->  {
-> -	struct txfcb *fcb = (struct txfcb *)skb_push (skb, GMAC_FCB_LEN);
-> -
-> +	struct txfcb *fcb;
-> +	struct sk_buff *skb = *skbp;
-> +
-> +	if (unlikely(skb_headroom(skb) < GMAC_FCB_LEN)) {
-> +		struct sk_buff *old_skb = skb;
-> +		skb = skb_realloc_headroom(old_skb, GMAC_FCB_LEN);
-
-> +		if (!skb)
-> +			return NULL;
-> +		dev_kfree_skb_any(old_skb);
-> +	}
-> +	fcb = (struct txfcb *)skb_push(skb, GMAC_FCB_LEN);
->  	cacheable_memzero(fcb, GMAC_FCB_LEN);
+> Then later, when you re-enable IPv6, you will not run DAD because the
+> interface will think that it's already finished.
 > 
+> So there is a possibility of duplicates not being detected.
 
-Overall, this looks like the wrong code (not copying back new skb)
-and in awkward place. Also your version doesn't handle case where
-skb headroom is not writable.
+If you just set autoconf=0 and don't set disable_ipv6=1, then DAD will 
+complete for the link-locals just fine.  If you "disable" them both you 
+won't get any addresses at all.
 
-Why not:
+So I guess your point is that if you then enable IPv6 on an interface 
+and it gets a prefix in an RA, you'll add a global without having 
+link-local?  It almost looked like the code in addrconf_prefix_rcv() 
+prevented that from happening (ipv6_inherit_eui64()), but it doesn't.
 
---- a/drivers/net/gianfar.c	2009-03-25 08:39:03.890718197 -0700
-+++ b/drivers/net/gianfar.c	2009-03-25 08:51:39.733279404 -0700
-@@ -1309,6 +1309,17 @@ static int gfar_start_xmit(struct sk_buf
- 	unsigned long flags;
- 	unsigned int nr_frags, length;
- 
-+	/* make sure there is space and can write FCB */
-+	if (!skb_clone_writeable(skb, GMAC_FCB_LEN)) {
-+		struct sk_buff *skb2;
-+
-+		skb2 = skb_realloc_headroom(skb, GMAC_FCB_LEN);
-+		kfree_skb(skb);
-+		if (!skb2)
-+			return NETDEV_TX_OK;
-+		skb = skb2;
-+	}
-+
- 	base = priv->tx_bd_base;
- 
- 	/* total number of fragments in the SKB */
+-Brian
 
