@@ -1,40 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Wed, 25 Mar 2009 14:42:07 -0700 (PDT)
-Message-ID: <20090325.144207.225365184.davem@davemloft.net>
-References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
-	<49CA39EA.6020208@cosmosbay.com>
-	<OF73F7C45F.ACAACBF8-ONC1257584.0052EC21-C1257584.0053E5EF@transmode.se>
+Subject: Re: [PATCH] gianfar: reallocate skb when headroom is not enough
+ for fcb
+Date: Wed, 25 Mar 2009 14:49:59 -0700 (PDT)
+Message-ID: <20090325.144959.02893509.davem@davemloft.net>
+References: <20090325.000643.55804624.davem@davemloft.net>
+	<1237972533-11195-1-git-send-email-leoli@freescale.com>
+	<20090325085333.4bb73f55@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, leoli@freescale.com,
-	dada1@cosmosbay.com
-To: Joakim.Tjernlund@transmode.se
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <OF73F7C45F.ACAACBF8-ONC1257584.0052EC21-C1257584.0053E5EF@transmode.se>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: leoli@freescale.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51477
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752974AbZCYVuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 17:50:11 -0400
+In-Reply-To: <20090325085333.4bb73f55@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Date: Wed, 25 Mar 2009 16:16:24 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 25 Mar 2009 08:53:33 -0700
 
-> UCC_GETH_DEV_WEIGHT needs to be a bit bigger than the number of RX
-> HW buffers avaliable, otherwise one won't be able to drain the whole
-> queue in one go. Changing weight to something bigger made a big
-> difference.
+> Overall, this looks like the wrong code (not copying back new skb)
+> and in awkward place. Also your version doesn't handle case where
+> skb headroom is not writable.
 
-You're not supposed to "drain the whole queue in one go", that
-is not the goal of the weight value.
+headroom is always writable and usable by the driver, this
+is the exact same code sequence we use in drivers/net/niu.c
+for this purpose:
 
-The goal of the weight value is that it is low enough such that
-other devices also scheduled for NAPI on the current processor
-can get some fair time to process packets too.
+	len = sizeof(struct tx_pkt_hdr) + 15;
+	if (skb_headroom(skb) < len) {
+		struct sk_buff *skb_new;
+
+		skb_new = skb_realloc_headroom(skb, len);
+		if (!skb_new) {
+			rp->tx_errors++;
+			goto out_drop;
+		}
+		kfree_skb(skb);
+		skb = skb_new;
+
+otherwise the code we just came from wouldn't be able
+to push even the ethernet header there.
