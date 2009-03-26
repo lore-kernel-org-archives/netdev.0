@@ -1,40 +1,52 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: [patch] xfrm: spin_lock() should be spin_unlock() in xfrm_state.c
-Date: Thu, 26 Mar 2009 18:58:45 -0400
-Message-ID: <20090326185845.2c5719b4@dhcp-100-2-144.bos.redhat.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: RDMA/nes: Fix mis-merge
+Date: Thu, 26 Mar 2009 16:25:49 -0700
+Message-ID: <adahc1fuarm.fsf_-_@cisco.com>
+References: <20090326.020714.36421849.davem@davemloft.net>
+	<20090326.152515.43533230.davem@davemloft.net>
+	<alpine.LFD.2.00.0903261555290.3032@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54059 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761524AbZCZXBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 19:01:08 -0400
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:20855 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760227AbZCZXZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 19:25:51 -0400
+In-Reply-To: <alpine.LFD.2.00.0903261555290.3032@localhost.localdomain> (Linus
+	Torvalds's message of "Thu, 26 Mar 2009 15:56:24 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm: spin_lock() should be spin_unlock() in xfrm_state.c
-
-spin_lock() should be spin_unlock() in xfrm_state_walk_done().
-
-caused by:
-commit 12a169e7d8f4b1c95252d8b04ed0f1033ed7cfe2
-"ipsec: Put dumpers on the dump list"
-
-Reported-by: Marc Milgram <mmilgram@redhat.com>
-Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
+When net-next and infiniband were merged upstream, each branch deleted
+one of a pair of adjacent lines from nes_nic.c, but when Linus fixed the
+conflict up, he brought back both of the lines.  Fix up to the intended
+final tree state.
 ---
+ > Well, I merged infiniband, and that caused more conflicts. I fixed them 
+ > up, but people need to double-check my fixes.
 
---- linux-2.6.29.noarch.orig/net/xfrm/xfrm_state.c
-+++ linux-2.6.29.noarch/net/xfrm/xfrm_state.c
-@@ -1615,7 +1615,7 @@ void xfrm_state_walk_done(struct xfrm_st
+Looks like you mismerged one file -- each side deleted one line right
+next to each other, but your merge left both lines in.  I think the
+patch below is needed.  (The cxgb3 fix looks correct)
+
+ drivers/infiniband/hw/nes/nes_nic.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index 8d3e4c6..ecb1f6f 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -1602,8 +1602,6 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
+ 	netif_napi_add(netdev, &nesvnic->napi, nes_netdev_poll, 128);
+ 	nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.\n");
+ 	netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	netdev->vlan_rx_register = nes_netdev_vlan_rx_register;
+-	netdev->features |= NETIF_F_LLTX;
  
- 	spin_lock_bh(&xfrm_state_lock);
- 	list_del(&walk->all);
--	spin_lock_bh(&xfrm_state_lock);
-+	spin_unlock_bh(&xfrm_state_lock);
- }
- EXPORT_SYMBOL(xfrm_state_walk_done);
- 
+ 	/* Fill in the port structure */
+ 	nesvnic->netdev = netdev;
