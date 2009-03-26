@@ -1,34 +1,43 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: network traffic stop with 2.6.29 after ftp put
-Date: Thu, 26 Mar 2009 09:52:06 +0100
-Message-ID: <BAY103-DAV9C5EA8FA3DE735A3D64B6B2910@phx.gbl>
-References: <BAY103-DAV683AFCEC466B8F2E6D8EBB2930@phx.gbl> <BAY103-DAV100CC8DA92566937097718B2930@phx.gbl> <49C8C26B.7070802@cosmosbay.com> <BAY103-DAV11986CBE87674225EDC31EB2930@phx.gbl> <49C8E7FF.7020906@cosmosbay.com> <BAY103-DAV1251BBA7FBA4243359906AB2930@phx.gbl> <BAY103-DAV114D2F6EE08154E75BB064B2900@phx.gbl> <20090325120932.GB6351@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix unaligned memory accesses in ASIX
+Date: Thu, 26 Mar 2009 02:00:18 -0700 (PDT)
+Message-ID: <20090326.020018.26561577.davem@davemloft.net>
+References: <1238050359-28415-1-git-send-email-peppe.cavallaro@st.com>
+	<20090326.010810.23291587.davem@davemloft.net>
+	<49CB3F6D.2010508@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>, <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s28.bay0.hotmail.com ([65.54.246.100]:28937 "EHLO
-	bay0-omc1-s28.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751034AbZCZIwv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 04:52:51 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42867
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754772AbZCZJAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 05:00:31 -0400
+In-Reply-To: <49CB3F6D.2010508@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Thu, 26 Mar 2009 09:40:13 +0100
 
-> On Wed, Mar 25, 2009 at 09:10:29AM +0100, Marco Berizzi wrote:
-> >
-> > no, it doesn't fix the problem.
-> > This morning I got the same problem
-> > (I was reading the kernel mailing list
-> > on lkml.indiana.edu with firefox)
-> 
-> Please try the full GRO revert for netif_rx that I just posted.
+> Unfortunately, unaligned memory accesses seems to depend on the Asix HW
+> that packs several incoming frames.
+> So when these frames are 'unpacked' within the fix-up function, and
+> pushed to the upper layer, they can have a wrong alignment, indeed.
+> When no frame is packed all works fine and the IP never works with
+> unaligned addresses.
+> I think, the skb_reserve could actually help us, if this last scenario
+> generated misaligned accesses.
+> Please let me know if I'm missing something.
 
-ok, I have reverted the GRO and I have not
-got the problem.
+The unpacker is taking a set of packet(s) in a USB buffer
+and copying them into SKB's right?  That code should be where
+the offset is checked in the child driver, and adjustments
+made as-needed.
 
-Thanks.
+This code seems to call the downstream driver callback after
+the damage is done.  I think it needs to ask the driver to
+look for and indicate the offset before the building of the
+SKB is performed.
