@@ -1,110 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 3/3] e1000: fix close race with interrupt
-Date: Thu, 26 Mar 2009 00:59:22 -0700
-Message-ID: <20090326075922.30121.40411.stgit@lost.foo-projects.org>
-References: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:47501
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755038AbZCZH7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 03:59:44 -0400
-In-Reply-To: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Leblond <eric@inl.fr>
+Subject: [PATCH 3/3] netfilter: fix nf_logger name in ebt_ulog.
+Date: Thu, 26 Mar 2009 08:59:56 +0100
+Message-ID: <1238054396-9088-3-git-send-email-eric@inl.fr>
+References: <1238053819.13879.4.camel@ice-age>
+Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Eric Leblond <eric@inl.fr>
+To: davem@davemloft.net, kaber@trash.net, sfr@canb.auug.org.au
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1238053819.13879.4.camel@ice-age>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This patch renames the ebt_ulog nf_logger from "ulog" to "ebt_ulog" to
+be in sync with other modules naming. As this name was currently only
+used for informational purpose, the renaming should be harmless.
 
-this is in regards to
-http://bugzilla.kernel.org/show_bug.cgi?id=12876
-
-where it appears that e1000 can leave its interrupt enabled after
-exiting the driver.  Fix the bug by making the interrupt enable
-paths more aware of the driver exiting.
-
-Thanks to Alan Cox for the poke and initial investigation.
-
-CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Eric Leblond <eric@inl.fr>
 ---
+ net/bridge/netfilter/ebt_ulog.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- drivers/net/e1000/e1000_main.c |   28 ++++++++++++++++++++++++----
- 1 files changed, 24 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 5c61b92..93b861d 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -577,12 +577,30 @@ out:
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index ac6fa43..133eeae 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -280,7 +280,7 @@ static struct xt_target ebt_ulog_tg_reg __read_mostly = {
+ };
  
- void e1000_down(struct e1000_adapter *adapter)
- {
-+	struct e1000_hw *hw = &adapter->hw;
- 	struct net_device *netdev = adapter->netdev;
-+	u32 rctl, tctl;
- 
- 	/* signal that we're down so the interrupt handler does not
- 	 * reschedule our watchdog timer */
- 	set_bit(__E1000_DOWN, &adapter->flags);
- 
-+	/* disable receives in the hardware */
-+	rctl = er32(RCTL);
-+	ew32(RCTL, rctl & ~E1000_RCTL_EN);
-+	/* flush and sleep below */
-+
-+	/* can be netif_tx_disable when NETIF_F_LLTX is removed */
-+	netif_stop_queue(netdev);
-+
-+	/* disable transmits in the hardware */
-+	tctl = er32(TCTL);
-+	tctl &= ~E1000_TCTL_EN;
-+	ew32(TCTL, tctl);
-+	/* flush both disables and wait for them to finish */
-+	E1000_WRITE_FLUSH();
-+	msleep(10);
-+
- 	napi_disable(&adapter->napi);
- 
- 	e1000_irq_disable(adapter);
-@@ -595,7 +613,6 @@ void e1000_down(struct e1000_adapter *adapter)
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
- 	netif_carrier_off(netdev);
--	netif_stop_queue(netdev);
- 
- 	e1000_reset(adapter);
- 	e1000_clean_all_tx_rings(adapter);
-@@ -3744,10 +3761,12 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 		adapter->total_rx_bytes = 0;
- 		adapter->total_rx_packets = 0;
- 		__napi_schedule(&adapter->napi);
--	} else
-+	} else {
- 		/* this really should not happen! if it does it is basically a
- 		 * bug, but not a hard error, so enable ints and continue */
--		e1000_irq_enable(adapter);
-+		if (!test_bit(__E1000_DOWN, &adapter->flags))
-+			e1000_irq_enable(adapter);
-+	}
- 
- 	return IRQ_HANDLED;
- }
-@@ -3777,7 +3796,8 @@ static int e1000_clean(struct napi_struct *napi, int budget)
- 		if (likely(adapter->itr_setting & 3))
- 			e1000_set_itr(adapter);
- 		napi_complete(napi);
--		e1000_irq_enable(adapter);
-+		if (!test_bit(__E1000_DOWN, &adapter->flags))
-+			e1000_irq_enable(adapter);
- 	}
- 
- 	return work_done;
+ static struct nf_logger ebt_ulog_logger __read_mostly = {
+-	.name		= "ulog",
++	.name		= "ebt_ulog",
+ 	.logfn		= &ebt_log_packet,
+ 	.me		= THIS_MODULE,
+ };
+-- 
+1.5.6.3
 
