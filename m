@@ -1,46 +1,45 @@
-From: "Mr. Berkley Shands" <bshands@exegy.com>
-Subject: net/core/dev.c patch 2.6.29 works
-Date: Thu, 26 Mar 2009 08:56:50 -0500
-Message-ID: <49CB89A2.2020404@exegy.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: PATCH 4/6] mlx4_en: Shift completion vector index between ports
+Date: Thu, 26 Mar 2009 15:57:26 +0200
+Message-ID: <49CB89C6.4060507@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: "Net Dev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 205.158.150.226.ptr.us.xo.net ([205.158.150.226]:1640 "EHLO
-	mail.exegy.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753173AbZCZN4w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 09:56:52 -0400
-Content-Class: urn:content-classes:message
+Received: from mail.mellanox.co.il ([194.90.237.43]:53315 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753037AbZCZN63 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2009 09:58:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the Herbert Xu patch to dev.c works well. (2nd patch sent out for this bug)
-I'm back in business. thank you.
+For both ports UDP traffic is steered to RX ring 0.
+If both the ports attached RX ring 0 to the same completion
+vector, all UDP traffic for both ports will be handled by the
+same core. Making the shift would prevent this situation.
+Dual port UDP Bandwidth was increased by ~70%.
 
-berkley
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_cq.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/mlx4/en_cq.c b/drivers/net/mlx4/en_cq.c
+index 91f50de..450cf44 100644
+--- a/drivers/net/mlx4/en_cq.c
++++ b/drivers/net/mlx4/en_cq.c
+@@ -53,7 +53,8 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv,
+ 	cq->size = entries;
+ 	if (mode == RX) {
+ 		cq->buf_size = cq->size * sizeof(struct mlx4_cqe);
+-		cq->vector   = ring % mdev->dev->caps.num_comp_vectors;
++		cq->vector   = (ring + priv->port) %
++				mdev->dev->caps.num_comp_vectors;
+ 	} else {
+ 		cq->buf_size = sizeof(struct mlx4_cqe);
+ 		cq->vector   = 0;
 -- 
+1.6.1.3
 
-// E. F. Berkley Shands, MSc//
-
-** Exegy Inc.**
-
-349 Marshall Road, Suite 100
-
-St. Louis , MO  63119
-
-Direct:  (314) 218-3600 X450
-
-Cell:  (314) 303-2546
-
-Office:  (314) 218-3600
-
-Fax:  (314) 218-3601
-
- 
-
-The Usual Disclaimer follows...
- 
-This e-mail and any documents accompanying it may contain legally privileged and/or confidential information belonging to Exegy, Inc. Such information may be protected from disclosure by law. The information is intended for use by only the addressee. If you are not the intended recipient, you are hereby notified that any disclosure or use of the information is strictly prohibited. If you have received this e-mail in error, please immediately contact the sender by e-mail or phone regarding instructions for return or destruction and do not use or disclose the content to others.
