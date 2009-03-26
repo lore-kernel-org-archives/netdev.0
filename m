@@ -1,212 +1,104 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH] bonding: allow bond in mode balance-alb to work properly
-	in bridge -try4
-Date: Thu, 26 Mar 2009 16:52:06 +0100
-Message-ID: <20090326155205.GA28868@psychotron.englab.brq.redhat.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: Network Device Naming mechanism and policy
+Date: Thu, 26 Mar 2009 11:39:55 -0500
+Message-ID: <20090326163955.GA22398@auslistsprd01.us.dell.com>
+References: <20090324154617.GA16332@auslistsprd01.us.dell.com> <20090324.155756.214460004.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-	kaber@trash.net, mschmidt@redhat.com, dada1@cosmosbay.com
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759499AbZCZPzO@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20090324.155756.214460004.davem@davemloft.net>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(resend, updated changelog, hook moved into skb_bond_should_drop,
-skb_bond_should_drop ifdefed)
+On Tue, Mar 24, 2009 at 03:57:56PM -0700, David Miller wrote:
+> From: Matt Domsch <Matt_Domsch@dell.com>
+> Date: Tue, 24 Mar 2009 10:46:17 -0500
+> 
+> > Problem: Users expect on-motherboard NICs to be named eth0..ethN.
+> > This can be difficult to achieve.
+> 
+> I learned a long time ago that eth0 et al. have zero meaning.
+> 
+> If the system firmware folks gave us topology information with respect
+> to these things, we could export something that tools such as
+> NetworkManager, iproute2, etc. could use.
+> 
+> For example, if we were told that PCI device "domain:bus:dev:fn" has
+> string label "Onboard Ethernet 0" then we could present that to the
+> user.
+> 
+> Changing how the actual network device name is determined is going to
+> have zero traction.
+> 
+> So, please, put mapping tables into the ACPI or similar and then
+> programs can go:
+> 
+> 	for_each_network_device(name) {
+> 		fd = open(name);
+> 		label = get_system_label(fd, name);
+> 		present_to_user(label, name);
+> 	}
 
-Hi all.
 
-The problem is described in following bugzilla:
-https://bugzilla.redhat.com/show_bug.cgi?id=487763
+Your wish is my command.  DMTF SMBIOS 2.6 specification
+http://www.dmtf.org/standards/smbios/ contains changes which provide
+this for PCI devices.
 
-Basically here's what's going on. In every mode, bonding interface uses the same
-mac address for all enslaved devices (except fail_over_mac). Only balance-alb
-will simultaneously use multiple MAC addresses across different slaves. When you
-put this kind of bond device into a bridge it will only add one of mac adresses
-into a hash list of mac addresses, say X. This mac address is marked as local.
-But this bonding interface also has mac address Y. Now then packet arrives with
-destination address Y, this address is not marked as local and the packed looks
-like it needs to be forwarded. This packet is then lost which is wrong.
+Specifically, Type 9 ("System Slots") was extended to include the PCI
+domain/bus/device/function for each slot.  Type 10 ("On Board Devices
+Information") could not be extended, thus it was deprecated, and new
+Type 41 ("Onboard Devices Extended Information") was created to be
+extensible and now includes PCI domain/bus/device/function
+information.  Both Type 9 and Type 41 include a String field which
+hopefully has a more descriptive value, such as "Onboard Ethernet
+Broadcom 5808 NIC 1" in the case of some Dell servers.
 
-Notice that interfaces can be added and removed from bond while it is in bridge.
+Shipping Dell 10G (and very soon 11G) server BIOS includes this
+information.  biosdevname can use this to report device names.  Some
+HP systems have a vendor-specific SMBIOS extension to provide a
+similar mapping; biosdevname can report this as well.
 
-This patch solves the situation in the bonding without touching bridge code,
-as Patrick suggested. For every incoming frame to bonding it searches the
-destination address in slaves list and if any of slave addresses matches, it
-rewrites the address in frame by the adress of bonding master. This ensures that
-all frames comming thru the bonding in alb mode have the same address.
+> This "get_system_label()" thing can be an ethtool ioctl, some
+> rtnetlink call, or similar.  In the kernel, a generic routine would
+> exist for major bus types to make the mapping translation, and drivers
+> would call these.
+>
+> For PCI it might take the PCI device pointer and try to fish
+> out a string from the ACPI layer.
+> 
+> For OpenFirmware we might just simply give the full device path,
+> or a matching device alias name.
+> 
+> That's the only model which allows a smooth transition and
+> no major infrastructure changes.
 
-Jirka
+While I'd be happy for NetworkManager to present these SMBIOS-provided
+human-parsable names when available, the names aren't terribly
+meaningful in a programatic fashion.  The users I've encountered are
+looking for a programatic way to say:
 
+  The first LOM is my management/admin NIC.  The second LOM is my bulk
+  traffic NIC.  The first add-in card is my backup NIC.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+meaning we still need a translation from "how I want to use a NIC" to
+"which NIC should I plug the cable into".  The SMBIOS names don't
+completely solve this.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 27fb7f5..b973ede 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1762,6 +1762,25 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 	return 0;
- }
- 
-+void bond_alb_change_dest(struct sk_buff *skb, struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	unsigned char *dest = eth_hdr(skb)->h_dest;
-+	struct slave *slave;
-+	int i;
-+
-+	if (!compare_ether_addr_64bits(dest, bond_dev->dev_addr))
-+		return;
-+	read_lock(&bond->lock);
-+	bond_for_each_slave(bond, slave, i) {
-+		if (!compare_ether_addr_64bits(slave->dev->dev_addr, dest)) {
-+			memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
-+			break;
-+		}
-+	}
-+	read_unlock(&bond->lock);
-+}
-+
- void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
- {
- 	if (bond->alb_info.current_alb_vlan &&
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index 50968f8..4924dd7 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -127,6 +127,7 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
- void bond_alb_monitor(struct work_struct *);
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
-+void bond_alb_change_dest(struct sk_buff *skb, struct net_device *bond_dev);
- void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
- #endif /* __BOND_ALB_H__ */
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3d76686..7c7cb81 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4294,6 +4294,18 @@ unwind:
- 	return res;
- }
- 
-+/*
-+ * Called via bond_change_dest_hook.
-+ * note: already called with rcu_read_lock (preempt_disabled)
-+ */
-+void bond_change_dest(struct sk_buff *skb, struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+
-+	if (bond->params.mode == BOND_MODE_ALB)
-+		bond_alb_change_dest(skb, bond_dev);
-+}
-+
- static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-@@ -5243,6 +5255,8 @@ static int __init bonding_init(void)
- 	register_inetaddr_notifier(&bond_inetaddr_notifier);
- 	bond_register_ipv6_notifier();
- 
-+	bond_change_dest_hook = bond_change_dest;
-+
- 	goto out;
- err:
- 	list_for_each_entry(bond, &bond_dev_list, bond_list) {
-@@ -5266,6 +5280,8 @@ static void __exit bonding_exit(void)
- 	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
- 	bond_unregister_ipv6_notifier();
- 
-+	bond_change_dest_hook = NULL;
-+
- 	bond_destroy_sysfs();
- 
- 	rtnl_lock();
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index ca849d2..7159483 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -375,5 +375,8 @@ static inline void bond_unregister_ipv6_notifier(void)
- }
- #endif
- 
-+extern void (*bond_change_dest_hook)(struct sk_buff *skb,
-+				     struct net_device *master);
-+
- #endif /* _LINUX_BONDING_H */
- 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6593667..7af6857 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1860,6 +1860,10 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
- 	dev->gso_max_size = size;
- }
- 
-+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
-+extern void (*bond_change_dest_hook)(struct sk_buff *skb,
-+				     struct net_device *master);
-+
- /* On bonding slaves other than the currently active slave, suppress
-  * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
-  * ARP on active-backup slaves with arp_validate enabled.
-@@ -1876,22 +1880,31 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
- 		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
- 			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
- 			    skb->protocol == __constant_htons(ETH_P_ARP))
--				return 0;
-+				goto dont_drop;
- 
- 			if (master->priv_flags & IFF_MASTER_ALB) {
- 				if (skb->pkt_type != PACKET_BROADCAST &&
- 				    skb->pkt_type != PACKET_MULTICAST)
--					return 0;
-+					goto dont_drop;
- 			}
- 			if (master->priv_flags & IFF_MASTER_8023AD &&
- 			    skb->protocol == __constant_htons(ETH_P_SLOW))
--				return 0;
-+				goto dont_drop;
- 
- 			return 1;
- 		}
-+dont_drop:
-+		bond_change_dest_hook(skb, master);
- 	}
-+
-+	return 0;
-+}
-+#else
-+static inline int skb_bond_should_drop(struct sk_buff *skb)
-+{
- 	return 0;
- }
-+#endif
- 
- extern struct pernet_operations __net_initdata loopback_net_ops;
- #endif /* __KERNEL__ */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e3fe5c7..d9b758b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2061,6 +2061,12 @@ static inline int deliver_skb(struct sk_buff *skb,
- 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- }
- 
-+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
-+void (*bond_change_dest_hook)(struct sk_buff *skb,
-+			      struct net_device *master) __read_mostly;
-+EXPORT_SYMBOL(bond_change_dest_hook);
-+#endif
-+
- #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
- /* These hooks defined here for ATM */
- struct net_bridge;
+Hence my desire of having a way to have multiple alternate names for
+the same interface.  One such name would be the full SMBIOS string.
+Another would be a bus topology name. A third could be a "how do I use
+it" name.  Analogous to devices represented in /dev using symlinks for
+these other names.  I don't care if it's symlinks in /dev or some
+other mechanism.
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Linux Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
