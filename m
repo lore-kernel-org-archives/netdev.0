@@ -1,53 +1,44 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: net tree build warnings
-Date: Fri, 27 Mar 2009 09:01:28 +1100
-Message-ID: <20090327090128.37883155.sfr@canb.auug.org.au>
-References: <20090326173713.ee63b803.sfr@canb.auug.org.au>
-	<1238053819.13879.4.camel@ice-age>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT]: Networking for 2.6.30
+Date: Thu, 26 Mar 2009 15:25:15 -0700 (PDT)
+Message-ID: <20090326.152515.43533230.davem@davemloft.net>
+References: <20090326.020714.36421849.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__27_Mar_2009_09_01_28_+1100_e0Tk2WUSm18TweUc"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-next@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Eric Leblond <eric@inl.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1238053819.13879.4.camel@ice-age>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42541
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755456AbZCZWZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 18:25:28 -0400
+In-Reply-To: <20090326.020714.36421849.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__27_Mar_2009_09_01_28_+1100_e0Tk2WUSm18TweUc
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: David Miller <davem@davemloft.net>
+Date: Thu, 26 Mar 2009 02:07:14 -0700 (PDT)
 
-Hi Eric,
+> 
+> These are the networking updates for 2.6.30
+> 
+> The safest fix for the GRO stinker Ingo and others ran into
+> is here as well, and I will push that to -stable once it
+> hits your tree.
 
-On Thu, 26 Mar 2009 08:50:19 +0100 Eric Leblond <eric@inl.fr> wrote:
->
-> Thanks a lot for pointing this. I stupidely forgot to build this module
-> during my testing.
->=20
-> I've made the necessary modifications and a patch fixing this will
-> follow this mail.
+Just FYI, I've just pushed a merge of the changes you pulled in today
+in order to resolve the one merge conflict that arose.
 
-Thanks.
+> Please pull, thanks a lot!
+> 
+> The following changes since commit 8e0ee43bc2c3e19db56a4adaa9a9b04ce885cd84:
+>   Linus Torvalds (1):
+>         Linux 2.6.29
+> 
+> are available in the git repository at:
+> 
+>   master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git master
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__27_Mar_2009_09_01_28_+1100_e0Tk2WUSm18TweUc
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAknL+zgACgkQjjKRsyhoI8y/QQCeJPlZYtcCE9ZOcVm5JhnaYWTB
-aY4AoI8b9HECjc3Jp+LIkDk2p3l+5X70
-=SNCz
------END PGP SIGNATURE-----
-
---Signature=_Fri__27_Mar_2009_09_01_28_+1100_e0Tk2WUSm18TweUc--
+Thanks!
