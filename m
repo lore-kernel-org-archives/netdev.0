@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] e1000: fix tx hang detect logic and
- address dma mapping issues
-Date: Thu, 26 Mar 2009 01:01:53 -0700 (PDT)
-Message-ID: <20090326.010153.170024359.davem@davemloft.net>
-References: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
+Subject: Re: [PATCH 1/3] netfilter: fix warning about invalid const usage
+Date: Thu, 26 Mar 2009 01:03:32 -0700 (PDT)
+Message-ID: <20090326.010332.160800916.davem@davemloft.net>
+References: <1238053819.13879.4.camel@ice-age>
+	<1238054396-9088-1-git-send-email-eric@inl.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44064
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755382AbZCZICH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 04:02:07 -0400
-In-Reply-To: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: eric@inl.fr
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1238054396-9088-1-git-send-email-eric@inl.fr>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 26 Mar 2009 00:58:45 -0700
+From: Eric Leblond <eric@inl.fr>
+Date: Thu, 26 Mar 2009 08:59:54 +0100
 
-> This patch changes the dma mapping to better support
-> skb_dma_map/skb_dma_unmap and addresses and redefines the tx hang logic to
-> be based off of time stamp instead of if the dma field is populated
+> This patch fixes the declaration of the logger structure in ebt_log
+> and ebt_ulog: I forgot to remove the const option from their declaration
+> in the commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222 ("netfilter:
+> use a linked list of loggers").
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
+> Pointed-out-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: Eric Leblond <eric@inl.fr>
 
 Applied.
