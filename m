@@ -1,49 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3] igbvf: add new driver to support 82576
- virtual functions
-Date: Wed, 25 Mar 2009 20:34:50 -0700 (PDT)
-Message-ID: <20090325.203450.58187435.davem@davemloft.net>
-References: <49CAD25F.4080705@intel.com>
-	<20090325.201219.98810772.davem@davemloft.net>
-	<5f2db9d90903252027n7079ca54v76c06ec3849c65d9@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
+Date: Thu, 26 Mar 2009 11:36:58 +0800
+Message-ID: <20090326033658.GA14592@gondor.apana.org.au>
+References: <810119.61814.qm@web57701.mail.re3.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, shemminger@vyatta.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com
-To: alexander.duyck@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, berkley@cs.wustl.edu
+To: adam_richter2004@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54258
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754869AbZCZDfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 23:35:02 -0400
-In-Reply-To: <5f2db9d90903252027n7079ca54v76c06ec3849c65d9@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:55382 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755562AbZCZDhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 23:37:08 -0400
+Content-Disposition: inline
+In-Reply-To: <810119.61814.qm@web57701.mail.re3.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Wed, 25 Mar 2009 20:27:28 -0700
-
-> On Wed, Mar 25, 2009 at 8:12 PM, David Miller <davem@davemloft.net> wrote:
-> > From: Alexander Duyck <alexander.h.duyck@intel.com>
-> > Date: Wed, 25 Mar 2009 17:54:55 -0700
-> >
-> >> Since the issue isn't the igbvf driver there is no reason for it to
-> >> be held up.
-> >
-> > I disagree, I think both cases should be fixed.
-> >
-> > Just because we do something already never means that it's
-> > ok to proliferate the mistake further.
+Adam Richter <adam_richter2004@yahoo.com> wrote:
 > 
-> That isn't what I mean.  The code he is referring to exists nowhere in
-> the igbvf driver.  I suppose I can edit the igbvf commit comments so
-> that they don't mention the sysfs entry, but the code is in the igb
-> driver.
+> The patch you forwarded to me seems to work.  Thank you for bringing it
+> to my attention.
 
-I know it's in the igb driver, I fully understand that.
+Hi Adam:
 
-And I'm saying it was a mistake to merge that, it slipped past
-me in my review of that change, and we need to move forward
-and get rid of this thing.
+Any chance you can test this patch instead of the previous one?
+
+net: Fix netpoll lockup in legacy receive path
+
+When I fixed the GRO crash in the legacy receive path I used
+napi_complete to replace __napi_complete.  Unfortunately they're
+not the same when NETPOLL is enabled, which may result in us
+not calling __napi_complete at all.
+
+What's more, we really do need to keep the __napi_complete call
+within the IRQ-off section since in theory an IRQ can occur in
+between and fill up the backlog to the maximum, causing us to
+lock up.
+
+This patch fixes this by essentially open-coding __napi_complete.
+
+Note we no longer need the memory barrier because this function
+is per-cpu.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e3fe5c7..2a7f6b3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2588,9 +2588,10 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 		local_irq_disable();
+ 		skb = __skb_dequeue(&queue->input_pkt_queue);
+ 		if (!skb) {
++			list_del(&napi->poll_list);
++			clear_bit(NAPI_STATE_SCHED, &napi->state);
+ 			local_irq_enable();
+-			napi_complete(napi);
+-			goto out;
++			break;
+ 		}
+ 		local_irq_enable();
+ 
+@@ -2599,7 +2600,6 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 
+ 	napi_gro_flush(napi);
+ 
+-out:
+ 	return work;
+ }
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
