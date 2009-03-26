@@ -1,109 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] gianfar: fix headroom expansion code
-Date: Thu, 26 Mar 2009 10:08:56 -0700
-Message-ID: <20090326100856.265f7872@nehalam>
-References: <20090325.172139.142233386.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: leoli@freescale.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH] smsc911x: enforce read-after-write timing restriction on eeprom access
+Date: Thu, 26 Mar 2009 17:14:36 +0000
+Message-ID: <1238087676-14194-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Ian Saturley <ian.saturley@smsc.com>,
+	David Miller <davem@davemloft.net>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54350 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759328AbZCZRJE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 13:09:04 -0400
-In-Reply-To: <20090325.172139.142233386.davem@davemloft.net>
+Received: from drevil.shawell.net ([86.54.240.115]:33646 "EHLO
+	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751167AbZCZROf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 13:14:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code that was added to increase headroom was wrong.
-It doesn't handle the case where gfar_add_fcb() changes the skb.
-Better to do check at start of transmit (outside of lock), where
-error handling is better anyway.
+The LAN911x datasheet specifies a minimum delay of 45ns between a write
+of E2P_DATA and any read.  This patch adds a single dummy read of
+BYTE_TEST to enforce this timing constraint.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc911x.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-
---- a/drivers/net/gianfar.c	2009-03-26 09:14:39.273669929 -0700
-+++ b/drivers/net/gianfar.c	2009-03-26 09:22:46.477545004 -0700
-@@ -1239,19 +1239,9 @@ static int gfar_enet_open(struct net_dev
- 	return err;
- }
- 
--static inline struct txfcb *gfar_add_fcb(struct sk_buff **skbp)
-+static inline struct txfcb *gfar_add_fcb(struct sk_buff *skb)
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index ad3cbc9..af8f60c 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1680,6 +1680,7 @@ static int smsc911x_eeprom_write_location(struct smsc911x_data *pdata,
+ 					  u8 address, u8 data)
  {
--	struct txfcb *fcb;
--	struct sk_buff *skb = *skbp;
--
--	if (unlikely(skb_headroom(skb) < GMAC_FCB_LEN)) {
--		struct sk_buff *old_skb = skb;
--		skb = skb_realloc_headroom(old_skb, GMAC_FCB_LEN);
--		if (!skb)
--			return NULL;
--		dev_kfree_skb_any(old_skb);
--	}
--	fcb = (struct txfcb *)skb_push(skb, GMAC_FCB_LEN);
-+	struct txfcb *fcb = (struct txfcb *)skb_push(skb, GMAC_FCB_LEN);
- 	cacheable_memzero(fcb, GMAC_FCB_LEN);
+ 	u32 op = E2P_CMD_EPC_CMD_ERASE_ | address;
++	u32 temp;
+ 	int ret;
  
- 	return fcb;
-@@ -1320,6 +1310,20 @@ static int gfar_start_xmit(struct sk_buf
- 
- 	base = priv->tx_bd_base;
- 
-+	/* make space for additional header */
-+	if (skb_headroom(skb) < GMAC_FCB_LEN) {
-+		struct sk_buff *skb_new;
+ 	SMSC_TRACE(DRV, "address 0x%x, data 0x%x", address, data);
+@@ -1688,6 +1689,10 @@ static int smsc911x_eeprom_write_location(struct smsc911x_data *pdata,
+ 	if (!ret) {
+ 		op = E2P_CMD_EPC_CMD_WRITE_ | address;
+ 		smsc911x_reg_write(pdata, E2P_DATA, (u32)data);
 +
-+		skb_new = skb_realloc_headroom(skb, GMAC_FCB_LEN);
-+		if (!skb_new) {
-+			dev->stats.tx_errors++;
-+			kfree(skb);
-+			return NETDEV_TX_OK;
-+		}
-+		kfree_skb(skb);
-+		skb = skb_new;
-+	}
++		/* Workaround for hardware read-after-write restriction */
++		temp = smsc911x_reg_read(pdata, BYTE_TEST);
 +
- 	/* total number of fragments in the SKB */
- 	nr_frags = skb_shinfo(skb)->nr_frags;
- 
-@@ -1372,20 +1376,18 @@ static int gfar_start_xmit(struct sk_buf
- 
- 	/* Set up checksumming */
- 	if (CHECKSUM_PARTIAL == skb->ip_summed) {
--		fcb = gfar_add_fcb(&skb);
--		if (likely(fcb != NULL)) {
--			lstatus |= BD_LFLAG(TXBD_TOE);
--			gfar_tx_checksum(skb, fcb);
--		}
-+		fcb = gfar_add_fcb(skb);
-+		lstatus |= BD_LFLAG(TXBD_TOE);
-+		gfar_tx_checksum(skb, fcb);
+ 		ret = smsc911x_eeprom_send_cmd(pdata, op);
  	}
  
- 	if (priv->vlgrp && vlan_tx_tag_present(skb)) {
--		if (unlikely(NULL == fcb))
--			fcb = gfar_add_fcb(&skb);
--		if (likely(fcb != NULL)) {
-+		if (unlikely(NULL == fcb)) {
-+			fcb = gfar_add_fcb(skb);
- 			lstatus |= BD_LFLAG(TXBD_TOE);
--			gfar_tx_vlan(skb, fcb);
- 		}
-+
-+		gfar_tx_vlan(skb, fcb);
- 	}
- 
- 	/* setup the TxBD length and buffer pointer for the first BD */
-@@ -1433,7 +1435,7 @@ static int gfar_start_xmit(struct sk_buf
- 	/* Unlock priv */
- 	spin_unlock_irqrestore(&priv->txlock, flags);
- 
--	return 0;
-+	return NETDEV_TX_OK;
- }
- 
- /* Stops the kernel queue, and halts the controller */
+-- 
+1.6.0.6
+
