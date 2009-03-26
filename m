@@ -1,33 +1,52 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next PATCH v3] igbvf: add new driver to support 82576	virtual
- functions
-Date: Thu, 26 Mar 2009 14:05:07 +0100
-Message-ID: <49CB7D83.10205@trash.net>
-References: <20090325215248.28529.62295.stgit@lost.foo-projects.org> <20090325150322.40e0a1e6@nehalam> <49CAB13B.7070601@intel.com> <20090325.165847.234084422.davem@davemloft.net> <49CAD25F.4080705@intel.com> <20090326023343.GA8138@yzhao-otc.sh.intel.com>
+Subject: Re: linux-next: net tree build warnings
+Date: Thu, 26 Mar 2009 14:17:53 +0100
+Message-ID: <49CB8081.6050709@trash.net>
+References: <20090326173713.ee63b803.sfr@canb.auug.org.au> <1238053819.13879.4.camel@ice-age>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Yu Zhao <yu.zhao@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63815 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757601AbZCZNFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 09:05:19 -0400
-In-Reply-To: <20090326023343.GA8138@yzhao-otc.sh.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-next@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Leblond <eric@inl.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1238053819.13879.4.camel@ice-age>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Yu Zhao wrote:
-> We do have some powerful tools for network device configuration, but they
-> still can't cover the multi queue and SR-IOV NICs (also David Woodhouse's
-> Solos DSL, etc.) configuration requirement. Unless someone improves the
-> existing tools to support configuring these new hardware features, people
-> would keep trying to use the sysfs which is the easiest way so far.
+Eric Leblond wrote:
+> Hi Stephen,
+>=20
+> Le jeudi 26 mars 2009 =E0 17:37 +1100, Stephen Rothwell a =E9crit :
+>> Hi Dave,
+>>
+>> Today's linux-next build (x86_64 allmodconfig) produced these warnin=
+gs:
+>>
+>> net/bridge/netfilter/ebt_log.c: In function 'ebt_log_init':
+>> net/bridge/netfilter/ebt_log.c:230: warning: passing argument 2 of '=
+nf_log_register' discards qualifiers from pointer target type
+>> net/bridge/netfilter/ebt_log.c: In function 'ebt_log_fini':
+>> net/bridge/netfilter/ebt_log.c:236: warning: passing argument 1 of '=
+nf_log_unregister' discards qualifiers from pointer target type
+>> net/bridge/netfilter/ebt_ulog.c: In function 'ebt_ulog_init':
+>> net/bridge/netfilter/ebt_ulog.c:317: warning: passing argument 2 of =
+'nf_log_register' discards qualifiers from pointer target type
+>> net/bridge/netfilter/ebt_ulog.c: In function 'ebt_ulog_fini':
+>> net/bridge/netfilter/ebt_ulog.c:327: warning: passing argument 1 of =
+'nf_log_unregister' discards qualifiers from pointer target type
+>=20
+> Thanks a lot for pointing this. I stupidely forgot to build this modu=
+le
+> during my testing.
 
-So what are these missing features in the existing interfaces?
+Same here, I seem to have accidentally disabled bridging in my test
+builds, sorry.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
