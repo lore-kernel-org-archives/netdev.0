@@ -1,55 +1,40 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 06/12: limit the length of the helper name
-Date: Thu, 26 Mar 2009 20:02:38 +0100 (MET)
-Message-ID: <20090326190233.23365.26846.sendpatchset@x2.localnet>
+Subject: netfilter 02/12: nf_conntrack: use hlist_add_head_rcu() in nf_conntrack_set_hashsize()
+Date: Thu, 26 Mar 2009 20:02:33 +0100 (MET)
+Message-ID: <20090326190227.23365.25636.sendpatchset@x2.localnet>
 References: <20090326190225.23365.96356.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39218 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758837AbZCZTCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 15:02:40 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090326190225.23365.96356.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit af9d32ad6718b9a80fa89f557cc1fbb63a93ec15
-Author: Holger Eitzenberger <holger@eitzenberger.org>
-Date:   Wed Mar 25 18:44:01 2009 +0100
+commit 78f3648601fdc7a8166748bbd6d0555a88efa24a
+Author: Eric Dumazet <dada1@cosmosbay.com>
+Date:   Wed Mar 25 17:24:34 2009 +0100
 
-    netfilter: limit the length of the helper name
+    netfilter: nf_conntrack: use hlist_add_head_rcu() in nf_conntrack_set_hashsize()
     
-    This is necessary in order to have an upper bound for Netlink
-    message calculation, which is not a problem at all, as there
-    are no helpers with a longer name.
+    Using hlist_add_head() in nf_conntrack_set_hashsize() is quite dangerous.
+    Without any barrier, one CPU could see a loop while doing its lookup.
+    Its true new table cannot be seen by another cpu, but previous table is still
+    readable.
     
-    Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
-index 66d65a7..ee2a4b3 100644
---- a/include/net/netfilter/nf_conntrack_helper.h
-+++ b/include/net/netfilter/nf_conntrack_helper.h
-@@ -14,6 +14,8 @@
- 
- struct module;
- 
-+#define NF_CT_HELPER_NAME_LEN	16
-+
- struct nf_conntrack_helper
- {
- 	struct hlist_node hnode;	/* Internal use. */
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index a51bdac..805cfdd 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -142,6 +142,7 @@ int nf_conntrack_helper_register(struct nf_conntrack_helper *me)
- 
- 	BUG_ON(me->expect_policy == NULL);
- 	BUG_ON(me->expect_class_max >= NF_CT_MAX_EXPECT_CLASSES);
-+	BUG_ON(strlen(me->name) > NF_CT_HELPER_NAME_LEN - 1);
- 
- 	mutex_lock(&nf_ct_helper_mutex);
- 	hlist_add_head_rcu(&me->hnode, &nf_ct_helper_hash[h]);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 55befe5..54e983f 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1121,7 +1121,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ 					struct nf_conntrack_tuple_hash, hnode);
+ 			hlist_del_rcu(&h->hnode);
+ 			bucket = __hash_conntrack(&h->tuple, hashsize, rnd);
+-			hlist_add_head(&h->hnode, &hash[bucket]);
++			hlist_add_head_rcu(&h->hnode, &hash[bucket]);
+ 		}
+ 	}
+ 	old_size = nf_conntrack_htable_size;
