@@ -1,78 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
-Date: Thu, 26 Mar 2009 11:36:58 +0800
-Message-ID: <20090326033658.GA14592@gondor.apana.org.au>
-References: <810119.61814.qm@web57701.mail.re3.yahoo.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bridge: bad error handling when adding invalid ether
+ address
+Date: Wed, 25 Mar 2009 20:57:00 -0700
+Message-ID: <20090325205700.1a4a7fd6@nehalam>
+References: <062c01c9adb4$c12a8e80$b100000a@Stig>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, berkley@cs.wustl.edu
-To: adam_richter2004@yahoo.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "'Stig Thormodsrud'" <stig@vyatta.com>, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55382 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755562AbZCZDhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 23:37:08 -0400
-Content-Disposition: inline
-In-Reply-To: <810119.61814.qm@web57701.mail.re3.yahoo.com>
+Received: from mail.vyatta.com ([76.74.103.46]:49296 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752413AbZCZD5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2009 23:57:17 -0400
+In-Reply-To: <062c01c9adb4$c12a8e80$b100000a@Stig>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adam Richter <adam_richter2004@yahoo.com> wrote:
-> 
-> The patch you forwarded to me seems to work.  Thank you for bringing it
-> to my attention.
+This fixes an crash when empty bond device is added to a bridge.
+If an interface with invalid ethernet address (all zero) is added
+to a bridge, then bridge code detects it when setting up the forward
+databas entry. But the error unwind is broken, the bridge port object 
+can get freed twice: once when ref count went to zeo, and once by kfree.
+Since object is never really accessible, just free it.
 
-Hi Adam:
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Any chance you can test this patch instead of the previous one?
+---
+Patch against 2.6.29, but same code has been around for a while
+in older releases, so should apply to 2.6.27.y as well.
 
-net: Fix netpoll lockup in legacy receive path
 
-When I fixed the GRO crash in the legacy receive path I used
-napi_complete to replace __napi_complete.  Unfortunately they're
-not the same when NETPOLL is enabled, which may result in us
-not calling __napi_complete at all.
-
-What's more, we really do need to keep the __napi_complete call
-within the IRQ-off section since in theory an IRQ can occur in
-between and fill up the backlog to the maximum, causing us to
-lock up.
-
-This patch fixes this by essentially open-coding __napi_complete.
-
-Note we no longer need the memory barrier because this function
-is per-cpu.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e3fe5c7..2a7f6b3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2588,9 +2588,10 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 		local_irq_disable();
- 		skb = __skb_dequeue(&queue->input_pkt_queue);
- 		if (!skb) {
-+			list_del(&napi->poll_list);
-+			clear_bit(NAPI_STATE_SCHED, &napi->state);
- 			local_irq_enable();
--			napi_complete(napi);
--			goto out;
-+			break;
- 		}
- 		local_irq_enable();
- 
-@@ -2599,7 +2600,6 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 
- 	napi_gro_flush(napi);
- 
--out:
- 	return work;
- }
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- a/net/bridge/br_if.c	2009-03-25 20:29:08.310404430 -0700
++++ b/net/bridge/br_if.c	2009-03-25 20:48:21.353468017 -0700
+@@ -426,7 +426,6 @@ err2:
+ err1:
+ 	kobject_del(&p->kobj);
+ err0:
+-	kobject_put(&p->kobj);
+ 	dev_set_promiscuity(dev, -1);
+ put_back:
+ 	dev_put(dev);
