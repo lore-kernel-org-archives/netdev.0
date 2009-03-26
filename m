@@ -1,78 +1,81 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next PATCH v3] igbvf: add new driver to support 82576 virtual
- functions
-Date: Wed, 25 Mar 2009 17:54:55 -0700
-Message-ID: <49CAD25F.4080705@intel.com>
-References: <20090325215248.28529.62295.stgit@lost.foo-projects.org>	<20090325150322.40e0a1e6@nehalam>	<49CAB13B.7070601@intel.com> <20090325.165847.234084422.davem@davemloft.net>
+From: Adam Richter <adam_richter2004@yahoo.com>
+Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
+Date: Wed, 25 Mar 2009 18:20:22 -0700 (PDT)
+Message-ID: <810119.61814.qm@web57701.mail.re3.yahoo.com>
+References: <20090325.170515.175107737.davem@davemloft.net>
+Reply-To: adam_richter2004@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, berkley@cs.wustl.edu
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32866 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750911AbZCZAy7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2009 20:54:59 -0400
-In-Reply-To: <20090325.165847.234084422.davem@davemloft.net>
+Received: from web57701.mail.re3.yahoo.com ([68.142.236.53]:34670 "HELO
+	web57701.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752826AbZCZBUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2009 21:20:25 -0400
+In-Reply-To: <20090325.170515.175107737.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Wed, 25 Mar 2009 15:33:31 -0700
+
+Hello David,
+
+The patch you forwarded to me seems to work.  Thank you for bringing it
+to my attention.
+
+In particular linux-2.6.29 with your patch applied with CONFIG_FORCEDETH_NAPI disabled has been doing "ping -f" on the same
+local computer I was tested with before for more than 5 minutes with
+no problem.  I am able to surf the web and compose this email in the
+meantime.  In the past, "ping -f" with NAPI disabled would produce the problem within about 30 seconds (with NAPI enabled, it did not seem to reproduce the problem, but I am pretty sure that the problem did happen once with with forcedeth module compiled with NAPI, although my quick
+efforts to reproduce the problem that way did not immediately succeed).
+
+I have appended the patch you sent, just to be clear, since there are a few patches being discussed in the thread you referred to.  If I have anything else to add, I will follow-up in that thread.
+
+Thank you for your help!
+
+Adam
+
+
+--- On Wed, 3/25/09, David Miller <davem@davemloft.net> wrote:
+
+> From: David Miller <davem@davemloft.net>
+> Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
+> To: adam_richter2004@yahoo.com
+> Cc: netdev@vger.kernel.org, berkley@cs.wustl.edu
+> Date: Wednesday, March 25, 2009, 5:05 PM
+> From: Adam Richter <adam_richter2004@yahoo.com>
+> Date: Wed, 25 Mar 2009 16:24:47 -0700 (PDT)
 > 
->> The sysfs part of this is already in net-next as it isn't part of
->> the igbvf driver it is part of igb.  It was added in over a month
->> ago: http://patchwork.ozlabs.org/patch/23471/
->>
->> I will see what we can do to make use of a netlink interface.  I'm
->> honestly not even sure if it will work well for this kind of setup
->> since the VF driver won't even be running on the same OS in most
->> cases.  For now the sysfs code in igb is actually quite minimal, and
->> the main goal was to keep the interface as simple as possible which
->> is what I have done.
+> > 	When I can find some time, I plan to try to narrow
+> the problem
+> > with git bisect, but that may not be today.
 > 
-> I have to agree with Stephen that the way to create new links
-> of virtual and similar devices is to use rtnl_link.
+> We're pretty sure we know exactly what commit causes
+> this.
 > 
-> We have very good infrastructure for this, and if I understand
-> things correctly iproute2 might even work with an igb using
-> rtnl_link with zero modifications to the tool sources.
+> Can you try playing with a patch Jarek P. just posted in
+> the thread where this bug is being discussed?  (Subject:
+> Revert "gro: Fix legacy path napi_complete
+> crash"):
 > 
-> Please fix this up, it's a very reasonable request for such
-> a large new piece of driver infrastructure.  And since this is
-> a new driver, you have no time constraints for submission either.
-> 
-
-Thanks for allowing me more time, but the issue isn't the igbvf driver. 
-  The part that Stephen is referencing will be an issue in the igb 
-driver.  That is why I pointed him to 
-http://patchwork.ozlabs.org/patch/23471/ since it is the part that 
-contains the code that he has issues with.
-
-Since the issue isn't the igbvf driver there is no reason for it to be 
-held up.  If you want to revert the offending patch feel free to and 
-what I will do is send a patch out that just statically set the number 
-of VFs to 7 if the kernel and device supports enabling SR-IOV.  I didn't 
-want to take that approach since it means that it disables multi-queue 
-for igb on those devices but I feel like I have been backed into a 
-corner on this and don't have many other options.
-
-Thanks,
-
-Alex
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index e3fe5c7..cf53c24 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2589,7 +2589,11 @@ static int process_backlog(struct
+> napi_struct *napi, int quota)
+>  		skb = __skb_dequeue(&queue->input_pkt_queue);
+>  		if (!skb) {
+>  			local_irq_enable();
+> -			napi_complete(napi);
+> +			napi_gro_flush(napi);
+> +			local_irq_disable();
+> +			if (skb_queue_empty(&queue->input_pkt_queue))
+> +				__napi_complete(napi);
+> +			local_irq_enable();
+>  			goto out;
+>  		}
+>  		local_irq_enable();
 
 
-
-
-
-
-
-
-
-
-
+      
