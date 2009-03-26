@@ -1,103 +1,58 @@
-From: Adam Richter <adam_richter2004@yahoo.com>
-Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
-Date: Wed, 25 Mar 2009 22:24:42 -0700 (PDT)
-Message-ID: <985285.87214.qm@web57701.mail.re3.yahoo.com>
-References: <20090326033658.GA14592@gondor.apana.org.au>
-Reply-To: adam_richter2004@yahoo.com
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: net tree build warnings
+Date: Thu, 26 Mar 2009 17:37:13 +1100
+Message-ID: <20090326173713.ee63b803.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, berkley@cs.wustl.edu
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web57701.mail.re3.yahoo.com ([68.142.236.53]:25124 "HELO
-	web57701.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753943AbZCZFYp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 01:24:45 -0400
-In-Reply-To: <20090326033658.GA14592@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d"
+Cc: linux-next@vger.kernel.org, Eric Leblond <eric@inl.fr>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+--Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
---- On Wed, 3/25/09, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> Hi Adam:
->=20
-> Any chance you can test this patch instead of the previous
-> one?
+Hi Dave,
 
-OK.  I tried your patch.  It seems fine.  I was able to do "ping -f" fo=
-r five minutes with no problems, and surf the web during that time.
+Today's linux-next build (x86_64 allmodconfig) produced these warnings:
 
-I preserving the rest of your message below, just to be clear about whi=
-ch patch I tested.
+net/bridge/netfilter/ebt_log.c: In function 'ebt_log_init':
+net/bridge/netfilter/ebt_log.c:230: warning: passing argument 2 of 'nf_log_=
+register' discards qualifiers from pointer target type
+net/bridge/netfilter/ebt_log.c: In function 'ebt_log_fini':
+net/bridge/netfilter/ebt_log.c:236: warning: passing argument 1 of 'nf_log_=
+unregister' discards qualifiers from pointer target type
+net/bridge/netfilter/ebt_ulog.c: In function 'ebt_ulog_init':
+net/bridge/netfilter/ebt_ulog.c:317: warning: passing argument 2 of 'nf_log=
+_register' discards qualifiers from pointer target type
+net/bridge/netfilter/ebt_ulog.c: In function 'ebt_ulog_fini':
+net/bridge/netfilter/ebt_ulog.c:327: warning: passing argument 1 of 'nf_log=
+_unregister' discards qualifiers from pointer target type
 
-Adam
+Caused by commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222 ("netfilter:
+use a linked list of loggers") which removed const from the "struct
+nf_logger *" arguments.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d
+Content-Type: application/pgp-signature
 
->=20
-> net: Fix netpoll lockup in legacy receive path
->=20
-> When I fixed the GRO crash in the legacy receive path I
-> used
-> napi_complete to replace __napi_complete.  Unfortunately
-> they're
-> not the same when NETPOLL is enabled, which may result in
-> us
-> not calling __napi_complete at all.
->=20
-> What's more, we really do need to keep the
-> __napi_complete call
-> within the IRQ-off section since in theory an IRQ can occur
-> in
-> between and fill up the backlog to the maximum, causing us
-> to
-> lock up.
->=20
-> This patch fixes this by essentially open-coding
-> __napi_complete.
->=20
-> Note we no longer need the memory barrier because this
-> function
-> is per-cpu.
->=20
-> Signed-off-by: Herbert Xu
-> <herbert@gondor.apana.org.au>
->=20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index e3fe5c7..2a7f6b3 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2588,9 +2588,10 @@ static int process_backlog(struct
-> napi_struct *napi, int quota)
->  		local_irq_disable();
->  		skb =3D __skb_dequeue(&queue->input_pkt_queue);
->  		if (!skb) {
-> +			list_del(&napi->poll_list);
-> +			clear_bit(NAPI_STATE_SCHED, &napi->state);
->  			local_irq_enable();
-> -			napi_complete(napi);
-> -			goto out;
-> +			break;
->  		}
->  		local_irq_enable();
-> =20
-> @@ -2599,7 +2600,6 @@ static int process_backlog(struct
-> napi_struct *napi, int quota)
-> =20
->  	napi_gro_flush(napi);
-> =20
-> -out:
->  	return work;
->  }
->=20
-> Thanks,
-> --=20
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu =E8=AE=B8=E5=BF=97=E5=A3=AC
-> <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/=EF=BF=BDherbert/
-> PGP Key: http://gondor.apana.org.au/=EF=BF=BDherbert/pubkey.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
+iEYEARECAAYFAknLIpkACgkQjjKRsyhoI8zjBACeJzmmlyx8/wHkQCT7WYNixVLu
+mzUAoL3LrzT8sZfz7f1WdnRsJDIO+4B5
+=x1jM
+-----END PGP SIGNATURE-----
 
-     =20
+--Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d--
