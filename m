@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 2/3] e1000: cleanup clean_tx_irq routine so
- that it completely cleans ring
-Date: Thu, 26 Mar 2009 01:02:03 -0700 (PDT)
-Message-ID: <20090326.010203.96337843.davem@davemloft.net>
+Subject: Re: [net-next PATCH 3/3] e1000: fix close race with interrupt
+Date: Thu, 26 Mar 2009 01:02:09 -0700 (PDT)
+Message-ID: <20090326.010209.48338109.davem@davemloft.net>
 References: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
-	<20090326075904.30121.89432.stgit@lost.foo-projects.org>
+	<20090326075922.30121.40411.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, alan@lxorguk.ukuu.org.uk,
+	jesse.brandeburg@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44068
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44072
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756076AbZCZICP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 04:02:15 -0400
-In-Reply-To: <20090326075904.30121.89432.stgit@lost.foo-projects.org>
+	by vger.kernel.org with ESMTP id S1756106AbZCZICV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 04:02:21 -0400
+In-Reply-To: <20090326075922.30121.40411.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 26 Mar 2009 00:59:04 -0700
+Date: Thu, 26 Mar 2009 00:59:22 -0700
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> The tx cleanup routine was stopping after 64 packets and this was causing
-> issues resulting in the ring not being completely cleaned.
+> this is in regards to
+> http://bugzilla.kernel.org/show_bug.cgi?id=12876
 > 
-> This change updates the driver to clean the entire ring and if it doesn't
-> it then will retry on the next pass.
+> where it appears that e1000 can leave its interrupt enabled after
+> exiting the driver.  Fix the bug by making the interrupt enable
+> paths more aware of the driver exiting.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Thanks to Alan Cox for the poke and initial investigation.
+> 
+> CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
