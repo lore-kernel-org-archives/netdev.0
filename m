@@ -1,50 +1,41 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Network Device Naming mechanism and policy
-Date: Thu, 26 Mar 2009 16:17:42 -0400
-Message-ID: <1238098662.3254.10.camel@localhost.localdomain>
-References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
-	 <20090324.155756.214460004.davem@davemloft.net>
-	 <49CA927B.9080709@nortel.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] appletalk: this warning can go I think
+Date: Thu, 26 Mar 2009 20:49:02 +0000
+Message-ID: <20090326204858.4910.28079.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Matt_Domsch@dell.com,
-	netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <49CA927B.9080709@nortel.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761339AbZCZUsW@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-03-25 at 14:22 -0600, Chris Friesen wrote:
-> David Miller wrote:
-> > From: Matt Domsch <Matt_Domsch@dell.com>
-> > Date: Tue, 24 Mar 2009 10:46:17 -0500
-> > 
-> >> Problem: Users expect on-motherboard NICs to be named eth0..ethN.
-> >> This can be difficult to achieve.
-> > 
-> > I learned a long time ago that eth0 et al. have zero meaning.
-> > 
-> > If the system firmware folks gave us topology information with respect
-> > to these things, we could export something that tools such as
-> > NetworkManager, iproute2, etc. could use.
-> 
-> <snip>
-> 
-> > I guess it's easier to spew about MAC addresses and other
-> > irrelevant topics than try to solve this problem properly. :-)
-> 
-> What about things like USB network adapters where the topology is not 
-> fixed?  Presumably we would want to use some sort of unique identifier, 
-> and the MAC comes to mind.  Of course, then you run into the problem of 
-> how to deal with duplicate MACs.
+Its past 2.2 ...
 
-USB devices do have a serial number field in the descriptors, but that
-only sometimes gets populated with sensible values.  More often than not
-it's just zeros.  But worth checking if the MAC isn't set yet.
+Signed-off-by: Alan Cox <alan@lxorguk.ukuu.org.uk?>
+---
 
-Dan
+ net/appletalk/ddp.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
 
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 5abce07..3104be8 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1571,14 +1571,10 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
+ 		    usat->sat_family != AF_APPLETALK)
+ 			return -EINVAL;
+ 
+-		/* netatalk doesn't implement this check */
++		/* netatalk didn't implement this check */
+ 		if (usat->sat_addr.s_node == ATADDR_BCAST &&
+ 		    !sock_flag(sk, SOCK_BROADCAST)) {
+-			printk(KERN_INFO "SO_BROADCAST: Fix your netatalk as "
+-					 "it will break before 2.2\n");
+-#if 0
+ 			return -EPERM;
+-#endif
+ 		}
+ 	} else {
+ 		if (sk->sk_state != TCP_ESTABLISHED)
