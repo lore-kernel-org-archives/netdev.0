@@ -1,58 +1,37 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: net tree build warnings
-Date: Thu, 26 Mar 2009 17:37:13 +1100
-Message-ID: <20090326173713.ee63b803.sfr@canb.auug.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
+Date: Thu, 26 Mar 2009 14:58:25 +0800
+Message-ID: <20090326065825.GA15730@gondor.apana.org.au>
+References: <20090326033658.GA14592@gondor.apana.org.au> <985285.87214.qm@web57701.mail.re3.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d"
-Cc: linux-next@vger.kernel.org, Eric Leblond <eric@inl.fr>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, berkley@cs.wustl.edu
+To: Adam Richter <adam_richter2004@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:43326 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751294AbZCZG6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 02:58:34 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <985285.87214.qm@web57701.mail.re3.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Wed, Mar 25, 2009 at 10:24:42PM -0700, Adam Richter wrote:
+> 
+> OK.  I tried your patch.  It seems fine.  I was able to do "ping -f" for five minutes with no problems, and surf the web during that time.
 
-Today's linux-next build (x86_64 allmodconfig) produced these warnings:
+Thanks for testing! Since you also have a forcedeth card, could
+you try rebuilding your kernel with FORCEDETH_NAPI enabled and
+see if that is stable?
 
-net/bridge/netfilter/ebt_log.c: In function 'ebt_log_init':
-net/bridge/netfilter/ebt_log.c:230: warning: passing argument 2 of 'nf_log_=
-register' discards qualifiers from pointer target type
-net/bridge/netfilter/ebt_log.c: In function 'ebt_log_fini':
-net/bridge/netfilter/ebt_log.c:236: warning: passing argument 1 of 'nf_log_=
-unregister' discards qualifiers from pointer target type
-net/bridge/netfilter/ebt_ulog.c: In function 'ebt_ulog_init':
-net/bridge/netfilter/ebt_ulog.c:317: warning: passing argument 2 of 'nf_log=
-_register' discards qualifiers from pointer target type
-net/bridge/netfilter/ebt_ulog.c: In function 'ebt_ulog_fini':
-net/bridge/netfilter/ebt_ulog.c:327: warning: passing argument 1 of 'nf_log=
-_unregister' discards qualifiers from pointer target type
+> I preserving the rest of your message below, just to be clear about which patch I tested.
 
-Caused by commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222 ("netfilter:
-use a linked list of loggers") which removed const from the "struct
-nf_logger *" arguments.
---=20
+Yep it's the right one.
+
 Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAknLIpkACgkQjjKRsyhoI8zjBACeJzmmlyx8/wHkQCT7WYNixVLu
-mzUAoL3LrzT8sZfz7f1WdnRsJDIO+4B5
-=x1jM
------END PGP SIGNATURE-----
-
---Signature=_Thu__26_Mar_2009_17_37_13_+1100_Xs6g7L5kXt1iz6/d--
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
