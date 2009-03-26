@@ -1,111 +1,110 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 2/3] e1000: cleanup clean_tx_irq routine so that it
-	completely cleans ring
-Date: Thu, 26 Mar 2009 00:59:04 -0700
-Message-ID: <20090326075904.30121.89432.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 3/3] e1000: fix close race with interrupt
+Date: Thu, 26 Mar 2009 00:59:22 -0700
+Message-ID: <20090326075922.30121.40411.stgit@lost.foo-projects.org>
 References: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:59483
-	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752102AbZCZH7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 03:59:23 -0400
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:47501
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755038AbZCZH7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 03:59:44 -0400
 In-Reply-To: <20090326075844.30121.48999.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The tx cleanup routine was stopping after 64 packets and this was causing
-issues resulting in the ring not being completely cleaned.
+this is in regards to
+http://bugzilla.kernel.org/show_bug.cgi?id=12876
 
-This change updates the driver to clean the entire ring and if it doesn't
-it then will retry on the next pass.
+where it appears that e1000 can leave its interrupt enabled after
+exiting the driver.  Fix the bug by making the interrupt enable
+paths more aware of the driver exiting.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Thanks to Alan Cox for the poke and initial investigation.
+
+CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |   21 +++++++++------------
- 1 files changed, 9 insertions(+), 12 deletions(-)
+ drivers/net/e1000/e1000_main.c |   28 ++++++++++++++++++++++++----
+ 1 files changed, 24 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index e60faab..5c61b92 100644
+index 5c61b92..93b861d 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -3769,7 +3769,7 @@ static int e1000_clean(struct napi_struct *napi, int budget)
- 	adapter->clean_rx(adapter, &adapter->rx_ring[0],
- 	                  &work_done, budget);
+@@ -577,12 +577,30 @@ out:
  
--	if (tx_cleaned)
-+	if (!tx_cleaned)
- 		work_done = budget;
+ void e1000_down(struct e1000_adapter *adapter)
+ {
++	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
++	u32 rctl, tctl;
  
- 	/* If budget not fully consumed, exit the polling mode */
-@@ -3796,15 +3796,16 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i, eop;
- 	unsigned int count = 0;
--	bool cleaned = false;
-+	bool cleaned;
- 	unsigned int total_tx_bytes=0, total_tx_packets=0;
+ 	/* signal that we're down so the interrupt handler does not
+ 	 * reschedule our watchdog timer */
+ 	set_bit(__E1000_DOWN, &adapter->flags);
  
- 	i = tx_ring->next_to_clean;
- 	eop = tx_ring->buffer_info[i].next_to_watch;
- 	eop_desc = E1000_TX_DESC(*tx_ring, eop);
++	/* disable receives in the hardware */
++	rctl = er32(RCTL);
++	ew32(RCTL, rctl & ~E1000_RCTL_EN);
++	/* flush and sleep below */
++
++	/* can be netif_tx_disable when NETIF_F_LLTX is removed */
++	netif_stop_queue(netdev);
++
++	/* disable transmits in the hardware */
++	tctl = er32(TCTL);
++	tctl &= ~E1000_TCTL_EN;
++	ew32(TCTL, tctl);
++	/* flush both disables and wait for them to finish */
++	E1000_WRITE_FLUSH();
++	msleep(10);
++
+ 	napi_disable(&adapter->napi);
  
--	while (eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) {
--		for (cleaned = false; !cleaned; ) {
-+	while ((eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) &&
-+	       (count < tx_ring->count)) {
-+		for (cleaned = false; !cleaned; count++) {
- 			tx_desc = E1000_TX_DESC(*tx_ring, i);
- 			buffer_info = &tx_ring->buffer_info[i];
- 			cleaned = (i == eop);
-@@ -3827,10 +3828,6 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
+ 	e1000_irq_disable(adapter);
+@@ -595,7 +613,6 @@ void e1000_down(struct e1000_adapter *adapter)
+ 	adapter->link_speed = 0;
+ 	adapter->link_duplex = 0;
+ 	netif_carrier_off(netdev);
+-	netif_stop_queue(netdev);
  
- 		eop = tx_ring->buffer_info[i].next_to_watch;
- 		eop_desc = E1000_TX_DESC(*tx_ring, eop);
--#define E1000_TX_WEIGHT 64
--		/* weight of a sort for tx, to avoid endless transmit cleanup */
--		if (count++ == E1000_TX_WEIGHT)
--			break;
+ 	e1000_reset(adapter);
+ 	e1000_clean_all_tx_rings(adapter);
+@@ -3744,10 +3761,12 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 		adapter->total_rx_bytes = 0;
+ 		adapter->total_rx_packets = 0;
+ 		__napi_schedule(&adapter->napi);
+-	} else
++	} else {
+ 		/* this really should not happen! if it does it is basically a
+ 		 * bug, but not a hard error, so enable ints and continue */
+-		e1000_irq_enable(adapter);
++		if (!test_bit(__E1000_DOWN, &adapter->flags))
++			e1000_irq_enable(adapter);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -3777,7 +3796,8 @@ static int e1000_clean(struct napi_struct *napi, int budget)
+ 		if (likely(adapter->itr_setting & 3))
+ 			e1000_set_itr(adapter);
+ 		napi_complete(napi);
+-		e1000_irq_enable(adapter);
++		if (!test_bit(__E1000_DOWN, &adapter->flags))
++			e1000_irq_enable(adapter);
  	}
  
- 	tx_ring->next_to_clean = i;
-@@ -3852,8 +3849,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 		/* Detect a transmit hang in hardware, this serializes the
- 		 * check with the clearing of time_stamp and movement of i */
- 		adapter->detect_tx_hung = false;
--		if (tx_ring->buffer_info[eop].time_stamp &&
--		    time_after(jiffies, tx_ring->buffer_info[eop].time_stamp +
-+		if (tx_ring->buffer_info[i].time_stamp &&
-+		    time_after(jiffies, tx_ring->buffer_info[i].time_stamp +
- 		               (adapter->tx_timeout_factor * HZ))
- 		    && !(er32(STATUS) & E1000_STATUS_TXOFF)) {
- 
-@@ -3875,7 +3872,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 				readl(hw->hw_addr + tx_ring->tdt),
- 				tx_ring->next_to_use,
- 				tx_ring->next_to_clean,
--				tx_ring->buffer_info[eop].time_stamp,
-+				tx_ring->buffer_info[i].time_stamp,
- 				eop,
- 				jiffies,
- 				eop_desc->upper.fields.status);
-@@ -3886,7 +3883,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 	adapter->total_tx_packets += total_tx_packets;
- 	adapter->net_stats.tx_bytes += total_tx_bytes;
- 	adapter->net_stats.tx_packets += total_tx_packets;
--	return cleaned;
-+	return (count < tx_ring->count);
- }
- 
- /**
+ 	return work_done;
 
