@@ -1,107 +1,92 @@
 From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH 2/2] ucc_geth: Rework the TX logic.
-Date: Thu, 26 Mar 2009 17:43:25 +0100
-Message-ID: <OF5FC70952.28684E98-ONC1257585.005ADBF9-C1257585.005BDD35@transmode.se>
-References: <1238072077-27044-1-git-send-email-Joakim.Tjernlund@transmode.se> <1238072077-27044-2-git-send-email-Joakim.Tjernlund@transmode.se> <20090326133918.GA27085@oksana.dev.rtsoft.ru>
+Subject: Re: [PATCH 1/2] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Thu, 26 Mar 2009 17:55:02 +0100
+Message-ID: <OFD735615D.FB673D0A-ONC1257585.005CB13B-C1257585.005CED95@transmode.se>
+References: <1238072077-27044-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	<49CB8DFD.2050504@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: leoli@freescale.com, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:46046 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752359AbZCZQn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 12:43:28 -0400
-In-Reply-To: <20090326133918.GA27085@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linuxppc-dev@ozlabs.org, leoli@freescale.com, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <49CB8DFD.2050504@cosmosbay.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Anton Vorontsov <avorontsov@ru.mvista.com> wrote on 26/03/2009 14:39:18:
-> 
-> Hi Joakim,
+Eric Dumazet <dada1@cosmosbay.com> wrote on 26/03/2009 15:15:25:
+> =
 
-Hi Anton
+> Joakim Tjernlund a =E9crit :
+> > Also set NAPI weight to 64 as this is a common value.
+> > This will make the system alot more responsive while
+> > ping flooding the ucc_geth ethernet interaface.
+> > =
 
-> 
-> On Thu, Mar 26, 2009 at 01:54:37PM +0100, Joakim Tjernlund wrote:
-> > The line:
-> >  if ((bd == ugeth->txBd[txQ]) && (netif_queue_stopped(dev) == 0))
-> >        break;
-> > in ucc_geth_tx() didn not make sense to me. Rework & cleanup
-> > this logic to something understandable.
-> > 
 > > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 > > ---
-> >  drivers/net/ucc_geth.c |   40 
-++++++++++++++++++++--------------------
-> >  1 files changed, 20 insertions(+), 20 deletions(-)
-> > 
+> >  drivers/net/ucc_geth.c |   32 ++++++++++++--------------------
+> >  drivers/net/ucc_geth.h |    1 -
+> >  2 files changed, 12 insertions(+), 21 deletions(-)
+> > =
+
 > > diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> > index 7fc91aa..b6ebefd 100644
+> > index 097aed8..7fc91aa 100644
 > > --- a/drivers/net/ucc_geth.c
 > > +++ b/drivers/net/ucc_geth.c
-> > @@ -3048,6 +3048,7 @@ static int ucc_geth_start_xmit(struct sk_buff 
-*skb, struct net_device *dev)
-> >     u8 __iomem *bd;         /* BD pointer */
-> >     u32 bd_status;
-> >     u8 txQ = 0;
-> > +   int txInd;
-> 
-> camelCase should not be used in Linux.
-> 
-> Surely, the driver is full of camelCases... though, it should be
-> fixed, not encouraged further.
+> > @@ -3214,7 +3214,7 @@ static int ucc_geth_tx(struct net_device *dev, =
 
-OK, I will rename to tx_ind instead.
+u8 txQ)
+> >        dev->stats.tx_packets++;
+> > =
 
-> 
-> And btw, there is even Hungarian notation in the driver. :-(
+> >        /* Free the sk buffer associated with this TxBD */
+> > -      dev_kfree_skb_irq(ugeth->
+> > +      dev_kfree_skb(ugeth->
+> >                tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]]);
+> >        ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]] =3D NULL;
+> >        ugeth->skb_dirtytx[txQ] =3D
+> > @@ -3248,9 +3248,16 @@ static int ucc_geth_poll(struct napi_struct =
 
-Hopefully that will go away in time.
+*napi, int budget)
+> =
 
-> 
-> [...]
-> >     /* If the next BD still needs to be cleaned up, then the bds
-> >        are full.  We need to tell the kernel to stop sending us stuff. 
-*/
-> > -   if (bd == ugeth->confBd[txQ]) {
-> > -      if (!netif_queue_stopped(dev))
-> > -         netif_stop_queue(dev);
-> > +   if (!in_be32((u32 __iomem *)(bd+4))) {
-> 
-> bd == ugeth->confBd[txQ]
-> and
-> !in_be32((u32 __iomem *)(bd+4))
-> 
-> Are not equivalent wrt. speed. MMIO accessors should be rather
-> slow comparing to normal memory.
+> >     for (i =3D 0; i < ug_info->numQueuesRx; i++)
+> >        howmany +=3D ucc_geth_rx(ugeth, i, budget - howmany);
+> =
 
-Yes, I know. I did it this way because I something broke under stress
-when ugeth->confBd[txQ] instead. The ucc_geth_tx() and 
-ucc_geth_start_xmit()
-gets out of sync somehow.
+> Not related to your patch, but seeing above code, I can understand
+> you might have a problem in flood situation : Only first queue(s) are
+> depleted, and last one cannot be because howmany >=3D budget.
+> =
 
-> 
-> We should really do some performance tests (using gbit links).
-> I'll try to help you with the tests, but it might take some time.
+> This driver might have to remember last queue it handled at previous
+> call ucc_geth_poll(), so that all rxqueues have same probability to be =
 
-Good, because I don't have GBE links :(
+scanned.
+> =
 
-> 
-> [...]
-> > +      if (!in_be32((u32 __iomem *)(bd+4)))
-> [...]
-> > +      out_be32((u32 __iomem *)(bd+4), (int)NULL); /* Mark it free */
-> 
-> How about some inline function that will self-document the bd + 4
-> stuff? Plus that way we'll get rid of the casts.
+> j =3D ug->lastslot;
+> for (i =3D 0; ug_info->numQueuesRx; i++) {
+>    if (++j >=3D ug_info->numQueuesRx)
+>       j =3D 0;
+>    howmany +=3D ucc_geth_rx(ugeth, j, budget - howmany);
+>    if (howmany >=3D budget)
+>       break;
+> }
+> ug->lastslot =3D j;
 
-Good idea, will look at that.
+yes, or scan the RX queues in prio order. However ATM there is only
+one queue so it won't be a problem until one extends the driver with
+several queues.
 
-> 
-> Note that "bd+4" should be "bd + 4". And (int)NULL makes
-> little sense, just 0 will work.
-
-Sure, done.
-
+Thanks,
+        Jocke
