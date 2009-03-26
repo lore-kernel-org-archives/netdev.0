@@ -1,70 +1,57 @@
-From: Adam Richter <adam_richter2004@yahoo.com>
-Subject: Re: 2.6.29 forcedeth hang W/O NAPI enabled
-Date: Thu, 26 Mar 2009 16:29:24 -0700 (PDT)
-Message-ID: <56812.58166.qm@web57708.mail.re3.yahoo.com>
-References: <20090326065825.GA15730@gondor.apana.org.au>
-Reply-To: adam_richter2004@yahoo.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: RDMA/nes: Fix mis-merge
+Date: Thu, 26 Mar 2009 16:31:14 -0700 (PDT)
+Message-ID: <20090326.163114.131582923.davem@davemloft.net>
+References: <20090326.152515.43533230.davem@davemloft.net>
+	<alpine.LFD.2.00.0903261555290.3032@localhost.localdomain>
+	<adahc1fuarm.fsf_-_@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, berkley@cs.wustl.edu
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web57708.mail.re3.yahoo.com ([68.142.236.71]:37924 "HELO
-	web57708.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754544AbZCZX32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 19:29:28 -0400
-In-Reply-To: <20090326065825.GA15730@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47200
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752504AbZCZXb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 19:31:26 -0400
+In-Reply-To: <adahc1fuarm.fsf_-_@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Roland Dreier <rdreier@cisco.com>
+Date: Thu, 26 Mar 2009 16:25:49 -0700
 
-On Wed, 3/25/09, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> Thanks for testing! Since you also have a forcedeth card,
-> could
-> you try rebuilding your kernel with FORCEDETH_NAPI enabled
-> and
-> see if that is stable?
+> When net-next and infiniband were merged upstream, each branch deleted
+> one of a pair of adjacent lines from nes_nic.c, but when Linus fixed the
+> conflict up, he brought back both of the lines.  Fix up to the intended
+> final tree state.
+> ---
+>  > Well, I merged infiniband, and that caused more conflicts. I fixed them 
+>  > up, but people need to double-check my fixes.
+> 
+> Looks like you mismerged one file -- each side deleted one line right
+> next to each other, but your merge left both lines in.  I think the
+> patch below is needed.  (The cxgb3 fix looks correct)
+> 
+>  drivers/infiniband/hw/nes/nes_nic.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
 
-It works so far, doing "ping -f" for more than five minutes while I
-browse the web, but bear in mind that I was not able to reproduce the
-problem earlier with FORCEDETH_NAPI on demand.  I only saw an ethernet lock up with NAPI enabled once (with the original 2.6.29 code).  I
-will let you know if the lockup occurs with your code. 
+Looks good, Linus please apply:
 
-Just to be clear which version I am now testing, I have attached a
-copy of process_backlog() from my net/core/dev.c.
+Acked-by: David S. Miller <davem@davemloft.net>
 
-Adam
-
-
-
-static int process_backlog(struct napi_struct *napi, int quota)
-{
-	int work = 0;
-	struct softnet_data *queue = &__get_cpu_var(softnet_data);
-	unsigned long start_time = jiffies;
-
-	napi->weight = weight_p;
-	do {
-		struct sk_buff *skb;
-
-		local_irq_disable();
-		skb = __skb_dequeue(&queue->input_pkt_queue);
-		if (!skb) {
-			list_del(&napi->poll_list);
-			clear_bit(NAPI_STATE_SCHED, &napi->state);
-			local_irq_enable();
-			break;
-		}
-		local_irq_enable();
-
-		napi_gro_receive(napi, skb);
-	} while (++work < quota && jiffies == start_time);
-
-	napi_gro_flush(napi);
-
-	return work;
-}
-
-
-
-      
+> diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+> index 8d3e4c6..ecb1f6f 100644
+> --- a/drivers/infiniband/hw/nes/nes_nic.c
+> +++ b/drivers/infiniband/hw/nes/nes_nic.c
+> @@ -1602,8 +1602,6 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
+>  	netif_napi_add(netdev, &nesvnic->napi, nes_netdev_poll, 128);
+>  	nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.\n");
+>  	netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+> -	netdev->vlan_rx_register = nes_netdev_vlan_rx_register;
+> -	netdev->features |= NETIF_F_LLTX;
+>  
+>  	/* Fill in the port structure */
+>  	nesvnic->netdev = netdev;
