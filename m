@@ -1,75 +1,34 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: fix unaligned memory accesses in ASIX
-Date: Thu, 26 Mar 2009 09:40:13 +0100
-Message-ID: <49CB3F6D.2010508@st.com>
-References: <1238050359-28415-1-git-send-email-peppe.cavallaro@st.com> <20090326.010810.23291587.davem@davemloft.net>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: network traffic stop with 2.6.29 after ftp put
+Date: Thu, 26 Mar 2009 09:52:06 +0100
+Message-ID: <BAY103-DAV9C5EA8FA3DE735A3D64B6B2910@phx.gbl>
+References: <BAY103-DAV683AFCEC466B8F2E6D8EBB2930@phx.gbl> <BAY103-DAV100CC8DA92566937097718B2930@phx.gbl> <49C8C26B.7070802@cosmosbay.com> <BAY103-DAV11986CBE87674225EDC31EB2930@phx.gbl> <49C8E7FF.7020906@cosmosbay.com> <BAY103-DAV1251BBA7FBA4243359906AB2930@phx.gbl> <BAY103-DAV114D2F6EE08154E75BB064B2900@phx.gbl> <20090325120932.GB6351@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>, <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:44541 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757819AbZCZIkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 04:40:42 -0400
-In-Reply-To: <20090326.010810.23291587.davem@davemloft.net>
+Received: from bay0-omc1-s28.bay0.hotmail.com ([65.54.246.100]:28937 "EHLO
+	bay0-omc1-s28.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751034AbZCZIwv convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2009 04:52:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Thu, 26 Mar 2009 07:52:39 +0100
->
->   
->> Move in memory all the frames with an incorrect alignment.
->> This is to prevent unaligned memory accesses into the upper layers.
->> Note 1: this is a penalty for some architecture like SH.
->> Note 2: indeed, this patch restores an old one posted three years ago
->> (http://marc.info/?l=linux-usb-devel&m=116578791817830&w=2).
->>
->> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->>     
->
-> There are some gratuitous (and wrong) changes in here:
->
->   
->> -	u32  header;
->>     
->  ...
->   
->> +	unsigned int header;
->>     
->
-> It's a u32 whether you like it or not.  Please don't
-> change away from fixed sized types.
->   
-I agree... it's a typo error.
-> Also isn't there a way we can prefixed what this packet
-> offset is going to be?  If so, we can adjust the skb_reserve()
-> call the generic USB net code uses.
->   
-This was my first test. I had tried to change/adjust headroom but no
-success.
+Herbert Xu wrote:
 
-Unfortunately, unaligned memory accesses seems to depend on the Asix HW
-that packs several incoming frames.
-So when these frames are 'unpacked' within the fix-up function, and
-pushed to the upper layer, they can have a wrong alignment, indeed.
-When no frame is packed all works fine and the IP never works with
-unaligned addresses.
-I think, the skb_reserve could actually help us, if this last scenario
-generated misaligned accesses.
-Please let me know if I'm missing something.
+> On Wed, Mar 25, 2009 at 09:10:29AM +0100, Marco Berizzi wrote:
+> >
+> > no, it doesn't fix the problem.
+> > This morning I got the same problem
+> > (I was reading the kernel mailing list
+> > on lkml.indiana.edu with firefox)
+> 
+> Please try the full GRO revert for netif_rx that I just posted.
 
-Thanks for your feedback!
-Regards,
-Peppe
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->   
+ok, I have reverted the GRO and I have not
+got the problem.
 
+Thanks.
