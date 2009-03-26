@@ -1,147 +1,95 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/12: ctnetlink: add callbacks to the per-proto nlattrs
-Date: Thu, 26 Mar 2009 20:02:36 +0100 (MET)
-Message-ID: <20090326190230.23365.28348.sendpatchset@x2.localnet>
-References: <20090326190225.23365.96356.sendpatchset@x2.localnet>
+Subject: netfilter 00/12: Netfilter fixes/2.6.30 update part II
+Date: Thu, 26 Mar 2009 20:02:30 +0100 (MET)
+Message-ID: <20090326190225.23365.96356.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39215 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758598AbZCZTCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 15:02:38 -0400
-In-Reply-To: <20090326190225.23365.96356.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit d0dba7255b541f1651a88e75ebdb20dd45509c2f
-Author: Holger Eitzenberger <holger@eitzenberger.org>
-Date:   Wed Mar 25 18:24:48 2009 +0100
+Hi Dave,
 
-    netfilter: ctnetlink: add callbacks to the per-proto nlattrs
-    
-    There is added a single callback for the l3 proto helper.  The two
-    callbacks for the l4 protos are necessary because of the general
-    structure of a ctnetlink event, which is in short:
-    
-     CTA_TUPLE_ORIG
-       <l3/l4-proto-attributes>
-     CTA_TUPLE_REPLY
-       <l3/l4-proto-attributes>
-     CTA_ID
-     ...
-     CTA_PROTOINFO
-       <l4-proto-attributes>
-     CTA_TUPLE_MASTER
-       <l3/l4-proto-attributes>
-    
-    Therefore the formular is
-    
-     size := sizeof(generic-nlas) + 3 * sizeof(tuple_nlas) + sizeof(protoinfo_nlas)
-    
-    Some of the NLAs are optional, e. g. CTA_TUPLE_MASTER, which is only
-    set if it's an expected connection.  But the number of optional NLAs is
-    small enough to prevent netlink_trim() from reallocating if calculated
-    properly.
-    
-    Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+following are a few late netfilter patches and fixes for 2.6.30, containing:
 
-diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
-index 0378676..9f99d36 100644
---- a/include/net/netfilter/nf_conntrack_l3proto.h
-+++ b/include/net/netfilter/nf_conntrack_l3proto.h
-@@ -53,10 +53,17 @@ struct nf_conntrack_l3proto
- 	int (*tuple_to_nlattr)(struct sk_buff *skb,
- 			       const struct nf_conntrack_tuple *t);
- 
-+	/*
-+	 * Calculate size of tuple nlattr
-+	 */
-+	int (*nlattr_tuple_size)(void);
-+
- 	int (*nlattr_to_tuple)(struct nlattr *tb[],
- 			       struct nf_conntrack_tuple *t);
- 	const struct nla_policy *nla_policy;
- 
-+	size_t nla_size;
-+
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	*ctl_table_header;
- 	struct ctl_path		*ctl_table_path;
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index b01070b..a120990 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -64,16 +64,22 @@ struct nf_conntrack_l4proto
- 	/* convert protoinfo to nfnetink attributes */
- 	int (*to_nlattr)(struct sk_buff *skb, struct nlattr *nla,
- 			 const struct nf_conn *ct);
-+	/* Calculate protoinfo nlattr size */
-+	int (*nlattr_size)(void);
- 
- 	/* convert nfnetlink attributes to protoinfo */
- 	int (*from_nlattr)(struct nlattr *tb[], struct nf_conn *ct);
- 
- 	int (*tuple_to_nlattr)(struct sk_buff *skb,
- 			       const struct nf_conntrack_tuple *t);
-+	/* Calculate tuple nlattr size */
-+	int (*nlattr_tuple_size)(void);
- 	int (*nlattr_to_tuple)(struct nlattr *tb[],
- 			       struct nf_conntrack_tuple *t);
- 	const struct nla_policy *nla_policy;
- 
-+	size_t nla_size;
-+
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	**ctl_table_header;
- 	struct ctl_table	*ctl_table;
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 9a62b4e..1a4568b 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -167,6 +167,9 @@ int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
- 	if (proto->l3proto >= AF_MAX)
- 		return -EBUSY;
- 
-+	if (proto->tuple_to_nlattr && !proto->nlattr_tuple_size)
-+		return -EINVAL;
-+
- 	mutex_lock(&nf_ct_proto_mutex);
- 	if (nf_ct_l3protos[proto->l3proto] != &nf_conntrack_l3proto_generic) {
- 		ret = -EBUSY;
-@@ -177,6 +180,9 @@ int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
- 	if (ret < 0)
- 		goto out_unlock;
- 
-+	if (proto->nlattr_tuple_size)
-+		proto->nla_size = 3 * proto->nlattr_tuple_size();
-+
- 	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto], proto);
- 
- out_unlock:
-@@ -263,6 +269,10 @@ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
- 	if (l4proto->l3proto >= PF_MAX)
- 		return -EBUSY;
- 
-+	if ((l4proto->to_nlattr && !l4proto->nlattr_size)
-+		|| (l4proto->tuple_to_nlattr && !l4proto->nlattr_tuple_size))
-+		return -EINVAL;
-+
- 	mutex_lock(&nf_ct_proto_mutex);
- 	if (!nf_ct_protos[l4proto->l3proto]) {
- 		/* l3proto may be loaded latter. */
-@@ -290,6 +300,12 @@ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
- 	if (ret < 0)
- 		goto out_unlock;
- 
-+	l4proto->nla_size = 0;
-+	if (l4proto->nlattr_size)
-+		l4proto->nla_size += l4proto->nlattr_size();
-+	if (l4proto->nlattr_tuple_size)
-+		l4proto->nla_size += 3 * l4proto->nlattr_tuple_size();
-+
- 	rcu_assign_pointer(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
- 			   l4proto);
- 
+- Eric's patch to use SLAB_DESTROY_BY_RCU in conntrack, which reduces
+  the conntrack size and avoids temporarily exceeding the configured
+  maximum amount of entries before the RCU threshold kicks in.
+
+- another patch from Eric to factorize the optimized ifname comparisons
+
+- a fix from Eric to use hlist_add_head_rcu in nf_conntrack_set_hashsize()
+  to avoid a race condition
+
+- a number of patches from Holger Eitzenberger to perform approximately
+  correct allocation (might overshoot by a bit) for ctnetlink event
+  messages to avoid reallocation in netlink_trim(). According to some
+  benchmarks by Pablo. this increases throughput by about 10% in an
+  connection intensive workload.
+
+- a patch fixing a build-failure in the new LED target
+
+- a patch from Francis Dupont to fix an old regression in the *tables
+  loop detection. Slightly modified and ported to ip6_tables and
+  arp_tables by myself.
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
+
+Thanks!
+
+
+ include/linux/netfilter/x_tables.h                 |   23 ++++
+ include/net/netfilter/nf_conntrack.h               |   14 ++-
+ include/net/netfilter/nf_conntrack_helper.h        |    2 +
+ include/net/netfilter/nf_conntrack_l3proto.h       |    7 +
+ include/net/netfilter/nf_conntrack_l4proto.h       |    7 +
+ include/net/netfilter/nf_conntrack_tuple.h         |    6 +-
+ include/net/netlink.h                              |    1 +
+ include/net/netns/conntrack.h                      |    5 +-
+ net/ipv4/netfilter/arp_tables.c                    |   18 +--
+ net/ipv4/netfilter/ip_tables.c                     |   27 +----
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |    6 +
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |   63 ++++++----
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c       |    6 +
+ net/ipv4/netfilter/nf_nat_core.c                   |    2 +-
+ net/ipv6/netfilter/ip6_tables.c                    |   27 +----
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |    6 +
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c     |    6 +
+ net/netfilter/Kconfig                              |    2 +-
+ net/netfilter/nf_conntrack_core.c                  |  129 ++++++++++++--------
+ net/netfilter/nf_conntrack_expect.c                |    2 +-
+ net/netfilter/nf_conntrack_helper.c                |    8 +-
+ net/netfilter/nf_conntrack_netlink.c               |   94 +++++++++++++--
+ net/netfilter/nf_conntrack_proto.c                 |   16 +++
+ net/netfilter/nf_conntrack_proto_dccp.c            |    9 ++
+ net/netfilter/nf_conntrack_proto_gre.c             |    1 +
+ net/netfilter/nf_conntrack_proto_sctp.c            |   10 ++
+ net/netfilter/nf_conntrack_proto_tcp.c             |   15 +++
+ net/netfilter/nf_conntrack_proto_udp.c             |    2 +
+ net/netfilter/nf_conntrack_proto_udplite.c         |    1 +
+ net/netfilter/nf_conntrack_standalone.c            |   57 +++++----
+ net/netfilter/xt_connlimit.c                       |    6 +-
+ net/netfilter/xt_physdev.c                         |   21 +---
+ net/netlink/attr.c                                 |   27 ++++
+ 33 files changed, 416 insertions(+), 210 deletions(-)
+
+Eric Dumazet (3):
+      netfilter: nf_conntrack: use hlist_add_head_rcu() in nf_conntrack_set_hashsize()
+      netfilter: factorize ifname_compare()
+      netfilter: nf_conntrack: use SLAB_DESTROY_BY_RCU and get rid of call_rcu()
+
+Holger Eitzenberger (7):
+      netfilter: ctnetlink: add callbacks to the per-proto nlattrs
+      netlink: add nla_policy_len()
+      netfilter: limit the length of the helper name
+      netfilter: ctnetlink: allocate right-sized ctnetlink skb
+      netfilter: nf_conntrack: add generic function to get len of generic policy
+      netfilter: nf_conntrack: calculate per-protocol nlattr size
+      ctnetlink: compute generic part of event more acurately
+
+Patrick McHardy (2):
+      netfilter: fix xt_LED build failure
+      netfilter: {ip,ip6,arp}_tables: fix incorrect loop detection
