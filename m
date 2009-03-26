@@ -1,95 +1,114 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 00/12: Netfilter fixes/2.6.30 update part II
-Date: Thu, 26 Mar 2009 20:02:30 +0100 (MET)
-Message-ID: <20090326190225.23365.96356.sendpatchset@x2.localnet>
+Subject: netfilter 09/12: ctnetlink: allocate right-sized ctnetlink skb
+Date: Thu, 26 Mar 2009 20:02:43 +0100 (MET)
+Message-ID: <20090326190237.23365.25820.sendpatchset@x2.localnet>
+References: <20090326190225.23365.96356.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090326190225.23365.96356.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+commit 2732c4e45bb67006fdc9ae6669be866762711ab5
+Author: Holger Eitzenberger <holger@eitzenberger.org>
+Date:   Wed Mar 25 21:50:59 2009 +0100
 
-following are a few late netfilter patches and fixes for 2.6.30, containing:
+    netfilter: ctnetlink: allocate right-sized ctnetlink skb
+    
+    Try to allocate a Netlink skb roughly the size of the actual
+    message, with the help from the l3 and l4 protocol helpers.
+    This is all to prevent a reallocation in netlink_trim() later.
+    
+    The overhead of allocating the right-sized skb is rather small, with
+    ctnetlink_alloc_skb() actually being inlined away on my x86_64 box.
+    The size of the per-proto space is determined at registration time of
+    the protocol helper.
+    
+    Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-- Eric's patch to use SLAB_DESTROY_BY_RCU in conntrack, which reduces
-  the conntrack size and avoids temporarily exceeding the configured
-  maximum amount of entries before the RCU threshold kicks in.
-
-- another patch from Eric to factorize the optimized ifname comparisons
-
-- a fix from Eric to use hlist_add_head_rcu in nf_conntrack_set_hashsize()
-  to avoid a race condition
-
-- a number of patches from Holger Eitzenberger to perform approximately
-  correct allocation (might overshoot by a bit) for ctnetlink event
-  messages to avoid reallocation in netlink_trim(). According to some
-  benchmarks by Pablo. this increases throughput by about 10% in an
-  connection intensive workload.
-
-- a patch fixing a build-failure in the new LED target
-
-- a patch from Francis Dupont to fix an old regression in the *tables
-  loop detection. Slightly modified and ported to ip6_tables and
-  arp_tables by myself.
-
-Please apply or pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
-
-Thanks!
-
-
- include/linux/netfilter/x_tables.h                 |   23 ++++
- include/net/netfilter/nf_conntrack.h               |   14 ++-
- include/net/netfilter/nf_conntrack_helper.h        |    2 +
- include/net/netfilter/nf_conntrack_l3proto.h       |    7 +
- include/net/netfilter/nf_conntrack_l4proto.h       |    7 +
- include/net/netfilter/nf_conntrack_tuple.h         |    6 +-
- include/net/netlink.h                              |    1 +
- include/net/netns/conntrack.h                      |    5 +-
- net/ipv4/netfilter/arp_tables.c                    |   18 +--
- net/ipv4/netfilter/ip_tables.c                     |   27 +----
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |    6 +
- .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |   63 ++++++----
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c       |    6 +
- net/ipv4/netfilter/nf_nat_core.c                   |    2 +-
- net/ipv6/netfilter/ip6_tables.c                    |   27 +----
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |    6 +
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c     |    6 +
- net/netfilter/Kconfig                              |    2 +-
- net/netfilter/nf_conntrack_core.c                  |  129 ++++++++++++--------
- net/netfilter/nf_conntrack_expect.c                |    2 +-
- net/netfilter/nf_conntrack_helper.c                |    8 +-
- net/netfilter/nf_conntrack_netlink.c               |   94 +++++++++++++--
- net/netfilter/nf_conntrack_proto.c                 |   16 +++
- net/netfilter/nf_conntrack_proto_dccp.c            |    9 ++
- net/netfilter/nf_conntrack_proto_gre.c             |    1 +
- net/netfilter/nf_conntrack_proto_sctp.c            |   10 ++
- net/netfilter/nf_conntrack_proto_tcp.c             |   15 +++
- net/netfilter/nf_conntrack_proto_udp.c             |    2 +
- net/netfilter/nf_conntrack_proto_udplite.c         |    1 +
- net/netfilter/nf_conntrack_standalone.c            |   57 +++++----
- net/netfilter/xt_connlimit.c                       |    6 +-
- net/netfilter/xt_physdev.c                         |   21 +---
- net/netlink/attr.c                                 |   27 ++++
- 33 files changed, 416 insertions(+), 210 deletions(-)
-
-Eric Dumazet (3):
-      netfilter: nf_conntrack: use hlist_add_head_rcu() in nf_conntrack_set_hashsize()
-      netfilter: factorize ifname_compare()
-      netfilter: nf_conntrack: use SLAB_DESTROY_BY_RCU and get rid of call_rcu()
-
-Holger Eitzenberger (7):
-      netfilter: ctnetlink: add callbacks to the per-proto nlattrs
-      netlink: add nla_policy_len()
-      netfilter: limit the length of the helper name
-      netfilter: ctnetlink: allocate right-sized ctnetlink skb
-      netfilter: nf_conntrack: add generic function to get len of generic policy
-      netfilter: nf_conntrack: calculate per-protocol nlattr size
-      ctnetlink: compute generic part of event more acurately
-
-Patrick McHardy (2):
-      netfilter: fix xt_LED build failure
-      netfilter: {ip,ip6,arp}_tables: fix incorrect loop detection
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 349bbef..03547c6 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -405,6 +405,69 @@ nla_put_failure:
+ }
+ 
+ #ifdef CONFIG_NF_CONNTRACK_EVENTS
++/*
++ * The general structure of a ctnetlink event is
++ *
++ *  CTA_TUPLE_ORIG
++ *    <l3/l4-proto-attributes>
++ *  CTA_TUPLE_REPLY
++ *    <l3/l4-proto-attributes>
++ *  CTA_ID
++ *  ...
++ *  CTA_PROTOINFO
++ *    <l4-proto-attributes>
++ *  CTA_TUPLE_MASTER
++ *    <l3/l4-proto-attributes>
++ *
++ * Therefore the formular is
++ *
++ *   size = sizeof(headers) + sizeof(generic_nlas) + 3 * sizeof(tuple_nlas)
++ *		+ sizeof(protoinfo_nlas)
++ */
++static struct sk_buff *
++ctnetlink_alloc_skb(const struct nf_conntrack_tuple *tuple, gfp_t gfp)
++{
++	struct nf_conntrack_l3proto *l3proto;
++	struct nf_conntrack_l4proto *l4proto;
++	int len;
++
++#define NLA_TYPE_SIZE(type)		nla_total_size(sizeof(type))
++
++	/* proto independant part */
++	len = NLMSG_SPACE(sizeof(struct nfgenmsg))
++		+ 3 * nla_total_size(0)		/* CTA_TUPLE_ORIG|REPL|MASTER */
++		+ 3 * nla_total_size(0)		/* CTA_TUPLE_IP */
++		+ 3 * nla_total_size(0)		/* CTA_TUPLE_PROTO */
++		+ 3 * NLA_TYPE_SIZE(u_int8_t)	/* CTA_PROTO_NUM */
++		+ NLA_TYPE_SIZE(u_int32_t)	/* CTA_ID */
++		+ NLA_TYPE_SIZE(u_int32_t)	/* CTA_STATUS */
++		+ 2 * nla_total_size(0)		/* CTA_COUNTERS_ORIG|REPL */
++		+ 2 * NLA_TYPE_SIZE(uint64_t)	/* CTA_COUNTERS_PACKETS */
++		+ 2 * NLA_TYPE_SIZE(uint64_t)	/* CTA_COUNTERS_BYTES */
++		+ NLA_TYPE_SIZE(u_int32_t)	/* CTA_TIMEOUT */
++		+ nla_total_size(0)		/* CTA_PROTOINFO */
++		+ nla_total_size(0)		/* CTA_HELP */
++		+ nla_total_size(NF_CT_HELPER_NAME_LEN)	/* CTA_HELP_NAME */
++		+ NLA_TYPE_SIZE(u_int32_t)	/* CTA_SECMARK */
++		+ 2 * nla_total_size(0)		/* CTA_NAT_SEQ_ADJ_ORIG|REPL */
++		+ 2 * NLA_TYPE_SIZE(u_int32_t)	/* CTA_NAT_SEQ_CORRECTION_POS */
++		+ 2 * NLA_TYPE_SIZE(u_int32_t)	/* CTA_NAT_SEQ_CORRECTION_BEFORE */
++		+ 2 * NLA_TYPE_SIZE(u_int32_t)	/* CTA_NAT_SEQ_CORRECTION_AFTER */
++		+ NLA_TYPE_SIZE(u_int32_t);	/* CTA_MARK */
++
++#undef NLA_TYPE_SIZE
++
++	rcu_read_lock();
++	l3proto = __nf_ct_l3proto_find(tuple->src.l3num);
++	len += l3proto->nla_size;
++
++	l4proto = __nf_ct_l4proto_find(tuple->src.l3num, tuple->dst.protonum);
++	len += l4proto->nla_size;
++	rcu_read_unlock();
++
++	return alloc_skb(len, gfp);
++}
++
+ static int ctnetlink_conntrack_event(struct notifier_block *this,
+ 				     unsigned long events, void *ptr)
+ {
+@@ -438,7 +501,7 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
+ 	if (!item->report && !nfnetlink_has_listeners(group))
+ 		return NOTIFY_DONE;
+ 
+-	skb = alloc_skb(NLMSG_GOODSIZE, GFP_ATOMIC);
++	skb = ctnetlink_alloc_skb(tuple(ct, IP_CT_DIR_ORIGINAL), GFP_ATOMIC);
+ 	if (!skb)
+ 		return NOTIFY_DONE;
+ 
