@@ -1,83 +1,93 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 07/12: {ip,ip6,arp}_tables: fix incorrect loop detection
-Date: Thu, 26 Mar 2009 20:02:40 +0100 (MET)
-Message-ID: <20090326190234.23365.39498.sendpatchset@x2.localnet>
-References: <20090326190225.23365.96356.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39223 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759042AbZCZTCm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 15:02:42 -0400
-In-Reply-To: <20090326190225.23365.96356.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] benet: use do_div() for 64 bit divide
+Date: Thu, 26 Mar 2009 12:30:05 -0700
+Message-ID: <20090326123005.34acd9fe@s6510>
+References: <20090326190130.54fc6fde.sfr@canb.auug.org.au>
+	<49CBA351.2000007@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, netdev@vger.kernel.org,
+	linux-drivers@serverengines.com
+To: Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sathya Perla <sathyap@serverengines.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <49CBA351.2000007@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 1f9352ae2253a97b07b34dcf16ffa3b4ca12c558
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Mar 25 19:26:35 2009 +0100
+The benet driver is doing a 64 bit divide, which is not supported in Linux kernel
+on 32 bit architectures. The correct way to do this is to use do_div().
+Compile tested on i386 only.
 
-    netfilter: {ip,ip6,arp}_tables: fix incorrect loop detection
-    
-    Commit e1b4b9f ([NETFILTER]: {ip,ip6,arp}_tables: fix exponential worst-case
-    search for loops) introduced a regression in the loop detection algorithm,
-    causing sporadic incorrectly detected loops.
-    
-    When a chain has already been visited during the check, it is treated as
-    having a standard target containing a RETURN verdict directly at the
-    beginning in order to not check it again. The real target of the first
-    rule is then incorrectly treated as STANDARD target and checked not to
-    contain invalid verdicts.
-    
-    Fix by making sure the rule does actually contain a standard target.
-    
-    Based on patch by Francis Dupont <Francis_Dupont@isc.org>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 4b35dba..4f454ce 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -388,7 +388,9 @@ static int mark_source_chains(struct xt_table_info *newinfo,
- 			    && unconditional(&e->arp)) || visited) {
- 				unsigned int oldpos, size;
+--- a/drivers/net/benet/be_main.c	2009-03-25 15:31:35.000000000 -0700
++++ b/drivers/net/benet/be_main.c	2009-03-26 12:28:21.645388379 -0700
+@@ -16,6 +16,7 @@
+  */
  
--				if (t->verdict < -NF_MAX_VERDICT - 1) {
-+				if ((strcmp(t->target.u.user.name,
-+					    ARPT_STANDARD_TARGET) == 0) &&
-+				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
- 								t->verdict);
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 41c59e3..82ee7c9 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -488,7 +488,9 @@ mark_source_chains(struct xt_table_info *newinfo,
- 			    && unconditional(&e->ip)) || visited) {
- 				unsigned int oldpos, size;
+ #include "be.h"
++#include <asm/div64.h>
  
--				if (t->verdict < -NF_MAX_VERDICT - 1) {
-+				if ((strcmp(t->target.u.user.name,
-+			    		    IPT_STANDARD_TARGET) == 0) &&
-+				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
- 								t->verdict);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index e59662b..e89cfa3 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -517,7 +517,9 @@ mark_source_chains(struct xt_table_info *newinfo,
- 			    && unconditional(&e->ipv6)) || visited) {
- 				unsigned int oldpos, size;
+ MODULE_VERSION(DRV_VER);
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
+@@ -290,6 +291,17 @@ static struct net_device_stats *be_get_s
+ 	return &adapter->stats.net_stats;
+ }
  
--				if (t->verdict < -NF_MAX_VERDICT - 1) {
-+				if ((strcmp(t->target.u.user.name,
-+					    IP6T_STANDARD_TARGET) == 0) &&
-+				    t->verdict < -NF_MAX_VERDICT - 1) {
- 					duprintf("mark_source_chains: bad "
- 						"negative verdict (%i)\n",
- 								t->verdict);
++static u32 be_calc_rate(u64 bytes, unsigned long ticks)
++{
++	u64 rate = bytes;
++
++	do_div(rate, ticks / HZ);
++	rate <<= 3;			/* bytes/sec -> bits/sec */
++	do_div(rate, 1000000ul);	/* MB/Sec */
++
++	return rate;
++}
++
+ static void be_tx_rate_update(struct be_adapter *adapter)
+ {
+ 	struct be_drvr_stats *stats = drvr_stats(adapter);
+@@ -303,11 +315,9 @@ static void be_tx_rate_update(struct be_
+ 
+ 	/* Update tx rate once in two seconds */
+ 	if ((now - stats->be_tx_jiffies) > 2 * HZ) {
+-		u32 r;
+-		r = (stats->be_tx_bytes - stats->be_tx_bytes_prev) /
+-			((now - stats->be_tx_jiffies) / HZ);
+-		r = r / 1000000;			/* M bytes/s */
+-		stats->be_tx_rate = r * 8;	/* M bits/s */
++		stats->be_tx_rate = be_calc_rate(stats->be_tx_bytes
++						  - stats->be_tx_bytes_prev,
++						 now - stats->be_tx_jiffies);
+ 		stats->be_tx_jiffies = now;
+ 		stats->be_tx_bytes_prev = stats->be_tx_bytes;
+ 	}
+@@ -599,7 +609,6 @@ static void be_rx_rate_update(struct be_
+ {
+ 	struct be_drvr_stats *stats = drvr_stats(adapter);
+ 	ulong now = jiffies;
+-	u32 rate;
+ 
+ 	/* Wrapped around */
+ 	if (time_before(now, stats->be_rx_jiffies)) {
+@@ -610,11 +619,10 @@ static void be_rx_rate_update(struct be_
+ 	/* Update the rate once in two seconds */
+ 	if ((now - stats->be_rx_jiffies) < 2 * HZ)
+ 		return;
+-
+-	rate = (stats->be_rx_bytes - stats->be_rx_bytes_prev) /
+-		((now - stats->be_rx_jiffies) / HZ);
+-	rate = rate / 1000000;	/* MB/Sec */
+-	stats->be_rx_rate = rate * 8; 	/* Mega Bits/Sec */
++
++	stats->be_rx_rate = be_calc_rate(stats->be_rx_bytes
++					  - stats->be_rx_bytes_prev,
++					 now - stats->be_rx_jiffies);
+ 	stats->be_rx_jiffies = now;
+ 	stats->be_rx_bytes_prev = stats->be_rx_bytes;
+ }
