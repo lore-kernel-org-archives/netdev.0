@@ -1,44 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix unaligned memory accesses in ASIX
-Date: Thu, 26 Mar 2009 01:08:10 -0700 (PDT)
-Message-ID: <20090326.010810.23291587.davem@davemloft.net>
-References: <1238050359-28415-1-git-send-email-peppe.cavallaro@st.com>
+From: Thierry Reding <thierry.reding@avionic-design.de>
+Subject: Re: [PATCH v3] net: Add support for the OpenCores 10/100 Mbps
+	Ethernet MAC.
+Date: Thu, 26 Mar 2009 09:09:59 +0100
+Message-ID: <20090326080959.GA23013@avionic-design.de>
+References: <20090325.171813.19940151.davem@davemloft.net> <1238053359-18896-1-git-send-email-thierry.reding@avionic-design.de> <20090326.005545.180326952.davem@davemloft.net> <20090326.005818.46327905.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset=utf8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47461
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755228AbZCZIIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 04:08:22 -0400
-In-Reply-To: <1238050359-28415-1-git-send-email-peppe.cavallaro@st.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:60667 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756659AbZCZIKA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 04:10:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20090326.005818.46327905.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu, 26 Mar 2009 07:52:39 +0100
+* David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 26 Mar 2009 00:55:45 -0700 (PDT)
+>=20
+> > This doesn't build:
+> >=20
+> > drivers/net/ethoc.c: In function =E2=80=98ethoc_interrupt=E2=80=99:
+> > drivers/net/ethoc.c:510: error: implicit declaration of function =E2=
+=80=98netif_rx_schedule_prep=E2=80=99
+> > drivers/net/ethoc.c:511: error: implicit declaration of function =E2=
+=80=98__netif_rx_schedule=E2=80=99
+> > drivers/net/ethoc.c: In function =E2=80=98ethoc_poll=E2=80=99:
+> > drivers/net/ethoc.c:550: error: implicit declaration of function =E2=
+=80=98netif_rx_complete=E2=80=99
+> >=20
+> > You are missing some header includes.
+>=20
+> Actually the problem is that you're using deprecated interfaces which
+> have been removed in net-next-2.6, please use napi_*() instead of
+> netif_rx_*().
 
-> Move in memory all the frames with an incorrect alignment.
-> This is to prevent unaligned memory accesses into the upper layers.
-> Note 1: this is a penalty for some architecture like SH.
-> Note 2: indeed, this patch restores an old one posted three years ago
-> (http://marc.info/?l=linux-usb-devel&m=116578791817830&w=2).
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Oh, okay. I've only been building against the vanilla tree. I'll grab a=
+ copy
+of net-next-2.6 and fix the driver up against that. Thanks,
 
-There are some gratuitous (and wrong) changes in here:
+Thierry
 
-> -	u32  header;
- ...
-> +	unsigned int header;
-
-It's a u32 whether you like it or not.  Please don't
-change away from fixed sized types.
-
-Also isn't there a way we can prefixed what this packet
-offset is going to be?  If so, we can adjust the skb_reserve()
-call the generic USB net code uses.
-
-Thanks.
