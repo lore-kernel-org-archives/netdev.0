@@ -1,133 +1,114 @@
-From: Jesper Krogh <jesper@krogh.cc>
-Subject: Re: niu driver - Transmit timed out - 2.6.29
-Date: Fri, 27 Mar 2009 20:31:34 +0100
-Message-ID: <49CD2996.60502@krogh.cc>
-References: <49CB78A4.3020406@krogh.cc>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [Regression in 2.6.29] forcedeth doesn't work after resume from hibernation (was: Re: Resume after hibernation regression in 2.6.29)
+Date: Fri, 27 Mar 2009 21:09:20 +0100
+Message-ID: <200903272109.21259.rjw@sisk.pl>
+References: <200903261920.32173.tvrtko@ursulin.net> <200903270801.46712.tvrtko@ursulin.net> <200903271255.36429.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Pavel Machek <pavel@ucw.cz>, linux-pm@lists.linux-foundation.org,
+	kernel list <linux-kernel@vger.kernel.org>,
+	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, netdev@vger.kernel.org,
+	Ed Swierk <eswierk@arastra.com>,
+	Arthur Jones <ajones@riverbed.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:49850 "EHLO
-	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751215AbZC0Tbs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2009 15:31:48 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by shrek.krogh.cc (Postfix) with ESMTP id F34013BF58D
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 20:31:45 +0100 (CET)
-Received: from shrek.krogh.cc ([127.0.0.1])
-	by localhost (shrek.krogh.cc [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id xuVBFN8yTjlZ for <netdev@vger.kernel.org>;
-	Fri, 27 Mar 2009 20:31:33 +0100 (CET)
-Received: from [192.168.1.4] (unknown [90.184.13.46])
-	by shrek.krogh.cc (Postfix) with ESMTP id 592AC3BF441
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 20:31:33 +0100 (CET)
-In-Reply-To: <49CB78A4.3020406@krogh.cc>
+Received: from ogre.sisk.pl ([217.79.144.158]:57644 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761804AbZC0UJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2009 16:09:27 -0400
+In-Reply-To: <200903271255.36429.rjw@sisk.pl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Krogh wrote:
-> Ok. I was just so happy .. (See "Status update on Sun Neptune 10Gbit 
-> driver earlier).
-> 
-> But then it "blew up" again:
-> 
-> Mar 26 13:25:49 hest kernel: [25335.505049] ------------[ cut here 
-> ]------------
-> Mar 26 13:25:49 hest kernel: [25335.505055] WARNING: at 
-> net/sched/sch_generic.c:226 dev_watchdog+0x1fd/0x210()
-> Mar 26 13:25:49 hest kernel: [25335.505057] Hardware name: Sun Fire 
-> X4600 M2
-> Mar 26 13:25:49 hest kernel: [25335.505059] NETDEV WATCHDOG: eth4 (niu): 
-> transmit timed out
-> Mar 26 13:25:49 hest kernel: [25335.505060] Modules linked in: af_packet 
-> ext4 jbd2 crc16 nfsd exportfs autofs4 nfs lockd auth_rpcgss sunrpc 
-> iptable_filter ip_tables x_tables ib_iser rdma_cm ib_cm iw_cm ib_sa 
-> ib_mad ib_core ib_addr iscsi_tcp libiscsi_tcp libiscsi 
-> scsi_transport_iscsi ipv6 parport_pc lp parport loop sr_mod joydev 
-> psmouse niu usb_storage usbhid i2c_nforce2 libusual hid serio_raw pcspkr 
-> shpchp k8temp pci_hotplug i2c_core button evdev ext3 jbd mbcache 
-> ide_cd_mod cdrom sg sd_mod ata_generic libata mptsas mptspi mptscsih 
-> qla2xxx mptbase scsi_transport_sas scsi_transport_fc ehci_hcd 
-> scsi_transport_spi ohci_hcd e1000 scsi_mod amd74xx usbcore dm_mirror 
-> dm_region_hash dm_log dm_snapshot dm_mod thermal processor fan 
-> thermal_sys fuse
-> Mar 26 13:25:49 hest kernel: [25335.505109] Pid: 0, comm: swapper Not 
-> tainted 2.6.29 #30
-> Mar 26 13:25:49 hest kernel: [25335.505111] Call Trace:
-> Mar 26 13:25:49 hest kernel: [25335.505113]  <IRQ>  [<ffffffff8023d5c2>] 
-> warn_slowpath+0xf2/0x130
-> Mar 26 13:25:49 hest kernel: [25335.505124]  [<ffffffff80239d2d>] 
-> task_tick_fair+0x4d/0xd0
-> Mar 26 13:25:49 hest kernel: [25335.505130]  [<ffffffff80355e33>] 
-> cpumask_next_and+0x23/0x40
-> Mar 26 13:25:49 hest kernel: [25335.505132]  [<ffffffff80233f84>] 
-> find_busiest_group+0x204/0x870
-> Mar 26 13:25:49 hest kernel: [25335.505136]  [<ffffffff8035b65e>] 
-> strlcpy+0x4e/0x80
-> Mar 26 13:25:49 hest kernel: [25335.505138]  [<ffffffff8041f11d>] 
-> dev_watchdog+0x1fd/0x210
-> Mar 26 13:25:49 hest kernel: [25335.505141]  [<ffffffff80235ac5>] 
-> run_rebalance_domains+0x3c5/0x530
-> Mar 26 13:25:49 hest kernel: [25335.505143]  [<ffffffff802474bb>] 
-> run_timer_softirq+0x1bb/0x230
-> Mar 26 13:25:49 hest kernel: [25335.505148]  [<ffffffff802574e1>] 
-> sched_clock_cpu+0x131/0x180
-> Mar 26 13:25:49 hest kernel: [25335.505151]  [<ffffffff80242cdb>] 
-> __do_softirq+0x8b/0x150
-> Mar 26 13:25:49 hest kernel: [25335.505155]  [<ffffffff8020d3bc>] 
-> call_softirq+0x1c/0x30
-> Mar 26 13:25:49 hest kernel: [25335.505157]  [<ffffffff8020e505>] 
-> do_softirq+0x35/0x80
-> Mar 26 13:25:49 hest kernel: [25335.505161]  [<ffffffff8021f715>] 
-> smp_apic_timer_interrupt+0x85/0xd0
-> Mar 26 13:25:49 hest kernel: [25335.505163]  [<ffffffff8020cdf3>] 
-> apic_timer_interrupt+0x13/0x20
-> Mar 26 13:25:49 hest kernel: [25335.505164]  <EOI>  [<ffffffff80212dc7>] 
-> default_idle+0x27/0x40
-> Mar 26 13:25:49 hest kernel: [25335.505169]  [<ffffffff80212fea>] 
-> c1e_idle+0xba/0x100
-> Mar 26 13:25:49 hest kernel: [25335.505171]  [<ffffffff8020ae80>] 
-> cpu_idle+0x40/0x70
-> Mar 26 13:25:49 hest kernel: [25335.505173] ---[ end trace 
-> e6e4f250dc22390d ]---
+On Friday 27 March 2009, Rafael J. Wysocki wrote:
+> On Friday 27 March 2009, Tvrtko A. Ursulin wrote:
+> > On Thursday 26 March 2009 23:08:59 Rafael J. Wysocki wrote:
+> > > On Friday 27 March 2009, Tvrtko A. Ursulin wrote:
+> > > > On Thursday 26 March 2009 22:38:55 Pavel Machek wrote:
+> > > > > On Thu 2009-03-26 22:01:03, Tvrtko A. Ursulin wrote:
+> > > > > > On Thursday 26 March 2009 21:35:29 Rafael J. Wysocki wrote:
+> > > > > > > On Thursday 26 March 2009, Pavel Machek wrote:
+> > > > > > > > On Thu 2009-03-26 20:55:23, Tvrtko A. Ursulin wrote:
+> > > > > > > > > On Thursday 26 March 2009 20:18:40 Pavel Machek wrote:
+> > > > > > > > > > On Thu 2009-03-26 19:20:32, Tvrtko A. Ursulin wrote:
+> > > > > > > > > > > Hi guys,
+> > > > > > > > > > > I have been running custom compiled 2.6.28.7 in OpenSUSE
+> > > > > > > > > > > 11.1 and using hiberation/resume daily as configured by the
+> > > > > > > > > > > distro. Yesterday I upgraded to 2.6.29 (make oldconfig from
+> > > > > > > > > > > 2.6.28.7, attached) and after resume networking (at least)
+> > > > > > > > > > > does not work. Reboot at this point takes very long because
+> > > > > > > > > > > of timeouts on CIFS and whatelse.
+> > > > > > > > > > >
+> > > > > > > > > > > Below is how /var/log/messagess looks for one cycle
+> > > > > > > > > > > (hibernate-resume-reboot) and I am also attaching kernel
+> > > > > > > > > > > config and /var/log/pm-suspend.log.
+> > > > > > > > > > >
+> > > > > > > > > > > You will probably notice evil nvidia.ko in there but don't
+> > > > > > > > > > > panic, it all happens without it as well. Tested from
+> > > > > > > > > > > runlevel 3 and by running pm-hibernate. After resume from
+> > > > > > > > > > > that NIC LEDs were off. I tried /etc/init.d/network restart
+> > > > > > > > > > > but that hung so I ^C and tried rmmod forcedeth && modprobe
+> > > > > > > > > > > forcedeth && ifup eth0 and after some time network went
+> > > > > > > > > > > live again. Haven't had time to test further though, so
+> > > > > > > > > > > this is all pretty rough.
+> > > > > > > > > >
+> > > > > > > > > > Ok, can you try to rmmod forcedeth before hibernation, then
+> > > > > > > > > > insmod it after resume?
+> > > > > > > > >
+> > > > > > > > > Sure, after insmod and /etc/init.d/network start following
+> > > > > > > > > resume network was fine. Guess I could kludge that sequence
+> > > > > > > > > into pm scripts somehow but would rather avoid that since it
+> > > > > > > > > slows down the cycle and would make scripts non-stock.
+> > > > > > > >
+> > > > > > > > Ok, I guess you need to talk to forcedeth maintainers then...
+> > > > > > > > sounds like a forcedeth problem to me.
+> > > > > > >
+> > > > > > > I have a box with forcedeth somewhere here, I should be able to
+> > > > > > > check that in the next few days.
+> > > > > >
+> > > > > > Not a lot activity in forcedeth.c from 2.6.28 to 2.6.29 so I will CC
+> > > > > > two guys who commited changes in that period. Ayaz, Tobias, forcedeth
+> > > > > > does not seem to come up after hibernation well for me. Actual
+> > > > > > hardware is:
+> > > > > >
+> > > > > > 00:0f.0 Ethernet controller: nVidia Corporation MCP73 Ethernet (rev
+> > > > > > a2)
+> > > > > >
+> > > > > > Anything more I can do just shout!
+> > > > >
+> > > > > Actually yes. Testing forcedeth from 2.6.28 in 2.6.29 would be nice
+> > > > > way to prove problem is indeed in that module.
+> > > >
+> > > > Good idea, I had to massage it a bit due to some API changes, but the end
+> > > > result is a correct resume which proves that the problem really is in
+> > > > forcedeth.
+> > >
+> > > Well, since you can easily check what commits changed forcedeth between
+> > > 2.6.28 and 2.6.29, you can find the one that introduced the problem for
+> > > you.
 
-There was actually a bit more in the log:
+I was able to reproduce the problem and identify the commit that broke the
+resume of forcedeth, which turned out to be:
 
-Mar 26 13:25:49 hest kernel: [25335.505176] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:25:49 hest kernel: [25335.587191] niu 0000:84:00.0: niu: eth4: 
-bits (40000000) of register RXDMA_CFIG1 would not cl
-ear, val[c0000000]
-Mar 26 13:25:49 hest last message repeated 4 times
-Mar 26 13:25:58 hest kernel: [25345.504898] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:08 hest kernel: [25355.504758] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:13 hest kernel: [25360.504687] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:18 hest kernel: [25365.504619] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:23 hest kernel: [25370.504549] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:28 hest kernel: [25375.504479] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:33 hest kernel: [25380.504409] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
-Mar 26 13:26:38 hest kernel: [25385.504340] niu 0000:84:00.0: niu: eth4: 
-Transmit timed out, resetting
+commit cb52deba12f27af90a46d2f8667a64888118a888
+Author: Ed Swierk <eswierk@arastra.com>
+Date:   Mon Dec 1 12:24:43 2008 +0000
 
-This is probably the interesting part:
-Mar 26 13:25:49 hest kernel: [25335.587191] niu 0000:84:00.0: niu: eth4: 
-bits (40000000) of register RXDMA_CFIG1 would not clear, val[c0000000]
+    forcedeth: power down phy when interface is down
 
-Any suggestions?
+    Signed-off-by: Ed Swierk <eswierk@arastra.com>
+    Tested-by: Arthur Jones <ajones@riverbed.com>
+    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Is this perhaps just broken hardware.. or a driver issue?  (I had the 
-Sun nxge driver working for around 180 days on the same card.. so I 
-would assume the hardware is ok).
+Since I have no slightest idea of what this commit is supposed to achieve,
+I can only ask for reverting it.  It reverts cleanly, BTW.
 
-Jesper
--- 
-Jesper
-
+Thanks,
+Rafael
