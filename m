@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ucc_geth: Rework the TX logic.
-Date: Fri, 27 Mar 2009 00:42:37 -0700 (PDT)
-Message-ID: <20090327.004237.113711845.davem@davemloft.net>
-References: <OF5FC70952.28684E98-ONC1257585.005ADBF9-C1257585.005BDD35@transmode.se>
-	<20090326180543.GA2406@oksana.dev.rtsoft.ru>
-	<OFEB54C9DC.647D70E1-ONC1257585.0064475A-C1257585.0064C85F@transmode.se>
+Subject: Re: [PATCH] smsc911x: enforce read-after-write timing restriction
+ on eeprom access
+Date: Fri, 27 Mar 2009 00:49:45 -0700 (PDT)
+Message-ID: <20090327.004945.161845859.davem@davemloft.net>
+References: <1238087676-14194-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com, leoli@freescale.com,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Joakim.Tjernlund@transmode.se
+Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43888
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57573
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751286AbZC0Hmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:42:50 -0400
-In-Reply-To: <OFEB54C9DC.647D70E1-ONC1257585.0064475A-C1257585.0064C85F@transmode.se>
+	by vger.kernel.org with ESMTP id S1752944AbZC0Ht5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:49:57 -0400
+In-Reply-To: <1238087676-14194-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Thu, 26 Mar 2009 17:14:36 +0000
 
-These patches don't apply to the current tree, could you please
-respin your final version against at the very least Linus's tree?
+> The LAN911x datasheet specifies a minimum delay of 45ns between a write
+> of E2P_DATA and any read.  This patch adds a single dummy read of
+> BYTE_TEST to enforce this timing constraint.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Thanks.
+Applied.
