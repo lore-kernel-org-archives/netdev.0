@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_rose/x25: Sanity check the maximum user frame size
-Date: Fri, 27 Mar 2009 00:29:20 -0700 (PDT)
-Message-ID: <20090327.002920.134973741.davem@davemloft.net>
-References: <20090326215826.18836.86957.stgit@localhost.localdomain>
+Subject: Re: RDMA/nes: Fix mis-merge
+Date: Fri, 27 Mar 2009 00:29:40 -0700 (PDT)
+Message-ID: <20090327.002940.55045245.davem@davemloft.net>
+References: <alpine.LFD.2.00.0903261638360.3994@localhost.localdomain>
+	<alpine.LFD.2.00.0903261639150.3994@localhost.localdomain>
+	<ada8wmru9hm.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44803
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44806
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752531AbZC0H3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:29:32 -0400
-In-Reply-To: <20090326215826.18836.86957.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753158AbZC0H3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:29:53 -0400
+In-Reply-To: <ada8wmru9hm.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Thu, 26 Mar 2009 21:58:51 +0000
+From: Roland Dreier <rdreier@cisco.com>
+Date: Thu, 26 Mar 2009 16:53:25 -0700
 
-> Otherwise we can wrap the sizes and end up sending garbage.
+>  > Btw, as far as I can tell, that function had never been tested with any 
+>  > polling. It had a line like
+>  > 
+>  > 	netif_napi_add(netdev, &nesvnic->napi, nes_netdev_poll, 128);
+>  > 
+>  > but that line was _before_ 'nesvnic' was actually initialized (well, it 
+>  > had been initialized to NULL, so it passed in some NULL-pointer-offset to 
+>  > that function).
 > 
-> Closes #10423
-> 
-> Signed-off-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Yes, looks like the bug was introduced by d0929553 ("infiniband: convert
+> nes driver to net_device_ops").  And unfortunately the nesvnic=NULL
+> initialization stopped gcc from warning about used-uninitialized I
+> guess.  I'll test the final merge out...
 
-Applied, but:
-
-> -	/* Build a packet */
-> +	/* Build a packet - the conventional user limit is 236 bytes. We can
-> +	   do ludicrously large NetROM frames but must not overflow */
-> +	if (len > 65536)
-> +		return -EMSGSIZE;
-> +	
-   ^^^^^^^^^^^^^
-
-please fix the tab monster :-) Or, alternatively, check the patch
-either with GIT's automatic checks (or using checkpatch.pl if you
-haven't eaten recently)
-
+Sorry about that, thanks for working this out Roland.
