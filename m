@@ -1,48 +1,31 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH] gianfar: only check headroom when FCB is needed
-Date: Fri, 27 Mar 2009 16:01:30 +0800
-Message-ID: <1238140890-26058-1-git-send-email-leoli@freescale.com>
-References: <2a27d3730903262126v1a0282a5u6c8ee234dff8708d@mail.gmail.com>
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>
-To: davem@davemloft.net
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: "no new taxes"
+Date: Fri, 27 Mar 2009 11:35:16 +0300
+Message-ID: <20090327083515.GA8220@ioremap.net>
+References: <20090327.010332.71024910.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:40850 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbZC0IQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 04:16:58 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n2R8GuMv024152
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 01:16:56 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n2R8Gsch021660
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 03:16:55 -0500 (CDT)
-In-Reply-To: <2a27d3730903262126v1a0282a5u6c8ee234dff8708d@mail.gmail.com>
+Received: from cs-studio.ru ([195.178.208.66]:36798 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751518AbZC0IfT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2009 04:35:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20090327.010332.71024910.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Li Yang <leoli@freescale.com>
----
- drivers/net/gianfar.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+On Fri, Mar 27, 2009 at 01:03:32AM -0700, David Miller (davem@davemloft.net) wrote:
+> I've got my finger on my mouse button ready to reload the patchwork
+> page and blast away bogons, just try me. :-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 14f9b5e..6e28088 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1277,8 +1277,10 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	base = priv->tx_bd_base;
- 
--	/* make space for additional header */
--	if (skb_headroom(skb) < GMAC_FCB_LEN) {
-+	/* make space for additional header when fcb is needed */
-+	if (((skb->ip_summed == CHECKSUM_PARTIAL) ||
-+			(priv->vlgrp && vlan_tx_tag_present(skb))) &&
-+			(skb_headroom(skb) < GMAC_FCB_LEN)) {
- 		struct sk_buff *skb_new;
- 
- 		skb_new = skb_realloc_headroom(skb, GMAC_FCB_LEN);
+Please do not silently delete the mails/patches and send a reply that it
+is too late and patch should be resubmitted after -rc1 for the next
+window.
+
+I can cook up a lisp script for your emacs mail agent :)
+
 -- 
-1.5.4
-
+	Evgeniy Polyakov
