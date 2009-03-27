@@ -1,51 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 1/9] Neterion: Driver help file
-Date: Fri, 27 Mar 2009 15:46:28 -0700 (PDT)
-Message-ID: <20090327.154628.195613387.davem@davemloft.net>
-References: <1238194447.5516.374.camel@flash>
+Subject: Re: GRO with non napi driver: BUG in __napi_complete
+Date: Fri, 27 Mar 2009 15:50:38 -0700 (PDT)
+Message-ID: <20090327.155038.247597952.davem@davemloft.net>
+References: <49BF60C9.1080100@linux.vnet.ibm.com>
+	<20090317102244.GB23396@gondor.apana.org.au>
+	<65634d660903271205v2c82469en6d71e08077202900@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ram.vepa@neterion.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, blaschka@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59095
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35462
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753174AbZC0Wqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 18:46:40 -0400
-In-Reply-To: <1238194447.5516.374.camel@flash>
+	by vger.kernel.org with ESMTP id S1751041AbZC0Wuu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2009 18:50:50 -0400
+In-Reply-To: <65634d660903271205v2c82469en6d71e08077202900@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ramkrishna Vepa <ram.vepa@neterion.com>
-Date: 27 Mar 2009 14:54:08 -0800
+=46rom: Tom Herbert <therbert@google.com>
+Date: Fri, 27 Mar 2009 12:05:30 -0700
 
-I'm not apply any of this patch set.
+> > On the legacy netif_rx path, I incorrectly tried to optimise
+> >
+> > the napi_complete call by using __napi_complete before we reenable
+> > IRQs. =A0This simply doesn't work since we need to flush the held
+> > GRO packets first.
+> >
+> > This patch fixes it by doing the obvious thing of reenabling
+> > IRQs first and then calling napi_complete.
+>=20
+> Does this fix generate a race condition for a non-NAPI device?=A0 If
+> netif_rx runs immediately after local_irq_enable it would queue a
+> packet on the backlog queue and try to schedule napi (the latter has
+> no effect because napi has not completed).=A0 On return from interrup=
+t,
+> napi_complete is done leaving a packet in the input queue but napi is
+> not scheduled to process it.
 
-> +4) Performance Suggestions:
-> +---------------------------
-> +
-> +- Set MTU to maximum - 9000 for switch setup, 9600 for back-to-back.
-> +For MTU 1500:
-> +-------------
-> +### IPV4 specific settings
-> +# turns TCP timestamp support off, default 1, reduces CPU use
-> +$sysctl -w net.ipv4.tcp_timestamps = "0"
-
-You have got to be kidding me.
-
-I see this garbage in the "tuning suggestions" sections of
-various manuals of proprietary products for Linux.
-
-But there is no way I'm letting this junk slip into Linux proper too.
-
-All of these suggestions are ill founded, have side effects that are
-not even passively mentioned in these "suggestions", and are even
-dangerous.
-
-Do you even know the security implications of turning off TCP timestamps?
-Do you know or even feel the need to mention the performance implications
-over long haul networks of turning timestamps off?
-
-If the default sysctl parameters are not correct, let's fix them instead
-of telling every user how to break their system with "tweaks".
+Yes we know this version of Herbert's patch has that problem,
+read the rest of the thread and subsequent versions of the fix.
