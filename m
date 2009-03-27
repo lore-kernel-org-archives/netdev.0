@@ -1,47 +1,52 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Null dereference in uli526x_rx_packet()
-Date: Fri, 27 Mar 2009 13:31:36 +0300 (EAT)
-Message-ID: <Pine.LNX.4.64.0903270801020.5354@usbsys.site>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: grundler@parisc-linux.org, kyle@mcmartin.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:11738 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753911AbZC0KeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 06:34:20 -0400
-Received: by fg-out-1718.google.com with SMTP id e12so350922fga.17
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 03:34:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitri Vorobiev <dmitri.vorobiev@movial.com>
+Subject: [PATCH 1/1] Add missing include into include/linux/netdevice.h
+Date: Fri, 27 Mar 2009 12:36:53 +0200
+Message-ID: <1238150213-30416-1-git-send-email-dmitri.vorobiev@movial.com>
+Cc: Dmitri Vorobiev <dmitri.vorobiev@movial.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756648AbZC0Kh1@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Smatch (http://repo.or.cz/w/smatch.git/) complains about the error 
-handling in uli526x_rx_packet().
+The inline function skb_gro_mac_header defined in include/linux/netdevice.h
+makes use of page_address(). Depending on configuration options, the latter
+is either defined as a macro or is declared as a function in another header
+file, namely include/linux/mm.h. However, include/linux/netdevice.h does not
+include include/linux/mm.h.
 
-I don't know if the right fix is to return like this patch does or to set 
-skb = rxptr->rx_skb_ptr again.
+On MIPS, this has produced the following build error:
 
-regards,
-dan carpenter
+  CC      kernel/sysctl_check.o
+In file included from include/linux/icmpv6.h:173,
+                 from include/linux/ipv6.h:208,
+                 from include/net/ip_vs.h:26,
+                 from kernel/sysctl_check.c:6:
+include/linux/netdevice.h: In function 'skb_gro_mac_header':
+include/linux/netdevice.h:1132: error: implicit declaration of function
+'page_address'
+include/linux/netdevice.h:1133: warning: pointer/integer type mismatch
+in conditional expression
+make[1]: *** [kernel/sysctl_check.o] Error 1
+make: *** [kernel] Error 2
 
---- orig/drivers/net/tulip/uli526x.c	2009-03-27 07:52:32.000000000 +0300
-+++ devel/drivers/net/tulip/uli526x.c	2009-03-27 07:57:05.000000000 +0300
-@@ -844,10 +844,13 @@
- 
- 				/* Good packet, send to upper layer */
- 				/* Shorst packet used new SKB */
--				if ( (rxlen < RX_COPY_SIZE) &&
--					( (skb = dev_alloc_skb(rxlen + 2) )
--					!= NULL) ) {
--					/* size less than COPY_SIZE, allocate a rxlen SKB */
-+				/* size less than COPY_SIZE, allocate a rxlen SKB */
-+				if (rxlen < RX_COPY_SIZE) {
-+					skb = dev_alloc_skb(rxlen + 2);
-+					if (!skb)
-+						return;
-+				}
-+				if (rxlen < RX_COPY_SIZE) {
- 					skb_reserve(skb, 2); /* 16byte align */
- 					memcpy(skb_put(skb, rxlen),
- 					       skb_tail_pointer(rxptr->rx_skb_ptr),
+The patch adds the missing include and fixes the build error.
+
+Signed-off-by: Dmitri Vorobiev <dmitri.vorobiev@movial.com>
+---
+ include/linux/netdevice.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index be3ebd7..1b55952 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -32,6 +32,7 @@
+ #ifdef __KERNEL__
+ #include <linux/timer.h>
+ #include <linux/delay.h>
++#include <linux/mm.h>
+ #include <asm/atomic.h>
+ #include <asm/cache.h>
+ #include <asm/byteorder.h>
+-- 
+1.5.6.3
