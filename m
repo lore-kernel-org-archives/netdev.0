@@ -1,25 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 16/30] netdev: smc-ultra32 convert to net_device_ops
-Date: Fri, 27 Mar 2009 00:51:22 -0700 (PDT)
-Message-ID: <20090327.005122.56288806.davem@davemloft.net>
+Subject: Re: [patch 15/30] netdev: smc9194 convert to net_device_ops
+Date: Fri, 27 Mar 2009 00:51:16 -0700 (PDT)
+Message-ID: <20090327.005116.107130202.davem@davemloft.net>
 References: <20090327011114.169107105@linux-foundation.org>
-	<20090327011256.098534938@linux-foundation.org>
+	<20090327011256.026692707@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57633
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57629
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755344AbZC0Hve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:51:34 -0400
-In-Reply-To: <20090327011256.098534938@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1755310AbZC0Hv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:51:29 -0400
+In-Reply-To: <20090327011256.026692707@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Thu, 26 Mar 2009 18:11:30 -0700
+Date: Thu, 26 Mar 2009 18:11:29 -0700
 
 > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
