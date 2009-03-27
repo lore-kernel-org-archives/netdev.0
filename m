@@ -1,7 +1,8 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH 0/6] Labeled networking patches for 2.6.30
-Date: Fri, 27 Mar 2009 17:10:20 -0400
-Message-ID: <20090327205520.17777.32557.stgit@flek.lan>
+Subject: [PATCH 1/6] lsm: Relocate the IPv4 security_inet_conn_request() hooks
+Date: Fri, 27 Mar 2009 17:10:28 -0400
+Message-ID: <20090327211027.17777.60939.stgit@flek.lan>
+References: <20090327205520.17777.32557.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,67 +10,80 @@ Cc: netdev@vger.kernel.org, casey@schaufler-ca.com,
 	etienne.basset@numericable.fr
 To: linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090327205520.17777.32557.stgit@flek.lan>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset wraps up all the new labeled networking bits for 2.6.30.  This
-is mostly a fixup/cleanup release with the main focus being to correct the
-TCP labeling of both SELinux and Smack; expect some of this to get backported
-to the -stable trees but there will need to be a bit of rework first so it
-may take a few weeks for that to happen.  Other than the TCP issue there is a
-new Smack feature to configure CIPSO aware hosts in "/smack/netlabel" which
-should make the host/network label configuration much more flexible.  The last
-change is to get rid of the security_socket_post_accept() hook which isn't
-currently being used by anything in-tree and seems to act as a magnet for
-bad ideas; if things change we can always add it back later.
+The current placement of the security_inet_conn_request() hooks do not allow
+individual LSMs to override the IP options of the connection's request_sock.
+This is a problem as both SELinux and Smack have the ability to use labeled
+networking protocols which make use of IP options to carry security attributes
+and the inability to set the IP options at the start of the TCP handshake is
+problematic.
 
-The two Smack related patches, "Add a new -CIPSO option ..." and "Cleanup the
-Smack/NetLabel code ..." were ACK'd by Casey but had to be modified slightly
-today to address a last minute kernel oops and a minor merge collision with
-patches already in the security-testing-2.6 tree.  I imagine when Casey sees
-this he will ACK them again but I removed his ACK in the meantime since the
-patches did change, however slightly.
+This patch moves the IPv4 security_inet_conn_request() hooks past the code
+where the request_sock's IP options are set/reset so that the LSM can safely
+manipulate the IP options as needed.  This patch intentionally does not change
+the related IPv6 hooks as IPv6 based labeling protocols which use IPv6 options
+are not currently implemented, once they are we will have a better idea of
+the correct placement for the IPv6 hooks.
 
-I did run yesterday's patches (without the kernel oops fix) against Linus' tree
-from yesterday on my test systems without problem but I'm having a problem
-getting a clean kernel build using Linus' current tree so I'm unable to do a
-sanity check at present.  That said, I am able to build the relevant code
-sections/modules without issue and am fairly confident there should not be any
-issues.
-
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
 
-Etienne Basset (1):
-      smack: Add a new '-CIPSO' option to the network address label configuration
+ net/ipv4/syncookies.c |    9 +++++----
+ net/ipv4/tcp_ipv4.c   |    7 ++++---
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
-Paul Moore (5):
-      netlabel: Cleanup the Smack/NetLabel code to fix incoming TCP connections
-      lsm: Remove the socket_post_accept() hook
-      selinux: Remove the "compat_net" compatibility code
-      netlabel: Label incoming TCP connections correctly in SELinux
-      lsm: Relocate the IPv4 security_inet_conn_request() hooks
-
-
- Documentation/Smack.txt                    |   42 ++++
- Documentation/feature-removal-schedule.txt |   11 -
- Documentation/kernel-parameters.txt        |    9 -
- include/linux/security.h                   |   13 -
- include/net/cipso_ipv4.h                   |   17 ++
- include/net/netlabel.h                     |   17 ++
- net/ipv4/cipso_ipv4.c                      |  130 ++++++++++++-
- net/ipv4/syncookies.c                      |    9 +
- net/ipv4/tcp_ipv4.c                        |    7 -
- net/netlabel/netlabel_kapi.c               |  165 +++++++++++++++--
- net/socket.c                               |    2 
- security/capability.c                      |    5 -
- security/security.c                        |    5 -
- security/selinux/hooks.c                   |  207 ++-------------------
- security/selinux/include/netlabel.h        |   27 +--
- security/selinux/netlabel.c                |  186 +++++--------------
- security/selinux/selinuxfs.c               |   68 -------
- security/smack/smack.h                     |    4 
- security/smack/smack_access.c              |    3 
- security/smack/smack_lsm.c                 |  271 ++++++++++++++++------------
- security/smack/smackfs.c                   |   38 +++-
- 21 files changed, 618 insertions(+), 618 deletions(-)
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index d346c22..b35a950 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -288,10 +288,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	if (!req)
+ 		goto out;
+ 
+-	if (security_inet_conn_request(sk, skb, req)) {
+-		reqsk_free(req);
+-		goto out;
+-	}
+ 	ireq = inet_rsk(req);
+ 	treq = tcp_rsk(req);
+ 	treq->rcv_isn		= ntohl(th->seq) - 1;
+@@ -322,6 +318,11 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	if (security_inet_conn_request(sk, skb, req)) {
++		reqsk_free(req);
++		goto out;
++	}
++
+ 	req->expires	= 0UL;
+ 	req->retrans	= 0;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d0a3148..5d427f8 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1230,14 +1230,15 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 
+ 	tcp_openreq_init(req, &tmp_opt, skb);
+ 
+-	if (security_inet_conn_request(sk, skb, req))
+-		goto drop_and_free;
+-
+ 	ireq = inet_rsk(req);
+ 	ireq->loc_addr = daddr;
+ 	ireq->rmt_addr = saddr;
+ 	ireq->no_srccheck = inet_sk(sk)->transparent;
+ 	ireq->opt = tcp_v4_save_options(sk, skb);
++
++	if (security_inet_conn_request(sk, skb, req))
++		goto drop_and_free;
++
+ 	if (!want_cookie)
+ 		TCP_ECN_create_request(req, tcp_hdr(skb));
+ 
 
