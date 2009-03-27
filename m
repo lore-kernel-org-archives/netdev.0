@@ -1,7 +1,8 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2.6.30 4/5] cxgb3: differentiate portx and Tx channels
-Date: Thu, 26 Mar 2009 19:39:24 -0700
-Message-ID: <20090327023924.32137.21445.stgit@speedy5>
+Subject: [PATCH 2.6.30 5/5] cxgb3: map entire Rx page,
+	feed map+offset to Rx ring.
+Date: Thu, 26 Mar 2009 19:39:29 -0700
+Message-ID: <20090327023929.32137.65704.stgit@speedy5>
 References: <20090327023909.32137.93884.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,169 +11,352 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:31276 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:31281 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755770AbZC0Cj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 22:39:27 -0400
+	with ESMTP id S1755724AbZC0Cjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 22:39:33 -0400
 In-Reply-To: <20090327023909.32137.93884.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Separate ports from H/W Tx channels.
+DMA mapping can be expensive in the presence of iommus.
+Reduce the Rx iommu activity by mapping an entire page, and provide the H/W
+the mapped address + offset of the current page chunk.
+Reserve bits at the end of the page to track mapping references, so the page
+can be unmapped.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/common.h     |    4 +++-
- drivers/net/cxgb3/cxgb3_main.c |    4 ++--
- drivers/net/cxgb3/t3_hw.c      |   35 +++++++++++++++++++----------------
- 3 files changed, 24 insertions(+), 19 deletions(-)
+ drivers/net/cxgb3/adapter.h |    3 +
+ drivers/net/cxgb3/sge.c     |  138 ++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 106 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index 9ee021e..e508dc3 100644
---- a/drivers/net/cxgb3/common.h
-+++ b/drivers/net/cxgb3/common.h
-@@ -191,7 +191,8 @@ struct mdio_ops {
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 2cf6c92..714df2b 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -85,6 +85,8 @@ struct fl_pg_chunk {
+ 	struct page *page;
+ 	void *va;
+ 	unsigned int offset;
++	u64 *p_cnt;
++	DECLARE_PCI_UNMAP_ADDR(mapping);
  };
  
- struct adapter_info {
--	unsigned char nports;	/* # of ports */
-+	unsigned char nports0;        /* # of ports on channel 0 */
-+	unsigned char nports1;        /* # of ports on channel 1 */
- 	unsigned char phy_base_addr;	/* MDIO PHY base address */
- 	unsigned int gpio_out;	/* GPIO output settings */
- 	unsigned char gpio_intr[MAX_NPORTS]; /* GPIO PHY IRQ pins */
-@@ -422,6 +423,7 @@ struct adapter_params {
- 	unsigned short b_wnd[NCCTRL_WIN];
- 
- 	unsigned int nports;	/* # of ethernet ports */
-+	unsigned int chan_map;  /* bitmap of in-use Tx channels */
- 	unsigned int stats_update_period;	/* MAC stats accumulation period */
- 	unsigned int linkpoll_period;	/* link poll period in 0.1s */
- 	unsigned int rev;	/* chip revision */
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+ struct rx_desc;
+@@ -101,6 +103,7 @@ struct sge_fl {                     /* SGE per free-buffer list state */
+ 	struct fl_pg_chunk pg_chunk;/* page chunk cache */
+ 	unsigned int use_pages;     /* whether FL uses pages or sk_buffs */
+ 	unsigned int order;	    /* order of page allocations */
++	unsigned int alloc_size;    /* size of allocated buffer */
+ 	struct rx_desc *desc;       /* address of HW Rx descriptor ring */
+ 	struct rx_sw_desc *sdesc;   /* address of SW Rx descriptor ring */
+ 	dma_addr_t   phys_addr;     /* physical address of HW ring start */
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
 old mode 100755
 new mode 100644
-index e2b1193..2c2aaa7
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -3086,7 +3086,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- 	INIT_WORK(&adapter->fatal_error_handler_task, fatal_error_task);
- 	INIT_DELAYED_WORK(&adapter->adap_check_task, t3_adap_check_task);
+index 54667f0..26d3587
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -50,6 +50,7 @@
+ #define SGE_RX_COPY_THRES  256
+ #define SGE_RX_PULL_LEN    128
  
--	for (i = 0; i < ai->nports; ++i) {
-+	for (i = 0; i < ai->nports0 + ai->nports1; ++i) {
- 		struct net_device *netdev;
- 
- 		netdev = alloc_etherdev_mq(sizeof(struct port_info), SGE_QSETS);
-@@ -3176,7 +3176,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- 
- out_free_dev:
- 	iounmap(adapter->regs);
--	for (i = ai->nports - 1; i >= 0; --i)
-+	for (i = ai->nports0 + ai->nports1 - 1; i >= 0; --i)
- 		if (adapter->port[i])
- 			free_netdev(adapter->port[i]);
- 
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-old mode 100755
-new mode 100644
-index 7d8fbae..31ed31a
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -493,20 +493,20 @@ int t3_phy_lasi_intr_handler(struct cphy *phy)
- }
- 
- static const struct adapter_info t3_adap_info[] = {
--	{2, 0,
-+	{1, 1, 0,
- 	 F_GPIO2_OEN | F_GPIO4_OEN |
- 	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, { S_GPIO3, S_GPIO5 }, 0,
- 	 &mi1_mdio_ops, "Chelsio PE9000"},
--	{2, 0,
-+	{1, 1, 0,
- 	 F_GPIO2_OEN | F_GPIO4_OEN |
- 	 F_GPIO2_OUT_VAL | F_GPIO4_OUT_VAL, { S_GPIO3, S_GPIO5 }, 0,
- 	 &mi1_mdio_ops, "Chelsio T302"},
--	{1, 0,
-+	{1, 0, 0,
- 	 F_GPIO1_OEN | F_GPIO6_OEN | F_GPIO7_OEN | F_GPIO10_OEN |
- 	 F_GPIO11_OEN | F_GPIO1_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL,
- 	 { 0 }, SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
- 	 &mi1_mdio_ext_ops, "Chelsio T310"},
--	{2, 0,
-+	{1, 1, 0,
- 	 F_GPIO1_OEN | F_GPIO2_OEN | F_GPIO4_OEN | F_GPIO5_OEN | F_GPIO6_OEN |
- 	 F_GPIO7_OEN | F_GPIO10_OEN | F_GPIO11_OEN | F_GPIO1_OUT_VAL |
- 	 F_GPIO5_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL,
-@@ -514,7 +514,7 @@ static const struct adapter_info t3_adap_info[] = {
- 	 &mi1_mdio_ext_ops, "Chelsio T320"},
- 	{},
- 	{},
--	{1, 0,
-+	{1, 0, 0,
- 	 F_GPIO1_OEN | F_GPIO2_OEN | F_GPIO4_OEN | F_GPIO6_OEN | F_GPIO7_OEN |
- 	 F_GPIO10_OEN | F_GPIO1_OUT_VAL | F_GPIO6_OUT_VAL | F_GPIO10_OUT_VAL,
- 	 { S_GPIO9 }, SUPPORTED_10000baseT_Full | SUPPORTED_AUI,
-@@ -3227,20 +3227,22 @@ int t3_mps_set_active_ports(struct adapter *adap, unsigned int port_mask)
- }
- 
++#define SGE_PG_RSVD SMP_CACHE_BYTES
  /*
-- * Perform the bits of HW initialization that are dependent on the number
-- * of available ports.
-+ * Perform the bits of HW initialization that are dependent on the Tx
-+ * channels being used.
+  * Page chunk size for FL0 buffers if FL0 is to be populated with page chunks.
+  * It must be a divisor of PAGE_SIZE.  If set to 0 FL0 will use sk_buffs
+@@ -57,8 +58,10 @@
   */
--static void init_hw_for_avail_ports(struct adapter *adap, int nports)
-+static void chan_init_hw(struct adapter *adap, unsigned int chan_map)
+ #define FL0_PG_CHUNK_SIZE  2048
+ #define FL0_PG_ORDER 0
++#define FL0_PG_ALLOC_SIZE (PAGE_SIZE << FL0_PG_ORDER)
+ #define FL1_PG_CHUNK_SIZE (PAGE_SIZE > 8192 ? 16384 : 8192)
+ #define FL1_PG_ORDER (PAGE_SIZE > 8192 ? 0 : 1)
++#define FL1_PG_ALLOC_SIZE (PAGE_SIZE << FL1_PG_ORDER)
+ 
+ #define SGE_RX_DROP_THRES 16
+ #define RX_RECLAIM_PERIOD (HZ/4)
+@@ -345,13 +348,21 @@ static inline int should_restart_tx(const struct sge_txq *q)
+ 	return q->in_use - r < (q->size >> 1);
+ }
+ 
+-static void clear_rx_desc(const struct sge_fl *q, struct rx_sw_desc *d)
++static void clear_rx_desc(struct pci_dev *pdev, const struct sge_fl *q,
++			  struct rx_sw_desc *d)
  {
- 	int i;
+-	if (q->use_pages) {
+-		if (d->pg_chunk.page)
+-			put_page(d->pg_chunk.page);
++	if (q->use_pages && d->pg_chunk.page) {
++		(*d->pg_chunk.p_cnt)--;
++		if (!*d->pg_chunk.p_cnt)
++			pci_unmap_page(pdev,
++				       pci_unmap_addr(&d->pg_chunk, mapping),
++				       q->alloc_size, PCI_DMA_FROMDEVICE);
++
++		put_page(d->pg_chunk.page);
+ 		d->pg_chunk.page = NULL;
+ 	} else {
++		pci_unmap_single(pdev, pci_unmap_addr(d, dma_addr),
++				 q->buf_size, PCI_DMA_FROMDEVICE);
+ 		kfree_skb(d->skb);
+ 		d->skb = NULL;
+ 	}
+@@ -372,9 +383,8 @@ static void free_rx_bufs(struct pci_dev *pdev, struct sge_fl *q)
+ 	while (q->credits--) {
+ 		struct rx_sw_desc *d = &q->sdesc[cidx];
  
--	if (nports == 1) {
-+	if (chan_map != 3) {                                 /* one channel */
- 		t3_set_reg_field(adap, A_ULPRX_CTL, F_ROUND_ROBIN, 0);
- 		t3_set_reg_field(adap, A_ULPTX_CONFIG, F_CFG_RR_ARB, 0);
--		t3_write_reg(adap, A_MPS_CFG, F_TPRXPORTEN | F_TPTXPORT0EN |
--			     F_PORT0ACTIVE | F_ENFORCEPKT);
--		t3_write_reg(adap, A_PM1_TX_CFG, 0xffffffff);
--	} else {
-+		t3_write_reg(adap, A_MPS_CFG, F_TPRXPORTEN | F_ENFORCEPKT |
-+			     (chan_map == 1 ? F_TPTXPORT0EN | F_PORT0ACTIVE :
-+					      F_TPTXPORT1EN | F_PORT1ACTIVE));
-+		t3_write_reg(adap, A_PM1_TX_CFG,
-+			     chan_map == 1 ? 0xffffffff : 0);
-+	} else {                                             /* two channels */
- 		t3_set_reg_field(adap, A_ULPRX_CTL, 0, F_ROUND_ROBIN);
- 		t3_set_reg_field(adap, A_ULPTX_CONFIG, 0, F_CFG_RR_ARB);
- 		t3_write_reg(adap, A_ULPTX_DMA_WEIGHT,
-@@ -3548,7 +3550,7 @@ int t3_init_hw(struct adapter *adapter, u32 fw_params)
- 	t3_write_reg(adapter, A_PM1_RX_CFG, 0xffffffff);
- 	t3_write_reg(adapter, A_PM1_RX_MODE, 0);
- 	t3_write_reg(adapter, A_PM1_TX_MODE, 0);
--	init_hw_for_avail_ports(adapter, adapter->params.nports);
-+	chan_init_hw(adapter, adapter->params.chan_map);
- 	t3_sge_init(adapter, &adapter->params.sge);
+-		pci_unmap_single(pdev, pci_unmap_addr(d, dma_addr),
+-				 q->buf_size, PCI_DMA_FROMDEVICE);
+-		clear_rx_desc(q, d);
++
++		clear_rx_desc(pdev, q, d);
+ 		if (++cidx == q->size)
+ 			cidx = 0;
+ 	}
+@@ -417,18 +427,39 @@ static inline int add_one_rx_buf(void *va, unsigned int len,
+ 	return 0;
+ }
  
- 	t3_write_reg(adapter, A_T3DBG_GPIO_ACT_LOW, calc_gpio_intr(adapter));
-@@ -3785,7 +3787,8 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
- 	get_pci_mode(adapter, &adapter->params.pci);
+-static int alloc_pg_chunk(struct sge_fl *q, struct rx_sw_desc *sd, gfp_t gfp,
++static inline int add_one_rx_chunk(dma_addr_t mapping, struct rx_desc *d,
++				   unsigned int gen)
++{
++	d->addr_lo = cpu_to_be32(mapping);
++	d->addr_hi = cpu_to_be32((u64) mapping >> 32);
++	wmb();
++	d->len_gen = cpu_to_be32(V_FLD_GEN1(gen));
++	d->gen2 = cpu_to_be32(V_FLD_GEN2(gen));
++	return 0;
++}
++
++static int alloc_pg_chunk(struct adapter *adapter, struct sge_fl *q,
++			  struct rx_sw_desc *sd, gfp_t gfp,
+ 			  unsigned int order)
+ {
+ 	if (!q->pg_chunk.page) {
++		dma_addr_t mapping;
++
+ 		q->pg_chunk.page = alloc_pages(gfp, order);
+ 		if (unlikely(!q->pg_chunk.page))
+ 			return -ENOMEM;
+ 		q->pg_chunk.va = page_address(q->pg_chunk.page);
++		q->pg_chunk.p_cnt = q->pg_chunk.va + (PAGE_SIZE << order) -
++				    SGE_PG_RSVD;
+ 		q->pg_chunk.offset = 0;
++		mapping = pci_map_page(adapter->pdev, q->pg_chunk.page,
++				       0, q->alloc_size, PCI_DMA_FROMDEVICE);
++		pci_unmap_addr_set(&q->pg_chunk, mapping, mapping);
+ 	}
+ 	sd->pg_chunk = q->pg_chunk;
  
- 	adapter->params.info = ai;
--	adapter->params.nports = ai->nports;
-+	adapter->params.nports = ai->nports0 + ai->nports1;
-+	adapter->params.chan_map = !!ai->nports0 | (!!ai->nports1 << 1);
- 	adapter->params.rev = t3_read_reg(adapter, A_PL_REV);
- 	/*
- 	 * We used to only run the "adapter check task" once a second if
-@@ -3816,7 +3819,7 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
- 		mc7_prep(adapter, &adapter->pmtx, MC7_PMTX_BASE_ADDR, "PMTX");
- 		mc7_prep(adapter, &adapter->cm, MC7_CM_BASE_ADDR, "CM");
++	prefetch(sd->pg_chunk.p_cnt);
++
+ 	q->pg_chunk.offset += q->buf_size;
+ 	if (q->pg_chunk.offset == (PAGE_SIZE << order))
+ 		q->pg_chunk.page = NULL;
+@@ -436,6 +467,12 @@ static int alloc_pg_chunk(struct sge_fl *q, struct rx_sw_desc *sd, gfp_t gfp,
+ 		q->pg_chunk.va += q->buf_size;
+ 		get_page(q->pg_chunk.page);
+ 	}
++
++	if (sd->pg_chunk.offset == 0)
++		*sd->pg_chunk.p_cnt = 1;
++	else
++		*sd->pg_chunk.p_cnt += 1;
++
+ 	return 0;
+ }
  
--		p->nchan = ai->nports;
-+		p->nchan = adapter->params.chan_map == 3 ? 2 : 1;
- 		p->pmrx_size = t3_mc7_size(&adapter->pmrx);
- 		p->pmtx_size = t3_mc7_size(&adapter->pmtx);
- 		p->cm_size = t3_mc7_size(&adapter->cm);
+@@ -460,35 +497,43 @@ static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
+  */
+ static int refill_fl(struct adapter *adap, struct sge_fl *q, int n, gfp_t gfp)
+ {
+-	void *buf_start;
+ 	struct rx_sw_desc *sd = &q->sdesc[q->pidx];
+ 	struct rx_desc *d = &q->desc[q->pidx];
+ 	unsigned int count = 0;
+ 
+ 	while (n--) {
++		dma_addr_t mapping;
+ 		int err;
+ 
+ 		if (q->use_pages) {
+-			if (unlikely(alloc_pg_chunk(q, sd, gfp, q->order))) {
++			if (unlikely(alloc_pg_chunk(adap, q, sd, gfp,
++						    q->order))) {
+ nomem:				q->alloc_failed++;
+ 				break;
+ 			}
+-			buf_start = sd->pg_chunk.va;
++			mapping = pci_unmap_addr(&sd->pg_chunk, mapping) +
++						 sd->pg_chunk.offset;
++			pci_unmap_addr_set(sd, dma_addr, mapping);
++
++			add_one_rx_chunk(mapping, d, q->gen);
++			pci_dma_sync_single_for_device(adap->pdev, mapping,
++						q->buf_size - SGE_PG_RSVD,
++						PCI_DMA_FROMDEVICE);
+ 		} else {
+-			struct sk_buff *skb = alloc_skb(q->buf_size, gfp);
++			void *buf_start;
+ 
++			struct sk_buff *skb = alloc_skb(q->buf_size, gfp);
+ 			if (!skb)
+ 				goto nomem;
+ 
+ 			sd->skb = skb;
+ 			buf_start = skb->data;
+-		}
+-
+-		err = add_one_rx_buf(buf_start, q->buf_size, d, sd, q->gen,
+-				     adap->pdev);
+-		if (unlikely(err)) {
+-			clear_rx_desc(q, sd);
+-			break;
++			err = add_one_rx_buf(buf_start, q->buf_size, d, sd,
++					     q->gen, adap->pdev);
++			if (unlikely(err)) {
++				clear_rx_desc(adap->pdev, q, sd);
++				break;
++			}
+ 		}
+ 
+ 		d++;
+@@ -795,19 +840,19 @@ static struct sk_buff *get_packet_pg(struct adapter *adap, struct sge_fl *fl,
+ 	struct sk_buff *newskb, *skb;
+ 	struct rx_sw_desc *sd = &fl->sdesc[fl->cidx];
+ 
+-	newskb = skb = q->pg_skb;
++	dma_addr_t dma_addr = pci_unmap_addr(sd, dma_addr);
+ 
++	newskb = skb = q->pg_skb;
+ 	if (!skb && (len <= SGE_RX_COPY_THRES)) {
+ 		newskb = alloc_skb(len, GFP_ATOMIC);
+ 		if (likely(newskb != NULL)) {
+ 			__skb_put(newskb, len);
+-			pci_dma_sync_single_for_cpu(adap->pdev,
+-					    pci_unmap_addr(sd, dma_addr), len,
++			pci_dma_sync_single_for_cpu(adap->pdev, dma_addr, len,
+ 					    PCI_DMA_FROMDEVICE);
+ 			memcpy(newskb->data, sd->pg_chunk.va, len);
+-			pci_dma_sync_single_for_device(adap->pdev,
+-					    pci_unmap_addr(sd, dma_addr), len,
+-					    PCI_DMA_FROMDEVICE);
++			pci_dma_sync_single_for_device(adap->pdev, dma_addr,
++						       len,
++						       PCI_DMA_FROMDEVICE);
+ 		} else if (!drop_thres)
+ 			return NULL;
+ recycle:
+@@ -820,16 +865,25 @@ recycle:
+ 	if (unlikely(q->rx_recycle_buf || (!skb && fl->credits <= drop_thres)))
+ 		goto recycle;
+ 
++	prefetch(sd->pg_chunk.p_cnt);
++
+ 	if (!skb)
+ 		newskb = alloc_skb(SGE_RX_PULL_LEN, GFP_ATOMIC);
++
+ 	if (unlikely(!newskb)) {
+ 		if (!drop_thres)
+ 			return NULL;
+ 		goto recycle;
+ 	}
+ 
+-	pci_unmap_single(adap->pdev, pci_unmap_addr(sd, dma_addr),
+-			 fl->buf_size, PCI_DMA_FROMDEVICE);
++	pci_dma_sync_single_for_cpu(adap->pdev, dma_addr, len,
++				    PCI_DMA_FROMDEVICE);
++	(*sd->pg_chunk.p_cnt)--;
++	if (!*sd->pg_chunk.p_cnt)
++		pci_unmap_page(adap->pdev,
++			       pci_unmap_addr(&sd->pg_chunk, mapping),
++			       fl->alloc_size,
++			       PCI_DMA_FROMDEVICE);
+ 	if (!skb) {
+ 		__skb_put(newskb, SGE_RX_PULL_LEN);
+ 		memcpy(newskb->data, sd->pg_chunk.va, SGE_RX_PULL_LEN);
+@@ -1958,8 +2012,8 @@ static void rx_eth(struct adapter *adap, struct sge_rspq *rq,
+ 	skb_pull(skb, sizeof(*p) + pad);
+ 	skb->protocol = eth_type_trans(skb, adap->port[p->iff]);
+ 	pi = netdev_priv(skb->dev);
+-	if ((pi->rx_offload & T3_RX_CSUM) && p->csum_valid && p->csum == htons(0xffff) &&
+-	    !p->fragment) {
++	if ((pi->rx_offload & T3_RX_CSUM) && p->csum_valid &&
++	    p->csum == htons(0xffff) && !p->fragment) {
+ 		qs->port_stats[SGE_PSTAT_RX_CSUM_GOOD]++;
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	} else
+@@ -2034,10 +2088,19 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
+ 	fl->credits--;
+ 
+ 	len -= offset;
+-	pci_unmap_single(adap->pdev, pci_unmap_addr(sd, dma_addr),
+-			 fl->buf_size, PCI_DMA_FROMDEVICE);
++	pci_dma_sync_single_for_cpu(adap->pdev,
++				    pci_unmap_addr(sd, dma_addr),
++				    fl->buf_size - SGE_PG_RSVD,
++				    PCI_DMA_FROMDEVICE);
++
++	(*sd->pg_chunk.p_cnt)--;
++	if (!*sd->pg_chunk.p_cnt)
++		pci_unmap_page(adap->pdev,
++			       pci_unmap_addr(&sd->pg_chunk, mapping),
++			       fl->alloc_size,
++			       PCI_DMA_FROMDEVICE);
+ 
+-	prefetch(&qs->lro_frag_tbl);
++	prefetch(qs->lro_va);
+ 
+ 	rx_frag += nr_frags;
+ 	rx_frag->page = sd->pg_chunk.page;
+@@ -2047,6 +2110,7 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
+ 	qs->lro_frag_tbl.nr_frags++;
+ 	qs->lro_frag_tbl.len = frag_len;
+ 
++
+ 	if (!complete)
+ 		return;
+ 
+@@ -2236,6 +2300,8 @@ no_mem:
+ 			if (fl->use_pages) {
+ 				void *addr = fl->sdesc[fl->cidx].pg_chunk.va;
+ 
++				prefetch(&qs->lro_frag_tbl);
++
+ 				prefetch(addr);
+ #if L1_CACHE_BYTES < 128
+ 				prefetch(addr + L1_CACHE_BYTES);
+@@ -2972,21 +3038,23 @@ int t3_sge_alloc_qset(struct adapter *adapter, unsigned int id, int nports,
+ 	q->fl[1].use_pages = FL1_PG_CHUNK_SIZE > 0;
+ 	q->fl[0].order = FL0_PG_ORDER;
+ 	q->fl[1].order = FL1_PG_ORDER;
++	q->fl[0].alloc_size = FL0_PG_ALLOC_SIZE;
++	q->fl[1].alloc_size = FL1_PG_ALLOC_SIZE;
+ 
+ 	spin_lock_irq(&adapter->sge.reg_lock);
+ 
+ 	/* FL threshold comparison uses < */
+ 	ret = t3_sge_init_rspcntxt(adapter, q->rspq.cntxt_id, irq_vec_idx,
+ 				   q->rspq.phys_addr, q->rspq.size,
+-				   q->fl[0].buf_size, 1, 0);
++				   q->fl[0].buf_size - SGE_PG_RSVD, 1, 0);
+ 	if (ret)
+ 		goto err_unlock;
+ 
+ 	for (i = 0; i < SGE_RXQ_PER_SET; ++i) {
+ 		ret = t3_sge_init_flcntxt(adapter, q->fl[i].cntxt_id, 0,
+ 					  q->fl[i].phys_addr, q->fl[i].size,
+-					  q->fl[i].buf_size, p->cong_thres, 1,
+-					  0);
++					  q->fl[i].buf_size - SGE_PG_RSVD,
++					  p->cong_thres, 1, 0);
+ 		if (ret)
+ 			goto err_unlock;
+ 	}
 
