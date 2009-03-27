@@ -1,61 +1,129 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 10/30] tokenring: convert smctr to net_device_ops
-Date: Thu, 26 Mar 2009 18:11:24 -0700
-Message-ID: <20090327011255.674425030@linux-foundation.org>
+Subject: [patch 11/30] wan: convert sdla driver to net_device_ops
+Date: Thu, 26 Mar 2009 18:11:25 -0700
+Message-ID: <20090327011255.745791643@linux-foundation.org>
 References: <20090327011114.169107105@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:43178 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:43181 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755906AbZC0B0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 21:26:38 -0400
-Content-Disposition: inline; filename=smctr-netdev.patch
+	id S1756140AbZC0B1I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2009 21:27:08 -0400
+Content-Disposition: inline; filename=sdla-netdev.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Also use internal net_device_stats
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/drivers/net/tokenring/smctr.c	2009-03-26 17:14:05.068620940 -0700
-+++ b/drivers/net/tokenring/smctr.c	2009-03-26 17:14:08.818621219 -0700
-@@ -124,7 +124,6 @@ static unsigned int smctr_get_num_rx_bdb
- static int smctr_get_physical_drop_number(struct net_device *dev);
- static __u8 *smctr_get_rx_pointer(struct net_device *dev, short queue);
- static int smctr_get_station_id(struct net_device *dev);
--static struct net_device_stats *smctr_get_stats(struct net_device *dev);
- static FCBlock *smctr_get_tx_fcb(struct net_device *dev, __u16 queue,
-         __u16 bytes_count);
- static int smctr_get_upstream_neighbor_addr(struct net_device *dev);
-@@ -3633,6 +3632,14 @@ out:
- 	return ERR_PTR(err);
- }
+--- a/drivers/net/wan/sdla.c	2009-03-21 12:37:00.000000000 -0700
++++ b/drivers/net/wan/sdla.c	2009-03-26 15:40:26.996589787 -0700
+@@ -714,19 +714,19 @@ static int sdla_transmit(struct sk_buff 
+ 		switch (ret)
+ 		{
+ 			case SDLA_RET_OK:
+-				flp->stats.tx_packets++;
++				dev->stats.tx_packets++;
+ 				ret = DLCI_RET_OK;
+ 				break;
  
-+static const struct net_device_ops smctr_netdev_ops = {
-+	.ndo_open          = smctr_open,
-+	.ndo_stop          = smctr_close,
-+	.ndo_start_xmit    = smctr_send_packet,
-+	.ndo_tx_timeout	   = smctr_timeout,
-+	.ndo_get_stats     = smctr_get_stats,
-+	.ndo_set_multicast_list = smctr_set_multicast_list,
+ 			case SDLA_RET_CIR_OVERFLOW:
+ 			case SDLA_RET_BUF_OVERSIZE:
+ 			case SDLA_RET_NO_BUFS:
+-				flp->stats.tx_dropped++;
++				dev->stats.tx_dropped++;
+ 				ret = DLCI_RET_DROP;
+ 				break;
+ 
+ 			default:
+-				flp->stats.tx_errors++;
++				dev->stats.tx_errors++;
+ 				ret = DLCI_RET_ERR;
+ 				break;
+ 		}
+@@ -807,7 +807,7 @@ static void sdla_receive(struct net_devi
+ 		if (i == CONFIG_DLCI_MAX)
+ 		{
+ 			printk(KERN_NOTICE "%s: Received packet from invalid DLCI %i, ignoring.", dev->name, dlci);
+-			flp->stats.rx_errors++;
++			dev->stats.rx_errors++;
+ 			success = 0;
+ 		}
+ 	}
+@@ -819,7 +819,7 @@ static void sdla_receive(struct net_devi
+ 		if (skb == NULL) 
+ 		{
+ 			printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n", dev->name);
+-			flp->stats.rx_dropped++; 
++			dev->stats.rx_dropped++;
+ 			success = 0;
+ 		}
+ 		else
+@@ -859,7 +859,7 @@ static void sdla_receive(struct net_devi
+ 
+ 	if (success)
+ 	{
+-		flp->stats.rx_packets++;
++		dev->stats.rx_packets++;
+ 		dlp = netdev_priv(master);
+ 		(*dlp->receive)(skb, master);
+ 	}
+@@ -1590,13 +1590,14 @@ fail:
+ 	return err;
+ }
+  
+-static struct net_device_stats *sdla_stats(struct net_device *dev)
+-{
+-	struct frad_local *flp;
+-	flp = netdev_priv(dev);
+-
+-	return(&flp->stats);
+-}
++static const struct net_device_ops sdla_netdev_ops = {
++	.ndo_open	= sdla_open,
++	.ndo_stop	= sdla_close,
++	.ndo_do_ioctl	= sdla_ioctl,
++	.ndo_set_config	= sdla_set_config,
++	.ndo_start_xmit	= sdla_transmit,
++	.ndo_change_mtu	= sdla_change_mtu,
 +};
  
- static int __init smctr_probe1(struct net_device *dev, int ioaddr)
+ static void setup_sdla(struct net_device *dev)
  {
-@@ -3683,13 +3690,8 @@ static int __init smctr_probe1(struct ne
-                 (unsigned int)dev->base_addr,
-                 dev->irq, tp->rom_base, tp->ram_base);
+@@ -1604,20 +1605,13 @@ static void setup_sdla(struct net_device
  
--        dev->open               = smctr_open;
--        dev->stop               = smctr_close;
--        dev->hard_start_xmit    = smctr_send_packet;
--        dev->tx_timeout		= smctr_timeout;
-+	dev->netdev_ops = &smctr_netdev_ops;
-         dev->watchdog_timeo	= HZ;
--        dev->get_stats          = smctr_get_stats;
--        dev->set_multicast_list = &smctr_set_multicast_list;
-         return (0);
+ 	netdev_boot_setup_check(dev);
  
- out:
++	dev->netdev_ops		= &sdla_netdev_ops;
+ 	dev->flags		= 0;
+ 	dev->type		= 0xFFFF;
+ 	dev->hard_header_len	= 0;
+ 	dev->addr_len		= 0;
+ 	dev->mtu		= SDLA_MAX_MTU;
+ 
+-	dev->open		= sdla_open;
+-	dev->stop		= sdla_close;
+-	dev->do_ioctl		= sdla_ioctl;
+-	dev->set_config		= sdla_set_config;
+-	dev->get_stats		= sdla_stats;
+-	dev->hard_start_xmit	= sdla_transmit;
+-	dev->change_mtu		= sdla_change_mtu;
+-
+ 	flp->activate		= sdla_activate;
+ 	flp->deactivate		= sdla_deactivate;
+ 	flp->assoc		= sdla_assoc;
+--- a/include/linux/if_frad.h	2009-03-21 12:37:09.000000000 -0700
++++ b/include/linux/if_frad.h	2009-03-26 15:37:38.067344521 -0700
+@@ -153,7 +153,6 @@ struct frhdr
+ 
+ struct dlci_local
+ {
+-   struct net_device_stats stats;
+    struct net_device      *master;
+    struct net_device      *slave;
+    struct dlci_conf       config;
 
 
