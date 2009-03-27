@@ -1,31 +1,44 @@
-From: Tobacco News Centre <feetfirst@winch.twcbc.com>
-Subject: **Winning Notification**
-Date: Fri, 27 Mar 2009 10:28:37 -0500
-Message-ID: <7h9gbp$cklo2k@rrcs-agw-01b.hrndva.rr.com>
-Reply-To: agtpauladams01@btinternet.com
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] Fix "error: implicit declaration of function
+	'page_address'"
+Date: Fri, 27 Mar 2009 18:53:27 +0300
+Message-ID: <20090327155327.GA14867@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-To: <info@org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-commlb.mail.rr.com ([71.74.57.8]:33253 "EHLO
-	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752425AbZC0P2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 11:28:39 -0400
-Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
-          by hrndva-comm-mta02.mail.rr.com with ESMTP
-          id <20090327152837.CCGH1615.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
-          for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 15:28:37 +0000
+Received: from fg-out-1718.google.com ([72.14.220.154]:14094 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752587AbZC0PqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 11:46:05 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so3407fgg.17
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 08:46:02 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have been award for a grant prize of 1,000,000 GBP on the on going Global award Tobacco Promo, get back via
+As seen on mips:
 
-Names:............
-Address:..............
-Country:.................
-Age:..........
-Sex:..............
-Phone/cellphone........
+In file included from include/net/sock.h:50,
+                 from security/selinux/avc.c:25:
+include/linux/netdevice.h: In function 'skb_gro_mac_header':
+include/linux/netdevice.h:1132: error: implicit declaration of function 'page_address'
+include/linux/netdevice.h:1133: warning: pointer/integer type mismatch in conditional expression
 
-Mrs Caroline Bryan
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+ include/linux/netdevice.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -32,6 +32,7 @@
+ #ifdef __KERNEL__
+ #include <linux/timer.h>
+ #include <linux/delay.h>
++#include <linux/mm.h>
+ #include <asm/atomic.h>
+ #include <asm/cache.h>
+ #include <asm/byteorder.h>
