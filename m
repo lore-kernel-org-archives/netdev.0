@@ -1,119 +1,20 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] IRDA: donauboe: fix build
-Date: Thu, 26 Mar 2009 18:18:04 -0700
-Message-ID: <20090326181804.02c06f51@nehalam>
-References: <20090327010227.GA2676@orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: Alexander Beregalov <a.beregalov@gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [patch 00/30] last of the x86 net_device_ops
+Date: Thu, 26 Mar 2009 18:11:14 -0700
+Message-ID: <20090327011114.169107105@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51424 "EHLO mail.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:39784 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934477AbZC0BSM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 21:18:12 -0400
-In-Reply-To: <20090327010227.GA2676@orion>
+	id S1754618AbZC0BTz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2009 21:19:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Mar 2009 04:02:27 +0300
-Alexander Beregalov <a.beregalov@gmail.com> wrote:
+This sequence of patches makes all network drivers in net-next
+build on 32bit using net_device_ops. 
+Ie. allmodconfig and !CONFIG_COMPAT_NET_DEV_OPS
 
-> drivers/net/irda/donauboe.c: In function 'toshoboe_open':
-> drivers/net/irda/donauboe.c:1660: error: 'struct net_device' has no
-> member named 'hard_start_xmit'
-> drivers/net/irda/donauboe.c:1661: error: 'struct net_device' has no
-> member named 'open'
-> drivers/net/irda/donauboe.c:1662: error: 'struct net_device' has no
-> member named 'stop'
-> drivers/net/irda/donauboe.c:1663: error: 'struct net_device' has no
-> member named 'do_ioctl'
-> 
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
-> ---
-> 
->  drivers/net/irda/donauboe.c |   15 +++++++++++----
->  1 files changed, 11 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
-> index 6f3e7f7..847fa22 100644
-> --- a/drivers/net/irda/donauboe.c
-> +++ b/drivers/net/irda/donauboe.c
-> @@ -970,7 +970,7 @@ toshoboe_probe (struct toshoboe_cb *self)
->  /* Netdev style code */
->  
->  /* Transmit something */
-> -static int
-> +int
->  toshoboe_hard_xmit (struct sk_buff *skb, struct net_device *dev)
->  {
->    struct toshoboe_cb *self;
-> @@ -1145,6 +1145,7 @@ dumpbufs(skb->data,skb->len,'>');
->  
->    return 0;
->  }
-> +EXPORT_SYMBOL(toshoboe_hard_xmit);
->  
->  /*interrupt handler */
->  static irqreturn_t
-> @@ -1336,7 +1337,7 @@ dumpbufs(self->rx_bufs[self->rxs],len,'<');
->  }
->  
->  
-> -static int
-> +int
->  toshoboe_net_open (struct net_device *dev)
->  {
->    struct toshoboe_cb *self;
-> @@ -1375,8 +1376,9 @@ toshoboe_net_open (struct net_device *dev)
->  
->    return 0;
->  }
-> +EXPORT_SYMBOL(toshoboe_net_open);
->  
-> -static int
-> +int
->  toshoboe_net_close (struct net_device *dev)
->  {
->    struct toshoboe_cb *self;
-> @@ -1405,6 +1407,7 @@ toshoboe_net_close (struct net_device *dev)
->  
->    return 0;
->  }
-> +EXPORT_SYMBOL(toshoboe_net_close);
->  
->  /*
->   * Function toshoboe_net_ioctl (dev, rq, cmd)
-> @@ -1412,7 +1415,7 @@ toshoboe_net_close (struct net_device *dev)
->   *    Process IOCTL commands for this device
->   *
->   */
-> -static int
-> +int
->  toshoboe_net_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
->  {
->    struct if_irda_req *irq = (struct if_irda_req *) rq;
-> @@ -1473,6 +1476,7 @@ out:
->    return ret;
->  
->  }
-> +EXPORT_SYMBOL(toshoboe_net_ioctl);
->  
->  MODULE_DESCRIPTION("Toshiba OBOE IrDA Device Driver");
->  MODULE_AUTHOR("James McKenzie <james@fishsoup.dhs.org>");
-> @@ -1657,10 +1661,13 @@ toshoboe_open (struct pci_dev *pci_dev, const struct pci_device_id *pdid)
->  #endif
->  
->    SET_NETDEV_DEV(dev, &pci_dev->dev);
-> +
-> +#ifdef CONFIG_COMPAT_NET_DEV_OPS
->    dev->hard_start_xmit = toshoboe_hard_xmit;
->    dev->open = toshoboe_net_open;
->    dev->stop = toshoboe_net_close;
->    dev->do_ioctl = toshoboe_net_ioctl;
-> +#endif
 
-NAKC, device needs to be convert to net_device_ops for real
-or it won't work.
+
