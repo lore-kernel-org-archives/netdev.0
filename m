@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: Plug sk_buff leak in ipv6_rcv (net/ipv6/ip6_input.c)
-Date: Fri, 27 Mar 2009 00:18:30 -0700 (PDT)
-Message-ID: <20090327.001830.126379447.davem@davemloft.net>
-References: <20090326123853.GW31562@axis.com>
+Subject: Re: [patch] xfrm: spin_lock() should be spin_unlock() in
+ xfrm_state.c
+Date: Fri, 27 Mar 2009 00:24:13 -0700 (PDT)
+Message-ID: <20090327.002413.94445791.davem@davemloft.net>
+References: <20090326185845.2c5719b4@dhcp-100-2-144.bos.redhat.com>
+	<20090327011654.GA24848@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mikael.starvik@axis.com
-To: jesper.nilsson@axis.com
+Cc: cebbert@redhat.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44208
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33134
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750964AbZC0HSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:18:42 -0400
-In-Reply-To: <20090326123853.GW31562@axis.com>
+	by vger.kernel.org with ESMTP id S1751020AbZC0HYZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 03:24:25 -0400
+In-Reply-To: <20090327011654.GA24848@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Date: Thu, 26 Mar 2009 13:38:53 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 27 Mar 2009 09:16:54 +0800
 
-> Commit 778d80be52699596bf70e0eb0761cf5e1e46088d
-> (ipv6: Add disable_ipv6 sysctl to disable IPv6 operaion on specific interface)
-> seems to have introduced a leak of sk_buff's for ipv6 traffic,
-> at least in some configurations where idev is NULL, or when ipv6
-> is disabled via sysctl.
+> On Thu, Mar 26, 2009 at 06:58:45PM -0400, Chuck Ebbert wrote:
+> > xfrm: spin_lock() should be spin_unlock() in xfrm_state.c
+> > 
+> > spin_lock() should be spin_unlock() in xfrm_state_walk_done().
+> > 
+> > caused by:
+> > commit 12a169e7d8f4b1c95252d8b04ed0f1033ed7cfe2
+> > "ipsec: Put dumpers on the dump list"
+> > 
+> > Reported-by: Marc Milgram <mmilgram@redhat.com>
+> > Signed-off-by: Chuck Ebbert <cebbert@redhat.com>
  ...
-> Signed-off-by: Jesper Nilsson <jesper.nilsson@axis.com>
+> Good catch!
 
-Applied and queued up for -stable, thanks!
+Applied and queued to -stable.
+
+I can't believe nobody hit this in all of this time :-)
