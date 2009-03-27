@@ -1,7 +1,8 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH 4/6] lsm: Remove the socket_post_accept() hook
-Date: Fri, 27 Mar 2009 17:10:48 -0400
-Message-ID: <20090327211048.17777.42267.stgit@flek.lan>
+Subject: [PATCH 6/6] smack: Add a new '-CIPSO' option to the network address
+	label configuration
+Date: Fri, 27 Mar 2009 17:11:01 -0400
+Message-ID: <20090327211101.17777.7763.stgit@flek.lan>
 References: <20090327205520.17777.32557.stgit@flek.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,115 +15,235 @@ In-Reply-To: <20090327205520.17777.32557.stgit@flek.lan>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The socket_post_accept() hook is not currently used by any in-tree modules
-and its existence continues to cause problems by confusing people about
-what can be safely accomplished using this hook.  If a legitimate need for
-this hook arises in the future it can always be reintroduced.
+From: Etienne Basset <etienne.basset@numericable.fr>
 
+This patch adds a new special option '-CIPSO' to the Smack subsystem. When used
+in the netlabel list, it means "use CIPSO networking". A use case is when your
+local network speaks CIPSO and you want also to connect to the unlabeled
+Internet. This patch also add some documentation describing that. The patch
+also corrects an oops when setting a '' SMACK64 xattr to a file.
+
+Signed-off-by: Etienne Basset <etienne.basset@numericable.fr>
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
 
- include/linux/security.h |   13 -------------
- net/socket.c             |    2 --
- security/capability.c    |    5 -----
- security/security.c      |    5 -----
- 4 files changed, 0 insertions(+), 25 deletions(-)
+ Documentation/Smack.txt       |   42 ++++++++++++++++++++++++++++++++++++-----
+ security/smack/smack.h        |    3 +++
+ security/smack/smack_access.c |    3 +++
+ security/smack/smack_lsm.c    |   11 +++++++++--
+ security/smack/smackfs.c      |   38 +++++++++++++++++++++++++++++--------
+ 5 files changed, 82 insertions(+), 15 deletions(-)
 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index 1f2ab63..54ed157 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -880,11 +880,6 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	@sock contains the listening socket structure.
-  *	@newsock contains the newly created server socket for connection.
-  *	Return 0 if permission is granted.
-- * @socket_post_accept:
-- *	This hook allows a security module to copy security
-- *	information into the newly created socket's inode.
-- *	@sock contains the listening socket structure.
-- *	@newsock contains the newly created server socket for connection.
-  * @socket_sendmsg:
-  *	Check permission before transmitting a message to another socket.
-  *	@sock contains the socket structure.
-@@ -1554,8 +1549,6 @@ struct security_operations {
- 			       struct sockaddr *address, int addrlen);
- 	int (*socket_listen) (struct socket *sock, int backlog);
- 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
--	void (*socket_post_accept) (struct socket *sock,
--				    struct socket *newsock);
- 	int (*socket_sendmsg) (struct socket *sock,
- 			       struct msghdr *msg, int size);
- 	int (*socket_recvmsg) (struct socket *sock,
-@@ -2537,7 +2530,6 @@ int security_socket_bind(struct socket *sock, struct sockaddr *address, int addr
- int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
- int security_socket_listen(struct socket *sock, int backlog);
- int security_socket_accept(struct socket *sock, struct socket *newsock);
--void security_socket_post_accept(struct socket *sock, struct socket *newsock);
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
- int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
- 			    int size, int flags);
-@@ -2616,11 +2608,6 @@ static inline int security_socket_accept(struct socket *sock,
- 	return 0;
- }
+diff --git a/Documentation/Smack.txt b/Documentation/Smack.txt
+index 989c2fc..629c92e 100644
+--- a/Documentation/Smack.txt
++++ b/Documentation/Smack.txt
+@@ -184,14 +184,16 @@ length. Single character labels using special characters, that being anything
+ other than a letter or digit, are reserved for use by the Smack development
+ team. Smack labels are unstructured, case sensitive, and the only operation
+ ever performed on them is comparison for equality. Smack labels cannot
+-contain unprintable characters or the "/" (slash) character.
++contain unprintable characters or the "/" (slash) character. Smack labels
++cannot begin with a '-', which is reserved for special options.
  
--static inline void security_socket_post_accept(struct socket *sock,
--					       struct socket *newsock)
--{
--}
--
- static inline int security_socket_sendmsg(struct socket *sock,
- 					  struct msghdr *msg, int size)
+ There are some predefined labels:
+ 
+-	_ Pronounced "floor", a single underscore character.
+-	^ Pronounced "hat", a single circumflex character.
+-	* Pronounced "star", a single asterisk character.
+-	? Pronounced "huh", a single question mark character.
++	_ 	Pronounced "floor", a single underscore character.
++	^ 	Pronounced "hat", a single circumflex character.
++	* 	Pronounced "star", a single asterisk character.
++	? 	Pronounced "huh", a single question mark character.
++	@ 	Pronounced "Internet", a single at sign character.
+ 
+ Every task on a Smack system is assigned a label. System tasks, such as
+ init(8) and systems daemons, are run with the floor ("_") label. User tasks
+@@ -412,6 +414,36 @@ sockets.
+ 	A privileged program may set this to match the label of another
+ 	task with which it hopes to communicate.
+ 
++Smack Netlabel Exceptions
++
++You will often find that your labeled application has to talk to the outside,
++unlabeled world. To do this there's a special file /smack/netlabel where you can
++add some exceptions in the form of :
++@IP1	   LABEL1 or
++@IP2/MASK  LABEL2
++
++It means that your application will have unlabeled access to @IP1 if it has
++write access on LABEL1, and access to the subnet @IP2/MASK if it has write
++access on LABEL2.
++
++Entries in the /smack/netlabel file are matched by longest mask first, like in
++classless IPv4 routing.
++
++A special label '@' and an option '-CIPSO' can be used there :
++@      means Internet, any application with any label has access to it
++-CIPSO means standard CIPSO networking
++
++If you don't know what CIPSO is and don't plan to use it, you can just do :
++echo 127.0.0.1 -CIPSO > /smack/netlabel
++echo 0.0.0.0/0 @      > /smack/netlabel
++
++If you use CIPSO on your 192.168.0.0/16 local network and need also unlabeled
++Internet access, you can have :
++echo 127.0.0.1      -CIPSO > /smack/netlabel
++echo 192.168.0.0/16 -CIPSO > /smack/netlabel
++echo 0.0.0.0/0      @      > /smack/netlabel
++
++
+ Writing Applications for Smack
+ 
+ There are three sorts of applications that will run on a Smack system. How an
+diff --git a/security/smack/smack.h b/security/smack/smack.h
+index 5e5a3bc..42ef313 100644
+--- a/security/smack/smack.h
++++ b/security/smack/smack.h
+@@ -132,6 +132,8 @@ struct smack_known {
+ #define XATTR_NAME_SMACKIPIN	XATTR_SECURITY_PREFIX XATTR_SMACK_IPIN
+ #define XATTR_NAME_SMACKIPOUT	XATTR_SECURITY_PREFIX XATTR_SMACK_IPOUT
+ 
++#define SMACK_CIPSO_OPTION 	"-CIPSO"
++
+ /*
+  * How communications on this socket are treated.
+  * Usually it's determined by the underlying netlabel code
+@@ -199,6 +201,7 @@ u32 smack_to_secid(const char *);
+ extern int smack_cipso_direct;
+ extern char *smack_net_ambient;
+ extern char *smack_onlycap;
++extern const char *smack_cipso_option;
+ 
+ extern struct smack_known smack_known_floor;
+ extern struct smack_known smack_known_hat;
+diff --git a/security/smack/smack_access.c b/security/smack/smack_access.c
+index 5856419..ac0a270 100644
+--- a/security/smack/smack_access.c
++++ b/security/smack/smack_access.c
+@@ -261,6 +261,9 @@ char *smk_import(const char *string, int len)
  {
-diff --git a/net/socket.c b/net/socket.c
-index af0205f..5d288d1 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1536,8 +1536,6 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	fd_install(newfd, newfile);
- 	err = newfd;
+ 	struct smack_known *skp;
  
--	security_socket_post_accept(sock, newsock);
--
- out_put:
- 	fput_light(sock->file, fput_needed);
- out:
-diff --git a/security/capability.c b/security/capability.c
-index c545bd1..21b6cea 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -620,10 +620,6 @@ static int cap_socket_accept(struct socket *sock, struct socket *newsock)
- 	return 0;
++	/* labels cannot begin with a '-' */
++	if (string[0] == '-')
++		return NULL;
+ 	skp = smk_import_entry(string, len);
+ 	if (skp == NULL)
+ 		return NULL;
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index 8ed502c..9215149 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -609,6 +609,9 @@ static int smack_inode_setxattr(struct dentry *dentry, const char *name,
+ 	    strcmp(name, XATTR_NAME_SMACKIPOUT) == 0) {
+ 		if (!capable(CAP_MAC_ADMIN))
+ 			rc = -EPERM;
++		/* a label cannot be void and cannot begin with '-' */
++		if (size == 0 || (size > 0 && ((char *)value)[0] == '-'))
++			rc = -EINVAL;
+ 	} else
+ 		rc = cap_inode_setxattr(dentry, name, value, size, flags);
+ 
+@@ -1323,8 +1326,12 @@ static char *smack_host_label(struct sockaddr_in *sip)
+ 		* so we have found the most specific match
+ 		*/
+ 		if ((&snp->smk_host.sin_addr)->s_addr ==
+-		    (siap->s_addr & (&snp->smk_mask)->s_addr))
++		    (siap->s_addr & (&snp->smk_mask)->s_addr)) {
++			/* we have found the special CIPSO option */
++			if (snp->smk_label == smack_cipso_option)
++				return NULL;
+ 			return snp->smk_label;
++		}
+ 
+ 	return NULL;
  }
+@@ -1486,7 +1493,7 @@ static int smack_inode_setsecurity(struct inode *inode, const char *name,
+ 	struct socket *sock;
+ 	int rc = 0;
  
--static void cap_socket_post_accept(struct socket *sock, struct socket *newsock)
--{
--}
--
- static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
- {
- 	return 0;
-@@ -1014,7 +1010,6 @@ void security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, socket_connect);
- 	set_to_cap_if_null(ops, socket_listen);
- 	set_to_cap_if_null(ops, socket_accept);
--	set_to_cap_if_null(ops, socket_post_accept);
- 	set_to_cap_if_null(ops, socket_sendmsg);
- 	set_to_cap_if_null(ops, socket_recvmsg);
- 	set_to_cap_if_null(ops, socket_getsockname);
-diff --git a/security/security.c b/security/security.c
-index c3586c0..206e538 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1007,11 +1007,6 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
- 	return security_ops->socket_accept(sock, newsock);
- }
+-	if (value == NULL || size > SMK_LABELLEN)
++	if (value == NULL || size > SMK_LABELLEN || size == 0)
+ 		return -EACCES;
  
--void security_socket_post_accept(struct socket *sock, struct socket *newsock)
--{
--	security_ops->socket_post_accept(sock, newsock);
--}
+ 	sp = smk_import(value, size);
+diff --git a/security/smack/smackfs.c b/security/smack/smackfs.c
+index 856c8a2..e03a7e1 100644
+--- a/security/smack/smackfs.c
++++ b/security/smack/smackfs.c
+@@ -86,6 +86,9 @@ LIST_HEAD(smack_rule_list);
+ 
+ static int smk_cipso_doi_value = SMACK_CIPSO_DOI_DEFAULT;
+ 
++const char *smack_cipso_option = SMACK_CIPSO_OPTION;
++
++
+ #define	SEQ_READ_FINISHED	1
+ 
+ /*
+@@ -565,6 +568,11 @@ static ssize_t smk_write_cipso(struct file *file, const char __user *buf,
+ 		goto unlockedout;
+ 	}
+ 
++	/* labels cannot begin with a '-' */
++	if (data[0] == '-') {
++		rc = -EINVAL;
++		goto unlockedout;
++	}
+ 	data[count] = '\0';
+ 	rule = data;
+ 	/*
+@@ -808,9 +816,18 @@ static ssize_t smk_write_netlbladdr(struct file *file, const char __user *buf,
+ 	if (m > BEBITS)
+ 		return -EINVAL;
+ 
+-	sp = smk_import(smack, 0);
+-	if (sp == NULL)
+-		return -EINVAL;
++	/* if smack begins with '-', its an option, don't import it */
++	if (smack[0] != '-') {
++		sp = smk_import(smack, 0);
++		if (sp == NULL)
++			return -EINVAL;
++	} else {
++		/* check known options */
++		if (strcmp(smack, smack_cipso_option) == 0)
++			sp = (char *)smack_cipso_option;
++		else
++			return -EINVAL;
++	}
+ 
+ 	for (temp_mask = 0; m > 0; m--) {
+ 		temp_mask |= mask_bits;
+@@ -849,18 +866,23 @@ static ssize_t smk_write_netlbladdr(struct file *file, const char __user *buf,
+ 			smk_netlbladdr_insert(skp);
+ 		}
+ 	} else {
+-		rc = netlbl_cfg_unlbl_static_del(&init_net, NULL,
+-			&skp->smk_host.sin_addr, &skp->smk_mask,
+-			PF_INET, &audit_info);
++		/* we delete the unlabeled entry, only if the previous label
++		 * wasnt the special CIPSO option */
++		if (skp->smk_label != smack_cipso_option)
++			rc = netlbl_cfg_unlbl_static_del(&init_net, NULL,
++					&skp->smk_host.sin_addr, &skp->smk_mask,
++					PF_INET, &audit_info);
++		else
++			rc = 0;
+ 		skp->smk_label = sp;
+ 	}
+ 
+ 	/*
+ 	 * Now tell netlabel about the single label nature of
+ 	 * this host so that incoming packets get labeled.
++	 * but only if we didn't get the special CIPSO option
+ 	 */
 -
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
- {
- 	return security_ops->socket_sendmsg(sock, msg, size);
+-	if (rc == 0)
++	if (rc == 0 && sp != smack_cipso_option)
+ 		rc = netlbl_cfg_unlbl_static_add(&init_net, NULL,
+ 			&skp->smk_host.sin_addr, &skp->smk_mask, PF_INET,
+ 			smack_to_secid(skp->smk_label), &audit_info);
 
