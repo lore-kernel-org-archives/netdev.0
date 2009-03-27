@@ -1,7 +1,7 @@
 From: Ramkrishna Vepa <ram.vepa@neterion.com>
 Subject: [net-2.6 PATCH 1/9] Neterion: Driver help file
-Date: 27 Mar 2009 14:54:10 -0800
-Message-ID: <1238194448.5516.375.camel@flash>
+Date: 27 Mar 2009 14:54:08 -0800
+Message-ID: <1238194447.5516.374.camel@flash>
 Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,10 +10,10 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	Ramkrishna Vepa <ram.vepa@neterion.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:35505 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:35500 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753042AbZC0WJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 18:09:51 -0400
+	with ESMTP id S1751582AbZC0WJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 18:09:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
