@@ -1,63 +1,62 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Sat, 28 Mar 2009 01:05:09 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [net-2.6 PATCH 1/9] Neterion: Driver help file
+Date: Fri, 27 Mar 2009 19:09:24 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77051BEB23@nekter>
+References: <1238194447.5516.374.camel@flash> <20090327.154628.195613387.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55373 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752052AbZC0XFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 19:05:13 -0400
-In-Reply-To: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
+Received: from mx.neterion.com ([72.1.205.142]:58509 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755157AbZC0XJ1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 19:09:27 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20090327.154628.195613387.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Mar 2009, Markus Trippelsdorf wrote:
+> I'm not apply any of this patch set.
+> 
+> > +4) Performance Suggestions:
+> > +---------------------------
+> > +
+> > +- Set MTU to maximum - 9000 for switch setup, 9600 for
+back-to-back.
+> > +For MTU 1500:
+> > +-------------
+> > +### IPV4 specific settings
+> > +# turns TCP timestamp support off, default 1, reduces CPU use
+> > +$sysctl -w net.ipv4.tcp_timestamps = "0"
+> 
+> You have got to be kidding me.
+> 
+> I see this garbage in the "tuning suggestions" sections of
+> various manuals of proprietary products for Linux.
+> 
+> But there is no way I'm letting this junk slip into Linux proper too.
+> 
+> All of these suggestions are ill founded, have side effects that are
+> not even passively mentioned in these "suggestions", and are even
+> dangerous.
+> 
+> Do you even know the security implications of turning off TCP
+timestamps?
+> Do you know or even feel the need to mention the performance
+implications
+> over long haul networks of turning timestamps off?
+[Ram] I should have removed this suggestion. We usually suggest that
+timestamps (and SACKs) be left enabled. We'll remove this section. Is it
+ok I resend just this patch instead of the whole series?
 
-> I'm running the latest git kernel (2.6.29-03321-gbe0ea69) and I've got
-> this warning twice in the last few hours.:
+> 
+> If the default sysctl parameters are not correct, let's fix them
+instead
+> of telling every user how to break their system with "tweaks".
+[Ram] I'll send some suggestions for the sysctl parameters in a separate
+thread.
 
-What did you run previously?
-
-> Mar 27 21:37:00 [kernel] ------------[ cut here ]------------
-> Mar 27 21:37:00 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-
-This one may or may not be a new one... Starting from the point when the 
-warning was added it has been seen and some of those miscounts got tracked 
-down but there is still something remaining (and that has been the state 
-for couple of version already). It seems to require some particularly hard 
-to reproduce network behavior people usually hit once in a lifetime. 
-However, those miscount alone should not cause crashes, stalled TCP at 
-worst but even that is quite unlikely to happen if fackets_out was not 
-counted right.
-
-> The machine hangs afterwards.
-
-Is it really related to the warning for sure? I find it hard to 
-believe...
-
-We even fixed that miscount for you when the warning was printed out (and 
-the miscount alone wouldn't be able to cause crash anyway). Obviously 
-there could something that got broken but reading through all post 2.6.29 
-tcp material doesn't reveal anything particularly suspicious or even 
-tricky... Only one thing that is remotely related to the warning that gets 
-printed out is d3d2ae454501a4dec360995649e1b002a2ad90c5 but even that has 
-very strong foundation as it does not have any potential to introduce 
-stale references, rest of the effects would be just stalled tcp connection 
-at worst.
-
-Please add some debugging things, at least lockdep (CONFIG_PROVE_LOCKING) 
-and soft lockup detector (CONFIG_DETECT_SOFTLOCKUP) to find out if we can 
-get some info about the actual place of hang, some other debug things 
-might also end up being useful.
-
-Thanks for the report.
-
--- 
- i.
+Ram
