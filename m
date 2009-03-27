@@ -1,15 +1,18 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH 1/2] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Fri, 27 Mar 2009 18:50:09 +0800
-Message-ID: <2a27d3730903270350m52fcb837ge78c0b87cc3887d5@mail.gmail.com>
-References: <1238072077-27044-1-git-send-email-Joakim.Tjernlund@transmode.se>
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
+Date: Fri, 27 Mar 2009 12:39:55 +0100
+Message-ID: <OFB3E8CC54.5F056769-ONC1257586.003FF190-C1257586.00401420@transmode.se>
+References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	
+	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
+	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
+	<2a27d3730903270339l44ccb55fo9079402104afc458@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, pku.leo@gmail.com, netdev@vger.kernel.org
+To: Li Yang <leoli@freescale.com>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1238072077-27044-1-git-send-email-Joakim.Tjernlund@transmode.se>
+In-Reply-To: <2a27d3730903270339l44ccb55fo9079402104afc458@mail.gmail.com>
 List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
 	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
@@ -21,83 +24,34 @@ Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBNYXIgMjYsIDIwMDkgYXQgODo1NCBQTSwgSm9ha2ltIFRqZXJubHVuZAo8Sm9ha2lt
-LlRqZXJubHVuZEB0cmFuc21vZGUuc2U+IHdyb3RlOgo+IEFsc28gc2V0IE5BUEkgd2VpZ2h0IHRv
-IDY0IGFzIHRoaXMgaXMgYSBjb21tb24gdmFsdWUuCj4gVGhpcyB3aWxsIG1ha2UgdGhlIHN5c3Rl
-bSBhbG90IG1vcmUgcmVzcG9uc2l2ZSB3aGlsZQo+IHBpbmcgZmxvb2RpbmcgdGhlIHVjY19nZXRo
-IGV0aGVybmV0IGludGVyYWZhY2UuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKb2FraW0gVGplcm5sdW5k
-IDxKb2FraW0uVGplcm5sdW5kQHRyYW5zbW9kZS5zZT4KPiAtLS0KPiDCoGRyaXZlcnMvbmV0L3Vj
-Y19nZXRoLmMgfCDCoCAzMiArKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLQo+IMKgZHJp
-dmVycy9uZXQvdWNjX2dldGguaCB8IMKgIMKgMSAtCj4gwqAyIGZpbGVzIGNoYW5nZWQsIDEyIGlu
-c2VydGlvbnMoKyksIDIxIGRlbGV0aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3VjY19nZXRoLmMgYi9kcml2ZXJzL25ldC91Y2NfZ2V0aC5jCj4gaW5kZXggMDk3YWVkOC4uN2Zj
-OTFhYSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC91Y2NfZ2V0aC5jCj4gKysrIGIvZHJpdmVy
-cy9uZXQvdWNjX2dldGguYwo+IEBAIC0zMjE0LDcgKzMyMTQsNyBAQCBzdGF0aWMgaW50IHVjY19n
-ZXRoX3R4KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHU4IHR4USkKPiDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoGRldi0+c3RhdHMudHhfcGFja2V0cysrOwo+Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAvKiBGcmVlIHRoZSBzayBidWZmZXIgYXNzb2NpYXRlZCB3aXRoIHRoaXMgVHhCRCAqLwo+IC0g
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgZGV2X2tmcmVlX3NrYl9pcnEodWdldGgtPgo+ICsgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgZGV2X2tmcmVlX3NrYih1Z2V0aC0+Cj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB0eF9za2J1ZmZbdHhRXVt1Z2V0aC0+c2ti
-X2RpcnR5dHhbdHhRXV0pOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdWdldGgtPnR4X3NrYnVm
-Zlt0eFFdW3VnZXRoLT5za2JfZGlydHl0eFt0eFFdXSA9IE5VTEw7Cj4gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqB1Z2V0aC0+c2tiX2RpcnR5dHhbdHhRXSA9Cj4gQEAgLTMyNDgsOSArMzI0OCwxNiBA
-QCBzdGF0aWMgaW50IHVjY19nZXRoX3BvbGwoc3RydWN0IG5hcGlfc3RydWN0ICpuYXBpLCBpbnQg
-YnVkZ2V0KQo+IMKgIMKgIMKgIMKgZm9yIChpID0gMDsgaSA8IHVnX2luZm8tPm51bVF1ZXVlc1J4
-OyBpKyspCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBob3dtYW55ICs9IHVjY19nZXRoX3J4KHVn
-ZXRoLCBpLCBidWRnZXQgLSBob3dtYW55KTsKPgo+ICsgwqAgwqAgwqAgLyogVHggZXZlbnQgcHJv
-Y2Vzc2luZyAqLwo+ICsgwqAgwqAgwqAgc3Bpbl9sb2NrKCZ1Z2V0aC0+bG9jayk7Cj4gKyDCoCDC
-oCDCoCBmb3IgKGkgPSAwOyBpIDwgdWdfaW5mby0+bnVtUXVldWVzVHg7IGkrKykgewo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgdWNjX2dldGhfdHgodWdldGgtPmRldiwgaSk7Cj4gKyDCoCDCoCDC
-oCB9Cj4gKyDCoCDCoCDCoCBzcGluX3VubG9jaygmdWdldGgtPmxvY2spOwo+ICsKPiDCoCDCoCDC
-oCDCoGlmIChob3dtYW55IDwgYnVkZ2V0KSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBuZXRp
-Zl9yeF9jb21wbGV0ZShuYXBpKTsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHNldGJpdHMzMih1
-Z2V0aC0+dWNjZi0+cF91Y2NtLCBVQ0NFX1JYX0VWRU5UUyk7Cj4gKyDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCBzZXRiaXRzMzIodWdldGgtPnVjY2YtPnBfdWNjbSwgVUNDRV9SWF9FVkVOVFMgfCBVQ0NF
-X1RYX0VWRU5UUyk7Cj4gwqAgwqAgwqAgwqB9Cj4KPiDCoCDCoCDCoCDCoHJldHVybiBob3dtYW55
-Owo+IEBAIC0zMjY0LDggKzMyNzEsNiBAQCBzdGF0aWMgaXJxcmV0dXJuX3QgdWNjX2dldGhfaXJx
-X2hhbmRsZXIoaW50IGlycSwgdm9pZCAqaW5mbykKPiDCoCDCoCDCoCDCoHN0cnVjdCB1Y2NfZ2V0
-aF9pbmZvICp1Z19pbmZvOwo+IMKgIMKgIMKgIMKgcmVnaXN0ZXIgdTMyIHVjY2U7Cj4gwqAgwqAg
-wqAgwqByZWdpc3RlciB1MzIgdWNjbTsKPiAtIMKgIMKgIMKgIHJlZ2lzdGVyIHUzMiB0eF9tYXNr
-Owo+IC0gwqAgwqAgwqAgdTggaTsKPgo+IMKgIMKgIMKgIMKgdWdldGhfdmRiZygiJXM6IElOIiwg
-X19mdW5jX18pOwo+Cj4gQEAgLTMyNzksMjcgKzMyODQsMTQgQEAgc3RhdGljIGlycXJldHVybl90
-IHVjY19nZXRoX2lycV9oYW5kbGVyKGludCBpcnEsIHZvaWQgKmluZm8pCj4gwqAgwqAgwqAgwqBv
-dXRfYmUzMih1Y2NmLT5wX3VjY2UsIHVjY2UpOwo+Cj4gwqAgwqAgwqAgwqAvKiBjaGVjayBmb3Ig
-cmVjZWl2ZSBldmVudHMgdGhhdCByZXF1aXJlIHByb2Nlc3NpbmcgKi8KPiAtIMKgIMKgIMKgIGlm
-ICh1Y2NlICYgVUNDRV9SWF9FVkVOVFMpIHsKPiArIMKgIMKgIMKgIGlmICh1Y2NlICYgKFVDQ0Vf
-UlhfRVZFTlRTIHwgVUNDRV9UWF9FVkVOVFMpKSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBp
-ZiAobmV0aWZfcnhfc2NoZWR1bGVfcHJlcCgmdWdldGgtPm5hcGkpKSB7Cj4gLSDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1Y2NtICY9IH5VQ0NFX1JYX0VWRU5UUzsKPiArIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHVjY20gJj0gfihVQ0NFX1JYX0VWRU5UUyB8IFVD
-Q0VfVFhfRVZFTlRTKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG91dF9i
-ZTMyKHVjY2YtPnBfdWNjbSwgdWNjbSk7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqBfX25ldGlmX3J4X3NjaGVkdWxlKCZ1Z2V0aC0+bmFwaSk7Cj4gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqB9Cj4gwqAgwqAgwqAgwqB9Cj4KPiAtIMKgIMKgIMKgIC8qIFR4IGV2ZW50IHByb2Nl
-c3NpbmcgKi8KPiAtIMKgIMKgIMKgIGlmICh1Y2NlICYgVUNDRV9UWF9FVkVOVFMpIHsKPiAtIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIHNwaW5fbG9jaygmdWdldGgtPmxvY2spOwo+IC0gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgdHhfbWFzayA9IFVDQ19HRVRIX1VDQ0VfVFhCMDsKPiAtIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIGZvciAoaSA9IDA7IGkgPCB1Z19pbmZvLT5udW1RdWV1ZXNUeDsgaSsrKSB7Cj4g
-LSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAodWNjZSAmIHR4X21hc2spCj4g
-LSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1Y2NfZ2V0aF90
-eChkZXYsIGkpOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdWNjZSAmPSB+
-dHhfbWFzazsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHR4X21hc2sgPDw9
-IDE7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBz
-cGluX3VubG9jaygmdWdldGgtPmxvY2spOwo+IC0gwqAgwqAgwqAgfQo+IC0KPiDCoCDCoCDCoCDC
-oC8qIEVycm9ycyBhbmQgb3RoZXIgZXZlbnRzICovCj4gwqAgwqAgwqAgwqBpZiAodWNjZSAmIFVD
-Q0VfT1RIRVIpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGlmICh1Y2NlICYgVUNDX0dFVEhf
-VUNDRV9CU1kpCj4gQEAgLTM3MzMsNyArMzcyNSw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfcHJv
-YmUoc3RydWN0IG9mX2RldmljZSogb2ZkZXYsIGNvbnN0IHN0cnVjdCBvZl9kZXZpY2VfaWQgKm1h
-Cj4gwqAgwqAgwqAgwqBkZXYtPm5ldGRldl9vcHMgPSAmdWNjX2dldGhfbmV0ZGV2X29wczsKPiDC
-oCDCoCDCoCDCoGRldi0+d2F0Y2hkb2dfdGltZW8gPSBUWF9USU1FT1VUOwo+IMKgIMKgIMKgIMKg
-SU5JVF9XT1JLKCZ1Z2V0aC0+dGltZW91dF93b3JrLCB1Y2NfZ2V0aF90aW1lb3V0X3dvcmspOwo+
-IC0gwqAgwqAgwqAgbmV0aWZfbmFwaV9hZGQoZGV2LCAmdWdldGgtPm5hcGksIHVjY19nZXRoX3Bv
-bGwsIFVDQ19HRVRIX0RFVl9XRUlHSFQpOwo+ICsgwqAgwqAgwqAgbmV0aWZfbmFwaV9hZGQoZGV2
-LCAmdWdldGgtPm5hcGksIHVjY19nZXRoX3BvbGwsIDY0KTsKCkl0IGRvZXNuJ3QgbWFrZSBzZW5z
-ZSB0byBoYXZlIGxhcmdlciBuYXBpIGJ1ZGdldCB0aGFuIHRoZSBzaXplIG9mIFJYCkJEIHJpbmcu
-ICBZb3UgY2FuJ3QgaGF2ZSBtb3JlIEJEcyB0aGFuIFJYX0JEX1JJTkdfTEVOIGluIGJhY2tsb2cg
-Zm9yCm5hcGlfcG9sbCB0byBwcm9jZXNzLiAgSW5jcmVhc2UgdGhlIFJYX0JEX1JJTkdfTEVOIGlm
-IHlvdSB3YW50IHRvCmluY3JlYXNlIFVDQ19HRVRIX0RFVl9XRUlHSFQuICBIb3dldmVyIHBsZWFz
-ZSBhbHNvIHByb3ZpZGUgdGhlCnBlcmZvcm1hbmNlIGNvbXBhcmlzb24gZm9yIHRoaXMga2luZCBv
-ZiBjaGFuZ2UuICBUaGFua3MKCi0gTGVvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QG96
-bGFicy5vcmcKaHR0cHM6Ly9vemxhYnMub3JnL21haWxtYW4vbGlzdGluZm8vbGludXhwcGMtZGV2
+pku.leo@gmail.com wrote on 27/03/2009 11:39:07:
+> On Fri, Mar 27, 2009 at 6:23 PM, Joakim Tjernlund
+> >> > -               /* We freed a buffer, so now we can restart
+> > transmission */
+> >> > -               if (netif_queue_stopped(dev))
+> >> > -                       netif_wake_queue(dev);
+> >> > +               dev_kfree_skb(ugeth->tx_skbuff[txQ][tx_ind]);
+> >> > +               ugeth->tx_skbuff[txQ][tx_ind] = NULL;
+> >> > +               out_be32(bd2buf(bd), 0); /* Mark it free */
+> >>
+> >> Now I see why you depend on the buffer to judge if the BD ring is
+> >> full.  If you want to do this, make sure it's well documented in 
+code,
+> >> or others will be confused.  And as Anton already commented, in/out
+> >> access is slow.  I think the original way can be fixed if you think
+> >> it's broken, and will have better performance.
+> >
+> > The code could use a better comment, but I really think this method
+> > is superior and more robust. The problem is that in/out functions is
+> > much slower than it has to be for QE IO memory.
+> >
+> > The original way is broken and I tired to fix it but it always broke
+> > as soon one applied some load.
+> 
+> The only difference I see between your method and the original code is
+> that you update the cleanup progress on every BD.  The original code
+> updates progress only after all sent BDs are processed.  You can try
+> move ugeth->confBd[txQ] = bd; into the loop then it will be the same
+> as your proposed code.
+
+Already tried that+lots of other combinatios. Doesn't work
