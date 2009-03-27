@@ -1,64 +1,56 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 29/30] netdev: convert cs89x0 to net_device_ops
-Date: Thu, 26 Mar 2009 18:11:43 -0700
-Message-ID: <20090327011257.031146206@linux-foundation.org>
+Subject: [patch 30/30] netdev: convert eth16i to net_device_ops
+Date: Thu, 26 Mar 2009 18:11:44 -0700
+Message-ID: <20090327011257.104894196@linux-foundation.org>
 References: <20090327011114.169107105@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:46973 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:46976 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754034AbZC0Bgm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2009 21:36:42 -0400
-Content-Disposition: inline; filename=cs89x0.patch
+	id S1763401AbZC0BhM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2009 21:37:12 -0400
+Content-Disposition: inline; filename=eth16i.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Also, get rid of unnecessary memset.
+
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/cs89x0.c	2009-03-26 17:33:56.530589221 -0700
-+++ b/drivers/net/cs89x0.c	2009-03-26 17:41:12.972344319 -0700
-@@ -501,6 +501,21 @@ static void net_poll_controller(struct n
+--- a/drivers/net/eth16i.c	2009-03-21 12:36:56.000000000 -0700
++++ b/drivers/net/eth16i.c	2009-03-26 17:38:41.176599608 -0700
+@@ -475,6 +475,17 @@ out:
  }
  #endif
  
-+static const struct net_device_ops net_ops = {
-+	.ndo_open		= net_open,
-+	.ndo_stop		= net_close,
-+	.ndo_tx_timeout		= net_timeout,
-+	.ndo_start_xmit 	= net_send_packet,
-+	.ndo_get_stats		= net_get_stats,
-+	.ndo_set_multicast_list = set_multicast_list,
-+	.ndo_set_mac_address 	= set_mac_address,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= net_poll_controller,
-+#endif
++static const struct net_device_ops eth16i_netdev_ops = {
++	.ndo_open               = eth16i_open,
++	.ndo_stop               = eth16i_close,
++	.ndo_start_xmit    	= eth16i_tx,
++	.ndo_set_multicast_list = eth16i_multicast,
++	.ndo_tx_timeout 	= eth16i_timeout,
 +	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_set_mac_address 	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
- /* This is the real probe routine.  Linux has a history of friendly device
-    probes on the ISA bus.  A good device probes avoids doing writes, and
-    verifies that the correct device exists and functions.
-@@ -843,17 +858,8 @@ cs89x0_probe1(struct net_device *dev, in
- 	/* print the ethernet address. */
- 	printk(", MAC %pM", dev->dev_addr);
+ static int __init eth16i_probe1(struct net_device *dev, int ioaddr)
+ {
+ 	struct eth16i_local *lp = netdev_priv(dev);
+@@ -549,12 +560,7 @@ static int __init eth16i_probe1(struct n
+ 	BITCLR(ioaddr + CONFIG_REG_1, POWERUP);
  
--	dev->open		= net_open;
--	dev->stop		= net_close;
--	dev->tx_timeout		= net_timeout;
--	dev->watchdog_timeo	= HZ;
--	dev->hard_start_xmit 	= net_send_packet;
--	dev->get_stats		= net_get_stats;
--	dev->set_multicast_list = set_multicast_list;
--	dev->set_mac_address 	= set_mac_address;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller	= net_poll_controller;
--#endif
-+	dev->netdev_ops	= &net_ops;
-+	dev->watchdog_timeo = HZ;
+ 	/* Initialize the device structure */
+-	memset(lp, 0, sizeof(struct eth16i_local));
+-	dev->open               = eth16i_open;
+-	dev->stop               = eth16i_close;
+-	dev->hard_start_xmit    = eth16i_tx;
+-	dev->set_multicast_list = eth16i_multicast;
+-	dev->tx_timeout 	= eth16i_timeout;
++	dev->netdev_ops         = &eth16i_netdev_ops;
+ 	dev->watchdog_timeo	= TX_TIMEOUT;
+ 	spin_lock_init(&lp->lock);
  
- 	printk("\n");
- 	if (net_debug)
 
 
