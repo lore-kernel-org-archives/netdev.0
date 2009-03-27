@@ -1,89 +1,54 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: GRO with non napi driver: BUG in __napi_complete
-Date: Fri, 27 Mar 2009 12:05:30 -0700
-Message-ID: <65634d660903271205v2c82469en6d71e08077202900@mail.gmail.com>
-References: <49BF60C9.1080100@linux.vnet.ibm.com>
-	 <20090317102244.GB23396@gondor.apana.org.au>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH] RDMA/nes: Fix mis-merge
+Date: Fri, 27 Mar 2009 12:16:25 -0700
+Message-ID: <ada4oxeu67q.fsf_-_@cisco.com>
+References: <20090326.020714.36421849.davem@davemloft.net>
+	<20090326.152515.43533230.davem@davemloft.net>
+	<alpine.LFD.2.00.0903261555290.3032@localhost.localdomain>
+	<adahc1fuarm.fsf_-_@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:19075 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbZC0TFn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 15:05:43 -0400
-Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
-	by smtp-out.google.com with ESMTP id n2RJ5boO032606
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 19:05:38 GMT
-Received: from qw-out-2122.google.com (qwe3.prod.google.com [10.241.194.3])
-	by wpaz1.hot.corp.google.com with ESMTP id n2RJ5Z3j029332
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 12:05:35 -0700
-Received: by qw-out-2122.google.com with SMTP id 3so892988qwe.17
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 12:05:35 -0700 (PDT)
-In-Reply-To: <20090317102244.GB23396@gondor.apana.org.au>
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:30867 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753360AbZC0TQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 15:16:27 -0400
+In-Reply-To: <adahc1fuarm.fsf_-_@cisco.com> (Roland Dreier's message of "Thu,
+	26 Mar 2009 16:25:49 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On the legacy netif_rx path, I incorrectly tried to optimise
->
-> the napi_complete call by using __napi_complete before we reenable
-> IRQs. =A0This simply doesn't work since we need to flush the held
-> GRO packets first.
->
-> This patch fixes it by doing the obvious thing of reenabling
-> IRQs first and then calling napi_complete.
+When net-next and infiniband were merged upstream, each branch deleted
+one of a pair of adjacent lines from nes_nic.c, but when Linus fixed the
+conflict up, he brought back both of the lines.  Fix up to the intended
+final tree state.
 
-Does this fix generate a race condition for a non-NAPI device?=A0 If
-netif_rx runs immediately after local_irq_enable it would queue a
-packet on the backlog queue and try to schedule napi (the latter has
-no effect because napi has not completed).=A0 On return from interrupt,
-napi_complete is done leaving a packet in the input queue but napi is
-not scheduled to process it.
+Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+---
+Resending because this seems to have gotten dropped (probably because I
+forgot my s-o-b the first time around); in the meantime I have tested
+the iw_nes driver with this patch applied and it works (at least enough
+to run some light traffic)
 
-Thanks,
-Tom
+ drivers/infiniband/hw/nes/nes_nic.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
->
-> Reported-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index f112970..2565f6d 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2588,9 +2588,9 @@ static int process_backlog(struct napi_struct *=
-napi, int quota)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0local_irq_disable();
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb =3D __skb_dequeue(&queue->input_pk=
-t_queue);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (!skb) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 __napi_complete(napi);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0local_irq_enable();
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 napi_complete(napi);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0local_irq_enable();
->
-> @@ -2599,6 +2599,7 @@ static int process_backlog(struct napi_struct *=
-napi, int quota)
->
-> =A0 =A0 =A0 =A0napi_gro_flush(napi);
->
-> +out:
-> =A0 =A0 =A0 =A0return work;
-> =A0}
->
-> Thanks,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index 8d3e4c6..ecb1f6f 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -1602,8 +1602,6 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
+ 	netif_napi_add(netdev, &nesvnic->napi, nes_netdev_poll, 128);
+ 	nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.\n");
+ 	netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	netdev->vlan_rx_register = nes_netdev_vlan_rx_register;
+-	netdev->features |= NETIF_F_LLTX;
+ 
+ 	/* Fill in the port structure */
+ 	nesvnic->netdev = netdev;
