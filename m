@@ -1,7 +1,8 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2.6.30 1/5] cxgb3: start qset timers when setup succeeded
-Date: Thu, 26 Mar 2009 19:39:09 -0700
-Message-ID: <20090327023909.32137.93884.stgit@speedy5>
+Subject: [PATCH 2.6.30 2/5] cxgb3: sge setup fixes
+Date: Thu, 26 Mar 2009 19:39:14 -0700
+Message-ID: <20090327023914.32137.29655.stgit@speedy5>
+References: <20090327023909.32137.93884.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,103 +10,118 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:31274 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:31288 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753973AbZC0CjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 22:39:12 -0400
+	with ESMTP id S1755724AbZC0CjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2009 22:39:17 -0400
+In-Reply-To: <20090327023909.32137.93884.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Start queue set reclaim timers after the queue sets have been
-allocated successfully.
+Enable timestamps, update delayed ack threshold for iSCSI/iWARP traffic
+Remove the len flag in Tx requests. It might corrupt offload trace packets.
+Update SGE context setup to avoid potential H/W misprogrammation.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/adapter.h    |    1 +
- drivers/net/cxgb3/cxgb3_main.c |    3 ++-
- drivers/net/cxgb3/sge.c        |   24 +++++++++++++++++++++---
- 3 files changed, 24 insertions(+), 4 deletions(-)
+ drivers/net/cxgb3/sge.c   |    2 +-
+ drivers/net/cxgb3/t3_hw.c |   45 ++++++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
-index 71eaa43..2cf6c92 100644
---- a/drivers/net/cxgb3/adapter.h
-+++ b/drivers/net/cxgb3/adapter.h
-@@ -291,6 +291,7 @@ void t3_os_link_fault_handler(struct adapter *adapter, int port_id);
- 
- void t3_sge_start(struct adapter *adap);
- void t3_sge_stop(struct adapter *adap);
-+void t3_start_sge_timers(struct adapter *adap);
- void t3_stop_sge_timers(struct adapter *adap);
- void t3_free_sge_resources(struct adapter *adap);
- void t3_sge_err_intr_handler(struct adapter *adapter);
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-old mode 100644
-new mode 100755
-index d8be896..8ad5f32
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -602,7 +602,6 @@ static int setup_sge_qsets(struct adapter *adap)
- 				&adap->params.sge.qset[qset_idx], ntxq, dev,
- 				netdev_get_tx_queue(dev, j));
- 			if (err) {
--				t3_stop_sge_timers(adap);
- 				t3_free_sge_resources(adap);
- 				return err;
- 			}
-@@ -1046,6 +1045,8 @@ static int cxgb_up(struct adapter *adap)
- 		setup_rss(adap);
- 		if (!(adap->flags & NAPI_INIT))
- 			init_napi(adap);
-+
-+		t3_start_sge_timers(adap);
- 		adap->flags |= FULL_INIT_DONE;
- 	}
- 
 diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-old mode 100644
-new mode 100755
-index a7555cb..fcd1a4f
+index fcd1a4f..54667f0 100755
 --- a/drivers/net/cxgb3/sge.c
 +++ b/drivers/net/cxgb3/sge.c
-@@ -3044,9 +3044,6 @@ int t3_sge_alloc_qset(struct adapter *adapter, unsigned int id, int nports,
- 	t3_write_reg(adapter, A_SG_GTS, V_RSPQ(q->rspq.cntxt_id) |
- 		     V_NEWTIMER(q->rspq.holdoff_tmr));
+@@ -1089,7 +1089,7 @@ static void write_tx_pkt_wr(struct adapter *adap, struct sk_buff *skb,
+ 	struct tx_desc *d = &q->desc[pidx];
+ 	struct cpl_tx_pkt *cpl = (struct cpl_tx_pkt *)d;
  
--	mod_timer(&q->tx_reclaim_timer, jiffies + TX_RECLAIM_PERIOD);
--	mod_timer(&q->rx_reclaim_timer, jiffies + RX_RECLAIM_PERIOD);
--
- 	return 0;
+-	cpl->len = htonl(skb->len | 0x80000000);
++	cpl->len = htonl(skb->len);
+ 	cntrl = V_TXPKT_INTF(pi->port_id);
  
- err_unlock:
-@@ -3057,6 +3054,27 @@ err:
+ 	if (vlan_tx_tag_present(skb) && pi->vlan_grp)
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+old mode 100644
+new mode 100755
+index ff262a0..7d8fbae
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -2128,16 +2128,40 @@ void t3_port_intr_clear(struct adapter *adapter, int idx)
+ static int t3_sge_write_context(struct adapter *adapter, unsigned int id,
+ 				unsigned int type)
+ {
+-	t3_write_reg(adapter, A_SG_CONTEXT_MASK0, 0xffffffff);
+-	t3_write_reg(adapter, A_SG_CONTEXT_MASK1, 0xffffffff);
+-	t3_write_reg(adapter, A_SG_CONTEXT_MASK2, 0xffffffff);
+-	t3_write_reg(adapter, A_SG_CONTEXT_MASK3, 0xffffffff);
++	if (type == F_RESPONSEQ) {
++		/*
++		 * Can't write the Response Queue Context bits for
++		 * Interrupt Armed or the Reserve bits after the chip
++		 * has been initialized out of reset.  Writing to these
++		 * bits can confuse the hardware.
++		 */
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK0, 0xffffffff);
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK1, 0xffffffff);
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK2, 0x17ffffff);
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK3, 0xffffffff);
++	} else {
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK0, 0xffffffff);
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK1, 0xffffffff);
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK2, 0xffffffff);
++		t3_write_reg(adapter, A_SG_CONTEXT_MASK3, 0xffffffff);
++	}
+ 	t3_write_reg(adapter, A_SG_CONTEXT_CMD,
+ 		     V_CONTEXT_CMD_OPCODE(1) | type | V_CONTEXT(id));
+ 	return t3_wait_op_done(adapter, A_SG_CONTEXT_CMD, F_CONTEXT_CMD_BUSY,
+ 			       0, SG_CONTEXT_CMD_ATTEMPTS, 1);
+ }
+ 
++/**
++ *	clear_sge_ctxt - completely clear an SGE context
++ *	@adapter: the adapter
++ *	@id: the context id
++ *	@type: the context type
++ *
++ *	Completely clear an SGE context.  Used predominantly at post-reset
++ *	initialization.  Note in particular that we don't skip writing to any
++ *	"sensitive bits" in the contexts the way that t3_sge_write_context()
++ *	does ...
++ */
+ static int clear_sge_ctxt(struct adapter *adap, unsigned int id,
+ 			  unsigned int type)
+ {
+@@ -2145,7 +2169,14 @@ static int clear_sge_ctxt(struct adapter *adap, unsigned int id,
+ 	t3_write_reg(adap, A_SG_CONTEXT_DATA1, 0);
+ 	t3_write_reg(adap, A_SG_CONTEXT_DATA2, 0);
+ 	t3_write_reg(adap, A_SG_CONTEXT_DATA3, 0);
+-	return t3_sge_write_context(adap, id, type);
++	t3_write_reg(adap, A_SG_CONTEXT_MASK0, 0xffffffff);
++	t3_write_reg(adap, A_SG_CONTEXT_MASK1, 0xffffffff);
++	t3_write_reg(adap, A_SG_CONTEXT_MASK2, 0xffffffff);
++	t3_write_reg(adap, A_SG_CONTEXT_MASK3, 0xffffffff);
++	t3_write_reg(adap, A_SG_CONTEXT_CMD,
++		     V_CONTEXT_CMD_OPCODE(1) | type | V_CONTEXT(id));
++	return t3_wait_op_done(adap, A_SG_CONTEXT_CMD, F_CONTEXT_CMD_BUSY,
++			       0, SG_CONTEXT_CMD_ATTEMPTS, 1);
  }
  
  /**
-+ *      t3_start_sge_timers - start SGE timer call backs
-+ *      @adap: the adapter
-+ *
-+ *      Starts each SGE queue set's timer call back
-+ */
-+void t3_start_sge_timers(struct adapter *adap)
-+{
-+	int i;
-+
-+	for (i = 0; i < SGE_QSETS; ++i) {
-+		struct sge_qset *q = &adap->sge.qs[i];
-+
-+	if (q->tx_reclaim_timer.function)
-+		mod_timer(&q->tx_reclaim_timer, jiffies + TX_RECLAIM_PERIOD);
-+
-+	if (q->rx_reclaim_timer.function)
-+		mod_timer(&q->rx_reclaim_timer, jiffies + RX_RECLAIM_PERIOD);
-+	}
-+}
-+
-+/**
-  *	t3_stop_sge_timers - stop SGE timer call backs
-  *	@adap: the adapter
-  *
+@@ -2729,10 +2760,10 @@ static void tp_config(struct adapter *adap, const struct tp_params *p)
+ 		     F_TCPCHECKSUMOFFLOAD | V_IPTTL(64));
+ 	t3_write_reg(adap, A_TP_TCP_OPTIONS, V_MTUDEFAULT(576) |
+ 		     F_MTUENABLE | V_WINDOWSCALEMODE(1) |
+-		     V_TIMESTAMPSMODE(0) | V_SACKMODE(1) | V_SACKRX(1));
++		     V_TIMESTAMPSMODE(1) | V_SACKMODE(1) | V_SACKRX(1));
+ 	t3_write_reg(adap, A_TP_DACK_CONFIG, V_AUTOSTATE3(1) |
+ 		     V_AUTOSTATE2(1) | V_AUTOSTATE1(0) |
+-		     V_BYTETHRESHOLD(16384) | V_MSSTHRESHOLD(2) |
++		     V_BYTETHRESHOLD(26880) | V_MSSTHRESHOLD(2) |
+ 		     F_AUTOCAREFUL | F_AUTOENABLE | V_DACK_MODE(1));
+ 	t3_set_reg_field(adap, A_TP_IN_CONFIG, F_RXFBARBPRIO | F_TXFBARBPRIO,
+ 			 F_IPV6ENABLE | F_NICMODE);
 
