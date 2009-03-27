@@ -1,54 +1,133 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [PATCH] RDMA/nes: Fix mis-merge
-Date: Fri, 27 Mar 2009 12:16:25 -0700
-Message-ID: <ada4oxeu67q.fsf_-_@cisco.com>
-References: <20090326.020714.36421849.davem@davemloft.net>
-	<20090326.152515.43533230.davem@davemloft.net>
-	<alpine.LFD.2.00.0903261555290.3032@localhost.localdomain>
-	<adahc1fuarm.fsf_-_@cisco.com>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: niu driver - Transmit timed out - 2.6.29
+Date: Fri, 27 Mar 2009 20:31:34 +0100
+Message-ID: <49CD2996.60502@krogh.cc>
+References: <49CB78A4.3020406@krogh.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:30867 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753360AbZC0TQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 15:16:27 -0400
-In-Reply-To: <adahc1fuarm.fsf_-_@cisco.com> (Roland Dreier's message of "Thu,
-	26 Mar 2009 16:25:49 -0700")
+Received: from 2605ds1-ynoe.1.fullrate.dk ([90.184.12.24]:49850 "EHLO
+	shrek.krogh.cc" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751215AbZC0Tbs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2009 15:31:48 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by shrek.krogh.cc (Postfix) with ESMTP id F34013BF58D
+	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 20:31:45 +0100 (CET)
+Received: from shrek.krogh.cc ([127.0.0.1])
+	by localhost (shrek.krogh.cc [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id xuVBFN8yTjlZ for <netdev@vger.kernel.org>;
+	Fri, 27 Mar 2009 20:31:33 +0100 (CET)
+Received: from [192.168.1.4] (unknown [90.184.13.46])
+	by shrek.krogh.cc (Postfix) with ESMTP id 592AC3BF441
+	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 20:31:33 +0100 (CET)
+In-Reply-To: <49CB78A4.3020406@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When net-next and infiniband were merged upstream, each branch deleted
-one of a pair of adjacent lines from nes_nic.c, but when Linus fixed the
-conflict up, he brought back both of the lines.  Fix up to the intended
-final tree state.
+Jesper Krogh wrote:
+> Ok. I was just so happy .. (See "Status update on Sun Neptune 10Gbit 
+> driver earlier).
+> 
+> But then it "blew up" again:
+> 
+> Mar 26 13:25:49 hest kernel: [25335.505049] ------------[ cut here 
+> ]------------
+> Mar 26 13:25:49 hest kernel: [25335.505055] WARNING: at 
+> net/sched/sch_generic.c:226 dev_watchdog+0x1fd/0x210()
+> Mar 26 13:25:49 hest kernel: [25335.505057] Hardware name: Sun Fire 
+> X4600 M2
+> Mar 26 13:25:49 hest kernel: [25335.505059] NETDEV WATCHDOG: eth4 (niu): 
+> transmit timed out
+> Mar 26 13:25:49 hest kernel: [25335.505060] Modules linked in: af_packet 
+> ext4 jbd2 crc16 nfsd exportfs autofs4 nfs lockd auth_rpcgss sunrpc 
+> iptable_filter ip_tables x_tables ib_iser rdma_cm ib_cm iw_cm ib_sa 
+> ib_mad ib_core ib_addr iscsi_tcp libiscsi_tcp libiscsi 
+> scsi_transport_iscsi ipv6 parport_pc lp parport loop sr_mod joydev 
+> psmouse niu usb_storage usbhid i2c_nforce2 libusual hid serio_raw pcspkr 
+> shpchp k8temp pci_hotplug i2c_core button evdev ext3 jbd mbcache 
+> ide_cd_mod cdrom sg sd_mod ata_generic libata mptsas mptspi mptscsih 
+> qla2xxx mptbase scsi_transport_sas scsi_transport_fc ehci_hcd 
+> scsi_transport_spi ohci_hcd e1000 scsi_mod amd74xx usbcore dm_mirror 
+> dm_region_hash dm_log dm_snapshot dm_mod thermal processor fan 
+> thermal_sys fuse
+> Mar 26 13:25:49 hest kernel: [25335.505109] Pid: 0, comm: swapper Not 
+> tainted 2.6.29 #30
+> Mar 26 13:25:49 hest kernel: [25335.505111] Call Trace:
+> Mar 26 13:25:49 hest kernel: [25335.505113]  <IRQ>  [<ffffffff8023d5c2>] 
+> warn_slowpath+0xf2/0x130
+> Mar 26 13:25:49 hest kernel: [25335.505124]  [<ffffffff80239d2d>] 
+> task_tick_fair+0x4d/0xd0
+> Mar 26 13:25:49 hest kernel: [25335.505130]  [<ffffffff80355e33>] 
+> cpumask_next_and+0x23/0x40
+> Mar 26 13:25:49 hest kernel: [25335.505132]  [<ffffffff80233f84>] 
+> find_busiest_group+0x204/0x870
+> Mar 26 13:25:49 hest kernel: [25335.505136]  [<ffffffff8035b65e>] 
+> strlcpy+0x4e/0x80
+> Mar 26 13:25:49 hest kernel: [25335.505138]  [<ffffffff8041f11d>] 
+> dev_watchdog+0x1fd/0x210
+> Mar 26 13:25:49 hest kernel: [25335.505141]  [<ffffffff80235ac5>] 
+> run_rebalance_domains+0x3c5/0x530
+> Mar 26 13:25:49 hest kernel: [25335.505143]  [<ffffffff802474bb>] 
+> run_timer_softirq+0x1bb/0x230
+> Mar 26 13:25:49 hest kernel: [25335.505148]  [<ffffffff802574e1>] 
+> sched_clock_cpu+0x131/0x180
+> Mar 26 13:25:49 hest kernel: [25335.505151]  [<ffffffff80242cdb>] 
+> __do_softirq+0x8b/0x150
+> Mar 26 13:25:49 hest kernel: [25335.505155]  [<ffffffff8020d3bc>] 
+> call_softirq+0x1c/0x30
+> Mar 26 13:25:49 hest kernel: [25335.505157]  [<ffffffff8020e505>] 
+> do_softirq+0x35/0x80
+> Mar 26 13:25:49 hest kernel: [25335.505161]  [<ffffffff8021f715>] 
+> smp_apic_timer_interrupt+0x85/0xd0
+> Mar 26 13:25:49 hest kernel: [25335.505163]  [<ffffffff8020cdf3>] 
+> apic_timer_interrupt+0x13/0x20
+> Mar 26 13:25:49 hest kernel: [25335.505164]  <EOI>  [<ffffffff80212dc7>] 
+> default_idle+0x27/0x40
+> Mar 26 13:25:49 hest kernel: [25335.505169]  [<ffffffff80212fea>] 
+> c1e_idle+0xba/0x100
+> Mar 26 13:25:49 hest kernel: [25335.505171]  [<ffffffff8020ae80>] 
+> cpu_idle+0x40/0x70
+> Mar 26 13:25:49 hest kernel: [25335.505173] ---[ end trace 
+> e6e4f250dc22390d ]---
 
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
----
-Resending because this seems to have gotten dropped (probably because I
-forgot my s-o-b the first time around); in the meantime I have tested
-the iw_nes driver with this patch applied and it works (at least enough
-to run some light traffic)
+There was actually a bit more in the log:
 
- drivers/infiniband/hw/nes/nes_nic.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Mar 26 13:25:49 hest kernel: [25335.505176] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:25:49 hest kernel: [25335.587191] niu 0000:84:00.0: niu: eth4: 
+bits (40000000) of register RXDMA_CFIG1 would not cl
+ear, val[c0000000]
+Mar 26 13:25:49 hest last message repeated 4 times
+Mar 26 13:25:58 hest kernel: [25345.504898] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:08 hest kernel: [25355.504758] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:13 hest kernel: [25360.504687] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:18 hest kernel: [25365.504619] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:23 hest kernel: [25370.504549] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:28 hest kernel: [25375.504479] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:33 hest kernel: [25380.504409] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
+Mar 26 13:26:38 hest kernel: [25385.504340] niu 0000:84:00.0: niu: eth4: 
+Transmit timed out, resetting
 
-diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
-index 8d3e4c6..ecb1f6f 100644
---- a/drivers/infiniband/hw/nes/nes_nic.c
-+++ b/drivers/infiniband/hw/nes/nes_nic.c
-@@ -1602,8 +1602,6 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
- 	netif_napi_add(netdev, &nesvnic->napi, nes_netdev_poll, 128);
- 	nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.\n");
- 	netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--	netdev->vlan_rx_register = nes_netdev_vlan_rx_register;
--	netdev->features |= NETIF_F_LLTX;
- 
- 	/* Fill in the port structure */
- 	nesvnic->netdev = netdev;
+This is probably the interesting part:
+Mar 26 13:25:49 hest kernel: [25335.587191] niu 0000:84:00.0: niu: eth4: 
+bits (40000000) of register RXDMA_CFIG1 would not clear, val[c0000000]
+
+Any suggestions?
+
+Is this perhaps just broken hardware.. or a driver issue?  (I had the 
+Sun nxge driver working for around 180 days on the same card.. so I 
+would assume the hardware is ok).
+
+Jesper
+-- 
+Jesper
+
