@@ -1,18 +1,16 @@
 From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Fri, 27 Mar 2009 12:39:55 +0100
-Message-ID: <OFB3E8CC54.5F056769-ONC1257586.003FF190-C1257586.00401420@transmode.se>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	
-	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
-	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
-	<2a27d3730903270339l44ccb55fo9079402104afc458@mail.gmail.com>
+Subject: Re: [PATCH 1/2] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Fri, 27 Mar 2009 12:52:41 +0100
+Message-ID: <OF073D5C49.F0D791DE-ONC1257586.0040163D-C1257586.00413F47@transmode.se>
+References: <1238072077-27044-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	<2a27d3730903270350m52fcb837ge78c0b87cc3887d5@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: linuxppc-dev@ozlabs.org, pku.leo@gmail.com, netdev@vger.kernel.org
 To: Li Yang <leoli@freescale.com>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <2a27d3730903270339l44ccb55fo9079402104afc458@mail.gmail.com>
+In-Reply-To: <2a27d3730903270350m52fcb837ge78c0b87cc3887d5@mail.gmail.com>
 List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
 	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
@@ -24,34 +22,43 @@ Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-pku.leo@gmail.com wrote on 27/03/2009 11:39:07:
-> On Fri, Mar 27, 2009 at 6:23 PM, Joakim Tjernlund
-> >> > -               /* We freed a buffer, so now we can restart
-> > transmission */
-> >> > -               if (netif_queue_stopped(dev))
-> >> > -                       netif_wake_queue(dev);
-> >> > +               dev_kfree_skb(ugeth->tx_skbuff[txQ][tx_ind]);
-> >> > +               ugeth->tx_skbuff[txQ][tx_ind] = NULL;
-> >> > +               out_be32(bd2buf(bd), 0); /* Mark it free */
-> >>
-> >> Now I see why you depend on the buffer to judge if the BD ring is
-> >> full.  If you want to do this, make sure it's well documented in 
-code,
-> >> or others will be confused.  And as Anton already commented, in/out
-> >> access is slow.  I think the original way can be fixed if you think
-> >> it's broken, and will have better performance.
-> >
-> > The code could use a better comment, but I really think this method
-> > is superior and more robust. The problem is that in/out functions is
-> > much slower than it has to be for QE IO memory.
-> >
-> > The original way is broken and I tired to fix it but it always broke
-> > as soon one applied some load.
+pku.leo@gmail.com wrote on 27/03/2009 11:50:09:
 > 
-> The only difference I see between your method and the original code is
-> that you update the cleanup progress on every BD.  The original code
-> updates progress only after all sent BDs are processed.  You can try
-> move ugeth->confBd[txQ] = bd; into the loop then it will be the same
-> as your proposed code.
+> On Thu, Mar 26, 2009 at 8:54 PM, Joakim Tjernlund
+> <Joakim.Tjernlund@transmode.se> wrote:
+> > Also set NAPI weight to 64 as this is a common value.
+> > This will make the system alot more responsive while
+> > ping flooding the ucc_geth ethernet interaface.
+> >
+> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> > ---
+> >        /* Errors and other events */
+> >        if (ucce & UCCE_OTHER) {
+> >                if (ucce & UCC_GETH_UCCE_BSY)
+> > @@ -3733,7 +3725,7 @@ static int ucc_geth_probe(struct of_device* 
+ofdev, const struct of_device_id *ma
+> >        dev->netdev_ops = &ucc_geth_netdev_ops;
+> >        dev->watchdog_timeo = TX_TIMEOUT;
+> >        INIT_WORK(&ugeth->timeout_work, ucc_geth_timeout_work);
+> > -       netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, 
+UCC_GETH_DEV_WEIGHT);
+> > +       netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, 64);
+> 
+> It doesn't make sense to have larger napi budget than the size of RX
+> BD ring.  You can't have more BDs than RX_BD_RING_LEN in backlog for
+> napi_poll to process.  Increase the RX_BD_RING_LEN if you want to
+> increase UCC_GETH_DEV_WEIGHT.  However please also provide the
+> performance comparison for this kind of change.  Thanks
 
-Already tried that+lots of other combinatios. Doesn't work
+Bring it up with David Miller. After my initial attempt to just increase
+weight somewhat, he requested that I hardcoded it to 64. Just read the 
+whole thread.
+If I don't increase weight somewhat, ping -f -l 3 almost halts the board. 
+Logging
+in takes forever. These are my "performance numbers".
+
+weight theory:
+Before the drivers gets to the end of a full BD ring, new pkgs arrives so 
+that
+even if the DB ring is only 16, the driver wants to process 17 or more 
+pkgs.
