@@ -1,42 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6 being rebased...
-Date: Fri, 27 Mar 2009 15:39:39 -0700 (PDT)
-Message-ID: <20090327.153939.188543326.davem@davemloft.net>
-References: <20090327.151151.203275323.davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 1/9] Neterion: Driver help file
+Date: Fri, 27 Mar 2009 15:46:28 -0700 (PDT)
+Message-ID: <20090327.154628.195613387.davem@davemloft.net>
+References: <1238194447.5516.374.camel@flash>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ram.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59387
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59095
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752239AbZC0Wjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 18:39:52 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id D8DCCC8C1AC
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 15:39:39 -0700 (PDT)
-In-Reply-To: <20090327.151151.203275323.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1753174AbZC0Wqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 18:46:40 -0400
+In-Reply-To: <1238194447.5516.374.camel@flash>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 27 Mar 2009 15:11:51 -0700 (PDT)
+From: Ramkrishna Vepa <ram.vepa@neterion.com>
+Date: 27 Mar 2009 14:54:08 -0800
 
-> 
-> I have to do this to get rid of the ax25/netrom changes from Alan I
-> applied yesterday.
-> 
-> Better to do it now on new trees rather than ones that have been in
-> use and propagated for months, right? :-)
-> 
-> Again, sorry for any inconvenience this may cause.
+I'm not apply any of this patch set.
 
-It actually turned out that I didn't need to rebase, Alan was
-talking about some other older patches he objected to.
+> +4) Performance Suggestions:
+> +---------------------------
+> +
+> +- Set MTU to maximum - 9000 for switch setup, 9600 for back-to-back.
+> +For MTU 1500:
+> +-------------
+> +### IPV4 specific settings
+> +# turns TCP timestamp support off, default 1, reduces CPU use
+> +$sysctl -w net.ipv4.tcp_timestamps = "0"
 
-I blew away the master.kernel.org trees before I figured that out.
+You have got to be kidding me.
 
-However I think I rebuilt them in such a way that you can still
-pull cleanly from them if you had the tree that was there before.
+I see this garbage in the "tuning suggestions" sections of
+various manuals of proprietary products for Linux.
 
-Let me know if there are any problems, sorry for all the confusion.
+But there is no way I'm letting this junk slip into Linux proper too.
+
+All of these suggestions are ill founded, have side effects that are
+not even passively mentioned in these "suggestions", and are even
+dangerous.
+
+Do you even know the security implications of turning off TCP timestamps?
+Do you know or even feel the need to mention the performance implications
+over long haul networks of turning timestamps off?
+
+If the default sysctl parameters are not correct, let's fix them instead
+of telling every user how to break their system with "tweaks".
