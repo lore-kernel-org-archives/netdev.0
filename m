@@ -1,44 +1,31 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] Fix "error: implicit declaration of function
-	'page_address'"
-Date: Fri, 27 Mar 2009 18:53:27 +0300
-Message-ID: <20090327155327.GA14867@x200.localdomain>
+From: Len Brown <lenb@kernel.org>
+Subject: Re: Network Device Naming mechanism and policy
+Date: Fri, 27 Mar 2009 12:06:44 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0903271203140.26419@localhost.localdomain>
+References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
+ <20090324.155756.214460004.davem@davemloft.net>
+ <20090326163955.GA22398@auslistsprd01.us.dell.com>
+ <1238098611.3254.8.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:14094 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587AbZC0PqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 11:46:05 -0400
-Received: by fg-out-1718.google.com with SMTP id 16so3407fgg.17
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2009 08:46:02 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Matt Domsch <Matt_Domsch@dell.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-reply-to: <1238098611.3254.8.camel@localhost.localdomain>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As seen on mips:
 
-In file included from include/net/sock.h:50,
-                 from security/selinux/avc.c:25:
-include/linux/netdevice.h: In function 'skb_gro_mac_header':
-include/linux/netdevice.h:1132: error: implicit declaration of function 'page_address'
-include/linux/netdevice.h:1133: warning: pointer/integer type mismatch in conditional expression
+> > > So, please, put mapping tables into the ACPI or similar
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+ACPI added _PLD (Physical Device Location) back in 3.0, ISTR.
+However, searching my archives, I have yet to see a single instance
+of its use in the field.
 
- include/linux/netdevice.h |    1 +
- 1 file changed, 1 insertion(+)
+ACPI also supplies the slot number stuff, which is exported via 
+the existing pci_slot driver.
 
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -32,6 +32,7 @@
- #ifdef __KERNEL__
- #include <linux/timer.h>
- #include <linux/delay.h>
-+#include <linux/mm.h>
- #include <asm/atomic.h>
- #include <asm/cache.h>
- #include <asm/byteorder.h>
+cheers,
+Len Brown, Intel Open Source Technology Center
