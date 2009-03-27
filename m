@@ -1,61 +1,29 @@
-From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 02/58] move am79c961's probe function to .devinit.text
-Date: Sat, 28 Mar 2009 00:26:23 +0100
-Message-ID: <1238196439-16535-2-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <20090327232153.GA16348@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 1/9] Neterion: Driver help file
+Date: Fri, 27 Mar 2009 16:50:51 -0700 (PDT)
+Message-ID: <20090327.165051.224534700.davem@davemloft.net>
+References: <1238194447.5516.374.camel@flash>
+	<20090327.154628.195613387.davem@davemloft.net>
+	<78C9135A3D2ECE4B8162EBDCE82CAD77051BEB23@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Roel Kluin <12o3l@tiscali.nl>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ramkrishna.Vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:48459 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760343AbZC0X1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 19:27:37 -0400
-In-Reply-To: <20090327232153.GA16348@pengutronix.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35543
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1764922AbZC0XvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 19:51:04 -0400
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77051BEB23@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A pointer to am79c961_probe is passed to the core via
-platform_driver_register and so the function must not disappear when th=
-e
-=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
-unbinding and binding a device to the driver via sysfs will result in a=
-n
-oops as does a device being registered late.
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Date: Fri, 27 Mar 2009 19:09:24 -0400
 
-An alternative to this patch is using platform_driver_probe instead of
-platform_driver_register plus removing the pointer to the probe functio=
-n
-from the struct platform_driver.
+> I should have removed this suggestion. We usually suggest that
+> timestamps (and SACKs) be left enabled. We'll remove this section. Is it
+> ok I resend just this patch instead of the whole series?
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Cc: Roel Kluin <12o3l@tiscali.nl>
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>
-Cc: netdev@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>
----
- drivers/net/arm/am79c961a.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
-index c2d012f..91d6a18 100644
---- a/drivers/net/arm/am79c961a.c
-+++ b/drivers/net/arm/am79c961a.c
-@@ -666,7 +666,7 @@ static void __init am79c961_banner(void)
- 		printk(KERN_INFO "%s", version);
- }
-=20
--static int __init am79c961_probe(struct platform_device *pdev)
-+static int __devinit am79c961_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
- 	struct net_device *dev;
---=20
-1.6.2
-
+Sure, just resent this patch.
