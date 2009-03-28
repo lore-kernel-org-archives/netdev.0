@@ -1,43 +1,53 @@
-From: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Subject: Re: [Fwd: net-tools future]
-Date: Sat, 28 Mar 2009 14:32:00 +0100
-Message-ID: <49CE26D0.5040604@gmail.com>
-References: <49CE22D1.6090109@gmail.com>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
+Date: Sat, 28 Mar 2009 07:56:28 -0600
+Message-ID: <20090328075628.3565eb39@bike.lwn.net>
+References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
+	<Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
+	<20090328045056.GA2394@gentoox2.trippelsdorf.de>
+	<Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
+	<20090328095514.GA2599@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: Ilpo =?ISO-8859-1?B?SuRydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f165.google.com ([209.85.219.165]:65354 "EHLO
-	mail-ew0-f165.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754778AbZC1NcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 09:32:06 -0400
-Received: by ewy9 with SMTP id 9so1425748ewy.37
-        for <netdev@vger.kernel.org>; Sat, 28 Mar 2009 06:32:03 -0700 (PDT)
-In-Reply-To: <49CE22D1.6090109@gmail.com>
+Received: from vena.lwn.net ([206.168.112.25]:58987 "EHLO vena.lwn.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753134AbZC1N4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Mar 2009 09:56:32 -0400
+In-Reply-To: <20090328095514.GA2599@gentoox2.trippelsdorf.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Xose Vazquez Perez wrote:
+On Sat, 28 Mar 2009 10:55:14 +0100
+Markus Trippelsdorf <markus@trippelsdorf.de> wrote:
 
-> -------- Original Message --------
-> Subject: net-tools future
-> Date: Sun, 15 Mar 2009 17:30:18
-> From: Mart=EDn Ferrari <tincho@debian.org>
-> To: debian-devel@@lists.debian.org
->=20
-> Hi,
->=20
-> Luk Claes and me, as the current maintainers of net-tools, we've been
-> thinking about it's future. Net-tools has been a core part of Debian =
-and
-> any other linux based distro for many years, but it's showing its age=
-=2E
+> Yes, you might be right, because running with CONFIG_PROVE_LOCKING and 
+> CONFIG_DETECT_SOFTLOCKUP enabled points to a possible bug in the BKL
+> removal patches (fasync) by Jonathan Corbet. (I wasn't able so far to
+> reproduce the original WARNING.)
+> 
+> Here is one example:
+> 
+> =========================================================
+> [ INFO: possible irq lock inversion dependency detected ]
+> 2.6.29-03321-gbe0ea69 #7
+> ---------------------------------------------------------
+> swapper/0 just changed the state of lock:
+>  (fasync_lock){..+.}, at: [<ffffffff8028a2ac>] kill_fasync+0x24/0x45
+> but this lock took another, hard-irq-unsafe lock in the past:
+>  (&f->f_lock){--..}
 
-net-tools code, links and bugs at Linux-Net-Wiki: http://www.linuxfound=
-ation.org/en/Net
+That's not a bug; f_lock will never be taken in IRQ mode.  There's a
+fix for the warning in linux-next now; my plan is to get it upstream
+before -rc1.
 
+Thanks,
 
---=20
-Polycommander, Erkowit, Urquiola, Andros Patria, Cason, Aegean Sea, Pre=
-stige, ...
+jon
+
+Jonathan Corbet / LWN.net / corbet@lwn.net
