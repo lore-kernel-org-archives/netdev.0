@@ -1,166 +1,52 @@
-From: Ramkrishna Vepa <ram.vepa@neterion.com>
-Subject: [net-2.6 PATCH] Neterion: New Driver: Driver help file - Resubmit
-	#3
-Date: 27 Mar 2009 18:35:30 -0800
-Message-ID: <1238207726.5713.26.camel@flash>
-References: <1238194447.5516.374.camel@flash>
-Reply-To: ram.vepa@neterion.com
+From: Kyle McMartin <kyle@mcmartin.ca>
+Subject: Re: Null dereference in uli526x_rx_packet()
+Date: Fri, 27 Mar 2009 22:47:54 -0400
+Message-ID: <20090328024754.GA16554@bombadil.infradead.org>
+References: <Pine.LNX.4.64.0903270801020.5354@usbsys.site>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: grundler@parisc-linux.org, kyle@mcmartin.ca, netdev@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:37718 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751034AbZC1BvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 21:51:15 -0400
-In-Reply-To: <1238194447.5516.374.camel@flash>
+Received: from bombadil.infradead.org ([18.85.46.34]:55347 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755232AbZC1CsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2009 22:48:00 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0903270801020.5354@usbsys.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- vxge driver help text file.
+On Fri, Mar 27, 2009 at 01:31:36PM +0300, Dan Carpenter wrote:
+> Smatch (http://repo.or.cz/w/smatch.git/) complains about the error 
+> handling in uli526x_rx_packet().
+> 
+> I don't know if the right fix is to return like this patch does or to set 
+> skb = rxptr->rx_skb_ptr again.
+> 
 
-- Changes in this submission -
-  Removed the performnace tuning section with instructions to disable 
-  time stamps and change sysctl settings - Reported by Dave Miller
-  General clean up.
+Ick... that's a good catch. I'll have to think about this.
 
-- Changes in the last submissions -
- - Removed tx/rx_pause, exec_mode, tx_steering_type, rx_steering_type, gro,
-   intr_type, rx & tx max_indicate_pkts and exec_mode loadable parameters. The
-   driver default settings work well in most if not all cases. Another patch
-   to configure these parameters with ethtool will be released in the future -
-   Reported by Stephen Hemminger.
-- Incorporated following fixes based on comments from Ben Hutchings
-	Removed references to earlier kernel versions.
-	Removed sections that are similar for all drivers -
-		Load/Unload
-		Identifying the adapter/interface
-		Boot time configuration
-	Removed loadable parameter -
-		NAPI - Napi is always enabled.
-		rx_steering_type & ring_blocks - The driver default settings
-		work well in most if not all cases. Another patch to configure
-		these parameters with ethtool will be released in the future.
-	Removed ethtool support section - No need to duplicate ethtool
-		docs here.
-	Removed Known Issue on SUSE 9 - Doesn't apply when using a
-		current kernel.
-	Removed Common Problems section - These don't apply to in-tree modules.
-	Removed Available Downloads section - Not sure this belongs in-tree.
-	Removed Copyright information - This notice doesn't belong in
-		the kernel.
-- Incorpored Dave Miller's comment to remove tuning suggestions
+regards, Kyle
 
-Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
-Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
-Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
----
-diff -Nurp org/Documentation/networking/vxge.txt patch_1/Documentation/networking/vxge.txt
---- org/Documentation/networking/vxge.txt	1969-12-31 16:00:00.000000000 -0800
-+++ patch_1/Documentation/networking/vxge.txt	2009-03-27 17:18:22.000000000 -0700
-@@ -0,0 +1,100 @@
-+Neterion's (Formerly S2io) X3100 Series 10GbE PCIe Server Adapter Linux driver
-+==============================================================================
-+
-+Contents
-+--------
-+
-+1) Introduction
-+2) Features supported
-+3) Configurable driver parameters
-+4) Troubleshooting
-+
-+1) Introduction:
-+----------------
-+This Linux driver supports all Neterion's X3100 series 10 GbE PCIe I/O
-+Virtualized Server adapters.
-+The X3100 series supports four modes of operation, configurable via
-+firmware -
-+	Single function mode
-+	Multi function mode
-+	SRIOV mode
-+	MRIOV mode
-+The functions share a 10GbE link and the pci-e bus, but hardly anything else
-+inside the ASIC. Features like independent hw reset, statistics, bandwidth/
-+priority allocation and guarantees, GRO, TSO, interrupt moderation etc are
-+supported independently on each function.
-+
-+(See below for a complete list of features supported for both IPv4 and IPv6)
-+
-+2) Features supported:
-+----------------------
-+
-+i)   Single function mode (up to 17 queues)
-+
-+ii)  Multi function mode (up to 17 functions)
-+
-+iii) PCI-SIG's I/O Virtualization
-+       - Single Root mode: v1.0 (up to 17 functions)
-+       - Multi-Root mode: v1.0 (up to 17 functions)
-+
-+iv)  Jumbo frames
-+       X3100 Series supports MTU up to 9600 bytes, modifiable using
-+       ifconfig command.
-+
-+v)   Offloads supported: (Enabled by default)
-+       Checksum offload (TCP/UDP/IP) on transmit and receive paths
-+       TCP Segmentation Offload (TSO) on transmit path
-+       Generic Receive Offload (GRO) on receive path
-+
-+vi)  MSI-X: (Enabled by default)
-+       Resulting in noticeable performance improvement (up to 7% on certain
-+       platforms).
-+
-+vii) NAPI: (Enabled by default)
-+       For better Rx interrupt moderation.
-+
-+viii)RTH (Receive Traffic Hash): (Enabled by default)
-+       Receive side steering for better scaling.
-+
-+ix)  Statistics
-+       Comprehensive MAC-level and software statistics displayed using
-+       "ethtool -S" option.
-+
-+x)   Multiple hardware queues: (Enabled by default)
-+       Up to 17 hardware based transmit and receive data channels, with
-+       multiple steering options (transmit multiqueue enabled by default).
-+
-+3) Configurable driver parameters:
-+----------------------------------
-+
-+i)  max_config_dev
-+       Specifies maximum device functions to be enabled.
-+       Valid range: 1-8
-+
-+ii) max_config_port
-+       Specifies number of ports to be enabled.
-+       Valid range: 1,2
-+       Default: 1
-+
-+iii)max_config_vpath
-+       Specifies maximum VPATH(s) configured for each device function.
-+       Valid range: 1-17
-+
-+iv) vlan_tag_strip
-+       Enables/disables vlan tag stripping from all received tagged frames that
-+       are not replicated at the internal L2 switch.
-+       Valid range: 0,1 (disabled, enabled respectively)
-+       Default: 1
-+
-+v)  addr_learn_en
-+       Enable learning the mac address of the guest OS interface in
-+       virtualization environment.
-+       Valid range: 0,1 (disabled, enabled respectively)
-+       Default: 0
-+
-+4) Troubleshooting:
-+-------------------
-+
-+To resolve an issue with the source code or X3100 series adapter, please collect
-+the statistics, register dumps using ethool, relevant logs and email them to
-+support@neterion.com.
-
-
-
+> --- orig/drivers/net/tulip/uli526x.c	2009-03-27 07:52:32.000000000 +0300
+> +++ devel/drivers/net/tulip/uli526x.c	2009-03-27 07:57:05.000000000 +0300
+> @@ -844,10 +844,13 @@
+>  
+>  				/* Good packet, send to upper layer */
+>  				/* Shorst packet used new SKB */
+> -				if ( (rxlen < RX_COPY_SIZE) &&
+> -					( (skb = dev_alloc_skb(rxlen + 2) )
+> -					!= NULL) ) {
+> -					/* size less than COPY_SIZE, allocate a rxlen SKB */
+> +				/* size less than COPY_SIZE, allocate a rxlen SKB */
+> +				if (rxlen < RX_COPY_SIZE) {
+> +					skb = dev_alloc_skb(rxlen + 2);
+> +					if (!skb)
+> +						return;
+> +				}
+> +				if (rxlen < RX_COPY_SIZE) {
+>  					skb_reserve(skb, 2); /* 16byte align */
+>  					memcpy(skb_put(skb, rxlen),
+>  					       skb_tail_pointer(rxptr->rx_skb_ptr),
+> 
