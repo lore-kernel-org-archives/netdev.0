@@ -1,61 +1,31 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: linux-next: Tree for March 27 (netfilter build error)
-Date: Sat, 28 Mar 2009 13:28:52 +0300
-Message-ID: <20090328102852.GA7697@localhost>
-References: <20090327231924.4e4168c5.sfr@canb.auug.org.au> <49CD0368.2010805@oracle.com> <20090327.160107.184169637.davem@davemloft.net>
+From: Siemens Online Promo <feetfirst@winch.twcbc.com>
+Subject: Winner.........Siemens Promo
+Date: Sat, 28 Mar 2009 6:16:15 -0500
+Message-ID: <7h9gbp$ckvl3a@rrcs-agw-01b.hrndva.rr.com>
+Reply-To: siemens16@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090327.160107.184169637.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+To: <in@li.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:42378 "EHLO
+	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754961AbZC1LQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 07:16:18 -0400
+Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
+          by hrndva-comm-mta03.mail.rr.com with ESMTP
+          id <20090328111615.ZVAI17816.hrndva-comm-mta03.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          for <netdev@vger.kernel.org>; Sat, 28 Mar 2009 11:16:15 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[David Miller - Fri, Mar 27, 2009 at 04:01:07PM -0700]
-| From: Randy Dunlap <randy.dunlap@oracle.com>
-| Date: Fri, 27 Mar 2009 09:48:40 -0700
-| 
-| > Stephen Rothwell wrote:
-| > > Hi all,
-| > > 
-| > > Changes since 20090326:
-| > 
-| > 
-| > with CONFIG_IPV6=n:
-| > 
-| > ERROR: "__ipv6_addr_type" [net/netfilter/xt_cluster.ko] undefined!
-| > 
-| > config attached.
-| 
-| Patrick and netfilter folks, please have a look, thanks!
-| 
+Your email ID was awarded 750,000,00 GBP in our recent Siemens Promo,Contact this office via:
 
-Pablo, seems like something as inlined below is
-missed? (except I doubt about CONFIG_IPV6_MODULE
-here)
+Name:....
+Country:... 
+Sex:... 
+Age:.....
+Address:...
 
-        Cyrill
----
- net/netfilter/xt_cluster.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-Index: linux-2.6.git/net/netfilter/xt_cluster.c
-===================================================================
---- linux-2.6.git.orig/net/netfilter/xt_cluster.c
-+++ linux-2.6.git/net/netfilter/xt_cluster.c
-@@ -67,8 +67,10 @@ xt_cluster_is_multicast_addr(const struc
- 		is_multicast = ipv4_is_multicast(ip_hdr(skb)->daddr);
- 		break;
- 	case NFPROTO_IPV6:
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 		is_multicast = ipv6_addr_type(&ipv6_hdr(skb)->daddr) &
- 						IPV6_ADDR_MULTICAST;
-+#endif
- 		break;
- 	default:
- 		WARN_ON(1);
+Mrs Debbie John
+(Information Officer)
