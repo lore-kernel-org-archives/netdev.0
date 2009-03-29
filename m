@@ -1,72 +1,78 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: bnx2, 2.6.29, smp_affinity strangeness
-Date: Sun, 29 Mar 2009 03:47:58 +0200
-Message-ID: <200903290447.58338.denys@visp.net.lb>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb_segment() questions
+Date: Sun, 29 Mar 2009 10:07:01 +0800
+Message-ID: <20090329020701.GA9983@gondor.apana.org.au>
+References: <f0ed9b110903041912v6fba381fm4da792d49b1cbb91@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: James Huang <jamesclhuang@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:41839 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080AbZC2Br5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 21:47:57 -0400
-Received: from adminos.visp.net.lb (unknown [195.69.208.252])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: denys@visp.net.lb)
-	by hosting.visp.net.lb (Postfix) with ESMTPSA id 5A9931A4B86
-	for <netdev@vger.kernel.org>; Sun, 29 Mar 2009 04:47:50 +0300 (EEST)
+Received: from rhun.apana.org.au ([64.62.148.172]:48977 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756831AbZC2CHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 22:07:14 -0400
 Content-Disposition: inline
+In-Reply-To: <f0ed9b110903041912v6fba381fm4da792d49b1cbb91@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Wed, Mar 04, 2009 at 07:12:40PM -0800, James Huang wrote:
+>
+> (2) What is the purpose of the this check?
+>=20
+> `    if (pos >=3D offset + len)
+>         continue;
+>=20
+>      If the payload in the head buffer of skb has at least mss bytes,=
+ this
+> check will succeed and no payload in skb=E2=80=99s head buffer will b=
+e copy into
+> nskb
+> through a call to skb_copy_from_linear_data_offset(). Something seems=
+ to be
+> wrong here.
 
-While running bnx2 tried to assign affinity to network card and ... failed.
+Indeed.  This breaks linear packets, which unfortunately older
+versions of tun likes to construct.
 
-Here it is:
-globax2 ~ # cat /proc/interrupts |grep 
-eth1;cat /proc/irq/97/smp_affinity ;sleep 4;cat /proc/interrupts |grep eth1
- 97:    5637762    5637764    5637745    5637674    5637815    5637842    
-5637795    5637839   PCI-MSI-edge      eth1
-10
- 97:    5641756    5641754    5641739    5641669    5641809    5641836    
-5641789    5641833   PCI-MSI-edge      eth1
+gso: Fix support for linear packets
 
-As you see, smp_affinity set to CPU4 (5th CPU if count from 1), but interrupts 
-is still happening on all CPU's.
+When GRO/frag_list support was added to GSO, I made an error
+which broke the support for segmenting linear GSO packets (GSO
+packets are normally non-linear in the payload).
 
-Meanwhile i found more strange things:
+These days most of these packets are constructed by the tun
+driver, which prefers to allocate linear memory if possible.
+This is fixed in the latest kernel, but for 2.6.29 and earlier
+it is still the norm.
 
-I did ifconfig to eth0 up
-in dmesg got 
-[ 4855.804365] bnx2 0000:05:00.0: irq 98 for MSI/MSI-X
-[ 4855.923017] bnx2: eth0: using MSI
+Therefore this bug causes failures with GSO when used with tun
+in 2.6.29.
 
-default_smp_affinity was 0xf (first 4 CPU)
+Reported-by: James Huang <jamesclhuang@gmail.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-and got:
- 98:         66         73         67         67          0          0          
-0          0   PCI-MSI-edge      eth0
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 6acbf9e..ce6356c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2579,7 +2579,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, =
+int features)
+ 					  skb_network_header_len(skb));
+ 		skb_copy_from_linear_data(skb, nskb->data, doffset);
+=20
+-		if (pos >=3D offset + len)
++		if (fskb !=3D skb_shinfo(skb)->frag_list)
+ 			continue;
+=20
+ 		if (!sg) {
 
-but if i try to change smp_affinity while it is running - it wont change 
-anything.
-
-If i bring interface down, i will see strange entry
- 98:         90         90         86         88          0          0          
-0          0      none-<NULL>
-
-Now i have entry in /proc/irq/98/ , so while it is down i change affinity to 
-10. Voila, i bring it up, and affinity working correct.
-
- 98:         90         90         86         88         51          0          
-0          0   PCI-MSI-edge      eth0
- 98:         90         90         86         88        129          0          
-0          0   PCI-MSI-edge      eth0
-
-
-Is it correct that i am able to change IRQ affinity only when interface down?
-On other cards i can change it "on fly".
-
+Thanks,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
