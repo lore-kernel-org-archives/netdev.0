@@ -1,89 +1,70 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 7/10] Staging: rt3070: convert to netdev_ops
-Date: Sun, 29 Mar 2009 19:29:18 +0400
-Message-ID: <20090329152918.GG11056@orion>
+Subject: [PATCH 9/10] Staging: sxg: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:30:46 +0400
+Message-ID: <20090329153046.GI11056@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: gregkh@suse.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f169.google.com ([209.85.218.169]:56629 "EHLO
+Received: from mail-bw0-f169.google.com ([209.85.218.169]:39795 "EHLO
 	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754932AbZC2P3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:29:24 -0400
+	with ESMTP id S1753226AbZC2Paw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:30:52 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also remove unused variable.
+
 
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/staging/rt3070/rt_main_dev.c |   29 +++++++++++++++--------------
- 1 files changed, 15 insertions(+), 14 deletions(-)
+ drivers/staging/sxg/sxg.c |   27 +++++++++++++++++----------
+ 1 files changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/staging/rt3070/rt_main_dev.c b/drivers/staging/rt3070/rt_main_dev.c
-index c000646..81f769c 100644
---- a/drivers/staging/rt3070/rt_main_dev.c
-+++ b/drivers/staging/rt3070/rt_main_dev.c
-@@ -436,7 +436,6 @@ static int rt28xx_init(IN struct net_device *net_dev)
- //    OID_SET_HT_PHYMODE		SetHT;
- //	WPDMA_GLO_CFG_STRUC     GloCfg;
- 	UINT32 		MacCsr0 = 0;
--	UINT32		MacValue = 0;
+diff --git a/drivers/staging/sxg/sxg.c b/drivers/staging/sxg/sxg.c
+index 0050a02..db65f52 100644
+--- a/drivers/staging/sxg/sxg.c
++++ b/drivers/staging/sxg/sxg.c
+@@ -896,6 +896,22 @@ static inline int sxg_read_config(struct adapter_t *adapter)
+ 	return status;
+ }
  
- #ifdef RT2870
- #ifdef INF_AMAZON_SE
-@@ -849,6 +848,20 @@ err:
- 	return (-1);
- } /* End of rt28xx_open */
- 
-+static const struct net_device_ops rt3070_netdev_ops = {
-+	.ndo_open		= MainVirtualIF_open,
-+	.ndo_stop		= MainVirtualIF_close,
-+	.ndo_do_ioctl		= rt28xx_ioctl,
-+	.ndo_get_stats		= RT28xx_get_ether_stats,
-+	.ndo_validate_addr	= NULL,
-+	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+#ifdef IKANOS_VX_1X0
-+	.ndo_start_xmit		= IKANOS_DataFramesTx,
++static const struct net_device_ops sxg_netdev_ops = {
++	.ndo_open		= sxg_entry_open,
++	.ndo_stop		= sxg_entry_halt,
++	.ndo_start_xmit		= sxg_send_packets,
++	.ndo_do_ioctl		= sxg_ioctl,
++	.ndo_change_mtu		= sxg_change_mtu,
++	.ndo_get_stats		= sxg_get_stats,
++	.ndo_set_multicast_list	= sxg_mcast_set_list,
++	.ndo_validate_addr	= eth_validate_addr,
++#if XXXTODO
++	.ndo_set_mac_address	= sxg_mac_set_address,
 +#else
-+	.ndo_start_xmit		= rt28xx_send_packets,
++	.ndo_set_mac_address	= eth_mac_addr,
 +#endif
 +};
++
+ static int sxg_entry_probe(struct pci_dev *pcidev,
+ 			   const struct pci_device_id *pci_tbl_entry)
+ {
+@@ -1095,16 +1111,7 @@ static int sxg_entry_probe(struct pci_dev *pcidev,
  
- /* Must not be called for mdev and apdev */
- static NDIS_STATUS rt_ieee80211_if_setup(struct net_device *dev, PRTMP_ADAPTER pAd)
-@@ -860,12 +873,6 @@ static NDIS_STATUS rt_ieee80211_if_setup(struct net_device *dev, PRTMP_ADAPTER p
- 
- 
- 	//ether_setup(dev);
--	dev->hard_start_xmit = rt28xx_send_packets;
--
--#ifdef IKANOS_VX_1X0
--	dev->hard_start_xmit = IKANOS_DataFramesTx;
--#endif // IKANOS_VX_1X0 //
--
- //	dev->set_multicast_list = ieee80211_set_multicast_list;
- //	dev->change_mtu = ieee80211_change_mtu;
- #ifdef CONFIG_STA_SUPPORT
-@@ -889,16 +896,10 @@ static NDIS_STATUS rt_ieee80211_if_setup(struct net_device *dev, PRTMP_ADAPTER p
- #if WIRELESS_EXT < 21
- 		dev->get_wireless_stats = rt28xx_get_wireless_stats;
- #endif
--	dev->get_stats = RT28xx_get_ether_stats;
--	dev->open = MainVirtualIF_open; //rt28xx_open;
--	dev->stop = MainVirtualIF_close; //rt28xx_close;
- //	dev->uninit = ieee80211_if_reinit;
- //	dev->destructor = ieee80211_if_free;
- 	dev->priv_flags = INT_MAIN;
--	dev->do_ioctl = rt28xx_ioctl;
--#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
--    dev->validate_addr = NULL;
+ 	netdev->base_addr = (unsigned long)adapter->base_addr;
+ 	netdev->irq = adapter->irq;
+-	netdev->open = sxg_entry_open;
+-	netdev->stop = sxg_entry_halt;
+-	netdev->hard_start_xmit = sxg_send_packets;
+-	netdev->do_ioctl = sxg_ioctl;
+-	netdev->change_mtu = sxg_change_mtu;
+-#if XXXTODO
+-	netdev->set_mac_address = sxg_mac_set_address;
 -#endif
-+	dev->netdev_ops = &rt3070_netdev_ops;
- 	// find available device name
- 	for (i = 0; i < 8; i++)
- 	{
+-	netdev->get_stats = sxg_get_stats;
+-	netdev->set_multicast_list = sxg_mcast_set_list;
++	netdev->netdev_ops = &sxg_netdev_ops;
+ 	SET_ETHTOOL_OPS(netdev, &sxg_nic_ethtool_ops);
+  	netdev->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	err = sxg_set_interrupt_capability(adapter);
