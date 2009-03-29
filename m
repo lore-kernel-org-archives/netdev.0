@@ -1,49 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Null dereference in uli526x_rx_packet()
-Date: Sat, 28 Mar 2009 23:59:31 -0700 (PDT)
-Message-ID: <20090328.235931.45430524.davem@davemloft.net>
-References: <20090328024754.GA16554@bombadil.infradead.org>
-	<20090328032332.GA22353@bombadil.infradead.org>
-	<20090329053513.GD19602@colo.lackof.org>
+From: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
+Subject: Re: [Regression in 2.6.29] forcedeth doesn't work after resume from hibernation (was: Re: Resume after hibernation regression in 2.6.29)
+Date: Sun, 29 Mar 2009 09:03:57 +0100
+Message-ID: <200903290903.57911.tvrtko@ursulin.net>
+References: <200903261920.32173.tvrtko@ursulin.net> <200903271255.36429.rjw@sisk.pl> <200903272109.21259.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kyle@mcmartin.ca, netdev@vger.kernel.org, error27@gmail.com
-To: grundler@parisc-linux.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41057
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752434AbZC2G7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:59:43 -0400
-In-Reply-To: <20090329053513.GD19602@colo.lackof.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pavel Machek <pavel@ucw.cz>, linux-pm@lists.linux-foundation.org,
+	kernel list <linux-kernel@vger.kernel.org>,
+	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, netdev@vger.kernel.org,
+	Ed Swierk <eswierk@arastra.com>,
+	Arthur Jones <ajones@riverbed.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753890AbZC2IEi@vger.kernel.org>
+In-Reply-To: <200903272109.21259.rjw@sisk.pl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Sat, 28 Mar 2009 23:35:13 -0600
+On Friday 27 March 2009 20:09:20 Rafael J. Wysocki wrote:
+> I was able to reproduce the problem and identify the commit that broke the
+> resume of forcedeth, which turned out to be:
+>
+> commit cb52deba12f27af90a46d2f8667a64888118a888
+> Author: Ed Swierk <eswierk@arastra.com>
+> Date:   Mon Dec 1 12:24:43 2008 +0000
+>
+>     forcedeth: power down phy when interface is down
+>
+>     Signed-off-by: Ed Swierk <eswierk@arastra.com>
+>     Tested-by: Arthur Jones <ajones@riverbed.com>
+>     Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> Since I have no slightest idea of what this commit is supposed to achieve,
+> I can only ask for reverting it.  It reverts cleanly, BTW.
 
-> On Fri, Mar 27, 2009 at 11:23:32PM -0400, Kyle McMartin wrote:
-> > On Fri, Mar 27, 2009 at 10:47:54PM -0400, Kyle McMartin wrote:
-> > > > I don't know if the right fix is to return like this patch does or to set 
-> > > > skb = rxptr->rx_skb_ptr again.
-> > > > 
-> > > 
-> > > Ick... that's a good catch. I'll have to think about this.
-> > > 
-> > 
-> > I think this is alright, it at least keeps the original intent of the
-> > code. I don't pretend to have figured it out yet though.
-> > 
-> > I'll stare more at this Monday...
-> > 
-> > I guess the real question is does anyone still have one of these
-> > cards. I don't think I do, just the proper tulips. :/
-> 
-> Ditto. AFAIK, I only have tulips.
-> 
-> Patch below looks right to me. Clobbering the skb is certainly wrong.
-> 
-> Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Reverting this fixes it for me as well.
 
-It looks correct to me, can we get a proper submission with
-signoffs etc.?
+Thanks for your effort!
+
+Tvrtko
