@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ni5010: convert to net_device_ops
-Date: Sat, 28 Mar 2009 23:37:44 -0700 (PDT)
-Message-ID: <20090328.233744.127194625.davem@davemloft.net>
-References: <20090329022613.GA30897@orion>
-	<20090328.193604.230866790.davem@davemloft.net>
-	<20090329025123.GA26722@orion>
+Subject: Re: [PATCH] skbuff.h: fix missing kernel-doc
+Date: Sat, 28 Mar 2009 23:38:47 -0700 (PDT)
+Message-ID: <20090328.233847.205232336.davem@davemloft.net>
+References: <20090328215227.246b8a88.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: a.beregalov@gmail.com
+Cc: netdev@vger.kernel.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59297
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59301
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750771AbZC2Gh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:37:56 -0400
-In-Reply-To: <20090329025123.GA26722@orion>
+	by vger.kernel.org with ESMTP id S1751966AbZC2Gi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:38:59 -0400
+In-Reply-To: <20090328215227.246b8a88.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Date: Sun, 29 Mar 2009 06:51:23 +0400
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Sat, 28 Mar 2009 21:52:27 -0700
 
-> ni5010: convert to net_device_ops
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+> Add missing struct field to fix kernel-doc warning:
+> 
+> Warning(include/linux/skbuff.h:182): No description found for parameter 'flags'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Applied, thanks.
+Applied, thanks!
