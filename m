@@ -1,52 +1,48 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 3/3] kernel: remove HIPQUAD()
-Date: Sat, 28 Mar 2009 18:38:31 -0700
-Message-ID: <1238290711.3492.10.camel@brick>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] dmascc: fix incomplete conversion to network_device_ops
+Date: Sun, 29 Mar 2009 05:42:24 +0400
+Message-ID: <20090329014224.GA23405@orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:54282 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753380AbZC2Biq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 21:38:46 -0400
-Received: by wf-out-1314.google.com with SMTP id 29so1991049wff.4
-        for <netdev@vger.kernel.org>; Sat, 28 Mar 2009 18:38:44 -0700 (PDT)
+Received: from fg-out-1718.google.com ([72.14.220.153]:7401 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754348AbZC2Bmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 21:42:37 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so536482fga.17
+        for <netdev@vger.kernel.org>; Sat, 28 Mar 2009 18:42:34 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All users have been removed.
+drivers/net/hamradio/dmascc.c:587: error: 'struct net_device' has no
+member named 'set_mac_address'
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
- include/linux/kernel.h |   12 ------------
- 1 files changed, 0 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 914918a..f81d80f 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -379,18 +379,6 @@ static inline char *pack_hex_byte(char *buf, u8 byte)
- 	((unsigned char *)&addr)[3]
- #define NIPQUAD_FMT "%u.%u.%u.%u"
+ drivers/net/hamradio/dmascc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+index 881bf81..7459b3a 100644
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -445,6 +445,7 @@ static const struct net_device_ops scc_netdev_ops = {
+ 	.ndo_stop = scc_close,
+ 	.ndo_start_xmit = scc_send_packet,
+ 	.ndo_do_ioctl = scc_ioctl,
++	.ndo_set_mac_address = scc_set_mac_address,
+ };
  
--#if defined(__LITTLE_ENDIAN)
--#define HIPQUAD(addr) \
--	((unsigned char *)&addr)[3], \
--	((unsigned char *)&addr)[2], \
--	((unsigned char *)&addr)[1], \
--	((unsigned char *)&addr)[0]
--#elif defined(__BIG_ENDIAN)
--#define HIPQUAD	NIPQUAD
--#else
--#error "Please fix asm/byteorder.h"
--#endif /* __LITTLE_ENDIAN */
--
- /*
-  * min()/max()/clamp() macros that also do
-  * strict type-checking.. See the
--- 
-1.6.2.1.507.g0e68d
-
+ static int __init setup_adapter(int card_base, int type, int n)
+@@ -584,7 +585,6 @@ static int __init setup_adapter(int card_base, int type, int n)
+ 		dev->irq = irq;
+ 		dev->netdev_ops = &scc_netdev_ops;
+ 		dev->header_ops = &ax25_header_ops;
+-		dev->set_mac_address = scc_set_mac_address;
+ 	}
+ 	if (register_netdev(info->dev[0])) {
+ 		printk(KERN_ERR "dmascc: could not register %s\n",
