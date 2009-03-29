@@ -1,16 +1,16 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 2/10] Staging: epl: convert to netdev_ops
-Date: Sun, 29 Mar 2009 19:24:32 +0400
-Message-ID: <20090329152432.GB11056@orion>
+Subject: [PATCH 3/10] Staging: et131x: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:25:33 +0400
+Message-ID: <20090329152533.GC11056@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: gregkh@suse.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:25905 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbZC2PYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:24:47 -0400
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:41798 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751413AbZC2PZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:25:39 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,41 +20,48 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/staging/epl/VirtualEthernetLinux.c |   17 ++++++++++++-----
- 1 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/staging/et131x/et131x_netdev.c |   23 ++++++++++++++---------
+ 1 files changed, 14 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/staging/epl/VirtualEthernetLinux.c b/drivers/staging/epl/VirtualEthernetLinux.c
-index 21206c4..077724a 100644
---- a/drivers/staging/epl/VirtualEthernetLinux.c
-+++ b/drivers/staging/epl/VirtualEthernetLinux.c
-@@ -284,6 +284,17 @@ static tEplKernel VEthRecvFrame(tEplFrameInfo * pFrameInfo_p)
- 	return Ret;
- }
+diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
+index de65972..951c73d 100644
+--- a/drivers/staging/et131x/et131x_netdev.c
++++ b/drivers/staging/et131x/et131x_netdev.c
+@@ -112,6 +112,19 @@ void et131x_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp);
+ void et131x_vlan_rx_add_vid(struct net_device *netdev, uint16_t vid);
+ void et131x_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
  
-+static const struct net_device_ops epl_netdev_ops = {
-+	.ndo_open		= VEthOpen,
-+	.ndo_stop		= VEthClose,
-+	.ndo_get_stats		= VEthGetStats,
-+	.ndo_start_xmit		= VEthXmit,
-+	.ndo_tx_timeout		= VEthTimeout,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address	= eth_mac_addr,
++static const struct net_device_ops et131x_netdev_ops = {
++	.ndo_open		= et131x_open,
++	.ndo_stop		= et131x_close,
++	.ndo_start_xmit		= et131x_tx,
++	.ndo_set_multicast_list	= et131x_multicast,
++	.ndo_tx_timeout		= et131x_tx_timeout,
++	.ndo_change_mtu		= et131x_change_mtu,
++	.ndo_set_mac_address	= et131x_set_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_get_stats		= et131x_stats,
++	.ndo_do_ioctl		= et131x_ioctl,
 +};
 +
- tEplKernel VEthAddInstance(tEplDllkInitParam *pInitParam_p)
- {
- 	tEplKernel Ret = kEplSuccessful;
-@@ -299,11 +310,7 @@ tEplKernel VEthAddInstance(tEplDllkInitParam *pInitParam_p)
- 		goto Exit;
- 	}
+ /**
+  * et131x_device_alloc
+  *
+@@ -142,16 +155,8 @@ struct net_device *et131x_device_alloc(void)
+ 	 */
+ 	//netdev->init               = &et131x_init;
+ 	//netdev->set_config = &et131x_config;
+-	netdev->get_stats = &et131x_stats;
+-	netdev->open = &et131x_open;
+-	netdev->stop = &et131x_close;
+-	netdev->do_ioctl = &et131x_ioctl;
+-	netdev->set_multicast_list = &et131x_multicast;
+-	netdev->hard_start_xmit = &et131x_tx;
+-	netdev->tx_timeout = &et131x_tx_timeout;
+ 	netdev->watchdog_timeo = ET131X_TX_TIMEOUT;
+-	netdev->change_mtu = &et131x_change_mtu;
+-	netdev->set_mac_address = &et131x_set_mac_addr;
++	netdev->netdev_ops = &et131x_netdev_ops;
  
--	pVEthNetDevice_g->open = VEthOpen;
--	pVEthNetDevice_g->stop = VEthClose;
--	pVEthNetDevice_g->get_stats = VEthGetStats;
--	pVEthNetDevice_g->hard_start_xmit = VEthXmit;
--	pVEthNetDevice_g->tx_timeout = VEthTimeout;
-+	pVEthNetDevice_g->netdev_ops = &epl_netdev_ops;
- 	pVEthNetDevice_g->watchdog_timeo = EPL_VETH_TX_TIMEOUT;
- 	pVEthNetDevice_g->destructor = free_netdev;
+ 	//netdev->ethtool_ops        = &et131x_ethtool_ops;
  
