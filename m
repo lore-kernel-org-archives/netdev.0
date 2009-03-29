@@ -1,31 +1,39 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [net-2.6 PATCH] Neterion: New Driver: Driver help file - Resubmit #3
-Date: Sun, 29 Mar 2009 10:44:28 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77051BEB76@nekter>
-References: <1238194447.5516.374.camel@flash><1238207726.5713.26.camel@flash> <20090328.235151.128089001.davem@davemloft.net>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] prism54: remove duplicated .ndo_set_mac_address
+Date: Sun, 29 Mar 2009 19:02:14 +0400
+Message-ID: <20090329150214.GA5858@orion>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:31434 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753016AbZC2Oof convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 10:44:35 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090328.235151.128089001.davem@davemloft.net>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:63626 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757357AbZC2PCU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:02:20 -0400
+Received: by mail-fx0-f158.google.com with SMTP id 2so1627570fxm.37
+        for <netdev@vger.kernel.org>; Sun, 29 Mar 2009 08:02:18 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It didn't build 32-bit and now I try to build it on my
-[Ram] This driver was built and tested on x86 & x86_64. The driver it
-was derived from was built and tested on PPC 64 & sparc 64 too. When you
-mention 32-bit, is this sparc 32 bit?
 
-> sparc64 box and it explodes.  A powerpc build would have
-> hit this too.
-[Ram] I'll fix it. Sorry!
 
-Ram
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+
+ drivers/net/wireless/prism54/islpci_dev.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/prism54/islpci_dev.c b/drivers/net/wireless/prism54/islpci_dev.c
+index 166ed95..e26d7b3 100644
+--- a/drivers/net/wireless/prism54/islpci_dev.c
++++ b/drivers/net/wireless/prism54/islpci_dev.c
+@@ -803,7 +803,6 @@ static const struct net_device_ops islpci_netdev_ops = {
+ 	.ndo_tx_timeout		= islpci_eth_tx_timeout,
+ 	.ndo_set_mac_address 	= prism54_set_mac_address,
+ 	.ndo_change_mtu		= eth_change_mtu,
+-	.ndo_set_mac_address 	= eth_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+ 
