@@ -1,38 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for March 27 (netfilter build error)
-Date: Sat, 28 Mar 2009 23:47:39 -0700 (PDT)
-Message-ID: <20090328.234739.26481917.davem@davemloft.net>
-References: <20090328102852.GA7697@localhost>
-	<49CEF882.5000005@oracle.com>
-	<20090329064704.GA7255@localhost>
+Subject: Re: [net-2.6 PATCH] Neterion: New Driver: Driver help file -
+ Resubmit #3
+Date: Sat, 28 Mar 2009 23:51:51 -0700 (PDT)
+Message-ID: <20090328.235151.128089001.davem@davemloft.net>
+References: <1238194447.5516.374.camel@flash>
+	<1238207726.5713.26.camel@flash>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, pablo@netfilter.org, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org
-To: gorcunov@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090329064704.GA7255@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: ram.vepa@neterion.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39263
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751204AbZC2GwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:52:03 -0400
+In-Reply-To: <1238207726.5713.26.camel@flash>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Sun, 29 Mar 2009 10:47:04 +0400
-
-> [Randy Dunlap - Sat, Mar 28, 2009 at 09:26:42PM -0700]
-> ... 
-> | works_for_me.  Thanks.
-> | but missing S-O-B.
-> | 
-> | Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
-> ...
-> 
-> Thanks for testing Randy. So if nobody will complain
-> here is a solid version of the patch. Though I would like
-> if Pablo or Patrick confirm its correctness. Thanks!
-
-I'll apply this once Patrick or Pablo have a look at it.
-
-Thanks.
+DQpUaGlzIGRyaXZlciBoYXMgaGFkIHplcm8gcXVhbGl0eSBjb250cm9sIGRvbmUgb24gaXQuDQoN
+CkFic29sdXRlbHkgTk9ORSENCg0KSXQgZGlkbid0IGJ1aWxkIDMyLWJpdCBhbmQgbm93IEkgdHJ5
+IHRvIGJ1aWxkIGl0IG9uIG15DQpzcGFyYzY0IGJveCBhbmQgaXQgZXhwbG9kZXMuICBBIHBvd2Vy
+cGMgYnVpbGQgd291bGQgaGF2ZQ0KaGl0IHRoaXMgdG9vLg0KDQpkcml2ZXJzL25ldC92eGdlL3Z4
+Z2UtY29uZmlnLmM6IEluIGZ1bmN0aW9uIOKAmHZ4Z2VfaHdfZGV2aWNlX2luaXRpYWxpemXigJk6
+DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6ODE5OiBlcnJvcjogaW1wbGljaXQgZGVj
+bGFyYXRpb24gb2YgZnVuY3Rpb24g4oCYdm1hbGxvY+KAmQ0KZHJpdmVycy9uZXQvdnhnZS92eGdl
+LWNvbmZpZy5jOjgxOTogd2FybmluZzogY2FzdCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBk
+aWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQvdnhnZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlv
+biDigJh2eGdlX2h3X2RldmljZV90ZXJtaW5hdGXigJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2Ut
+Y29uZmlnLmM6OTAzOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCY
+dmZyZWXigJkNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1jb25maWcuYzogSW4gZnVuY3Rpb24g4oCY
+X192eGdlX2h3X21lbXBvb2xfZ3Jvd+KAmToNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1jb25maWcu
+YzoxNjg3OiB3YXJuaW5nOiBhc3NpZ25tZW50IG1ha2VzIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIHdp
+dGhvdXQgYSBjYXN0DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6IEluIGZ1bmN0aW9u
+IOKAmF9fdnhnZV9od19tZW1wb29sX2NyZWF0ZeKAmToNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1j
+b25maWcuYzoxNzY4OiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIG9mIGRp
+ZmZlcmVudCBzaXplDQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6MTc5Mzogd2Fybmlu
+ZzogY2FzdCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVy
+cy9uZXQvdnhnZS92eGdlLWNvbmZpZy5jOjE4MDU6IHdhcm5pbmc6IGNhc3QgdG8gcG9pbnRlciBm
+cm9tIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1jb25m
+aWcuYzoxODE4OiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIG9mIGRpZmZl
+cmVudCBzaXplDQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6MTgzMjogd2FybmluZzog
+Y2FzdCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9u
+ZXQvdnhnZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlvbiDigJh2eGdlX2h3X3ZwYXRoX29wZW7i
+gJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6NDI5MDogd2FybmluZzogY2FzdCB0
+byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQvdnhn
+ZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlvbiDigJh2eGdlX2h3X2Jsb2NrcG9vbF9ibG9ja19h
+ZGTigJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6NTA3MDogd2FybmluZzogY2Fz
+dCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQv
+dnhnZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlvbiDigJhfX3Z4Z2VfaHdfYmxvY2twb29sX2Zy
+ZWXigJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6NTE4ODogd2FybmluZzogY2Fz
+dCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KbWFrZVszXTogKioq
+IFtkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLm9dIEVycm9yIDENCm1ha2VbMl06ICoqKiBb
+ZHJpdmVycy9uZXQvdnhnZV0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFtkcml2ZXJzL25ldF0gRXJy
+b3IgMg0KbWFrZTogKioqIFtkcml2ZXJzXSBFcnJvciAyDQptYWtlOiAqKiogV2FpdGluZyBmb3Ig
+dW5maW5pc2hlZCBqb2JzLi4uLg0K
