@@ -1,58 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] Neterion: New Driver: Driver help file -
- Resubmit #3
-Date: Sat, 28 Mar 2009 23:51:51 -0700 (PDT)
-Message-ID: <20090328.235151.128089001.davem@davemloft.net>
-References: <1238194447.5516.374.camel@flash>
-	<1238207726.5713.26.camel@flash>
+Subject: Re: [PATCH 1/3] netfilter: fix endian bug in conntrack printks
+Date: Sat, 28 Mar 2009 23:56:24 -0700 (PDT)
+Message-ID: <20090328.235624.189705273.davem@davemloft.net>
+References: <1238290710.3492.8.camel@brick>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ram.vepa@neterion.com
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39263
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33477
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751204AbZC2GwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:52:03 -0400
-In-Reply-To: <1238207726.5713.26.camel@flash>
+	by vger.kernel.org with ESMTP id S1751072AbZC2G4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:56:36 -0400
+In-Reply-To: <1238290710.3492.8.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpUaGlzIGRyaXZlciBoYXMgaGFkIHplcm8gcXVhbGl0eSBjb250cm9sIGRvbmUgb24gaXQuDQoN
-CkFic29sdXRlbHkgTk9ORSENCg0KSXQgZGlkbid0IGJ1aWxkIDMyLWJpdCBhbmQgbm93IEkgdHJ5
-IHRvIGJ1aWxkIGl0IG9uIG15DQpzcGFyYzY0IGJveCBhbmQgaXQgZXhwbG9kZXMuICBBIHBvd2Vy
-cGMgYnVpbGQgd291bGQgaGF2ZQ0KaGl0IHRoaXMgdG9vLg0KDQpkcml2ZXJzL25ldC92eGdlL3Z4
-Z2UtY29uZmlnLmM6IEluIGZ1bmN0aW9uIOKAmHZ4Z2VfaHdfZGV2aWNlX2luaXRpYWxpemXigJk6
-DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6ODE5OiBlcnJvcjogaW1wbGljaXQgZGVj
-bGFyYXRpb24gb2YgZnVuY3Rpb24g4oCYdm1hbGxvY+KAmQ0KZHJpdmVycy9uZXQvdnhnZS92eGdl
-LWNvbmZpZy5jOjgxOTogd2FybmluZzogY2FzdCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBk
-aWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQvdnhnZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlv
-biDigJh2eGdlX2h3X2RldmljZV90ZXJtaW5hdGXigJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2Ut
-Y29uZmlnLmM6OTAzOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCY
-dmZyZWXigJkNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1jb25maWcuYzogSW4gZnVuY3Rpb24g4oCY
-X192eGdlX2h3X21lbXBvb2xfZ3Jvd+KAmToNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1jb25maWcu
-YzoxNjg3OiB3YXJuaW5nOiBhc3NpZ25tZW50IG1ha2VzIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIHdp
-dGhvdXQgYSBjYXN0DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6IEluIGZ1bmN0aW9u
-IOKAmF9fdnhnZV9od19tZW1wb29sX2NyZWF0ZeKAmToNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1j
-b25maWcuYzoxNzY4OiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIG9mIGRp
-ZmZlcmVudCBzaXplDQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6MTc5Mzogd2Fybmlu
-ZzogY2FzdCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVy
-cy9uZXQvdnhnZS92eGdlLWNvbmZpZy5jOjE4MDU6IHdhcm5pbmc6IGNhc3QgdG8gcG9pbnRlciBm
-cm9tIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUNCmRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1jb25m
-aWcuYzoxODE4OiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIG9mIGRpZmZl
-cmVudCBzaXplDQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6MTgzMjogd2FybmluZzog
-Y2FzdCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9u
-ZXQvdnhnZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlvbiDigJh2eGdlX2h3X3ZwYXRoX29wZW7i
-gJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6NDI5MDogd2FybmluZzogY2FzdCB0
-byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQvdnhn
-ZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlvbiDigJh2eGdlX2h3X2Jsb2NrcG9vbF9ibG9ja19h
-ZGTigJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6NTA3MDogd2FybmluZzogY2Fz
-dCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KZHJpdmVycy9uZXQv
-dnhnZS92eGdlLWNvbmZpZy5jOiBJbiBmdW5jdGlvbiDigJhfX3Z4Z2VfaHdfYmxvY2twb29sX2Zy
-ZWXigJk6DQpkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLmM6NTE4ODogd2FybmluZzogY2Fz
-dCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZQ0KbWFrZVszXTogKioq
-IFtkcml2ZXJzL25ldC92eGdlL3Z4Z2UtY29uZmlnLm9dIEVycm9yIDENCm1ha2VbMl06ICoqKiBb
-ZHJpdmVycy9uZXQvdnhnZV0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFtkcml2ZXJzL25ldF0gRXJy
-b3IgMg0KbWFrZTogKioqIFtkcml2ZXJzXSBFcnJvciAyDQptYWtlOiAqKiogV2FpdGluZyBmb3Ig
-dW5maW5pc2hlZCBqb2JzLi4uLg0K
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Sat, 28 Mar 2009 18:38:30 -0700
+
+> dcc_ip is treated as a host-endian value in the first printk,
+> but the second printk uses %pI4 which expects a be32.  This
+> will cause a mismatch between the debug statement and the
+> warning statement.
+> 
+> Treat as a be32 throughout and avoid some byteswapping during
+> some comparisions, and allow another user of HIPQUAD to bite the
+> dust.
+> 
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+
+Applied.
+
+> +			
+   ^^^^^^
+> +			pr_debug("DCC bound ip/port: %pI4:%u\n",
+> +				 &dcc_ip, dcc_port);
+
+Trailing whitespace.
