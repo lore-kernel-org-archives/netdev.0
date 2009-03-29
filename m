@@ -1,27 +1,71 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH] prism54: remove duplicated .ndo_set_mac_address
-Date: Sun, 29 Mar 2009 19:18:20 +0400
-Message-ID: <a4423d670903290818t626fd5cei37bbe5f0f08b51@mail.gmail.com>
-References: <20090329150214.GA5858@orion>
+Subject: [PATCH 1/10] Staging: at76: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:23:34 +0400
+Message-ID: <20090329152334.GA11056@orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: gregkh@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f165.google.com ([209.85.219.165]:53446 "EHLO
-	mail-ew0-f165.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754487AbZC2PSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:18:23 -0400
-Received: by ewy9 with SMTP id 9so1722782ewy.37
-        for <netdev@vger.kernel.org>; Sun, 29 Mar 2009 08:18:20 -0700 (PDT)
-In-Reply-To: <20090329150214.GA5858@orion>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:42083 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751118AbZC2PXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:23:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/3/29 Alexander Beregalov <a.beregalov@gmail.com>:
->
->
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 
-Please apply next patch instead of this.
+
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+
+ drivers/staging/at76_usb/at76_usb.c |   20 +++++++++++++-------
+ 1 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/staging/at76_usb/at76_usb.c b/drivers/staging/at76_usb/at76_usb.c
+index 6f6e36a..c8af9a8 100644
+--- a/drivers/staging/at76_usb/at76_usb.c
++++ b/drivers/staging/at76_usb/at76_usb.c
+@@ -5259,6 +5259,18 @@ static int at76_alloc_urbs(struct at76_priv *priv,
+ 	return 0;
+ }
+ 
++static const struct net_device_ops at76_netdev_ops = {
++	.ndo_open		= at76_open,
++	.ndo_stop		= at76_stop,
++	.ndo_get_stats		= at76_get_stats,
++	.ndo_start_xmit		= at76_tx,
++	.ndo_tx_timeout		= at76_tx_timeout,
++	.ndo_set_multicast_list	= at76_set_multicast,
++	.ndo_set_mac_address	= at76_set_mac_address,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= eth_change_mtu,
++};
++
+ /* Register network device and initialize the hardware */
+ static int at76_init_new_device(struct at76_priv *priv,
+ 				struct usb_interface *interface)
+@@ -5303,21 +5315,15 @@ static int at76_init_new_device(struct at76_priv *priv,
+ 	priv->scan_mode = SCAN_TYPE_ACTIVE;
+ 
+ 	netdev->flags &= ~IFF_MULTICAST;	/* not yet or never */
+-	netdev->open = at76_open;
+-	netdev->stop = at76_stop;
+-	netdev->get_stats = at76_get_stats;
++	netdev->netdev_ops = &at76_netdev_ops;
+ 	netdev->ethtool_ops = &at76_ethtool_ops;
+ 
+ 	/* Add pointers to enable iwspy support. */
+ 	priv->wireless_data.spy_data = &priv->spy_data;
+ 	netdev->wireless_data = &priv->wireless_data;
+ 
+-	netdev->hard_start_xmit = at76_tx;
+-	netdev->tx_timeout = at76_tx_timeout;
+ 	netdev->watchdog_timeo = 2 * HZ;
+ 	netdev->wireless_handlers = &at76_handler_def;
+-	netdev->set_multicast_list = at76_set_multicast;
+-	netdev->set_mac_address = at76_set_mac_address;
+ 	dev_alloc_name(netdev, "wlan%d");
+ 
+ 	ret = register_netdev(priv->netdev);
