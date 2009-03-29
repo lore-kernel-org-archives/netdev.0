@@ -1,16 +1,16 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 4/10] Staging: otus: convert to netdev_ops
-Date: Sun, 29 Mar 2009 19:26:25 +0400
-Message-ID: <20090329152625.GD11056@orion>
+Subject: [PATCH 5/10] Staging: rt2860: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:27:21 +0400
+Message-ID: <20090329152721.GE11056@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: gregkh@suse.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:46969 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756199AbZC2P0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:26:32 -0400
+Received: from fg-out-1718.google.com ([72.14.220.158]:8993 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbZC2P11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:27:27 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,85 +20,57 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/staging/otus/usbdrv.c |   47 +++++++++++++++++++++++++---------------
- 1 files changed, 29 insertions(+), 18 deletions(-)
+ drivers/staging/rt2860/rt_main_dev.c |   25 +++++++++++++++----------
+ 1 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/staging/otus/usbdrv.c b/drivers/staging/otus/usbdrv.c
-index 565a839..540cbbb 100644
---- a/drivers/staging/otus/usbdrv.c
-+++ b/drivers/staging/otus/usbdrv.c
-@@ -822,6 +822,21 @@ int zfLnxVapXmitFrame(struct sk_buff *skb, struct net_device *dev)
-     return 0;
- }
+diff --git a/drivers/staging/rt2860/rt_main_dev.c b/drivers/staging/rt2860/rt_main_dev.c
+index cf17bcd..6c4396f 100644
+--- a/drivers/staging/rt2860/rt_main_dev.c
++++ b/drivers/staging/rt2860/rt_main_dev.c
+@@ -722,6 +722,20 @@ err:
+ 	return (-1);
+ } /* End of rt28xx_open */
  
-+static const struct net_device_ops vap_netdev_ops = {
-+	.ndo_open		= zfLnxVapOpen,
-+	.ndo_stop		= zfLnxVapClose,
-+	.ndo_start_xmit		= zfLnxVapXmitFrame,
-+	.ndo_get_stats		= usbdrv_get_stats,
-+	.ndo_change_mtu		= usbdrv_change_mtu,
-+	.ndo_validate_addr	= eth_validate_addr,
++static const struct net_device_ops rt2860_netdev_ops = {
++	.ndo_open		= MainVirtualIF_open,
++	.ndo_stop		= MainVirtualIF_close,
++	.ndo_do_ioctl		= rt28xx_ioctl,
++	.ndo_get_stats		= RT28xx_get_ether_stats,
++	.ndo_validate_addr	= NULL,
 +	.ndo_set_mac_address	= eth_mac_addr,
-+#ifdef ZM_HOSTAPD_SUPPORT
-+	.ndo_do_ioctl		= usbdrv_ioctl,
++	.ndo_change_mtu		= eth_change_mtu,
++#ifdef IKANOS_VX_1X0
++	.ndo_start_xmit		= IKANOS_DataFramesTx,
 +#else
-+	.ndo_do_ioctl		= NULL,
++	.ndo_start_xmit		= rt28xx_send_packets,
 +#endif
 +};
-+
- int zfLnxRegisterVapDev(struct net_device* parentDev, u16_t vapId)
- {
-     /* Allocate net device structure */
-@@ -846,16 +861,7 @@ int zfLnxRegisterVapDev(struct net_device* parentDev, u16_t vapId)
-     vap[vapId].dev->ml_priv = parentDev->ml_priv;
  
-     //dev->hard_start_xmit = &zd1212_wds_xmit_frame;
--    vap[vapId].dev->hard_start_xmit = &zfLnxVapXmitFrame;
--    vap[vapId].dev->open = &zfLnxVapOpen;
--    vap[vapId].dev->stop = &zfLnxVapClose;
--    vap[vapId].dev->get_stats = &usbdrv_get_stats;
--    vap[vapId].dev->change_mtu = &usbdrv_change_mtu;
--#ifdef ZM_HOSTAPD_SUPPORT
--    vap[vapId].dev->do_ioctl = usbdrv_ioctl;
--#else
--    vap[vapId].dev->do_ioctl = NULL;
--#endif
-+    vap[vapId].dev->netdev_ops = &vap_netdev_ops;
-     vap[vapId].dev->destructor = free_netdev;
+ /* Must not be called for mdev and apdev */
+ static NDIS_STATUS rt_ieee80211_if_setup(struct net_device *dev, PRTMP_ADAPTER pAd)
+@@ -733,11 +747,6 @@ static NDIS_STATUS rt_ieee80211_if_setup(struct net_device *dev, PRTMP_ADAPTER p
  
-     vap[vapId].dev->tx_queue_len = 0;
-@@ -1068,6 +1074,18 @@ void zfLnxUnlinkAllUrbs(struct usbdrv_private *macp)
-     usb_unlink_urb(macp->RegInUrb);
- }
  
-+static const struct net_device_ops otus_netdev_ops = {
-+	.ndo_open		= usbdrv_open,
-+	.ndo_stop		= usbdrv_close,
-+	.ndo_start_xmit		= usbdrv_xmit_frame,
-+	.ndo_change_mtu		= usbdrv_change_mtu,
-+	.ndo_get_stats		= usbdrv_get_stats,
-+	.ndo_set_multicast_list	= usbdrv_set_multi,
-+	.ndo_set_mac_address	= usbdrv_set_mac,
-+	.ndo_do_ioctl		= usbdrv_ioctl,
-+	.ndo_validate_addr	= eth_validate_addr,
-+};
-+
- u8_t zfLnxInitSetup(struct net_device *dev, struct usbdrv_private *macp)
- {
-     //unsigned char addr[6];
-@@ -1092,14 +1110,7 @@ u8_t zfLnxInitSetup(struct net_device *dev, struct usbdrv_private *macp)
-     dev->wireless_handlers = (struct iw_handler_def *)&p80211wext_handler_def;
+ 	//ether_setup(dev);
+-	dev->hard_start_xmit = rt28xx_send_packets;
+-
+-#ifdef IKANOS_VX_1X0
+-	dev->hard_start_xmit = IKANOS_DataFramesTx;
+-#endif // IKANOS_VX_1X0 //
+ 
+ #ifdef CONFIG_STA_SUPPORT
+ #if WIRELESS_EXT >= 12
+@@ -760,12 +769,8 @@ static NDIS_STATUS rt_ieee80211_if_setup(struct net_device *dev, PRTMP_ADAPTER p
+ #if WIRELESS_EXT < 21
+ 		dev->get_wireless_stats = rt28xx_get_wireless_stats;
  #endif
- 
--    dev->open = usbdrv_open;
--    dev->hard_start_xmit = usbdrv_xmit_frame;
--    dev->stop = usbdrv_close;
--    dev->change_mtu = &usbdrv_change_mtu;
--    dev->get_stats = usbdrv_get_stats;
--    dev->set_multicast_list = usbdrv_set_multi;
--    dev->set_mac_address = usbdrv_set_mac;
--    dev->do_ioctl = usbdrv_ioctl;
-+    dev->netdev_ops = &otus_netdev_ops;
- 
-     dev->flags |= IFF_MULTICAST;
- 
+-	dev->get_stats = RT28xx_get_ether_stats;
+-	dev->open = MainVirtualIF_open; //rt28xx_open;
+-	dev->stop = MainVirtualIF_close; //rt28xx_close;
+ 	dev->priv_flags = INT_MAIN;
+-	dev->do_ioctl = rt28xx_ioctl;
+-	dev->validate_addr = NULL;
++	dev->netdev_ops = &rt2860_netdev_ops;
+ 	// find available device name
+ 	for (i = 0; i < 8; i++)
+ 	{
