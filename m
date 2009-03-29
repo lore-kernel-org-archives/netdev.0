@@ -1,16 +1,16 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 1/10] Staging: at76: convert to netdev_ops
-Date: Sun, 29 Mar 2009 19:23:34 +0400
-Message-ID: <20090329152334.GA11056@orion>
+Subject: [PATCH 2/10] Staging: epl: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:24:32 +0400
+Message-ID: <20090329152432.GB11056@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: gregkh@suse.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:42083 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118AbZC2PXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:23:40 -0400
+Received: from fk-out-0910.google.com ([209.85.128.187]:25905 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752215AbZC2PYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:24:47 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,52 +20,41 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/staging/at76_usb/at76_usb.c |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
+ drivers/staging/epl/VirtualEthernetLinux.c |   17 ++++++++++++-----
+ 1 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/staging/at76_usb/at76_usb.c b/drivers/staging/at76_usb/at76_usb.c
-index 6f6e36a..c8af9a8 100644
---- a/drivers/staging/at76_usb/at76_usb.c
-+++ b/drivers/staging/at76_usb/at76_usb.c
-@@ -5259,6 +5259,18 @@ static int at76_alloc_urbs(struct at76_priv *priv,
- 	return 0;
+diff --git a/drivers/staging/epl/VirtualEthernetLinux.c b/drivers/staging/epl/VirtualEthernetLinux.c
+index 21206c4..077724a 100644
+--- a/drivers/staging/epl/VirtualEthernetLinux.c
++++ b/drivers/staging/epl/VirtualEthernetLinux.c
+@@ -284,6 +284,17 @@ static tEplKernel VEthRecvFrame(tEplFrameInfo * pFrameInfo_p)
+ 	return Ret;
  }
  
-+static const struct net_device_ops at76_netdev_ops = {
-+	.ndo_open		= at76_open,
-+	.ndo_stop		= at76_stop,
-+	.ndo_get_stats		= at76_get_stats,
-+	.ndo_start_xmit		= at76_tx,
-+	.ndo_tx_timeout		= at76_tx_timeout,
-+	.ndo_set_multicast_list	= at76_set_multicast,
-+	.ndo_set_mac_address	= at76_set_mac_address,
-+	.ndo_validate_addr	= eth_validate_addr,
++static const struct net_device_ops epl_netdev_ops = {
++	.ndo_open		= VEthOpen,
++	.ndo_stop		= VEthClose,
++	.ndo_get_stats		= VEthGetStats,
++	.ndo_start_xmit		= VEthXmit,
++	.ndo_tx_timeout		= VEthTimeout,
 +	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
- /* Register network device and initialize the hardware */
- static int at76_init_new_device(struct at76_priv *priv,
- 				struct usb_interface *interface)
-@@ -5303,21 +5315,15 @@ static int at76_init_new_device(struct at76_priv *priv,
- 	priv->scan_mode = SCAN_TYPE_ACTIVE;
+ tEplKernel VEthAddInstance(tEplDllkInitParam *pInitParam_p)
+ {
+ 	tEplKernel Ret = kEplSuccessful;
+@@ -299,11 +310,7 @@ tEplKernel VEthAddInstance(tEplDllkInitParam *pInitParam_p)
+ 		goto Exit;
+ 	}
  
- 	netdev->flags &= ~IFF_MULTICAST;	/* not yet or never */
--	netdev->open = at76_open;
--	netdev->stop = at76_stop;
--	netdev->get_stats = at76_get_stats;
-+	netdev->netdev_ops = &at76_netdev_ops;
- 	netdev->ethtool_ops = &at76_ethtool_ops;
+-	pVEthNetDevice_g->open = VEthOpen;
+-	pVEthNetDevice_g->stop = VEthClose;
+-	pVEthNetDevice_g->get_stats = VEthGetStats;
+-	pVEthNetDevice_g->hard_start_xmit = VEthXmit;
+-	pVEthNetDevice_g->tx_timeout = VEthTimeout;
++	pVEthNetDevice_g->netdev_ops = &epl_netdev_ops;
+ 	pVEthNetDevice_g->watchdog_timeo = EPL_VETH_TX_TIMEOUT;
+ 	pVEthNetDevice_g->destructor = free_netdev;
  
- 	/* Add pointers to enable iwspy support. */
- 	priv->wireless_data.spy_data = &priv->spy_data;
- 	netdev->wireless_data = &priv->wireless_data;
- 
--	netdev->hard_start_xmit = at76_tx;
--	netdev->tx_timeout = at76_tx_timeout;
- 	netdev->watchdog_timeo = 2 * HZ;
- 	netdev->wireless_handlers = &at76_handler_def;
--	netdev->set_multicast_list = at76_set_multicast;
--	netdev->set_mac_address = at76_set_mac_address;
- 	dev_alloc_name(netdev, "wlan%d");
- 
- 	ret = register_netdev(priv->netdev);
