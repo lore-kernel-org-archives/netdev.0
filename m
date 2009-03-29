@@ -1,16 +1,16 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 3/10] Staging: et131x: convert to netdev_ops
-Date: Sun, 29 Mar 2009 19:25:33 +0400
-Message-ID: <20090329152533.GC11056@orion>
+Subject: [PATCH 4/10] Staging: otus: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:26:25 +0400
+Message-ID: <20090329152625.GD11056@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: gregkh@suse.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:41798 "EHLO
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:46969 "EHLO
 	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751413AbZC2PZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:25:39 -0400
+	with ESMTP id S1756199AbZC2P0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:26:32 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,48 +20,85 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/staging/et131x/et131x_netdev.c |   23 ++++++++++++++---------
- 1 files changed, 14 insertions(+), 9 deletions(-)
+ drivers/staging/otus/usbdrv.c |   47 +++++++++++++++++++++++++---------------
+ 1 files changed, 29 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
-index de65972..951c73d 100644
---- a/drivers/staging/et131x/et131x_netdev.c
-+++ b/drivers/staging/et131x/et131x_netdev.c
-@@ -112,6 +112,19 @@ void et131x_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp);
- void et131x_vlan_rx_add_vid(struct net_device *netdev, uint16_t vid);
- void et131x_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
+diff --git a/drivers/staging/otus/usbdrv.c b/drivers/staging/otus/usbdrv.c
+index 565a839..540cbbb 100644
+--- a/drivers/staging/otus/usbdrv.c
++++ b/drivers/staging/otus/usbdrv.c
+@@ -822,6 +822,21 @@ int zfLnxVapXmitFrame(struct sk_buff *skb, struct net_device *dev)
+     return 0;
+ }
  
-+static const struct net_device_ops et131x_netdev_ops = {
-+	.ndo_open		= et131x_open,
-+	.ndo_stop		= et131x_close,
-+	.ndo_start_xmit		= et131x_tx,
-+	.ndo_set_multicast_list	= et131x_multicast,
-+	.ndo_tx_timeout		= et131x_tx_timeout,
-+	.ndo_change_mtu		= et131x_change_mtu,
-+	.ndo_set_mac_address	= et131x_set_mac_addr,
++static const struct net_device_ops vap_netdev_ops = {
++	.ndo_open		= zfLnxVapOpen,
++	.ndo_stop		= zfLnxVapClose,
++	.ndo_start_xmit		= zfLnxVapXmitFrame,
++	.ndo_get_stats		= usbdrv_get_stats,
++	.ndo_change_mtu		= usbdrv_change_mtu,
 +	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_get_stats		= et131x_stats,
-+	.ndo_do_ioctl		= et131x_ioctl,
++	.ndo_set_mac_address	= eth_mac_addr,
++#ifdef ZM_HOSTAPD_SUPPORT
++	.ndo_do_ioctl		= usbdrv_ioctl,
++#else
++	.ndo_do_ioctl		= NULL,
++#endif
 +};
 +
- /**
-  * et131x_device_alloc
-  *
-@@ -142,16 +155,8 @@ struct net_device *et131x_device_alloc(void)
- 	 */
- 	//netdev->init               = &et131x_init;
- 	//netdev->set_config = &et131x_config;
--	netdev->get_stats = &et131x_stats;
--	netdev->open = &et131x_open;
--	netdev->stop = &et131x_close;
--	netdev->do_ioctl = &et131x_ioctl;
--	netdev->set_multicast_list = &et131x_multicast;
--	netdev->hard_start_xmit = &et131x_tx;
--	netdev->tx_timeout = &et131x_tx_timeout;
- 	netdev->watchdog_timeo = ET131X_TX_TIMEOUT;
--	netdev->change_mtu = &et131x_change_mtu;
--	netdev->set_mac_address = &et131x_set_mac_addr;
-+	netdev->netdev_ops = &et131x_netdev_ops;
+ int zfLnxRegisterVapDev(struct net_device* parentDev, u16_t vapId)
+ {
+     /* Allocate net device structure */
+@@ -846,16 +861,7 @@ int zfLnxRegisterVapDev(struct net_device* parentDev, u16_t vapId)
+     vap[vapId].dev->ml_priv = parentDev->ml_priv;
  
- 	//netdev->ethtool_ops        = &et131x_ethtool_ops;
+     //dev->hard_start_xmit = &zd1212_wds_xmit_frame;
+-    vap[vapId].dev->hard_start_xmit = &zfLnxVapXmitFrame;
+-    vap[vapId].dev->open = &zfLnxVapOpen;
+-    vap[vapId].dev->stop = &zfLnxVapClose;
+-    vap[vapId].dev->get_stats = &usbdrv_get_stats;
+-    vap[vapId].dev->change_mtu = &usbdrv_change_mtu;
+-#ifdef ZM_HOSTAPD_SUPPORT
+-    vap[vapId].dev->do_ioctl = usbdrv_ioctl;
+-#else
+-    vap[vapId].dev->do_ioctl = NULL;
+-#endif
++    vap[vapId].dev->netdev_ops = &vap_netdev_ops;
+     vap[vapId].dev->destructor = free_netdev;
+ 
+     vap[vapId].dev->tx_queue_len = 0;
+@@ -1068,6 +1074,18 @@ void zfLnxUnlinkAllUrbs(struct usbdrv_private *macp)
+     usb_unlink_urb(macp->RegInUrb);
+ }
+ 
++static const struct net_device_ops otus_netdev_ops = {
++	.ndo_open		= usbdrv_open,
++	.ndo_stop		= usbdrv_close,
++	.ndo_start_xmit		= usbdrv_xmit_frame,
++	.ndo_change_mtu		= usbdrv_change_mtu,
++	.ndo_get_stats		= usbdrv_get_stats,
++	.ndo_set_multicast_list	= usbdrv_set_multi,
++	.ndo_set_mac_address	= usbdrv_set_mac,
++	.ndo_do_ioctl		= usbdrv_ioctl,
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
+ u8_t zfLnxInitSetup(struct net_device *dev, struct usbdrv_private *macp)
+ {
+     //unsigned char addr[6];
+@@ -1092,14 +1110,7 @@ u8_t zfLnxInitSetup(struct net_device *dev, struct usbdrv_private *macp)
+     dev->wireless_handlers = (struct iw_handler_def *)&p80211wext_handler_def;
+ #endif
+ 
+-    dev->open = usbdrv_open;
+-    dev->hard_start_xmit = usbdrv_xmit_frame;
+-    dev->stop = usbdrv_close;
+-    dev->change_mtu = &usbdrv_change_mtu;
+-    dev->get_stats = usbdrv_get_stats;
+-    dev->set_multicast_list = usbdrv_set_multi;
+-    dev->set_mac_address = usbdrv_set_mac;
+-    dev->do_ioctl = usbdrv_ioctl;
++    dev->netdev_ops = &otus_netdev_ops;
+ 
+     dev->flags |= IFF_MULTICAST;
  
