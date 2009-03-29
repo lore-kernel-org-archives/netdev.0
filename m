@@ -1,89 +1,183 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 1/3] netfilter: fix endian bug in conntrack printks
-Date: Sat, 28 Mar 2009 18:38:30 -0700
-Message-ID: <1238290710.3492.8.camel@brick>
+Subject: [RFC PATCH 2/3] netpoll: store local and remote ip in net-endian
+Date: Sat, 28 Mar 2009 18:38:31 -0700
+Message-ID: <1238290711.3492.9.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: linux-netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.233]:19924 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbZC2Big (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 21:38:36 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so1877361rvb.1
-        for <netdev@vger.kernel.org>; Sat, 28 Mar 2009 18:38:34 -0700 (PDT)
+Received: from wf-out-1314.google.com ([209.85.200.172]:38495 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751668AbZC2Bip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 21:38:45 -0400
+Received: by wf-out-1314.google.com with SMTP id 29so1991043wff.4
+        for <netdev@vger.kernel.org>; Sat, 28 Mar 2009 18:38:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dcc_ip is treated as a host-endian value in the first printk,
-but the second printk uses %pI4 which expects a be32.  This
-will cause a mismatch between the debug statement and the
-warning statement.
-
-Treat as a be32 throughout and avoid some byteswapping during
-some comparisions, and allow another user of HIPQUAD to bite the
-dust.
+Allows for the removal of byteswapping in some places and
+the removal of HIPQUAD (replaced by %pI4).
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
-Dave, this is probably suitable for 2.6.30 as a bugfix, I include the other
-removal patch only because it is the last user of HIPQUAD.
+Feel free to delay this for 2.6.31 as I missed the merge window.
 
- net/netfilter/nf_conntrack_irc.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/netconsole.c |   10 ++++------
+ include/linux/netpoll.h  |    2 +-
+ net/core/netpoll.c       |   31 +++++++++++++++----------------
+ 3 files changed, 20 insertions(+), 23 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
-index 409c8be..c2e3c52 100644
---- a/net/netfilter/nf_conntrack_irc.c
-+++ b/net/netfilter/nf_conntrack_irc.c
-@@ -66,7 +66,7 @@ static const char *const dccprotos[] = {
-  *	ad_beg_p	returns pointer to first byte of addr data
-  *	ad_end_p	returns pointer to last byte of addr data
-  */
--static int parse_dcc(char *data, const char *data_end, u_int32_t *ip,
-+static int parse_dcc(char *data, const char *data_end, __be32 *ip,
- 		     u_int16_t *port, char **ad_beg_p, char **ad_end_p)
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index d304d38..eceadf7 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -294,14 +294,12 @@ static ssize_t show_remote_port(struct netconsole_target *nt, char *buf)
+ 
+ static ssize_t show_local_ip(struct netconsole_target *nt, char *buf)
  {
- 	char *tmp;
-@@ -85,7 +85,7 @@ static int parse_dcc(char *data, const char *data_end, u_int32_t *ip,
- 		return -1;
+-	return snprintf(buf, PAGE_SIZE, "%d.%d.%d.%d\n",
+-			HIPQUAD(nt->np.local_ip));
++	return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.local_ip);
+ }
  
- 	*ad_beg_p = data;
--	*ip = simple_strtoul(data, &data, 10);
-+	*ip = cpu_to_be32(simple_strtoul(data, &data, 10));
+ static ssize_t show_remote_ip(struct netconsole_target *nt, char *buf)
+ {
+-	return snprintf(buf, PAGE_SIZE, "%d.%d.%d.%d\n",
+-			HIPQUAD(nt->np.remote_ip));
++	return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.remote_ip);
+ }
  
- 	/* skip blanks between ip and port */
- 	while (*data == ' ') {
-@@ -112,7 +112,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
- 	int dir = CTINFO2DIR(ctinfo);
- 	struct nf_conntrack_expect *exp;
- 	struct nf_conntrack_tuple *tuple;
--	u_int32_t dcc_ip;
-+	__be32 dcc_ip;
- 	u_int16_t dcc_port;
- 	__be16 port;
- 	int i, ret = NF_ACCEPT;
-@@ -177,13 +177,14 @@ static int help(struct sk_buff *skb, unsigned int protoff,
- 				pr_debug("unable to parse dcc command\n");
- 				continue;
- 			}
--			pr_debug("DCC bound ip/port: %u.%u.%u.%u:%u\n",
--				 HIPQUAD(dcc_ip), dcc_port);
-+			
-+			pr_debug("DCC bound ip/port: %pI4:%u\n",
-+				 &dcc_ip, dcc_port);
+ static ssize_t show_local_mac(struct netconsole_target *nt, char *buf)
+@@ -438,7 +436,7 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
+ 		return -EINVAL;
+ 	}
  
- 			/* dcc_ip can be the internal OR external (NAT'ed) IP */
- 			tuple = &ct->tuplehash[dir].tuple;
--			if (tuple->src.u3.ip != htonl(dcc_ip) &&
--			    tuple->dst.u3.ip != htonl(dcc_ip)) {
-+			if (tuple->src.u3.ip != dcc_ip &&
-+			    tuple->dst.u3.ip != dcc_ip) {
- 				if (net_ratelimit())
- 					printk(KERN_WARNING
- 						"Forged DCC command from %pI4: %pI4:%u\n",
+-	nt->np.local_ip = ntohl(in_aton(buf));
++	nt->np.local_ip = in_aton(buf);
+ 
+ 	return strnlen(buf, count);
+ }
+@@ -454,7 +452,7 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
+ 		return -EINVAL;
+ 	}
+ 
+-	nt->np.remote_ip = ntohl(in_aton(buf));
++	nt->np.remote_ip = in_aton(buf);
+ 
+ 	return strnlen(buf, count);
+ }
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index de99025..2524267 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -18,7 +18,7 @@ struct netpoll {
+ 	const char *name;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+ 
+-	u32 local_ip, remote_ip;
++	__be32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+ 	u8 remote_mac[ETH_ALEN];
+ };
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 755414c..b5873bd 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -345,8 +345,8 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 	udph->dest = htons(np->remote_port);
+ 	udph->len = htons(udp_len);
+ 	udph->check = 0;
+-	udph->check = csum_tcpudp_magic(htonl(np->local_ip),
+-					htonl(np->remote_ip),
++	udph->check = csum_tcpudp_magic(np->local_ip,
++					np->remote_ip,
+ 					udp_len, IPPROTO_UDP,
+ 					csum_partial(udph, udp_len, 0));
+ 	if (udph->check == 0)
+@@ -365,8 +365,8 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 	iph->ttl      = 64;
+ 	iph->protocol = IPPROTO_UDP;
+ 	iph->check    = 0;
+-	put_unaligned(htonl(np->local_ip), &(iph->saddr));
+-	put_unaligned(htonl(np->remote_ip), &(iph->daddr));
++	put_unaligned(np->local_ip, &(iph->saddr));
++	put_unaligned(np->remote_ip, &(iph->daddr));
+ 	iph->check    = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ 
+ 	eth = (struct ethhdr *) skb_push(skb, ETH_HLEN);
+@@ -424,7 +424,7 @@ static void arp_reply(struct sk_buff *skb)
+ 	memcpy(&tip, arp_ptr, 4);
+ 
+ 	/* Should we ignore arp? */
+-	if (tip != htonl(np->local_ip) ||
++	if (tip != np->local_ip ||
+ 	    ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
+ 		return;
+ 
+@@ -533,9 +533,9 @@ int __netpoll_rx(struct sk_buff *skb)
+ 		goto out;
+ 	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
+ 		goto out;
+-	if (np->local_ip && np->local_ip != ntohl(iph->daddr))
++	if (np->local_ip && np->local_ip != iph->daddr)
+ 		goto out;
+-	if (np->remote_ip && np->remote_ip != ntohl(iph->saddr))
++	if (np->remote_ip && np->remote_ip != iph->saddr)
+ 		goto out;
+ 	if (np->local_port && np->local_port != ntohs(uh->dest))
+ 		goto out;
+@@ -560,14 +560,14 @@ void netpoll_print_options(struct netpoll *np)
+ {
+ 	printk(KERN_INFO "%s: local port %d\n",
+ 			 np->name, np->local_port);
+-	printk(KERN_INFO "%s: local IP %d.%d.%d.%d\n",
+-			 np->name, HIPQUAD(np->local_ip));
++	printk(KERN_INFO "%s: local IP %pI4\n",
++			 np->name, &np->local_ip);
+ 	printk(KERN_INFO "%s: interface %s\n",
+ 			 np->name, np->dev_name);
+ 	printk(KERN_INFO "%s: remote port %d\n",
+ 			 np->name, np->remote_port);
+-	printk(KERN_INFO "%s: remote IP %d.%d.%d.%d\n",
+-			 np->name, HIPQUAD(np->remote_ip));
++	printk(KERN_INFO "%s: remote IP %pI4\n",
++			 np->name, &np->remote_ip);
+ 	printk(KERN_INFO "%s: remote ethernet address %pM\n",
+ 	                 np->name, np->remote_mac);
+ }
+@@ -589,7 +589,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 		if ((delim = strchr(cur, '/')) == NULL)
+ 			goto parse_failed;
+ 		*delim = 0;
+-		np->local_ip = ntohl(in_aton(cur));
++		np->local_ip = in_aton(cur);
+ 		cur = delim;
+ 	}
+ 	cur++;
+@@ -618,7 +618,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 	if ((delim = strchr(cur, '/')) == NULL)
+ 		goto parse_failed;
+ 	*delim = 0;
+-	np->remote_ip = ntohl(in_aton(cur));
++	np->remote_ip = in_aton(cur);
+ 	cur = delim + 1;
+ 
+ 	if (*cur != 0) {
+@@ -759,10 +759,9 @@ int netpoll_setup(struct netpoll *np)
+ 			goto release;
+ 		}
+ 
+-		np->local_ip = ntohl(in_dev->ifa_list->ifa_local);
++		np->local_ip = in_dev->ifa_list->ifa_local;
+ 		rcu_read_unlock();
+-		printk(KERN_INFO "%s: local IP %d.%d.%d.%d\n",
+-		       np->name, HIPQUAD(np->local_ip));
++		printk(KERN_INFO "%s: local IP %pI4\n", np->name, &np->local_ip);
+ 	}
+ 
+ 	if (np->rx_hook) {
 -- 
 1.6.2.1.507.g0e68d
 
