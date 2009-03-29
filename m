@@ -1,47 +1,40 @@
-From: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
-Subject: Re: [Regression in 2.6.29] forcedeth doesn't work after resume from hibernation (was: Re: Resume after hibernation regression in 2.6.29)
-Date: Sun, 29 Mar 2009 09:03:57 +0100
-Message-ID: <200903290903.57911.tvrtko@ursulin.net>
-References: <200903261920.32173.tvrtko@ursulin.net> <200903271255.36429.rjw@sisk.pl> <200903272109.21259.rjw@sisk.pl>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: [PATCH 2/6] mlx4_en: Separating default QP in RSS context
+Date: Sun, 29 Mar 2009 13:10:57 +0300
+Message-ID: <49CF4931.90207@mellanox.co.il>
+References: <49CB87EB.8060404@mellanox.co.il> <20090327.003544.79654528.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Machek <pavel@ucw.cz>, linux-pm@lists.linux-foundation.org,
-	kernel list <linux-kernel@vger.kernel.org>,
-	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, netdev@vger.kernel.org,
-	Ed Swierk <eswierk@arastra.com>,
-	Arthur Jones <ajones@riverbed.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753890AbZC2IEi@vger.kernel.org>
-In-Reply-To: <200903272109.21259.rjw@sisk.pl>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:39576 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752826AbZC2KMH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Mar 2009 06:12:07 -0400
+In-Reply-To: <20090327.003544.79654528.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 27 March 2009 20:09:20 Rafael J. Wysocki wrote:
-> I was able to reproduce the problem and identify the commit that broke the
-> resume of forcedeth, which turned out to be:
->
-> commit cb52deba12f27af90a46d2f8667a64888118a888
-> Author: Ed Swierk <eswierk@arastra.com>
-> Date:   Mon Dec 1 12:24:43 2008 +0000
->
->     forcedeth: power down phy when interface is down
->
->     Signed-off-by: Ed Swierk <eswierk@arastra.com>
->     Tested-by: Arthur Jones <ajones@riverbed.com>
->     Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> Since I have no slightest idea of what this commit is supposed to achieve,
-> I can only ask for reverting it.  It reverts cleanly, BTW.
+David Miller wrote:
 
-Reverting this fixes it for me as well.
+> 
+> I disagree with this change.  I understand why you are doing
+> it, to implement your frag'd vs. non-frag'd skb patch coming
+> up.
+> 
+> But that doesn't make it any more right.
+> 
+> UDP and IPSEC traffic should be multiqueue balanced just like any
+> other traffic.
+> 
+> I'm not applying this patch set, sorry.
+> 
 
-Thanks for your effort!
+I understand, but patches 1,5,6 have nothing to do with this change
+and touch completely other parts of the driver.
 
-Tvrtko
+Thanks,
+Yevgeny
+
