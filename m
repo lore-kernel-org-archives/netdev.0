@@ -1,60 +1,63 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 8/10] Staging: slicoss: convert to netdev_ops
-Date: Sun, 29 Mar 2009 19:30:08 +0400
-Message-ID: <20090329153008.GH11056@orion>
+Subject: [PATCH 10/10] Staging: wlan-ng: convert to netdev_ops
+Date: Sun, 29 Mar 2009 19:31:28 +0400
+Message-ID: <20090329153128.GJ11056@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: gregkh@suse.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758746AbZC2Pad@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:55116 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758251AbZC2Pbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 11:31:34 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/staging/slicoss/slicoss.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
+ drivers/staging/wlan-ng/p80211netdev.c |   20 +++++++++++++++-----
+ 1 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/staging/slicoss/slicoss.c b/drivers/staging/slicoss/slicoss.c
-index 953684f..22343fc 100644
---- a/drivers/staging/slicoss/slicoss.c
-+++ b/drivers/staging/slicoss/slicoss.c
-@@ -345,6 +345,19 @@ static void slic_init_adapter(struct net_device *netdev,
- 	return;
+diff --git a/drivers/staging/wlan-ng/p80211netdev.c b/drivers/staging/wlan-ng/p80211netdev.c
+index b2a606a..393e4df 100644
+--- a/drivers/staging/wlan-ng/p80211netdev.c
++++ b/drivers/staging/wlan-ng/p80211netdev.c
+@@ -711,6 +711,20 @@ static int wlan_change_mtu(netdevice_t *dev, int new_mtu)
+ 	return 0;
  }
  
-+static const struct net_device_ops slic_netdev_ops = {
-+	.ndo_open		= slic_entry_open,
-+	.ndo_stop		= slic_entry_halt,
-+	.ndo_start_xmit		= slic_xmit_start,
-+	.ndo_do_ioctl		= slic_ioctl,
-+	.ndo_set_mac_address	= slic_mac_set_address,
-+	.ndo_get_stats		= slic_get_stats,
-+	.ndo_set_multicast_list	= slic_mcast_set_list,
++static const struct net_device_ops p80211_netdev_ops = {
++	.ndo_init		= p80211knetdev_init,
++	.ndo_open		= p80211knetdev_open,
++	.ndo_stop		= p80211knetdev_stop,
++	.ndo_get_stats		= p80211knetdev_get_stats,
++	.ndo_start_xmit		= p80211knetdev_hard_start_xmit,
++	.ndo_set_multicast_list	= p80211knetdev_set_multicast_list,
++	.ndo_do_ioctl		= p80211knetdev_do_ioctl,
++	.ndo_set_mac_address	= p80211knetdev_set_mac_address,
++	.ndo_tx_timeout		= p80211knetdev_tx_timeout,
++	.ndo_change_mtu		= wlan_change_mtu,
 +	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
 +};
 +
- static int __devinit slic_entry_probe(struct pci_dev *pcidev,
- 			       const struct pci_device_id *pci_tbl_entry)
- {
-@@ -442,13 +455,7 @@ static int __devinit slic_entry_probe(struct pci_dev *pcidev,
+ /*----------------------------------------------------------------
+ * wlan_setup
+ *
+@@ -756,11 +770,7 @@ int wlan_setup(wlandevice_t *wlandev)
+ 	} else {
+ 		wlandev->netdev = dev;
+ 		dev->ml_priv = wlandev;
+-		dev->hard_start_xmit = p80211knetdev_hard_start_xmit;
+-		dev->get_stats = p80211knetdev_get_stats;
+-		dev->init = p80211knetdev_init;
+-		dev->open = p80211knetdev_open;
+-		dev->stop = p80211knetdev_stop;
++		dev->netdev_ops = &p80211_netdev_ops;
  
- 	netdev->base_addr = (unsigned long)adapter->memorybase;
- 	netdev->irq = adapter->irq;
--	netdev->open = slic_entry_open;
--	netdev->stop = slic_entry_halt;
--	netdev->hard_start_xmit = slic_xmit_start;
--	netdev->do_ioctl = slic_ioctl;
--	netdev->set_mac_address = slic_mac_set_address;
--	netdev->get_stats = slic_get_stats;
--	netdev->set_multicast_list = slic_mcast_set_list;
-+	netdev->netdev_ops = &slic_netdev_ops;
- 
- 	slic_debug_adapter_create(adapter);
- 
+ 		mutex_init(&wlandev->ioctl_lock);
+ 		/* block ioctls until fully initialised. Don't forget to call
