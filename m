@@ -1,38 +1,69 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] skbuff.h: fix missing kernel-doc
-Date: Sat, 28 Mar 2009 21:52:27 -0700
-Message-ID: <20090328215227.246b8a88.randy.dunlap@oracle.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: Null dereference in uli526x_rx_packet()
+Date: Sat, 28 Mar 2009 23:35:13 -0600
+Message-ID: <20090329053513.GD19602@colo.lackof.org>
+References: <Pine.LNX.4.64.0903270801020.5354@usbsys.site> <20090328024754.GA16554@bombadil.infradead.org> <20090328032332.GA22353@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Dan Carpenter <error27@gmail.com>,
+	grundler@parisc-linux.org
+To: Kyle McMartin <kyle@mcmartin.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:36496 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbZC2Exc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 00:53:32 -0400
+Received: from colo.lackof.org ([198.49.126.79]:54533 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750896AbZC2Ffh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Mar 2009 01:35:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20090328032332.GA22353@bombadil.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On Fri, Mar 27, 2009 at 11:23:32PM -0400, Kyle McMartin wrote:
+> On Fri, Mar 27, 2009 at 10:47:54PM -0400, Kyle McMartin wrote:
+> > > I don't know if the right fix is to return like this patch does or to set 
+> > > skb = rxptr->rx_skb_ptr again.
+> > > 
+> > 
+> > Ick... that's a good catch. I'll have to think about this.
+> > 
+> 
+> I think this is alright, it at least keeps the original intent of the
+> code. I don't pretend to have figured it out yet though.
+> 
+> I'll stare more at this Monday...
+> 
+> I guess the real question is does anyone still have one of these
+> cards. I don't think I do, just the proper tulips. :/
 
-Add missing struct field to fix kernel-doc warning:
+Ditto. AFAIK, I only have tulips.
 
-Warning(include/linux/skbuff.h:182): No description found for parameter 'flags'
+Patch below looks right to me. Clobbering the skb is certainly wrong.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/linux/skbuff.h |    1 +
- 1 file changed, 1 insertion(+)
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
---- linux-2.6.29-git4.orig/include/linux/skbuff.h
-+++ linux-2.6.29-git4/include/linux/skbuff.h
-@@ -168,6 +168,7 @@ struct skb_shared_hwtstamps {
-  * @software:		generate software time stamp
-  * @in_progress:	device driver is going to provide
-  *			hardware time stamp
-+ * @flags:		all shared_tx flags
-  *
-  * These flags are attached to packets as part of the
-  * &skb_shared_info. Use skb_tx() to get a pointer.
+thanks,
+grant
+
+> diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
+> index 030e02e..9264a58 100644
+> --- a/drivers/net/tulip/uli526x.c
+> +++ b/drivers/net/tulip/uli526x.c
+> @@ -840,13 +840,15 @@ static void uli526x_rx_packet(struct net_device *dev, struct uli526x_board_info
+>  
+>  			if ( !(rdes0 & 0x8000) ||
+>  				((db->cr6_data & CR6_PM) && (rxlen>6)) ) {
+> +				struct sk_buff *new_skb = NULL;
+> +
+>  				skb = rxptr->rx_skb_ptr;
+>  
+>  				/* Good packet, send to upper layer */
+>  				/* Shorst packet used new SKB */
+> -				if ( (rxlen < RX_COPY_SIZE) &&
+> -					( (skb = dev_alloc_skb(rxlen + 2) )
+> -					!= NULL) ) {
+> +				if ((rxlen < RX_COPY_SIZE) &&
+> +				    ((new_skb = dev_alloc_skb(rxlen + 2) != NULL))) {
+> +					skb = new_skb;
+>  					/* size less than COPY_SIZE, allocate a rxlen SKB */
+>  					skb_reserve(skb, 2); /* 16byte align */
+>  					memcpy(skb_put(skb, rxlen),
