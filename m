@@ -1,37 +1,41 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: bnx2, 2.6.29, smp_affinity strangeness
-Date: Sun, 29 Mar 2009 04:35:33 +0200
-Message-ID: <49CEDE75.1030606@cosmosbay.com>
-References: <200903290447.58338.denys@visp.net.lb> <200903290527.49029.denys@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ni5010: convert to net_device_ops
+Date: Sat, 28 Mar 2009 19:36:04 -0700 (PDT)
+Message-ID: <20090328.193604.230866790.davem@davemloft.net>
+References: <20090329022613.GA30897@orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: a.beregalov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:44795 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755953AbZC2Cfk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 22:35:40 -0400
-In-Reply-To: <200903290527.49029.denys@visp.net.lb>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49489
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756239AbZC2CgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2009 22:36:16 -0400
+In-Reply-To: <20090329022613.GA30897@orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryschenko a =E9crit :
-> Forgot to tell
-> kernel 2.6.29 x86_64
-> userspace is 32-bit
->=20
-> I test also 32-bit kernel/32-bit userspace - same result.
->=20
-> On Sunday 29 March 2009 04:47:58 Denys Fedoryschenko wrote:
->> While running bnx2 tried to assign affinity to network card and ... =
-failed.
-> --
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Sun, 29 Mar 2009 06:26:13 +0400
 
+> @@ -189,6 +189,14 @@ static void __init trigger_irq(int ioaddr)
+>  		outb(MM_EN_XMT|MM_MUX, IE_MMODE); /* Start transmission */
+>  }
+>  
+> +static const struct net_device_ops ni5010_netdev_ops = {
+> +	.ndo_open		= ni5010_open,
+> +	.ndo_stop		= ni5010_close,
+> +	.ndo_start_xmit		= ni5010_send_packet,
+> +	.ndo_set_multicast_list	= ni5010_set_multicast_list,
+> +	.ndo_tx_timeout		= ni5010_timeout,
+> +};
 
-Yes I hit this too in the past
+Missing:
 
-http://linux.derkeiler.com/Mailing-Lists/Kernel/2008-11/msg01398.html
+	.ndo_change_mtu		= eth_change_mtu,
+	.ndo_set_mac_address 	= eth_mac_addr,
+	.ndo_validate_addr	= eth_validate_addr,
 
-
+as would have been initialized to dev->foo by alloc_etherdev().
