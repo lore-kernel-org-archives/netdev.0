@@ -1,69 +1,29 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: Null dereference in uli526x_rx_packet()
-Date: Sat, 28 Mar 2009 23:35:13 -0600
-Message-ID: <20090329053513.GD19602@colo.lackof.org>
-References: <Pine.LNX.4.64.0903270801020.5354@usbsys.site> <20090328024754.GA16554@bombadil.infradead.org> <20090328032332.GA22353@bombadil.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ni5010: convert to net_device_ops
+Date: Sat, 28 Mar 2009 23:37:44 -0700 (PDT)
+Message-ID: <20090328.233744.127194625.davem@davemloft.net>
+References: <20090329022613.GA30897@orion>
+	<20090328.193604.230866790.davem@davemloft.net>
+	<20090329025123.GA26722@orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dan Carpenter <error27@gmail.com>,
-	grundler@parisc-linux.org
-To: Kyle McMartin <kyle@mcmartin.ca>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: a.beregalov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:54533 "EHLO colo.lackof.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750896AbZC2Ffh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Mar 2009 01:35:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20090328032332.GA22353@bombadil.infradead.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59297
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750771AbZC2Gh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 02:37:56 -0400
+In-Reply-To: <20090329025123.GA26722@orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 27, 2009 at 11:23:32PM -0400, Kyle McMartin wrote:
-> On Fri, Mar 27, 2009 at 10:47:54PM -0400, Kyle McMartin wrote:
-> > > I don't know if the right fix is to return like this patch does or to set 
-> > > skb = rxptr->rx_skb_ptr again.
-> > > 
-> > 
-> > Ick... that's a good catch. I'll have to think about this.
-> > 
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Sun, 29 Mar 2009 06:51:23 +0400
+
+> ni5010: convert to net_device_ops
 > 
-> I think this is alright, it at least keeps the original intent of the
-> code. I don't pretend to have figured it out yet though.
-> 
-> I'll stare more at this Monday...
-> 
-> I guess the real question is does anyone still have one of these
-> cards. I don't think I do, just the proper tulips. :/
+> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 
-Ditto. AFAIK, I only have tulips.
-
-Patch below looks right to me. Clobbering the skb is certainly wrong.
-
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-
-thanks,
-grant
-
-> diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
-> index 030e02e..9264a58 100644
-> --- a/drivers/net/tulip/uli526x.c
-> +++ b/drivers/net/tulip/uli526x.c
-> @@ -840,13 +840,15 @@ static void uli526x_rx_packet(struct net_device *dev, struct uli526x_board_info
->  
->  			if ( !(rdes0 & 0x8000) ||
->  				((db->cr6_data & CR6_PM) && (rxlen>6)) ) {
-> +				struct sk_buff *new_skb = NULL;
-> +
->  				skb = rxptr->rx_skb_ptr;
->  
->  				/* Good packet, send to upper layer */
->  				/* Shorst packet used new SKB */
-> -				if ( (rxlen < RX_COPY_SIZE) &&
-> -					( (skb = dev_alloc_skb(rxlen + 2) )
-> -					!= NULL) ) {
-> +				if ((rxlen < RX_COPY_SIZE) &&
-> +				    ((new_skb = dev_alloc_skb(rxlen + 2) != NULL))) {
-> +					skb = new_skb;
->  					/* size less than COPY_SIZE, allocate a rxlen SKB */
->  					skb_reserve(skb, 2); /* 16byte align */
->  					memcpy(skb_put(skb, rxlen),
+Applied, thanks.
