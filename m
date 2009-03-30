@@ -1,54 +1,53 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: skb_segment() questions
-Date: Mon, 30 Mar 2009 09:50:45 +0100
-Message-ID: <1238403045.854.39.camel@blaa>
-References: <f0ed9b110903041912v6fba381fm4da792d49b1cbb91@mail.gmail.com>
-	 <20090329020701.GA9983@gondor.apana.org.au>
-	 <20090328.233929.160905643.davem@davemloft.net>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
+Date: Mon, 30 Mar 2009 08:51:07 +0000
+Message-ID: <20090330085107.GA5822@ff.dom.local>
+References: <20090328075628.3565eb39@bike.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jamesclhuang@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:48405 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756778AbZC3Iu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2009 04:50:58 -0400
-In-Reply-To: <20090328.233929.160905643.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+	=?us-ascii?B?PT9JU08tODg1OS0yP1E/SWxwb19KPz0gPT9JU08tODg1OS0yP1E/PUU0?=
+	 =?us-ascii?Q?rvinen=3F=3D?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jonathan Corbet <corbet@lwn.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757574AbZC3Ivf@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090328075628.3565eb39@bike.lwn.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2009-03-28 at 23:39 -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Sun, 29 Mar 2009 10:07:01 +0800
+On 28-03-2009 14:56, Jonathan Corbet wrote:
+> On Sat, 28 Mar 2009 10:55:14 +0100
+> Markus Trippelsdorf <markus@trippelsdorf.de> wrote:
 > 
-> > gso: Fix support for linear packets
-> > 
-> > When GRO/frag_list support was added to GSO, I made an error
-> > which broke the support for segmenting linear GSO packets (GSO
-> > packets are normally non-linear in the payload).
-> > 
-> > These days most of these packets are constructed by the tun
-> > driver, which prefers to allocate linear memory if possible.
-> > This is fixed in the latest kernel, but for 2.6.29 and earlier
-> > it is still the norm.
-> > 
-> > Therefore this bug causes failures with GSO when used with tun
-> > in 2.6.29.
-> > 
-> > Reported-by: James Huang <jamesclhuang@gmail.com>
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>> Yes, you might be right, because running with CONFIG_PROVE_LOCKING and 
+>> CONFIG_DETECT_SOFTLOCKUP enabled points to a possible bug in the BKL
+>> removal patches (fasync) by Jonathan Corbet. (I wasn't able so far to
+>> reproduce the original WARNING.)
+>>
+>> Here is one example:
+>>
+>> =========================================================
+>> [ INFO: possible irq lock inversion dependency detected ]
+>> 2.6.29-03321-gbe0ea69 #7
+>> ---------------------------------------------------------
+>> swapper/0 just changed the state of lock:
+>>  (fasync_lock){..+.}, at: [<ffffffff8028a2ac>] kill_fasync+0x24/0x45
+>> but this lock took another, hard-irq-unsafe lock in the past:
+>>  (&f->f_lock){--..}
 > 
-> Applied, thanks.
+> That's not a bug; f_lock will never be taken in IRQ mode.  There's a
+> fix for the warning in linux-next now; my plan is to get it upstream
+> before -rc1.
 
-This is needed in -stable too, fwiw. Fixes e.g. virtio guest->remote
-with 2.6.29 host:
+Probably I miss something, but generally in a case like this "a_lock"
+doesn't have to be taken in IRQ mode to be dangerous. Eg. if one cpu
+is trying to take this lock after fasync_lock (with IRQs disabled),
+while another cpu is waiting for fasync_lock in IRQ, which preempted
+such "a_lock".
 
-  https://bugzilla.redhat.com/490266
+Could you give some details of this fix?
 
-Cheers,
-Mark.
-
+Thanks,
+Jarek P.
