@@ -1,80 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
-Date: Mon, 30 Mar 2009 13:05:32 -0700
-Message-ID: <20090330130532.1e433313@nehalam>
-References: <20090218051906.174295181@vyatta.com>
-	<20090218052747.679540125@vyatta.com>
-	<499BDB5D.2050105@trash.net>
-	<499C1894.7060400@cosmosbay.com>
-	<49CE568A.9090104@cosmosbay.com>
-	<20090328174835.0d0b63f8@nehalam>
-	<49D1241B.6020504@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 3/3] Doc: Fix spelling in RCU/rculist_nulls.txt.
+Date: Mon, 30 Mar 2009 22:10:25 +0200
+Message-ID: <49D12731.8000904@cosmosbay.com>
+References: <20090330085302.19172.22808.stgit@localhost.localdomain> <20090330090306.19172.94170.stgit@localhost.localdomain> <49D0FA6E.4090402@gmail.com> <Pine.LNX.4.64.0903302155550.13385@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49D1241B.6020504@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Jesper Dangaard Brouer <hawk@comx.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52049 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753928AbZC3UKf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 16:10:35 -0400
+In-Reply-To: <Pine.LNX.4.64.0903302155550.13385@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Mar 2009 21:57:15 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
-
-> Stephen Hemminger a =C3=A9crit :
-> > On Sat, 28 Mar 2009 17:55:38 +0100
-> > Eric Dumazet <dada1@cosmosbay.com> wrote:
-> >=20
-> >> Eric Dumazet a =C3=A9crit :
-> >>> Patrick McHardy a =C3=A9crit :
-> >>>> Stephen Hemminger wrote:
-> >>>>
-> >>>>> @@ -50,6 +50,7 @@ struct ip_ct_tcp_state {
-> >>>>> =20
-> >>>>>  struct ip_ct_tcp
-> >>>>>  {
-> >>>>> +    spinlock_t    lock;
-> >>>>>      struct ip_ct_tcp_state seen[2];    /* connection parameter=
-s per
-> >>>>> direction */
-> >>>>>      u_int8_t    state;        /* state of the connection (enum
-> >>>>> tcp_conntrack) */
-> >>>>>      /* For detecting stale connections */
-> >>>> Eric already posted a patch to use an array of locks, which is
-> >>>> a better approach IMO since it keeps the size of the conntrack
-> >>>> entries down.
-> >>> Yes, we probably can use an array for short lived lock sections.
-> >=20
-> > I am not a fan of the array of locks. Sizing it is awkward and
-> > it is vulnerable to hash collisions. Let's see if there is another
-> > better way.
+Jesper Dangaard Brouer a =E9crit :
+> On Mon, 30 Mar 2009, Jarek Poplawski wrote:
 >=20
-> On normal machines, (no debugging spinlocks), patch uses an embedded
-> spinlock. We probably can use this even on 32bit kernels, considering
-> previous patch removed the rcu_head (8 bytes on 32bit arches) from
-> nf_conn :)
+>> Jesper Dangaard Brouer wrote, On 03/30/2009 11:03 AM:
+>>
+>>> Trival spelling fixes in RCU/rculist_nulls.txt.
+>>>
+>>>  the lookup met the end of chain. If final 'nulls' value
+>>>  is not the slot number, then we must restart the lookup at
+>>> -the begining. If the object was moved to same chain,
+>>> +the beginning. If the object was moved to same chain,
+>>
+>>
+>> "by way":)
+>> +the beginning. If the object was moved to the same chain,
 >=20
-> if LOCKDEP is on, size of a spinlock is 64 bytes on x86_64.
-> Adding a spinlock on each nf_conn would be too expensive. In this
-> case, an array of spinlock is a good compromise, as done in
-> IP route cache, tcp ehash, ...
->=20
-> I agree sizing of this hash table is not pretty, and should be
-> a generic kernel service (I wanted such service for futexes for examp=
-le)
+> *LOL* this was suppose to be a simple trivial insignificant fix, but =
+you
+> are right there is _also_ missing a "the" in the sentence ;-).
 >=20
 
-IMO having different locking based on lockdep and architecture is an in=
-vitation
-to future obscure problems. Perhaps some other locking method or shrink=
-ing
-ct entry would be better.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+RCU is complex, and english too, at last for me ...
+
+I am very surprised you found so few errors in this file, that mixes th=
+ese two parts :)
+
+
