@@ -1,36 +1,77 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
-Date: Mon, 30 Mar 2009 08:28:44 +0200
-Message-ID: <200903300828.45337.oliver@neukum.org>
-References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH 1/2] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Mon, 30 Mar 2009 15:36:21 +0800
+Message-ID: <2a27d3730903300036x1dc265a3o76ea36ca6a16fb5b@mail.gmail.com>
+References: <1238072077-27044-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	 <2a27d3730903270350m52fcb837ge78c0b87cc3887d5@mail.gmail.com>
+	 <OF073D5C49.F0D791DE-ONC1257586.0040163D-C1257586.00413F47@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+Cc: avorontsov@ru.mvista.com, linuxppc-dev@ozlabs.org,
 	netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:55307 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752083AbZC3GYW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 02:24:22 -0400
-In-Reply-To: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net>
-Content-Disposition: inline
+Received: from rv-out-0506.google.com ([209.85.198.236]:2679 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbZC3HgX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 03:36:23 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so2316946rvb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 00:36:21 -0700 (PDT)
+In-Reply-To: <OF073D5C49.F0D791DE-ONC1257586.0040163D-C1257586.00413F47@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag 30 M=E4rz 2009 01:32:34 schrieb Larry Finger:
-> On an SMP system, the following message is printed. The patch below g=
-ets
-> fixes the problem.
+On Fri, Mar 27, 2009 at 7:52 PM, Joakim Tjernlund
+<Joakim.Tjernlund@transmode.se> wrote:
+> pku.leo@gmail.com wrote on 27/03/2009 11:50:09:
+>>
+>> On Thu, Mar 26, 2009 at 8:54 PM, Joakim Tjernlund
+>> <Joakim.Tjernlund@transmode.se> wrote:
+>> > Also set NAPI weight to 64 as this is a common value.
+>> > This will make the system alot more responsive while
+>> > ping flooding the ucc_geth ethernet interaface.
+>> >
+>> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+>> > ---
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Errors and other events */
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ucce & UCCE_OTHER) {
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ucce & =
+UCC_GETH_UCCE_BSY)
+>> > @@ -3733,7 +3725,7 @@ static int ucc_geth_probe(struct of_device*
+> ofdev, const struct of_device_id *ma
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->netdev_ops =3D &ucc_geth_netdev_op=
+s;
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->watchdog_timeo =3D TX_TIMEOUT;
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_WORK(&ugeth->timeout_work, ucc_get=
+h_timeout_work);
+>> > - =C2=A0 =C2=A0 =C2=A0 netif_napi_add(dev, &ugeth->napi, ucc_geth_=
+poll,
+> UCC_GETH_DEV_WEIGHT);
+>> > + =C2=A0 =C2=A0 =C2=A0 netif_napi_add(dev, &ugeth->napi, ucc_geth_=
+poll, 64);
+>>
+>> It doesn't make sense to have larger napi budget than the size of RX
+>> BD ring. =C2=A0You can't have more BDs than RX_BD_RING_LEN in backlo=
+g for
+>> napi_poll to process. =C2=A0Increase the RX_BD_RING_LEN if you want =
+to
+>> increase UCC_GETH_DEV_WEIGHT. =C2=A0However please also provide the
+>> performance comparison for this kind of change. =C2=A0Thanks
+>
+> Bring it up with David Miller. After my initial attempt to just incre=
+ase
+> weight somewhat, he requested that I hardcoded it to 64. Just read th=
+e
+> whole thread.
+> If I don't increase weight somewhat, ping -f -l 3 almost halts the bo=
+ard.
+> Logging
+> in takes forever. These are my "performance numbers".
 
-Thanks for this report and the patch. I think, however that it introduc=
-es
-unneeded locking. It seems to me that we should be fine if we fix
-kaweth_start_xmit(). That code assumes that it is called with interrupt=
-s
-off and under a spinlock. Is that incorrect?
+=46aster response time is surely good.  But it might also mean CPU is
+not fully loaded.  IMHO, throughput is a more important factor for
+network devices.  When you try to optimize the driver, please also
+consider the throughput change.  Thanks.
 
-	Regards
-		Oliver
-
+- Leo
