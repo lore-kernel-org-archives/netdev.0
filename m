@@ -1,111 +1,70 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Mon, 30 Mar 2009 18:40:54 +0200
-Message-ID: <20090330164054.GA2723@ami.dom.local>
-References: <20090328075628.3565eb39@bike.lwn.net> <20090330085107.GA5822@ff.dom.local> <20090330080150.724378b0@bike.lwn.net>
+Subject: Re: [PATCH 3/3] Doc: Fix spelling in RCU/rculist_nulls.txt.
+Date: Mon, 30 Mar 2009 18:59:26 +0200
+Message-ID: <49D0FA6E.4090402@gmail.com>
+References: <20090330085302.19172.22808.stgit@localhost.localdomain> <20090330090306.19172.94170.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jonathan Corbet <corbet@lwn.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753928AbZC3QmF@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090330080150.724378b0@bike.lwn.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <hawk@comx.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ti-out-0910.google.com ([209.85.142.187]:61318 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752117AbZC3RAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 13:00:50 -0400
+Received: by ti-out-0910.google.com with SMTP id i7so1759135tid.23
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 10:00:46 -0700 (PDT)
+In-Reply-To: <20090330090306.19172.94170.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 30, 2009 at 08:01:50AM -0600, Jonathan Corbet wrote:
-> On Mon, 30 Mar 2009 08:51:07 +0000
-> Jarek Poplawski <jarkao2@gmail.com> wrote:
-> 
-> > Probably I miss something, but generally in a case like this "a_lock"
-> > doesn't have to be taken in IRQ mode to be dangerous. Eg. if one cpu
-> > is trying to take this lock after fasync_lock (with IRQs disabled),
-> > while another cpu is waiting for fasync_lock in IRQ, which preempted
-> > such "a_lock".
-> 
-> The possibility exists, I guess, yes.
-> 
-> > Could you give some details of this fix?
-> 
-> I just reverse the order of lock acquisition in fasync_helper().  Patch
-> is attached.  I'll be sending up a pull request shortly.
+Jesper Dangaard Brouer wrote, On 03/30/2009 11:03 AM:
 
-Yes, this patch should fix this. (And I can see it in the linux-next
-now...)
+> Trival spelling fixes in RCU/rculist_nulls.txt.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> ---
+> 
+>  Documentation/RCU/rculist_nulls.txt |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/RCU/rculist_nulls.txt b/Documentation/RCU/rculist_nulls.txt
+> index 239f542..ba075b2 100644
+> --- a/Documentation/RCU/rculist_nulls.txt
+> +++ b/Documentation/RCU/rculist_nulls.txt
+> @@ -21,7 +21,7 @@ if (obj) {
+>    /*
+>     * Because a writer could delete object, and a writer could
+>     * reuse these object before the RCU grace period, we
+> -   * must check key after geting the reference on object
+> +   * must check key after getting the reference on object
+>     */
+>    if (obj->key != key) { // not the object we expected
+>       put_ref(obj);
+> @@ -117,7 +117,7 @@ a race (some writer did a delete and/or a move of an object
+>  to another chain) checking the final 'nulls' value if
+>  the lookup met the end of chain. If final 'nulls' value
+>  is not the slot number, then we must restart the lookup at
+> -the begining. If the object was moved to same chain,
+> +the beginning. If the object was moved to same chain,
 
-Thanks,
+
+"by way":)
+ +the beginning. If the object was moved to the same chain,
+
 Jarek P.
 
-> 
-> jon
-> 
-> From 4a6a4499693a419a20559c41e33a7bd70bf20a6f Mon Sep 17 00:00:00 2001
-> From: Jonathan Corbet <corbet@lwn.net>
-> Date: Fri, 27 Mar 2009 12:24:31 -0600
-> Subject: [PATCH] Fix a lockdep warning in fasync_helper()
-> 
-> Lockdep gripes if file->f_lock is taken in a no-IRQ situation, since that
-> is not always the case.  We don't really want to disable IRQs for every
-> acquisition of f_lock; instead, just move it outside of fasync_lock.
-> 
-> Reported-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> Reported-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
-> Signed-off-by: Jonathan Corbet <corbet@lwn.net>
-> ---
->  fs/fcntl.c         |   10 +++++++---
->  include/linux/fs.h |    2 +-
->  2 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/fs/fcntl.c b/fs/fcntl.c
-> index d865ca6..cc8e4de 100644
-> --- a/fs/fcntl.c
-> +++ b/fs/fcntl.c
-> @@ -531,6 +531,12 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
->  		if (!new)
->  			return -ENOMEM;
->  	}
-> +
-> +	/*
-> +	 * We need to take f_lock first since it's not an IRQ-safe
-> +	 * lock.
-> +	 */
-> +	spin_lock(&filp->f_lock);
->  	write_lock_irq(&fasync_lock);
->  	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
->  		if (fa->fa_file == filp) {
-> @@ -555,14 +561,12 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
->  		result = 1;
->  	}
->  out:
-> -	/* Fix up FASYNC bit while still holding fasync_lock */
-> -	spin_lock(&filp->f_lock);
->  	if (on)
->  		filp->f_flags |= FASYNC;
->  	else
->  		filp->f_flags &= ~FASYNC;
-> -	spin_unlock(&filp->f_lock);
->  	write_unlock_irq(&fasync_lock);
-> +	spin_unlock(&filp->f_lock);
->  	return result;
->  }
+>  then the reader doesnt care : It might eventually
+>  scan the list again without harm.
 >  
-> diff --git a/include/linux/fs.h b/include/linux/fs.h
-> index 7428c6d..2f13c1d 100644
-> --- a/include/linux/fs.h
-> +++ b/include/linux/fs.h
-> @@ -848,7 +848,7 @@ struct file {
->  #define f_dentry	f_path.dentry
->  #define f_vfsmnt	f_path.mnt
->  	const struct file_operations	*f_op;
-> -	spinlock_t		f_lock;  /* f_ep_links, f_flags */
-> +	spinlock_t		f_lock;  /* f_ep_links, f_flags, no IRQ */
->  	atomic_long_t		f_count;
->  	unsigned int 		f_flags;
->  	fmode_t			f_mode;
-> -- 
-> 1.6.2
 > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+
