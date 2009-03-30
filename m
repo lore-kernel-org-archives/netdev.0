@@ -1,94 +1,52 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
-Date: Mon, 30 Mar 2009 17:36:36 +0800
-Message-ID: <2a27d3730903300236j79cc3035raef2bf5e895fe429@mail.gmail.com>
-References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
-	 <20090325142540.GA20944@oksana.dev.rtsoft.ru>
-	 <OF3C4E8131.4223FD1A-ONC1257584.0061D2E6-C1257584.0062233E@transmode.se>
-	 <2a27d3730903300134q673de9cbg6c92e981efc12695@mail.gmail.com>
-	 <OF6D5FFE1D.1843C7FE-ONC1257589.00328D91-C1257589.00336B8B@transmode.se>
+From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] hso: fix for crash when unplugging the device
+Date: Mon, 30 Mar 2009 11:42:42 +0200
+Message-ID: <20090330094242.GB9849@raptor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: avorontsov@ru.mvista.com,
-	linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.225]:17861 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755137AbZC3Jgj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 05:36:39 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so2362370rvb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 02:36:36 -0700 (PDT)
-In-Reply-To: <OF6D5FFE1D.1843C7FE-ONC1257589.00328D91-C1257589.00336B8B@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2009 at 5:21 PM, Joakim Tjernlund
-<Joakim.Tjernlund@transmode.se> wrote:
-> pku.leo@gmail.com wrote on 30/03/2009 10:34:47:
->>
->> On Thu, Mar 26, 2009 at 1:51 AM, Joakim Tjernlund
->> <Joakim.Tjernlund@transmode.se> wrote:
->> > Anton Vorontsov <avorontsov@ru.mvista.com> wrote on 25/03/2009
-> 15:25:40:
->> >> On Wed, Mar 25, 2009 at 02:30:49PM +0100, Joakim Tjernlund wrote:
->> >> > >>From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:0=
-0:00
->> > 2001
->> >> > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
->> >> > Date: Tue, 24 Mar 2009 10:19:27 +0100
->> >> > Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI
-> context.
->> >> > =C2=A0Also increase NAPI weight somewhat.
->> >> > =C2=A0This will make the system alot more responsive while
->> >> > =C2=A0ping flooding the ucc_geth ethernet interaface.
->> >>
->> >> Some time ago I've tried a similar thing for this driver, but dur=
-ing
->> >> tcp (or udp I don't quite remember) netperf tests I was getting t=
-x
->> >> watchdog timeouts after ~2-5 minutes of work. I was testing with =
-a
->> >> gigabit and 100 Mbit link, with 100 Mbit link the issue was not
->> >> reproducible.
->> >>
->> >> Though, I recalling I was doing a bit more than your patch: I was
->> >> also clearing the TX events in the ucce register before calling
->> >> ucc_geth_tx, that way I was trying to avoid stale interrupts. Tha=
-t
->> >> helped to increase an overall performance (not only responsivenes=
-s),
->> >> but as I said my approach didn't pass the tests.
->> >>
->> >> I don't really think that your patch may cause this, but can you
->> >> try netperf w/ this patch applied anyway? And see if it really
->> >> doesn't cause any issues under stress?
->> >
->> > Does the line(in ucc_geth_tx()) look OK to you:
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((bd =3D=3D ugeth->txBd[txQ]) && (ne=
-tif_queue_stopped(dev) =3D=3D
-> 0))
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0break;
->> >
->> > Sure does look fishy to me.
->>
->> There are two cases when txBd=3DConfBd: the BD ring is full or empty=
-=2E
->> The condition used here ensures that it is the empty case. =C2=A0Bec=
-ause in
->> hard_start_xmit, the queue will be stopped when the BD ring is full.
->> Maybe some comment is needed here.
->
-> But how do you know that the queue hasn't been stopped by someone els=
-e
-> than
-> the driver?
-> If it is stopped by higher layers, the if stmt will fail.
+From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+    
+Changed the order in which things are freed. This fixes an oops when
+unplugging the device while network traffic is ongoing.
 
-It looks like from existing code that only the driver can legally stop
-the queue.  I'm not 100% sure though.  Correct me if I'm wrong.
-
-- Leo
+Signed-off-by: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index fe98aca..a9320db 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -5,6 +5,7 @@
+  *  Copyright (C) 2008 Option International
+  *                     Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+  *                     Denis Joseph Barrow <d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
++ *                     Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+  *  Copyright (C) 2007 Andrew Bird (Sphere Systems Ltd)
+  *  			<ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
+  *  Copyright (C) 2008 Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+@@ -2417,20 +2418,22 @@ static void hso_free_net_device(struct hso_device *hso_dev)
+ 	if (!hso_net)
+ 		return;
+ 
++	remove_net_device(hso_net->parent);
++
++	if (hso_net->net) {
++		unregister_netdev(hso_net->net);
++		free_netdev(hso_net->net);
++	}
++
+ 	/* start freeing */
+ 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
+ 		usb_free_urb(hso_net->mux_bulk_rx_urb_pool[i]);
+ 		kfree(hso_net->mux_bulk_rx_buf_pool[i]);
++		hso_net->mux_bulk_rx_buf_pool[i] = NULL;
+ 	}
+ 	usb_free_urb(hso_net->mux_bulk_tx_urb);
+ 	kfree(hso_net->mux_bulk_tx_buf);
+-
+-	remove_net_device(hso_net->parent);
