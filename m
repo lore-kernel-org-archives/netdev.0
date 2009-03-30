@@ -1,60 +1,49 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
-Date: Mon, 30 Mar 2009 21:20:47 +0200
-Message-ID: <49D11B8F.8060402@cosmosbay.com>
-References: <20090218051906.174295181@vyatta.com>	<20090218052747.679540125@vyatta.com>	<499BDB5D.2050105@trash.net> <499C1894.7060400@cosmosbay.com> <49CE568A.9090104@cosmosbay.com> <49D11635.2050809@hp.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
+Date: Mon, 30 Mar 2009 14:32:23 -0500
+Message-ID: <49D11E47.8080106@freescale.com>
+References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com> <OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se> <49CCD3E8.9040007@freescale.com> <OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se> <49D0FFBB.7000009@freescale.com> <OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se> <49D1052D.2050609@freescale.com> <OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49D11635.2050809@hp.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, pku.leo@gmail.com
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:43468 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758685AbZC3TdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 15:33:07 -0400
+In-Reply-To: <OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rick Jones a =E9crit :
-> Eric Dumazet wrote:
->> Hi Patrick
->>
->> Apparently we could not finish the removal of tcp_lock for 2.6.30 :(
->>
->> Stephen suggested using a 4 bytes hole in struct nf_conntrack,
->> but this is ok only if sizeof(spinlock_t) <=3D 4 and 64 bit arches.
->>
->> We could do an hybrid thing : use nf_conn.ct_general.lock if 64 bit
->> arches
->> and sizeof(spinlock_t) <=3D 4.
->>
->> Other cases would use a carefuly sized array of spinlocks...
->>
->> Thank you
->>
->> [PATCH] netfilter: finer grained nf_conn locking
->>
->> Introduction of fine grained lock infrastructure for nf_conn.
->> If possible, we use a 32bit hole on 64bit arches.
->> Else we use a global array of hashed spinlocks, so we dont
->> change size of "struct nf_conn"
->>
->> Get rid of central tcp_lock rwlock used in TCP conntracking
->> using this infrastructure for better performance on SMP.
->>
->> "tbench 8" results on my 8 core machine (32bit kernel, with
->> conntracking on) : 2319 MB/s instead of 2284 MB/s
->=20
-> Is this an implicit request for me to try to resurrect the 32-core se=
-tup?
->=20
+Joakim Tjernlund wrote:
+>> different since descriptors are in MURAM which is ioremap()ed -- though 
+>> switching to a cacheable mapping with barriers should be a performance 
+>> improvement.
+> 
+> I always thought that MURAM was very fast. The whole reason to have BDs in
+> MURAM is that it is faster than normal RAM, at least that is what I 
+> thought.
 
-Not at all, just to keep you informed of work in progress :)
+Yeah, on second thought it probably wouldn't be worth it.  There's also 
+the question of under what circumstances the QE's MURAM accesses will be 
+cache-coherent.
 
+As for the CPU not reordering guarded+cache inhibited accesses, that 
+initially seemed to be true for the new arch stuff (book3e/book3s, but 
+not really, see below), but the classic arch documentation only 
+guarantees stores to such regions to be in-order (and the 
+explicitly-specified operation of eieio on I+G accesses wouldn't make 
+much sense if they were already guaranteed to be in-order).
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Then I looked at the EREF to see what older book E documents had to say 
+on the issue, and it suggests that when the architecture document says 
+"out of order", it really means "speculative" (and reading the arch 
+doc's definition of "out of order" seems to confirm this -- redefining 
+terms is bad, m'kay?).  So it seems that the simple answer is no, 
+guarded storage is not guaranteed to be in order, unless the only thing 
+that can cause an out-of-order access is speculative execution.
+
+-Scott
