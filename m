@@ -1,80 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Compile error in net/netfilter/xt_cluster.ko with current git
-Date: Mon, 30 Mar 2009 13:58:42 -0700 (PDT)
-Message-ID: <20090330.135842.184291063.davem@davemloft.net>
-References: <49D087E9.4000004@googlemail.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
+Date: Mon, 30 Mar 2009 23:25:28 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0903302320180.15929@ask.diku.dk>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.679540125@vyatta.com>
+ <499BDB5D.2050105@trash.net> <499C1894.7060400@cosmosbay.com>
+ <49CE568A.9090104@cosmosbay.com> <49D11635.2050809@hp.com>
+ <Pine.LNX.4.64.0903302131390.13325@ask.diku.dk> <49D12387.20507@cosmosbay.com>
+ <Pine.LNX.4.64.0903302224120.13385@ask.diku.dk> <49D12E87.4090005@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: nix.or.die@googlemail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761439AbZC3U7Q@vger.kernel.org>
-In-Reply-To: <49D087E9.4000004@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-1182830231-1238448328=:15929"
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:52627 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752540AbZC3VZg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2009 17:25:36 -0400
+In-Reply-To: <49D12E87.4090005@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gabriel C <nix.or.die@googlemail.com>
-Date: Mon, 30 Mar 2009 10:50:49 +0200
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Hello ,
-> 
-> on 2.6.29-5102-g0d34fb8 I get the following compile error :
-> 
-> ERROR: "__ipv6_addr_type" [net/netfilter/xt_cluster.ko] undefined!
-> 
-> with the following config :
+---511516320-1182830231-1238448328=:15929
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-known problem with fix pending:
 
-netfilter: xtables: fix IPv6 dependency in the cluster match
+On Mon, 30 Mar 2009, Eric Dumazet wrote:
 
-This patch fixes a dependency with IPv6:
+> Jesper Dangaard Brouer a écrit :
+>>
+>> Against localhost I'm getting (not with applied patch):
+>>
+>>  1336.42 MB/sec on my AMD phenom X4 9950 Quad-Core Processor
+>>
+>>  1552.81 MB/sec on my Core i7 920 (4 physical cores, plus 4 threads)
+>
+> Strange results, compared to my E5420 (I thought i7 was faster ??)
 
-ERROR: "__ipv6_addr_type" [net/netfilter/xt_cluster.ko] undefined!
+I also though that i7 would be faster, but I think it can be explained by 
+the i7 only has 4 real cores even though it shows 8 CPUs (due to 
+hyperthreads).
 
-This patch adds a function that checks if the higher bits of the
-address is 0xFF to identify a multicast address, instead of adding a
-dependency due to __ipv6_addr_type(). I came up with this idea after
-Patrick McHardy pointed possible problems with runtime module
-dependencies.
+>>  2274.53 MB/sec on my dual CPU Xeon E5420 (8 cores)
 
-Reported-by: Steven Noonan <steven@uplinklabs.net>
-Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
-Reported-by: Cyrill Gorcunov <gorcunov@openvz.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/netfilter/xt_cluster.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+Hilsen
+   Jesper Brouer
 
-diff --git a/net/netfilter/xt_cluster.c b/net/netfilter/xt_cluster.c
-index ad5bd89..6c48476 100644
---- a/net/netfilter/xt_cluster.c
-+++ b/net/netfilter/xt_cluster.c
-@@ -58,6 +58,13 @@ xt_cluster_hash(const struct nf_conn *ct,
- }
- 
- static inline bool
-+xt_cluster_ipv6_is_multicast(const struct in6_addr *addr)
-+{
-+	__be32 st = addr->s6_addr32[0];
-+	return ((st & htonl(0xFF000000)) == htonl(0xFF000000));
-+}
-+
-+static inline bool
- xt_cluster_is_multicast_addr(const struct sk_buff *skb, u_int8_t family)
- {
- 	bool is_multicast = false;
-@@ -67,8 +74,8 @@ xt_cluster_is_multicast_addr(const struct sk_buff *skb, u_int8_t family)
- 		is_multicast = ipv4_is_multicast(ip_hdr(skb)->daddr);
- 		break;
- 	case NFPROTO_IPV6:
--		is_multicast = ipv6_addr_type(&ipv6_hdr(skb)->daddr) &
--						IPV6_ADDR_MULTICAST;
-+		is_multicast =
-+			xt_cluster_ipv6_is_multicast(&ipv6_hdr(skb)->daddr);
- 		break;
- 	default:
- 		WARN_ON(1);
--- 
-1.6.2.1.222.g570cc
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
+---511516320-1182830231-1238448328=:15929--
