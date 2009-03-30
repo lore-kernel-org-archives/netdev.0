@@ -1,98 +1,111 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Mon, 30 Mar 2009 18:40:36 +0200
-Message-ID: <20090330164035.GA2652@gentoox2.trippelsdorf.de>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi> <20090328045056.GA2394@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi> <20090328095514.GA2599@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
+Date: Mon, 30 Mar 2009 18:40:54 +0200
+Message-ID: <20090330164054.GA2723@ami.dom.local>
+References: <20090328075628.3565eb39@bike.lwn.net> <20090330085107.GA5822@ff.dom.local> <20090330080150.724378b0@bike.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, corbet@lwn.net
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-41.synserver.de ([217.119.50.41]:1082 "HELO
-	smtp-out-41.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752289AbZC3Qkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 12:40:43 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jonathan Corbet <corbet@lwn.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753928AbZC3QmF@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090330080150.724378b0@bike.lwn.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo J=E4rvinen wrote:
-> On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
->=20
-> > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo J=E4rvinen wrote:
-> > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-> > >=20
-> > > > On Sat, Mar 28, 2009 at 01:05:09AM +0200, Ilpo J=E4rvinen wrote=
-:
-> > > > > On Fri, 27 Mar 2009, Markus Trippelsdorf wrote:
-> > > > >=20
-> > > > > > I'm running the latest git kernel (2.6.29-03321-gbe0ea69) a=
-nd I've got
-> > > > > > this warning twice in the last few hours.:
->=20
-> > > > > > The machine hangs afterwards.
-> > > > >=20
-> > > > > Is it really related to the warning for sure? I find it hard =
-to=20
-> > > > > believe...
-> > > >=20
-> > > > The machine is normally running stable for days. Switching back=
- to 2.6.29
-> > > > solves the problem...
-> > >=20
-> > > Sure, but does is hang right after printing that warning or much =
-later on,
-> > > e.g., one minute is already a very long time for the crash to be =
-related=20
-> > > to that warning... Even 5 seconds is a long time but I'd immediat=
-ely say=20
-> > > it's not related then :-).
-> >=20
-> > I really can't tell you. In both occurrences of the warning the mac=
-hine
-> > was already unusable when I noticed. I then rebooted and the last e=
-ntry
-> > in the logs was that warning.
->=20
-> ...And, let me guess, you're in X and therefore unable to catch a fin=
-al=20
-> oops if any would be printed? It would be nice to get around that as =
-well,=20
-> either use serial/netconsole or hang in text mode while waiting for t=
-he=20
-> crash (should be too hard if you are able to setup the workload first=
-=20
-> and then switch away from X and if reproducing takes about an hour)..=
-=2E
+On Mon, Mar 30, 2009 at 08:01:50AM -0600, Jonathan Corbet wrote:
+> On Mon, 30 Mar 2009 08:51:07 +0000
+> Jarek Poplawski <jarkao2@gmail.com> wrote:
+> 
+> > Probably I miss something, but generally in a case like this "a_lock"
+> > doesn't have to be taken in IRQ mode to be dangerous. Eg. if one cpu
+> > is trying to take this lock after fasync_lock (with IRQs disabled),
+> > while another cpu is waiting for fasync_lock in IRQ, which preempted
+> > such "a_lock".
+> 
+> The possibility exists, I guess, yes.
+> 
+> > Could you give some details of this fix?
+> 
+> I just reverse the order of lock acquisition in fasync_helper().  Patch
+> is attached.  I'll be sending up a pull request shortly.
 
-OK, I will try this later.
+Yes, this patch should fix this. (And I can see it in the linux-next
+now...)
 
->=20
-> Arguably the presence of that warning at both times is somewhat alarm=
-ing.
+Thanks,
+Jarek P.
 
-Make that four times:
-
-kernel # for i in log*; cat $i | grep "tcp_input";
-Mar 27 19:57:40 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
-0xd55/0x1991()
-Mar 27 21:37:00 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
-0xd55/0x1991()
-Mar 28 18:41:03 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
-0xd55/0x1994()
-Mar 29 11:32:26 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
-0xd5b/0x19a9()
-
-The symptoms are always the same...
-
-Another observation is that all four WARNINGs involve only one of my
-two networks adapters, namely skge (build into my mobo). The other one
-(r8169) never occurs in the call trace.
-
-I will also try to reproduce the WARNING with Jon's patch applied.
-
---=20
-Markus
+> 
+> jon
+> 
+> From 4a6a4499693a419a20559c41e33a7bd70bf20a6f Mon Sep 17 00:00:00 2001
+> From: Jonathan Corbet <corbet@lwn.net>
+> Date: Fri, 27 Mar 2009 12:24:31 -0600
+> Subject: [PATCH] Fix a lockdep warning in fasync_helper()
+> 
+> Lockdep gripes if file->f_lock is taken in a no-IRQ situation, since that
+> is not always the case.  We don't really want to disable IRQs for every
+> acquisition of f_lock; instead, just move it outside of fasync_lock.
+> 
+> Reported-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+> Reported-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
+> Signed-off-by: Jonathan Corbet <corbet@lwn.net>
+> ---
+>  fs/fcntl.c         |   10 +++++++---
+>  include/linux/fs.h |    2 +-
+>  2 files changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff --git a/fs/fcntl.c b/fs/fcntl.c
+> index d865ca6..cc8e4de 100644
+> --- a/fs/fcntl.c
+> +++ b/fs/fcntl.c
+> @@ -531,6 +531,12 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
+>  		if (!new)
+>  			return -ENOMEM;
+>  	}
+> +
+> +	/*
+> +	 * We need to take f_lock first since it's not an IRQ-safe
+> +	 * lock.
+> +	 */
+> +	spin_lock(&filp->f_lock);
+>  	write_lock_irq(&fasync_lock);
+>  	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
+>  		if (fa->fa_file == filp) {
+> @@ -555,14 +561,12 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
+>  		result = 1;
+>  	}
+>  out:
+> -	/* Fix up FASYNC bit while still holding fasync_lock */
+> -	spin_lock(&filp->f_lock);
+>  	if (on)
+>  		filp->f_flags |= FASYNC;
+>  	else
+>  		filp->f_flags &= ~FASYNC;
+> -	spin_unlock(&filp->f_lock);
+>  	write_unlock_irq(&fasync_lock);
+> +	spin_unlock(&filp->f_lock);
+>  	return result;
+>  }
+>  
+> diff --git a/include/linux/fs.h b/include/linux/fs.h
+> index 7428c6d..2f13c1d 100644
+> --- a/include/linux/fs.h
+> +++ b/include/linux/fs.h
+> @@ -848,7 +848,7 @@ struct file {
+>  #define f_dentry	f_path.dentry
+>  #define f_vfsmnt	f_path.mnt
+>  	const struct file_operations	*f_op;
+> -	spinlock_t		f_lock;  /* f_ep_links, f_flags */
+> +	spinlock_t		f_lock;  /* f_ep_links, f_flags, no IRQ */
+>  	atomic_long_t		f_count;
+>  	unsigned int 		f_flags;
+>  	fmode_t			f_mode;
+> -- 
+> 1.6.2
+> 
