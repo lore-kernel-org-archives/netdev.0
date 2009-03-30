@@ -1,53 +1,94 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: [PATCH] ETHOC: fix build breakage on s390
-Date: Mon, 30 Mar 2009 11:30:15 +0200
-Message-ID: <20090330113015.21576898@osiris.boeblingen.de.ibm.com>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH] ucc_geth: Move freeing of TX packets to NAPI context.
+Date: Mon, 30 Mar 2009 17:36:36 +0800
+Message-ID: <2a27d3730903300236j79cc3035raef2bf5e895fe429@mail.gmail.com>
+References: <1237987849.2194.9.camel@gentoo-jocke.transmode.se>
+	 <20090325142540.GA20944@oksana.dev.rtsoft.ru>
+	 <OF3C4E8131.4223FD1A-ONC1257584.0061D2E6-C1257584.0062233E@transmode.se>
+	 <2a27d3730903300134q673de9cbg6c92e981efc12695@mail.gmail.com>
+	 <OF6D5FFE1D.1843C7FE-ONC1257589.00328D91-C1257589.00336B8B@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thierry Reding <thierry.reding@avionic-design.de>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-s390@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: avorontsov@ru.mvista.com,
+	linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:32830 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754899AbZC3JaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 05:30:21 -0400
+Received: from rv-out-0506.google.com ([209.85.198.225]:17861 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755137AbZC3Jgj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 05:36:39 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so2362370rvb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 02:36:36 -0700 (PDT)
+In-Reply-To: <OF6D5FFE1D.1843C7FE-ONC1257589.00328D91-C1257589.00336B8B@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+On Mon, Mar 30, 2009 at 5:21 PM, Joakim Tjernlund
+<Joakim.Tjernlund@transmode.se> wrote:
+> pku.leo@gmail.com wrote on 30/03/2009 10:34:47:
+>>
+>> On Thu, Mar 26, 2009 at 1:51 AM, Joakim Tjernlund
+>> <Joakim.Tjernlund@transmode.se> wrote:
+>> > Anton Vorontsov <avorontsov@ru.mvista.com> wrote on 25/03/2009
+> 15:25:40:
+>> >> On Wed, Mar 25, 2009 at 02:30:49PM +0100, Joakim Tjernlund wrote:
+>> >> > >>From 1c2f23b1f37f4818c0fd0217b93eb38ab6564840 Mon Sep 17 00:0=
+0:00
+>> > 2001
+>> >> > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+>> >> > Date: Tue, 24 Mar 2009 10:19:27 +0100
+>> >> > Subject: [PATCH] ucc_geth: Move freeing of TX packets to NAPI
+> context.
+>> >> > =C2=A0Also increase NAPI weight somewhat.
+>> >> > =C2=A0This will make the system alot more responsive while
+>> >> > =C2=A0ping flooding the ucc_geth ethernet interaface.
+>> >>
+>> >> Some time ago I've tried a similar thing for this driver, but dur=
+ing
+>> >> tcp (or udp I don't quite remember) netperf tests I was getting t=
+x
+>> >> watchdog timeouts after ~2-5 minutes of work. I was testing with =
+a
+>> >> gigabit and 100 Mbit link, with 100 Mbit link the issue was not
+>> >> reproducible.
+>> >>
+>> >> Though, I recalling I was doing a bit more than your patch: I was
+>> >> also clearing the TX events in the ucce register before calling
+>> >> ucc_geth_tx, that way I was trying to avoid stale interrupts. Tha=
+t
+>> >> helped to increase an overall performance (not only responsivenes=
+s),
+>> >> but as I said my approach didn't pass the tests.
+>> >>
+>> >> I don't really think that your patch may cause this, but can you
+>> >> try netperf w/ this patch applied anyway? And see if it really
+>> >> doesn't cause any issues under stress?
+>> >
+>> > Does the line(in ucc_geth_tx()) look OK to you:
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((bd =3D=3D ugeth->txBd[txQ]) && (ne=
+tif_queue_stopped(dev) =3D=3D
+> 0))
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0break;
+>> >
+>> > Sure does look fishy to me.
+>>
+>> There are two cases when txBd=3DConfBd: the BD ring is full or empty=
+=2E
+>> The condition used here ensures that it is the empty case. =C2=A0Bec=
+ause in
+>> hard_start_xmit, the queue will be stopped when the BD ring is full.
+>> Maybe some comment is needed here.
+>
+> But how do you know that the queue hasn't been stopped by someone els=
+e
+> than
+> the driver?
+> If it is stopped by higher layers, the if stmt will fail.
 
-Let driver depend on HAS_IOMEM to avoid build breakage on s390:
+It looks like from existing code that only the driver can legally stop
+the queue.  I'm not 100% sure though.  Correct me if I'm wrong.
 
-  CC      drivers/net/ethoc.o
-drivers/net/ethoc.c: In function 'ethoc_read':
-drivers/net/ethoc.c:221: error: implicit declaration of function 'ioread32'
-drivers/net/ethoc.c: In function 'ethoc_write':
-drivers/net/ethoc.c:226: error: implicit declaration of function 'iowrite32'
-drivers/net/ethoc.c: In function 'ethoc_rx':
-drivers/net/ethoc.c:405: error: implicit declaration of function 'memcpy_fromio'
-drivers/net/ethoc.c: In function 'ethoc_start_xmit':
-drivers/net/ethoc.c:828: error: implicit declaration of function 'memcpy_toio'
-
-Cc: Thierry Reding <thierry.reding@avionic-design.de>
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
----
- drivers/net/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6/drivers/net/Kconfig
-===================================================================
---- linux-2.6.orig/drivers/net/Kconfig
-+++ linux-2.6/drivers/net/Kconfig
-@@ -974,7 +974,7 @@ config ENC28J60_WRITEVERIFY
- 
- config ETHOC
- 	tristate "OpenCores 10/100 Mbps Ethernet MAC support"
--	depends on NET_ETHERNET
-+	depends on NET_ETHERNET && HAS_IOMEM
- 	select MII
- 	select PHYLIB
- 	help
+- Leo
