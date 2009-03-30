@@ -1,7 +1,7 @@
 From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] hso: fix for crash when unplugging the device
-Date: Mon, 30 Mar 2009 11:42:42 +0200
-Message-ID: <20090330094242.GB9849@raptor>
+Subject: [PATCH] hso: fix for the 'invalid frame length' messages
+Date: Mon, 30 Mar 2009 11:44:59 +0200
+Message-ID: <20090330094459.GC9849@raptor>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -11,42 +11,56 @@ Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-    
-Changed the order in which things are freed. This fixes an oops when
-unplugging the device while network traffic is ongoing.
+
+Some devices cannot send very short usb transfers. To get around this the
+firmware adds a known pattern and flags the driver that it should check for
+this pattern on short transfers. This flag was not taken into account by
+the driver.
 
 Signed-off-by: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
 ---
 diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index fe98aca..a9320db 100644
+index a9320db..67f05ad 100644
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -5,6 +5,7 @@
-  *  Copyright (C) 2008 Option International
-  *                     Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-  *                     Denis Joseph Barrow <d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-+ *                     Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-  *  Copyright (C) 2007 Andrew Bird (Sphere Systems Ltd)
-  *  			<ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-  *  Copyright (C) 2008 Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-@@ -2417,20 +2418,22 @@ static void hso_free_net_device(struct hso_device *hso_dev)
- 	if (!hso_net)
- 		return;
+@@ -2532,14 +2532,15 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+ }
  
-+	remove_net_device(hso_net->parent);
-+
-+	if (hso_net->net) {
-+		unregister_netdev(hso_net->net);
-+		free_netdev(hso_net->net);
-+	}
-+
- 	/* start freeing */
- 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
- 		usb_free_urb(hso_net->mux_bulk_rx_urb_pool[i]);
- 		kfree(hso_net->mux_bulk_rx_buf_pool[i]);
-+		hso_net->mux_bulk_rx_buf_pool[i] = NULL;
- 	}
- 	usb_free_urb(hso_net->mux_bulk_tx_urb);
- 	kfree(hso_net->mux_bulk_tx_buf);
--
--	remove_net_device(hso_net->parent);
+ /* Creates our network device */
+-static struct hso_device *hso_create_net_device(struct usb_interface *interface)
++static struct hso_device *hso_create_net_device(struct usb_interface *interface,
++						int port_spec)
+ {
+ 	int result, i;
+ 	struct net_device *net;
+ 	struct hso_net *hso_net;
+ 	struct hso_device *hso_dev;
+ 
+-	hso_dev = hso_create_device(interface, HSO_INTF_MUX | HSO_PORT_NETWORK);
++	hso_dev = hso_create_device(interface, port_spec);
+ 	if (!hso_dev)
+ 		return NULL;
+ 
+@@ -2939,7 +2940,8 @@ static int hso_probe(struct usb_interface *interface,
+ 		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) {
+ 			/* Create the network device */
+ 			if (!disable_net) {
+-				hso_dev = hso_create_net_device(interface);
++				hso_dev = hso_create_net_device(interface,
++								port_spec);
+ 				if (!hso_dev)
+ 					goto exit;
+ 				tmp_dev = hso_dev;
+@@ -2971,7 +2973,7 @@ static int hso_probe(struct usb_interface *interface,
+ 		/* It's a regular bulk interface */
+ 		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK)
+ 		    && !disable_net)
+-			hso_dev = hso_create_net_device(interface);
++			hso_dev = hso_create_net_device(interface, port_spec);
+ 		else
+ 			hso_dev =
+ 			    hso_create_bulk_serial_device(interface, port_spec);
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
