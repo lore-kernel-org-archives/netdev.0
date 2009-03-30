@@ -1,28 +1,36 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Mon, 30 Mar 2009 10:20:52 +0400
-Message-ID: <20090330062052.GA26646@ioremap.net>
-References: <20090326141405.GA25404@ioremap.net> <49CB8EC6.6070705@trash.net> <20090326145946.GA28563@ioremap.net> <49CB9A57.6030903@trash.net> <20090326154135.GA30712@ioremap.net> <49CBA39A.4000705@trash.net>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
+Date: Mon, 30 Mar 2009 08:28:44 +0200
+Message-ID: <200903300828.45337.oliver@neukum.org>
+References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:55307 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbZC3GYW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 02:24:22 -0400
+In-Reply-To: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net>
 Content-Disposition: inline
-In-Reply-To: <49CBA39A.4000705@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2009 at 04:47:38PM +0100, Patrick McHardy (kaber@trash.net) wrote:
-> Thanks. I'll wait for Dave's decision before applying it.
+Am Montag 30 M=E4rz 2009 01:32:34 schrieb Larry Finger:
+> On an SMP system, the following message is printed. The patch below g=
+ets
+> fixes the problem.
 
-Looks like David did not pull it in, please queue OSF and its library
-into netfilter tree.
-Thank you.
+Thanks for this report and the patch. I think, however that it introduc=
+es
+unneeded locking. It seems to me that we should be fine if we fix
+kaweth_start_xmit(). That code assumes that it is called with interrupt=
+s
+off and under a spinlock. Is that incorrect?
 
--- 
-	Evgeniy Polyakov
+	Regards
+		Oliver
+
