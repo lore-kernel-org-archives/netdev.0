@@ -1,52 +1,35 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Mon, 30 Mar 2009 12:45:17 -0500
-Message-ID: <49D1052D.2050609@freescale.com>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
-	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
-	<49CCD3E8.9040007@freescale.com>
-	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
-	<49D0FFBB.7000009@freescale.com>
-	<OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se>
+From: =?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
+Subject: tx_queue_len question
+Date: Mon, 30 Mar 2009 19:49:10 +0200
+Message-ID: <b0438a630903301049s7aa796b5t1658999bd4ee1f69@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Li Yang <leoli@freescale.com>, pku.leo@gmail.com,
-	netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.153]:11883 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753705AbZC3RtN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 13:49:13 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so367389fgg.17
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 10:49:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund wrote:
-> Scott Wood <scottwood@freescale.com> wrote on 30/03/2009 19:22:03:
->> Joakim Tjernlund wrote:
->>> gianfar does not seem to use in_/out_ functions for the BDs. Works 
-> just
->>> fine that too it seems.
->> It does now that it has explicit barriers in a few places.  Before they
-> 
-> In 2.6.29 or later?
+Hi
 
-No, it was earlier.
+Could anyone please tell me how tx_queue_len works? (Or where to take
+a look to?).
 
->> were added, it would sometimes fail under load.  That was due to a 
->> compiler reordering, but CPU reordering was possible as well.
-> 
-> Does not the CPU skip reordering if the guarded bit is set?
+I am facing two problems with it:
+- Using ixp4xx_hss driver, I am not in the same situation if I let the
+driver chose tx_queue_len in the initialization, or if I use ifconfig
+with the same value (100). With the last it seems to be capable of
+storing more frames.
+- When I increment it to 300 using ifconfig, the behaviour seems to be
+worse than in the case of 100 or 200. Which are the litis of the
+value?
 
-The guarded bit is typically not set for DMA buffers.  ucc_geth is a bit 
-different since descriptors are in MURAM which is ioremap()ed -- though 
-switching to a cacheable mapping with barriers should be a performance 
-improvement.
+Thanks
 
--Scott
+Miguel =C1ngel =C1lvarez
