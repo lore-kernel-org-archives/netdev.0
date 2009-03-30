@@ -1,38 +1,28 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: sunhme: infinite retries when link is down
-Date: Mon, 30 Mar 2009 04:15:17 +0400
-Message-ID: <a4423d670903291715w21407732w1652e02e15339e90@mail.gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Mon, 30 Mar 2009 10:20:52 +0400
+Message-ID: <20090330062052.GA26646@ioremap.net>
+References: <20090326141405.GA25404@ioremap.net> <49CB8EC6.6070705@trash.net> <20090326145946.GA28563@ioremap.net> <49CB9A57.6030903@trash.net> <20090326154135.GA30712@ioremap.net> <49CBA39A.4000705@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f165.google.com ([209.85.219.165]:53857 "EHLO
-	mail-ew0-f165.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754248AbZC3APU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 20:15:20 -0400
-Received: by ewy9 with SMTP id 9so1849337ewy.37
-        for <netdev@vger.kernel.org>; Sun, 29 Mar 2009 17:15:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49CBA39A.4000705@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David
+On Thu, Mar 26, 2009 at 04:47:38PM +0100, Patrick McHardy (kaber@trash.net) wrote:
+> Thanks. I'll wait for Dave's decision before applying it.
 
-I found that sunhme driver produces many annoing messages like this
+Looks like David did not pull it in, please queue OSF and its library
+into netfilter tree.
+Thank you.
 
-[ 2045.529735] eth0: Auto-Negotiation unsuccessful, trying force link mode
-[ 2055.128729] eth0: Link down, cable problem?
-[ 2067.127274] eth0: Auto-Negotiation unsuccessful, trying force link mode
-[ 2076.726260] eth0: Link down, cable problem?
-[ 2098.783650] eth0: Auto-Negotiation unsuccessful, trying force link mode
-[ 2108.382639] eth0: Link down, cable problem?
-[ 2120.381189] eth0: Auto-Negotiation unsuccessful, trying force link mode
-[ 2129.980186] eth0: Link down, cable problem?
-
-Is it a normal behaviour?
-
-Can we just say "Link down" and do not try to reset it?
-
-2.6.29-05093-gc31f403
-
-Thanks.
+-- 
+	Evgeniy Polyakov
