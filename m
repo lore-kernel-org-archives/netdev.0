@@ -1,8 +1,7 @@
 From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 2/3] Doc: Fix wrong API example usage of call_rcu().
-Date: Mon, 30 Mar 2009 11:03:01 +0200
-Message-ID: <20090330090301.19172.42721.stgit@localhost.localdomain>
-References: <20090330085302.19172.22808.stgit@localhost.localdomain>
+Subject: [PATCH 0/3] Trivial doc fixes for RCU (v3)
+Date: Mon, 30 Mar 2009 11:02:51 +0200
+Message-ID: <20090330085302.19172.22808.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,58 +9,41 @@ Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40332 "EHLO
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40319 "EHLO
 	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758081AbZC3JDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 05:03:03 -0400
-In-Reply-To: <20090330085302.19172.22808.stgit@localhost.localdomain>
+	with ESMTP id S1757599AbZC3JCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 05:02:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At some point the API of call_rcu() changed from three parameters
-to two parameters, correct the documentation.
+Trivial RCU documentation fixes.
 
-One confusing thing in RCU/listRCU.txt, which is NOT fixed in this patch,
-is that no reason or explaination is given for using call_rcu() instead of
-the normal synchronize_rcu() call.
+It seems that majordomo eate my mail to the netdev list, as stgit
+didn't quote the email adresses correctly.  As names which have
+characters such as "." in them must be fully surrounded by
+double quotes when they appear in email headers.  For this
+to work with .gitconfig mail aliases the quotes needs to
+be escaped.
 
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+So let hope the third time is the last, for these trivial patches.
 ---
 
- Documentation/RCU/listRCU.txt |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Jesper Dangaard Brouer (3):
+      Doc: Fix spelling in RCU/rculist_nulls.txt.
+      Doc: Fix wrong API example usage of call_rcu().
+      Doc: Fix missing whitespaces in RCU documentation.
 
-diff --git a/Documentation/RCU/listRCU.txt b/Documentation/RCU/listRCU.txt
-index 1fd1753..4349c14 100644
---- a/Documentation/RCU/listRCU.txt
-+++ b/Documentation/RCU/listRCU.txt
-@@ -118,7 +118,7 @@ Following are the RCU equivalents for these two functions:
- 		list_for_each_entry(e, list, list) {
- 			if (!audit_compare_rule(rule, &e->rule)) {
- 				list_del_rcu(&e->list);
--				call_rcu(&e->rcu, audit_free_rule, e);
-+				call_rcu(&e->rcu, audit_free_rule);
- 				return 0;
- 			}
- 		}
-@@ -206,7 +206,7 @@ RCU ("read-copy update") its name.  The RCU code is as follows:
- 				ne->rule.action = newaction;
- 				ne->rule.file_count = newfield_count;
- 				list_replace_rcu(e, ne);
--				call_rcu(&e->rcu, audit_free_rule, e);
-+				call_rcu(&e->rcu, audit_free_rule);
- 				return 0;
- 			}
- 		}
-@@ -283,7 +283,7 @@ flag under the spinlock as follows:
- 				list_del_rcu(&e->list);
- 				e->deleted = 1;
- 				spin_unlock(&e->lock);
--				call_rcu(&e->rcu, audit_free_rule, e);
-+				call_rcu(&e->rcu, audit_free_rule);
- 				return 0;
- 			}
- 		}
 
+ Documentation/RCU/listRCU.txt       |    6 +++---
+ Documentation/RCU/rcu.txt           |    2 +-
+ Documentation/RCU/rculist_nulls.txt |    4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
