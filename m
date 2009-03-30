@@ -1,53 +1,67 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Mon, 30 Mar 2009 08:51:07 +0000
-Message-ID: <20090330085107.GA5822@ff.dom.local>
-References: <20090328075628.3565eb39@bike.lwn.net>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: [PATCH 2/3] Doc: Fix wrong API example usage of call_rcu().
+Date: Mon, 30 Mar 2009 11:03:01 +0200
+Message-ID: <20090330090301.19172.42721.stgit@localhost.localdomain>
+References: <20090330085302.19172.22808.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-	=?us-ascii?B?PT9JU08tODg1OS0yP1E/SWxwb19KPz0gPT9JU08tODg1OS0yP1E/PUU0?=
-	 =?us-ascii?Q?rvinen=3F=3D?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jonathan Corbet <corbet@lwn.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757574AbZC3Ivf@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090328075628.3565eb39@bike.lwn.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40332 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758081AbZC3JDD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 05:03:03 -0400
+In-Reply-To: <20090330085302.19172.22808.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28-03-2009 14:56, Jonathan Corbet wrote:
-> On Sat, 28 Mar 2009 10:55:14 +0100
-> Markus Trippelsdorf <markus@trippelsdorf.de> wrote:
-> 
->> Yes, you might be right, because running with CONFIG_PROVE_LOCKING and 
->> CONFIG_DETECT_SOFTLOCKUP enabled points to a possible bug in the BKL
->> removal patches (fasync) by Jonathan Corbet. (I wasn't able so far to
->> reproduce the original WARNING.)
->>
->> Here is one example:
->>
->> =========================================================
->> [ INFO: possible irq lock inversion dependency detected ]
->> 2.6.29-03321-gbe0ea69 #7
->> ---------------------------------------------------------
->> swapper/0 just changed the state of lock:
->>  (fasync_lock){..+.}, at: [<ffffffff8028a2ac>] kill_fasync+0x24/0x45
->> but this lock took another, hard-irq-unsafe lock in the past:
->>  (&f->f_lock){--..}
-> 
-> That's not a bug; f_lock will never be taken in IRQ mode.  There's a
-> fix for the warning in linux-next now; my plan is to get it upstream
-> before -rc1.
+At some point the API of call_rcu() changed from three parameters
+to two parameters, correct the documentation.
 
-Probably I miss something, but generally in a case like this "a_lock"
-doesn't have to be taken in IRQ mode to be dangerous. Eg. if one cpu
-is trying to take this lock after fasync_lock (with IRQs disabled),
-while another cpu is waiting for fasync_lock in IRQ, which preempted
-such "a_lock".
+One confusing thing in RCU/listRCU.txt, which is NOT fixed in this patch,
+is that no reason or explaination is given for using call_rcu() instead of
+the normal synchronize_rcu() call.
 
-Could you give some details of this fix?
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-Thanks,
-Jarek P.
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+---
+
+ Documentation/RCU/listRCU.txt |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/RCU/listRCU.txt b/Documentation/RCU/listRCU.txt
+index 1fd1753..4349c14 100644
+--- a/Documentation/RCU/listRCU.txt
++++ b/Documentation/RCU/listRCU.txt
+@@ -118,7 +118,7 @@ Following are the RCU equivalents for these two functions:
+ 		list_for_each_entry(e, list, list) {
+ 			if (!audit_compare_rule(rule, &e->rule)) {
+ 				list_del_rcu(&e->list);
+-				call_rcu(&e->rcu, audit_free_rule, e);
++				call_rcu(&e->rcu, audit_free_rule);
+ 				return 0;
+ 			}
+ 		}
+@@ -206,7 +206,7 @@ RCU ("read-copy update") its name.  The RCU code is as follows:
+ 				ne->rule.action = newaction;
+ 				ne->rule.file_count = newfield_count;
+ 				list_replace_rcu(e, ne);
+-				call_rcu(&e->rcu, audit_free_rule, e);
++				call_rcu(&e->rcu, audit_free_rule);
+ 				return 0;
+ 			}
+ 		}
+@@ -283,7 +283,7 @@ flag under the spinlock as follows:
+ 				list_del_rcu(&e->list);
+ 				e->deleted = 1;
+ 				spin_unlock(&e->lock);
+-				call_rcu(&e->rcu, audit_free_rule, e);
++				call_rcu(&e->rcu, audit_free_rule);
+ 				return 0;
+ 			}
+ 		}
+
