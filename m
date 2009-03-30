@@ -1,82 +1,37 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Mon, 30 Mar 2009 19:01:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
- <20090328045056.GA2394@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
- <20090328095514.GA2599@gentoox2.trippelsdorf.de>
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
+Date: Mon, 30 Mar 2009 18:38:16 +0200
+Message-ID: <OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
+References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com> <OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se> <49CCD3E8.9040007@freescale.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-395882101-1238403878=:30150"
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, corbet@lwn.net
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, pku.leo@gmail.com
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34198 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810AbZC3QB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 12:01:26 -0400
-In-Reply-To: <20090328095514.GA2599@gentoox2.trippelsdorf.de>
-Content-ID: <Pine.LNX.4.64.0903301856110.30150@wrl-59.cs.helsinki.fi>
+Received: from gw1.transmode.se ([213.115.205.20]:53604 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751686AbZC3QiU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2009 12:38:20 -0400
+In-Reply-To: <49CCD3E8.9040007@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-395882101-1238403878=:30150
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0903301856111.30150@wrl-59.cs.helsinki.fi>
-
-On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-
-> On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo Järvinen wrote:
-> > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-> > 
-> > > On Sat, Mar 28, 2009 at 01:05:09AM +0200, Ilpo Järvinen wrote:
-> > > > On Fri, 27 Mar 2009, Markus Trippelsdorf wrote:
-> > > > 
-> > > > > I'm running the latest git kernel (2.6.29-03321-gbe0ea69) and I've got
-> > > > > this warning twice in the last few hours.:
-
-> > > > > The machine hangs afterwards.
-> > > > 
-> > > > Is it really related to the warning for sure? I find it hard to 
-> > > > believe...
-> > > 
-> > > The machine is normally running stable for days. Switching back to 2.6.29
-> > > solves the problem...
-> > 
-> > Sure, but does is hang right after printing that warning or much later on,
-> > e.g., one minute is already a very long time for the crash to be related 
-> > to that warning... Even 5 seconds is a long time but I'd immediately say 
-> > it's not related then :-).
+Scott Wood <scottwood@freescale.com> wrote on 27/03/2009 14:26:00:
 > 
-> I really can't tell you. In both occurrences of the warning the machine
-> was already unusable when I noticed. I then rebooted and the last entry
-> in the logs was that warning.
-
-...And, let me guess, you're in X and therefore unable to catch a final 
-oops if any would be printed? It would be nice to get around that as well, 
-either use serial/netconsole or hang in text mode while waiting for the 
-crash (should be too hard if you are able to setup the workload first 
-and then switch away from X and if reproducing takes about an hour)...
-
-Arguably the presence of that warning at both times is somewhat alarming.
-
-> > So you never saw this warning before within 2.6.29 or 2.6.28-26 timeframe?
+> Joakim Tjernlund wrote:
+> > This is a bit better than the current type casts. Moving over to qe_bd
+> > accesses is a bigger cleanup that will have to be a seperate patch.
+> > I am not sure it is an all win as you probably loose the ability
+> > to read both status and len in one access.
 > 
-> Thats right.
+> Not if you define the struct to have one status_len field (or a union of 
 
-And you were looking for them too at that time? If you still have old logs 
-available you can verify that easily... if they're compressed you'll need 
-something like this:
- for i in <logfiles*.gz>; do gunzip -c -d $i | grep "tcp_input"; done)
+> that with separate fields), as gianfar does.
 
+gianfar does not seem to use in_/out_ functions for the BDs. Works just
+fine that too it seems. I always felt that the in_/out_ functions
+was extra baggage that the Freescale CPUs don't need. There is
+something in between that is missing.
 
-
--- 
- i.
----696208474-395882101-1238403878=:30150--
+ Jocke
