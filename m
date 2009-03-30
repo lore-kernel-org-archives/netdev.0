@@ -1,60 +1,60 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 2/9] RDS/IW+IB: Set recv ring low water mark to 1/2 full.
-Date: Mon, 30 Mar 2009 11:44:46 -0700
-Message-ID: <1238438693-29540-3-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 7/9] RDS: Establish connection before parsing CMSGs
+Date: Mon, 30 Mar 2009 11:44:51 -0700
+Message-ID: <1238438693-29540-8-git-send-email-andy.grover@oracle.com>
 References: <1238438693-29540-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com, Steve Wise <swise@opengridcomputing.com>
+Cc: rds-devel@oss.oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:28031 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758975AbZC3SpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 14:45:09 -0400
+Received: from rcsinet11.oracle.com ([148.87.113.123]:41956 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757526AbZC3SpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 14:45:18 -0400
+Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
+	by rgminet11.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n2UImNVr014147
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 18:48:25 GMT
 In-Reply-To: <1238438693-29540-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
+The first message to a remote node should prompt a new connection.
+Even an RDMA op via CMSG. Therefore move CMSG parsing to after
+connection establishment.
 
-Currently the recv ring low water mark is 1/4 the depth.  Performance
-measurements show that this limits iWARP throughput by flow controlling
-the rds-stress senders.  Setting it to 1/2 seems to max the T3
-performance.  I tried even higher levels but that didn't help and it
-started to increase the rds thread cpu utilization.
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- net/rds/ib_ring.c |    2 +-
- net/rds/iw_ring.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/rds/send.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/rds/ib_ring.c b/net/rds/ib_ring.c
-index 99a6cca..ff97e8e 100644
---- a/net/rds/ib_ring.c
-+++ b/net/rds/ib_ring.c
-@@ -137,7 +137,7 @@ int rds_ib_ring_empty(struct rds_ib_work_ring *ring)
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 104fe03..a4a7f42 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -854,11 +854,6 @@ int rds_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
  
- int rds_ib_ring_low(struct rds_ib_work_ring *ring)
- {
--	return __rds_ib_ring_used(ring) <= (ring->w_nr >> 2);
-+	return __rds_ib_ring_used(ring) <= (ring->w_nr >> 1);
- }
+ 	rm->m_daddr = daddr;
  
- /*
-diff --git a/net/rds/iw_ring.c b/net/rds/iw_ring.c
-index d422d4b..da8e3b6 100644
---- a/net/rds/iw_ring.c
-+++ b/net/rds/iw_ring.c
-@@ -137,7 +137,7 @@ int rds_iw_ring_empty(struct rds_iw_work_ring *ring)
+-	/* Parse any control messages the user may have included. */
+-	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
+-	if (ret)
+-		goto out;
+-
+ 	/* rds_conn_create has a spinlock that runs with IRQ off.
+ 	 * Caching the conn in the socket helps a lot. */
+ 	if (rs->rs_conn && rs->rs_conn->c_faddr == daddr)
+@@ -874,6 +869,11 @@ int rds_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+ 		rs->rs_conn = conn;
+ 	}
  
- int rds_iw_ring_low(struct rds_iw_work_ring *ring)
- {
--	return __rds_iw_ring_used(ring) <= (ring->w_nr >> 2);
-+	return __rds_iw_ring_used(ring) <= (ring->w_nr >> 1);
- }
- 
- 
++	/* Parse any control messages the user may have included. */
++	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
++	if (ret)
++		goto out;
++
+ 	if ((rm->m_rdma_cookie || rm->m_rdma_op)
+ 	 && conn->c_trans->xmit_rdma == NULL) {
+ 		if (printk_ratelimit())
 -- 
 1.5.6.3
 
