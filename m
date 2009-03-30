@@ -1,87 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sun, 29 Mar 2009 17:13:50 -0700 (PDT)
-Message-ID: <20090329.171350.201684885.davem@davemloft.net>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: sunhme: infinite retries when link is down
+Date: Mon, 30 Mar 2009 04:15:17 +0400
+Message-ID: <a4423d670903291715w21407732w1652e02e15339e90@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+To: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53082
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753701AbZC3AOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 20:14:01 -0400
+Received: from mail-ew0-f165.google.com ([209.85.219.165]:53857 "EHLO
+	mail-ew0-f165.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754248AbZC3APU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2009 20:15:20 -0400
+Received: by ewy9 with SMTP id 9so1849337ewy.37
+        for <netdev@vger.kernel.org>; Sun, 29 Mar 2009 17:15:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David
 
-1) net_device_ops conversion and some fixups from Alexander
-   Beregalov
+I found that sunhme driver produces many annoing messages like this
 
-2) netfilter build failure fix from Pedro Neira Ayuso
+[ 2045.529735] eth0: Auto-Negotiation unsuccessful, trying force link mode
+[ 2055.128729] eth0: Link down, cable problem?
+[ 2067.127274] eth0: Auto-Negotiation unsuccessful, trying force link mode
+[ 2076.726260] eth0: Link down, cable problem?
+[ 2098.783650] eth0: Auto-Negotiation unsuccessful, trying force link mode
+[ 2108.382639] eth0: Link down, cable problem?
+[ 2120.381189] eth0: Auto-Negotiation unsuccessful, trying force link mode
+[ 2129.980186] eth0: Link down, cable problem?
 
-3) Missing kernel-doc fix from Randy Dunlap
+Is it a normal behaviour?
 
-4) Use-after-release bug fixes in gianfar and ucc_geth
+Can we just say "Link down" and do not try to reset it?
 
-5) Endianness cures and cleanups from Harvey Harrison
+2.6.29-05093-gc31f403
 
-6) Add GRO support to two drivers.
-
-Please pull, thanks a lot!
-
-The following changes since commit 07d43ba98621f08e252a48c96b258b4d572b0257:
-  Linus Torvalds (1):
-        Merge branch 'i2c-for-linus' of git://jdelvare.pck.nerim.net/jdelvare-2.6
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alexander Beregalov (3):
-      ni5010: convert to net_device_ops
-      dmascc: fix incomplete conversion to network_device_ops
-      wireless: remove duplicated .ndo_set_mac_address
-
-David S. Miller (5):
-      gianfar: Fix use-after-of_node_put() in gfar_of_init().
-      ucc_geth: Fix use-after-of_node_put() in ucc_geth_probe().
-      niu: Add GRO support.
-      tg3: Add GRO support.
-      Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
-
-Harvey Harrison (3):
-      netfilter: fix endian bug in conntrack printks
-      netpoll: store local and remote ip in net-endian
-      kernel: remove HIPQUAD()
-
-Herbert Xu (1):
-      gso: Fix support for linear packets
-
-Pablo Neira Ayuso (1):
-      netfilter: xtables: fix IPv6 dependency in the cluster match
-
-Randy Dunlap (1):
-      skbuff.h: fix missing kernel-doc
-
- drivers/net/gianfar.c                     |    2 +-
- drivers/net/hamradio/dmascc.c             |    2 +-
- drivers/net/netconsole.c                  |   10 +++-----
- drivers/net/ni5010.c                      |   18 +++++++++++-----
- drivers/net/niu.c                         |   12 ++++++----
- drivers/net/tg3.c                         |    4 +-
- drivers/net/ucc_geth.c                    |   11 +++++----
- drivers/net/wireless/airo.c               |    2 -
- drivers/net/wireless/ipw2x00/ipw2200.c    |    1 -
- drivers/net/wireless/prism54/islpci_dev.c |    1 -
- drivers/net/wireless/zd1201.c             |    1 -
- include/linux/kernel.h                    |   12 -----------
- include/linux/netpoll.h                   |    2 +-
- include/linux/skbuff.h                    |    1 +
- net/core/netpoll.c                        |   31 ++++++++++++++---------------
- net/core/skbuff.c                         |    2 +-
- net/netfilter/nf_conntrack_irc.c          |   15 +++++++------
- net/netfilter/xt_cluster.c                |   11 ++++++++-
- 18 files changed, 68 insertions(+), 70 deletions(-)
+Thanks.
