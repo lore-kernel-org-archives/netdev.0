@@ -1,35 +1,52 @@
-From: =?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
-Subject: tx_queue_len question
-Date: Mon, 30 Mar 2009 19:49:10 +0200
-Message-ID: <b0438a630903301049s7aa796b5t1658999bd4ee1f69@mail.gmail.com>
+From: Geoff Levand <geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
+Subject: [patch] net/ps3: Update maintainer
+Date: Mon, 30 Mar 2009 11:04:04 -0700
+Message-ID: <49D10994.2010204@am.sony.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:11883 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753705AbZC3RtN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 13:49:13 -0400
-Received: by fg-out-1718.google.com with SMTP id 16so367389fgg.17
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 10:49:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+To: <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
 
-Could anyone please tell me how tx_queue_len works? (Or where to take
-a look to?).
+Update the MAINTAINERS entry for PS3 NETWORK SUPPORT.
 
-I am facing two problems with it:
-- Using ixp4xx_hss driver, I am not in the same situation if I let the
-driver chose tx_queue_len in the initialization, or if I use ifconfig
-with the same value (100). With the last it seems to be capable of
-storing more frames.
-- When I increment it to 300 using ifconfig, the behaviour seems to be
-worse than in the case of 100 or 200. Which are the litis of the
-value?
+CC: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
+Signed-off-by: Geoff Levand <geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
+---
 
-Thanks
+I will take over maintenance of the ps3 network drivers.
 
-Miguel =C1ngel =C1lvarez
+Mokuno-san, thank you for the excellent work.
+
+-Geoff
+
+ MAINTAINERS |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3503,8 +3503,8 @@ L:	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ S:	Maintained
+ 
+ PS3 NETWORK SUPPORT
+-P:	Masakazu Mokuno
+-M:	mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org
++P:	Geoff Levand
++M:	geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org
+ L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ L:	cbe-oss-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+ S:	Supported
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
