@@ -1,59 +1,51 @@
-From: Thierry Reding <thierry.reding@avionic-design.de>
-Subject: Re: [PATCH] ETHOC: fix build breakage on s390
-Date: Mon, 30 Mar 2009 13:52:02 +0200
-Message-ID: <20090330115202.GA13719@avionic-design.de>
-References: <20090330113015.21576898@osiris.boeblingen.de.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: linux-next: Tree for March 27 (netfilter build error)
+Date: Mon, 30 Mar 2009 14:00:54 +0200
+Message-ID: <49D0B476.2000607@trash.net>
+References: <20090329064704.GA7255@localhost>	<20090328.234739.26481917.davem@davemloft.net>	<49CF62A2.6050803@netfilter.org> <20090329.134614.198823811.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, gorcunov@gmail.com, randy.dunlap@oracle.com,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:51335 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbZC3Lvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 07:51:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20090330113015.21576898@osiris.boeblingen.de.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:59276 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769AbZC3MA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 08:00:59 -0400
+In-Reply-To: <20090329.134614.198823811.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Heiko Carstens wrote:
-> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+David Miller wrote:
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Sun, 29 Mar 2009 13:59:30 +0200
 > 
-> Let driver depend on HAS_IOMEM to avoid build breakage on s390:
+>> David Miller wrote:
+>>> From: Cyrill Gorcunov <gorcunov@gmail.com>
+>>> Date: Sun, 29 Mar 2009 10:47:04 +0400
+>>>
+>>>> [Randy Dunlap - Sat, Mar 28, 2009 at 09:26:42PM -0700]
+>>>> ... 
+>>>> | works_for_me.  Thanks.
+>>>> | but missing S-O-B.
+>>>> | 
+>>>> | Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+>>>> ...
+>>>>
+>>>> Thanks for testing Randy. So if nobody will complain
+>>>> here is a solid version of the patch. Though I would like
+>>>> if Pablo or Patrick confirm its correctness. Thanks!
+>>> I'll apply this once Patrick or Pablo have a look at it.
+>> I think that the patch attached is better since it removes the overhead
+>> of the IPv6 dependency, which is indeed too much for the use of one
+>> function. Thanks.
 > 
->   CC      drivers/net/ethoc.o
-> drivers/net/ethoc.c: In function 'ethoc_read':
-> drivers/net/ethoc.c:221: error: implicit declaration of function 'ioread32'
-> drivers/net/ethoc.c: In function 'ethoc_write':
-> drivers/net/ethoc.c:226: error: implicit declaration of function 'iowrite32'
-> drivers/net/ethoc.c: In function 'ethoc_rx':
-> drivers/net/ethoc.c:405: error: implicit declaration of function 'memcpy_fromio'
-> drivers/net/ethoc.c: In function 'ethoc_start_xmit':
-> drivers/net/ethoc.c:828: error: implicit declaration of function 'memcpy_toio'
-> 
-> Cc: Thierry Reding <thierry.reding@avionic-design.de>
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> ---
->  drivers/net/Kconfig |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: linux-2.6/drivers/net/Kconfig
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/Kconfig
-> +++ linux-2.6/drivers/net/Kconfig
-> @@ -974,7 +974,7 @@ config ENC28J60_WRITEVERIFY
->  
->  config ETHOC
->  	tristate "OpenCores 10/100 Mbps Ethernet MAC support"
-> -	depends on NET_ETHERNET
-> +	depends on NET_ETHERNET && HAS_IOMEM
->  	select MII
->  	select PHYLIB
->  	help
+> I think it's a lot better too, applied, thanks!
 
-Acked-by: Thierry Reding <thierry.reding@avionic-design.de>
+No objections from my side, thanks :)
+
 
