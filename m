@@ -1,51 +1,49 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH] net/fec_mpc52xx: fix BUG on missing dma_ops
-Date: Mon, 30 Mar 2009 12:53:14 -0600
-Message-ID: <20090330184423.31699.61150.stgit@localhost.localdomain>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
+Date: Mon, 30 Mar 2009 11:57:57 -0700
+Message-ID: <49D11635.2050809@hp.com>
+References: <20090218051906.174295181@vyatta.com>	<20090218052747.679540125@vyatta.com>	<499BDB5D.2050105@trash.net> <499C1894.7060400@cosmosbay.com> <49CE568A.9090104@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.236]:56861 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756286AbZC3SxS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 14:53:18 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so2586196rvb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 11:53:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49CE568A.9090104@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Likely <grant.likely@secretlab.ca>
+Eric Dumazet wrote:
+> Hi Patrick
+> 
+> Apparently we could not finish the removal of tcp_lock for 2.6.30 :(
+> 
+> Stephen suggested using a 4 bytes hole in struct nf_conntrack,
+> but this is ok only if sizeof(spinlock_t) <= 4 and 64 bit arches.
+> 
+> We could do an hybrid thing : use nf_conn.ct_general.lock if 64 bit arches
+> and sizeof(spinlock_t) <= 4.
+> 
+> Other cases would use a carefuly sized array of spinlocks...
+> 
+> Thank you
+> 
+> [PATCH] netfilter: finer grained nf_conn locking
+> 
+> Introduction of fine grained lock infrastructure for nf_conn.
+> If possible, we use a 32bit hole on 64bit arches.
+> Else we use a global array of hashed spinlocks, so we dont
+> change size of "struct nf_conn"
+> 
+> Get rid of central tcp_lock rwlock used in TCP conntracking
+> using this infrastructure for better performance on SMP.
+> 
+> "tbench 8" results on my 8 core machine (32bit kernel, with
+> conntracking on) : 2319 MB/s instead of 2284 MB/s
 
-The driver triggers a BUG_ON() when allocating DMA buffers if the
-arch/powerpc dma_ops from the of_platform device are not copied
-into net_device structure.
+Is this an implicit request for me to try to resurrect the 32-core setup?
 
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
-David, do you want to pick this one up right away, or should I merge it
-through Ben's powerpc tree?
-
-g.
-
- drivers/net/fec_mpc52xx.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index 049b0a7..215207d 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -928,6 +928,9 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	if (!request_mem_region(mem.start, sizeof(struct mpc52xx_fec), DRIVER_NAME))
- 		return -EBUSY;
- 
-+	/* Copy the PowerPC dma_ops from the of_device */
-+	set_dma_ops(&ndev->dev, get_dma_ops(&op->dev));
-+
- 	/* Init ether ndev with what we have */
- 	ndev->open		= mpc52xx_fec_open;
- 	ndev->stop		= mpc52xx_fec_close;
-
+rick jones
