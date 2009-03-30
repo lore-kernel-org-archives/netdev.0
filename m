@@ -1,37 +1,98 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Mon, 30 Mar 2009 18:38:16 +0200
-Message-ID: <OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com> <OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se> <49CCD3E8.9040007@freescale.com>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
+Date: Mon, 30 Mar 2009 18:40:36 +0200
+Message-ID: <20090330164035.GA2652@gentoox2.trippelsdorf.de>
+References: <20090327211202.GA10014@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi> <20090328045056.GA2394@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi> <20090328095514.GA2599@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, pku.leo@gmail.com
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, corbet@lwn.net
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:53604 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751686AbZC3QiU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2009 12:38:20 -0400
-In-Reply-To: <49CCD3E8.9040007@freescale.com>
+Received: from smtp-out-41.synserver.de ([217.119.50.41]:1082 "HELO
+	smtp-out-41.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752289AbZC3Qkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 12:40:43 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scott Wood <scottwood@freescale.com> wrote on 27/03/2009 14:26:00:
-> 
-> Joakim Tjernlund wrote:
-> > This is a bit better than the current type casts. Moving over to qe_bd
-> > accesses is a bigger cleanup that will have to be a seperate patch.
-> > I am not sure it is an all win as you probably loose the ability
-> > to read both status and len in one access.
-> 
-> Not if you define the struct to have one status_len field (or a union of 
+On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo J=E4rvinen wrote:
+> On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
+>=20
+> > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo J=E4rvinen wrote:
+> > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
+> > >=20
+> > > > On Sat, Mar 28, 2009 at 01:05:09AM +0200, Ilpo J=E4rvinen wrote=
+:
+> > > > > On Fri, 27 Mar 2009, Markus Trippelsdorf wrote:
+> > > > >=20
+> > > > > > I'm running the latest git kernel (2.6.29-03321-gbe0ea69) a=
+nd I've got
+> > > > > > this warning twice in the last few hours.:
+>=20
+> > > > > > The machine hangs afterwards.
+> > > > >=20
+> > > > > Is it really related to the warning for sure? I find it hard =
+to=20
+> > > > > believe...
+> > > >=20
+> > > > The machine is normally running stable for days. Switching back=
+ to 2.6.29
+> > > > solves the problem...
+> > >=20
+> > > Sure, but does is hang right after printing that warning or much =
+later on,
+> > > e.g., one minute is already a very long time for the crash to be =
+related=20
+> > > to that warning... Even 5 seconds is a long time but I'd immediat=
+ely say=20
+> > > it's not related then :-).
+> >=20
+> > I really can't tell you. In both occurrences of the warning the mac=
+hine
+> > was already unusable when I noticed. I then rebooted and the last e=
+ntry
+> > in the logs was that warning.
+>=20
+> ...And, let me guess, you're in X and therefore unable to catch a fin=
+al=20
+> oops if any would be printed? It would be nice to get around that as =
+well,=20
+> either use serial/netconsole or hang in text mode while waiting for t=
+he=20
+> crash (should be too hard if you are able to setup the workload first=
+=20
+> and then switch away from X and if reproducing takes about an hour)..=
+=2E
 
-> that with separate fields), as gianfar does.
+OK, I will try this later.
 
-gianfar does not seem to use in_/out_ functions for the BDs. Works just
-fine that too it seems. I always felt that the in_/out_ functions
-was extra baggage that the Freescale CPUs don't need. There is
-something in between that is missing.
+>=20
+> Arguably the presence of that warning at both times is somewhat alarm=
+ing.
 
- Jocke
+Make that four times:
+
+kernel # for i in log*; cat $i | grep "tcp_input";
+Mar 27 19:57:40 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
+0xd55/0x1991()
+Mar 27 21:37:00 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
+0xd55/0x1991()
+Mar 28 18:41:03 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
+0xd55/0x1994()
+Mar 29 11:32:26 [kernel] WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+=
+0xd5b/0x19a9()
+
+The symptoms are always the same...
+
+Another observation is that all four WARNINGs involve only one of my
+two networks adapters, namely skge (build into my mobo). The other one
+(r8169) never occurs in the call trace.
+
+I will also try to reproduce the WARNING with Jon's patch applied.
+
+--=20
+Markus
