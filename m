@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] [git-pull] net firmware patches
-Date: Tue, 31 Mar 2009 14:44:13 -0700 (PDT)
-Message-ID: <20090331.144413.257441845.davem@davemloft.net>
-References: <1238426878.24736.18.camel@ht.satnam>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 2/2 V2] kaweth: Clean up code
+Date: Tue, 31 Mar 2009 23:49:53 +0200
+Message-ID: <200903312349.53998.oliver@neukum.org>
+References: <49d26531.EsrSuMQHYRGUbhou%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dwmw2@infradead.org, frible@teaser.fr, becker@scyld.com,
-	dahinds@users.sourceforge.net, mikep@linuxtr.net
-To: jaswinder@kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51940
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1763394AbZCaVoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 17:44:24 -0400
-In-Reply-To: <1238426878.24736.18.camel@ht.satnam>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:41068 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763546AbZCaVpq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 17:45:46 -0400
+In-Reply-To: <49d26531.EsrSuMQHYRGUbhou%Larry.Finger@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Date: Mon, 30 Mar 2009 20:57:58 +0530
+Am Dienstag 31 M=E4rz 2009 20:47:13 schrieb Larry Finger:
+> The driver kaweth yields a -EBUSY error when starting, and a -ETIME
+> error when shutting down. These errors are avoided, and the RX status
+> is further checked for other potential errors.
 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/jaswinder/net-next-2.6.git master
+Why the different treatment with respect to the error counter?
+Isn't enough to print the numerical error? This takes a lot of
+memory.
 
-Pulled, thanks!
+	Regards
+		Oliver
+
