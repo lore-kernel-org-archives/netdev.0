@@ -1,55 +1,38 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: Patch: Fix fec_mpc52xx driver to use net_device_ops
-Date: Tue, 31 Mar 2009 10:48:14 -0600
-Message-ID: <fa686aa40903310948u43b722c0h1018c09641bd4d68@mail.gmail.com>
-References: <ae4f76fd0903310344s2d46edf2l505a1d21a4778d54@mail.gmail.com>
-	<20090331074806.432a882a@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: keeping ifindex in 16bits or does it have to be sparse?
+Date: Tue, 31 Mar 2009 10:02:31 -0700
+Message-ID: <20090331100231.7e7964eb@nehalam>
+References: <1238512097.22664.190.camel@ragnarok>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linuxppc-dev@ozlabs.org, Henk Stegeman <henk.stegeman@gmail.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090331074806.432a882a@nehalam>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jeremy Jackson <jerj@coplanar.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:44118 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752679AbZCaRCi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 13:02:38 -0400
+In-Reply-To: <1238512097.22664.190.camel@ragnarok>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 31, 2009 at 8:48 AM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Tue, 31 Mar 2009 12:44:15 +0200
->> +static const struct net_device_ops mpc52xx_fec_netdev_ops =3D {
->> + =A0 =A0 =A0 .ndo_open =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D mpc52xx_fec_open,
->> + =A0 =A0 =A0 .ndo_stop =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D mpc52xx_fec_clos=
-e,
->> + =A0 =A0 =A0 .ndo_start_xmit =A0 =A0 =A0 =A0 =3D mpc52xx_fec_hard_start=
-_xmit,
->> + =A0 =A0 =A0 .ndo_tx_timeout =A0 =A0 =A0 =A0 =3D mpc52xx_fec_tx_timeout,
->> + =A0 =A0 =A0 .ndo_get_stats =A0 =A0 =A0 =A0 =A0=3D mpc52xx_fec_get_stat=
-s,
->> + =A0 =A0 =A0 .ndo_set_multicast_list =3D mpc52xx_fec_set_multicast_list,
->> + =A0 =A0 =A0 .ndo_validate_addr =A0 =A0 =A0=3D eth_validate_addr,
->> + =A0 =A0 =A0 .ndo_set_mac_address =A0 =A0=3D mpc52xx_fec_set_mac_addres=
-s,
->> + =A0 =A0 =A0 .ndo_do_ioctl =A0 =A0 =A0 =A0 =A0 =3D mpc52xx_fec_ioctl,
->>
-> What about change_mtu? Don't you want:
-> =A0 =A0 =A0 =A0 =A0.ndo_change_mtu =A0 =A0 =A0 =A0 =3D eth_change_mtu,
+On Tue, 31 Mar 2009 11:08:17 -0400
+Jeremy Jackson <jerj@coplanar.net> wrote:
 
-Yes, you're right.  fixed.
+> The question came up when profiling Quagga... a performance issue occurs
+> because it's iterating over a linked list of interface structures... and
+> this person is using 2000 interfaces for ADSL PPPoE server.  It's an
+> interesting use case.
+> 
+> There are 2 options to make the interface lookup in quagga scale: array
+> or hash.  My first thought was array, but it seems that ifindex can get
+> sparse, that is, the largest ifindex can be much bigger (eg 408589) the
+> number of max number of interfaces.
+> 
+> So question to netdev, is it possible to reuse ifindex eventually, so it
+> won't keep growing with interface add/delete, and are there
+> (unnecessary) large jumps in the allocation sequence?
+> 
 
-Thanks,
-g.
-
--- =
-
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Hash the names as well, since quagga does a lot of lookup by name.
