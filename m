@@ -1,42 +1,42 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Fix build error if NAPI enabled
-Date: Wed,  1 Apr 2009 00:05:02 +0900
-Message-ID: <1238511902-6853-1-git-send-email-anemo@mba.ocn.ne.jp>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
+Date: Tue, 31 Mar 2009 17:13:04 +0200
+Message-ID: <200903311713.05451.oliver@neukum.org>
+References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net> <200903310939.09690.oliver@neukum.org> <49D22EFC.1020709@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:53636 "EHLO smtp.mba.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759048AbZCaPFG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 11:05:06 -0400
+Received: from smtp-out003.kontent.com ([81.88.40.217]:49588 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbZCaPJF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:09:05 -0400
+In-Reply-To: <49D22EFC.1020709@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver contains experimental NAPI code disabled by default.
-The commit bea3348ee ("[NET]: Make NAPI polling independent of struct
-net_device objects.") converted the NAPI path of this driver but that
-conversion was not complete.  This patch fixes a build error
-introduced by the commit.
+Am Dienstag 31 M=E4rz 2009 16:55:56 schrieb Larry Finger:
+> Oliver Neukum wrote:
+> > Very good.
+> >
+> >> (X server over the network), the interface stalled with no logged
+> >> messages.
+> >
+> > Do you get something with sysrq-t ?
+>
+> No. The rest of the system was still functioning; however, the driver
+> needed to be unloaded and reloaded before continuing. There were no l=
+og
+> entries until the driver was unloaded.
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
- drivers/net/tc35815.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+This sounds like kaweth_tx_timeout() should have been called.
+Did you enable enough logging to see
+dev_warn(&net->dev, "%s: Tx timed out. Resetting.\n", net->name);
 
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index bcd0e60..ad9848e 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -1908,7 +1908,7 @@ static int tc35815_poll(struct napi_struct *napi, int budget)
- 	do {
- 		tc_writel(status, &tr->Int_Src);	/* write to clear */
- 
--		handled = tc35815_do_interrupt(dev, status, limit);
-+		handled = tc35815_do_interrupt(dev, status, budget - received);
- 		if (handled >= 0) {
- 			received += handled;
- 			if (received >= budget)
--- 
-1.5.6.3
+	Regards
+		Oliver
 
