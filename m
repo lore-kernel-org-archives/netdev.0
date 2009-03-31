@@ -1,141 +1,92 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 2/2] sysctl:  lockdep support for sysctl reference
- counting.
-Date: Tue, 31 Mar 2009 17:35:26 +0200
-Message-ID: <1238513726.8530.564.camel@twins>
-References: <49B91A7E.76E4.0078.0@novell.com>
-	 <tip-6a09dfa870ba0ed21b1124539968a36b42660661@git.kernel.org>
-	 <1236934491.5188.209.camel@laptop> <49BA33BE.76E4.0078.0@novell.com>
-	 <1236937423.22914.3698.camel@twins> <20090313103828.GB31094@elte.hu>
-	 <m1d4cd9n4k.fsf@fess.ebiederm.org> <20090320085205.GB16021@elte.hu>
-	 <m14oxo8qis.fsf@fess.ebiederm.org> <20090320182404.GA31629@elte.hu>
-	 <1237575134.4667.5.camel@laptop> <1237577688.4667.68.camel@laptop>
-	 <m1iqm3xr2n.fsf_-_@fess.ebiederm.org> <m1eiwrxr05.fsf_-_@fess.ebiederm.org>
-	 <m1ab7fxqxw.fsf_-_@fess.ebiederm.org> <1238487448.28248.1805.camel@twins>
-	 <m1vdppbyjd.fsf@fess.ebiederm.org>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [Bugme-new] [Bug 12877] New: tg3: eth0 transit timed out,
+ resetting -> dead NIC
+Date: Tue, 31 Mar 2009 09:26:17 -0700
+Message-ID: <20090331162617.GB15533@xw6200.broadcom.net>
+References: <bug-12877-10286@http.bugzilla.kernel.org/>
+ <20090315143214.90c71fb7.akpm@linux-foundation.org>
+ <1237238601.8839.85.camel@HP1> <49C01F7F.9030306@birkenwald.de>
+ <20090319165842.GA10819@xw6200.broadcom.net>
+ <20090322132121.GA7871@pest>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, Jan Beulich <jbeulich@novell.com>,
-	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
-	linux-kernel@vger.kernel.org, Gautham R Shenoy <ego@in.ibm.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: "Bernhard Schmidt" <berni@birkenwald.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46638 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759159AbZCaPfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:35:15 -0400
-In-Reply-To: <m1vdppbyjd.fsf@fess.ebiederm.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2403 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761738AbZCaQ0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 12:26:32 -0400
+In-Reply-To: <20090322132121.GA7871@pest>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-03-31 at 06:40 -0700, Eric W. Biederman wrote:
-> Peter Zijlstra <peterz@infradead.org> writes:
+On Sun, Mar 22, 2009 at 06:21:21AM -0700, Bernhard Schmidt wrote:
+> On Thu, Mar 19, 2009 at 09:58:42AM -0700, Matt Carlson wrote:
 > 
-> > On Sat, 2009-03-21 at 00:42 -0700, Eric W. Biederman wrote:
-> >> It is possible for get lock ordering deadlocks between locks
-> >> and waiting for the sysctl used count to drop to zero.  We have
-> >> recently observed one of these in the networking code.
-> >> 
-> >> So teach the sysctl code how to speak lockdep so the kernel
-> >> can warn about these kinds of rare issues proactively.
-> >
-> > It would be very good to extend this changelog with a more detailed
-> > explanation of the deadlock in question.
-> >
-> > Let me see if I got it right:
-> >
-> > We're holding a lock, while waiting for the refcount to drop to 0.
-> > Dropping that refcount is blocked on that lock.
-> >
-> > Something like that?
+> Hello Matt,
 > 
-> Exactly.
+> > Hi Bernhard.  I talked to Michael about this and we'd like you to try
+> > two things.
+> > 
+> > 1) Can you disable iLo2 and see if you can still reproduce the problem?
+> > 2) Can you apply the following patch to get more information on when
+> >    MMIO gets disabled?
 > 
-> I must have written an explanation so many times that it got
-> lost when I wrote that commit message.
+> Not sure this is going to help you. NIC crashed two times tonight, logs
+> look like this
 > 
-> In particular the problem can be see with /proc/sys/net/ipv4/conf/*/forwarding.
+> Mar 22 04:06:46 svr02 kernel: [1392136.468921] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:47 svr02 kernel: [1392137.520288] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:48 svr02 kernel: [1392138.568267] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:49 svr02 kernel: [1392139.616266] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:50 svr02 kernel: [1392140.664266] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:51 svr02 kernel: [1392141.712276] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:52 svr02 kernel: [1392142.760297] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:53 svr02 kernel: [1392143.808258] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:54 svr02 kernel: [1392144.856256] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:55 svr02 kernel: [1392145.904266] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:56 svr02 kernel: [1392146.952276] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:57 svr02 kernel: [1392148.000267] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:58 svr02 kernel: [1392149.048271] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:06:59 svr02 kernel: [1392150.096268] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:00 svr02 kernel: [1392151.144277] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:01 svr02 kernel: [1392152.192287] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:02 svr02 kernel: [1392153.240268] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:03 svr02 kernel: [1392154.288267] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:04 svr02 kernel: [1392155.336267] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:05 svr02 kernel: [1392156.384268] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:07 svr02 kernel: [1392157.432267] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:08 svr02 kernel: [1392158.480266] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:09 svr02 kernel: [1392159.528289] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:10 svr02 kernel: [1392160.576297] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:11 svr02 kernel: [1392161.624277] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:12 svr02 kernel: [1392162.672267] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:13 svr02 kernel: [1392163.720266] PCI Memory Mapped IO Disabled!!!!
+> Mar 22 04:07:14 svr02 kernel: [1392164.768266] PCI Memory Mapped IO Disabled!!!!
 > 
-> The problem is that the handler for fowarding takes the rtnl_lock
-> with the reference count held.
+> at this point the "watchdog" kicked in and did rmmod/modprobe, so I
+> think the only thing you can read out of this debugging log is that
+> there was no kernel message right before MMIO got disabled and it takes
+> quite a while to fire the Tx timeout.
 > 
-> Then we call unregister_sysctl_table under the rtnl_lock.
-> which waits for the reference count to go to zero.
-
-> >> +
-> >> +#  define lock_sysctl() __raw_spin_lock(&sysctl_lock.raw_lock)
-> >> +#  define unlock_sysctl() __raw_spin_unlock(&sysctl_lock.raw_lock)
-> >
-> > Uhmm, Please explain that -- without a proper explanation this is a NAK.
+> Mar 22 04:07:15 svr02 kernel: [1392165.540078] tg3 0000:03:04.1: PCI INT B disabled
+> Mar 22 04:07:16 svr02 kernel: [1392166.817125] tg3: tg3_abort_hw timed out for eth0, TX_MODE_ENABLE will not clear MAC_TX_MODE=ffffffff
+> Mar 22 04:07:18 svr02 kernel: [1392168.398844] tg3: eth0: No firmware running.
+> Mar 22 04:07:29 svr02 kernel: [1392179.793309] tg3: eth0: Link is down.
+> Mar 22 04:07:31 svr02 kernel: [1392181.896030] tg3 0000:03:04.0: PCI INT A disabled
+> Mar 22 04:07:33 svr02 kernel: [1392183.957132] tg3.c:v3.94 (August 14, 2008)
+> Mar 22 04:07:33 svr02 kernel: [1392184.020034] tg3 0000:03:04.0: enabling device (0000 -> 0002)
+> Mar 22 04:07:33 svr02 kernel: [1392184.086083] tg3 0000:03:04.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
 > 
-> If the refcount is to be considered a lock.  sysctl_lock must be considered
-> the internals of that lock.  lockdep gets extremely confused otherwise.
-> Since the spinlock is static to this file I'm not especially worried
-> about it.
+> I'm now switching to eth1.
 
-Usually lock internal locks still get lockdep coverage. Let see if we
-can find a way for this to be true even here. I suspect the below to
-cause the issue:
+Bernhard, any word on what happened?
 
-> >>  /* called under sysctl_lock, will reacquire if has to wait */
-> >> @@ -1478,47 +1531,54 @@ static void start_unregistering(struct ctl_table_header *p)
-> >>  	 * if p->used is 0, nobody will ever touch that entry again;
-> >>  	 * we'll eliminate all paths to it before dropping sysctl_lock
-> >>  	 */
-> >> +	table_acquire(p);
-> >>  	if (unlikely(p->used)) {
-> >>  		struct completion wait;
-> >> +		table_contended(p);
-> >> +
-> >>  		init_completion(&wait);
-> >>  		p->unregistering = &wait;
-> >> -		spin_unlock(&sysctl_lock);
-> >> +		unlock_sysctl();
-> >>  		wait_for_completion(&wait);
-> >> -		spin_lock(&sysctl_lock);
-> >> +		lock_sysctl();
-> >>  	} else {
-> >>  		/* anything non-NULL; we'll never dereference it */
-> >>  		p->unregistering = ERR_PTR(-EINVAL);
-> >>  	}
-> >> +	table_acquired(p);
-> >> +
-> >>  	/*
-> >>  	 * do not remove from the list until nobody holds it; walking the
-> >>  	 * list in do_sysctl() relies on that.
-> >>  	 */
-> >>  	list_del_init(&p->ctl_entry);
-> >> +
-> >> +	table_release(p);
-> >>  }
-
-There you acquire the table while holding the spinlock, generating:
-sysctl_lock -> table_lock, however you then release the sysctl_lock and
-re-acquire it, generating table_lock -> sysctl_lock.
-
-Humm, can't we write that differently?
-
-
-> >> @@ -1951,7 +2011,13 @@ struct ctl_table_header *__register_sysctl_paths(
-> >>  		return NULL;
-> >>  	}
-> >>  #endif
-> >> -	spin_lock(&sysctl_lock);
-> >> +#ifdef CONFIG_DEBUG_LOCK_ALLOC
-> >> +	{
-> >> +		static struct lock_class_key __key;
-> >> +		lockdep_init_map(&header->dep_map, "sysctl_used", &__key, 0);
-> >> +	}
-> >> +#endif	
-> >
-> > This means every sysctl thingy gets the same class, is that
-> > intended/desired?
-> 
-> There is only one place we initialize it, and as far as I know really
-> only one place we take it.  Which is the definition of a lockdep
-> class as far as I know.
-
-Indeed, just checking.
