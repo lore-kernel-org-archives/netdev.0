@@ -1,62 +1,88 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Tue, 31 Mar 2009 09:10:18 +0200
-Message-ID: <20090331071018.GA2641@gentoox2.trippelsdorf.de>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi> <20090328045056.GA2394@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi> <20090328095514.GA2599@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi> <20090330164035.GA2652@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
+From: Yu Zhao <yu.zhao@intel.com>
+Subject: Re: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10 GbE
+	PCIe adapter
+Date: Tue, 31 Mar 2009 14:13:33 +0800
+Message-ID: <20090331061333.GA11240@yzhao-otc.sh.intel.com>
+References: <1237018825.4966.412.camel@flash>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, corbet@lwn.net
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762284AbZCaGKz@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Ramkrishna Vepa <ram.vepa@neterion.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:44207 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756225AbZCaGMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 02:12:37 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1237018825.4966.412.camel@flash>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 30, 2009 at 09:52:55PM +0300, Ilpo J=E4rvinen wrote:
-> On Mon, 30 Mar 2009, Markus Trippelsdorf wrote:
->=20
-> > On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo J=E4rvinen wrote:
-> > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-> > > > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo J=E4rvinen wrote=
-:
-> > >=20
-> > > ...And, let me guess, you're in X and therefore unable to catch a=
- final=20
-> > > oops if any would be printed? It would be nice to get around that=
- as well,=20
-> > > either use serial/netconsole or hang in text mode while waiting f=
-or the=20
-> > > crash (should be too hard if you are able to setup the workload f=
-irst=20
-> > > and then switch away from X and if reproducing takes about an hou=
-r)...
-> >=20
-> > OK, I will try this later.
->=20
-> Lets hope that gives some clue where it ends up going boom (if it is=20
-> caused by TCP we certainly should see something more sensible in cons=
-ole=20
-> than just a hang)... ...I once again read through tcp commits but jus=
-t=20
-> cannot find anything that could cause fackets_out miscount, not to sp=
-eak=20
-> of crash prone changes so we'll just have to wait and see...
+On Sat, Mar 14, 2009 at 04:20:26PM +0800, Ramkrishna Vepa wrote:
+> This is a release of a new network driver, "vxge", for our latest PCIe based
+> hardware - The X3100 10GbE Server/Storage Adapter. The X3100 ASIC supports 
+> four modes of operation, configurable via firmware -
+> 	Single function mode
+> 	Multi function	mode
+> 	SRIOV mode
+> 	MRIOV mode
+> 	
+> The driver patches series will follow this email. This driver has undergone 
+> significant testing for the past six months in all four modes of operation,
+> and is very stable. We would appreciate the community review and comments
+> on this driver.
+> 	
+> The modes, besides single function mode, are oriented towards Server
+> I/O virtualization and/or I/O sharing (see PCI SIG SR IOV and MR IOV
+> specs for reference), although they can be used on a single
+> non-virtualized server as well for instance, to run workloads that would
+> typically benefit from using separate network cards. In these scenarios,
+> X3100 can replace large number of GbE NICs without any system or network
+> changes (outside of L2 driver/hardware), while each physical NIC will be
+> able run up to 10 GbE instead of 1 GbE.
+> 
+> A note on the different modes of operation -
+> 
+> Single-function mode: From Linux stack perspective, the adapter is a
+> typical multi-queue 10GbE pci-e netdev interface (driven by the
+> submitted vxge driver).
+>  
+> Multi-function mode: From Linux stack perspective, the adapter is a
+> multi-function pci-e device where each function is a multi-queue pci-e
+> netdev interface. This mode has some applications in native Linux
+> environments, but it is primarily designed for use in hypervisors that
+> do not yet support SR IOV pci-e extensions. In fact, the functionality
+> in this mode is virtually identical to the SR IOV mode described below,
+> except SR IOV support in Linux is not required/expected. 
 
-The machine hanged again this night and I took two pictures:
-http://www.mypicx.com/uploadimg/1055813374_03302009_2.jpg
-http://www.mypicx.com/uploadimg/1543678904_03302009_1.jpg
+Xen upstream already supports the SR-IOV, and the native Linux and KVM
+will be supporting it too when 2.6.30 comes out.
 
-But this time there was no tcp related warning in the logs.
+Intel 82576 driver has been patched to enable the SR-IOV capability:
+  http://patchwork.kernel.org/patch/8063/
+  http://patchwork.kernel.org/patch/8064/
+  http://patchwork.kernel.org/patch/8065/
+  http://patchwork.kernel.org/patch/8066/
+Thought one of these patches uses the sysfs interface to receive the NumVFs
+from user space, which is deprecated, rest of them still clearly demonstrate
+how to convert the traditional PCI NIC driver to the `Physical Function'
+driver by using the SR-IOV API.
 
-I then pulled the lateset git changes, rebuild, rebooted and setup the
-workload again. The machine was still up and running in the morning=20
-(~4 hours uptime). So it may well be that the issue was fixed with
-the latest changes. If it ever occurs again I will notify you.
-
-Thanks for your assistance so far,
-
---=20
-Markus
+> 
+> >From vxge driver perspective, each x3100 function is an independent NIC.
+> The functions share 10GbE link and pci-e bus, but hardly anything else
+> inside the ASIC. Features like independent hw reset, statistics,
+> bandwidth/priority allocation and guarantees, etc. are supported. Also,
+> typical L2 functions like LSO, interrupt moderation, etc are supported
+> independently on each function.
+> 
+> In other words, direct hardware access with x3100 doesnctions for Direct Hardware
+> 	Access to different Guests or Servers - while keeping traditional
+> 	privileged operations (VLAN membership, etc) under privileged domain
+> 	control.
+>  
+> SR IOV mode: Once BIOS and/or OS support SR IOV pci-e extensions, from
+> Linux stack perspective the adapter will look like the multi-function
+> mode in #2 above. vxge driver will still think that each x3100 function
+> is an independent x3100 pci-e device.
+>  
