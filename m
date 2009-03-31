@@ -1,111 +1,36 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH] net/fec_mpc52xx: fix BUG on missing dma_ops
-Date: Mon, 30 Mar 2009 20:25:10 -0600
-Message-ID: <20090331022428.26151.55232.stgit@localhost.localdomain>
+From: Kyle McMartin <kyle@mcmartin.ca>
+Subject: Re: [PATCH] Phonet:fix build problem
+Date: Mon, 30 Mar 2009 22:41:24 -0400
+Message-ID: <20090331024124.GA30601@bombadil.infradead.org>
+References: <20090320115838.GA26371@orion> <20090321.165950.248659848.davem@davemloft.net> <a4423d670903211719m76baeab0k51f054058d6f5134@mail.gmail.com> <1237694320.25297.3.camel@localhost.localdomain> <20090322160629.GA23227@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.net
-To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	David Miller <davem@davemloft.net>,
-	Becky Bruce <beckyb@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:34343 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752985AbZCaCZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2009 22:25:16 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so2752141rvb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2009 19:25:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Alexander Beregalov <a.beregalov@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Kyle McMartin <kyle@mcmartin.ca>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761913AbZCaClu@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090322160629.GA23227@bombadil.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Likely <grant.likely@secretlab.ca>
+On Sun, Mar 22, 2009 at 12:06:29PM -0400, Kyle McMartin wrote:
+> On Sun, Mar 22, 2009 at 03:58:40AM +0000, James Bottomley wrote:
+> > > > I think that platform's atomic_add() implementation should
+> > > > be fixed instead.
+> > > 
+> > > It is parisc, CC added.
+> > 
+> > Looks like a macro argument screw up in atomic.h
+> > 
+> > This should fix it (uncompiled, of course).
+> > 
+> 
+> Looks correct to me. Applied. Thanks everyone.
+>
 
-The driver triggers a BUG_ON() when allocating DMA buffers if the
-arch/powerpc dma_ops from the of_platform device are not copied
-into net_device structure.
+Oh, bah, want to resend that with a sign-off, James?
 
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
-
-Becky, does this look better to you?
-
-g.
-
- drivers/net/fec_mpc52xx.c |   19 ++++++++++++-------
- 1 files changed, 12 insertions(+), 7 deletions(-)
-
-
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index 049b0a7..f99463f 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -129,7 +129,8 @@ static void mpc52xx_fec_free_rx_buffers(struct net_device *dev, struct bcom_task
- 		struct sk_buff *skb;
- 
- 		skb = bcom_retrieve_buffer(s, NULL, (struct bcom_bd **)&bd);
--		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_FROM_DEVICE);
-+		dma_unmap_single(dev->dev.parent, bd->skb_pa, skb->len,
-+				 DMA_FROM_DEVICE);
- 		kfree_skb(skb);
- 	}
- }
-@@ -150,7 +151,7 @@ static int mpc52xx_fec_alloc_rx_buffers(struct net_device *dev, struct bcom_task
- 		bd = (struct bcom_fec_bd *)bcom_prepare_next_buffer(rxtsk);
- 
- 		bd->status = FEC_RX_BUFFER_SIZE;
--		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
-+		bd->skb_pa = dma_map_single(dev->dev.parent, skb->data,
- 				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
- 
- 		bcom_submit_next_buffer(rxtsk, skb);
-@@ -388,7 +389,8 @@ static int mpc52xx_fec_hard_start_xmit(struct sk_buff *skb, struct net_device *d
- 		bcom_prepare_next_buffer(priv->tx_dmatsk);
- 
- 	bd->status = skb->len | BCOM_FEC_TX_BD_TFD | BCOM_FEC_TX_BD_TC;
--	bd->skb_pa = dma_map_single(&dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-+	bd->skb_pa = dma_map_single(dev->dev.parent, skb->data, skb->len,
-+				    DMA_TO_DEVICE);
- 
- 	bcom_submit_next_buffer(priv->tx_dmatsk, skb);
- 
-@@ -430,7 +432,8 @@ static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
- 		struct bcom_fec_bd *bd;
- 		skb = bcom_retrieve_buffer(priv->tx_dmatsk, NULL,
- 				(struct bcom_bd **)&bd);
--		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_TO_DEVICE);
-+		dma_unmap_single(dev->dev.parent, bd->skb_pa, skb->len,
-+				 DMA_TO_DEVICE);
- 
- 		dev_kfree_skb_irq(skb);
- 	}
-@@ -455,7 +458,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 
- 		rskb = bcom_retrieve_buffer(priv->rx_dmatsk, &status,
- 				(struct bcom_bd **)&bd);
--		dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len, DMA_FROM_DEVICE);
-+		dma_unmap_single(dev->dev.parent, bd->skb_pa, rskb->len,
-+				 DMA_FROM_DEVICE);
- 
- 		/* Test for errors in received frame */
- 		if (status & BCOM_FEC_RX_BD_ERRORS) {
-@@ -464,7 +468,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 				bcom_prepare_next_buffer(priv->rx_dmatsk);
- 
- 			bd->status = FEC_RX_BUFFER_SIZE;
--			bd->skb_pa = dma_map_single(&dev->dev, rskb->data,
-+			bd->skb_pa = dma_map_single(dev->dev.parent,
-+					rskb->data,
- 					FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
- 
- 			bcom_submit_next_buffer(priv->rx_dmatsk, rskb);
-@@ -499,7 +504,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 			bcom_prepare_next_buffer(priv->rx_dmatsk);
- 
- 		bd->status = FEC_RX_BUFFER_SIZE;
--		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
-+		bd->skb_pa = dma_map_single(dev->dev.parent, skb->data,
- 				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
- 
- 		bcom_submit_next_buffer(priv->rx_dmatsk, skb);
-
+regards, Kyle
