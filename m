@@ -1,347 +1,103 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH 12/17] venettap: add scatter-gather support
-Date: Tue, 31 Mar 2009 14:43:50 -0400
-Message-ID: <20090331184349.28333.41764.stgit@dev.haskins.net>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/2 V2] kaweth: Fix locking to be SMP-safe
+Date: Tue, 31 Mar 2009 13:45:49 -0500
+Message-ID: <49d264dd.YwbXLw18YaD1tQqD%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	oliver@neukum.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:38365 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760825AbZCaSlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:41:45 -0400
-In-Reply-To: <20090331184057.28333.77287.stgit@dev.haskins.net>
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.123]:37578 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763496AbZCaSp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:45:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+On an SMP system, the following message is printed. The patch below gets
+fixes the problem.
+
+=================================
+[ INFO: inconsistent lock state ]
+2.6.29-Linus-05093-gc31f403 #57
+---------------------------------
+inconsistent {hardirq-on-W} -> {in-hardirq-W} usage.
+bash/4105 [HC1[1]:SC0[0]:HE0:SE1] takes:
+ (&kaweth->device_lock){+...}, at: [<ffffffffa01aa286>]
+                 kaweth_usb_receive+0x77/0x1af [kaw eth]
+{hardirq-on-W} state was registered at:
+  [<ffffffff80260503>] __lock_acquire+0x753/0x1685
+  [<ffffffff8026148a>] lock_acquire+0x55/0x71
+  [<ffffffff80461ba6>] _spin_lock+0x31/0x3d
+  [<ffffffffa01aaa0c>] kaweth_start_xmit+0x2b/0x1e1 [kaweth]
+  [<ffffffff803eccd3>] dev_hard_start_xmit+0x22e/0x2ad
+  [<ffffffff803fe120>] __qdisc_run+0xf2/0x203
+  [<ffffffff803ed0cd>] dev_queue_xmit+0x263/0x39b
+  [<ffffffffa03a47cb>] packet_sendmsg_spkt+0x1c4/0x20a [af_packet]
+  [<ffffffff803de0c2>] sock_sendmsg+0xe4/0xfd
+  [<ffffffff803dec8f>] sys_sendto+0xe4/0x10c
+  [<ffffffff8020bccb>] system_call_fastpath+0x16/0x1b
+  [<ffffffffffffffff>] 0xffffffffffffffff
+irq event stamp: 1280
+hardirqs last  enabled at (1279): [<ffffffff80461a71>]
+                  _spin_unlock_irqrestore+0x44/0x4c
+hardirqs last disabled at (1280): [<ffffffff8020bad7>]
+                  save_args+0x67/0x70
+softirqs last  enabled at (660): [<ffffffff8024192c>]
+                  __do_softirq+0x14d/0x15d
+softirqs last disabled at (651): [<ffffffff8020ce9c>]
+                  call_softirq+0x1c/0x28
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
 
- drivers/vbus/devices/venet-tap.c |  236 +++++++++++++++++++++++++++++++++++++-
- 1 files changed, 229 insertions(+), 7 deletions(-)
+Jeff,
 
-diff --git a/drivers/vbus/devices/venet-tap.c b/drivers/vbus/devices/venet-tap.c
-index ccce58e..0ccb7ed 100644
---- a/drivers/vbus/devices/venet-tap.c
-+++ b/drivers/vbus/devices/venet-tap.c
-@@ -80,6 +80,13 @@ enum {
- 	TX_IOQ_CONGESTED,
- };
+As the listed authors of this driver have not touched it in several years,
+I have taken the liberty of sending it to you as networking drivers maintainer.
+I hope this is OK.
+
+Larry
+---
+
+Index: wireless-testing/drivers/net/usb/kaweth.c
+===================================================================
+--- wireless-testing.orig/drivers/net/usb/kaweth.c
++++ wireless-testing/drivers/net/usb/kaweth.c
+@@ -36,7 +36,6 @@
+  * Run test procedures
+  * Fix bugs from previous two steps
+  * Snoop other OSs for any tricks we're not doing
+- * SMP locking
+  * Reduce arbitrary timeouts
+  * Smart multicast support
+  * Temporary MAC change support
+@@ -796,7 +799,7 @@ static int kaweth_start_xmit(struct sk_b
  
-+struct venettap;
-+
-+struct venettap_rx_ops {
-+	int (*decode)(struct venettap *priv, void *ptr, int len);
-+	int (*import)(struct venettap *, struct sk_buff *, void *, int);
-+};
-+
- struct venettap {
- 	spinlock_t                   lock;
- 	unsigned char                hmac[ETH_ALEN]; /* host-mac */
-@@ -107,6 +114,12 @@ struct venettap {
- 		struct vbus_memctx          *ctx;
- 		struct venettap_queue        rxq;
- 		struct venettap_queue        txq;
-+		struct venettap_rx_ops      *rx_ops;
-+		struct {
-+			struct venet_sg     *desc;
-+			size_t               len;
-+			int                  enabled:1;
-+		} sg;
- 		int                          connected:1;
- 		int                          opened:1;
- 		int                          link:1;
-@@ -288,6 +301,183 @@ venettap_change_mtu(struct net_device *dev, int new_mtu)
- }
+ 	int res;
  
- /*
-+ * ---------------------------
-+ * Scatter-Gather support
-+ * ---------------------------
-+ */
-+
-+/* assumes reference to priv->vbus.conn held */
-+static int
-+venettap_sg_decode(struct venettap *priv, void *ptr, int len)
-+{
-+	struct venet_sg *vsg;
-+	struct vbus_memctx *ctx;
-+	int ret;
-+
-+	/*
-+	 * SG is enabled, so we need to pull in the venet_sg
-+	 * header before we can interpret the rest of the
-+	 * packet
-+	 *
-+	 * FIXME: Make sure this is not too big
-+	 */
-+	if (unlikely(len > priv->vbus.sg.len)) {
-+		kfree(priv->vbus.sg.desc);
-+		priv->vbus.sg.desc = kzalloc(len, GFP_KERNEL);
-+	}
-+
-+	vsg = priv->vbus.sg.desc;
-+	ctx = priv->vbus.ctx;
-+
-+	ret = ctx->ops->copy_from(ctx, vsg, ptr, len);
-+	BUG_ON(ret);
-+
-+	/*
-+	 * Non GSO type packets should be constrained by the MTU setting
-+	 * on the host
-+	 */
-+	if (!(vsg->flags & VENET_SG_FLAG_GSO)
-+	    && (vsg->len > (priv->netif.dev->mtu + ETH_HLEN)))
-+		return -1;
-+
-+	return vsg->len;
-+}
-+
-+/*
-+ * venettap_sg_import - import an skb in scatter-gather mode
-+ *
-+ * assumes reference to priv->vbus.conn held
-+ */
-+static int
-+venettap_sg_import(struct venettap *priv, struct sk_buff *skb,
-+		   void *ptr, int len)
-+{
-+	struct venet_sg *vsg = priv->vbus.sg.desc;
-+	struct vbus_memctx *ctx = priv->vbus.ctx;
-+	int remain = len;
-+	int ret;
-+	int i;
-+
-+	PDEBUG("Importing %d bytes in %d segments\n", len, vsg->count);
-+
-+	for (i = 0; i < vsg->count; i++) {
-+		struct venet_iov *iov = &vsg->iov[i];
-+
-+		if (remain < iov->len)
-+			return -EINVAL;
-+
-+		PDEBUG("Segment %d: %p/%d\n", i, iov->ptr, iov->len);
-+
-+		ret = ctx->ops->copy_from(ctx, skb_tail_pointer(skb),
-+					 (void *)iov->ptr,
-+					 iov->len);
-+		if (ret)
-+			return -EFAULT;
-+
-+		skb_put(skb, iov->len);
-+		remain -= iov->len;
-+	}
-+
-+	if (vsg->flags & VENET_SG_FLAG_NEEDS_CSUM
-+	    && !skb_partial_csum_set(skb, vsg->csum.start, vsg->csum.offset))
-+		return -EINVAL;
-+
-+	if (vsg->flags & VENET_SG_FLAG_GSO) {
-+		struct skb_shared_info *sinfo = skb_shinfo(skb);
-+
-+		PDEBUG("GSO packet detected\n");
-+
-+		switch (vsg->gso.type) {
-+		case VENET_GSO_TYPE_TCPV4:
-+			sinfo->gso_type = SKB_GSO_TCPV4;
-+			break;
-+		case VENET_GSO_TYPE_TCPV6:
-+			sinfo->gso_type = SKB_GSO_TCPV6;
-+			break;
-+		case VENET_GSO_TYPE_UDP:
-+			sinfo->gso_type = SKB_GSO_UDP;
-+			break;
-+		default:
-+			PDEBUG("Illegal GSO type: %d\n", vsg->gso.type);
-+			priv->netif.stats.rx_frame_errors++;
-+			kfree_skb(skb);
-+			return -EINVAL;
-+		}
-+
-+		if (vsg->flags & VENET_SG_FLAG_ECN)
-+			sinfo->gso_type |= SKB_GSO_TCP_ECN;
-+
-+		sinfo->gso_size = vsg->gso.size;
-+		if (skb_shinfo(skb)->gso_size == 0) {
-+			PDEBUG("Illegal GSO size: %d\n", vsg->gso.size);
-+			priv->netif.stats.rx_frame_errors++;
-+			kfree_skb(skb);
-+			return -EINVAL;
-+		}
-+
-+		/* Header must be checked, and gso_segs computed. */
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-+		skb_shinfo(skb)->gso_segs = 0;
-+	}
-+
-+	return 0;
-+}
-+
-+static struct venettap_rx_ops venettap_sg_rx_ops = {
-+	.decode = venettap_sg_decode,
-+	.import = venettap_sg_import,
-+};
-+
-+/*
-+ * ---------------------------
-+ * Flat (non Scatter-Gather) support
-+ * ---------------------------
-+ */
-+
-+/* assumes reference to priv->vbus.conn held */
-+static int
-+venettap_flat_decode(struct venettap *priv, void *ptr, int len)
-+{
-+	size_t maxlen = priv->netif.dev->mtu + ETH_HLEN;
-+
-+	if (len > maxlen)
-+		return -1;
-+
-+	/*
-+	 * If SG is *not* enabled, the length is simply the
-+	 * descriptor length
-+	 */
-+
-+	return len;
-+}
-+
-+/*
-+ * venettap_rx_flat - import an skb in non scatter-gather mode
-+ *
-+ * assumes reference to priv->vbus.conn held
-+ */
-+static int
-+venettap_flat_import(struct venettap *priv, struct sk_buff *skb,
-+		     void *ptr, int len)
-+{
-+	struct vbus_memctx *ctx = priv->vbus.ctx;
-+	int ret;
-+
-+	ret = ctx->ops->copy_from(ctx, skb_tail_pointer(skb), ptr, len);
-+	if (ret)
-+		return -EFAULT;
-+
-+	skb_put(skb, len);
-+
-+	return 0;
-+}
-+
-+static struct venettap_rx_ops venettap_flat_rx_ops = {
-+	.decode = venettap_flat_decode,
-+	.import = venettap_flat_import,
-+};
-+
-+/*
-  * The poll implementation.
-  */
- static int
-@@ -301,6 +491,7 @@ venettap_rx(struct venettap *priv)
- 	int                         ret;
- 	unsigned long               flags;
- 	struct vbus_connection     *conn;
-+	struct venettap_rx_ops     *rx_ops;
+-	spin_lock(&kaweth->device_lock);
++	spin_lock_irq(&kaweth->device_lock);
  
- 	PDEBUG("polling...\n");
- 
-@@ -324,6 +515,8 @@ venettap_rx(struct venettap *priv)
- 	ioq = priv->vbus.rxq.queue;
- 	ctx = priv->vbus.ctx;
- 
-+	rx_ops = priv->vbus.rx_ops;
-+
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
- 	/* We want to iterate on the head of the in-use index */
-@@ -338,11 +531,14 @@ venettap_rx(struct venettap *priv)
- 	 * the north side
- 	 */
- 	while (priv->vbus.link && iter.desc->sown) {
--		size_t len = iter.desc->len;
--		size_t maxlen = priv->netif.dev->mtu + ETH_HLEN;
- 		struct sk_buff *skb = NULL;
-+		size_t len;
- 
--		if (unlikely(len > maxlen)) {
-+		len = rx_ops->decode(priv,
-+				     (void *)iter.desc->ptr,
-+				     iter.desc->len);
-+
-+		if (unlikely(len < 0)) {
- 			priv->netif.stats.rx_errors++;
- 			priv->netif.stats.rx_length_errors++;
- 			goto next;
-@@ -360,10 +556,8 @@ venettap_rx(struct venettap *priv)
- 		/* align IP on 16B boundary */
- 		skb_reserve(skb, 2);
- 
--		ret = ctx->ops->copy_from(ctx, skb->data,
--					 (void *)iter.desc->ptr,
--					 len);
--		if (unlikely(ret)) {
-+		ret = rx_ops->import(priv, skb, (void *)iter.desc->ptr, len);
-+		if (unlikely(ret < 0)) {
- 			priv->netif.stats.rx_errors++;
- 			goto next;
+ 	kaweth_async_set_rx_mode(kaweth);
+ 	netif_stop_queue(net);
+@@ -814,7 +817,7 @@ static int kaweth_start_xmit(struct sk_b
+ 		if (!copied_skb) {
+ 			kaweth->stats.tx_errors++;
+ 			netif_start_queue(net);
+-			spin_unlock(&kaweth->device_lock);
++			spin_unlock_irq(&kaweth->device_lock);
+ 			return 0;
  		}
-@@ -843,6 +1037,23 @@ venettap_macquery(struct venettap *priv, void *data, unsigned long len)
+ 	}
+@@ -848,7 +851,7 @@ skip:
+ 		net->trans_start = jiffies;
+ 	}
+ 
+-	spin_unlock(&kaweth->device_lock);
++	spin_unlock_irq(&kaweth->device_lock);
+ 
  	return 0;
  }
- 
-+static u32
-+venettap_negcap_sg(struct venettap *priv, u32 requested)
-+{
-+	u32 available = VENET_CAP_SG|VENET_CAP_TSO4|VENET_CAP_TSO6
-+		|VENET_CAP_ECN;
-+	u32 ret;
-+
-+	ret = available & requested;
-+
-+	if (ret & VENET_CAP_SG) {
-+		priv->vbus.sg.enabled = true;
-+		priv->vbus.rx_ops = &venettap_sg_rx_ops;
-+	}
-+
-+	return ret;
-+}
-+
- /*
-  * Negotiate Capabilities - This function is provided so that the
-  * interface may be extended without breaking ABI compatability
-@@ -870,6 +1081,9 @@ venettap_negcap(struct venettap *priv, void *data, unsigned long len)
- 		return -EFAULT;
- 
- 	switch (caps.gid) {
-+	case VENET_CAP_GROUP_SG:
-+		caps.bits = venettap_negcap_sg(priv, caps.bits);
-+		break;
- 	default:
- 		caps.bits = 0;
- 		break;
-@@ -1037,6 +1251,12 @@ venettap_vlink_release(struct vbus_connection *conn)
- 	vbus_memctx_put(priv->vbus.ctx);
- 
- 	kobject_put(priv->vbus.dev.kobj);
-+
-+	priv->vbus.sg.enabled = false;
-+	priv->vbus.rx_ops = &venettap_flat_rx_ops;
-+	kfree(priv->vbus.sg.desc);
-+	priv->vbus.sg.desc = NULL;
-+	priv->vbus.sg.len = 0;
- }
- 
- static struct vbus_connection_ops venettap_vbus_link_ops = {
-@@ -1315,6 +1535,8 @@ venettap_device_create(struct vbus_devclass *dc,
- 	_vdev->ops             = &venettap_device_ops;
- 	_vdev->attrs           = &venettap_attr_group;
- 
-+	priv->vbus.rx_ops      = &venettap_flat_rx_ops;
-+
- 	/*
- 	 * netif init
- 	 */
-
