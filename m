@@ -1,65 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2 3/3] Doc: Fix spelling in RCU/rculist_nulls.txt.
-Date: Tue, 31 Mar 2009 10:54:00 +0000
-Message-ID: <20090331105400.GA6843@ff.dom.local>
-References: <20090330085302.19172.22808.stgit@localhost.localdomain> <20090330090306.19172.94170.stgit@localhost.localdomain> <49D0FA6E.4090402@gmail.com> <Pine.LNX.4.64.0903302155550.13385@ask.diku.dk> <Pine.LNX.4.64.0903302210030.13385@ask.diku.dk>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
+Date: Tue, 31 Mar 2009 18:58:33 +0800
+Message-ID: <2a27d3730903310358t56caaba9uba6e1835b716bc25@mail.gmail.com>
+References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
+	<49CCD3E8.9040007@freescale.com>
+	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
+	<49D0FFBB.7000009@freescale.com>
+	<OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se>
+	<49D1052D.2050609@freescale.com>
+	<OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se>
+	<49D11E47.8080106@freescale.com>
+	<OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:52949 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868AbZCaKyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 06:54:11 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so1618745wah.21
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 03:54:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0903302210030.13385@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2009 at 10:11:47PM +0200, Jesper Dangaard Brouer wrote:
->
-> Trival spelling fixes in RCU/rculist_nulls.txt.
->
-> Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> Reviewed-by: Jarek Poplawski <jarkao2@gmail.com>
-
-Hmm... still "reviewing", and maybe it's only me, but can't apply...
-(v1 works OK.)
-
-Jarek P.
-
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
-> ---
->
->  Documentation/RCU/rculist_nulls.txt |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
->
-> diff --git a/Documentation/RCU/rculist_nulls.txt b/Documentation/RCU/rculist_nulls.txt
-> index 239f542..6389dec 100644
-> --- a/Documentation/RCU/rculist_nulls.txt
-> +++ b/Documentation/RCU/rculist_nulls.txt
-> @@ -21,7 +21,7 @@ if (obj) {
->    /*
->     * Because a writer could delete object, and a writer could
->     * reuse these object before the RCU grace period, we
-> -   * must check key after geting the reference on object
-> +   * must check key after getting the reference on object
->     */
->    if (obj->key != key) { // not the object we expected
->       put_ref(obj);
-> @@ -117,7 +117,7 @@ a race (some writer did a delete and/or a move of an object
->  to another chain) checking the final 'nulls' value if
->  the lookup met the end of chain. If final 'nulls' value
->  is not the slot number, then we must restart the lookup at
-> -the begining. If the object was moved to same chain,
-> +the beginning. If the object was moved to the same chain,
->  then the reader doesnt care : It might eventually
->  scan the list again without harm.
->
+T24gVHVlLCBNYXIgMzEsIDIwMDkgYXQgNTowNyBQTSwgSm9ha2ltIFRqZXJubHVuZAo8Sm9ha2lt
+LlRqZXJubHVuZEB0cmFuc21vZGUuc2U+IHdyb3RlOgo+IFNjb3R0IFdvb2QgPHNjb3R0d29vZEBm
+cmVlc2NhbGUuY29tPiB3cm90ZSBvbiAzMC8wMy8yMDA5IDIxOjMyOjIzOgo+Pgo+PiBKb2FraW0g
+VGplcm5sdW5kIHdyb3RlOgo+PiA+PiBkaWZmZXJlbnQgc2luY2UgZGVzY3JpcHRvcnMgYXJlIGlu
+IE1VUkFNIHdoaWNoIGlzIGlvcmVtYXAoKWVkIC0tCj4gdGhvdWdoCj4+ID4+IHN3aXRjaGluZyB0
+byBhIGNhY2hlYWJsZSBtYXBwaW5nIHdpdGggYmFycmllcnMgc2hvdWxkIGJlIGEKPiBwZXJmb3Jt
+YW5jZQo+PiA+PiBpbXByb3ZlbWVudC4KPj4gPgo+PiA+IEkgYWx3YXlzIHRob3VnaHQgdGhhdCBN
+VVJBTSB3YXMgdmVyeSBmYXN0LiBUaGUgd2hvbGUgcmVhc29uIHRvIGhhdmUKPiBCRHMgaW4KPj4g
+PiBNVVJBTSBpcyB0aGF0IGl0IGlzIGZhc3RlciB0aGFuIG5vcm1hbCBSQU0sIGF0IGxlYXN0IHRo
+YXQgaXMgd2hhdCBJCj4+ID4gdGhvdWdodC4KPj4KPj4gWWVhaCwgb24gc2Vjb25kIHRob3VnaHQg
+aXQgcHJvYmFibHkgd291bGRuJ3QgYmUgd29ydGggaXQuIMKgVGhlcmUncyBhbHNvCj4+IHRoZSBx
+dWVzdGlvbiBvZiB1bmRlciB3aGF0IGNpcmN1bXN0YW5jZXMgdGhlIFFFJ3MgTVVSQU0gYWNjZXNz
+ZXMgd2lsbCBiZQo+Cj4+IGNhY2hlLWNvaGVyZW50Lgo+Cj4gSSBhbSBhIGJpdCBjb25mdXNlZCwg
+d2hhdCBpc24ndCB3b3J0aCBpdD8gQ3VycmVudGx5IE1VUkFNIGlzbid0IHVzZWQgYnkKPiB1Y2Nf
+Z2V0aCwgYnV0Cj4gaXQgaXMgZWFzeSB0byBjaGFuZ2UuIFN3YXAgTUVNX1BBUlRfU1lTVEVNIHRv
+IE1FTV9QQVJUX01VUkFNLCBob3dldmVyLAo+IGp1c3QKPiB0cmllZCB0aGF0IGFuZCB0aGUgZHJp
+dmVyIHN0b3BwZWQgd29ya2luZy4gSSBrbm93biB0aGlzIHdvcmtlZCBlYXJsaWVyCj4gYmVjYXVz
+ZQo+IEkgdHJpZWQgaXQgYW5kIEkgZXZlbiB0aGluayBJIHNlbnQgYSBwYXRjaCB0byBMZW8uCj4K
+PiBXaGF0IGNob2ljZXMgZG8gd2UgaGF2ZSwgSSBzZWUgdGhyZWU6Cj4KPiAxKSBNRU1fUEFSVF9T
+WVNURU0sIGFzIHRvZGF5Lgo+IDIpIE1FTV9QQVJUX01VUkFNLiBJIGd1ZXNzIHRoaXMgc2hvdWxk
+IGJlIHVuY2FjaGVhYmxlIG1lbW9yeT8KPiAzKSBhcyBnaWFuZmFyLCBkbWFfYWxsb2NfY29oZXJl
+bnQoKS4gSSBwcmVzdW1lIHRoaXMgaXMgdW5jYWNoZWFibGUgbWVtb3J5Pwo+CgoxIGFuZCAzIGFy
+ZSB0aGUgc2FtZS4gIEFsbCBvZiB0aGVtIHVzZSBjYWNoZWFibGUgbWVtb3J5IGFzIHdlIGhhdmUg
+YQpoYXJkd2FyZSBjb2hlcmVuY3kgbW9kdWxlIHRvIHRha2UgY2FyZSBvZiB0aGUgY2FjaGUgY29o
+ZXJlbmN5IHByb2JsZW0uCiBIb3dldmVyIGl0IG1pZ2h0IGJlIGJldHRlciB0byB1c2UgZG1hX2Fs
+bG9jX2NvaGVyZW50KCkgZm9yIHRoZSBjb2RlCnRvIGJlIG1vcmUgcmVhZGlibGUuICBUaGFua3Mu
+CgotIExlbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpM
+aW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3JnCmh0dHBzOi8v
+b3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
