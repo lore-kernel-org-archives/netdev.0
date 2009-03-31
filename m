@@ -1,126 +1,65 @@
-From: Henk Stegeman <henk.stegeman@gmail.com>
-Subject: Patch: Fix fec_mpc52xx driver to use net_device_ops
-Date: Tue, 31 Mar 2009 12:44:15 +0200
-Message-ID: <ae4f76fd0903310344s2d46edf2l505a1d21a4778d54@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2 3/3] Doc: Fix spelling in RCU/rculist_nulls.txt.
+Date: Tue, 31 Mar 2009 10:54:00 +0000
+Message-ID: <20090331105400.GA6843@ff.dom.local>
+References: <20090330085302.19172.22808.stgit@localhost.localdomain> <20090330090306.19172.94170.stgit@localhost.localdomain> <49D0FA6E.4090402@gmail.com> <Pine.LNX.4.64.0903302155550.13385@ask.diku.dk> <Pine.LNX.4.64.0903302210030.13385@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:21488 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923AbZCaKoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 06:44:19 -0400
-Received: by ey-out-2122.google.com with SMTP id 4so733726eyf.37
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 03:44:15 -0700 (PDT)
+Received: from wa-out-1112.google.com ([209.85.146.178]:52949 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868AbZCaKyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 06:54:11 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so1618745wah.21
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 03:54:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0903302210030.13385@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix fec_mpc52xx driver to use net_device_ops and to be careful not to
-dereference phy_device if a phy has not yet been connected.
+On Mon, Mar 30, 2009 at 10:11:47PM +0200, Jesper Dangaard Brouer wrote:
+>
+> Trival spelling fixes in RCU/rculist_nulls.txt.
+>
+> Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> Reviewed-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Signed-off-by: Henk Stegeman <henk.stegeman@gmail.com>
+Hmm... still "reviewing", and maybe it's only me, but can't apply...
+(v1 works OK.)
 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index cd8e98b..ca76b95 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -847,24 +847,40 @@ static void mpc52xx_fec_get_drvinfo(struct
-net_device *dev,
- static int mpc52xx_fec_get_settings(struct net_device *dev, struct
-ethtool_cmd *cmd)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+			return -ENODEV;
-+
- 	return phy_ethtool_gset(priv->phydev, cmd);
- }
+Jarek P.
 
- static int mpc52xx_fec_set_settings(struct net_device *dev, struct
-ethtool_cmd *cmd)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+			return -ENODEV;
-+
- 	return phy_ethtool_sset(priv->phydev, cmd);
- }
-
- static u32 mpc52xx_fec_get_msglevel(struct net_device *dev)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+		return 0;
-+
- 	return priv->msg_enable;
- }
-
- static void mpc52xx_fec_set_msglevel(struct net_device *dev, u32 level)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->phydev)
-+			return;
-+
- 	priv->msg_enable = level;
- }
-
-@@ -882,12 +898,31 @@ static int mpc52xx_fec_ioctl(struct net_device
-*dev, struct ifreq *rq, int cmd)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
-
-+	if (!priv->phydev)
-+			return -ENODEV;
-+
- 	return mpc52xx_fec_phy_mii_ioctl(priv, if_mii(rq), cmd);
- }
-
- /* ======================================================================== */
- /* OF Driver                                                                */
- /* ======================================================================== */
-+static const struct net_device_ops mpc52xx_fec_netdev_ops = {
-+       .ndo_open               = mpc52xx_fec_open,
-+       .ndo_stop               = mpc52xx_fec_close,
-+       .ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
-+       .ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
-+       .ndo_get_stats          = mpc52xx_fec_get_stats,
-+       .ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
-+       .ndo_validate_addr      = eth_validate_addr,
-+       .ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
-+       .ndo_do_ioctl           = mpc52xx_fec_ioctl,
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+       .ndo_poll_controller     = mpc52xx_fec_poll_controller,
-+#endif
-+};
-+
-
- static int __devinit
- mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
-@@ -929,20 +964,10 @@ mpc52xx_fec_probe(struct of_device *op, const
-struct of_device_id *match)
- 		return -EBUSY;
-
- 	/* Init ether ndev with what we have */
--	ndev->open		= mpc52xx_fec_open;
--	ndev->stop		= mpc52xx_fec_close;
--	ndev->hard_start_xmit	= mpc52xx_fec_hard_start_xmit;
--	ndev->do_ioctl		= mpc52xx_fec_ioctl;
- 	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
--	ndev->get_stats		= mpc52xx_fec_get_stats;
--	ndev->set_mac_address	= mpc52xx_fec_set_mac_address;
--	ndev->set_multicast_list = mpc52xx_fec_set_multicast_list;
--	ndev->tx_timeout	= mpc52xx_fec_tx_timeout;
- 	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
- 	ndev->base_addr		= mem.start;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	ndev->poll_controller = mpc52xx_fec_poll_controller;
--#endif
-+	ndev->netdev_ops = &mpc52xx_fec_netdev_ops;
-
- 	priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> ---
+>
+>  Documentation/RCU/rculist_nulls.txt |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>
+>
+> diff --git a/Documentation/RCU/rculist_nulls.txt b/Documentation/RCU/rculist_nulls.txt
+> index 239f542..6389dec 100644
+> --- a/Documentation/RCU/rculist_nulls.txt
+> +++ b/Documentation/RCU/rculist_nulls.txt
+> @@ -21,7 +21,7 @@ if (obj) {
+>    /*
+>     * Because a writer could delete object, and a writer could
+>     * reuse these object before the RCU grace period, we
+> -   * must check key after geting the reference on object
+> +   * must check key after getting the reference on object
+>     */
+>    if (obj->key != key) { // not the object we expected
+>       put_ref(obj);
+> @@ -117,7 +117,7 @@ a race (some writer did a delete and/or a move of an object
+>  to another chain) checking the final 'nulls' value if
+>  the lookup met the end of chain. If final 'nulls' value
+>  is not the slot number, then we must restart the lookup at
+> -the begining. If the object was moved to same chain,
+> +the beginning. If the object was moved to the same chain,
+>  then the reader doesnt care : It might eventually
+>  scan the list again without harm.
+>
