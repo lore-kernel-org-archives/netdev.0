@@ -1,62 +1,45 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Tue, 31 Mar 2009 18:58:33 +0800
-Message-ID: <2a27d3730903310358t56caaba9uba6e1835b716bc25@mail.gmail.com>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>
-	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
-	<49CCD3E8.9040007@freescale.com>
-	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
-	<49D0FFBB.7000009@freescale.com>
-	<OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se>
-	<49D1052D.2050609@freescale.com>
-	<OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se>
-	<49D11E47.8080106@freescale.com>
-	<OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
+From: Jan Dumon <j.dumon@option.com>
+Subject: [PATCH] hso: add Vendor/Product ID's for new devices
+Date: Tue, 31 Mar 2009 13:56:52 +0200
+Message-ID: <20090331115652.GA22106@raptor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Scott Wood <scottwood@freescale.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer2.option.com ([81.246.70.163]:23991 "EHLO
+	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466AbZCaL45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 07:56:57 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBNYXIgMzEsIDIwMDkgYXQgNTowNyBQTSwgSm9ha2ltIFRqZXJubHVuZAo8Sm9ha2lt
-LlRqZXJubHVuZEB0cmFuc21vZGUuc2U+IHdyb3RlOgo+IFNjb3R0IFdvb2QgPHNjb3R0d29vZEBm
-cmVlc2NhbGUuY29tPiB3cm90ZSBvbiAzMC8wMy8yMDA5IDIxOjMyOjIzOgo+Pgo+PiBKb2FraW0g
-VGplcm5sdW5kIHdyb3RlOgo+PiA+PiBkaWZmZXJlbnQgc2luY2UgZGVzY3JpcHRvcnMgYXJlIGlu
-IE1VUkFNIHdoaWNoIGlzIGlvcmVtYXAoKWVkIC0tCj4gdGhvdWdoCj4+ID4+IHN3aXRjaGluZyB0
-byBhIGNhY2hlYWJsZSBtYXBwaW5nIHdpdGggYmFycmllcnMgc2hvdWxkIGJlIGEKPiBwZXJmb3Jt
-YW5jZQo+PiA+PiBpbXByb3ZlbWVudC4KPj4gPgo+PiA+IEkgYWx3YXlzIHRob3VnaHQgdGhhdCBN
-VVJBTSB3YXMgdmVyeSBmYXN0LiBUaGUgd2hvbGUgcmVhc29uIHRvIGhhdmUKPiBCRHMgaW4KPj4g
-PiBNVVJBTSBpcyB0aGF0IGl0IGlzIGZhc3RlciB0aGFuIG5vcm1hbCBSQU0sIGF0IGxlYXN0IHRo
-YXQgaXMgd2hhdCBJCj4+ID4gdGhvdWdodC4KPj4KPj4gWWVhaCwgb24gc2Vjb25kIHRob3VnaHQg
-aXQgcHJvYmFibHkgd291bGRuJ3QgYmUgd29ydGggaXQuIMKgVGhlcmUncyBhbHNvCj4+IHRoZSBx
-dWVzdGlvbiBvZiB1bmRlciB3aGF0IGNpcmN1bXN0YW5jZXMgdGhlIFFFJ3MgTVVSQU0gYWNjZXNz
-ZXMgd2lsbCBiZQo+Cj4+IGNhY2hlLWNvaGVyZW50Lgo+Cj4gSSBhbSBhIGJpdCBjb25mdXNlZCwg
-d2hhdCBpc24ndCB3b3J0aCBpdD8gQ3VycmVudGx5IE1VUkFNIGlzbid0IHVzZWQgYnkKPiB1Y2Nf
-Z2V0aCwgYnV0Cj4gaXQgaXMgZWFzeSB0byBjaGFuZ2UuIFN3YXAgTUVNX1BBUlRfU1lTVEVNIHRv
-IE1FTV9QQVJUX01VUkFNLCBob3dldmVyLAo+IGp1c3QKPiB0cmllZCB0aGF0IGFuZCB0aGUgZHJp
-dmVyIHN0b3BwZWQgd29ya2luZy4gSSBrbm93biB0aGlzIHdvcmtlZCBlYXJsaWVyCj4gYmVjYXVz
-ZQo+IEkgdHJpZWQgaXQgYW5kIEkgZXZlbiB0aGluayBJIHNlbnQgYSBwYXRjaCB0byBMZW8uCj4K
-PiBXaGF0IGNob2ljZXMgZG8gd2UgaGF2ZSwgSSBzZWUgdGhyZWU6Cj4KPiAxKSBNRU1fUEFSVF9T
-WVNURU0sIGFzIHRvZGF5Lgo+IDIpIE1FTV9QQVJUX01VUkFNLiBJIGd1ZXNzIHRoaXMgc2hvdWxk
-IGJlIHVuY2FjaGVhYmxlIG1lbW9yeT8KPiAzKSBhcyBnaWFuZmFyLCBkbWFfYWxsb2NfY29oZXJl
-bnQoKS4gSSBwcmVzdW1lIHRoaXMgaXMgdW5jYWNoZWFibGUgbWVtb3J5Pwo+CgoxIGFuZCAzIGFy
-ZSB0aGUgc2FtZS4gIEFsbCBvZiB0aGVtIHVzZSBjYWNoZWFibGUgbWVtb3J5IGFzIHdlIGhhdmUg
-YQpoYXJkd2FyZSBjb2hlcmVuY3kgbW9kdWxlIHRvIHRha2UgY2FyZSBvZiB0aGUgY2FjaGUgY29o
-ZXJlbmN5IHByb2JsZW0uCiBIb3dldmVyIGl0IG1pZ2h0IGJlIGJldHRlciB0byB1c2UgZG1hX2Fs
-bG9jX2NvaGVyZW50KCkgZm9yIHRoZSBjb2RlCnRvIGJlIG1vcmUgcmVhZGlibGUuICBUaGFua3Mu
-CgotIExlbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpM
-aW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3JnCmh0dHBzOi8v
-b3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+From: Jan Dumon <j.dumon@option.com>
+
+Add Vendor/Product ID's for new devices.
+
+Signed-off-by: Jan Dumon <j.dumon@option.com>
+---
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index fe98aca..d47c508 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -462,9 +462,16 @@ static const struct usb_device_id hso_ids[] = {
+ 	{USB_DEVICE(0x0af0, 0x7701)},
+ 	{USB_DEVICE(0x0af0, 0x7801)},
+ 	{USB_DEVICE(0x0af0, 0x7901)},
+-	{USB_DEVICE(0x0af0, 0x7361)},
+-	{USB_DEVICE(0x0af0, 0xd057)},
++	{USB_DEVICE(0x0af0, 0x8200)},
++	{USB_DEVICE(0x0af0, 0x8201)},
++	{USB_DEVICE(0x0af0, 0xd035)},
+ 	{USB_DEVICE(0x0af0, 0xd055)},
++	{USB_DEVICE(0x0af0, 0xd155)},
++	{USB_DEVICE(0x0af0, 0xd255)},
++	{USB_DEVICE(0x0af0, 0xd057)},
++	{USB_DEVICE(0x0af0, 0xd157)},
++	{USB_DEVICE(0x0af0, 0xd257)},
++	{USB_DEVICE(0x0af0, 0xd357)},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(usb, hso_ids);
