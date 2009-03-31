@@ -1,73 +1,87 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Tue, 31 Mar 2009 11:07:36 +0200
-Message-ID: <OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com> <OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se> <49CCD3E8.9040007@freescale.com> <OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se> <49D0FFBB.7000009@freescale.com> <OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se> <49D1052D.2050609@freescale.com> <OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se> <49D11E47.8080106@freescale.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
+Date: Tue, 31 Mar 2009 12:16:51 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0903311205070.30150@wrl-59.cs.helsinki.fi>
+References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
+ <20090328045056.GA2394@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
+ <20090328095514.GA2599@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
+ <20090330164035.GA2652@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
+ <20090331071018.GA2641@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, pku.leo@gmail.com
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2004850153-1238491011=:30150"
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, corbet@lwn.net
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:52258 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753880AbZCaJHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 05:07:39 -0400
-In-Reply-To: <49D11E47.8080106@freescale.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35854 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752211AbZCaJQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 05:16:55 -0400
+In-Reply-To: <20090331071018.GA2641@gentoox2.trippelsdorf.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Scott Wood <scottwood@freescale.com> wrote on 30/03/2009 21:32:23:
-> 
-> Joakim Tjernlund wrote:
-> >> different since descriptors are in MURAM which is ioremap()ed -- 
-though 
-> >> switching to a cacheable mapping with barriers should be a 
-performance 
-> >> improvement.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-2004850153-1238491011=:30150
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
+
+> On Mon, Mar 30, 2009 at 09:52:55PM +0300, Ilpo Järvinen wrote:
+> > On Mon, 30 Mar 2009, Markus Trippelsdorf wrote:
 > > 
-> > I always thought that MURAM was very fast. The whole reason to have 
-BDs in
-> > MURAM is that it is faster than normal RAM, at least that is what I 
-> > thought.
+> > > On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo Järvinen wrote:
+> > > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
+> > > > > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo Järvinen wrote:
+> > > > 
+> > > > ...And, let me guess, you're in X and therefore unable to catch a final 
+> > > > oops if any would be printed? It would be nice to get around that as well, 
+> > > > either use serial/netconsole or hang in text mode while waiting for the 
+> > > > crash (should be too hard if you are able to setup the workload first 
+> > > > and then switch away from X and if reproducing takes about an hour)...
+> > > 
+> > > OK, I will try this later.
+> > 
+> > Lets hope that gives some clue where it ends up going boom (if it is 
+> > caused by TCP we certainly should see something more sensible in console 
+> > than just a hang)... ...I once again read through tcp commits but just 
+> > cannot find anything that could cause fackets_out miscount, not to speak 
+> > of crash prone changes so we'll just have to wait and see...
 > 
-> Yeah, on second thought it probably wouldn't be worth it.  There's also 
-> the question of under what circumstances the QE's MURAM accesses will be 
+> The machine hanged again this night and I took two pictures:
+> http://www.mypicx.com/uploadimg/1055813374_03302009_2.jpg
+> http://www.mypicx.com/uploadimg/1543678904_03302009_1.jpg
+>
+> But this time there was no tcp related warning in the logs.
 
-> cache-coherent.
+Right. If that oops would be hit often enough one can easily mix the 
+warning with that hang though there is no relation (the fact that final 
+oops always goes unnoticed in X amplifies the effect).
 
-I am a bit confused, what isn't worth it? Currently MURAM isn't used by 
-ucc_geth, but
-it is easy to change. Swap MEM_PART_SYSTEM to MEM_PART_MURAM, however, 
-just
-tried that and the driver stopped working. I known this worked earlier 
-because
-I tried it and I even think I sent a patch to Leo.
+> I then pulled the lateset git changes, rebuild, rebooted and setup the
+> workload again. The machine was still up and running in the morning 
+> (~4 hours uptime). So it may well be that the issue was fixed with
+> the latest changes.
 
-What choices do we have, I see three:
+Lets hope so, in any case if you still see hangs please get the final oops.
 
-1) MEM_PART_SYSTEM, as today.
-2) MEM_PART_MURAM. I guess this should be uncacheable memory?
-3) as gianfar, dma_alloc_coherent(). I presume this is uncacheable memory?
+> If it ever occurs again I will notify you.
 
-My guess would be 2 or 3. Do they have the same synchronization
-sematics?
+Thanks. Also, if you keep getting those TCP warnings (even alone without
+a crash) please drop me a note since I'd be interesting in tracking that 
+down as well even though it is probably not very significant flaw. Even 
+once a week/month is very promising rate considering how rare they occur 
+for most of the people who were lucky enough to get them in the first 
+place.
 
-> 
-> As for the CPU not reordering guarded+cache inhibited accesses, that 
-> initially seemed to be true for the new arch stuff (book3e/book3s, but 
-> not really, see below), but the classic arch documentation only 
-> guarantees stores to such regions to be in-order (and the 
-> explicitly-specified operation of eieio on I+G accesses wouldn't make 
-> much sense if they were already guaranteed to be in-order).
-> 
-> Then I looked at the EREF to see what older book E documents had to say 
-> on the issue, and it suggests that when the architecture document says 
-> "out of order", it really means "speculative" (and reading the arch 
-> doc's definition of "out of order" seems to confirm this -- redefining 
-> terms is bad, m'kay?).  So it seems that the simple answer is no, 
-> guarded storage is not guaranteed to be in order, unless the only thing 
-> that can cause an out-of-order access is speculative execution.
 
-Very informative, thanks.
-
+-- 
+ i.
+---696208474-2004850153-1238491011=:30150--
