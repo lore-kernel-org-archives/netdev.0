@@ -1,7 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 13/14] net: Rework fs_enet driver to use of_mdio infrastructure
-Date: Tue, 31 Mar 2009 02:27:51 -0600
-Message-ID: <20090331082751.1427.11716.stgit@localhost.localdomain>
+Subject: [PATCH 11/14] net: Rework pasemi_mac driver to use of_mdio
+	infrastructure
+Date: Tue, 31 Mar 2009 02:27:40 -0600
+Message-ID: <20090331082740.1427.29696.stgit@localhost.localdomain>
 References: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,10 +14,10 @@ To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wa-out-1112.google.com ([209.85.146.182]:47063 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023AbZCaI1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:27:55 -0400
+	with ESMTP id S1753756AbZCaI1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:27:44 -0400
 Received: by wa-out-1112.google.com with SMTP id j5so1584813wah.21
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 01:27:53 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 01:27:43 -0700 (PDT)
 In-Reply-To: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,263 +26,170 @@ From: Grant Likely <grant.likely@secretlab.ca>
 
 This patch simplifies the driver by making use of more common code.
 
+Tested-by: Olof Johansson <olof@lixom.net>
+Acked-by: Olof Johansson <olof@lixom.net>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/net/fs_enet/fs_enet-main.c |   69 ++++++------------------------------
- drivers/net/fs_enet/mii-bitbang.c  |   29 +--------------
- drivers/net/fs_enet/mii-fec.c      |   26 +-------------
- include/linux/fs_enet_pd.h         |    6 +--
- 4 files changed, 16 insertions(+), 114 deletions(-)
+ arch/powerpc/platforms/pasemi/gpio_mdio.c |   32 +++++------------------------
+ drivers/net/pasemi_mac.c                  |   28 ++++---------------------
+ drivers/net/pasemi_mac.h                  |    1 -
+ 3 files changed, 9 insertions(+), 52 deletions(-)
 
 
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index b037ce9..387e0e9 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -36,6 +36,8 @@
- #include <linux/fs.h>
- #include <linux/platform_device.h>
+diff --git a/arch/powerpc/platforms/pasemi/gpio_mdio.c b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+index 75cc165..3bf5467 100644
+--- a/arch/powerpc/platforms/pasemi/gpio_mdio.c
++++ b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+@@ -29,7 +29,7 @@
+ #include <linux/ioport.h>
+ #include <linux/interrupt.h>
  #include <linux/phy.h>
-+#include <linux/of.h>
-+#include <linux/of_mdio.h>
- #include <linux/of_platform.h>
- #include <linux/of_gpio.h>
- 
-@@ -752,9 +754,10 @@ static int fs_init_phy(struct net_device *dev)
- 	fep->oldlink = 0;
- 	fep->oldspeed = 0;
- 	fep->oldduplex = -1;
--	if(fep->fpi->bus_id)
--		phydev = phy_connect(dev, fep->fpi->bus_id, &fs_adjust_link, 0,
--				PHY_INTERFACE_MODE_MII);
-+	if(fep->fpi->phy_node)
-+		phydev = of_phy_connect(dev, fep->fpi->phy_node,
-+					&fs_adjust_link, 0,
-+					PHY_INTERFACE_MODE_MII);
- 	else {
- 		printk("No phy bus ID specified in BSP code\n");
- 		return -EINVAL;
-@@ -962,57 +965,6 @@ static void cleanup_immap(void)
- 
- /**************************************************************************************/
- 
--static int __devinit find_phy(struct device_node *np,
--                              struct fs_platform_info *fpi)
--{
--	struct device_node *phynode, *mdionode;
--	int ret = 0, len, bus_id;
--	const u32 *data;
--
--	data  = of_get_property(np, "fixed-link", NULL);
--	if (data) {
--		snprintf(fpi->bus_id, 16, "%x:%02x", 0, *data);
--		return 0;
--	}
--
--	data = of_get_property(np, "phy-handle", &len);
--	if (!data || len != 4)
--		return -EINVAL;
--
--	phynode = of_find_node_by_phandle(*data);
--	if (!phynode)
--		return -EINVAL;
--
--	data = of_get_property(phynode, "reg", &len);
--	if (!data || len != 4) {
--		ret = -EINVAL;
--		goto out_put_phy;
--	}
--
--	mdionode = of_get_parent(phynode);
--	if (!mdionode) {
--		ret = -EINVAL;
--		goto out_put_phy;
--	}
--
--	bus_id = of_get_gpio(mdionode, 0);
--	if (bus_id < 0) {
--		struct resource res;
--		ret = of_address_to_resource(mdionode, 0, &res);
--		if (ret)
--			goto out_put_mdio;
--		bus_id = res.start;
--	}
--
--	snprintf(fpi->bus_id, 16, "%x:%02x", bus_id, *data);
--
--out_put_mdio:
--	of_node_put(mdionode);
--out_put_phy:
--	of_node_put(phynode);
--	return ret;
--}
--
- #ifdef CONFIG_FS_ENET_HAS_FEC
- #define IS_FEC(match) ((match)->data == &fs_fec_ops)
- #else
-@@ -1046,9 +998,9 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
- 	fpi->rx_copybreak = 240;
- 	fpi->use_napi = 1;
- 	fpi->napi_weight = 17;
--
--	ret = find_phy(ofdev->node, fpi);
--	if (ret)
-+	fpi->phy_node = of_parse_phandle(ofdev->node, "phy-handle", 0);
-+	if ((!fpi->phy_node) && (!of_get_property(ofdev->node, "fixed-link",
-+						  NULL)))
- 		goto out_free_fpi;
- 
- 	privsize = sizeof(*fep) +
-@@ -1129,6 +1081,7 @@ out_cleanup_data:
- out_free_dev:
- 	free_netdev(ndev);
- 	dev_set_drvdata(&ofdev->dev, NULL);
-+	of_node_put(fpi->phy_node);
- out_free_fpi:
- 	kfree(fpi);
- 	return ret;
-@@ -1144,7 +1097,7 @@ static int fs_enet_remove(struct of_device *ofdev)
- 	fep->ops->free_bd(ndev);
- 	fep->ops->cleanup_data(ndev);
- 	dev_set_drvdata(fep->dev, NULL);
--
-+	of_node_put(fep->fpi->phy_node);
- 	free_netdev(ndev);
- 	return 0;
- }
-diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/fs_enet/mii-bitbang.c
-index 49b6645..93b481b 100644
---- a/drivers/net/fs_enet/mii-bitbang.c
-+++ b/drivers/net/fs_enet/mii-bitbang.c
-@@ -22,6 +22,7 @@
- #include <linux/mii.h>
- #include <linux/platform_device.h>
- #include <linux/mdio-bitbang.h>
+-#include <linux/platform_device.h>
 +#include <linux/of_mdio.h>
  #include <linux/of_platform.h>
  
- #include "fs_enet.h"
-@@ -149,31 +150,12 @@ static int __devinit fs_mii_bitbang_init(struct mii_bus *bus,
- 	return 0;
- }
+ #define DELAY 1
+@@ -39,6 +39,7 @@ static void __iomem *gpio_regs;
+ struct gpio_priv {
+ 	int mdc_pin;
+ 	int mdio_pin;
++	int mdio_irqs[PHY_MAX_ADDR];
+ };
  
--static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
--{
--	const u32 *data;
--	int len, id, irq;
--
--	data = of_get_property(np, "reg", &len);
--	if (!data || len != 4)
--		return;
--
--	id = *data;
--	bus->phy_mask &= ~(1 << id);
--
--	irq = of_irq_to_resource(np, 0, NULL);
--	if (irq != NO_IRQ)
--		bus->irq[id] = irq;
--}
--
- static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
-                                         const struct of_device_id *match)
+ #define MDC_PIN(bus)	(((struct gpio_priv *)bus->priv)->mdc_pin)
+@@ -218,12 +219,11 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 				     const struct of_device_id *match)
  {
--	struct device_node *np = NULL;
+ 	struct device *dev = &ofdev->dev;
+-	struct device_node *phy_dn, *np = ofdev->node;
++	struct device_node *np = ofdev->node;
  	struct mii_bus *new_bus;
- 	struct bb_info *bitbang;
- 	int ret = -ENOMEM;
+ 	struct gpio_priv *priv;
+ 	const unsigned int *prop;
+ 	int err;
 -	int i;
  
- 	bitbang = kzalloc(sizeof(struct bb_info), GFP_KERNEL);
- 	if (!bitbang)
-@@ -196,17 +178,10 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
- 	if (!new_bus->irq)
- 		goto out_unmap_regs;
+ 	err = -ENOMEM;
+ 	priv = kzalloc(sizeof(struct gpio_priv), GFP_KERNEL);
+@@ -244,27 +244,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", *prop);
+ 	new_bus->priv = priv;
  
+-	new_bus->phy_mask = 0;
+-
+-	new_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+-
+-	if (!new_bus->irq)
+-		goto out_free_bus;
+-
 -	for (i = 0; i < PHY_MAX_ADDR; i++)
--		new_bus->irq[i] = -1;
+-		new_bus->irq[i] = NO_IRQ;
 -
--	while ((np = of_get_next_child(ofdev->node, np)))
--		if (!strcmp(np->type, "ethernet-phy"))
--			add_phy(new_bus, np);
+-	for (phy_dn = of_get_next_child(np, NULL);
+-	     phy_dn != NULL;
+-	     phy_dn = of_get_next_child(np, phy_dn)) {
+-		const unsigned int *ip, *regp;
 -
- 	new_bus->parent = &ofdev->dev;
- 	dev_set_drvdata(&ofdev->dev, new_bus);
+-		ip = of_get_property(phy_dn, "interrupts", NULL);
+-		regp = of_get_property(phy_dn, "reg", NULL);
+-		if (!ip || !regp || *regp >= PHY_MAX_ADDR)
+-			continue;
+-		new_bus->irq[*regp] = irq_create_mapping(NULL, *ip);
+-	}
++	new_bus->irq = priv->mdio_irqs;
  
--	ret = mdiobus_register(new_bus);
-+	ret = of_mdiobus_register(new_bus, ofdev->node);
- 	if (ret)
- 		goto out_free_irqs;
+ 	prop = of_get_property(np, "mdc-pin", NULL);
+ 	priv->mdc_pin = *prop;
+@@ -275,7 +255,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	new_bus->parent = dev;
+ 	dev_set_drvdata(dev, new_bus);
  
-diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
-index 28077cc..bdc3160 100644
---- a/drivers/net/fs_enet/mii-fec.c
-+++ b/drivers/net/fs_enet/mii-fec.c
-@@ -102,23 +102,6 @@ static int fs_enet_fec_mii_reset(struct mii_bus *bus)
+-	err = mdiobus_register(new_bus);
++	err = of_mdiobus_register(new_bus, np);
+ 
+ 	if (err != 0) {
+ 		printk(KERN_ERR "%s: Cannot register as MDIO bus, err %d\n",
+@@ -286,8 +266,6 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
  	return 0;
+ 
+ out_free_irq:
+-	kfree(new_bus->irq);
+-out_free_bus:
+ 	kfree(new_bus);
+ out_free_priv:
+ 	kfree(priv);
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index 5eeb5a8..2edbba3 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -24,6 +24,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/delay.h>
+ #include <linux/netdevice.h>
++#include <linux/of_mdio.h>
+ #include <linux/etherdevice.h>
+ #include <asm/dma-mapping.h>
+ #include <linux/in.h>
+@@ -1086,34 +1087,17 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	struct device_node *dn, *phy_dn;
+ 	struct phy_device *phydev;
+-	unsigned int phy_id;
+-	const phandle *ph;
+-	const unsigned int *prop;
+-	struct resource r;
+-	int ret;
+ 
+ 	dn = pci_device_to_OF_node(mac->pdev);
+-	ph = of_get_property(dn, "phy-handle", NULL);
+-	if (!ph)
+-		return -ENODEV;
+-	phy_dn = of_find_node_by_phandle(*ph);
+-
+-	prop = of_get_property(phy_dn, "reg", NULL);
+-	ret = of_address_to_resource(phy_dn->parent, 0, &r);
+-	if (ret)
+-		goto err;
+-
+-	phy_id = *prop;
+-	snprintf(mac->phy_id, sizeof(mac->phy_id), "%x:%02x",
+-		 (int)r.start, phy_id);
+-
++	phy_dn = of_parse_phandle(dn, "phy-handle", 0);
+ 	of_node_put(phy_dn);
+ 
+ 	mac->link = 0;
+ 	mac->speed = 0;
+ 	mac->duplex = -1;
+ 
+-	phydev = phy_connect(dev, mac->phy_id, &pasemi_adjust_link, 0, PHY_INTERFACE_MODE_SGMII);
++	phydev = of_phy_connect(dev, phy_dn, &pasemi_adjust_link, 0,
++				PHY_INTERFACE_MODE_SGMII);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		printk(KERN_ERR "%s: Could not attach to phy\n", dev->name);
+@@ -1123,10 +1107,6 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 	mac->phydev = phydev;
+ 
+ 	return 0;
+-
+-err:
+-	of_node_put(phy_dn);
+-	return -ENODEV;
  }
  
--static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
--{
--	const u32 *data;
--	int len, id, irq;
--
--	data = of_get_property(np, "reg", &len);
--	if (!data || len != 4)
--		return;
--
--	id = *data;
--	bus->phy_mask &= ~(1 << id);
--
--	irq = of_irq_to_resource(np, 0, NULL);
--	if (irq != NO_IRQ)
--		bus->irq[id] = irq;
--}
--
- static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
-                                         const struct of_device_id *match)
- {
-@@ -165,17 +148,10 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
- 	if (!new_bus->irq)
- 		goto out_unmap_regs;
  
--	for (i = 0; i < PHY_MAX_ADDR; i++)
--		new_bus->irq[i] = -1;
--
--	while ((np = of_get_next_child(ofdev->node, np)))
--		if (!strcmp(np->type, "ethernet-phy"))
--			add_phy(new_bus, np);
--
- 	new_bus->parent = &ofdev->dev;
- 	dev_set_drvdata(&ofdev->dev, new_bus);
+diff --git a/drivers/net/pasemi_mac.h b/drivers/net/pasemi_mac.h
+index 1a115ec..e2f4efa 100644
+--- a/drivers/net/pasemi_mac.h
++++ b/drivers/net/pasemi_mac.h
+@@ -100,7 +100,6 @@ struct pasemi_mac {
+ 	int	duplex;
  
--	ret = mdiobus_register(new_bus);
-+	ret = of_mdiobus_register(new_bus, ofdev->node);
- 	if (ret)
- 		goto out_free_irqs;
+ 	unsigned int	msg_enable;
+-	char	phy_id[BUS_ID_SIZE];
+ };
  
-diff --git a/include/linux/fs_enet_pd.h b/include/linux/fs_enet_pd.h
-index 8300cab..51b7934 100644
---- a/include/linux/fs_enet_pd.h
-+++ b/include/linux/fs_enet_pd.h
-@@ -17,6 +17,7 @@
- #define FS_ENET_PD_H
- 
- #include <linux/string.h>
-+#include <linux/of_mdio.h>
- #include <asm/types.h>
- 
- #define FS_ENET_NAME	"fs_enet"
-@@ -130,10 +131,7 @@ struct fs_platform_info {
- 	
- 	u32 device_flags;
- 
--	int phy_addr;		/* the phy address (-1 no phy) */
--	char bus_id[16];
--	int phy_irq;		/* the phy irq (if it exists)  */
--
-+	struct device_node *phy_node;
- 	const struct fs_mii_bus_info *bus_info;
- 
- 	int rx_ring, tx_ring;	/* number of buffers on rx     */
+ /* Software status descriptor (ring_info) */
 
