@@ -1,54 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/9] RDS: Fix ordering in a conditional
-Date: Tue, 31 Mar 2009 14:50:13 -0700 (PDT)
-Message-ID: <20090331.145013.206671022.davem@davemloft.net>
-References: <1238438693-29540-7-git-send-email-andy.grover@oracle.com>
-	<adak566e2pi.fsf@cisco.com>
-	<c0a09e5c0903302356m688fd370k65151f99f43dfdfc@mail.gmail.com>
+Subject: Re: [PATCH 00/14] Add common OF device tree support for MDIO busses
+Date: Tue, 31 Mar 2009 14:57:38 -0700 (PDT)
+Message-ID: <20090331.145738.36845509.davem@davemloft.net>
+References: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rdreier@cisco.com, andy.grover@oracle.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com
-To: andy.grover@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39900
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756698AbZCaVuY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 17:50:24 -0400
-In-Reply-To: <c0a09e5c0903302356m688fd370k65151f99f43dfdfc@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Joakim.Tjernlund@transmode.se, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, afleming@freescale.com, olof@lixom.net
+To: grant.likely@secretlab.ca
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090331075537.1427.7819.stgit@localhost.localdomain>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Andrew Grover <andy.grover@gmail.com>
-Date: Mon, 30 Mar 2009 23:56:14 -0700
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Tue, 31 Mar 2009 02:26:43 -0600
 
-> On Mon, Mar 30, 2009 at 9:27 PM, Roland Dreier <rdreier@cisco.com> wr=
-ote:
-> > =A0> - =A0 =A0if (0 <=3D ret && (unsigned) ret < nr_pages) {
-> > =A0> + =A0 =A0if (ret > 0 && (unsigned) ret < nr_pages) {
-> >
-> > This is not an equivalent transformation -- the original code is tr=
-ue if
-> > ret =3D=3D 0, while the new code is false.
->=20
-> Ah! Good point.
->=20
-> > Also it seems you don't need the unsigned cast here, since the clau=
-se
-> > before just checked that ret is positive?
->=20
-> True, but I'd bet the compiler will warn if we remove it. I'll try it
-> tomorrow and see.
+> David, as I mentioned below, I'd really like to get the core changes
+> (1, 4, 5  6) merged into 2.6.30 (assuming Andy confirms they are okay).
 
-Andy, also please resubmit only the real honest-to-goodness bug fixes
-in this patch series.
+No, sorry.
 
-I don't want to see cleanups, or optimizations like the transformation
-over to using get_user_pages_fast().
+We could have worked out the interdependencies before the merge window
+openned up.  There is no reason this could not have sat in at least
+somebody's tree before the merge window started.
 
-You could have sent that kind of stuff to me weeks ago.
-
-Thanks.
-
+It therefore didn't get any -next exposure, so it's unreasonable to
+merge this stuff now.
