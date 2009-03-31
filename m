@@ -1,61 +1,102 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Tue, 31 Mar 2009 09:37:48 -0500
-Message-ID: <49D22ABC.5050408@freescale.com>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
-	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
-	<49CCD3E8.9040007@freescale.com>
-	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
-	<49D0FFBB.7000009@freescale.com>
-	<OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se>
-	<49D1052D.2050609@freescale.com>
-	<OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se>
-	<49D11E47.8080106@freescale.com>
-	<OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Patch: Fix fec_mpc52xx driver to use net_device_ops
+Date: Tue, 31 Mar 2009 07:48:06 -0700
+Message-ID: <20090331074806.432a882a@nehalam>
+References: <ae4f76fd0903310344s2d46edf2l505a1d21a4778d54@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Li Yang <leoli@freescale.com>, pku.leo@gmail.com,
-	netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Henk Stegeman <henk.stegeman@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37291 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752268AbZCaOsK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 10:48:10 -0400
+In-Reply-To: <ae4f76fd0903310344s2d46edf2l505a1d21a4778d54@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund wrote:
-> I am a bit confused, what isn't worth it?
+On Tue, 31 Mar 2009 12:44:15 +0200
+Henk Stegeman <henk.stegeman@gmail.com> wrote:
 
-Enabling cacheing on MURAM, at least when used for buffer descriptors. 
-The cache line ping-pong would probably outweigh the cost of the 
-uncached accesses.
-
-> Currently MURAM isn't used by ucc_geth,
-
-Hmm.  I looked in the driver and saw numerous muram allocations, but I 
-didn't try to follow the driver enough to ensure that they were for the 
-ring.  I'd assumed it was similar to the CPM1/CPM2 driver.
-
-> 3) as gianfar, dma_alloc_coherent(). I presume this is uncacheable memory?
-
-It would be uncacheable on systems without coherent DMA, but I don't 
-think there are any such systems that use gianfar.
-
-> My guess would be 2 or 3. Do they have the same synchronization
-> sematics?
-
-No, unfortunately.  PowerPC sync instructions are a bit complicated. 
-For example, you can use eieio to sync between reading the interrupt 
-status register and checking the ring buffer, if they're both mapped 
-I+G, but not if the former is I+G and the latter is cacheable (you need 
-a full sync in that case).
-
--Scott
+> Fix fec_mpc52xx driver to use net_device_ops and to be careful not to
+> dereference phy_device if a phy has not yet been connected.
+> 
+> Signed-off-by: Henk Stegeman <henk.stegeman@gmail.com>
+> 
+> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> index cd8e98b..ca76b95 100644
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -847,24 +847,40 @@ static void mpc52xx_fec_get_drvinfo(struct
+> net_device *dev,
+>  static int mpc52xx_fec_get_settings(struct net_device *dev, struct
+> ethtool_cmd *cmd)
+>  {
+>  	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> +
+> +	if (!priv->phydev)
+> +			return -ENODEV;
+> +
+>  	return phy_ethtool_gset(priv->phydev, cmd);
+>  }
+> 
+>  static int mpc52xx_fec_set_settings(struct net_device *dev, struct
+> ethtool_cmd *cmd)
+>  {
+>  	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> +
+> +	if (!priv->phydev)
+> +			return -ENODEV;
+> +
+>  	return phy_ethtool_sset(priv->phydev, cmd);
+>  }
+> 
+>  static u32 mpc52xx_fec_get_msglevel(struct net_device *dev)
+>  {
+>  	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> +
+> +	if (!priv->phydev)
+> +		return 0;
+> +
+>  	return priv->msg_enable;
+>  }
+> 
+>  static void mpc52xx_fec_set_msglevel(struct net_device *dev, u32 level)
+>  {
+>  	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> +
+> +	if (!priv->phydev)
+> +			return;
+> +
+>  	priv->msg_enable = level;
+>  }
+> 
+> @@ -882,12 +898,31 @@ static int mpc52xx_fec_ioctl(struct net_device
+> *dev, struct ifreq *rq, int cmd)
+>  {
+>  	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+> 
+> +	if (!priv->phydev)
+> +			return -ENODEV;
+> +
+>  	return mpc52xx_fec_phy_mii_ioctl(priv, if_mii(rq), cmd);
+>  }
+> 
+>  /* ======================================================================== */
+>  /* OF Driver                                                                */
+>  /* ======================================================================== */
+> +static const struct net_device_ops mpc52xx_fec_netdev_ops = {
+> +       .ndo_open               = mpc52xx_fec_open,
+> +       .ndo_stop               = mpc52xx_fec_close,
+> +       .ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
+> +       .ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
+> +       .ndo_get_stats          = mpc52xx_fec_get_stats,
+> +       .ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
+> +       .ndo_validate_addr      = eth_validate_addr,
+> +       .ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
+> +       .ndo_do_ioctl           = mpc52xx_fec_ioctl,
+> 
+What about change_mtu? Don't you want:
+          .ndo_change_mtu         = eth_change_mtu,
