@@ -1,57 +1,66 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [PATCH v2 3/3] Doc: Fix spelling in RCU/rculist_nulls.txt.
-Date: Tue, 31 Mar 2009 21:17:42 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0903312042410.2950@ask.diku.dk>
-References: <20090330085302.19172.22808.stgit@localhost.localdomain>
- <20090330090306.19172.94170.stgit@localhost.localdomain> <49D0FA6E.4090402@gmail.com>
- <Pine.LNX.4.64.0903302155550.13385@ask.diku.dk> <Pine.LNX.4.64.0903302210030.13385@ask.diku.dk>
- <20090331105400.GA6843@ff.dom.local>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH 15/17] kvm: add dynamic IRQ support
+Date: Tue, 31 Mar 2009 22:20:30 +0300
+Message-ID: <49D26CFE.1060700@redhat.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184405.28333.59205.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:43160 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753957AbZCaTRu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 15:17:50 -0400
-In-Reply-To: <20090331105400.GA6843@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090331184405.28333.59205.stgit@dev.haskins.net>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 31 Mar 2009, Jarek Poplawski wrote:
-
-> On Mon, Mar 30, 2009 at 10:11:47PM +0200, Jesper Dangaard Brouer wrote:
->>
->> Trival spelling fixes in RCU/rculist_nulls.txt.
->>
->> Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
->> Reviewed-by: Jarek Poplawski <jarkao2@gmail.com>
+Gregory Haskins wrote:
+> This patch provides the ability to dynamically declare and map an
+> interrupt-request handle to an x86 8-bit vector.
 >
-> Hmm... still "reviewing", and maybe it's only me, but can't apply...
-> (v1 works OK.)
+> Problem Statement: Emulated devices (such as PCI, ISA, etc) have
+> interrupt routing done via standard PC mechanisms (MP-table, ACPI,
+> etc).  However, we also want to support a new class of devices
+> which exist in a new virtualized namespace and therefore should
+> not try to piggyback on these emulated mechanisms.  Rather, we
+> create a way to dynamically register interrupt resources that
+> acts indepent of the emulated counterpart.
+>
+> On x86, a simplistic view of the interrupt model is that each core
+> has a local-APIC which can recieve messages from APIC-compliant
+> routing devices (such as IO-APIC and MSI) regarding details about
+> an interrupt (such as which vector to raise).  These routing devices
+> are controlled by the OS so they may translate a physical event
+> (such as "e1000: raise an RX interrupt") to a logical destination
+> (such as "inject IDT vector 46 on core 3").  A dynirq is a virtual
+> implementation of such a router (think of it as a virtual-MSI, but
+> without the coupling to an existing standard, such as PCI).
+>
+> The model is simple: A guest OS can allocate the mapping of "IRQ"
+> handle to "vector/core" in any way it sees fit, and provide this
+> information to the dynirq module running in the host.  The assigned
+> IRQ then becomes the sole handle needed to inject an IDT vector
+> to the guest from a host.  A host entity that wishes to raise an
+> interrupt simple needs to call kvm_inject_dynirq(irq) and the routing
+> is performed transparently.
+>   
 
-Sorry, it because my email program "pine" insists on line wrapping.  I 
-have tried to adjust the preferences ("newmail-window-width" and 
-"composer-wrap-column") but it still insists... grrr
+A major disadvantage of dynirq is that it will only work on guests which 
+have been ported to it.  So this will only be useful on newer Linux, and 
+will likely never work with Windows guests.
 
-It looks like that patchwork corrected the line wrappings 
-(http://patchwork.ozlabs.org/patch/25337/) but if I download the patch via 
-patchwork, it also fails because a space has been added in front of all 
-lines, hmmm...
+Why is having an emulated PCI device so bad?  We found that it has 
+several advantages:
+ - works with all guests
+ - supports hotplug/hotunplug, udev, sysfs, module autoloading, ...
+ - supported in all OSes
+ - someone else maintains it
 
-Okay, I'll try to repost using another email program (as reply to this 
-message so patchwork will pick it up).  It amazing how much time we use on 
-these nitpicks ;-)
+See also the kvm irq routing work, merged into 2.6.30, which does a 
+small part of what you're describing (the "sole handle" part, specifically).
 
-Hilsen
-   Jesper Brouer
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
 
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
