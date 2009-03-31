@@ -1,153 +1,131 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] ucc_geth: Pass proper device to DMA routines, otherwise
-	oops happens
-Date: Tue, 31 Mar 2009 22:58:37 +0400
-Message-ID: <20090331185837.GA22545@oksana.dev.rtsoft.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	Andy Fleming <afleming@freescale.com>,
-	Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
+From: Becky Bruce <beckyb@kernel.crashing.org>
+Subject: Re: [PATCH] net/fec_mpc52xx: fix BUG on missing dma_ops
+Date: Tue, 31 Mar 2009 13:58:58 -0500
+Message-ID: <0947433F-BDDA-48D8-A59C-BCF321EE465C@kernel.crashing.org>
+References: <20090331022428.26151.55232.stgit@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	David Miller <davem@davemloft.net>, galak@kernel.crashing.net
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.79.90.228] ([213.79.90.228]:2868 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1760878AbZCaS6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:58:40 -0400
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:50861 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757213AbZCaS7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 14:59:13 -0400
+In-Reply-To: <20090331022428.26151.55232.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver should pass a device that actually specifies internal DMA
-ops, but currently it passes netdev's device, which is wrong and that
-causes following oops:
 
-Kernel BUG at c01c4df8 [verbose debug info unavailable]
-Oops: Exception in kernel mode, sig: 5 [#1]
-[...]
-NIP [c01c4df8] get_new_skb+0x7c/0xf8
-LR [c01c4da4] get_new_skb+0x28/0xf8
-Call Trace:
-[ef82be00] [c01c4da4] get_new_skb+0x28/0xf8 (unreliable)
-[ef82be20] [c01c4eb8] rx_bd_buffer_set+0x44/0x98
-[ef82be40] [c01c62bc] ucc_geth_startup+0x11b0/0x147c
-[ef82be80] [c01c6674] ucc_geth_open+0xec/0x2a4
-[ef82bea0] [c02288a4] dev_open+0xc0/0x11c
-[...]
+On Mar 30, 2009, at 9:25 PM, Grant Likely wrote:
 
-Fix this by passing of_device's device that specifies DMA ops in its
-archdata.
+> From: Grant Likely <grant.likely@secretlab.ca>
+>
+> The driver triggers a BUG_ON() when allocating DMA buffers if the
+> arch/powerpc dma_ops from the of_platform device are not copied
+> into net_device structure.
+>
+> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+> ---
+>
+> Becky, does this look better to you?
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/ucc_geth.c |   21 +++++++++++----------
- drivers/net/ucc_geth.h |    3 ++-
- 2 files changed, 13 insertions(+), 11 deletions(-)
+Reviewed-by: Becky Bruce <beckyb@kernel.crashing.org>
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 933fcfb..3ed402c 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -223,10 +223,10 @@ static struct sk_buff *get_new_skb(struct ucc_geth_private *ugeth,
- 		    (((unsigned)skb->data) & (UCC_GETH_RX_DATA_BUF_ALIGNMENT -
- 					      1)));
- 
--	skb->dev = ugeth->dev;
-+	skb->dev = ugeth->ndev;
- 
- 	out_be32(&((struct qe_bd __iomem *)bd)->buf,
--		      dma_map_single(&ugeth->dev->dev,
-+		      dma_map_single(ugeth->dev,
- 				     skb->data,
- 				     ugeth->ug_info->uf_info.max_rx_buf_length +
- 				     UCC_GETH_RX_DATA_BUF_ALIGNMENT,
-@@ -1872,7 +1872,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
- 			continue;
- 		for (j = 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
- 			if (ugeth->tx_skbuff[i][j]) {
--				dma_unmap_single(&ugeth->dev->dev,
-+				dma_unmap_single(ugeth->dev,
- 						 in_be32(&((struct qe_bd __iomem *)bd)->buf),
- 						 (in_be32((u32 __iomem *)bd) &
- 						  BD_LENGTH_MASK),
-@@ -1900,7 +1900,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
- 			bd = ugeth->p_rx_bd_ring[i];
- 			for (j = 0; j < ugeth->ug_info->bdRingLenRx[i]; j++) {
- 				if (ugeth->rx_skbuff[i][j]) {
--					dma_unmap_single(&ugeth->dev->dev,
-+					dma_unmap_single(ugeth->dev,
- 						in_be32(&((struct qe_bd __iomem *)bd)->buf),
- 						ugeth->ug_info->
- 						uf_info.max_rx_buf_length +
-@@ -3071,7 +3071,7 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* set up the buffer descriptor */
- 	out_be32(&((struct qe_bd __iomem *)bd)->buf,
--		      dma_map_single(&ugeth->dev->dev, skb->data,
-+		      dma_map_single(ugeth->dev, skb->data,
- 			      skb->len, DMA_TO_DEVICE));
- 
- 	/* printk(KERN_DEBUG"skb->data is 0x%x\n",skb->data); */
-@@ -3127,7 +3127,7 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 
- 	ugeth_vdbg("%s: IN", __func__);
- 
--	dev = ugeth->dev;
-+	dev = ugeth->ndev;
- 
- 	/* collect received buffers */
- 	bd = ugeth->rxBd[rxQ];
-@@ -3161,7 +3161,7 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 			skb_put(skb, length);
- 
- 			/* Tell the skb what kind of packet this is */
--			skb->protocol = eth_type_trans(skb, ugeth->dev);
-+			skb->protocol = eth_type_trans(skb, ugeth->ndev);
- 
- 			dev->stats.rx_bytes += length;
- 			/* Send the packet up the stack */
-@@ -3432,7 +3432,7 @@ static int ucc_geth_close(struct net_device *dev)
- 
- 	ucc_geth_stop(ugeth);
- 
--	free_irq(ugeth->ug_info->uf_info.irq, ugeth->dev);
-+	free_irq(ugeth->ug_info->uf_info.irq, ugeth->ndev);
- 
- 	netif_stop_queue(dev);
- 
-@@ -3446,7 +3446,7 @@ static void ucc_geth_timeout_work(struct work_struct *work)
- 	struct net_device *dev;
- 
- 	ugeth = container_of(work, struct ucc_geth_private, timeout_work);
--	dev = ugeth->dev;
-+	dev = ugeth->ndev;
- 
- 	ugeth_vdbg("%s: IN", __func__);
- 
-@@ -3756,7 +3756,8 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 		memcpy(dev->dev_addr, mac_addr, 6);
- 
- 	ugeth->ug_info = ug_info;
--	ugeth->dev = dev;
-+	ugeth->dev = device;
-+	ugeth->ndev = dev;
- 	ugeth->node = np;
- 
- 	return 0;
-diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
-index e3a25e6..a6f5d0b 100644
---- a/drivers/net/ucc_geth.h
-+++ b/drivers/net/ucc_geth.h
-@@ -1129,7 +1129,8 @@ struct ucc_geth_info {
- struct ucc_geth_private {
- 	struct ucc_geth_info *ug_info;
- 	struct ucc_fast_private *uccf;
--	struct net_device *dev;
-+	struct device *dev;
-+	struct net_device *ndev;
- 	struct napi_struct napi;
- 	struct work_struct timeout_work;
- 	struct ucc_geth __iomem *ug_regs;
--- 
-1.5.6.5
+I think this is OK now, and Kumar agrees....
+
+Thanks!
+B
+
+>
+>
+> g.
+>
+> drivers/net/fec_mpc52xx.c |   19 ++++++++++++-------
+> 1 files changed, 12 insertions(+), 7 deletions(-)
+>
+>
+> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+> index 049b0a7..f99463f 100644
+> --- a/drivers/net/fec_mpc52xx.c
+> +++ b/drivers/net/fec_mpc52xx.c
+> @@ -129,7 +129,8 @@ static void mpc52xx_fec_free_rx_buffers(struct  
+> net_device *dev, struct bcom_task
+> 		struct sk_buff *skb;
+>
+> 		skb = bcom_retrieve_buffer(s, NULL, (struct bcom_bd **)&bd);
+> -		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_FROM_DEVICE);
+> +		dma_unmap_single(dev->dev.parent, bd->skb_pa, skb->len,
+> +				 DMA_FROM_DEVICE);
+> 		kfree_skb(skb);
+> 	}
+> }
+> @@ -150,7 +151,7 @@ static int mpc52xx_fec_alloc_rx_buffers(struct  
+> net_device *dev, struct bcom_task
+> 		bd = (struct bcom_fec_bd *)bcom_prepare_next_buffer(rxtsk);
+>
+> 		bd->status = FEC_RX_BUFFER_SIZE;
+> -		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
+> +		bd->skb_pa = dma_map_single(dev->dev.parent, skb->data,
+> 				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+>
+> 		bcom_submit_next_buffer(rxtsk, skb);
+> @@ -388,7 +389,8 @@ static int mpc52xx_fec_hard_start_xmit(struct  
+> sk_buff *skb, struct net_device *d
+> 		bcom_prepare_next_buffer(priv->tx_dmatsk);
+>
+> 	bd->status = skb->len | BCOM_FEC_TX_BD_TFD | BCOM_FEC_TX_BD_TC;
+> -	bd->skb_pa = dma_map_single(&dev->dev, skb->data, skb->len,  
+> DMA_TO_DEVICE);
+> +	bd->skb_pa = dma_map_single(dev->dev.parent, skb->data, skb->len,
+> +				    DMA_TO_DEVICE);
+>
+> 	bcom_submit_next_buffer(priv->tx_dmatsk, skb);
+>
+> @@ -430,7 +432,8 @@ static irqreturn_t mpc52xx_fec_tx_interrupt(int  
+> irq, void *dev_id)
+> 		struct bcom_fec_bd *bd;
+> 		skb = bcom_retrieve_buffer(priv->tx_dmatsk, NULL,
+> 				(struct bcom_bd **)&bd);
+> -		dma_unmap_single(&dev->dev, bd->skb_pa, skb->len, DMA_TO_DEVICE);
+> +		dma_unmap_single(dev->dev.parent, bd->skb_pa, skb->len,
+> +				 DMA_TO_DEVICE);
+>
+> 		dev_kfree_skb_irq(skb);
+> 	}
+> @@ -455,7 +458,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int  
+> irq, void *dev_id)
+>
+> 		rskb = bcom_retrieve_buffer(priv->rx_dmatsk, &status,
+> 				(struct bcom_bd **)&bd);
+> -		dma_unmap_single(&dev->dev, bd->skb_pa, rskb->len,  
+> DMA_FROM_DEVICE);
+> +		dma_unmap_single(dev->dev.parent, bd->skb_pa, rskb->len,
+> +				 DMA_FROM_DEVICE);
+>
+> 		/* Test for errors in received frame */
+> 		if (status & BCOM_FEC_RX_BD_ERRORS) {
+> @@ -464,7 +468,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int  
+> irq, void *dev_id)
+> 				bcom_prepare_next_buffer(priv->rx_dmatsk);
+>
+> 			bd->status = FEC_RX_BUFFER_SIZE;
+> -			bd->skb_pa = dma_map_single(&dev->dev, rskb->data,
+> +			bd->skb_pa = dma_map_single(dev->dev.parent,
+> +					rskb->data,
+> 					FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+>
+> 			bcom_submit_next_buffer(priv->rx_dmatsk, rskb);
+> @@ -499,7 +504,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int  
+> irq, void *dev_id)
+> 			bcom_prepare_next_buffer(priv->rx_dmatsk);
+>
+> 		bd->status = FEC_RX_BUFFER_SIZE;
+> -		bd->skb_pa = dma_map_single(&dev->dev, skb->data,
+> +		bd->skb_pa = dma_map_single(dev->dev.parent, skb->data,
+> 				FEC_RX_BUFFER_SIZE, DMA_FROM_DEVICE);
+>
+> 		bcom_submit_next_buffer(priv->rx_dmatsk, skb);
+
