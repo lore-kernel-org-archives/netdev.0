@@ -1,87 +1,126 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Tue, 31 Mar 2009 12:16:51 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0903311205070.30150@wrl-59.cs.helsinki.fi>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
- <20090328045056.GA2394@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
- <20090328095514.GA2599@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
- <20090330164035.GA2652@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
- <20090331071018.GA2641@gentoox2.trippelsdorf.de>
+From: Henk Stegeman <henk.stegeman@gmail.com>
+Subject: Patch: Fix fec_mpc52xx driver to use net_device_ops
+Date: Tue, 31 Mar 2009 12:44:15 +0200
+Message-ID: <ae4f76fd0903310344s2d46edf2l505a1d21a4778d54@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-2004850153-1238491011=:30150"
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, corbet@lwn.net
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35854 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbZCaJQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 05:16:55 -0400
-In-Reply-To: <20090331071018.GA2641@gentoox2.trippelsdorf.de>
+Received: from ey-out-2122.google.com ([74.125.78.25]:21488 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923AbZCaKoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 06:44:19 -0400
+Received: by ey-out-2122.google.com with SMTP id 4so733726eyf.37
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 03:44:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Fix fec_mpc52xx driver to use net_device_ops and to be careful not to
+dereference phy_device if a phy has not yet been connected.
 
----696208474-2004850153-1238491011=:30150
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Signed-off-by: Henk Stegeman <henk.stegeman@gmail.com>
 
-On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index cd8e98b..ca76b95 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -847,24 +847,40 @@ static void mpc52xx_fec_get_drvinfo(struct
+net_device *dev,
+ static int mpc52xx_fec_get_settings(struct net_device *dev, struct
+ethtool_cmd *cmd)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++
++	if (!priv->phydev)
++			return -ENODEV;
++
+ 	return phy_ethtool_gset(priv->phydev, cmd);
+ }
 
-> On Mon, Mar 30, 2009 at 09:52:55PM +0300, Ilpo Järvinen wrote:
-> > On Mon, 30 Mar 2009, Markus Trippelsdorf wrote:
-> > 
-> > > On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo Järvinen wrote:
-> > > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-> > > > > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo Järvinen wrote:
-> > > > 
-> > > > ...And, let me guess, you're in X and therefore unable to catch a final 
-> > > > oops if any would be printed? It would be nice to get around that as well, 
-> > > > either use serial/netconsole or hang in text mode while waiting for the 
-> > > > crash (should be too hard if you are able to setup the workload first 
-> > > > and then switch away from X and if reproducing takes about an hour)...
-> > > 
-> > > OK, I will try this later.
-> > 
-> > Lets hope that gives some clue where it ends up going boom (if it is 
-> > caused by TCP we certainly should see something more sensible in console 
-> > than just a hang)... ...I once again read through tcp commits but just 
-> > cannot find anything that could cause fackets_out miscount, not to speak 
-> > of crash prone changes so we'll just have to wait and see...
-> 
-> The machine hanged again this night and I took two pictures:
-> http://www.mypicx.com/uploadimg/1055813374_03302009_2.jpg
-> http://www.mypicx.com/uploadimg/1543678904_03302009_1.jpg
->
-> But this time there was no tcp related warning in the logs.
+ static int mpc52xx_fec_set_settings(struct net_device *dev, struct
+ethtool_cmd *cmd)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++
++	if (!priv->phydev)
++			return -ENODEV;
++
+ 	return phy_ethtool_sset(priv->phydev, cmd);
+ }
 
-Right. If that oops would be hit often enough one can easily mix the 
-warning with that hang though there is no relation (the fact that final 
-oops always goes unnoticed in X amplifies the effect).
+ static u32 mpc52xx_fec_get_msglevel(struct net_device *dev)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++
++	if (!priv->phydev)
++		return 0;
++
+ 	return priv->msg_enable;
+ }
 
-> I then pulled the lateset git changes, rebuild, rebooted and setup the
-> workload again. The machine was still up and running in the morning 
-> (~4 hours uptime). So it may well be that the issue was fixed with
-> the latest changes.
+ static void mpc52xx_fec_set_msglevel(struct net_device *dev, u32 level)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
++
++	if (!priv->phydev)
++			return;
++
+ 	priv->msg_enable = level;
+ }
 
-Lets hope so, in any case if you still see hangs please get the final oops.
+@@ -882,12 +898,31 @@ static int mpc52xx_fec_ioctl(struct net_device
+*dev, struct ifreq *rq, int cmd)
+ {
+ 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
 
-> If it ever occurs again I will notify you.
++	if (!priv->phydev)
++			return -ENODEV;
++
+ 	return mpc52xx_fec_phy_mii_ioctl(priv, if_mii(rq), cmd);
+ }
 
-Thanks. Also, if you keep getting those TCP warnings (even alone without
-a crash) please drop me a note since I'd be interesting in tracking that 
-down as well even though it is probably not very significant flaw. Even 
-once a week/month is very promising rate considering how rare they occur 
-for most of the people who were lucky enough to get them in the first 
-place.
+ /* ======================================================================== */
+ /* OF Driver                                                                */
+ /* ======================================================================== */
++static const struct net_device_ops mpc52xx_fec_netdev_ops = {
++       .ndo_open               = mpc52xx_fec_open,
++       .ndo_stop               = mpc52xx_fec_close,
++       .ndo_start_xmit         = mpc52xx_fec_hard_start_xmit,
++       .ndo_tx_timeout         = mpc52xx_fec_tx_timeout,
++       .ndo_get_stats          = mpc52xx_fec_get_stats,
++       .ndo_set_multicast_list = mpc52xx_fec_set_multicast_list,
++       .ndo_validate_addr      = eth_validate_addr,
++       .ndo_set_mac_address    = mpc52xx_fec_set_mac_address,
++       .ndo_do_ioctl           = mpc52xx_fec_ioctl,
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++       .ndo_poll_controller     = mpc52xx_fec_poll_controller,
++#endif
++};
++
 
+ static int __devinit
+ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
+@@ -929,20 +964,10 @@ mpc52xx_fec_probe(struct of_device *op, const
+struct of_device_id *match)
+ 		return -EBUSY;
 
--- 
- i.
----696208474-2004850153-1238491011=:30150--
+ 	/* Init ether ndev with what we have */
+-	ndev->open		= mpc52xx_fec_open;
+-	ndev->stop		= mpc52xx_fec_close;
+-	ndev->hard_start_xmit	= mpc52xx_fec_hard_start_xmit;
+-	ndev->do_ioctl		= mpc52xx_fec_ioctl;
+ 	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
+-	ndev->get_stats		= mpc52xx_fec_get_stats;
+-	ndev->set_mac_address	= mpc52xx_fec_set_mac_address;
+-	ndev->set_multicast_list = mpc52xx_fec_set_multicast_list;
+-	ndev->tx_timeout	= mpc52xx_fec_tx_timeout;
+ 	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
+ 	ndev->base_addr		= mem.start;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	ndev->poll_controller = mpc52xx_fec_poll_controller;
+-#endif
++	ndev->netdev_ops = &mpc52xx_fec_netdev_ops;
+
+ 	priv->t_irq = priv->r_irq = ndev->irq = NO_IRQ; /* IRQ are free for now */
