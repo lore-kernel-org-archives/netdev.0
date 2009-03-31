@@ -1,29 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] staging: at76_usb convert to netdev_ops
-Date: Tue, 31 Mar 2009 14:11:39 -0700 (PDT)
-Message-ID: <20090331.141139.188200200.davem@davemloft.net>
-References: <20090331201850.GC25513@bombadil.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rds: only for x86 or 64-bit at the moment...
+Date: Tue, 31 Mar 2009 14:15:42 -0700 (PDT)
+Message-ID: <20090331.141542.182956594.davem@davemloft.net>
+References: <20090331210609.GD25513@bombadil.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kyle-pfcGkIkfWfAsA/PxXw9srA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090331201850.GC25513-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: andy.grover@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org
+To: kyle@mcmartin.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42644
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754783AbZCaVPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 17:15:54 -0400
+In-Reply-To: <20090331210609.GD25513@bombadil.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kyle McMartin <kyle-pfcGkIkfWfAsA/PxXw9srA@public.gmane.org>
-Date: Tue, 31 Mar 2009 16:18:50 -0400
+From: Kyle McMartin <kyle@mcmartin.ca>
+Date: Tue, 31 Mar 2009 17:06:09 -0400
 
-> Didn't see this in your patch queue, fixes build on Fedora, though we'll
-> probably end up turning on CONFIG_COMPAT_NET_DEV_OPS for now anyway.
+> From: Kyle McMartin <kyle@redhat.com>
 > 
-> Signed-off-by: Kyle McMartin <kyle-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> set_64bit doesn't exist anywhere but x86 right now, so either
+> BITS_PER_LONG needs to be 64, or we need to be on x86, in order to
+> build this module.
+> 
+> Signed-off-by: Kyle McMartin <kyle@redhat.com>
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I would prefer the RDS folks simply fix this properly.
