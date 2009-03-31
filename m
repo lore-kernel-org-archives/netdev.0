@@ -1,78 +1,38 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 01/17] shm-signal: shared-memory signals
-Date: Wed, 01 Apr 2009 00:05:50 +0300
-Message-ID: <49D285AE.7030604@redhat.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184252.28333.70623.stgit@dev.haskins.net> <49D280C0.8010802@redhat.com> <49D283F7.7030508@novell.com>
+From: Kyle McMartin <kyle@mcmartin.ca>
+Subject: [PATCH] rds: only for x86 or 64-bit at the moment...
+Date: Tue, 31 Mar 2009 17:06:09 -0400
+Message-ID: <20090331210609.GD25513@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org
+To: andy.grover@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:49897 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751246AbZCaVFV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 17:05:21 -0400
-In-Reply-To: <49D283F7.7030508@novell.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:42226 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753285AbZCaVGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 17:06:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gregory Haskins wrote:
->>> +struct shm_signal_irq {
->>> +    __u8                  enabled;
->>> +    __u8                  pending;
->>> +    __u8                  dirty;
->>> +};
->>>   
->>>       
->> Some ABIs may choose to pad this, suggest explicit padding.
->>     
->
-> Yeah, good idea.  What is the official way to do this these days?  Are
-> GCC pragmas allowed?
->
->   
+From: Kyle McMartin <kyle@redhat.com>
 
-I just add a __u8 pad[5] in such cases.
+set_64bit doesn't exist anywhere but x86 right now, so either
+BITS_PER_LONG needs to be 64, or we need to be on x86, in order to
+build this module.
 
->>> +
->>> +struct shm_signal;
->>> +
->>> +struct shm_signal_ops {
->>> +    int      (*inject)(struct shm_signal *s);
->>> +    void     (*fault)(struct shm_signal *s, const char *fmt, ...);
->>>   
->>>       
->> Eww.  Must we involve strings and printf formats?
->>     
->
-> This is still somewhat of a immature part of the design.  Its supposed
-> to be used so that by default, its a panic.  But on the host side, we
-> can do something like inject a machine-check.  That way malicious/broken
-> guests cannot (should not? ;) be able to take down the host.  Note today
-> I do not map this to anything other than the default panic, so this
-> needs some love.
->
-> But given the asynchronous nature of the fault, I want to be sure we
-> have decent accounting to avoid bug reports like "silent MCE kills the
-> guest" ;)  At least this way, we can log the fault string somewhere to
-> get a clue.
->   
-
-I see.
-
-This raises a point I've been thinking of - the symmetrical nature of 
-the API vs the assymetrical nature of guest/host or user/kernel 
-interfaces.  This is most pronounced in ->inject(); in the host->guest 
-direction this is async (host can continue processing while the guest is 
-handling the interrupt), whereas in the guest->host direction it is 
-synchronous (the guest is blocked while the host is processing the call, 
-unless the host explicitly hands off work to a different thread).
-
-
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
-
+Signed-off-by: Kyle McMartin <kyle@redhat.com>
+---
+diff --git a/net/rds/Kconfig b/net/rds/Kconfig
+index 796773b..84df275 100644
+--- a/net/rds/Kconfig
++++ b/net/rds/Kconfig
+@@ -1,7 +1,7 @@
+ 
+ config RDS
+ 	tristate "Reliable Datagram Sockets (RDS) (EXPERIMENTAL)"
+-	depends on INET && INFINIBAND_IPOIB && EXPERIMENTAL
++	depends on INET && INFINIBAND_IPOIB && EXPERIMENTAL && (64BIT || X86)
+ 	depends on INFINIBAND && INFINIBAND_ADDR_TRANS
+ 	---help---
+ 	  RDS provides reliable, sequenced delivery of datagrams
