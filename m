@@ -1,69 +1,45 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH 13/17] x86: allow the irq->vector translation to be
- determined outside of ioapic
-Date: Tue, 31 Mar 2009 16:02:15 -0400
-Message-ID: <49D276C7.80600@novell.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net>	<20090331184355.28333.72382.stgit@dev.haskins.net> <20090331201625.60f1ea81@the-village.bc.nu>
+Subject: Re: [RFC PATCH 14/17] kvm: add a reset capability
+Date: Tue, 31 Mar 2009 16:02:45 -0400
+Message-ID: <49D276E5.6000000@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184400.28333.50396.stgit@dev.haskins.net> <49D26D8B.7020201@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enigFD773E1CA8A872ED2EDE7070"
+ boundary="------------enig63259ACD3C414AAF73D2D3DF"
 Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
 	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:59808 "EHLO
+Received: from victor.provo.novell.com ([137.65.250.26]:33072 "EHLO
 	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752148AbZCaT76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 15:59:58 -0400
-In-Reply-To: <20090331201625.60f1ea81@the-village.bc.nu>
+	with ESMTP id S1752966AbZCaUAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 16:00:31 -0400
+In-Reply-To: <49D26D8B.7020201@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigFD773E1CA8A872ED2EDE7070
-Content-Type: text/plain; charset=ISO-8859-1
+--------------enig63259ACD3C414AAF73D2D3DF
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
-Alan Cox wrote:
-> On Tue, 31 Mar 2009 14:43:55 -0400
-> Gregory Haskins <ghaskins@novell.com> wrote:
+Avi Kivity wrote:
+> Gregory Haskins wrote:
+>> We need a way to detect if a VM is reset later in the series, so lets
+>> add a capability for userspace to signal a VM reset down to the kernel=
+=2E
+>>  =20
 >
->  =20
->> The ioapic code currently privately manages the mapping between irq
->> and vector.  This results in some layering violations as the support
->> for certain MSI operations need this info.  As a result, the MSI
->> code itself was moved to the ioapic module.  This is not really
->> optimal.
->>    =20
+> How do you handle the case of a guest calling kexec to load a new
+> kernel?  Or is that not important for your use case?
 >
-> This appears to have been muddled in with the vnet patches ?
->  =20
-Its needed for the kvm-connector patches later in the series, so it was
-included intentionally.
 
-On that topic, I probably should have had a TOC of some kind.  Hmm..let
-me hack one together now:
-
-Patch 1: Stand-alone "shared-memory signal" construct, used by various
-components in vbus/venet
-Patches 2-5: Basic vbus infrastructure
-Patches 6-7: IOQ construct, similar to virtio-ring.  Used to overlay
-ring-like behavior over the shm interface in vbus
-Patches 8-12: virtual-ethernet front and backends
-Patch 13: io-apic work to expose the irq-vector in x86, needed for
-dynirq support
-Patches 14-16: KVM host side support
-Patch 17: KVM guest side support
-
-Sorry for the confusion :(
-
-Regards,
--Greg
+Hmm..I had not considered this.  Any suggestions on ways to detect it?
 
 
---------------enigFD773E1CA8A872ED2EDE7070
+--------------enig63259ACD3C414AAF73D2D3DF
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -72,9 +48,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2.0.9 (GNU/Linux)
 Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-iEYEARECAAYFAknSdscACgkQlOSOBdgZUxl01ACfSEnYOhxGIU+EHpUI0oDIUmII
-BfsAn277JrlDG6dO2eSy2gQji78cpbaE
-=rI1L
+iEYEARECAAYFAknSduUACgkQlOSOBdgZUxlUHACgjfkZ9UdnAEAzxUlkMDM3wJLk
+8xAAn1BPfw9RIjH48ZO73jqWUACuFuzh
+=wDa2
 -----END PGP SIGNATURE-----
 
---------------enigFD773E1CA8A872ED2EDE7070--
+--------------enig63259ACD3C414AAF73D2D3DF--
