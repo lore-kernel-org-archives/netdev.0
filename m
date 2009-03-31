@@ -1,88 +1,72 @@
-From: Yu Zhao <yu.zhao@intel.com>
-Subject: Re: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10 GbE
-	PCIe adapter
-Date: Tue, 31 Mar 2009 14:13:33 +0800
-Message-ID: <20090331061333.GA11240@yzhao-otc.sh.intel.com>
-References: <1237018825.4966.412.camel@flash>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: TX time stamping
+Date: Tue, 31 Mar 2009 08:53:41 +0200
+Message-ID: <1238482421.11761.19.camel@pohly-MOBL>
+References: <1236105081.4653.68.camel@pohly-MOBL>
+	 <20090319.140509.152824531.davem@davemloft.net>
+	 <20090320021050.GA7021@gondor.apana.org.au>
+	 <1237964924.26966.310.camel@pohly-MOBL>
+	 <20090326144835.GA19592@gondor.apana.org.au>
+	 <1238081410.19066.125.camel@ecld0pohly>  <49D10AE4.8070907@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Ramkrishna Vepa <ram.vepa@neterion.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:44207 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35046 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756225AbZCaGMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 02:12:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1237018825.4966.412.camel@flash>
+	id S1752811AbZCaGx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 02:53:58 -0400
+In-Reply-To: <49D10AE4.8070907@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 14, 2009 at 04:20:26PM +0800, Ramkrishna Vepa wrote:
-> This is a release of a new network driver, "vxge", for our latest PCIe based
-> hardware - The X3100 10GbE Server/Storage Adapter. The X3100 ASIC supports 
-> four modes of operation, configurable via firmware -
-> 	Single function mode
-> 	Multi function	mode
-> 	SRIOV mode
-> 	MRIOV mode
-> 	
-> The driver patches series will follow this email. This driver has undergone 
-> significant testing for the past six months in all four modes of operation,
-> and is very stable. We would appreciate the community review and comments
-> on this driver.
-> 	
-> The modes, besides single function mode, are oriented towards Server
-> I/O virtualization and/or I/O sharing (see PCI SIG SR IOV and MR IOV
-> specs for reference), although they can be used on a single
-> non-virtualized server as well for instance, to run workloads that would
-> typically benefit from using separate network cards. In these scenarios,
-> X3100 can replace large number of GbE NICs without any system or network
-> changes (outside of L2 driver/hardware), while each physical NIC will be
-> able run up to 10 GbE instead of 1 GbE.
-> 
-> A note on the different modes of operation -
-> 
-> Single-function mode: From Linux stack perspective, the adapter is a
-> typical multi-queue 10GbE pci-e netdev interface (driven by the
-> submitted vxge driver).
->  
-> Multi-function mode: From Linux stack perspective, the adapter is a
-> multi-function pci-e device where each function is a multi-queue pci-e
-> netdev interface. This mode has some applications in native Linux
-> environments, but it is primarily designed for use in hypervisors that
-> do not yet support SR IOV pci-e extensions. In fact, the functionality
-> in this mode is virtually identical to the SR IOV mode described below,
-> except SR IOV support in Linux is not required/expected. 
+On Mon, 2009-03-30 at 21:09 +0300, Oliver Hartkopp wrote:
+> i wonder if using the IP stack for PTP with the possibility to send TX-stamped
+>  PDUs on various interfaces is the best solution.
 
-Xen upstream already supports the SR-IOV, and the native Linux and KVM
-will be supporting it too when 2.6.30 comes out.
+PTPd already only sends on one interface. How to deal with packets that
+go out via multiple interfaces becomes relevant when generalizing the
+hardware time stamping concept.
 
-Intel 82576 driver has been patched to enable the SR-IOV capability:
-  http://patchwork.kernel.org/patch/8063/
-  http://patchwork.kernel.org/patch/8064/
-  http://patchwork.kernel.org/patch/8065/
-  http://patchwork.kernel.org/patch/8066/
-Thought one of these patches uses the sysfs interface to receive the NumVFs
-from user space, which is deprecated, rest of them still clearly demonstrate
-how to convert the traditional PCI NIC driver to the `Physical Function'
-driver by using the SR-IOV API.
+> I'm not aware of all the routing, packet scheduling, etc. stuff that much -
+> but does it probably make sense to use AF_PACKET for PTP, where you can
+> specify the interface and build a PTP IP PDU directly? I assume this does not
+> make that big difference to the ptpd in userspace.
 
-> 
-> >From vxge driver perspective, each x3100 function is an independent NIC.
-> The functions share 10GbE link and pci-e bus, but hardly anything else
-> inside the ASIC. Features like independent hw reset, statistics,
-> bandwidth/priority allocation and guarantees, etc. are supported. Also,
-> typical L2 functions like LSO, interrupt moderation, etc are supported
-> independently on each function.
-> 
-> In other words, direct hardware access with x3100 doesnctions for Direct Hardware
-> 	Access to different Guests or Servers - while keeping traditional
-> 	privileged operations (VLAN membership, etc) under privileged domain
-> 	control.
->  
-> SR IOV mode: Once BIOS and/or OS support SR IOV pci-e extensions, from
-> Linux stack perspective the adapter will look like the multi-function
-> mode in #2 above. vxge driver will still think that each x3100 function
-> is an independent x3100 pci-e device.
->  
+I'm not familiar with AF_PACKET. It let's user space assemble the
+complete packet (including Ethernet header) and send directly via a
+specific interface, right?
+
+The drawback is that the user space daemon would have to reimplement the
+joining/leaving of a multicast group. When using the IP stack, it can
+let the kernel do that.
+
+It also still uses write() or sendmsg(), doesn't it? In that case
+there's no advantage over the current approach because the only link
+back to the sender is still only the socket.
+
+But perhaps I am simply unaware of some aspects of the socket API for
+AF_PACKET. Is there something which would allow implementing Herbert's
+approach with communication via sh_info when the sender is in user
+space?
+
+Herbert, what do you think about the "identify socket via unique ID"
+idea? Is that possible/doable/acceptable/stupid/all of these?
+
+-- 
+Best Regards
+
+Patrick Ohly
+Senior Software Engineer
+
+Intel GmbH
+Software & Solutions Group                
+Hermuelheimer Strasse 8a                  Phone: +49-2232-2090-30
+50321 Bruehl                              Fax: +49-2232-2090-29
+Germany
+
