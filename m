@@ -1,7 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH 07/17] ioq: add vbus helpers
-Date: Tue, 31 Mar 2009 14:43:23 -0400
-Message-ID: <20090331184323.28333.6615.stgit@dev.haskins.net>
+Subject: [RFC PATCH 12/17] venettap: add scatter-gather support
+Date: Tue, 31 Mar 2009 14:43:50 -0400
+Message-ID: <20090331184349.28333.41764.stgit@dev.haskins.net>
 References: <20090331184057.28333.77287.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,267 +10,338 @@ Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
 	anthony@codemonkey.ws, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from victor.provo.novell.com ([137.65.250.26]:38365 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760825AbZCaSlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:41:45 -0400
 In-Reply-To: <20090331184057.28333.77287.stgit@dev.haskins.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-It will be common to map an IOQ over the VBUS shared-memory interfaces,
-so lets generalize their setup so we can reuse the pattern.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/vbus_device.h |    7 +++
- include/linux/vbus_driver.h |    7 +++
- kernel/vbus/Kconfig         |    2 +
- kernel/vbus/Makefile        |    1 
- kernel/vbus/proxy.c         |   64 +++++++++++++++++++++++++++++++
- kernel/vbus/shm-ioq.c       |   89 +++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 170 insertions(+), 0 deletions(-)
- create mode 100644 kernel/vbus/shm-ioq.c
+ drivers/vbus/devices/venet-tap.c |  236 +++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 229 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/vbus_device.h b/include/linux/vbus_device.h
-index 705d92e..66990e2 100644
---- a/include/linux/vbus_device.h
-+++ b/include/linux/vbus_device.h
-@@ -102,6 +102,7 @@
- #include <linux/configfs.h>
- #include <linux/rbtree.h>
- #include <linux/shm_signal.h>
-+#include <linux/ioq.h>
- #include <linux/vbus.h>
- #include <asm/atomic.h>
+diff --git a/drivers/vbus/devices/venet-tap.c b/drivers/vbus/devices/venet-tap.c
+index ccce58e..0ccb7ed 100644
+--- a/drivers/vbus/devices/venet-tap.c
++++ b/drivers/vbus/devices/venet-tap.c
+@@ -80,6 +80,13 @@ enum {
+ 	TX_IOQ_CONGESTED,
+ };
  
-@@ -413,4 +414,10 @@ static inline void vbus_connection_put(struct vbus_connection *conn)
- 		conn->ops->release(conn);
- }
- 
-+/*
-+ * device-side IOQ helper - dereferences device-shm as an IOQ
-+ */
-+int vbus_shm_ioq_attach(struct vbus_shm *shm, struct shm_signal *signal,
-+			int maxcount, struct ioq **ioq);
++struct venettap;
 +
- #endif /* _LINUX_VBUS_DEVICE_H */
-diff --git a/include/linux/vbus_driver.h b/include/linux/vbus_driver.h
-index c53e13f..9cfbf60 100644
---- a/include/linux/vbus_driver.h
-+++ b/include/linux/vbus_driver.h
-@@ -26,6 +26,7 @@
- 
- #include <linux/device.h>
- #include <linux/shm_signal.h>
-+#include <linux/ioq.h>
- 
- struct vbus_device_proxy;
- struct vbus_driver;
-@@ -70,4 +71,10 @@ struct vbus_driver {
- int vbus_driver_register(struct vbus_driver *drv);
- void vbus_driver_unregister(struct vbus_driver *drv);
- 
-+/*
-+ * driver-side IOQ helper - allocates device-shm and maps an IOQ on it
-+ */
-+int vbus_driver_ioq_alloc(struct vbus_device_proxy *dev, int id, int prio,
-+			  size_t ringsize, struct ioq **ioq);
-+
- #endif /* _LINUX_VBUS_DRIVER_H */
-diff --git a/kernel/vbus/Kconfig b/kernel/vbus/Kconfig
-index 3aaa085..71acd6f 100644
---- a/kernel/vbus/Kconfig
-+++ b/kernel/vbus/Kconfig
-@@ -6,6 +6,7 @@ config VBUS
-        bool "Virtual Bus"
-        select CONFIGFS_FS
-        select SHM_SIGNAL
-+       select IOQ
-        default n
-        help
-         Provides a mechansism for declaring virtual-bus objects and binding
-@@ -15,6 +16,7 @@ config VBUS
- 
- config VBUS_DRIVERS
-        tristate "VBUS Driver support"
-+       select IOQ
-        default n
-        help
-         Adds support for a virtual bus model for proxying drivers.
-diff --git a/kernel/vbus/Makefile b/kernel/vbus/Makefile
-index d028ece..45f6503 100644
---- a/kernel/vbus/Makefile
-+++ b/kernel/vbus/Makefile
-@@ -1,4 +1,5 @@
- obj-$(CONFIG_VBUS) += core.o devclass.o config.o attribute.o map.o client.o
-+obj-$(CONFIG_VBUS) += shm-ioq.o
- 
- vbus-proxy-objs += proxy.o
- obj-$(CONFIG_VBUS_DRIVERS) += vbus-proxy.o
-diff --git a/kernel/vbus/proxy.c b/kernel/vbus/proxy.c
-index ea48f00..75b0cb1 100644
---- a/kernel/vbus/proxy.c
-+++ b/kernel/vbus/proxy.c
-@@ -150,3 +150,67 @@ void vbus_driver_unregister(struct vbus_driver *drv)
- }
- EXPORT_SYMBOL_GPL(vbus_driver_unregister);
- 
-+/*
-+ *---------------------------------
-+ * driver-side IOQ helper
-+ *---------------------------------
-+ */
-+static void
-+vbus_driver_ioq_release(struct ioq *ioq)
-+{
-+	kfree(ioq->head_desc);
-+	kfree(ioq);
-+}
-+
-+static struct ioq_ops vbus_driver_ioq_ops = {
-+	.release = vbus_driver_ioq_release,
++struct venettap_rx_ops {
++	int (*decode)(struct venettap *priv, void *ptr, int len);
++	int (*import)(struct venettap *, struct sk_buff *, void *, int);
 +};
 +
+ struct venettap {
+ 	spinlock_t                   lock;
+ 	unsigned char                hmac[ETH_ALEN]; /* host-mac */
+@@ -107,6 +114,12 @@ struct venettap {
+ 		struct vbus_memctx          *ctx;
+ 		struct venettap_queue        rxq;
+ 		struct venettap_queue        txq;
++		struct venettap_rx_ops      *rx_ops;
++		struct {
++			struct venet_sg     *desc;
++			size_t               len;
++			int                  enabled:1;
++		} sg;
+ 		int                          connected:1;
+ 		int                          opened:1;
+ 		int                          link:1;
+@@ -288,6 +301,183 @@ venettap_change_mtu(struct net_device *dev, int new_mtu)
+ }
+ 
+ /*
++ * ---------------------------
++ * Scatter-Gather support
++ * ---------------------------
++ */
 +
-+int vbus_driver_ioq_alloc(struct vbus_device_proxy *dev, int id, int prio,
-+			  size_t count, struct ioq **ioq)
++/* assumes reference to priv->vbus.conn held */
++static int
++venettap_sg_decode(struct venettap *priv, void *ptr, int len)
 +{
-+	struct ioq           *_ioq;
-+	struct ioq_ring_head *head = NULL;
-+	struct shm_signal    *signal = NULL;
-+	size_t                len = IOQ_HEAD_DESC_SIZE(count);
-+	int                   ret = -ENOMEM;
++	struct venet_sg *vsg;
++	struct vbus_memctx *ctx;
++	int ret;
 +
-+	_ioq = kzalloc(sizeof(*_ioq), GFP_KERNEL);
-+	if (!_ioq)
-+		goto error;
++	/*
++	 * SG is enabled, so we need to pull in the venet_sg
++	 * header before we can interpret the rest of the
++	 * packet
++	 *
++	 * FIXME: Make sure this is not too big
++	 */
++	if (unlikely(len > priv->vbus.sg.len)) {
++		kfree(priv->vbus.sg.desc);
++		priv->vbus.sg.desc = kzalloc(len, GFP_KERNEL);
++	}
 +
-+	head = kzalloc(len, GFP_KERNEL | GFP_DMA);
-+	if (!head)
-+		goto error;
++	vsg = priv->vbus.sg.desc;
++	ctx = priv->vbus.ctx;
 +
-+	head->magic     = IOQ_RING_MAGIC;
-+	head->ver	= IOQ_RING_VER;
-+	head->count     = count;
++	ret = ctx->ops->copy_from(ctx, vsg, ptr, len);
++	BUG_ON(ret);
 +
-+	ret = dev->ops->shm(dev, id, prio, head, len,
-+			    &head->signal, &signal, 0);
-+	if (ret < 0)
-+		goto error;
++	/*
++	 * Non GSO type packets should be constrained by the MTU setting
++	 * on the host
++	 */
++	if (!(vsg->flags & VENET_SG_FLAG_GSO)
++	    && (vsg->len > (priv->netif.dev->mtu + ETH_HLEN)))
++		return -1;
 +
-+	ioq_init(_ioq,
-+		 &vbus_driver_ioq_ops,
-+		 ioq_locality_north,
-+		 head,
-+		 signal,
-+		 count);
++	return vsg->len;
++}
 +
-+	*ioq = _ioq;
++/*
++ * venettap_sg_import - import an skb in scatter-gather mode
++ *
++ * assumes reference to priv->vbus.conn held
++ */
++static int
++venettap_sg_import(struct venettap *priv, struct sk_buff *skb,
++		   void *ptr, int len)
++{
++	struct venet_sg *vsg = priv->vbus.sg.desc;
++	struct vbus_memctx *ctx = priv->vbus.ctx;
++	int remain = len;
++	int ret;
++	int i;
++
++	PDEBUG("Importing %d bytes in %d segments\n", len, vsg->count);
++
++	for (i = 0; i < vsg->count; i++) {
++		struct venet_iov *iov = &vsg->iov[i];
++
++		if (remain < iov->len)
++			return -EINVAL;
++
++		PDEBUG("Segment %d: %p/%d\n", i, iov->ptr, iov->len);
++
++		ret = ctx->ops->copy_from(ctx, skb_tail_pointer(skb),
++					 (void *)iov->ptr,
++					 iov->len);
++		if (ret)
++			return -EFAULT;
++
++		skb_put(skb, iov->len);
++		remain -= iov->len;
++	}
++
++	if (vsg->flags & VENET_SG_FLAG_NEEDS_CSUM
++	    && !skb_partial_csum_set(skb, vsg->csum.start, vsg->csum.offset))
++		return -EINVAL;
++
++	if (vsg->flags & VENET_SG_FLAG_GSO) {
++		struct skb_shared_info *sinfo = skb_shinfo(skb);
++
++		PDEBUG("GSO packet detected\n");
++
++		switch (vsg->gso.type) {
++		case VENET_GSO_TYPE_TCPV4:
++			sinfo->gso_type = SKB_GSO_TCPV4;
++			break;
++		case VENET_GSO_TYPE_TCPV6:
++			sinfo->gso_type = SKB_GSO_TCPV6;
++			break;
++		case VENET_GSO_TYPE_UDP:
++			sinfo->gso_type = SKB_GSO_UDP;
++			break;
++		default:
++			PDEBUG("Illegal GSO type: %d\n", vsg->gso.type);
++			priv->netif.stats.rx_frame_errors++;
++			kfree_skb(skb);
++			return -EINVAL;
++		}
++
++		if (vsg->flags & VENET_SG_FLAG_ECN)
++			sinfo->gso_type |= SKB_GSO_TCP_ECN;
++
++		sinfo->gso_size = vsg->gso.size;
++		if (skb_shinfo(skb)->gso_size == 0) {
++			PDEBUG("Illegal GSO size: %d\n", vsg->gso.size);
++			priv->netif.stats.rx_frame_errors++;
++			kfree_skb(skb);
++			return -EINVAL;
++		}
++
++		/* Header must be checked, and gso_segs computed. */
++		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
++		skb_shinfo(skb)->gso_segs = 0;
++	}
 +
 +	return 0;
++}
 +
-+ error:
-+	kfree(_ioq);
-+	kfree(head);
++static struct venettap_rx_ops venettap_sg_rx_ops = {
++	.decode = venettap_sg_decode,
++	.import = venettap_sg_import,
++};
 +
-+	if (signal)
-+		shm_signal_put(signal);
++/*
++ * ---------------------------
++ * Flat (non Scatter-Gather) support
++ * ---------------------------
++ */
++
++/* assumes reference to priv->vbus.conn held */
++static int
++venettap_flat_decode(struct venettap *priv, void *ptr, int len)
++{
++	size_t maxlen = priv->netif.dev->mtu + ETH_HLEN;
++
++	if (len > maxlen)
++		return -1;
++
++	/*
++	 * If SG is *not* enabled, the length is simply the
++	 * descriptor length
++	 */
++
++	return len;
++}
++
++/*
++ * venettap_rx_flat - import an skb in non scatter-gather mode
++ *
++ * assumes reference to priv->vbus.conn held
++ */
++static int
++venettap_flat_import(struct venettap *priv, struct sk_buff *skb,
++		     void *ptr, int len)
++{
++	struct vbus_memctx *ctx = priv->vbus.ctx;
++	int ret;
++
++	ret = ctx->ops->copy_from(ctx, skb_tail_pointer(skb), ptr, len);
++	if (ret)
++		return -EFAULT;
++
++	skb_put(skb, len);
++
++	return 0;
++}
++
++static struct venettap_rx_ops venettap_flat_rx_ops = {
++	.decode = venettap_flat_decode,
++	.import = venettap_flat_import,
++};
++
++/*
+  * The poll implementation.
+  */
+ static int
+@@ -301,6 +491,7 @@ venettap_rx(struct venettap *priv)
+ 	int                         ret;
+ 	unsigned long               flags;
+ 	struct vbus_connection     *conn;
++	struct venettap_rx_ops     *rx_ops;
+ 
+ 	PDEBUG("polling...\n");
+ 
+@@ -324,6 +515,8 @@ venettap_rx(struct venettap *priv)
+ 	ioq = priv->vbus.rxq.queue;
+ 	ctx = priv->vbus.ctx;
+ 
++	rx_ops = priv->vbus.rx_ops;
++
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+ 	/* We want to iterate on the head of the in-use index */
+@@ -338,11 +531,14 @@ venettap_rx(struct venettap *priv)
+ 	 * the north side
+ 	 */
+ 	while (priv->vbus.link && iter.desc->sown) {
+-		size_t len = iter.desc->len;
+-		size_t maxlen = priv->netif.dev->mtu + ETH_HLEN;
+ 		struct sk_buff *skb = NULL;
++		size_t len;
+ 
+-		if (unlikely(len > maxlen)) {
++		len = rx_ops->decode(priv,
++				     (void *)iter.desc->ptr,
++				     iter.desc->len);
++
++		if (unlikely(len < 0)) {
+ 			priv->netif.stats.rx_errors++;
+ 			priv->netif.stats.rx_length_errors++;
+ 			goto next;
+@@ -360,10 +556,8 @@ venettap_rx(struct venettap *priv)
+ 		/* align IP on 16B boundary */
+ 		skb_reserve(skb, 2);
+ 
+-		ret = ctx->ops->copy_from(ctx, skb->data,
+-					 (void *)iter.desc->ptr,
+-					 len);
+-		if (unlikely(ret)) {
++		ret = rx_ops->import(priv, skb, (void *)iter.desc->ptr, len);
++		if (unlikely(ret < 0)) {
+ 			priv->netif.stats.rx_errors++;
+ 			goto next;
+ 		}
+@@ -843,6 +1037,23 @@ venettap_macquery(struct venettap *priv, void *data, unsigned long len)
+ 	return 0;
+ }
+ 
++static u32
++venettap_negcap_sg(struct venettap *priv, u32 requested)
++{
++	u32 available = VENET_CAP_SG|VENET_CAP_TSO4|VENET_CAP_TSO6
++		|VENET_CAP_ECN;
++	u32 ret;
++
++	ret = available & requested;
++
++	if (ret & VENET_CAP_SG) {
++		priv->vbus.sg.enabled = true;
++		priv->vbus.rx_ops = &venettap_sg_rx_ops;
++	}
 +
 +	return ret;
 +}
-+EXPORT_SYMBOL_GPL(vbus_driver_ioq_alloc);
-diff --git a/kernel/vbus/shm-ioq.c b/kernel/vbus/shm-ioq.c
-new file mode 100644
-index 0000000..a627337
---- /dev/null
-+++ b/kernel/vbus/shm-ioq.c
-@@ -0,0 +1,89 @@
-+/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * IOQ helper for devices - This module implements an IOQ which has
-+ * been shared with a device via a vbus_shm segment.
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
 +
-+#include <linux/ioq.h>
-+#include <linux/vbus_device.h>
+ /*
+  * Negotiate Capabilities - This function is provided so that the
+  * interface may be extended without breaking ABI compatability
+@@ -870,6 +1081,9 @@ venettap_negcap(struct venettap *priv, void *data, unsigned long len)
+ 		return -EFAULT;
+ 
+ 	switch (caps.gid) {
++	case VENET_CAP_GROUP_SG:
++		caps.bits = venettap_negcap_sg(priv, caps.bits);
++		break;
+ 	default:
+ 		caps.bits = 0;
+ 		break;
+@@ -1037,6 +1251,12 @@ venettap_vlink_release(struct vbus_connection *conn)
+ 	vbus_memctx_put(priv->vbus.ctx);
+ 
+ 	kobject_put(priv->vbus.dev.kobj);
 +
-+struct _ioq {
-+	struct vbus_shm *shm;
-+	struct ioq ioq;
-+};
++	priv->vbus.sg.enabled = false;
++	priv->vbus.rx_ops = &venettap_flat_rx_ops;
++	kfree(priv->vbus.sg.desc);
++	priv->vbus.sg.desc = NULL;
++	priv->vbus.sg.len = 0;
+ }
+ 
+ static struct vbus_connection_ops venettap_vbus_link_ops = {
+@@ -1315,6 +1535,8 @@ venettap_device_create(struct vbus_devclass *dc,
+ 	_vdev->ops             = &venettap_device_ops;
+ 	_vdev->attrs           = &venettap_attr_group;
+ 
++	priv->vbus.rx_ops      = &venettap_flat_rx_ops;
 +
-+static void
-+_shm_ioq_release(struct ioq *ioq)
-+{
-+	struct _ioq *_ioq = container_of(ioq, struct _ioq, ioq);
-+
-+	/* the signal is released by the IOQ infrastructure */
-+	vbus_shm_put(_ioq->shm);
-+	kfree(_ioq);
-+}
-+
-+static struct ioq_ops _shm_ioq_ops = {
-+	.release = _shm_ioq_release,
-+};
-+
-+int vbus_shm_ioq_attach(struct vbus_shm *shm, struct shm_signal *signal,
-+			int maxcount, struct ioq **ioq)
-+{
-+	struct _ioq *_ioq;
-+	struct ioq_ring_head *head = NULL;
-+	size_t ringcount;
-+
-+	if (!signal)
-+		return -EINVAL;
-+
-+	_ioq = kzalloc(sizeof(*_ioq), GFP_KERNEL);
-+	if (!_ioq)
-+		return -ENOMEM;
-+
-+	head = (struct ioq_ring_head *)shm->ptr;
-+
-+	if (head->magic != IOQ_RING_MAGIC)
-+		return -EINVAL;
-+
-+	if (head->ver != IOQ_RING_VER)
-+		return -EINVAL;
-+
-+	ringcount = head->count;
-+
-+	if ((maxcount != -1) && (ringcount > maxcount))
-+		return -EINVAL;
-+
-+	/*
-+	 * Sanity check the ringcount against the actual length of the segment
-+	 */
-+	if (IOQ_HEAD_DESC_SIZE(ringcount) != shm->len)
-+		return -EINVAL;
-+
-+	_ioq->shm = shm;
-+
-+	ioq_init(&_ioq->ioq, &_shm_ioq_ops, ioq_locality_south, head,
-+		 signal, ringcount);
-+
-+	*ioq = &_ioq->ioq;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(vbus_shm_ioq_attach);
-+
+ 	/*
+ 	 * netif init
+ 	 */
 
