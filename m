@@ -1,42 +1,36 @@
-From: Jeremy Jackson <jerj@coplanar.net>
-Subject: keeping ifindex in 16bits or does it have to be sparse?
-Date: Tue, 31 Mar 2009 11:08:17 -0400
-Message-ID: <1238512097.22664.190.camel@ragnarok>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
+Date: Tue, 31 Mar 2009 10:24:08 -0500
+Message-ID: <49D23598.8050906@lwfinger.net>
+References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net> <200903310939.09690.oliver@neukum.org> <49D22EFC.1020709@lwfinger.net> <200903311713.05451.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from titan.coplanar.net ([70.47.139.2]:52250 "EHLO
-	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756545AbZCaPUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:20:36 -0400
-Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
-	(authenticated bits=0)
-	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id n2VF8NuM027587
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 11:08:24 -0400
+Received: from fmailhost04.isp.att.net ([204.127.217.104]:44122 "EHLO
+	fmailhost04.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762688AbZCaPY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:24:56 -0400
+In-Reply-To: <200903311713.05451.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The question came up when profiling Quagga... a performance issue occurs
-because it's iterating over a linked list of interface structures... and
-this person is using 2000 interfaces for ADSL PPPoE server.  It's an
-interesting use case.
+Oliver Neukum wrote:
+> 
+> This sounds like kaweth_tx_timeout() should have been called.
+> Did you enable enough logging to see
+> dev_warn(&net->dev, "%s: Tx timed out. Resetting.\n", net->name);
 
-There are 2 options to make the interface lookup in quagga scale: array
-or hash.  My first thought was array, but it seems that ifindex can get
-sparse, that is, the largest ifindex can be much bigger (eg 408589) the
-number of max number of interfaces.
+No, that one did not print.
 
-So question to netdev, is it possible to reuse ifindex eventually, so it
-won't keep growing with interface add/delete, and are there
-(unnecessary) large jumps in the allocation sequence?
+My initial level of debugging was to #define DEBUG. When the dbg() macros didn't
+trigger, I included a local copy of that one and then saw those messages.
 
--- 
-Jeremy Jackson
-Coplanar Networks
-(519)489-4903
-http://www.coplanar.net
-jerj@coplanar.net
+>From my reading of include/linux/device.h, dev_warn() should always be enabled.
+Did I miss something?
+
+Larry
 
