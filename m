@@ -1,36 +1,45 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
-Date: Tue, 31 Mar 2009 10:24:08 -0500
-Message-ID: <49D23598.8050906@lwfinger.net>
-References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net> <200903310939.09690.oliver@neukum.org> <49D22EFC.1020709@lwfinger.net> <200903311713.05451.oliver@neukum.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: keeping ifindex in 16bits or does it have to be sparse?
+Date: Tue, 31 Mar 2009 08:24:50 -0700
+Message-ID: <49D235C2.3050208@candelatech.com>
+References: <1238512097.22664.190.camel@ragnarok>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jeremy Jackson <jerj@coplanar.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmailhost04.isp.att.net ([204.127.217.104]:44122 "EHLO
-	fmailhost04.isp.att.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762688AbZCaPY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:24:56 -0400
-In-Reply-To: <200903311713.05451.oliver@neukum.org>
+Received: from mail.candelatech.com ([208.74.158.172]:53589 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762684AbZCaPZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:25:00 -0400
+In-Reply-To: <1238512097.22664.190.camel@ragnarok>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum wrote:
-> 
-> This sounds like kaweth_tx_timeout() should have been called.
-> Did you enable enough logging to see
-> dev_warn(&net->dev, "%s: Tx timed out. Resetting.\n", net->name);
+Jeremy Jackson wrote:
+> The question came up when profiling Quagga... a performance issue occurs
+> because it's iterating over a linked list of interface structures... and
+> this person is using 2000 interfaces for ADSL PPPoE server.  It's an
+> interesting use case.
+>
+> There are 2 options to make the interface lookup in quagga scale: array
+> or hash.  My first thought was array, but it seems that ifindex can get
+> sparse, that is, the largest ifindex can be much bigger (eg 408589) the
+> number of max number of interfaces.
+>
+> So question to netdev, is it possible to reuse ifindex eventually, so it
+> won't keep growing with interface add/delete, and are there
+> (unnecessary) large jumps in the allocation sequence?
+>   
+Please use a hash...I'm sure someone will have a use-case with more than 
+64k interfaces
+sometime soon.
 
-No, that one did not print.
+Ben
 
-My initial level of debugging was to #define DEBUG. When the dbg() macros didn't
-trigger, I included a local copy of that one and then saw those messages.
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
->From my reading of include/linux/device.h, dev_warn() should always be enabled.
-Did I miss something?
-
-Larry
 
