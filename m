@@ -1,191 +1,132 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] net/fec_mpc52xx: fix BUG on missing dma_ops
-Date: Tue, 31 Mar 2009 13:10:13 -0600
-Message-ID: <fa686aa40903311210k10ea4966g24ec6541af90b7cb@mail.gmail.com>
-References: <20090331022428.26151.55232.stgit@localhost.localdomain>
-	 <0947433F-BDDA-48D8-A59C-BCF321EE465C@kernel.crashing.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
+Date: Tue, 31 Mar 2009 22:12:52 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0903312200420.354@wrl-59.cs.helsinki.fi>
+References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
+ <20090328045056.GA2394@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
+ <20090328095514.GA2599@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
+ <20090330164035.GA2652@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
+ <20090331071018.GA2641@gentoox2.trippelsdorf.de>
+ <Pine.LNX.4.64.0903311205070.30150@wrl-59.cs.helsinki.fi>
+ <20090331184959.GA2725@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	David Miller <davem@davemloft.net>, galak@kernel.crashing.net
-To: Becky Bruce <beckyb@kernel.crashing.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1307661833-1238526772=:354"
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:58508 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbZCaTKQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 15:10:16 -0400
-Received: by yx-out-2324.google.com with SMTP id 31so2571966yxl.1
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 12:10:14 -0700 (PDT)
-In-Reply-To: <0947433F-BDDA-48D8-A59C-BCF321EE465C@kernel.crashing.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33098 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753957AbZCaTMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 15:12:55 -0400
+In-Reply-To: <20090331184959.GA2725@gentoox2.trippelsdorf.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Becky.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-g.
+---696208474-1307661833-1238526772=:354
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-2009/3/31 Becky Bruce <beckyb@kernel.crashing.org>:
->
-> On Mar 30, 2009, at 9:25 PM, Grant Likely wrote:
->
->> From: Grant Likely <grant.likely@secretlab.ca>
->>
->> The driver triggers a BUG_ON() when allocating DMA buffers if the
->> arch/powerpc dma_ops from the of_platform device are not copied
->> into net_device structure.
->>
->> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
->> ---
->>
->> Becky, does this look better to you?
->
-> Reviewed-by: Becky Bruce <beckyb@kernel.crashing.org>
->
-> I think this is OK now, and Kumar agrees....
->
-> Thanks!
-> B
->
->>
->>
->> g.
->>
->> drivers/net/fec_mpc52xx.c | =A0 19 ++++++++++++-------
->> 1 files changed, 12 insertions(+), 7 deletions(-)
->>
->>
->> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
->> index 049b0a7..f99463f 100644
->> --- a/drivers/net/fec_mpc52xx.c
->> +++ b/drivers/net/fec_mpc52xx.c
->> @@ -129,7 +129,8 @@ static void mpc52xx_fec_free_rx_buffers(struct
->> net_device *dev, struct bcom_task
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct sk_buff *skb;
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb =3D bcom_retrieve_buffer(s, NULL,=
- (struct bcom_bd
->> **)&bd);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(&dev->dev, bd->skb_pa=
-, skb->len,
->> DMA_FROM_DEVICE);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(dev->dev.parent, bd->=
-skb_pa, skb->len,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0DMA=
-_FROM_DEVICE);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0kfree_skb(skb);
->> =A0 =A0 =A0 =A0}
->> }
->> @@ -150,7 +151,7 @@ static int mpc52xx_fec_alloc_rx_buffers(struct
->> net_device *dev, struct bcom_task
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bd =3D (struct bcom_fec_bd *)bcom_pre=
-pare_next_buffer(rxtsk);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bd->status =3D FEC_RX_BUFFER_SIZE;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 bd->skb_pa =3D dma_map_single(&dev->de=
-v, skb->data,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bd->skb_pa =3D dma_map_single(dev->dev=
-=2Eparent, skb->data,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0FEC_R=
-X_BUFFER_SIZE, DMA_FROM_DEVICE);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bcom_submit_next_buffer(rxtsk, skb);
->> @@ -388,7 +389,8 @@ static int mpc52xx_fec_hard_start_xmit(struct sk=
-_buff
->> *skb, struct net_device *d
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bcom_prepare_next_buffer(priv->tx_dma=
-tsk);
->>
->> =A0 =A0 =A0 =A0bd->status =3D skb->len | BCOM_FEC_TX_BD_TFD | BCOM_F=
-EC_TX_BD_TC;
->> - =A0 =A0 =A0 bd->skb_pa =3D dma_map_single(&dev->dev, skb->data, sk=
-b->len,
->> DMA_TO_DEVICE);
->> + =A0 =A0 =A0 bd->skb_pa =3D dma_map_single(dev->dev.parent, skb->da=
-ta, skb->len,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- DMA_TO_DEVICE);
->>
->> =A0 =A0 =A0 =A0bcom_submit_next_buffer(priv->tx_dmatsk, skb);
->>
->> @@ -430,7 +432,8 @@ static irqreturn_t mpc52xx_fec_tx_interrupt(int =
-irq,
->> void *dev_id)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct bcom_fec_bd *bd;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb =3D bcom_retrieve_buffer(priv->tx=
-_dmatsk, NULL,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(stru=
-ct bcom_bd **)&bd);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(&dev->dev, bd->skb_pa=
-, skb->len,
->> DMA_TO_DEVICE);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(dev->dev.parent, bd->=
-skb_pa, skb->len,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0DMA=
-_TO_DEVICE);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_kfree_skb_irq(skb);
->> =A0 =A0 =A0 =A0}
->> @@ -455,7 +458,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int =
-irq,
->> void *dev_id)
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rskb =3D bcom_retrieve_buffer(priv->r=
-x_dmatsk, &status,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(stru=
-ct bcom_bd **)&bd);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(&dev->dev, bd->skb_pa=
-, rskb->len,
->> DMA_FROM_DEVICE);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(dev->dev.parent, bd->=
-skb_pa, rskb->len,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0DMA=
-_FROM_DEVICE);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Test for errors in received frame =
-*/
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (status & BCOM_FEC_RX_BD_ERRORS) {
->> @@ -464,7 +468,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int =
-irq,
->> void *dev_id)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bcom_=
-prepare_next_buffer(priv->rx_dmatsk);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bd->status =3D FEC_RX=
-_BUFFER_SIZE;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bd->skb_pa =3D dma_map=
-_single(&dev->dev, rskb->data,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bd->skb_pa =3D dma_map=
-_single(dev->dev.parent,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 rskb->data,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0FEC_RX_BUFFER_SIZE,
->> DMA_FROM_DEVICE);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bcom_submit_next_buff=
-er(priv->rx_dmatsk, rskb);
->> @@ -499,7 +504,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int =
-irq,
->> void *dev_id)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bcom_prepare_next_buf=
-fer(priv->rx_dmatsk);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bd->status =3D FEC_RX_BUFFER_SIZE;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 bd->skb_pa =3D dma_map_single(&dev->de=
-v, skb->data,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bd->skb_pa =3D dma_map_single(dev->dev=
-=2Eparent, skb->data,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0FEC_R=
-X_BUFFER_SIZE, DMA_FROM_DEVICE);
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bcom_submit_next_buffer(priv->rx_dmat=
-sk, skb);
->
->
+On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
 
+> On Tue, Mar 31, 2009 at 12:16:51PM +0300, Ilpo Järvinen wrote:
+> > On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
+> > 
+> > > On Mon, Mar 30, 2009 at 09:52:55PM +0300, Ilpo Järvinen wrote:
+> > > > On Mon, 30 Mar 2009, Markus Trippelsdorf wrote:
+> > > > 
+> > > > > On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo Järvinen wrote:
+> > > > > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
+> > > > > > > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo Järvinen wrote:
+> > > > > > 
+> > > > > > ...And, let me guess, you're in X and therefore unable to catch a final 
+> > > > > > oops if any would be printed? It would be nice to get around that as well, 
+> > > > > > either use serial/netconsole or hang in text mode while waiting for the 
+> > > > > > crash (should be too hard if you are able to setup the workload first 
+> > > > > > and then switch away from X and if reproducing takes about an hour)...
+> > > > > 
+> > > > > OK, I will try this later.
+> > > > 
+> > > > Lets hope that gives some clue where it ends up going boom (if it is 
+> > > > caused by TCP we certainly should see something more sensible in console 
+> > > > than just a hang)... ...I once again read through tcp commits but just 
+> > > > cannot find anything that could cause fackets_out miscount, not to speak 
+> > > > of crash prone changes so we'll just have to wait and see...
+> > > 
+> > > The machine hanged again this night and I took two pictures:
+> > > http://www.mypicx.com/uploadimg/1055813374_03302009_2.jpg
+> > > http://www.mypicx.com/uploadimg/1543678904_03302009_1.jpg
+> > >
+> > > But this time there was no tcp related warning in the logs.
+> > 
+> > Right. If that oops would be hit often enough one can easily mix the 
+> > warning with that hang though there is no relation (the fact that final 
+> > oops always goes unnoticed in X amplifies the effect).
+> > 
+> > > I then pulled the lateset git changes, rebuild, rebooted and setup the
+> > > workload again. The machine was still up and running in the morning 
+> > > (~4 hours uptime). So it may well be that the issue was fixed with
+> > > the latest changes.
+> > 
+> > Lets hope so, in any case if you still see hangs please get the final oops.
+> > 
+> > > If it ever occurs again I will notify you.
+> 
+> It happend again. In this case it took ~10 minutes from the warning to
+> the final crash.
 
+Quite many RTTs in between already then...
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+> I'm pretty sure there must be some kind of relation
+> between the two. How else could one explain that the machine crashes just
+> minutes after _each_ instance of that WARNING?
+
+Below is a quick counter printout patch, I'd have a more expensive patch 
+which locates the place where the miscount happens for the first time 
+but it needs to be brought up to date before I can let you try with it :-)
+(that warnon triggers quite late but is cheap to calculate as my debug 
+patch adds considerable amount of calculations all around TCP code to 
+catch even minor inconsistencies in early)...
+
+> (Unfortunately I was in X again, because I thought this problem was
+> solved)
+
+Thus again somewhat inconclusive where it crashes... :-( Considering this 
+is very early state kernel I'm not surprised if there are still some 
+non-related things remaining.
+
+How long did you run with 2.6.29 btw, and what did you run before that...? 
+...No need to remember exact dates but some rough idea would be nice know
+as this looks, if related to warning, to be older than last merged 
+stuff...
+
+-- 
+ i.
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2bc8e27..179b2cb 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2924,8 +2924,13 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
+ 
+ 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
+ 		tp->sacked_out = 0;
+-	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
++	if (WARN_ON(!tp->sacked_out && tp->fackets_out)) {
++		printk(KERN_ERR "TCP s%u l%u r%u f%u p%u sack%d\n",
++		       tp->sacked_out, tp->lost_out, tp->retrans_out,
++		       tp->fackets_out, tp->packets_out,
++		       tp->rx_opt.sack_ok);
+ 		tp->fackets_out = 0;
++	}
+ 
+ 	/* Now state machine starts.
+ 	 * A. ECE, hence prohibit cwnd undoing, the reduction is required. */
+---696208474-1307661833-1238526772=:354--
