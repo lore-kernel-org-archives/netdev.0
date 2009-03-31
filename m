@@ -1,7 +1,8 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH 04/17] vbus: add bus-registration notifiers
-Date: Tue, 31 Mar 2009 14:43:07 -0400
-Message-ID: <20090331184307.28333.20322.stgit@dev.haskins.net>
+Subject: [RFC PATCH 08/17] venet: add the ABI definitions for an 802.x packet
+	interface
+Date: Tue, 31 Mar 2009 14:43:29 -0400
+Message-ID: <20090331184328.28333.80808.stgit@dev.haskins.net>
 References: <20090331184057.28333.77287.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,159 +16,64 @@ In-Reply-To: <20090331184057.28333.77287.stgit@dev.haskins.net>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We need to get hotswap events in environments which cannot use existing
-facilities (e.g. inotify).  So we add a notifier-chain to allow client
-callbacks whenever an interface is {un}registered.
-
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/vbus.h |   15 +++++++++++++
- kernel/vbus/core.c   |   59 ++++++++++++++++++++++++++++++++++++++++++++++++++
- kernel/vbus/vbus.h   |    1 +
- 3 files changed, 75 insertions(+), 0 deletions(-)
+ include/linux/venet.h |   47 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 47 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/venet.h
 
-diff --git a/include/linux/vbus.h b/include/linux/vbus.h
-index 5f0566c..04db4ff 100644
---- a/include/linux/vbus.h
-+++ b/include/linux/vbus.h
-@@ -29,6 +29,7 @@
- #include <linux/sched.h>
- #include <linux/rcupdate.h>
- #include <linux/vbus_device.h>
-+#include <linux/notifier.h>
- 
- struct vbus;
- struct task_struct;
-@@ -137,6 +138,20 @@ static inline void task_vbus_disassociate(struct task_struct *p)
- 	}
- }
- 
-+enum {
-+	VBUS_EVENT_DEVADD,
-+	VBUS_EVENT_DEVDROP,
+diff --git a/include/linux/venet.h b/include/linux/venet.h
+new file mode 100644
+index 0000000..ef6b199
+--- /dev/null
++++ b/include/linux/venet.h
+@@ -0,0 +1,47 @@
++/*
++ * Copyright 2008 Novell.  All Rights Reserved.
++ *
++ * Virtual-Ethernet adapter
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#ifndef _LINUX_VENET_H
++#define _LINUX_VENET_H
++
++#define VENET_VERSION 1
++
++#define VENET_TYPE "virtual-ethernet"
++
++#define VENET_QUEUE_RX 0
++#define VENET_QUEUE_TX 1
++
++struct venet_capabilities {
++	__u32 gid;
++	__u32 bits;
 +};
 +
-+struct vbus_event_devadd {
-+	const char   *type;
-+	unsigned long id;
-+};
++/* CAPABILITIES-GROUP 0 */
++/* #define VENET_CAP_FOO    0   (No capabilities defined yet, for now) */
 +
-+int vbus_notifier_register(struct vbus *vbus, struct notifier_block *nb);
-+int vbus_notifier_unregister(struct vbus *vbus, struct notifier_block *nb);
++#define VENET_FUNC_LINKUP   0
++#define VENET_FUNC_LINKDOWN 1
++#define VENET_FUNC_MACQUERY 2
++#define VENET_FUNC_NEGCAP   3 /* negotiate capabilities */
++#define VENET_FUNC_FLUSHRX  4
 +
-+
- #else /* CONFIG_VBUS */
- 
- #define fork_vbus(p) do { } while (0)
-diff --git a/kernel/vbus/core.c b/kernel/vbus/core.c
-index 033999f..b6df487 100644
---- a/kernel/vbus/core.c
-+++ b/kernel/vbus/core.c
-@@ -89,6 +89,7 @@ int vbus_device_interface_register(struct vbus_device *dev,
- {
- 	int ret;
- 	struct vbus_devshell *ds = to_devshell(dev->kobj);
-+	struct vbus_event_devadd ev;
- 
- 	mutex_lock(&vbus->lock);
- 
-@@ -124,6 +125,14 @@ int vbus_device_interface_register(struct vbus_device *dev,
- 	if (ret)
- 		goto error;
- 
-+	ev.type = intf->type;
-+	ev.id   = intf->id;
-+
-+	/* and let any clients know about the new device */
-+	ret = raw_notifier_call_chain(&vbus->notifier, VBUS_EVENT_DEVADD, &ev);
-+	if (ret < 0)
-+		goto error;
-+
- 	mutex_unlock(&vbus->lock);
- 
- 	return 0;
-@@ -144,6 +153,7 @@ int vbus_device_interface_unregister(struct vbus_device_interface *intf)
- 
- 	mutex_lock(&vbus->lock);
- 	_interface_unregister(intf);
-+	raw_notifier_call_chain(&vbus->notifier, VBUS_EVENT_DEVDROP, &intf->id);
- 	mutex_unlock(&vbus->lock);
- 
- 	kobject_put(&intf->kobj);
-@@ -346,6 +356,8 @@ int vbus_create(const char *name, struct vbus **bus)
- 
- 	_bus->next_id = 0;
- 
-+	RAW_INIT_NOTIFIER_HEAD(&_bus->notifier);
-+
- 	mutex_lock(&vbus_root.lock);
- 
- 	ret = map_add(&vbus_root.buses.map, &_bus->node);
-@@ -358,6 +370,53 @@ int vbus_create(const char *name, struct vbus **bus)
- 	return 0;
- }
- 
-+#define for_each_rbnode(node, root) \
-+	for (node = rb_first(root); node != NULL; node = rb_next(node))
-+
-+int vbus_notifier_register(struct vbus *vbus, struct notifier_block *nb)
-+{
-+	int ret;
-+	struct rb_node *node;
-+
-+	mutex_lock(&vbus->lock);
-+
-+	/*
-+	 * resync the client for any devices we might already have
-+	 */
-+	for_each_rbnode(node, &vbus->devices.map.root) {
-+		struct vbus_device_interface *intf = node_to_intf(node);
-+		struct vbus_event_devadd ev = {
-+			.type = intf->type,
-+			.id   = intf->id,
-+		};
-+
-+		ret = nb->notifier_call(nb, VBUS_EVENT_DEVADD, &ev);
-+		if (ret & NOTIFY_STOP_MASK) {
-+			mutex_unlock(&vbus->lock);
-+			return -EPERM;
-+		}
-+	}
-+
-+	ret = raw_notifier_chain_register(&vbus->notifier, nb);
-+
-+	mutex_unlock(&vbus->lock);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(vbus_notifier_register);
-+
-+int vbus_notifier_unregister(struct vbus *vbus, struct notifier_block *nb)
-+{
-+	int ret;
-+
-+	mutex_lock(&vbus->lock);
-+	ret = raw_notifier_chain_unregister(&vbus->notifier, nb);
-+	mutex_unlock(&vbus->lock);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(vbus_notifier_unregister);
-+
- static void devshell_release(struct kobject *kobj)
- {
- 	struct vbus_devshell *ds = container_of(kobj,
-diff --git a/kernel/vbus/vbus.h b/kernel/vbus/vbus.h
-index 1266d69..cd2676b 100644
---- a/kernel/vbus/vbus.h
-+++ b/kernel/vbus/vbus.h
-@@ -51,6 +51,7 @@ struct vbus {
- 	struct vbus_subdir members;
- 	unsigned long next_id;
- 	struct rb_node node;
-+	struct raw_notifier_head notifier;
- };
- 
- struct vbus_member {
++#endif /* _LINUX_VENET_H */
 
