@@ -1,46 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 V2] kaweth: Fix locking to be SMP-safe
-Date: Tue, 31 Mar 2009 15:10:28 -0700 (PDT)
-Message-ID: <20090331.151028.42671906.davem@davemloft.net>
-References: <49d264dd.YwbXLw18YaD1tQqD%Larry.Finger@lwfinger.net>
-	<200904010013.05494.oliver@neukum.org>
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: Re: [Bugme-new] [Bug 12877] New: tg3: eth0 transit timed out,
+	resetting -> dead NIC
+Date: Wed, 1 Apr 2009 00:16:21 +0200
+Message-ID: <20090331221621.GA1324@schleppi.birkenwald.de>
+References: <bug-12877-10286@http.bugzilla.kernel.org/> <20090315143214.90c71fb7.akpm@linux-foundation.org> <1237238601.8839.85.camel@HP1> <49C01F7F.9030306@birkenwald.de> <20090319165842.GA10819@xw6200.broadcom.net> <20090322132121.GA7871@pest> <20090331162617.GB15533@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry.Finger@lwfinger.net, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: oliver@neukum.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <mchan@broadcom.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40359
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757669AbZCaWKk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 18:10:40 -0400
-In-Reply-To: <200904010013.05494.oliver@neukum.org>
+Received: from mail.svr02.mucip.net ([83.170.6.69]:42510 "EHLO
+	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752248AbZCaWQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 18:16:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20090331162617.GB15533@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Oliver Neukum <oliver@neukum.org>
-Date: Wed, 1 Apr 2009 00:13:04 +0200
+On Tue, Mar 31, 2009 at 09:26:17AM -0700, Matt Carlson wrote:
 
-> Am Dienstag 31 M=E4rz 2009 20:45:49 schrieb Larry Finger:
->=20
-> > @@ -796,7 +799,7 @@ static int kaweth_start_xmit(struct sk_b
->=20
-> > @@ -848,7 +851,7 @@ skip:
-> >  		net->trans_start =3D jiffies;
-> >  	}
-> >
-> > -	spin_unlock(&kaweth->device_lock);
-> > +	spin_unlock_irq(&kaweth->device_lock);
->=20
-> Here you enable interrupts. Are you sure ndo_start_xmit is never
-> called with interrupts disabled?
+> > I'm now switching to eth1.
+> Bernhard, any word on what happened?
 
-It must never be invoked that way, this would break so many
-drivers.
+So far so good. In the last week my watchdog (cannot reach the default
+gateway) triggered once, but since there were no "PCI Memory Mapped IO
+Disabled!!!!" messages in the logfile I assume that was a real network
+problem. Since the box ran fine for months initially and the first two
+occurances of this issue were two weeks apart I cannot say for sure, but
+it definitely feels better than the "once in two days" in the end.
 
-On the other hand, all of these driver paths never execute
-in a real hardware interrupt context, the deepest it gets
-into is software interrupts.  So spin_*lock*_bh() might be
-more appropriate.
+Bernhard
