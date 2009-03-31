@@ -1,43 +1,61 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: Network Device Naming mechanism and policy
-Date: Tue, 31 Mar 2009 16:07:34 +0200
-Message-ID: <20090331140733.GF6321@e-circ.dyndns.org>
-References: <20090324154617.GA16332@auslistsprd01.us.dell.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
+Date: Tue, 31 Mar 2009 09:37:48 -0500
+Message-ID: <49D22ABC.5050408@freescale.com>
+References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
+	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
+	<49CCD3E8.9040007@freescale.com>
+	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
+	<49D0FFBB.7000009@freescale.com>
+	<OF3127420C.081D4097-ONC1257589.00603E3D-C1257589.006093B3@transmode.se>
+	<49D1052D.2050609@freescale.com>
+	<OF70832E04.3DC53F05-ONC1257589.00663AFF-C1257589.0066C397@transmode.se>
+	<49D11E47.8080106@freescale.com>
+	<OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090324154617.GA16332@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, Li Yang <leoli@freescale.com>, pku.leo@gmail.com,
+	netdev@vger.kernel.org
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <OFEAA9D1E3.4B2F3270-ONC125758A.00307236-C125758A.00322239@transmode.se>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-My idea as a user, having configured some servers:
+Joakim Tjernlund wrote:
+> I am a bit confused, what isn't worth it?
 
-On Tue, Mar 24, 2009 at 05:46:17PM +0200, Matt Domsch wrote:
-> 
-> Problem:  Users expect on-motherboard NICs to be named eth0..ethN.  This can be difficult to achieve.
+Enabling cacheing on MURAM, at least when used for buffer descriptors. 
+The cache line ping-pong would probably outweigh the cost of the 
+uncached accesses.
 
-with kernel point of view, there should be no preference. If users
-expect some numbering, I believe udev provides all the tools.
-> 
-> Ethernet device names are initially assigned by the kernel, and may be
-> changed by udev or nameif in userspace.  The initial name assigned by
-> the kernel is in monotonically increasing order, starting with eth0.
-> In this instance, the enumeration directly leads to an assigned name.
-the problem here is the monotonic increasing order. I never rename ethX
-back to the monotonic ethX numbering. IMHO, renaming eth0 to eth1 sounds
-redundant.
-I rename ethx to lan, wan, wlan, remote, lan0, lan1, ...
-This naming _cannot_ conflict.
-> 
-> 
->       To ease this complication, SMBIOS 2.6 includes a mechanism for
->       BIOS to specify its expected ordering of devices, for naming
->       purposes.  Tools such as biosdevname use this information.
-I'd preferrably not rely on bios tools, not every system has a (stable) bios.
-> 
-> 
+> Currently MURAM isn't used by ucc_geth,
 
+Hmm.  I looked in the driver and saw numerous muram allocations, but I 
+didn't try to follow the driver enough to ensure that they were for the 
+ring.  I'd assumed it was similar to the CPM1/CPM2 driver.
+
+> 3) as gianfar, dma_alloc_coherent(). I presume this is uncacheable memory?
+
+It would be uncacheable on systems without coherent DMA, but I don't 
+think there are any such systems that use gianfar.
+
+> My guess would be 2 or 3. Do they have the same synchronization
+> sematics?
+
+No, unfortunately.  PowerPC sync instructions are a bit complicated. 
+For example, you can use eieio to sync between reading the interrupt 
+status register and checking the ring buffer, if they're both mapped 
+I+G, but not if the former is I+G and the latter is cacheable (you need 
+a full sync in that case).
+
+-Scott
