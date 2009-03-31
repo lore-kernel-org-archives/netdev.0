@@ -1,42 +1,42 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
-Date: Tue, 31 Mar 2009 17:13:04 +0200
-Message-ID: <200903311713.05451.oliver@neukum.org>
-References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net> <200903310939.09690.oliver@neukum.org> <49D22EFC.1020709@lwfinger.net>
+From: Jeremy Jackson <jerj@coplanar.net>
+Subject: keeping ifindex in 16bits or does it have to be sparse?
+Date: Tue, 31 Mar 2009 11:08:17 -0400
+Message-ID: <1238512097.22664.190.camel@ragnarok>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:49588 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbZCaPJF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:09:05 -0400
-In-Reply-To: <49D22EFC.1020709@lwfinger.net>
-Content-Disposition: inline
+Received: from titan.coplanar.net ([70.47.139.2]:52250 "EHLO
+	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756545AbZCaPUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 11:20:36 -0400
+Received: from [70.47.139.174] (ragnarok.coplanar.net [70.47.139.174] (may be forged))
+	(authenticated bits=0)
+	by titan.coplanar.net (8.14.2/8.14.2/Debian-2build1) with ESMTP id n2VF8NuM027587
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 11:08:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag 31 M=E4rz 2009 16:55:56 schrieb Larry Finger:
-> Oliver Neukum wrote:
-> > Very good.
-> >
-> >> (X server over the network), the interface stalled with no logged
-> >> messages.
-> >
-> > Do you get something with sysrq-t ?
->
-> No. The rest of the system was still functioning; however, the driver
-> needed to be unloaded and reloaded before continuing. There were no l=
-og
-> entries until the driver was unloaded.
+The question came up when profiling Quagga... a performance issue occurs
+because it's iterating over a linked list of interface structures... and
+this person is using 2000 interfaces for ADSL PPPoE server.  It's an
+interesting use case.
 
-This sounds like kaweth_tx_timeout() should have been called.
-Did you enable enough logging to see
-dev_warn(&net->dev, "%s: Tx timed out. Resetting.\n", net->name);
+There are 2 options to make the interface lookup in quagga scale: array
+or hash.  My first thought was array, but it seems that ifindex can get
+sparse, that is, the largest ifindex can be much bigger (eg 408589) the
+number of max number of interfaces.
 
-	Regards
-		Oliver
+So question to netdev, is it possible to reuse ifindex eventually, so it
+won't keep growing with interface add/delete, and are there
+(unnecessary) large jumps in the allocation sequence?
+
+-- 
+Jeremy Jackson
+Coplanar Networks
+(519)489-4903
+http://www.coplanar.net
+jerj@coplanar.net
 
