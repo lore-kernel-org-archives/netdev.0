@@ -1,39 +1,37 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2 V2] kaweth: Fix locking to be SMP-safe
-Date: Wed, 1 Apr 2009 01:06:10 +0200
-Message-ID: <200904010106.10974.oliver@neukum.org>
-References: <49d264dd.YwbXLw18YaD1tQqD%Larry.Finger@lwfinger.net> <200904010013.05494.oliver@neukum.org> <20090331.151028.42671906.davem@davemloft.net>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: Re: [PATCH] rds: only for x86 or 64-bit at the moment...
+Date: Tue, 31 Mar 2009 16:58:46 -0700
+Message-ID: <49D2AE36.90306@oracle.com>
+References: <20090331210609.GD25513@bombadil.infradead.org> <20090331.141542.182956594.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry.Finger@lwfinger.net, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: kyle@mcmartin.ca, rds-devel@oss.oracle.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:33099 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761311AbZCaXC7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 19:02:59 -0400
-In-Reply-To: <20090331.151028.42671906.davem@davemloft.net>
-Content-Disposition: inline
+Received: from rcsinet13.oracle.com ([148.87.113.125]:25140 "EHLO
+	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757934AbZCaX7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 19:59:07 -0400
+In-Reply-To: <20090331.141542.182956594.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch 01 April 2009 00:10:28 schrieb David Miller:
-> > Here you enable interrupts. Are you sure ndo_start_xmit is never
-> > called with interrupts disabled?
->
-> It must never be invoked that way, this would break so many
-> drivers.
->
-> On the other hand, all of these driver paths never execute
-> in a real hardware interrupt context, the deepest it gets
-> into is software interrupts. =A0So spin_*lock*_bh() might be
-> more appropriate.
+David Miller wrote:
+> From: Kyle McMartin <kyle@mcmartin.ca>
+> Date: Tue, 31 Mar 2009 17:06:09 -0400
+> 
+>> From: Kyle McMartin <kyle@redhat.com>
+>>
+>> set_64bit doesn't exist anywhere but x86 right now, so either
+>> BITS_PER_LONG needs to be 64, or we need to be on x86, in order to
+>> build this module.
+>>
+>> Signed-off-by: Kyle McMartin <kyle@redhat.com>
+> 
+> I would prefer the RDS folks simply fix this properly.
 
-Thanks. The patch is good. I'll check the other USB network
-drivers.
+Ok... I'll redo the latest rds patchseries with crit fixes only and a
+fix for this.
 
-	Regards
-		Oliver
-
+Regards -- Andy
