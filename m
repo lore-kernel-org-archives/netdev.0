@@ -1,38 +1,29 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: [PATCH] rds: only for x86 or 64-bit at the moment...
-Date: Tue, 31 Mar 2009 17:06:09 -0400
-Message-ID: <20090331210609.GD25513@bombadil.infradead.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] staging: at76_usb convert to netdev_ops
+Date: Tue, 31 Mar 2009 14:11:39 -0700 (PDT)
+Message-ID: <20090331.141139.188200200.davem@davemloft.net>
+References: <20090331201850.GC25513@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: andy.grover@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:42226 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285AbZCaVGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 17:06:11 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kyle-pfcGkIkfWfAsA/PxXw9srA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090331201850.GC25513-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kyle McMartin <kyle@redhat.com>
+From: Kyle McMartin <kyle-pfcGkIkfWfAsA/PxXw9srA@public.gmane.org>
+Date: Tue, 31 Mar 2009 16:18:50 -0400
 
-set_64bit doesn't exist anywhere but x86 right now, so either
-BITS_PER_LONG needs to be 64, or we need to be on x86, in order to
-build this module.
+> Didn't see this in your patch queue, fixes build on Fedora, though we'll
+> probably end up turning on CONFIG_COMPAT_NET_DEV_OPS for now anyway.
+> 
+> Signed-off-by: Kyle McMartin <kyle-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Signed-off-by: Kyle McMartin <kyle@redhat.com>
----
-diff --git a/net/rds/Kconfig b/net/rds/Kconfig
-index 796773b..84df275 100644
---- a/net/rds/Kconfig
-+++ b/net/rds/Kconfig
-@@ -1,7 +1,7 @@
- 
- config RDS
- 	tristate "Reliable Datagram Sockets (RDS) (EXPERIMENTAL)"
--	depends on INET && INFINIBAND_IPOIB && EXPERIMENTAL
-+	depends on INET && INFINIBAND_IPOIB && EXPERIMENTAL && (64BIT || X86)
- 	depends on INFINIBAND && INFINIBAND_ADDR_TRANS
- 	---help---
- 	  RDS provides reliable, sequenced delivery of datagrams
+Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
