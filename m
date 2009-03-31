@@ -1,42 +1,42 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 2/2] sysctl:  lockdep support for sysctl reference
- counting.
-Date: Tue, 31 Mar 2009 10:10:45 +0200
-Message-ID: <1238487045.28248.1774.camel@twins>
-References: <49B91A7E.76E4.0078.0@novell.com>
-	 <tip-6a09dfa870ba0ed21b1124539968a36b42660661@git.kernel.org>
-	 <1236934491.5188.209.camel@laptop> <49BA33BE.76E4.0078.0@novell.com>
-	 <1236937423.22914.3698.camel@twins> <20090313103828.GB31094@elte.hu>
-	 <m1d4cd9n4k.fsf@fess.ebiederm.org> <20090320085205.GB16021@elte.hu>
-	 <m14oxo8qis.fsf@fess.ebiederm.org> <20090320182404.GA31629@elte.hu>
-	 <1237575134.4667.5.camel@laptop> <1237577688.4667.68.camel@laptop>
-	 <m1iqm3xr2n.fsf_-_@fess.ebiederm.org> <m1eiwrxr05.fsf_-_@fess.ebiederm.org>
-	 <m1ab7fxqxw.fsf_-_@fess.ebiederm.org>
-	 <20090330152616.7cc2c87c.akpm@linux-foundation.org>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
+Date: Tue, 31 Mar 2009 16:16:58 +0800
+Message-ID: <2a27d3730903310116r4d8602b8y41e466801bbb8d3e@mail.gmail.com>
+References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
+	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
+	<49CCD3E8.9040007@freescale.com>
+	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
+	<49D0FFBB.7000009@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, mingo@elte.hu,
-	jbeulich@novell.com, tglx@linutronix.de, mingo@redhat.com,
-	hpa@zytor.com, linux-kernel@vger.kernel.org, ego@in.ibm.com,
-	adobriyan@gmail.com, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:33418 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754073AbZCaIKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:10:44 -0400
-In-Reply-To: <20090330152616.7cc2c87c.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linuxppc-dev@ozlabs.org, Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <49D0FFBB.7000009@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-03-30 at 15:26 -0700, Andrew Morton wrote:
-> So I merged these two patches.  I designated them as to-be-merged via
-> Alexey, with a Cc:Peter (IOW: wakey wakey ;))
-
-Ah, I was under the impression they weren't quite finished yet,
-apparently I was mistaken.
-
-Eric, didn't you need recursive locks fixed and such?
-
-Let me have a look at them.
+T24gVHVlLCBNYXIgMzEsIDIwMDkgYXQgMToyMiBBTSwgU2NvdHQgV29vZCA8c2NvdHR3b29kQGZy
+ZWVzY2FsZS5jb20+IHdyb3RlOgo+IEpvYWtpbSBUamVybmx1bmQgd3JvdGU6Cj4+Cj4+IGdpYW5m
+YXIgZG9lcyBub3Qgc2VlbSB0byB1c2UgaW5fL291dF8gZnVuY3Rpb25zIGZvciB0aGUgQkRzLiBX
+b3JrcyBqdXN0Cj4+IGZpbmUgdGhhdCB0b28gaXQgc2VlbXMuCj4KPiBJdCBkb2VzIG5vdyB0aGF0
+IGl0IGhhcyBleHBsaWNpdCBiYXJyaWVycyBpbiBhIGZldyBwbGFjZXMuIMKgQmVmb3JlIHRoZXkg
+d2VyZQo+IGFkZGVkLCBpdCB3b3VsZCBzb21ldGltZXMgZmFpbCB1bmRlciBsb2FkLiDCoFRoYXQg
+d2FzIGR1ZSB0byBhIGNvbXBpbGVyCj4gcmVvcmRlcmluZywgYnV0IENQVSByZW9yZGVyaW5nIHdh
+cyBwb3NzaWJsZSBhcyB3ZWxsLgoKSSBub3RpY2VkIHRoYXQgaW4gZ2lhbmZhciB0aGVzZSBtZW1v
+cnkgYWNjZXNzIGlzIG5vdCBwcm90ZWN0ZWQgYnkKInZvbGF0aWxlIi4gIENhbiB0aGlzIGJlIHRo
+ZSByZWFzb24gd2h5IHRoZSBjb21waWxlciBkaWQgc29tZSB1bndhbnRlZApvcHRpbWl6YXRpb24/
+CgotIExlbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpM
+aW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3JnCmh0dHBzOi8v
+b3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
