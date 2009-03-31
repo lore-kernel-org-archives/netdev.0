@@ -1,92 +1,53 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [Bugme-new] [Bug 12877] New: tg3: eth0 transit timed out,
- resetting -> dead NIC
-Date: Tue, 31 Mar 2009 09:26:17 -0700
-Message-ID: <20090331162617.GB15533@xw6200.broadcom.net>
-References: <bug-12877-10286@http.bugzilla.kernel.org/>
- <20090315143214.90c71fb7.akpm@linux-foundation.org>
- <1237238601.8839.85.camel@HP1> <49C01F7F.9030306@birkenwald.de>
- <20090319165842.GA10819@xw6200.broadcom.net>
- <20090322132121.GA7871@pest>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: Patch: Fix fec_mpc52xx driver to use net_device_ops
+Date: Tue, 31 Mar 2009 10:42:32 -0600
+Message-ID: <fa686aa40903310942q7ae3c246g10a862b44cf29e15@mail.gmail.com>
+References: <ae4f76fd0903310344s2d46edf2l505a1d21a4778d54@mail.gmail.com>
+	 <20090331074806.432a882a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
-To: "Bernhard Schmidt" <berni@birkenwald.de>
+Cc: Henk Stegeman <henk.stegeman@gmail.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2403 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761738AbZCaQ0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2009 12:26:32 -0400
-In-Reply-To: <20090322132121.GA7871@pest>
-Content-Disposition: inline
+Received: from rv-out-0506.google.com ([209.85.198.234]:35454 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755093AbZCaQme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 12:42:34 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so3114080rvb.1
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 09:42:32 -0700 (PDT)
+In-Reply-To: <20090331074806.432a882a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 22, 2009 at 06:21:21AM -0700, Bernhard Schmidt wrote:
-> On Thu, Mar 19, 2009 at 09:58:42AM -0700, Matt Carlson wrote:
-> 
-> Hello Matt,
-> 
-> > Hi Bernhard.  I talked to Michael about this and we'd like you to try
-> > two things.
-> > 
-> > 1) Can you disable iLo2 and see if you can still reproduce the problem?
-> > 2) Can you apply the following patch to get more information on when
-> >    MMIO gets disabled?
-> 
-> Not sure this is going to help you. NIC crashed two times tonight, logs
-> look like this
-> 
-> Mar 22 04:06:46 svr02 kernel: [1392136.468921] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:47 svr02 kernel: [1392137.520288] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:48 svr02 kernel: [1392138.568267] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:49 svr02 kernel: [1392139.616266] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:50 svr02 kernel: [1392140.664266] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:51 svr02 kernel: [1392141.712276] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:52 svr02 kernel: [1392142.760297] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:53 svr02 kernel: [1392143.808258] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:54 svr02 kernel: [1392144.856256] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:55 svr02 kernel: [1392145.904266] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:56 svr02 kernel: [1392146.952276] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:57 svr02 kernel: [1392148.000267] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:58 svr02 kernel: [1392149.048271] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:06:59 svr02 kernel: [1392150.096268] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:00 svr02 kernel: [1392151.144277] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:01 svr02 kernel: [1392152.192287] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:02 svr02 kernel: [1392153.240268] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:03 svr02 kernel: [1392154.288267] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:04 svr02 kernel: [1392155.336267] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:05 svr02 kernel: [1392156.384268] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:07 svr02 kernel: [1392157.432267] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:08 svr02 kernel: [1392158.480266] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:09 svr02 kernel: [1392159.528289] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:10 svr02 kernel: [1392160.576297] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:11 svr02 kernel: [1392161.624277] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:12 svr02 kernel: [1392162.672267] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:13 svr02 kernel: [1392163.720266] PCI Memory Mapped IO Disabled!!!!
-> Mar 22 04:07:14 svr02 kernel: [1392164.768266] PCI Memory Mapped IO Disabled!!!!
-> 
-> at this point the "watchdog" kicked in and did rmmod/modprobe, so I
-> think the only thing you can read out of this debugging log is that
-> there was no kernel message right before MMIO got disabled and it takes
-> quite a while to fire the Tx timeout.
-> 
-> Mar 22 04:07:15 svr02 kernel: [1392165.540078] tg3 0000:03:04.1: PCI INT B disabled
-> Mar 22 04:07:16 svr02 kernel: [1392166.817125] tg3: tg3_abort_hw timed out for eth0, TX_MODE_ENABLE will not clear MAC_TX_MODE=ffffffff
-> Mar 22 04:07:18 svr02 kernel: [1392168.398844] tg3: eth0: No firmware running.
-> Mar 22 04:07:29 svr02 kernel: [1392179.793309] tg3: eth0: Link is down.
-> Mar 22 04:07:31 svr02 kernel: [1392181.896030] tg3 0000:03:04.0: PCI INT A disabled
-> Mar 22 04:07:33 svr02 kernel: [1392183.957132] tg3.c:v3.94 (August 14, 2008)
-> Mar 22 04:07:33 svr02 kernel: [1392184.020034] tg3 0000:03:04.0: enabling device (0000 -> 0002)
-> Mar 22 04:07:33 svr02 kernel: [1392184.086083] tg3 0000:03:04.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-> 
-> I'm now switching to eth1.
+On Tue, Mar 31, 2009 at 8:48 AM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> On Tue, 31 Mar 2009 12:44:15 +0200
+> Henk Stegeman <henk.stegeman@gmail.com> wrote:
+>
+>> Fix fec_mpc52xx driver to use net_device_ops and to be careful not to
+>> dereference phy_device if a phy has not yet been connected.
+>>
+>> Signed-off-by: Henk Stegeman <henk.stegeman@gmail.com>
 
-Bernhard, any word on what happened?
+Hi Henk,
 
+I hadn't heard from you for a while about the signed-off-by line, but
+I really needed to get those changes queued because the 2.6.30 merge
+window is open now, and some of my patches depend on it.  I ended up
+rewriting your patch from scratch, testing it and posting it last
+night.
+
+I would really like to stick with the rewritten version since it is a
+little tighter, and it is the one I've got tested.  However, now that
+I've heard from you, I'm happy to change the patch author credit to
+you.  You should look on the list for the patches I sent out last
+night (labeled [PATCH 02/14] and [PATCH 03/14]) and reply to each of
+them with an "Acked-by:" line if they look good to you.
+
+g.
+
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
