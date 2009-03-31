@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/14] Add common OF device tree support for MDIO busses
-Date: Tue, 31 Mar 2009 14:57:38 -0700 (PDT)
-Message-ID: <20090331.145738.36845509.davem@davemloft.net>
-References: <20090331075537.1427.7819.stgit@localhost.localdomain>
+Subject: Re: [PATCH 1/2] kaweth: Fix locking to be SMP-safe
+Date: Tue, 31 Mar 2009 15:00:49 -0700 (PDT)
+Message-ID: <20090331.150049.117005736.davem@davemloft.net>
+References: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Joakim.Tjernlund@transmode.se, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, afleming@freescale.com, olof@lixom.net
-To: grant.likely@secretlab.ca
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090331075537.1427.7819.stgit@localhost.localdomain>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Larry.Finger@lwfinger.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35291
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752122AbZCaWBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 18:01:00 -0400
+In-Reply-To: <49d00512.XAF19LdpY1dlK6+U%Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Tue, 31 Mar 2009 02:26:43 -0600
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Date: Sun, 29 Mar 2009 18:32:34 -0500
 
-> David, as I mentioned below, I'd really like to get the core changes
-> (1, 4, 5  6) merged into 2.6.30 (assuming Andy confirms they are okay).
+> Jeff,
+> 
+> As the listed authors of this driver have not touched it in several years,
+> I have taken the liberty of sending it to you as networking drivers maintainer.
+> I hope this is OK.
 
-No, sorry.
+I've been handling networking driver patches for a few months
+now, so you only need CC: me.
 
-We could have worked out the interdependencies before the merge window
-openned up.  There is no reason this could not have sat in at least
-somebody's tree before the merge window started.
-
-It therefore didn't get any -next exposure, so it's unreasonable to
-merge this stuff now.
+Thanks.
