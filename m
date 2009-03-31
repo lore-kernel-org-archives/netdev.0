@@ -1,56 +1,55 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH 14/17] kvm: add a reset capability
-Date: Tue, 31 Mar 2009 16:02:45 -0400
-Message-ID: <49D276E5.6000000@novell.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184400.28333.50396.stgit@dev.haskins.net> <49D26D8B.7020201@redhat.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH 15/17] kvm: add dynamic IRQ support
+Date: Tue, 31 Mar 2009 23:13:04 +0300
+Message-ID: <49D27950.9020801@redhat.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184405.28333.59205.stgit@dev.haskins.net> <49D26CFE.1060700@redhat.com> <49D2718F.9070203@novell.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig63259ACD3C414AAF73D2D3DF"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
 	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:33072 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966AbZCaUAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 16:00:31 -0400
-In-Reply-To: <49D26D8B.7020201@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <49D2718F.9070203@novell.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig63259ACD3C414AAF73D2D3DF
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Gregory Haskins wrote:
+>> - works with all guests
+>> - supports hotplug/hotunplug, udev, sysfs, module autoloading, ...
+>> - supported in all OSes
+>> - someone else maintains it
+>>     
+> These points are all valid, and I really struggled with this particular
+> part of the design.  The entire vbus design only requires one IRQ for
+> the entire guest,
 
-Avi Kivity wrote:
-> Gregory Haskins wrote:
->> We need a way to detect if a VM is reset later in the series, so lets
->> add a capability for userspace to signal a VM reset down to the kernel=
-=2E
->>  =20
+Won't this have scaling issues?  One IRQ means one target vcpu.  Whereas 
+I'd like virtio devices to span multiple queues, each queue with its own 
+MSI IRQ.  Also, the single IRQ handler will need to scan for all 
+potential IRQ sources.  Even if implemented carefully, this will cause 
+many cacheline bounces.
+
+>  so its conceivable that I could present a simple
+> "dummy" PCI device with some "VBUS" type PCI-ID, just to piggy back on
+> the IRQ routing logic.  Then userspace could simply pass the IRQ routing
+> info down to the kernel with an ioctl, or something similar.
+>   
+
+Xen does something similar, I believe.
+
+> I think ultimately I was trying to stay away from PCI in general because
+> I want to support environments that do not have PCI.  However, for the
+> kvm-transport case (at least on x86) this isnt really a constraint.
 >
-> How do you handle the case of a guest calling kexec to load a new
-> kernel?  Or is that not important for your use case?
->
+>   
 
-Hmm..I had not considered this.  Any suggestions on ways to detect it?
+s/PCI/the native IRQ solution for your platform/. virtio has the same 
+problem; on s390 we use the native (if that word ever applies to s390) 
+interrupt and device discovery mechanism.
 
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
 
---------------enig63259ACD3C414AAF73D2D3DF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iEYEARECAAYFAknSduUACgkQlOSOBdgZUxlUHACgjfkZ9UdnAEAzxUlkMDM3wJLk
-8xAAn1BPfw9RIjH48ZO73jqWUACuFuzh
-=wDa2
------END PGP SIGNATURE-----
-
---------------enig63259ACD3C414AAF73D2D3DF--
