@@ -1,8 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH 06/17] ioq: Add basic definitions for a shared-memory,
-	lockless queue
-Date: Tue, 31 Mar 2009 14:43:18 -0400
-Message-ID: <20090331184318.28333.48186.stgit@dev.haskins.net>
+Subject: [RFC PATCH 17/17] kvm: Add guest-side support for VBUS
+Date: Tue, 31 Mar 2009 14:44:16 -0400
+Message-ID: <20090331184416.28333.92721.stgit@dev.haskins.net>
 References: <20090331184057.28333.77287.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,61 +10,73 @@ Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
 	anthony@codemonkey.ws, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:35200 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761264AbZCaSlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:41:01 -0400
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20090331184057.28333.77287.stgit@dev.haskins.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We can map these over VBUS shared memory (or really any shared-memory
-architecture if it supports shm-signals) to allow asynchronous
-communication between two end-points.  Memory is synchronized using
-pure barriers (i.e. lockless), so IOQs are friendly in many contexts,
-even if the memory is remote.
+This adds a driver to interface between the host VBUS support, and the
+guest-vbus bus model.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/ioq.h |  410 +++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/Kconfig         |   12 +
- lib/Makefile        |    1 
- lib/ioq.c           |  298 +++++++++++++++++++++++++++++++++++++
- 4 files changed, 721 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/ioq.h
- create mode 100644 lib/ioq.c
+ arch/x86/Kconfig            |    9 +
+ drivers/Makefile            |    1 
+ drivers/vbus/proxy/Makefile |    2 
+ drivers/vbus/proxy/kvm.c    |  726 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 738 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/vbus/proxy/Makefile
+ create mode 100644 drivers/vbus/proxy/kvm.c
 
-diff --git a/include/linux/ioq.h b/include/linux/ioq.h
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 91fefd5..8661495 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -451,6 +451,15 @@ config KVM_GUEST_DYNIRQ
+        depends on KVM_GUEST
+        default y
+ 
++config KVM_GUEST_VBUS
++       tristate "KVM virtual-bus (VBUS) guest-side support"
++       depends on KVM_GUEST
++       select VBUS_DRIVERS
++       default y
++       ---help---
++          This option enables guest-side support for accessing virtual-bus
++	  devices.
++
+ source "arch/x86/lguest/Kconfig"
+ 
+ config PARAVIRT
+diff --git a/drivers/Makefile b/drivers/Makefile
+index 98fab51..4f2cb93 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -107,3 +107,4 @@ obj-$(CONFIG_VIRTIO)		+= virtio/
+ obj-$(CONFIG_STAGING)		+= staging/
+ obj-y				+= platform/
+ obj-$(CONFIG_VBUS_DEVICES)	+= vbus/devices/
++obj-$(CONFIG_VBUS_DRIVERS)	+= vbus/proxy/
+diff --git a/drivers/vbus/proxy/Makefile b/drivers/vbus/proxy/Makefile
 new file mode 100644
-index 0000000..d450d9a
+index 0000000..c18d58d
 --- /dev/null
-+++ b/include/linux/ioq.h
-@@ -0,0 +1,410 @@
++++ b/drivers/vbus/proxy/Makefile
+@@ -0,0 +1,2 @@
++kvm-guest-vbus-objs += kvm.o
++obj-$(CONFIG_KVM_GUEST_VBUS) += kvm-guest-vbus.o
+diff --git a/drivers/vbus/proxy/kvm.c b/drivers/vbus/proxy/kvm.c
+new file mode 100644
+index 0000000..82e28b4
+--- /dev/null
++++ b/drivers/vbus/proxy/kvm.c
+@@ -0,0 +1,726 @@
 +/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * IOQ is a generic shared-memory, lockless queue mechanism. It can be used
-+ * in a variety of ways, though its intended purpose is to become the
-+ * asynchronous communication path for virtual-bus drivers.
-+ *
-+ * The following are a list of key design points:
-+ *
-+ * #) All shared-memory is always allocated on explicitly one side of the
-+ *    link.  This typically would be the guest side in a VM/VMM scenario.
-+ * #) Each IOQ has the concept of "north" and "south" locales, where
-+ *    north denotes the memory-owner side (e.g. guest).
-+ * #) An IOQ is manipulated using an iterator idiom.
-+ * #) Provides a bi-directional signaling/notification infrastructure on
-+ *    a per-queue basis, which includes an event mitigation strategy
-+ *    to reduce boundary switching.
-+ * #) The signaling path is abstracted so that various technologies and
-+ *    topologies can define their own specific implementation while sharing
-+ *    the basic structures and code.
++ * Copyright (C) 2009 Novell.  All Rights Reserved.
 + *
 + * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
++ *	Gregory Haskins <ghaskins@novell.com>
 + *
 + * This file is free software; you can redistribute it and/or modify
 + * it under the terms of version 2 of the GNU General Public License
@@ -73,7 +84,7 @@ index 0000000..d450d9a
 + *
 + * This program is distributed in the hope that it will be useful,
 + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
 + * GNU General Public License for more details.
 + *
 + * You should have received a copy of the GNU General Public License
@@ -81,714 +92,710 @@ index 0000000..d450d9a
 + * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 + */
 +
-+#ifndef _LINUX_IOQ_H
-+#define _LINUX_IOQ_H
-+
-+#include <asm/types.h>
-+#include <linux/shm_signal.h>
-+
-+/*
-+ *---------
-+ * The following structures represent data that is shared across boundaries
-+ * which may be quite disparate from one another (e.g. Windows vs Linux,
-+ * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
-+ * present data in a manner that is independent of the environment.
-+ *-----------
-+ */
-+struct ioq_ring_desc {
-+	__u64                 cookie; /* for arbitrary use by north-side */
-+	__u64                 ptr;
-+	__u64                 len;
-+	__u8                  valid;
-+	__u8                  sown; /* South owned = 1, North owned = 0 */
-+};
-+
-+#define IOQ_RING_MAGIC 0x47fa2fe4
-+#define IOQ_RING_VER   4
-+
-+struct ioq_ring_idx {
-+	__u32                 head;    /* 0 based index to head of ptr array */
-+	__u32                 tail;    /* 0 based index to tail of ptr array */
-+	__u8                  full;
-+};
-+
-+enum ioq_locality {
-+	ioq_locality_north,
-+	ioq_locality_south,
-+};
-+
-+struct ioq_ring_head {
-+	__u32                  magic;
-+	__u32                  ver;
-+	struct shm_signal_desc signal;
-+	struct ioq_ring_idx    idx[2];
-+	__u32                  count;
-+	struct ioq_ring_desc   ring[1]; /* "count" elements will be allocated */
-+};
-+
-+#define IOQ_HEAD_DESC_SIZE(count) \
-+    (sizeof(struct ioq_ring_head) + sizeof(struct ioq_ring_desc) * (count - 1))
-+
-+/* --- END SHARED STRUCTURES --- */
-+
-+#ifdef __KERNEL__
-+
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <linux/interrupt.h>
-+#include <linux/shm_signal.h>
-+#include <asm/atomic.h>
-+
-+enum ioq_idx_type {
-+	ioq_idxtype_valid,
-+	ioq_idxtype_inuse,
-+	ioq_idxtype_both,
-+	ioq_idxtype_invalid,
-+};
-+
-+enum ioq_seek_type {
-+	ioq_seek_tail,
-+	ioq_seek_next,
-+	ioq_seek_head,
-+	ioq_seek_set
-+};
-+
-+struct ioq_iterator {
-+	struct ioq            *ioq;
-+	struct ioq_ring_idx   *idx;
-+	u32                    pos;
-+	struct ioq_ring_desc  *desc;
-+	int                    update:1;
-+	int                    dualidx:1;
-+	int                    flipowner:1;
-+};
-+
-+struct ioq_notifier {
-+	void (*signal)(struct ioq_notifier *);
-+};
-+
-+struct ioq_ops {
-+	void     (*release)(struct ioq *ioq);
-+};
-+
-+struct ioq {
-+	struct ioq_ops *ops;
-+
-+	atomic_t               refs;
-+	enum ioq_locality      locale;
-+	struct ioq_ring_head  *head_desc;
-+	struct ioq_ring_desc  *ring;
-+	struct shm_signal     *signal;
-+	wait_queue_head_t      wq;
-+	struct ioq_notifier   *notifier;
-+	size_t                 count;
-+	struct shm_signal_notifier shm_notifier;
-+};
-+
-+#define IOQ_ITER_AUTOUPDATE  (1 << 0)
-+#define IOQ_ITER_NOFLIPOWNER (1 << 1)
-+
-+/**
-+ * ioq_init() - initialize an IOQ
-+ * @ioq:        IOQ context
-+ *
-+ * Initializes IOQ context before first use
-+ *
-+ **/
-+void ioq_init(struct ioq *ioq,
-+	      struct ioq_ops *ops,
-+	      enum ioq_locality locale,
-+	      struct ioq_ring_head *head,
-+	      struct shm_signal *signal,
-+	      size_t count);
-+
-+/**
-+ * ioq_get() - acquire an IOQ context reference
-+ * @ioq:        IOQ context
-+ *
-+ **/
-+static inline struct ioq *ioq_get(struct ioq *ioq)
-+{
-+	atomic_inc(&ioq->refs);
-+
-+	return ioq;
-+}
-+
-+/**
-+ * ioq_put() - release an IOQ context reference
-+ * @ioq:        IOQ context
-+ *
-+ **/
-+static inline void ioq_put(struct ioq *ioq)
-+{
-+	if (atomic_dec_and_test(&ioq->refs)) {
-+		shm_signal_put(ioq->signal);
-+		ioq->ops->release(ioq);
-+	}
-+}
-+
-+/**
-+ * ioq_notify_enable() - enables local notifications on an IOQ
-+ * @ioq:        IOQ context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Enables/unmasks the registered ioq_notifier (if applicable) and waitq to
-+ * receive wakeups whenever the remote side performs an ioq_signal() operation.
-+ * A notification will be dispatched immediately if any pending signals have
-+ * already been issued prior to invoking this call.
-+ *
-+ * This is synonymous with unmasking an interrupt.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_notify_enable(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_enable(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_notify_disable() - disable local notifications on an IOQ
-+ * @ioq:        IOQ context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Disables/masks the registered ioq_notifier (if applicable) and waitq
-+ * from receiving any further notifications.  Any subsequent calls to
-+ * ioq_signal() by the remote side will update the ring as dirty, but
-+ * will not traverse the locale boundary and will not invoke the notifier
-+ * callback or wakeup the waitq.  Signals delivered while masked will
-+ * be deferred until ioq_notify_enable() is invoked
-+ *
-+ * This is synonymous with masking an interrupt
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_notify_disable(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_disable(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_signal() - notify the remote side about ring changes
-+ * @ioq:        IOQ context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Marks the ring state as "dirty" and, if enabled, will traverse
-+ * a locale boundary to invoke a remote notification.  The remote
-+ * side controls whether the notification should be delivered via
-+ * the ioq_notify_enable/disable() interface.
-+ *
-+ * The specifics of how to traverse a locale boundary are abstracted
-+ * by the ioq_ops->signal() interface and provided by a particular
-+ * implementation.  However, typically going north to south would be
-+ * something like a syscall/hypercall, and going south to north would be
-+ * something like a posix-signal/guest-interrupt.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_signal(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_inject(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_count() - counts the number of outstanding descriptors in an index
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) >=0: # of descriptors outstanding in the index
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_count(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_remain() - counts the number of remaining descriptors in an index
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * This is the converse of ioq_count().  This function returns the number
-+ * of "free" descriptors left in a particular index
-+ *
-+ * Returns:
-+ *  (*) >=0: # of descriptors remaining in the index
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_remain(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_size() - counts the maximum number of descriptors in an ring
-+ * @ioq:        IOQ context
-+ *
-+ * This function returns the maximum number of descriptors supported in
-+ * a ring, regardless of their current state (free or inuse).
-+ *
-+ * Returns:
-+ *  (*) >=0: total # of descriptors in the ring
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_size(struct ioq *ioq);
-+
-+/**
-+ * ioq_full() - determines if a specific index is "full"
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) 0: index is not full
-+ *  (*) 1: index is full
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_full(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_empty() - determines if a specific index is "empty"
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) 0: index is not empty
-+ *  (*) 1: index is empty
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_empty(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+    return !ioq_count(ioq, type);
-+}
-+
-+/**
-+ * ioq_iter_init() - initialize an iterator for IOQ descriptor traversal
-+ * @ioq:        IOQ context to iterate on
-+ * @iter:	Iterator context to init (usually from stack)
-+ * @type:	Specifies the index type to iterate against
-+ *                 (*) valid: iterate against the "valid" index
-+ *                 (*) inuse: iterate against the "inuse" index
-+ *                 (*) both: iterate against both indexes simultaneously
-+ * @flags:      Bitfield with 0 or more bits set to alter behavior
-+ *                 (*) autoupdate: automatically signal the remote side
-+ *                     whenever the iterator pushes/pops to a new desc
-+ *                 (*) noflipowner: do not flip the ownership bit during
-+ *                     a push/pop operation
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
-+		  enum ioq_idx_type type, int flags);
-+
-+/**
-+ * ioq_iter_seek() - seek to a specific location in the IOQ ring
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @type:	Specifies the type of seek operation
-+ *                 (*) tail: seek to the absolute tail, offset is ignored
-+ *                 (*) next: seek to the relative next, offset is ignored
-+ *                 (*) head: seek to the absolute head, offset is ignored
-+ *                 (*) set: seek to the absolute offset
-+ * @offset:     Offset for ioq_seek_set operations
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
-+		   long offset, int flags);
-+
-+/**
-+ * ioq_iter_push() - push the tail pointer forward
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * This function will simultaneously advance the tail ptr in the current
-+ * index (valid/inuse, as specified in the ioq_iter_init) as well as
-+ * perform a seek(next) operation.  This effectively "pushes" a new pointer
-+ * onto the tail of the index.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_push(struct ioq_iterator *iter, int flags);
-+
-+/**
-+ * ioq_iter_pop() - pop the head pointer from the ring
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * This function will simultaneously advance the head ptr in the current
-+ * index (valid/inuse, as specified in the ioq_iter_init) as well as
-+ * perform a seek(next) operation.  This effectively "pops" a pointer
-+ * from the head of the index.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_pop(struct ioq_iterator *iter,  int flags);
-+
-+#endif /* __KERNEL__ */
-+
-+#endif /* _LINUX_IOQ_H */
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 32d82fe..1e66f8e 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -183,5 +183,17 @@ config SHM_SIGNAL
- 
- 	 If unsure, say N
- 
-+config IOQ
-+	boolean "IO-Queue library - Generic shared-memory queue"
-+	select SHM_SIGNAL
-+	default n
-+	help
-+	 IOQ is a generic shared-memory-queue mechanism that happens to be
-+	 friendly to virtualization boundaries. It can be used in a variety
-+	 of ways, though its intended purpose is to become the low-level
-+	 communication path for paravirtualized drivers.
-+
-+	 If unsure, say N
-+
- 
- endmenu
-diff --git a/lib/Makefile b/lib/Makefile
-index bc36327..98cd332 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -72,6 +72,7 @@ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
- obj-$(CONFIG_SMP) += percpu_counter.o
- obj-$(CONFIG_AUDIT_GENERIC) += audit.o
- obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
-+obj-$(CONFIG_IOQ) += ioq.o
- 
- obj-$(CONFIG_SWIOTLB) += swiotlb.o
- obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
-diff --git a/lib/ioq.c b/lib/ioq.c
-new file mode 100644
-index 0000000..803b5d6
---- /dev/null
-+++ b/lib/ioq.c
-@@ -0,0 +1,298 @@
-+/*
-+ * Copyright 2008 Novell.  All Rights Reserved.
-+ *
-+ * See include/linux/ioq.h for documentation
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
-+
-+#include <linux/sched.h>
-+#include <linux/ioq.h>
-+#include <asm/bitops.h>
 +#include <linux/module.h>
++#include <linux/vbus.h>
++#include <linux/kvm_para.h>
++#include <linux/kvm.h>
++#include <linux/mm.h>
++#include <linux/ioq.h>
++#include <linux/interrupt.h>
++#include <linux/kvm_para.h>
++#include <linux/kvm_guest.h>
++#include <linux/vbus_client.h>
++#include <linux/vbus_driver.h>
 +
-+#ifndef NULL
-+#define NULL 0
-+#endif
++MODULE_AUTHOR("Gregory Haskins");
++MODULE_LICENSE("GPL");
++MODULE_VERSION("1");
 +
-+static int ioq_iter_setpos(struct ioq_iterator *iter, u32 pos)
++static int kvm_vbus_hypercall(unsigned long nr, void *data, unsigned long len)
 +{
-+	struct ioq *ioq = iter->ioq;
++	return kvm_hypercall3(KVM_HC_VBUS, nr, __pa(data), len);
++}
 +
-+	BUG_ON(pos >= ioq->count);
++struct kvm_vbus {
++	spinlock_t                lock;
++	struct ioq                eventq;
++	struct kvm_vbus_event    *ring;
++	int                       irq;
++};
 +
-+	iter->pos  = pos;
-+	iter->desc = &ioq->ring[pos];
++static struct kvm_vbus kvm_vbus;
++
++struct kvm_vbus_device {
++	char                     type[VBUS_MAX_DEVTYPE_LEN];
++	u64                      handle;
++	struct list_head         shms;
++	struct vbus_device_proxy vdev;
++};
++
++/*
++ * -------------------
++ * common routines
++ * -------------------
++ */
++
++struct kvm_vbus_device *
++to_dev(struct vbus_device_proxy *vdev)
++{
++	return container_of(vdev, struct kvm_vbus_device, vdev);
++}
++
++static void
++_signal_init(struct shm_signal *signal, struct shm_signal_desc *desc,
++	     struct shm_signal_ops *ops)
++{
++	desc->magic = SHM_SIGNAL_MAGIC;
++	desc->ver   = SHM_SIGNAL_VER;
++
++	shm_signal_init(signal);
++
++	signal->locale = shm_locality_north;
++	signal->ops    = ops;
++	signal->desc   = desc;
++}
++
++/*
++ * -------------------
++ * _signal
++ * -------------------
++ */
++
++struct _signal {
++	struct kvm_vbus   *kvbus;
++	struct shm_signal  signal;
++	u64                handle;
++	struct rb_node     node;
++	struct list_head   list;
++};
++
++static struct _signal *
++to_signal(struct shm_signal *signal)
++{
++       return container_of(signal, struct _signal, signal);
++}
++
++static struct _signal *
++node_to_signal(struct rb_node *node)
++{
++       return container_of(node, struct _signal, node);
++}
++
++static int
++_signal_inject(struct shm_signal *signal)
++{
++	struct _signal *_signal = to_signal(signal);
++
++	kvm_vbus_hypercall(KVM_VBUS_OP_SHMSIGNAL,
++			   &_signal->handle, sizeof(_signal->handle));
 +
 +	return 0;
 +}
 +
-+static inline u32 modulo_inc(u32 val, u32 mod)
++static void
++_signal_release(struct shm_signal *signal)
 +{
-+	BUG_ON(val >= mod);
++	struct _signal *_signal = to_signal(signal);
 +
-+	if (val == (mod - 1))
-+		return 0;
-+
-+	return val + 1;
++	kfree(_signal);
 +}
 +
-+static inline int idx_full(struct ioq_ring_idx *idx)
++static struct shm_signal_ops _signal_ops = {
++	.inject  = _signal_inject,
++	.release = _signal_release,
++};
++
++/*
++ * -------------------
++ * vbus_device_proxy routines
++ * -------------------
++ */
++
++static int
++kvm_vbus_device_open(struct vbus_device_proxy *vdev, int version, int flags)
 +{
-+	return idx->full && (idx->head == idx->tail);
-+}
-+
-+int ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
-+		  long offset, int flags)
-+{
-+	struct ioq_ring_idx *idx = iter->idx;
-+	u32 pos;
-+
-+	switch (type) {
-+	case ioq_seek_next:
-+		pos = modulo_inc(iter->pos, iter->ioq->count);
-+		break;
-+	case ioq_seek_tail:
-+		pos = idx->tail;
-+		break;
-+	case ioq_seek_head:
-+		pos = idx->head;
-+		break;
-+	case ioq_seek_set:
-+		if (offset >= iter->ioq->count)
-+			return -1;
-+		pos = offset;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return ioq_iter_setpos(iter, pos);
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_seek);
-+
-+static int ioq_ring_count(struct ioq_ring_idx *idx, int count)
-+{
-+	if (idx->full && (idx->head == idx->tail))
-+		return count;
-+	else if (idx->tail >= idx->head)
-+		return idx->tail - idx->head;
-+	else
-+		return (idx->tail + count) - idx->head;
-+}
-+
-+static void idx_tail_push(struct ioq_ring_idx *idx, int count)
-+{
-+	u32 tail = modulo_inc(idx->tail, count);
-+
-+	if (idx->head == tail) {
-+		rmb();
-+
-+		/*
-+		 * Setting full here may look racy, but note that we havent
-+		 * flipped the owner bit yet.  So it is impossible for the
-+		 * remote locale to move head in such a way that this operation
-+		 * becomes invalid
-+		 */
-+		idx->full = 1;
-+		wmb();
-+	}
-+
-+	idx->tail = tail;
-+}
-+
-+int ioq_iter_push(struct ioq_iterator *iter, int flags)
-+{
-+	struct ioq_ring_head *head_desc = iter->ioq->head_desc;
-+	struct ioq_ring_idx  *idx  = iter->idx;
++	struct kvm_vbus_device *dev = to_dev(vdev);
++	struct vbus_deviceopen params;
 +	int ret;
 +
-+	/*
-+	 * Its only valid to push if we are currently pointed at the tail
-+	 */
-+	if (iter->pos != idx->tail || iter->desc->sown != iter->ioq->locale)
++	if (dev->handle)
 +		return -EINVAL;
 +
-+	idx_tail_push(idx, iter->ioq->count);
-+	if (iter->dualidx) {
-+		idx_tail_push(&head_desc->idx[ioq_idxtype_inuse],
-+			      iter->ioq->count);
-+		if (head_desc->idx[ioq_idxtype_inuse].tail !=
-+		    head_desc->idx[ioq_idxtype_valid].tail) {
-+			SHM_SIGNAL_FAULT(iter->ioq->signal,
-+					 "Tails not synchronized");
++	params.devid   = vdev->id;
++	params.version = version;
++
++	ret = kvm_vbus_hypercall(KVM_VBUS_OP_DEVOPEN,
++				 &params, sizeof(params));
++	if (ret < 0)
++		return ret;
++
++	dev->handle = params.handle;
++
++	return 0;
++}
++
++static int
++kvm_vbus_device_close(struct vbus_device_proxy *vdev, int flags)
++{
++	struct kvm_vbus_device *dev = to_dev(vdev);
++	unsigned long iflags;
++	int ret;
++
++	if (!dev->handle)
++		return -EINVAL;
++
++	spin_lock_irqsave(&kvm_vbus.lock, iflags);
++
++	while (!list_empty(&dev->shms)) {
++		struct _signal *_signal;
++
++		_signal = list_first_entry(&dev->shms, struct _signal, list);
++
++		list_del(&_signal->list);
++
++		spin_unlock_irqrestore(&kvm_vbus.lock, iflags);
++		shm_signal_put(&_signal->signal);
++		spin_lock_irqsave(&kvm_vbus.lock, iflags);
++	}
++
++	spin_unlock_irqrestore(&kvm_vbus.lock, iflags);
++
++	/*
++	 * The DEVICECLOSE will implicitly close all of the shm on the
++	 * host-side, so there is no need to do an explicit per-shm
++	 * hypercall
++	 */
++	ret = kvm_vbus_hypercall(KVM_VBUS_OP_DEVCLOSE,
++				 &dev->handle, sizeof(dev->handle));
++
++	if (ret < 0)
++		printk(KERN_ERR "KVM-VBUS: Error closing device %s/%lld: %d\n",
++		       vdev->type, vdev->id, ret);
++
++	dev->handle = 0;
++
++	return 0;
++}
++
++static int
++kvm_vbus_device_shm(struct vbus_device_proxy *vdev, int id, int prio,
++		    void *ptr, size_t len,
++		    struct shm_signal_desc *sdesc, struct shm_signal **signal,
++		    int flags)
++{
++	struct kvm_vbus_device *dev = to_dev(vdev);
++	struct _signal *_signal = NULL;
++	struct vbus_deviceshm params;
++	unsigned long iflags;
++	int ret;
++
++	if (!dev->handle)
++		return -EINVAL;
++
++	params.devh   = dev->handle;
++	params.id     = id;
++	params.flags  = flags;
++	params.datap  = (u64)__pa(ptr);
++	params.len    = len;
++
++	if (signal) {
++		/*
++		 * The signal descriptor must be embedded within the
++		 * provided ptr
++		 */
++		if (!sdesc
++		    || (len < sizeof(*sdesc))
++		    || ((void *)sdesc < ptr)
++		    || ((void *)sdesc > (ptr + len - sizeof(*sdesc))))
 +			return -EINVAL;
-+		}
-+	}
 +
-+	wmb(); /* the index must be visible before the sown, or signal */
++		_signal = kzalloc(sizeof(*_signal), GFP_KERNEL);
++		if (!_signal)
++			return -ENOMEM;
 +
-+	if (iter->flipowner) {
-+		iter->desc->sown = !iter->ioq->locale;
-+		wmb(); /* sown must be visible before we signal */
-+	}
++		_signal_init(&_signal->signal, sdesc, &_signal_ops);
 +
-+	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
-+
-+	if (iter->update)
-+		ioq_signal(iter->ioq, 0);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_push);
-+
-+int ioq_iter_pop(struct ioq_iterator *iter,  int flags)
-+{
-+	struct ioq_ring_idx *idx = iter->idx;
-+	int full;
-+	int ret;
-+
-+	/*
-+	 * Its only valid to pop if we are currently pointed at the head
-+	 */
-+	if (iter->pos != idx->head || iter->desc->sown != iter->ioq->locale)
-+		return -EINVAL;
-+
-+	full = idx_full(idx);
-+	rmb();
-+
-+	idx->head = modulo_inc(idx->head, iter->ioq->count);
-+	wmb(); /* head must be visible before full */
-+
-+	if (full) {
-+		idx->full = 0;
-+		wmb(); /* full must be visible before sown */
-+	}
-+
-+	if (iter->flipowner) {
-+		iter->desc->sown = !iter->ioq->locale;
-+		wmb(); /* sown must be visible before we signal */
-+	}
-+
-+	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
-+
-+	if (iter->update)
-+		ioq_signal(iter->ioq, 0);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_pop);
-+
-+static struct ioq_ring_idx *idxtype_to_idx(struct ioq *ioq,
-+					   enum ioq_idx_type type)
-+{
-+	struct ioq_ring_idx *idx;
-+
-+	switch (type) {
-+	case ioq_idxtype_valid:
-+	case ioq_idxtype_inuse:
-+		idx = &ioq->head_desc->idx[type];
-+		break;
-+	default:
-+		panic("IOQ: illegal index type: %d", type);
-+		break;
-+	}
-+
-+	return idx;
-+}
-+
-+int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
-+		  enum ioq_idx_type type, int flags)
-+{
-+	iter->ioq        = ioq;
-+	iter->update     = (flags & IOQ_ITER_AUTOUPDATE);
-+	iter->flipowner  = !(flags & IOQ_ITER_NOFLIPOWNER);
-+	iter->pos        = -1;
-+	iter->desc       = NULL;
-+	iter->dualidx    = 0;
-+
-+	if (type == ioq_idxtype_both) {
 +		/*
-+		 * "both" is a special case, so we set the dualidx flag.
-+		 *
-+		 * However, we also just want to use the valid-index
-+		 * for normal processing, so override that here
++		 * take another reference for the host.  This is dropped
++		 * by a SHMCLOSE event
 +		 */
-+		type = ioq_idxtype_valid;
-+		iter->dualidx = 1;
++		shm_signal_get(&_signal->signal);
++
++		params.signal.offset = (u64)sdesc - (u64)ptr;
++		params.signal.prio   = prio;
++		params.signal.cookie = (u64)_signal;
++
++	} else
++		params.signal.offset = -1; /* yes, this is a u32, but its ok */
++
++	ret = kvm_vbus_hypercall(KVM_VBUS_OP_DEVSHM,
++				 &params, sizeof(params));
++	if (ret < 0) {
++		if (_signal) {
++			/*
++			 * We held two references above, so we need to drop
++			 * both of them
++			 */
++			shm_signal_put(&_signal->signal);
++			shm_signal_put(&_signal->signal);
++		}
++
++		return ret;
 +	}
 +
-+	iter->idx = idxtype_to_idx(ioq, type);
++	if (signal) {
++		_signal->handle = params.handle;
++
++		spin_lock_irqsave(&kvm_vbus.lock, iflags);
++
++		list_add_tail(&_signal->list, &dev->shms);
++
++		spin_unlock_irqrestore(&kvm_vbus.lock, iflags);
++
++		shm_signal_get(&_signal->signal);
++		*signal = &_signal->signal;
++	}
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(ioq_iter_init);
 +
-+int ioq_count(struct ioq *ioq, enum ioq_idx_type type)
++static int
++kvm_vbus_device_call(struct vbus_device_proxy *vdev, u32 func, void *data,
++		     size_t len, int flags)
 +{
-+	return ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
-+}
-+EXPORT_SYMBOL_GPL(ioq_count);
++	struct kvm_vbus_device *dev = to_dev(vdev);
++	struct vbus_devicecall params = {
++		.devh  = dev->handle,
++		.func  = func,
++		.datap = (u64)__pa(data),
++		.len   = len,
++		.flags = flags,
++	};
 +
-+int ioq_remain(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+	int count = ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
++	if (!dev->handle)
++		return -EINVAL;
 +
-+	return ioq->count - count;
-+}
-+EXPORT_SYMBOL_GPL(ioq_remain);
-+
-+int ioq_size(struct ioq *ioq)
-+{
-+	return ioq->count;
-+}
-+EXPORT_SYMBOL_GPL(ioq_size);
-+
-+int ioq_full(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+	struct ioq_ring_idx *idx = idxtype_to_idx(ioq, type);
-+
-+	return idx_full(idx);
-+}
-+EXPORT_SYMBOL_GPL(ioq_full);
-+
-+static void ioq_shm_signal(struct shm_signal_notifier *notifier)
-+{
-+	struct ioq *ioq = container_of(notifier, struct ioq, shm_notifier);
-+
-+	wake_up(&ioq->wq);
-+	if (ioq->notifier)
-+		ioq->notifier->signal(ioq->notifier);
++	return kvm_vbus_hypercall(KVM_VBUS_OP_DEVCALL, &params, sizeof(params));
 +}
 +
-+void ioq_init(struct ioq *ioq,
-+	      struct ioq_ops *ops,
-+	      enum ioq_locality locale,
-+	      struct ioq_ring_head *head,
-+	      struct shm_signal *signal,
-+	      size_t count)
++static void
++kvm_vbus_device_release(struct vbus_device_proxy *vdev)
 +{
-+	memset(ioq, 0, sizeof(*ioq));
-+	atomic_set(&ioq->refs, 1);
-+	init_waitqueue_head(&ioq->wq);
++	struct kvm_vbus_device *_dev = to_dev(vdev);
 +
-+	ioq->ops         = ops;
-+	ioq->locale      = locale;
-+	ioq->head_desc   = head;
-+	ioq->ring        = &head->ring[0];
-+	ioq->count       = count;
-+	ioq->signal      = signal;
++	kvm_vbus_device_close(vdev, 0);
 +
-+	ioq->shm_notifier.signal = &ioq_shm_signal;
-+	signal->notifier         = &ioq->shm_notifier;
++	kfree(_dev);
 +}
-+EXPORT_SYMBOL_GPL(ioq_init);
++
++struct vbus_device_proxy_ops kvm_vbus_device_ops = {
++	.open    = kvm_vbus_device_open,
++	.close   = kvm_vbus_device_close,
++	.shm     = kvm_vbus_device_shm,
++	.call    = kvm_vbus_device_call,
++	.release = kvm_vbus_device_release,
++};
++
++/*
++ * -------------------
++ * vbus events
++ * -------------------
++ */
++
++static void
++event_devadd(struct kvm_vbus_add_event *event)
++{
++	int ret;
++	struct kvm_vbus_device *new = kzalloc(sizeof(*new), GFP_KERNEL);
++	if (!new) {
++		printk(KERN_ERR "KVM_VBUS: Out of memory on add_event\n");
++		return;
++	}
++
++	INIT_LIST_HEAD(&new->shms);
++
++	memcpy(new->type, event->type, VBUS_MAX_DEVTYPE_LEN);
++	new->vdev.type        = new->type;
++	new->vdev.id          = event->id;
++	new->vdev.ops         = &kvm_vbus_device_ops;
++
++	sprintf(new->vdev.dev.bus_id, "%lld", event->id);
++
++	ret = vbus_device_proxy_register(&new->vdev);
++	if (ret < 0)
++		panic("failed to register device %lld(%s): %d\n",
++		      event->id, event->type, ret);
++}
++
++static void
++event_devdrop(struct kvm_vbus_handle_event *event)
++{
++	struct vbus_device_proxy *dev = vbus_device_proxy_find(event->handle);
++
++	if (!dev) {
++		printk(KERN_WARNING "KVM-VBUS: devdrop failed: %lld\n",
++		       event->handle);
++		return;
++	}
++
++	vbus_device_proxy_unregister(dev);
++}
++
++static void
++event_shmsignal(struct kvm_vbus_handle_event *event)
++{
++	struct _signal *_signal = (struct _signal *)event->handle;
++
++	_shm_signal_wakeup(&_signal->signal);
++}
++
++static void
++event_shmclose(struct kvm_vbus_handle_event *event)
++{
++	struct _signal *_signal = (struct _signal *)event->handle;
++
++	/*
++	 * This reference was taken during the DEVICESHM call
++	 */
++	shm_signal_put(&_signal->signal);
++}
++
++/*
++ * -------------------
++ * eventq routines
++ * -------------------
++ */
++
++static struct ioq_notifier eventq_notifier;
++
++static int __init
++eventq_init(int qlen)
++{
++	struct ioq_iterator iter;
++	int ret;
++	int i;
++
++	kvm_vbus.ring = kzalloc(sizeof(struct kvm_vbus_event) * qlen,
++				GFP_KERNEL);
++	if (!kvm_vbus.ring)
++		return -ENOMEM;
++
++	/*
++	 * We want to iterate on the "valid" index.  By default the iterator
++	 * will not "autoupdate" which means it will not hypercall the host
++	 * with our changes.  This is good, because we are really just
++	 * initializing stuff here anyway.  Note that you can always manually
++	 * signal the host with ioq_signal() if the autoupdate feature is not
++	 * used.
++	 */
++	ret = ioq_iter_init(&kvm_vbus.eventq, &iter, ioq_idxtype_valid, 0);
++	BUG_ON(ret < 0);
++
++	/*
++	 * Seek to the tail of the valid index (which should be our first
++	 * item since the queue is brand-new)
++	 */
++	ret = ioq_iter_seek(&iter, ioq_seek_tail, 0, 0);
++	BUG_ON(ret < 0);
++
++	/*
++	 * Now populate each descriptor with an empty vbus_event and mark it
++	 * valid
++	 */
++	for (i = 0; i < qlen; i++) {
++		struct kvm_vbus_event *event = &kvm_vbus.ring[i];
++		size_t                 len   = sizeof(*event);
++		struct ioq_ring_desc  *desc  = iter.desc;
++
++		BUG_ON(iter.desc->valid);
++
++		desc->cookie = (u64)event;
++		desc->ptr    = (u64)__pa(event);
++		desc->len    = len; /* total length  */
++		desc->valid  = 1;
++
++		/*
++		 * This push operation will simultaneously advance the
++		 * valid-tail index and increment our position in the queue
++		 * by one.
++		 */
++		ret = ioq_iter_push(&iter, 0);
++		BUG_ON(ret < 0);
++	}
++
++	kvm_vbus.eventq.notifier = &eventq_notifier;
++
++	/*
++	 * And finally, ensure that we can receive notification
++	 */
++	ioq_notify_enable(&kvm_vbus.eventq, 0);
++
++	return 0;
++}
++
++/* Invoked whenever the hypervisor ioq_signal()s our eventq */
++static void
++eventq_wakeup(struct ioq_notifier *notifier)
++{
++	struct ioq_iterator iter;
++	int ret;
++
++	/* We want to iterate on the head of the in-use index */
++	ret = ioq_iter_init(&kvm_vbus.eventq, &iter, ioq_idxtype_inuse, 0);
++	BUG_ON(ret < 0);
++
++	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
++	BUG_ON(ret < 0);
++
++	/*
++	 * The EOM is indicated by finding a packet that is still owned by
++	 * the south side.
++	 *
++	 * FIXME: This in theory could run indefinitely if the host keeps
++	 * feeding us events since there is nothing like a NAPI budget.  We
++	 * might need to address that
++	 */
++	while (!iter.desc->sown) {
++		struct ioq_ring_desc *desc  = iter.desc;
++		struct kvm_vbus_event *event;
++
++		event = (struct kvm_vbus_event *)desc->cookie;
++
++		switch (event->eventid) {
++		case KVM_VBUS_EVENT_DEVADD:
++			event_devadd(&event->data.add);
++			break;
++		case KVM_VBUS_EVENT_DEVDROP:
++			event_devdrop(&event->data.handle);
++			break;
++		case KVM_VBUS_EVENT_SHMSIGNAL:
++			event_shmsignal(&event->data.handle);
++			break;
++		case KVM_VBUS_EVENT_SHMCLOSE:
++			event_shmclose(&event->data.handle);
++			break;
++		default:
++			printk(KERN_WARNING "KVM_VBUS: Unexpected event %d\n",
++			       event->eventid);
++			break;
++		};
++
++		memset(event, 0, sizeof(*event));
++
++		/* Advance the in-use head */
++		ret = ioq_iter_pop(&iter, 0);
++		BUG_ON(ret < 0);
++	}
++
++	/* And let the south side know that we changed the queue */
++	ioq_signal(&kvm_vbus.eventq, 0);
++}
++
++static struct ioq_notifier eventq_notifier = {
++	.signal = &eventq_wakeup,
++};
++
++/* Injected whenever the host issues an ioq_signal() on the eventq */
++irqreturn_t
++eventq_intr(int irq, void *dev)
++{
++	_shm_signal_wakeup(kvm_vbus.eventq.signal);
++
++	return IRQ_HANDLED;
++}
++
++/*
++ * -------------------
++ */
++
++static int
++eventq_signal_inject(struct shm_signal *signal)
++{
++	u64 handle = 0; /* The eventq uses the special-case handle=0 */
++
++	kvm_vbus_hypercall(KVM_VBUS_OP_SHMSIGNAL, &handle, sizeof(handle));
++
++	return 0;
++}
++
++static void
++eventq_signal_release(struct shm_signal *signal)
++{
++	kfree(signal);
++}
++
++static struct shm_signal_ops eventq_signal_ops = {
++	.inject  = eventq_signal_inject,
++	.release = eventq_signal_release,
++};
++
++/*
++ * -------------------
++ */
++
++static void
++eventq_ioq_release(struct ioq *ioq)
++{
++	/* released as part of the kvm_vbus object */
++}
++
++static struct ioq_ops eventq_ioq_ops = {
++	.release = eventq_ioq_release,
++};
++
++/*
++ * -------------------
++ */
++
++static void
++kvm_vbus_release(void)
++{
++	if (kvm_vbus.irq > 0) {
++		free_irq(kvm_vbus.irq, NULL);
++		destroy_kvm_dynirq(kvm_vbus.irq);
++	}
++
++	kfree(kvm_vbus.eventq.head_desc);
++	kfree(kvm_vbus.ring);
++}
++
++static int __init
++kvm_vbus_open(void)
++{
++	struct kvm_vbus_busopen params = {
++		.magic        = KVM_VBUS_MAGIC,
++		.version      = KVM_VBUS_VERSION,
++		.capabilities = 0,
++	};
++
++	return kvm_vbus_hypercall(KVM_VBUS_OP_BUSOPEN, &params, sizeof(params));
++}
++
++#define QLEN 1024
++
++static int __init
++kvm_vbus_register(void)
++{
++	struct kvm_vbus_busreg params = {
++		.count = 1,
++		.eventq = {
++			{
++				.irq   = kvm_vbus.irq,
++				.count = QLEN,
++				.ring  = (u64)__pa(kvm_vbus.eventq.head_desc),
++				.data  = (u64)__pa(kvm_vbus.ring),
++			},
++		},
++	};
++
++	return kvm_vbus_hypercall(KVM_VBUS_OP_BUSREG, &params, sizeof(params));
++}
++
++static int __init
++_ioq_init(size_t ringsize, struct ioq *ioq, struct ioq_ops *ops)
++{
++	struct shm_signal    *signal = NULL;
++	struct ioq_ring_head *head = NULL;
++	size_t                len  = IOQ_HEAD_DESC_SIZE(ringsize);
++
++	head = kzalloc(len, GFP_KERNEL | GFP_DMA);
++	if (!head)
++		return -ENOMEM;
++
++	signal = kzalloc(sizeof(*signal), GFP_KERNEL);
++	if (!signal) {
++		kfree(head);
++		return -ENOMEM;
++	}
++
++	head->magic     = IOQ_RING_MAGIC;
++	head->ver	= IOQ_RING_VER;
++	head->count     = ringsize;
++
++	_signal_init(signal, &head->signal, &eventq_signal_ops);
++
++	ioq_init(ioq, ops, ioq_locality_north, head, signal, ringsize);
++
++	return 0;
++}
++
++int __init
++kvm_vbus_init(void)
++{
++	int ret;
++
++	memset(&kvm_vbus, 0, sizeof(kvm_vbus));
++
++	ret = kvm_para_has_feature(KVM_FEATURE_VBUS);
++	if (!ret)
++		return -ENOENT;
++
++	ret = kvm_vbus_open();
++	if (ret < 0) {
++		printk(KERN_ERR "KVM_VBUS: Could not register with host: %d\n",
++		       ret);
++		goto out_fail;
++	}
++
++	spin_lock_init(&kvm_vbus.lock);
++
++	/*
++	 * Allocate an IOQ to use for host-2-guest event notification
++	 */
++	ret = _ioq_init(QLEN, &kvm_vbus.eventq, &eventq_ioq_ops);
++	if (ret < 0) {
++		printk(KERN_ERR "KVM_VBUS: Cound not init eventq\n");
++		goto out_fail;
++	}
++
++	ret = eventq_init(QLEN);
++	if (ret < 0) {
++		printk(KERN_ERR "KVM_VBUS: Cound not setup ring\n");
++		goto out_fail;
++	}
++
++	/*
++	 * Dynamically assign a free IRQ to this resource
++	 */
++	kvm_vbus.irq = create_kvm_dynirq(0);
++	if (kvm_vbus.irq < 0) {
++		printk(KERN_ERR "KVM_VBUS: Failed to create IRQ\n");
++		goto out_fail;
++	}
++
++	ret = request_irq(kvm_vbus.irq, eventq_intr, 0, "vbus", NULL);
++	if (ret < 0) {
++		printk(KERN_ERR "KVM_VBUS: Failed to register IRQ %d\n: %d",
++		       kvm_vbus.irq, ret);
++		goto out_fail;
++	}
++
++	/*
++	 * Finally register our queue on the host to start receiving events
++	 */
++	ret = kvm_vbus_register();
++	if (ret < 0) {
++		printk(KERN_ERR "KVM_VBUS: Could not register with host: %d\n",
++		       ret);
++		goto out_fail;
++	}
++
++	return 0;
++
++ out_fail:
++	kvm_vbus_release();
++
++	return ret;
++
++}
++
++static void __exit
++kvm_vbus_exit(void)
++{
++	kvm_vbus_release();
++}
++
++module_init(kvm_vbus_init);
++module_exit(kvm_vbus_exit);
++
 
