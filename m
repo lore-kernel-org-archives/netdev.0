@@ -1,121 +1,77 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 01/17] shm-signal: shared-memory signals
-Date: Tue, 31 Mar 2009 23:44:48 +0300
-Message-ID: <49D280C0.8010802@redhat.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184252.28333.70623.stgit@dev.haskins.net>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
+Date: Tue, 31 Mar 2009 22:52:19 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0903312244550.3771@ask.diku.dk>
+References: <20090218051906.174295181@vyatta.com> <20090218052747.679540125@vyatta.com>
+ <499BDB5D.2050105@trash.net> <499C1894.7060400@cosmosbay.com>
+ <49CE568A.9090104@cosmosbay.com> <49D11635.2050809@hp.com>
+ <Pine.LNX.4.64.0903302131390.13325@ask.diku.dk> <49D12387.20507@cosmosbay.com>
+ <Pine.LNX.4.64.0903302224120.13385@ask.diku.dk> <49D12E87.4090005@cosmosbay.com>
+ <Pine.LNX.4.64.0903312145130.2954@ask.diku.dk> <49D27BD9.4030503@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090331184252.28333.70623.stgit@dev.haskins.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev <netdev@vger.kernel.org>, Rick Jones <rick.jones2@hp.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw1.diku.dk ([130.225.96.91]:60026 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753927AbZCaUw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2009 16:52:27 -0400
+In-Reply-To: <49D27BD9.4030503@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gregory Haskins wrote:
-> This interface provides a bidirectional shared-memory based signaling
-> mechanism.  It can be used by any entities which desire efficient
-> communication via shared memory.  The implementation details of the
-> signaling are abstracted so that they may transcend a wide variety
-> of locale boundaries (e.g. userspace/kernel, guest/host, etc).
+
+On Tue, 31 Mar 2009, Eric Dumazet wrote:
+
+>> I tried using "netperf" instead of "tbench".
+>>
+>> A netperf towards localhost (netperf -T 0,1 -l 120 -H localhost)
+>> reveals that the Core i7 is still the fastest.
+>>
+>> 24218 Mbit/s  on Core i7 920
+>>
+>> 11684 Mbit/s  on Phenom X4
+>>
+>>  8181 Mbit/s  on Xeon E5420
 >
-> The shm_signal mechanism supports event masking as well as spurious
-> event delivery mitigation.
-> +
-> +/*
-> + *---------
-> + * The following structures represent data that is shared across boundaries
-> + * which may be quite disparate from one another (e.g. Windows vs Linux,
-> + * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
-> + * present data in a manner that is independent of the environment.
-> + *-----------
-> + */
-> +
-> +#define SHM_SIGNAL_MAGIC 0x58fa39df
-> +#define SHM_SIGNAL_VER   1
-> +
-> +struct shm_signal_irq {
-> +	__u8                  enabled;
-> +	__u8                  pending;
-> +	__u8                  dirty;
-> +};
->   
+> warning, because on my machine,
+>
+> cpu0 is on physical id 0, core 0
+> cpu1 is on physical id 1, core 0
+> cpu2 is on physical id 0, core 1
+> cpu3 is on physical id 1, core 1
+> cpu3 is on physical id 0, core 2
+> cpu4 is on physical id 1, core 2
+> cpu5 is on physical id 0, core 3
+> cpu6 is on physical id 1, core 3
+>
+> So -T 0,1 might not do what you think...
 
-Some ABIs may choose to pad this, suggest explicit padding.
+Thanks a lot, I didn't know that!
+(hint: cat /proc/cpuinfo | egrep -e 'processor|physical id|core id')
 
-> +
-> +enum shm_signal_locality {
-> +	shm_locality_north,
-> +	shm_locality_south,
-> +};
-> +
-> +struct shm_signal_desc {
-> +	__u32                 magic;
-> +	__u32                 ver;
-> +	struct shm_signal_irq irq[2];
-> +};
->   
+I sort of got a "too large" speedup on the Xeon system:
 
-Similarly, this should be padded to 0 (mod 8).
+I want to use core 0 and 1 on physical CPU 0, for some strange reason CPU0 
+and CPU4 is these respective cores...
 
-Instead of versions, I prefer feature flags which can be independently 
-enabled or disabled.
+netperf -T 0,4 -l 60  -H localhost
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 AF_INET : demo : cpu bind
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-> +
-> +/* --- END SHARED STRUCTURES --- */
-> +
-> +#ifdef __KERNEL__
-> +
-> +#include <linux/interrupt.h>
-> +
-> +struct shm_signal_notifier {
-> +	void (*signal)(struct shm_signal_notifier *);
-> +};
->   
-
-This means "->inject() has been called from the other side"?
-
-(reading below I see this is so.  not used to reading well commented 
-code... :)
-
-> +
-> +struct shm_signal;
-> +
-> +struct shm_signal_ops {
-> +	int      (*inject)(struct shm_signal *s);
-> +	void     (*fault)(struct shm_signal *s, const char *fmt, ...);
->   
-
-Eww.  Must we involve strings and printf formats?
-
-> +	void     (*release)(struct shm_signal *s);
-> +};
-> +
-> +/*
-> + * signaling protocol:
-> + *
-> + * each side of the shm_signal has an "irq" structure with the following
-> + * fields:
-> + *
-> + *    - enabled: controlled by shm_signal_enable/disable() to mask/unmask
-> + *               the notification locally
-> + *    - dirty:   indicates if the shared-memory is dirty or clean.  This
-> + *               is updated regardless of the enabled/pending state so that
-> + *               the state is always accurately tracked.
-> + *    - pending: indicates if a signal is pending to the remote locale.
-> + *               This allows us to determine if a remote-notification is
-> + *               already in flight to optimize spurious notifications away.
-> + */
->   
-
-When you overlay a ring on top of this, won't the ring indexes convey 
-the same information as ->dirty?
+  87380  16384  16384    60.00    19797.42
 
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+Hilsen
+   Jesper Brouer
 
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
