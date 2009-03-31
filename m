@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 08/14] net: rework fsl_pq_mdio driver to use of_mdio
-	infrastructure
-Date: Tue, 31 Mar 2009 02:27:25 -0600
-Message-ID: <20090331082725.1427.76321.stgit@localhost.localdomain>
+Subject: [PATCH 09/14] net: Rework gianfar driver to use of_mdio
+	infrastructure.
+Date: Tue, 31 Mar 2009 02:27:30 -0600
+Message-ID: <20090331082730.1427.96418.stgit@localhost.localdomain>
 References: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,12 +12,12 @@ Cc: olof@lixom.net, afleming@freescale.com, galak@kernel.crashing.org,
 	Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:47063 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753532AbZCaI13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:27:29 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so1584813wah.21
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 01:27:27 -0700 (PDT)
+Received: from rv-out-0506.google.com ([209.85.198.236]:58055 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770AbZCaI1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:27:34 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so2906140rvb.1
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 01:27:32 -0700 (PDT)
 In-Reply-To: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -29,93 +29,203 @@ This patch simplifies the driver by making use of more common code.
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/net/fsl_pq_mdio.c |   53 +++------------------------------------------
- 1 files changed, 4 insertions(+), 49 deletions(-)
+ drivers/net/gianfar.c |  103 ++++++++++++++++++-------------------------------
+ drivers/net/gianfar.h |    3 +
+ 2 files changed, 40 insertions(+), 66 deletions(-)
 
 
-diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
-index b3079a5..83a98f4 100644
---- a/drivers/net/fsl_pq_mdio.c
-+++ b/drivers/net/fsl_pq_mdio.c
-@@ -34,6 +34,7 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/of.h>
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 65f5587..c22eba9 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -75,6 +75,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/spinlock.h>
+ #include <linux/mm.h>
 +#include <linux/of_mdio.h>
  #include <linux/of_platform.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+@@ -168,17 +169,13 @@ static inline int gfar_uses_fcb(struct gfar_private *priv)
  
- #include <asm/io.h>
-@@ -154,44 +155,6 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
- 	return 0;
- }
+ static int gfar_of_init(struct net_device *dev)
+ {
+-	struct device_node *phy, *mdio;
+-	const unsigned int *id;
+ 	const char *model;
+ 	const char *ctype;
+ 	const void *mac_addr;
+-	const phandle *ph;
+ 	u64 addr, size;
+ 	int err = 0;
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct device_node *np = priv->node;
+-	char bus_name[MII_BUS_ID_SIZE];
+ 	const u32 *stash;
+ 	const u32 *stash_len;
+ 	const u32 *stash_idx;
+@@ -264,8 +261,8 @@ static int gfar_of_init(struct net_device *dev)
+ 	if (of_get_property(np, "fsl,magic-packet", NULL))
+ 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_MAGIC_PACKET;
  
--/* Allocate an array which provides irq #s for each PHY on the given bus */
--static int *create_irq_map(struct device_node *np)
--{
--	int *irqs;
--	int i;
--	struct device_node *child = NULL;
+-	ph = of_get_property(np, "phy-handle", NULL);
+-	if (ph == NULL) {
++	priv->phy_node = of_parse_phandle(np, "phy-device", 0);
++	if (!priv->phy_node) {
+ 		u32 *fixed_link;
+ 
+ 		fixed_link = (u32 *)of_get_property(np, "fixed-link", NULL);
+@@ -273,57 +270,10 @@ static int gfar_of_init(struct net_device *dev)
+ 			err = -ENODEV;
+ 			goto err_out;
+ 		}
 -
--	irqs = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
+-		snprintf(priv->phy_bus_id, sizeof(priv->phy_bus_id),
+-				PHY_ID_FMT, "0", fixed_link[0]);
+-	} else {
+-		phy = of_find_node_by_phandle(*ph);
 -
--	if (!irqs)
--		return NULL;
+-		if (phy == NULL) {
+-			err = -ENODEV;
+-			goto err_out;
+-		}
 -
--	for (i = 0; i < PHY_MAX_ADDR; i++)
--		irqs[i] = PHY_POLL;
+-		mdio = of_get_parent(phy);
 -
--	while ((child = of_get_next_child(np, child)) != NULL) {
--		int irq = irq_of_parse_and_map(child, 0);
--		const u32 *id;
+-		id = of_get_property(phy, "reg", NULL);
 -
--		if (irq == NO_IRQ)
--			continue;
+-		of_node_put(phy);
 -
--		id = of_get_property(child, "reg", NULL);
+-		fsl_pq_mdio_bus_name(bus_name, mdio);
+-		of_node_put(mdio);
+-		snprintf(priv->phy_bus_id, sizeof(priv->phy_bus_id), "%s:%02x",
+-				bus_name, *id);
+ 	}
+ 
+ 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
+-	ph = of_get_property(np, "tbi-handle", NULL);
+-	if (ph) {
+-		struct device_node *tbi = of_find_node_by_phandle(*ph);
+-		struct of_device *ofdev;
+-		struct mii_bus *bus;
 -
+-		if (!tbi)
+-			return 0;
+-
+-		mdio = of_get_parent(tbi);
+-		if (!mdio)
+-			return 0;
+-
+-		ofdev = of_find_device_by_node(mdio);
+-
+-		of_node_put(mdio);
+-
+-		id = of_get_property(tbi, "reg", NULL);
 -		if (!id)
--			continue;
+-			return 0;
 -
--		if (*id < PHY_MAX_ADDR && *id >= 0)
--			irqs[*id] = irq;
--		else
--			printk(KERN_WARNING "%s: "
--					"%d is not a valid PHY address\n",
--					np->full_name, *id);
+-		of_node_put(tbi);
+-
+-		bus = dev_get_drvdata(&ofdev->dev);
+-
+-		priv->tbiphy = bus->phy_map[*id];
+-	}
++	priv->tbi_node = of_parse_phandle(np, "tbi-handle", 0);
+ 
+ 	return 0;
+ 
+@@ -529,6 +479,10 @@ static int gfar_probe(struct of_device *ofdev,
+ register_fail:
+ 	iounmap(priv->regs);
+ regs_fail:
++	if (priv->phy_node)
++		of_node_put(priv->phy_node);
++	if (priv->tbi_node)
++		of_node_put(priv->tbi_node);
+ 	free_netdev(dev);
+ 	return err;
+ }
+@@ -537,6 +491,11 @@ static int gfar_remove(struct of_device *ofdev)
+ {
+ 	struct gfar_private *priv = dev_get_drvdata(&ofdev->dev);
+ 
++	if (priv->phy_node)
++		of_node_put(priv->phy_node);
++	if (priv->tbi_node)
++		of_node_put(priv->tbi_node);
++
+ 	dev_set_drvdata(&ofdev->dev, NULL);
+ 
+ 	iounmap(priv->regs);
+@@ -690,7 +649,6 @@ static int init_phy(struct net_device *dev)
+ 	uint gigabit_support =
+ 		priv->device_flags & FSL_GIANFAR_DEV_HAS_GIGABIT ?
+ 		SUPPORTED_1000baseT_Full : 0;
+-	struct phy_device *phydev;
+ 	phy_interface_t interface;
+ 
+ 	priv->oldlink = 0;
+@@ -699,23 +657,38 @@ static int init_phy(struct net_device *dev)
+ 
+ 	interface = gfar_get_interface(dev);
+ 
+-	phydev = phy_connect(dev, priv->phy_bus_id, &adjust_link, 0, interface);
++	if (priv->phy_node) {
++		priv->phydev = of_phy_connect(dev, priv->phy_node, &adjust_link,
++					      0, interface);
++		if (!priv->phydev) {
++			dev_err(&dev->dev, "error: Could not attach to PHY\n");
++			return -ENODEV;
++		}
++	}
++
++	if (priv->tbi_node) {
++		priv->tbiphy = of_phy_connect(dev, priv->tbi_node, &adjust_link,
++					      0, interface);
++		if (!priv->tbiphy) {
++			dev_err(&dev->dev, "error: Could not attach to TBI\n");
++			goto err_tbiphy;
++		}
++	}
+ 
+ 	if (interface == PHY_INTERFACE_MODE_SGMII)
+ 		gfar_configure_serdes(dev);
+ 
+-	if (IS_ERR(phydev)) {
+-		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
+-		return PTR_ERR(phydev);
 -	}
 -
--	return irqs;
--}
+ 	/* Remove any features not supported by the controller */
+-	phydev->supported &= (GFAR_SUPPORTED | gigabit_support);
+-	phydev->advertising = phydev->supported;
 -
- void fsl_pq_mdio_bus_name(char *name, struct device_node *np)
- {
- 	const u32 *addr;
-@@ -314,7 +277,7 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
+-	priv->phydev = phydev;
++	priv->phydev->supported &= (GFAR_SUPPORTED | gigabit_support);
++	priv->phydev->advertising = priv->phydev->supported;
  
- 	new_bus->priv = (void __force *)regs;
+ 	return 0;
++
++ err_tbiphy:
++	if (priv->phy_node)
++		phy_disconnect(priv->phydev);
++	priv->phydev = NULL;
++	return -ENODEV;
+ }
  
--	new_bus->irq = create_irq_map(np);
-+	new_bus->irq = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
+ /*
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index dd499d7..4c69a3a 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -780,7 +780,8 @@ struct gfar_private {
+ 	spinlock_t bflock;
  
- 	if (NULL == new_bus->irq) {
- 		err = -ENOMEM;
-@@ -383,16 +346,8 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 
- 	out_be32(tbipa, tbiaddr);
- 
--	/*
--	 * The TBIPHY-only buses will find PHYs at every address,
--	 * so we mask them all but the TBI
--	 */
--	if (!of_device_is_compatible(np, "fsl,gianfar-mdio"))
--		new_bus->phy_mask = ~(1 << tbiaddr);
--
--	err = mdiobus_register(new_bus);
--
--	if (err) {
-+	err = of_mdiobus_register(new_bus, np);
-+	if (err != 0) {
- 		printk (KERN_ERR "%s: Cannot register as MDIO bus\n",
- 				new_bus->name);
- 		goto err_free_irqs;
+ 	phy_interface_t interface;
+-	char	phy_bus_id[BUS_ID_SIZE];
++	struct device_node *phy_node;
++	struct device_node *tbi_node;
+ 	u32 device_flags;
+ 	unsigned char rx_csum_enable:1,
+ 		extended_hash:1,
 
