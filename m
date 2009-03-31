@@ -1,42 +1,204 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH] ucc_geth: Rework the TX logic.
-Date: Tue, 31 Mar 2009 16:16:58 +0800
-Message-ID: <2a27d3730903310116r4d8602b8y41e466801bbb8d3e@mail.gmail.com>
-References: <1238089445-28396-1-git-send-email-Joakim.Tjernlund@transmode.se>
-	<2a27d3730903270245k6e8633eehfb5cd3fcebd36240@mail.gmail.com>
-	<OFDCE90357.0EDC5DC1-ONC1257586.003759A3-C1257586.00390AD3@transmode.se>
-	<49CCD3E8.9040007@freescale.com>
-	<OFEFCEAFB5.CC21FFBB-ONC1257589.005AEF16-C1257589.005B64EB@transmode.se>
-	<49D0FFBB.7000009@freescale.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 2/2] sysctl:  lockdep support for sysctl reference
+ counting.
+Date: Tue, 31 Mar 2009 10:17:28 +0200
+Message-ID: <1238487448.28248.1805.camel@twins>
+References: <49B91A7E.76E4.0078.0@novell.com>
+	 <tip-6a09dfa870ba0ed21b1124539968a36b42660661@git.kernel.org>
+	 <1236934491.5188.209.camel@laptop> <49BA33BE.76E4.0078.0@novell.com>
+	 <1236937423.22914.3698.camel@twins> <20090313103828.GB31094@elte.hu>
+	 <m1d4cd9n4k.fsf@fess.ebiederm.org> <20090320085205.GB16021@elte.hu>
+	 <m14oxo8qis.fsf@fess.ebiederm.org> <20090320182404.GA31629@elte.hu>
+	 <1237575134.4667.5.camel@laptop> <1237577688.4667.68.camel@laptop>
+	 <m1iqm3xr2n.fsf_-_@fess.ebiederm.org> <m1eiwrxr05.fsf_-_@fess.ebiederm.org>
+	 <m1ab7fxqxw.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxppc-dev@ozlabs.org, Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	netdev@vger.kernel.org
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <49D0FFBB.7000009@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>, Jan Beulich <jbeulich@novell.com>,
+	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
+	linux-kernel@vger.kernel.org, Gautham R Shenoy <ego@in.ibm.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:55051 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752597AbZCaIRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:17:23 -0400
+In-Reply-To: <m1ab7fxqxw.fsf_-_@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBNYXIgMzEsIDIwMDkgYXQgMToyMiBBTSwgU2NvdHQgV29vZCA8c2NvdHR3b29kQGZy
-ZWVzY2FsZS5jb20+IHdyb3RlOgo+IEpvYWtpbSBUamVybmx1bmQgd3JvdGU6Cj4+Cj4+IGdpYW5m
-YXIgZG9lcyBub3Qgc2VlbSB0byB1c2UgaW5fL291dF8gZnVuY3Rpb25zIGZvciB0aGUgQkRzLiBX
-b3JrcyBqdXN0Cj4+IGZpbmUgdGhhdCB0b28gaXQgc2VlbXMuCj4KPiBJdCBkb2VzIG5vdyB0aGF0
-IGl0IGhhcyBleHBsaWNpdCBiYXJyaWVycyBpbiBhIGZldyBwbGFjZXMuIMKgQmVmb3JlIHRoZXkg
-d2VyZQo+IGFkZGVkLCBpdCB3b3VsZCBzb21ldGltZXMgZmFpbCB1bmRlciBsb2FkLiDCoFRoYXQg
-d2FzIGR1ZSB0byBhIGNvbXBpbGVyCj4gcmVvcmRlcmluZywgYnV0IENQVSByZW9yZGVyaW5nIHdh
-cyBwb3NzaWJsZSBhcyB3ZWxsLgoKSSBub3RpY2VkIHRoYXQgaW4gZ2lhbmZhciB0aGVzZSBtZW1v
-cnkgYWNjZXNzIGlzIG5vdCBwcm90ZWN0ZWQgYnkKInZvbGF0aWxlIi4gIENhbiB0aGlzIGJlIHRo
-ZSByZWFzb24gd2h5IHRoZSBjb21waWxlciBkaWQgc29tZSB1bndhbnRlZApvcHRpbWl6YXRpb24/
-CgotIExlbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpM
-aW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3JnCmh0dHBzOi8v
-b3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+On Sat, 2009-03-21 at 00:42 -0700, Eric W. Biederman wrote:
+> It is possible for get lock ordering deadlocks between locks
+> and waiting for the sysctl used count to drop to zero.  We have
+> recently observed one of these in the networking code.
+> 
+> So teach the sysctl code how to speak lockdep so the kernel
+> can warn about these kinds of rare issues proactively.
+
+It would be very good to extend this changelog with a more detailed
+explanation of the deadlock in question.
+
+Let me see if I got it right:
+
+We're holding a lock, while waiting for the refcount to drop to 0.
+Dropping that refcount is blocked on that lock.
+
+Something like that?
+
+> Signed-off-by: Eric Biederman <ebiederm@aristanetworks.com>
+> ---
+>  include/linux/sysctl.h |    4 ++
+>  kernel/sysctl.c        |  108 ++++++++++++++++++++++++++++++++++++++---------
+>  2 files changed, 91 insertions(+), 21 deletions(-)
+> 
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index 39d471d..ec9b1dd 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -28,6 +28,7 @@
+>  #include <linux/kernel.h>
+>  #include <linux/types.h>
+>  #include <linux/compiler.h>
+> +#include <linux/lockdep.h>
+>  
+>  struct file;
+>  struct completion;
+> @@ -1087,6 +1088,9 @@ struct ctl_table_header
+>  	struct ctl_table *attached_by;
+>  	struct ctl_table *attached_to;
+>  	struct ctl_table_header *parent;
+> +#ifdef CONFIG_PROVE_LOCKING
+> +	struct lockdep_map dep_map;
+> +#endif
+>  };
+>  
+>  /* struct ctl_path describes where in the hierarchy a table is added */
+> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+> index c5ef44f..ea8cc39 100644
+> --- a/kernel/sysctl.c
+> +++ b/kernel/sysctl.c
+> @@ -1454,12 +1454,63 @@ static struct ctl_table dev_table[] = {
+>  
+>  static DEFINE_SPINLOCK(sysctl_lock);
+>  
+> +#ifndef CONFIG_PROVE_LOCKING
+> +
+> +# define lock_sysctl() spin_lock(&sysctl_lock)
+> +# define unlock_sysctl() spin_unlock(&sysctl_lock)
+> +
+> +static inline void table_acquire_use(struct ctl_table_header *hdr) { }
+> +static inline void table_release_use(struct ctl_table_header *hdr) { }
+> +static inline void table_acquire(struct ctl_table_header *hdr) { }
+> +static inline void table_contended(struct ctl_table_header *hdr) { }
+> +static inline void table_acquired(struct ctl_table_header *hdr) { }
+> +static inline void table_release(struct ctl_table_header *hdr) { }
+> +
+> +#else	/* CONFIG_PROVE_LOCKING */
+> +
+> +#  define lock_sysctl() __raw_spin_lock(&sysctl_lock.raw_lock)
+> +#  define unlock_sysctl() __raw_spin_unlock(&sysctl_lock.raw_lock)
+
+Uhmm, Please explain that -- without a proper explanation this is a NAK.
+
+> +static inline void table_acquire_use(struct ctl_table_header *hdr)
+> +{
+> +	lock_acquire(&hdr->dep_map, 0, 0, 1, 2, NULL, _RET_IP_);
+> +	lock_acquired(&hdr->dep_map, _RET_IP_);
+> +}
+> +
+> +static inline void table_release_use(struct ctl_table_header *hdr)
+> +{
+> +	lock_release(&hdr->dep_map, 0, _RET_IP_);
+> +}
+> +
+> +static inline void table_acquire(struct ctl_table_header *hdr)
+> +{
+> +	lock_acquire(&hdr->dep_map, 0, 0, 0, 2, NULL, _RET_IP_);
+> +}
+> +
+> +static inline void table_contended(struct ctl_table_header *hdr)
+> +{
+> +	lock_contended(&hdr->dep_map, _RET_IP_);
+> +}
+> +
+> +static inline void table_acquired(struct ctl_table_header *hdr)
+> +{
+> +	lock_acquired(&hdr->dep_map, _RET_IP_);
+> +}
+> +
+> +static inline void table_release(struct ctl_table_header *hdr)
+> +{
+> +	lock_release(&hdr->dep_map, 0, _RET_IP_);
+> +}
+> +
+> +#endif /* CONFIG_PROVE_LOCKING */
+> +
+>  /* called under sysctl_lock */
+>  static int use_table(struct ctl_table_header *p)
+>  {
+>  	if (unlikely(p->unregistering))
+>  		return 0;
+>  	p->used++;
+> +	table_acquire_use(p);
+>  	return 1;
+>  }
+>  
+> @@ -1469,6 +1520,8 @@ static void unuse_table(struct ctl_table_header *p)
+>  	if (!--p->used)
+>  		if (unlikely(p->unregistering))
+>  			complete(p->unregistering);
+> +
+> +	table_release_use(p);
+>  }
+>  
+>  /* called under sysctl_lock, will reacquire if has to wait */
+> @@ -1478,47 +1531,54 @@ static void start_unregistering(struct ctl_table_header *p)
+>  	 * if p->used is 0, nobody will ever touch that entry again;
+>  	 * we'll eliminate all paths to it before dropping sysctl_lock
+>  	 */
+> +	table_acquire(p);
+>  	if (unlikely(p->used)) {
+>  		struct completion wait;
+> +		table_contended(p);
+> +
+>  		init_completion(&wait);
+>  		p->unregistering = &wait;
+> -		spin_unlock(&sysctl_lock);
+> +		unlock_sysctl();
+>  		wait_for_completion(&wait);
+> -		spin_lock(&sysctl_lock);
+> +		lock_sysctl();
+>  	} else {
+>  		/* anything non-NULL; we'll never dereference it */
+>  		p->unregistering = ERR_PTR(-EINVAL);
+>  	}
+> +	table_acquired(p);
+> +
+>  	/*
+>  	 * do not remove from the list until nobody holds it; walking the
+>  	 * list in do_sysctl() relies on that.
+>  	 */
+>  	list_del_init(&p->ctl_entry);
+> +
+> +	table_release(p);
+>  }
+>  
+
+> @@ -1951,7 +2011,13 @@ struct ctl_table_header *__register_sysctl_paths(
+>  		return NULL;
+>  	}
+>  #endif
+> -	spin_lock(&sysctl_lock);
+> +#ifdef CONFIG_DEBUG_LOCK_ALLOC
+> +	{
+> +		static struct lock_class_key __key;
+> +		lockdep_init_map(&header->dep_map, "sysctl_used", &__key, 0);
+> +	}
+> +#endif	
+
+This means every sysctl thingy gets the same class, is that
+intended/desired?
+
