@@ -1,7 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH 03/17] vbus: add connection-client helper infrastructure
-Date: Tue, 31 Mar 2009 14:43:02 -0400
-Message-ID: <20090331184302.28333.18745.stgit@dev.haskins.net>
+Subject: [RFC PATCH 01/17] shm-signal: shared-memory signals
+Date: Tue, 31 Mar 2009 14:42:52 -0400
+Message-ID: <20090331184252.28333.70623.stgit@dev.haskins.net>
 References: <20090331184057.28333.77287.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,56 +11,42 @@ Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:52022 "EHLO
+Received: from victor.provo.novell.com ([137.65.250.26]:45273 "EHLO
 	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754884AbZCaSkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:40:46 -0400
+	with ESMTP id S1756808AbZCaSkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 14:40:45 -0400
 In-Reply-To: <20090331184057.28333.77287.stgit@dev.haskins.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We expect to have various types of connection-clients (e.g. userspace,
-kvm, etc), each of which is likely to have common access patterns and
-marshalling duties.  Therefore we create a "client" API to simplify
-client development by helping with mundane tasks such as handle-2-pointer
-translation, etc.
+This interface provides a bidirectional shared-memory based signaling
+mechanism.  It can be used by any entities which desire efficient
+communication via shared memory.  The implementation details of the
+signaling are abstracted so that they may transcend a wide variety
+of locale boundaries (e.g. userspace/kernel, guest/host, etc).
 
-Special thanks to Pat Mullaney for suggesting the optimization to pass
-a cookie object down during DEVICESHM operations to save lookup overhead
-on the event channel.
+The shm_signal mechanism supports event masking as well as spurious
+event delivery mitigation.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/vbus_client.h |  115 +++++++++
- kernel/vbus/Makefile        |    2 
- kernel/vbus/client.c        |  527 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 643 insertions(+), 1 deletions(-)
- create mode 100644 include/linux/vbus_client.h
- create mode 100644 kernel/vbus/client.c
+ include/linux/shm_signal.h |  188 ++++++++++++++++++++++++++++++++++++++++++++
+ lib/Kconfig                |   10 ++
+ lib/Makefile               |    1 
+ lib/shm_signal.c           |  186 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 385 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/shm_signal.h
+ create mode 100644 lib/shm_signal.c
 
-diff --git a/include/linux/vbus_client.h b/include/linux/vbus_client.h
+diff --git a/include/linux/shm_signal.h b/include/linux/shm_signal.h
 new file mode 100644
-index 0000000..62dab78
+index 0000000..a65e54e
 --- /dev/null
-+++ b/include/linux/vbus_client.h
-@@ -0,0 +1,115 @@
++++ b/include/linux/shm_signal.h
+@@ -0,0 +1,188 @@
 +/*
 + * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * Virtual-Bus - Client interface
-+ *
-+ * We expect to have various types of connection-clients (e.g. userspace,
-+ * kvm, etc).  Each client will be connecting from some environment outside
-+ * of the kernel, and therefore will not have direct access to the API as
-+ * presented in ./linux/vbus.h.  There will undoubtedly be some parameter
-+ * marshalling that must occur, as well as common patterns for the handling
-+ * of those marshalled parameters (e.g. translating a handle into a pointer,
-+ * etc).
-+ *
-+ * Therefore this "client" API is provided to simplify the development
-+ * of any clients.  Of course, a client is free to bypass this API entirely
-+ * and communicate with the direct VBUS API if desired.
 + *
 + * Author:
 + *      Gregory Haskins <ghaskins@novell.com>
@@ -79,625 +65,395 @@ index 0000000..62dab78
 + * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 + */
 +
-+#ifndef _LINUX_VBUS_CLIENT_H
-+#define _LINUX_VBUS_CLIENT_H
++#ifndef _LINUX_SHM_SIGNAL_H
++#define _LINUX_SHM_SIGNAL_H
 +
-+#include <linux/types.h>
-+#include <linux/compiler.h>
++#include <asm/types.h>
 +
-+struct vbus_deviceopen {
-+	__u32 devid;
-+	__u32 version; /* device ABI version */
-+	__u64 handle; /* return value for devh */
++/*
++ *---------
++ * The following structures represent data that is shared across boundaries
++ * which may be quite disparate from one another (e.g. Windows vs Linux,
++ * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
++ * present data in a manner that is independent of the environment.
++ *-----------
++ */
++
++#define SHM_SIGNAL_MAGIC 0x58fa39df
++#define SHM_SIGNAL_VER   1
++
++struct shm_signal_irq {
++	__u8                  enabled;
++	__u8                  pending;
++	__u8                  dirty;
 +};
 +
-+struct vbus_devicecall {
-+	__u64 devh;   /* device-handle (returned from DEVICEOPEN */
-+	__u32 func;
-+	__u32 len;
-+	__u32 flags;
-+	__u64 datap;
++enum shm_signal_locality {
++	shm_locality_north,
++	shm_locality_south,
 +};
 +
-+struct vbus_deviceshm {
-+	__u64 devh;   /* device-handle (returned from DEVICEOPEN */
-+	__u32 id;
-+	__u32 len;
-+	__u32 flags;
-+	struct {
-+		__u32 offset;
-+		__u32 prio;
-+		__u64 cookie; /* token to pass back when signaling client */
-+	} signal;
-+	__u64 datap;
-+	__u64 handle; /* return value for signaling from client to kernel */
++struct shm_signal_desc {
++	__u32                 magic;
++	__u32                 ver;
++	struct shm_signal_irq irq[2];
 +};
++
++/* --- END SHARED STRUCTURES --- */
 +
 +#ifdef __KERNEL__
 +
-+#include <linux/ioq.h>
-+#include <linux/module.h>
-+#include <asm/atomic.h>
++#include <linux/interrupt.h>
 +
-+struct vbus_client;
-+
-+struct vbus_client_ops {
-+	int (*deviceopen)(struct vbus_client *client,  struct vbus_memctx *ctx,
-+			  __u32 devid, __u32 version, __u64 *devh);
-+	int (*deviceclose)(struct vbus_client *client, __u64 devh);
-+	int (*devicecall)(struct vbus_client *client,
-+			  __u64 devh, __u32 func,
-+			  void *data, __u32 len, __u32 flags);
-+	int (*deviceshm)(struct vbus_client *client,
-+			 __u64 devh, __u32 id,
-+			 struct vbus_shm *shm, struct shm_signal *signal,
-+			 __u32 flags, __u64 *handle);
-+	int (*shmsignal)(struct vbus_client *client, __u64 handle);
-+	void (*release)(struct vbus_client *client);
++struct shm_signal_notifier {
++	void (*signal)(struct shm_signal_notifier *);
 +};
 +
-+struct vbus_client {
-+	atomic_t refs;
-+	struct vbus_client_ops *ops;
++struct shm_signal;
++
++struct shm_signal_ops {
++	int      (*inject)(struct shm_signal *s);
++	void     (*fault)(struct shm_signal *s, const char *fmt, ...);
++	void     (*release)(struct shm_signal *s);
 +};
 +
-+static inline void vbus_client_get(struct vbus_client *client)
++enum {
++	shm_signal_in_wakeup,
++};
++
++struct shm_signal {
++	atomic_t                    refs;
++	spinlock_t                  lock;
++	enum shm_signal_locality    locale;
++	unsigned long               flags;
++	struct shm_signal_ops      *ops;
++	struct shm_signal_desc     *desc;
++	struct shm_signal_notifier *notifier;
++	struct tasklet_struct       deferred_notify;
++};
++
++#define SHM_SIGNAL_FAULT(s, fmt, args...)  \
++  ((s)->ops->fault ? (s)->ops->fault((s), fmt, ## args) : panic(fmt, ## args))
++
++ /*
++  * These functions should only be used internally
++  */
++void _shm_signal_release(struct shm_signal *s);
++void _shm_signal_wakeup(struct shm_signal *s);
++
++/**
++ * shm_signal_init() - initialize an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
++ *
++ * Initializes SHM_SIGNAL context before first use
++ *
++ **/
++void shm_signal_init(struct shm_signal *s);
++
++/**
++ * shm_signal_get() - acquire an SHM_SIGNAL context reference
++ * @s:        SHM_SIGNAL context
++ *
++ **/
++static inline struct shm_signal *shm_signal_get(struct shm_signal *s)
 +{
-+	atomic_inc(&client->refs);
++	atomic_inc(&s->refs);
++
++	return s;
 +}
 +
-+static inline void vbus_client_put(struct vbus_client *client)
++/**
++ * shm_signal_put() - release an SHM_SIGNAL context reference
++ * @s:        SHM_SIGNAL context
++ *
++ **/
++static inline void shm_signal_put(struct shm_signal *s)
 +{
-+	if (atomic_dec_and_test(&client->refs))
-+		client->ops->release(client);
++	if (atomic_dec_and_test(&s->refs))
++		_shm_signal_release(s);
 +}
 +
-+struct vbus_client *vbus_client_attach(struct vbus *bus);
++/**
++ * shm_signal_enable() - enables local notifications on an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Enables/unmasks the registered notifier (if applicable) to receive wakeups
++ * whenever the remote side performs an shm_signal() operation. A notification
++ * will be dispatched immediately if any pending signals have already been
++ * issued prior to invoking this call.
++ *
++ * This is synonymous with unmasking an interrupt.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int shm_signal_enable(struct shm_signal *s, int flags);
 +
-+extern struct vbus_memctx *current_memctx;
-+struct vbus_memctx *task_memctx_alloc(struct task_struct *task);
++/**
++ * shm_signal_disable() - disable local notifications on an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Disables/masks the registered shm_signal_notifier (if applicable) from
++ * receiving any further notifications.  Any subsequent calls to shm_signal()
++ * by the remote side will update the shm as dirty, but will not traverse the
++ * locale boundary and will not invoke the notifier callback.  Signals
++ * delivered while masked will be deferred until shm_signal_enable() is
++ * invoked.
++ *
++ * This is synonymous with masking an interrupt
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int shm_signal_disable(struct shm_signal *s, int flags);
++
++/**
++ * shm_signal_inject() - notify the remote side about shm changes
++ * @s:        SHM_SIGNAL context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Marks the shm state as "dirty" and, if enabled, will traverse
++ * a locale boundary to inject a remote notification.  The remote
++ * side controls whether the notification should be delivered via
++ * the shm_signal_enable/disable() interface.
++ *
++ * The specifics of how to traverse a locale boundary are abstracted
++ * by the shm_signal_ops->signal() interface and provided by a particular
++ * implementation.  However, typically going north to south would be
++ * something like a syscall/hypercall, and going south to north would be
++ * something like a posix-signal/guest-interrupt.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int shm_signal_inject(struct shm_signal *s, int flags);
 +
 +#endif /* __KERNEL__ */
 +
-+#endif /* _LINUX_VBUS_CLIENT_H */
-diff --git a/kernel/vbus/Makefile b/kernel/vbus/Makefile
-index 367f65b..4d440e5 100644
---- a/kernel/vbus/Makefile
-+++ b/kernel/vbus/Makefile
-@@ -1 +1 @@
--obj-$(CONFIG_VBUS) += core.o devclass.o config.o attribute.o map.o
-+obj-$(CONFIG_VBUS) += core.o devclass.o config.o attribute.o map.o client.o
-diff --git a/kernel/vbus/client.c b/kernel/vbus/client.c
++#endif /* _LINUX_SHM_SIGNAL_H */
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 03c2c24..32d82fe 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -174,4 +174,14 @@ config DISABLE_OBSOLETE_CPUMASK_FUNCTIONS
+        bool "Disable obsolete cpumask functions" if DEBUG_PER_CPU_MAPS
+        depends on EXPERIMENTAL && BROKEN
+ 
++config SHM_SIGNAL
++	boolean "SHM Signal - Generic shared-memory signaling mechanism"
++	default n
++	help
++	 Provides a shared-memory based signaling mechansim to indicate
++         memory-dirty notifications between two end-points.
++
++	 If unsure, say N
++
++
+ endmenu
+diff --git a/lib/Makefile b/lib/Makefile
+index 32b0e64..bc36327 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -71,6 +71,7 @@ obj-$(CONFIG_TEXTSEARCH_BM) += ts_bm.o
+ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
+ obj-$(CONFIG_SMP) += percpu_counter.o
+ obj-$(CONFIG_AUDIT_GENERIC) += audit.o
++obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
+ 
+ obj-$(CONFIG_SWIOTLB) += swiotlb.o
+ obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
+diff --git a/lib/shm_signal.c b/lib/shm_signal.c
 new file mode 100644
-index 0000000..ff8d6df
+index 0000000..fa1770c
 --- /dev/null
-+++ b/kernel/vbus/client.c
-@@ -0,0 +1,527 @@
++++ b/lib/shm_signal.c
+@@ -0,0 +1,186 @@
++/*
++ * Copyright 2009 Novell.  All Rights Reserved.
++ *
++ * See include/linux/shm_signal.h for documentation
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
 +#include <linux/module.h>
-+#include <linux/sched.h>
-+#include <linux/mm.h>
-+#include <linux/highmem.h>
-+#include <linux/uaccess.h>
-+#include <linux/vbus.h>
-+#include <linux/vbus_client.h>
-+#include "vbus.h"
++#include <linux/interrupt.h>
++#include <linux/shm_signal.h>
 +
-+static int
-+nodeptr_item_compare(struct rb_node *lhs, struct rb_node *rhs)
++int shm_signal_enable(struct shm_signal *s, int flags)
 +{
-+	unsigned long l = (unsigned long)lhs;
-+	unsigned long r = (unsigned long)rhs;
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++	unsigned long iflags;
 +
-+	return l - r;
-+}
++	spin_lock_irqsave(&s->lock, iflags);
 +
-+static int
-+nodeptr_key_compare(const void *key, struct rb_node *node)
-+{
-+	unsigned long item = (unsigned long)node;
-+	unsigned long _key = *(unsigned long *)key;
++	irq->enabled = 1;
++	wmb();
 +
-+	return _key - item;
-+}
-+
-+static struct map_ops nodeptr_map_ops = {
-+	.key_compare = &nodeptr_key_compare,
-+	.item_compare = &nodeptr_item_compare,
-+};
-+
-+struct _signal {
-+	atomic_t refs;
-+	struct rb_node node;
-+	struct list_head list;
-+	struct shm_signal *signal;
-+};
-+
-+struct _connection {
-+	atomic_t refs;
-+	struct rb_node node;
-+	struct list_head signals;
-+	struct vbus_connection *conn;
-+};
-+
-+static inline void _signal_get(struct _signal *_signal)
-+{
-+	atomic_inc(&_signal->refs);
-+}
-+
-+static inline void _signal_put(struct _signal *_signal)
-+{
-+	if (atomic_dec_and_test(&_signal->refs)) {
-+		shm_signal_put(_signal->signal);
-+		kfree(_signal);
++	if ((irq->dirty || irq->pending)
++	    && !test_bit(shm_signal_in_wakeup, &s->flags)) {
++		rmb();
++		tasklet_schedule(&s->deferred_notify);
 +	}
++
++	spin_unlock_irqrestore(&s->lock, iflags);
++
++	return 0;
 +}
++EXPORT_SYMBOL_GPL(shm_signal_enable);
 +
-+static inline void conn_get(struct _connection *_conn)
++int shm_signal_disable(struct shm_signal *s, int flags)
 +{
-+	atomic_inc(&_conn->refs);
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++
++	irq->enabled = 0;
++	wmb();
++
++	return 0;
 +}
++EXPORT_SYMBOL_GPL(shm_signal_disable);
 +
-+static inline void conn_put(struct _connection *_conn)
++/*
++ * signaling protocol:
++ *
++ * each side of the shm_signal has an "irq" structure with the following
++ * fields:
++ *
++ *    - enabled: controlled by shm_signal_enable/disable() to mask/unmask
++ *               the notification locally
++ *    - dirty:   indicates if the shared-memory is dirty or clean.  This
++ *               is updated regardless of the enabled/pending state so that
++ *               the state is always accurately tracked.
++ *    - pending: indicates if a signal is pending to the remote locale.
++ *               This allows us to determine if a remote-notification is
++ *               already in flight to optimize spurious notifications away.
++ */
++int shm_signal_inject(struct shm_signal *s, int flags)
 +{
-+	if (atomic_dec_and_test(&_conn->refs)) {
-+		struct _signal *_signal, *tmp;
-+
-+		list_for_each_entry_safe(_signal, tmp, &_conn->signals,
-+					 list) {
-+			list_del(&_signal->list);
-+			_signal_put(_signal);
-+		}
-+
-+		vbus_connection_put(_conn->conn);
-+		kfree(_conn);
-+	}
-+}
-+
-+struct _client {
-+	struct mutex lock;
-+	struct map conn_map;
-+	struct map signal_map;
-+	struct vbus *vbus;
-+	struct vbus_client client;
-+};
-+
-+struct _connection *to_conn(struct rb_node *node)
-+{
-+	return node ? container_of(node, struct _connection, node) : NULL;
-+}
-+
-+static struct _signal *to_signal(struct rb_node *node)
-+{
-+	return node ? container_of(node, struct _signal, node) : NULL;
-+}
-+
-+static struct _client *to_client(struct vbus_client *client)
-+{
-+	return container_of(client, struct _client, client);
-+}
-+
-+static struct _connection *
-+connection_find(struct _client *c, unsigned long devid)
-+{
-+	struct _connection *_conn;
++	/* Load the irq structure from the other locale */
++	struct shm_signal_irq *irq = &s->desc->irq[!s->locale];
 +
 +	/*
-+	 * We could, in theory, cast devid to _conn->node, but this would
-+	 * be pretty stupid to trust.  Therefore, we must validate that
-+	 * the pointer is legit by seeing if it exists in our conn_map
++	 * We always mark the remote side as dirty regardless of whether
++	 * they need to be notified.
 +	 */
++	irq->dirty = 1;
++	wmb();   /* dirty must be visible before we test the pending state */
 +
-+	mutex_lock(&c->lock);
++	if (irq->enabled && !irq->pending) {
++		rmb();
 +
-+	_conn = to_conn(map_find(&c->conn_map, &devid));
-+	if (likely(_conn))
-+		conn_get(_conn);
++		/*
++		 * If the remote side has enabled notifications, and we do
++		 * not see a notification pending, we must inject a new one.
++		 */
++		irq->pending = 1;
++		wmb(); /* make it visible before we do the injection */
 +
-+	mutex_unlock(&c->lock);
++		s->ops->inject(s);
++	}
 +
-+	return _conn;
++	return 0;
 +}
++EXPORT_SYMBOL_GPL(shm_signal_inject);
 +
-+static int
-+_deviceopen(struct vbus_client *client, struct vbus_memctx *ctx,
-+	    __u32 devid, __u32 version, __u64 *devh)
++void _shm_signal_wakeup(struct shm_signal *s)
 +{
-+	struct _client *c = to_client(client);
-+	struct vbus_connection *conn;
-+	struct _connection *_conn;
-+	struct vbus_device_interface *intf = NULL;
-+	int ret;
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++	int dirty;
++	unsigned long flags;
++
++	spin_lock_irqsave(&s->lock, flags);
++
++	__set_bit(shm_signal_in_wakeup, &s->flags);
 +
 +	/*
-+	 * We only get here if the device has never been opened before,
-+	 * so we need to create a new connection
++	 * The outer loop protects against race conditions between
++	 * irq->dirty and irq->pending updates
 +	 */
-+	ret = vbus_interface_find(c->vbus, devid, &intf);
-+	if (ret < 0)
-+		return ret;
++	while (irq->enabled && (irq->dirty || irq->pending)) {
 +
-+	ret = intf->ops->open(intf, ctx, version, &conn);
-+	kobject_put(&intf->kobj);
-+	if (ret < 0)
-+		return ret;
++		/*
++		 * Run until we completely exhaust irq->dirty (it may
++		 * be re-dirtied by the remote side while we are in the
++		 * callback).  We let "pending" remain untouched until we have
++		 * processed them all so that the remote side knows we do not
++		 * need a new notification (yet).
++		 */
++		do {
++			irq->dirty = 0;
++			/* the unlock is an implicit wmb() for dirty = 0 */
++			spin_unlock_irqrestore(&s->lock, flags);
 +
-+	_conn = kzalloc(sizeof(*_conn), GFP_KERNEL);
-+	if (!_conn) {
-+		vbus_connection_put(conn);
-+		return -ENOMEM;
++			if (s->notifier)
++				s->notifier->signal(s->notifier);
++
++			spin_lock_irqsave(&s->lock, flags);
++			dirty = irq->dirty;
++			rmb();
++
++		} while (irq->enabled && dirty);
++
++		barrier();
++
++		/*
++		 * We can finally acknowledge the notification by clearing
++		 * "pending" after all of the dirty memory has been processed
++		 * Races against this clearing are handled by the outer loop.
++		 * Subsequent iterations of this loop will execute with
++		 * pending=0 potentially leading to future spurious
++		 * notifications, but this is an acceptable tradeoff as this
++		 * will be rare and harmless.
++		 */
++		irq->pending = 0;
++		wmb();
++
 +	}
 +
-+	atomic_set(&_conn->refs, 1);
-+	_conn->conn = conn;
-+
-+	INIT_LIST_HEAD(&_conn->signals);
-+
-+	mutex_lock(&c->lock);
-+	ret = map_add(&c->conn_map, &_conn->node);
-+	mutex_unlock(&c->lock);
-+
-+	if (ret < 0) {
-+		conn_put(_conn);
-+		return ret;
-+	}
-+
-+	/* in theory, &_conn->node should be unique */
-+	*devh = (__u64)&_conn->node;
-+
-+	return 0;
++	__clear_bit(shm_signal_in_wakeup, &s->flags);
++	spin_unlock_irqrestore(&s->lock, flags);
 +
 +}
++EXPORT_SYMBOL_GPL(_shm_signal_wakeup);
 +
-+/*
-+ * Assumes client->lock is held (or we are releasing and dont need to lock)
-+ */
-+static void
-+conn_del(struct _client *c, struct _connection *_conn)
++void _shm_signal_release(struct shm_signal *s)
 +{
-+	struct _signal *_signal, *tmp;
-+
-+	/* Delete and release each opened queue */
-+	list_for_each_entry_safe(_signal, tmp, &_conn->signals, list) {
-+		map_del(&c->signal_map, &_signal->node);
-+		_signal_put(_signal);
-+	}
-+
-+	map_del(&c->conn_map, &_conn->node);
++	s->ops->release(s);
 +}
-+
-+static int
-+_deviceclose(struct vbus_client *client, __u64 devh)
-+{
-+	struct _client *c = to_client(client);
-+	struct _connection *_conn;
-+
-+	mutex_lock(&c->lock);
-+
-+	_conn = to_conn(map_find(&c->conn_map, &devh));
-+	if (likely(_conn))
-+		conn_del(c, _conn);
-+
-+	mutex_unlock(&c->lock);
-+
-+	if (unlikely(!_conn))
-+		return -ENOENT;
-+
-+	/* this _put is the compliment to the _get performed at _deviceopen */
-+	conn_put(_conn);
-+
-+	return 0;
-+}
-+
-+static int
-+_devicecall(struct vbus_client *client,
-+	    __u64 devh, __u32 func, void *data, __u32 len, __u32 flags)
-+{
-+	struct _client *c = to_client(client);
-+	struct _connection *_conn;
-+	struct vbus_connection *conn;
-+	int ret;
-+
-+	_conn = connection_find(c, devh);
-+	if (!_conn)
-+		return -ENOENT;
-+
-+	conn = _conn->conn;
-+
-+	ret = conn->ops->call(conn, func, data, len, flags);
-+
-+	conn_put(_conn);
-+
-+	return ret;
-+}
-+
-+static int
-+_deviceshm(struct vbus_client *client,
-+	   __u64 devh,
-+	   __u32 id,
-+	   struct vbus_shm *shm,
-+	   struct shm_signal *signal,
-+	   __u32 flags,
-+	   __u64 *handle)
-+{
-+	struct _client *c = to_client(client);
-+	struct _signal *_signal = NULL;
-+	struct _connection *_conn;
-+	struct vbus_connection *conn;
-+	int ret;
-+
-+	*handle = 0;
-+
-+	_conn = connection_find(c, devh);
-+	if (!_conn)
-+		return -ENOENT;
-+
-+	conn = _conn->conn;
-+
-+	ret = conn->ops->shm(conn, id, shm, signal, flags);
-+	if (ret < 0) {
-+		conn_put(_conn);
-+		return ret;
-+	}
-+
-+	if (signal) {
-+		_signal = kzalloc(sizeof(*_signal), GFP_KERNEL);
-+		if (!_signal) {
-+			conn_put(_conn);
-+			return -ENOMEM;
-+		}
-+
-+		 /* one for map-ref, one for list-ref */
-+		atomic_set(&_signal->refs, 2);
-+		_signal->signal = signal;
-+		shm_signal_get(signal);
-+
-+		mutex_lock(&c->lock);
-+		ret = map_add(&c->signal_map, &_signal->node);
-+		list_add_tail(&_signal->list, &_conn->signals);
-+		mutex_unlock(&c->lock);
-+
-+		if (!ret)
-+			*handle = (__u64)&_signal->node;
-+	}
-+
-+	conn_put(_conn);
-+
-+	return 0;
-+}
-+
-+static int
-+_shmsignal(struct vbus_client *client, __u64 handle)
-+{
-+	struct _client *c = to_client(client);
-+	struct _signal *_signal;
-+
-+	mutex_lock(&c->lock);
-+
-+	_signal = to_signal(map_find(&c->signal_map, &handle));
-+	if (likely(_signal))
-+		_signal_get(_signal);
-+
-+	mutex_unlock(&c->lock);
-+
-+	if (!_signal)
-+		return -ENOENT;
-+
-+	_shm_signal_wakeup(_signal->signal);
-+
-+	_signal_put(_signal);
-+
-+	return 0;
-+}
++EXPORT_SYMBOL_GPL(_shm_signal_release);
 +
 +static void
-+_release(struct vbus_client *client)
++deferred_notify(unsigned long data)
 +{
-+	struct _client *c = to_client(client);
-+	struct rb_node *node;
++	struct shm_signal *s = (struct shm_signal *)data;
 +
-+	/* Drop all of our open connections */
-+	while ((node = rb_first(&c->conn_map.root))) {
-+		struct _connection *_conn = to_conn(node);
-+
-+		conn_del(c, _conn);
-+		conn_put(_conn);
-+	}
-+
-+	vbus_put(c->vbus);
-+	kfree(c);
++	_shm_signal_wakeup(s);
 +}
 +
-+struct vbus_client_ops _client_ops = {
-+	.deviceopen  = _deviceopen,
-+	.deviceclose = _deviceclose,
-+	.devicecall  = _devicecall,
-+	.deviceshm   = _deviceshm,
-+	.shmsignal   = _shmsignal,
-+	.release     = _release,
-+};
-+
-+struct vbus_client *vbus_client_attach(struct vbus *vbus)
++void shm_signal_init(struct shm_signal *s)
 +{
-+	struct _client *c;
-+
-+	BUG_ON(!vbus);
-+
-+	c = kzalloc(sizeof(*c), GFP_KERNEL);
-+	if (!c)
-+		return NULL;
-+
-+	atomic_set(&c->client.refs, 1);
-+	c->client.ops = &_client_ops;
-+
-+	mutex_init(&c->lock);
-+	map_init(&c->conn_map, &nodeptr_map_ops);
-+	map_init(&c->signal_map, &nodeptr_map_ops);
-+	c->vbus = vbus_get(vbus);
-+
-+	return &c->client;
++	memset(s, 0, sizeof(*s));
++	atomic_set(&s->refs, 1);
++	spin_lock_init(&s->lock);
++	tasklet_init(&s->deferred_notify,
++		     deferred_notify,
++		     (unsigned long)s);
 +}
-+EXPORT_SYMBOL_GPL(vbus_client_attach);
-+
-+/*
-+ * memory context helpers
-+ */
-+
-+static unsigned long
-+current_memctx_copy_to(struct vbus_memctx *ctx, void *dst, const void *src,
-+		       unsigned long len)
-+{
-+	return copy_to_user(dst, src, len);
-+}
-+
-+static unsigned long
-+current_memctx_copy_from(struct vbus_memctx *ctx, void *dst, const void *src,
-+			 unsigned long len)
-+{
-+	return copy_from_user(dst, src, len);
-+}
-+
-+static void
-+current_memctx_release(struct vbus_memctx *ctx)
-+{
-+	panic("dropped last reference to current_memctx");
-+}
-+
-+static struct vbus_memctx_ops current_memctx_ops = {
-+	.copy_to   = &current_memctx_copy_to,
-+	.copy_from = &current_memctx_copy_from,
-+	.release   = &current_memctx_release,
-+};
-+
-+static struct vbus_memctx _current_memctx =
-+	VBUS_MEMCTX_INIT((&current_memctx_ops));
-+
-+struct vbus_memctx *current_memctx = &_current_memctx;
-+
-+/*
-+ * task_mem allows you to have a copy_from_user/copy_to_user like
-+ * environment, except that it supports copying to tasks other
-+ * than "current" as ctu/cfu() do
-+ */
-+struct task_memctx {
-+	struct task_struct *task;
-+	struct vbus_memctx ctx;
-+};
-+
-+static struct task_memctx *to_task_memctx(struct vbus_memctx *ctx)
-+{
-+	return container_of(ctx, struct task_memctx, ctx);
-+}
-+
-+static unsigned long
-+task_memctx_copy_to(struct vbus_memctx *ctx, void *dst, const void *src,
-+		    unsigned long n)
-+{
-+	struct task_memctx *tm = to_task_memctx(ctx);
-+	struct task_struct *p = tm->task;
-+
-+	while (n) {
-+		unsigned long offset = ((unsigned long)dst)%PAGE_SIZE;
-+		unsigned long len = PAGE_SIZE - offset;
-+		int ret;
-+		struct page *pg;
-+		void *maddr;
-+
-+		if (len > n)
-+			len = n;
-+
-+		down_read(&p->mm->mmap_sem);
-+		ret = get_user_pages(p, p->mm,
-+				     (unsigned long)dst, 1, 1, 0, &pg, NULL);
-+
-+		if (ret != 1) {
-+			up_read(&p->mm->mmap_sem);
-+			break;
-+		}
-+
-+		maddr = kmap_atomic(pg, KM_USER0);
-+		memcpy(maddr + offset, src, len);
-+		kunmap_atomic(maddr, KM_USER0);
-+		set_page_dirty_lock(pg);
-+		put_page(pg);
-+		up_read(&p->mm->mmap_sem);
-+
-+		src += len;
-+		dst += len;
-+		n -= len;
-+	}
-+
-+	return n;
-+}
-+
-+static unsigned long
-+task_memctx_copy_from(struct vbus_memctx *ctx, void *dst, const void *src,
-+		      unsigned long n)
-+{
-+	struct task_memctx *tm = to_task_memctx(ctx);
-+	struct task_struct *p = tm->task;
-+
-+	while (n) {
-+		unsigned long offset = ((unsigned long)src)%PAGE_SIZE;
-+		unsigned long len = PAGE_SIZE - offset;
-+		int ret;
-+		struct page *pg;
-+		void *maddr;
-+
-+		if (len > n)
-+			len = n;
-+
-+		down_read(&p->mm->mmap_sem);
-+		ret = get_user_pages(p, p->mm,
-+				     (unsigned long)src, 1, 1, 0, &pg, NULL);
-+
-+		if (ret != 1) {
-+			up_read(&p->mm->mmap_sem);
-+			break;
-+		}
-+
-+		maddr = kmap_atomic(pg, KM_USER0);
-+		memcpy(dst, maddr + offset, len);
-+		kunmap_atomic(maddr, KM_USER0);
-+		put_page(pg);
-+		up_read(&p->mm->mmap_sem);
-+
-+		src += len;
-+		dst += len;
-+		n -= len;
-+	}
-+
-+	return n;
-+}
-+
-+static void
-+task_memctx_release(struct vbus_memctx *ctx)
-+{
-+	struct task_memctx *tm = to_task_memctx(ctx);
-+
-+	put_task_struct(tm->task);
-+	kfree(tm);
-+}
-+
-+static struct vbus_memctx_ops task_memctx_ops = {
-+	.copy_to   = &task_memctx_copy_to,
-+	.copy_from = &task_memctx_copy_from,
-+	.release   = &task_memctx_release,
-+};
-+
-+struct vbus_memctx *task_memctx_alloc(struct task_struct *task)
-+{
-+	struct task_memctx *tm;
-+
-+	tm = kzalloc(sizeof(*tm), GFP_KERNEL);
-+	if (!tm)
-+		return NULL;
-+
-+	get_task_struct(task);
-+
-+	tm->task = task;
-+	vbus_memctx_init(&tm->ctx, &task_memctx_ops);
-+
-+	return &tm->ctx;
-+}
-+EXPORT_SYMBOL_GPL(task_memctx_alloc);
++EXPORT_SYMBOL_GPL(shm_signal_init);
 
