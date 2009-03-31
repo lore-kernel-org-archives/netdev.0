@@ -1,8 +1,7 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 07/14] net: Rework mpc5200 fec driver to use of_mdio
-	infrastructure.
-Date: Tue, 31 Mar 2009 02:27:20 -0600
-Message-ID: <20090331082719.1427.76728.stgit@localhost.localdomain>
+Subject: [PATCH 13/14] net: Rework fs_enet driver to use of_mdio infrastructure
+Date: Tue, 31 Mar 2009 02:27:51 -0600
+Message-ID: <20090331082751.1427.11716.stgit@localhost.localdomain>
 References: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,447 +13,275 @@ To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wa-out-1112.google.com ([209.85.146.182]:47063 "EHLO
 	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753142AbZCaI1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:27:24 -0400
+	with ESMTP id S1754023AbZCaI1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 04:27:55 -0400
 Received: by wa-out-1112.google.com with SMTP id j5so1584813wah.21
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 01:27:22 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 01:27:53 -0700 (PDT)
 In-Reply-To: <20090331075537.1427.7819.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Grant Likely <grant.likely@secretlab.ca>
 
-The patch reworks the MPC5200 Fast Ethernet Controller (FEC) driver to
-use the of_mdio infrastructure for registering PHY devices from data out
-openfirmware device tree, and eliminates the assumption that the PHY
-for the FEC is always attached to the FEC's own MDIO bus.  With this
-patch, the FEC can use a PHY attached to any MDIO bus if it is described
-in the device tree.
+This patch simplifies the driver by making use of more common code.
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/net/fec_mpc52xx.c     |  180 ++++++++++++-----------------------------
- drivers/net/fec_mpc52xx_phy.c |   26 +-----
- 2 files changed, 59 insertions(+), 147 deletions(-)
+ drivers/net/fs_enet/fs_enet-main.c |   69 ++++++------------------------------
+ drivers/net/fs_enet/mii-bitbang.c  |   29 +--------------
+ drivers/net/fs_enet/mii-fec.c      |   26 +-------------
+ include/linux/fs_enet_pd.h         |    6 +--
+ 4 files changed, 16 insertions(+), 114 deletions(-)
 
 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index e10eb2c..0ebd4ec 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -25,6 +25,7 @@
- #include <linux/hardirq.h>
- #include <linux/delay.h>
- #include <linux/of_device.h>
-+#include <linux/of_mdio.h>
- #include <linux/of_platform.h>
- 
- #include <linux/netdevice.h>
-@@ -43,11 +44,9 @@
- 
- #define DRIVER_NAME "mpc52xx-fec"
- 
--#define FEC5200_PHYADDR_NONE	(-1)
--#define FEC5200_PHYADDR_7WIRE	(-2)
--
- /* Private driver data structure */
- struct mpc52xx_fec_priv {
-+	struct net_device *ndev;
- 	int duplex;
- 	int speed;
- 	int r_irq;
-@@ -59,10 +58,11 @@ struct mpc52xx_fec_priv {
- 	int msg_enable;
- 
- 	/* MDIO link details */
--	int phy_addr;
--	unsigned int phy_speed;
-+	unsigned int mdio_speed;
-+	struct device_node *phy_node;
- 	struct phy_device *phydev;
- 	enum phy_state link;
-+	int seven_wire_mode;
- };
- 
- 
-@@ -211,85 +211,25 @@ static void mpc52xx_fec_adjust_link(struct net_device *dev)
- 		phy_print_status(phydev);
- }
- 
--static int mpc52xx_fec_init_phy(struct net_device *dev)
--{
--	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
--	struct phy_device *phydev;
--	char phy_id[BUS_ID_SIZE];
--
--	snprintf(phy_id, sizeof(phy_id), "%x:%02x",
--			(unsigned int)dev->base_addr, priv->phy_addr);
--
--	priv->link = PHY_DOWN;
--	priv->speed = 0;
--	priv->duplex = -1;
--
--	phydev = phy_connect(dev, phy_id, &mpc52xx_fec_adjust_link, 0, PHY_INTERFACE_MODE_MII);
--	if (IS_ERR(phydev)) {
--		dev_err(&dev->dev, "phy_connect failed\n");
--		return PTR_ERR(phydev);
--	}
--	dev_info(&dev->dev, "attached phy %i to driver %s\n",
--			phydev->addr, phydev->drv->name);
--
--	priv->phydev = phydev;
--
--	return 0;
--}
--
--static int mpc52xx_fec_phy_start(struct net_device *dev)
--{
--	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
--	int err;
--
--	if (priv->phy_addr < 0)
--		return 0;
--
--	err = mpc52xx_fec_init_phy(dev);
--	if (err) {
--		dev_err(&dev->dev, "mpc52xx_fec_init_phy failed\n");
--		return err;
--	}
--
--	/* reset phy - this also wakes it from PDOWN */
--	phy_write(priv->phydev, MII_BMCR, BMCR_RESET);
--	phy_start(priv->phydev);
--
--	return 0;
--}
--
--static void mpc52xx_fec_phy_stop(struct net_device *dev)
--{
--	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
--
--	if (!priv->phydev)
--		return;
--
--	phy_disconnect(priv->phydev);
--	/* power down phy */
--	phy_stop(priv->phydev);
--	phy_write(priv->phydev, MII_BMCR, BMCR_PDOWN);
--}
--
--static void mpc52xx_fec_phy_hw_init(struct mpc52xx_fec_priv *priv)
--{
--	struct mpc52xx_fec __iomem *fec = priv->fec;
--
--	if (priv->phydev)
--		return;
--
--	out_be32(&fec->mii_speed, priv->phy_speed);
--}
--
- static int mpc52xx_fec_open(struct net_device *dev)
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
- 	int err = -EBUSY;
- 
-+	if (priv->phy_node) {
-+		priv->phydev = of_phy_connect(priv->ndev, priv->phy_node,
-+					      mpc52xx_fec_adjust_link, 0, 0);
-+		if (!priv->phydev) {
-+			dev_err(&dev->dev, "of_phy_connect failed\n");
-+			return -ENODEV;
-+		}
-+		phy_start(priv->phydev);
-+	}
-+
- 	if (request_irq(dev->irq, &mpc52xx_fec_interrupt, IRQF_SHARED,
- 	                DRIVER_NAME "_ctrl", dev)) {
- 		dev_err(&dev->dev, "ctrl interrupt request failed\n");
--		goto out;
-+		goto free_phy;
- 	}
- 	if (request_irq(priv->r_irq, &mpc52xx_fec_rx_interrupt, 0,
- 	                DRIVER_NAME "_rx", dev)) {
-@@ -311,10 +251,6 @@ static int mpc52xx_fec_open(struct net_device *dev)
- 		goto free_irqs;
- 	}
- 
--	err = mpc52xx_fec_phy_start(dev);
--	if (err)
--		goto free_skbs;
--
- 	bcom_enable(priv->rx_dmatsk);
- 	bcom_enable(priv->tx_dmatsk);
- 
-@@ -324,16 +260,18 @@ static int mpc52xx_fec_open(struct net_device *dev)
- 
- 	return 0;
- 
-- free_skbs:
--	mpc52xx_fec_free_rx_buffers(dev, priv->rx_dmatsk);
--
-  free_irqs:
- 	free_irq(priv->t_irq, dev);
-  free_2irqs:
- 	free_irq(priv->r_irq, dev);
-  free_ctrl_irq:
- 	free_irq(dev->irq, dev);
-- out:
-+ free_phy:
-+	if (priv->phydev) {
-+		phy_stop(priv->phydev);
-+		phy_disconnect(priv->phydev);
-+		priv->phydev = NULL;
-+	}
- 
- 	return err;
- }
-@@ -352,7 +290,12 @@ static int mpc52xx_fec_close(struct net_device *dev)
- 	free_irq(priv->r_irq, dev);
- 	free_irq(priv->t_irq, dev);
- 
--	mpc52xx_fec_phy_stop(dev);
-+	if (priv->phydev) {
-+		/* power down phy */
-+		phy_stop(priv->phydev);
-+		phy_disconnect(priv->phydev);
-+		priv->phydev = NULL;
-+	}
- 
- 	return 0;
- }
-@@ -696,7 +639,7 @@ static void mpc52xx_fec_hw_init(struct net_device *dev)
- 	/* set phy speed.
- 	 * this can't be done in phy driver, since it needs to be called
- 	 * before fec stuff (even on resume) */
--	mpc52xx_fec_phy_hw_init(priv);
-+	out_be32(&fec->mii_speed, priv->mdio_speed);
- }
- 
- /**
-@@ -732,7 +675,7 @@ static void mpc52xx_fec_start(struct net_device *dev)
- 	rcntrl = FEC_RX_BUFFER_SIZE << 16;	/* max frame length */
- 	rcntrl |= FEC_RCNTRL_FCE;
- 
--	if (priv->phy_addr != FEC5200_PHYADDR_7WIRE)
-+	if (!priv->seven_wire_mode)
- 		rcntrl |= FEC_RCNTRL_MII_MODE;
- 
- 	if (priv->duplex == DUPLEX_FULL)
-@@ -798,8 +741,6 @@ static void mpc52xx_fec_stop(struct net_device *dev)
- 
- 	/* Stop FEC */
- 	out_be32(&fec->ecntrl, in_be32(&fec->ecntrl) & ~FEC_ECNTRL_ETHER_EN);
--
--	return;
- }
- 
- /* reset fec and bestcomm tasks */
-@@ -817,9 +758,11 @@ static void mpc52xx_fec_reset(struct net_device *dev)
- 
- 	mpc52xx_fec_hw_init(dev);
- 
--	phy_stop(priv->phydev);
--	phy_write(priv->phydev, MII_BMCR, BMCR_RESET);
--	phy_start(priv->phydev);
-+	if (priv->phydev) {
-+		phy_stop(priv->phydev);
-+		phy_write(priv->phydev, MII_BMCR, BMCR_RESET);
-+		phy_start(priv->phydev);
-+	}
- 
- 	bcom_fec_rx_reset(priv->rx_dmatsk);
- 	bcom_fec_tx_reset(priv->tx_dmatsk);
-@@ -918,8 +861,6 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	struct net_device *ndev;
- 	struct mpc52xx_fec_priv *priv = NULL;
- 	struct resource mem;
--	struct device_node *phy_node;
--	const phandle *phy_handle;
- 	const u32 *prop;
- 	int prop_size;
- 
-@@ -932,6 +873,7 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 		return -ENOMEM;
- 
- 	priv = netdev_priv(ndev);
-+	priv->ndev = ndev;
- 
- 	/* Reserve FEC control zone */
- 	rv = of_address_to_resource(op->node, 0, &mem);
-@@ -955,6 +897,7 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	ndev->ethtool_ops	= &mpc52xx_fec_ethtool_ops;
- 	ndev->watchdog_timeo	= FEC_WATCHDOG_TIMEOUT;
- 	ndev->base_addr		= mem.start;
-+	SET_NETDEV_DEV(ndev, &op->dev);
- 
- 	spin_lock_init(&priv->lock);
- 
-@@ -1002,14 +945,9 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	 */
- 
- 	/* Start with safe defaults for link connection */
--	priv->phy_addr = FEC5200_PHYADDR_NONE;
- 	priv->speed = 100;
- 	priv->duplex = DUPLEX_HALF;
--	priv->phy_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
--
--	/* the 7-wire property means don't use MII mode */
--	if (of_find_property(op->node, "fsl,7-wire-mode", NULL))
--		priv->phy_addr = FEC5200_PHYADDR_7WIRE;
-+	priv->mdio_speed = ((mpc52xx_find_ipb_freq(op->node) >> 20) / 5) << 1;
- 
- 	/* The current speed preconfigures the speed of the MII link */
- 	prop = of_get_property(op->node, "current-speed", &prop_size);
-@@ -1018,43 +956,23 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 		priv->duplex = prop[1] ? DUPLEX_FULL : DUPLEX_HALF;
- 	}
- 
--	/* If there is a phy handle, setup link to that phy */
--	phy_handle = of_get_property(op->node, "phy-handle", &prop_size);
--	if (phy_handle && (prop_size >= sizeof(phandle))) {
--		phy_node = of_find_node_by_phandle(*phy_handle);
--		prop = of_get_property(phy_node, "reg", &prop_size);
--		if (prop && (prop_size >= sizeof(u32)))
--			if ((*prop >= 0) && (*prop < PHY_MAX_ADDR))
--				priv->phy_addr = *prop;
--		of_node_put(phy_node);
-+	/* If there is a phy handle, then get the PHY node */
-+	priv->phy_node = of_parse_phandle(op->node, "phy-handle", 0);
-+
-+	/* the 7-wire property means don't use MII mode */
-+	if (of_find_property(op->node, "fsl,7-wire-mode", NULL)) {
-+		priv->seven_wire_mode = 1;
-+		dev_info(&ndev->dev, "using 7-wire PHY mode\n");
- 	}
- 
- 	/* Hardware init */
- 	mpc52xx_fec_hw_init(ndev);
--
- 	mpc52xx_fec_reset_stats(ndev);
- 
--	SET_NETDEV_DEV(ndev, &op->dev);
--
--	/* Register the new network device */
- 	rv = register_netdev(ndev);
- 	if (rv < 0)
- 		goto probe_error;
- 
--	/* Now report the link setup */
--	switch (priv->phy_addr) {
--	 case FEC5200_PHYADDR_NONE:
--		dev_info(&ndev->dev, "Fixed speed MII link: %i%cD\n",
--			 priv->speed, priv->duplex ? 'F' : 'H');
--		break;
--	 case FEC5200_PHYADDR_7WIRE:
--		dev_info(&ndev->dev, "using 7-wire PHY mode\n");
--		break;
--	 default:
--		dev_info(&ndev->dev, "Using PHY at MDIO address %i\n",
--			 priv->phy_addr);
--	}
--
- 	/* We're done ! */
- 	dev_set_drvdata(&op->dev, ndev);
- 
-@@ -1064,6 +982,10 @@ mpc52xx_fec_probe(struct of_device *op, const struct of_device_id *match)
- 	/* Error handling - free everything that might be allocated */
- probe_error:
- 
-+	if (priv->phy_node)
-+		of_node_put(priv->phy_node);
-+	priv->phy_node = NULL;
-+
- 	irq_dispose_mapping(ndev->irq);
- 
- 	if (priv->rx_dmatsk)
-@@ -1092,6 +1014,10 @@ mpc52xx_fec_remove(struct of_device *op)
- 
- 	unregister_netdev(ndev);
- 
-+	if (priv->phy_node)
-+		of_node_put(priv->phy_node);
-+	priv->phy_node = NULL;
-+
- 	irq_dispose_mapping(ndev->irq);
- 
- 	bcom_fec_rx_release(priv->rx_dmatsk);
-diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_phy.c
-index dd9bfa4..fec9f24 100644
---- a/drivers/net/fec_mpc52xx_phy.c
-+++ b/drivers/net/fec_mpc52xx_phy.c
-@@ -14,12 +14,14 @@
- #include <linux/netdevice.h>
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index b037ce9..387e0e9 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -36,6 +36,8 @@
+ #include <linux/fs.h>
+ #include <linux/platform_device.h>
  #include <linux/phy.h>
- #include <linux/of_platform.h>
++#include <linux/of.h>
 +#include <linux/of_mdio.h>
- #include <asm/io.h>
- #include <asm/mpc52xx.h>
- #include "fec_mpc52xx.h"
+ #include <linux/of_platform.h>
+ #include <linux/of_gpio.h>
  
- struct mpc52xx_fec_mdio_priv {
- 	struct mpc52xx_fec __iomem *regs;
-+	int mdio_irqs[PHY_MAX_ADDR];
- };
+@@ -752,9 +754,10 @@ static int fs_init_phy(struct net_device *dev)
+ 	fep->oldlink = 0;
+ 	fep->oldspeed = 0;
+ 	fep->oldduplex = -1;
+-	if(fep->fpi->bus_id)
+-		phydev = phy_connect(dev, fep->fpi->bus_id, &fs_adjust_link, 0,
+-				PHY_INTERFACE_MODE_MII);
++	if(fep->fpi->phy_node)
++		phydev = of_phy_connect(dev, fep->fpi->phy_node,
++					&fs_adjust_link, 0,
++					PHY_INTERFACE_MODE_MII);
+ 	else {
+ 		printk("No phy bus ID specified in BSP code\n");
+ 		return -EINVAL;
+@@ -962,57 +965,6 @@ static void cleanup_immap(void)
  
- static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
-@@ -27,7 +29,7 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
- {
- 	struct mpc52xx_fec_mdio_priv *priv = bus->priv;
- 	struct mpc52xx_fec __iomem *fec;
--	int tries = 100;
-+	int tries = 3;
+ /**************************************************************************************/
  
- 	value |= (phy_id << FEC_MII_DATA_PA_SHIFT) & FEC_MII_DATA_PA_MSK;
- 	value |= (reg << FEC_MII_DATA_RA_SHIFT) & FEC_MII_DATA_RA_MSK;
-@@ -38,7 +40,7 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
- 
- 	/* wait for it to finish, this takes about 23 us on lite5200b */
- 	while (!(in_be32(&fec->ievent) & FEC_IEVENT_MII) && --tries)
--		udelay(5);
-+		msleep(1);
- 
- 	if (!tries)
- 		return -ETIMEDOUT;
-@@ -64,7 +66,6 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
- {
- 	struct device *dev = &of->dev;
- 	struct device_node *np = of->node;
--	struct device_node *child = NULL;
- 	struct mii_bus *bus;
- 	struct mpc52xx_fec_mdio_priv *priv;
- 	struct resource res = {};
-@@ -85,22 +86,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
- 	bus->write = mpc52xx_fec_mdio_write;
- 
- 	/* setup irqs */
--	bus->irq = kmalloc(sizeof(bus->irq[0]) * PHY_MAX_ADDR, GFP_KERNEL);
--	if (bus->irq == NULL) {
--		err = -ENOMEM;
--		goto out_free;
--	}
--	for (i=0; i<PHY_MAX_ADDR; i++)
--		bus->irq[i] = PHY_POLL;
+-static int __devinit find_phy(struct device_node *np,
+-                              struct fs_platform_info *fpi)
+-{
+-	struct device_node *phynode, *mdionode;
+-	int ret = 0, len, bus_id;
+-	const u32 *data;
 -
--	while ((child = of_get_next_child(np, child)) != NULL) {
--		int irq = irq_of_parse_and_map(child, 0);
--		if (irq != NO_IRQ) {
--			const u32 *id = of_get_property(child, "reg", NULL);
--			if (id)
--				bus->irq[*id] = irq;
--		}
+-	data  = of_get_property(np, "fixed-link", NULL);
+-	if (data) {
+-		snprintf(fpi->bus_id, 16, "%x:%02x", 0, *data);
+-		return 0;
 -	}
-+	bus->irq = priv->mdio_irqs;
+-
+-	data = of_get_property(np, "phy-handle", &len);
+-	if (!data || len != 4)
+-		return -EINVAL;
+-
+-	phynode = of_find_node_by_phandle(*data);
+-	if (!phynode)
+-		return -EINVAL;
+-
+-	data = of_get_property(phynode, "reg", &len);
+-	if (!data || len != 4) {
+-		ret = -EINVAL;
+-		goto out_put_phy;
+-	}
+-
+-	mdionode = of_get_parent(phynode);
+-	if (!mdionode) {
+-		ret = -EINVAL;
+-		goto out_put_phy;
+-	}
+-
+-	bus_id = of_get_gpio(mdionode, 0);
+-	if (bus_id < 0) {
+-		struct resource res;
+-		ret = of_address_to_resource(mdionode, 0, &res);
+-		if (ret)
+-			goto out_put_mdio;
+-		bus_id = res.start;
+-	}
+-
+-	snprintf(fpi->bus_id, 16, "%x:%02x", bus_id, *data);
+-
+-out_put_mdio:
+-	of_node_put(mdionode);
+-out_put_phy:
+-	of_node_put(phynode);
+-	return ret;
+-}
+-
+ #ifdef CONFIG_FS_ENET_HAS_FEC
+ #define IS_FEC(match) ((match)->data == &fs_fec_ops)
+ #else
+@@ -1046,9 +998,9 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
+ 	fpi->rx_copybreak = 240;
+ 	fpi->use_napi = 1;
+ 	fpi->napi_weight = 17;
+-
+-	ret = find_phy(ofdev->node, fpi);
+-	if (ret)
++	fpi->phy_node = of_parse_phandle(ofdev->node, "phy-handle", 0);
++	if ((!fpi->phy_node) && (!of_get_property(ofdev->node, "fixed-link",
++						  NULL)))
+ 		goto out_free_fpi;
  
- 	/* setup registers */
- 	err = of_address_to_resource(np, 0, &res);
-@@ -122,7 +108,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
- 	out_be32(&priv->regs->mii_speed,
- 		((mpc52xx_find_ipb_freq(of->node) >> 20) / 5) << 1);
+ 	privsize = sizeof(*fep) +
+@@ -1129,6 +1081,7 @@ out_cleanup_data:
+ out_free_dev:
+ 	free_netdev(ndev);
+ 	dev_set_drvdata(&ofdev->dev, NULL);
++	of_node_put(fpi->phy_node);
+ out_free_fpi:
+ 	kfree(fpi);
+ 	return ret;
+@@ -1144,7 +1097,7 @@ static int fs_enet_remove(struct of_device *ofdev)
+ 	fep->ops->free_bd(ndev);
+ 	fep->ops->cleanup_data(ndev);
+ 	dev_set_drvdata(fep->dev, NULL);
+-
++	of_node_put(fep->fpi->phy_node);
+ 	free_netdev(ndev);
+ 	return 0;
+ }
+diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/fs_enet/mii-bitbang.c
+index 49b6645..93b481b 100644
+--- a/drivers/net/fs_enet/mii-bitbang.c
++++ b/drivers/net/fs_enet/mii-bitbang.c
+@@ -22,6 +22,7 @@
+ #include <linux/mii.h>
+ #include <linux/platform_device.h>
+ #include <linux/mdio-bitbang.h>
++#include <linux/of_mdio.h>
+ #include <linux/of_platform.h>
  
--	err = mdiobus_register(bus);
-+	err = of_mdiobus_register(bus, np);
- 	if (err)
- 		goto out_unmap;
+ #include "fs_enet.h"
+@@ -149,31 +150,12 @@ static int __devinit fs_mii_bitbang_init(struct mii_bus *bus,
+ 	return 0;
+ }
  
+-static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
+-{
+-	const u32 *data;
+-	int len, id, irq;
+-
+-	data = of_get_property(np, "reg", &len);
+-	if (!data || len != 4)
+-		return;
+-
+-	id = *data;
+-	bus->phy_mask &= ~(1 << id);
+-
+-	irq = of_irq_to_resource(np, 0, NULL);
+-	if (irq != NO_IRQ)
+-		bus->irq[id] = irq;
+-}
+-
+ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
+                                         const struct of_device_id *match)
+ {
+-	struct device_node *np = NULL;
+ 	struct mii_bus *new_bus;
+ 	struct bb_info *bitbang;
+ 	int ret = -ENOMEM;
+-	int i;
+ 
+ 	bitbang = kzalloc(sizeof(struct bb_info), GFP_KERNEL);
+ 	if (!bitbang)
+@@ -196,17 +178,10 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
+ 	if (!new_bus->irq)
+ 		goto out_unmap_regs;
+ 
+-	for (i = 0; i < PHY_MAX_ADDR; i++)
+-		new_bus->irq[i] = -1;
+-
+-	while ((np = of_get_next_child(ofdev->node, np)))
+-		if (!strcmp(np->type, "ethernet-phy"))
+-			add_phy(new_bus, np);
+-
+ 	new_bus->parent = &ofdev->dev;
+ 	dev_set_drvdata(&ofdev->dev, new_bus);
+ 
+-	ret = mdiobus_register(new_bus);
++	ret = of_mdiobus_register(new_bus, ofdev->node);
+ 	if (ret)
+ 		goto out_free_irqs;
+ 
+diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
+index 28077cc..bdc3160 100644
+--- a/drivers/net/fs_enet/mii-fec.c
++++ b/drivers/net/fs_enet/mii-fec.c
+@@ -102,23 +102,6 @@ static int fs_enet_fec_mii_reset(struct mii_bus *bus)
+ 	return 0;
+ }
+ 
+-static void __devinit add_phy(struct mii_bus *bus, struct device_node *np)
+-{
+-	const u32 *data;
+-	int len, id, irq;
+-
+-	data = of_get_property(np, "reg", &len);
+-	if (!data || len != 4)
+-		return;
+-
+-	id = *data;
+-	bus->phy_mask &= ~(1 << id);
+-
+-	irq = of_irq_to_resource(np, 0, NULL);
+-	if (irq != NO_IRQ)
+-		bus->irq[id] = irq;
+-}
+-
+ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
+                                         const struct of_device_id *match)
+ {
+@@ -165,17 +148,10 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
+ 	if (!new_bus->irq)
+ 		goto out_unmap_regs;
+ 
+-	for (i = 0; i < PHY_MAX_ADDR; i++)
+-		new_bus->irq[i] = -1;
+-
+-	while ((np = of_get_next_child(ofdev->node, np)))
+-		if (!strcmp(np->type, "ethernet-phy"))
+-			add_phy(new_bus, np);
+-
+ 	new_bus->parent = &ofdev->dev;
+ 	dev_set_drvdata(&ofdev->dev, new_bus);
+ 
+-	ret = mdiobus_register(new_bus);
++	ret = of_mdiobus_register(new_bus, ofdev->node);
+ 	if (ret)
+ 		goto out_free_irqs;
+ 
+diff --git a/include/linux/fs_enet_pd.h b/include/linux/fs_enet_pd.h
+index 8300cab..51b7934 100644
+--- a/include/linux/fs_enet_pd.h
++++ b/include/linux/fs_enet_pd.h
+@@ -17,6 +17,7 @@
+ #define FS_ENET_PD_H
+ 
+ #include <linux/string.h>
++#include <linux/of_mdio.h>
+ #include <asm/types.h>
+ 
+ #define FS_ENET_NAME	"fs_enet"
+@@ -130,10 +131,7 @@ struct fs_platform_info {
+ 	
+ 	u32 device_flags;
+ 
+-	int phy_addr;		/* the phy address (-1 no phy) */
+-	char bus_id[16];
+-	int phy_irq;		/* the phy irq (if it exists)  */
+-
++	struct device_node *phy_node;
+ 	const struct fs_mii_bus_info *bus_info;
+ 
+ 	int rx_ring, tx_ring;	/* number of buffers on rx     */
 
