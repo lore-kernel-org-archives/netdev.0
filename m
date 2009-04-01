@@ -1,21 +1,21 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12971] New: "tg3 transmit timed out" when
- transmitting at high bitrate
-Date: Wed, 1 Apr 2009 16:43:00 -0700
-Message-ID: <20090401164300.049a48fc.akpm@linux-foundation.org>
-References: <bug-12971-10286@http.bugzilla.kernel.org/>
+Subject: Re: [Bugme-new] [Bug 12969] New: WARNING: at lib/dma-debug.c:539
+ check_sync+0xe9/0x341() (Not tainted)
+Date: Wed, 1 Apr 2009 16:50:15 -0700
+Message-ID: <20090401165015.8481f9e0.akpm@linux-foundation.org>
+References: <bug-12969-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, dobrev666@gmail.com,
-	mcarlson@broadcom.com, mchan@broadcom.com
-To: netdev@vger.kernel.org
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	sergio@sergiomb.no-ip.org, Joerg Roedel <joerg.roedel@amd.com>
+To: zambrano@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34108 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54754 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753888AbZDAXqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 19:46:16 -0400
-In-Reply-To: <bug-12971-10286@http.bugzilla.kernel.org/>
+	by vger.kernel.org with ESMTP id S1754799AbZDAXxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 19:53:08 -0400
+In-Reply-To: <bug-12969-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,104 +23,74 @@ List-ID: <netdev.vger.kernel.org>
 (switched to email.  Please respond via emailed reply-to-all, not via the
 bugzilla web interface).
 
-On Sun, 29 Mar 2009 18:02:04 GMT
+On Sun, 29 Mar 2009 11:43:19 GMT
 bugzilla-daemon@bugzilla.kernel.org wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12971
+> http://bugzilla.kernel.org/show_bug.cgi?id=12969
 > 
->            Summary: "tg3 transmit timed out" when transmitting at high
->                     bitrate
+>            Summary: WARNING: at lib/dma-debug.c:539
+>                     check_sync+0xe9/0x341() (Not tainted)
 >            Product: Drivers
 >            Version: 2.5
->     Kernel Version: 2.6.29
 >           Platform: All
 >         OS/Version: Linux
->               Tree: Mainline
+>               Tree: Fedora
 >             Status: NEW
 >           Severity: normal
 >           Priority: P1
 >          Component: Network
 >         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: dobrev666@gmail.com
->         Regression: No
+>         ReportedBy: sergio@sergiomb.no-ip.org
+>         Regression: Yes
 > 
 > 
-> I have laptop - HP compaq 6715s with broadcom lan card (from lspci):
-> 10:00.0 Ethernet controller: Broadcom Corporation NetLink BCM5906M Fast
-> Ethernet PCI Express (rev 02). I am using slackware 12.2. I compiled kernel
-> 2.6.29 from kernel.org. 
-> 
-> When I try to copy a file trough the LAN from this laptop with a command like
-> this:
-> scp test.bin 192.168.0.1:/tmp
-> 
-> Some MBytes are copied and the transmit stops and there is some messages in
-> dmesg:
-> 
-> WARNING: at net/sched/sch_generic.c:226 dev_watchdog+0x1c2/0x1d0()
-> Hardware name: HP Compaq 6715s (GR897ES#ABB)
-> NETDEV WATCHDOG: eth0 (tg3): transmit timed out
-> Modules linked in: snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
-> snd_seq_devic
-> e snd_pcm_oss snd_mixer_oss ipv6 cpufreq_stats powernow_k8 freq_table ppdev lp
-> parpor
-> t_pc parport fuse snd_hda_codec_analog pcmcia snd_hda_intel snd_hda_codec tg3
-> fan yen
-> ta_socket snd_hwdep video rsrc_nonstatic rtc_cmos snd_pcm thermal output
-> rtc_core pcm
-> cia_core ati_agp processor libphy rtc_lib psmouse i2c_piix4 agpgart container
-> snd_tim
-> er snd thermal_sys sg serio_raw evdev button battery ac wmi shpchp soundcore
-> k8temp s
-> nd_page_alloc hwmon
-> Pid: 0, comm: swapper Not tainted 2.6.29-smp #1
-> Call Trace:
->  [<c01294b6>] warn_slowpath+0x86/0xa0
->  [<c0120030>] ? sd_init_MC+0xa0/0xd0
->  [<c0120fce>] ? __enqueue_entity+0x8e/0xb0
->  [<c03a483f>] ? cpumask_next_and+0x1f/0x40
->  [<c012260a>] ? find_busiest_group+0x18a/0x710
->  [<c011f8e5>] ? enqueue_task+0x15/0x30
->  [<c03a94ed>] ? strlcpy+0x1d/0x60
->  [<c06bfc02>] dev_watchdog+0x1c2/0x1d0
->  [<c014320b>] ? getnstimeofday+0x4b/0x120
->  [<c01320f4>] run_timer_softirq+0x124/0x190
->  [<c06bfa40>] ? dev_watchdog+0x0/0x1d0
->  [<c012e03a>] __do_softirq+0x8a/0x150
->  [<c0132614>] ? update_process_times+0x54/0x70
->  [<c012e13b>] do_softirq+0x3b/0x50
->  [<c012e47b>] irq_exit+0x3b/0x50
->  [<c011467e>] smp_apic_timer_interrupt+0x5e/0x90
->  [<c0103940>] apic_timer_interrupt+0x28/0x30
->  [<c0109978>] ? default_idle+0x38/0x50
->  [<c0109b80>] c1e_idle+0x90/0xf0
->  [<c0109b91>] ? c1e_idle+0xa1/0xf0
->  [<c0101bea>] cpu_idle+0x4a/0x70
->  [<c072f705>] rest_init+0x55/0x60
-> ---[ end trace 0c67ed7bcfb14db6 ]---
-> tg3: eth0: transmit timed out, resetting
-> tg3: DEBUG: MAC_TX_STATUS[00000008] MAC_RX_STATUS[00000000]
-> tg3: DEBUG: RDMAC_STATUS[00000000] WDMAC_STATUS[00000000]
-> tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> tg3: eth0: Link is down.
-> tg3: eth0: Link is up at 100 Mbps, full duplex.
-> tg3: eth0: Flow control is on for TX and on for RX.
-> 
-> After that I cannot send or receive any data through the LAN. There is no ping
-> to anywhere.
-> These commands fix the problem:
-> 
-> ip l set dev eth0 down
-> ip l set dev eth0 up
-> 
-> And when I execute `scp test.bin 192.168.0.1:/tmp` there is no network again.
-> 
-> But this laptop has no problems when receiving data. I can copy with scp from
-> other PC connected to the same lan with 11Mbytes/s.
-> 
-> I have search the web to find a solution with no success.
-> I have tried some kernel options like "irqpoll" and "acpi=off" with no success.
+> ------------[ cut here ]------------                                            
+> WARNING: at lib/dma-debug.c:539 check_sync+0xe9/0x341() (Not tainted)           
+> Hardware name: HP Compaq nx6110 (PY501EA#AB9)                                   
+> b44 0000:02:0e.0: DMA-API: device driver tries to sync DMA memory it has not
+> allocated [device address=0x0000000075941040] [size=1566 bytes]  
+> Modules linked in: llc bnep l2cap bluetooth autofs4 lm90 hwmon i2c_i801 sunrpc
+> ipv6 cpufreq_ondemand acpi_cpufreq uinput snd_intel8x0m snd_intel8x0
+> snd_ac97_codec snd_seq_dummy ac97_bus snd_seq_oss snd_seq_midi_event snd_seq
+> snd_seq_device snd_pcm_oss snd_mixer_oss snd_pcm b44 ssb firewire_ohci
+> snd_timer ipw2200 iTCO_wdt mii firewire_core snd iTCO_vendor_support libipw
+> yenta_socket crc_itu_t lib80211 rsrc_nonstatic soundcore snd_page_alloc joydev
+> pcspkr wmi serio_raw ata_generic pata_acpi i915 drm i2c_algo_bit i2c_core video
+> output [last unloaded: scsi_wait_scan]                                          
+> Pid: 2418, comm: S58ntpd Not tainted 2.6.29-16.fc10.i686.PAE #1                 
+> Call Trace:                                                                     
+>  [<c04396d1>] warn_slowpath+0x7c/0xbd                                           
+>  [<c0457fe1>] ? register_lock_class+0x17/0x290                                  
+>  [<c0458d61>] ? mark_lock+0x1e/0x349                                            
+>  [<c0556448>] ? _raw_spin_unlock+0x74/0x78                                      
+>  [<c0458d61>] ? mark_lock+0x1e/0x349                                            
+>  [<c055a060>] ? check_sync+0x37/0x341                                           
+>  [<c055a112>] check_sync+0xe9/0x341                                             
+>  [<c0711245>] ? _spin_unlock_irqrestore+0x45/0x55                               
+>  [<c04592db>] ? trace_hardirqs_on+0xb/0xd                                       
+>  [<c055a4d1>] debug_dma_sync_single_for_device+0x2f/0x39                        
+>  [<f828f722>] dma_sync_single_for_device+0x4a/0x59 [b44]                        
+>  [<f828f76f>] ssb_dma_sync_single_for_device+0x3e/0x48 [b44]                    
+>  [<f8291d1e>] b44_recycle_rx+0x18c/0x196 [b44]                                  
+>  [<f8291f9f>] b44_poll+0x277/0x3c0 [b44]                                        
+>  [<c0687bb9>] net_rx_action+0xa1/0x1ca                                          
+>  [<c043e30a>] __do_softirq+0x9d/0x154                                           
+>  [<c043e413>] do_softirq+0x52/0x7e                                              
+>  [<c043e56f>] irq_exit+0x49/0x77                                                
+>  [<c040b22e>] do_IRQ+0x97/0xad                                                  
+>  [<c0409dac>] common_interrupt+0x2c/0x34                                        
 
-I assume that 2.6.28 was OK, and that this is a regression?
+This would appear to be reporting a bug in b44's DMA API usage.  See
+the newly-added documentation in Documentation/DMA-API.txt, starting
+with
+
+	Part III - Debug drivers use of the DMA-API
+
+The line numbers have changed, but it is:
+
+		err_printk(ref->dev, NULL, "DMA-API: device driver tries "
+			   "to free DMA memory it has not allocated "
+			   "[device address=0x%016llx] [size=%llu bytes]\n",
+			   ref->dev_addr, ref->size);
+
+
