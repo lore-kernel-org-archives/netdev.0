@@ -1,51 +1,117 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: tx_queue_len question
-Date: Wed, 1 Apr 2009 11:16:33 +0000
-Message-ID: <20090401111633.GD5970@ff.dom.local>
-References: <b0438a630903301049s7aa796b5t1658999bd4ee1f69@mail.gmail.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Wed, 01 Apr 2009 07:35:39 -0400
+Message-ID: <49D3518B.1030403@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <200904011638.45135.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: =?us-ascii?B?PT9JU08tODg1OS0yP1E/TWlndWVsXz1DMW5nZWxfPUMxbHZhcmV6Pz0=?=
-	<gotzoncabanes@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig9D46F49FD5418A8DAD72AF9E"
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.229]:4427 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752910AbZDALQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 07:16:44 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so3579914rvb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 04:16:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <b0438a630903301049s7aa796b5t1658999bd4ee1f69@mail.gmail.com>
+Received: from victor.provo.novell.com ([137.65.250.26]:46566 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760944AbZDALd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 07:33:28 -0400
+In-Reply-To: <200904011638.45135.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30-03-2009 18:49, Miguel =C1ngel =C1lvarez wrote:
-> Hi
->=20
-> Could anyone please tell me how tx_queue_len works? (Or where to take
-> a look to?).
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig9D46F49FD5418A8DAD72AF9E
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Maybe net/sched/sch_generic.c: pfifo_fast_enqueue()?
+Rusty Russell wrote:
+> On Wednesday 01 April 2009 05:12:47 Gregory Haskins wrote:
+>  =20
+>> Bare metal: tput =3D 4078Mb/s, round-trip =3D 25593pps (39us rtt)
+>> Virtio-net: tput =3D 4003Mb/s, round-trip =3D 320pps (3125us rtt)
+>> Venet: tput =3D 4050Mb/s, round-trip =3D 15255 (65us rtt)
+>>    =20
+>
+> That rtt time is awful.  I know the notification suppression heuristic
+> in qemu sucks.
+>
+> I could dig through the code, but I'll ask directly: what heuristic do
+> you use for notification prevention in your venet_tap driver?
+>  =20
 
->=20
-> I am facing two problems with it:
-> - Using ixp4xx_hss driver, I am not in the same situation if I let th=
-e
-> driver chose tx_queue_len in the initialization, or if I use ifconfig
-> with the same value (100). With the last it seems to be capable of
-> storing more frames.
+I am not 100% sure I know what you mean with "notification prevention",
+but let me take a stab at it.
 
-This shouldn't matter unless I miss something.
+So like most of these kinds of constructs, I have two rings (rx + tx on
+the guest is reversed to tx + rx on the host), each of which can signal
+in either direction for a total of 4 events, 2 on each side of the
+connection.  I utilize what I call "bidirectional napi" so that only the
+first packet submitted needs to signal across the guest/host boundary.=20
+E.g. first ingress packet injects an interrupt, and then does a
+napi_schedule and masks future irqs.  Likewise, first egress packet does
+a hypercall, and then does a "napi_schedule" (I dont actually use napi
+in this path, but its conceptually identical) and masks future
+hypercalls.  So thats is my first form of what I would call notification
+prevention.
 
-> - When I increment it to 300 using ifconfig, the behaviour seems to b=
-e
-> worse than in the case of 100 or 200. Which are the litis of the
-> value?
+The second form occurs on the "tx-complete" path (that is guest->host
+tx).  I only signal back to the guest to reclaim its skbs every 10
+packets, or if I drain the queue, whichever comes first (note to self:
+make this # configurable).
 
-Except some special cases there is used a common value for a similar
-class of devices, like in ether_setup(). The behaviour should depend
-on the kind of traffic.
+The nice part about this scheme is it significantly reduces the amount
+of guest/host transitions, while still providing the lowest latency
+response for single packets possible.  e.g. Send one packet, and you get
+one hypercall, and one tx-complete interrupt as soon as it queues on the
+hardware.  Send 100 packets, and you get one hypercall and 10
+tx-complete interrupts as frequently as every tenth packet queues on the
+hardware.  There is no timer governing the flow, etc.
 
-Jarek P.
+Is that what you were asking?
+
+> As you point out, 350-450 is possible, which is still bad, and it's at =
+least
+> partially caused by the exit to userspace and two system calls.  If vir=
+tio_net
+> had a backend in the kernel, we'd be able to compare numbers properly.
+>  =20
+:)
+
+But that is the whole point, isnt it?  I created vbus specifically as a
+framework for putting things in the kernel, and that *is* one of the
+major reasons it is faster than virtio-net...its not the difference in,
+say, IOQs vs virtio-ring (though note I also think some of the
+innovations we have added such as bi-dir napi are helping too, but these
+are not "in-kernel" specific kinds of features and could probably help
+the userspace version too).
+
+I would be entirely happy if you guys accepted the general concept and
+framework of vbus, and then worked with me to actually convert what I
+have as "venet-tap" into essentially an in-kernel virtio-net.  I am not
+specifically interested in creating a competing pv-net driver...I just
+needed something to showcase the concepts and I didnt want to hack the
+virtio-net infrastructure to do it until I had everyone's blessing.=20
+Note to maintainers: I *am* perfectly willing to maintain the venet
+drivers if, for some reason, we decide that we want to keep them as
+is.   Its just an ideal for me to collapse virtio-net and venet-tap
+together, and I suspect our community would prefer this as well.
+
+-Greg
+
+
+--------------enig9D46F49FD5418A8DAD72AF9E
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAknTUYsACgkQlOSOBdgZUxmo3wCfSi/VhY2StroSGlj1/mUKKw/8
+1ycAnAh1J2rtSdeR9rjLE/2HSjCvFN/p
+=QNZH
+-----END PGP SIGNATURE-----
+
+--------------enig9D46F49FD5418A8DAD72AF9E--
