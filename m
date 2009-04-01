@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/2 V3] kaweth: Fix locking to be SMP-safe
-Date: Wed, 01 Apr 2009 10:28:29 -0500
-Message-ID: <49d3881d.7EinO6dA2s6BnVTa%Larry.Finger@lwfinger.net>
+Subject: [PATCH 2/2 V3] kaweth: Clean up code
+Date: Wed, 01 Apr 2009 10:29:35 -0500
+Message-ID: <49d3885f.OXwftgx2/UvY0Tex%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -9,55 +9,24 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	oliver@neukum.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.124]:50016 "EHLO
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:45841 "EHLO
 	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754340AbZDAP2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 11:28:41 -0400
+	with ESMTP id S1754916AbZDAP3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 11:29:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On an SMP system, the following message is printed. The patch below gets
-fixes the problem.
-
-=================================
-[ INFO: inconsistent lock state ]
-2.6.29-Linus-05093-gc31f403 #57
----------------------------------
-inconsistent {hardirq-on-W} -> {in-hardirq-W} usage.
-bash/4105 [HC1[1]:SC0[0]:HE0:SE1] takes:
- (&kaweth->device_lock){+...}, at: [<ffffffffa01aa286>]
-                 kaweth_usb_receive+0x77/0x1af [kaw eth]
-{hardirq-on-W} state was registered at:
-  [<ffffffff80260503>] __lock_acquire+0x753/0x1685
-  [<ffffffff8026148a>] lock_acquire+0x55/0x71
-  [<ffffffff80461ba6>] _spin_lock+0x31/0x3d
-  [<ffffffffa01aaa0c>] kaweth_start_xmit+0x2b/0x1e1 [kaweth]
-  [<ffffffff803eccd3>] dev_hard_start_xmit+0x22e/0x2ad
-  [<ffffffff803fe120>] __qdisc_run+0xf2/0x203
-  [<ffffffff803ed0cd>] dev_queue_xmit+0x263/0x39b
-  [<ffffffffa03a47cb>] packet_sendmsg_spkt+0x1c4/0x20a [af_packet]
-  [<ffffffff803de0c2>] sock_sendmsg+0xe4/0xfd
-  [<ffffffff803dec8f>] sys_sendto+0xe4/0x10c
-  [<ffffffff8020bccb>] system_call_fastpath+0x16/0x1b
-  [<ffffffffffffffff>] 0xffffffffffffffff
-irq event stamp: 1280
-hardirqs last  enabled at (1279): [<ffffffff80461a71>]
-                  _spin_unlock_irqrestore+0x44/0x4c
-hardirqs last disabled at (1280): [<ffffffff8020bad7>]
-                  save_args+0x67/0x70
-softirqs last  enabled at (660): [<ffffffff8024192c>]
-                  __do_softirq+0x14d/0x15d
-softirqs last disabled at (651): [<ffffffff8020ce9c>]
-                  call_softirq+0x1c/0x28
+The driver kaweth yields a -EBUSY error when starting, and a -ETIME
+error when shutting down. These errors are avoided, and the RX status
+is further checked for other potential errors.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@kernel.org>
 ---
 
 DaveM,
 
-I had expected this to be 2.6.31 material, but Oliver requested that it be
-sent to Stable as well.
+This is 2.6.31 material as the imain change is to eliminate two trivial
+log messages.
 
 Larry
 ---
@@ -66,38 +35,73 @@ Index: wireless-testing/drivers/net/usb/kaweth.c
 ===================================================================
 --- wireless-testing.orig/drivers/net/usb/kaweth.c
 +++ wireless-testing/drivers/net/usb/kaweth.c
-@@ -36,7 +36,6 @@
+@@ -31,7 +31,6 @@
+  ****************************************************************/
+ 
+ /* TODO:
+- * Fix in_interrupt() problem
+  * Develop test procedures for USB net interfaces
   * Run test procedures
   * Fix bugs from previous two steps
-  * Snoop other OSs for any tricks we're not doing
-- * SMP locking
-  * Reduce arbitrary timeouts
-  * Smart multicast support
-  * Temporary MAC change support
-@@ -796,7 +795,7 @@ static int kaweth_start_xmit(struct sk_b
+@@ -606,14 +605,30 @@ static void kaweth_usb_receive(struct ur
  
- 	int res;
+ 	struct sk_buff *skb;
  
--	spin_lock(&kaweth->device_lock);
-+	spin_lock_irq(&kaweth->device_lock);
- 
- 	kaweth_async_set_rx_mode(kaweth);
- 	netif_stop_queue(net);
-@@ -814,7 +813,7 @@ static int kaweth_start_xmit(struct sk_b
- 		if (!copied_skb) {
- 			kaweth->stats.tx_errors++;
- 			netif_start_queue(net);
--			spin_unlock(&kaweth->device_lock);
-+			spin_unlock_irq(&kaweth->device_lock);
- 			return 0;
- 		}
+-	if(unlikely(status == -ECONNRESET || status == -ESHUTDOWN))
+-	/* we are killed - set a flag and wake the disconnect handler */
+-	{
++	if (unlikely(status == -EPIPE)) {
++		kaweth->stats.rx_errors++;
+ 		kaweth->end = 1;
+ 		wake_up(&kaweth->term_wait);
++		dbg("Status was -EPIPE.");
+ 		return;
  	}
-@@ -848,7 +847,7 @@ skip:
- 		net->trans_start = jiffies;
+-
++	if (unlikely(status == -ECONNRESET || status == -ESHUTDOWN)) {
++		/* we are killed - set a flag and wake the disconnect handler */
++		kaweth->end = 1;
++		wake_up(&kaweth->term_wait);
++		dbg("Status was -ECONNRESET or -ESHUTDOWN.");
++		return;
++	}
++	if (unlikely(status == -EPROTO || status == -ETIME ||
++		     status == -EILSEQ)) {
++		kaweth->stats.rx_errors++;
++		dbg("Status was -EPROTO, -ETIME, or -EILSEQ.");
++		return;
++	}
++	if (unlikely(status == -EOVERFLOW)) {
++		kaweth->stats.rx_errors++;
++		dbg("Status was -EOVERFLOW.");
++	}
+ 	spin_lock(&kaweth->device_lock);
+ 	if (IS_BLOCKED(kaweth->status)) {
+ 		spin_unlock(&kaweth->device_lock);
+@@ -883,13 +898,16 @@ static void kaweth_set_rx_mode(struct ne
+  ****************************************************************/
+ static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth)
+ {
++	int result;
+ 	__u16 packet_filter_bitmap = kaweth->packet_filter_bitmap;
++
+ 	kaweth->packet_filter_bitmap = 0;
+ 	if (packet_filter_bitmap == 0)
+ 		return;
+ 
+-	{
+-	int result;
++	if (in_interrupt())
++		return;
++
+ 	result = kaweth_control(kaweth,
+ 				usb_sndctrlpipe(kaweth->dev, 0),
+ 				KAWETH_COMMAND_SET_PACKET_FILTER,
+@@ -906,7 +924,6 @@ static void kaweth_async_set_rx_mode(str
+ 	else {
+ 		dbg("Set Rx mode to %d", packet_filter_bitmap);
  	}
- 
--	spin_unlock(&kaweth->device_lock);
-+	spin_unlock_irq(&kaweth->device_lock);
- 
- 	return 0;
+-	}
  }
+ 
+ /****************************************************************
