@@ -1,107 +1,56 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 2/2 V3] kaweth: Clean up code
-Date: Wed, 01 Apr 2009 10:29:35 -0500
-Message-ID: <49d3885f.OXwftgx2/UvY0Tex%Larry.Finger@lwfinger.net>
+From: Andrew Lutomirski <amluto@gmail.com>
+Subject: [PATCH 1/1] Tell linkwatch about new interfaces
+Date: Wed, 1 Apr 2009 11:40:06 -0400
+Message-ID: <cb0375e10904010840n1543a890w9039465d0f80ffcc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	oliver@neukum.org
-To: davem@davemloft.net
+To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:45841 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754916AbZDAP3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 11:29:43 -0400
+Received: from mail-bw0-f169.google.com ([209.85.218.169]:46853 "EHLO
+	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751730AbZDAPkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 11:40:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver kaweth yields a -EBUSY error when starting, and a -ETIME
-error when shutting down. These errors are avoided, and the RX status
-is further checked for other potential errors.
+From: Andrew Lutomirski <amluto@gmail.com>
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+When a network driver registers a new interface, linkwatch will not notice,
+and hence not set the rfc2863 operstate, until netif_carrier_on gets called.
+If the new interface has no carrier when it is connected, then a status of
+"unknown" is reported to userspace, which confuses various tools
+(NetworkManager, for example).
+
+This fires a linkwatch event for all new interfaces, so that operstate
+gets set reasonably quickly.
+
+Signed-off-by: Andrew Lutomirski <amluto@gmail.com>
+
 ---
 
-DaveM,
+This looks like the root cause of the bug I reported here:
 
-This is 2.6.31 material as the imain change is to eliminate two trivial
-log messages.
+http://lkml.org/lkml/2009/3/24/499
 
-Larry
----
+Without knowing all the locking and ordering constraints imposed on network
+drivers, this seemed like the safest way to fix the bug.  Alternative
+approaches would be to call rfc2863_policy directly or to initialize the
+relevent fields to sane values (for the carrier off state) in alloc_netdev.
 
-Index: wireless-testing/drivers/net/usb/kaweth.c
-===================================================================
---- wireless-testing.orig/drivers/net/usb/kaweth.c
-+++ wireless-testing/drivers/net/usb/kaweth.c
-@@ -31,7 +31,6 @@
-  ****************************************************************/
- 
- /* TODO:
-- * Fix in_interrupt() problem
-  * Develop test procedures for USB net interfaces
-  * Run test procedures
-  * Fix bugs from previous two steps
-@@ -606,14 +605,30 @@ static void kaweth_usb_receive(struct ur
- 
- 	struct sk_buff *skb;
- 
--	if(unlikely(status == -ECONNRESET || status == -ESHUTDOWN))
--	/* we are killed - set a flag and wake the disconnect handler */
--	{
-+	if (unlikely(status == -EPIPE)) {
-+		kaweth->stats.rx_errors++;
- 		kaweth->end = 1;
- 		wake_up(&kaweth->term_wait);
-+		dbg("Status was -EPIPE.");
- 		return;
+This applies to 2.6.29.  I can rediff it for any other tree, but I didn't see
+any changes that would conflict.
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e438f54..45911fd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4445,6 +4445,9 @@ int register_netdevice(struct net_device *dev)
+ 		dev->reg_state = NETREG_UNREGISTERED;
  	}
--
-+	if (unlikely(status == -ECONNRESET || status == -ESHUTDOWN)) {
-+		/* we are killed - set a flag and wake the disconnect handler */
-+		kaweth->end = 1;
-+		wake_up(&kaweth->term_wait);
-+		dbg("Status was -ECONNRESET or -ESHUTDOWN.");
-+		return;
-+	}
-+	if (unlikely(status == -EPROTO || status == -ETIME ||
-+		     status == -EILSEQ)) {
-+		kaweth->stats.rx_errors++;
-+		dbg("Status was -EPROTO, -ETIME, or -EILSEQ.");
-+		return;
-+	}
-+	if (unlikely(status == -EOVERFLOW)) {
-+		kaweth->stats.rx_errors++;
-+		dbg("Status was -EOVERFLOW.");
-+	}
- 	spin_lock(&kaweth->device_lock);
- 	if (IS_BLOCKED(kaweth->status)) {
- 		spin_unlock(&kaweth->device_lock);
-@@ -883,13 +898,16 @@ static void kaweth_set_rx_mode(struct ne
-  ****************************************************************/
- static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth)
- {
-+	int result;
- 	__u16 packet_filter_bitmap = kaweth->packet_filter_bitmap;
+
++	/* Update link state. */
++	linkwatch_fire_event(dev);
 +
- 	kaweth->packet_filter_bitmap = 0;
- 	if (packet_filter_bitmap == 0)
- 		return;
- 
--	{
--	int result;
-+	if (in_interrupt())
-+		return;
-+
- 	result = kaweth_control(kaweth,
- 				usb_sndctrlpipe(kaweth->dev, 0),
- 				KAWETH_COMMAND_SET_PACKET_FILTER,
-@@ -906,7 +924,6 @@ static void kaweth_async_set_rx_mode(str
- 	else {
- 		dbg("Set Rx mode to %d", packet_filter_bitmap);
- 	}
--	}
- }
- 
- /****************************************************************
+ out:
+ 	return ret;
