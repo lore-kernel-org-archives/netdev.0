@@ -1,55 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 4/9] ixgbe: feature - driver to default with FC on.
-Date: Wed, 01 Apr 2009 00:33:44 -0700
-Message-ID: <20090401073343.3749.23654.stgit@lost.foo-projects.org>
+Subject: [PATCH 5/9] ixgbe: Fix 82598 MSI-X allocation on systems with more
+	than 8 CPU cores
+Date: Wed, 01 Apr 2009 00:34:05 -0700
+Message-ID: <20090401073405.3749.98186.stgit@lost.foo-projects.org>
 References: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:48763
-	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758863AbZDAHeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:34:08 -0400
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:58756 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759014AbZDAHeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:34:24 -0400
 In-Reply-To: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-In the past flow control wasn't enabled by default under the
-incorrect assumption that this opened up us to a denial of
-service attack.  However since any switch that forwarded flow
-control would be extremely msiconfigured and/or buggy, this
-concern no longer out weighs the preformance gains from
-having FC enabled.
+MSI-X allocation broke after the 82599 merge on systems with more than 8
+CPU cores.  82598 drops back into MSI mode, which isn't sufficient to run
+full, efficient 10G line rate.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Acked-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index fd27513..8f6e263 100644
+index 8f6e263..63c0f19 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3169,7 +3169,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- #endif
+@@ -2934,6 +2934,7 @@ err_tx_ring_allocation:
+  **/
+ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ {
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	int err = 0;
+ 	int vector, v_budget;
  
- 	/* default flow control settings */
--	hw->fc.requested_mode = ixgbe_fc_none;
-+	hw->fc.requested_mode = ixgbe_fc_full;
- 	hw->fc.high_water = IXGBE_DEFAULT_FCRTH;
- 	hw->fc.low_water = IXGBE_DEFAULT_FCRTL;
- 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+@@ -2948,12 +2949,12 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 
+ 	/*
+ 	 * At the same time, hardware can only support a maximum of
+-	 * MAX_MSIX_COUNT vectors.  With features such as RSS and VMDq,
+-	 * we can easily reach upwards of 64 Rx descriptor queues and
+-	 * 32 Tx queues.  Thus, we cap it off in those rare cases where
+-	 * the cpu count also exceeds our vector limit.
++	 * hw.mac->max_msix_vectors vectors.  With features
++	 * such as RSS and VMDq, we can easily surpass the number of Rx and Tx
++	 * descriptor queues supported by our device.  Thus, we cap it off in
++	 * those rare cases where the cpu count also exceeds our vector limit.
+ 	 */
+-	v_budget = min(v_budget, MAX_MSIX_COUNT);
++	v_budget = min(v_budget, (int)hw->mac.max_msix_vectors);
+ 
+ 	/* A failure in MSI-X entry allocation isn't fatal, but it does
+ 	 * mean we disable MSI-X capabilities of the adapter. */
 
