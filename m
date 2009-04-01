@@ -1,37 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.30] cxgb3: clear shadow BAR registers
-Date: Tue, 31 Mar 2009 20:34:57 -0700 (PDT)
-Message-ID: <20090331.203457.210552824.davem@davemloft.net>
-References: <20090401005854.15175.44595.stgit@speedy5>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10GbEPCIe adapter
+Date: Tue, 31 Mar 2009 23:36:11 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77051BF03C@nekter>
+References: <1237018825.4966.412.camel@flash> <20090331061333.GA11240@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BEEA1@nekter> <49D257D0.9050104@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF027@nekter> <20090401025327.GA11687@yzhao-otc.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Leonid Grossman" <Leonid.Grossman@neterion.com>,
+	"Netdev" <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>
+To: "Yu Zhao" <yu.zhao@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35697
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754833AbZDADfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 23:35:09 -0400
-In-Reply-To: <20090401005854.15175.44595.stgit@speedy5>
+Received: from mx.neterion.com ([72.1.205.142]:16164 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754254AbZDADgO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 23:36:14 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20090401025327.GA11687@yzhao-otc.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Tue, 31 Mar 2009 17:58:54 -0700
+> Yes, and that's what the PCI subsystem does. If the vxge VF is
+identical
+> to its PF, then vxge should be able to drive both PF and VF without
+any
+> modification.
+[Ram] Ok. In that case, is the call to pci_enable/disable_sriov still
+required for vxge?
 
-> From: Divy Le Ray <divy@chelsio.com>
-> 
-> Ensure that internal shadow BAR registers are cleared on 32-bit platforms.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
-
-Why is this a problem and why is it not possible to rely
-on these being setup to zero by either the BIOS or the PCI
-layer?
-
-At best this is a PCI quirk and not something that belongs
-in the driver.
-
-I'm not applying this.
+Ram
