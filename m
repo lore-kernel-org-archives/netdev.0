@@ -1,38 +1,54 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [PATCH] staging: at76_usb convert to netdev_ops
-Date: Wed, 1 Apr 2009 13:24:09 -0400
-Message-ID: <20090401172409.GD1443@bombadil.infradead.org>
-References: <20090331201850.GC25513@bombadil.infradead.org> <20090331.141139.188200200.davem@davemloft.net>
+From: "Divy Le Ray" <divy@chelsio.com>
+Subject: Re: [PATCH 2.6.30] cxgb3: clear shadow BAR registers
+Date: Wed, 01 Apr 2009 10:48:48 -0700
+Message-ID: <op.urpyfmweduofyu@cayman.asicdesigners.com>
+References: <20090401005854.15175.44595.stgit@speedy5>
+ <20090331.203457.210552824.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kyle@mcmartin.ca, gregkh@suse.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; format=flowed; delsp=yes; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:45705 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753369AbZDARYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 13:24:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20090331.141139.188200200.davem@davemloft.net>
+Received: from stargate.chelsio.com ([12.22.49.110]:5120 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756153AbZDARvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 13:51:46 -0400
+In-Reply-To: <20090331.203457.210552824.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 31, 2009 at 02:11:39PM -0700, David Miller wrote:
-> From: Kyle McMartin <kyle@mcmartin.ca>
-> Date: Tue, 31 Mar 2009 16:18:50 -0400
-> 
-> > Didn't see this in your patch queue, fixes build on Fedora, though we'll
-> > probably end up turning on CONFIG_COMPAT_NET_DEV_OPS for now anyway.
-> > 
-> > Signed-off-by: Kyle McMartin <kyle@redhat.com>
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+On Tue, 31 Mar 2009 20:34:57 -0700, David Miller <davem@davemloft.net>  
+wrote:
+
+> From: Divy Le Ray <divy@chelsio.com>
+> Date: Tue, 31 Mar 2009 17:58:54 -0700
 >
+>> From: Divy Le Ray <divy@chelsio.com>
+>>
+>> Ensure that internal shadow BAR registers are cleared on 32-bit  
+>> platforms.
+>>
+>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+>
+> Why is this a problem and why is it not possible to rely
+> on these being setup to zero by either the BIOS or the PCI
+> layer?
+>
+> At best this is a PCI quirk and not something that belongs
+> in the driver.
+>
+> I'm not applying this.
 
-Oops,
+Hi Dave,
 
-Alexander Beregalov already submitted this. My mistake, must have missed
-it when I scanned for a fix...
+You are right, this issue is motherboard specific and seems to have been  
+fixed a loong time ago.
+Sorry for the spam.
 
-cheers, Kyle
+Cheers,
+Divy
+
+
+
