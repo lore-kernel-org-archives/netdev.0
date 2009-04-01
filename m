@@ -1,134 +1,193 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 8/9] ixgbe: fix ethtool -A|a behavior
-Date: Wed, 01 Apr 2009 00:35:05 -0700
-Message-ID: <20090401073505.3749.61750.stgit@lost.foo-projects.org>
+Subject: [PATCH 9/9] ixgbe: Fix potential memory leak/driver panic issue while
+	setting up Tx & Rx ring parameters
+Date: Wed, 01 Apr 2009 00:35:24 -0700
+Message-ID: <20090401073524.3749.21708.stgit@lost.foo-projects.org>
 References: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, stable@kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:46026
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759153AbZDAHfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:35:24 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:59516
+	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760196AbZDAHfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:35:48 -0400
 In-Reply-To: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 
-We were basicly ignoring ethtool users request for FC autoneg
-and replying to queries with a "best guess".  This patch
-enables the driver to store if we want to enable/disable
-autoneg FC and do the correct behavior.
+While setting up the ring parameters using ethtool the driver can
+panic or leak memory as ixgbe_open tries to setup tx & rx resources.
+The updated logic will use ixgbe_down/up after successful allocation of
+tx & rx resources
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: stable@kernel.org
 ---
 
- drivers/net/ixgbe/ixgbe_82598.c   |    3 ++-
- drivers/net/ixgbe/ixgbe_common.c  |    3 ++-
- drivers/net/ixgbe/ixgbe_ethtool.c |   19 ++++++++++++++++---
- drivers/net/ixgbe/ixgbe_main.c    |    2 ++
- drivers/net/ixgbe/ixgbe_type.h    |    1 +
- 5 files changed, 23 insertions(+), 5 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |  101 +++++++++++++++++++++----------------
+ 1 files changed, 58 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index ed265a7..de4db0d 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -411,7 +411,8 @@ static s32 ixgbe_setup_fc_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
- 
- 	/* Decide whether to use autoneg or not. */
- 	hw->mac.ops.check_link(hw, &speed, &link_up, false);
--	if (hw->phy.multispeed_fiber && (speed == IXGBE_LINK_SPEED_1GB_FULL))
-+	if (!hw->fc.disable_fc_autoneg && hw->phy.multispeed_fiber &&
-+	    (speed == IXGBE_LINK_SPEED_1GB_FULL))
- 		ret_val = ixgbe_fc_autoneg(hw);
- 
- 	if (ret_val)
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 8cfd3fd..63ab667 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1937,7 +1937,8 @@ s32 ixgbe_setup_fc_generic(struct ixgbe_hw *hw, s32 packetbuf_num)
- 
- 	/* Decide whether to use autoneg or not. */
- 	hw->mac.ops.check_link(hw, &speed, &link_up, false);
--	if (hw->phy.multispeed_fiber && (speed == IXGBE_LINK_SPEED_1GB_FULL))
-+	if (!hw->fc.disable_fc_autoneg && hw->phy.multispeed_fiber &&
-+	    (speed == IXGBE_LINK_SPEED_1GB_FULL))
- 		ret_val = ixgbe_fc_autoneg(hw);
- 
- 	if (ret_val)
 diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 34b4a84..55970ec 100644
+index 55970ec..aafc120 100644
 --- a/drivers/net/ixgbe/ixgbe_ethtool.c
 +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -234,7 +234,16 @@ static void ixgbe_get_pauseparam(struct net_device *netdev,
+@@ -734,9 +734,10 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+                                struct ethtool_ringparam *ring)
+ {
  	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct ixgbe_ring *temp_ring;
++	struct ixgbe_ring *temp_tx_ring, *temp_rx_ring;
+ 	int i, err;
+ 	u32 new_rx_count, new_tx_count;
++	bool need_update = false;
  
--	pause->autoneg = (hw->fc.current_mode == ixgbe_fc_full ? 1 : 0);
-+	/*
-+	 * Flow Control Autoneg isn't on if
-+	 *  - we didn't ask for it OR
-+	 *  - it failed, we know this by tx & rx being off
-+	 */
-+	if (hw->fc.disable_fc_autoneg ||
-+	    (hw->fc.current_mode == ixgbe_fc_none))
-+		pause->autoneg = 0;
-+	else
-+		pause->autoneg = 1;
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+@@ -755,80 +756,94 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 		return 0;
+ 	}
  
- 	if (hw->fc.current_mode == ixgbe_fc_rx_pause) {
- 		pause->rx_pause = 1;
-@@ -252,8 +261,12 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
+-	temp_ring = kcalloc(adapter->num_tx_queues,
+-	                    sizeof(struct ixgbe_ring), GFP_KERNEL);
+-	if (!temp_ring)
+-		return -ENOMEM;
+-
+ 	while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
+ 		msleep(1);
  
--	if ((pause->autoneg == AUTONEG_ENABLE) ||
--	    (pause->rx_pause && pause->tx_pause))
-+	if (pause->autoneg != AUTONEG_ENABLE)
-+		hw->fc.disable_fc_autoneg = true;
-+	else
-+		hw->fc.disable_fc_autoneg = false;
+-	if (new_tx_count != adapter->tx_ring->count) {
++	temp_tx_ring = kcalloc(adapter->num_tx_queues,
++	                       sizeof(struct ixgbe_ring), GFP_KERNEL);
++	if (!temp_tx_ring) {
++		err = -ENOMEM;
++		goto err_setup;
++	}
 +
-+	if (pause->rx_pause && pause->tx_pause)
- 		hw->fc.requested_mode = ixgbe_fc_full;
- 	else if (pause->rx_pause && !pause->tx_pause)
- 		hw->fc.requested_mode = ixgbe_fc_rx_pause;
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index ae2af45..286ecc0 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3167,10 +3167,12 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
++	if (new_tx_count != adapter->tx_ring_count) {
++		memcpy(temp_tx_ring, adapter->tx_ring,
++		       adapter->num_tx_queues * sizeof(struct ixgbe_ring));
+ 		for (i = 0; i < adapter->num_tx_queues; i++) {
+-			temp_ring[i].count = new_tx_count;
+-			err = ixgbe_setup_tx_resources(adapter, &temp_ring[i]);
++			temp_tx_ring[i].count = new_tx_count;
++			err = ixgbe_setup_tx_resources(adapter,
++			                               &temp_tx_ring[i]);
+ 			if (err) {
+ 				while (i) {
+ 					i--;
+ 					ixgbe_free_tx_resources(adapter,
+-					                        &temp_ring[i]);
++					                        &temp_tx_ring[i]);
+ 				}
+ 				goto err_setup;
+ 			}
+-			temp_ring[i].v_idx = adapter->tx_ring[i].v_idx;
++			temp_tx_ring[i].v_idx = adapter->tx_ring[i].v_idx;
+ 		}
+-		if (netif_running(netdev))
+-			netdev->netdev_ops->ndo_stop(netdev);
+-		ixgbe_reset_interrupt_capability(adapter);
+-		ixgbe_napi_del_all(adapter);
+-		INIT_LIST_HEAD(&netdev->napi_list);
+-		kfree(adapter->tx_ring);
+-		adapter->tx_ring = temp_ring;
+-		temp_ring = NULL;
+-		adapter->tx_ring_count = new_tx_count;
++		need_update = true;
+ 	}
  
- 	/* default flow control settings */
- 	hw->fc.requested_mode = ixgbe_fc_full;
-+	hw->fc.current_mode = ixgbe_fc_full;	/* init for ethtool output */
- 	hw->fc.high_water = IXGBE_DEFAULT_FCRTH;
- 	hw->fc.low_water = IXGBE_DEFAULT_FCRTL;
- 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
- 	hw->fc.send_xon = true;
-+	hw->fc.disable_fc_autoneg = false;
+-	temp_ring = kcalloc(adapter->num_rx_queues,
+-	                    sizeof(struct ixgbe_ring), GFP_KERNEL);
+-	if (!temp_ring) {
+-		if (netif_running(netdev))
+-			netdev->netdev_ops->ndo_open(netdev);
+-		return -ENOMEM;
++	temp_rx_ring = kcalloc(adapter->num_rx_queues,
++	                       sizeof(struct ixgbe_ring), GFP_KERNEL);
++	if ((!temp_rx_ring) && (need_update)) {
++		for (i = 0; i < adapter->num_tx_queues; i++)
++			ixgbe_free_tx_resources(adapter, &temp_tx_ring[i]);
++		kfree(temp_tx_ring);
++		err = -ENOMEM;
++		goto err_setup;
+ 	}
  
- 	/* enable itr by default in dynamic mode */
- 	adapter->itr_setting = 1;
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 2b2ecba..030ff0a 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2005,6 +2005,7 @@ struct ixgbe_fc_info {
- 	u16 pause_time; /* Flow Control Pause timer */
- 	bool send_xon; /* Flow control send XON */
- 	bool strict_ieee; /* Strict IEEE mode */
-+	bool disable_fc_autoneg; /* Turn off autoneg FC mode */
- 	enum ixgbe_fc_mode current_mode; /* FC mode in effect */
- 	enum ixgbe_fc_mode requested_mode; /* FC mode requested by caller */
- };
+-	if (new_rx_count != adapter->rx_ring->count) {
++	if (new_rx_count != adapter->rx_ring_count) {
++		memcpy(temp_rx_ring, adapter->rx_ring,
++		       adapter->num_rx_queues * sizeof(struct ixgbe_ring));
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			temp_ring[i].count = new_rx_count;
+-			err = ixgbe_setup_rx_resources(adapter, &temp_ring[i]);
++			temp_rx_ring[i].count = new_rx_count;
++			err = ixgbe_setup_rx_resources(adapter,
++			                               &temp_rx_ring[i]);
+ 			if (err) {
+ 				while (i) {
+ 					i--;
+ 					ixgbe_free_rx_resources(adapter,
+-					                        &temp_ring[i]);
++					                      &temp_rx_ring[i]);
+ 				}
+ 				goto err_setup;
+ 			}
+-			temp_ring[i].v_idx = adapter->rx_ring[i].v_idx;
++			temp_rx_ring[i].v_idx = adapter->rx_ring[i].v_idx;
+ 		}
++		need_update = true;
++	}
++
++	/* if rings need to be updated, here's the place to do it in one shot */
++	if (need_update) {
+ 		if (netif_running(netdev))
+-			netdev->netdev_ops->ndo_stop(netdev);
+-		ixgbe_reset_interrupt_capability(adapter);
+-		ixgbe_napi_del_all(adapter);
+-		INIT_LIST_HEAD(&netdev->napi_list);
+-		kfree(adapter->rx_ring);
+-		adapter->rx_ring = temp_ring;
+-		temp_ring = NULL;
+-
+-		adapter->rx_ring_count = new_rx_count;
++			ixgbe_down(adapter);
++
++		/* tx */
++		if (new_tx_count != adapter->tx_ring_count) {
++			kfree(adapter->tx_ring);
++			adapter->tx_ring = temp_tx_ring;
++			temp_tx_ring = NULL;
++			adapter->tx_ring_count = new_tx_count;
++		}
++
++		/* rx */
++		if (new_rx_count != adapter->rx_ring_count) {
++			kfree(adapter->rx_ring);
++			adapter->rx_ring = temp_rx_ring;
++			temp_rx_ring = NULL;
++			adapter->rx_ring_count = new_rx_count;
++		}
+ 	}
+ 
+ 	/* success! */
+ 	err = 0;
+-err_setup:
+-	ixgbe_init_interrupt_scheme(adapter);
+ 	if (netif_running(netdev))
+-		netdev->netdev_ops->ndo_open(netdev);
++		ixgbe_up(adapter);
+ 
++err_setup:
+ 	clear_bit(__IXGBE_RESETTING, &adapter->state);
+ 	return err;
+ }
 
