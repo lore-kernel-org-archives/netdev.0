@@ -1,33 +1,39 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [ANNOUNCE] New driver vxge for Neterion's X3100 series 10GbEPCIe adapter
-Date: Tue, 31 Mar 2009 23:36:11 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77051BF03C@nekter>
-References: <1237018825.4966.412.camel@flash> <20090331061333.GA11240@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BEEA1@nekter> <49D257D0.9050104@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF027@nekter> <20090401025327.GA11687@yzhao-otc.sh.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/14] Add common OF device tree support for MDIO busses
+Date: Tue, 31 Mar 2009 20:38:55 -0700 (PDT)
+Message-ID: <20090331.203855.96368726.davem@davemloft.net>
+References: <fa686aa40903311519m3108c697v52180d192975a3b1@mail.gmail.com>
+	<20090331.152237.210090951.davem@davemloft.net>
+	<fa686aa40903311845v54ddfb91u56dd11eff64140d4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Leonid Grossman" <Leonid.Grossman@neterion.com>,
-	"Netdev" <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>
-To: "Yu Zhao" <yu.zhao@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, olof@lixom.net,
+	afleming@freescale.com, galak@kernel.crashing.org,
+	avorontsov@ru.mvista.com, Joakim.Tjernlund@transmode.se
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:16164 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754254AbZDADgO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 23:36:14 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090401025327.GA11687@yzhao-otc.sh.intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35702
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754917AbZDADjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 23:39:07 -0400
+In-Reply-To: <fa686aa40903311845v54ddfb91u56dd11eff64140d4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Yes, and that's what the PCI subsystem does. If the vxge VF is
-identical
-> to its PF, then vxge should be able to drive both PF and VF without
-any
-> modification.
-[Ram] Ok. In that case, is the call to pci_enable/disable_sriov still
-required for vxge?
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Tue, 31 Mar 2009 19:45:02 -0600
 
-Ram
+> Dammit.  Why did you have to go and sound so reasonable when I was all
+> geared up for a pointless flame war.
+> 
+> well... alright... but I reserve the right to be grumpy and surly for
+> a few days.
+
+:-)
+
+Just in case you decided to continue, I did cover my ass by
+making an explicit posting explaining the policy and the
+intent on netdev last week:
+
+http://marc.info/?l=linux-netdev&m=123814105015481&w=2
