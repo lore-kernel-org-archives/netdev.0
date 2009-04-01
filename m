@@ -1,35 +1,72 @@
-From: Jay Cliburn <jcliburn@gmail.com>
-Subject: Re: [atl1-devel] [Bugme-new] [Bug 12985] New: (atl2) Attansic L2
- network card goes down.
-Date: Wed, 1 Apr 2009 17:41:54 -0500
-Message-ID: <20090401174154.6e2d6f96@osprey.hogchain.net>
-References: <bug-12985-10286@http.bugzilla.kernel.org/>
-	<20090401125936.68ec012e.akpm@linux-foundation.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: More fun with dma debugging: 8139cp frees DMA memory with
+	different size
+Date: Thu, 2 Apr 2009 00:59:41 +0200
+Message-ID: <20090401225941.GA20111@electric-eye.fr.zoreil.com>
+References: <20090401151851.GA19496@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: madcored@gmail.com, netdev@vger.kernel.org, jie.yang@atheros.com,
-	bugme-daemon@bugzilla.kernel.org, atl1-devel@lists.sourceforge.net
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:60189 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902AbZDAWmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 18:42:02 -0400
-Received: by qw-out-2122.google.com with SMTP id 8so342395qwh.37
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 15:42:00 -0700 (PDT)
-In-Reply-To: <20090401125936.68ec012e.akpm@linux-foundation.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54321 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755563AbZDAWz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 18:55:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20090401151851.GA19496@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Apr 2009 12:59:36 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+Dave Jones <davej@redhat.com> :
+[...]
+> diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+> index a09e3a7..a4b4491 100644
+> --- a/drivers/net/8139cp.c
+> +++ b/drivers/net/8139cp.c
+> @@ -1065,7 +1065,8 @@ static int cp_refill_rx(struct cp_private *cp)
+>  		skb_reserve(skb, NET_IP_ALIGN);
+>  
+>  		mapping = dma_map_single(&cp->pdev->dev, skb->data,
+> -					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+> +					 cp->rx_buf_sz + NET_IP_ALIGN,
+> +					 PCI_DMA_FROMDEVICE);
+>  		cp->rx_skb[i] = skb;
+>  
+>  		cp->rx_ring[i].opts2 = 0;
 
-> On Tue, 31 Mar 2009 17:00:57 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=12985
-> > 
-> >            Summary: (atl2) Attansic L2 network card goes down.
+We have just substracted NET_IP_ALIGN bytes from skb->data. It will
+silence the warning (though the user can expect to see a new one
+appear in cp_clean_rings) but it is imho not completely sane. 
 
-Can you please provide a complete dmesg and the output of ifconfig -a immediately following the error?
+What about something along:
+
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index a09e3a7..3067921 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -559,8 +559,8 @@ rx_status_loop:
+ 
+ 		skb_reserve(new_skb, NET_IP_ALIGN);
+ 
+-		dma_unmap_single(&cp->pdev->dev, mapping,
+-				 buflen, PCI_DMA_FROMDEVICE);
++		dma_unmap_single(&cp->pdev->dev, mapping, cp->rx_buf_sz,
++				 PCI_DMA_FROMDEVICE);
+ 
+ 		/* Handle checksum offloading for incoming packets. */
+ 		if (cp_rx_csum_ok(status))
+@@ -570,8 +570,8 @@ rx_status_loop:
+ 
+ 		skb_put(skb, len);
+ 
+-		mapping = dma_map_single(&cp->pdev->dev, new_skb->data, buflen,
+-					 PCI_DMA_FROMDEVICE);
++		mapping = dma_map_single(&cp->pdev->dev, new_skb->data,
++					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+ 		cp->rx_skb[rx_tail] = new_skb;
+ 
+ 		cp_rx_skb(cp, skb, desc);
+
+-- 
+Ueimor
