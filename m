@@ -1,102 +1,132 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Wed, 1 Apr 2009 10:00:21 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0904010955510.762@wrl-59.cs.helsinki.fi>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
- <20090328045056.GA2394@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
- <20090328095514.GA2599@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
- <20090330164035.GA2652@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
- <20090331071018.GA2641@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903311205070.30150@wrl-59.cs.helsinki.fi>
- <20090331184959.GA2725@gentoox2.trippelsdorf.de>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 5/5] net/igb: Fix kexec with igb (rev. 3)
+Date: Wed, 01 Apr 2009 00:23:50 -0700
+Message-ID: <20090401072250.3461.90483.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-377895648-1238569221=:762"
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33012 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755219AbZDAHAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:00:25 -0400
-In-Reply-To: <20090331184959.GA2725@gentoox2.trippelsdorf.de>
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:55398 "EHLO
+	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753249AbZDAHYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:24:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
----696208474-377895648-1238569221=:762
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Impact: Fix
 
-On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
+Yinghai Lu found one system with 82575EB where, in the kernel that is
+kexeced, probe igb failed with -2, the reason being that the adapter
+could not be brought back from D3 by the kexec kernel, most probably
+due to quirky hardware (it looks like the same behavior happened on
+forcedeth).
 
-> On Tue, Mar 31, 2009 at 12:16:51PM +0300, Ilpo Järvinen wrote:
-> > On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
-> > 
-> > > On Mon, Mar 30, 2009 at 09:52:55PM +0300, Ilpo Järvinen wrote:
-> > > > On Mon, 30 Mar 2009, Markus Trippelsdorf wrote:
-> > > > 
-> > > > > On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo Järvinen wrote:
-> > > > > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-> > > > > > > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo Järvinen wrote:
-> > > > > > 
-> > > > > > ...And, let me guess, you're in X and therefore unable to catch a final 
-> > > > > > oops if any would be printed? It would be nice to get around that as well, 
-> > > > > > either use serial/netconsole or hang in text mode while waiting for the 
-> > > > > > crash (should be too hard if you are able to setup the workload first 
-> > > > > > and then switch away from X and if reproducing takes about an hour)...
-> > > > > 
-> > > > > OK, I will try this later.
-> > > > 
-> > > > Lets hope that gives some clue where it ends up going boom (if it is 
-> > > > caused by TCP we certainly should see something more sensible in console 
-> > > > than just a hang)... ...I once again read through tcp commits but just 
-> > > > cannot find anything that could cause fackets_out miscount, not to speak 
-> > > > of crash prone changes so we'll just have to wait and see...
-> > > 
-> > > The machine hanged again this night and I took two pictures:
-> > > http://www.mypicx.com/uploadimg/1055813374_03302009_2.jpg
-> > > http://www.mypicx.com/uploadimg/1543678904_03302009_1.jpg
-> > >
-> > > But this time there was no tcp related warning in the logs.
-> > 
-> > Right. If that oops would be hit often enough one can easily mix the 
-> > warning with that hang though there is no relation (the fact that final 
-> > oops always goes unnoticed in X amplifies the effect).
-> > 
-> > > I then pulled the lateset git changes, rebuild, rebooted and setup the
-> > > workload again. The machine was still up and running in the morning 
-> > > (~4 hours uptime). So it may well be that the issue was fixed with
-> > > the latest changes.
-> > 
-> > Lets hope so, in any case if you still see hangs please get the final oops.
-> > 
-> > > If it ever occurs again I will notify you.
-> 
-> It happend again. In this case it took ~10 minutes from the warning to
-> the final crash. I'm pretty sure there must be some kind of relation
-> between the two. How else could one explain that the machine crashes just
-> minutes after _each_ instance of that WARNING?
-> 
-> (Unfortunately I was in X again, because I thought this problem was
-> solved)
-> 
-> ------------[ cut here ]------------
-> WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd5b/0x19a6()
+Prevent igb from putting the adapter into D3 during shutdown except
+when we going to power off the system.  For this purpose, seperate
+igb_shutdown() from igb_suspend() and use the appropriate PCI PM
+callbacks in both of them.
 
-FYI, I think I figured the cause of this WARNING out, I'll post a patch 
-soon and see if it could be causing crashes somewhere (only the 
-packets_out miscount that seems besides the one with fackets_out is the 
-part I'm not fully sure of, other miscounts that happen too should be safe 
-w.r.t crashing). It's post 2.6.29 so your observation seems correct in 
-that respect, thanks.
+Signed-off-by: "Rafael J. Wysocki" <rjw@sisk.pl>
+Reported-by: Yinghai Lu <yinghai@kernel.org>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
--- 
- i.
----696208474-377895648-1238569221=:762--
+ drivers/net/igb/igb_main.c |   44 +++++++++++++++++++++++++++++++-------------
+ 1 files changed, 31 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 10b095d..03aa959 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -135,8 +135,8 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *, int, int);
+ static int igb_set_vf_mac(struct igb_adapter *adapter, int, unsigned char *);
+ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
+ 
+-static int igb_suspend(struct pci_dev *, pm_message_t);
+ #ifdef CONFIG_PM
++static int igb_suspend(struct pci_dev *, pm_message_t);
+ static int igb_resume(struct pci_dev *);
+ #endif
+ static void igb_shutdown(struct pci_dev *);
+@@ -5060,7 +5060,7 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u16 spddplx)
+ 	return 0;
+ }
+ 
+-static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
++static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+@@ -5119,15 +5119,9 @@ static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		wr32(E1000_WUFC, 0);
+ 	}
+ 
+-	/* make sure adapter isn't asleep if manageability/wol is enabled */
+-	if (wufc || adapter->en_mng_pt) {
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
+-	} else {
++	*enable_wake = wufc || adapter->en_mng_pt;
++	if (!*enable_wake)
+ 		igb_shutdown_fiber_serdes_link_82575(hw);
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
+-	}
+ 
+ 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
+ 	 * would have already happened in close and is redundant. */
+@@ -5135,12 +5129,29 @@ static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
+ 
+ 	pci_disable_device(pdev);
+ 
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+-
+ 	return 0;
+ }
+ 
+ #ifdef CONFIG_PM
++static int igb_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	int retval;
++	bool wake;
++
++	retval = __igb_shutdown(pdev, &wake);
++	if (retval)
++		return retval;
++
++	if (wake) {
++		pci_prepare_to_sleep(pdev);
++	} else {
++		pci_wake_from_d3(pdev, false);
++		pci_set_power_state(pdev, PCI_D3hot);
++	}
++
++	return 0;
++}
++
+ static int igb_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -5193,7 +5204,14 @@ static int igb_resume(struct pci_dev *pdev)
+ 
+ static void igb_shutdown(struct pci_dev *pdev)
+ {
+-	igb_suspend(pdev, PMSG_SUSPEND);
++	bool wake;
++
++	__igb_shutdown(pdev, &wake);
++
++	if (system_state == SYSTEM_POWER_OFF) {
++		pci_wake_from_d3(pdev, wake);
++		pci_set_power_state(pdev, PCI_D3hot);
++	}
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+
