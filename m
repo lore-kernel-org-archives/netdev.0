@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 1/5] igb: add support for x2 link width configurations
-Date: Tue, 31 Mar 2009 23:38:00 -0700
-Message-ID: <20090401063759.3046.89960.stgit@lost.foo-projects.org>
+Subject: [PATCH 2/5] igb: set num_rx/tx_queues to 0 when queues are freed
+Date: Tue, 31 Mar 2009 23:38:19 -0700
+Message-ID: <20090401063819.3046.60000.stgit@lost.foo-projects.org>
+References: <20090401063759.3046.89960.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,44 +11,41 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:49655
-	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754104AbZDAGiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 02:38:20 -0400
+Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:54128
+	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756801AbZDAGij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 02:38:39 -0400
+In-Reply-To: <20090401063759.3046.89960.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-When device is on PCIe link trained as x2 the driver is currently reporting
-link width as "unknown".  The original patch provided by Myron adds the x2
-link support and my changes are cosmetic to clean up the readability of the
-conditional operators.
+An issue was seen on suspend in which the system reported a page fault.  This
+was due to the new reg_idx code being called after the queues were freed.
 
-Based on work by: Myron Stowe <myron.stowe@hp.com>
+This update prevents any for loops from going through the queues by setting
+the number of queues to 0 when they are freed.
+
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/igb/igb_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index ca84216..be02045 100644
+index be02045..10b095d 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -1476,9 +1476,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		 netdev->name,
- 		 ((hw->bus.speed == e1000_bus_speed_2500)
- 		  ? "2.5Gb/s" : "unknown"),
--		 ((hw->bus.width == e1000_bus_width_pcie_x4)
--		  ? "Width x4" : (hw->bus.width == e1000_bus_width_pcie_x1)
--		  ? "Width x1" : "unknown"),
-+		 ((hw->bus.width == e1000_bus_width_pcie_x4) ? "Width x4" :
-+		  (hw->bus.width == e1000_bus_width_pcie_x2) ? "Width x2" :
-+		  (hw->bus.width == e1000_bus_width_pcie_x1) ? "Width x1" :
-+		   "unknown"),
- 		 netdev->dev_addr);
+@@ -420,6 +420,9 @@ static void igb_free_queues(struct igb_adapter *adapter)
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+ 		netif_napi_del(&adapter->rx_ring[i].napi);
  
- 	igb_read_part_num(hw, &part_num);
++	adapter->num_rx_queues = 0;
++	adapter->num_tx_queues = 0;
++
+ 	kfree(adapter->tx_ring);
+ 	kfree(adapter->rx_ring);
+ }
 
