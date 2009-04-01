@@ -1,34 +1,58 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [PATCH] x86: percpu_to_op() misses memory and flags clobbers
-Date: Wed, 01 Apr 2009 11:07:29 -0700
-Message-ID: <49D3AD61.5090206@goop.org>
-References: <49D32212.80607@cosmosbay.com> <49D32DC2.9010003@goop.org> <49D33E80.70802@cosmosbay.com> <20090401161218.GB3859@elte.hu> <49D3A0C2.9000403@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Tejun Heo <htejun@gmail.com>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Joe Perches <joe@perches.com>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Eric Dumazet <dada1@cosmosbay.com>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [PATCH 1/3] RDS: Fix m_rs_lock deadlock
+Date: Wed,  1 Apr 2009 11:20:18 -0700
+Message-ID: <1238610020-30361-2-git-send-email-andy.grover@oracle.com>
+References: <1238610020-30361-1-git-send-email-andy.grover@oracle.com>
+Cc: rds-devel@oss.oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:37276 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933293AbZDASHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2009 14:07:38 -0400
-In-Reply-To: <49D3A0C2.9000403@cosmosbay.com>
+Received: from rcsinet13.oracle.com ([148.87.113.125]:19217 "EHLO
+	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756675AbZDASUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 14:20:37 -0400
+Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
+	by rgminet13.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n31IKYMW015967
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 1 Apr 2009 18:20:35 GMT
+In-Reply-To: <1238610020-30361-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> +#define percpu_inc(var)		percpu_to_op0("inc", per_cpu__##var)
-> +#define percpu_dec(var)		percpu_to_op0("dec", per_cpu__##var)
->   
+rs_send_drop_to() is called during socket close. If it takes
+m_rs_lock without disabling interrupts, then
+rds_send_remove_from_sock() can run from the rx completion
+handler and thus deadlock.
 
-There's probably not a lot of value in this.  The Intel and AMD 
-optimisation guides tend to deprecate inc/dec in favour of using 
-add/sub, because the former can cause pipeline stalls due to its partial 
-flags update.
+Signed-off-by: Andy Grover <andy.grover@oracle.com>
+---
+ net/rds/send.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-    J
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 1b37364..104fe03 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -615,7 +615,7 @@ void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest)
+ {
+ 	struct rds_message *rm, *tmp;
+ 	struct rds_connection *conn;
+-	unsigned long flags;
++	unsigned long flags, flags2;
+ 	LIST_HEAD(list);
+ 	int wake = 0;
+ 
+@@ -651,9 +651,9 @@ void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest)
+ 	list_for_each_entry(rm, &list, m_sock_item) {
+ 		/* We do this here rather than in the loop above, so that
+ 		 * we don't have to nest m_rs_lock under rs->rs_lock */
+-		spin_lock(&rm->m_rs_lock);
++		spin_lock_irqsave(&rm->m_rs_lock, flags2);
+ 		rm->m_rs = NULL;
+-		spin_unlock(&rm->m_rs_lock);
++		spin_unlock_irqrestore(&rm->m_rs_lock, flags2);
+ 
+ 		/*
+ 		 * If we see this flag cleared then we're *sure* that someone
+-- 
+1.5.6.3
+
