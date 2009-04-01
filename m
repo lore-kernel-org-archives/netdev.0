@@ -1,108 +1,75 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: WARNING: at net/ipv4/tcp_input.c:2927 tcp_ack+0xd55/0x1991()
-Date: Wed, 1 Apr 2009 13:35:20 +0200
-Message-ID: <20090401113520.GA2667@gentoox2.trippelsdorf.de>
-References: <20090328045056.GA2394@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi> <20090328095514.GA2599@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi> <20090330164035.GA2652@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi> <20090331071018.GA2641@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0903311205070.30150@wrl-59.cs.helsinki.fi> <20090331184959.GA2725@gentoox2.trippelsdorf.de> <Pine.LNX.4.64.0904011352470.30150@wrl-59.cs.helsinki.fi>
+From: Sajith P V <sajithpv@gmail.com>
+Subject: Re: [PATCH] i.MX31: Fixing cs89x0 network building to i.MX31ADS
+Date: Wed, 1 Apr 2009 17:24:27 +0530
+Message-ID: <155d92380904010454l34c57687j67e6805dafcb92ef@mail.gmail.com>
+References: <37367b3a0903241018h7ff3302fi83cf1fcb21a3114d@mail.gmail.com>
+	 <37367b3a0903300714g40a108d3j59a3b56ee9cda2bf@mail.gmail.com>
+	 <20090330143155.GA20101@pengutronix.de>
+	 <37367b3a0903301315u51787ebcl119ed295e373a1e4@mail.gmail.com>
+	 <20090331075951.GF22913@pengutronix.de>
+	 <37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: Alan Carvalho de Assis <acassis@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-43.synserver.de ([217.119.50.43]:1247 "HELO
-	smtp-out-43.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1759263AbZDALfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 07:35:32 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0904011352470.30150@wrl-59.cs.helsinki.fi>
+Received: from wf-out-1314.google.com ([209.85.200.171]:44700 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763730AbZDALya convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 07:54:30 -0400
+Received: by wf-out-1314.google.com with SMTP id 29so2069wff.4
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 04:54:27 -0700 (PDT)
+In-Reply-To: <37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 01, 2009 at 02:09:11PM +0300, Ilpo J=E4rvinen wrote:
-> On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
->=20
-> > On Tue, Mar 31, 2009 at 12:16:51PM +0300, Ilpo J=E4rvinen wrote:
-> > > On Tue, 31 Mar 2009, Markus Trippelsdorf wrote:
-> > >=20
-> > > > On Mon, Mar 30, 2009 at 09:52:55PM +0300, Ilpo J=E4rvinen wrote=
-:
-> > > > > On Mon, 30 Mar 2009, Markus Trippelsdorf wrote:
-> > > > >=20
-> > > > > > On Mon, Mar 30, 2009 at 07:01:22PM +0300, Ilpo J=E4rvinen w=
-rote:
-> > > > > > > On Sat, 28 Mar 2009, Markus Trippelsdorf wrote:
-> > > > > > > > On Sat, Mar 28, 2009 at 10:29:58AM +0200, Ilpo J=E4rvin=
-en wrote:
-> > > > > > >=20
-> > > > > > > ...And, let me guess, you're in X and therefore unable to=
- catch a final=20
-> > > > > > > oops if any would be printed? It would be nice to get aro=
-und that as well,=20
-> > > > > > > either use serial/netconsole or hang in text mode while w=
-aiting for the=20
-> > > > > > > crash (should be too hard if you are able to setup the wo=
-rkload first=20
-> > > > > > > and then switch away from X and if reproducing takes abou=
-t an hour)...
-> > > > > >=20
-> > > > > > OK, I will try this later.
-> > > > >=20
-> > > > > Lets hope that gives some clue where it ends up going boom (i=
-f it is=20
-> > > > > caused by TCP we certainly should see something more sensible=
- in console=20
-> > > > > than just a hang)... ...I once again read through tcp commits=
- but just=20
-> > > > > cannot find anything that could cause fackets_out miscount, n=
-ot to speak=20
-> > > > > of crash prone changes so we'll just have to wait and see...
-> > > >=20
-> > > > The machine hanged again this night and I took two pictures:
-> > > > http://www.mypicx.com/uploadimg/1055813374_03302009_2.jpg
-> > > > http://www.mypicx.com/uploadimg/1543678904_03302009_1.jpg
-> > > >
-> > > > But this time there was no tcp related warning in the logs.
-> > >=20
-> > > Right. If that oops would be hit often enough one can easily mix =
-the=20
-> > > warning with that hang though there is no relation (the fact that=
- final=20
-> > > oops always goes unnoticed in X amplifies the effect).
-> > >=20
-> > > > I then pulled the lateset git changes, rebuild, rebooted and se=
-tup the
-> > > > workload again. The machine was still up and running in the mor=
-ning=20
-> > > > (~4 hours uptime). So it may well be that the issue was fixed w=
-ith
-> > > > the latest changes.
-> > >=20
-> > > Lets hope so, in any case if you still see hangs please get the f=
-inal oops.
-> > >=20
-> > > > If it ever occurs again I will notify you.
-> >=20
-> > It happend again. In this case it took ~10 minutes from the warning=
- to
-> > the final crash. I'm pretty sure there must be some kind of relatio=
-n
-> > between the two. How else could one explain that the machine crashe=
-s just
-> > minutes after _each_ instance of that WARNING?
->=20
-> Here's my try #1... It should silence the warning (we would have seen=
-=20
-> a later warning in the console btw and finally an oops due to NULL=20
-> dereference would you have been able to capture it) and hopefully doe=
-sn't=20
-> introduce any other problem of any kind. So far I did only compile=20
-> test it.
+Hi Alan,
 
-Many thanks for the quick fix. I will try it here ASAP.=20
+On Tue, Mar 31, 2009 at 7:06 PM, Alan Carvalho de Assis
+<acassis@gmail.com> wrote:
+> This is a fix to get cs89x0 network driver working on i.MX31ADS
+> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+> index ff64976..8ccc8f7 100644
+> --- a/drivers/net/cs89x0.c
+> +++ b/drivers/net/cs89x0.c
+> @@ -190,6 +190,7 @@ static unsigned int cs8900_irq_map[] =3D
+> {IRQ_IXDP2X01_CS8900, 0, 0, 0};
+> =A0static unsigned int netcard_portlist[] __used __initdata =3D
+> {CIRRUS_DEFAULT_BASE, 0};
+> =A0static unsigned int cs8900_irq_map[] =3D {CIRRUS_DEFAULT_IRQ, 0, 0=
+, 0};
+> =A0#elif defined(CONFIG_MACH_MX31ADS)
+> +#include <mach/hardware.h>
+> =A0#include <mach/board-mx31ads.h>
+> =A0static unsigned int netcard_portlist[] __used __initdata =3D {
+> =A0 =A0 =A0 =A0PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
+>
 
-(Hopefully modesetting support for Radeon cards will be ready shortly,
-so that I could capture oopses more easily...)
---=20
-Markus
+I tried this change on a different Freescale board but using the same
+ethernet controller. The probe worked as shown in the console dump
+below:
+
+cs89x0:cs89x0_probe(0x0)
+cs89x0.c: v2.4.3-pre1 Russell Nelson <nelson@crynwr.com>, Andrew
+Morton <andrewm@uow.edu.au>
+eth0: cs8900 rev K found at 0xf0000300
+cs89x0: Extended EEPROM checksum bad and no Cirrus EEPROM, relying on
+command line
+cs89x0 media  IRQ 61, programmed I/O, MAC 00:00:00:00:00:00
+cs89x0_probe1() successful
+cs89x0:cs89x0_probe(0x0)
+cs89x0: request_region(0xf0000300, 0x10) failed
+cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETU=
+P
+
+But going further the network device configuration failed:
+IP-Config: Failed to open eth0
+IP-Config: No network devices available.
+
+Should we not also enable interrupts for the ethernet controller to
+make it work?
+
+Regards,
+Saijth
