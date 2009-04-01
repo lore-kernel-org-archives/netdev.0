@@ -1,143 +1,109 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: RE: [ANNOUNCE] New driver vxge for Neterion's X3100series10GbEPCIe adapter
-Date: Wed, 1 Apr 2009 10:30:08 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77051BF0A3@nekter>
-References: <1237018825.4966.412.camel@flash> <20090331061333.GA11240@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BEEA1@nekter> <49D257D0.9050104@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF027@nekter> <20090401025327.GA11687@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF03C@nekter> <20090401050940.GB11687@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF05A@nekter> <20090401065536.GA11781@yzhao-otc.sh.intel.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Wed, 01 Apr 2009 10:42:33 -0400
+Message-ID: <49D37D59.2030107@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Netdev" <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>
-To: "Yu Zhao" <yu.zhao@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:32985 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754819AbZDAObn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 10:31:43 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090401065536.GA11781@yzhao-otc.sh.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigDBF9BC5F089882EEB16EBB82"
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-rt-users <linux-rt-users@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932364AbZDAOkk@vger.kernel.org>
+In-Reply-To: <49D37805.1060301@novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigDBF9BC5F089882EEB16EBB82
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Gregory Haskins wrote:
+> Andi Kleen wrote:
+>  =20
+>> On Wed, Apr 01, 2009 at 08:03:49AM -0400, Gregory Haskins wrote:
+>>  =20
+>>    =20
+>>> Andi Kleen wrote:
+>>>    =20
+>>>      =20
+>>>> Gregory Haskins <ghaskins@novell.com> writes:
+>>>>
+>>>> What might be useful is if you could expand a bit more on what the h=
+igh level
+>>>> use cases for this.=20
+>>>>
+>>>> Questions that come to mind and that would be good to answer:
+>>>>
+>>>> This seems to be aimed at having multiple VMs talk
+>>>> to each other, but not talk to the rest of the world, correct?=20
+>>>> Is that a common use case?=20
+>>>>  =20
+>>>>      =20
+>>>>        =20
+>>> Actually we didn't design specifically for either type of environment=
+=2E=20
+>>>    =20
+>>>      =20
+>> But surely you must have some specific use case in mind? Something
+>> that it does better than the various methods that are available
+>> today. Or rather there must be some problem you're trying
+>> to solve. I'm just not sure what that problem exactly is.
+>>  =20
+>>    =20
+> Performance.  We are trying to create a high performance IO infrastruct=
+ure.
+>  =20
+Actually, I should also state that I am interested in enabling some new
+kinds of features based on having in-kernel devices like this.  For
+instance (and this is still very theoretical and half-baked), I would
+like to try to support RT guests.
+
+[adding linux-rt-users]
+
+I think one of the things that we need in order to do that is being able
+to convey vcpu priority state information to the host in an efficient
+way.  I was thinking that a shared-page per vcpu could have something
+like "current" and "theshold" priorties.  The guest modifies "current"
+while the host modifies "threshold".   The guest would be allowed to
+increase its "current" priority without a hypercall (after all, if its
+already running presumably it is already of sufficient priority that the
+scheduler).  But if the guest wants to drop below "threshold", it needs
+to hypercall the host to give it an opportunity to schedule() a new task
+(vcpu or not).
+
+The host, on the other hand, could apply a mapping so that the guests
+priority of RT1-RT99 might map to RT20-RT30 on the host, or something
+like that.  We would have to take other considerations as well, such as
+implicit boosting on IRQ injection (e.g. the guest could be in HLT/IDLE
+when an interrupt is injected...but by virtue of injecting that
+interrupt we may need to boost it to (guest-relative) RT50).
+
+Like I said, this is all half-baked right now.  My primary focus is
+improving performance, but I did try to lay the groundwork for taking
+things in new directions too..rt being an example.
+
+Hope that helps!
+-Greg
 
 
 
-> -----Original Message-----
-> From: Yu Zhao [mailto:yu.zhao@intel.com]
-> Sent: Tuesday, March 31, 2009 11:56 PM
-> To: Leonid Grossman
-> Cc: Ramkrishna Vepa; Duyck, Alexander H; Netdev; David Miller
-> Subject: Re: [ANNOUNCE] New driver vxge for Neterion's
-> X3100series10GbEPCIe adapter
-> 
-> On Wed, Apr 01, 2009 at 01:44:45PM +0800, Leonid Grossman wrote:
-> > > On Wed, Apr 01, 2009 at 11:36:11AM +0800, Ramkrishna Vepa wrote:
-> > > > > Yes, and that's what the PCI subsystem does. If the vxge VF is
-> > > > identical
-> > > > > to its PF, then vxge should be able to drive both PF and VF
-> > without
-> > > > any
-> > > > > modification.
-> > > > [Ram] Ok. In that case, is the call to pci_enable/disable_sriov
-> > still
-> > > > required for vxge?
-> > >
-> > > Yes, the vxge driver first binds the PF once it's loaded (VF
-doesn't
-> > > exist at this time) and calls the SR-IOV API. The VF appears after
-the
-> > > SR-IOV is enabled and then the same copy of the vxge driver can
-bind
-> > > the VF too if you want to use the VF in the native Linux. Though
-the
-> > > hardware is in the SR-IOV mode in this case, it would be equal to
-the
-> > > multi-function mode. Or you can assign the VF to the Xen/KVM guest
-and
-> > > let another copy of vxge driver (may be vxge for Windows, Solaris,
-> > BSD,
-> > > etc.) running in the guest bind it.
-> >
-> > Yu, could you pl. explain why this call is not optional - SR-IOV
-pci-e
-> > code should be able to find SR-IOV capable device and enable all VFs
-> > based upon pci-e config space alone, without any help from
-> > device-specific PF driver.
-> 
-> Yes, this is true in certain cases. However, there are several things
-> that prevent us to enable the SR-IOV implicitly by the PCI subsystem.
-> 
-> First, the SR-IOV spec says "Once the SRIOV capability is configured
-> enabling VF to be assigned to individual SI, the PF takes on a more
-> supervisory role. For example, the PF can be used to manage device
-> specific functionality such as internal resource allocation to each
-> VF, VF arbitration to shared resources such as the PCIe Link or the
-> Function-specific Link (e.g., a network or storage Link), etc." And
-> some SR-IOV devices follow this suggestion thus their VF cannot work
-> without PF driver pre-exits. Intel 82576 is an example -- it requires
-> the PF driver to allocate tx/rx queues for the VF so the VF can be
-> functional. Only enabling the SR-IOV in the PF PCI config space will
-> end up with VF appearing useless even its PCI config space is visible.
+--------------enigDBF9BC5F089882EEB16EBB82
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Correct, PF driver can "optionally" manage device specific resources
-like queue pairs, etc. - this is not the reason though to mandate a PF
-driver presence in order for VFs to operate. 
-Arguably PCI code (perhaps with the help of SR PCIM) should be
-responsible for pci-e resource configuration, and networking driver
-should be responsible for network resources configuration. 
-If a device like 82576 is implemented in a way that VFs can't operate
-without a PF driver present, it's a reasonable design trade-off and this
-case should be supported - but other devices like x3100 do not have this
-restriction, so PF driver presence should not be a "must have" (pl. see
-a use case example below).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-> 
-> Second, the SR-IOV depends on somethings that are not available before
-> the PCI subsystem is fully initialized. This mean we cannot enable the
-> SR-IOV capability before all PCI device are enumerated. For example,
-> if the VF resides on the bus different than the PF bus, then we can't
-> enable the VF before the bus used by the VF is scan because we don't
-> know if the bus is reserved by the BIOS for the VF or not. Another
-> example is the dependency link used by the PF -- we can't create the
-> sysfs symbolic link indicating the dependency before all PFs in a
-> device are enumerated.
-> 
-> And some SR-IOV devices can support multiple modes at same time.
-> The 82576 can support N VFs + M VMDq modes (N + M = 8), which means
-> sometimes people may want to only enable arbitrary number of VFs.
-> The PCI subsystem can't get value to config the NumVFs unless some
-> one calls the API. I guess only the PF driver can do this.
+iEYEARECAAYFAknTfVkACgkQlOSOBdgZUxkvGgCfcwaE3PyW6wViIAfD1G3/Phpu
+0vUAn05ChWnEmKi+YrYgLCSsQiYmUUxD
+=CzGJ
+-----END PGP SIGNATURE-----
 
-Have you considered using SR PCIM for this, instead of using a NIC (or
-another device-specific) driver to configure number of pci functions? 
-> 
-> > Once VFs appear, vxge or any other native netdev driver should be
-able
-> > to bind a VF regardless of PF driver being loaded first (or at all)
--
-> > there are some use cases that do not assume PF driver presence...
-> 
-> So the PF will not be binded to any driver in these use cases? Can you
-> please elaborate?
-
-Yes. For example one of the common use cases for SR IOV is to replace a
-large number of "legacy" GbE interfaces (as transparently as possible). 
-Assume a customer wants to replace four quad GbE NICs (perhaps running
-16 Vlans) with one SR IOV 10GbE card. He considers a PF driver to be a
-potential security hole and a configuration overhead, and prevents is
-from loading (perhaps via fw option). His expectation is that 16 VFs
-will come up and bind to a driver, very much like 16 GbE interfaces did
-in the original configuration.
-
-So, there should be arguably a way to enable VFs based upon the
-information in device configuration space alone, without requiring a PF
-driver to be loaded.
-Best, Leonid
-
-
-
-> 
-> Thanks,
-> Yu
+--------------enigDBF9BC5F089882EEB16EBB82--
