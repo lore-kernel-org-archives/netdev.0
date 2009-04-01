@@ -1,75 +1,139 @@
-From: Sajith P V <sajithpv@gmail.com>
-Subject: Re: [PATCH] i.MX31: Fixing cs89x0 network building to i.MX31ADS
-Date: Wed, 1 Apr 2009 17:24:27 +0530
-Message-ID: <155d92380904010454l34c57687j67e6805dafcb92ef@mail.gmail.com>
-References: <37367b3a0903241018h7ff3302fi83cf1fcb21a3114d@mail.gmail.com>
-	 <37367b3a0903300714g40a108d3j59a3b56ee9cda2bf@mail.gmail.com>
-	 <20090330143155.GA20101@pengutronix.de>
-	 <37367b3a0903301315u51787ebcl119ed295e373a1e4@mail.gmail.com>
-	 <20090331075951.GF22913@pengutronix.de>
-	 <37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Wed, 01 Apr 2009 08:03:49 -0400
+Message-ID: <49D35825.3050001@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: Alan Carvalho de Assis <acassis@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigB8DC867B88B8805F65F8D5B2"
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.171]:44700 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763730AbZDALya convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 07:54:30 -0400
-Received: by wf-out-1314.google.com with SMTP id 29so2069wff.4
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 04:54:27 -0700 (PDT)
-In-Reply-To: <37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>
+Received: from victor.provo.novell.com ([137.65.250.26]:47104 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754302AbZDAMBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 08:01:31 -0400
+In-Reply-To: <87ab71monw.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigB8DC867B88B8805F65F8D5B2
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, Mar 31, 2009 at 7:06 PM, Alan Carvalho de Assis
-<acassis@gmail.com> wrote:
-> This is a fix to get cs89x0 network driver working on i.MX31ADS
-> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-> index ff64976..8ccc8f7 100644
-> --- a/drivers/net/cs89x0.c
-> +++ b/drivers/net/cs89x0.c
-> @@ -190,6 +190,7 @@ static unsigned int cs8900_irq_map[] =3D
-> {IRQ_IXDP2X01_CS8900, 0, 0, 0};
-> =A0static unsigned int netcard_portlist[] __used __initdata =3D
-> {CIRRUS_DEFAULT_BASE, 0};
-> =A0static unsigned int cs8900_irq_map[] =3D {CIRRUS_DEFAULT_IRQ, 0, 0=
-, 0};
-> =A0#elif defined(CONFIG_MACH_MX31ADS)
-> +#include <mach/hardware.h>
-> =A0#include <mach/board-mx31ads.h>
-> =A0static unsigned int netcard_portlist[] __used __initdata =3D {
-> =A0 =A0 =A0 =A0PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
+Andi Kleen wrote:
+> Gregory Haskins <ghaskins@novell.com> writes:
 >
+> What might be useful is if you could expand a bit more on what the high=
+ level
+> use cases for this.=20
+>
+> Questions that come to mind and that would be good to answer:
+>
+> This seems to be aimed at having multiple VMs talk
+> to each other, but not talk to the rest of the world, correct?=20
+> Is that a common use case?=20
+>  =20
 
-I tried this change on a different Freescale board but using the same
-ethernet controller. The probe worked as shown in the console dump
-below:
+Actually we didn't design specifically for either type of environment.=20
+I think it would, in fact, be well suited to either type of
+communication model, even concurrently (e.g. an intra-vm ipc channel
+resource could live right on the same bus as a virtio-net and a
+virtio-disk resource)
 
-cs89x0:cs89x0_probe(0x0)
-cs89x0.c: v2.4.3-pre1 Russell Nelson <nelson@crynwr.com>, Andrew
-Morton <andrewm@uow.edu.au>
-eth0: cs8900 rev K found at 0xf0000300
-cs89x0: Extended EEPROM checksum bad and no Cirrus EEPROM, relying on
-command line
-cs89x0 media  IRQ 61, programmed I/O, MAC 00:00:00:00:00:00
-cs89x0_probe1() successful
-cs89x0:cs89x0_probe(0x0)
-cs89x0: request_region(0xf0000300, 0x10) failed
-cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETU=
-P
+> Wouldn't they typically have a default route  anyways and be able to ta=
+lk to each=20
+> other this way?=20
+> And why can't any such isolation be done with standard firewalling? (it=
+'s known that=20
+> current iptables has some scalability issues, but there's work going on=
+ right
+> now to fix that).=20
+>  =20
+vbus itself, and even some of the higher level constructs we apply on
+top of it (like venet) are at a different scope than I think what you
+are getting at above.  Yes, I suppose you could create a private network
+using the existing virtio-net + iptables.  But you could also do the
+same using virtio-net and a private bridge devices as well.  That is not
+what we are trying to address.
 
-But going further the network device configuration failed:
-IP-Config: Failed to open eth0
-IP-Config: No network devices available.
+What we *are* trying to address is making an easy way to declare virtual
+resources directly in the kernel so that they can be accessed more
+efficiently.  Contrast that to the way its done today, where the models
+live in, say, qemu userspace.
 
-Should we not also enable interrupts for the ethernet controller to
-make it work?
+So instead of having
+guest->host->qemu::virtio-net->tap->[iptables|bridge], you simply have
+guest->host->[iptables|bridge].  How you make your private network (if
+that is what you want to do) is orthogonal...its the path to get there
+that we changed.
 
-Regards,
-Saijth
+> What would be the use cases for non networking devices?
+>
+> How would the interfaces to the user look like?
+>  =20
+
+I am not sure if you are asking about the guests perspective or the
+host-administators perspective.
+
+First now lets look at the low-level device interface from the guests
+perspective.  We can cover the admin perspective in a separate doc, if
+need be.
+
+Each device in vbus supports two basic verbs: CALL, and SHM
+
+int (*call)(struct vbus_device_proxy *dev, u32 func,
+            void *data, size_t len, int flags);
+
+int (*shm)(struct vbus_device_proxy *dev, int id, int prio,
+           void *ptr, size_t len,
+           struct shm_signal_desc *sigdesc, struct shm_signal **signal,
+           int flags);
+
+CALL provides a synchronous method for invoking some verb on the device
+(defined by "func") with some arbitrary data.  The namespace for "func"
+is part of the ABI for the device in question.  It is analogous to an
+ioctl, with the primary difference being that its remotable (it invokes
+from the guest driver across to the host device).
+
+SHM provides a way to register shared-memory with the device which can
+be used for asynchronous communication.  The memory is always owned by
+the "north" (the guest), while the "south" (the host) simply maps it
+into its address space.  You can optionally establish a shm_signal
+object on this memory for signaling in either direction, and I
+anticipate most shm regions will use this feature.  Each shm region has
+an "id" namespace, which like the "func" namespace from the CALL method
+is completely owned by the device ABI.  For example, we have might have
+id's of "RX-RING" and "TX-RING", etc.
+
+=46rom there, we can (hopefully) build an arbitrary type of IO service to=
+
+map on top.  So for instance, for venet-tap, we have CALL verbs for
+things like MACQUERY, and LINKUP, and we have SHM ids for RX-QUEUE and
+TX-QUEUE.  We can write a driver that speaks this ABI on the bottom
+edge, and presents a normal netif interface on the top edge.  So the
+actual consumption of these resources can look just like another other
+resource of a similar type.
+
+-Greg
+
+
+--------------enigB8DC867B88B8805F65F8D5B2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAknTWCUACgkQlOSOBdgZUxkqbACcDXBZAmQOVVarZNJ82bXiNqHe
+RHkAnjyIKtjLd5IhLfhVjGEbvo/sFJ2h
+=QKxy
+-----END PGP SIGNATURE-----
+
+--------------enigB8DC867B88B8805F65F8D5B2--
