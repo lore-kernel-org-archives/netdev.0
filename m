@@ -1,37 +1,39 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 01/17] shm-signal: shared-memory signals
-Date: Wed, 01 Apr 2009 15:24:50 +0300
-Message-ID: <49D35D12.6080209@redhat.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <20090331184252.28333.70623.stgit@dev.haskins.net> <49D280C0.8010802@redhat.com> <49D283F7.7030508@novell.com> <49D285AE.7030604@redhat.com> <49D35A2B.10907@novell.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Q-in-Q ethertypes
+Date: Wed, 01 Apr 2009 15:20:54 +0200
+Message-ID: <m3r60cse6h.fsf@ursa.amorsen.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D35A2B.10907@novell.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:49140 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753811AbZDANVO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2009 09:21:14 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Lp0NS-00073O-Rb
+	for netdev@vger.kernel.org; Wed, 01 Apr 2009 13:21:10 +0000
+Received: from 92.62.204.2 ([92.62.204.2])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 13:21:10 +0000
+Received: from benny+usenet by 92.62.204.2 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 13:21:10 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gregory Haskins wrote:
-> Note that this is exactly what I do (though it is device specific). 
-> venet-tap has a ioq_notifier registered on its "rx" ring (which is the
-> tx-ring for the guest) that simply calls ioq_notify_disable() (which
-> calls shm_signal_disable() under the covers) and it wakes its
-> rx-thread.  This all happens in the context of the hypercall, which then
-> returns and allows the vcpu to re-enter guest mode immediately.
->   
-I think this is suboptimal.  The ring is likely to be cache hot on the 
-current cpu, waking a thread will introduce scheduling latency + IPI 
-+cache-to-cache transfers.
+Some switches suffer from the delusion that it is necessary to have a
+separate ethernet type for Q-in-Q frames instead of just using 0x8100 as
+sane people would do.
 
-On a benchmark setup, host resources are likely to exceed guest 
-requirements, so you can throw cpu at the problem and no one notices.  
-But I think the bits/cycle figure will decrease, even if bits/sec increases.
+Would it be possible to support ethertypes 0x9100 and 0x88a8 in the
+Linux kernel?
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+
+/Benny
+
+
+
+
 
