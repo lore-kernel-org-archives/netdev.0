@@ -1,64 +1,61 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] x86: percpu_to_op() misses memory and flags clobbers
-Date: Wed, 01 Apr 2009 10:13:06 +0200
-Message-ID: <49D32212.80607@cosmosbay.com>
+From: Paulius Zaleckas <paulius.zaleckas-Ft0m5Q12RQ9xBelEqimL3w@public.gmane.org>
+Subject: Re: [PATCH] hso: add Vendor/Product ID's for new devices
+Date: Wed, 01 Apr 2009 11:43:58 +0300
+Message-ID: <49D3294E.10501@teltonika.lt>
+References: <20090331115652.GA22106@raptor> <49D318E7.4050404@teltonika.lt> <49D31B43.20506@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Joe Perches <joe@perches.com>
-To: Ingo Molnar <mingo@elte.hu>, Tejun Heo <htejun@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50577 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759544AbZDAIN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 04:13:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <49D31B43.20506-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-While playing with new percpu_{read|write|add|sub} stuff in network tree,
-I found x86 asm was a litle bit optimistic.
+Jan Dumon wrote:
+> Paulius Zaleckas wrote:
+>> Jan Dumon wrote:
+>>> From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+>>>
+>>> Add Vendor/Product ID's for new devices.
+>>>
+>>> Signed-off-by: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+>>> ---
+>>> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+>>> index fe98aca..d47c508 100644
+>>> --- a/drivers/net/usb/hso.c
+>>> +++ b/drivers/net/usb/hso.c
+>>> @@ -462,9 +462,16 @@ static const struct usb_device_id hso_ids[] = {
+>>>  	{USB_DEVICE(0x0af0, 0x7701)},
+>>>  	{USB_DEVICE(0x0af0, 0x7801)},
+>>>  	{USB_DEVICE(0x0af0, 0x7901)},
+>>> -	{USB_DEVICE(0x0af0, 0x7361)},
+>>> -	{USB_DEVICE(0x0af0, 0xd057)},
+>> Please add comment in description why you are removing these IDs.
+> 
+> No ID's are removed.
+> 0xd057 is added again by the same patch, 0x7361 was twice in the list.
 
-We need to tell gcc that percpu_{write|add|sub|or|xor} are modyfing
-memory and possibly eflags. We could add another parameter to percpu_to_op()
-to separate the plain "mov" case (not changing eflags),
-but let keep it simple for the moment.
+OK for 0xd057, but please add comment that you are removing duplicate
+definition of 0x7361.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/arch/x86/include/asm/percpu.h b/arch/x86/include/asm/percpu.h
-index aee103b..fd4f8ec 100644
---- a/arch/x86/include/asm/percpu.h
-+++ b/arch/x86/include/asm/percpu.h
-@@ -82,22 +82,26 @@ do {							\
- 	case 1:						\
- 		asm(op "b %1,"__percpu_arg(0)		\
- 		    : "+m" (var)			\
--		    : "ri" ((T__)val));			\
-+		    : "ri" ((T__)val)			\
-+		    : "memory", "cc");			\
- 		break;					\
- 	case 2:						\
- 		asm(op "w %1,"__percpu_arg(0)		\
- 		    : "+m" (var)			\
--		    : "ri" ((T__)val));			\
-+		    : "ri" ((T__)val)			\
-+		    : "memory", "cc");			\
- 		break;					\
- 	case 4:						\
- 		asm(op "l %1,"__percpu_arg(0)		\
- 		    : "+m" (var)			\
--		    : "ri" ((T__)val));			\
-+		    : "ri" ((T__)val)			\
-+		    : "memory", "cc");			\
- 		break;					\
- 	case 8:						\
- 		asm(op "q %1,"__percpu_arg(0)		\
- 		    : "+m" (var)			\
--		    : "re" ((T__)val));			\
-+		    : "re" ((T__)val)			\
-+		    : "memory", "cc");			\
- 		break;					\
- 	default: __bad_percpu_size();			\
- 	}						\
+> 
+>>> +	{USB_DEVICE(0x0af0, 0x8200)},
+>>> +	{USB_DEVICE(0x0af0, 0x8201)},
+>>> +	{USB_DEVICE(0x0af0, 0xd035)},
+>>>  	{USB_DEVICE(0x0af0, 0xd055)},
+>>> +	{USB_DEVICE(0x0af0, 0xd155)},
+>>> +	{USB_DEVICE(0x0af0, 0xd255)},
+>>> +	{USB_DEVICE(0x0af0, 0xd057)},
+>>> +	{USB_DEVICE(0x0af0, 0xd157)},
+>>> +	{USB_DEVICE(0x0af0, 0xd257)},
+>>> +	{USB_DEVICE(0x0af0, 0xd357)},
+>>>  	{}
+>>>  };
+>>>  MODULE_DEVICE_TABLE(usb, hso_ids);
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
