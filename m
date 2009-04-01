@@ -1,62 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 3/9] ixgbe: Fix DCB netlink layer for 82599 to enable Priority
-	Flow Control
-Date: Wed, 01 Apr 2009 00:33:25 -0700
-Message-ID: <20090401073325.3749.28376.stgit@lost.foo-projects.org>
-References: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] hso: add Vendor/Product ID's for new devices
+Date: Wed, 01 Apr 2009 10:33:59 +0300
+Message-ID: <49D318E7.4050404@teltonika.lt>
+References: <20090331115652.GA22106@raptor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Dumon <j.dumon@option.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:58941
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760580AbZDAHdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:33:44 -0400
-In-Reply-To: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:47009 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759191AbZDAHeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2009 03:34:09 -0400
+In-Reply-To: <20090331115652.GA22106@raptor>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Jan Dumon wrote:
+> From: Jan Dumon <j.dumon@option.com>
+> 
+> Add Vendor/Product ID's for new devices.
+> 
+> Signed-off-by: Jan Dumon <j.dumon@option.com>
+> ---
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index fe98aca..d47c508 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -462,9 +462,16 @@ static const struct usb_device_id hso_ids[] = {
+>  	{USB_DEVICE(0x0af0, 0x7701)},
+>  	{USB_DEVICE(0x0af0, 0x7801)},
+>  	{USB_DEVICE(0x0af0, 0x7901)},
+> -	{USB_DEVICE(0x0af0, 0x7361)},
+> -	{USB_DEVICE(0x0af0, 0xd057)},
 
-The priority flow control settings from the netlink layer aren't taking
-effect in the base driver.  The boolean pfc_mode_enable in the dcb_config
-struct isn't being set, so the hardware configuration code is never
-reached.
+Please add comment in description why you are removing these IDs.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbe/ixgbe_dcb_nl.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index 0a8731f..bd0a0c2 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -90,6 +90,8 @@ int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
- 			src_dcb_cfg->tc_config[i - DCB_PFC_UP_ATTR_0].dcb_pfc;
- 	}
- 
-+	dst_dcb_cfg->pfc_mode_enable = src_dcb_cfg->pfc_mode_enable;
-+
- 	return 0;
- }
- 
-@@ -298,8 +300,10 @@ static void ixgbe_dcbnl_set_pfc_cfg(struct net_device *netdev, int priority,
- 
- 	adapter->temp_dcb_cfg.tc_config[priority].dcb_pfc = setting;
- 	if (adapter->temp_dcb_cfg.tc_config[priority].dcb_pfc !=
--	    adapter->dcb_cfg.tc_config[priority].dcb_pfc)
-+	    adapter->dcb_cfg.tc_config[priority].dcb_pfc) {
- 		adapter->dcb_set_bitmap |= BIT_PFC;
-+		adapter->temp_dcb_cfg.pfc_mode_enable = true;
-+	}
- }
- 
- static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
-
+> +	{USB_DEVICE(0x0af0, 0x8200)},
+> +	{USB_DEVICE(0x0af0, 0x8201)},
+> +	{USB_DEVICE(0x0af0, 0xd035)},
+>  	{USB_DEVICE(0x0af0, 0xd055)},
+> +	{USB_DEVICE(0x0af0, 0xd155)},
+> +	{USB_DEVICE(0x0af0, 0xd255)},
+> +	{USB_DEVICE(0x0af0, 0xd057)},
+> +	{USB_DEVICE(0x0af0, 0xd157)},
+> +	{USB_DEVICE(0x0af0, 0xd257)},
+> +	{USB_DEVICE(0x0af0, 0xd357)},
+>  	{}
+>  };
+>  MODULE_DEVICE_TABLE(usb, hso_ids);
