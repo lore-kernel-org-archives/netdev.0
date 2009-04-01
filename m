@@ -1,56 +1,62 @@
-From: Andrew Lutomirski <amluto@gmail.com>
-Subject: [PATCH 1/1] Tell linkwatch about new interfaces
-Date: Wed, 1 Apr 2009 11:40:06 -0400
-Message-ID: <cb0375e10904010840n1543a890w9039465d0f80ffcc@mail.gmail.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Wed, 01 Apr 2009 11:10:29 -0500
+Message-ID: <49D391F5.4080700@codemonkey.ws>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <200904011638.45135.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f169.google.com ([209.85.218.169]:46853 "EHLO
-	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730AbZDAPkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 11:40:10 -0400
+Received: from wa-out-1112.google.com ([209.85.146.177]:16192 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759077AbZDAQKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 12:10:37 -0400
+In-Reply-To: <200904011638.45135.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lutomirski <amluto@gmail.com>
+Rusty Russell wrote:
+> On Wednesday 01 April 2009 05:12:47 Gregory Haskins wrote:
+>   
+>> Bare metal: tput = 4078Mb/s, round-trip = 25593pps (39us rtt)
+>> Virtio-net: tput = 4003Mb/s, round-trip = 320pps (3125us rtt)
+>> Venet: tput = 4050Mb/s, round-trip = 15255 (65us rtt)
+>>     
+>
+> That rtt time is awful.  I know the notification suppression heuristic
+> in qemu sucks.
+>
+> I could dig through the code, but I'll ask directly: what heuristic do
+> you use for notification prevention in your venet_tap driver?
+>
+> As you point out, 350-450 is possible, which is still bad, and it's at least
+> partially caused by the exit to userspace and two system calls.  If virtio_net
+> had a backend in the kernel, we'd be able to compare numbers properly.
+>   
 
-When a network driver registers a new interface, linkwatch will not notice,
-and hence not set the rfc2863 operstate, until netif_carrier_on gets called.
-If the new interface has no carrier when it is connected, then a status of
-"unknown" is reported to userspace, which confuses various tools
-(NetworkManager, for example).
+I doubt the userspace exit is the problem.  On a modern system, it takes 
+about 1us to do a light-weight exit and about 2us to do a heavy-weight 
+exit.  A transition to userspace is only about ~150ns, the bulk of the 
+additional heavy-weight exit cost is from vcpu_put() within KVM.
 
-This fires a linkwatch event for all new interfaces, so that operstate
-gets set reasonably quickly.
+If you were to switch to another kernel thread, and I'm pretty sure you 
+have to, you're going to still see about a 2us exit cost.  Even if you 
+factor in the two syscalls, we're still talking about less than .5us 
+that you're saving.  Avi mentioned he had some ideas to allow in-kernel 
+thread switching without taking a heavy-weight exit but suffice to say, 
+we can't do that today.
 
-Signed-off-by: Andrew Lutomirski <amluto@gmail.com>
+You have no easy way to generate PCI interrupts in the kernel either.  
+You'll most certainly have to drop down to userspace anyway for that.
 
----
+I believe the real issue is that we cannot get enough information today 
+from tun/tap to do proper notification prevention b/c we don't know when 
+the packet processing is completed.
 
-This looks like the root cause of the bug I reported here:
+Regards,
 
-http://lkml.org/lkml/2009/3/24/499
-
-Without knowing all the locking and ordering constraints imposed on network
-drivers, this seemed like the safest way to fix the bug.  Alternative
-approaches would be to call rfc2863_policy directly or to initialize the
-relevent fields to sane values (for the carrier off state) in alloc_netdev.
-
-This applies to 2.6.29.  I can rediff it for any other tree, but I didn't see
-any changes that would conflict.
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e438f54..45911fd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4445,6 +4445,9 @@ int register_netdevice(struct net_device *dev)
- 		dev->reg_state = NETREG_UNREGISTERED;
- 	}
-
-+	/* Update link state. */
-+	linkwatch_fire_event(dev);
-+
- out:
- 	return ret;
+Anthony Liguori
