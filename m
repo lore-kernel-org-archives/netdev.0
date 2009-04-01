@@ -1,62 +1,66 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2.6.30] cxgb3: clear shadow BAR registers
-Date: Tue, 31 Mar 2009 17:58:54 -0700
-Message-ID: <20090401005854.15175.44595.stgit@speedy5>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 00/14] Add common OF device tree support for MDIO busses
+Date: Tue, 31 Mar 2009 19:45:02 -0600
+Message-ID: <fa686aa40903311845v54ddfb91u56dd11eff64140d4@mail.gmail.com>
+References: <20090331075537.1427.7819.stgit@localhost.localdomain>
+	<20090331.145738.36845509.davem@davemloft.net>
+	<fa686aa40903311519m3108c697v52180d192975a3b1@mail.gmail.com>
+	<20090331.152237.210090951.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:32368 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753325AbZDAA66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 20:58:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Joakim.Tjernlund@transmode.se, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, afleming@freescale.com, olof@lixom.net
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090331.152237.210090951.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+On Tue, Mar 31, 2009 at 4:22 PM, David Miller <davem@davemloft.net> wrote:
+> From: Grant Likely <grant.likely@secretlab.ca>
+> Date: Tue, 31 Mar 2009 16:19:42 -0600
+>
+>> On Tue, Mar 31, 2009 at 3:57 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>> > It therefore didn't get any -next exposure, so it's unreasonable to
+>> > merge this stuff now.
+>>
+>> Since when has sitting in a -next tree been a requirement for merging
+>> when the series has been kept up to date and tested? =A0I purposefully
+>> kept it out of -next to ensure that when it was applied for real to a
+>> -next tree it would be as complete, bug free, and bisectable as
+>> possible since once it hits a signed-off -next branch the individual
+>> commit cannot be modified.
+>
+> I know your pissed off, but take a deep breath and consider this
+> from my position.
+>
+> If I don't put a line in the sand somewhere, everyone can say
+> "I've been working so hard, I posted it to the lists a thousand
+> times, I have tons of testers" and I have to put the change in.
+>
+> That doesn't work, so please wait until the next release to get
+> your changes in. =A0And get them into a tree that gets exposure
+> in linux-next. =A0Then you have nothing to worry about.
 
-Ensure that internal shadow BAR registers are cleared on 32-bit platforms.
+Dammit.  Why did you have to go and sound so reasonable when I was all
+geared up for a pointless flame war.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+well... alright... but I reserve the right to be grumpy and surly for
+a few days.
 
- drivers/net/cxgb3/cxgb3_main.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+g.
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 2c2aaa7..3f22da4 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -2984,6 +2984,20 @@ static void __devinit print_port_info(struct adapter *adap,
- 	}
- }
- 
-+static void touch_bars(struct pci_dev *pdev)
-+{
-+#if BITS_PER_LONG < 64
-+	u32 v;
-+
-+	pci_config_dword(pdev, PCI_BASE_ADDRESS_1, &v);
-+	pci_write_config_dword(pdev, PCI_BASE_ADDRESS_1, v);
-+	pci_read_config_dword(pdev, PCI_BASE_ADDRESS_3, &v);
-+	pci_write_config_dword(pdev, PCI_BASE_ADDRESS_3, v);
-+	pci_read_config_dword(pdev, PCI_BASE_ADDRESS_5, &v);
-+	pci_write_config_dword(pdev, PCI_BASE_ADDRESS_5, v);
-+#endif
-+}
-+
- static const struct net_device_ops cxgb_netdev_ops = {
- 	.ndo_open		= cxgb_open,
- 	.ndo_stop		= cxgb_close,
-@@ -3051,6 +3065,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- 		goto out_disable_device;
- 	}
- 
-+	touch_bars(pdev);
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
- 
+-- =
 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
