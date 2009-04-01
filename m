@@ -1,63 +1,29 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Wed, 1 Apr 2009 15:23:40 +0200
-Message-ID: <20090401132340.GT11935@one.firstfloor.org>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com>
+From: Moni Shoua <monis@Voltaire.COM>
+Subject: [ofa-general] Where is the right place to add monitoring data
+Date: Wed, 01 Apr 2009 16:37:59 +0300
+Message-ID: <49D36E37.6060308@Voltaire.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49D35825.3050001@novell.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	OpenFabrics General <general@lists.openfabrics.org>
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 01, 2009 at 08:03:49AM -0400, Gregory Haskins wrote:
-> Andi Kleen wrote:
-> > Gregory Haskins <ghaskins@novell.com> writes:
-> >
-> > What might be useful is if you could expand a bit more on what the high level
-> > use cases for this. 
-> >
-> > Questions that come to mind and that would be good to answer:
-> >
-> > This seems to be aimed at having multiple VMs talk
-> > to each other, but not talk to the rest of the world, correct? 
-> > Is that a common use case? 
-> >   
-> 
-> Actually we didn't design specifically for either type of environment. 
+Hi,
+I want to add data monitoring capabilities to rdma_cm (socket like interface that does connection management for InfiniBand and iWarp protocols).
+My question is: will it be acceptable to create a new enrty /proc/net/rdma_cm or is is /proc file system really closed for new members.
+I get opinions for here and there and I'd like to get yours.
 
-But surely you must have some specific use case in mind? Something
-that it does better than the various methods that are available
-today. Or rather there must be some problem you're trying
-to solve. I'm just not sure what that problem exactly is.
-
-> What we *are* trying to address is making an easy way to declare virtual
-> resources directly in the kernel so that they can be accessed more
-> efficiently.  Contrast that to the way its done today, where the models
-> live in, say, qemu userspace.
-> 
-> So instead of having
-> guest->host->qemu::virtio-net->tap->[iptables|bridge], you simply have
-> guest->host->[iptables|bridge].  How you make your private network (if
-
-So is the goal more performance or simplicity or what?
-
-> > What would be the use cases for non networking devices?
-> >
-> > How would the interfaces to the user look like?
-> >   
-> 
-> I am not sure if you are asking about the guests perspective or the
-> host-administators perspective.
-
-I was wondering about the host-administrators perspective.
-
--Andi
--- 
-ak@linux.intel.com -- Speaking for myself only.
+thanks
+ MoniS
