@@ -1,41 +1,36 @@
-From: Mark Ryden <markryde@gmail.com>
-Subject: sysfs tagged directory support status (was:. Re: [PATCH 1/8] sysfs:
-	Implement sysfs tagged directory support)
-Date: Wed, 1 Apr 2009 13:00:53 +0300
-Message-ID: <dac45060904010300y7fe8a09dxb582929fc8018ec1@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] Re: skb_segment() questions
+Date: Wed, 1 Apr 2009 10:02:10 +0000
+Message-ID: <20090401100209.GC5970@ff.dom.local>
+References: <20090329020701.GA9983@gondor.apana.org.au> <20090401091801.GA5970@ff.dom.local> <20090401092457.GB19847@gondor.apana.org.au> <20090401095049.GB5970@ff.dom.local> <20090401095352.GB20003@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin Thery <benjamin.thery@bull.net>,
-	David Shwatrz <dshwatrz@gmail.com>, Greg KH <greg@kroah.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <htejun@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755959AbZDAKBX@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: James Huang <jamesclhuang@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.225]:64480 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751459AbZDAKCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 06:02:22 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so3547348rvb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2009 03:02:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090401095352.GB20003@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-  I am back to it and I just want to ask if there are any news with
-sysfs tagged directory support patch. Is it merged now ?
-Regards,
-Mark
+On Wed, Apr 01, 2009 at 05:53:52PM +0800, Herbert Xu wrote:
+> On Wed, Apr 01, 2009 at 09:50:50AM +0000, Jarek Poplawski wrote:
+> >
+> > I guess you mean non-linear skb with a header smaller than mtu? Well,
+> > if it's the most common case now, I agree.
+> 
+> The common case is the path stemming from the TCP stack, where
+> we always construct skb's with the entire payload in page frags,
+> and only the header is placed in skb->data.
 
-On Tue, Oct 7, 2008 at 7:48 PM, Greg KH <gregkh@suse.de> wrote:
-> On Tue, Oct 07, 2008 at 06:39:04PM +0200, Mark Ryden wrote:
->> Hello,
->> =A0 So I wonder: the sysfs tagged directory support patch is in GerK=
-H
->> tree for more than a month.
->
-> I dropped it from my tree 2 days ago, see the thread on lkml for why.
->
-> thanks,
->
-> greg k-h
->
+OK, then let's forget about this patch.
+
+Thanks for the explanation,
+Jarek P.
