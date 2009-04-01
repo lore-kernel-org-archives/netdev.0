@@ -1,182 +1,126 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Wed, 01 Apr 2009 19:05:03 -0400
-Message-ID: <49D3F31F.8010705@novell.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3CEC5.20606@novell.com> <20090401222352.GY11935@one.firstfloor.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12971] New: "tg3 transmit timed out" when
+ transmitting at high bitrate
+Date: Wed, 1 Apr 2009 16:43:00 -0700
+Message-ID: <20090401164300.049a48fc.akpm@linux-foundation.org>
+References: <bug-12971-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig32B6C464D23A120C2C4B026E"
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, dobrev666@gmail.com,
+	mcarlson@broadcom.com, mchan@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:59212 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757304AbZDAXCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 19:02:52 -0400
-In-Reply-To: <20090401222352.GY11935@one.firstfloor.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34108 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753888AbZDAXqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 19:46:16 -0400
+In-Reply-To: <bug-12971-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig32B6C464D23A120C2C4B026E
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-Andi Kleen wrote:
-> On Wed, Apr 01, 2009 at 04:29:57PM -0400, Gregory Haskins wrote:
->  =20
->>> description?
->>>  =20
->>>      =20
->> Yes, good point.  I will be sure to be more explicit in the next rev.
->>
->>    =20
->>>  =20
->>>      =20
->>>> So the administrator can then set these attributes as
->>>> desired to manipulate the configuration of the instance of the devic=
-e,
->>>> on a per device basis.
->>>>    =20
->>>>        =20
->>> How would the guest learn of any changes in there?
->>>  =20
->>>      =20
->> The only events explicitly supported by the infrastructure of this
->> nature would be device-add and device-remove.  So when an admin adds o=
-r
->> removes a device to a bus, the guest would see driver::probe() and
->> driver::remove() callbacks, respectively.  All other events are left (=
-by
->> design) to be handled by the device ABI itself, presumably over the
->> provided shm infrastructure.
->>    =20
->
-> Ok so you rely on a transaction model where everything is set up
-> before it is somehow comitted to the guest? I hope that is made
-> explicit in the interface somehow.
->  =20
-Well, its not an explicit transaction model, but I guess you could think
-of it that way.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Generally you set the device up before you launch the guest.  By the
-time the guest loads and tries to scan the bus for the initial
-discovery, all the devices would be ready to go.
+On Sun, 29 Mar 2009 18:02:04 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-This does bring up the question of hotswap.  Today we fully support
-hotswap in and out, but leaving this "enabled" transaction to the
-individual device means that the device-id would be visible in the bus
-namespace before the device may want to actually communicate.  Hmmm
+> http://bugzilla.kernel.org/show_bug.cgi?id=12971
+> 
+>            Summary: "tg3 transmit timed out" when transmitting at high
+>                     bitrate
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.29
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: dobrev666@gmail.com
+>         Regression: No
+> 
+> 
+> I have laptop - HP compaq 6715s with broadcom lan card (from lspci):
+> 10:00.0 Ethernet controller: Broadcom Corporation NetLink BCM5906M Fast
+> Ethernet PCI Express (rev 02). I am using slackware 12.2. I compiled kernel
+> 2.6.29 from kernel.org. 
+> 
+> When I try to copy a file trough the LAN from this laptop with a command like
+> this:
+> scp test.bin 192.168.0.1:/tmp
+> 
+> Some MBytes are copied and the transmit stops and there is some messages in
+> dmesg:
+> 
+> WARNING: at net/sched/sch_generic.c:226 dev_watchdog+0x1c2/0x1d0()
+> Hardware name: HP Compaq 6715s (GR897ES#ABB)
+> NETDEV WATCHDOG: eth0 (tg3): transmit timed out
+> Modules linked in: snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
+> snd_seq_devic
+> e snd_pcm_oss snd_mixer_oss ipv6 cpufreq_stats powernow_k8 freq_table ppdev lp
+> parpor
+> t_pc parport fuse snd_hda_codec_analog pcmcia snd_hda_intel snd_hda_codec tg3
+> fan yen
+> ta_socket snd_hwdep video rsrc_nonstatic rtc_cmos snd_pcm thermal output
+> rtc_core pcm
+> cia_core ati_agp processor libphy rtc_lib psmouse i2c_piix4 agpgart container
+> snd_tim
+> er snd thermal_sys sg serio_raw evdev button battery ac wmi shpchp soundcore
+> k8temp s
+> nd_page_alloc hwmon
+> Pid: 0, comm: swapper Not tainted 2.6.29-smp #1
+> Call Trace:
+>  [<c01294b6>] warn_slowpath+0x86/0xa0
+>  [<c0120030>] ? sd_init_MC+0xa0/0xd0
+>  [<c0120fce>] ? __enqueue_entity+0x8e/0xb0
+>  [<c03a483f>] ? cpumask_next_and+0x1f/0x40
+>  [<c012260a>] ? find_busiest_group+0x18a/0x710
+>  [<c011f8e5>] ? enqueue_task+0x15/0x30
+>  [<c03a94ed>] ? strlcpy+0x1d/0x60
+>  [<c06bfc02>] dev_watchdog+0x1c2/0x1d0
+>  [<c014320b>] ? getnstimeofday+0x4b/0x120
+>  [<c01320f4>] run_timer_softirq+0x124/0x190
+>  [<c06bfa40>] ? dev_watchdog+0x0/0x1d0
+>  [<c012e03a>] __do_softirq+0x8a/0x150
+>  [<c0132614>] ? update_process_times+0x54/0x70
+>  [<c012e13b>] do_softirq+0x3b/0x50
+>  [<c012e47b>] irq_exit+0x3b/0x50
+>  [<c011467e>] smp_apic_timer_interrupt+0x5e/0x90
+>  [<c0103940>] apic_timer_interrupt+0x28/0x30
+>  [<c0109978>] ? default_idle+0x38/0x50
+>  [<c0109b80>] c1e_idle+0x90/0xf0
+>  [<c0109b91>] ? c1e_idle+0xa1/0xf0
+>  [<c0101bea>] cpu_idle+0x4a/0x70
+>  [<c072f705>] rest_init+0x55/0x60
+> ---[ end trace 0c67ed7bcfb14db6 ]---
+> tg3: eth0: transmit timed out, resetting
+> tg3: DEBUG: MAC_TX_STATUS[00000008] MAC_RX_STATUS[00000000]
+> tg3: DEBUG: RDMAC_STATUS[00000000] WDMAC_STATUS[00000000]
+> tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
+> tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
+> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
+> tg3: eth0: Link is down.
+> tg3: eth0: Link is up at 100 Mbps, full duplex.
+> tg3: eth0: Flow control is on for TX and on for RX.
+> 
+> After that I cannot send or receive any data through the LAN. There is no ping
+> to anywhere.
+> These commands fix the problem:
+> 
+> ip l set dev eth0 down
+> ip l set dev eth0 up
+> 
+> And when I execute `scp test.bin 192.168.0.1:/tmp` there is no network again.
+> 
+> But this laptop has no problems when receiving data. I can copy with scp from
+> other PC connected to the same lan with 11Mbytes/s.
+> 
+> I have search the web to find a solution with no success.
+> I have tried some kernel options like "irqpoll" and "acpi=off" with no success.
 
-Perhaps I need to build this in as a more explicit "enabled"
-feature...and the guest will not see the driver::probe() until this happe=
-ns.
-
->  =20
->> This script creates two buses ("client-bus" and "server-bus"),
->> instantiates a single venet-tap on each of them, and then "wires" them=
-
->> together with a private bridge instance called "vbus-br0".  To complet=
-e
->> the picture here, you would want to launch two kvms, one of each of th=
-e
->> client-bus/server-bus instances.  You can do this via /proc/$pid/vbus.=
-  E.g.
->>
->> # (echo client-bus > /proc/self/vbus; qemu-kvm -hda client.img....)
->> # (echo server-bus > /proc/self/vbus; qemu-kvm -hda server.img....)
->>
->> (And as noted, someday qemu will be able to do all the setup that the
->> script did, natively.  It would wire whatever tap it created to an
->> existing bridge with qemu-ifup, just like we do for tun-taps today)
->>    =20
->
-> The usual problem with that is permissions. Just making qemu-ifup suid
-> it not very nice.  It would be good if any new design addressed this.
->  =20
-
-Well, its kind of out of my control.  venet-tap ultimately creates a
-simple netif interface which we must do something with.  Once its
-created, "wiring" it up to something like a linux-bridge is no different
-than something like a tun-tap, so the qemu-ifup requirement doesn't chang=
-e.
-
-The one thing I can think of is it would be possible to build a
-"venet-switch" module, and this could be done without using brctl or
-qemu-ifup...but then I would lose all the benefits of re-using that
-infrastructure.  I do not recommend we actually do this, but it would
-technically be a way to address your concern.
-
-
->  =20
->> the current code doesnt support rw on the mac attributes yet..i need a=
-
->> parser first).
->>    =20
->
-> parser in kernel space always sounds scary to me.
->  =20
-Heh..why do you think I keep procrastinating ;)
-
->
->  =20
->> Yeah, ultimately I would love to be able to support a fairly wide rang=
-e
->> of the normal userspace/kernel ABI through this mechanism.  In fact, o=
-ne
->> of my original design goals was to somehow expose the syscall ABI
->> directly via some kind of syscall proxy device on the bus.  I have sin=
-ce
->>    =20
->
-> That sounds really scary for security.=20
->
->
->  =20
->> backed away from that idea once I started thinking about things some
->> more and realized that a significant number of system calls are really=
-
->> inappropriate for a guest type environment due to their ability to
->> block.   We really dont want a vcpu to block.....however, the AIO type=
-
->>    =20
->
-> Not only because of blocking, but also because of security issues.
-> After all one of the usual reasons to run a guest is security isolation=
-=2E
->  =20
-Oh yeah, totally agreed.  Not that I am advocating this, because I have
-abandoned the idea.  But back when I was thinking of this, I would have
-addressed the security with the vbus and syscall-proxy-device objects
-themselves.  E.g. if you dont instantiate a syscall-proxy-device on the
-bus, the guest wouldnt have access to syscalls at all.   And you could
-put filters into the module to limit what syscalls were allowed, which
-UID to make the guest appear as, etc.
-
-> In general the more powerful the guest API the more risky it is, so som=
-e
-> self moderation is probably a good thing.
->  =20
-:)
-
--Greg
-
-
---------------enig32B6C464D23A120C2C4B026E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iEYEARECAAYFAknT8x8ACgkQlOSOBdgZUxla+wCeOmiZgJaxTRDmAsK237O/4C/k
-Xf4AmwQP8jTNo/afgFRdBsZ47784XIpd
-=HYZv
------END PGP SIGNATURE-----
-
---------------enig32B6C464D23A120C2C4B026E--
+I assume that 2.6.28 was OK, and that this is a regression?
