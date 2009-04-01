@@ -1,96 +1,103 @@
-From: Dave Jones <davej@redhat.com>
-Subject: More fun with dma debugging: 8139cp frees DMA memory with
-	different size
-Date: Wed, 1 Apr 2009 11:18:51 -0400
-Message-ID: <20090401151851.GA19496@redhat.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/2 V3] kaweth: Fix locking to be SMP-safe
+Date: Wed, 01 Apr 2009 10:28:29 -0500
+Message-ID: <49d3881d.7EinO6dA2s6BnVTa%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	oliver@neukum.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54757 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932906AbZDAPSy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2009 11:18:54 -0400
-Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
-	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n31FIrQM011621
-	for <netdev@vger.kernel.org>; Wed, 1 Apr 2009 11:18:53 -0400
-Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
-	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id n31FIraF020598
-	for <netdev@vger.kernel.org>; Wed, 1 Apr 2009 11:18:53 -0400
-Received: from localhost.localdomain (vpn-10-62.bos.redhat.com [10.16.10.62])
-	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id n31FIqAm011350
-	for <netdev@vger.kernel.org>; Wed, 1 Apr 2009 11:18:52 -0400
-Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
-	by localhost.localdomain (8.14.3/8.14.3) with ESMTP id n31FIpXv024986
-	for <netdev@vger.kernel.org>; Wed, 1 Apr 2009 11:18:51 -0400
-Received: (from davej@localhost)
-	by localhost.localdomain (8.14.3/8.14.3/Submit) id n31FIpjv024984
-	for netdev@vger.kernel.org; Wed, 1 Apr 2009 11:18:51 -0400
-Content-Disposition: inline
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.124]:50016 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754340AbZDAP2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 11:28:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A user reported this..
+On an SMP system, the following message is printed. The patch below gets
+fixes the problem.
 
- > Feb 19 14:24:58 rawhide kernel: ------------[ cut here ]------------
- > Feb 19 14:24:58 rawhide kernel: WARNING: at lib/dma-debug.c:439 check_unmap+0x16a/0x3dd() (Not tainted)
- > Feb 19 14:24:58 rawhide kernel: Hardware name:
- > Feb 19 14:24:58 rawhide kernel: 8139cp 0000:00:03.0: DMA-API: device driver frees DMA memory with different size [device address=0x000000000f74e1c2] [map size=1536 bytes] [unmap size=1538 bytes]
- > Feb 19 14:24:58 rawhide kernel: Modules linked in: sunrpc ip6t_REJECT nf_conntrack_ipv6 ip6table_filter ip6_tables ipv6 dm_multipath virtio_balloon pcspkr virtio_pci 8139too virtio_ring 8139cp i2c_piix4 virtio mii i2c_core [last unloaded: freq_table]
- > Feb 19 14:24:58 rawhide kernel: Pid: 0, comm: swapper Not tainted 2.6.29-0.124.rc5.fc11.x86_64 #1
- > Feb 19 14:24:58 rawhide kernel: Call Trace:
- > Feb 19 14:24:58 rawhide kernel: <IRQ>  [<ffffffff810488f6>] warn_slowpath+0xb7/0xe7
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8106934c>] ? graph_unlock+0x6b/0x77
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8106c9d5>] ? __lock_acquire+0xb67/0xc0d
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81029c00>] ? pvclock_tsc_khz+0x8/0x2d
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8137bd9f>] ? _spin_lock_irqsave+0x78/0x86
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff811985eb>] ? get_hash_bucket+0x28/0x34
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8106b139>] ? mark_lock+0x28/0x37f
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81198ae5>] check_unmap+0x16a/0x3dd
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8106b6d3>] ? trace_hardirqs_on_caller+0x118/0x153
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81198ea5>] debug_dma_unmap_page+0x50/0x52
- > Feb 19 14:24:58 rawhide kernel: [<ffffffffa001c19a>] dma_unmap_single+0x67/0x70 [8139cp]
- > Feb 19 14:24:58 rawhide kernel: [<ffffffffa001d587>] cp_rx_poll+0x16c/0x329 [8139cp]
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff812e1631>] net_rx_action+0xb1/0x1e9
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff812e1720>] ? net_rx_action+0x1a0/0x1e9
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8104de7c>] __do_softirq+0x8f/0x173
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff810126ac>] call_softirq+0x1c/0x30
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81013799>] do_softirq+0x4d/0xb4
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8104dac7>] irq_exit+0x4e/0x8b
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81013aa8>] do_IRQ+0x127/0x14b
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81011d93>] ret_from_intr+0x0/0x2e
- > Feb 19 14:24:58 rawhide kernel: <EOI>  [<ffffffff8102927a>] ? native_safe_halt+0x6/0x8
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8106b71b>] ? trace_hardirqs_on+0xd/0xf
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81017a5f>] ? default_idle+0x4c/0x77
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8137ee0c>] ? atomic_notifier_call_chain+0xf/0x11
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff810101db>] ? enter_idle+0x22/0x24
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff81010240>] ? cpu_idle+0x63/0xae
- > Feb 19 14:24:58 rawhide kernel: [<ffffffff8136719d>] ? rest_init+0x61/0x63
- > Feb 19 14:24:58 rawhide kernel: ---[ end trace 6089c83d46ba2fbd ]---
+=================================
+[ INFO: inconsistent lock state ]
+2.6.29-Linus-05093-gc31f403 #57
+---------------------------------
+inconsistent {hardirq-on-W} -> {in-hardirq-W} usage.
+bash/4105 [HC1[1]:SC0[0]:HE0:SE1] takes:
+ (&kaweth->device_lock){+...}, at: [<ffffffffa01aa286>]
+                 kaweth_usb_receive+0x77/0x1af [kaw eth]
+{hardirq-on-W} state was registered at:
+  [<ffffffff80260503>] __lock_acquire+0x753/0x1685
+  [<ffffffff8026148a>] lock_acquire+0x55/0x71
+  [<ffffffff80461ba6>] _spin_lock+0x31/0x3d
+  [<ffffffffa01aaa0c>] kaweth_start_xmit+0x2b/0x1e1 [kaweth]
+  [<ffffffff803eccd3>] dev_hard_start_xmit+0x22e/0x2ad
+  [<ffffffff803fe120>] __qdisc_run+0xf2/0x203
+  [<ffffffff803ed0cd>] dev_queue_xmit+0x263/0x39b
+  [<ffffffffa03a47cb>] packet_sendmsg_spkt+0x1c4/0x20a [af_packet]
+  [<ffffffff803de0c2>] sock_sendmsg+0xe4/0xfd
+  [<ffffffff803dec8f>] sys_sendto+0xe4/0x10c
+  [<ffffffff8020bccb>] system_call_fastpath+0x16/0x1b
+  [<ffffffffffffffff>] 0xffffffffffffffff
+irq event stamp: 1280
+hardirqs last  enabled at (1279): [<ffffffff80461a71>]
+                  _spin_unlock_irqrestore+0x44/0x4c
+hardirqs last disabled at (1280): [<ffffffff8020bad7>]
+                  save_args+0x67/0x70
+softirqs last  enabled at (660): [<ffffffff8024192c>]
+                  __do_softirq+0x14d/0x15d
+softirqs last disabled at (651): [<ffffffff8020ce9c>]
+                  call_softirq+0x1c/0x28
 
-My guess is that we're mapping skb->len, but unmapping skb->len + NET_IP_ALIGN
-I don't have hardware to test this, does the patch below make sense ?
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@kernel.org>
+---
 
-	Dave
+DaveM,
 
-DMA debugging catches a mismatched DMA alloc/free size.
+I had expected this to be 2.6.31 material, but Oliver requested that it be
+sent to Stable as well.
 
-8139cp 0000:00:03.0: DMA-API: device driver frees DMA memory with different size
- [device address=0x000000000f74e1c2] [map size=1536 bytes] [unmap size=1538 bytes]
+Larry
+---
 
-Signed-off-by: Dave Jones <davej@redhat.com>
-
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index a09e3a7..a4b4491 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -1065,7 +1065,8 @@ static int cp_refill_rx(struct cp_private *cp)
- 		skb_reserve(skb, NET_IP_ALIGN);
+Index: wireless-testing/drivers/net/usb/kaweth.c
+===================================================================
+--- wireless-testing.orig/drivers/net/usb/kaweth.c
++++ wireless-testing/drivers/net/usb/kaweth.c
+@@ -36,7 +36,6 @@
+  * Run test procedures
+  * Fix bugs from previous two steps
+  * Snoop other OSs for any tricks we're not doing
+- * SMP locking
+  * Reduce arbitrary timeouts
+  * Smart multicast support
+  * Temporary MAC change support
+@@ -796,7 +795,7 @@ static int kaweth_start_xmit(struct sk_b
  
- 		mapping = dma_map_single(&cp->pdev->dev, skb->data,
--					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-+					 cp->rx_buf_sz + NET_IP_ALIGN,
-+					 PCI_DMA_FROMDEVICE);
- 		cp->rx_skb[i] = skb;
+ 	int res;
  
- 		cp->rx_ring[i].opts2 = 0;
+-	spin_lock(&kaweth->device_lock);
++	spin_lock_irq(&kaweth->device_lock);
+ 
+ 	kaweth_async_set_rx_mode(kaweth);
+ 	netif_stop_queue(net);
+@@ -814,7 +813,7 @@ static int kaweth_start_xmit(struct sk_b
+ 		if (!copied_skb) {
+ 			kaweth->stats.tx_errors++;
+ 			netif_start_queue(net);
+-			spin_unlock(&kaweth->device_lock);
++			spin_unlock_irq(&kaweth->device_lock);
+ 			return 0;
+ 		}
+ 	}
+@@ -848,7 +847,7 @@ skip:
+ 		net->trans_start = jiffies;
+ 	}
+ 
+-	spin_unlock(&kaweth->device_lock);
++	spin_unlock_irq(&kaweth->device_lock);
+ 
+ 	return 0;
+ }
