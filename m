@@ -1,69 +1,90 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 4/5] igb: cleanup igb loopback path
-Date: Tue, 31 Mar 2009 23:38:56 -0700
-Message-ID: <20090401063856.3046.80012.stgit@lost.foo-projects.org>
-References: <20090401063759.3046.89960.stgit@lost.foo-projects.org>
+From: Yu Zhao <yu.zhao@intel.com>
+Subject: Re: [ANNOUNCE] New driver vxge for Neterion's X3100
+	series10GbEPCIe adapter
+Date: Wed, 1 Apr 2009 14:55:36 +0800
+Message-ID: <20090401065536.GA11781@yzhao-otc.sh.intel.com>
+References: <1237018825.4966.412.camel@flash> <20090331061333.GA11240@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BEEA1@nekter> <49D257D0.9050104@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF027@nekter> <20090401025327.GA11687@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF03C@nekter> <20090401050940.GB11687@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF05A@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Leonid Grossman <Leonid.Grossman@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:57692
-	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757102AbZDAGjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 02:39:16 -0400
-In-Reply-To: <20090401063759.3046.89960.stgit@lost.foo-projects.org>
+Received: from mga09.intel.com ([134.134.136.24]:10373 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758605AbZDAGyj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2009 02:54:39 -0400
+Content-Disposition: inline
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77051BF05A@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Wed, Apr 01, 2009 at 01:44:45PM +0800, Leonid Grossman wrote:
+> > On Wed, Apr 01, 2009 at 11:36:11AM +0800, Ramkrishna Vepa wrote:
+> > > > Yes, and that's what the PCI subsystem does. If the vxge VF is
+> > > identical
+> > > > to its PF, then vxge should be able to drive both PF and VF
+> without
+> > > any
+> > > > modification.
+> > > [Ram] Ok. In that case, is the call to pci_enable/disable_sriov
+> still
+> > > required for vxge?
+> > 
+> > Yes, the vxge driver first binds the PF once it's loaded (VF doesn't
+> > exist at this time) and calls the SR-IOV API. The VF appears after the
+> > SR-IOV is enabled and then the same copy of the vxge driver can bind
+> > the VF too if you want to use the VF in the native Linux. Though the
+> > hardware is in the SR-IOV mode in this case, it would be equal to the
+> > multi-function mode. Or you can assign the VF to the Xen/KVM guest and
+> > let another copy of vxge driver (may be vxge for Windows, Solaris,
+> BSD,
+> > etc.) running in the guest bind it.
+> 
+> Yu, could you pl. explain why this call is not optional - SR-IOV pci-e
+> code should be able to find SR-IOV capable device and enable all VFs
+> based upon pci-e config space alone, without any help from
+> device-specific PF driver.
 
-The code path for setting up phy loopback testing was out of date and was
-setting bits it didn't need to.  This change cleans up the code path and
-removes some code that has no effect on teh driver.
+Yes, this is true in certain cases. However, there are several things
+that prevent us to enable the SR-IOV implicitly by the PCI subsystem.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+First, the SR-IOV spec says "Once the SRIOV capability is configured
+enabling VF to be assigned to individual SI, the PF takes on a more
+supervisory role. For example, the PF can be used to manage device
+specific functionality such as internal resource allocation to each
+VF, VF arbitration to shared resources such as the PCIe Link or the
+Function-specific Link (e.g., a network or storage Link), etc." And
+some SR-IOV devices follow this suggestion thus their VF cannot work
+without PF driver pre-exits. Intel 82576 is an example -- it requires
+the PF driver to allocate tx/rx queues for the VF so the VF can be
+functional. Only enabling the SR-IOV in the PF PCI config space will
+end up with VF appearing useless even its PCI config space is visible.
 
- drivers/net/igb/igb_ethtool.c |   14 +++-----------
- 1 files changed, 3 insertions(+), 11 deletions(-)
+Second, the SR-IOV depends on somethings that are not available before
+the PCI subsystem is fully initialized. This mean we cannot enable the
+SR-IOV capability before all PCI device are enumerated. For example,
+if the VF resides on the bus different than the PF bus, then we can't
+enable the VF before the bus used by the VF is scan because we don't
+know if the bus is reserved by the BIOS for the VF or not. Another
+example is the dependency link used by the PF -- we can't create the
+sysfs symbolic link indicating the dependency before all PFs in a
+device are enumerated.
 
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index fb09c8a..27eae49 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -1419,7 +1419,6 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 ctrl_reg = 0;
--	u32 stat_reg = 0;
- 
- 	hw->mac.autoneg = false;
- 
-@@ -1443,18 +1442,11 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
- 	ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
- 		     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
- 		     E1000_CTRL_SPD_1000 |/* Force Speed to 1000 */
--		     E1000_CTRL_FD);	 /* Force Duplex to FULL */
-+		     E1000_CTRL_FD |	 /* Force Duplex to FULL */
-+		     E1000_CTRL_SLU);	 /* Set link up enable bit */
- 
--	if (hw->phy.media_type == e1000_media_type_copper &&
--	    hw->phy.type == e1000_phy_m88)
-+	if (hw->phy.type == e1000_phy_m88)
- 		ctrl_reg |= E1000_CTRL_ILOS; /* Invert Loss of Signal */
--	else {
--		/* Set the ILOS bit on the fiber Nic if half duplex link is
--		 * detected. */
--		stat_reg = rd32(E1000_STATUS);
--		if ((stat_reg & E1000_STATUS_FD) == 0)
--			ctrl_reg |= (E1000_CTRL_ILOS | E1000_CTRL_SLU);
--	}
- 
- 	wr32(E1000_CTRL, ctrl_reg);
- 
+And some SR-IOV devices can support multiple modes at same time.
+The 82576 can support N VFs + M VMDq modes (N + M = 8), which means
+sometimes people may want to only enable arbitrary number of VFs.
+The PCI subsystem can't get value to config the NumVFs unless some
+one calls the API. I guess only the PF driver can do this.
 
+> Once VFs appear, vxge or any other native netdev driver should be able
+> to bind a VF regardless of PF driver being loaded first (or at all) -
+> there are some use cases that do not assume PF driver presence...
+
+So the PF will not be binded to any driver in these use cases? Can you
+please elaborate?
+
+Thanks,
+Yu
