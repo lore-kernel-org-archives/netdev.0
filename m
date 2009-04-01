@@ -1,43 +1,33 @@
-From: Yu Zhao <yu.zhao@intel.com>
-Subject: Re: [ANNOUNCE] New driver vxge for Neterion's X3100 series
-	10GbEPCIe adapter
-Date: Wed, 1 Apr 2009 13:09:40 +0800
-Message-ID: <20090401050940.GB11687@yzhao-otc.sh.intel.com>
-References: <1237018825.4966.412.camel@flash> <20090331061333.GA11240@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BEEA1@nekter> <49D257D0.9050104@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF027@nekter> <20090401025327.GA11687@yzhao-otc.sh.intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD77051BF03C@nekter>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/14] Add common OF device tree support for MDIO busses
+Date: Tue, 31 Mar 2009 22:16:01 -0700 (PDT)
+Message-ID: <20090331.221601.114102644.davem@davemloft.net>
+References: <fa686aa40903311845v54ddfb91u56dd11eff64140d4@mail.gmail.com>
+	<20090331.203855.96368726.davem@davemloft.net>
+	<fa686aa40903312156m2aad029i7dc27700bc9418fb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Leonid Grossman <Leonid.Grossman@neterion.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, olof@lixom.net,
+	afleming@freescale.com, galak@kernel.crashing.org,
+	avorontsov@ru.mvista.com, Joakim.Tjernlund@transmode.se
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42902 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751309AbZDAFI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2009 01:08:58 -0400
-Content-Disposition: inline
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77051BF03C@nekter>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55470
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751331AbZDAFQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 01:16:13 -0400
+In-Reply-To: <fa686aa40903312156m2aad029i7dc27700bc9418fb@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 01, 2009 at 11:36:11AM +0800, Ramkrishna Vepa wrote:
-> > Yes, and that's what the PCI subsystem does. If the vxge VF is
-> identical
-> > to its PF, then vxge should be able to drive both PF and VF without
-> any
-> > modification.
-> [Ram] Ok. In that case, is the call to pci_enable/disable_sriov still
-> required for vxge?
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Tue, 31 Mar 2009 22:56:38 -0600
 
-Yes, the vxge driver first binds the PF once it's loaded (VF doesn't
-exist at this time) and calls the SR-IOV API. The VF appears after the
-SR-IOV is enabled and then the same copy of the vxge driver can bind
-the VF too if you want to use the VF in the native Linux. Though the
-hardware is in the SR-IOV mode in this case, it would be equal to the
-multi-function mode. Or you can assign the VF to the Xen/KVM guest and
-let another copy of vxge driver (may be vxge for Windows, Solaris, BSD,
-etc.) running in the guest bind it.
+> At the very least, please consider picking up patches 2 & 3.  They
+> address a real bug (unrelated to the MDIO rework), and only touch the
+> MPC5200 FEC driver.
 
-Thanks,
-Yu
+Please submit them seperately, and I will look them over.
+
+Thanks.
