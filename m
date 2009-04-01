@@ -1,45 +1,64 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 00/14] Add common OF device tree support for MDIO busses
-Date: Tue, 31 Mar 2009 23:21:05 -0600
-Message-ID: <fa686aa40903312221m30d351e3i56ebdbda079e6cd8@mail.gmail.com>
-References: <fa686aa40903311845v54ddfb91u56dd11eff64140d4@mail.gmail.com>
-	 <20090331.203855.96368726.davem@davemloft.net>
-	 <fa686aa40903312156m2aad029i7dc27700bc9418fb@mail.gmail.com>
-	 <20090331.221601.114102644.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2 3/3] Doc: Fix spelling in RCU/rculist_nulls.txt.
+Date: Wed, 1 Apr 2009 05:34:19 +0000
+Message-ID: <20090401053418.GA4363@ff.dom.local>
+References: <20090330085302.19172.22808.stgit@localhost.localdomain> <20090330090306.19172.94170.stgit@localhost.localdomain> <49D0FA6E.4090402@gmail.com> <Pine.LNX.4.64.0903302155550.13385@ask.diku.dk> <Pine.LNX.4.64.0903302210030.13385@ask.diku.dk> <20090331105400.GA6843@ff.dom.local> <Pine.LNX.4.64.0903312042410.2950@ask.diku.dk> <1238528208.9018.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, olof@lixom.net,
-	afleming@freescale.com, galak@kernel.crashing.org,
-	avorontsov@ru.mvista.com, Joakim.Tjernlund@transmode.se
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f160.google.com ([209.85.217.160]:37379 "EHLO
-	mail-gx0-f160.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbZDAFVI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 01:21:08 -0400
-Received: by gxk4 with SMTP id 4so6284500gxk.13
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 22:21:05 -0700 (PDT)
-In-Reply-To: <20090331.221601.114102644.davem@davemloft.net>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:51673 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbZDAFe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 01:34:26 -0400
+Received: by fxm2 with SMTP id 2so2754500fxm.37
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2009 22:34:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1238528208.9018.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 31, 2009 at 11:16 PM, David Miller <davem@davemloft.net> wr=
-ote:
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Tue, 31 Mar 2009 22:56:38 -0600
->
->> At the very least, please consider picking up patches 2 & 3. =A0They
->> address a real bug (unrelated to the MDIO rework), and only touch th=
-e
->> MPC5200 FEC driver.
->
-> Please submit them seperately, and I will look them over.\
+On Tue, Mar 31, 2009 at 09:36:48PM +0200, Jesper Dangaard Brouer wrote:
+> Doc: Fix spelling in RCU/rculist_nulls.txt.
+> 
+> Trival spelling fixes in RCU/rculist_nulls.txt.
+> 
+> Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> 
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> ---
 
-Will do.
+Tested-by: Jarek Poplawski <jarkao2@gmail.com;->
 
-g.
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+> 
+>  Documentation/RCU/rculist_nulls.txt |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> 
+> diff --git a/Documentation/RCU/rculist_nulls.txt b/Documentation/RCU/rculist_nulls.txt
+> index 239f542..6389dec 100644
+> --- a/Documentation/RCU/rculist_nulls.txt
+> +++ b/Documentation/RCU/rculist_nulls.txt
+> @@ -21,7 +21,7 @@ if (obj) {
+>    /*
+>     * Because a writer could delete object, and a writer could
+>     * reuse these object before the RCU grace period, we
+> -   * must check key after geting the reference on object
+> +   * must check key after getting the reference on object
+>     */
+>    if (obj->key != key) { // not the object we expected
+>       put_ref(obj);
+> @@ -117,7 +117,7 @@ a race (some writer did a delete and/or a move of an object
+>  to another chain) checking the final 'nulls' value if
+>  the lookup met the end of chain. If final 'nulls' value
+>  is not the slot number, then we must restart the lookup at
+> -the begining. If the object was moved to same chain,
+> +the beginning. If the object was moved to the same chain,
+>  then the reader doesnt care : It might eventually
+>  scan the list again without harm.
+>  
+> 
+> 
