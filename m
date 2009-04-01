@@ -1,42 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rds: only for x86 or 64-bit at the moment...
-Date: Tue, 31 Mar 2009 16:59:18 -0700 (PDT)
-Message-ID: <20090331.165918.69222633.davem@davemloft.net>
-References: <20090331210609.GD25513@bombadil.infradead.org>
-	<20090331.141542.182956594.davem@davemloft.net>
-	<49D2AE36.90306@oracle.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 2.6.30] cxgb3: clear shadow BAR registers
+Date: Tue, 31 Mar 2009 17:58:54 -0700
+Message-ID: <20090401005854.15175.44595.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: kyle@mcmartin.ca, rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: andy.grover@oracle.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57922
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754890AbZCaX7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 19:59:30 -0400
-In-Reply-To: <49D2AE36.90306@oracle.com>
+Received: from stargate.chelsio.com ([12.22.49.110]:32368 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753325AbZDAA66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2009 20:58:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Grover <andy.grover@oracle.com>
-Date: Tue, 31 Mar 2009 16:58:46 -0700
+From: Divy Le Ray <divy@chelsio.com>
 
-> David Miller wrote:
-> > From: Kyle McMartin <kyle@mcmartin.ca>
-> > Date: Tue, 31 Mar 2009 17:06:09 -0400
-> > 
-> >> From: Kyle McMartin <kyle@redhat.com>
-> >>
-> >> set_64bit doesn't exist anywhere but x86 right now, so either
-> >> BITS_PER_LONG needs to be 64, or we need to be on x86, in order to
-> >> build this module.
-> >>
-> >> Signed-off-by: Kyle McMartin <kyle@redhat.com>
-> > 
-> > I would prefer the RDS folks simply fix this properly.
-> 
-> Ok... I'll redo the latest rds patchseries with crit fixes only and a
-> fix for this.
+Ensure that internal shadow BAR registers are cleared on 32-bit platforms.
 
-Thanks a lot Andy.
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
+
+ drivers/net/cxgb3/cxgb3_main.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 2c2aaa7..3f22da4 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2984,6 +2984,20 @@ static void __devinit print_port_info(struct adapter *adap,
+ 	}
+ }
+ 
++static void touch_bars(struct pci_dev *pdev)
++{
++#if BITS_PER_LONG < 64
++	u32 v;
++
++	pci_config_dword(pdev, PCI_BASE_ADDRESS_1, &v);
++	pci_write_config_dword(pdev, PCI_BASE_ADDRESS_1, v);
++	pci_read_config_dword(pdev, PCI_BASE_ADDRESS_3, &v);
++	pci_write_config_dword(pdev, PCI_BASE_ADDRESS_3, v);
++	pci_read_config_dword(pdev, PCI_BASE_ADDRESS_5, &v);
++	pci_write_config_dword(pdev, PCI_BASE_ADDRESS_5, v);
++#endif
++}
++
+ static const struct net_device_ops cxgb_netdev_ops = {
+ 	.ndo_open		= cxgb_open,
+ 	.ndo_stop		= cxgb_close,
+@@ -3051,6 +3065,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		goto out_disable_device;
+ 	}
+ 
++	touch_bars(pdev);
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+
