@@ -1,83 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 1/9] ixgbe: fix build when DEBUG is defined
-Date: Wed, 01 Apr 2009 00:32:42 -0700
-Message-ID: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
+Subject: [PATCH 2/9] ixgbe: Fix ethtool output with advertised mode.
+Date: Wed, 01 Apr 2009 00:33:02 -0700
+Message-ID: <20090401073302.3749.35697.stgit@lost.foo-projects.org>
+References: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:47265
-	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752391AbZDAHdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:33:03 -0400
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:58941
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759196AbZDAHd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 03:33:27 -0400
+In-Reply-To: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The ixgbe driver had issues when DEBUG was defined because the hw_dbg macro
-was incomplete.  This patch completes the code based off of the code that
-already existed in the igb module.
+Ethtool tries to get advertised speed from phy.autoneg_advertised.
+However for copper media this wasn't happening until later do to
+an other fix which moved mac.ops.setup_link_speed placement in
+ixgbe_link_config(). This patch will display the default advertised
+speeds if it can't yet get this information from phy.autoneg_advertised.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Acked-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_common.h |    9 +++------
- drivers/net/ixgbe/ixgbe_main.c   |   12 ++++++++++++
- 2 files changed, 15 insertions(+), 6 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 7e94d6d..24f73e7 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -96,14 +96,11 @@ s32 ixgbe_write_analog_reg8_generic(struct ixgbe_hw *hw, u32 reg, u8 val);
- #define IXGBE_WRITE_FLUSH(a) IXGBE_READ_REG(a, IXGBE_STATUS)
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 18ecba7..34b4a84 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -129,6 +129,15 @@ static int ixgbe_get_settings(struct net_device *netdev,
+ 			ecmd->advertising |= ADVERTISED_10000baseT_Full;
+ 		if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_1GB_FULL)
+ 			ecmd->advertising |= ADVERTISED_1000baseT_Full;
++		/*
++		 * It's possible that phy.autoneg_advertised may not be
++		 * set yet.  If so display what the default would be -
++		 * both 1G and 10G supported.
++		 */
++		if (!(ecmd->advertising & (ADVERTISED_1000baseT_Full |
++					   ADVERTISED_10000baseT_Full)))
++			ecmd->advertising |= (ADVERTISED_10000baseT_Full |
++					      ADVERTISED_1000baseT_Full);
  
- #ifdef DEBUG
-+extern char *ixgbe_get_hw_dev_name(struct ixgbe_hw *hw);
- #define hw_dbg(hw, format, arg...) \
--printk(KERN_DEBUG, "%s: " format, ixgbe_get_hw_dev_name(hw), ##arg);
-+	printk(KERN_DEBUG "%s: " format, ixgbe_get_hw_dev_name(hw), ##arg)
- #else
--static inline int __attribute__ ((format (printf, 2, 3)))
--hw_dbg(struct ixgbe_hw *hw, const char *format, ...)
--{
--	return 0;
--}
-+#define hw_dbg(hw, format, arg...) do {} while (0)
- #endif
- 
- #endif /* IXGBE_COMMON */
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 79aa811..fd27513 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4987,8 +4987,20 @@ static int ixgbe_notify_dca(struct notifier_block *nb, unsigned long event,
- 
- 	return ret_val ? NOTIFY_BAD : NOTIFY_DONE;
- }
-+
- #endif /* CONFIG_IXGBE_DCA */
-+#ifdef DEBUG
-+/**
-+ * ixgbe_get_hw_dev_name - return device name string
-+ * used by hardware layer to print debugging information
-+ **/
-+char *ixgbe_get_hw_dev_name(struct ixgbe_hw *hw)
-+{
-+	struct ixgbe_adapter *adapter = hw->back;
-+	return adapter->netdev->name;
-+}
- 
-+#endif
- module_exit(ixgbe_exit_module);
- 
- /* ixgbe_main.c */
+ 		ecmd->port = PORT_TP;
+ 	} else if (hw->phy.media_type == ixgbe_media_type_backplane) {
 
