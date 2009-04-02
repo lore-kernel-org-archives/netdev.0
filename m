@@ -1,49 +1,68 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: [RFC] percpu: convert SNMP mibs to new infra
-Date: Thu, 02 Apr 2009 09:13:23 +0900
-Message-ID: <49D40323.2020406@gmail.com>
-References: <49D32212.80607@cosmosbay.com> <49D32DC2.9010003@goop.org> <49D33E80.70802@cosmosbay.com> <20090401161218.GB3859@elte.hu> <49D3A0C2.9000403@cosmosbay.com> <49D3B61F.8010507@cosmosbay.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Wed, 01 Apr 2009 19:29:44 -0500
+Message-ID: <49D406F8.40606@codemonkey.ws>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Jeremy Fitzhardinge <jeremy@goop.org>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Joe Perches <joe@perches.com>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.184]:17499 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756693AbZDBANb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 20:13:31 -0400
-In-Reply-To: <49D3B61F.8010507@cosmosbay.com>
+Received: from yx-out-2324.google.com ([74.125.44.29]:56497 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755992AbZDBA3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 20:29:50 -0400
+In-Reply-To: <49D3D7EE.4080202@novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Eric, Ingo.
+Gregory Haskins wrote:
+> Anthony Liguori wrote:
+>   
+> I think there is a slight disconnect here.  This is *exactly* what I am
+> trying to do. 
 
-Eric Dumazet wrote:
-> diff --git a/arch/x86/include/asm/percpu.h b/arch/x86/include/asm/percpu.h
-> index aee103b..6b82f6b 100644
-> --- a/arch/x86/include/asm/percpu.h
-> +++ b/arch/x86/include/asm/percpu.h
-> @@ -135,6 +135,9 @@ do {							\
->  #define percpu_read(var)	percpu_from_op("mov", per_cpu__##var)
->  #define percpu_write(var, val)	percpu_to_op("mov", per_cpu__##var, val)
->  #define percpu_add(var, val)	percpu_to_op("add", per_cpu__##var, val)
-> +#define indir_percpu_add(var, val)	percpu_to_op("add", *(var), val)
-> +#define indir_percpu_inc(var)       percpu_to_op("add", *(var), 1)
-> +#define indir_percpu_dec(var)       percpu_to_op("add", *(var), -1)
->  #define percpu_sub(var, val)	percpu_to_op("sub", per_cpu__##var, val)
->  #define percpu_and(var, val)	percpu_to_op("and", per_cpu__##var, val)
->  #define percpu_or(var, val)	percpu_to_op("or", per_cpu__##var, val)
+If it were exactly what you were trying to do, you would have posted a 
+virtio-net in-kernel backend implementation instead of a whole new 
+paravirtual IO framework ;-)
 
-The final goal is to unify static and dynamic accesses but we aren't
-there yet, so, for the time being, we'll need some interim solutions.
-I would prefer percpu_ptr_add() tho.
+>> That said, I don't think we're bound today by the fact that we're in
+>> userspace.
+>>     
+> You will *always* be bound by the fact that you are in userspace.
 
-Thanks.
+Again, let's talk numbers.  A heavy-weight exit is 1us slower than a 
+light weight exit.  Ideally, you're taking < 1 exit per packet because 
+you're batching notifications.  If you're ping latency on bare metal 
+compared to vbus is 39us to 65us, then all other things being equally, 
+the cost imposed by doing what your doing in userspace would make the 
+latency be 66us taking your latency from 166% of native to 169% of 
+native.  That's not a huge difference and I'm sure you'll agree there 
+are a lot of opportunities to improve that even further.
 
--- 
-tejun
+And you didn't mention whether your latency tests are based on ping or 
+something more sophisticated as ping will be a pathological case that 
+doesn't allow any notification batching.
+
+> I agree that the "does anyone care" part of the equation will approach
+> zero as the latency difference shrinks across some threshold (probably
+> the single microsecond range), but I will believe that is even possible
+> when I see it ;)
+>   
+
+Note the other hat we have to where is not just virtualization developer 
+but Linux developer.  If there are bad userspace interfaces for IO that 
+impose artificial restrictions, then we need to identify those and fix them.
+
+Regards,
+
+Anthony Liguori
+
+> Regards,
+> -Greg
+>
+>   
+
