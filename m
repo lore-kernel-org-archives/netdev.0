@@ -1,37 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
-	implementation & Netlink protocol
-Date: Thu, 2 Apr 2009 22:45:49 +0800
-Message-ID: <20090402144549.GA764@gondor.apana.org.au>
-References: <20090304.030044.163418715.davem@davemloft.net> <20090402093952.GA30553@gondor.apana.org.au> <20090402.025223.242893473.davem@davemloft.net> <20090402095957.GA30799@gondor.apana.org.au> <49D4CECA.3010703@trash.net>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 02 Apr 2009 09:49:25 -0500
+Message-ID: <49D4D075.9010702@codemonkey.ws>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com> <49D4B8B4.4020003@redhat.com> <49D4BF70.1060301@novell.com> <49D4C191.2070502@redhat.com> <49D4CAA7.3020004@novell.com> <49D4CC61.6010105@redhat.com> <49D4CEB1.9020001@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	zbr@ioremap.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52187 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756178AbZDBOqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 10:46:03 -0400
-Content-Disposition: inline
-In-Reply-To: <49D4CECA.3010703@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <49D4CEB1.9020001@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 02, 2009 at 04:42:18PM +0200, Patrick McHardy wrote:
+Avi Kivity wrote:
+> Avi Kivity wrote:
+>>
+>> The alternative is to get a notification from the stack that the 
+>> packet is done processing.  Either an skb destructor in the kernel, 
+>> or my new API that everyone is not rushing out to implement.
 >
-> Actually we should be fine since the current netlink helpers only do
-> bytewise copying anyways. And I think we've pretty much gotten rid of
-> all the raw attribute accesses.
+> btw, my new api is
+>
+>
+>   io_submit(..., nr, ...): submit nr packets
+>   io_getevents(): complete nr packets
 
-What about stuff like xfrm_userpolicy_info? I suppose if *everything*
-is copied then it wouldn't matter.
+I don't think we even need that to end this debate.  I'm convinced we 
+have a bug somewhere.  Even disabling TX mitigation, I see a ping 
+latency of around 300ns whereas it's only 50ns on the host.  This defies 
+logic so I'm now looking to isolate why that is.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+
+Anthony Liguori
+
