@@ -1,55 +1,49 @@
-From: Avi Kivity <avi@redhat.com>
+From: "Patrick Mullaney" <pmullaney@novell.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 17:32:01 +0300
-Message-ID: <49D4CC61.6010105@redhat.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com> <49D4B8B4.4020003@redhat.com> <49D4BF70.1060301@novell.com> <49D4C191.2070502@redhat.com> <49D4CAA7.3020004@novell.com>
+Date: Thu, 02 Apr 2009 08:14:34 -0600
+Message-ID: <49D473EA020000C700056627@lucius.provo.novell.com>
+References: <49D469D2020000A100045FA1@lucius.provo.novell.com>
+ <49D473EA020000C700056627@lucius.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760073AbZDBOcg@vger.kernel.org>
-In-Reply-To: <49D4CAA7.3020004@novell.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <anthony@codemonkey.ws>, <andi@firstfloor.org>,
+	<herbert@gondor.apana.org.au>,
+	"Gregory Haskins" <GHaskins@novell.com>,
+	"Peter Morreale" <PMorreale@novell.com>, <rusty@rustcorp.com.au>,
+	<agraf@suse.de>, <kvm@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <49D473EA020000C700056627@lucius.provo.novell.com>
+Content-Disposition: inline
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gregory Haskins wrote:
->> If you have a request-response workload with the wire idle and latency
->> critical, then there's no problem having an exit per packet because
->> (a) there aren't that many packets and (b) the guest isn't doing any
->> batching, so guest overhead will swamp the hypervisor overhead.
->>     
-> Right, so the trick is to use an algorithm that adapts here.  Batching
-> solves the first case, but not the second.  The bidir napi thing solves
-> both, but it does assume you have ample host processing power to run the
-> algorithm concurrently.  This may or may not be suitable to all
-> applications, I admit.
->   
+On Thu, 2009-04-02 at 16:27 +0300, Avi Kivity wrote:
 
-The alternative is to get a notification from the stack that the packet 
-is done processing.  Either an skb destructor in the kernel, or my new 
-API that everyone is not rushing out to implement.
+> 
+> virtio is a stable ABI.
+> 
+> > However, theres still the possibility we can make this work in an ABI
+> > friendly way with cap-bits, or other such features.  For instance, the
+> > virtio-net driver could register both with pci and vbus-proxy and
+> > instantiate a device with a slightly different ops structure for each or
+> > something.  Alternatively we could write a host-side shim to expose vbus
+> > devices as pci devices or something like that.
+> >   
+> 
+> Sounds complicated...
+> 
 
->>> Right now its way way way worse than 2us.  In fact, at my last reading
->>> this was more like 3060us (3125-65).  So shorten that 3125 to 67 (while
->>> maintaining line-rate) and I will be impressed.  Heck, shorten it to
->>> 80us and I will be impressed.
->>>   
->>>       
->> The 3060us thing is a timer, not cpu time.
->>     
-> Agreed, but its still "state of the art" from an observer perspective. 
-> The reason "why", though easily explainable, is inconsequential to most
-> people.  FWIW, I have seen virtio-net do a much more respectable 350us
-> on an older version, so I know there is plenty of room for improvement.
->   
-
-All I want is the notification, and the timer is headed into the nearest 
-landfill.
+IMO, it doesn't sound anymore complicated than making virtio support the
+concepts already provided by vbus/venet-tap driver. Isn't there already
+precedent for alternative approaches co-existing and having the users
+decide which is the most appropriate for their use case? Switching
+drivers in order to improve latency for a certain class of applications
+would seem like something latency sensitive users would be more than
+willing to do. I'd like to point out 2 things. Greg has offered help
+in moving virtio into the vbus infrastructure. The vbus infrastructure
+is a large part of what is being proposed here.
 
 
--- 
-error compiling committee.c: too many arguments to function
