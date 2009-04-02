@@ -1,33 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Fri, 3 Apr 2009 00:06:25 +0800
-Message-ID: <20090402160625.GA2173@gondor.apana.org.au>
-References: <49D469D2020000A100045FA1@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D4CB38.5030205@redhat.com> <49D4DA54.3090401@novell.com> <49D4DE82.5020306@redhat.com>
+Date: Fri, 3 Apr 2009 00:09:41 +0800
+Message-ID: <20090402160941.GB2173@gondor.apana.org.au>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com> <200904022243.21088.rusty@rustcorp.com.au> <49D4B4A3.5070008@novell.com> <49D4B87D.2000202@redhat.com> <20090402145018.GA816@gondor.apana.org.au> <49D4D301.2090209@redhat.com> <20090402154041.GA1774@gondor.apana.org.au> <49D4E072.2060003@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Gregory Haskins <ghaskins@novell.com>,
-	Patrick Mullaney <pmullaney@novell.com>, anthony@codemonkey.ws,
-	andi@firstfloor.org, Peter Morreale <PMorreale@novell.com>,
-	rusty@rustcorp.com.au, agraf@suse.de, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+	Rusty Russell <rusty@rustcorp.com.au>, anthony@codemonkey.ws,
+	andi@firstfloor.org, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, Ingo Molnar <mingo@elte.hu>
 To: Avi Kivity <avi@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57932 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753865AbZDBQ1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 12:27:25 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764638AbZDBQ2m@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49D4DE82.5020306@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <49D4E072.2060003@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 02, 2009 at 06:49:22PM +0300, Avi Kivity wrote:
+On Thu, Apr 02, 2009 at 06:57:38PM +0300, Avi Kivity wrote:
 >
-> I still think you want one MSI per device rather than one MSI per vbus,  
-> to avoid scaling problems on large guest.  After Herbert's let loose on  
-> the code, one MSI per queue.
+> What if the guest sends N packets, then does some expensive computation  
+> (say the guest scheduler switches from the benchmark process to  
+> evolution).  So now we have the marker set at packet N, but the host  
+> will not see it until the guest timeslice is up?
 
-Yes, one MSI per TX queue, and one per RX queue :)
+Well that's fine.  The guest will use up the remainder of its
+timeslice.  After all we only have one core/hyperthread here so
+this is no different than if the packets were held up higher up
+in the guest kernel and the guest decided to do some computation.
+
+Once its timeslice completes the backend can start plugging away
+at the backlog.
+
+Of course it would be better to put the backend on another core
+that shares the cache or a hyperthread on the same core.
 
 Cheers,
 -- 
