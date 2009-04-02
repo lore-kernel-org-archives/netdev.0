@@ -1,61 +1,61 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: virtio_net: MAC address releated breakage if there is no MAC area in config
-Date: Thu, 2 Apr 2009 13:33:24 +0200
-Message-ID: <200904021333.25119.borntraeger@de.ibm.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH 09/17] net: Add vbus_enet driver
+Date: Thu, 02 Apr 2009 07:43:53 -0400
+Message-ID: <49D4A4F9.6090007@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net>	<20090331184334.28333.8415.stgit@dev.haskins.net> <20090331133952.280373e9@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Alex Williamson <alex.williamson@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.17.161]:52342 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691AbZDBLd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 07:33:28 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigAA7E937832300ACF99B30BC8"
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090331133952.280373e9@nehalam>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigAA7E937832300ACF99B30BC8
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-commit 9c46f6d42f1b5627c49a5906cb5b315ad8716ff0
-Author: Alex Williamson <alex.williamson@hp.com>
-Date:   Wed Feb 4 16:36:34 2009 -0800
-virtio_net: Allow setting the MAC address of the NIC
+Stephen Hemminger wrote:
+> On Tue, 31 Mar 2009 14:43:34 -0400
+> Gregory Haskins <ghaskins@novell.com> wrote:
+>  =20
+>> +struct vbus_enet_priv {
+>> +	spinlock_t                 lock;
+>> +	struct net_device         *dev;
+>> +	struct vbus_device_proxy  *vdev;
+>> +	struct napi_struct         napi;
+>> +	struct net_device_stats    stats;
+>>    =20
+>
+> Not needed any more, stats are available in net_device
+>
+>  =20
 
-Introduced an unconditional config->set to the MAC address field of
-the device config.
+Thanks for the review, Stephen!
 
+I will apply all of your recommended fixes for the next release.
 
-+       } else {
-                random_ether_addr(dev->dev_addr);
-+               vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
-+                                 dev->dev_addr, dev->addr_len);
-+       }
-
-Since our kuli userspace sample does not set VIRTIO_NET_F_MAC, there is no
-config space assigned for this device. When virtio_net tries to overwrite
-the non-existing field, this triggers a bug.
-
-virtio_net.h specifies:
-struct virtio_net_config
-{
-        /* The config defining mac address (if VIRTIO_NET_F_MAC) */
-        __u8 mac[6];
-[...]
-
-I read this as the mac config field is optional (similar to all the optional
-fields we added in virtio_blk later).
-
-I see two options:
-1. Change our sample userspace to always allocate the config (like lguest and
-qemu)
-2. Change the kernel code to not write into the config unless a specific feature
-bit is set. (e.g. VIRTIO_NET_F_SETMAC)
+-Greg
 
 
-Opinions?
+--------------enigAA7E937832300ACF99B30BC8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-PS: The same is true for virtnet_set_mac_address. it crashes as well
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAknUpPkACgkQlOSOBdgZUxnbaACghpNAi0j4PvZA/bSa+MXHX9Ya
+roAAnik2nojK8G3BB+E+zqYlzG9WCpnt
+=Exds
+-----END PGP SIGNATURE-----
+
+--------------enigAA7E937832300ACF99B30BC8--
