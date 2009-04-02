@@ -1,69 +1,61 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 07:06:07 -0400
-Message-ID: <49D49C1F.6030306@novell.com>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <20090402091639.GA30126@gondor.apana.org.au> <49D484F5.2000400@redhat.com> <20090402092936.GA30333@gondor.apana.org.au> <49D487A6.407@redhat.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: virtio_net: MAC address releated breakage if there is no MAC area in config
+Date: Thu, 2 Apr 2009 13:33:24 +0200
+Message-ID: <200904021333.25119.borntraeger@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig9803AE3409749F9CCEB49D91"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, anthony@codemonkey.ws,
-	andi@firstfloor.org, linux-kernel@vger.kernel.org, agraf@suse.de,
-	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Alex Williamson <alex.williamson@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:42872 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979AbZDBLD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 07:03:58 -0400
-In-Reply-To: <49D487A6.407@redhat.com>
+Received: from mtagate1.de.ibm.com ([195.212.17.161]:52342 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752691AbZDBLd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 07:33:28 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig9803AE3409749F9CCEB49D91
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hello,
 
-Avi Kivity wrote:
-> Herbert Xu wrote:
->> On Thu, Apr 02, 2009 at 12:27:17PM +0300, Avi Kivity wrote:
->> =20
->>> If tap told us when the packets were actually transmitted, life
->>> would be  wonderful:
->>>    =20
->>
->> And why do we need this? Because we are in user space!
->>
->>  =20
->
-> Why does a kernel solution not need to know when a packet is transmitte=
-d?
->
+commit 9c46f6d42f1b5627c49a5906cb5b315ad8716ff0
+Author: Alex Williamson <alex.williamson@hp.com>
+Date:   Wed Feb 4 16:36:34 2009 -0800
+virtio_net: Allow setting the MAC address of the NIC
 
-You do not need to know when the packet is copied (which I currently
-do).  You only need it for zero-copy (of which I would like to support,
-but as I understand it there are problems with the reliability of proper
-callback (i.e. skb->destructor).
-
-Its "fire and forget" :)
-
--Greg
+Introduced an unconditional config->set to the MAC address field of
+the device config.
 
 
---------------enig9803AE3409749F9CCEB49D91
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
++       } else {
+                random_ether_addr(dev->dev_addr);
++               vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
++                                 dev->dev_addr, dev->addr_len);
++       }
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+Since our kuli userspace sample does not set VIRTIO_NET_F_MAC, there is no
+config space assigned for this device. When virtio_net tries to overwrite
+the non-existing field, this triggers a bug.
 
-iEYEARECAAYFAknUnB8ACgkQlOSOBdgZUxmsGwCfT3fimLl0+bnt3+Sma8FpZ92+
-GEwAnim4V3RObdYhVUCcYWJlm8SG6dFQ
-=iwKi
------END PGP SIGNATURE-----
+virtio_net.h specifies:
+struct virtio_net_config
+{
+        /* The config defining mac address (if VIRTIO_NET_F_MAC) */
+        __u8 mac[6];
+[...]
 
---------------enig9803AE3409749F9CCEB49D91--
+I read this as the mac config field is optional (similar to all the optional
+fields we added in virtio_blk later).
+
+I see two options:
+1. Change our sample userspace to always allocate the config (like lguest and
+qemu)
+2. Change the kernel code to not write into the config unless a specific feature
+bit is set. (e.g. VIRTIO_NET_F_SETMAC)
+
+
+Opinions?
+
+PS: The same is true for virtnet_set_mac_address. it crashes as well
