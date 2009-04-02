@@ -1,239 +1,170 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 13:44:31 -0400
-Message-ID: <49D4F97F.6040507@novell.com>
-References: <49D469D2020000A100045FA1@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D4CB38.5030205@redhat.com> <49D4DA54.3090401@novell.com> <49D4DE82.5020306@redhat.com>
+Subject: Re: [RFC PATCH 02/17] vbus: add virtual-bus definitions
+Date: Thu, 02 Apr 2009 14:13:06 -0400
+Message-ID: <49D50032.30907@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net>	 <20090331184257.28333.64028.stgit@dev.haskins.net> <1238688376.3202.10.camel@achroite>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig8380702319377D057F6DB9DD"
-Cc: Patrick Mullaney <pmullaney@novell.com>, anthony@codemonkey.ws,
-	andi@firstfloor.org, herbert@gondor.apana.org.au,
-	Peter Morreale <PMorreale@novell.com>, rusty@rustcorp.com.au,
-	agraf@suse.de, kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D4DE82.5020306@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+ boundary="------------enig2FE8B9968696887F6C42FB35"
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932339AbZDBSLZ@vger.kernel.org>
+In-Reply-To: <1238688376.3202.10.camel@achroite>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8380702319377D057F6DB9DD
+--------------enig2FE8B9968696887F6C42FB35
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-Avi Kivity wrote:
-> Gregory Haskins wrote:
->>> vbus (if I understand it right) is a whole package of things:
->>>
->>> - a way to enumerate, discover, and manage devices
->>>    =20
->>
->> Yes
->> =20
->>> That part duplicates PCI
->>>    =20
->>
->> Yes, but the important thing to point out is it doesn't *replace*
->> PCI. It simply an alternative.
->>  =20
+Hi Ben
+
+Ben Hutchings wrote:
+> On Tue, 2009-03-31 at 14:42 -0400, Gregory Haskins wrote:
+> [...]
+>  =20
+>> +Create a device instance
+>> +------------------------
+>> +
+>> +Devices are instantiated by again utilizing the /config/vbus configfs=
+ area.
+>> +At first you may suspect that devices are created as subordinate obje=
+cts of a
+>> +bus/container instance, but you would be mistaken.
+>>    =20
 >
-> Does it offer substantial benefits over PCI?  If not, it's just extra
-> code.
+> This is kind of patronising; why don't you simply lay out how things
+> _do_ work?
+>  =20
 
-First of all, do you think I would spend time designing it if I didn't
-think so? :)
+Ya, point taken.  I think that was written really to myself, because my
+first design *had* the device as a subordinate object.  Then I realized
+later that I didn't like that design :)
 
-Second of all, I want to use vbus for other things that do not speak PCI
-natively (like userspace for instance...and if I am gleaning this
-correctly, lguest doesnt either).
+I will fix this.
 
-PCI sounds good at first, but I believe its a false economy.  It was
-designed, of course, to be a hardware solution, so it carries all this
-baggage derived from hardware constraints that simply do not exist in a
-pure software world and that have to be emulated.  Things like the fixed
-length and centrally managed PCI-IDs, PIO config cycles, BARs,
-pci-irq-routing, etc.  While emulation of PCI is invaluable for
-executing unmodified guest, its not strictly necessary from a
-paravirtual software perspective...PV software is inherently already
-aware of its context and can therefore use the best mechanism
-appropriate from a broader selection of choices.
-
-If we insist that PCI is the only interface we can support and we want
-to do something, say, in the kernel for instance, we have to have either
-something like the ICH model in the kernel (and really all of the pci
-chipset models that qemu supports), or a hacky hybrid userspace/kernel
-solution.  I think this is what you are advocating, but im sorry. IMO
-that's just gross and unecessary gunk.  Lets stop beating around the
-bush and just define the 4-5 hypercall verbs we need and be done with
-it.  :)
-
-FYI: The guest support for this is not really *that* much code IMO.
-=20
- drivers/vbus/proxy/Makefile      |    2
- drivers/vbus/proxy/kvm.c         |  726 +++++++++++++++++
-
-and plus, I'll gladly maintain it :)
-
-I mean, its not like new buses do not get defined from time to time.=20
-Should the computing industry stop coming up with new bus types because
-they are afraid that the windows ABI only speaks PCI?  No, they just
-develop a new driver for whatever the bus is and be done with it.  This
-is really no different.
-
+>  =20
+>>  Devices are actually
+>> +root-level objects in vbus specifically to allow greater flexibility =
+in the
+>> +association of a device.  For instance, it may be desirable to have a=
+ single
+>> +device that spans multiple VMs (consider an ethernet switch, or a sha=
+red disk
+>> +for a cluster).  Therefore, device lifecycles are managed by creating=
+/deleting
+>> +objects in /config/vbus/devices.
+>> +
+>> +Note: Creating a device instance is actually a two step process:  We =
+need to
+>> +give the device instance a unique name, and we also need to give it a=
+ specific
+>> +device type.  It is hard to express both parameters using standard fi=
+lesystem
+>> +operations like mkdir, so the design decision was made to require per=
+forming
+>> +the operation in two steps.
+>>    =20
 >
-> Note that virtio is not tied to PCI, so "vbus is generic" doesn't count=
-=2E
-Well, preserving the existing virtio-net on x86 ABI is tied to PCI,
-which is what I was referring to.  Sorry for the confusion.
-
+> How about exposing a subdir for each device class under
+> /config/vbus/devices/ and allowing device creation only within those?
+> Two-stage construction is a pain for both users and implementors.
 >
->>> and it would be pretty hard to convince me we need to move to
->>> something new
->>>    =20
->>
->> But thats just it.  You don't *need* to move.  The two can coexist sid=
-e
->> by side peacefully.  "vbus" just ends up being another device that may=
+>  =20
+I am not sure I follow.  It sounds like you are suggesting exactly what
+I do today.
 
->> or may not be present, and that may or may not have devices on it.  In=
+> [...]
+>  =20
+>> +At this point, we are ready to roll.  Pid 4382 has access to a virtua=
+l-bus
+>> +namespace with one device, id=3D0.  Its type is:
+>> +
+>> +# cat /sys/vbus/instances/beb4df8f-7483-4028-b3f7-767512e2a18c/device=
+s/0/type
+>> +virtual-ethernet
+>> +
+>> +"virtual-ethernet"?  Why is it not "venet-tap"?  Device-classes are a=
+llowed to
+>>    =20
 
->> fact, during all this testing I was booting my guest with "eth0" as
->> virtio-net, and "eth1" as venet.  The both worked totally fine and
->> harmoniously.  The guest simply discovers if vbus is supported via a
->> cpuid feature bit and dynamically adds it if present.
->>  =20
->
-> I meant, move the development effort, testing, installed base, Windows
-> drivers.
+I think I worded this awkwardly.  A device-class creates a
+device-instance.  A device-instance registers one or more interfaces.=20
+There are device types (of which I would classify both the device-class
+and its instantiated device object as the same "type"), and there are
+interface types.  The interface types may overlap across different
+device types, as demonstrated below.  I will update the doc to be more
+clear, here (assuming I didn't muddle it up even more ;)
 
-Again, I will maintain this feature, and its completely off to the
-side.  Turn it off in the config, or do not enable it in qemu and its
-like it never existed.  Worst case is it gets reverted if you don't like
-it.  Aside from the last few kvm specific patches, the rest is no
-different than the greater linux environment.  E.g. if I update the
-venet driver upstream, its conceptually no different than someone else
-updating e1000, right?
+>> +register their interfaces under an id that is not required to be the =
+same as
+>> +their deviceclass.  This supports device polymorphism.   For instance=
+,
+>> +consider that an interface "virtual-ethernet" may provide basic 802.x=
+ packet
+>> +exchange.  However, we could have various implementations of a device=
+ that
+>> +supports the 802.x interface, while having various implementations be=
+hind
+>> +them.
+>>    =20
+> [...]
+>
+> It seems to me that your "device-classes" correspond to drivers and
+> "interfaces" correspond to device classes in the LDM.
+I don't think that is quite right, but I might be missing your point.=20
+All of these objects exist on the "backend", of which there isnt a
+specific precedent with LDM to express.  Normally in LDM, you would have
+some kind of physical device object in the hardware (say a SATA disk),
+and an LDM "block device" that represents it in software.  So we call
+the LDM model for that disk a "device" but really its like a proxy or a
+software representative of the actual device itself.  And I am not
+knocking this designation, as I think it makes a lot of sense.
 
->
->> =20
->>> .  virtio-pci (a) works,
->>>    =20
->> And it will continue to work
->>  =20
->
-> So why add something new?
+However, what I will point out is that what we are creating here in vbus
+is more akin to the SATA disk itself, not the LDM "block device"
+representation of the device.   There was no really great existing way
+to express this type of object, which is why I had to create a new
+namespace in sysfs.
 
-I was hoping this was becoming clear by now, but apparently I am doing a
-poor job of articulating things. :(  I think we got bogged down in the
-802.x performance discussion and lost sight of what we are trying to
-accomplish with the core infrastructure.
+To dig down into this a little further, the device and interface are
+inextricably linked in a relationship very close to this "physical
+device" concept.  Therefore the "driver" portion of LDM that you
+referenced w.r.t. the device-class doesnt even enter the picture here
+(that would actually be up in the guest or userspace, actually.=20
+Discussed below).
 
-So this core vbus infrastructure is for generic, in-kernel IO models.=20
-As a first pass, we have implemented a kvm-connector, which lets kvm
-guest kernels have access to the bus.  We also have a userspace
-connector (which I haven't pushed yet due to remaining issues being
-ironed out) which allows userspace applications to interact with the
-devices as well.  As a prototype, we built "venet" to show how it all wor=
-ks.
+As an example, consider a e1000 network card.  The PCI-ID and REV for
+the e1000 card and the associated ABI are like its "interface".  Whereas
+if its a physical card plugged into a physical pci slot, or its an
+emulated e1000 inside qemu-kvm are like its device-instance.  In theory,
+I can substitute either device-instance transparently with any driver
+that understands the ABI associated with the e1000 PCI-ID
+interchangeably (assuming all the plumbing is there, etc).  Its the same
+deal here.  Taking a little creative license here to use that example in
+terms of vbus concepts, I would have a device-class type =3D
+"physical-e1000-card", and another "qemu-e1000-model".  I could
+instantiate either one of those and they would ultimately register an
+interface of type "e1000".
 
-In the future, we want to use this infrastructure to build IO models for
-various things like high performance fabrics and guest bypass
-technologies, etc.  For instance, guest userspace connections to RDMA
-devices in the kernel, etc.
+So where traditional LDM starts to play here is actually on the other
+side (e.g. the guest).  So the host has this vbus context with our
+"e1000" interface registered on it.  When the guest loads, it would
+create an LDM "device" object for the e1000, as well as a driver
+instance if one was present.  From here, things would look more like
+normal LDM concepts that we are used to.
 
->
->> =20
->>> (b) works on Windows.
->>>    =20
->>
->> virtio will continue to work on windows, as well.  And if one of my
->> customers wants vbus support on windows and is willing to pay us to
->> develop it, we can support *it* there as well.
->>  =20
->
-> I don't want to develop and support both virtio and vbus.  And I
-> certainly don't want to depend on your customers.
-
-So don't.  Ill maintain the drivers and the infrastructure.  All we are
-talking here is the possible acceptance of my kvm-connector patches
-*after* the broader LKML community accepts the core infrastructure,
-assuming that happens.
-
-You can always just state that you do not support enabling the feature.=20
-Bug reports with it enabled go to me, etc.
-
-If that is still not acceptable and you are ultimately not interested in
-any kind of merge/collaboration:  At the very least, I hope we can get
-some very trivial patches in for registering things like the
-KVM_CAP_VBUS bits for vbus so I can present a stable ABI to anyone
-downstream from me.  Those things have been shifting on me a lot lately ;=
-)
-
->
->
->>> - a different way of doing interrupts
->>>    =20
->> Yeah, but this is ok.  And I am not against doing that mod we talked
->> about earlier where I replace dynirq with a pci shim to represent the
->> vbus.  Question about that: does userspace support emulation of MSI
->> interrupts? =20
->
-> Yes, this is new.  See the interrupt routing stuff I mentioned.  It's
-> probably only in kvm.git, not even in 2.6.30.
-Cool, will check out, thanks.
-
->
->> I would probably prefer it if I could keep the vbus IRQ (or
->> IRQs when I support MQ) from being shared.  It seems registering the
->> vbus as an MSI device would be more conducive to avoiding this.
->>  =20
->
-> I still think you want one MSI per device rather than one MSI per
-> vbus, to avoid scaling problems on large guest.  After Herbert's let
-> loose on the code, one MSI per queue.
-
-This is trivial for me to support with just a few tweaks to the kvm
-host/guest connector patches.
-
->
->
->
->>> - a different ring layout, and splitting notifications from the ring
->>>    =20
->> Again, virtio will continue to work.  And if we cannot find a way to
->> collapse virtio and ioq together in a way that everyone agrees on, the=
-re
->> is no harm in having two.  I have no problem saying I will maintain
->> IOQ.  There is plenty of precedent for multiple ways to do the same
->> thing.
->>  =20
->
-> IMO we should just steal whatever makes ioq better, and credit you in
-> some file no one reads.  We get backwards compatibility, Windows
-> support, continuity, etc.
->
->>> I don't see the huge win here
->>>
->>> - placing the host part in the host kernel
->>>
->>> Nothing vbus-specific here.
->>>    =20
->>
->> Well, it depends on what you want.  Do you want a implementation that =
-is
->> virtio-net, kvm, and pci specific while being hardcoded in?
->
-> No.  virtio is already not kvm or pci specific.  Definitely all the
-> pci emulation parts will remain in user space.
-
-blech :)
+HTH
 
 -Greg
 
 
---------------enig8380702319377D057F6DB9DD
+
+--------------enig2FE8B9968696887F6C42FB35
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -242,9 +173,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2.0.9 (GNU/Linux)
 Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-iEYEARECAAYFAknU+X8ACgkQlOSOBdgZUxkxJwCcCWSiZI3qC8CChc+xu9q5BUf+
-gQ0An2sHQwUdzzYHhlv9KatAAky3UMyr
-=hVKJ
+iEYEARECAAYFAknVADIACgkQlOSOBdgZUxk/5QCfW0O7VCxRCz1CLwvnOqOFxuSg
+fTIAoIs7Yj0zdLWifpJvNzmrW6sLOHUj
+=e450
 -----END PGP SIGNATURE-----
 
---------------enig8380702319377D057F6DB9DD--
+--------------enig2FE8B9968696887F6C42FB35--
