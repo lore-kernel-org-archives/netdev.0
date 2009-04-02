@@ -1,34 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] hso: fix for the 'invalid frame length' messages
-Date: Thu, 02 Apr 2009 01:36:25 -0700 (PDT)
-Message-ID: <20090402.013625.104528245.davem@davemloft.net>
-References: <20090330094459.GC9849@raptor>
-	<20090402.012032.67869929.davem@davemloft.net>
-	<49D4787A.6060808@option.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 2 Apr 2009 16:52:53 +0800
+Message-ID: <20090402085253.GA29932@gondor.apana.org.au>
+References: <49D46089.5040204@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <49D4787A.6060808-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49D46089.5040204@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 02 Apr 2009 10:34:02 +0200
+Avi Kivity <avi@redhat.com> wrote:
+>
+> virtio is already non-kvm-specific (lguest uses it) and non-pci-specific 
+> (s390 uses it).
 
-> Against which sources should I take them again and should I start
-> from the same clean sources for each patch or can they be "stacked"
-> ?
+I think Greg's work shows that putting the backend in the kernel
+can dramatically reduce the cost of a single guest->host transaction.
+I'm sure the same thing would work for virtio too.
 
-When you have multiple patches, you number them, and they
-are applied in that series order.
+> If you have a good exit mitigation scheme you can cut exits by a factor 
+> of 100; so the userspace exit costs are cut by the same factor.  If you 
+> have good copyless networking APIs you can cut the cost of copies to 
+> zero (well, to the cost of get_user_pages_fast(), but a kernel solution 
+> needs that too).
 
-You can work against:
+Given the choice of having to mitigate or not having the problem
+in the first place, guess what I would prefer :)
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
