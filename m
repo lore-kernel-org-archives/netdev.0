@@ -1,39 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 2 Apr 2009 16:54:11 +0800
-Message-ID: <20090402085411.GA29967@gondor.apana.org.au>
-References: <20090402030935.GA27836@gondor.apana.org.au> <49D45F59.9030100@redhat.com>
+From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/2] hso: fix for crash when unplugging the device
+Date: Thu, 2 Apr 2009 10:57:20 +0200
+Message-ID: <20090402085720.GA8663@raptor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anthony Liguori <anthony@codemonkey.ws>, andi@firstfloor.org,
-	ghaskins@novell.com, linux-kernel@vger.kernel.org, agraf@suse.de,
-	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <49D45F59.9030100@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 02, 2009 at 09:46:49AM +0300, Avi Kivity wrote:
->
-> I don't understand this.  If we had good interfaces, all that userspace  
-> would do is translate guest physical addresses to host physical  
-> addresses, and translate the guest->host protocol to host API calls.  I  
-> don't see anything there that benefits from being in the kernel.
->
-> Can you elaborate?
+From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
 
-I think Greg has expressed it clearly enough.
-
-At the end of the day, the numbers speak for themselves.  So if
-and when there's a user-space version that achieves the same or
-better results, then I will change my mind :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Changed the order in which things are freed. This fixes an oops when
+unplugging the device while network traffic is ongoing.
+    
+Signed-off-by: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 28d1424..779a007 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -5,6 +5,7 @@
+  *  Copyright (C) 2008 Option International
+  *                     Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+  *                     Denis Joseph Barrow <d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
++ *                     Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+  *  Copyright (C) 2007 Andrew Bird (Sphere Systems Ltd)
+  *  			<ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
+  *  Copyright (C) 2008 Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+@@ -2417,20 +2418,22 @@ static void hso_free_net_device(struct hso_device *hso_dev)
+ 	if (!hso_net)
+ 		return;
+ 
++	remove_net_device(hso_net->parent);
++
++	if (hso_net->net) {
++		unregister_netdev(hso_net->net);
++		free_netdev(hso_net->net);
++	}
++
+ 	/* start freeing */
+ 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
+ 		usb_free_urb(hso_net->mux_bulk_rx_urb_pool[i]);
+ 		kfree(hso_net->mux_bulk_rx_buf_pool[i]);
++		hso_net->mux_bulk_rx_buf_pool[i] = NULL;
+ 	}
+ 	usb_free_urb(hso_net->mux_bulk_tx_urb);
+ 	kfree(hso_net->mux_bulk_tx_buf);
+-
+-	remove_net_device(hso_net->parent);
