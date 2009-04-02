@@ -1,50 +1,46 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 14:59:26 +0300
-Message-ID: <49D4A89E.5090407@redhat.com>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <20090402091639.GA30126@gondor.apana.org.au> <49D484F5.2000400@redhat.com> <20090402092936.GA30333@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com>
+From: Sajith P V <sajithpv@gmail.com>
+Subject: Re: [PATCH] i.MX31: Fixing cs89x0 network building to i.MX31ADS
+Date: Thu, 2 Apr 2009 17:36:21 +0530
+Message-ID: <155d92380904020506g36167548h915d07c69abd7c9f@mail.gmail.com>
+References: <37367b3a0903241018h7ff3302fi83cf1fcb21a3114d@mail.gmail.com>
+	 <37367b3a0903300714g40a108d3j59a3b56ee9cda2bf@mail.gmail.com>
+	 <20090330143155.GA20101@pengutronix.de>
+	 <37367b3a0903301315u51787ebcl119ed295e373a1e4@mail.gmail.com>
+	 <20090331075951.GF22913@pengutronix.de>
+	 <37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>
+	 <155d92380904010454l34c57687j67e6805dafcb92ef@mail.gmail.com>
+	 <20090402091102.GJ4337@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, anthony@codemonkey.ws,
-	andi@firstfloor.org, linux-kernel@vger.kernel.org, agraf@suse.de,
-	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	Mark McLoughlin <markmc@redhat.com>
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D49C1F.6030306@novell.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alan Carvalho de Assis <acassis@gmail.com>,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.175]:42384 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753684AbZDBMGX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 08:06:23 -0400
+Received: by wf-out-1314.google.com with SMTP id 29so603777wff.4
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2009 05:06:21 -0700 (PDT)
+In-Reply-To: <20090402091102.GJ4337@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gregory Haskins wrote:
+Hi Russell,
 
-  
-
->> Why does a kernel solution not need to know when a packet is transmitted?
->>
->>     
+On Thu, Apr 2, 2009 at 2:41 PM, Russell King - ARM Linux
+<linux@arm.linux.org.uk> wrote:
+> On Wed, Apr 01, 2009 at 05:24:27PM +0530, Sajith P V wrote:
+>> cs89x0 media =A0IRQ 61, programmed I/O, MAC 00:00:00:00:00:00
 >
-> You do not need to know when the packet is copied (which I currently
-> do).  You only need it for zero-copy (of which I would like to support,
-> but as I understand it there are problems with the reliability of proper
-> callback (i.e. skb->destructor).
+> Also note that this MAC address is invalid, so you'll need to use ifc=
+onfig
+> to set a valid MAC address before trying to bring the interface up.
 >
-> Its "fire and forget" :)
->   
 
-It's more of a "schedule and forget" which I think brings you the win.  
-The host disables notifications and schedules the actual tx work (rx 
-from the host's perspective).  So now the guest and host continue 
-producing and consuming packets in parallel.  So long as the guest is 
-faster (due to the host being throttled?), notifications continue to be 
-disabled.
+Thanks. I will check this once my console is up.
 
-If you changed your rx_isr() to process the packets immediately instead 
-of scheduling, I think throughput would drop dramatically.
-
-Mark had a similar change for virtio.  Mark?
-
--- 
-error compiling committee.c: too many arguments to function
-
+Regards,
+Sajith
