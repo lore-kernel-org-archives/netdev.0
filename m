@@ -1,38 +1,51 @@
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Subject: [PATCH 6/9] glge: remove unused #include <version.h>
-Date: Thu,  2 Apr 2009 23:33:55 +0800
-Message-ID: <1238686435-216-1-git-send-email-weiyi.huang@gmail.com>
-Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
-To: ron.mercer@qlogic.com, linux-driver@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.191]:42522 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761026AbZDBPeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 11:34:03 -0400
-Received: by ti-out-0910.google.com with SMTP id i7so569717tid.23
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2009 08:34:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 2 Apr 2009 23:40:41 +0800
+Message-ID: <20090402154041.GA1774@gondor.apana.org.au>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com> <200904022243.21088.rusty@rustcorp.com.au> <49D4B4A3.5070008@novell.com> <49D4B87D.2000202@redhat.com> <20090402145018.GA816@gondor.apana.org.au> <49D4D301.2090209@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	Rusty Russell <rusty@rustcorp.com.au>, anthony@codemonkey.ws,
+	andi@firstfloor.org, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, Ingo Molnar <mingo@elte.hu>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49D4D301.2090209@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove unused #include <version.h> in drivers/net/qlge/qlge_ethtool.
+On Thu, Apr 02, 2009 at 06:00:17PM +0300, Avi Kivity wrote:
+>
+> Good point - if we rely on having excess cores in the host, large guest  
+> scalability will drop.
 
-Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
----
- drivers/net/qlge/qlge_ethtool.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Going back to TX mitigation, I wonder if we could avoid it altogether
+by having a "wakeup" mechanism that does not involve a vmexit.  We
+have two cases:
 
-diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
-index a500786..913b2a5 100644
---- a/drivers/net/qlge/qlge_ethtool.c
-+++ b/drivers/net/qlge/qlge_ethtool.c
-@@ -33,7 +33,6 @@
- #include <linux/mm.h>
- #include <linux/vmalloc.h>
- 
--#include <linux/version.h>
- 
- #include "qlge.h"
- 
+1) UP, or rather guest runs on the same core/hyperthread as the
+backend.  This is the easy one, the guest simply sets a marker
+in shared memory and keeps going until its time is up.  Then the
+backend takes over, and uses a marker for notification too.
+
+The markers need to be interpreted by the scheduler so that it
+knows the guest/backend is runnable, respectively.
+
+2) The guest and backend runs on two cores/hyperthreads.  We'll
+assume that they share caches as otherwise mitigation is the last
+thing to worry about.  We use the same marker mechanism as above.
+The only caveat is that if one core/hyperthread is idle, its
+idle thread needs to monitor the marker (this would be a separate
+per-core marker) to wake up the scheduler.
+
+CCing Ingo so that he can flame me if I'm totally off the mark.
+
+Cheers,
 -- 
-1.6.0.4
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
