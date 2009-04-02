@@ -1,38 +1,44 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 12:43:54 +0300
-Message-ID: <49D488DA.8060005@redhat.com>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <20090402091639.GA30126@gondor.apana.org.au> <49D484F5.2000400@redhat.com> <20090402092936.GA30333@gondor.apana.org.au> <49D487A6.407@redhat.com> <20090402094147.GA30586@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
+ implementation & Netlink protocol
+Date: Thu, 02 Apr 2009 02:50:22 -0700 (PDT)
+Message-ID: <20090402.025022.241387805.davem@davemloft.net>
+References: <20090304.030044.163418715.davem@davemloft.net>
+	<20090402093952.GA30553@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: kaber@trash.net, nhorman@tuxdriver.com, zbr@ioremap.net,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53299 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934805AbZDBJoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2009 05:44:07 -0400
-In-Reply-To: <20090402094147.GA30586@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48939
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755411AbZDBJue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 05:50:34 -0400
+In-Reply-To: <20090402093952.GA30553@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Apr 02, 2009 at 12:38:46PM +0300, Avi Kivity wrote:
->   
->> Why does a kernel solution not need to know when a packet is transmitted?
->>     
->
-> Because you can install your own destructor?
->   
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 2 Apr 2009 17:39:52 +0800
 
-So we're back to "the problem is with the kernel->user interface, not 
-userspace being cursed into slowness".
+> (Catching up with old emails)
+> 
+> David Miller <davem@davemloft.net> wrote:
+> > From: Patrick McHardy <kaber@trash.net>
+> > Date: Wed, 04 Mar 2009 11:06:41 +0100
+> > 
+> >> It should also be noted that netlink attributes only provide 4 byte
+> >> alignment. Not sure what the current status of handling unaligned
+> >> accesses on all architectures is, but something that might have to
+> >> be taken into consideration.
+> > 
+> > Indeed, we have hacks in libnl to work around some of these
+> > issues :-(
+> 
+> Requiring the use of aligned_u64 instead of __u64 in netlink
+> structs should help with new data structures, right?
 
-
--- 
-error compiling committee.c: too many arguments to function
-
+Yes, it should.
