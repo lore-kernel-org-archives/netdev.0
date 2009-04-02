@@ -1,33 +1,45 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 17:41:53 +0300
-Message-ID: <49D4CEB1.9020001@redhat.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com> <49D4B8B4.4020003@redhat.com> <49D4BF70.1060301@novell.com> <49D4C191.2070502@redhat.com> <49D4CAA7.3020004@novell.com> <49D4CC61.6010105@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor	implementation
+ & Netlink protocol
+Date: Thu, 02 Apr 2009 16:42:18 +0200
+Message-ID: <49D4CECA.3010703@trash.net>
+References: <20090304.030044.163418715.davem@davemloft.net> <20090402093952.GA30553@gondor.apana.org.au> <20090402.025223.242893473.davem@davemloft.net> <20090402095957.GA30799@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D4CC61.6010105@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	zbr@ioremap.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:46895 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759969AbZDBOmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 10:42:31 -0400
+In-Reply-To: <20090402095957.GA30799@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Avi Kivity wrote:
->
-> The alternative is to get a notification from the stack that the 
-> packet is done processing.  Either an skb destructor in the kernel, or 
-> my new API that everyone is not rushing out to implement.
+Herbert Xu wrote:
+> On Thu, Apr 02, 2009 at 02:52:23AM -0700, David Miller wrote:
+>> It has to do with how the netlink attributes get packed together
+>> into the messages.  It's this crap:
+>>
+>> #define NLMSG_ALIGNTO	4
+>> #define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
+>>  ...
+>> #define NLMSG_NEXT(nlh,len)	 ((len) -= NLMSG_ALIGN((nlh)->nlmsg_len), \
+>> 				  (struct nlmsghdr*)(((char*)(nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len)))
+>>
+>> Thus, nothing in an nlmsg can ever be more than 4 byte aligned.
+>> And this is hard coded into the protocol.
+> 
+> Ah yes, this is the killer.
+> 
+> I suppose we can modify in-kernel helpers like nla_parse to deal
+> with that by copying if it's unaligned.  Though we'll have to
+> figure out how to free the memory.
 
-btw, my new api is
-
-
-   io_submit(..., nr, ...): submit nr packets
-   io_getevents(): complete nr packets
-
--- 
-error compiling committee.c: too many arguments to function
-
+Actually we should be fine since the current netlink helpers only do
+bytewise copying anyways. And I think we've pretty much gotten rid of
+all the raw attribute accesses.
