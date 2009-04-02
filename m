@@ -1,56 +1,41 @@
 From: Avi Kivity <avi@redhat.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 12:02:09 +0300
-Message-ID: <49D47F11.6070400@redhat.com>
-References: <20090402085253.GA29932@gondor.apana.org.au>
+Date: Thu, 02 Apr 2009 12:03:32 +0300
+Message-ID: <49D47F64.3020709@redhat.com>
+References: <20090402030935.GA27836@gondor.apana.org.au> <49D45F59.9030100@redhat.com> <20090402085411.GA29967@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, rusty@rustcorp.com.au,
+Cc: Anthony Liguori <anthony@codemonkey.ws>, andi@firstfloor.org,
+	ghaskins@novell.com, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:44971 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932868AbZDBJCr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2009 05:02:47 -0400
-In-Reply-To: <20090402085253.GA29932@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761552AbZDBJE2@vger.kernel.org>
+In-Reply-To: <20090402085411.GA29967@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Herbert Xu wrote:
-> Avi Kivity <avi@redhat.com> wrote:
+> On Thu, Apr 02, 2009 at 09:46:49AM +0300, Avi Kivity wrote:
 >   
->> virtio is already non-kvm-specific (lguest uses it) and non-pci-specific 
->> (s390 uses it).
+>> I don't understand this.  If we had good interfaces, all that userspace  
+>> would do is translate guest physical addresses to host physical  
+>> addresses, and translate the guest->host protocol to host API calls.  I  
+>> don't see anything there that benefits from being in the kernel.
+>>
+>> Can you elaborate?
 >>     
 >
-> I think Greg's work shows that putting the backend in the kernel
-> can dramatically reduce the cost of a single guest->host transaction.
-> I'm sure the same thing would work for virtio too.
->   
-
-Virtio suffers because we've had no notification of when a packet is 
-actually submitted.  With the notification, the only difference should 
-be in the cost of a kernel->user switch, which is nowhere nearly as 
-dramatic.
-
->> If you have a good exit mitigation scheme you can cut exits by a factor 
->> of 100; so the userspace exit costs are cut by the same factor.  If you 
->> have good copyless networking APIs you can cut the cost of copies to 
->> zero (well, to the cost of get_user_pages_fast(), but a kernel solution 
->> needs that too).
->>     
+> I think Greg has expressed it clearly enough.
 >
-> Given the choice of having to mitigate or not having the problem
-> in the first place, guess what I would prefer :)
+> At the end of the day, the numbers speak for themselves.  So if
+> and when there's a user-space version that achieves the same or
+> better results, then I will change my mind :)
 >   
 
-There is no choice.  Exiting from the guest to the kernel to userspace 
-is prohibitively expensive, you can't do that on every packet.
+Like Anthony said, the problem is with the kernel->user interfaces.  We 
+won't have a good user space virtio implementation until that is fixed.
 
 -- 
 error compiling committee.c: too many arguments to function
-
