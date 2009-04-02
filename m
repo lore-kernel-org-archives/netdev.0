@@ -1,32 +1,44 @@
-From: Chris Wright <chrisw@sous-sol.org>
+From: Avi Kivity <avi@redhat.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Wed, 1 Apr 2009 23:00:24 -0700
-Message-ID: <20090402060024.GY18394@sequoia.sous-sol.org>
-References: <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <20090401204039.GR18394@sequoia.sous-sol.org> <49D3D88E.3090009@novell.com> <20090401212830.GT18394@sequoia.sous-sol.org> <49D3E649.7000906@novell.com>
+Date: Thu, 02 Apr 2009 09:46:49 +0300
+Message-ID: <49D45F59.9030100@redhat.com>
+References: <20090402030935.GA27836@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Anthony Liguori <anthony@codemonkey.ws>, andi@firstfloor.org,
+	ghaskins@novell.com, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49D3E649.7000906@novell.com>
+In-Reply-To: <20090402030935.GA27836@gondor.apana.org.au>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Gregory Haskins (ghaskins@novell.com) wrote:
+Herbert Xu wrote:
+> Anthony Liguori <anthony@codemonkey.ws> wrote:
+>   
+>> That said, I don't think we're bound today by the fact that we're in 
+>> userspace.  Rather we're bound by the interfaces we have between the 
+>> host kernel and userspace to generate IO.  I'd rather fix those 
+>> interfaces than put more stuff in the kernel.
+>>     
+>
+> I'm sorry but I totally disagree with that.  By having our IO
+> infrastructure in user-space we've basically given up the main
+> advantage of kvm, which is that the physical drivers operate in
+> the same environment as the hypervisor.
+>   
 
-<snip nice list>
+I don't understand this.  If we had good interfaces, all that userspace 
+would do is translate guest physical addresses to host physical 
+addresses, and translate the guest->host protocol to host API calls.  I 
+don't see anything there that benefits from being in the kernel.
 
-> I cant think of more examples right now, but I will update this list
-> if/when I come up with more.  I hope that satisfactorily answered your
-> question, though!
+Can you elaborate?
 
-Yes, that helps, thanks.
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
 
-There's still the simple issue of guest/host interface widening w/ kernel
-resident backend where a plain ol' bug (good that you thought about the
-isolation) can take out more than single guest.  Always the balance... ;-)
