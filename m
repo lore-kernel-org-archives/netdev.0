@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tc35815: Fix build error if NAPI enabled
-Date: Thu, 02 Apr 2009 01:17:46 -0700 (PDT)
-Message-ID: <20090402.011746.188752053.davem@davemloft.net>
-References: <1238511902-6853-1-git-send-email-anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] hso: fix for the 'invalid frame length' messages
+Date: Thu, 02 Apr 2009 01:20:32 -0700 (PDT)
+Message-ID: <20090402.012032.67869929.davem@davemloft.net>
+References: <20090330094459.GC9849@raptor>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: anemo@mba.ocn.ne.jp
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: j.dumon@option.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38764
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38769
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754658AbZDBIR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:17:58 -0400
-In-Reply-To: <1238511902-6853-1-git-send-email-anemo@mba.ocn.ne.jp>
+	by vger.kernel.org with ESMTP id S1754145AbZDBIUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:20:44 -0400
+In-Reply-To: <20090330094459.GC9849@raptor>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Date: Wed,  1 Apr 2009 00:05:02 +0900
+From: Jan Dumon <j.dumon@option.com>
+Date: Mon, 30 Mar 2009 11:44:59 +0200
 
-> This driver contains experimental NAPI code disabled by default.
-> The commit bea3348ee ("[NET]: Make NAPI polling independent of struct
-> net_device objects.") converted the NAPI path of this driver but that
-> conversion was not complete.  This patch fixes a build error
-> introduced by the commit.
+> Some devices cannot send very short usb transfers. To get around this the
+> firmware adds a known pattern and flags the driver that it should check for
+> this pattern on short transfers. This flag was not taken into account by
+> the driver.
 > 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> Signed-off-by: Jan Dumon <j.dumon@option.com>
 
-Applied, thank you.
+These patches do not apply cleanly, please respin them against the
+current sources.
