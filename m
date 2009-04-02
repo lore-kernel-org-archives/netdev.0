@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] igb: cleanup igb loopback path
-Date: Thu, 02 Apr 2009 01:00:09 -0700 (PDT)
-Message-ID: <20090402.010009.170612185.davem@davemloft.net>
-References: <20090401063759.3046.89960.stgit@lost.foo-projects.org>
-	<20090401063856.3046.80012.stgit@lost.foo-projects.org>
+Subject: Re: [PATCH] bnx2: Use request_firmware()
+Date: Thu, 02 Apr 2009 01:05:02 -0700 (PDT)
+Message-ID: <20090402.010502.259136834.davem@davemloft.net>
+References: <20090323223238.GB29609@wavehammer.waldi.eu.org>
+	<1237850931.18617.39.camel@HP1>
+	<1238608905.18617.272.camel@HP1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: waldi@debian.org, ben@decadent.org.uk, davem@davemloft.org,
+	netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41764
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43435
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756810AbZDBIAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:00:20 -0400
-In-Reply-To: <20090401063856.3046.80012.stgit@lost.foo-projects.org>
+	by vger.kernel.org with ESMTP id S1753761AbZDBIFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:05:13 -0400
+In-Reply-To: <1238608905.18617.272.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 31 Mar 2009 23:38:56 -0700
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 01 Apr 2009 11:01:45 -0700
 
-> The code path for setting up phy loopback testing was out of date and was
-> setting bits it didn't need to.  This change cleans up the code path and
-> removes some code that has no effect on teh driver.
+> I've made some minor changes to Bastian and Ben's patch.  I've separated
+> the mips firmware from the non-mips firmware, added code to fix up the
+> non-mips firmware with the host CPU's page size, and other minor
+> changes.  If there are no issues, I'll send the entire patch with the
+> ihex files when net-next opens up.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Thanks again to Bastian and Ben.  Here's the new patch that excludes the
+> firmware ihex files for review.
 
-Applied.
+I think I'm even willing to apply this for 2.6.30, let me know when
+the final version is ready.
