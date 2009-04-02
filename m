@@ -1,53 +1,38 @@
 From: Avi Kivity <avi@redhat.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 16:07:09 +0300
-Message-ID: <49D4B87D.2000202@redhat.com>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com> <200904022243.21088.rusty@rustcorp.com.au> <49D4B4A3.5070008@novell.com>
+Date: Thu, 02 Apr 2009 16:08:04 +0300
+Message-ID: <49D4B8B4.4020003@redhat.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	anthony@codemonkey.ws, andi@firstfloor.org,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
 To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D4B4A3.5070008@novell.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:39069 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751402AbZDBNIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2009 09:08:16 -0400
+In-Reply-To: <49D4B594.6080703@novell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Gregory Haskins wrote:
-> Rusty Russell wrote:
+> Avi Kivity wrote:
 >   
->> On Thursday 02 April 2009 21:36:07 Gregory Haskins wrote:
->>   
->>     
->>> You do not need to know when the packet is copied (which I currently
->>> do).  You only need it for zero-copy (of which I would like to support,
->>> but as I understand it there are problems with the reliability of proper
->>> callback (i.e. skb->destructor).
->>>     
->>>       
->> But if you have a UP guest,
+>> My 'prohibitively expensive' is true only if you exit every packet.
+>>
+>>
 >>     
 >
-> I assume you mean UP host ;)
->
+> Understood, but yet you need to do this if you want something like iSCSI
+> READ transactions to have as low-latency as possible.
 >   
 
-I think Rusty did mean a UP guest, and without schedule-and-forget.
-
-> Hmm..well I was hoping to be able to work with you guys to make my
-> proposal fit this role.  If there is no interest in that, I hope that my
-> infrastructure itself may still be considered for merging (in *some*
-> tree, not -kvm per se) as I would prefer to not maintain it out of tree
-> if it can be avoided.
-
-The problem is that we already have virtio guest drivers going several 
-kernel versions back, as well as Windows drivers.  We can't keep 
-changing the infrastructure under people's feet.
-
+Dunno, two microseconds is too much?  The wire imposes much more.
 
 -- 
 error compiling committee.c: too many arguments to function
