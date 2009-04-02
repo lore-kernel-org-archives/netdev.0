@@ -1,80 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 02/17] vbus: add virtual-bus definitions
-Date: Thu, 02 Apr 2009 17:06:16 +0100
-Message-ID: <1238688376.3202.10.camel@achroite>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net>
-	 <20090331184257.28333.64028.stgit@dev.haskins.net>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: Re: virtio_net: MAC address releated breakage if there is no MAC
+ area in config
+Date: Thu, 02 Apr 2009 10:06:25 -0600
+Message-ID: <1238688385.6124.255.camel@bling>
+References: <200904021333.25119.borntraeger@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Christian Borntraeger <borntraeger@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:46453 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752063AbZDBQGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 12:06:25 -0400
-In-Reply-To: <20090331184257.28333.64028.stgit@dev.haskins.net>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:29460 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762110AbZDBQGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 12:06:32 -0400
+In-Reply-To: <200904021333.25119.borntraeger@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-03-31 at 14:42 -0400, Gregory Haskins wrote:
-[...]
-> +Create a device instance
-> +------------------------
-> +
-> +Devices are instantiated by again utilizing the /config/vbus configfs area.
-> +At first you may suspect that devices are created as subordinate objects of a
-> +bus/container instance, but you would be mistaken.
+On Thu, 2009-04-02 at 13:33 +0200, Christian Borntraeger wrote:
+> I read this as the mac config field is optional (similar to all the optional
+> fields we added in virtio_blk later).
+> 
+> I see two options:
+> 1. Change our sample userspace to always allocate the config (like lguest and
+> qemu)
+> 2. Change the kernel code to not write into the config unless a specific feature
+> bit is set. (e.g. VIRTIO_NET_F_SETMAC)
+> 
+> 
+> Opinions?
 
-This is kind of patronising; why don't you simply lay out how things
-_do_ work?
+Hi Christian,
 
->  Devices are actually
-> +root-level objects in vbus specifically to allow greater flexibility in the
-> +association of a device.  For instance, it may be desirable to have a single
-> +device that spans multiple VMs (consider an ethernet switch, or a shared disk
-> +for a cluster).  Therefore, device lifecycles are managed by creating/deleting
-> +objects in /config/vbus/devices.
-> +
-> +Note: Creating a device instance is actually a two step process:  We need to
-> +give the device instance a unique name, and we also need to give it a specific
-> +device type.  It is hard to express both parameters using standard filesystem
-> +operations like mkdir, so the design decision was made to require performing
-> +the operation in two steps.
+Sorry for the breakage.  My interpretation of the virtio-net config
+space was that the mac field was always present and the host had
+programmed a valid value when the F_MAC feature is available.  However,
+from the history of the flag, it seems like you're interpretation is
+likely correct.  Setting the config value from the randomly generated
+mac was largely opportunistic since there's no userspace that doesn't
+provide a mac by default.  So perhaps we can drop that and gate the
+set_mac_address entry point as shown below.  How does this look?
+Thanks,
 
-How about exposing a subdir for each device class under
-/config/vbus/devices/ and allowing device creation only within those?
-Two-stage construction is a pain for both users and implementors.
+Alex
 
-[...]
-> +At this point, we are ready to roll.  Pid 4382 has access to a virtual-bus
-> +namespace with one device, id=0.  Its type is:
-> +
-> +# cat /sys/vbus/instances/beb4df8f-7483-4028-b3f7-767512e2a18c/devices/0/type
-> +virtual-ethernet
-> +
-> +"virtual-ethernet"?  Why is it not "venet-tap"?  Device-classes are allowed to
-> +register their interfaces under an id that is not required to be the same as
-> +their deviceclass.  This supports device polymorphism.   For instance,
-> +consider that an interface "virtual-ethernet" may provide basic 802.x packet
-> +exchange.  However, we could have various implementations of a device that
-> +supports the 802.x interface, while having various implementations behind
-> +them.
-[...]
 
-It seems to me that your "device-classes" correspond to drivers and
-"interfaces" correspond to device classes in the LDM.  To avoid
-confusion, I think the vbus terminology should be made consistent with
-LDM.  And certainly these should not both be called simply "type" in the
-configfs/sysfs interface.
+virtio_net: Set the mac config only when VIRITO_NET_F_MAC
 
-Ben.
+VIRTIO_NET_F_MAC indicates the presence of the mac field in config
+space, not the validity of the value it contains.  Allow the mac to be
+changed at runtime, but only push the change into config space with the
+VIRTIO_NET_F_MAC feature present.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+--
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index a6f1e19..9c82a39 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -575,8 +575,9 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+ 	if (ret)
+ 		return ret;
+ 
+-	vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
+-			  dev->dev_addr, dev->addr_len);
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
++		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
++		                  dev->dev_addr, dev->addr_len);
+ 
+ 	return 0;
+ }
+@@ -876,11 +877,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		vdev->config->get(vdev,
+ 				  offsetof(struct virtio_net_config, mac),
+ 				  dev->dev_addr, dev->addr_len);
+-	} else {
++	} else
+ 		random_ether_addr(dev->dev_addr);
+-		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
+-				  dev->dev_addr, dev->addr_len);
+-	}
+ 
+ 	/* Set up our device-specific information */
+ 	vi = netdev_priv(dev);
+
 
