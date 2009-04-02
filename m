@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: miscounts due to tcp_fragment pcount reset
-Date: Thu, 02 Apr 2009 16:32:35 -0700 (PDT)
-Message-ID: <20090402.163235.153382360.davem@davemloft.net>
-References: <Pine.LNX.4.64.0904011352470.30150@wrl-59.cs.helsinki.fi>
-	<Pine.LNX.4.64.0904021212310.30150@wrl-59.cs.helsinki.fi>
-	<Pine.LNX.4.64.0904021216170.30150@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH 5/9] dnet: remove unused #include <version.h>
+Date: Thu, 02 Apr 2009 16:32:47 -0700 (PDT)
+Message-ID: <20090402.163247.45939808.davem@davemloft.net>
+References: <1238686430-3912-1-git-send-email-weiyi.huang@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: markus@trippelsdorf.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, uwe.bugla@gmx.de
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: weiyi.huang@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54624
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54629
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762623AbZDBXcq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2009 19:32:46 -0400
-In-Reply-To: <Pine.LNX.4.64.0904021216170.30150@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1765243AbZDBXc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 19:32:59 -0400
+In-Reply-To: <1238686430-3912-1-git-send-email-weiyi.huang@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 2 Apr 2009 12:18:20 +0300 (EEST)
+From: Huang Weiyi <weiyi.huang@gmail.com>
+Date: Thu,  2 Apr 2009 23:33:50 +0800
 
->=20
-> It seems that trivial reset of pcount to one was not sufficient
-> in tcp_retransmit_skb. Multiple counters experience a positive
-> miscount when skb's pcount gets lowered without the necessary
-> adjustments (depending on skb's sacked bits which exactly), at
-> worst a packets_out miscount can crash at RTO if the write queue
-> is empty!
->=20
-> Triggering this requires mss change, so bidir tcp or mtu probe or
-> like.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
-> Tested-by: Uwe Bugla <uwe.bugla@gmx.de>
+> Remove unused #include <version.h> in drivers/net/dnet.c.
+> 
+> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
 
 Applied.
