@@ -1,76 +1,120 @@
-From: Gilles Chanteperdrix <gilles.chanteperdrix@gmail.com>
-Subject: Re: [PATCH] i.MX31: Fixing cs89x0 network building to i.MX31ADS
-Date: Thu, 02 Apr 2009 11:23:19 +0200
-Message-ID: <49D48407.5080100@gmail.com>
-References: <37367b3a0903241018h7ff3302fi83cf1fcb21a3114d@mail.gmail.com>	<37367b3a0903300714g40a108d3j59a3b56ee9cda2bf@mail.gmail.com>	<20090330143155.GA20101@pengutronix.de>	<37367b3a0903301315u51787ebcl119ed295e373a1e4@mail.gmail.com>	<20090331075951.GF22913@pengutronix.de>	<37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>	<155d92380904010454l34c57687j67e6805dafcb92ef@mail.gmail.com> <20090402091000.GI4337@n2100.arm.linux.org.uk>
-Reply-To: gilles.chanteperdrix@xenomai.org
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 02 Apr 2009 06:46:57 -0400
+Message-ID: <49D497A1.4090900@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigC0794BE13A6673D09C06C56B"
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <49D46089.5040204@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigC0794BE13A6673D09C06C56B
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sajith P V <sajithpv@gmail.com>,
-	Alan Carvalho de Assis <acassis@gmail.com>,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 54.242.96-84.rev.gaoland.net ([84.96.242.54]:37152 "EHLO
-	xenomai.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757495AbZDBKFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2009 06:05:01 -0400
-In-Reply-To: <20090402091000.GI4337@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Russell King - ARM Linux wrote:
-> On Wed, Apr 01, 2009 at 05:24:27PM +0530, Sajith P V wrote:
->> Hi Alan,
+Avi Kivity wrote:
+> Gregory Haskins wrote:
 >>
->> On Tue, Mar 31, 2009 at 7:06 PM, Alan Carvalho de Assis
->> <acassis@gmail.com> wrote:
->>> This is a fix to get cs89x0 network driver working on i.MX31ADS
->>> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
->>> index ff64976..8ccc8f7 100644
->>> --- a/drivers/net/cs89x0.c
->>> +++ b/drivers/net/cs89x0.c
->>> @@ -190,6 +190,7 @@ static unsigned int cs8900_irq_map[] =
->>> {IRQ_IXDP2X01_CS8900, 0, 0, 0};
->>>  static unsigned int netcard_portlist[] __used __initdata =
->>> {CIRRUS_DEFAULT_BASE, 0};
->>>  static unsigned int cs8900_irq_map[] = {CIRRUS_DEFAULT_IRQ, 0, 0, 0};
->>>  #elif defined(CONFIG_MACH_MX31ADS)
->>> +#include <mach/hardware.h>
->>>  #include <mach/board-mx31ads.h>
->>>  static unsigned int netcard_portlist[] __used __initdata = {
->>>        PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
->>>
->> I tried this change on a different Freescale board but using the same
->> ethernet controller. The probe worked as shown in the console dump
->> below:
-> 
-> It didn't - you didn't read all the messages.
-> 
->> cs89x0:cs89x0_probe(0x0)
->> cs89x0.c: v2.4.3-pre1 Russell Nelson <nelson@crynwr.com>, Andrew
->> Morton <andrewm@uow.edu.au>
->> eth0: cs8900 rev K found at 0xf0000300
->> cs89x0: Extended EEPROM checksum bad and no Cirrus EEPROM, relying on
->> command line
->> cs89x0 media  IRQ 61, programmed I/O, MAC 00:00:00:00:00:00
->> cs89x0_probe1() successful
->> cs89x0:cs89x0_probe(0x0)
->> cs89x0: request_region(0xf0000300, 0x10) failed
-> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> 
->> cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETUP
-> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> 
-> The IO region was not available for whatever reason.  Check what's in
-> /proc/ioports and also check your setting for IO_SPACE_LIMIT.
+>>
+>> I think there is a slight disconnect here.  This is *exactly* what I a=
+m
+>> trying to do.  You can of course do this many ways, and I am not denyi=
+ng
+>> it could be done a different way than the path I have chosen.  One
+>> extreme would be to just slam a virtio-net specific chunk of code
+>> directly into kvm on the host.  Another extreme would be to build a
+>> generic framework into Linux for declaring arbitrary IO types,
+>> integrating it with kvm (as well as other environments such as lguest,=
 
-That is the expected behaviour of this driver:
-http://lists.arm.linux.org.uk/lurker/message/20080917.154011.4631d62b.en.html
+>> userspace, etc), and building a virtio-net model on top of that.
+>>
+>> So in case it is not obvious at this point, I have gone with the latte=
+r
+>> approach.  I wanted to make sure it wasn't kvm specific or something
+>> like pci specific so it had the broadest applicability to a range of
+>> environments.  So that is why the design is the way it is.  I understa=
+nd
+>> that this approach is technically "harder/more-complex" than the "slam=
 
-I guess the real issue is the failing eeprom and the missing mac address.
+>> virtio-net into kvm" approach, but I've already done that work.  All w=
+e
+>> need to do now is agree on the details ;)
+>>
+>>  =20
+>
+> virtio is already non-kvm-specific (lguest uses it) and
+> non-pci-specific (s390 uses it).
 
--- 
-                                                 Gilles.
+Ok, then to be more specific, I need it to be more generic than it
+already is.  For instance, I need it to be able to integrate with
+shm_signals.  If we can do that without breaking the existing ABI, that
+would be great!  Last I looked, it was somewhat entwined here so I didnt
+try...but I admit that I didnt try that hard since I already had the IOQ
+library ready to go.
+
+>
+>>> That said, I don't think we're bound today by the fact that we're in
+>>> userspace.
+>>>    =20
+>> You will *always* be bound by the fact that you are in userspace.  Its=
+
+>> purely a question of "how much" and "does anyone care".    Right now,
+>> the anwer is "a lot (roughly 45x slower)" and "at least Greg's custome=
+rs
+>> do".  I have no doubt that this can and will change/improve in the
+>> future.  But it will always be true that no matter how much userspace
+>> improves, the kernel based solution will always be faster.  Its simple=
+
+>> physics.  I'm cutting out the middleman to ultimately reach the same
+>> destination as the userspace path, so userspace can never be equal.
+>>  =20
+>
+> If you have a good exit mitigation scheme you can cut exits by a
+> factor of 100; so the userspace exit costs are cut by the same
+> factor.  If you have good copyless networking APIs you can cut the
+> cost of copies to zero (well, to the cost of get_user_pages_fast(),
+> but a kernel solution needs that too).
+
+"exit mitigation' schemes are for bandwidth, not latency.  For latency
+it all comes down to how fast you can signal in both directions.  If
+someone is going to do a stand-alone request-reply, its generally always
+going to be at least one hypercall and one rx-interrupt.  So your speed
+will be governed by your signal path, not your buffer bandwidth.
+
+What Ive done is shown that you can use techniques other than buffering
+the head of the queue to do exit mitigation for bandwidth, while still
+maintaining a very short signaling path for latency.  And I also argue
+that the latter will always be optimal in the kernel, though I know by
+which degree is still TBD.  Anthony thinks he can make the difference
+negligible, and I would love to see it but am skeptical.
+
+-Greg
+
+
+
+
+--------------enigC0794BE13A6673D09C06C56B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAknUl6IACgkQlOSOBdgZUxkZRACdEdkCZboECmDSqpnPpzbQ+e14
+3HQAn3UDVPgUqIIAqFO7Yykk7wimIwqd
+=DdVe
+-----END PGP SIGNATURE-----
+
+--------------enigC0794BE13A6673D09C06C56B--
