@@ -1,52 +1,93 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH] fsl_pq_mdio: Fix compile failure
-Date: Thu,  2 Apr 2009 08:45:23 -0500
-Message-ID: <1238679923-4370-1-git-send-email-galak@kernel.crashing.org>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 02 Apr 2009 16:45:53 +0300
+Message-ID: <49D4C191.2070502@redhat.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com> <49D4B8B4.4020003@redhat.com> <49D4BF70.1060301@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:54427 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754133AbZDBNqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2009 09:46:13 -0400
+In-Reply-To: <49D4BF70.1060301@novell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Segher Boessenkool <segher@kernel.crashing.org>
+Gregory Haskins wrote:
+> Avi Kivity wrote:
+>   
+>> Gregory Haskins wrote:
+>>     
+>>> Avi Kivity wrote:
+>>>  
+>>>       
+>>>> My 'prohibitively expensive' is true only if you exit every packet.
+>>>>
+>>>>
+>>>>     
+>>>>         
+>>> Understood, but yet you need to do this if you want something like iSCSI
+>>> READ transactions to have as low-latency as possible.
+>>>   
+>>>       
+>> Dunno, two microseconds is too much?  The wire imposes much more.
+>>
+>>     
+>
+> No, but thats not what we are talking about.  You said signaling on
+> every packet is prohibitively expensive.  I am saying signaling on every
+> packet is required for decent latency.  So is it prohibitively expensive
+> or not?
+>   
 
-Add EXPORT_SYMBOL_GPL(fsl_pq_mdio_bus_name) for module builds
+We're heading dangerously into the word-game area.  Let's not do that.
 
-Signed-off-by: Segher Boessenkool <segher@kernel.crashing.org>
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
----
+If you have a high throughput workload with many packets per seconds 
+then an exit per packet (whether to userspace or to the kernel) is 
+expensive.  So you do exit mitigation.  Latency is not important since 
+the packets are going to sit in the output queue anyway.
 
-Dave, 
+If you have a request-response workload with the wire idle and latency 
+critical, then there's no problem having an exit per packet because (a) 
+there aren't that many packets and (b) the guest isn't doing any 
+batching, so guest overhead will swamp the hypervisor overhead.
 
-I think this got lost in a thread on the ppc list.
+If you have a low latency request-response workload mixed with a high 
+throughput workload, then you aren't going to get low latency since your 
+low latency packets will sit on the queue behind the high throughput 
+packets.  You can fix that with multiqueue and then you're back to one 
+of the scenarios above.
 
-- k
+> I think most would agree that adding 2us is not bad, but so far that is
+> an unproven theory that the IO path in question only adds 2us.   And we
+> are not just looking at the rate at which we can enter and exit the
+> guest...we need the whole path...from the PIO kick to the dev_xmit() on
+> the egress hardware, to the ingress and rx-injection.  This includes any
+> and all penalties associated with the path, even if they are imposed by
+> something like the design of tun-tap.
+>   
 
- drivers/net/fsl_pq_mdio.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Correct, we need to look at the whole path.  That's why the wishing well 
+is clogged with my 'give me a better userspace interface' emails.
 
-diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
-index d9e1ecf..aa1eb88 100644
---- a/drivers/net/fsl_pq_mdio.c
-+++ b/drivers/net/fsl_pq_mdio.c
-@@ -204,6 +204,7 @@ void fsl_pq_mdio_bus_name(char *name, struct device_node *np)
- 	snprintf(name, MII_BUS_ID_SIZE, "%s@%llx", np->name,
- 		(unsigned long long)taddr);
- }
-+EXPORT_SYMBOL_GPL(fsl_pq_mdio_bus_name);
- 
- /* Scan the bus in reverse, looking for an empty spot */
- static int fsl_pq_mdio_find_free(struct mii_bus *new_bus)
+> Right now its way way way worse than 2us.  In fact, at my last reading
+> this was more like 3060us (3125-65).  So shorten that 3125 to 67 (while
+> maintaining line-rate) and I will be impressed.  Heck, shorten it to
+> 80us and I will be impressed.
+>   
+
+The 3060us thing is a timer, not cpu time.  We aren't starting a JVM for 
+each packet.  We could remove it given a notification API, or 
+duplicating the sched-and-forget thing, like Rusty did with lguest or 
+Mark with qemu.
+
 -- 
-1.5.6.6
+error compiling committee.c: too many arguments to function
+
