@@ -1,39 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
-	implementation & Netlink protocol
-Date: Thu, 2 Apr 2009 22:59:52 +0800
-Message-ID: <20090402145952.GA1276@gondor.apana.org.au>
-References: <20090304.030044.163418715.davem@davemloft.net> <20090402093952.GA30553@gondor.apana.org.au> <20090402.025223.242893473.davem@davemloft.net> <20090402095957.GA30799@gondor.apana.org.au> <49D4CECA.3010703@trash.net> <20090402144549.GA764@gondor.apana.org.au> <49D4D260.6020809@trash.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 02 Apr 2009 18:00:17 +0300
+Message-ID: <49D4D301.2090209@redhat.com>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com> <200904022243.21088.rusty@rustcorp.com.au> <49D4B4A3.5070008@novell.com> <49D4B87D.2000202@redhat.com> <20090402145018.GA816@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	zbr@ioremap.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	Rusty Russell <rusty@rustcorp.com.au>, anthony@codemonkey.ws,
+	andi@firstfloor.org, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57632 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760559AbZDBPAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 11:00:05 -0400
-Content-Disposition: inline
-In-Reply-To: <49D4D260.6020809@trash.net>
+Received: from mx2.redhat.com ([66.187.237.31]:53448 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762950AbZDBPAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2009 11:00:34 -0400
+In-Reply-To: <20090402145018.GA816@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 02, 2009 at 04:57:36PM +0200, Patrick McHardy wrote:
+Herbert Xu wrote:
+> On Thu, Apr 02, 2009 at 04:07:09PM +0300, Avi Kivity wrote:
+>   
+>> I think Rusty did mean a UP guest, and without schedule-and-forget.
+>>     
 >
-> I didn't spot the problem, it seems it alreay copies all (sub)structures
-> that have larger alignment requirements.
+> Going off on a tangent here, I don't really think it should matter
+> whether we're UP or SMP.  The ideal state is where we have the
+> same number of (virtual) TX queues as there are cores in the guest.
+> On the host side we need the backend to run at least on a core
+> that shares cache with the corresponding guest queue/core.  If
+> that happens to be the same core as the guest core then it should
+> work as well.
+>
+> IOW we should optimise it as if the host were UP.
+>   
 
-Oh no I didn't mean that xfrm_userpolicy_info has a problem, for
-all I know it might not even have a u64 inside :)
+Good point - if we rely on having excess cores in the host, large guest 
+scalability will drop.
 
-If we can ensure that all netlink backends use the helpers that
-copy, even for structures then it should definitely work.
-
-Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+error compiling committee.c: too many arguments to function
+
