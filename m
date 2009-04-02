@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ucc_geth: Remove unused header
-Date: Thu, 02 Apr 2009 01:14:16 -0700 (PDT)
-Message-ID: <20090402.011416.201364166.davem@davemloft.net>
-References: <1238506979-8678-1-git-send-email-galak@kernel.crashing.org>
-	<1238506979-8678-2-git-send-email-galak@kernel.crashing.org>
+Subject: Re: [PATCH 1/9] ixgbe: fix build when DEBUG is defined
+Date: Thu, 02 Apr 2009 01:15:09 -0700 (PDT)
+Message-ID: <20090402.011509.74006066.davem@davemloft.net>
+References: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: galak@kernel.crashing.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60290
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60294
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754991AbZDBIO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:14:28 -0400
-In-Reply-To: <1238506979-8678-2-git-send-email-galak@kernel.crashing.org>
+	by vger.kernel.org with ESMTP id S1753277AbZDBIPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:15:20 -0400
+In-Reply-To: <20090401073241.3749.36391.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Gala <galak@kernel.crashing.org>
-Date: Tue, 31 Mar 2009 08:42:59 -0500
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 01 Apr 2009 00:32:42 -0700
 
-> Now that the driver is exclusively an of_platform driver we no longer
-> use the structs and #defines in fsl_devices.h
+> The ixgbe driver had issues when DEBUG was defined because the hw_dbg macro
+> was incomplete.  This patch completes the code based off of the code that
+> already existed in the igb module.
 > 
-> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
