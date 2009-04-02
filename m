@@ -1,16 +1,13 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 0/3] Series short description
-Date: Thu, 2 Apr 2009 07:41:23 -0600
-Message-ID: <fa686aa40904020641k4db9e66dh4f80b5b32f68455d@mail.gmail.com>
-References: <20090401060117.8641.32252.stgit@localhost.localdomain>
-	<20090402.005715.02030593.davem@davemloft.net>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] fsl_pq_mdio: Fix compile failure
+Date: Thu,  2 Apr 2009 08:45:23 -0500
+Message-ID: <1238679923-4370-1-git-send-email-galak@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090402.005715.02030593.davem@davemloft.net>
 List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
 	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
@@ -22,29 +19,34 @@ Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 2, 2009 at 1:57 AM, David Miller <davem@davemloft.net> wrote:
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Wed, 01 Apr 2009 00:16:46 -0600
->
->> Here are the fec_mpc52xx patches which should be picked up for 2.6.29.
->> Patch #1 fixes a dma related BUG_ON() discovered after the merge window
->> opened. =A0#2 & #3 were original a single patch posted prior to the merge
->> window, but not having a s-o-b line from the original author held them u=
-p.
->> In the end I rewrote it from scratch as two patches just so I can get
->> them merged. =A0#2 makes the driver use net_device_ops, and #3 fixes a N=
-ULL
->> dereference.
->>
->> I've tested these patches on several MPC5200 platforms.
->
-> All applied, thanks Grant.
+From: Segher Boessenkool <segher@kernel.crashing.org>
 
-Thanks David!
+Add EXPORT_SYMBOL_GPL(fsl_pq_mdio_bus_name) for module builds
 
-g.
+Signed-off-by: Segher Boessenkool <segher@kernel.crashing.org>
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+---
 
--- =
+Dave, 
 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+I think this got lost in a thread on the ppc list.
+
+- k
+
+ drivers/net/fsl_pq_mdio.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
+index d9e1ecf..aa1eb88 100644
+--- a/drivers/net/fsl_pq_mdio.c
++++ b/drivers/net/fsl_pq_mdio.c
+@@ -204,6 +204,7 @@ void fsl_pq_mdio_bus_name(char *name, struct device_node *np)
+ 	snprintf(name, MII_BUS_ID_SIZE, "%s@%llx", np->name,
+ 		(unsigned long long)taddr);
+ }
++EXPORT_SYMBOL_GPL(fsl_pq_mdio_bus_name);
+ 
+ /* Scan the bus in reverse, looking for an empty spot */
+ static int fsl_pq_mdio_find_free(struct mii_bus *new_bus)
+-- 
+1.5.6.6
