@@ -1,68 +1,86 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
+From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Wed, 01 Apr 2009 19:29:44 -0500
-Message-ID: <49D406F8.40606@codemonkey.ws>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com>
+Date: Thu, 2 Apr 2009 11:54:13 +1030
+Message-ID: <200904021154.14082.rusty@rustcorp.com.au>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <200904011638.45135.rusty@rustcorp.com.au> <49D3518B.1030403@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
 To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:56497 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755992AbZDBA3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2009 20:29:50 -0400
-In-Reply-To: <49D3D7EE.4080202@novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <49D3518B.1030403@novell.com>
+Content-Disposition: inline
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gregory Haskins wrote:
-> Anthony Liguori wrote:
->   
-> I think there is a slight disconnect here.  This is *exactly* what I am
-> trying to do. 
+On Wednesday 01 April 2009 22:05:39 Gregory Haskins wrote:
+> Rusty Russell wrote:
+> > I could dig through the code, but I'll ask directly: what heuristic do
+> > you use for notification prevention in your venet_tap driver?
+> 
+> I am not 100% sure I know what you mean with "notification prevention",
+> but let me take a stab at it.
 
-If it were exactly what you were trying to do, you would have posted a 
-virtio-net in-kernel backend implementation instead of a whole new 
-paravirtual IO framework ;-)
+Good stab :)
 
->> That said, I don't think we're bound today by the fact that we're in
->> userspace.
->>     
-> You will *always* be bound by the fact that you are in userspace.
+> I only signal back to the guest to reclaim its skbs every 10
+> packets, or if I drain the queue, whichever comes first (note to self:
+> make this # configurable).
 
-Again, let's talk numbers.  A heavy-weight exit is 1us slower than a 
-light weight exit.  Ideally, you're taking < 1 exit per packet because 
-you're batching notifications.  If you're ping latency on bare metal 
-compared to vbus is 39us to 65us, then all other things being equally, 
-the cost imposed by doing what your doing in userspace would make the 
-latency be 66us taking your latency from 166% of native to 169% of 
-native.  That's not a huge difference and I'm sure you'll agree there 
-are a lot of opportunities to improve that even further.
+Good stab, though I was referring to guest->host signals (I'll assume
+you use a similar scheme there).
 
-And you didn't mention whether your latency tests are based on ping or 
-something more sophisticated as ping will be a pathological case that 
-doesn't allow any notification batching.
+You use a number of packets, qemu uses a timer (150usec), lguest uses a
+variable timer (starting at 500usec, dropping by 1 every time but increasing
+by 10 every time we get fewer packets than last time).
 
-> I agree that the "does anyone care" part of the equation will approach
-> zero as the latency difference shrinks across some threshold (probably
-> the single microsecond range), but I will believe that is even possible
-> when I see it ;)
->   
+So, if the guest sends two packets and stops, you'll hang indefinitely?
+That's why we use a timer, otherwise any mitigation scheme has this issue.
 
-Note the other hat we have to where is not just virtualization developer 
-but Linux developer.  If there are bad userspace interfaces for IO that 
-impose artificial restrictions, then we need to identify those and fix them.
+Thanks,
+Rusty.
 
-Regards,
 
-Anthony Liguori
-
-> Regards,
+> 
+> The nice part about this scheme is it significantly reduces the amount
+> of guest/host transitions, while still providing the lowest latency
+> response for single packets possible.  e.g. Send one packet, and you get
+> one hypercall, and one tx-complete interrupt as soon as it queues on the
+> hardware.  Send 100 packets, and you get one hypercall and 10
+> tx-complete interrupts as frequently as every tenth packet queues on the
+> hardware.  There is no timer governing the flow, etc.
+> 
+> Is that what you were asking?
+> 
+> > As you point out, 350-450 is possible, which is still bad, and it's at least
+> > partially caused by the exit to userspace and two system calls.  If virtio_net
+> > had a backend in the kernel, we'd be able to compare numbers properly.
+> >   
+> :)
+> 
+> But that is the whole point, isnt it?  I created vbus specifically as a
+> framework for putting things in the kernel, and that *is* one of the
+> major reasons it is faster than virtio-net...its not the difference in,
+> say, IOQs vs virtio-ring (though note I also think some of the
+> innovations we have added such as bi-dir napi are helping too, but these
+> are not "in-kernel" specific kinds of features and could probably help
+> the userspace version too).
+> 
+> I would be entirely happy if you guys accepted the general concept and
+> framework of vbus, and then worked with me to actually convert what I
+> have as "venet-tap" into essentially an in-kernel virtio-net.  I am not
+> specifically interested in creating a competing pv-net driver...I just
+> needed something to showcase the concepts and I didnt want to hack the
+> virtio-net infrastructure to do it until I had everyone's blessing. 
+> Note to maintainers: I *am* perfectly willing to maintain the venet
+> drivers if, for some reason, we decide that we want to keep them as
+> is.   Its just an ideal for me to collapse virtio-net and venet-tap
+> together, and I suspect our community would prefer this as well.
+> 
 > -Greg
->
->   
-
+> 
+> 
