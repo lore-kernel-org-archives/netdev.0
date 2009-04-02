@@ -1,79 +1,74 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 2/2] tcp: miscounts due to tcp_fragment pcount reset
-Date: Thu, 2 Apr 2009 12:18:20 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0904021216170.30150@wrl-59.cs.helsinki.fi>
-References: <20090327211202.GA10014@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280031080.5904@wrl-59.cs.helsinki.fi>
- <20090328045056.GA2394@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903280930440.6696@wrl-59.cs.helsinki.fi>
- <20090328095514.GA2599@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903301155150.30150@wrl-59.cs.helsinki.fi>
- <20090330164035.GA2652@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903302137100.29272@wrl-59.cs.helsinki.fi>
- <20090331071018.GA2641@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0903311205070.30150@wrl-59.cs.helsinki.fi>
- <20090331184959.GA2725@gentoox2.trippelsdorf.de>
- <Pine.LNX.4.64.0904011352470.30150@wrl-59.cs.helsinki.fi>
- <Pine.LNX.4.64.0904021212310.30150@wrl-59.cs.helsinki.fi>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 02 Apr 2009 12:27:17 +0300
+Message-ID: <49D484F5.2000400@redhat.com>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <20090402091639.GA30126@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-588721039-1238663900=:30150"
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, Uwe Bugla <uwe.bugla@gmx.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S935604AbZDBJSr@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0904021212310.30150@wrl-59.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090402091639.GA30126@gondor.apana.org.au>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Herbert Xu wrote:
+> On Thu, Apr 02, 2009 at 12:02:09PM +0300, Avi Kivity wrote:
+>   
+>> There is no choice.  Exiting from the guest to the kernel to userspace  
+>> is prohibitively expensive, you can't do that on every packet.
+>>     
+>
+> I was referring to the bit between the kernel and userspace.
+>
+> In any case, I just looked at the virtio mitigation code again
+> and I am completely baffled at why we need it.  Look at Greg's
+> code or the netback/netfront notification, why do we need this
+> completely artificial mitigation when the ring itself provides
+> a natural way of stemming the flow?
+>   
 
----696208474-588721039-1238663900=:30150
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+If the vcpu thread does the transmit, then it will always complete 
+sending immediately:
 
+  guest: push packet, notify qemu
+  qemu: disable notification
+  qemu: pop packet
+  qemu: copy to tap
+  qemu: ??
 
-It seems that trivial reset of pcount to one was not sufficient
-in tcp_retransmit_skb. Multiple counters experience a positive
-miscount when skb's pcount gets lowered without the necessary
-adjustments (depending on skb's sacked bits which exactly), at
-worst a packets_out miscount can crash at RTO if the write queue
-is empty!
+At this point, qemu must enable notification again, since we have no 
+notification from tap that the transmit completed.  The only alternative 
+is the timer.
 
-Triggering this requires mss change, so bidir tcp or mtu probe or
-like.
+If we do the transmit through an extra thread, then scheduling latency 
+buys us some time:
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
-Tested-by: Uwe Bugla <uwe.bugla@gmx.de>
----
+  guest: push packet, notify qemu
+  qemu: disable notification
+  qemu: schedule iothread
+  iothread: pop packet
+  iothread: copy to tap
+  iothread: check for more packets
+  iothread: enable notification
 
-Markus probably tested this as well though I didn't hear any reports back 
-yet.
+If tap told us when the packets were actually transmitted, life would be 
+wonderful:
 
- net/ipv4/tcp_output.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+  guest: push packet, notify qemu
+  qemu: disable notification
+  qemu: pop packet
+  qemu: queue on tap
+  qemu: return to guest
+  hardware: churn churn churn
+  tap: packet is out
+  iothread: check for more packets
+  iothread: enable notification
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f1db89b..53300fa 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1893,7 +1893,12 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 		if (tcp_fragment(sk, skb, cur_mss, cur_mss))
- 			return -ENOMEM; /* We'll try again later. */
- 	} else {
--		tcp_init_tso_segs(sk, skb, cur_mss);
-+		int oldpcount = tcp_skb_pcount(skb);
-+
-+		if (unlikely(oldpcount > 1)) {
-+			tcp_init_tso_segs(sk, skb, cur_mss);
-+			tcp_adjust_pcount(sk, skb, oldpcount - tcp_skb_pcount(skb));
-+		}
- 	}
- 
- 	tcp_retrans_try_collapse(sk, skb, cur_mss);
 -- 
-1.5.2.2
+error compiling committee.c: too many arguments to function
 
----696208474-588721039-1238663900=:30150--
