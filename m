@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hso: add Vendor/Product ID's for new devices
-Date: Thu, 02 Apr 2009 01:16:57 -0700 (PDT)
-Message-ID: <20090402.011657.50608455.davem@davemloft.net>
-References: <20090401085751.GA7869@raptor>
+Subject: Re: [PATCH] tc35815: Fix build error if NAPI enabled
+Date: Thu, 02 Apr 2009 01:17:46 -0700 (PDT)
+Message-ID: <20090402.011746.188752053.davem@davemloft.net>
+References: <1238511902-6853-1-git-send-email-anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	paulius.zaleckas@teltonika.lt
-To: j.dumon@option.com
+Cc: jeff@garzik.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: anemo@mba.ocn.ne.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38759
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38764
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757154AbZDBIRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:17:08 -0400
-In-Reply-To: <20090401085751.GA7869@raptor>
+	by vger.kernel.org with ESMTP id S1754658AbZDBIR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:17:58 -0400
+In-Reply-To: <1238511902-6853-1-git-send-email-anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Dumon <j.dumon@option.com>
-Date: Wed, 1 Apr 2009 10:57:51 +0200
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Date: Wed,  1 Apr 2009 00:05:02 +0900
 
-> Add Vendor/Product ID's for new devices.
-> Removed duplicate product ID 0x7361.
+> This driver contains experimental NAPI code disabled by default.
+> The commit bea3348ee ("[NET]: Make NAPI polling independent of struct
+> net_device objects.") converted the NAPI path of this driver but that
+> conversion was not complete.  This patch fixes a build error
+> introduced by the commit.
 > 
-> Signed-off-by: Jan Dumon <j.dumon@option.com>
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 
-Applied.
+Applied, thank you.
