@@ -1,67 +1,56 @@
-From: Jan Dumon <j.dumon@option.com>
-Subject: [PATCH 2/2] hso: fix for the 'invalid frame length' messages
-Date: Thu, 2 Apr 2009 10:59:07 +0200
-Message-ID: <20090402085906.GB8663@raptor>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 02 Apr 2009 12:02:09 +0300
+Message-ID: <49D47F11.6070400@redhat.com>
+References: <20090402085253.GA29932@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.option.com ([81.246.70.162]:59294 "EHLO
-	mailer1.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761234AbZDBI7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:59:11 -0400
-Content-Disposition: inline
+Received: from mx2.redhat.com ([66.187.237.31]:44971 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932868AbZDBJCr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2009 05:02:47 -0400
+In-Reply-To: <20090402085253.GA29932@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Dumon <j.dumon@option.com>
+Herbert Xu wrote:
+> Avi Kivity <avi@redhat.com> wrote:
+>   
+>> virtio is already non-kvm-specific (lguest uses it) and non-pci-specific 
+>> (s390 uses it).
+>>     
+>
+> I think Greg's work shows that putting the backend in the kernel
+> can dramatically reduce the cost of a single guest->host transaction.
+> I'm sure the same thing would work for virtio too.
+>   
 
-Some devices cannot send very short usb transfers. To get around this the
-firmware adds a known pattern and flags the driver that it should check for
-this pattern on short transfers. This flag was not taken into account by
-the driver.
-    
-Signed-off-by: Jan Dumon <j.dumon@option.com>
----
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 779a007..f84b78d 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2536,14 +2536,15 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
- }
- 
- /* Creates our network device */
--static struct hso_device *hso_create_net_device(struct usb_interface *interface)
-+static struct hso_device *hso_create_net_device(struct usb_interface *interface,
-+						int port_spec)
- {
- 	int result, i;
- 	struct net_device *net;
- 	struct hso_net *hso_net;
- 	struct hso_device *hso_dev;
- 
--	hso_dev = hso_create_device(interface, HSO_INTF_MUX | HSO_PORT_NETWORK);
-+	hso_dev = hso_create_device(interface, port_spec);
- 	if (!hso_dev)
- 		return NULL;
- 
-@@ -2943,7 +2944,8 @@ static int hso_probe(struct usb_interface *interface,
- 		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) {
- 			/* Create the network device */
- 			if (!disable_net) {
--				hso_dev = hso_create_net_device(interface);
-+				hso_dev = hso_create_net_device(interface,
-+								port_spec);
- 				if (!hso_dev)
- 					goto exit;
- 				tmp_dev = hso_dev;
-@@ -2975,7 +2977,7 @@ static int hso_probe(struct usb_interface *interface,
- 		/* It's a regular bulk interface */
- 		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK)
- 		    && !disable_net)
--			hso_dev = hso_create_net_device(interface);
-+			hso_dev = hso_create_net_device(interface, port_spec);
- 		else
- 			hso_dev =
- 			    hso_create_bulk_serial_device(interface, port_spec);
+Virtio suffers because we've had no notification of when a packet is 
+actually submitted.  With the notification, the only difference should 
+be in the cost of a kernel->user switch, which is nowhere nearly as 
+dramatic.
+
+>> If you have a good exit mitigation scheme you can cut exits by a factor 
+>> of 100; so the userspace exit costs are cut by the same factor.  If you 
+>> have good copyless networking APIs you can cut the cost of copies to 
+>> zero (well, to the cost of get_user_pages_fast(), but a kernel solution 
+>> needs that too).
+>>     
+>
+> Given the choice of having to mitigate or not having the problem
+> in the first place, guess what I would prefer :)
+>   
+
+There is no choice.  Exiting from the guest to the kernel to userspace 
+is prohibitively expensive, you can't do that on every packet.
+
+-- 
+error compiling committee.c: too many arguments to function
+
