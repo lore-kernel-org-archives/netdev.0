@@ -1,66 +1,75 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 09:51:53 +0300
-Message-ID: <49D46089.5040204@redhat.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] socket: use percpu_add() while updating sockets_in_use
+Date: Thu, 02 Apr 2009 08:58:00 +0200
+Message-ID: <49D461F8.20906@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D3D7EE.4080202@novell.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46963 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751721AbZDBG6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 02:58:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gregory Haskins wrote:
->
->
-> I think there is a slight disconnect here.  This is *exactly* what I am
-> trying to do.  You can of course do this many ways, and I am not denying
-> it could be done a different way than the path I have chosen.  One
-> extreme would be to just slam a virtio-net specific chunk of code
-> directly into kvm on the host.  Another extreme would be to build a
-> generic framework into Linux for declaring arbitrary IO types,
-> integrating it with kvm (as well as other environments such as lguest,
-> userspace, etc), and building a virtio-net model on top of that.
->
-> So in case it is not obvious at this point, I have gone with the latter
-> approach.  I wanted to make sure it wasn't kvm specific or something
-> like pci specific so it had the broadest applicability to a range of
-> environments.  So that is why the design is the way it is.  I understand
-> that this approach is technically "harder/more-complex" than the "slam
-> virtio-net into kvm" approach, but I've already done that work.  All we
-> need to do now is agree on the details ;)
->
->   
+sock_alloc() currently uses following code to update sockets_in_use
 
-virtio is already non-kvm-specific (lguest uses it) and non-pci-specific 
-(s390 uses it).
+get_cpu_var(sockets_in_use)++;
+put_cpu_var(sockets_in_use);
 
->> That said, I don't think we're bound today by the fact that we're in
->> userspace.
->>     
-> You will *always* be bound by the fact that you are in userspace.  Its
-> purely a question of "how much" and "does anyone care".    Right now,
-> the anwer is "a lot (roughly 45x slower)" and "at least Greg's customers
-> do".  I have no doubt that this can and will change/improve in the
-> future.  But it will always be true that no matter how much userspace
-> improves, the kernel based solution will always be faster.  Its simple
-> physics.  I'm cutting out the middleman to ultimately reach the same
-> destination as the userspace path, so userspace can never be equal.
->   
+This translates to :
 
-If you have a good exit mitigation scheme you can cut exits by a factor 
-of 100; so the userspace exit costs are cut by the same factor.  If you 
-have good copyless networking APIs you can cut the cost of copies to 
-zero (well, to the cost of get_user_pages_fast(), but a kernel solution 
-needs that too).
+c0436274:       b8 01 00 00 00          mov    $0x1,%eax
+c0436279:       e8 42 40 df ff          call   c022a2c0 <add_preempt_count>
+c043627e:       bb 20 4f 6a c0          mov    $0xc06a4f20,%ebx
+c0436283:       e8 18 ca f0 ff          call   c0342ca0 <debug_smp_processor_id>
+c0436288:       03 1c 85 60 4a 65 c0    add    -0x3f9ab5a0(,%eax,4),%ebx
+c043628f:       ff 03                   incl   (%ebx)
+c0436291:       b8 01 00 00 00          mov    $0x1,%eax
+c0436296:       e8 75 3f df ff          call   c022a210 <sub_preempt_count>
+c043629b:       89 e0                   mov    %esp,%eax
+c043629d:       25 00 e0 ff ff          and    $0xffffe000,%eax
+c04362a2:       f6 40 08 08             testb  $0x8,0x8(%eax)
+c04362a6:       75 07                   jne    c04362af <sock_alloc+0x7f>
+c04362a8:       8d 46 d8                lea    -0x28(%esi),%eax
+c04362ab:       5b                      pop    %ebx
+c04362ac:       5e                      pop    %esi
+c04362ad:       c9                      leave
+c04362ae:       c3                      ret
+c04362af:       e8 cc 5d 09 00          call   c04cc080 <preempt_schedule>
+c04362b4:       8d 74 26 00             lea    0x0(%esi,%eiz,1),%esi
+c04362b8:       eb ee                   jmp    c04362a8 <sock_alloc+0x78>
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+While percpu_add(sockets_in_use, 1) translates to a single instruction :
 
+c0436275:   64 83 05 20 5f 6a c0    addl   $0x1,%fs:0xc06a5f20
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+diff --git a/net/socket.c b/net/socket.c
+index 91d0c02..791d71a 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -493,8 +493,7 @@ static struct socket *sock_alloc(void)
+ 	inode->i_uid = current_fsuid();
+ 	inode->i_gid = current_fsgid();
+ 
+-	get_cpu_var(sockets_in_use)++;
+-	put_cpu_var(sockets_in_use);
++	percpu_add(sockets_in_use, 1);
+ 	return sock;
+ }
+ 
+@@ -536,8 +535,7 @@ void sock_release(struct socket *sock)
+ 	if (sock->fasync_list)
+ 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
+ 
+-	get_cpu_var(sockets_in_use)--;
+-	put_cpu_var(sockets_in_use);
++	percpu_sub(sockets_in_use, 1);
+ 	if (!sock->file) {
+ 		iput(SOCK_INODE(sock));
+ 		return;
