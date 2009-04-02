@@ -1,41 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
-	implementation & Netlink protocol
-Date: Thu, 2 Apr 2009 17:39:52 +0800
-Message-ID: <20090402093952.GA30553@gondor.apana.org.au>
-References: <20090304.030044.163418715.davem@davemloft.net>
+Subject: Re: [RFC PATCH 00/17] virtual-bus
+Date: Thu, 2 Apr 2009 17:41:47 +0800
+Message-ID: <20090402094147.GA30586@gondor.apana.org.au>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <20090402091639.GA30126@gondor.apana.org.au> <49D484F5.2000400@redhat.com> <20090402092936.GA30333@gondor.apana.org.au> <49D487A6.407@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, nhorman@tuxdriver.com, zbr@ioremap.net,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52150 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:52166 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S935421AbZDBJkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 05:40:14 -0400
+	with ESMTP id S1757546AbZDBJmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 05:42:03 -0400
 Content-Disposition: inline
-In-Reply-To: <20090304.030044.163418715.davem@davemloft.net>
+In-Reply-To: <49D487A6.407@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Catching up with old emails)
+On Thu, Apr 02, 2009 at 12:38:46PM +0300, Avi Kivity wrote:
+>
+> Why does a kernel solution not need to know when a packet is transmitted?
 
-David Miller <davem@davemloft.net> wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Wed, 04 Mar 2009 11:06:41 +0100
-> 
->> It should also be noted that netlink attributes only provide 4 byte
->> alignment. Not sure what the current status of handling unaligned
->> accesses on all architectures is, but something that might have to
->> be taken into consideration.
-> 
-> Indeed, we have hacks in libnl to work around some of these
-> issues :-(
+Because you can install your own destructor?
 
-Requiring the use of aligned_u64 instead of __u64 in netlink
-structs should help with new data structures, right?
+I don't know what Greg did, but netback did that nasty page destructor
+hack which Jeremy is trying to undo :)
 
 Cheers,
 -- 
