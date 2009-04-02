@@ -1,121 +1,122 @@
 From: Gregory Haskins <ghaskins@novell.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Wed, 01 Apr 2009 22:27:28 -0400
-Message-ID: <49D42290.1000907@novell.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <200904011638.45135.rusty@rustcorp.com.au> <49D3518B.1030403@novell.com> <200904021154.14082.rusty@rustcorp.com.au>
+Date: Wed, 01 Apr 2009 23:11:03 -0400
+Message-ID: <49D42CC7.40705@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D406F8.40606@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enigE958B7CA7BC9D8E8DE545103"
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+ boundary="------------enig7DFB3F42E436507F15B6D0BF"
+Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <200904021154.14082.rusty@rustcorp.com.au>
+In-Reply-To: <49D406F8.40606@codemonkey.ws>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigE958B7CA7BC9D8E8DE545103
-Content-Type: text/plain; charset=iso-8859-15
+--------------enig7DFB3F42E436507F15B6D0BF
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-Rusty Russell wrote:
-> On Wednesday 01 April 2009 22:05:39 Gregory Haskins wrote:
->  =20
->> Rusty Russell wrote:
->>    =20
->>> I could dig through the code, but I'll ask directly: what heuristic d=
-o
->>> you use for notification prevention in your venet_tap driver?
->>>      =20
->> I am not 100% sure I know what you mean with "notification prevention"=
-,
->> but let me take a stab at it.
->>    =20
+Anthony Liguori wrote:
+> Gregory Haskins wrote:
+>> Anthony Liguori wrote:
+>>   I think there is a slight disconnect here.  This is *exactly* what
+>> I am
+>> trying to do.=20
 >
-> Good stab :)
+> If it were exactly what you were trying to do, you would have posted a
+> virtio-net in-kernel backend implementation instead of a whole new
+> paravirtual IO framework ;-)
+
+semantics, semantics ;)
+
+but ok, fair enough.
+
 >
->  =20
->> I only signal back to the guest to reclaim its skbs every 10
->> packets, or if I drain the queue, whichever comes first (note to self:=
-
->> make this # configurable).
->>    =20
+>>> That said, I don't think we're bound today by the fact that we're in
+>>> userspace.
+>>>    =20
+>> You will *always* be bound by the fact that you are in userspace.
 >
-> Good stab, though I was referring to guest->host signals (I'll assume
-> you use a similar scheme there).
->  =20
-Oh, actually no.  The guest->host path only uses the "bidir napi" thing
-I mentioned.  So first packet hypercalls the host immediately with no
-delay, schedules my host-side "rx" thread, disables subsequent
-hypercalls, and returns to the guest.  If the guest tries to send
-another packet before the time it takes the host to drain all queued
-skbs (in this case, 1), it will simply queue it to the ring with no
-additional hypercalls.    Like typical napi ingress processing, the host
-will leave hypercalls disabled until it finds the ring empty, so this
-process can continue indefinitely until the host catches up.  Once fully
-drained,  the host will re-enable the hypercall channel and subsequent
-transmissions will repeat the original process.
+> Again, let's talk numbers.  A heavy-weight exit is 1us slower than a
+> light weight exit.  Ideally, you're taking < 1 exit per packet because
+> you're batching notifications.  If you're ping latency on bare metal
+> compared to vbus is 39us to 65us, then all other things being equally,
+> the cost imposed by doing what your doing in userspace would make the
+> latency be 66us taking your latency from 166% of native to 169% of
+> native.  That's not a huge difference and I'm sure you'll agree there
+> are a lot of opportunities to improve that even further.
 
-In summary, infrequent transmissions will tend to have one hypercall per
-packet.  Bursty transmissions will have one hypercall per burst
-(starting immediately with the first packet).  In both cases, we
-minimize the latency to get the first packet "out the door".
+Ok, so lets see it happen.  Consider the gauntlet thrown :)  Your
+challenge, should you chose to accept it, is to take todays 4000us and
+hit a 65us latency target while maintaining 10GE line-rate (at least
+1500 mtu line-rate).
 
-So really the only place I am using a funky heuristic is the modulus 10
-operation for tx-complete going host->guest.  The rest are kind of
-standard napi event mitigation techniques.
+I personally don't want to even stop at 65.  I want to hit that 36us! =20
+In case you think that is crazy, my first prototype of venet was hitting
+about 140us, and I shaved 10us here, 10us there, eventually getting down
+to the 65us we have today.  The low hanging fruit is all but harvested
+at this point, but I am not done searching for additional sources of
+latency. I just needed to take a breather to get the code out there for
+review. :)
 
-> You use a number of packets, qemu uses a timer (150usec), lguest uses a=
-
-> variable timer (starting at 500usec, dropping by 1 every time but incre=
-asing
-> by 10 every time we get fewer packets than last time).
 >
-> So, if the guest sends two packets and stops, you'll hang indefinitely?=
+> And you didn't mention whether your latency tests are based on ping or
+> something more sophisticated
 
->  =20
-Shouldn't, no.  The host will send tx-complete interrupts at *max* every
-10 packets, but if it drains the queue before the modulus 10 expires, it
-will send a tx-complete immediately, right before it re-enables
-hypercalls.  So there is no hang, and there is no delay.
+Well, the numbers posted were actually from netperf -t UDP_RR.  This
+generates a pps from a continuous (but non-bursted) RTT measurement.  So
+I invert the pps result of this test to get the average rtt time.  I
+have also confirmed that ping jives with these results (e.g. virtio-net
+results were about 4ms, and venet were about 0.065ms as reported by ping)=
+=2E
 
-For reference, here is the modulus 10 signaling
-(./drivers/vbus/devices/venet-tap.c, line 584):
+> as ping will be a pathological case
+Ah, but this is not really pathological IMO.  There are plenty of
+workloads that exhibit request-reply patterns (e.g. RPC), and this is a
+direct measurement of the systems ability to support these
+efficiently.   And even unidirectional flows can be hampered by poor
+latency (think PTP clock sync, etc).
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/vbus/linux-2.6.git;a=
-=3Dblob;f=3Ddrivers/vbus/devices/venet-tap.c;h=3D0ccb7ed94a1a8edd0cca2694=
-88f940f40fce20df;hb=3Dmaster#l584
+Massive throughput with poor latency is like Andrew Tanenbaum's
+station-wagon full of backup tapes ;)  I think I have proven we can
+actually get both with a little creative use of resources.
 
-Here is the one that happens after the queue is fully drained (line 593)
+> that doesn't allow any notification batching.
+Well, if we can take anything away from all this: I think I have
+demonstrated that you don't need notification batching to get good
+throughput.  And batching on the head-end of the queue adds directly to
+your latency overhead, so I don't think its a good technique in general
+(though I realize that not everyone cares about latency, per se, so
+maybe most are satisfied with the status-quo).
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/vbus/linux-2.6.git;a=
-=3Dblob;f=3Ddrivers/vbus/devices/venet-tap.c;h=3D0ccb7ed94a1a8edd0cca2694=
-88f940f40fce20df;hb=3Dmaster#l593
+>
+>> I agree that the "does anyone care" part of the equation will approach=
 
-and finally, here is where I re-enable hypercalls (or system calls if
-the driver is in userspace, etc)
+>> zero as the latency difference shrinks across some threshold (probably=
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/ghaskins/vbus/linux-2.6.git;a=
-=3Dblob;f=3Ddrivers/vbus/devices/venet-tap.c;h=3D0ccb7ed94a1a8edd0cca2694=
-88f940f40fce20df;hb=3Dmaster#l600
+>> the single microsecond range), but I will believe that is even possibl=
+e
+>> when I see it ;)
+>>  =20
+>
+> Note the other hat we have to where is not just virtualization
+> developer but Linux developer.  If there are bad userspace interfaces
+> for IO that impose artificial restrictions, then we need to identify
+> those and fix them.
 
-> That's why we use a timer, otherwise any mitigation scheme has this iss=
-ue.
->  =20
+Fair enough, and I would love to take that on but alas my
+development/debug bandwidth is rather finite these days ;)
 
-I'm not sure I follow.  I don't think I need a timer at all using this
-scheme, but perhaps I am missing something?
-
-Thanks Rusty!
 -Greg
 
 
 
-
---------------enigE958B7CA7BC9D8E8DE545103
+--------------enig7DFB3F42E436507F15B6D0BF
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -124,9 +125,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2.0.9 (GNU/Linux)
 Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-iEYEARECAAYFAknUIpAACgkQlOSOBdgZUxmuSACeJnmTEVNFs9EcJHe9ECwdKEyh
-v3kAn3n7AQBFlv85lMCx/rQHiIRD62Xs
-=D2p+
+iEYEARECAAYFAknULMcACgkQlOSOBdgZUxk5VQCfY7eOTafUq3nd2uasXibIsyAR
+gv4AnR9Cz5i/cyTtww8tGwybZRzEFfIT
+=yZ2R
 -----END PGP SIGNATURE-----
 
---------------enigE958B7CA7BC9D8E8DE545103--
+--------------enig7DFB3F42E436507F15B6D0BF--
