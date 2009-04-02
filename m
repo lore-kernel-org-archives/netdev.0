@@ -1,24 +1,25 @@
 From: Gregory Haskins <ghaskins@novell.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 08:22:36 -0400
-Message-ID: <49D4AE0C.3000604@novell.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com>
+Date: Thu, 02 Apr 2009 08:30:47 -0400
+Message-ID: <49D4AFF7.1050603@novell.com>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <20090402091639.GA30126@gondor.apana.org.au> <49D484F5.2000400@redhat.com> <20090402092936.GA30333@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com> <49D4A89E.5090407@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig39D72AAAE9FDDAD5CCB6C67B"
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+ boundary="------------enigE0BFBB5CBC84E288E51B5F0F"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, anthony@codemonkey.ws,
+	andi@firstfloor.org, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	Mark McLoughlin <markmc@redhat.com>
 To: Avi Kivity <avi@redhat.com>
 Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D4A4EB.8020105@redhat.com>
+In-Reply-To: <49D4A89E.5090407@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig39D72AAAE9FDDAD5CCB6C67B
+--------------enigE0BFBB5CBC84E288E51B5F0F
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
@@ -27,85 +28,41 @@ Avi Kivity wrote:
 >
 > =20
 >
->>> virtio is already non-kvm-specific (lguest uses it) and
->>> non-pci-specific (s390 uses it).
+>>> Why does a kernel solution not need to know when a packet is
+>>> transmitted?
+>>>
 >>>    =20
 >>
->> Ok, then to be more specific, I need it to be more generic than it
->> already is.  For instance, I need it to be able to integrate with
->> shm_signals. =20
->
-> Why?
-Well, shm_signals is what I designed to be the event mechanism for vbus
-devices.  One of the design criteria of shm_signal is that it should
-support a variety of environments, such as kvm, but also something like
-userspace apps.  So I cannot make assumptions about things like "pci
-interrupts", etc.
-
-So if I want to use it in vbus, virtio-ring has to be able to use them,
-as opposed to what it does today. Part of this would be a natural fit
-for the "kick()" callback in virtio, but there are other problems.  For
-one, virtio-ring (IIUC) does its own event-masking directly in the
-virtio metadata.  However, really I want the higher layer ring-overlay
-to do its masking in terms of the lower-layered shm_signal in order to
-work the way I envision this stuff.  If you look at the IOQ
-implementation, this is exactly what it does.
-
-To be clear, and Ive stated this in the past: venet is just an example
-of this generic, in-kernel concept.  We plan on doing much much more
-with all this.  One of the things we are working on is have userspace
-clients be able to access this too, with an ultimately goal of
-supporting things like having guest-userspace doing bypass, rdma, etc.=20
-We are not there yet, though...only the kvm-host to guest kernel is
-currently functional and is thus the working example.
-
-I totally "get" the attraction to doing things in userspace.  Its
-contained, naturally isolated, easily supports migration, etc.  Its also
-a penalty.  Bare-metal userspace apps have a direct path to the kernel
-IO.  I want to give guest the same advantage.  Some people will care
-more about things like migration than performance, and that is fine.=20
-But others will certainly care more about performance, and that is what
-we are trying to address.
-
->
-> =20
->
->>> If you have a good exit mitigation scheme you can cut exits by a
->>> factor of 100; so the userspace exit costs are cut by the same
->>> factor.  If you have good copyless networking APIs you can cut the
->>> cost of copies to zero (well, to the cost of get_user_pages_fast(),
->>> but a kernel solution needs that too).
->>>    =20
+>> You do not need to know when the packet is copied (which I currently
+>> do).  You only need it for zero-copy (of which I would like to support=
+,
+>> but as I understand it there are problems with the reliability of prop=
+er
+>> callback (i.e. skb->destructor).
 >>
->> "exit mitigation' schemes are for bandwidth, not latency.  For latency=
-
->> it all comes down to how fast you can signal in both directions.  If
->> someone is going to do a stand-alone request-reply, its generally alwa=
-ys
->> going to be at least one hypercall and one rx-interrupt.  So your spee=
-d
->> will be governed by your signal path, not your buffer bandwidth.
+>> Its "fire and forget" :)
 >>  =20
 >
-> The userspace path is longer by 2 microseconds (for two additional
-> heavyweight exits) and a few syscalls.  I don't think that's worthy of
-> putting all the code in the kernel.
+> It's more of a "schedule and forget" which I think brings you the
+> win.  The host disables notifications and schedules the actual tx work
+> (rx from the host's perspective).  So now the guest and host continue
+> producing and consuming packets in parallel.  So long as the guest is
+> faster (due to the host being throttled?), notifications continue to
+> be disabled.
+Yep, when the "producer::consumer" ratio is > 1, we mitigate signaling.=20
+When its < 1, we signal roughly once per packet.
 
-By your own words, the exit to userspace is "prohibitively expensive",
-so that is either true or its not.  If its 2 microseconds, show me.  We
-need the rtt time to go from a "kick" PIO all the way to queue a packet
-on the egress hardware and return.  That is going to define your
-latency.  If you can do this such that you can do something like ICMP
-ping in 65us (or anything close to a few dozen microseconds of this),
-I'll shut-up about how much I think the current path sucks ;)  Even so,
-I still propose the concept of a frame-work for in-kernel devices for
-all the other reasons I mentioned above.
+>
+> If you changed your rx_isr() to process the packets immediately
+> instead of scheduling, I think throughput would drop dramatically.
+Right, that is the point. :) This is that "soft asic" thing I was
+talking about yesterday.
 
 -Greg
 
 
 
---------------enig39D72AAAE9FDDAD5CCB6C67B
+--------------enigE0BFBB5CBC84E288E51B5F0F
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -114,9 +71,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2.0.9 (GNU/Linux)
 Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-iEYEARECAAYFAknUrgwACgkQlOSOBdgZUxlgywCfYH26CpOH15CL/QEhTIGOYPvx
-VsoAn2khGouR2P0u62Tu3sLWt3SyXWao
-=V/SV
+iEYEARECAAYFAknUr/gACgkQlOSOBdgZUxl/+gCePKyvShVBT4++tDDPh+Sfe81t
+QYwAn1FzLp21E/D6vvcHDQVVKnv1o3VQ
+=Z49L
 -----END PGP SIGNATURE-----
 
---------------enig39D72AAAE9FDDAD5CCB6C67B--
+--------------enigE0BFBB5CBC84E288E51B5F0F--
