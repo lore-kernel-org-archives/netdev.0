@@ -1,53 +1,67 @@
-From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] hso: fix for crash when unplugging the device
-Date: Thu, 2 Apr 2009 10:57:20 +0200
-Message-ID: <20090402085720.GA8663@raptor>
+From: Jan Dumon <j.dumon@option.com>
+Subject: [PATCH 2/2] hso: fix for the 'invalid frame length' messages
+Date: Thu, 2 Apr 2009 10:59:07 +0200
+Message-ID: <20090402085906.GB8663@raptor>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.option.com ([81.246.70.162]:59294 "EHLO
+	mailer1.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761234AbZDBI7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 04:59:11 -0400
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+From: Jan Dumon <j.dumon@option.com>
 
-Changed the order in which things are freed. This fixes an oops when
-unplugging the device while network traffic is ongoing.
+Some devices cannot send very short usb transfers. To get around this the
+firmware adds a known pattern and flags the driver that it should check for
+this pattern on short transfers. This flag was not taken into account by
+the driver.
     
-Signed-off-by: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jan Dumon <j.dumon@option.com>
 ---
 diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 28d1424..779a007 100644
+index 779a007..f84b78d 100644
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -5,6 +5,7 @@
-  *  Copyright (C) 2008 Option International
-  *                     Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-  *                     Denis Joseph Barrow <d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-+ *                     Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-  *  Copyright (C) 2007 Andrew Bird (Sphere Systems Ltd)
-  *  			<ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>
-  *  Copyright (C) 2008 Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-@@ -2417,20 +2418,22 @@ static void hso_free_net_device(struct hso_device *hso_dev)
- 	if (!hso_net)
- 		return;
+@@ -2536,14 +2536,15 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+ }
  
-+	remove_net_device(hso_net->parent);
-+
-+	if (hso_net->net) {
-+		unregister_netdev(hso_net->net);
-+		free_netdev(hso_net->net);
-+	}
-+
- 	/* start freeing */
- 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
- 		usb_free_urb(hso_net->mux_bulk_rx_urb_pool[i]);
- 		kfree(hso_net->mux_bulk_rx_buf_pool[i]);
-+		hso_net->mux_bulk_rx_buf_pool[i] = NULL;
- 	}
- 	usb_free_urb(hso_net->mux_bulk_tx_urb);
- 	kfree(hso_net->mux_bulk_tx_buf);
--
--	remove_net_device(hso_net->parent);
+ /* Creates our network device */
+-static struct hso_device *hso_create_net_device(struct usb_interface *interface)
++static struct hso_device *hso_create_net_device(struct usb_interface *interface,
++						int port_spec)
+ {
+ 	int result, i;
+ 	struct net_device *net;
+ 	struct hso_net *hso_net;
+ 	struct hso_device *hso_dev;
+ 
+-	hso_dev = hso_create_device(interface, HSO_INTF_MUX | HSO_PORT_NETWORK);
++	hso_dev = hso_create_device(interface, port_spec);
+ 	if (!hso_dev)
+ 		return NULL;
+ 
+@@ -2943,7 +2944,8 @@ static int hso_probe(struct usb_interface *interface,
+ 		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) {
+ 			/* Create the network device */
+ 			if (!disable_net) {
+-				hso_dev = hso_create_net_device(interface);
++				hso_dev = hso_create_net_device(interface,
++								port_spec);
+ 				if (!hso_dev)
+ 					goto exit;
+ 				tmp_dev = hso_dev;
+@@ -2975,7 +2977,7 @@ static int hso_probe(struct usb_interface *interface,
+ 		/* It's a regular bulk interface */
+ 		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK)
+ 		    && !disable_net)
+-			hso_dev = hso_create_net_device(interface);
++			hso_dev = hso_create_net_device(interface, port_spec);
+ 		else
+ 			hso_dev =
+ 			    hso_create_bulk_serial_device(interface, port_spec);
