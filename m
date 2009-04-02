@@ -1,38 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 2 Apr 2009 16:52:53 +0800
-Message-ID: <20090402085253.GA29932@gondor.apana.org.au>
-References: <49D46089.5040204@redhat.com>
+Date: Thu, 2 Apr 2009 16:54:11 +0800
+Message-ID: <20090402085411.GA29967@gondor.apana.org.au>
+References: <20090402030935.GA27836@gondor.apana.org.au> <49D45F59.9030100@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ghaskins@novell.com, anthony@codemonkey.ws, andi@firstfloor.org,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, rusty@rustcorp.com.au,
+Cc: Anthony Liguori <anthony@codemonkey.ws>, andi@firstfloor.org,
+	ghaskins@novell.com, linux-kernel@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
 To: Avi Kivity <avi@redhat.com>
 Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49D46089.5040204@redhat.com>
+In-Reply-To: <49D45F59.9030100@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avi Kivity <avi@redhat.com> wrote:
+On Thu, Apr 02, 2009 at 09:46:49AM +0300, Avi Kivity wrote:
 >
-> virtio is already non-kvm-specific (lguest uses it) and non-pci-specific 
-> (s390 uses it).
+> I don't understand this.  If we had good interfaces, all that userspace  
+> would do is translate guest physical addresses to host physical  
+> addresses, and translate the guest->host protocol to host API calls.  I  
+> don't see anything there that benefits from being in the kernel.
+>
+> Can you elaborate?
 
-I think Greg's work shows that putting the backend in the kernel
-can dramatically reduce the cost of a single guest->host transaction.
-I'm sure the same thing would work for virtio too.
+I think Greg has expressed it clearly enough.
 
-> If you have a good exit mitigation scheme you can cut exits by a factor 
-> of 100; so the userspace exit costs are cut by the same factor.  If you 
-> have good copyless networking APIs you can cut the cost of copies to 
-> zero (well, to the cost of get_user_pages_fast(), but a kernel solution 
-> needs that too).
-
-Given the choice of having to mitigate or not having the problem
-in the first place, guess what I would prefer :)
+At the end of the day, the numbers speak for themselves.  So if
+and when there's a user-space version that achieves the same or
+better results, then I will change my mind :)
 
 Cheers,
 -- 
