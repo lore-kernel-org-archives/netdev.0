@@ -1,141 +1,74 @@
-From: Gregory Haskins <ghaskins@novell.com>
+From: Avi Kivity <avi@redhat.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 10:24:39 -0400
-Message-ID: <49D4CAA7.3020004@novell.com>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com> <49D4B8B4.4020003@redhat.com> <49D4BF70.1060301@novell.com> <49D4C191.2070502@redhat.com>
+Date: Thu, 02 Apr 2009 17:27:04 +0300
+Message-ID: <49D4CB38.5030205@redhat.com>
+References: <49D469D2020000A100045FA1@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig44968B625AA8866F3DD404F0"
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: anthony@codemonkey.ws, andi@firstfloor.org,
+	herbert@gondor.apana.org.au, Gregory Haskins <GHaskins@novell.com>,
+	Peter Morreale <PMorreale@novell.com>, rusty@rustcorp.com.au,
+	agraf@suse.de, kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick Mullaney <pmullaney@novell.com>
 Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D4C191.2070502@redhat.com>
+In-Reply-To: <49D473EA020000C700056627@lucius.provo.novell.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig44968B625AA8866F3DD404F0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Avi Kivity wrote:
-> Gregory Haskins wrote:
->> Avi Kivity wrote:
->> =20
->>> Gregory Haskins wrote:
->>>   =20
->>>> Avi Kivity wrote:
->>>> =20
->>>>     =20
->>>>> My 'prohibitively expensive' is true only if you exit every packet.=
-
->>>>>
->>>>>
->>>>>            =20
->>>> Understood, but yet you need to do this if you want something like
->>>> iSCSI
->>>> READ transactions to have as low-latency as possible.
->>>>        =20
->>> Dunno, two microseconds is too much?  The wire imposes much more.
->>>
->>>    =20
+Patrick Mullaney wrote:
+> On Thu, 2009-04-02 at 16:27 +0300, Avi Kivity wrote:
+>
+>   
+>> virtio is a stable ABI.
 >>
->> No, but thats not what we are talking about.  You said signaling on
->> every packet is prohibitively expensive.  I am saying signaling on eve=
-ry
->> packet is required for decent latency.  So is it prohibitively expensi=
-ve
->> or not?
->>  =20
+>>     
+>>> However, theres still the possibility we can make this work in an ABI
+>>> friendly way with cap-bits, or other such features.  For instance, the
+>>> virtio-net driver could register both with pci and vbus-proxy and
+>>> instantiate a device with a slightly different ops structure for each or
+>>> something.  Alternatively we could write a host-side shim to expose vbus
+>>> devices as pci devices or something like that.
+>>>   
+>>>       
+>> Sounds complicated...
+>>
+>>     
 >
-> We're heading dangerously into the word-game area.  Let's not do that.
->
-> If you have a high throughput workload with many packets per seconds
-> then an exit per packet (whether to userspace or to the kernel) is
-> expensive.  So you do exit mitigation.  Latency is not important since
-> the packets are going to sit in the output queue anyway.
+> IMO, it doesn't sound anymore complicated than making virtio support the
+> concepts already provided by vbus/venet-tap driver. Isn't there already
+> precedent for alternative approaches co-existing and having the users
+> decide which is the most appropriate for their use case? Switching
+> drivers in order to improve latency for a certain class of applications
+> would seem like something latency sensitive users would be more than
+> willing to do. I'd like to point out 2 things. Greg has offered help
+> in moving virtio into the vbus infrastructure. The vbus infrastructure
+> is a large part of what is being proposed here.
+>   
 
-Agreed.  virtio-net currently does this with batching.  I do with the
-bidir napi thing (which effectively crosses the producer::consumer > 1
-threshold to mitigate the signal path).
+vbus (if I understand it right) is a whole package of things:
 
+- a way to enumerate, discover, and manage devices
 
->
-> If you have a request-response workload with the wire idle and latency
-> critical, then there's no problem having an exit per packet because
-> (a) there aren't that many packets and (b) the guest isn't doing any
-> batching, so guest overhead will swamp the hypervisor overhead.
-Right, so the trick is to use an algorithm that adapts here.  Batching
-solves the first case, but not the second.  The bidir napi thing solves
-both, but it does assume you have ample host processing power to run the
-algorithm concurrently.  This may or may not be suitable to all
-applications, I admit.
+That part duplicates PCI and it would be pretty hard to convince me we 
+need to move to something new.  virtio-pci (a) works, (b) works on Windows.
 
->
-> If you have a low latency request-response workload mixed with a high
-> throughput workload, then you aren't going to get low latency since
-> your low latency packets will sit on the queue behind the high
-> throughput packets.  You can fix that with multiqueue and then you're
-> back to one of the scenarios above.
-Agreed, and thats ok.  Now we are getting more into 802.1p type MQ
-issues anyway, if the application cared about it that much.
+- a different way of doing interrupts
 
->
->> I think most would agree that adding 2us is not bad, but so far that i=
-s
->> an unproven theory that the IO path in question only adds 2us.   And w=
-e
->> are not just looking at the rate at which we can enter and exit the
->> guest...we need the whole path...from the PIO kick to the dev_xmit() o=
-n
->> the egress hardware, to the ingress and rx-injection.  This includes a=
-ny
->> and all penalties associated with the path, even if they are imposed b=
-y
->> something like the design of tun-tap.
->>  =20
->
-> Correct, we need to look at the whole path.  That's why the wishing
-> well is clogged with my 'give me a better userspace interface' emails.
->
->> Right now its way way way worse than 2us.  In fact, at my last reading=
+Again, the need to paravirtualize kills this on Windows (I think).
 
->> this was more like 3060us (3125-65).  So shorten that 3125 to 67 (whil=
-e
->> maintaining line-rate) and I will be impressed.  Heck, shorten it to
->> 80us and I will be impressed.
->>  =20
->
-> The 3060us thing is a timer, not cpu time.
-Agreed, but its still "state of the art" from an observer perspective.=20
-The reason "why", though easily explainable, is inconsequential to most
-people.  FWIW, I have seen virtio-net do a much more respectable 350us
-on an older version, so I know there is plenty of room for improvement.
+- a different ring layout, and splitting notifications from the ring
 
->   We aren't starting a JVM for each packet.
-Heh...it kind of feels like that right now, so hopefully some
-improvement will at least be on the one thing that comes out of all this.=
+I don't see the huge win here
 
+- placing the host part in the host kernel
 
--Greg
+Nothing vbus-specific here.
 
+Switching drivers is unfortunately not easy on Linux as you need a new 
+kernel; it's easier on Windows once you have the drivers written.
 
---------------enig44968B625AA8866F3DD404F0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+-- 
+error compiling committee.c: too many arguments to function
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iEYEARECAAYFAknUyqcACgkQlOSOBdgZUxlvnwCfQbpR6YOBGTALnUVfz7q848FG
-4XMAn2KX9zOYxS4cLIZOwSJ0zHla8cgC
-=COrl
------END PGP SIGNATURE-----
-
---------------enig44968B625AA8866F3DD404F0--
