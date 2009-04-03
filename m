@@ -1,34 +1,36 @@
-From: Avi Kivity <avi@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Fri, 03 Apr 2009 14:46:54 +0300
-Message-ID: <49D5F72E.2060804@redhat.com>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <49D5EBE1.8030200@redhat.com> <20090403111854.GA11935@one.firstfloor.org>
+Date: Fri, 3 Apr 2009 19:48:28 +0800
+Message-ID: <20090403114828.GA10465@gondor.apana.org.au>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <49D5EBE1.8030200@redhat.com> <49D5ED11.2000800@redhat.com> <20090403111242.GA10200@gondor.apana.org.au> <49D5F6FC.5090401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gerd Hoffmann <kraxel@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, ghaskins@novell.com,
-	anthony@codemonkey.ws, linux-kernel@vger.kernel.org, agraf@suse.de,
-	pmullaney@novell.com, pmorreale@novell.com, rusty@rustcorp.com.au,
+Content-Type: text/plain; charset=us-ascii
+Cc: Gerd Hoffmann <kraxel@redhat.com>, ghaskins@novell.com,
+	anthony@codemonkey.ws, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+To: Avi Kivity <avi@redhat.com>
 Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090403111854.GA11935@one.firstfloor.org>
+Content-Disposition: inline
+In-Reply-To: <49D5F6FC.5090401@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
->> Check shared ring status when stuffing a request.  If there are requests
->>     
+On Fri, Apr 03, 2009 at 02:46:04PM +0300, Avi Kivity wrote:
 >
-> That means you're bouncing cache lines all the time. Probably not a big
-> issue on single socket but could be on larger systems.
->   
+> The host writes the packet to tap, at which point it is consumed from  
+> its point of view.  The host would like to mention that if there was an  
+> API to notify it when the packet was actually consumed, then it would  
+> gladly use it.  Bonus points if this involves not copying the packet.
 
-That's why I'd like requests to be handled on the vcpu thread rather 
-than an auxiliary thread.
+We're using write(2) for this, no? That should invoke netif_rx_ni
+which blocks until the packet is "processed", which usually means
+that it's placed on the NIC's hardware queue.
 
+Cheers,
 -- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
