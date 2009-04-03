@@ -1,37 +1,39 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Thu, 02 Apr 2009 21:43:36 -0700
-Message-ID: <49D593F8.3030006@goop.org>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D487A6.407@redhat.com> <49D49C1F.6030306@novell.com> <200904022243.21088.rusty@rustcorp.com.au> <20090402151020.GB1986@dhcp-1-124.tlv.redhat.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2, 2.6.29, smp_affinity strangeness
+Date: Thu, 2 Apr 2009 22:26:26 -0700
+Message-ID: <C27F8246C663564A84BB7AB3439772421666854D2A@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <200903290447.58338.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Gregory Haskins <ghaskins@novell.com>,
-	Avi Kivity <avi@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	anthony@codemonkey.ws, andi@firstfloor.org,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: "'Denys Fedoryschenko'" <denys@visp.net.lb>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:38818 "EHLO mail.goop.org"
+Received: from mms3.broadcom.com ([216.31.210.19]:4598 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751500AbZDCEnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Apr 2009 00:43:40 -0400
-In-Reply-To: <20090402151020.GB1986@dhcp-1-124.tlv.redhat.com>
+	id S1751877AbZDCF0j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2009 01:26:39 -0400
+In-Reply-To: <200903290447.58338.denys@visp.net.lb>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael S. Tsirkin wrote:
-> Rusty, I think this is what you did in your patch from 2008 to add destructor
-> for skb data ( http://kerneltrap.org/mailarchive/linux-netdev/2008/4/18/1464944 ):
-> and it seems that it would make zero-copy possible - or was there some problem with
-> that approach? Do you happen to remember?
->   
+Denys Fedoryschenko wrote:
 
-I'm planning on resurrecting it to replace the page destructor used by 
-Xen netback.
+> While running bnx2 tried to assign affinity to network card
+> and ... failed.
+>
 
-    J
+This is a known problem on the 5708 card that does not support
+MSI per vector masking.  On the 5708 NIC, the new MSI address/
+data will only take effect after MSI has been disabled and
+re-enabled.
+
+The IRQ migration code in the kernel no longer disables the MSI
+on devices that don't support per masking before IRQ migration.
+As a result, changing IRQ affinity will not work after the device
+is initialized.  You can force a reset, (by doing some ethtool
+operation for example), after you change the affinity and it should
+work.
 
