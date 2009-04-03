@@ -1,113 +1,201 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] e1000: fix loss of multicast packets
-Date: Thu, 02 Apr 2009 19:00:32 -0700
-Message-ID: <20090403020030.25363.85273.stgit@lost.foo-projects.org>
+From: Sergio Monteiro Basto <sergio@sergiomb.no-ip.org>
+Subject: Re: [Bugme-new] [Bug 12969] New: WARNING: at lib/dma-debug.c:539
+ check_sync+0xe9/0x341() (Not tainted)
+Date: Fri, 03 Apr 2009 03:23:39 +0100
+Message-ID: <1238725419.17093.21.camel@segulix>
+References: <bug-12969-10286@http.bugzilla.kernel.org/>
+	 <20090401165015.8481f9e0.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Dave Boutcher <daveboutcher@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature"; boundary="=-iTii2+6URKe79jTGsZbf"
+Cc: zambrano@broadcom.com, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org, Joerg Roedel <joerg.roedel@amd.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:60961
-	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751599AbZDCCAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2009 22:00:53 -0400
+Received: from relay3.ptmail.sapo.pt ([212.55.154.23]:36624 "HELO sapo.pt"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752791AbZDCCa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2009 22:30:26 -0400
+In-Reply-To: <20090401165015.8481f9e0.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-e1000 (and e1000e, igb, ixgbe, ixgb) all do a series of
-operations each time a multicast address is added.  The flow goes
-something like
+--=-iTii2+6URKe79jTGsZbf
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-1) stack adds one multicast address
-2) stack passes whole current list of unicast and multicast
-   addresses to driver
-3) driver clears entire list in hardware
-4) driver programs each multicast address using iomem in a loop
+On Wed, 2009-04-01 at 16:50 -0700, Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+>=20
+> On Sun, 29 Mar 2009 11:43:19 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>=20
+> > http://bugzilla.kernel.org/show_bug.cgi?id=3D12969
+> >=20
+> >            Summary: WARNING: at lib/dma-debug.c:539
+> >                     check_sync+0xe9/0x341() (Not tainted)
+> >            Product: Drivers
+> >            Version: 2.5
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Fedora
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: drivers_network@kernel-bugs.osdl.org
+> >         ReportedBy: sergio@sergiomb.no-ip.org
+> >         Regression: Yes
+> >=20
+> >=20
+> > ------------[ cut here ]------------                                   =
+        =20
+> > WARNING: at lib/dma-debug.c:539 check_sync+0xe9/0x341() (Not tainted)  =
+        =20
+> > Hardware name: HP Compaq nx6110 (PY501EA#AB9)                          =
+        =20
+> > b44 0000:02:0e.0: DMA-API: device driver tries to sync DMA memory it ha=
+s not
+> > allocated [device address=3D0x0000000075941040] [size=3D1566 bytes] =20
+> > Modules linked in: llc bnep l2cap bluetooth autofs4 lm90 hwmon i2c_i801=
+ sunrpc
+> > ipv6 cpufreq_ondemand acpi_cpufreq uinput snd_intel8x0m snd_intel8x0
+> > snd_ac97_codec snd_seq_dummy ac97_bus snd_seq_oss snd_seq_midi_event sn=
+d_seq
+> > snd_seq_device snd_pcm_oss snd_mixer_oss snd_pcm b44 ssb firewire_ohci
+> > snd_timer ipw2200 iTCO_wdt mii firewire_core snd iTCO_vendor_support li=
+bipw
+> > yenta_socket crc_itu_t lib80211 rsrc_nonstatic soundcore snd_page_alloc=
+ joydev
+> > pcspkr wmi serio_raw ata_generic pata_acpi i915 drm i2c_algo_bit i2c_co=
+re video
+> > output [last unloaded: scsi_wait_scan]                                 =
+        =20
+> > Pid: 2418, comm: S58ntpd Not tainted 2.6.29-16.fc10.i686.PAE #1        =
+        =20
+> > Call Trace:                                                            =
+        =20
+> >  [<c04396d1>] warn_slowpath+0x7c/0xbd                                  =
+        =20
+> >  [<c0457fe1>] ? register_lock_class+0x17/0x290                         =
+        =20
+> >  [<c0458d61>] ? mark_lock+0x1e/0x349                                   =
+        =20
+> >  [<c0556448>] ? _raw_spin_unlock+0x74/0x78                             =
+        =20
+> >  [<c0458d61>] ? mark_lock+0x1e/0x349                                   =
+        =20
+> >  [<c055a060>] ? check_sync+0x37/0x341                                  =
+        =20
+> >  [<c055a112>] check_sync+0xe9/0x341                                    =
+        =20
+> >  [<c0711245>] ? _spin_unlock_irqrestore+0x45/0x55                      =
+        =20
+> >  [<c04592db>] ? trace_hardirqs_on+0xb/0xd                              =
+        =20
+> >  [<c055a4d1>] debug_dma_sync_single_for_device+0x2f/0x39               =
+        =20
+> >  [<f828f722>] dma_sync_single_for_device+0x4a/0x59 [b44]               =
+        =20
+> >  [<f828f76f>] ssb_dma_sync_single_for_device+0x3e/0x48 [b44]           =
+        =20
+> >  [<f8291d1e>] b44_recycle_rx+0x18c/0x196 [b44]                         =
+        =20
+> >  [<f8291f9f>] b44_poll+0x277/0x3c0 [b44]                               =
+        =20
+> >  [<c0687bb9>] net_rx_action+0xa1/0x1ca                                 =
+        =20
+> >  [<c043e30a>] __do_softirq+0x9d/0x154                                  =
+        =20
+> >  [<c043e413>] do_softirq+0x52/0x7e                                     =
+        =20
+> >  [<c043e56f>] irq_exit+0x49/0x77                                       =
+        =20
+> >  [<c040b22e>] do_IRQ+0x97/0xad                                         =
+        =20
+> >  [<c0409dac>] common_interrupt+0x2c/0x34                               =
+        =20
+>=20
+> This would appear to be reporting a bug in b44's DMA API usage. =20
 
-This was causing multicast packets to be lost during the
-reprogramming process.
+Hi!, are you saying that could be a bug in new DMA-API ? (if we have
+one)=20
 
-reference with test program:
-http://kerneltrap.org/mailarchive/linux-netdev/2009/3/14/5160514/thread
+I don't had problems before with this b44 and laptop is not new.
+With kernel 2.6.29, I am testing KMS on new drm/dri Intel video, I also
+have one big warning with i915 reported on
+Bug 12419 - possible circular locking dependency on i915 dma.
 
-Thanks to Dave Boutcher for his report and test program.
+What I would like to know is : =20
+Could bug 12419 make this warning on b44 ? or could DMA-API make the 2
+warnings ? or the 2 warnings are completed different ? and the
+combinations of this questions :)   =20
 
-This driver fix prepares an array all at once in memory and
-programs it in one shot to the hardware, not requiring an "erase"
-cycle.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Dave Boutcher <daveboutcher@gmail.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Thanks,=20
+> See
+> the newly-added documentation in Documentation/DMA-API.txt, starting
+> with
+>=20
+> 	Part III - Debug drivers use of the DMA-API
+>=20
+> The line numbers have changed, but it is:
+>=20
+> 		err_printk(ref->dev, NULL, "DMA-API: device driver tries "
+> 			   "to free DMA memory it has not allocated "
+> 			   "[device address=3D0x%016llx] [size=3D%llu bytes]\n",
+> 			   ref->dev_addr, ref->size);
+>=20
+>=20
+--=20
+S=C3=A9rgio M. B.
 
- drivers/net/e1000/e1000_main.c |   34 ++++++++++++++++++++++++++--------
- 1 files changed, 26 insertions(+), 8 deletions(-)
+--=-iTii2+6URKe79jTGsZbf
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 93b861d..a65023d 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -2335,6 +2335,12 @@ static void e1000_set_rx_mode(struct net_device *netdev)
- 	int mta_reg_count = (hw->mac_type == e1000_ich8lan) ?
- 				E1000_NUM_MTA_REGISTERS_ICH8LAN :
- 				E1000_NUM_MTA_REGISTERS;
-+	u32 *mcarray = kcalloc(mta_reg_count, sizeof(u32), GFP_ATOMIC);
-+
-+	if (!mcarray) {
-+		DPRINTK(PROBE, ERR, "memory allocation failed\n");
-+		return;
-+	}
- 
- 	if (hw->mac_type == e1000_ich8lan)
- 		rar_entries = E1000_RAR_ENTRIES_ICH8LAN;
-@@ -2401,22 +2407,34 @@ static void e1000_set_rx_mode(struct net_device *netdev)
- 	}
- 	WARN_ON(uc_ptr != NULL);
- 
--	/* clear the old settings from the multicast hash table */
--
--	for (i = 0; i < mta_reg_count; i++) {
--		E1000_WRITE_REG_ARRAY(hw, MTA, i, 0);
--		E1000_WRITE_FLUSH();
--	}
--
- 	/* load any remaining addresses into the hash table */
- 
- 	for (; mc_ptr; mc_ptr = mc_ptr->next) {
-+		u32 hash_reg, hash_bit, mta;
- 		hash_value = e1000_hash_mc_addr(hw, mc_ptr->da_addr);
--		e1000_mta_set(hw, hash_value);
-+		hash_reg = (hash_value >> 5) & 0x7F;
-+		hash_bit = hash_value & 0x1F;
-+		mta = (1 << hash_bit);
-+		mcarray[hash_reg] |= mta;
- 	}
- 
-+	/* write the hash table completely, write from bottom to avoid
-+	 * both stupid write combining chipsets, and flushing each write */
-+	for (i = mta_reg_count - 1; i >= 0 ; i--) {
-+		/*
-+		 * If we are on an 82544 has an errata where writing odd
-+		 * offsets overwrites the previous even offset, but writing
-+		 * backwards over the range solves the issue by always
-+		 * writing the odd offset first
-+		 */
-+		E1000_WRITE_REG_ARRAY(hw, MTA, i, mcarray[i]);
-+	}
-+	E1000_WRITE_FLUSH();
-+
- 	if (hw->mac_type == e1000_82542_rev2_0)
- 		e1000_leave_82542_rst(adapter);
-+
-+	kfree(mcarray);
- }
- 
- /* Need to wait a few seconds after link up to get diagnostic information from
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIGVjCCAw8w
+ggJ4oAMCAQICEA6CVh3keQ8TFtyrh/wrbgYwDQYJKoZIhvcNAQEFBQAwYjELMAkGA1UEBhMCWkEx
+JTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQ
+ZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBMB4XDTA4MTAxNDAzMTc0N1oXDTA5MTAxNDAzMTc0
+N1owSzEfMB0GA1UEAxMWVGhhd3RlIEZyZWVtYWlsIE1lbWJlcjEoMCYGCSqGSIb3DQEJARYZc2Vy
+Z2lvQHNlcmdpb21iLm5vLWlwLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ2D
+rpizYnrRUFYQm6b6ZcE50ta36mutS13FIAqg0ugCjlSFSv+nkjbfEBOug+hb5vh9SOBOLy+UFJrn
+2MibIuLGip4OsawcJ41Z7prkKlUCIwtNLmb/m7swubSLqFRiojy0ctMhMWtDt9xzwOYmZN7yGMiS
+jFHivrtZRGPWA7tPzN3KOQeSP4DYxLZ06a3ZOwqR4g3NkQeWbdLVvBe6r3mKtaoDeirW5XT8epyh
+vqRK7izl/vOum2Gx+HeaLpyH5pTOhMd2K7DTfMiBjqBxchUDTccOykMN+5i9ketxy3Bh0PfEStZh
+vjaZbCsJIV2WQc/jAH+k3xef41fci2o+Cz0CAwEAAaNZMFcwDgYDVR0PAQH/BAQDAgSQMBEGCWCG
+SAGG+EIBAQQEAwIFoDAkBgNVHREEHTAbgRlzZXJnaW9Ac2VyZ2lvbWIubm8taXAub3JnMAwGA1Ud
+EwEB/wQCMAAwDQYJKoZIhvcNAQEFBQADgYEAABP+jrmaOnO/2yM7OeJmjEVjDJpT2baLpvBL1k4O
+6HSVgsx5JidSa+vF/cKaP1UFko8XT2TooDpnrTbw//Rkfd6ZbeXXqzdIJQs4xiSRGgcMuJL8GtuH
+LQHkOIqKaPW+KSzVG68U/NzSzqdtr5iPwE6YCLMN0WnVduhgLQlXqkAwggM/MIICqKADAgECAgEN
+MA0GCSqGSIb3DQEBBQUAMIHRMQswCQYDVQQGEwJaQTEVMBMGA1UECBMMV2VzdGVybiBDYXBlMRIw
+EAYDVQQHEwlDYXBlIFRvd24xGjAYBgNVBAoTEVRoYXd0ZSBDb25zdWx0aW5nMSgwJgYDVQQLEx9D
+ZXJ0aWZpY2F0aW9uIFNlcnZpY2VzIERpdmlzaW9uMSQwIgYDVQQDExtUaGF3dGUgUGVyc29uYWwg
+RnJlZW1haWwgQ0ExKzApBgkqhkiG9w0BCQEWHHBlcnNvbmFsLWZyZWVtYWlsQHRoYXd0ZS5jb20w
+HhcNMDMwNzE3MDAwMDAwWhcNMTMwNzE2MjM1OTU5WjBiMQswCQYDVQQGEwJaQTElMCMGA1UEChMc
+VGhhd3RlIENvbnN1bHRpbmcgKFB0eSkgTHRkLjEsMCoGA1UEAxMjVGhhd3RlIFBlcnNvbmFsIEZy
+ZWVtYWlsIElzc3VpbmcgQ0EwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAMSmPFVzVftOucqZ
+Wh5owHUEcJ3f6f+jHuy9zfVb8hp2vX8MOmHyv1HOAdTlUAow1wJjWiyJFXCO3cnwK4Vaqj9xVsuv
+PAsH5/EfkTYkKhPPK9Xzgnc9A74r/rsYPge/QIACZNenprufZdHFKlSFD0gEf6e20TxhBEAeZBly
+YLf7AgMBAAGjgZQwgZEwEgYDVR0TAQH/BAgwBgEB/wIBADBDBgNVHR8EPDA6MDigNqA0hjJodHRw
+Oi8vY3JsLnRoYXd0ZS5jb20vVGhhd3RlUGVyc29uYWxGcmVlbWFpbENBLmNybDALBgNVHQ8EBAMC
+AQYwKQYDVR0RBCIwIKQeMBwxGjAYBgNVBAMTEVByaXZhdGVMYWJlbDItMTM4MA0GCSqGSIb3DQEB
+BQUAA4GBAEiM0VCD6gsuzA2jZqxnD3+vrL7CF6FDlpSdf0whuPg2H6otnzYvwPQcUCCTcDz9reFh
+YsPZOhl+hLGZGwDFGguCdJ4lUJRix9sncVcljd2pnDmOjCBPZV+V2vf3h9bGCE6u9uo05RAaWzVN
+d+NWIXiC3CEZNd4ksdMdRv9dX2VPMYIB/DCCAfgCAQEwdjBiMQswCQYDVQQGEwJaQTElMCMGA1UE
+ChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkgTHRkLjEsMCoGA1UEAxMjVGhhd3RlIFBlcnNvbmFs
+IEZyZWVtYWlsIElzc3VpbmcgQ0ECEA6CVh3keQ8TFtyrh/wrbgYwCQYFKw4DAhoFAKBdMBgGCSqG
+SIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTA5MDQwMzAyMjMzNVowIwYJKoZI
+hvcNAQkEMRYEFNaSWMU9RxYZAXFgPEwy7Z+UV5DAMA0GCSqGSIb3DQEBAQUABIIBACLgH4X3S1qH
+Fn99EtXC/lAMxLxcuTuPnjG+YaF+RtjjK28CR3XZSG+En37hyuiAdemIHrNT8DtpR7BhGeuxEBH8
+0Iog35arfJuOULK5vakdKtdgMeBfuY5JQRel6Fuyh6SpYEOBb3RE4LyXZXmU0dDS2SWskD0zASl2
+q1Xy3FMWC5B2zXI+ZxDeQgeiWvGcKVwjPP0BI5MMv5GeucdqRQc3o7QiEPYYbDS9hsn1SaUTYLyq
+sCS01N/NBpLalEc0iO20e4ihJ4vdOQ5fzlTaycyfj6vzRAD7YSqG4FbKZ1j3RpcEnbIvgdBFyBwm
+zzf3Db744dWheXE7AVo7AvAz/fkAAAAAAAA=
+
+
+--=-iTii2+6URKe79jTGsZbf--
 
