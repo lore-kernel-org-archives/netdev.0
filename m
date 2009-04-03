@@ -1,388 +1,289 @@
-From: Avi Kivity <avi@redhat.com>
+From: Gregory Haskins <ghaskins@novell.com>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Fri, 03 Apr 2009 18:37:00 +0300
-Message-ID: <49D62D1C.9030704@redhat.com>
-References: <49D469D2020000A100045FA1@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D473EA020000C700056627@lucius.provo.novell.com> <49D4CB38.5030205@redhat.com> <49D4DA54.3090401@novell.com> <49D4DE82.5020306@redhat.com> <49D4F97F.6040507@novell.com> <49D5F669.1070502@redhat.com> <49D6240B.4080809@novell.com>
+Date: Fri, 03 Apr 2009 12:28:15 -0400
+Message-ID: <49D6391F.8010408@novell.com>
+References: <20090331184057.28333.77287.stgit@dev.haskins.net> <87ab71monw.fsf@basil.nowhere.org> <49D35825.3050001@novell.com> <20090401132340.GT11935@one.firstfloor.org> <49D37805.1060301@novell.com> <20090401170103.GU11935@one.firstfloor.org> <49D3B64F.6070703@codemonkey.ws> <49D3D7EE.4080202@novell.com> <49D46089.5040204@redhat.com> <49D497A1.4090900@novell.com> <49D4A4EB.8020105@redhat.com> <49D4AE0C.3000604@novell.com> <49D4B2C0.5060906@redhat.com> <49D4B594.6080703@novell.com> <49D4B8B4.4020003@redhat.com> <49D4BF70.1060301@novell.com> <49D4C191.2070502@redhat.com> <49D4CAA7.3020004@novell.com> <49D4CC61.6010105@redhat.com> <49D4CEB1.9020001@redhat.com> <49D4D075.9010702@codemonkey.ws> <49D4E33F.5000303@codemonkey.ws> <49D5FAFD.1010102@novell.com> <49D5FDF9.7090602@redhat.com> <49D6
+ 0B91.6010503@novell.com> <49D61100.5010202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Mullaney <pmullaney@novell.com>, anthony@codemonkey.ws,
-	andi@firstfloor.org, herbert@gondor.apana.org.au,
-	Peter Morreale <PMorreale@novell.com>, rusty@rustcorp.com.au,
-	agraf@suse.de, kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <49D6240B.4080809@novell.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig7BFA96E329C8491632F27B63"
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936019AbZDCQ03@vger.kernel.org>
+In-Reply-To: <49D61100.5010202@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gregory Haskins wrote:
->> I'll rephrase.  What are the substantial benefits that this offers
->> over PCI?
->>     
->
-> Simplicity and optimization.  You don't need most of the junk that comes
-> with PCI.  Its all overhead and artificial constraints.  You really only
-> need things like a handful of hypercall verbs and thats it.
->
->   
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig7BFA96E329C8491632F27B63
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Simplicity:
-
-The guest already supports PCI.  It has to, since it was written to the 
-PC platform, and since today it is fashionable to run kernels that 
-support both bare metal and a hypervisor.  So you can't remove PCI from 
-the guest.
-
-The host also already supports PCI.  It has to, since it must supports 
-guests which do not support vbus.  We can't remove PCI from the host.
-
-You don't gain simplicity by adding things.  Sure, lguest is simple 
-because it doesn't support PCI.  But Linux will forever support PCI, and 
-Qemu will always support PCI.  You aren't simplifying anything by adding 
-vbus.
-
-Optimization:
-
-Most of PCI (in our context) deals with configuration.  So removing it 
-doesn't optimize anything, unless you're counting hotplugs-per-second or 
-something.
-
-
->>> Second of all, I want to use vbus for other things that do not speak PCI
->>> natively (like userspace for instance...and if I am gleaning this
->>> correctly, lguest doesnt either).
->>>   
->>>       
->> And virtio supports lguest and s390.  virtio is not PCI specific.
->>     
-> I understand that.  We keep getting wrapped around the axle on this
-> one.   At some point in the discussion we were talking about supporting
-> the existing guest ABI without changing the guest at all.  So while I
-> totally understand the virtio can work over various transports, I am
-> referring to what would be needed to have existing ABI guests work with
-> an in-kernel version.  This may or may not be an actual requirement.
->   
-
-There is be no problem supporting an in-kernel host virtio endpoint with 
-the existing guest/host ABI.  Nothing in the ABI assumes the host 
-endpoint is in userspace.  Nothing in the implementation requires us to 
-move any of the PCI stuff into the kernel.
-
-In fact, we already have in-kernel sources of PCI interrupts, these are 
-assigned PCI devices (obviously, these have to use PCI).
-
->> However, for the PC platform, PCI has distinct advantages.  What
->> advantages does vbus have for the PC platform?
->>     
-> To reiterate: IMO simplicity and optimization.  Its designed
-> specifically for PV use, which is software to software.
->   
-
-To avoid reiterating, please be specific about these advantages.
-
->   
->>> PCI sounds good at first, but I believe its a false economy.  It was
->>> designed, of course, to be a hardware solution, so it carries all this
->>> baggage derived from hardware constraints that simply do not exist in a
->>> pure software world and that have to be emulated.  Things like the fixed
->>> length and centrally managed PCI-IDs, 
->>>       
->> Not a problem in practice.
->>     
->
-> Perhaps, but its just one more constraint that isn't actually needed. 
-> Its like the cvs vs git debate.  Why have it centrally managed when you
-> don't technically need it.  Sure, centrally managed works, but I'd
-> rather not deal with it if there was a better option.
->   
-
-We've allocated 3 PCI device IDs so far.  It's not a problem.  There are 
-enough real problems out there.
-
->   
->>> PIO config cycles, BARs,
->>> pci-irq-routing, etc.  
->>>       
->> What are the problems with these?
->>     
->
-> 1) PIOs are still less efficient to decode than a hypercall vector.  We
-> dont need to pretend we are hardware..the guest already knows whats
-> underneath them.  Use the most efficient call method.
->   
-
-Last time we measured, hypercall overhead was the same as pio overhead.  
-Both vmx and svm decode pio completely (except for string pio ...)
-
-> 2) BARs?  No one in their right mind should use an MMIO BAR for PV. :)
-> The last thing we want to do is cause page faults here.  Don't use them,
-> period.  (This is where something like the vbus::shm() interface comes in)
->   
-
-So don't use BARs for your fast path.  virtio places the ring in guest 
-memory (like most real NICs).
-
-> 3) pci-irq routing was designed to accommodate etch constraints on a
-> piece of silicon that doesn't actually exist in kvm.  Why would I want
-> to pretend I have PCI A,B,C,D lines that route to a pin on an IOAPIC? 
-> Forget all that stuff and just inject an IRQ directly.  This gets much
-> better with MSI, I admit, but you hopefully catch my drift now.
->   
-
-True, PCI interrupts suck.  But this was fixed with MSI.  Why fix it again?
-
-> One of my primary design objectives with vbus was to a) reduce the
-> signaling as much as possible, and b) reduce the cost of signaling.  
-> That is why I do things like use explicit hypercalls, aggregated
-> interrupts, bidir napi to mitigate signaling, the shm_signal::pending
-> mitigation, and avoiding going to userspace by running in the kernel. 
-> All of these things together help to form what I envision would be a
-> maximum performance transport.  Not all of these tricks are
-> interdependent (for instance, the bidir + full-duplex threading that I
-> do can be done in userspace too, as discussed).  They are just the
-> collective design elements that I think we need to make a guest perform
-> very close to its peak.  That is what I am after.
->
->   
-
-None of these require vbus.  They can all be done with PCI.
-
-> You are right, its not strictly necessary to work.  Its just presents
-> the opportunity to optimize as much as possible and to move away from
-> legacy constraints that no longer apply.  And since PVs sole purpose is
-> about optimization, I was not really interested in going "half-way".
->   
-
-What constraints?  Please be specific.
-
->>   We need a positive advantage, we don't do things just because we can
->> (and then lose the real advantages PCI has).
->>     
->
-> Agreed, but I assert there are advantages.  You may not think they
-> outweigh the cost, and thats your prerogative, but I think they are
-> still there nonetheless.
->   
-
-I'm not saying anything about what the advantages are worth and how they 
-compare to the cost.  I'm asking what are the advantages.  Please don't 
-just assert them into existence.
-
->>> If we insist that PCI is the only interface we can support and we want
->>> to do something, say, in the kernel for instance, we have to have either
->>> something like the ICH model in the kernel (and really all of the pci
->>> chipset models that qemu supports), or a hacky hybrid userspace/kernel
->>> solution.  I think this is what you are advocating, but im sorry. IMO
->>> that's just gross and unecessary gunk.  
->>>       
->> If we go for a kernel solution, a hybrid solution is the best IMO.  I
->> have no idea what's wrong with it.
->>     
->
-> Its just that rendering these objects as PCI is overhead that you don't
-> technically need.  You only want this backwards compat because you don't
-> want to require a new bus-driver in the guest, which is a perfectly
-> reasonable position to take.  But that doesn't mean it isn't a
-> compromise.  You are trading more complexity and overhead in the host
-> for simplicity in the guest.  I am trying to clean up this path for
-> looking forward.
->   
-
-All of this overhead is incurred at configuration time.  All the 
-complexity already exists so we gain nothing by adding a competing 
-implementation.  And making the guest complex in order to simplify the 
-host is a pretty bad tradeoff considering we maintain one host but want 
-to support many guests.
-
-It's good to look forward, but in the vbus-dominated universe, what do 
-we have that we don't have now?  Besides simplicity.
-
->> The guest would discover and configure the device using normal PCI
->> methods.  Qemu emulates the requests, and configures the kernel part
->> using normal Linux syscalls.  The nice thing is, kvm and the kernel
->> part don't even know about each other, except for a way for hypercalls
->> to reach the device and a way for interrupts to reach kvm.
->>
->>     
->>> Lets stop beating around the
->>> bush and just define the 4-5 hypercall verbs we need and be done with
->>> it.  :)
+Avi Kivity wrote:
+> Gregory Haskins wrote:
+>> Avi Kivity wrote:
+>> =20
+>>> Gregory Haskins wrote:
+>>>   =20
+>>>> So again, I am proposing for consideration of accepting my work
+>>>> (either
+>>>> in its current form, or something we agree on after the normal revie=
+w
+>>>> process) not only on the basis of the future development of the
+>>>> platform, but also to keep current components in their running to
+>>>> their
+>>>> full potential.  I will again point out that the code is almost
+>>>> completely off to the side, can be completely disabled with config
+>>>> options, and I will maintain it.  Therefore the only real impact is =
+to
+>>>> people who care to even try it, and to me.
+>>>>        =20
+>>> Your work is a whole stack.  Let's look at the constituents.
 >>>
->>> FYI: The guest support for this is not really *that* much code IMO.
->>>  
->>>  drivers/vbus/proxy/Makefile      |    2
->>>  drivers/vbus/proxy/kvm.c         |  726 +++++++++++++++++
->>>   
->>>       
->> Does it support device hotplug and hotunplug?
->>     
-> Yes, today (use "ln -s" in configfs to map a device to a bus, and the
-> guest will see the device immediately)
->   
+>>> - a new virtual bus for enumerating devices.
+>>>
+>>> Sorry, I still don't see the point.  It will just make writing driver=
+s
+>>> more difficult.  The only advantage I've heard from you is that it
+>>> gets rid of the gunk.  Well, we still have to support the gunk for
+>>> non-pv devices so the gunk is basically free.  The clean version is
+>>> expensive since we need to port it to all guests and implement
+>>> exciting features like hotplug.
+>>>    =20
+>> My real objection to PCI is fast-path related.  I don't object, per se=
+,
+>> to using PCI for discovery and hotplug.  If you use PCI just for these=
 
-Neat.
-
->   
->>   Can vbus interrupts be load balanced by irqbalance?
->>     
+>> types of things, but then allow fastpath to use more hypercall oriente=
+d
+>> primitives, then I would agree with you.  We can leave PCI emulation i=
+n
+>> user-space, and we get it for free, and things are relatively tidy.
+>>  =20
 >
-> Yes (tho support for the .affinity verb on the guests irq-chip is
-> currently missing...but the backend support is there)
+> PCI has very little to do with the fast path (nothing, if we use MSI).
+
+At the very least, PIOs are slightly slower than hypercalls.  Perhaps
+not enough to care, but the last time I measured them they were slower,
+and therefore my clean slate design doesn't use them.
+
+But I digress.  I think I was actually kind of agreeing with you that we
+could do this. :P
+
 >
+>> Its once you start requiring that we stay ABI compatible with somethin=
+g
+>> like the existing virtio-net in x86 KVM where I think it starts to get=
+
+>> ugly when you try to move it into the kernel.  So that is what I had a=
+
+>> real objection to.  I think as long as we are not talking about trying=
+
+>> to make something like that work, its a much more viable prospect.
+>>  =20
 >
->   
->>   Can guest userspace enumerate devices?
->>     
+> I don't see why the fast path of virtio-net would be bad.  Can you
+> elaborate?
+
+Im not.  I am saying I think we might be able to do this.
+
 >
-> Yes, it presents as a standard LDM device in things like /sys/bus/vbus_proxy
+> Obviously all the pci glue stays in userspace.
 >
->   
->>   Module autoloading support?
->>     
+>> So what I propose is the following:
+>> 1) The core vbus design stays the same (or close to it)
+>>  =20
 >
-> Yes
+> Sorry, I still don't see what advantage this has over PCI, and how you
+> deal with the disadvantages.
+
+I think you are confusing the vbus-proxy (guest side) with the vbus
+backend.  (1) is saying "keep the vbus backend'" and (2) is saying drop
+the guest side stuff.  In this proposal, the guest would speak a PCI ABI
+as far as its concerned.  Devices in the vbus backend would render as
+PCI objects in the ICH (or whatever) model in userspace.
+
 >
->   
-
-Cool, looks like you have a nice part covered.
-
->>   pxe booting?
->>     
-> No, but this is something I don't think we need for now.  If it was
-> really needed it could be added, I suppose.  But there are other
-> alternatives already, so I am not putting this high on the priority
-> list.  (For instance you can chose to not use vbus, or you can use
-> --kernel, etc).
+>> 2) the vbus-proxy and kvm-guest patch go away
+>> 3) the kvm-host patch changes to work with coordination from the
+>> userspace-pci emulation for things like MSI routing
+>> 4) qemu will know to create some MSI shim 1:1 with whatever it
+>> instantiates on the bus (and can communicate changes
+>>  =20
 >
->   
->> Plus a port to Windows,
->>     
+> Don't userstand.  What's this MSI shim?
+
+Well, if the device model was an object in vbus down in the kernel, yet
+PCI emulation was up in qemu, presumably we would want something to
+handle things like PCI config-cycles up in userspace.  Like, for
+instance, if the guest re-routes the MSI.  The shim/proxy would handle
+the config-cycle, and then turn around and do an ioctl to the kernel to
+configure the change with the in-kernel device model (or the irq
+infrastructure, as required).
+
+But, TBH, I haven't really looked into whats actually required to make
+this work yet.  I am just spitballing to try to find a compromise.
+
 >
-> Ive already said this is low on my list, but it could always be added if
-> someone cares that much
->   
-
-That's unreasonable.  Windows is an important workload.
-
->   
->> enerprise Linux distros based on 2.6.dead
->>     
+>> 5) any drivers that are written for these new PCI-IDs that might be
+>> present are allowed to use a hypercall ABI to talk after they have bee=
+n
+>> probed for that ID (e.g. they are not limited to PIO or MMIO BAR type
+>> access methods).
+>>  =20
 >
-> Thats easy, though there is nothing that says we need to.  This can be a
-> 2.6.31ish thing that they pick up next time.
->   
+> The way we'd to it with virtio is to add a feature bit that say "you
+> can hypercall here instead of pio".  This way old drivers continue to
+> work.
 
-Of course we need to.  RHEL 4/5 and their equivalents will live for a 
-long time as guests.  Customers will expect good performance.
+Yep, agreed.  This is what I was thinking we could do.  But now that I
+have the possibility that I just need to write a virtio-vbus module to
+co-exist with virtio-pci, perhaps it doesn't even need to be explicit.
 
-
->> As a matter of fact, a new bus was developed recently called PCI
->> express.  It uses new slots, new electricals, it's not even a bus
->> (routers + point-to-point links), new everything except that the
->> software model was 1000000000000% compatible with traditional PCI. 
->> That's how much people are afraid of the Windows ABI.
->>     
 >
-> Come on, Avi.  Now you are being silly.  So should the USB designers
-> have tried to make it look like PCI too?  Should the PCI designers have
-> tried to make it look like ISA?  :)  Yes, there are advantages to making
-> something backwards compatible.  There are also disadvantages to
-> maintaining that backwards compatibility.
->   
+> Note that nothing prevents us from trapping pio in the kernel (in
+> fact, we do) and forwarding it to the device.  It shouldn't be any
+> slower than hypercalls.
+Sure, its just slightly slower, so I would prefer pure hypercalls if at
+all possible.
 
-Most PCI chipsets include an ISA bridge, at least until recently.
+>
+>> Once I get here, I might have greater clarity to see how hard it would=
 
-> Let me ask you this:  If you had a clean slate and were designing a
-> hypervisor and a guest OS from scratch:  What would you make the bus
-> look like?
->   
-
-If there were no installed base to cater for, the avi-bus would blow 
-anything out of the water.  It would be so shiny and new to make you cry 
-in envy.  It would strongly compete with lguest and steal its two users.
-
-Back on earth, there are a hundred gazillion machines with good old x86, 
-booting through 1978 era real mode, jumping over the 640K memory barrier 
-(est. 1981), running BIOS code which was probably written in the 14th 
-century, and sporting a PCI-compatible peripheral bus.
-
-This is not an academic exercise, we're not trying to develop the most 
-aesthetically pleasing stack.  We need to be pragmatic so we can provide 
-users with real value, not provide outselves with software design 
-entertainment (nominally called wanking on lkml, but kvm@ is a kinder, 
-gentler list).
-
->> virtio-net knows nothing about PCI.  If you have a problem with PCI,
->> write virtio-blah for a new bus.
->>     
-> Can virtio-net use a different backend other than virtio-pci?  Cool!  I
-> will look into that.  Perhaps that is what I need to make this work
-> smoothly.
->   
-
-virtio-net (all virtio devices, actually) supports three platforms 
-today.  PCI, lguest, and s390.
-
->> I think you're integrating too tightly with kvm, which is likely to
->> cause problems when kvm evolves.  The way I'd do it is:
+>> make to emulate fast path components as well.  It might be easier than=
+ I
+>> think.
 >>
->> - drop all mmu integration; instead, have your devices maintain their
->> own slots layout and use copy_to_user()/copy_from_user() (or
->> get_user_pages_fast()).
->>     
+>> This is all off the cuff so it might need some fine tuning before its
+>> actually workable.
+>>
+>> Does that sound reasonable?
+>>  =20
 >
->   
->> - never use vmap like structures for more than the length of a request
->>     
+> The vbus part (I assume you mean device enumeration) worries me
+
+No, you are confusing the front-end and back-end again ;)
+
+The back-end remains, and holds the device models as before.  This is
+the "vbus core".  Today the front-end interacts with the hypervisor to
+render "vbus" specific devices.  The proposal is to eliminate the
+front-end, and have the back end render the objects on the bus as PCI
+devices to the guest.  I am not sure if I can make it work, yet.  It
+needs more thought.
+
+> .  I don't think you've yet set down what its advantages are.  Being
+> pure and clean doesn't count, unless you rip out PCI from all existing
+> installed hardware and from Windows.
+
+You are being overly dramatic.  No one has ever said we are talking
+about ripping something out.  In fact, I've explicitly stated that PCI
+can coexist peacefully.    Having more than one bus in a system is
+certainly not without precedent (PCI, scsi, usb, etc).
+
+Rather, PCI is PCI, and will always be.  PCI was designed as a
+software-to-hardware interface.  It works well for its intention.  When
+we do full emulation of guests, we still do PCI so that all that
+software that was designed to work software-to-hardware still continue
+to work, even though technically its now software-to-software.  When we
+do PV, on the other hand, we no longer need to pretend it is
+software-to-hardware.  We can continue to use an interface designed for
+software-to-hardware if we choose, or we can use something else such as
+an interface designed specifically for software-to-software.
+
+As I have stated, PCI was designed with hardware constraints in mind.=20
+What if I don't want to be governed by those constraints?  What if I
+don't want an interrupt per device (I don't)?   What do I need BARs for
+(I don't)?  Is a PCI PIO address relevant to me (no, hypercalls are more
+direct)?  Etc.  Its crap I dont need.
+
+All I really need is a way to a) discover and enumerate devices,
+preferably dynamically (hotswap), and b) a way to communicate with those
+devices.  I think you are overstating the the importance that PCI plays
+in (a), and are overstating the complexity associated with doing an
+alternative.  I think you are understating the level of hackiness
+required to continue to support PCI as we move to new paradigms, like
+in-kernel models.  And I think I have already stated that I can
+establish a higher degree of flexibility, and arguably, performance for
+(b).  Therefore, I have come to the conclusion that I don't want it and
+thus eradicated the dependence on it in my design.  I understand the
+design tradeoffs that are associated with that decision.
+
 >
-> So does virtio also do demand loading in the backend?  
+>>> - finer-grained point-to-point communication abstractions
+>>>
+>>> Where virtio has ring+signalling together, you layer the two.  For
+>>> networking, it doesn't matter.  For other applications, it may be
+>>> helpful, perhaps you have something in mind.
+>>>    =20
+>>
+>> Yeah, actually.  Thanks for bringing that up.
+>>
+>> So the reason why signaling and the ring are distinct constructs in th=
+e
+>> design is to facilitate constructs other than rings.  For instance,
+>> there may be some models where having a flat shared page is better tha=
+n
+>> a ring.  A ring will naturally preserve all values in flight, where as=
+ a
+>> flat shared page would not (last update is always current).  There are=
 
-Given that it's entirely in userspace, yes.
-
-> Hmm.  I suppose
-> we could do this, but it will definitely affect the performance
-> somewhat.  I was thinking that the pages needed for the basic shm
-> components should be minimal, so this is a good tradeoff to vmap them in
-> and only demand load the payload.
->   
-
-This is negotiable :) I won't insist on it, only strongly recommend it.  
-copy_to_user() should be pretty fast.
-
-
->> I think virtio can be used for much of the same things.  There's
->> nothing in virtio that implies guest/host, or pci, or anything else. 
->> It's similar to your shm/signal and ring abstractions except virtio
->> folds them together.  Is this folding the main problem?
->>     
-> Right.  Virtio and ioq overlap, and they do so primarily because I
-> needed a ring that was compatible with some of my design ideas, yet I
-> didnt want to break the virtio ABI without a blessing first.  If the
-> signaling was not folded in virtio, that would be a first great step.  I
-> am not sure if there would be other areas to address as well.
->   
-
-It would be good to find out.  virtio has evolved in time, mostly 
-keeping backwards compatibility, so if you need a feature, it could be 
-added.
-
->> As far as I can tell, everything around it just duplicates existing
->> infrastructure (which may be old and crusty, but so what) without
->> added value.
->>     
+>> some algorithms where a previously posted value is obsoleted by an
+>> update, and therefore rings are inherently bad for this update model.
+>> And as we know, there are plenty of algorithms where a ring works
+>> perfectly.  So I wanted that flexibility to be able to express both.
+>>  =20
 >
-> I am not sure what you refer to with "everything around it".  Are you
-> talking about the vbus core? 
->   
+> I agree that there is significant potential here.
+>
+>> One of the things I have in mind for the flat page model is that RT vc=
+pu
+>> priority thing.  Another thing I am thinking of is coming up with a PV=
 
-I'm talking about enumeration, hotplug, interrupt routing, all that PCI 
-slowpath stuff.  My feeling is the fast path is mostly virtio except for 
-being in kernel, and the slow path is totally redundant.
+>> LAPIC type replacement (where we can avoid doing the EOI trap by havin=
+g
+>> the PICs state shared).
+>>  =20
+>
+> You keep falling into the paravirtualize the entire universe trap.  If
+> you look deep down, you can see Jeremy struggling in there trying to
+> bring dom0 support to Linux/Xen.
+>
+> The lapic is a huge ball of gunk but ripping it out is a monumental
+> job with no substantial benefits.  We can at much lower effort avoid
+> the EOI trap by paravirtualizing that small bit of ugliness.  Sure the
+> result isn't a pure and clean room implementation.  It's a band aid.=20
+> But I'll take a 50-line band aid over a 3000-line implementation split
+> across guest and host, which only works with Linux.
+Well, keep in mind that I was really just giving you an example of
+something that might want a shared-page instead of a shared-ring model.=20
+The possibility that such a device may be desirable in the future was
+enough for me to decide that I wanted the shm model to be flexible,
+instead of, say, designed specifically for virtio.  We may never, in
+fact, do anything with the LAPIC idea.
+
+-Greg
+
+>
+>
 
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
 
+--------------enig7BFA96E329C8491632F27B63
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAknWOR8ACgkQlOSOBdgZUxm14gCbBcf0J5bp2CaCkfYseJTzLBXA
+q40An2jtUHPmPlCiTL3iYxaPB3/kRARe
+=oLV2
+-----END PGP SIGNATURE-----
+
+--------------enig7BFA96E329C8491632F27B63--
