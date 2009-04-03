@@ -1,48 +1,35 @@
-From: Avi Kivity <avi@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Fri, 03 Apr 2009 14:03:45 +0300
-Message-ID: <49D5ED11.2000800@redhat.com>
-References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <49D5EBE1.8030200@redhat.com>
+Date: Fri, 3 Apr 2009 19:12:42 +0800
+Message-ID: <20090403111242.GA10200@gondor.apana.org.au>
+References: <20090402085253.GA29932@gondor.apana.org.au> <49D47F11.6070400@redhat.com> <49D5EBE1.8030200@redhat.com> <49D5ED11.2000800@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, ghaskins@novell.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Gerd Hoffmann <kraxel@redhat.com>, ghaskins@novell.com,
 	anthony@codemonkey.ws, andi@firstfloor.org,
 	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
 	pmorreale@novell.com, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Gerd Hoffmann <kraxel@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33149 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763505AbZDCLDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Apr 2009 07:03:20 -0400
-In-Reply-To: <49D5EBE1.8030200@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49D5ED11.2000800@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gerd Hoffmann wrote:
-> Avi Kivity wrote:
->   
->> There is no choice.  Exiting from the guest to the kernel to userspace
->> is prohibitively expensive, you can't do that on every packet.
->>     
+On Fri, Apr 03, 2009 at 02:03:45PM +0300, Avi Kivity wrote:
 >
-> I didn't look at virtio-net very closely yet.  I wonder why the
-> notification is that a big issue though.  It is easy to keep the number
-> of notifications low without increasing latency:
->
-> Check shared ring status when stuffing a request.  If there are requests
-> not (yet) consumed by the other end there is no need to send a
-> notification.  That scheme can even span multiple rings (nics with rx
-> and tx for example).
->   
+> If the host is able to consume a request immediately, and the guest is  
+> not able to batch requests, this breaks down.  And that is the current  
+> situation.
 
-If the host is able to consume a request immediately, and the guest is 
-not able to batch requests, this breaks down.  And that is the current 
-situation.
+Hang on, why is the host consuming the request immediately? It
+has to write the packet to tap, which then calls netif_rx_ni so
+it should actually go all the way, no?
 
+Cheers,
 -- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
