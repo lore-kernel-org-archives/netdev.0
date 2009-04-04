@@ -1,95 +1,76 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Regression in 2.6.29] forcedeth doesn't work after resume from hibernation (was: Re: Resume after hibernation regression in 2.6.29)
-Date: Sat, 4 Apr 2009 15:07:41 +0200
-Message-ID: <200904041507.42927.rjw@sisk.pl>
-References: <200903261920.32173.tvrtko@ursulin.net> <1238780473.19305.3.camel@localhost.localdomain> <200904041404.24616.tvrtko@ursulin.net>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [netfilter bug] BUG: using smp_processor_id() in preemptible
+	[00000000] code: ssh/9115, caller is ipt_do_table+0xc8/0x559
+Date: Sat, 4 Apr 2009 10:23:02 -0700
+Message-ID: <20090404172302.GA9600@linux.vnet.ibm.com>
+References: <20090402200128.GA21805@elte.hu> <49D51D86.9030906@cosmosbay.com> <20090402203220.GA30375@elte.hu> <20090402211606.GC4076@elte.hu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Ed Swierk <eswierk@aristanetworks.com>,
-	Pavel Machek <pavel@ucw.cz>,
-	"linux-pm" <linux-pm@lists.linux-foundation.org>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	netdev <netdev@vger.kernel.org>,
-	Arthur Jones <ajones@riverbed.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, stable@kernel.org
-To: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Rusty Russell <rusty@rustcorp.com.au>, coreteam@netfilter.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:37430 "EHLO ogre.sisk.pl"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:44258 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751550AbZDDNHe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Apr 2009 09:07:34 -0400
-In-Reply-To: <200904041404.24616.tvrtko@ursulin.net>
+	id S1751539AbZDDRXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Apr 2009 13:23:08 -0400
 Content-Disposition: inline
+In-Reply-To: <20090402211606.GC4076@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 04 April 2009, Tvrtko A. Ursulin wrote:
-> On Friday 03 April 2009 18:41:12 Ed Swierk wrote:
-> > On Fri, 2009-04-03 at 08:24 -0700, Ed Swierk wrote:
-> > > On Fri, Mar 27, 2009 at 1:09 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > > > I was able to reproduce the problem and identify the commit that broke
-> > > > the resume of forcedeth, which turned out to be:
-> > > >
-> > > > commit cb52deba12f27af90a46d2f8667a64888118a888
-> > > > Author: Ed Swierk <eswierk@arastra.com>
-> > > > Date:   Mon Dec 1 12:24:43 2008 +0000
-> > > >
-> > > >    forcedeth: power down phy when interface is down
-> > > >
-> > > >    Signed-off-by: Ed Swierk <eswierk@arastra.com>
-> > > >    Tested-by: Arthur Jones <ajones@riverbed.com>
-> > > >    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > > >    Signed-off-by: David S. Miller <davem@davemloft.net>
-> > > >
-> > > > Since I have no slightest idea of what this commit is supposed to
-> > > > achieve, I can only ask for reverting it.  It reverts cleanly, BTW.
-> > >
-> > > The change causes forcedeth to bring down the physical link when an
-> > > interface goes down; leaving it up causes the switch at the other end
-> > > to think the port is still active, with potentially random speed and
-> > > duplex parameters.
-> > >
-> > > It's possible that the forcedeth driver needs to reset autonegotiation
-> > > after bringing it up the link again.
-> > >
-> > > Can you please try this on a 2.6.29 kernel that's exhibiting the
-> > > symptoms you describe, after resuming the machine from hibernation:
-> > >
-> > >   ethtool -s eth1 autoneg off speed 100 duplex full
-> > >   ethtool -s eth1 autoneg on
-> > >
-> > > This should reset autonegotiation manually and bring the link. Let me
-> > > know how it goes.
-> >
-> > Also please try this patch; it fixes the problem on my test system (a
-> > DFI board with an nVidia MCP55).
-> >
-> > Signed-off-by: Ed Swierk <eswierk@aristanetworks.com>
-> > --
-> > --- linux-2.6.29.x86_64/drivers/net/forcedeth.c.orig	2009-03-23
-> > 16:12:14.000000000 -0700 +++
-> > linux-2.6.29.x86_64/drivers/net/forcedeth.c	2009-04-03 10:11:26.839614710
-> > -0700 @@ -5995,6 +5995,9 @@
-> >  	for (i = 0;i <= np->register_size/sizeof(u32); i++)
-> >  		writel(np->saved_config_space[i], base+i*sizeof(u32));
-> >
-> > +	/* restore phy state, including autoneg */
-> > +	phy_init(dev);
-> > +
-> >  	netif_device_attach(dev);
-> >  	if (netif_running(dev)) {
-> >  		rc = nv_open(dev);
+On Thu, Apr 02, 2009 at 11:16:06PM +0200, Ingo Molnar wrote:
+> * Ingo Molnar <mingo@elte.hu> wrote:
+> > * Eric Dumazet <dada1@cosmosbay.com> wrote:
+> > > David put into its tree fix for that a few hours ago
+> > > 
+> > > commit fa9a86ddc8ecd2830a5e773facc250f110300ae7
+> > > 
+> > > (netfilter: iptables: lock free counters) forgot to disable BH
+> > > in arpt_do_table(), ipt_do_table() and  ip6t_do_table()
+> > > 
+> > > Use rcu_read_lock_bh() instead of rcu_read_lock() cures the problem.
+> > 
+> > ok, got your fix (attached below), thanks Eric for the pointer.
+> > 
+> > But i think my fix might be slightly better, because it does not 
+> > manipulate the preempt counter and leaves preemption enabled.
+> > 
+> > There's no BH context worries since this code did not seem to have 
+> > BH protection before either. (it used a plain read_lock(), not 
+> > read_lock_bh(), AFAICS)
+> > 
+> > I dont see any preemption worries either. I must be missing 
+> > something :)
 > 
-> Works for me on MCP73 as well.
+> as per the other mail - what i missed was that the old code _did_ 
+> use read_lock_bh(), which did not get carried over into the 
+> rcu_read_lock().
+> 
+> So this fix affects basically all things netfilter, not just 
+> rcu-preempt - a plain rcu_read_lock() doesnt protect against BH 
+> context interaction.
 
-Great, thanks for testing.
+Strangely enough, the original motivation for rcu_read_lock_bh() does not
+apply to -rt kernels.  The problem was that denial-of-service workloads
+could apply such a heavy interrupt load to a given CPU that it never
+got back to process-level execution, thus never passing through any
+quiescent states.
 
-I think the patch should go to Linus ASAP and to -stable as a regression fix.
+So rcu-bh has softirq-level quiescent states, solving that problem,
+but by disabling softirq (and thus preemption) across the read-side
+critical sections.
 
-Thanks,
-Rafael
+But -rt has every point in the code not covered by rcu_read_lock()
+as a quiescent state, so should not be vulnerable to that particular
+denial-of-service attack.  But rcu-bh has the additional semantic of
+excluding BH execution while under rcu_read_lock_bh(), which appears
+to be used in this case, and probably others as well.
+
+Interesting corner we have painted ourselves into here...
+
+							Thanx, Paul
