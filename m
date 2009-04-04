@@ -1,76 +1,129 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [netfilter bug] BUG: using smp_processor_id() in preemptible
-	[00000000] code: ssh/9115, caller is ipt_do_table+0xc8/0x559
-Date: Sat, 4 Apr 2009 10:23:02 -0700
-Message-ID: <20090404172302.GA9600@linux.vnet.ibm.com>
-References: <20090402200128.GA21805@elte.hu> <49D51D86.9030906@cosmosbay.com> <20090402203220.GA30375@elte.hu> <20090402211606.GC4076@elte.hu>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [RFT][PATCH 1/3] NET/e1000: Fix powering off during shutdown
+Date: Sat, 4 Apr 2009 23:39:18 +0200
+Message-ID: <200904042339.19074.rjw@sisk.pl>
+References: <200904042337.31706.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Rusty Russell <rusty@rustcorp.com.au>, coreteam@netfilter.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:44258 "EHLO e6.ny.us.ibm.com"
+Received: from ogre.sisk.pl ([217.79.144.158]:38430 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539AbZDDRXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Apr 2009 13:23:08 -0400
+	id S1755096AbZDDVlU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Apr 2009 17:41:20 -0400
+In-Reply-To: <200904042337.31706.rjw@sisk.pl>
 Content-Disposition: inline
-In-Reply-To: <20090402211606.GC4076@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 02, 2009 at 11:16:06PM +0200, Ingo Molnar wrote:
-> * Ingo Molnar <mingo@elte.hu> wrote:
-> > * Eric Dumazet <dada1@cosmosbay.com> wrote:
-> > > David put into its tree fix for that a few hours ago
-> > > 
-> > > commit fa9a86ddc8ecd2830a5e773facc250f110300ae7
-> > > 
-> > > (netfilter: iptables: lock free counters) forgot to disable BH
-> > > in arpt_do_table(), ipt_do_table() and  ip6t_do_table()
-> > > 
-> > > Use rcu_read_lock_bh() instead of rcu_read_lock() cures the problem.
-> > 
-> > ok, got your fix (attached below), thanks Eric for the pointer.
-> > 
-> > But i think my fix might be slightly better, because it does not 
-> > manipulate the preempt counter and leaves preemption enabled.
-> > 
-> > There's no BH context worries since this code did not seem to have 
-> > BH protection before either. (it used a plain read_lock(), not 
-> > read_lock_bh(), AFAICS)
-> > 
-> > I dont see any preemption worries either. I must be missing 
-> > something :)
-> 
-> as per the other mail - what i missed was that the old code _did_ 
-> use read_lock_bh(), which did not get carried over into the 
-> rcu_read_lock().
-> 
-> So this fix affects basically all things netfilter, not just 
-> rcu-preempt - a plain rcu_read_lock() doesnt protect against BH 
-> context interaction.
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Strangely enough, the original motivation for rcu_read_lock_bh() does not
-apply to -rt kernels.  The problem was that denial-of-service workloads
-could apply such a heavy interrupt load to a given CPU that it never
-got back to process-level execution, thus never passing through any
-quiescent states.
+Impact: Fix
 
-So rcu-bh has softirq-level quiescent states, solving that problem,
-but by disabling softirq (and thus preemption) across the read-side
-critical sections.
+Prevent e1000 from putting the adapter into D3 during shutdown
+except when we're going to power off the system, since doing that may
+generally cause problems with kexec to happen (such problems were
+observed for igb and forcedeth).  For this purpose seperate
+e1000_shutdown() from e1000_suspend() and use the appropriate PCI
+PM callbacks in both of them.
 
-But -rt has every point in the code not covered by rcu_read_lock()
-as a quiescent state, so should not be vulnerable to that particular
-denial-of-service attack.  But rcu-bh has the additional semantic of
-excluding BH execution while under rcu_read_lock_bh(), which appears
-to be used in this case, and probably others as well.
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/e1000/e1000_main.c |   44 +++++++++++++++++++++++++++++------------
+ 1 file changed, 32 insertions(+), 12 deletions(-)
 
-Interesting corner we have painted ourselves into here...
-
-							Thanx, Paul
+Index: linux-2.6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6/drivers/net/e1000/e1000_main.c
+@@ -4583,7 +4583,7 @@ int e1000_set_spd_dplx(struct e1000_adap
+ 	return 0;
+ }
+ 
+-static int e1000_suspend(struct pci_dev *pdev, pm_message_t state)
++static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+@@ -4646,22 +4646,18 @@ static int e1000_suspend(struct pci_dev 
+ 
+ 		ew32(WUC, E1000_WUC_PME_EN);
+ 		ew32(WUFC, wufc);
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
+ 	} else {
+ 		ew32(WUC, 0);
+ 		ew32(WUFC, 0);
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 	}
+ 
++	*enable_wake = !!wufc;
++
+ 	e1000_release_manageability(adapter);
+ 
+ 	/* make sure adapter isn't asleep if manageability is enabled */
+-	if (adapter->en_mng_pt) {
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
+-	}
++	if (adapter->en_mng_pt)
++		*enable_wake = true;
+ 
+ 	if (hw->phy_type == e1000_phy_igp_3)
+ 		e1000_phy_powerdown_workaround(hw);
+@@ -4675,12 +4671,29 @@ static int e1000_suspend(struct pci_dev 
+ 
+ 	pci_disable_device(pdev);
+ 
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+-
+ 	return 0;
+ }
+ 
+ #ifdef CONFIG_PM
++static int e1000_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	int retval;
++	bool wake;
++
++	retval = __e1000_shutdown(pdev, &wake);
++	if (retval)
++		return retval;
++
++	if (wake) {
++		pci_prepare_to_sleep(pdev);
++	} else {
++		pci_wake_from_d3(pdev, false);
++		pci_set_power_state(pdev, PCI_D3hot);
++	}
++
++	return 0;
++}
++
+ static int e1000_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -4735,7 +4748,14 @@ static int e1000_resume(struct pci_dev *
+ 
+ static void e1000_shutdown(struct pci_dev *pdev)
+ {
+-	e1000_suspend(pdev, PMSG_SUSPEND);
++	bool wake;
++
++	__e1000_shutdown(pdev, &wake);
++
++	if (system_state == SYSTEM_POWER_OFF) {
++		pci_wake_from_d3(pdev, wake);
++		pci_set_power_state(pdev, PCI_D3hot);
++	}
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
