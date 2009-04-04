@@ -1,47 +1,60 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: sky2: early oops in pci_vpd_truncate
-Date: Fri, 03 Apr 2009 20:32:14 -0700
-Message-ID: <1238815934.3893.4.camel@brick>
-References: <1238803819.3893.3.camel@brick> <20090403180306.44de0324@hobbes>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Issue with netlink implementation
+Date: Fri, 03 Apr 2009 22:06:16 -0700 (PDT)
+Message-ID: <20090403.220616.176801869.davem@davemloft.net>
+References: <6b4fbcea0904030921j1b627d3ar37af13a0788706b4@mail.gmail.com>
+	<6b4fbcea0904031424j4b1f5526ydd1d21307e511273@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: keyoor.khristi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:51875 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753791AbZDDDcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2009 23:32:18 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so1037200wah.21
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2009 20:32:15 -0700 (PDT)
-In-Reply-To: <20090403180306.44de0324@hobbes>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39490
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751476AbZDDFG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2009 01:06:27 -0400
+In-Reply-To: <6b4fbcea0904031424j4b1f5526ydd1d21307e511273@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-04-03 at 18:03 -0700, Jesse Barnes wrote:
-> On Fri, 03 Apr 2009 17:10:19 -0700
-> Harvey Harrison <harvey.harrison@gmail.com> wrote:
-> 
-> > Hi Stephen,
-> > 
-> > I'm seeing an early oops in current Linus -git right after sky2_probe
-> > unfortunately it scrolls away too fast to get it all, but after a
-> > delayed-printk boot it appears to be a NULL dereference in
-> > pci_vpd_truncate.  sysfs also features prominantly in the backtrace..
-> > is this a known issue?
-> > 
-> > I see there were some sky2 patches this cycle using the vpd functions,
-> > any pointers/patches to try out?
-> 
-> Yeah there's a patch for that in my queue (not pushed to Linus yet
-> though), subject "[PATCH] PCI: Fix oops in pci_vpd_truncate" from Anton
-> Vorontsov.
-> 
+From: Keyoor Khristi <keyoor.khristi@gmail.com>
+Date: Sat, 4 Apr 2009 02:54:48 +0530
 
-What tree is that?
+You might want to ask networking questions on the networking
+developer list, netdev@vger.kernel.org, CC:'d
 
-Harvey
+Thank you.
 
+> Hi All,
+> 
+> We are facing an issue with netlink implementation. We are sending the
+> data from user space to kernel space. a kernel thread gets the data
+> from netlink socket (via skb_recv_datagram). After doing little bit
+> processing we give the skb to driver. driver sends the data and frees
+> the skb. Sometimes we observe that the writer thread in userspace gets
+> stuck writing a packet and doesnt come out. We traced the problem to
+> netlink_attachskb. When a packet is sent on the netlink socket
+> netlink_attachskb is called to add the skb to the queue. when there is
+> not enough space, the thread is added to nlk->wait queue and issues
+> schedule_timeout. it doesnt come out of it as no other thread awakens
+> it. It seems when the driver frees the skb, the data is freed and the
+> receive space is made available in the destructor but the thread
+> waiting is not awaken. This is causing the problem we're seeing.
+> I think the netlink implementation in af_netlink.c can be enhanced. In
+> netlink_attachskb, after invoking skb_set_owner_r we should change the
+> skb->destructor to point to newly added function netlink_rfree. When
+> skb is freed, netlink_rfree function can issue sock_rfree and awaken
+> the threads waiting on nlk->wait queue.
+> 
+> Please let me know what you think about it.
+> I'm not sure if i've sent the email to correct forum. If i should be
+> sending to another forum, please tell me.
+> 
+> Regards,
+> K
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
