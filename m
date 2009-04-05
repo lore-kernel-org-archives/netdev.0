@@ -1,108 +1,76 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC PATCH 00/17] virtual-bus
-Date: Sun, 5 Apr 2009 14:14:22 +1030
-Message-ID: <200904051314.23170.rusty@rustcorp.com.au>
-References: <20090331184057.28333.77287.stgit@dev.haskins.net> <200904011638.45135.rusty@rustcorp.com.au> <49D391F5.4080700@codemonkey.ws>
+From: Andrew Lutomirski <amluto@gmail.com>
+Subject: Re: [PATCH 1/1] Tell linkwatch about new interfaces
+Date: Sun, 5 Apr 2009 00:00:51 -0400
+Message-ID: <cb0375e10904042100o1a203512l593021ee66cb591d@mail.gmail.com>
+References: <cb0375e10904010840n1543a890w9039465d0f80ffcc@mail.gmail.com>
+	 <20090404.170539.148727646.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <ghaskins@novell.com>,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Anthony Liguori <anthony@codemonkey.ws>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38433 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756726AbZDEDoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Apr 2009 23:44:32 -0400
-In-Reply-To: <49D391F5.4080700@codemonkey.ws>
-Content-Disposition: inline
+Received: from mail-bw0-f169.google.com ([209.85.218.169]:44083 "EHLO
+	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750712AbZDEEAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2009 00:00:55 -0400
+In-Reply-To: <20090404.170539.148727646.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 02 April 2009 02:40:29 Anthony Liguori wrote:
-> Rusty Russell wrote:
-> > As you point out, 350-450 is possible, which is still bad, and it's at least
-> > partially caused by the exit to userspace and two system calls.  If virtio_net
-> > had a backend in the kernel, we'd be able to compare numbers properly.
-> 
-> I doubt the userspace exit is the problem.  On a modern system, it takes 
-> about 1us to do a light-weight exit and about 2us to do a heavy-weight 
-> exit.  A transition to userspace is only about ~150ns, the bulk of the 
-> additional heavy-weight exit cost is from vcpu_put() within KVM.
+On Sat, Apr 4, 2009 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Andrew Lutomirski <amluto@gmail.com>
+> Date: Wed, 1 Apr 2009 11:40:06 -0400
+>
+>> When a network driver registers a new interface, linkwatch will not notice,
+>> and hence not set the rfc2863 operstate, until netif_carrier_on gets called.
+>> If the new interface has no carrier when it is connected, then a status of
+>> "unknown" is reported to userspace, which confuses various tools
+>> (NetworkManager, for example).
+>>
+>> This fires a linkwatch event for all new interfaces, so that operstate
+>> gets set reasonably quickly.
+>>
+>> Signed-off-by: Andrew Lutomirski <amluto@gmail.com>
+>
+> The default assumed state for a freshly registered network
+> device is that the link is up.
+>
+> If that disagrees from reality, the driver should make the
+> appropriate netif_carrier_off() call.
+>
+> I'm sure you'll find that the e1000 driver is not doing this
+> and that is what causes the bug you are seeing.
+>
 
-Just to inject some facts, servicing a ping via tap (ie host->guest then
-guest->host response) takes 26 system calls from one qemu thread, 7 from
-another (see strace below). Judging by those futex calls, multiple context
-switches, too.
+Nope.  The end of e1000_probe (in e1000e) is:
 
-> If you were to switch to another kernel thread, and I'm pretty sure you 
-> have to, you're going to still see about a 2us exit cost.
+        /* tell the stack to leave us alone until e1000_open() is called */
+        netif_carrier_off(netdev);
+        netif_tx_stop_all_queues(netdev);
 
-He switches to another thread, too, but with the right infrastructure (ie.
-skb data destructors) we could skip this as well.  (It'd be interesting to
-see how virtual-bus performed on a single cpu host).
+        strcpy(netdev->name, "eth%d");
+        err = register_netdev(netdev);
+        if (err)
+                goto err_register;
 
-Cheers,
-Rusty.
+        e1000_print_device_info(adapter);
 
-Pid 10260:
-12:37:40.245785 select(17, [4 6 8 14 16], [], [], {0, 996000}) = 1 (in [6], left {0, 992000}) <0.003995>
-12:37:40.250226 read(6, "\0\0\0\0\0\0\0\0\0\0RT\0\0224V*\211\24\210`\304\10\0E\0"..., 69632) = 108 <0.000051>
-12:37:40.250462 write(1, "tap read: 108 bytes\n", 20) = 20 <0.000197>
-12:37:40.250800 ioctl(7, 0x4008ae61, 0x7fff8cafb3a0) = 0 <0.000223>
-12:37:40.251149 read(6, 0x115c6ac, 69632) = -1 EAGAIN (Resource temporarily unavailable) <0.000019>
-12:37:40.251292 write(1, "tap read: -1 bytes\n", 19) = 19 <0.000085>
-12:37:40.251488 clock_gettime(CLOCK_MONOTONIC, {1554, 633304282}) = 0 <0.000020>
-12:37:40.251604 clock_gettime(CLOCK_MONOTONIC, {1554, 633413793}) = 0 <0.000019>
-12:37:40.251717 futex(0xb81360, 0x81 /* FUTEX_??? */, 1) = 1 <0.001222>
-12:37:40.253037 select(17, [4 6 8 14 16], [], [], {1, 0}) = 1 (in [16], left {1, 0}) <0.000026>
-12:37:40.253196 read(16, "\16\0\0\0\0\0\0\0\376\377\377\377\0\0\0\0\0\0\0\0\0\0\0"..., 128) = 128 <0.000022>
-12:37:40.253324 rt_sigaction(SIGALRM, NULL, {0x406d50, ~[KILL STOP RTMIN RT_1], SA_RESTORER, 0x7f1a842430f0}, 8) = 0 <0.000018>
-12:37:40.253477 write(5, "\0", 1)       = 1 <0.000022>
-12:37:40.253585 read(16, 0x7fff8cb09440, 128) = -1 EAGAIN (Resource temporarily unavailable) <0.000020>
-12:37:40.253687 clock_gettime(CLOCK_MONOTONIC, {1554, 635496181}) = 0 <0.000019>
-12:37:40.253798 writev(6, [{"\0\0\0\0\0\0\0\0\0\0", 10}, {"*\211\24\210`\304RT\0\0224V\10\0E\0\0T\255\262\0\0@\1G"..., 98}], 2) = 108 <0.000062>
-12:37:40.253993 ioctl(7, 0x4008ae61, 0x7fff8caff460) = 0 <0.000161>
-12:37:40.254263 clock_gettime(CLOCK_MONOTONIC, {1554, 636077540}) = 0 <0.000019>
-12:37:40.254380 futex(0xb81360, 0x81 /* FUTEX_??? */, 1) = 1 <0.000394>
-12:37:40.254861 select(17, [4 6 8 14 16], [], [], {1, 0}) = 1 (in [4], left {1, 0}) <0.000022>
-12:37:40.255001 read(4, "\0", 512)      = 1 <0.000021>
-12:37:40.255109 read(4, 0x7fff8cb092d0, 512) = -1 EAGAIN (Resource temporarily unavailable) <0.000018>
-12:37:40.255211 clock_gettime(CLOCK_MONOTONIC, {1554, 637020677}) = 0 <0.000019>
-12:37:40.255314 clock_gettime(CLOCK_MONOTONIC, {1554, 637123483}) = 0 <0.000019>
-12:37:40.255416 timer_gettime(0, {it_interval={0, 0}, it_value={0, 0}}) = 0 <0.000018>
-12:37:40.255524 timer_settime(0, 0, {it_interval={0, 0}, it_value={0, 14000000}}, NULL) = 0 <0.000021>
-12:37:40.255635 clock_gettime(CLOCK_MONOTONIC, {1554, 637443915}) = 0 <0.000019>
-12:37:40.255739 clock_gettime(CLOCK_MONOTONIC, {1554, 637547001}) = 0 <0.000018>
-12:37:40.255847 select(17, [4 6 8 14 16], [], [], {1, 0}) = 1 (in [16], left {0, 988000}) <0.014303>
+netif_carrier_off does:
 
-Pid 10262:
-12:37:40.252531 clock_gettime(CLOCK_MONOTONIC, {1554, 634339051}) = 0 <0.000018>
-12:37:40.252631 timer_gettime(0, {it_interval={0, 0}, it_value={0, 17549811}}) = 0 <0.000021>
-12:37:40.252750 timer_settime(0, 0, {it_interval={0, 0}, it_value={0, 250000}}, NULL) = 0 <0.000024>
-12:37:40.252868 ioctl(11, 0xae80, 0)    = 0 <0.001171>
-12:37:40.254128 futex(0xb81360, 0x80 /* FUTEX_??? */, 2) = 0 <0.000270>
-12:37:40.254490 ioctl(7, 0x4008ae61, 0x4134bee0) = 0 <0.000019>
-12:37:40.254598 futex(0xb81360, 0x81 /* FUTEX_??? */, 1) = 0 <0.000017>
-12:37:40.254693 ioctl(11, 0xae80 <unfinished ...>
+void netif_carrier_off(struct net_device *dev)
+{
+        if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+                if (dev->reg_state == NETREG_UNINITIALIZED)
+                        return;
+                linkwatch_fire_event(dev);
+        }
+}
 
-fd:
-lrwx------ 1 root root 64 2009-04-05 12:31 0 -> /dev/pts/1 
-lrwx------ 1 root root 64 2009-04-05 12:31 1 -> /dev/pts/1 
-lrwx------ 1 root root 64 2009-04-05 12:35 10 -> /home/rusty/qemu-images/ubuntu-8.10                                                                            
-lrwx------ 1 root root 64 2009-04-05 12:35 11 -> anon_inode:kvm-vcpu            
-lrwx------ 1 root root 64 2009-04-05 12:35 12 -> socket:[31414]                 
-lrwx------ 1 root root 64 2009-04-05 12:35 13 -> socket:[31416]                 
-lrwx------ 1 root root 64 2009-04-05 12:35 14 -> anon_inode:[eventfd]           
-lrwx------ 1 root root 64 2009-04-05 12:35 15 -> anon_inode:[eventfd]           
-lrwx------ 1 root root 64 2009-04-05 12:35 16 -> anon_inode:[signalfd]          
-lrwx------ 1 root root 64 2009-04-05 12:31 2 -> /dev/pts/1                      
-lr-x------ 1 root root 64 2009-04-05 12:31 3 -> /dev/kvm
-lr-x------ 1 root root 64 2009-04-05 12:35 4 -> pipe:[31406]
-l-wx------ 1 root root 64 2009-04-05 12:35 5 -> pipe:[31406]
-lrwx------ 1 root root 64 2009-04-05 12:35 6 -> /dev/net/tun
-lrwx------ 1 root root 64 2009-04-05 12:35 7 -> anon_inode:kvm-vm
-lrwx------ 1 root root 64 2009-04-05 12:35 8 -> anon_inode:[signalfd]
-lrwx------ 1 root root 64 2009-04-05 12:35 9 -> /tmp/vl.OL1kd9 (deleted)
+So, either it should be illegal to call netif_carrier_off on an
+unregistered net_device (and there should be a WARN() in
+netif_carrier_off), or it should work correctly, and
+register_netdevice should do the right thing when there is no carrier
+(i.e. something like my patch).
+
+--Andy
