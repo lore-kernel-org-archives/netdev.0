@@ -1,60 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Regression caused by commit "netfilter: iptables: lock free
- counters"
-Date: Sun, 05 Apr 2009 01:22:37 -0700 (PDT)
-Message-ID: <20090405.012237.198610462.davem@davemloft.net>
-References: <20090329234702.4988017f@desktop.r000n.info>
-	<8763hja8cy.fsf@newton.gmurray.org.uk>
+Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
+ implementation & Netlink protocol
+Date: Sun, 05 Apr 2009 02:54:48 -0700 (PDT)
+Message-ID: <20090405.025448.63731537.davem@davemloft.net>
+References: <20090402093952.GA30553@gondor.apana.org.au>
+	<20090402.025223.242893473.davem@davemloft.net>
+	<20090402095957.GA30799@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: graham@gmurray.org.uk
+Cc: kaber@trash.net, nhorman@tuxdriver.com, zbr@ioremap.net,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44615
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33541
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758619AbZDEIWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2009 04:22:49 -0400
-In-Reply-To: <8763hja8cy.fsf@newton.gmurray.org.uk>
+	by vger.kernel.org with ESMTP id S1756980AbZDEJy7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2009 05:54:59 -0400
+In-Reply-To: <20090402095957.GA30799@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Graham Murray <graham@gmurray.org.uk>
-Date: Sun, 05 Apr 2009 08:05:17 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 2 Apr 2009 17:59:57 +0800
 
-Please CC the appropriate mailing lists (as I have now) when reporting
-this incredibly useful information.  The networking and netfilter
-developers largely do not read linux-kernel.
-
-> Roman Mindalev <r000n@r000n.net> writes:
-> 
-> > Result of the bisection:
+> On Thu, Apr 02, 2009 at 02:52:23AM -0700, David Miller wrote:
 > >
-> > 784544739a25c30637397ace5489eeb6e15d7d49 is first bad commit
-> > commit 784544739a25c30637397ace5489eeb6e15d7d49             
+> > It has to do with how the netlink attributes get packed together
+> > into the messages.  It's this crap:
+> > 
+> > #define NLMSG_ALIGNTO	4
+> > #define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
+> >  ...
+> > #define NLMSG_NEXT(nlh,len)	 ((len) -= NLMSG_ALIGN((nlh)->nlmsg_len), \
+> > 				  (struct nlmsghdr*)(((char*)(nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len)))
+> > 
+> > Thus, nothing in an nlmsg can ever be more than 4 byte aligned.
+> > And this is hard coded into the protocol.
 > 
-> I am seeing a different problem which also bisects to this commit. There are
-> no kernel messages but ip6tables fails to run.
+> Ah yes, this is the killer.
 > 
-> newton ~ # ip6tables -L -v
-> FATAL: Module ip6_tables not found.
-> ip6tables v1.4.3.1: can't initialize ip6tables table `filter': Memory allocation problem
-> Perhaps ip6tables or your kernel needs to be upgraded.
-> 
-> I get this error no matter which ip6tables sub-command I run. Ip6tables
-> is built into the kernel, not as modules.
-> 
-> An strace shows the failure to be 
-> socket(PF_INET6, SOCK_RAW, IPPROTO_RAW) = 3
-> getsockopt(3, SOL_IPV6, 0x40 /* IPV6_??? */, "filter\0\305\0w~\300\0wb\305P\24\312\t\0009b\305\216\23\0\0\310\341/g\16"..., [84]) = 0
-> brk(0)                                  = 0x8273000
-> brk(0x8294000)                          = 0x8294000
-> getsockopt(3, SOL_IPV6, 0x41 /* IPV6_??? */, 0x8273090, 0xbfd23628) = -1 ENOMEM (Cannot allocate memory)
-> close(3)                                = 0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> I suppose we can modify in-kernel helpers like nla_parse to deal
+> with that by copying if it's unaligned.  Though we'll have to
+> figure out how to free the memory.
+
+Note that this issue exists on the user side as well.  libnl has some
+ugly hacks to deal with touching u64 stuff received in netlink
+messages due to this.
