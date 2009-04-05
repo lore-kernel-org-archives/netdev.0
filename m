@@ -1,48 +1,67 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Regression caused by commit "netfilter: iptables: lock free counters"
-Date: Sun, 05 Apr 2009 14:34:50 +0200
-Message-ID: <49D8A56A.8050606@cosmosbay.com>
-References: <20090329234702.4988017f@desktop.r000n.info> <8763hja8cy.fsf@newton.gmurray.org.uk> <20090405.012237.198610462.davem@davemloft.net> <49D88162.5040809@cosmosbay.com> <alpine.LSU.2.00.0904051328030.7501@fbirervta.pbzchgretzou.qr>
+Subject: Re: [PATCH] netfilter: ip6tables fix
+Date: Sun, 05 Apr 2009 14:40:27 +0200
+Message-ID: <49D8A6BB.5000700@cosmosbay.com>
+References: <20090329234702.4988017f@desktop.r000n.info>	<8763hja8cy.fsf@newton.gmurray.org.uk>	<20090405.012237.198610462.davem@davemloft.net>	<49D88162.5040809@cosmosbay.com> <87ws9z8l4c.fsf@newton.gmurray.org.uk> <49D88839.4090902@cosmosbay.com> <49D8A445.4060201@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, graham@gmurray.org.uk,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0904051328030.7501@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Graham Murray <graham@gmurray.org.uk>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754345AbZDEMky@vger.kernel.org>
+In-Reply-To: <49D8A445.4060201@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt a =E9crit :
-> On Sunday 2009-04-05 12:01, Eric Dumazet wrote:
->> This could probably be solved using a single "table" containing
->> rules only, that could be shared for every cpus. Only counters
->> should be percpu. This should save a lot of ram, over previous
->> situation (2.6.29 or current one)
+Eric Dumazet a =E9crit :
+> Eric Dumazet a =E9crit :
+>> Graham Murray a =E9crit :
+>>> iptables gives me no problems at all, it is just ip6tables that
+>>> fails. The first indication of this is during the init scripts when
+>>> ip6tables-restore fails.
+>> I see, its a plain bug in net/ipv6/netfilter/ip6_tables.c
+>> function alloc_counters() always returns -ENOMEM
+>>
+>> Unfortunatly , its Sunday here and I have to run for lunch time with=
+ family :)
+>>
+>> If nobody beats me, I will do the fix in a couple of hours...
 >=20
-> Why would counters stay separate?
+> Here is the fix, thanks Graham for the report !
 >=20
-> I recognize all of this table copying is related to do NUMA
-> optimizations, and I think I heard cache bouncing too somewhere else.
+> [PATCH] netfilter: ip6tables fix
 >=20
-> [ http://marc.info/?l=3Dnetfilter-devel&m=3D119903624211253&w=3D2 ]
->=20
->=20
+> ip6_tables.c	 alloc_counters() misses a return statement, making
+> ip6tables -N always failing and leaking memory.
 
-Not only NUMA, but SMP too. counters are integrated in rules themselves=
-=2E
-So in order to avoid ping pongs between cpus, we choose to allocate
-one copy of rules/counters per cpu.
+Oh well, this ChangeLog is not correct :(
 
-But with some changes, we could let the rules read-only and shared by
-all cpus, and shadow counters only on percpu variables, thus reducing
-memory costs.
+Here is an updated patch with correct ChangeLog, sorry David.
+(-L instead of -N, and there was no memory leak involved)
 
+[PATCH] netfilter: ip6tables fix
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ip6_tables.c alloc_counters() misses a return statement, making
+ip6tables -L always failing.
+
+Reported-by: Graham Murray <graham@gmurray.org.uk>
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_t=
+ables.c
+index dfed176..800ae85 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1033,6 +1033,8 @@ static struct xt_counters *alloc_counters(struct =
+xt_table *table)
+=20
+ 	xt_free_table_info(info);
+=20
++	return counters;
++
+  free_counters:
+ 	vfree(counters);
+  nomem:
