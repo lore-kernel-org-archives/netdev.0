@@ -1,47 +1,36 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
  implementation & Netlink protocol
-Date: Sun, 05 Apr 2009 02:56:21 -0700 (PDT)
-Message-ID: <20090405.025621.262216979.davem@davemloft.net>
-References: <20090402095957.GA30799@gondor.apana.org.au>
-	<49D4CECA.3010703@trash.net>
-	<20090402144549.GA764@gondor.apana.org.au>
+Date: Sun, 05 Apr 2009 02:57:28 -0700 (PDT)
+Message-ID: <20090405.025728.246747388.davem@davemloft.net>
+References: <49D4D260.6020809@trash.net>
+	<20090402145952.GA1276@gondor.apana.org.au>
+	<49D4D480.9030306@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, nhorman@tuxdriver.com, zbr@ioremap.net,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au
+Cc: herbert@gondor.apana.org.au, nhorman@tuxdriver.com,
+	zbr@ioremap.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33552
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58987
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753390AbZDEJ4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2009 05:56:32 -0400
-In-Reply-To: <20090402144549.GA764@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1756165AbZDEJ5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2009 05:57:39 -0400
+In-Reply-To: <49D4D480.9030306@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 2 Apr 2009 22:45:49 +0800
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 02 Apr 2009 17:06:40 +0200
 
-> On Thu, Apr 02, 2009 at 04:42:18PM +0200, Patrick McHardy wrote:
-> >
-> > Actually we should be fine since the current netlink helpers only do
-> > bytewise copying anyways. And I think we've pretty much gotten rid of
-> > all the raw attribute accesses.
+> Herbert Xu wrote:
+> > If we can ensure that all netlink backends use the helpers that
+> > copy, even for structures then it should definitely work.
 > 
-> What about stuff like xfrm_userpolicy_info? I suppose if *everything*
-> is copied then it wouldn't matter.
+> Yes, that should always work.
 
-You were saying?
+It should work on the kernel side, the user side is still broken
+and I can show you the hacks in libnl to prove it :-)
 
-[ 6400.609361] Kernel unaligned access at TPC[10258734] copy_to_user_state+0x54/0x9c [xfrm_user]
-[ 6400.609498] Kernel unaligned access at TPC[10258734] copy_to_user_state+0x54/0x9c [xfrm_user]
-[ 6400.667575] Kernel unaligned access at TPC[10258734] copy_to_user_state+0x54/0x9c [xfrm_user]
-[ 6400.667707] Kernel unaligned access at TPC[10258734] copy_to_user_state+0x54/0x9c [xfrm_user]
-
-This problem has existed for a long time.  In this specific case even
-if you use memcpy() (in fact memcpy() is being used here) GCC sees the
-types and says it can do aligned 64-bit loads and stores to do the
-memcpy() inline.
