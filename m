@@ -1,47 +1,59 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: IRQF_SAMPLE_RANDOM question...
-Date: Mon, 6 Apr 2009 20:00:25 +0100
-Message-ID: <20090406200025.67cc558a@lxorguk.ukuu.org.uk>
-References: <200904061430.26276.rgetz@blackfin.uclinux.org>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: [PATCH 0/4] CDC Phonet function fixes
+Date: Mon, 6 Apr 2009 22:12:54 +0300
+Message-ID: <200904062212.54620.remi@remlab.net>
+References: <200904061758.58057.remi.denis-courmont@nokia.com> <200904061153.46622.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Chris Peterson <cpeterso@cpeterso.com>,
-	Matt Mackall <mpm@selenic.com>
-To: Robin Getz <rgetz@blackfin.uclinux.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:50769 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751854AbZDFTBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 15:01:07 -0400
-In-Reply-To: <200904061430.26276.rgetz@blackfin.uclinux.org>
+Received: from yop.chewa.net ([91.121.105.214]:51160 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751569AbZDFTNO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 15:13:14 -0400
+In-Reply-To: <200904061153.46622.david-b@pacbell.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Apr 2009 14:30:26 -0400
-Robin Getz <rgetz@blackfin.uclinux.org> wrote:
+	Hello,
 
-> Although there was some discussion  
-> http://thread.gmane.org/gmane.linux.kernel/680723
-> 
-> about removing IRQF_SAMPLE_RANDOM from the remaining network drivers in May of 
-> 2008, but they still appears to be there in 2.6.29.
+(My corporate alter ego now on vacation)
 
-These are mostly unmaintained drivers. Dunno why tg3 isn't fixed - it has
-some mitigation logic so maybe its not observable
+Le lundi 6 avril 2009 21:53:46 David Brownell, vous avez =E9crit=A0:
+> On Monday 06 April 2009, R=E9mi Denis-Courmont wrote:
+> > Here are a bunch of fixes for the Phonet USB gadget function networ=
+k
+> > interface driver. Comments welcome.
+>
+> I seem to have missed any patch for this "Phonet" code,
+> and so I have no way to evaluate bug fixes to it.  It's
+> not in any standard USB patch queue.
 
+Those are there:=20
+http://kerneltrap.org/index.php?q=3Dmailarchive/linux-netdev/2008/12/17=
+/4438934/thread
 
-> I can put a scope/analyser on a device - and look at the touchscreens, serial 
-> devices, USB, all without cracking the case. 
+AFAIK, they are already in the mainline, though the code is not used by=
+ any=20
+published gadget driver that I am aware of (paraphrase for "dead [code]=
+").
 
-But you can observe a network interface accurately from all over the lan
-(and with a ten dollar card), or a good deal further (I believe up to 1Km
-in the right conditions was claimed by some
+> Got a URL for those patches?  Maybe you should just
+> submit the drivers/usb/gadget/f_phonet.c code, and
+> something using it, with these patches pre-merged...
 
-If you need absolute hard entropy then use a real entropy source, if not
-then your user space is using the wrong device file - the blocking for
-entropy one. At that point it depends how vital your SSL is to you and
-what it protects.
+It seems I've been overly stingy on the Cc:s in December. I would rathe=
+r=20
+not -on top of that- bother davem/gregkh/whoever with a merge conflict =
+just=20
+for the sake of The Process or cosmetics.
 
-Alan
+Sorry for the inconvenience.
+
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
