@@ -1,56 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
-Date: Mon, 6 Apr 2009 10:25:52 -0700
-Message-ID: <20090406102552.391f7d96@nehalam>
-References: <20090218051906.174295181@vyatta.com>
-	<20090218052747.679540125@vyatta.com>
-	<499BDB5D.2050105@trash.net>
-	<499C1894.7060400@cosmosbay.com>
-	<49CE568A.9090104@cosmosbay.com>
-	<20090328174835.0d0b63f8@nehalam>
-	<49D1241B.6020504@cosmosbay.com>
-	<20090330130532.1e433313@nehalam>
-	<49D9F086.7090905@trash.net>
-	<alpine.LSU.2.00.0904061430160.1189@fbirervta.pbzchgretzou.qr>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: e1000: eth2: e1000_clean_tx_irq: Detected Tx Unit Hang
+Date: Mon, 6 Apr 2009 10:36:06 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0904061029410.5196@jbrandeb-desk1.amr.corp.intel.com>
+References: <49D867BE.1010700@krogh.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
+To: Jesper Krogh <jesper@krogh.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44843 "EHLO mail.vyatta.com"
+Received: from mga09.intel.com ([134.134.136.24]:15673 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751216AbZDFRZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Apr 2009 13:25:59 -0400
-In-Reply-To: <alpine.LSU.2.00.0904061430160.1189@fbirervta.pbzchgretzou.qr>
+	id S1750903AbZDFRgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2009 13:36:09 -0400
+In-Reply-To: <49D867BE.1010700@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Apr 2009 14:32:54 +0200 (CEST)
-Jan Engelhardt <jengelh@medozas.de> wrote:
 
-> 
-> On Monday 2009-04-06 14:07, Patrick McHardy wrote:
-> >>>
-> >>> if LOCKDEP is on, size of a spinlock is 64 bytes on x86_64.
-> >>> Adding a spinlock on each nf_conn would be too expensive. In this
-> >>> case, an array of spinlock is a good compromise, as done in
-> >>> IP route cache, tcp ehash, ...
-> >>
-> >> IMO having different locking based on lockdep and architecture is an
-> >> invitation
-> >> to future obscure problems. Perhaps some other locking method or shrinking
-> >> ct entry would be better.
-> >
-> > I agree. Do people enable lockdep on production machines?
-> 
-> They do not.[1]
-> 
-> 
-> [1] http://git.opensuse.org/?p=people/jblunck/kernel-source.git;a=blob;f=config/x86_64/default;hb=SL111_BRANCH
+Hi Jesper,
 
-IMHO If they enable lockdep, they can expect that the cost is non-zero.
+On Sun, 5 Apr 2009, Jesper Krogh wrote:
+> I have a 2.6.27.20 system in production, the e1000 drivers seem pretty 
+> "noisy" allthough everything appears to work excellent.
+
+well, nice to hear its working, but wierd about the messages.
+ 
+> dmesg here: http://krogh.cc/~jesper/dmesg-ko-2.6.27.20.txt
+> 
+> [476197.380486] e1000: eth3: e1000_clean_tx_irq: Detected Tx Unit Hang
+> [476197.380488]   Tx Queue             <0>
+> [476197.380489]   TDH                  <c>
+> [476197.380490]   TDT                  <63>
+> [476197.380490]   next_to_use          <63>
+> [476197.380491]   next_to_clean        <b>
+> [476197.380491] buffer_info[next_to_clean]
+> [476197.380492]   time_stamp           <10717579a>
+> [476197.380492]   next_to_watch        <f>
+> [476197.380493]   jiffies              <107175a3e>
+> [476197.380494]   next_to_watch.status <0>
+> 
+> The system has been up for 14 days but the dmesg-buffer has allready 
+> overflown with these.
+
+I looked at your dmesg and it appears that there is never a 
+NETDEV_WATCHDOG message, which would normally indicate that the driver 
+isn't resetting itself out of the problem.  Does ethtool -S eth3 show any 
+tx_timeout_count ?
+ 
+> Configuratoin is a 4 x 1GbitE bond all with Intel NICs
+> 
+> 06:01.0 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
+> Controller (Copper) (rev 03)
+> 06:01.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
+> Controller (Copper) (rev 03)
+> 06:02.0 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
+> Controller (Copper) (rev 03)
+> 06:02.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
+> Controller (Copper) (rev 03)
+
+are you doing testing with the remote end of this link?  I'm wondering if 
+something changed in the kernel that is causing remote link down events to 
+not stop the tx queue (our hardware just completely stops in its tracks 
+w.r.t tx when link goes down)
