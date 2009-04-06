@@ -1,48 +1,77 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [crash, bisected] net, sky2: BUG: unable to handle kernel NULL
-	pointer dereference, pci_vpd_truncate()
-Date: Mon, 6 Apr 2009 11:25:17 +0200
-Message-ID: <20090406092517.GA4405@elte.hu>
-References: <20090406090303.GA12525@elte.hu>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] Release of iptables-1.4.3.2
+Date: Mon, 06 Apr 2009 13:38:14 +0200
+Message-ID: <49D9E9A6.7010303@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+Content-Type: multipart/mixed;
+ boundary="------------090700010709050000090606"
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:55701 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752702AbZDFJZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Apr 2009 05:25:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20090406090303.GA12525@elte.hu>
+Received: from mail.us.es ([193.147.175.20]:46064 "EHLO us.es"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755449AbZDFLi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2009 07:38:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
+--------------090700010709050000090606
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+The netfilter coreteam presents:
 
-> Not sure whether this has been reported before, but one of the 
-> -tip testboxes started showing the boot crash attached below. 
-> Reproduces with latest -git.
-> 
-> I have bisected it to:
-> 
-> | installing & booting kernel ... => good. (114 seconds)
-> | 3834507d0c5480a0f05486c2fb57ed18fd179a83 is first bad commit
-> | commit 3834507d0c5480a0f05486c2fb57ed18fd179a83
-> | Author: Stephen Hemminger <shemminger@vyatta.com>
-> | Date:   Tue Feb 3 11:27:30 2009 +0000
-> |
-> |     sky2: set VPD size
-> |    
-> |     Read configuration register during probe and use it to size the
-> |     available VPD. Move existing code using same register slightly
-> |     earlier in probe handling.
-> 
-> [ I'm testing the straight revert currently. Can send more info if 
->   needed. ]
+     iptables version 1.4.3.2
 
-The revert solved the crash.
+the iptables release for the 2.6.29 kernel. This version includes
+accumulated bugfixes for the previous release from Jan Engelhardt and
+Peter Volkov. Check the Changelog file for more details.
 
-	Ingo
+Remember that iptables >= 1.4.3 starts enforcing the deprecation of NAT
+filtering that was added in 1.4.2-rc1, filtering rules in the NAT tables
+will cause an error instead of a warning from now on. Please make sure
+your rulesets are update appropriately.
+
+Version 1.4.3.2 can be obtained from:
+
+http://www.netfilter.org/projects/iptables/downloads.html
+ftp://ftp.netfilter.org/pub/iptables/
+git://git.netfilter.org/iptables.git
+
+On behalf of the Netfilter Core Team.
+Happy firewalling!
+
+-- 
+"Los honestos son inadaptados sociales" -- Les Luthiers
+
+
+--------------090700010709050000090606
+Content-Type: text/plain;
+ name="changes-iptables-1.4.3.2.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="changes-iptables-1.4.3.2.txt"
+
+Jan Engelhardt (12):
+      libxt_tcpmss: fix an inversion while parsing --mss
+      iptables-multi: support "iptables-static" as a callable name
+      libxtables: reorder .version member
+      build: do not run ldconfig for DESTDIR installations
+      build: add configure option to disable ip6tables
+      build: add configure option to disable ipv4 iptables
+      libxtables: provide IPv6 zero address variable
+      iptables: print negation extrapositioned
+      Merge commit 'v1.4.3'
+      Merge branch 'plus'
+      CLASSIFY: document non-standard interpretation behavior
+      libxt_conntrack: properly output negation symbol
+
+Pablo Neira Ayuso (1):
+      build: bump version to 1.4.3.2
+
+
+--------------090700010709050000090606--
