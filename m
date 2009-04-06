@@ -1,48 +1,32 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 1/4] f_phonet: dev_kfree_skb instead of dev_kfree_skb_any in TX callback
-Date: Mon,  6 Apr 2009 18:02:54 +0300
-Message-ID: <1239030177-28783-1-git-send-email-remi.denis-courmont@nokia.com>
-References: <200904061758.58057.remi.denis-courmont@nokia.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: ip6tables fix
+Date: Mon, 06 Apr 2009 17:08:31 +0200
+Message-ID: <49DA1AEF.10105@trash.net>
+References: <20090329234702.4988017f@desktop.r000n.info>	<8763hja8cy.fsf@newton.gmurray.org.uk>	<20090405.012237.198610462.davem@davemloft.net>	<49D88162.5040809@cosmosbay.com> <87ws9z8l4c.fsf@newton.gmurray.org.uk> <49D88839.4090902@cosmosbay.com> <49D8A445.4060201@cosmosbay.com> <49D8A6BB.5000700@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Graham Murray <graham@gmurray.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:43726 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780AbZDFPEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 11:04:23 -0400
-In-Reply-To: <200904061758.58057.remi.denis-courmont@nokia.com>
+Received: from stinky.trash.net ([213.144.137.162]:48290 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751235AbZDFPIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 11:08:37 -0400
+In-Reply-To: <49D8A6BB.5000700@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Eric Dumazet wrote:
+> [PATCH] netfilter: ip6tables fix
+> 
+> ip6_tables.c alloc_counters() misses a return statement, making
+> ip6tables -L always failing.
+> 
+> Reported-by: Graham Murray <graham@gmurray.org.uk>
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Network device TX is never run in IRQ context, and skb is freed outside
-of the IRQ-disabling spin lock. So checking for IRQ was a waste of time
-here.
-
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- drivers/usb/gadget/f_phonet.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phone=
-t.c
-index c1abeb8..54451ee 100644
---- a/drivers/usb/gadget/f_phonet.c
-+++ b/drivers/usb/gadget/f_phonet.c
-@@ -255,7 +255,7 @@ out_unlock:
- 	spin_unlock_irqrestore(&port->lock, flags);
- out:
- 	if (unlikely(skb)) {
--		dev_kfree_skb_any(skb);
-+		dev_kfree_skb(skb);
- 		dev->stats.tx_dropped++;
- 	}
- 	return 0;
---=20
-1.5.6.5
-
+Applied, thanks Eric.
