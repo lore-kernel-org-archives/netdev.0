@@ -1,27 +1,44 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: Re: Multicast packet loss
-Date: Mon, 06 Apr 2009 18:12:42 -0400
-Message-ID: <49DA7E5A.6070904@athenacr.com>
-References: <49B4B909.7050002@cosmosbay.com>	<20090313.145152.121603300.davem@davemloft.net>	<49BADE87.40407@cosmosbay.com> <20090313.153851.11725991.davem@davemloft.net> <49BED109.3020504@cosmosbay.com> <49D66379.7070106@athenacr.com> <49D8B6DA.7050902@cosmosbay.com> <49DA79EF.5010509@athenacr.com>
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: Re: IRQF_SAMPLE_RANDOM question...
+Date: Tue, 7 Apr 2009 00:09:31 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.0904070003470.6968@aurora.sdinet.de>
+References: <200904061430.26276.rgetz@blackfin.uclinux.org> <1239044483.14392.55.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:1060 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752601AbZDFWMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 18:12:47 -0400
-In-Reply-To: <49DA79EF.5010509@athenacr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Robin Getz <rgetz@blackfin.uclinux.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Chris Peterson <cpeterso@cpeterso.com>
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760592AbZDFWUt@vger.kernel.org>
+In-Reply-To: <1239044483.14392.55.camel@calx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brian Bloniarz wrote:
->     BUG_ON(!spin_is_locked(&sk->sk_lock.slock));
+On Mon, 6 Apr 2009, Matt Mackall wrote:
 
-Oh, sorry, I think I'm just misunderstanding how the socket
-lock works. This doesn't actually check that the socket is locked,
-right?
+> On Mon, 2009-04-06 at 14:30 -0400, Robin Getz wrote:
+> > We have lots of embedded headless systems (no keyboard/mouse, no soundcard, no 
+> > video) systems with *no* sources of entropy - and people using SSL.
+> 
+> I'd rather add a random_sample_network call somewhere reasonably central
+> in the network stack. Then we can use the knowledge that the sample is
+> network-connected in the random core to decide how to measure its
+> entropy. The trouble with IRQF_SAMPLE_RANDOM is that many of its users
+> are technically bogus as entropy sources in the current model.
+> 
+> I'm eventually going to move the RNG away from the strict theoretical
+> entropy accounting model to a more pragmatic one which will be much
+> happier with iffy entropy sources, but that's a ways off.
 
--Brian
+Btw, perhaps not the perfect question in this thread:
+But what should we use to keep servers running without a hardware rng 
+available and without any external input besides the network?
+After having ssh and openvpn die because of no random and having 
+the machines like dead and unreachable for me I use "ln -sf 
+/dev/urandom /dev/random", but that does not feel so good.
+
+c'ya
+sven
+
+-- 
+The lights are fading out, once more...
