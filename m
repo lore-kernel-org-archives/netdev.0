@@ -1,77 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] Release of iptables-1.4.3.2
-Date: Mon, 06 Apr 2009 13:38:14 +0200
-Message-ID: <49D9E9A6.7010303@netfilter.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: finer grained nf_conn locking
+Date: Mon, 06 Apr 2009 14:07:34 +0200
+Message-ID: <49D9F086.7090905@trash.net>
+References: <20090218051906.174295181@vyatta.com>	<20090218052747.679540125@vyatta.com>	<499BDB5D.2050105@trash.net>	<499C1894.7060400@cosmosbay.com>	<49CE568A.9090104@cosmosbay.com>	<20090328174835.0d0b63f8@nehalam>	<49D1241B.6020504@cosmosbay.com> <20090330130532.1e433313@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090700010709050000090606"
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>,
+	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46064 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755449AbZDFLi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Apr 2009 07:38:27 -0400
+Received: from stinky.trash.net ([213.144.137.162]:43297 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755329AbZDFMHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 08:07:41 -0400
+In-Reply-To: <20090330130532.1e433313@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090700010709050000090606
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Stephen Hemminger wrote:
+> On Mon, 30 Mar 2009 21:57:15 +0200
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+> 
+>> On normal machines, (no debugging spinlocks), patch uses an embedded
+>> spinlock. We probably can use this even on 32bit kernels, considering
+>> previous patch removed the rcu_head (8 bytes on 32bit arches) from
+>> nf_conn :)
+>>
+>> if LOCKDEP is on, size of a spinlock is 64 bytes on x86_64.
+>> Adding a spinlock on each nf_conn would be too expensive. In this
+>> case, an array of spinlock is a good compromise, as done in
+>> IP route cache, tcp ehash, ...
+>>
+>> I agree sizing of this hash table is not pretty, and should be
+>> a generic kernel service (I wanted such service for futexes for example)
+>>
+> 
+> IMO having different locking based on lockdep and architecture is an invitation
+> to future obscure problems. Perhaps some other locking method or shrinking
+> ct entry would be better.
 
-The netfilter coreteam presents:
-
-     iptables version 1.4.3.2
-
-the iptables release for the 2.6.29 kernel. This version includes
-accumulated bugfixes for the previous release from Jan Engelhardt and
-Peter Volkov. Check the Changelog file for more details.
-
-Remember that iptables >= 1.4.3 starts enforcing the deprecation of NAT
-filtering that was added in 1.4.2-rc1, filtering rules in the NAT tables
-will cause an error instead of a warning from now on. Please make sure
-your rulesets are update appropriately.
-
-Version 1.4.3.2 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team.
-Happy firewalling!
-
--- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
-
-
---------------090700010709050000090606
-Content-Type: text/plain;
- name="changes-iptables-1.4.3.2.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="changes-iptables-1.4.3.2.txt"
-
-Jan Engelhardt (12):
-      libxt_tcpmss: fix an inversion while parsing --mss
-      iptables-multi: support "iptables-static" as a callable name
-      libxtables: reorder .version member
-      build: do not run ldconfig for DESTDIR installations
-      build: add configure option to disable ip6tables
-      build: add configure option to disable ipv4 iptables
-      libxtables: provide IPv6 zero address variable
-      iptables: print negation extrapositioned
-      Merge commit 'v1.4.3'
-      Merge branch 'plus'
-      CLASSIFY: document non-standard interpretation behavior
-      libxt_conntrack: properly output negation symbol
-
-Pablo Neira Ayuso (1):
-      build: bump version to 1.4.3.2
-
-
---------------090700010709050000090606--
+I agree. Do people enable lockdep on production machines? Otherwise
+I'd say the size increase doesn't really matter.
