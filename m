@@ -1,52 +1,56 @@
-From: Ed Swierk <eswierk@aristanetworks.com>
-Subject: Re: [Regression, in, 2.6.29] forcedeth doesn't work after resume
- from hibernation (was: Re: Resume after hibernation regression in 2.6.29)
-Date: Mon, 06 Apr 2009 07:03:32 -0700
-Message-ID: <1239026612.23068.1.camel@localhost.localdomain>
-References: <20090404.165421.142076064.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] xfrm: fix fragmentation on inter family tunnels
+Date: Mon, 6 Apr 2009 15:58:50 +0200
+Message-ID: <20090406135850.GK6791@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.172]:46938 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755206AbZDFODk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 10:03:40 -0400
-Received: by wf-out-1314.google.com with SMTP id 29so2250967wff.4
-        for <netdev@vger.kernel.org>; Mon, 06 Apr 2009 07:03:39 -0700 (PDT)
-In-Reply-To: <20090404.165421.142076064.davem@davemloft.net>
+Received: from a.mx.secunet.com ([213.68.205.161]:42184 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755415AbZDFOUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2009 10:20:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-04-04 at 16:54 -0700, David Miller wrote:
-> Please send a version of this patch that actually applies to
-> Linus's tree, the line numbers et al. are a lot different
-> now.
-> 
-> I'll backport and submit that to -stable.
-> 
-> Thanks.
+If an ipv4 packet (not locally generated with IP_DF flag not set) bigger
+than mtu size is supposed to go via a xfrm ipv6 tunnel, the packetsize
+check in xfrm4_tunnel_check_size() is omited and ipv6 drops the packet
+without sending a notice to the original sender of the ipv4 packet.
 
-Reset phy state on resume, fixing a regression caused by powering down
-the phy on hibernate.
+Another issue is that ipv4 connection tracking does reassembling of
+incomming fragmented packets. If such a reassembled packet is supposed to
+go via a xfrm ipv6 tunnel it will be droped, even if the original sender
+did proper fragmentation.
 
-Signed-off-by: Ed Swierk <eswierk@aristanetworks.com>
+According to RFC 2473 (section 7) tunnel ipv6 packets resulting from the
+encapsulation of an original packet are considered as locally generated
+packets. If such a packet passed the checks in xfrm{4,6}_tunnel_check_size()
+fragmentation is allowed according to RFC 2473 (section 7.1/7.2).
+
+This patch sets skb->local_df in xfrm6_prepare_output() to achieve
+fragmentation in this case.
+
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index a858c6f..663a7b3 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -6117,6 +6117,9 @@ static int nv_resume(struct pci_dev *pdev)
- 
- 	pci_write_config_dword(pdev, NV_MSI_PRIV_OFFSET, NV_MSI_PRIV_VALUE);
- 
-+	/* restore phy state, including autoneg */
-+	phy_init(dev);
-+
- 	netif_device_attach(dev);
- 	if (netif_running(dev)) {
- 		rc = nv_open(dev);
+ net/ipv6/xfrm6_output.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 0af823c..5ee5a03 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -72,6 +72,7 @@ int xfrm6_prepare_output(struct xfrm_state *x, struct sk_buff *skb)
+ #endif
+ 
+ 	skb->protocol = htons(ETH_P_IPV6);
++	skb->local_df = 1;
+ 
+ 	return x->outer_mode->output2(x, skb);
+ }
+-- 
+1.5.4.2
 
