@@ -1,44 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
-Date: Tue, 7 Apr 2009 00:34:59 +0200
-Message-ID: <200904070035.00784.rjw@sisk.pl>
-References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: IRQF_SAMPLE_RANDOM question...
+Date: Mon, 06 Apr 2009 19:35:30 -0400
+Message-ID: <49DA91C2.1020106@garzik.org>
+References: <200904061430.26276.rgetz@blackfin.uclinux.org> <1239044483.14392.55.camel@calx> <alpine.DEB.2.00.0904070003470.6968@aurora.sdinet.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Trenton Adams <trenton.d.adams@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Matt Mackall <mpm@selenic.com>,
+	Robin Getz <rgetz@blackfin.uclinux.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris Peterson <cpeterso@cpeterso.com>
+To: Sven-Haegar Koch <haegar@sdinet.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:51295 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753914AbZDFXgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2009 19:36:15 -0400
+In-Reply-To: <alpine.DEB.2.00.0904070003470.6968@aurora.sdinet.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 06 April 2009, Linus Torvalds wrote:
+Sven-Haegar Koch wrote:
+> On Mon, 6 Apr 2009, Matt Mackall wrote:
 > 
-> On Mon, 6 Apr 2009, Rafael J. Wysocki wrote:
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13019
-> > Subject		: /proc/<pid>/maps offset output broken in 2.6.29
-> > Submitter	: "Chris Friesen" <cfriesen@nortel.com>
-> > Date		: 2009-04-01 23:18 (6 days old)
-> > References	: http://marc.info/?l=linuxppc-embedded&m=123862902916059&w=4
-> > Handled-By	: Hugh Dickins <hugh@veritas.com>
+>> On Mon, 2009-04-06 at 14:30 -0400, Robin Getz wrote:
+>>> We have lots of embedded headless systems (no keyboard/mouse, no soundcard, no 
+>>> video) systems with *no* sources of entropy - and people using SSL.
+>> I'd rather add a random_sample_network call somewhere reasonably central
+>> in the network stack. Then we can use the knowledge that the sample is
+>> network-connected in the random core to decide how to measure its
+>> entropy. The trouble with IRQF_SAMPLE_RANDOM is that many of its users
+>> are technically bogus as entropy sources in the current model.
+>>
+>> I'm eventually going to move the RNG away from the strict theoretical
+>> entropy accounting model to a more pragmatic one which will be much
+>> happier with iffy entropy sources, but that's a ways off.
 > 
-> I don't think that's a regression, nor really a bug. It looks cosmetic, 
-> and likely to be fixed, but not really worth worrying about.
+> Btw, perhaps not the perfect question in this thread:
+> But what should we use to keep servers running without a hardware rng 
+> available and without any external input besides the network?
+> After having ssh and openvpn die because of no random and having 
+> the machines like dead and unreachable for me I use "ln -sf 
+> /dev/urandom /dev/random", but that does not feel so good.
 
-OK, I've dropped it from the list.
+We see this question every time IRQF_SAMPLE_RANDOM is discussed.
 
-Thanks,
-Rafael
+There is plenty of entropy data available, you just have to look 
+around...  Google around for "EGD", video entropy daemon, audio entropy 
+daemon, etc...
+
+Even headless servers have entropy sources if you look hard enough.
+
+	Jeff
+
+
