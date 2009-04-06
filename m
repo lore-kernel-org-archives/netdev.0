@@ -1,59 +1,85 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <remi@remlab.net>
-Subject: Re: [PATCH 0/4] CDC Phonet function fixes
-Date: Mon, 6 Apr 2009 22:12:54 +0300
-Message-ID: <200904062212.54620.remi@remlab.net>
-References: <200904061758.58057.remi.denis-courmont@nokia.com> <200904061153.46622.david-b@pacbell.net>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Re: IRQF_SAMPLE_RANDOM question...
+Date: Mon, 6 Apr 2009 15:22:15 -0400
+Message-ID: <200904061522.15810.rgetz@blackfin.uclinux.org>
+References: <200904061430.26276.rgetz@blackfin.uclinux.org> <49DA4C85.5090806@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Chris Peterson" <cpeterso@cpeterso.com>,
+	"Matt Mackall" <mpm@selenic.com>,
+	"David Miller" <davem@davemloft.net>
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:51160 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569AbZDFTNO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 15:13:14 -0400
-In-Reply-To: <200904061153.46622.david-b@pacbell.net>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:30062 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751569AbZDFTUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 15:20:00 -0400
+In-Reply-To: <49DA4C85.5090806@garzik.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hello,
+On Mon 6 Apr 2009 14:40, Jeff Garzik pondered:
+> Robin Getz wrote:
+> > Although there was some discussion  
+> > http://thread.gmane.org/gmane.linux.kernel/680723
+> > 
+> > about removing IRQF_SAMPLE_RANDOM from the remaining network drivers 
+> > in May of 2008, but they still appears to be there in 2.6.29.
+> > 
+> > drivers/net/ibmlana.c
+> > drivers/net/macb.c
+> > drivers/net/3c523.c
+> > drivers/net/3c527.c
+> > drivers/net/netxen/netxen_nic_main.c
+> > drivers/net/cris/eth_v10.c
+> > drivers/net/xen-netfront.c
+> > drivers/net/atlx/atl1.c
+> > drivers/net/qla3xxx.c
+> > drivers/net/tg3.c
+> > drivers/net/niu.c
+> > 
+> > So what is the plan? If I send a patch to add IRQF_SAMPLE_RANDOM to others 
+> > (like the Blackfin) networking drivers - will it get rejected?
+> > 
+> > We have lots of embedded headless systems (no keyboard/mouse, no
+> > soundcard, no video) systems with *no* sources of entropy - and
+> > people using SSL. 
+> > 
+> > I didn't really find any docs which describe what should have 
+> > IRQF_SAMPLE_RANDOM on it or not. I did find Matt Mackall describing it as:
+> >> We currently assume that IRQF_SAMPLE_RANDOM means 'this is a completely
+> >> trusted unobservable entropy source' which is obviously wrong for
+> >> network devices but is right for some other classes of device.
+> > 
+> > Currently - I see most things I see using IRQF_SAMPLE_RANDOM would 
+> > also fail the "completely unobservable" test. Other than the TRNG that 
+> > are inside the CPU - what does pass?
+> 
+> IMO it's not observation but rather that a remote host is essentially 
+> your source of entropy -- which means your source of entropy is 
+> potentially controllable or influenced by an attacker.
 
-(My corporate alter ego now on vacation)
+Ok - so if it is "un-influenceable" or more specifically - not remotely 
+influenceable - that works for me, and says that keyboards, serial devices, 
+USB, etc -- should be OK - since they are not remote, even if they can be 
+controlled locally.
 
-Le lundi 6 avril 2009 21:53:46 David Brownell, vous avez =E9crit=A0:
-> On Monday 06 April 2009, R=E9mi Denis-Courmont wrote:
-> > Here are a bunch of fixes for the Phonet USB gadget function networ=
-k
-> > interface driver. Comments welcome.
->
-> I seem to have missed any patch for this "Phonet" code,
-> and so I have no way to evaluate bug fixes to it.  It's
-> not in any standard USB patch queue.
+You assume that the local user is the root user - as least as far as entropy 
+goes?
 
-Those are there:=20
-http://kerneltrap.org/index.php?q=3Dmailarchive/linux-netdev/2008/12/17=
-/4438934/thread
+Correct?
 
-AFAIK, they are already in the mainline, though the code is not used by=
- any=20
-published gadget driver that I am aware of (paraphrase for "dead [code]=
-").
+> Furthermore, with hardware interrupt mitigation, non-trivial traffic 
+> levels can imply that interrupts are delivered with timer-based 
+> regularity.  This, too, may clearly be influenced by a remote attacker.
+> 
+> Thus I think IRQF_SAMPLE_RANDOM should be banned from network drivers... 
+> but that is not a universal opinion.
 
-> Got a URL for those patches?  Maybe you should just
-> submit the drivers/usb/gadget/f_phonet.c code, and
-> something using it, with these patches pre-merged...
+It didn't seem like there were that many people who disagreed with Chris's 
+original patch - but there wasn't anyone acking it either...
 
-It seems I've been overly stingy on the Cc:s in December. I would rathe=
-r=20
-not -on top of that- bother davem/gregkh/whoever with a merge conflict =
-just=20
-for the sake of The Process or cosmetics.
-
-Sorry for the inconvenience.
-
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+-Robin
