@@ -1,32 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: ip6tables fix
-Date: Mon, 06 Apr 2009 17:08:31 +0200
-Message-ID: <49DA1AEF.10105@trash.net>
-References: <20090329234702.4988017f@desktop.r000n.info>	<8763hja8cy.fsf@newton.gmurray.org.uk>	<20090405.012237.198610462.davem@davemloft.net>	<49D88162.5040809@cosmosbay.com> <87ws9z8l4c.fsf@newton.gmurray.org.uk> <49D88839.4090902@cosmosbay.com> <49D8A445.4060201@cosmosbay.com> <49D8A6BB.5000700@cosmosbay.com>
+From: oterito <otero1709@hotmail.com>
+Subject: Re: [PATCH 2/2]d80211: add hardware scan callback
+Date: Mon, 6 Apr 2009 08:12:17 -0700 (PDT)
+Message-ID: <22910800.post@talk.nabble.com>
+References: <1156494733.21483.14.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Graham Murray <graham@gmurray.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48290 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235AbZDFPIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 11:08:37 -0400
-In-Reply-To: <49D8A6BB.5000700@cosmosbay.com>
+Received: from kuber.nabble.com ([216.139.236.158]:44327 "EHLO
+	kuber.nabble.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930AbZDFPMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 11:12:19 -0400
+Received: from isper.nabble.com ([192.168.236.156])
+	by kuber.nabble.com with esmtp (Exim 4.63)
+	(envelope-from <lists@nabble.com>)
+	id 1LqqUj-0003z7-Ks
+	for netdev@vger.kernel.org; Mon, 06 Apr 2009 08:12:17 -0700
+In-Reply-To: <1156494733.21483.14.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> [PATCH] netfilter: ip6tables fix
-> 
-> ip6_tables.c alloc_counters() misses a return statement, making
-> ip6tables -L always failing.
-> 
-> Reported-by: Graham Murray <graham@gmurray.org.uk>
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Applied, thanks Eric.
+Hello, pleas I need help, I triying to scan all AP's in a range, but I have a
+problem, I have depreciate SIOIWAPLIST, and also SIOCIWSCAN always return 0.
+I dont know If I can put a patch to activate that an wich patch can I use
+and how. I'm a begginer user of linux. I'm working with debian etch and I
+have a Intel ipw3945 wirelles chipset. Thanks
+-- 
+View this message in context: http://www.nabble.com/-PATCH-2-2-d80211%3A-add-hardware-scan-callback-tp5979589p22910800.html
+Sent from the netdev mailing list archive at Nabble.com.
+
