@@ -1,66 +1,74 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: e1000: eth2: e1000_clean_tx_irq: Detected Tx Unit Hang
-Date: Mon, 6 Apr 2009 10:36:06 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.0904061029410.5196@jbrandeb-desk1.amr.corp.intel.com>
-References: <49D867BE.1010700@krogh.cc>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: IRQF_SAMPLE_RANDOM question...
+Date: Mon, 6 Apr 2009 14:30:26 -0400
+Message-ID: <200904061430.26276.rgetz@blackfin.uclinux.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jesse.brandeburg@intel.com, e1000-devel@lists.sourceforge.net
-To: Jesper Krogh <jesper@krogh.cc>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15673 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750903AbZDFRgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Apr 2009 13:36:09 -0400
-In-Reply-To: <49D867BE.1010700@krogh.cc>
+Received: from nwd2mail11.analog.com ([137.71.25.57]:61614 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756056AbZDFS2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 14:28:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Although there was some discussion  
+http://thread.gmane.org/gmane.linux.kernel/680723
 
-Hi Jesper,
+about removing IRQF_SAMPLE_RANDOM from the remaining network drivers in May of 
+2008, but they still appears to be there in 2.6.29.
 
-On Sun, 5 Apr 2009, Jesper Krogh wrote:
-> I have a 2.6.27.20 system in production, the e1000 drivers seem pretty 
-> "noisy" allthough everything appears to work excellent.
+drivers/net/ibmlana.c
+drivers/net/macb.c
+drivers/net/3c523.c
+drivers/net/3c527.c
+drivers/net/netxen/netxen_nic_main.c
+drivers/net/cris/eth_v10.c
+drivers/net/xen-netfront.c
+drivers/net/atlx/atl1.c
+drivers/net/qla3xxx.c
+drivers/net/tg3.c
+drivers/net/niu.c
 
-well, nice to hear its working, but wierd about the messages.
- 
-> dmesg here: http://krogh.cc/~jesper/dmesg-ko-2.6.27.20.txt
-> 
-> [476197.380486] e1000: eth3: e1000_clean_tx_irq: Detected Tx Unit Hang
-> [476197.380488]   Tx Queue             <0>
-> [476197.380489]   TDH                  <c>
-> [476197.380490]   TDT                  <63>
-> [476197.380490]   next_to_use          <63>
-> [476197.380491]   next_to_clean        <b>
-> [476197.380491] buffer_info[next_to_clean]
-> [476197.380492]   time_stamp           <10717579a>
-> [476197.380492]   next_to_watch        <f>
-> [476197.380493]   jiffies              <107175a3e>
-> [476197.380494]   next_to_watch.status <0>
-> 
-> The system has been up for 14 days but the dmesg-buffer has allready 
-> overflown with these.
+So what is the plan? If I send a patch to add IRQF_SAMPLE_RANDOM to others 
+(like the Blackfin) networking drivers - will it get rejected?
 
-I looked at your dmesg and it appears that there is never a 
-NETDEV_WATCHDOG message, which would normally indicate that the driver 
-isn't resetting itself out of the problem.  Does ethtool -S eth3 show any 
-tx_timeout_count ?
- 
-> Configuratoin is a 4 x 1GbitE bond all with Intel NICs
-> 
-> 06:01.0 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
-> Controller (Copper) (rev 03)
-> 06:01.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
-> Controller (Copper) (rev 03)
-> 06:02.0 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
-> Controller (Copper) (rev 03)
-> 06:02.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet 
-> Controller (Copper) (rev 03)
+We have lots of embedded headless systems (no keyboard/mouse, no soundcard, no 
+video) systems with *no* sources of entropy - and people using SSL.
 
-are you doing testing with the remote end of this link?  I'm wondering if 
-something changed in the kernel that is causing remote link down events to 
-not stop the tx queue (our hardware just completely stops in its tracks 
-w.r.t tx when link goes down)
+I didn't really find any docs which describe what should have 
+IRQF_SAMPLE_RANDOM on it or not. I did find Matt Mackall describing it as:
+> We currently assume that IRQF_SAMPLE_RANDOM means 'this is a completely
+> trusted unobservable entropy source' which is obviously wrong for
+> network devices but is right for some other classes of device.
+
+Currently - I see most things I see using IRQF_SAMPLE_RANDOM would also fail 
+the "completely unobservable" test. Other than the TRNG that are inside the 
+CPU - what does pass?
+
+I can put a scope/analyser on a device - and look at the touchscreens, serial 
+devices, USB, all without cracking the case. 
+
+drivers/block/xen-blkfront.c:             Xen virtual block device frontend
+drivers/i2c/busses/i2c-pmcmsp.c:          PMC MSP TWI/SMBus/I2C driver
+drivers/input/keyboard/bf54x-keys.c:      Keypad driver for BF54x Processors
+drivers/input/keyboard/gpio_keys.c:       Keyboard driver for CPU GPIOs
+drivers/input/serio/hp_sdc.c:             HP i8042-based SDC Driver
+drivers/input/touchscreen/wm97xx-core.c:  WM97xx Core - Touch Screen
+drivers/serial/mpc52xx_uart.c:            Freescale MPC52xx PSC UART
+drivers/serial/uartlite.c:                Xilinx uartlite serial driver
+drivers/usb/gadget/omadrivers/usb/gadget/omap_udc	OMAP UDC driver
+
+If I want to get more intrusive (expensive) - I can look at SPI, I2C, and 
+other things that only might be observable at the PCB level (including things 
+that are inside the chipset).
+
+What are the guidelines for including IRQF_SAMPLE_RANDOM?
+
+Thanks
+-Robin
