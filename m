@@ -1,57 +1,61 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] NET/r8169: Rework suspend and resume
-Date: Sun, 5 Apr 2009 23:59:31 +0200
-Message-ID: <200904052359.31629.rjw@sisk.pl>
-References: <200904052040.04752.rjw@sisk.pl> <20090405223318.5a494e4e@neptune.home>
+From: Lot Brems <Lieselotte.Brems@arts.kuleuven.be>
+Subject: Ticket no: 56475600545 188
+Date: Mon, 06 Apr 2009 03:07:37 +0200
+Message-ID: <20090406030737.37ukm2qpeokkw04s@webmail6.kuleuven.be>
+Reply-To: uknlinfo.result@uknlhome.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	NetDev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	pm list <linux-pm@lists.linux-foundation.org>
-To: Bruno =?iso-8859-1?q?Pr=E9mont?= <bonbons@linux-vserver.org>
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:41621 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752708AbZDEV7f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2009 17:59:35 -0400
-In-Reply-To: <20090405223318.5a494e4e@neptune.home>
+Received: from cavspool01.kulnet.kuleuven.be ([134.58.240.41]:57490 "EHLO
+	cavspool01.kulnet.kuleuven.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752391AbZDFBk6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Apr 2009 21:40:58 -0400
+Received: from cavuit02.kulnet.kuleuven.be (cavuit02.kulnet.kuleuven.be [134.58.240.44])
+	by cavspool01.kulnet.kuleuven.be (Postfix) with ESMTP id 8D6D9A37F
+	for <netdev@vger.kernel.org>; Mon,  6 Apr 2009 03:09:03 +0200 (CEST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 05 April 2009, Bruno Pr=E9mont wrote:
-> On Sun, 05 April 2009 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> >=20
-> > The recent changes of the PCI PM core allow us to simplify the
-> > suspend and resume handling in a number of device drivers, since th=
-ey
-> > don't need to carry out the general PCI PM operations, such as
-> > changing the power state of the device, during suspend and resume a=
-ny
-> > more.
-> >=20
-> > Simplify the suspend and resume callbacks of r8169 using the
-> > observation that the PCI PM core can take care of some operations
-> > carried out by the driver.
-> >=20
-> > Additionally, make the shutdown callback of r8169 only put the devi=
-ce
-> > into a low power state if the system is going to be powered off
-> > (kexec is known to have problems with network adapters that are put
-> > into low power states on shutdown).
-> >=20
-> > This patch has been tested on MSI Wind U100.
->=20
-> Tested against 2.6.29.1 on my Commell LE-365 and suspend (S3) + WoL
-> still works as expected.
->=20
-> 02:08.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd.
->                      RTL-8169 Gigabit Ethernet [10ec:8169] (rev 10)
 
-Thanks for testing!
 
-Best,
-Rafael
+-- 
+
+  Dear Email owner,
+  Your email address on Ticket no: 56475600545 188 has won a total cash
+  prize of (Eight hundred and fiftyThousand
+  Pounds Sterling) and other consolation prizes in Our New Year Email
+  random selection.
+  Please contact the claims officer for more information
+  with. full name: Home Address: Sex: Age: Tele: Occupation: Nationality:
+  Claims Officer: Mark White
+  Email: uknlinfo.result@uknlhome.org
+  Tel: +44 70359 56312
+  Sans Nons(Mrs)
+  THE PROMOTION COORDINATOR
+  Send all details to uknlinfo.result@uknlhome.org
+
+
+-- 
+
+  Dear Email owner,
+  Your email address on Ticket no: 56475600545 188 has won a total cash
+  prize of (Eight hundred and fiftyThousand
+  Pounds Sterling) and other consolation prizes in Our New Year Email
+  random selection.
+  Please contact the claims officer for more information
+  with. full name: Home Address: Sex: Age: Tele: Occupation: Nationality:
+  Claims Officer: Mark White
+  Email: uknlinfo.result@uknlhome.org
+  Tel: +44 70359 56312
+  Sans Nons(Mrs)
+  THE PROMOTION COORDINATOR
+  Send all details to uknlinfo.result@uknlhome.org
+
+
+Disclaimer: http://www.kuleuven.be/cwis/email_disclaimer.htm
+
