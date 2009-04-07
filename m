@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ibm_newemac: Fix dangerous struct assumption
-Date: Mon, 06 Apr 2009 17:43:24 -0700 (PDT)
-Message-ID: <20090406.174324.254969238.davem@davemloft.net>
-References: <20090406142710.2d091038@hyperion.delvare>
+Subject: Re: [PATCH 1/3] bas_gigaset: use tasklet_hi_schedule for timing
+ critical tasklets
+Date: Mon, 06 Apr 2009 17:43:34 -0700 (PDT)
+Message-ID: <20090406.174334.154575716.davem@davemloft.net>
+References: <20090404-patch-00.tilman@imap.cc>
+	<20090404-patch-01.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jwboyer@linux.vnet.ibm.com,
-	jgarzik@pobox.com
-To: khali@linux-fr.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46984
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752122AbZDGAne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:43:34 -0400
-In-Reply-To: <20090406142710.2d091038@hyperion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, hjlipp@web.de
+To: tilman@imap.cc
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759036AbZDGAn7@vger.kernel.org>
+In-Reply-To: <20090404-patch-01.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <khali@linux-fr.org>
-Date: Mon, 6 Apr 2009 14:27:10 +0200
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Sun,  5 Apr 2009 18:39:33 +0200 (CEST)
 
-> The ibm_newemac driver includes code which assumes that the
-> work_struct which is included in every delayed_work is the first
-> member of that structure. This is currently the case but might change
-> in the future, so use to_delayed_work() instead, which doesn't make
-> such an assumption.
+> The tasklets for isochronous data transfer need to run within 8 msec
+> to avoid over/underruns, so schedule them with high priority to fix
+> reported issues with occasional over/underruns.
 > 
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 
 Applied.
