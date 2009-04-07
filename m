@@ -1,76 +1,63 @@
-From: Alan Carvalho de Assis <acassis@gmail.com>
-Subject: Re: [PATCH] i.MX31: Fixing cs89x0 network building to i.MX31ADS
-Date: Tue, 7 Apr 2009 10:52:50 -0300
-Message-ID: <37367b3a0904070652w48d2e269xf1e4b2cf88058a1d@mail.gmail.com>
-References: <37367b3a0903241018h7ff3302fi83cf1fcb21a3114d@mail.gmail.com>
-	 <37367b3a0903300714g40a108d3j59a3b56ee9cda2bf@mail.gmail.com>
-	 <20090330143155.GA20101@pengutronix.de>
-	 <37367b3a0903301315u51787ebcl119ed295e373a1e4@mail.gmail.com>
-	 <20090331075951.GF22913@pengutronix.de>
-	 <37367b3a0903310636x3c8d8eban4310018c3d1b40b@mail.gmail.com>
-	 <155d92380904010454l34c57687j67e6805dafcb92ef@mail.gmail.com>
-	 <37367b3a0904010704o34aa5532p4bc8b3c9a8c16f7f@mail.gmail.com>
-	 <155d92380904020508vffc0480j3973973fd4e97fce@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: Sajith P V <sajithpv@gmail.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: more findings/questions on vlans/bonds
+Date: Tue, 07 Apr 2009 07:13:59 -0700
+Message-ID: <5325.1239113639@death.nxdomain.ibm.com>
+References: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com>
+Cc: netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f160.google.com ([209.85.217.160]:51969 "EHLO
-	mail-gx0-f160.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754426AbZDGNwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 09:52:51 -0400
-Received: by gxk4 with SMTP id 4so5791542gxk.13
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2009 06:52:50 -0700 (PDT)
-In-Reply-To: <155d92380904020508vffc0480j3973973fd4e97fce@mail.gmail.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:60079 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120AbZDGOOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 10:14:21 -0400
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e31.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n37EBAn3020727
+	for <netdev@vger.kernel.org>; Tue, 7 Apr 2009 08:11:10 -0600
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n37EE6eo086372
+	for <netdev@vger.kernel.org>; Tue, 7 Apr 2009 08:14:06 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n37EDu3x009426
+	for <netdev@vger.kernel.org>; Tue, 7 Apr 2009 08:13:56 -0600
+In-reply-to: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sajith,
-
-On 4/2/09, Sajith P V <sajithpv@gmail.com> wrote:
-> Hi Alan
+Or Gerlitz <ogerlitz@voltaire.com> wrote:
+[...]
+>I hope that you can help clarify what's the correct/supported method
+>to work with vlans and bonds, with 2.6.29 I see that one can either
 >
-> On Wed, Apr 1, 2009 at 7:34 PM, Alan Carvalho de Assis
-> <acassis@gmail.com> wrote:
->> It is strange, here I got a similar message:
->> cs89x0:cs89x0_probe(0x0)
->> cs89x0.c: v2.4.3-pre1 Russell Nelson <nelson@crynwr.com>, Andrew Morton
->> eth0: cs8900 rev K found at 0xf4020300 [Cirrus EEPROM]
->> cs89x0 media RJ-45, IRQ 168, programmed I/O, MAC 00:04:9f:00:41:87
->> cs89x0_probe1() successful
->> cs89x0:cs89x0_probe(0x0)
->> cs89x0: request_region(0xf4020300, 0x10) failed
->> cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETUP
->>
->> But network works fine:
->> $ ping 10.29.240.182
->> PING 10.29.240.182 (10.29.240.182): 56 data bytes
->> 64 bytes from 10.29.240.182: seq=0 ttl=63 time=0.6 ms
->> 64 bytes from 10.29.240.182: seq=1 ttl=63 time=0.6 ms
->>
+>[I pasted in the fixed text here]
+> 	- vlan a bond (bond0.4001 over bond0 over eth0/1)
+> 	- bond vlans (e.g bond0 over eth0/1.4001 over eth0/1)
+
+	I'll have to look into this, but my recollection is that you
+should be able to do either of the above.  I haven't tested the second
+flavor lately, but I believe it should work.  It's arguably only better
+than the first alternative if, for some reason, the user wants to either
+load balance or fail over across multiple VLANs, but (if all slaves are
+on the same VLAN) the two above scenarios should be functionally
+equivalent.
+
+>I played a bit with bonding vlans (2.6.29 active-backup mode) and it
+>doesn't seem to work - specifically, I noted that bonding doesn't issue
+>fail-over after I changed the current slave link status to down ("ifconfig
+>eth0.4001 down"). I suspect that the carrier based link monitoring scheme
+>is broken wrt to vlan devices - e.g I found that at least from sysfs
+>perspective the vlan device carrier isn't available:
 >
-> What is cs8900_irq_map set to with this patch or am I missing some thing?
+>$ cat /sys/class/net/eth0.4001/carrier
+>cat: /sys/class/net/eth0.4001/carrier: Invalid argument
 >
+>I also played with a post 2.6.29 cut of Linus tree, and I couldn't bond vlans.
+>I thought that the reason may be that a vlan device has already master -
+>but I found out that its wrong and vlans don't have the IFF_SLAVE bit set
+>in their flags bit mask. So this may be either something wrong on my side
+>or a bug introduced after 2.6.29 or just something which isn't supported,
+>e.g following my findings with 2.6.29 above...
 
-Sorry my delay.
+	-J
 
-Please find definition below:
-
-unsigned int cs8900_irq_map[] = { CS8900AIRQ, 0, 0, 0 };
-
-/*! This is System IRQ used by CS8900A for interrupt generation taken
-from platform.h */
-#define CS8900AIRQ              EXPIO_INT_ENET_INT
-
-#define EXPIO_INT_ENET_INT      (MXC_EXP_IO_BASE + 8)
-
-> Regards,
-> Sajith
->
-
-Best Regards,
-
-Alan
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
