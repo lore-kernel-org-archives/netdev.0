@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/802/fddi.c: add MODULE_LICENSE
-Date: Mon, 06 Apr 2009 17:43:11 -0700 (PDT)
-Message-ID: <20090406.174311.169097458.davem@davemloft.net>
-References: <20090405163621.GC3718@localhost.pp.htv.fi>
+Subject: Re: [PATCH] ibm_newemac: Fix dangerous struct assumption
+Date: Mon, 06 Apr 2009 17:43:24 -0700 (PDT)
+Message-ID: <20090406.174324.254969238.davem@davemloft.net>
+References: <20090406142710.2d091038@hyperion.delvare>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bunk@kernel.org
+Cc: netdev@vger.kernel.org, jwboyer@linux.vnet.ibm.com,
+	jgarzik@pobox.com
+To: khali@linux-fr.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46981
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46984
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751986AbZDGAnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:43:21 -0400
-In-Reply-To: <20090405163621.GC3718@localhost.pp.htv.fi>
+	by vger.kernel.org with ESMTP id S1752122AbZDGAne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:43:34 -0400
+In-Reply-To: <20090406142710.2d091038@hyperion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Adrian Bunk <bunk@kernel.org>
-Date: Sun, 5 Apr 2009 19:36:21 +0300
+From: Jean Delvare <khali@linux-fr.org>
+Date: Mon, 6 Apr 2009 14:27:10 +0200
 
-> This patch adds the missing MODULE_LICENSE("GPL").
+> The ibm_newemac driver includes code which assumes that the
+> work_struct which is included in every delayed_work is the first
+> member of that structure. This is currently the case but might change
+> in the future, so use to_delayed_work() instead, which doesn't make
+> such an assumption.
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
 
 Applied.
