@@ -1,107 +1,61 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH v2] update Documentation/isdn/00-INDEX
-Date: Mon, 17 Nov 2008 14:01:32 +0100
-Message-ID: <20090407161650.51200111811@xenon.ts.pxnet.com>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([195.227.45.7]:40220 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755172AbZDGQRB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2009 12:17:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
+Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
+Date: Tue, 07 Apr 2009 18:16:55 +0200
+Message-ID: <49DB7C77.1000702@s5r6.in-berlin.de>
+References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.00.0904061443000.7443-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+Linus Torvalds wrote:
+> On Mon, 6 Apr 2009, Rafael J. Wysocki wrote:
+>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13018
+>> Subject		: 2.6.29 on MacBook 2,1 fails to reboot
+>> Submitter	: Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date		: 2009-03-30 2:04 (8 days old)
+>> References	: http://marc.info/?l=linux-kernel&m=123837870307249&w=4
+>> Handled-By	: "Morten P.D. Stevens" <mstevens-APqb+XXLJz/QQQFqJy/XgFaTQe2KTcn/@public.gmane.org>
+> 
+> This went through bisection, but looking at the email log, I tend to 
+> suspect that maybe Trenton marked some versions good even though they 
+> weren't (because they got versions numbers from v2.6.27), and didn't 
+> realize that that messes up bisection in a big way.
+> 
+> The bug _sounds_ like some deadlock due to lock problems - the shutdown 
+> path often triggers locks that no other path really cares about. And we 
+> had some lock problems in the sound subsystem that got fixed post-2.6.28, 
+> for example. 
+> 
+> And it looks like the problem is somewhere in sound shutdown:
+> 
+> 12181 delete_module("snd_hda_codec", O_RDONLY|O_EXCL) = -1 EAGAIN (Resource temporarily unavailable) <0.000011>
+> 
+> So commits like 91054598f794fb5d8a0b1e747ff8e2e8fc2115b3 ("ALSA: pcm_oss, 
+> fix locking typo") might explain it.
 
-sorry for the mistake in the preceding mail. That was an old,
-incomplete version of the patch which won't even apply to the
-current tree. Please disregard and use this one instead.
-
-Thanks,
-Tilman
-
-ISDN: update Documentation/isdn/00-INDEX
-
-After the merging of mISDN, state which files refer only to the
-old isdn4linux subsystem. Also add a few missing files and sort
-alphabetically.
-
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- Documentation/isdn/00-INDEX |   45 ++++++++++++++++++++++++------------------
- 1 files changed, 26 insertions(+), 19 deletions(-)
-
-diff --git a/Documentation/isdn/00-INDEX b/Documentation/isdn/00-INDEX
-index 9fee5f2..33543ac 100644
---- a/Documentation/isdn/00-INDEX
-+++ b/Documentation/isdn/00-INDEX
-@@ -2,28 +2,20 @@
- 	- this file (info on ISDN implementation for Linux)
- CREDITS
- 	- list of the kind folks that brought you this stuff.
-+HiSax.cert
-+	- information about the ITU approval certification of the HiSax driver.
- INTERFACE
--	- description of Linklevel and Hardwarelevel ISDN interface.
-+	- description of isdn4linux Link Level and Hardware Level interfaces.
-+INTERFACE.fax
-+	- description of the fax subinterface of isdn4linux.
- README
- 	- general info on what you need and what to do for Linux ISDN.
- README.FAQ
- 	- general info for FAQ.
--README.audio
--	- info for running audio over ISDN.
--README.fax
--	- info for using Fax over ISDN.
--README.icn
--	- info on the ICN-ISDN-card and its driver.
- README.HiSax
- 	- info on the HiSax driver which replaces the old teles.
--README.hfc-pci
--	- info on hfc-pci based cards.
--README.pcbit
--	- info on the PCBIT-D ISDN adapter and driver.
--README.syncppp
--	- info on running Sync PPP over ISDN.
--syncPPP.FAQ
--	- frequently asked questions about running PPP over ISDN.
-+README.audio
-+	- info for running audio over ISDN.
- README.avmb1
- 	- info on driver for AVM-B1 ISDN card.
- README.act2000
-@@ -34,10 +26,25 @@ README.concap
- 	- info on "CONCAP" encapsulation protocol interface used for X.25.
- README.diversion
- 	- info on module for isdn diversion services.
-+README.fax
-+	- info for using Fax over ISDN.
-+README.gigaset
-+	- info on the drivers for Siemens Gigaset ISDN adapters
-+README.hfc-pci
-+	- info on hfc-pci based cards.
-+README.hysdn
-+        - info on driver for Hypercope active HYSDN cards
-+README.icn
-+	- info on the ICN-ISDN-card and its driver.
-+README.mISDN
-+	- info on the Modular ISDN subsystem (mISDN)
-+README.pcbit
-+	- info on the PCBIT-D ISDN adapter and driver.
- README.sc
- 	- info on driver for Spellcaster cards.
-+README.syncppp
-+	- info on running Sync PPP over ISDN.
- README.x25
--    _ info for running X.25 over ISDN.
--README.hysdn
--        - info on driver for Hypercope active HYSDN cards
-- 
-+	- info on running X.25 over ISDN.
-+syncPPP.FAQ
-+	- frequently asked questions about running PPP over ISDN.
+Trenton,
+could it be the same as this one?
+http://bugzilla.kernel.org/show_bug.cgi?id=12321
+"System hangs when unloading alsa modules"
+http://bugs.gentoo.org/show_bug.cgi?id=253535
+"System hangs when unloading alsa modules on Kernel >2.6.28"
 -- 
-1.6.2.1.214.ge986c
-
+Stefan Richter
+-=====-==--= -=-- --===
+http://arcgraph.de/sr/
