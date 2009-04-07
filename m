@@ -1,64 +1,59 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH] update Documentation/isdn/00-INDEX
-Date: Mon, 17 Nov 2008 14:01:32 +0100
-Message-ID: <20090407155132.ADBEE111811@xenon.ts.pxnet.com>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:37255 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753284AbZDGPvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2009 11:51:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 7 Apr 2009 09:04:29 -0700
+Message-ID: <20090407090429.6d29a23e@hobbes>
+References: <20090406.190745.263215778.davem@davemloft.net>
+	<alpine.LFD.2.00.0904061931160.4010@localhost.localdomain>
+	<20090406202441.1c050ec6@hobbes>
+	<20090406.210426.38766000.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759879AbZDGQFr@vger.kernel.org>
+In-Reply-To: <20090406.210426.38766000.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After the merging of mISDN, state which files refer only to the
-old isdn4linux subsystem.  Also add a few missing files.
+On Mon, 06 Apr 2009 21:04:26 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- Documentation/isdn/00-INDEX |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
+> From: Jesse Barnes <jbarnes@virtuousgeek.org>
+> Date: Mon, 6 Apr 2009 20:24:41 -0700
+> 
+> > On Mon, 6 Apr 2009 19:32:11 -0700 (PDT)
+> > Linus Torvalds <torvalds@linux-foundation.org> wrote:
+> > 
+> >> On Mon, 6 Apr 2009, David Miller wrote:
+> >> 
+> >> > From: Linus Torvalds <torvalds@linux-foundation.org>
+> >> > Date: Mon, 6 Apr 2009 18:25:31 -0700 (PDT)
+> >> > > 
+> >> > > 
+> >> > > The sky2 driver is buggered (by the previous pull, I presume).
+> >> > > Some PCI interaction. NULL pointer dereference at boot.
+> >> > 
+> >> > Fixed in the PCI tree, have you pulled that one yet?
+> >> 
+> >> Nobody has even _asked_ me to pull.
+> >> 
+> >> What's the point of having fixes available if they aren't merged?
+> > 
+> > I just pushed it into my repo today and wanted at least a day of
+> > linux-next before asking you to pull.
+> 
+> I feel like I've been watching people get pointed to that fix
+> for what seems like days.
+> 
+> In fact this is why I was under the impression that you had
+> already asked Linus to merge the fix. :-)
 
-diff --git a/Documentation/isdn/00-INDEX b/Documentation/isdn/00-INDEX
-index 9fee5f2..105cc6f 100644
---- a/Documentation/isdn/00-INDEX
-+++ b/Documentation/isdn/00-INDEX
-@@ -2,8 +2,12 @@
- 	- this file (info on ISDN implementation for Linux)
- CREDITS
- 	- list of the kind folks that brought you this stuff.
-+HiSax.cert
-+	- information about the ITU approval certification of the HiSax driver.
- INTERFACE
--	- description of Linklevel and Hardwarelevel ISDN interface.
-+	- description of isdn4linux Link Level and Hardware Level interfaces.
-+INTERFACE.fax
-+	- description of the fax subinterface of isdn4linux.
- README
- 	- general info on what you need and what to do for Linux ISDN.
- README.FAQ
-@@ -12,6 +16,8 @@ README.audio
- 	- info for running audio over ISDN.
- README.fax
- 	- info for using Fax over ISDN.
-+README.gigaset
-+	- info on the drivers for Siemens Gigaset ISDN adapters.
- README.icn
- 	- info on the ICN-ISDN-card and its driver.
- README.HiSax
-@@ -37,8 +43,9 @@ README.diversion
- README.sc
- 	- info on driver for Spellcaster cards.
- README.x25
--    _ info for running X.25 over ISDN.
-+	- info on running X.25 over ISDN.
- README.hysdn
-         - info on driver for Hypercope active HYSDN cards
-- 
-+README.mISDN
-+	- info on the Modular ISDN subsystem (mISDN).
-+
+It came in right as I was putting together my tree for the merge
+window; putting it in along with a few other fixes would have meant a
+delay to do more testing etc so I figured I'd put it off until now.
+Sorry about that; I didn't know so many people were running into it.
+
 -- 
-1.6.2.1.214.ge986c
-
+Jesse Barnes, Intel Open Source Technology Center
