@@ -1,95 +1,50 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH 1/3] phylib: Basic support for the M88E1121R Marvell chip
-Date: Tue,  7 Apr 2009 14:01:41 +0200
-Message-ID: <1239105703-26240-1-git-send-email-agust@denx.de>
-Cc: afleming@freescale.com, Sergei Poselenov <sposelenov@emcraft.com>,
-	Yuri Tikhonov <yur@emcraft.com>
-To: netdev@vger.kernel.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Tue, 07 Apr 2009 08:48:40 -0400
+Message-ID: <1239108520.32737.28.camel@dogo.mojatatu.com>
+References: <1238701718.5669.26.camel@bender>
+	 <20090407072647.GA11480@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Johann Baudy <johann.baudy@gnu-log.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:44635 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752959AbZDGMBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 08:01:46 -0400
+Received: from wa-out-1112.google.com ([209.85.146.177]:31430 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751528AbZDGMv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 08:51:27 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so2057511wah.21
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2009 05:51:25 -0700 (PDT)
+In-Reply-To: <20090407072647.GA11480@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Poselenov <sposelenov@emcraft.com>
+On Tue, 2009-04-07 at 15:26 +0800, Herbert Xu wrote:
 
-Add support for the Marvell M88E1121R Dual GigE PHY
+> What if something modifies skb->mark after it's sent? 
+> For now the only thing I can think of is a tc netfilter action.  So you could
+> also solve the problem by removing that feature since IMHO it is
+> pretty dodgy :)
 
-Signed-off-by: Yuri Tikhonov <yur@emcraft.com>
-Signed-off-by: Sergei Poselenov <sposelenov@emcraft.com>
-Signed-off-by: Anatolij Gustschin <agust@denx.de>
----
- drivers/net/phy/marvell.c |   41 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
+I see it as being non-trivial even with tc/mark. What did you
+have in mind? 
+If it was possible to have a different skb->cookie (other than
+skb->mark, sort of "global cb") which the sender sets and 
+the kernel never touches then this would be easy. The skb->destructor
+can then be sure that it was the original skb in the lookup. Such a
+field could serve other purposes like notify user space that the packet
+has been really sent out (eg in the case of tun). But that would require
+a new field on the skb.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index eb6411c..e9f436b 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -69,6 +69,11 @@
- #define MII_M1111_COPPER		0
- #define MII_M1111_FIBER			1
- 
-+#define MII_88E1121_PHY_LED_CTRL	16
-+#define MII_88E1121_PHY_LED_PAGE	3
-+#define MII_88E1121_PHY_LED_DEF		0x0030
-+#define MII_88E1121_PHY_PAGE		22
-+
- #define MII_M1011_PHY_STATUS		0x11
- #define MII_M1011_PHY_STATUS_1000	0x8000
- #define MII_M1011_PHY_STATUS_100	0x4000
-@@ -154,6 +159,30 @@ static int marvell_config_aneg(struct phy_device *phydev)
- 	return err;
- }
- 
-+static int m88e1121_config_aneg(struct phy_device *phydev)
-+{
-+	int err, temp;
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_M1011_PHY_SCR,
-+			MII_M1011_PHY_SCR_AUTO_CROSS);
-+	if (err < 0)
-+		return err;
-+
-+	temp = phy_read(phydev, MII_88E1121_PHY_PAGE);
-+
-+	phy_write(phydev, MII_88E1121_PHY_PAGE, MII_88E1121_PHY_LED_PAGE);
-+	phy_write(phydev, MII_88E1121_PHY_LED_CTRL, MII_88E1121_PHY_LED_DEF);
-+	phy_write(phydev, MII_88E1121_PHY_PAGE, temp);
-+
-+	err = genphy_config_aneg(phydev);
-+
-+	return err;
-+}
-+
- static int m88e1111_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -482,6 +511,18 @@ static struct phy_driver marvell_drivers[] = {
- 		.driver = {.owner = THIS_MODULE,},
- 	},
- 	{
-+		.phy_id = 0x01410cb0,
-+		.phy_id_mask = 0xfffffff0,
-+		.name = "Marvell 88E1121R",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_aneg = &m88e1121_config_aneg,
-+		.read_status = &marvell_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.driver = { .owner = THIS_MODULE },
-+	},
-+	{
- 		.phy_id = 0x01410cd0,
- 		.phy_id_mask = 0xfffffff0,
- 		.name = "Marvell 88E1145",
--- 
-1.5.6.3
+[For a fleeting latte-moment there i thought i had a clever idea: I
+wanted to say that the numeric (32/64 bit) allocated address of the skb
+may be useful for the cookie but i think that could change in the skb's
+kernel lifetime (skb_expand etc).]
+
+cheers,
+jamal
 
