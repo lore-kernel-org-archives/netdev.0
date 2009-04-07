@@ -1,45 +1,37 @@
-From: Mark Ryden <markryde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Linux wireless mini-summit -- Berlin, June 2009
-Date: Tue, 7 Apr 2009 09:10:15 +0300
-Message-ID: <dac45060904062310o3861d05kf1ef24450cd70011@mail.gmail.com>
-References: <20090403182724.GA7364@tuxdriver.com>
-	 <b25312890904050352n391f4707mfafca74aef8bca06@mail.gmail.com>
-	 <1238932997.3782.6.camel@johannes.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
+Date: Tue, 7 Apr 2009 06:24:25 +0000
+Message-ID: <20090407062425.GA4195@ff.dom.local>
+References: <9b1675090904062123u42a00a80y3a4385740ecc0121@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Rami Rosen <roszenrami-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1238932997.3782.6.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Trenton D. Adams" <trenton.d.adams@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.245]:21866 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751244AbZDGGYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 02:24:37 -0400
+Content-Disposition: inline
+In-Reply-To: <9b1675090904062123u42a00a80y3a4385740ecc0121@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
- There is a lot of interest in Linux Wireless around the world.  I
-believe that many who cannot attend (like me), will be happy if videos
-and slides of the presentations will be available afterwards. (as was
-done in other Fedora FUDCon  conferences in the past).
+On 07-04-2009 06:23, Trenton D. Adams wrote:
+...
+> This gave me a bit of a chuckle. ROFL.  I didn't think you were
+> _blaming_ me.  And even if you were, I'd just say "I'M HUMAN MAN". ;)
 
-Regards,
-Mark
+So, do you think you should be treated better than others? @-)
 
-
-On Sun, Apr 5, 2009 at 3:03 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
-> On Sun, 2009-04-05 at 13:52 +0300, Rami Rosen wrote:
->
->> I believe that 802.11n implementation and design in the Linux Wireless stack
->> can be of interest/good to include (also 802.11n Linux future directions ).
->
-> I'll be there unless something weird happens -- anything mac80211
-> related and especially aggregation (since I rewrote it) I can cover.
->
-> johannes
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarek P.
