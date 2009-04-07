@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] axnet_cs: fix phy_id detection for bogus Asix chip.
-Date: Mon, 06 Apr 2009 17:42:59 -0700 (PDT)
-Message-ID: <20090406.174259.231533032.davem@davemloft.net>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+Subject: Re: [2.6 patch] net/802/fddi.c: add MODULE_LICENSE
+Date: Mon, 06 Apr 2009 17:43:11 -0700 (PDT)
+Message-ID: <20090406.174311.169097458.davem@davemloft.net>
+References: <20090405163621.GC3718@localhost.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46978
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46981
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751951AbZDGAnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:43:09 -0400
-In-Reply-To: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	by vger.kernel.org with ESMTP id S1751986AbZDGAnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:43:21 -0400
+In-Reply-To: <20090405163621.GC3718@localhost.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Sun, 5 Apr 2009 09:49:07 +0900
+From: Adrian Bunk <bunk@kernel.org>
+Date: Sun, 5 Apr 2009 19:36:21 +0300
 
-> axnet_cs:
+> This patch adds the missing MODULE_LICENSE("GPL").
 > 
-> (1) Some Asix phy return bogus value except 0 or 0xffff.
->     Skip this phy_id.
-> 
-> (2) Some Asix chip need to set "select Internal PHY" bit
->     at AX88190_init.
-> 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 Applied.
