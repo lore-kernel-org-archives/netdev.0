@@ -1,61 +1,67 @@
-From: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
-Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
-Date: Tue, 07 Apr 2009 18:16:55 +0200
-Message-ID: <49DB7C77.1000702@s5r6.in-berlin.de>
-References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] skge: fix occasional BUG during MTU change
+Date: Tue, 7 Apr 2009 18:36:23 +0200
+Message-ID: <20090407183623.7545bb0b@leela>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.00.0904061443000.7443-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:48203 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758840AbZDGQgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2009 12:36:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds wrote:
-> On Mon, 6 Apr 2009, Rafael J. Wysocki wrote:
->> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13018
->> Subject		: 2.6.29 on MacBook 2,1 fails to reboot
->> Submitter	: Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> Date		: 2009-03-30 2:04 (8 days old)
->> References	: http://marc.info/?l=linux-kernel&m=123837870307249&w=4
->> Handled-By	: "Morten P.D. Stevens" <mstevens-APqb+XXLJz/QQQFqJy/XgFaTQe2KTcn/@public.gmane.org>
-> 
-> This went through bisection, but looking at the email log, I tend to 
-> suspect that maybe Trenton marked some versions good even though they 
-> weren't (because they got versions numbers from v2.6.27), and didn't 
-> realize that that messes up bisection in a big way.
-> 
-> The bug _sounds_ like some deadlock due to lock problems - the shutdown 
-> path often triggers locks that no other path really cares about. And we 
-> had some lock problems in the sound subsystem that got fixed post-2.6.28, 
-> for example. 
-> 
-> And it looks like the problem is somewhere in sound shutdown:
-> 
-> 12181 delete_module("snd_hda_codec", O_RDONLY|O_EXCL) = -1 EAGAIN (Resource temporarily unavailable) <0.000011>
-> 
-> So commits like 91054598f794fb5d8a0b1e747ff8e2e8fc2115b3 ("ALSA: pcm_oss, 
-> fix locking typo") might explain it.
+The BUG_ON(skge->tx_ring.to_use != skge->tx_ring.to_clean) in skge_up()
+was sometimes observed when setting MTU.
 
-Trenton,
-could it be the same as this one?
-http://bugzilla.kernel.org/show_bug.cgi?id=12321
-"System hangs when unloading alsa modules"
-http://bugs.gentoo.org/show_bug.cgi?id=253535
-"System hangs when unloading alsa modules on Kernel >2.6.28"
+skge_down() disables the TX queue, but then reenables it by mistake via
+skge_tx_clean().
+Fix it by moving the waking of the queue from skge_tx_clean() to the
+other caller. And to make sure start_xmit is not in progress on another
+CPU, skge_down() should call netif_tx_disable().
+
+The bug was reported to me by Jiri Jilek whose Debian system sometimes
+failed to boot. He tested the patch and the bug did not happen anymore.
+
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/skge.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 952d37f..b2a05af 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -2674,7 +2674,7 @@ static int skge_down(struct net_device *dev)
+ 	if (netif_msg_ifdown(skge))
+ 		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
+ 
+-	netif_stop_queue(dev);
++	netif_tx_disable(dev);
+ 
+ 	if (hw->chip_id == CHIP_ID_GENESIS && hw->phy_type == SK_PHY_XMAC)
+ 		del_timer_sync(&skge->link_timer);
+@@ -2881,7 +2881,6 @@ static void skge_tx_clean(struct net_device *dev)
+ 	}
+ 
+ 	skge->tx_ring.to_clean = e;
+-	netif_wake_queue(dev);
+ }
+ 
+ static void skge_tx_timeout(struct net_device *dev)
+@@ -2893,6 +2892,7 @@ static void skge_tx_timeout(struct net_device *dev)
+ 
+ 	skge_write8(skge->hw, Q_ADDR(txqaddr[skge->port], Q_CSR), CSR_STOP);
+ 	skge_tx_clean(dev);
++	netif_wake_queue(dev);
+ }
+ 
+ static int skge_change_mtu(struct net_device *dev, int new_mtu)
 -- 
-Stefan Richter
--=====-==--= -=-- --===
-http://arcgraph.de/sr/
+1.6.2.2
+
