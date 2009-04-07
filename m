@@ -1,34 +1,35 @@
-From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
-Date: Tue, 7 Apr 2009 13:04:03 -0600
-Message-ID: <20090407130403.e0061a8d.zaitcev@redhat.com>
-References: <18906.49779.243047.207639@stoffel.org>
-	<20090407120022.GA6519@ff.dom.local>
-	<18907.28788.965069.573489@stoffel.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: No local loopback for mac80211_hwsim test setup
+Date: Tue, 07 Apr 2009 21:07:03 +0200
+Message-ID: <49DBA457.7060307@monom.org>
+References: <20090403123822.GA26100@toronto053.server4you.de>	 (sfid-20090403_150647_912363_CB6A5CE6) <1238787032.11352.1.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <18907.28788.965069.573489-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1238787032.11352.1.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Apr 2009 11:25:40 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
+Johannes Berg wrote:
+> On Fri, 2009-04-03 at 14:38 +0200, Daniel Wagner wrote:
+> 
+>> So my question is this possible what I'd like to do? If so, what's the
+>> trick to get it working?
+> 
+> It's not possible locally, unfortunately, afaik.
 
-> But I'm surprised that USB_MON would be the cause when it's a
-> networking tool which is starting up?  *shrug*
+Ok, I found workaround for my problem. I'm using a VM with a small
+linux distro inside. The networking interface is bridge to the wlan
+interface. With this setup I can have some services running and have
+real traffic over the 'link'. Not really lightweight, but well, I
+guess hardware vendors like this approach.
 
-The libpcap supports usbmon. Perhaps it scans something.
-
-The big problem with usbmon is, it has to trust what drivers
-stuff into URBs. Bet it's your uvcvideo. A rough driver, that.
-
--- Pete
+thanks,
+daniel
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
