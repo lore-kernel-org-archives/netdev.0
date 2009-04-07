@@ -1,63 +1,42 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: more findings/questions on vlans/bonds
-Date: Tue, 07 Apr 2009 07:13:59 -0700
-Message-ID: <5325.1239113639@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com>
-Cc: netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@voltaire.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Tue, 7 Apr 2009 22:17:08 +0800
+Message-ID: <20090407141708.GA15253@gondor.apana.org.au>
+References: <1238701718.5669.26.camel@bender> <20090407072647.GA11480@gondor.apana.org.au> <1239108520.32737.28.camel@dogo.mojatatu.com> <20090407130447.GA14329@gondor.apana.org.au> <1239112067.32737.51.camel@dogo.mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Johann Baudy <johann.baudy@gnu-log.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:60079 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120AbZDGOOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 10:14:21 -0400
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e31.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n37EBAn3020727
-	for <netdev@vger.kernel.org>; Tue, 7 Apr 2009 08:11:10 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n37EE6eo086372
-	for <netdev@vger.kernel.org>; Tue, 7 Apr 2009 08:14:06 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n37EDu3x009426
-	for <netdev@vger.kernel.org>; Tue, 7 Apr 2009 08:13:56 -0600
-In-reply-to: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:45646 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752120AbZDGOR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 10:17:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1239112067.32737.51.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
-[...]
->I hope that you can help clarify what's the correct/supported method
->to work with vlans and bonds, with 2.6.29 I see that one can either
->
->[I pasted in the fixed text here]
-> 	- vlan a bond (bond0.4001 over bond0 over eth0/1)
-> 	- bond vlans (e.g bond0 over eth0/1.4001 over eth0/1)
+On Tue, Apr 07, 2009 at 09:47:47AM -0400, jamal wrote:
+> On Tue, 2009-04-07 at 21:04 +0800, Herbert Xu wrote:
+> 
+> > Well through tc ipt actions you can invoke arbitrary netfilter
+> > targets, including MARK --set-mark.
+> 
+> I thought you were saying this issue can be solved by 
+> tc/mark but you meant tc/mark is one culprit;->
+> Solvable by making sure tc/mark is not used in the system
+> you are running an app using this feature.
 
-	I'll have to look into this, but my recollection is that you
-should be able to do either of the above.  I haven't tested the second
-flavor lately, but I believe it should work.  It's arguably only better
-than the first alternative if, for some reason, the user wants to either
-load balance or fail over across multiple VLANs, but (if all slaves are
-on the same VLAN) the two above scenarios should be functionally
-equivalent.
+Actually it's not just the tc ipt action.  If the target device
+is a bridge then that too can invoke netfilter.  On the other hand
+this is yet another feature that I've never really liked :)
 
->I played a bit with bonding vlans (2.6.29 active-backup mode) and it
->doesn't seem to work - specifically, I noted that bonding doesn't issue
->fail-over after I changed the current slave link status to down ("ifconfig
->eth0.4001 down"). I suspect that the carrier based link monitoring scheme
->is broken wrt to vlan devices - e.g I found that at least from sysfs
->perspective the vlan device carrier isn't available:
->
->$ cat /sys/class/net/eth0.4001/carrier
->cat: /sys/class/net/eth0.4001/carrier: Invalid argument
->
->I also played with a post 2.6.29 cut of Linus tree, and I couldn't bond vlans.
->I thought that the reason may be that a vlan device has already master -
->but I found out that its wrong and vlans don't have the IFF_SLAVE bit set
->in their flags bit mask. So this may be either something wrong on my side
->or a bug introduced after 2.6.29 or just something which isn't supported,
->e.g following my findings with 2.6.29 above...
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
