@@ -1,89 +1,60 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [GIT]: Networking
-Date: Mon, 6 Apr 2009 18:33:24 -0700
-Message-ID: <20090406183324.6997e70d@hobbes>
-References: <20090406.175752.236260059.davem@davemloft.net>
-	<alpine.LFD.2.00.0904061824410.4010@localhost.localdomain>
+From: "Universitetet I Oslo" <admin.centre@admin.uio.no>
+Subject: =?iso-8859-1?Q?Kj=E6re_uio.no_konto_Bruker?=
+Date: Tue, 7 Apr 2009 03:57:00 +0200 (CEST)
+Message-ID: <11375.41.220.75.3.1239069420.squirrel@webmail.verat.net>
+Reply-To: administration.centre4@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-mail-18.bluehost.com ([69.89.20.233]:34880 "HELO
-	outbound-mail-18.bluehost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752989AbZDGBda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 21:33:30 -0400
-In-Reply-To: <alpine.LFD.2.00.0904061824410.4010@localhost.localdomain>
+Received: from olc-11.verat.net ([62.108.127.37]:38513 "EHLO olc-11.verat.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752106AbZDGCGg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2009 22:06:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Apr 2009 18:25:31 -0700 (PDT)
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
+Kj=E6re uio.no konto Bruker,
 
-> 
-> 
-> The sky2 driver is buggered (by the previous pull, I presume). Some
-> PCI interaction. NULL pointer dereference at boot.
+Det vil v=E6re en generell oppgradering i systemet mellom April 6 til 1=
+2
+2009.P=E5 grunn av anonym registrering av uio.no kontoer og antall
+av sovende kontoer, vil vi kj=F8re denne oppgraderingen for =E5 fastsl=E5
+n=F8yaktige antallet abonnenter vi har i dag.
 
-Hopefully fixed by this patch in my for-linus branch?
+Du blir bedt om =E5 logge deg inn p=E5 uio.no og bekrefte hvis
+Kontoen er fortsatt gyldig og sender umiddelbart den folowing:
 
--- 
-Jesse Barnes, Intel Open Source Technology Center
+Brukernavn: :................................( Obligatorisk)
+Passord :...................................( Obligatorisk)
+=46=F8dselsdato :..............................( Valgfritt)
+Staten :........................................( Valgfritt)
 
-commit d6141668c24d7d75c3486499c05a6b382cbc2bbe
-Author: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date:   Wed Apr 1 02:23:41 2009 +0400
+=46=F8r du sender kontoopplysningene dine til oss, er du r=E5d til =E5 =
+logge inn i
+denne Koblingen nedenfor: https://webmail.uio.no/src/login.php
 
-    PCI: Fix oops in pci_vpd_truncate
-    
-    pci_vpd_truncate() should check for dev->vpd->attr, otherwise
-    this might happen:
-    
-    sky2 driver version 1.22
-    Unable to handle kernel paging request for data at address 0x0000000c
-    Faulting instruction address: 0xc01836fc
-    Oops: Kernel access of bad area, sig: 11 [#1]
-    [...]
-    NIP [c01836fc] pci_vpd_truncate+0x38/0x40
-    LR [c029be18] sky2_probe+0x14c/0x518
-    Call Trace:
-    [ef82bde0] [c029bda4] sky2_probe+0xd8/0x518 (unreliable)
-    [ef82be20] [c018a11c] local_pci_probe+0x24/0x34
-    [ef82be30] [c018a14c] pci_call_probe+0x20/0x30
-    [ef82be50] [c018a330] __pci_device_probe+0x64/0x78
-    [ef82be60] [c018a44c] pci_device_probe+0x30/0x58
-    [ef82be80] [c01aa270] really_probe+0x78/0x1a0
-    [ef82bea0] [c01aa460] __driver_attach+0xa4/0xa8
-    [ef82bec0] [c01a96ac] bus_for_each_dev+0x60/0x9c
-    [ef82bef0] [c01aa0b4] driver_attach+0x24/0x34
-    [ef82bf00] [c01a9e08] bus_add_driver+0x12c/0x1cc
-    [ef82bf20] [c01aa87c] driver_register+0x6c/0x110
-    [ef82bf30] [c018a770] __pci_register_driver+0x4c/0x9c
-    [ef82bf50] [c03782c8] sky2_init_module+0x30/0x40
-    [ef82bf60] [c0001dbc] do_one_initcall+0x34/0x1a0
-    [ef82bfd0] [c0362240] do_initcalls+0x38/0x58
-    
-    This happens with CONFIG_SKY2=y, and "ip=on" kernel command line, so
-    pci_vpd_truncate() is called before late_initcall(pci_sysfs_init),
-    therefore ->attr isn't yet initialized.
-    
-    Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-    Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+Merk at hvis kontoen din gj=F8re Login sende oss detaljene eller det be=
+tyr
+det har v=E6rt deleted.beklager den inconvinences dette kan f=F8re til =
+at du
+vi bare pr=F8ver =E5 kontrollere at du ikke mister informasjon i regnsk=
+apet..
 
-diff --git a/drivers/pci/access.c b/drivers/pci/access.c
-index 3814447..64dd7df 100644
---- a/drivers/pci/access.c
-+++ b/drivers/pci/access.c
-@@ -356,7 +356,8 @@ int pci_vpd_truncate(struct pci_dev *dev, size_t size)
- 		return -EINVAL;
- 
- 	dev->vpd->len = size;
--	dev->vpd->attr->size = size;
-+	if (dev->vpd->attr)
-+		dev->vpd->attr->size = size;
- 
- 	return 0;
- }
+Alt du trenger =E5 gj=F8re er =E5 Klikk Svar og levere ut informasjonen=
+ ovenfor,
+Kontoen din vil ikke bli avbrutt og vil fortsette som normalt.
+
+Takk for din oppmerksomhet til denne foresp=F8rselen. Igjen Vi beklager
+eventuelle
+inconveniences. Advarsel! Konto brukere som nekter =E5 oppdatere kontoe=
+n sin
+etter 5 dager etter =E5 ha mottatt denne advarselen, brukeren mister si=
+n konto
+permanent.
+
+2009=A9 Universitetet i Oslo (uio.no)
+
+
+
