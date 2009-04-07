@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] smsc911x: remove unused #include <linux/version.h>
-Date: Mon, 06 Apr 2009 17:42:47 -0700 (PDT)
-Message-ID: <20090406.174247.252198961.davem@davemloft.net>
-References: <1238896397-3572-1-git-send-email-weiyi.huang@gmail.com>
+Subject: Re: [PATCH] axnet_cs: fix phy_id detection for bogus Asix chip.
+Date: Mon, 06 Apr 2009 17:42:59 -0700 (PDT)
+Message-ID: <20090406.174259.231533032.davem@davemloft.net>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org
-To: weiyi.huang@gmail.com
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46974
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46978
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751331AbZDGAm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:42:58 -0400
-In-Reply-To: <1238896397-3572-1-git-send-email-weiyi.huang@gmail.com>
+	by vger.kernel.org with ESMTP id S1751951AbZDGAnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2009 20:43:09 -0400
+In-Reply-To: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Date: Sun,  5 Apr 2009 09:53:17 +0800
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Sun, 5 Apr 2009 09:49:07 +0900
 
-> Remove unused #include <linux/version.h> in drivers/net/smsc911x.c.
+> axnet_cs:
 > 
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+> (1) Some Asix phy return bogus value except 0 or 0xffff.
+>     Skip this phy_id.
+> 
+> (2) Some Asix chip need to set "select Internal PHY" bit
+>     at AX88190_init.
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
 Applied.
