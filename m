@@ -1,43 +1,41 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: zero features for a vlan over bond
-Date: Wed, 8 Apr 2009 01:16:24 +0300
-Message-ID: <15ddcffd0904071516r119f89ccm343f62918b37b0a0@mail.gmail.com>
-References: <Pine.LNX.4.64.0904061556140.32757@zuben.voltaire.com>
-	 <6223.1239113811@death.nxdomain.ibm.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
+Date: Wed, 8 Apr 2009 00:24:19 +0200
+Message-ID: <200904080024.20489.rjw@sisk.pl>
+References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <Pine.LNX.4.64.0904071256110.12253@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Or Gerlitz <ogerlitz@voltaire.com>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Mikael Pettersson <mikpe@it.uu.se>
+To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:4128 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759693AbZDGWQ0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 18:16:26 -0400
-Received: by fg-out-1718.google.com with SMTP id e12so1006721fga.17
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2009 15:16:24 -0700 (PDT)
-In-Reply-To: <6223.1239113811@death.nxdomain.ibm.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:56195 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759833AbZDGWYY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 18:24:24 -0400
+In-Reply-To: <Pine.LNX.4.64.0904071256110.12253@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 7, 2009 at 5:16 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> I suspect a bridge will display the same symptoms. I'm working on a p=
-atch; I'll see
-> what I can come up with. =A0Note, however, that at this writing, the =
-set of drivers that
-> explicitly supports VLAN passthrough (a non-zero vlan_features) is ra=
-ther limited.
+On Tuesday 07 April 2009, Ilpo J=E4rvinen wrote:
+> On Mon, 6 Apr 2009, Rafael J. Wysocki wrote:
+>=20
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12867
+> > Subject		: 2.6.29-rc7 broke r8169 MAC on Thecus n2100 ARM board
+> > Submitter	: Mikael Pettersson <mikpe@it.uu.se>
+> > Date		: 2009-03-09 20:29 (29 days old)
+> > References	: http://marc.info/?l=3Dlinux-kernel&m=3D123663065403760=
+&w=3D4
+> > Handled-By	: Francois Romieu <romieu@fr.zoreil.com>
+>=20
+> I think this was fixed in the mainline by revert
+> ea8dbdd17099a9a5864ebd4c87e01e657b19c7ab.
 
-Hi Jay,
+Thanks, closed.
 
-Thanks for your quick notes. I'm looking forward to see the patch and
-then better understand the impact on bridges and how VLANs are going
-along with bonds and bridges, but the way are later two coexist
-peacefully? I remember discussions in the past whether one can bridge
-bonds and/or bond bridges, however, I wasn't sure what was the
-conclusion and what is possible, I would be more interested to see
-that the specific case of a bond  connected to a bridge is supported.
-We are going into the Passover vacation and as such I would be somehow
-slow in responding over the next week or so.
-
-Or.
+Rafael
