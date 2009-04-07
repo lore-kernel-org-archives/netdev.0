@@ -1,39 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Tue, 7 Apr 2009 21:04:47 +0800
-Message-ID: <20090407130447.GA14329@gondor.apana.org.au>
-References: <1238701718.5669.26.camel@bender> <20090407072647.GA11480@gondor.apana.org.au> <1239108520.32737.28.camel@dogo.mojatatu.com>
+Date: Tue, 07 Apr 2009 09:47:47 -0400
+Message-ID: <1239112067.32737.51.camel@dogo.mojatatu.com>
+References: <1238701718.5669.26.camel@bender>
+	 <20090407072647.GA11480@gondor.apana.org.au>
+	 <1239108520.32737.28.camel@dogo.mojatatu.com>
+	 <20090407130447.GA14329@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Johann Baudy <johann.baudy@gnu-log.net>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
-To: jamal <hadi@cyberus.ca>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58971 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752141AbZDGNFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 09:05:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1239108520.32737.28.camel@dogo.mojatatu.com>
+Received: from rv-out-0506.google.com ([209.85.198.230]:37950 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756732AbZDGNud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 09:50:33 -0400
+Received: by rv-out-0506.google.com with SMTP id b25so297372rvf.5
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2009 06:50:31 -0700 (PDT)
+In-Reply-To: <20090407130447.GA14329@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 07, 2009 at 08:48:40AM -0400, jamal wrote:
->
-> I see it as being non-trivial even with tc/mark. What did you
-> have in mind? 
+On Tue, 2009-04-07 at 21:04 +0800, Herbert Xu wrote:
 
-Well through tc ipt actions you can invoke arbitrary netfilter
-targets, including MARK --set-mark.
+> Well through tc ipt actions you can invoke arbitrary netfilter
+> targets, including MARK --set-mark.
 
-In fact I've never really liked tc ipt actions since it doesn't
-do any sanity checking on the packet before invoking the target
-while normally netfitler does quite a bit of sanity checking.
+I thought you were saying this issue can be solved by 
+tc/mark but you meant tc/mark is one culprit;->
+Solvable by making sure tc/mark is not used in the system
+you are running an app using this feature.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+But the superset of what Johann wants seems to be a common 
+issue: identifying _precisely_ when the skb sent out is done 
+with - in his case, so he can use some field to lookup a table.
+Other times i have seen people ask for it is for tun/tap 
+notification in user space when a packet sent actually went out.
+
+> In fact I've never really liked tc ipt actions since it doesn't
+> do any sanity checking on the packet before invoking the target
+> while normally netfitler does quite a bit of sanity checking.
+
+more could be done in user space if you really need it.
+
+cheers,
+jamal
+
