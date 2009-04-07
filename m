@@ -1,43 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Tue, 7 Apr 2009 15:26:47 +0800
-Message-ID: <20090407072647.GA11480@gondor.apana.org.au>
-References: <1238701718.5669.26.camel@bender>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: IRQF_SAMPLE_RANDOM question...
+Date: Tue, 07 Apr 2009 01:27:41 -0700
+Message-ID: <49DB0E7D.2070300@goop.org>
+References: <200904061430.26276.rgetz@blackfin.uclinux.org>	<49DA4C85.5090806@garzik.org> <20090406114432.3a554eba@nehalam> <49DA4ECC.9050204@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
-To: Johann Baudy <johann.baudy@gnu-log.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Robin Getz <rgetz@blackfin.uclinux.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris Peterson <cpeterso@cpeterso.com>,
+	Matt Mackall <mpm@selenic.com>,
+	David Miller <davem@davemloft.net>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33487 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751966AbZDGH05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 03:26:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1238701718.5669.26.camel@bender>
+Received: from gw.goop.org ([64.81.55.164]:57627 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751223AbZDGI1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2009 04:27:45 -0400
+In-Reply-To: <49DA4ECC.9050204@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 02, 2009 at 07:48:38PM +0000, Johann Baudy wrote:
+Jeff Garzik wrote:
+> Stephen Hemminger wrote:
+>> The real problem one is xen-netfront. Because 1) it is least random,
+>> the attacker might be another VM 2) the VM is most in need of random
+>> samples because it doesn't have real hardware.
 >
-> +static void tpacket_destruct_skb(struct sk_buff *skb)
-> +{
-> +	struct packet_sock *po = pkt_sk(skb->sk);
-> +	void * ph;
-> +	
-> +	BUG_ON(skb == NULL);
-> +	
-> +	if (likely(po->tx_ring.pg_vec)) {
-> +		ph = packet_lookup_frame(po, &po->tx_ring, skb->mark, TP_STATUS_COPY);
+> Agreed.
+>
+> I'm surprised Xen doesn't use virtio-rng.  I guess it needs a special 
+> Xen paravirt driver for randomness. 
 
-What if something modifies skb->mark after it's sent? For now the
-only thing I can think of is a tc netfilter action.  So you could
-also solve the problem by removing that feature since IMHO it is
-pretty dodgy :)
+Yes, sampling randomness in a PV driver is pretty pointless.  We could 
+do the guest end of an entropy sink entirely in usermode, but at present 
+there's no dom0 support for an entropy source.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+    J
