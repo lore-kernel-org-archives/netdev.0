@@ -1,29 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] locking typo in xfrm_state.c
-Date: Wed, 08 Apr 2009 04:15:59 -0700 (PDT)
-Message-ID: <20090408.041559.245922838.davem@davemloft.net>
-References: <alpine.DEB.2.00.0904081345430.30705@bicker>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] nui.c error handling
+Date: Wed, 8 Apr 2009 14:39:28 +0300 (EAT)
+Message-ID: <alpine.DEB.2.00.0904081437400.32632@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: error27@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46445
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752996AbZDHLQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 07:16:09 -0400
-In-Reply-To: <alpine.DEB.2.00.0904081345430.30705@bicker>
+Received: from qw-out-2122.google.com ([74.125.92.25]:34586 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932885AbZDHLns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 07:43:48 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so56150qwh.37
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2009 04:43:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Wed, 8 Apr 2009 13:45:48 +0300 (EAT)
+platform_device_register_simple() returns ERR_PTR(), not NULL, if an error 
+occurs.
 
-> I'm not sure who to send this patch to.
-> 
-> There is a double lock instead of an unlock.
-> 
-> Found by smatch (http://repo.or.cz/w/smatch.git).  Compile tested.
+Found by smatch (http://repo.or.cz/w/smatch.git).  Compile tested.
 
-Already fixed in mainline and -stable.
+regards,
+dan carpenter
+
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+
+--- orig/drivers/net/niu.c	2009-04-07 21:59:22.000000000 +0300
++++ devel/drivers/net/niu.c	2009-04-07 22:00:45.000000000 +0300
+@@ -8757,7 +8757,7 @@
+ 
+ 	plat_dev = platform_device_register_simple("niu", niu_parent_index,
+ 						   NULL, 0);
+-	if (!plat_dev)
++	if (IS_ERR(plat_dev))
+ 		return NULL;
+ 
+ 	for (i = 0; attr_name(niu_parent_attributes[i]); i++) {
