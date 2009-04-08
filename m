@@ -1,24 +1,35 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: DSA drivers in net/ vs drivers/net/
-Date: Tue, 7 Apr 2009 23:58:05 -0500
-Message-ID: <53D98710-2AA9-42D8-A478-40B51303678B@kernel.crashing.org>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Wed, 8 Apr 2009 14:51:46 +0800
+Message-ID: <20090408065146.GA22852@gondor.apana.org.au>
+References: <1238701718.5669.26.camel@bender> <20090407072647.GA11480@gondor.apana.org.au> <1239108520.32737.28.camel@dogo.mojatatu.com> <20090407130447.GA14329@gondor.apana.org.au> <1239112067.32737.51.camel@dogo.mojatatu.com> <7e0dd21a0904070738jd8a2714wd840352699f1e9f1@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Johann Baudy <johann.baudy@gnu-log.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:47056 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751715AbZDHE6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2009 00:58:12 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:56869 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752459AbZDHGwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 02:52:02 -0400
+Content-Disposition: inline
+In-Reply-To: <7e0dd21a0904070738jd8a2714wd840352699f1e9f1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert,
+On Tue, Apr 07, 2009 at 04:38:01PM +0200, Johann Baudy wrote:
+>
+> Do you think this solution is not acceptable?
 
-Was glancing over the DSA code and was wondering if there was any  
-reason we have the actual drivers for the various chips in net/ vs  
-drivers/net/dsa/
+Not unless you can figure out a way to prevent netfilter from
+being run on your packet.  The two hurdles you have to overcome
+are act_ipt and bridge netfilter.
 
-- k
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
