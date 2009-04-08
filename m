@@ -1,47 +1,27 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: sky2: early oops in pci_vpd_truncate
-Date: Wed, 08 Apr 2009 13:15:50 -0700
-Message-ID: <1239221750.3425.1.camel@brick>
-References: <1238803819.3893.3.camel@brick> <20090403180306.44de0324@hobbes>
-	 <1238815934.3893.4.camel@brick> <20090406112917.54c864ee@hobbes>
-	 <1239054120.13299.0.camel@brick> <20090408120005.GB768@elte.hu>
-	 <20090408094756.1951cec8@hobbes>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netfilter 00/03: netfilter fixes
+Date: Wed, 08 Apr 2009 13:43:26 -0700 (PDT)
+Message-ID: <20090408.134326.60092013.davem@davemloft.net>
+References: <20090408165212.6702.44171.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.238]:23010 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbZDHUPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 16:15:54 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so273860rvb.1
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2009 13:15:53 -0700 (PDT)
-In-Reply-To: <20090408094756.1951cec8@hobbes>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37873
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755553AbZDHUng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 16:43:36 -0400
+In-Reply-To: <20090408165212.6702.44171.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-04-08 at 09:47 -0700, Jesse Barnes wrote:
-> On Wed, 8 Apr 2009 14:00:05 +0200
-> Ingo Molnar <mingo@elte.hu> wrote:
-> > I still have the revert - can i revert the revert from -tip now, 
-> > it's all fixed in .30-rc1, right?
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed,  8 Apr 2009 18:52:16 +0200 (MEST)
+
+> Please apply or pull from:
 > 
-> Yeah Linus pulled the fix, hopefully Harvey can confirm that things are
-> working now.
-> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
 
-Well, now I'm hitting the invalid module format problem that seems to
-have hit some others...so it's made it past the sky2 bits at least.
-
-Rather busy right now, just checking in every few days with mainline
-to see what's (still) broken. ;)
-
-Harvey
-
-
-
+Pulled, thanks Patrick.
