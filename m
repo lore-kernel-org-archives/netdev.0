@@ -1,43 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/03: ip6tables regression fix
-Date: Wed,  8 Apr 2009 18:52:17 +0200 (MEST)
-Message-ID: <20090408165213.6702.77183.sendpatchset@x2.localnet>
-References: <20090408165212.6702.44171.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] ethoc: fix library build errors
+Date: Wed, 8 Apr 2009 10:00:39 -0700
+Message-ID: <20090408100039.855ab138.randy.dunlap@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Thierry Reding <thierry.reding@avionic-design.de>,
+	davem@davemloft.net
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54358 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753008AbZDHQwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 12:52:18 -0400
-In-Reply-To: <20090408165212.6702.44171.sendpatchset@x2.localnet>
+Received: from acsinet12.oracle.com ([141.146.126.234]:20052 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754259AbZDHRAh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 13:00:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 49a88d18a1721ac14dbc67cd390db18ee1f3a42f
-Author: Eric Dumazet <dada1@cosmosbay.com>
-Date:   Mon Apr 6 17:06:55 2009 +0200
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-    netfilter: ip6tables regression fix
-    
-    Commit 7845447 (netfilter: iptables: lock free counters) broke
-    ip6_tables by unconditionally returning ENOMEM in alloc_counters(),
-    
-    Reported-by: Graham Murray <graham@gmurray.org.uk>
-    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+ethoc indirectly uses crc32_le() and bitrev32(), so select
+those library functions to be built.
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index dfed176..800ae85 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1033,6 +1033,8 @@ static struct xt_counters *alloc_counters(struct xt_table *table)
+drivers/built-in.o: In function `ethoc_set_multicast_list':
+ethoc.c:(.text+0x6226f): undefined reference to `crc32_le'
+ethoc.c:(.text+0x62276): undefined reference to `bitrev32'
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+cc: Thierry Reding <thierry.reding@avionic-design.de>
+---
+ drivers/net/Kconfig |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- linux-next-20090408.orig/drivers/net/Kconfig
++++ linux-next-20090408/drivers/net/Kconfig
+@@ -977,6 +977,8 @@ config ETHOC
+ 	depends on NET_ETHERNET && HAS_IOMEM
+ 	select MII
+ 	select PHYLIB
++	select CRC32
++	select BITREVERSE
+ 	help
+ 	  Say Y here if you want to use the OpenCores 10/100 Mbps Ethernet MAC.
  
- 	xt_free_table_info(info);
- 
-+	return counters;
-+
-  free_counters:
- 	vfree(counters);
-  nomem:
