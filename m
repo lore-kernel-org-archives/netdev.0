@@ -1,255 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 1/2] ixgbe: Move the LED blink code to common,
-	since 82599 also uses it
-Date: Wed, 08 Apr 2009 16:20:31 -0700
-Message-ID: <20090408232031.8781.83459.stgit@localhost.localdomain>
+Subject: [PATCH 2/2] ixgbe: only allow WOL for 82599 KX4 NIC
+Date: Wed, 08 Apr 2009 16:20:50 -0700
+Message-ID: <20090408232050.8781.68279.stgit@localhost.localdomain>
+References: <20090408232031.8781.83459.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:44508
-	"EHLO QMTA06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755371AbZDIHs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 03:48:57 -0400
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:60626
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757230AbZDIHtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 03:49:17 -0400
+In-Reply-To: <20090408232031.8781.83459.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The LED blink code is common for 82599 as well.  It should be moved to
-ixgbe_common.c so both devices can use it, and not have it duplicated.
+All NICs were reporting WOL support when only the KX4 NIC is capable of
+supporting WOL.  This patch adds a function to check for and exclude all
+non-WOL capable nics from enabling WOL in ethtool.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82598.c  |   59 +-------------------------------------
- drivers/net/ixgbe/ixgbe_82599.c  |   40 +-------------------------
- drivers/net/ixgbe/ixgbe_common.c |   55 +++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_common.h |    3 ++
- 4 files changed, 62 insertions(+), 95 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   24 +++++++++++++++++++++++-
+ 1 files changed, 23 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index de4db0d..4791238 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -885,61 +885,6 @@ static s32 ixgbe_clear_vfta_82598(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index aafc120..f0a20fa 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -943,6 +943,24 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
  }
  
- /**
-- *  ixgbe_blink_led_start_82598 - Blink LED based on index.
-- *  @hw: pointer to hardware structure
-- *  @index: led number to blink
-- **/
--static s32 ixgbe_blink_led_start_82598(struct ixgbe_hw *hw, u32 index)
--{
--	ixgbe_link_speed speed = 0;
--	bool link_up = 0;
--	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
--	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
--
--	/*
--	 * Link must be up to auto-blink the LEDs on the 82598EB MAC;
--	 * force it if link is down.
--	 */
--	hw->mac.ops.check_link(hw, &speed, &link_up, false);
--
--	if (!link_up) {
--		autoc_reg |= IXGBE_AUTOC_FLU;
--		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
--		msleep(10);
--	}
--
--	led_reg &= ~IXGBE_LED_MODE_MASK(index);
--	led_reg |= IXGBE_LED_BLINK(index);
--	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
--	IXGBE_WRITE_FLUSH(hw);
--
--	return 0;
--}
--
--/**
-- *  ixgbe_blink_led_stop_82598 - Stop blinking LED based on index.
-- *  @hw: pointer to hardware structure
-- *  @index: led number to stop blinking
-- **/
--static s32 ixgbe_blink_led_stop_82598(struct ixgbe_hw *hw, u32 index)
--{
--	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
--	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
--
--	autoc_reg &= ~IXGBE_AUTOC_FLU;
--	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
--	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
--
--	led_reg &= ~IXGBE_LED_MODE_MASK(index);
--	led_reg &= ~IXGBE_LED_BLINK(index);
--	led_reg |= IXGBE_LED_LINK_ACTIVE << IXGBE_LED_MODE_SHIFT(index);
--	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
--	IXGBE_WRITE_FLUSH(hw);
--
--	return 0;
--}
--
--/**
-  *  ixgbe_read_analog_reg8_82598 - Reads 8 bit Atlas analog register
-  *  @hw: pointer to hardware structure
-  *  @reg: analog register to read
-@@ -1128,8 +1073,8 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.get_link_capabilities	= &ixgbe_get_link_capabilities_82598,
- 	.led_on			= &ixgbe_led_on_generic,
- 	.led_off		= &ixgbe_led_off_generic,
--	.blink_led_start	= &ixgbe_blink_led_start_82598,
--	.blink_led_stop		= &ixgbe_blink_led_stop_82598,
-+	.blink_led_start	= &ixgbe_blink_led_start_generic,
-+	.blink_led_stop		= &ixgbe_blink_led_stop_generic,
- 	.set_rar		= &ixgbe_set_rar_generic,
- 	.clear_rar		= &ixgbe_clear_rar_generic,
- 	.set_vmdq		= &ixgbe_set_vmdq_82598,
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index beae7e0..29771fb 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -68,8 +68,6 @@ s32 ixgbe_clear_vmdq_82599(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
- s32 ixgbe_set_vfta_82599(struct ixgbe_hw *hw, u32 vlan,
-                          u32 vind, bool vlan_on);
- s32 ixgbe_clear_vfta_82599(struct ixgbe_hw *hw);
--s32 ixgbe_blink_led_stop_82599(struct ixgbe_hw *hw, u32 index);
--s32 ixgbe_blink_led_start_82599(struct ixgbe_hw *hw, u32 index);
- s32 ixgbe_init_uta_tables_82599(struct ixgbe_hw *hw);
- s32 ixgbe_read_analog_reg8_82599(struct ixgbe_hw *hw, u32 reg, u8 *val);
- s32 ixgbe_write_analog_reg8_82599(struct ixgbe_hw *hw, u32 reg, u8 val);
-@@ -991,40 +989,6 @@ s32 ixgbe_clear_vfta_82599(struct ixgbe_hw *hw)
- }
  
- /**
-- *  ixgbe_blink_led_start_82599 - Blink LED based on index.
-- *  @hw: pointer to hardware structure
-- *  @index: led number to blink
-- **/
--s32 ixgbe_blink_led_start_82599(struct ixgbe_hw *hw, u32 index)
--{
--	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
--
--	led_reg &= ~IXGBE_LED_MODE_MASK(index);
--	led_reg |= IXGBE_LED_BLINK(index);
--	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
--	IXGBE_WRITE_FLUSH(hw);
--
--	return 0;
--}
--
--/**
-- *  ixgbe_blink_led_stop_82599 - Stop blinking LED based on index.
-- *  @hw: pointer to hardware structure
-- *  @index: led number to stop blinking
-- **/
--s32 ixgbe_blink_led_stop_82599(struct ixgbe_hw *hw, u32 index)
--{
--	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
--
--	led_reg &= ~IXGBE_LED_MODE_MASK(index);
--	led_reg &= ~IXGBE_LED_BLINK(index);
--	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
--	IXGBE_WRITE_FLUSH(hw);
--
--	return 0;
--}
--
--/**
-  *  ixgbe_init_uta_tables_82599 - Initialize the Unicast Table Array
-  *  @hw: pointer to hardware structure
-  **/
-@@ -1243,8 +1207,8 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.get_link_capabilities  = &ixgbe_get_link_capabilities_82599,
- 	.led_on                 = &ixgbe_led_on_generic,
- 	.led_off                = &ixgbe_led_off_generic,
--	.blink_led_start        = &ixgbe_blink_led_start_82599,
--	.blink_led_stop         = &ixgbe_blink_led_stop_82599,
-+	.blink_led_start        = &ixgbe_blink_led_start_generic,
-+	.blink_led_stop         = &ixgbe_blink_led_stop_generic,
- 	.set_rar                = &ixgbe_set_rar_generic,
- 	.clear_rar              = &ixgbe_clear_rar_generic,
- 	.set_vmdq               = &ixgbe_set_vmdq_82599,
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 63ab667..5567519 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -2071,3 +2071,58 @@ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval)
- 
- 	return 0;
- }
-+
-+/**
-+ *  ixgbe_blink_led_start_generic - Blink LED based on index.
-+ *  @hw: pointer to hardware structure
-+ *  @index: led number to blink
-+ **/
-+s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
++static int ixgbe_wol_exclusion(struct ixgbe_adapter *adapter,
++                               struct ethtool_wolinfo *wol)
 +{
-+	ixgbe_link_speed speed = 0;
-+	bool link_up = 0;
-+	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
++	struct ixgbe_hw *hw = &adapter->hw;
++	int retval = 1;
 +
-+	/*
-+	 * Link must be up to auto-blink the LEDs;
-+	 * Force it if link is down.
-+	 */
-+	hw->mac.ops.check_link(hw, &speed, &link_up, false);
-+
-+	if (!link_up) {
-+		autoc_reg |= IXGBE_AUTOC_FLU;
-+		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
-+		msleep(10);
++	switch(hw->device_id) {
++	case IXGBE_DEV_ID_82599_KX4:
++		retval = 0;
++		break;
++	default:
++		wol->supported = 0;
++		retval = 0;
 +	}
 +
-+	led_reg &= ~IXGBE_LED_MODE_MASK(index);
-+	led_reg |= IXGBE_LED_BLINK(index);
-+	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
-+	IXGBE_WRITE_FLUSH(hw);
-+
-+	return 0;
++	return retval;
 +}
 +
-+/**
-+ *  ixgbe_blink_led_stop_generic - Stop blinking LED based on index.
-+ *  @hw: pointer to hardware structure
-+ *  @index: led number to stop blinking
-+ **/
-+s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index)
-+{
-+	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
-+
-+	autoc_reg &= ~IXGBE_AUTOC_FLU;
-+	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
-+
-+	led_reg &= ~IXGBE_LED_MODE_MASK(index);
-+	led_reg &= ~IXGBE_LED_BLINK(index);
-+	led_reg |= IXGBE_LED_LINK_ACTIVE << IXGBE_LED_MODE_SHIFT(index);
-+	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
-+	IXGBE_WRITE_FLUSH(hw);
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 24f73e7..dd26089 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -76,6 +76,9 @@ s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
- s32 ixgbe_read_analog_reg8_generic(struct ixgbe_hw *hw, u32 reg, u8 *val);
- s32 ixgbe_write_analog_reg8_generic(struct ixgbe_hw *hw, u32 reg, u8 val);
+ static void ixgbe_get_wol(struct net_device *netdev,
+                           struct ethtool_wolinfo *wol)
+ {
+@@ -952,7 +970,8 @@ static void ixgbe_get_wol(struct net_device *netdev,
+ 	                 WAKE_BCAST | WAKE_MAGIC;
+ 	wol->wolopts = 0;
  
-+s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index);
-+s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index);
-+
- #define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
+-	if (!device_can_wakeup(&adapter->pdev->dev))
++	if (ixgbe_wol_exclusion(adapter, wol) ||
++	    !device_can_wakeup(&adapter->pdev->dev))
+ 		return;
  
- #ifndef writeq
+ 	if (adapter->wol & IXGBE_WUFC_EX)
+@@ -974,6 +993,9 @@ static int ixgbe_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	if (wol->wolopts & (WAKE_PHY | WAKE_ARP | WAKE_MAGICSECURE))
+ 		return -EOPNOTSUPP;
+ 
++	if (ixgbe_wol_exclusion(adapter, wol))
++		return wol->wolopts ? -EOPNOTSUPP : 0;
++
+ 	adapter->wol = 0;
+ 
+ 	if (wol->wolopts & WAKE_UCAST)
 
