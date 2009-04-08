@@ -1,44 +1,110 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] skge: fix occasional BUG during MTU change
-Date: Wed, 8 Apr 2009 16:06:21 -0700
-Message-ID: <20090408160621.06f4e556@s6510>
-References: <20090407183623.7545bb0b@leela>
-	<20090408.160152.56341911.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Wed, 08 Apr 2009 16:08:09 -0700 (PDT)
+Message-ID: <20090408.160809.197973352.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org,
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47422 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754677AbZDHXHP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2009 19:07:15 -0400
-In-Reply-To: <20090408.160152.56341911.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43668
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753964AbZDHXIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 19:08:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 08 Apr 2009 16:01:52 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Michal Schmidt <mschmidt@redhat.com>
-> Date: Tue, 7 Apr 2009 18:36:23 +0200
-> 
-> > The BUG_ON(skge->tx_ring.to_use != skge->tx_ring.to_clean) in skge_up()
-> > was sometimes observed when setting MTU.
-> > 
-> > skge_down() disables the TX queue, but then reenables it by mistake via
-> > skge_tx_clean().
-> > Fix it by moving the waking of the queue from skge_tx_clean() to the
-> > other caller. And to make sure start_xmit is not in progress on another
-> > CPU, skge_down() should call netif_tx_disable().
-> > 
-> > The bug was reported to me by Jiri Jilek whose Debian system sometimes
-> > failed to boot. He tested the patch and the bug did not happen anymore.
-> > 
-> > Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> Stephen, an ACK possibly?
+A build fix here, a chip reset fix there, and the new
+virtual-function IGB driver from Intel.
 
-I wanted to test on real hardware, and am offsite this week.
+Plus three netfilter bug fixes from Patrick McHardy.
+
+Please pull, thanks a lot!
+
+The following changes since commit 577c9c456f0e1371cbade38eaf91ae8e8a308555:
+  Linus Torvalds (1):
+        Linux 2.6.30-rc1
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Alex Riesen (1):
+      netfilter: fix selection of "LED" target in netfilter
+
+Alexander Duyck (2):
+      igbvf: add new driver to support 82576 virtual functions
+      igb: remove sysfs entry that was used to set the number of vfs
+
+Bastian Blank (1):
+      bnx2: Don't use reserved names
+
+Dan Carpenter (1):
+      niu: Fix error handling
+
+David S. Miller (2):
+      Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
+      niu: Fix unused variable warning.
+
+Eric Dumazet (1):
+      netfilter: ip6tables regression fix
+
+Florian Fainelli (1):
+      r6040: set MODULE_VERSION
+
+Lennert Buytenhek (1):
+      mv643xx_eth: don't reset the rx coal timer on interface up
+
+Pablo Neira Ayuso (1):
+      netfilter: ctnetlink: fix regression in expectation handling
+
+Randy Dunlap (1):
+      ethoc: fix library build errors
+
+Sascha Hauer (1):
+      FEC driver: add missing #endif
+
+Steve Glendinning (1):
+      smsc911x: correct debugging message on mii read timeout
+
+Yang Hongyang (1):
+      drivers/net/eql.c: Fix a dev leakage.
+
+ drivers/net/Kconfig                         |   23 +
+ drivers/net/Makefile                        |    1 +
+ drivers/net/bnx2.c                          |   26 +-
+ drivers/net/eql.c                           |    2 +
+ drivers/net/fec.c                           |    1 +
+ drivers/net/igb/igb_main.c                  |  159 +-
+ drivers/net/igbvf/Makefile                  |   38 +
+ drivers/net/igbvf/defines.h                 |  125 ++
+ drivers/net/igbvf/ethtool.c                 |  540 +++++
+ drivers/net/igbvf/igbvf.h                   |  335 +++
+ drivers/net/igbvf/mbx.c                     |  350 ++++
+ drivers/net/igbvf/mbx.h                     |   75 +
+ drivers/net/igbvf/netdev.c                  | 2919 +++++++++++++++++++++++++++
+ drivers/net/igbvf/regs.h                    |  108 +
+ drivers/net/igbvf/vf.c                      |  398 ++++
+ drivers/net/igbvf/vf.h                      |  265 +++
+ drivers/net/mv643xx_eth.c                   |    4 +-
+ drivers/net/niu.c                           |    3 +-
+ drivers/net/r6040.c                         |    1 +
+ drivers/net/smsc911x.c                      |    2 +-
+ include/net/netfilter/nf_conntrack_expect.h |    5 +-
+ net/ipv6/netfilter/ip6_tables.c             |    2 +
+ net/netfilter/Kconfig                       |    2 +-
+ net/netfilter/nf_conntrack_expect.c         |   30 +-
+ 24 files changed, 5266 insertions(+), 148 deletions(-)
+ create mode 100644 drivers/net/igbvf/Makefile
+ create mode 100644 drivers/net/igbvf/defines.h
+ create mode 100644 drivers/net/igbvf/ethtool.c
+ create mode 100644 drivers/net/igbvf/igbvf.h
+ create mode 100644 drivers/net/igbvf/mbx.c
+ create mode 100644 drivers/net/igbvf/mbx.h
+ create mode 100644 drivers/net/igbvf/netdev.c
+ create mode 100644 drivers/net/igbvf/regs.h
+ create mode 100644 drivers/net/igbvf/vf.c
+ create mode 100644 drivers/net/igbvf/vf.h
