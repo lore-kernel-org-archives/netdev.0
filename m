@@ -1,42 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] IPv4/IPv6: update sysctl files
-Date: Wed, 08 Apr 2009 03:47:43 +0100
-Message-ID: <1239158863.11534.52.camel@deadeye.i.decadent.org.uk>
-References: <49DC091C.6070708@cn.fujitsu.com>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH]drivers/net/eql.c:fix a dev leakage
+Date: Wed, 08 Apr 2009 11:06:27 +0800
+Message-ID: <49DC14B3.9020308@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shen Feng <shen@cn.fujitsu.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47071 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751780AbZDHCrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 22:47:53 -0400
-In-Reply-To: <49DC091C.6070708@cn.fujitsu.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:55644 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751158AbZDHDGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2009 23:06:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-04-08 at 02:39 +0000, Shen Feng wrote:
-> Now the following sysctl files in /proc/sys/net/ipv4 are used by
-> both IPv4 and IPv6.
-> tcp_mem  tcp_rmem  tcp_wmem
-> udp_mem  udp_rmem_min  udp_wmem_min
-> Putting them in /proc/sys/net/ipv4 is not a good choice.
-[...]
+After dev_get_by_name(),we should follow a dev_put().build test only.
 
-But this is part of the ABI to userland.  You cannot remove sysctl files
-without long advance notice documented in feature-removal-schedule.txt
-(if at all).
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-If it is possible to add the paths
-/proc/sys/net/{tcp,udp} while retaining aliases under /proc/sys/net/ipv4
-then that might be a workable solution.
+---
+ drivers/net/eql.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Ben.
+diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+index 51ead79..5210bb1 100644
+--- a/drivers/net/eql.c
++++ b/drivers/net/eql.c
+@@ -542,6 +542,8 @@ static int eql_s_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
+ 	}
+ 	spin_unlock_bh(&eql->queue.lock);
+ 
++	dev_put(slave_dev);
++
+ 	return ret;
+ }
+ 
+-- 
+1.6.0.3
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards
+Yang Hongyang
