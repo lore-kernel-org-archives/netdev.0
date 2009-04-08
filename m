@@ -1,52 +1,44 @@
-From: "Gilles Espinasse" <g.esp@free.fr>
-Subject: Re: IRQF_SAMPLE_RANDOM question...
-Date: Wed, 8 Apr 2009 23:53:30 +0200
-Message-ID: <2c6601c9b894$756e4000$f9b5a8c0@pii350>
-References: <200904061430.26276.rgetz@blackfin.uclinux.org> <1239116251.14392.133.camel@calx> <a24804730904071439g4cc1779bi1ebaf814d370708c@mail.gmail.com> <200904071830.38081.rgetz@blackfin.uclinux.org>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: dhcp-based netboot over jumbo-frame network?
+Date: Wed, 08 Apr 2009 16:10:34 -0600
+Message-ID: <49DD20DA.3020902@nortel.com>
+References: <49DCE470.9060109@nortel.com> <49DCF7E2.2060304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Matt Mackall" <mpm@selenic.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Robin Getz" <rgetz@blackfin.uclinux.org>,
-	"Chris Peterson" <cpeterso@cpeterso.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb1-g21.free.fr ([212.27.42.9]:33983 "EHLO
-	smtpfb1-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752517AbZDHV5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 17:57:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754773AbZDHWKx@vger.kernel.org>
+In-Reply-To: <49DCF7E2.2060304@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Rick Jones wrote:
+> Chris Friesen wrote:
 
------ Original Message ----- 
-From: "Robin Getz" <rgetz@blackfin.uclinux.org>
-To: "Chris Peterson" <cpeterso@cpeterso.com>
-Cc: "Matt Mackall" <mpm@selenic.com>; <netdev@vger.kernel.org>;
-<linux-kernel@vger.kernel.org>
-Sent: Wednesday, April 08, 2009 12:30 AM
-Subject: Re: IRQF_SAMPLE_RANDOM question...
+>> We have an existing system that loads a bare kernel using tftp, then 
+>> mounts a rootfs via NFS.  The wrinkle is that this is on a jumbo-frame 
+>> enabled network, so somehow the MTU needs to be set before mounting the 
+>> rootfs.
+> 
+> Why?  Is the NFS mount not TCP?  If it is TCP, then the TCP MSS exchange will 
+> provide you cover as it will (should) cause TCP in the NFS server to segment to 
+> the MSS option your system with the then-smaller MTU sends.
+> 
+> I would think that only if the NFS mount is UDP that you would have a problem 
+> with the system initially booting with a small MTU.
 
+Currently it uses the default, which is udp.  I might be able to get 
+them to try TCP.  Thanks for the suggestion.
 
->
-> on embedded and server - it is likely most of ps (except load) will be
-pretty
-> stable - even vmstat - might be on more stable than you think on
-embedded -
-> which starts processes, allocates memory, and then just runs forever.....
->
-After the topic on that subject in May, I find clrngd
-http://ipsec.pl/files/ipsec/clrngd-1.0.3.tar.gz
+>> In a previous version we patched ipconfig.c to support the DHCP option 
+>> to specify the MTU value, but I'm wondering about the "proper" way to do 
+>> this on current kernels.
+> 
+> Was the change submitted to upstream and rejected?
 
-That's a small C program that feed /dev/random
-Readme say :
-"This daemon attempts to collect real randomness from fluctuations of
-high-frequency clocks on a PC's mainboard. The basic assumption is that
-mainboard and CPU are clocked by two separate physical clocks."
+The change was submitted (not by us) back in the 2.6.10 timeframe, and 
+was rejected with the suggestion to use initramfs.
 
-Shortly tested, look to work for me.
-How large is this basic assumption true, on x86, on other arch?
-
-Gilles
-
+Chris
