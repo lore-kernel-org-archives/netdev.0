@@ -1,35 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Wed, 8 Apr 2009 14:51:46 +0800
-Message-ID: <20090408065146.GA22852@gondor.apana.org.au>
-References: <1238701718.5669.26.camel@bender> <20090407072647.GA11480@gondor.apana.org.au> <1239108520.32737.28.camel@dogo.mojatatu.com> <20090407130447.GA14329@gondor.apana.org.au> <1239112067.32737.51.camel@dogo.mojatatu.com> <7e0dd21a0904070738jd8a2714wd840352699f1e9f1@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv4/IPv6: update sysctl files
+Date: Wed, 08 Apr 2009 00:18:28 -0700 (PDT)
+Message-ID: <20090408.001828.262566823.davem@davemloft.net>
+References: <49DC091C.6070708@cn.fujitsu.com>
+	<1239158863.11534.52.camel@deadeye.i.decadent.org.uk>
+	<49DC19D5.7090101@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Johann Baudy <johann.baudy@gnu-log.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:56869 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752459AbZDHGwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 02:52:02 -0400
-Content-Disposition: inline
-In-Reply-To: <7e0dd21a0904070738jd8a2714wd840352699f1e9f1@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40380
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754600AbZDHHSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 03:18:38 -0400
+In-Reply-To: <49DC19D5.7090101@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 07, 2009 at 04:38:01PM +0200, Johann Baudy wrote:
->
-> Do you think this solution is not acceptable?
+From: Shen Feng <shen@cn.fujitsu.com>
+Date: Wed, 08 Apr 2009 11:28:21 +0800
 
-Not unless you can figure out a way to prevent netfilter from
-being run on your packet.  The two hurdles you have to overcome
-are act_ipt and bridge netfilter.
+> 
+> 
+> on 04/08/2009 10:47 AM, Ben Hutchings wrote:
+>> On Wed, 2009-04-08 at 02:39 +0000, Shen Feng wrote:
+>>> Now the following sysctl files in /proc/sys/net/ipv4 are used by
+>>> both IPv4 and IPv6.
+>>> tcp_mem  tcp_rmem  tcp_wmem
+>>> udp_mem  udp_rmem_min  udp_wmem_min
+>>> Putting them in /proc/sys/net/ipv4 is not a good choice.
+>> [...]
+>> 
+>> But this is part of the ABI to userland.  You cannot remove sysctl files
+>> without long advance notice documented in feature-removal-schedule.txt
+>> (if at all).
+>> 
+>> If it is possible to add the paths
+>> /proc/sys/net/{tcp,udp} while retaining aliases under /proc/sys/net/ipv4
+>> then that might be a workable solution.
+> 
+> Thanks. That's a good solution.
+> 
+> But I'm still confused.
+> Why not create another tcp_mem in /proc/sys/net/ipv6?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+People just need to understand that ipv4 is always going to be
+there and that's where all the tcp controls are.
+
+I really am not going to entertain changes that try to move generic
+inet sysctl things out of the ipv4 directory.  There is really no
+point at all.
+
