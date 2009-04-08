@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 00/11] netxen: cleanup and enhancements
-Date: Wed, 08 Apr 2009 15:58:43 -0700 (PDT)
-Message-ID: <20090408.155843.253436707.davem@davemloft.net>
-References: <1239180648-29842-1-git-send-email-dhananjay@netxen.com>
+Subject: Re: [PATCH -next] sfc: Don't specify unexistent IRQ
+Date: Wed, 08 Apr 2009 16:00:02 -0700 (PDT)
+Message-ID: <20090408.160002.119907202.davem@davemloft.net>
+References: <20090408023819.GA14188@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dhananjay@netxen.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	khali@linux-fr.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45997
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46001
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752523AbZDHW6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 18:58:53 -0400
-In-Reply-To: <1239180648-29842-1-git-send-email-dhananjay@netxen.com>
+	by vger.kernel.org with ESMTP id S1755720AbZDHXAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 19:00:12 -0400
+In-Reply-To: <20090408023819.GA14188@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Date: Wed,  8 Apr 2009 01:50:37 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 8 Apr 2009 03:38:20 +0100
 
-> 	This is for net-next, now that Linus has announced 2.6.30-rc1.
-> 	Please apply.
+> Neither the lm90 driver nor the lm87 driver do support interrupts, so
+> there is no point in specifying one when declaring the devices.
+> 
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-All applied, thanks.
+Applied, thanks.
