@@ -1,175 +1,80 @@
-From: Shen Feng <shen@cn.fujitsu.com>
-Subject: [PATCH] IPv4/IPv6: update sysctl files
-Date: Wed, 08 Apr 2009 10:17:00 +0800
-Message-ID: <49DC091C.6070708@cn.fujitsu.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH -next] sfc: Don't specify unexistent IRQ
+Date: Wed, 8 Apr 2009 03:38:20 +0100
+Message-ID: <20090408023819.GA14188@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Jean Delvare <khali@linux-fr.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52832 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757150AbZDHCRu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2009 22:17:50 -0400
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:60724 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756927AbZDHCic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2009 22:38:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jean Delvare <khali@linux-fr.org>
 
-Now the following sysctl files in /proc/sys/net/ipv4 are used by
-both IPv4 and IPv6.
-tcp_mem  tcp_rmem  tcp_wmem
-udp_mem  udp_rmem_min  udp_wmem_min
-Putting them in /proc/sys/net/ipv4 is not a good choice.
+Neither the lm90 driver nor the lm87 driver do support interrupts, so
+there is no point in specifying one when declaring the devices.
 
-So move tcp_mem  tcp_rmem  tcp_wmem to /proc/sys/net/tcp and
-move udp_mem  udp_rmem_min  udp_wmem_min to /poc/sys/net/udp.
-
-Signed-off-by: Shen Feng <shen@cn.fujitsu.com>
+Signed-off-by: Jean Delvare <khali@linux-fr.org>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- net/ipv4/sysctl_net_ipv4.c |   95 ++++++++++++++++++++++++++++++-------------
- 1 files changed, 66 insertions(+), 29 deletions(-)
+ drivers/net/sfc/boards.c  |    2 --
+ drivers/net/sfc/sfe4001.c |    3 ---
+ 2 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 4710d21..a520011 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -503,30 +503,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_TCP_MEM,
--		.procname	= "tcp_mem",
--		.data		= &sysctl_tcp_mem,
--		.maxlen		= sizeof(sysctl_tcp_mem),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
--		.ctl_name	= NET_TCP_WMEM,
--		.procname	= "tcp_wmem",
--		.data		= &sysctl_tcp_wmem,
--		.maxlen		= sizeof(sysctl_tcp_wmem),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
--		.ctl_name	= NET_TCP_RMEM,
--		.procname	= "tcp_rmem",
--		.data		= &sysctl_tcp_rmem,
--		.maxlen		= sizeof(sysctl_tcp_rmem),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.ctl_name	= NET_TCP_APP_WIN,
- 		.procname	= "tcp_app_win",
- 		.data		= &sysctl_tcp_app_win,
-@@ -712,6 +688,38 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{ .ctl_name = 0 }
-+};
-+
-+static struct ctl_table proc_tcp_table[] = {
-+	{
-+		.ctl_name	= NET_TCP_MEM,
-+		.procname	= "tcp_mem",
-+		.data		= &sysctl_tcp_mem,
-+		.maxlen		= sizeof(sysctl_tcp_mem),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
-+		.ctl_name	= NET_TCP_WMEM,
-+		.procname	= "tcp_wmem",
-+		.data		= &sysctl_tcp_wmem,
-+		.maxlen		= sizeof(sysctl_tcp_wmem),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
-+		.ctl_name	= NET_TCP_RMEM,
-+		.procname	= "tcp_rmem",
-+		.data		= &sysctl_tcp_rmem,
-+		.maxlen		= sizeof(sysctl_tcp_rmem),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{},
-+};
-+
-+static struct ctl_table proc_udp_table[] = {
- 	{
- 		.ctl_name	= CTL_UNNUMBERED,
- 		.procname	= "udp_mem",
-@@ -742,7 +750,7 @@ static struct ctl_table ipv4_table[] = {
- 		.strategy	= sysctl_intvec,
- 		.extra1		= &zero
- 	},
--	{ .ctl_name = 0 }
-+	{},
+diff --git a/drivers/net/sfc/boards.c b/drivers/net/sfc/boards.c
+index 5182ac5..4a4c74c 100644
+--- a/drivers/net/sfc/boards.c
++++ b/drivers/net/sfc/boards.c
+@@ -172,7 +172,6 @@ static const u8 sfe4002_lm87_regs[] = {
+ static struct i2c_board_info sfe4002_hwmon_info = {
+ 	I2C_BOARD_INFO("lm87", 0x2e),
+ 	.platform_data	= &sfe4002_lm87_channel,
+-	.irq		= -1,
  };
  
- static struct ctl_table ipv4_net_table[] = {
-@@ -813,6 +821,20 @@ struct ctl_path net_ipv4_ctl_path[] = {
+ /****************************************************************************/
+@@ -247,7 +246,6 @@ static const u8 sfn4112f_lm87_regs[] = {
+ static struct i2c_board_info sfn4112f_hwmon_info = {
+ 	I2C_BOARD_INFO("lm87", 0x2e),
+ 	.platform_data	= &sfn4112f_lm87_channel,
+-	.irq		= -1,
  };
- EXPORT_SYMBOL_GPL(net_ipv4_ctl_path);
  
-+struct ctl_path net_tcp_ctl_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "tcp", .ctl_name = CTL_UNNUMBERED, },
-+	{},
-+};
-+EXPORT_SYMBOL_GPL(net_tcp_ctl_path);
-+
-+struct ctl_path net_udp_ctl_path[] = {
-+	{ .procname = "net", .ctl_name = CTL_NET, },
-+	{ .procname = "udp", .ctl_name = CTL_UNNUMBERED, },
-+	{},
-+};
-+EXPORT_SYMBOL_GPL(net_udp_ctl_path);
-+
- static __net_init int ipv4_sysctl_init_net(struct net *net)
- {
- 	struct ctl_table *table;
-@@ -871,14 +893,29 @@ static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
+ #define SFN4112F_ACT_LED	0
+diff --git a/drivers/net/sfc/sfe4001.c b/drivers/net/sfc/sfe4001.c
+index 4eac5da..cee00ad 100644
+--- a/drivers/net/sfc/sfe4001.c
++++ b/drivers/net/sfc/sfe4001.c
+@@ -296,7 +296,6 @@ static int sfe4001_check_hw(struct efx_nic *efx)
  
- static __init int sysctl_ipv4_init(void)
- {
--	struct ctl_table_header *hdr;
-+	struct ctl_table_header *hdr_ipv4, *hdr_tcp, *hdr_udp;
-+
-+	hdr_ipv4 = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
-+	if (hdr_ipv4 == NULL)
-+		return -ENOMEM;
+ static struct i2c_board_info sfe4001_hwmon_info = {
+ 	I2C_BOARD_INFO("max6647", 0x4e),
+-	.irq		= -1,
+ };
  
--	hdr = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
--	if (hdr == NULL)
-+	hdr_tcp = register_sysctl_paths(net_tcp_ctl_path, proc_tcp_table);
-+	if (hdr_tcp == NULL) {
-+		unregister_sysctl_table(hdr_ipv4);
- 		return -ENOMEM;
-+	}
-+
-+	hdr_udp = register_sysctl_paths(net_udp_ctl_path, proc_udp_table);
-+	if (hdr_udp == NULL) {
-+		unregister_sysctl_table(hdr_ipv4);
-+		unregister_sysctl_table(hdr_tcp);
-+		return -ENOMEM;
-+	}
+ /* This board uses an I2C expander to provider power to the PHY, which needs to
+@@ -389,12 +388,10 @@ static void sfn4111t_fini(struct efx_nic *efx)
  
- 	if (register_pernet_subsys(&ipv4_sysctl_ops)) {
--		unregister_sysctl_table(hdr);
-+		unregister_sysctl_table(hdr_ipv4);
-+		unregister_sysctl_table(hdr_tcp);
-+		unregister_sysctl_table(hdr_udp);
- 		return -ENOMEM;
- 	}
+ static struct i2c_board_info sfn4111t_a0_hwmon_info = {
+ 	I2C_BOARD_INFO("max6647", 0x4e),
+-	.irq		= -1,
+ };
  
+ static struct i2c_board_info sfn4111t_r5_hwmon_info = {
+ 	I2C_BOARD_INFO("max6646", 0x4d),
+-	.irq		= -1,
+ };
+ 
+ int sfn4111t_init(struct efx_nic *efx)
+
 -- 
-1.6.0.6
-
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
