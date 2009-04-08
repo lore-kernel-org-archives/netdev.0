@@ -1,73 +1,62 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [patch next 10/11] netxen: enable GRO support
-Date: Wed,  8 Apr 2009 01:50:47 -0700
-Message-ID: <1239180648-29842-11-git-send-email-dhananjay@netxen.com>
-References: <1239180648-29842-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net, Amit Kumar Salecha <amit@dut4146 (none) >,
-	Amit Kumar Salecha <amit@netxen.com>
-To: netdev@vger.kernel.org
+From: Shen Feng <shen@cn.fujitsu.com>
+Subject: Re: [PATCH] IPv4/IPv6: update sysctl files
+Date: Wed, 08 Apr 2009 16:50:49 +0800
+Message-ID: <49DC6569.5030908@cn.fujitsu.com>
+References: <49DC091C.6070708@cn.fujitsu.com>	<1239158863.11534.52.camel@deadeye.i.decadent.org.uk>	<49DC19D5.7090101@cn.fujitsu.com> <20090408.001828.262566823.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:49853 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761221AbZDHIvF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2009 04:51:05 -0400
-In-Reply-To: <1239180648-29842-1-git-send-email-dhananjay@netxen.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:64747 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1762169AbZDHIvo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2009 04:51:44 -0400
+In-Reply-To: <20090408.001828.262566823.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit@dut4146.(none)>
 
-Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_init.c |    7 ++++---
- drivers/net/netxen/netxen_nic_main.c |    1 +
- 2 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 0c91238..8893a97 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -923,7 +923,8 @@ no_skb:
- 
- static struct netxen_rx_buffer *
- netxen_process_rcv(struct netxen_adapter *adapter,
--		int ring, int index, int length, int cksum, int pkt_offset)
-+		int ring, int index, int length, int cksum, int pkt_offset,
-+		struct nx_host_sds_ring *sds_ring)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	struct netxen_recv_context *recv_ctx = &adapter->recv_ctx;
-@@ -951,7 +952,7 @@ netxen_process_rcv(struct netxen_adapter *adapter,
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
--	netif_receive_skb(skb);
-+	napi_gro_receive(&sds_ring->napi, skb);
- 
- 	adapter->stats.no_rcv++;
- 	adapter->stats.rxbytes += length;
-@@ -1011,7 +1012,7 @@ netxen_process_rcv_ring(struct nx_host_sds_ring *sds_ring, int max)
- 		pkt_offset = netxen_get_sts_pkt_offset(sts_data);
- 
- 		rxbuf = netxen_process_rcv(adapter, ring, index,
--				length, cksum, pkt_offset);
-+				length, cksum, pkt_offset, sds_ring);
- 
- 		if (rxbuf)
- 			list_add_tail(&rxbuf->list, &sds_ring->free_list[ring]);
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 56c16c7..7080050 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -981,6 +981,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
- 
- 	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
-+	netdev->features |= (NETIF_F_GRO);
- 	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
- 
- 	if (NX_IS_REVISION_P3(revision_id)) {
--- 
-1.6.0.2
+on 04/08/2009 03:18 PM, David Miller wrote:
+> From: Shen Feng <shen@cn.fujitsu.com>
+> Date: Wed, 08 Apr 2009 11:28:21 +0800
+> 
+>>
+>> on 04/08/2009 10:47 AM, Ben Hutchings wrote:
+>>> On Wed, 2009-04-08 at 02:39 +0000, Shen Feng wrote:
+>>>> Now the following sysctl files in /proc/sys/net/ipv4 are used by
+>>>> both IPv4 and IPv6.
+>>>> tcp_mem  tcp_rmem  tcp_wmem
+>>>> udp_mem  udp_rmem_min  udp_wmem_min
+>>>> Putting them in /proc/sys/net/ipv4 is not a good choice.
+>>> [...]
+>>>
+>>> But this is part of the ABI to userland.  You cannot remove sysctl files
+>>> without long advance notice documented in feature-removal-schedule.txt
+>>> (if at all).
+>>>
+>>> If it is possible to add the paths
+>>> /proc/sys/net/{tcp,udp} while retaining aliases under /proc/sys/net/ipv4
+>>> then that might be a workable solution.
+>> Thanks. That's a good solution.
+>>
+>> But I'm still confused.
+>> Why not create another tcp_mem in /proc/sys/net/ipv6?
+> 
+> People just need to understand that ipv4 is always going to be
+> there and that's where all the tcp controls are.
+> 
+> I really am not going to entertain changes that try to move generic
+> inet sysctl things out of the ipv4 directory.  There is really no
+> point at all.
+> 
 
+/proc/sys/net/ipv4/tcp_mem is a inet sysctl, but it also controls the tcp v6.
+So it's also a inet6 sysctl. Is it intentional?
+This may confuse users. We may have a /proc/sys/net/ipv6/tcp6_mem.
+
+> 
+> 
