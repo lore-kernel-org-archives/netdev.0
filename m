@@ -1,51 +1,33 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] mv643xx_eth: don't reset the rx coal timer on interface up
-Date: Wed, 8 Apr 2009 22:44:14 +0200
-Message-ID: <20090408204414.GC4738@xi.wantstofly.org>
+Subject: Re: Creating an Ethernet subtype setting
+Date: Wed, 8 Apr 2009 23:00:33 +0200
+Message-ID: <20090408210033.GB13160@xi.wantstofly.org>
+References: <1238071318.8206.18.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:60295 "EHLO
+Received: from xi.wantstofly.org ([80.101.37.227]:46950 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757843AbZDHUoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 16:44:16 -0400
+	with ESMTP id S1753682AbZDHVAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 17:00:34 -0400
 Content-Disposition: inline
+In-Reply-To: <1238071318.8206.18.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move SDMA configuration from interface up to port probe, to prevent
-overwriting the receive coalescing timer value on interface up.
+On Thu, Mar 26, 2009 at 01:41:58PM +0100, Marcel Holtmann wrote:
 
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
----
- drivers/net/mv643xx_eth.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> so we have more and more subsystem that expose themselves as Ethernet
+> networking devices and it really becomes hard to identify them in an
+> easy way. For example WiFi has been an Ethernet device since a long time
+> now and distinguishing between Ethernet and WiFi is not that hard since
+> we have the good old WEXT ioctls to identify WiFi devices. However with
+> WiMAX, Bluetooth, GSM/CDMA modems and even Ethernet bridge devices,
 
-(The affected code is new in 2.6.30-rcX, so this doesn't apply to 2.6.29.)
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index a56d9d2..b3185bf 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -2274,8 +2274,6 @@ static void port_start(struct mv643xx_eth_private *mp)
- 		pscr |= FORCE_LINK_PASS;
- 	wrlp(mp, PORT_SERIAL_CONTROL, pscr);
- 
--	wrlp(mp, SDMA_CONFIG, PORT_SDMA_CONFIG_DEFAULT_VALUE);
--
- 	/*
- 	 * Configure TX path and queues.
- 	 */
-@@ -2957,6 +2955,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 
- 	netif_carrier_off(dev);
- 
-+	wrlp(mp, SDMA_CONFIG, PORT_SDMA_CONFIG_DEFAULT_VALUE);
-+
- 	set_rx_coal(mp, 250);
- 	set_tx_coal(mp, 0);
- 
--- 
-1.5.6.4
+Also:
+- VLAN interfaces
+- TAP interfaces
+- ETH_P_TEB
+- (DSA interfaces)
