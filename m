@@ -1,30 +1,25 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 12954] New: SAMEIP --nodst functionality gone
- missing
-Date: Wed, 08 Apr 2009 17:32:48 +0200
-Message-ID: <49DCC3A0.7050001@trash.net>
-References: <bug-12954-10286@http.bugzilla.kernel.org/> <20090407143509.05ab3b28.akpm@linux-foundation.org> <Pine.LNX.4.62.0904080941370.10428@wlug.westbo.se>
+From: Siemens News Center <wrobinson@rrbiznet.com>
+Subject: Mr Victor Brown
+Date: Wed, 8 Apr 2009 11:11:44 -0500
+Message-ID: <7h9gbp$cphg1p@rrcs-agw-01b.hrndva.rr.com>
+Reply-To: siemens1146@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, berni@birkenwald.de,
-	netfilter-devel@vger.kernel.org
-To: Martin Josefsson <gandalf@mjufs.se>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.62.0904080941370.10428@wlug.westbo.se>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <in@org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:59284 "EHLO
+	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933983AbZDHQLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 12:11:45 -0400
+Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
+          by hrndva-comm-mta02.mail.rr.com with ESMTP
+          id <20090408161144.ZLSU10401.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          for <netdev@vger.kernel.org>; Wed, 8 Apr 2009 16:11:44 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Resend to mailing list, I didn't notice this had left bugzilla]
+You have been award for a grant prize of 750,000 GBP in the on going Siemens Award, get back to us with:
 
-Martin Josefsson wrote:
-> Patrick, how about making the ipaddress selection based on only client 
-> ipaddress behaviour selectable with an SNAT parameter if the problem 
-> with the patch is that the distribution can be uneven for a small number 
-> of clients?
+Names:..Address:..Country:..Age:..Sex:..Phone...
 
-Actually I think the results back then were incorrect or it was
-just bad luck or something. Ideally we would just enable this
-unconditionally I think. I'll do some testing of the distribution
-myself during the next days and see how it goes.
