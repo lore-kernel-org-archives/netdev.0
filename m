@@ -1,49 +1,36 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [patch] Fix FEC driver compilation
-Date: Wed, 8 Apr 2009 11:49:40 +0200
-Message-ID: <20090408094940.GL14383@pengutronix.de>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: DSA drivers in net/ vs drivers/net/
+Date: Wed, 8 Apr 2009 12:12:42 +0200
+Message-ID: <20090408101242.GZ4738@xi.wantstofly.org>
+References: <53D98710-2AA9-42D8-A478-40B51303678B@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Ungerer <gerg@uclinux.org>
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:38425 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754967AbZDHJtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 05:49:43 -0400
+Received: from xi.wantstofly.org ([80.101.37.227]:33082 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755420AbZDHKMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 06:12:44 -0400
 Content-Disposition: inline
+In-Reply-To: <53D98710-2AA9-42D8-A478-40B51303678B@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Apr 07, 2009 at 11:58:05PM -0500, Kumar Gala wrote:
 
-Seems an #endif is missing currently in drivers/net/fec.c
+> Lennert,
 
-Sascha
+Hi Kumar,
 
 
-commit e023dc4defbae07ffdcb800b05c328a5cf28ab12
-Author: Sascha Hauer <s.hauer@pengutronix.de>
-Date:   Wed Apr 8 11:40:24 2009 +0200
+> Was glancing over the DSA code and was wondering if there was any  
+> reason we have the actual drivers for the various chips in net/ vs  
+> drivers/net/dsa/
 
-    FEC driver: add missing #endif
-    
-    Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+No real good reason, I guess.  I'd be happy to move the individual
+chip drivers under drivers/net/dsa/.
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index a515acc..682e7f0 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -1240,6 +1240,7 @@ static void __inline__ fec_phy_ack_intr(void)
- 	icrp = (volatile unsigned long *) (MCF_MBAR + MCFSIM_ICR1);
- 	*icrp = 0x0d000000;
- }
-+#endif
- 
- #ifdef CONFIG_M5272
- static void __inline__ fec_get_mac(struct net_device *dev)
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+
+thanks,
+Lennert
