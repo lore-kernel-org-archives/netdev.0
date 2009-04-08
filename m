@@ -1,62 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: sky2: early oops in pci_vpd_truncate
-Date: Wed, 8 Apr 2009 14:00:05 +0200
-Message-ID: <20090408120005.GB768@elte.hu>
-References: <1238803819.3893.3.camel@brick> <20090403180306.44de0324@hobbes> <1238815934.3893.4.camel@brick> <20090406112917.54c864ee@hobbes> <1239054120.13299.0.camel@brick>
+From: "John Stoffel" <john@stoffel.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Wed, 8 Apr 2009 09:20:54 -0400
+Message-ID: <18908.42166.404232.721757@stoffel.org>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: "John Stoffel" <john@stoffel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Pete Zaitcev <zaitcev@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:44324 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933395AbZDHMAU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2009 08:00:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1239054120.13299.0.camel@brick>
+Received: from Mycroft.westnet.com ([216.187.52.7]:63505 "EHLO
+	Mycroft.westnet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758915AbZDHNW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 09:22:29 -0400
+In-Reply-To: <20090407130403.e0061a8d.zaitcev@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-* Harvey Harrison <harvey.harrison@gmail.com> wrote:
+Pete> On Tue, 7 Apr 2009 11:25:40 -0400, "John Stoffel" <john@stoffel.org> wrote:
+>> But I'm surprised that USB_MON would be the cause when it's a
+>> networking tool which is starting up?  *shrug*
 
-> On Mon, 2009-04-06 at 11:29 -0700, Jesse Barnes wrote:
-> > On Fri, 03 Apr 2009 20:32:14 -0700
-> > Harvey Harrison <harvey.harrison@gmail.com> wrote:
-> > 
-> > > On Fri, 2009-04-03 at 18:03 -0700, Jesse Barnes wrote:
-> > > > On Fri, 03 Apr 2009 17:10:19 -0700
-> > > > Harvey Harrison <harvey.harrison@gmail.com> wrote:
-> > > > 
-> > > > > Hi Stephen,
-> > > > > 
-> > > > > I'm seeing an early oops in current Linus -git right after
-> > > > > sky2_probe unfortunately it scrolls away too fast to get it all,
-> > > > > but after a delayed-printk boot it appears to be a NULL
-> > > > > dereference in pci_vpd_truncate.  sysfs also features prominantly
-> > > > > in the backtrace.. is this a known issue?
-> > > > > 
-> > > > > I see there were some sky2 patches this cycle using the vpd
-> > > > > functions, any pointers/patches to try out?
-> > > > 
-> > > > Yeah there's a patch for that in my queue (not pushed to Linus yet
-> > > > though), subject "[PATCH] PCI: Fix oops in pci_vpd_truncate" from
-> > > > Anton Vorontsov.
-> > > > 
-> > > 
-> > > What tree is that?
-> > 
-> > git://git.kernel.org/pub/scm/linux/kernel/git/jbarnes/pci-2.6.git.
-> > It'll be in my for-linus branch as soon as I push it out later today.
-> > I'll probably ask Linus to pick it up later this week.
-> > 
-> 
-> Looks like Ingo hit the same oops as well. CC'd.
+Pete> The libpcap supports usbmon. Perhaps it scans something.
 
-I still have the revert - can i revert the revert from -tip now, 
-it's all fixed in .30-rc1, right?
+Pete> The big problem with usbmon is, it has to trust what drivers
+Pete> stuff into URBs. Bet it's your uvcvideo. A rough driver, that.
 
-	Ingo
+Well I think that usbmon is probably at fault here for trusting
+drivers too much and not doing any sanity checking.  But I can try
+removing the uvcvideo driver and seeing if I can get the system to
+crash then.
+
+I was busy last night and didn't have a chance to even touch the
+system.  Hopefully more time tonight, but I'm not sure.
+
+Thanks for the hints, I'll give them a whirl.
+
+John
+
