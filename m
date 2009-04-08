@@ -1,27 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 00/03: netfilter fixes
-Date: Wed, 08 Apr 2009 13:43:26 -0700 (PDT)
-Message-ID: <20090408.134326.60092013.davem@davemloft.net>
-References: <20090408165212.6702.44171.sendpatchset@x2.localnet>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] mv643xx_eth: don't reset the rx coal timer on interface up
+Date: Wed, 8 Apr 2009 22:44:14 +0200
+Message-ID: <20090408204414.GC4738@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37873
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755553AbZDHUng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 16:43:36 -0400
-In-Reply-To: <20090408165212.6702.44171.sendpatchset@x2.localnet>
+Received: from xi.wantstofly.org ([80.101.37.227]:60295 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757843AbZDHUoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 16:44:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed,  8 Apr 2009 18:52:16 +0200 (MEST)
+Move SDMA configuration from interface up to port probe, to prevent
+overwriting the receive coalescing timer value on interface up.
 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+---
+ drivers/net/mv643xx_eth.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Pulled, thanks Patrick.
+(The affected code is new in 2.6.30-rcX, so this doesn't apply to 2.6.29.)
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index a56d9d2..b3185bf 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -2274,8 +2274,6 @@ static void port_start(struct mv643xx_eth_private *mp)
+ 		pscr |= FORCE_LINK_PASS;
+ 	wrlp(mp, PORT_SERIAL_CONTROL, pscr);
+ 
+-	wrlp(mp, SDMA_CONFIG, PORT_SDMA_CONFIG_DEFAULT_VALUE);
+-
+ 	/*
+ 	 * Configure TX path and queues.
+ 	 */
+@@ -2957,6 +2955,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 
+ 	netif_carrier_off(dev);
+ 
++	wrlp(mp, SDMA_CONFIG, PORT_SDMA_CONFIG_DEFAULT_VALUE);
++
+ 	set_rx_coal(mp, 250);
+ 	set_tx_coal(mp, 0);
+ 
+-- 
+1.5.6.4
