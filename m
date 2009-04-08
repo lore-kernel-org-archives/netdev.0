@@ -1,52 +1,49 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29 on MacBook 2,1 fails to reboot (was Re: 2.6.29-git13: Reported regressions from 2.6.28)
-Date: Wed, 8 Apr 2009 10:00:28 +0200
-Message-ID: <200904081000.30313.rjw@sisk.pl>
-References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <9b1675090904071352x513510ecm8b2574859b088275@mail.gmail.com> <9b1675090904071816k59080f1fn39737767db4dc0c@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Multicast packet loss
+Date: Wed, 08 Apr 2009 10:12:33 +0200
+Message-ID: <49DC5C71.2040505@cosmosbay.com>
+References: <49B4B909.7050002@cosmosbay.com>	<20090313.145152.121603300.davem@davemloft.net>	<49BADE87.40407@cosmosbay.com> <20090313.153851.11725991.davem@davemloft.net> <49BED109.3020504@cosmosbay.com> <49D66379.7070106@athenacr.com> <49D8B6DA.7050902@cosmosbay.com> <49DBB2BA.1010100@athenacr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Takashi Iwai <tiwai@suse.de>
-To: "Trenton D. Adams" <trenton.d.adams@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, kchang@athenacr.com,
+	netdev@vger.kernel.org, cl@linux-foundation.org
+To: Brian Bloniarz <bmb@athenacr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:58109 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753241AbZDHIAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2009 04:00:25 -0400
-In-Reply-To: <9b1675090904071816k59080f1fn39737767db4dc0c@mail.gmail.com>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43157 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761851AbZDHIN5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2009 04:13:57 -0400
+In-Reply-To: <49DBB2BA.1010100@athenacr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 08 April 2009, Trenton D. Adams wrote:
-> On Tue, Apr 7, 2009 at 2:52 PM, Trenton D. Adams
-> <trenton.d.adams@gmail.com> wrote:
-> > On Tue, Apr 7, 2009 at 1:23 PM, Stefan Richter
-> > <stefanr@s5r6.in-berlin.de> wrote:
-> >>
-> >> But more importantly, is this init scripts related bug really what's
-> >> happening at your system?  Or do you actually experience an entirely
-> >> different bug?
-> >
-> > It could be.  I will try it out when I get home from work, and get
-> > back to you.  That would be cool if it was a simple init script
-> > problem.  Cause then I don't have to do anymore git bisects. ;)
-> 
-> Yes, the order is what causes this, you can close the bug.
+Brian Bloniarz a =E9crit :
+> Eric Dumazet wrote:
+>> Brian Bloniarz a =E9crit :
+>>> We've been experimenting with this softirq-delay patch in productio=
+n,
+> and
+>>> have seen some hard-to-reproduce crashes. We finally managed to
+> capture a
+>>> kexec crashdump this morning.
+>>
+>> Pointer being null might tell us that we managed to call
+> inet_def_readable()
+>> without socket lock hold...
+>=20
+> False alarm -- I think I did the backport to 2.6.24 incorrectly. 2.6.=
+24 was
+> before the UDP receive path started taking the socket lock, so
+> inet_def_readable's assumption doesn't hold.
+>=20
+> Sorry to waste everyone's time.
+>=20
 
-Closed.
+Thanks for doing this discovery work and analysis.=20
 
-Thanks,
-Rafael
+I am currently off-computers and could not do this until next week.
+
+So, if you want to use 2.6.24, we need to back port other patches as we=
+ll ?
+
