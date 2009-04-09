@@ -1,81 +1,107 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH v2 00/19] virtual-bus
-Date: Thu, 09 Apr 2009 12:48:46 -0400
-Message-ID: <49DE26EE.9030402@novell.com>
-References: <20090409155200.32740.19358.stgit@dev.haskins.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] kaweth: Clean up code
+Date: Thu, 09 Apr 2009 12:11:55 -0500
+Message-ID: <49de2c5b.LWVli5E5/g9YVwyP%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig107B4FFA0C0392E5505599D7"
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
-	herber@gondor.apana.org.au, chrisw@sous-sol.org,
-	shemminger@vyatta.com
-To: avi@redhat.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936514AbZDIQsG@vger.kernel.org>
-In-Reply-To: <20090409155200.32740.19358.stgit@dev.haskins.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:59692 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840AbZDIRMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 13:12:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig107B4FFA0C0392E5505599D7
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+The driver kaweth yields a -EBUSY error when starting, and a -ETIME
+error when shutting down. These errors are avoided, and the RX status
+is further checked for other potential errors.
 
-Avi,
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-Gregory Haskins wrote:
->
-> Todo:
-> *) Develop some kind of hypercall registration mechanism for KVM so tha=
-t
->    we can use that as an integration point instead of directly hooking
->    kvm hypercalls
->  =20
+DaveM,
 
-What would you like to see here?  I now remember why I removed the
-original patch I had for registration...it requires some kind of
-discovery mechanism on its own.  Note that this is hard, but I figured
-it would make the overall series simpler if I didn't go this route and
-instead just integrated with a statically allocated vector.  That being
-said, I have no problem adding this back in but figure we should discuss
-the approach so I don't go down a rat-hole ;)
+This patch is resubmitted as requested now that 2.6.30-rc1 is released.
+It is 2.6.31 material as the main change is to eliminate two trivial
+log messages.
 
-So, one thing we could do is use a string-identifier to discover
-hypercall resources.  In this model, we would have one additional
-hypercall registered with kvm (in addition to the mmu-ops, etc) called
-KVM_HC_DYNHC or something like that.  The support for DYNHC could be
-indicated in the cpuid (much like I do with the RESET, DYNIRQ, and VBUS
-support today.   When hypercall provides register, the could provide a
-string such as "vbus", and they would be allocated a hypercall id.=20
-Likewise, the HC_DYNHC interface would allow a guest to query the cpuid
-for the DYNHC feature, and then query the HC_DYNHC vector for a string
-to hc# translation.  If the provider is not present, we return -1 for
-the hc#, otherwise we return the one that was allocated.
+Larry
+---
 
-I know how you feel about string-ids in general, but I am not quite sure
-how to design this otherwise without it looking eerily similar to what I
-already have (which is registering a new HC vector in kvm_para.h)
-
-Thoughts?
-
--Greg
-
-
---------------enig107B4FFA0C0392E5505599D7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkneJu4ACgkQlOSOBdgZUxnKlQCfUC3aBrggFJnxvaRiKGjavnqB
-ZHIAmgKAWrK7O20p7s149z/K4vjDMQPt
-=laVP
------END PGP SIGNATURE-----
-
---------------enig107B4FFA0C0392E5505599D7--
+Index: wireless-testing/drivers/net/usb/kaweth.c
+===================================================================
+--- wireless-testing.orig/drivers/net/usb/kaweth.c
++++ wireless-testing/drivers/net/usb/kaweth.c
+@@ -31,7 +31,6 @@
+  ****************************************************************/
+ 
+ /* TODO:
+- * Fix in_interrupt() problem
+  * Develop test procedures for USB net interfaces
+  * Run test procedures
+  * Fix bugs from previous two steps
+@@ -606,14 +605,30 @@ static void kaweth_usb_receive(struct ur
+ 
+ 	struct sk_buff *skb;
+ 
+-	if(unlikely(status == -ECONNRESET || status == -ESHUTDOWN))
+-	/* we are killed - set a flag and wake the disconnect handler */
+-	{
++	if (unlikely(status == -EPIPE)) {
++		kaweth->stats.rx_errors++;
+ 		kaweth->end = 1;
+ 		wake_up(&kaweth->term_wait);
++		dbg("Status was -EPIPE.");
+ 		return;
+ 	}
+-
++	if (unlikely(status == -ECONNRESET || status == -ESHUTDOWN)) {
++		/* we are killed - set a flag and wake the disconnect handler */
++		kaweth->end = 1;
++		wake_up(&kaweth->term_wait);
++		dbg("Status was -ECONNRESET or -ESHUTDOWN.");
++		return;
++	}
++	if (unlikely(status == -EPROTO || status == -ETIME ||
++		     status == -EILSEQ)) {
++		kaweth->stats.rx_errors++;
++		dbg("Status was -EPROTO, -ETIME, or -EILSEQ.");
++		return;
++	}
++	if (unlikely(status == -EOVERFLOW)) {
++		kaweth->stats.rx_errors++;
++		dbg("Status was -EOVERFLOW.");
++	}
+ 	spin_lock(&kaweth->device_lock);
+ 	if (IS_BLOCKED(kaweth->status)) {
+ 		spin_unlock(&kaweth->device_lock);
+@@ -883,13 +898,16 @@ static void kaweth_set_rx_mode(struct ne
+  ****************************************************************/
+ static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth)
+ {
++	int result;
+ 	__u16 packet_filter_bitmap = kaweth->packet_filter_bitmap;
++
+ 	kaweth->packet_filter_bitmap = 0;
+ 	if (packet_filter_bitmap == 0)
+ 		return;
+ 
+-	{
+-	int result;
++	if (in_interrupt())
++		return;
++
+ 	result = kaweth_control(kaweth,
+ 				usb_sndctrlpipe(kaweth->dev, 0),
+ 				KAWETH_COMMAND_SET_PACKET_FILTER,
+@@ -906,7 +924,6 @@ static void kaweth_async_set_rx_mode(str
+ 	else {
+ 		dbg("Set Rx mode to %d", packet_filter_bitmap);
+ 	}
+-	}
+ }
+ 
+ /****************************************************************
