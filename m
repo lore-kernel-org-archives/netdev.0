@@ -1,86 +1,37 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 2/2] ixgbe: only allow WOL for 82599 KX4 NIC
-Date: Wed, 08 Apr 2009 16:20:50 -0700
-Message-ID: <20090408232050.8781.68279.stgit@localhost.localdomain>
-References: <20090408232031.8781.83459.stgit@localhost.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: 2.6.30-rc1: e1000: list_add corruption
+Date: Thu, 09 Apr 2009 00:51:06 -0700 (PDT)
+Message-ID: <20090409.005106.96791990.davem@davemloft.net>
+References: <20090408.212040.184687004.davem@davemloft.net>
+	<20090409071242.GA5515@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:60626
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757230AbZDIHtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 03:49:17 -0400
-In-Reply-To: <20090408232031.8781.83459.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090409071242.GA5515-8HppEYmqbBCE+EvaaNYduQ@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 9 Apr 2009 07:12:42 +0000
 
-All NICs were reporting WOL support when only the KX4 NIC is capable of
-supporting WOL.  This patch adds a function to check for and exclude all
-non-WOL capable nics from enabling WOL in ethtool.
+> On 09-04-2009 06:20, David Miller wrote:
+>> From: Alexander Beregalov <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date: Thu, 9 Apr 2009 08:16:00 +0400
+>> 
+>>> The host has two interfaces
+>>> eth0 - e1000, eth1 - forcedeth.
+>>> Both are not working after that messages.
+>> 
+>> It looks like the NAPI pending list is being modified in an illegal
+>> state by forcedeth, and mid-stream to a list_del() an e1000 interrupt
+>> comes in and this tries to schedule the e1000 NAPI context and we get
+>> list corruption.
+> 
+> Good point! Feel free to send a patch. ;-)
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbe/ixgbe_ethtool.c |   24 +++++++++++++++++++++++-
- 1 files changed, 23 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index aafc120..f0a20fa 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -943,6 +943,24 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- }
- 
- 
-+static int ixgbe_wol_exclusion(struct ixgbe_adapter *adapter,
-+                               struct ethtool_wolinfo *wol)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int retval = 1;
-+
-+	switch(hw->device_id) {
-+	case IXGBE_DEV_ID_82599_KX4:
-+		retval = 0;
-+		break;
-+	default:
-+		wol->supported = 0;
-+		retval = 0;
-+	}
-+
-+	return retval;
-+}
-+
- static void ixgbe_get_wol(struct net_device *netdev,
-                           struct ethtool_wolinfo *wol)
- {
-@@ -952,7 +970,8 @@ static void ixgbe_get_wol(struct net_device *netdev,
- 	                 WAKE_BCAST | WAKE_MAGIC;
- 	wol->wolopts = 0;
- 
--	if (!device_can_wakeup(&adapter->pdev->dev))
-+	if (ixgbe_wol_exclusion(adapter, wol) ||
-+	    !device_can_wakeup(&adapter->pdev->dev))
- 		return;
- 
- 	if (adapter->wol & IXGBE_WUFC_EX)
-@@ -974,6 +993,9 @@ static int ixgbe_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & (WAKE_PHY | WAKE_ARP | WAKE_MAGICSECURE))
- 		return -EOPNOTSUPP;
- 
-+	if (ixgbe_wol_exclusion(adapter, wol))
-+		return wol->wolopts ? -EOPNOTSUPP : 0;
-+
- 	adapter->wol = 0;
- 
- 	if (wol->wolopts & WAKE_UCAST)
-
+A real shame, since I sent that analysis in hoping someone else
+would do the rest of the digging and write the fix. :-/
