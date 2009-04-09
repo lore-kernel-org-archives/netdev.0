@@ -1,797 +1,780 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH v2 06/19] ioq: Add basic definitions for a shared-memory,
-	lockless queue
-Date: Thu, 09 Apr 2009 12:31:13 -0400
-Message-ID: <20090409163113.32740.13943.stgit@dev.haskins.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH v2 09/19] net: Add vbus_enet driver
+Date: Thu, 9 Apr 2009 09:37:10 -0700
+Message-ID: <20090409093710.10d63e39@s6510>
 References: <20090409155200.32740.19358.stgit@dev.haskins.net>
+	<20090409163128.32740.46975.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
-	anthony@codemonkey.ws, rusty@rustcorp.com.au,
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
 	netdev@vger.kernel.org, kvm@vger.kernel.org, avi@redhat.com,
 	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
-	herber@gondor.apana.org.au, chrisw@sous-sol.org,
-	shemminger@vyatta.com
-To: linux-kernel@vger.kernel.org
+	herber@gondor.apana.org.au, chrisw@sous-sol.org
+To: Gregory Haskins <ghaskins@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:56451 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760008AbZDIQ3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 12:29:09 -0400
-In-Reply-To: <20090409155200.32740.19358.stgit@dev.haskins.net>
+Received: from mail.vyatta.com ([76.74.103.46]:36522 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936100AbZDIQiK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2009 12:38:10 -0400
+In-Reply-To: <20090409163128.32740.46975.stgit@dev.haskins.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can map these over VBUS shared memory (or really any shared-memory
-architecture if it supports shm-signals) to allow asynchronous
-communication between two end-points.  Memory is synchronized using
-pure barriers (i.e. lockless), so IOQs are friendly in many contexts,
-even if the memory is remote.
+On Thu, 09 Apr 2009 12:31:29 -0400
+Gregory Haskins <ghaskins@novell.com> wrote:
 
-Signed-off-by: Gregory Haskins <ghaskins@novell.com>
----
+> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+> ---
+> 
+>  drivers/net/Kconfig     |   13 +
+>  drivers/net/Makefile    |    1 
+>  drivers/net/vbus-enet.c |  680 +++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 694 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/vbus-enet.c
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 62d732a..ac9dabd 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -3099,4 +3099,17 @@ config VIRTIO_NET
+>  	  This is the virtual network driver for virtio.  It can be used with
+>            lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+>  
+> +config VBUS_ENET
+> +	tristate "Virtual Ethernet Driver"
+> +	depends on VBUS_DRIVERS
+> +	help
+> +	   A virtualized 802.x network device based on the VBUS interface.
+> +	   It can be used with any hypervisor/kernel that supports the
+> +	   vbus protocol.
+> +
+> +config VBUS_ENET_DEBUG
+> +        bool "Enable Debugging"
+> +	depends on VBUS_ENET
+> +	default n
+> +
+>  endif # NETDEVICES
+> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> index 471baaf..61db928 100644
+> --- a/drivers/net/Makefile
+> +++ b/drivers/net/Makefile
+> @@ -264,6 +264,7 @@ obj-$(CONFIG_FS_ENET) += fs_enet/
+>  obj-$(CONFIG_NETXEN_NIC) += netxen/
+>  obj-$(CONFIG_NIU) += niu.o
+>  obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+> +obj-$(CONFIG_VBUS_ENET) += vbus-enet.o
+>  obj-$(CONFIG_SFC) += sfc/
+>  
+>  obj-$(CONFIG_WIMAX) += wimax/
+> diff --git a/drivers/net/vbus-enet.c b/drivers/net/vbus-enet.c
+> new file mode 100644
+> index 0000000..3779f77
+> --- /dev/null
+> +++ b/drivers/net/vbus-enet.c
+> @@ -0,0 +1,680 @@
+> +/*
+> + * vbus_enet - A virtualized 802.x network device based on the VBUS interface
+> + *
+> + * Copyright (C) 2009 Novell, Gregory Haskins <ghaskins@novell.com>
+> + *
+> + * Derived from the SNULL example from the book "Linux Device Drivers" by
+> + * Alessandro Rubini, Jonathan Corbet, and Greg Kroah-Hartman, published
+> + * by O'Reilly & Associates.
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/moduleparam.h>
+> +
+> +#include <linux/sched.h>
+> +#include <linux/kernel.h>
+> +#include <linux/slab.h>
+> +#include <linux/errno.h>
+> +#include <linux/types.h>
+> +#include <linux/interrupt.h>
+> +
+> +#include <linux/in.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/ip.h>
+> +#include <linux/tcp.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/ioq.h>
+> +#include <linux/vbus_driver.h>
+> +
+> +#include <linux/in6.h>
+> +#include <asm/checksum.h>
+> +
+> +#include <linux/venet.h>
+> +
+> +MODULE_AUTHOR("Gregory Haskins");
+> +MODULE_LICENSE("GPL");
 
- include/linux/ioq.h |  410 +++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/Kconfig         |   12 +
- lib/Makefile        |    1 
- lib/ioq.c           |  298 +++++++++++++++++++++++++++++++++++++
- 4 files changed, 721 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/ioq.h
- create mode 100644 lib/ioq.c
+MODULE_DESCRIPTION ? 
+MODULE_VERSION ?
 
-diff --git a/include/linux/ioq.h b/include/linux/ioq.h
-new file mode 100644
-index 0000000..d450d9a
---- /dev/null
-+++ b/include/linux/ioq.h
-@@ -0,0 +1,410 @@
-+/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * IOQ is a generic shared-memory, lockless queue mechanism. It can be used
-+ * in a variety of ways, though its intended purpose is to become the
-+ * asynchronous communication path for virtual-bus drivers.
-+ *
-+ * The following are a list of key design points:
-+ *
-+ * #) All shared-memory is always allocated on explicitly one side of the
-+ *    link.  This typically would be the guest side in a VM/VMM scenario.
-+ * #) Each IOQ has the concept of "north" and "south" locales, where
-+ *    north denotes the memory-owner side (e.g. guest).
-+ * #) An IOQ is manipulated using an iterator idiom.
-+ * #) Provides a bi-directional signaling/notification infrastructure on
-+ *    a per-queue basis, which includes an event mitigation strategy
-+ *    to reduce boundary switching.
-+ * #) The signaling path is abstracted so that various technologies and
-+ *    topologies can define their own specific implementation while sharing
-+ *    the basic structures and code.
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
-+
-+#ifndef _LINUX_IOQ_H
-+#define _LINUX_IOQ_H
-+
-+#include <asm/types.h>
-+#include <linux/shm_signal.h>
-+
-+/*
-+ *---------
-+ * The following structures represent data that is shared across boundaries
-+ * which may be quite disparate from one another (e.g. Windows vs Linux,
-+ * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
-+ * present data in a manner that is independent of the environment.
-+ *-----------
-+ */
-+struct ioq_ring_desc {
-+	__u64                 cookie; /* for arbitrary use by north-side */
-+	__u64                 ptr;
-+	__u64                 len;
-+	__u8                  valid;
-+	__u8                  sown; /* South owned = 1, North owned = 0 */
-+};
-+
-+#define IOQ_RING_MAGIC 0x47fa2fe4
-+#define IOQ_RING_VER   4
-+
-+struct ioq_ring_idx {
-+	__u32                 head;    /* 0 based index to head of ptr array */
-+	__u32                 tail;    /* 0 based index to tail of ptr array */
-+	__u8                  full;
-+};
-+
-+enum ioq_locality {
-+	ioq_locality_north,
-+	ioq_locality_south,
-+};
-+
-+struct ioq_ring_head {
-+	__u32                  magic;
-+	__u32                  ver;
-+	struct shm_signal_desc signal;
-+	struct ioq_ring_idx    idx[2];
-+	__u32                  count;
-+	struct ioq_ring_desc   ring[1]; /* "count" elements will be allocated */
-+};
-+
-+#define IOQ_HEAD_DESC_SIZE(count) \
-+    (sizeof(struct ioq_ring_head) + sizeof(struct ioq_ring_desc) * (count - 1))
-+
-+/* --- END SHARED STRUCTURES --- */
-+
-+#ifdef __KERNEL__
-+
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <linux/interrupt.h>
-+#include <linux/shm_signal.h>
-+#include <asm/atomic.h>
-+
-+enum ioq_idx_type {
-+	ioq_idxtype_valid,
-+	ioq_idxtype_inuse,
-+	ioq_idxtype_both,
-+	ioq_idxtype_invalid,
-+};
-+
-+enum ioq_seek_type {
-+	ioq_seek_tail,
-+	ioq_seek_next,
-+	ioq_seek_head,
-+	ioq_seek_set
-+};
-+
-+struct ioq_iterator {
-+	struct ioq            *ioq;
-+	struct ioq_ring_idx   *idx;
-+	u32                    pos;
-+	struct ioq_ring_desc  *desc;
-+	int                    update:1;
-+	int                    dualidx:1;
-+	int                    flipowner:1;
-+};
-+
-+struct ioq_notifier {
-+	void (*signal)(struct ioq_notifier *);
-+};
-+
-+struct ioq_ops {
-+	void     (*release)(struct ioq *ioq);
-+};
-+
-+struct ioq {
-+	struct ioq_ops *ops;
-+
-+	atomic_t               refs;
-+	enum ioq_locality      locale;
-+	struct ioq_ring_head  *head_desc;
-+	struct ioq_ring_desc  *ring;
-+	struct shm_signal     *signal;
-+	wait_queue_head_t      wq;
-+	struct ioq_notifier   *notifier;
-+	size_t                 count;
-+	struct shm_signal_notifier shm_notifier;
-+};
-+
-+#define IOQ_ITER_AUTOUPDATE  (1 << 0)
-+#define IOQ_ITER_NOFLIPOWNER (1 << 1)
-+
-+/**
-+ * ioq_init() - initialize an IOQ
-+ * @ioq:        IOQ context
-+ *
-+ * Initializes IOQ context before first use
-+ *
-+ **/
-+void ioq_init(struct ioq *ioq,
-+	      struct ioq_ops *ops,
-+	      enum ioq_locality locale,
-+	      struct ioq_ring_head *head,
-+	      struct shm_signal *signal,
-+	      size_t count);
-+
-+/**
-+ * ioq_get() - acquire an IOQ context reference
-+ * @ioq:        IOQ context
-+ *
-+ **/
-+static inline struct ioq *ioq_get(struct ioq *ioq)
-+{
-+	atomic_inc(&ioq->refs);
-+
-+	return ioq;
-+}
-+
-+/**
-+ * ioq_put() - release an IOQ context reference
-+ * @ioq:        IOQ context
-+ *
-+ **/
-+static inline void ioq_put(struct ioq *ioq)
-+{
-+	if (atomic_dec_and_test(&ioq->refs)) {
-+		shm_signal_put(ioq->signal);
-+		ioq->ops->release(ioq);
-+	}
-+}
-+
-+/**
-+ * ioq_notify_enable() - enables local notifications on an IOQ
-+ * @ioq:        IOQ context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Enables/unmasks the registered ioq_notifier (if applicable) and waitq to
-+ * receive wakeups whenever the remote side performs an ioq_signal() operation.
-+ * A notification will be dispatched immediately if any pending signals have
-+ * already been issued prior to invoking this call.
-+ *
-+ * This is synonymous with unmasking an interrupt.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_notify_enable(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_enable(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_notify_disable() - disable local notifications on an IOQ
-+ * @ioq:        IOQ context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Disables/masks the registered ioq_notifier (if applicable) and waitq
-+ * from receiving any further notifications.  Any subsequent calls to
-+ * ioq_signal() by the remote side will update the ring as dirty, but
-+ * will not traverse the locale boundary and will not invoke the notifier
-+ * callback or wakeup the waitq.  Signals delivered while masked will
-+ * be deferred until ioq_notify_enable() is invoked
-+ *
-+ * This is synonymous with masking an interrupt
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_notify_disable(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_disable(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_signal() - notify the remote side about ring changes
-+ * @ioq:        IOQ context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Marks the ring state as "dirty" and, if enabled, will traverse
-+ * a locale boundary to invoke a remote notification.  The remote
-+ * side controls whether the notification should be delivered via
-+ * the ioq_notify_enable/disable() interface.
-+ *
-+ * The specifics of how to traverse a locale boundary are abstracted
-+ * by the ioq_ops->signal() interface and provided by a particular
-+ * implementation.  However, typically going north to south would be
-+ * something like a syscall/hypercall, and going south to north would be
-+ * something like a posix-signal/guest-interrupt.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_signal(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_inject(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_count() - counts the number of outstanding descriptors in an index
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) >=0: # of descriptors outstanding in the index
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_count(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_remain() - counts the number of remaining descriptors in an index
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * This is the converse of ioq_count().  This function returns the number
-+ * of "free" descriptors left in a particular index
-+ *
-+ * Returns:
-+ *  (*) >=0: # of descriptors remaining in the index
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_remain(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_size() - counts the maximum number of descriptors in an ring
-+ * @ioq:        IOQ context
-+ *
-+ * This function returns the maximum number of descriptors supported in
-+ * a ring, regardless of their current state (free or inuse).
-+ *
-+ * Returns:
-+ *  (*) >=0: total # of descriptors in the ring
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_size(struct ioq *ioq);
-+
-+/**
-+ * ioq_full() - determines if a specific index is "full"
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) 0: index is not full
-+ *  (*) 1: index is full
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_full(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_empty() - determines if a specific index is "empty"
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) 0: index is not empty
-+ *  (*) 1: index is empty
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_empty(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+    return !ioq_count(ioq, type);
-+}
-+
-+/**
-+ * ioq_iter_init() - initialize an iterator for IOQ descriptor traversal
-+ * @ioq:        IOQ context to iterate on
-+ * @iter:	Iterator context to init (usually from stack)
-+ * @type:	Specifies the index type to iterate against
-+ *                 (*) valid: iterate against the "valid" index
-+ *                 (*) inuse: iterate against the "inuse" index
-+ *                 (*) both: iterate against both indexes simultaneously
-+ * @flags:      Bitfield with 0 or more bits set to alter behavior
-+ *                 (*) autoupdate: automatically signal the remote side
-+ *                     whenever the iterator pushes/pops to a new desc
-+ *                 (*) noflipowner: do not flip the ownership bit during
-+ *                     a push/pop operation
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
-+		  enum ioq_idx_type type, int flags);
-+
-+/**
-+ * ioq_iter_seek() - seek to a specific location in the IOQ ring
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @type:	Specifies the type of seek operation
-+ *                 (*) tail: seek to the absolute tail, offset is ignored
-+ *                 (*) next: seek to the relative next, offset is ignored
-+ *                 (*) head: seek to the absolute head, offset is ignored
-+ *                 (*) set: seek to the absolute offset
-+ * @offset:     Offset for ioq_seek_set operations
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
-+		   long offset, int flags);
-+
-+/**
-+ * ioq_iter_push() - push the tail pointer forward
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * This function will simultaneously advance the tail ptr in the current
-+ * index (valid/inuse, as specified in the ioq_iter_init) as well as
-+ * perform a seek(next) operation.  This effectively "pushes" a new pointer
-+ * onto the tail of the index.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_push(struct ioq_iterator *iter, int flags);
-+
-+/**
-+ * ioq_iter_pop() - pop the head pointer from the ring
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * This function will simultaneously advance the head ptr in the current
-+ * index (valid/inuse, as specified in the ioq_iter_init) as well as
-+ * perform a seek(next) operation.  This effectively "pops" a pointer
-+ * from the head of the index.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_pop(struct ioq_iterator *iter,  int flags);
-+
-+#endif /* __KERNEL__ */
-+
-+#endif /* _LINUX_IOQ_H */
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 32d82fe..1e66f8e 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -183,5 +183,17 @@ config SHM_SIGNAL
- 
- 	 If unsure, say N
- 
-+config IOQ
-+	boolean "IO-Queue library - Generic shared-memory queue"
-+	select SHM_SIGNAL
-+	default n
-+	help
-+	 IOQ is a generic shared-memory-queue mechanism that happens to be
-+	 friendly to virtualization boundaries. It can be used in a variety
-+	 of ways, though its intended purpose is to become the low-level
-+	 communication path for paravirtualized drivers.
-+
-+	 If unsure, say N
-+
- 
- endmenu
-diff --git a/lib/Makefile b/lib/Makefile
-index bc36327..98cd332 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -72,6 +72,7 @@ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
- obj-$(CONFIG_SMP) += percpu_counter.o
- obj-$(CONFIG_AUDIT_GENERIC) += audit.o
- obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
-+obj-$(CONFIG_IOQ) += ioq.o
- 
- obj-$(CONFIG_SWIOTLB) += swiotlb.o
- obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
-diff --git a/lib/ioq.c b/lib/ioq.c
-new file mode 100644
-index 0000000..803b5d6
---- /dev/null
-+++ b/lib/ioq.c
-@@ -0,0 +1,298 @@
-+/*
-+ * Copyright 2008 Novell.  All Rights Reserved.
-+ *
-+ * See include/linux/ioq.h for documentation
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
-+
-+#include <linux/sched.h>
-+#include <linux/ioq.h>
-+#include <asm/bitops.h>
-+#include <linux/module.h>
-+
-+#ifndef NULL
-+#define NULL 0
-+#endif
-+
-+static int ioq_iter_setpos(struct ioq_iterator *iter, u32 pos)
-+{
-+	struct ioq *ioq = iter->ioq;
-+
-+	BUG_ON(pos >= ioq->count);
-+
-+	iter->pos  = pos;
-+	iter->desc = &ioq->ring[pos];
-+
-+	return 0;
-+}
-+
-+static inline u32 modulo_inc(u32 val, u32 mod)
-+{
-+	BUG_ON(val >= mod);
-+
-+	if (val == (mod - 1))
-+		return 0;
-+
-+	return val + 1;
-+}
-+
-+static inline int idx_full(struct ioq_ring_idx *idx)
-+{
-+	return idx->full && (idx->head == idx->tail);
-+}
-+
-+int ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
-+		  long offset, int flags)
-+{
-+	struct ioq_ring_idx *idx = iter->idx;
-+	u32 pos;
-+
-+	switch (type) {
-+	case ioq_seek_next:
-+		pos = modulo_inc(iter->pos, iter->ioq->count);
-+		break;
-+	case ioq_seek_tail:
-+		pos = idx->tail;
-+		break;
-+	case ioq_seek_head:
-+		pos = idx->head;
-+		break;
-+	case ioq_seek_set:
-+		if (offset >= iter->ioq->count)
-+			return -1;
-+		pos = offset;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return ioq_iter_setpos(iter, pos);
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_seek);
-+
-+static int ioq_ring_count(struct ioq_ring_idx *idx, int count)
-+{
-+	if (idx->full && (idx->head == idx->tail))
-+		return count;
-+	else if (idx->tail >= idx->head)
-+		return idx->tail - idx->head;
-+	else
-+		return (idx->tail + count) - idx->head;
-+}
-+
-+static void idx_tail_push(struct ioq_ring_idx *idx, int count)
-+{
-+	u32 tail = modulo_inc(idx->tail, count);
-+
-+	if (idx->head == tail) {
-+		rmb();
-+
-+		/*
-+		 * Setting full here may look racy, but note that we havent
-+		 * flipped the owner bit yet.  So it is impossible for the
-+		 * remote locale to move head in such a way that this operation
-+		 * becomes invalid
-+		 */
-+		idx->full = 1;
-+		wmb();
-+	}
-+
-+	idx->tail = tail;
-+}
-+
-+int ioq_iter_push(struct ioq_iterator *iter, int flags)
-+{
-+	struct ioq_ring_head *head_desc = iter->ioq->head_desc;
-+	struct ioq_ring_idx  *idx  = iter->idx;
-+	int ret;
-+
-+	/*
-+	 * Its only valid to push if we are currently pointed at the tail
-+	 */
-+	if (iter->pos != idx->tail || iter->desc->sown != iter->ioq->locale)
-+		return -EINVAL;
-+
-+	idx_tail_push(idx, iter->ioq->count);
-+	if (iter->dualidx) {
-+		idx_tail_push(&head_desc->idx[ioq_idxtype_inuse],
-+			      iter->ioq->count);
-+		if (head_desc->idx[ioq_idxtype_inuse].tail !=
-+		    head_desc->idx[ioq_idxtype_valid].tail) {
-+			SHM_SIGNAL_FAULT(iter->ioq->signal,
-+					 "Tails not synchronized");
-+			return -EINVAL;
-+		}
-+	}
-+
-+	wmb(); /* the index must be visible before the sown, or signal */
-+
-+	if (iter->flipowner) {
-+		iter->desc->sown = !iter->ioq->locale;
-+		wmb(); /* sown must be visible before we signal */
-+	}
-+
-+	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
-+
-+	if (iter->update)
-+		ioq_signal(iter->ioq, 0);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_push);
-+
-+int ioq_iter_pop(struct ioq_iterator *iter,  int flags)
-+{
-+	struct ioq_ring_idx *idx = iter->idx;
-+	int full;
-+	int ret;
-+
-+	/*
-+	 * Its only valid to pop if we are currently pointed at the head
-+	 */
-+	if (iter->pos != idx->head || iter->desc->sown != iter->ioq->locale)
-+		return -EINVAL;
-+
-+	full = idx_full(idx);
-+	rmb();
-+
-+	idx->head = modulo_inc(idx->head, iter->ioq->count);
-+	wmb(); /* head must be visible before full */
-+
-+	if (full) {
-+		idx->full = 0;
-+		wmb(); /* full must be visible before sown */
-+	}
-+
-+	if (iter->flipowner) {
-+		iter->desc->sown = !iter->ioq->locale;
-+		wmb(); /* sown must be visible before we signal */
-+	}
-+
-+	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
-+
-+	if (iter->update)
-+		ioq_signal(iter->ioq, 0);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_pop);
-+
-+static struct ioq_ring_idx *idxtype_to_idx(struct ioq *ioq,
-+					   enum ioq_idx_type type)
-+{
-+	struct ioq_ring_idx *idx;
-+
-+	switch (type) {
-+	case ioq_idxtype_valid:
-+	case ioq_idxtype_inuse:
-+		idx = &ioq->head_desc->idx[type];
-+		break;
-+	default:
-+		panic("IOQ: illegal index type: %d", type);
-+		break;
-+	}
-+
-+	return idx;
-+}
-+
-+int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
-+		  enum ioq_idx_type type, int flags)
-+{
-+	iter->ioq        = ioq;
-+	iter->update     = (flags & IOQ_ITER_AUTOUPDATE);
-+	iter->flipowner  = !(flags & IOQ_ITER_NOFLIPOWNER);
-+	iter->pos        = -1;
-+	iter->desc       = NULL;
-+	iter->dualidx    = 0;
-+
-+	if (type == ioq_idxtype_both) {
-+		/*
-+		 * "both" is a special case, so we set the dualidx flag.
-+		 *
-+		 * However, we also just want to use the valid-index
-+		 * for normal processing, so override that here
-+		 */
-+		type = ioq_idxtype_valid;
-+		iter->dualidx = 1;
-+	}
-+
-+	iter->idx = idxtype_to_idx(ioq, type);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_init);
-+
-+int ioq_count(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+	return ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
-+}
-+EXPORT_SYMBOL_GPL(ioq_count);
-+
-+int ioq_remain(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+	int count = ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
-+
-+	return ioq->count - count;
-+}
-+EXPORT_SYMBOL_GPL(ioq_remain);
-+
-+int ioq_size(struct ioq *ioq)
-+{
-+	return ioq->count;
-+}
-+EXPORT_SYMBOL_GPL(ioq_size);
-+
-+int ioq_full(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+	struct ioq_ring_idx *idx = idxtype_to_idx(ioq, type);
-+
-+	return idx_full(idx);
-+}
-+EXPORT_SYMBOL_GPL(ioq_full);
-+
-+static void ioq_shm_signal(struct shm_signal_notifier *notifier)
-+{
-+	struct ioq *ioq = container_of(notifier, struct ioq, shm_notifier);
-+
-+	wake_up(&ioq->wq);
-+	if (ioq->notifier)
-+		ioq->notifier->signal(ioq->notifier);
-+}
-+
-+void ioq_init(struct ioq *ioq,
-+	      struct ioq_ops *ops,
-+	      enum ioq_locality locale,
-+	      struct ioq_ring_head *head,
-+	      struct shm_signal *signal,
-+	      size_t count)
-+{
-+	memset(ioq, 0, sizeof(*ioq));
-+	atomic_set(&ioq->refs, 1);
-+	init_waitqueue_head(&ioq->wq);
-+
-+	ioq->ops         = ops;
-+	ioq->locale      = locale;
-+	ioq->head_desc   = head;
-+	ioq->ring        = &head->ring[0];
-+	ioq->count       = count;
-+	ioq->signal      = signal;
-+
-+	ioq->shm_notifier.signal = &ioq_shm_signal;
-+	signal->notifier         = &ioq->shm_notifier;
-+}
-+EXPORT_SYMBOL_GPL(ioq_init);
+> +static int napi_weight = 128;
+> +module_param(napi_weight, int, 0444);
+Already accessible through sysfs
 
+> +static int rx_ringlen = 256;
+> +module_param(rx_ringlen, int, 0444);
+
+API for ring length exists via ethtool. If you used this
+then there would be no need for device special parameter.
+
+> +static int tx_ringlen = 256;
+> +module_param(tx_ringlen, int, 0444);
+> +
+> +#undef PDEBUG             /* undef it, just in case */
+> +#ifdef VBUS_ENET_DEBUG
+> +#  define PDEBUG(fmt, args...) printk(KERN_DEBUG "vbus_enet: " fmt, ## args)
+> +#else
+> +#  define PDEBUG(fmt, args...) /* not debugging: nothing */
+> +#endif
+
+Why reinvent pr_debug()?
+
+> +
+> +struct vbus_enet_queue {
+> +	struct ioq              *queue;
+> +	struct ioq_notifier      notifier;
+> +};
+> +
+> +struct vbus_enet_priv {
+> +	spinlock_t                 lock;
+> +	struct net_device         *dev;
+> +	struct vbus_device_proxy  *vdev;
+> +	struct napi_struct         napi;
+> +	struct vbus_enet_queue     rxq;
+> +	struct vbus_enet_queue     txq;
+> +	struct tasklet_struct      txtask;
+> +};
+> +
+> +static struct vbus_enet_priv *
+> +napi_to_priv(struct napi_struct *napi)
+> +{
+> +	return container_of(napi, struct vbus_enet_priv, napi);
+> +}
+> +
+> +static int
+> +queue_init(struct vbus_enet_priv *priv,
+> +	   struct vbus_enet_queue *q,
+> +	   int qid,
+> +	   size_t ringsize,
+> +	   void (*func)(struct ioq_notifier *))
+> +{
+> +	struct vbus_device_proxy *dev = priv->vdev;
+> +	int ret;
+> +
+> +	ret = vbus_driver_ioq_alloc(dev, qid, 0, ringsize, &q->queue);
+> +	if (ret < 0)
+> +		panic("ioq_alloc failed: %d\n", ret);
+> +
+> +	if (func) {
+> +		q->notifier.signal = func;
+> +		q->queue->notifier = &q->notifier;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int
+> +devcall(struct vbus_enet_priv *priv, u32 func, void *data, size_t len)
+> +{
+> +	struct vbus_device_proxy *dev = priv->vdev;
+> +
+> +	return dev->ops->call(dev, func, data, len, 0);
+> +}
+> +
+> +/*
+> + * ---------------
+> + * rx descriptors
+> + * ---------------
+> + */
+> +
+> +static void
+> +rxdesc_alloc(struct ioq_ring_desc *desc, size_t len)
+> +{
+> +	struct sk_buff *skb;
+> +
+> +	len += ETH_HLEN;
+> +
+> +	skb = dev_alloc_skb(len + 2);
+> +	BUG_ON(!skb);
+> +
+> +	skb_reserve(skb, 2); /* align IP on 16B boundary */
+Use NET_IP_ALIGN rather than 2
+
+use netdev_alloc_skb because it NUMA aware.
+
+> +
+> +	desc->cookie = (u64)skb;
+> +	desc->ptr    = (u64)__pa(skb->data);
+> +	desc->len    = len; /* total length  */
+> +	desc->valid  = 1;
+> +}
+> +
+> +static void
+> +rx_setup(struct vbus_enet_priv *priv)
+> +{
+> +	struct ioq *ioq = priv->rxq.queue;
+> +	struct ioq_iterator iter;
+> +	int ret;
+> +
+> +	/*
+> +	 * We want to iterate on the "valid" index.  By default the iterator
+> +	 * will not "autoupdate" which means it will not hypercall the host
+> +	 * with our changes.  This is good, because we are really just
+> +	 * initializing stuff here anyway.  Note that you can always manually
+> +	 * signal the host with ioq_signal() if the autoupdate feature is not
+> +	 * used.
+> +	 */
+> +	ret = ioq_iter_init(ioq, &iter, ioq_idxtype_valid, 0);
+> +	BUG_ON(ret < 0);
+
+Why not doing proper initialization error handling, I.e fail the
+attempt to bring device up with error code (-ENOMEM)...
+
+> +	/*
+> +	 * Seek to the tail of the valid index (which should be our first
+> +	 * item, since the queue is brand-new)
+> +	 */
+> +	ret = ioq_iter_seek(&iter, ioq_seek_tail, 0, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	/*
+> +	 * Now populate each descriptor with an empty SKB and mark it valid
+> +	 */
+> +	while (!iter.desc->valid) {
+> +		rxdesc_alloc(iter.desc, priv->dev->mtu);
+> +
+> +		/*
+> +		 * This push operation will simultaneously advance the
+> +		 * valid-head index and increment our position in the queue
+> +		 * by one.
+> +		 */
+> +		ret = ioq_iter_push(&iter, 0);
+> +		BUG_ON(ret < 0);
+> +	}
+> +}
+> +
+> +static void
+> +rx_teardown(struct vbus_enet_priv *priv)
+> +{
+> +	struct ioq *ioq = priv->rxq.queue;
+> +	struct ioq_iterator iter;
+> +	int ret;
+> +
+> +	ret = ioq_iter_init(ioq, &iter, ioq_idxtype_valid, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	/*
+> +	 * free each valid descriptor
+> +	 */
+> +	while (iter.desc->valid) {
+> +		struct sk_buff *skb = (struct sk_buff *)iter.desc->cookie;
+> +
+> +		iter.desc->valid = 0;
+> +		wmb();
+> +
+> +		iter.desc->ptr = 0;
+> +		iter.desc->cookie = 0;
+> +
+> +		ret = ioq_iter_pop(&iter, 0);
+> +		BUG_ON(ret < 0);
+> +
+> +		dev_kfree_skb(skb);
+> +	}
+> +}
+> +
+> +/*
+> + * Open and close
+> + */
+> +
+> +static int
+> +vbus_enet_open(struct net_device *dev)
+> +{
+> +	struct vbus_enet_priv *priv = netdev_priv(dev);
+> +	int ret;
+> +
+> +	ret = devcall(priv, VENET_FUNC_LINKUP, NULL, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	napi_enable(&priv->napi);
+> +
+> +	return 0;
+> +}
+> +
+> +static int
+> +vbus_enet_stop(struct net_device *dev)
+> +{
+> +	struct vbus_enet_priv *priv = netdev_priv(dev);
+> +	int ret;
+> +
+> +	napi_disable(&priv->napi);
+> +
+> +	ret = devcall(priv, VENET_FUNC_LINKDOWN, NULL, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	return 0;
+> +}
+> +
+> +/*
+> + * Configuration changes (passed on by ifconfig)
+> + */
+> +static int
+> +vbus_enet_config(struct net_device *dev, struct ifmap *map)
+> +{
+> +	if (dev->flags & IFF_UP) /* can't act on a running interface */
+> +		return -EBUSY;
+> +
+> +	/* Don't allow changing the I/O address */
+> +	if (map->base_addr != dev->base_addr) {
+> +		printk(KERN_WARNING "vbus_enet: Can't change I/O address\n");
+> +		return -EOPNOTSUPP;
+> +	}
+> +
+> +	/* ignore other fields */
+> +	return 0;
+> +}
+> +
+> +static void
+> +vbus_enet_schedule_rx(struct vbus_enet_priv *priv)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +
+> +	if (netif_rx_schedule_prep(&priv->napi)) {
+> +		/* Disable further interrupts */
+> +		ioq_notify_disable(priv->rxq.queue, 0);
+> +		__netif_rx_schedule(&priv->napi);
+> +	}
+> +
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +}
+> +
+> +static int
+> +vbus_enet_change_mtu(struct net_device *dev, int new_mtu)
+> +{
+> +	struct vbus_enet_priv *priv = netdev_priv(dev);
+> +	int ret;
+> +
+> +	dev->mtu = new_mtu;
+> +
+> +	/*
+> +	 * FLUSHRX will cause the device to flush any outstanding
+> +	 * RX buffers.  They will appear to come in as 0 length
+> +	 * packets which we can simply discard and replace with new_mtu
+> +	 * buffers for the future.
+> +	 */
+> +	ret = devcall(priv, VENET_FUNC_FLUSHRX, NULL, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	vbus_enet_schedule_rx(priv);
+> +
+> +	return 0;
+> +}
+> +
+> +/*
+> + * The poll implementation.
+> + */
+> +static int
+> +vbus_enet_poll(struct napi_struct *napi, int budget)
+> +{
+> +	struct vbus_enet_priv *priv = napi_to_priv(napi);
+> +	int npackets = 0;
+> +	struct ioq_iterator iter;
+> +	int ret;
+> +
+> +	PDEBUG("%lld: polling...\n", priv->vdev->id);
+> +
+> +	/* We want to iterate on the head of the in-use index */
+> +	ret = ioq_iter_init(priv->rxq.queue, &iter, ioq_idxtype_inuse,
+> +			    IOQ_ITER_AUTOUPDATE);
+> +	BUG_ON(ret < 0);
+> +
+> +	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	/*
+> +	 * We stop if we have met the quota or there are no more packets.
+> +	 * The EOM is indicated by finding a packet that is still owned by
+> +	 * the south side
+> +	 */
+> +	while ((npackets < budget) && (!iter.desc->sown)) {
+> +		struct sk_buff *skb = (struct sk_buff *)iter.desc->cookie;
+> +
+> +		if (iter.desc->len) {
+> +			skb_put(skb, iter.desc->len);
+> +
+> +			/* Maintain stats */
+> +			npackets++;
+> +			priv->dev->stats.rx_packets++;
+> +			priv->dev->stats.rx_bytes += iter.desc->len;
+> +
+> +			/* Pass the buffer up to the stack */
+> +			skb->dev      = priv->dev;
+> +			skb->protocol = eth_type_trans(skb, priv->dev);
+> +			netif_receive_skb(skb);
+> +
+> +			mb();
+> +		} else
+> +			/*
+> +			 * the device may send a zero-length packet when its
+> +			 * flushing references on the ring.  We can just drop
+> +			 * these on the floor
+> +			 */
+> +			dev_kfree_skb(skb);
+> +
+> +		/* Grab a new buffer to put in the ring */
+> +		rxdesc_alloc(iter.desc, priv->dev->mtu);
+> +
+> +		/* Advance the in-use tail */
+> +		ret = ioq_iter_pop(&iter, 0);
+> +		BUG_ON(ret < 0);
+> +	}
+> +
+> +	PDEBUG("%lld poll: %d packets received\n", priv->vdev->id, npackets);
+> +
+> +	/*
+> +	 * If we processed all packets, we're done; tell the kernel and
+> +	 * reenable ints
+> +	 */
+> +	if (ioq_empty(priv->rxq.queue, ioq_idxtype_inuse)) {
+> +		netif_rx_complete(napi);
+> +		ioq_notify_enable(priv->rxq.queue, 0);
+> +		ret = 0;
+> +	} else
+> +		/* We couldn't process everything. */
+> +		ret = 1;
+> +
+> +	return ret;
+> +}
+> +
+> +/*
+> + * Transmit a packet (called by the kernel)
+> + */
+> +static int
+> +vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct vbus_enet_priv *priv = netdev_priv(dev);
+> +	struct ioq_iterator    iter;
+> +	int ret;
+> +	unsigned long flags;
+> +
+> +	PDEBUG("%lld: sending %d bytes\n", priv->vdev->id, skb->len);
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +
+> +	if (ioq_full(priv->txq.queue, ioq_idxtype_valid)) {
+> +		/*
+> +		 * We must flow-control the kernel by disabling the
+> +		 * queue
+> +		 */
+> +		spin_unlock_irqrestore(&priv->lock, flags);
+> +		netif_stop_queue(dev);
+> +		printk(KERN_ERR "VBUS_ENET: tx on full queue bug "	\
+> +		       "on device %lld\n", priv->vdev->id);
+> +		return 1;
+> +	}
+> +
+> +	/*
+> +	 * We want to iterate on the tail of both the "inuse" and "valid" index
+> +	 * so we specify the "both" index
+> +	 */
+> +	ret = ioq_iter_init(priv->txq.queue, &iter, ioq_idxtype_both,
+> +			    IOQ_ITER_AUTOUPDATE);
+> +	BUG_ON(ret < 0);
+> +
+> +	ret = ioq_iter_seek(&iter, ioq_seek_tail, 0, 0);
+> +	BUG_ON(ret < 0);
+> +	BUG_ON(iter.desc->sown);
+> +
+> +	/*
+> +	 * We simply put the skb right onto the ring.  We will get an interrupt
+> +	 * later when the data has been consumed and we can reap the pointers
+> +	 * at that time
+> +	 */
+> +	iter.desc->cookie = (u64)skb;
+> +	iter.desc->len = (u64)skb->len;
+> +	iter.desc->ptr = (u64)__pa(skb->data);
+> +	iter.desc->valid  = 1;
+> +
+> +	priv->dev->stats.tx_packets++;
+> +	priv->dev->stats.tx_bytes += skb->len;
+> +
+> +	/*
+> +	 * This advances both indexes together implicitly, and then
+> +	 * signals the south side to consume the packet
+> +	 */
+> +	ret = ioq_iter_push(&iter, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	dev->trans_start = jiffies; /* save the timestamp */
+> +
+> +	if (ioq_full(priv->txq.queue, ioq_idxtype_valid)) {
+> +		/*
+> +		 * If the queue is congested, we must flow-control the kernel
+> +		 */
+> +		PDEBUG("%lld: backpressure tx queue\n", priv->vdev->id);
+> +		netif_stop_queue(dev);
+> +	}
+> +
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +
+> +	return 0;
+> +}
+> +
+> +/*
+> + * reclaim any outstanding completed tx packets
+> + *
+> + * assumes priv->lock held
+> + */
+> +static void
+> +vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
+> +{
+> +	struct ioq_iterator iter;
+> +	int ret;
+> +
+> +	/*
+> +	 * We want to iterate on the head of the valid index, but we
+> +	 * do not want the iter_pop (below) to flip the ownership, so
+> +	 * we set the NOFLIPOWNER option
+> +	 */
+> +	ret = ioq_iter_init(priv->txq.queue, &iter, ioq_idxtype_valid,
+> +			    IOQ_ITER_NOFLIPOWNER);
+> +	BUG_ON(ret < 0);
+> +
+> +	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
+> +	BUG_ON(ret < 0);
+> +
+> +	/*
+> +	 * We are done once we find the first packet either invalid or still
+> +	 * owned by the south-side
+> +	 */
+> +	while (iter.desc->valid && (!iter.desc->sown || force)) {
+> +		struct sk_buff *skb = (struct sk_buff *)iter.desc->cookie;
+> +
+> +		PDEBUG("%lld: completed sending %d bytes\n",
+> +		       priv->vdev->id, skb->len);
+> +
+> +		/* Reset the descriptor */
+> +		iter.desc->valid  = 0;
+> +
+> +		dev_kfree_skb(skb);
+> +
+> +		/* Advance the valid-index head */
+> +		ret = ioq_iter_pop(&iter, 0);
+> +		BUG_ON(ret < 0);
+> +	}
+> +
+> +	/*
+> +	 * If we were previously stopped due to flow control, restart the
+> +	 * processing
+> +	 */
+> +	if (netif_queue_stopped(priv->dev)
+> +	    && !ioq_full(priv->txq.queue, ioq_idxtype_valid)) {
+> +		PDEBUG("%lld: re-enabling tx queue\n", priv->vdev->id);
+> +		netif_wake_queue(priv->dev);
+> +	}
+> +}
+> +
+> +static void
+> +vbus_enet_timeout(struct net_device *dev)
+> +{
+> +	struct vbus_enet_priv *priv = netdev_priv(dev);
+> +	unsigned long flags;
+> +
+> +	printk(KERN_DEBUG "VBUS_ENET %lld: Transmit timeout\n", priv->vdev->id);
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	vbus_enet_tx_reap(priv, 0);
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +}
+> +
+> +static void
+> +rx_isr(struct ioq_notifier *notifier)
+> +{
+> +	struct vbus_enet_priv *priv;
+> +	struct net_device  *dev;
+> +
+> +	priv = container_of(notifier, struct vbus_enet_priv, rxq.notifier);
+> +	dev = priv->dev;
+> +
+> +	if (!ioq_empty(priv->rxq.queue, ioq_idxtype_inuse))
+> +		vbus_enet_schedule_rx(priv);
+> +}
+> +
+> +static void
+> +deferred_tx_isr(unsigned long data)
+> +{
+> +	struct vbus_enet_priv *priv = (struct vbus_enet_priv *)data;
+> +	unsigned long flags;
+> +
+> +	PDEBUG("deferred_tx_isr for %lld\n", priv->vdev->id);
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	vbus_enet_tx_reap(priv, 0);
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +
+> +	ioq_notify_enable(priv->txq.queue, 0);
+> +}
+> +
+> +static void
+> +tx_isr(struct ioq_notifier *notifier)
+> +{
+> +       struct vbus_enet_priv *priv;
+> +       unsigned long flags;
+> +
+> +       priv = container_of(notifier, struct vbus_enet_priv, txq.notifier);
+> +
+> +       PDEBUG("tx_isr for %lld\n", priv->vdev->id);
+> +
+> +       ioq_notify_disable(priv->txq.queue, 0);
+> +       tasklet_schedule(&priv->txtask);
+> +}
+> +
+> +static const struct net_device_ops vbus_enet_netdev_ops = {
+> +	.ndo_open          = vbus_enet_open,
+> +	.ndo_stop          = vbus_enet_stop,
+> +	.ndo_set_config    = vbus_enet_config,
+> +	.ndo_start_xmit    = vbus_enet_tx_start,
+> +	.ndo_change_mtu	   = vbus_enet_change_mtu,
+> +	.ndo_tx_timeout    = vbus_enet_timeout,
+
+add .ndo_validate_addr = eth_valid_addr?
+multicast list?
+
+> +};
+> +
+> +/*
+> + * This is called whenever a new vbus_device_proxy is added to the vbus
+> + * with the matching VENET_ID
+> + */
+> +static int
+> +vbus_enet_probe(struct vbus_device_proxy *vdev)
+> +{
+> +	struct net_device  *dev;
+> +	struct vbus_enet_priv *priv;
+> +	int ret;
+> +
+> +	printk(KERN_INFO "VBUS_ENET: Found new device at %lld\n", vdev->id);
+> +
+> +	ret = vdev->ops->open(vdev, VENET_VERSION, 0);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	dev = alloc_etherdev(sizeof(struct vbus_enet_priv));
+> +	if (!dev)
+> +		return -ENOMEM;
+> +
+> +	priv = netdev_priv(dev);
+> +
+> +	spin_lock_init(&priv->lock);
+> +	priv->dev  = dev;
+> +	priv->vdev = vdev;
+> +
+> +	tasklet_init(&priv->txtask, deferred_tx_isr, (unsigned long)priv);
+> +
+> +	queue_init(priv, &priv->rxq, VENET_QUEUE_RX, rx_ringlen, rx_isr);
+> +	queue_init(priv, &priv->txq, VENET_QUEUE_TX, tx_ringlen, tx_isr);
+> +
+> +	rx_setup(priv);
+> +
+> +	ioq_notify_enable(priv->rxq.queue, 0);  /* enable interrupts */
+> +	ioq_notify_enable(priv->txq.queue, 0);
+> +
+> +	dev->netdev_ops     = &vbus_enet_netdev_ops;
+> +	dev->watchdog_timeo = 5 * HZ;
+> +
+> +	netif_napi_add(dev, &priv->napi, vbus_enet_poll, napi_weight);
+> +
+> +	ret = devcall(priv, VENET_FUNC_MACQUERY, priv->dev->dev_addr, ETH_ALEN);
+> +	if (ret < 0) {
+> +		printk(KERN_INFO "VENET: Error obtaining MAC address for " \
+> +		       "%lld\n",
+> +		       priv->vdev->id);
+> +		goto out_free;
+> +	}
+> +
+> +	dev->features |= NETIF_F_HIGHDMA;
+> +
+> +	ret = register_netdev(dev);
+> +	if (ret < 0) {
+> +		printk(KERN_INFO "VENET: error %i registering device \"%s\"\n",
+> +		       ret, dev->name);
+> +		goto out_free;
+> +	}
+> +
+> +	vdev->priv = priv;
+> +
+> +	return 0;
+> +
+> + out_free:
+> +	free_netdev(dev);
+> +
+> +	return ret;
+> +}
+> +
+> +static int
+> +vbus_enet_remove(struct vbus_device_proxy *vdev)
+> +{
+> +	struct vbus_enet_priv *priv = (struct vbus_enet_priv *)vdev->priv;
+> +	struct vbus_device_proxy *dev = priv->vdev;
+> +
+> +	unregister_netdev(priv->dev);
+> +	napi_disable(&priv->napi);
+> +
+> +	rx_teardown(priv);
+> +	vbus_enet_tx_reap(priv, 1);
+> +
+> +	ioq_put(priv->rxq.queue);
+> +	ioq_put(priv->txq.queue);
+> +
+> +	dev->ops->close(dev, 0);
+> +
+> +	free_netdev(priv->dev);
+> +
+> +	return 0;
+> +}
+> +
+> +/*
+> + * Finally, the module stuff
+> + */
+> +
+> +static struct vbus_driver_ops vbus_enet_driver_ops = {
+> +	.probe  = vbus_enet_probe,
+> +	.remove = vbus_enet_remove,
+> +};
+> +
+> +static struct vbus_driver vbus_enet_driver = {
+> +	.type   = VENET_TYPE,
+> +	.owner  = THIS_MODULE,
+> +	.ops    = &vbus_enet_driver_ops,
+> +};
+> +
+> +static __init int
+> +vbus_enet_init_module(void)
+> +{
+> +	printk(KERN_INFO "Virtual Ethernet: Copyright (C) 2009 Novell, Gregory Haskins\n");
+> +	printk(KERN_DEBUG "VBUSENET: Using %d/%d queue depth\n",
+> +	       rx_ringlen, tx_ringlen);
+> +	return vbus_driver_register(&vbus_enet_driver);
+> +}
+> +
+> +static __exit void
+> +vbus_enet_cleanup(void)
+> +{
+> +	vbus_driver_unregister(&vbus_enet_driver);
+> +}
+> +
+> +module_init(vbus_enet_init_module);
+> +module_exit(vbus_enet_cleanup);
+> 
