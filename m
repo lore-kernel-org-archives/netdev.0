@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Wed, 08 Apr 2009 22:24:20 -0700 (PDT)
-Message-ID: <20090408.222420.196708386.davem@davemloft.net>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
-	<20090408.173607.177460759.davem@davemloft.net>
-	<65634d660904082140k727720c5o22f203aa092727a6@mail.gmail.com>
+From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Wed, 8 Apr 2009 23:23:44 -0600
+Message-ID: <20090408232344.afed8103.zaitcev@redhat.com>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
+	<18908.42166.404232.721757@stoffel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39820
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759288AbZDIFYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 01:24:30 -0400
-In-Reply-To: <65634d660904082140k727720c5o22f203aa092727a6@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <18908.42166.404232.721757-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 8 Apr 2009 21:40:28 -0700
+On Wed, 8 Apr 2009 09:20:54 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
 
-> Thanks for the reference to that patch, are you planning to apply it?
+> Well I think that usbmon is probably at fault here for trusting
+> drivers too much and not doing any sanity checking. []
 
-Not any time soon.
+By the way, please send me a full dmesg from the affected system
+and kernel. Any post-boot dmesg will do: I only want to see if
+IOMMU is active, where the aperture is, and if 0x20a15cc0 is a
+valid physical address.
 
-It eats up a good chunk of space in struct sk_buff but I have
-a plan to eliminate most of that which involves moving all of
-the SKB queue handling over to "list_head" then we can share
-list_head space in "struct call_single_data" using a union.
+-- Pete
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
