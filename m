@@ -1,60 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Thu, 09 Apr 2009 19:23:32 +0100
-Message-ID: <1239301412.3264.24.camel@achroite>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
-	 <20090408160948.2257d311@s6510>
-	 <20090408.161515.40986410.davem@davemloft.net>
-	 <65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: IRQF_SAMPLE_RANDOM question...
+Date: Thu, 09 Apr 2009 10:00:59 -0700
+Message-ID: <1239296459.31467.142.camel@calx>
+References: <200904061430.26276.rgetz@blackfin.uclinux.org>
+	 <200904071744.17727.rgetz@blackfin.uclinux.org>
+	 <1239220294.31467.55.camel@calx>
+	 <200904090954.54601.rgetz@blackfin.uclinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:35945 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932962AbZDISXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 14:23:38 -0400
-In-Reply-To: <65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris Peterson <cpeterso@cpeterso.com>
+To: Robin Getz <rgetz@blackfin.uclinux.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936064AbZDITDy@vger.kernel.org>
+In-Reply-To: <200904090954.54601.rgetz@blackfin.uclinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-04-09 at 09:43 -0700, Tom Herbert wrote:
-> >>> -extern int          netif_receive_skb(struct sk_buff *skb);
-> >>> +extern int            __netif_receive_skb(struct sk_buff *skb);
-> >>> +
-> >>> +static inline int netif_receive_skb(struct sk_buff *skb)
-> >>> +{
-> >>> +#ifdef CONFIG_NET_SOFTRPS
-> >>> +    return netif_rx(skb);
-> >>> +#else
-> >>> +    return __netif_receive_skb(skb);
-> >>> +#endif
-> >>> +}
-> >>
-> >> Ugh, this forces all devices receiving back into a single backlog
-> >> queue.
-> >
-> > Yes, it basically turns off NAPI.
-> >
+On Thu, 2009-04-09 at 09:54 -0400, Robin Getz wrote:
+> On Wed 8 Apr 2009 15:51, Matt Mackall pondered:
+> > On Tue, 2009-04-07 at 17:44 -0400, Robin Getz wrote:
+> > > Is that "Everything in general, with a few exceptions", or
+> > > "__Everything__"?
+> > 
+> > Everything. We want every input point to better document the type of
+> > entropy source.
 > 
-> NAPI is still useful, but it does take a higher packet load before
-> polling kicks in.  I believe this is similarly true for HW multi
-> queue, and could actually be worse depending on the number of queues
-> traffic is being split across (in my bnx2x experiment 16 core AMD with
-> 16 queues, I was seeing around 300K interrupts per second, no benefit
-> from NAPI).
-[...]
+> OK - any objections to something like this?
 
-Have you tried using fewer than 16 queues?  We found using every core in
-a multi-core package to be a waste of cycles.
-
-Ben.
+Hmm, this is a purely internal interface. Not sure if we need to bother
+with scheduling it. My plan was to simply get the new code in and sweep
+the kernel. 
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+http://selenic.com : development and support for Mercurial and Linux
