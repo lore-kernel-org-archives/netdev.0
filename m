@@ -1,51 +1,60 @@
-From: Andy Grover <andy.grover@oracle.com>
-Subject: Re: rds: use kmem_cache_zalloc instead of kmem_cache_alloc/memset
-Date: Thu, 09 Apr 2009 10:43:13 -0700
-Message-ID: <49DE33B1.4010700@oracle.com>
-References: <49DDAB8A.5000300@cn.fujitsu.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Thu, 09 Apr 2009 19:23:32 +0100
+Message-ID: <1239301412.3264.24.camel@achroite>
+References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
+	 <20090408160948.2257d311@s6510>
+	 <20090408.161515.40986410.davem@davemloft.net>
+	 <65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:36064 "EHLO
-	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757213AbZDIRn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 13:43:28 -0400
-In-Reply-To: <49DDAB8A.5000300@cn.fujitsu.com>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:35945 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932962AbZDISXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 14:23:38 -0400
+In-Reply-To: <65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wei Yongjun wrote:
-> Use kmem_cache_zalloc instead of kmem_cache_alloc/memset.
+On Thu, 2009-04-09 at 09:43 -0700, Tom Herbert wrote:
+> >>> -extern int          netif_receive_skb(struct sk_buff *skb);
+> >>> +extern int            __netif_receive_skb(struct sk_buff *skb);
+> >>> +
+> >>> +static inline int netif_receive_skb(struct sk_buff *skb)
+> >>> +{
+> >>> +#ifdef CONFIG_NET_SOFTRPS
+> >>> +    return netif_rx(skb);
+> >>> +#else
+> >>> +    return __netif_receive_skb(skb);
+> >>> +#endif
+> >>> +}
+> >>
+> >> Ugh, this forces all devices receiving back into a single backlog
+> >> queue.
+> >
+> > Yes, it basically turns off NAPI.
+> >
 > 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> ---
->  net/rds/connection.c |    4 +---
->  1 files changed, 1 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/rds/connection.c b/net/rds/connection.c
-> index 273f064..d14445c 100644
-> --- a/net/rds/connection.c
-> +++ b/net/rds/connection.c
-> @@ -148,14 +148,12 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
->  	if (conn)
->  		goto out;
->  
-> -	conn = kmem_cache_alloc(rds_conn_slab, gfp);
-> +	conn = kmem_cache_zalloc(rds_conn_slab, gfp);
->  	if (conn == NULL) {
->  		conn = ERR_PTR(-ENOMEM);
->  		goto out;
->  	}
->  
-> -	memset(conn, 0, sizeof(*conn));
-> -
->  	INIT_HLIST_NODE(&conn->c_hash_node);
->  	conn->c_version = RDS_PROTOCOL_3_0;
->  	conn->c_laddr = laddr;
+> NAPI is still useful, but it does take a higher packet load before
+> polling kicks in.  I believe this is similarly true for HW multi
+> queue, and could actually be worse depending on the number of queues
+> traffic is being split across (in my bnx2x experiment 16 core AMD with
+> 16 queues, I was seeing around 300K interrupts per second, no benefit
+> from NAPI).
+[...]
 
-Thanks, will include in next rds updates!
+Have you tried using fewer than 16 queues?  We found using every core in
+a multi-core package to be a waste of cycles.
 
-Regards -- Andy
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
