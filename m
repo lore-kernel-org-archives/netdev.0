@@ -1,41 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Oops in tun: bisected to  Limit amount of queued packets per
-	device
-Date: Thu, 9 Apr 2009 17:38:17 +0800
-Message-ID: <20090409093817.GA5760@gondor.apana.org.au>
-References: <200904090952.01175.borntraeger@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+From: Seguier Regis <rseguier@e-teleport.net>
+Subject: [PATCH] via-velocity : fix compilation warning.
+Date: Thu,  9 Apr 2009 11:33:57 +0000
+Message-ID: <1239276837-17085-1-git-send-email-rseguier@e-teleport.net>
+Cc: Seguier Regis <rseguier@e-teleport.net>
+To: romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36514 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754939AbZDIJiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 05:38:24 -0400
-Content-Disposition: inline
-In-Reply-To: <200904090952.01175.borntraeger@de.ibm.com>
+Received: from smtp.e-teleport.net ([213.190.64.162]:50042 "EHLO
+	smtp.e-teleport.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933677AbZDIK3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 06:29:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 09, 2009 at 09:52:01AM +0200, Christian Borntraeger wrote:
-> 
-> with my kvm test scenario on s390 I get the following oops:
-> Unable to handle kernel pointer dereference at virtual kernel address 0000000400000000
-> Oops: 003b [#1] SMP
-> Modules linked in: kvm dm_multipath sunrpc qeth_l2 dm_mod qeth ccwgroup
-> CPU: 0 Not tainted 2.6.29-kvm-06607-ga317a1e-dirty #8
-> Process kuli (pid: 14827, task: 00000000b3df8138, ksp: 00000000b4703a98)
-> Krnl PSW : 0404e00180000000 0000000000171278 (__lock_acquire+0x3d4/0x191c)
+Fix this warning:
+drivers/net/via-velocity.c:1924: warning: passing argument 2 of 'request_irq' from incompatible pointer type
 
-This is weird.  It looks like it's dying on the wake_up_interruptible_sync
-in tun_sock_write_space.  However, I can't see how that can cause this.
+Signed-off-by: Seguier Regis <rseguier@e-teleport.net>
+---
+ drivers/net/via-velocity.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Were you in the middle of removing the tun module?
-
-Cheers,
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index fb53ef8..754a4b1 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -377,7 +377,7 @@ static void velocity_print_info(struct velocity_info *vptr);
+ static int velocity_open(struct net_device *dev);
+ static int velocity_change_mtu(struct net_device *dev, int mtu);
+ static int velocity_xmit(struct sk_buff *skb, struct net_device *dev);
+-static int velocity_intr(int irq, void *dev_instance);
++static irqreturn_t velocity_intr(int irq, void *dev_instance);
+ static void velocity_set_multi(struct net_device *dev);
+ static struct net_device_stats *velocity_get_stats(struct net_device *dev);
+ static int velocity_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+@@ -2215,7 +2215,7 @@ out:
+  *	efficiently as possible.
+  */
+ 
+-static int velocity_intr(int irq, void *dev_instance)
++static irqreturn_t velocity_intr(int irq, void *dev_instance)
+ {
+ 	struct net_device *dev = dev_instance;
+ 	struct velocity_info *vptr = netdev_priv(dev);
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.1.rc2
+
