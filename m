@@ -1,7 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH v2 07/19] ioq: add vbus helpers
-Date: Thu, 09 Apr 2009 12:31:18 -0400
-Message-ID: <20090409163118.32740.85447.stgit@dev.haskins.net>
+Subject: [RFC PATCH v2 04/19] vbus: add bus-registration notifiers
+Date: Thu, 09 Apr 2009 12:31:02 -0400
+Message-ID: <20090409163102.32740.76404.stgit@dev.haskins.net>
 References: <20090409155200.32740.19358.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,270 +14,167 @@ Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
 	shemminger@vyatta.com
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:40439 "EHLO
+Received: from victor.provo.novell.com ([137.65.250.26]:42434 "EHLO
 	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933803AbZDIQ3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 12:29:10 -0400
+	with ESMTP id S934675AbZDIQ2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 12:28:54 -0400
 In-Reply-To: <20090409155200.32740.19358.stgit@dev.haskins.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be common to map an IOQ over the VBUS shared-memory interfaces,
-so lets generalize their setup so we can reuse the pattern.
+We need to get hotswap events in environments which cannot use existing
+facilities (e.g. inotify).  So we add a notifier-chain to allow client
+callbacks whenever an interface is {un}registered.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/vbus_device.h |    7 +++
- include/linux/vbus_driver.h |    7 +++
- kernel/vbus/Kconfig         |    2 +
- kernel/vbus/Makefile        |    1 
- kernel/vbus/proxy.c         |   64 +++++++++++++++++++++++++++++++
- kernel/vbus/shm-ioq.c       |   89 +++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 170 insertions(+), 0 deletions(-)
- create mode 100644 kernel/vbus/shm-ioq.c
+ include/linux/vbus.h |   15 +++++++++++++
+ kernel/vbus/core.c   |   59 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/vbus/vbus.h   |    1 +
+ 3 files changed, 75 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/vbus_device.h b/include/linux/vbus_device.h
-index f73cd86..c91bce4 100644
---- a/include/linux/vbus_device.h
-+++ b/include/linux/vbus_device.h
-@@ -102,6 +102,7 @@
- #include <linux/configfs.h>
- #include <linux/rbtree.h>
- #include <linux/shm_signal.h>
-+#include <linux/ioq.h>
- #include <linux/vbus.h>
- #include <asm/atomic.h>
+diff --git a/include/linux/vbus.h b/include/linux/vbus.h
+index 5f0566c..04db4ff 100644
+--- a/include/linux/vbus.h
++++ b/include/linux/vbus.h
+@@ -29,6 +29,7 @@
+ #include <linux/sched.h>
+ #include <linux/rcupdate.h>
+ #include <linux/vbus_device.h>
++#include <linux/notifier.h>
  
-@@ -414,4 +415,10 @@ static inline void vbus_connection_put(struct vbus_connection *conn)
- 		conn->ops->release(conn);
+ struct vbus;
+ struct task_struct;
+@@ -137,6 +138,20 @@ static inline void task_vbus_disassociate(struct task_struct *p)
+ 	}
  }
  
-+/*
-+ * device-side IOQ helper - dereferences device-shm as an IOQ
-+ */
-+int vbus_shm_ioq_attach(struct vbus_shm *shm, struct shm_signal *signal,
-+			int maxcount, struct ioq **ioq);
-+
- #endif /* _LINUX_VBUS_DEVICE_H */
-diff --git a/include/linux/vbus_driver.h b/include/linux/vbus_driver.h
-index c53e13f..9cfbf60 100644
---- a/include/linux/vbus_driver.h
-+++ b/include/linux/vbus_driver.h
-@@ -26,6 +26,7 @@
- 
- #include <linux/device.h>
- #include <linux/shm_signal.h>
-+#include <linux/ioq.h>
- 
- struct vbus_device_proxy;
- struct vbus_driver;
-@@ -70,4 +71,10 @@ struct vbus_driver {
- int vbus_driver_register(struct vbus_driver *drv);
- void vbus_driver_unregister(struct vbus_driver *drv);
- 
-+/*
-+ * driver-side IOQ helper - allocates device-shm and maps an IOQ on it
-+ */
-+int vbus_driver_ioq_alloc(struct vbus_device_proxy *dev, int id, int prio,
-+			  size_t ringsize, struct ioq **ioq);
-+
- #endif /* _LINUX_VBUS_DRIVER_H */
-diff --git a/kernel/vbus/Kconfig b/kernel/vbus/Kconfig
-index 3aaa085..71acd6f 100644
---- a/kernel/vbus/Kconfig
-+++ b/kernel/vbus/Kconfig
-@@ -6,6 +6,7 @@ config VBUS
-        bool "Virtual Bus"
-        select CONFIGFS_FS
-        select SHM_SIGNAL
-+       select IOQ
-        default n
-        help
-         Provides a mechansism for declaring virtual-bus objects and binding
-@@ -15,6 +16,7 @@ config VBUS
- 
- config VBUS_DRIVERS
-        tristate "VBUS Driver support"
-+       select IOQ
-        default n
-        help
-         Adds support for a virtual bus model for proxying drivers.
-diff --git a/kernel/vbus/Makefile b/kernel/vbus/Makefile
-index d028ece..45f6503 100644
---- a/kernel/vbus/Makefile
-+++ b/kernel/vbus/Makefile
-@@ -1,4 +1,5 @@
- obj-$(CONFIG_VBUS) += core.o devclass.o config.o attribute.o map.o client.o
-+obj-$(CONFIG_VBUS) += shm-ioq.o
- 
- vbus-proxy-objs += proxy.o
- obj-$(CONFIG_VBUS_DRIVERS) += vbus-proxy.o
-diff --git a/kernel/vbus/proxy.c b/kernel/vbus/proxy.c
-index ea48f00..75b0cb1 100644
---- a/kernel/vbus/proxy.c
-+++ b/kernel/vbus/proxy.c
-@@ -150,3 +150,67 @@ void vbus_driver_unregister(struct vbus_driver *drv)
- }
- EXPORT_SYMBOL_GPL(vbus_driver_unregister);
- 
-+/*
-+ *---------------------------------
-+ * driver-side IOQ helper
-+ *---------------------------------
-+ */
-+static void
-+vbus_driver_ioq_release(struct ioq *ioq)
-+{
-+	kfree(ioq->head_desc);
-+	kfree(ioq);
-+}
-+
-+static struct ioq_ops vbus_driver_ioq_ops = {
-+	.release = vbus_driver_ioq_release,
++enum {
++	VBUS_EVENT_DEVADD,
++	VBUS_EVENT_DEVDROP,
 +};
 +
++struct vbus_event_devadd {
++	const char   *type;
++	unsigned long id;
++};
 +
-+int vbus_driver_ioq_alloc(struct vbus_device_proxy *dev, int id, int prio,
-+			  size_t count, struct ioq **ioq)
-+{
-+	struct ioq           *_ioq;
-+	struct ioq_ring_head *head = NULL;
-+	struct shm_signal    *signal = NULL;
-+	size_t                len = IOQ_HEAD_DESC_SIZE(count);
-+	int                   ret = -ENOMEM;
++int vbus_notifier_register(struct vbus *vbus, struct notifier_block *nb);
++int vbus_notifier_unregister(struct vbus *vbus, struct notifier_block *nb);
 +
-+	_ioq = kzalloc(sizeof(*_ioq), GFP_KERNEL);
-+	if (!_ioq)
-+		goto error;
 +
-+	head = kzalloc(len, GFP_KERNEL | GFP_DMA);
-+	if (!head)
-+		goto error;
+ #else /* CONFIG_VBUS */
+ 
+ #define fork_vbus(p) do { } while (0)
+diff --git a/kernel/vbus/core.c b/kernel/vbus/core.c
+index 033999f..b6df487 100644
+--- a/kernel/vbus/core.c
++++ b/kernel/vbus/core.c
+@@ -89,6 +89,7 @@ int vbus_device_interface_register(struct vbus_device *dev,
+ {
+ 	int ret;
+ 	struct vbus_devshell *ds = to_devshell(dev->kobj);
++	struct vbus_event_devadd ev;
+ 
+ 	mutex_lock(&vbus->lock);
+ 
+@@ -124,6 +125,14 @@ int vbus_device_interface_register(struct vbus_device *dev,
+ 	if (ret)
+ 		goto error;
+ 
++	ev.type = intf->type;
++	ev.id   = intf->id;
 +
-+	head->magic     = IOQ_RING_MAGIC;
-+	head->ver	= IOQ_RING_VER;
-+	head->count     = count;
-+
-+	ret = dev->ops->shm(dev, id, prio, head, len,
-+			    &head->signal, &signal, 0);
++	/* and let any clients know about the new device */
++	ret = raw_notifier_call_chain(&vbus->notifier, VBUS_EVENT_DEVADD, &ev);
 +	if (ret < 0)
 +		goto error;
 +
-+	ioq_init(_ioq,
-+		 &vbus_driver_ioq_ops,
-+		 ioq_locality_north,
-+		 head,
-+		 signal,
-+		 count);
+ 	mutex_unlock(&vbus->lock);
+ 
+ 	return 0;
+@@ -144,6 +153,7 @@ int vbus_device_interface_unregister(struct vbus_device_interface *intf)
+ 
+ 	mutex_lock(&vbus->lock);
+ 	_interface_unregister(intf);
++	raw_notifier_call_chain(&vbus->notifier, VBUS_EVENT_DEVDROP, &intf->id);
+ 	mutex_unlock(&vbus->lock);
+ 
+ 	kobject_put(&intf->kobj);
+@@ -346,6 +356,8 @@ int vbus_create(const char *name, struct vbus **bus)
+ 
+ 	_bus->next_id = 0;
+ 
++	RAW_INIT_NOTIFIER_HEAD(&_bus->notifier);
 +
-+	*ioq = _ioq;
+ 	mutex_lock(&vbus_root.lock);
+ 
+ 	ret = map_add(&vbus_root.buses.map, &_bus->node);
+@@ -358,6 +370,53 @@ int vbus_create(const char *name, struct vbus **bus)
+ 	return 0;
+ }
+ 
++#define for_each_rbnode(node, root) \
++	for (node = rb_first(root); node != NULL; node = rb_next(node))
 +
-+	return 0;
++int vbus_notifier_register(struct vbus *vbus, struct notifier_block *nb)
++{
++	int ret;
++	struct rb_node *node;
 +
-+ error:
-+	kfree(_ioq);
-+	kfree(head);
++	mutex_lock(&vbus->lock);
 +
-+	if (signal)
-+		shm_signal_put(signal);
++	/*
++	 * resync the client for any devices we might already have
++	 */
++	for_each_rbnode(node, &vbus->devices.map.root) {
++		struct vbus_device_interface *intf = node_to_intf(node);
++		struct vbus_event_devadd ev = {
++			.type = intf->type,
++			.id   = intf->id,
++		};
++
++		ret = nb->notifier_call(nb, VBUS_EVENT_DEVADD, &ev);
++		if (ret & NOTIFY_STOP_MASK) {
++			mutex_unlock(&vbus->lock);
++			return -EPERM;
++		}
++	}
++
++	ret = raw_notifier_chain_register(&vbus->notifier, nb);
++
++	mutex_unlock(&vbus->lock);
 +
 +	return ret;
 +}
-+EXPORT_SYMBOL_GPL(vbus_driver_ioq_alloc);
-diff --git a/kernel/vbus/shm-ioq.c b/kernel/vbus/shm-ioq.c
-new file mode 100644
-index 0000000..a627337
---- /dev/null
-+++ b/kernel/vbus/shm-ioq.c
-@@ -0,0 +1,89 @@
-+/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * IOQ helper for devices - This module implements an IOQ which has
-+ * been shared with a device via a vbus_shm segment.
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
++EXPORT_SYMBOL_GPL(vbus_notifier_register);
 +
-+#include <linux/ioq.h>
-+#include <linux/vbus_device.h>
-+
-+struct _ioq {
-+	struct vbus_shm *shm;
-+	struct ioq ioq;
-+};
-+
-+static void
-+_shm_ioq_release(struct ioq *ioq)
++int vbus_notifier_unregister(struct vbus *vbus, struct notifier_block *nb)
 +{
-+	struct _ioq *_ioq = container_of(ioq, struct _ioq, ioq);
++	int ret;
 +
-+	/* the signal is released by the IOQ infrastructure */
-+	vbus_shm_put(_ioq->shm);
-+	kfree(_ioq);
++	mutex_lock(&vbus->lock);
++	ret = raw_notifier_chain_unregister(&vbus->notifier, nb);
++	mutex_unlock(&vbus->lock);
++
++	return ret;
 +}
++EXPORT_SYMBOL_GPL(vbus_notifier_unregister);
 +
-+static struct ioq_ops _shm_ioq_ops = {
-+	.release = _shm_ioq_release,
-+};
-+
-+int vbus_shm_ioq_attach(struct vbus_shm *shm, struct shm_signal *signal,
-+			int maxcount, struct ioq **ioq)
-+{
-+	struct _ioq *_ioq;
-+	struct ioq_ring_head *head = NULL;
-+	size_t ringcount;
-+
-+	if (!signal)
-+		return -EINVAL;
-+
-+	_ioq = kzalloc(sizeof(*_ioq), GFP_KERNEL);
-+	if (!_ioq)
-+		return -ENOMEM;
-+
-+	head = (struct ioq_ring_head *)shm->ptr;
-+
-+	if (head->magic != IOQ_RING_MAGIC)
-+		return -EINVAL;
-+
-+	if (head->ver != IOQ_RING_VER)
-+		return -EINVAL;
-+
-+	ringcount = head->count;
-+
-+	if ((maxcount != -1) && (ringcount > maxcount))
-+		return -EINVAL;
-+
-+	/*
-+	 * Sanity check the ringcount against the actual length of the segment
-+	 */
-+	if (IOQ_HEAD_DESC_SIZE(ringcount) != shm->len)
-+		return -EINVAL;
-+
-+	_ioq->shm = shm;
-+
-+	ioq_init(&_ioq->ioq, &_shm_ioq_ops, ioq_locality_south, head,
-+		 signal, ringcount);
-+
-+	*ioq = &_ioq->ioq;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(vbus_shm_ioq_attach);
-+
+ static void devshell_release(struct kobject *kobj)
+ {
+ 	struct vbus_devshell *ds = container_of(kobj,
+diff --git a/kernel/vbus/vbus.h b/kernel/vbus/vbus.h
+index 1266d69..cd2676b 100644
+--- a/kernel/vbus/vbus.h
++++ b/kernel/vbus/vbus.h
+@@ -51,6 +51,7 @@ struct vbus {
+ 	struct vbus_subdir members;
+ 	unsigned long next_id;
+ 	struct rb_node node;
++	struct raw_notifier_head notifier;
+ };
+ 
+ struct vbus_member {
 
