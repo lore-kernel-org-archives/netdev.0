@@ -1,54 +1,56 @@
-From: Robin Getz <rgetz@blackfin.uclinux.org>
-Subject: Re: IRQF_SAMPLE_RANDOM question...
-Date: Thu, 9 Apr 2009 00:24:42 -0400
-Message-ID: <200904090024.42951.rgetz@blackfin.uclinux.org>
-References: <200904061430.26276.rgetz@blackfin.uclinux.org> <2c6601c9b894$756e4000$f9b5a8c0@pii350> <49DD3036.4020107@nortel.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Wed, 8 Apr 2009 21:40:28 -0700
+Message-ID: <65634d660904082140k727720c5o22f203aa092727a6@mail.gmail.com>
+References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
+	 <20090408.173607.177460759.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Gilles Espinasse" <g.esp@free.fr>,
-	"Chris Peterson" <cpeterso@cpeterso.com>,
-	"Matt Mackall" <mpm@selenic.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Chris Friesen" <cfriesen@nortel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:51478 "EHLO
-	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756775AbZDIEXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 00:23:09 -0400
-In-Reply-To: <49DD3036.4020107@nortel.com>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.33.17]:25206 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759719AbZDIEkf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 00:40:35 -0400
+Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
+	by smtp-out.google.com with ESMTP id n394eVeV018451
+	for <netdev@vger.kernel.org>; Thu, 9 Apr 2009 05:40:31 +0100
+Received: from qyk14 (qyk14.prod.google.com [10.241.83.142])
+	by zps36.corp.google.com with ESMTP id n394eTXa013048
+	for <netdev@vger.kernel.org>; Wed, 8 Apr 2009 21:40:29 -0700
+Received: by qyk14 with SMTP id 14so787632qyk.14
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2009 21:40:29 -0700 (PDT)
+In-Reply-To: <20090408.173607.177460759.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed 8 Apr 2009 19:16, Chris Friesen pondered:
-> Gilles Espinasse wrote:
-> 
-> > Readme say :
-> > "This daemon attempts to collect real randomness from fluctuations of
-> > high-frequency clocks on a PC's mainboard. The basic assumption is that
-> > mainboard and CPU are clocked by two separate physical clocks."
-> 
-> > How large is this basic assumption true, on x86, on other arch?
-> 
-> Isn't the cpu frequency normally a phase-locked multiple of the 
-> mainboard bus frequency?
+On Wed, Apr 8, 2009 at 5:36 PM, David Miller <davem@davemloft.net> wrot=
+e:
+> From: Tom Herbert <therbert@google.com>
+> Date: Wed, 8 Apr 2009 15:48:12 -0700
+>
+>> +#ifdef CONFIG_NET_SOFTRPS
+>> + =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_cpu;
+>> + =A0 =A0 struct list_head =A0 =A0 =A0 =A0rps_poll_list;
+>> + =A0 =A0 spinlock_t =A0 =A0 =A0 =A0 =A0 =A0 =A0rps_poll_list_lock;
+>> + =A0 =A0 struct call_single_data rps_csd;
+>> + =A0 =A0 unsigned long =A0 =A0 =A0 =A0 =A0 rps_flags;
+>> +#define RPS_SOFTIRQ_PENDING =A00x1
+>> +#define RPS_SOFTIRQ_COMPLETING =A0 =A0 =A0 0x2
+>> +#endif
+>
+> Have you seen my patch that does this with remote softirqs?
+> Then you don't need a lock for the list, it can be lockless
+> since only the local processor ever accesses the list.
+>
+> In fact, it kills the per-cpu backlog completely, everything
+> takes the netif_receive_skb() path and shoots the packet to
+> the remote cpu.
+>
+> Here is that patch, for reference. =A0It won't apply to anything
+> recent but all the ideas are there.
+>
 
-Yes - typically they are the same.
-
-However - I have tested clrngd out on a Blackfin, and found it gave an 
-excessively high load - but it did give ok results. 77% of the time (659/848 
-times) it provided results that passed it's built in FIPS test. It did die a 
-few times (if the FIPS tests fails 5 times in a row clrngd aborts).
-
-I was going to write my own (based on a similar architecture) - but use the 
-RTC clock and the main clock - since those actually would be different 
-physical crystals - and the accuracy of low cost 32kHz crystals is crappy  
-(typically measureable with a high enough core clock).
-
-But I think delays of cache misses/flushes will dominate things anyway - which 
-is why clrngd works today on systems which are using the same clock source. 
-(but since it will be RTC interrupt driven, vs while(1){} like clrngd - the 
-load will be much lower).
-
--Robin
+Thanks for the reference to that patch, are you planning to apply it?
