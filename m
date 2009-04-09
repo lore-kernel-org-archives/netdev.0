@@ -1,53 +1,77 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: Oops in tun: bisected to  Limit amount of queued packets per device
-Date: Thu, 9 Apr 2009 12:39:14 +0200
-Message-ID: <200904091239.14630.borntraeger@de.ibm.com>
-References: <200904090952.01175.borntraeger@de.ibm.com> <20090409093817.GA5760@gondor.apana.org.au>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Re: IRQF_SAMPLE_RANDOM question...
+Date: Thu, 9 Apr 2009 09:54:54 -0400
+Message-ID: <200904090954.54601.rgetz@blackfin.uclinux.org>
+References: <200904061430.26276.rgetz@blackfin.uclinux.org> <200904071744.17727.rgetz@blackfin.uclinux.org> <1239220294.31467.55.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Chris Peterson" <cpeterso@cpeterso.com>
+To: "Matt Mackall" <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.17.161]:45788 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934029AbZDIKjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 06:39:19 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.1/8.13.1) with ESMTP id n39AdGfp004012
-	for <netdev@vger.kernel.org>; Thu, 9 Apr 2009 10:39:16 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n39AdGJO4190284
-	for <netdev@vger.kernel.org>; Thu, 9 Apr 2009 12:39:16 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n39AdGxr024559
-	for <netdev@vger.kernel.org>; Thu, 9 Apr 2009 12:39:16 +0200
-In-Reply-To: <20090409093817.GA5760@gondor.apana.org.au>
+Received: from nwd2mail11.analog.com ([137.71.25.57]:45193 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764387AbZDINwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 09:52:55 -0400
+In-Reply-To: <1239220294.31467.55.camel@calx>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Thursday 09 April 2009 11:38:17 schrieb Herbert Xu:
-> On Thu, Apr 09, 2009 at 09:52:01AM +0200, Christian Borntraeger wrote:
-> > with my kvm test scenario on s390 I get the following oops:
-> > Unable to handle kernel pointer dereference at virtual kernel address
-> > 0000000400000000 Oops: 003b [#1] SMP
-> > Modules linked in: kvm dm_multipath sunrpc qeth_l2 dm_mod qeth ccwgroup
-> > CPU: 0 Not tainted 2.6.29-kvm-06607-ga317a1e-dirty #8
-> > Process kuli (pid: 14827, task: 00000000b3df8138, ksp: 00000000b4703a98)
-> > Krnl PSW : 0404e00180000000 0000000000171278
-> > (__lock_acquire+0x3d4/0x191c)
->
-> This is weird.  It looks like it's dying on the wake_up_interruptible_sync
-> in tun_sock_write_space.  However, I can't see how that can cause this.
->
-> Were you in the middle of removing the tun module?
->
-> Cheers,
+On Wed 8 Apr 2009 15:51, Matt Mackall pondered:
+> On Tue, 2009-04-07 at 17:44 -0400, Robin Getz wrote:
+> > Is that "Everything in general, with a few exceptions", or
+> > "__Everything__"?
+> 
+> Everything. We want every input point to better document the type of
+> entropy source.
 
-No, I was booting up a guest and the guest sent its first packet (arp). I 
-forgot to mention, that the tap device is persistent and attached to a 
-bridge. Does that give a clue?
+OK - any objections to something like this?
 
-Christian
+===================================================================
+--- Documentation/feature-removal-schedule.txt  (revision 6236)
++++ Documentation/feature-removal-schedule.txt  (working copy)
+@@ -6,6 +6,19 @@
+
+ ---------------------------
+
++What:  IRQF_SAMPLE_RANDOM
++Check: IRQF_SAMPLE_RANDOM
++When:  July 2009
++Why:   Many of IRQF_SAMPLE_RANDOM users are technically bogus as entropy
++       sources in the kernel's current entropy model. To resolve this, every
++       input point to the kernel's entropy pool needs to better document the
++       type of entropy source it actually is. This will be replaced with
++       additional add_*_randomness functions in drivers/char/random.c
++
++Who:   Robin Getz <rgetz@blackfin.uclinux.org> & Matt Mackall 
+<mpm@selenic.com>
++
++---------------------------
++
+
+Then if someone attempts to add it, and runs checkpatch, it will generate 
+something like:
+
+--------
+ERROR: Don't use IRQF_SAMPLE_RANDOM(): see 
+Documentation/feature-removal-schedule.txt
+#10: FILE: serial/bfin_5xx.c:650:
++       if (request_irq(uart->port.irq, bfin_serial_rx_int, IRQF_DISABLED | 
+IRQF_SAMPLE_RANDOM,
+--------
+
+My only real question is on the date... In a previous email:
+
+On Mon 6 Apr 2009 15:01, Matt Mackall pondered:
+> I'm eventually going to move the RNG away from the strict theoretical
+>  entropy accounting model to a more pragmatic one which will be much
+>  happier with iffy entropy sources, but that's a ways off.
+
+I was not sure what "a ways off" was defined as - or are the two (removal of 
+IRQF_SAMPLE_RANDOM, and the pragmatic entropy accounting model) separate in 
+your mind? I guess various add_*_randomness functions can be added today, and 
+change how they are accounted for in the future?
+
+-Robin
