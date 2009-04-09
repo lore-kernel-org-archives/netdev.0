@@ -1,61 +1,81 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Thu, 9 Apr 2009 09:43:07 -0700
-Message-ID: <65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
-	 <20090408160948.2257d311@s6510>
-	 <20090408.161515.40986410.davem@davemloft.net>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH v2 00/19] virtual-bus
+Date: Thu, 09 Apr 2009 12:48:46 -0400
+Message-ID: <49DE26EE.9030402@novell.com>
+References: <20090409155200.32740.19358.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:39859 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936384AbZDIQnL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 12:43:11 -0400
-Received: from zps18.corp.google.com (zps18.corp.google.com [172.25.146.18])
-	by smtp-out.google.com with ESMTP id n39Gh99V009490
-	for <netdev@vger.kernel.org>; Thu, 9 Apr 2009 09:43:10 -0700
-Received: from qyk42 (qyk42.prod.google.com [10.241.83.170])
-	by zps18.corp.google.com with ESMTP id n39Ggsqx004452
-	for <netdev@vger.kernel.org>; Thu, 9 Apr 2009 09:43:08 -0700
-Received: by qyk42 with SMTP id 42so1265739qyk.26
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2009 09:43:07 -0700 (PDT)
-In-Reply-To: <20090408.161515.40986410.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig107B4FFA0C0392E5505599D7"
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	herber@gondor.apana.org.au, chrisw@sous-sol.org,
+	shemminger@vyatta.com
+To: avi@redhat.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936514AbZDIQsG@vger.kernel.org>
+In-Reply-To: <20090409155200.32740.19358.stgit@dev.haskins.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> -extern int =A0 =A0 =A0 =A0 =A0netif_receive_skb(struct sk_buff *sk=
-b);
->>> +extern int =A0 =A0 =A0 =A0 =A0 =A0__netif_receive_skb(struct sk_bu=
-ff *skb);
->>> +
->>> +static inline int netif_receive_skb(struct sk_buff *skb)
->>> +{
->>> +#ifdef CONFIG_NET_SOFTRPS
->>> + =A0 =A0return netif_rx(skb);
->>> +#else
->>> + =A0 =A0return __netif_receive_skb(skb);
->>> +#endif
->>> +}
->>
->> Ugh, this forces all devices receiving back into a single backlog
->> queue.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig107B4FFA0C0392E5505599D7
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Avi,
+
+Gregory Haskins wrote:
 >
-> Yes, it basically turns off NAPI.
->
+> Todo:
+> *) Develop some kind of hypercall registration mechanism for KVM so tha=
+t
+>    we can use that as an integration point instead of directly hooking
+>    kvm hypercalls
+>  =20
 
-NAPI is still useful, but it does take a higher packet load before
-polling kicks in.  I believe this is similarly true for HW multi
-queue, and could actually be worse depending on the number of queues
-traffic is being split across (in my bnx2x experiment 16 core AMD with
-16 queues, I was seeing around 300K interrupts per second, no benefit
-from NAPI).
+What would you like to see here?  I now remember why I removed the
+original patch I had for registration...it requires some kind of
+discovery mechanism on its own.  Note that this is hard, but I figured
+it would make the overall series simpler if I didn't go this route and
+instead just integrated with a statically allocated vector.  That being
+said, I have no problem adding this back in but figure we should discuss
+the approach so I don't go down a rat-hole ;)
 
-The bimodal behavior between polling and non-polling states does give
-us fits.  I looked at the parked mode idea, but the latency hit seems
-too high.  We've considered holding the interface in polling state for
-longer periods of time, maybe this could trade off CPU cycles (on the
-core taking interrupts) for lower latency and higher throughput.
+So, one thing we could do is use a string-identifier to discover
+hypercall resources.  In this model, we would have one additional
+hypercall registered with kvm (in addition to the mmu-ops, etc) called
+KVM_HC_DYNHC or something like that.  The support for DYNHC could be
+indicated in the cpuid (much like I do with the RESET, DYNIRQ, and VBUS
+support today.   When hypercall provides register, the could provide a
+string such as "vbus", and they would be allocated a hypercall id.=20
+Likewise, the HC_DYNHC interface would allow a guest to query the cpuid
+for the DYNHC feature, and then query the HC_DYNHC vector for a string
+to hc# translation.  If the provider is not present, we return -1 for
+the hc#, otherwise we return the one that was allocated.
+
+I know how you feel about string-ids in general, but I am not quite sure
+how to design this otherwise without it looking eerily similar to what I
+already have (which is registering a new HC vector in kvm_para.h)
+
+Thoughts?
+
+-Greg
+
+
+--------------enig107B4FFA0C0392E5505599D7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkneJu4ACgkQlOSOBdgZUxnKlQCfUC3aBrggFJnxvaRiKGjavnqB
+ZHIAmgKAWrK7O20p7s149z/K4vjDMQPt
+=laVP
+-----END PGP SIGNATURE-----
+
+--------------enig107B4FFA0C0392E5505599D7--
