@@ -1,58 +1,61 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: Network Device Naming mechanism and policy
-Date: Thu, 9 Apr 2009 09:58:19 -0500
-Message-ID: <20090409145818.GA13155@auslistsprd01.us.dell.com>
-References: <20090324154617.GA16332@auslistsprd01.us.dell.com> <20090324.155756.214460004.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] net: Update maintainers
+Date: Thu, 09 Apr 2009 16:47:41 +0100
+Message-ID: <1239292061.3264.20.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090324.155756.214460004.davem@davemloft.net>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:35567 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935452AbZDIPrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 11:47:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2009 at 03:57:56PM -0700, David Miller wrote:
-> From: Matt Domsch <Matt_Domsch@dell.com>
-> Date: Tue, 24 Mar 2009 10:46:17 -0500
-> 
-> > Problem: Users expect on-motherboard NICs to be named eth0..ethN.
-> > This can be difficult to achieve.
-> 
-> I learned a long time ago that eth0 et al. have zero meaning.
-> 
-> If the system firmware folks gave us topology information with respect
-> to these things, we could export something that tools such as
-> NetworkManager, iproute2, etc. could use.
-> 
-> For example, if we were told that PCI device "domain:bus:dev:fn" has
-> string label "Onboard Ethernet 0" then we could present that to the
-> user.
-> 
-> Changing how the actual network device name is determined is going to
-> have zero traction.
+Essentially all networking changes go through David Miller.
+Jeff Garzik no longer handles device drivers separately.
 
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+I think this reflects current reality...
 
-David, would you be opposed to the additional device names being done
-as device nodes in userspace, as several people suggested?
+Ben.
 
-/sys/devices/*/net/ifindex already exports the netlink device index.
-It would be trivial to add a /sys/devices/*/net/dev file, with
-<major>:<minor> for a device, where <minor> = ifindex.
+ MAINTAINERS |   12 +++---------
+ 1 files changed, 3 insertions(+), 9 deletions(-)
 
-Then udev could then maintain /dev/net/by-{mac,path,...} as symlinks
-to /dev/net/$kernelname.
-
-Tools such as iproute's 'ip' could then be extended to look up their
-'dev' argument by /dev path, resolve the symlink to name, get the device node, and
-open the socket with the minor number / index (as normal).
-
-Thanks,
-Matt
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 01243ce..e4b40c1 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3158,18 +3158,12 @@ P:	Paul Clements
+ M:	Paul.Clements@steeleye.com
+ S:	Maintained
+ 
+-NETWORK DEVICE DRIVERS
+-P:	Jeff Garzik
+-M:	jgarzik@pobox.com
+-L:	netdev@vger.kernel.org
+-T:	git kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+-S:	Maintained
+-
+ NETWORKING [GENERAL]
+-P:	Networking Team
+-M:	netdev@vger.kernel.org
++P:	David S. Miller
++M:	davem@davemloft.net
+ L:	netdev@vger.kernel.org
+ W:	http://linux-net.osdl.org/
++T:	git kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+ S:	Maintained
+ 
+ NETWORKING [IPv4/IPv6]
 
 -- 
-Matt Domsch
-Linux Technology Strategist, Dell Office of the CTO
-linux.dell.com & www.dell.com/linux
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
