@@ -1,41 +1,52 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [RFC PATCH v2 09/19] net: Add vbus_enet driver
-Date: Thu, 9 Apr 2009 12:50:30 -0700
-Message-ID: <20090409195030.GA3453@suse.de>
-References: <20090409155200.32740.19358.stgit@dev.haskins.net> <20090409163128.32740.46975.stgit@dev.haskins.net> <20090409093710.10d63e39@s6510>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: Update maintainers
+Date: Thu, 09 Apr 2009 13:12:28 -0700
+Message-ID: <1239307948.29975.9.camel@localhost>
+References: <1239292061.3264.20.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <ghaskins@novell.com>,
-	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org, avi@redhat.com,
-	bhutchings@solarflare.com, andi@firstfloor.org,
-	herber@gondor.apana.org.au, chrisw@sous-sol.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090409093710.10d63e39@s6510>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2738 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935959AbZDIUMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 16:12:36 -0400
+In-Reply-To: <1239292061.3264.20.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 09, 2009 at 09:37:10AM -0700, Stephen Hemminger wrote:
-> > +static int tx_ringlen = 256;
-> > +module_param(tx_ringlen, int, 0444);
-> > +
-> > +#undef PDEBUG             /* undef it, just in case */
-> > +#ifdef VBUS_ENET_DEBUG
-> > +#  define PDEBUG(fmt, args...) printk(KERN_DEBUG "vbus_enet: " fmt, ## args)
-> > +#else
-> > +#  define PDEBUG(fmt, args...) /* not debugging: nothing */
-> > +#endif
-> 
-> Why reinvent pr_debug()?
+On Thu, 2009-04-09 at 16:47 +0100, Ben Hutchings wrote:
+> Essentially all networking changes go through David Miller.
+> Jeff Garzik no longer handles device drivers separately.
+> I think this reflects current reality...
+>  NETWORKING [GENERAL]
+> -P:	Networking Team
+> -M:	netdev@vger.kernel.org
+> +P:	David S. Miller
+> +M:	davem@davemloft.net
+>  L:	netdev@vger.kernel.org
+>  W:	http://linux-net.osdl.org/
+> +T:	git kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+>  S:	Maintained
+>  
+>  NETWORKING [IPv4/IPv6]
 
-Even more important, use dev_dbg() instead please, that uniquly
-describes your device and driver together, which is what you need/want,
-and it ties into the dynamic debug work, so you don't need a special
-kernel config option.
+Maybe also change the link to
+http://www.linuxfoundation.org/en/Net
 
-thanks,
+Perhaps:
 
-greg k-h
+NETWORKING [GENERAL]
+P:	David S. Miller
+M:	davem@davemloft.net
+L:	netdev@vger.kernel.org
+W:	http://www.linuxfoundation.org/en/Net
+T:	git kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+S:	Maintained
+F:	drivers/net/
+F:	include/net/
+F:	net/
+
+
