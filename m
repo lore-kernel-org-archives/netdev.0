@@ -1,64 +1,42 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13004] New: [bonding] xmit hash policy doesn't
- recognize vlan tagged and PPPoE frames
-Date: Thu, 9 Apr 2009 14:10:00 -0700
-Message-ID: <20090409141000.d0ae7fcb.akpm@linux-foundation.org>
-References: <bug-13004-10286@http.bugzilla.kernel.org/>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Thu, 09 Apr 2009 14:17:40 -0700 (PDT)
+Message-ID: <20090409.141740.78414724.davem@davemloft.net>
+References: <20090408160948.2257d311@s6510>
+	<20090408.161515.40986410.davem@davemloft.net>
+	<65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	bonding-devel@lists.sourceforge.net, adwol@zonk.pl
-To: netdev@vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33707 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756079AbZDIVNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 17:13:34 -0400
-In-Reply-To: <bug-13004-10286@http.bugzilla.kernel.org/>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53764
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752962AbZDIVRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 17:17:50 -0400
+In-Reply-To: <65634d660904090943lf273d9cg92be105acef3e6af@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 9 Apr 2009 09:43:07 -0700
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> The bimodal behavior between polling and non-polling states does give
+> us fits.  I looked at the parked mode idea, but the latency hit seems
+> too high.  We've considered holding the interface in polling state for
+> longer periods of time, maybe this could trade off CPU cycles (on the
+> core taking interrupts) for lower latency and higher throughput.
 
-On Fri, 3 Apr 2009 16:34:24 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+The sweet spot is usually obtained by having moderate HW interrupt
+mitigation settings.  Unfortunately not all drivers do this
+universally and have been well tuned.  tg3 is one driver that does do
+this correctly.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13004
-> 
->            Summary: [bonding] xmit hash policy doesn't recognize vlan
->                     tagged and PPPoE frames
->            Product: Networking
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: adwol@zonk.pl
->         Regression: No
-> 
-> 
-> Hi,
-> 
-> there is a problem with xmit hash policy in bonding driver. It doesn't work
-> when using layer 2+3 or 3+4 policy on vlan tagged or PPPoE frames.
-> Functions bond_xmit_hash_policy_l23() and bond_xmit_hash_policy_l34()
-> check if frame ethertype is ETH_P_IP and unless, it fall back to layer 2
-> hashing. It additionally should check, if frame ethertype is ETH_P_8021Q or
-> ETH_P_PPP_SES and embedded type is ETH_P_IP and if so, also treat it as
-> IP packet.
-> 
-> Appropriate patch in attachment.
-> 
+I would imagine that a non-trivial swath of the issues you guys run
+into are actually driver related.  It took us a while to get the tg3
+HW interrupt mitigations to play just-right with NAPI.
 
-Jay, there's a patch in there.
-
-Adam, please prefer to submit patches via email as per
-Documentation/SubmittingPatches rather than via bugzilla, thanks.
-
+And we were able to get it right because on a particular system the
+NAPI transition was incredibly expensive (some big NUMA SGI box)
+so all of the effects were pronounced.
