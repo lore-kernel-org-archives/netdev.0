@@ -1,7 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH v2 18/19] vbus: add a userspace connector
-Date: Thu, 09 Apr 2009 12:32:16 -0400
-Message-ID: <20090409163215.32740.10903.stgit@dev.haskins.net>
+Subject: [RFC PATCH v2 19/19] virtio: add a vbus transport
+Date: Thu, 09 Apr 2009 12:32:21 -0400
+Message-ID: <20090409163221.32740.38373.stgit@dev.haskins.net>
 References: <20090409155200.32740.19358.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,69 +13,584 @@ Cc: agraf@suse.de, pmullaney@novell.com, pmorreale@novell.com,
 	herber@gondor.apana.org.au, chrisw@sous-sol.org,
 	shemminger@vyatta.com
 To: linux-kernel@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from victor.provo.novell.com ([137.65.250.26]:46030 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935572AbZDIQaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 12:30:14 -0400
 In-Reply-To: <20090409155200.32740.19358.stgit@dev.haskins.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This allows userspace applications to access vbus devices
+We add a new virtio transport for accessing backends located on vbus.  This
+complements the existing transports for virtio-pci, virtio-s390, and
+virtio-lguest that already exist.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/vbus.h           |    4 
- include/linux/vbus_client.h    |    2 
- include/linux/vbus_userspace.h |   48 ++++
- kernel/vbus/Kconfig            |   10 +
- kernel/vbus/Makefile           |    2 
- kernel/vbus/userspace-client.c |  485 ++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 550 insertions(+), 1 deletions(-)
- create mode 100644 include/linux/vbus_userspace.h
- create mode 100644 kernel/vbus/userspace-client.c
+ drivers/virtio/Kconfig       |   15 +
+ drivers/virtio/Makefile      |    1 
+ drivers/virtio/virtio_vbus.c |  496 +++++++++++++++++++++++++++++++++
+ include/linux/virtio_vbus.h  |  163 +++++++++++
+ kernel/vbus/Kconfig          |    7 
+ kernel/vbus/Makefile         |    3 
+ kernel/vbus/virtio.c         |  628 ++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 1313 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/virtio/virtio_vbus.c
+ create mode 100644 include/linux/virtio_vbus.h
+ create mode 100644 kernel/vbus/virtio.c
 
-diff --git a/include/linux/vbus.h b/include/linux/vbus.h
-index 04db4ff..f967e59 100644
---- a/include/linux/vbus.h
-+++ b/include/linux/vbus.h
-@@ -23,6 +23,8 @@
- #ifndef _LINUX_VBUS_H
- #define _LINUX_VBUS_H
+diff --git a/drivers/virtio/Kconfig b/drivers/virtio/Kconfig
+index 3dd6294..e8562ee 100644
+--- a/drivers/virtio/Kconfig
++++ b/drivers/virtio/Kconfig
+@@ -23,6 +23,21 @@ config VIRTIO_PCI
  
-+#ifdef __KERNEL__
+ 	  If unsure, say M.
+ 
++config VIRTIO_VBUS
++	tristate "VBUS driver for virtio devices (EXPERIMENTAL)"
++	depends on VBUS_DRIVERS && EXPERIMENTAL
++	select VIRTIO
++	select VIRTIO_RING
++	---help---
++	  This drivers provides support for virtio based paravirtual device
++	  drivers over VBUS.  This requires that your VMM has appropriate VBUS
++	  virtio backends.
 +
- #ifdef CONFIG_VBUS
- 
- #include <linux/module.h>
-@@ -159,4 +161,6 @@ int vbus_notifier_unregister(struct vbus *vbus, struct notifier_block *nb);
- 
- #endif /* CONFIG_VBUS */
- 
-+#endif /* __KERNEL__ */
++	  Currently, the ABI is not considered stable so there is no guarantee
++	  that this version of the driver will work with your VMM.
 +
- #endif /* _LINUX_VBUS_H */
-diff --git a/include/linux/vbus_client.h b/include/linux/vbus_client.h
-index 62dab78..4c82822 100644
---- a/include/linux/vbus_client.h
-+++ b/include/linux/vbus_client.h
-@@ -35,7 +35,7 @@
- #ifndef _LINUX_VBUS_CLIENT_H
- #define _LINUX_VBUS_CLIENT_H
- 
--#include <linux/types.h>
-+#include <asm/types.h>
- #include <linux/compiler.h>
- 
- struct vbus_deviceopen {
-diff --git a/include/linux/vbus_userspace.h b/include/linux/vbus_userspace.h
++	  If unsure, say M.
++
+ config VIRTIO_BALLOON
+ 	tristate "Virtio balloon driver (EXPERIMENTAL)"
+ 	select VIRTIO
+diff --git a/drivers/virtio/Makefile b/drivers/virtio/Makefile
+index 6738c44..0342e42 100644
+--- a/drivers/virtio/Makefile
++++ b/drivers/virtio/Makefile
+@@ -1,4 +1,5 @@
+ obj-$(CONFIG_VIRTIO) += virtio.o
+ obj-$(CONFIG_VIRTIO_RING) += virtio_ring.o
+ obj-$(CONFIG_VIRTIO_PCI) += virtio_pci.o
++obj-$(CONFIG_VIRTIO_VBUS) += virtio_vbus.o
+ obj-$(CONFIG_VIRTIO_BALLOON) += virtio_balloon.o
+diff --git a/drivers/virtio/virtio_vbus.c b/drivers/virtio/virtio_vbus.c
 new file mode 100644
-index 0000000..0b78686
+index 0000000..ebefcf2
 --- /dev/null
-+++ b/include/linux/vbus_userspace.h
-@@ -0,0 +1,48 @@
++++ b/drivers/virtio/virtio_vbus.c
+@@ -0,0 +1,496 @@
++/*
++ * Virtio VBUS driver
++ *
++ * This module allows virtio devices to be used over a virtual-bus device.
++ *
++ * Copyright: Novell, 2009
++ *
++ * Authors:
++ *  Gregory Haskins <ghaskins@novell.com>
++ *
++ * Derived from virtio-pci, written by
++ *  Anthony Liguori  <aliguori@us.ibm.com>
++ *
++ * This work is licensed under the terms of the GNU GPL, version 2 or later.
++ * See the COPYING file in the top-level directory.
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/list.h>
++#include <linux/interrupt.h>
++#include <linux/virtio.h>
++#include <linux/virtio_config.h>
++#include <linux/virtio_ring.h>
++#include <linux/virtio_vbus.h>
++#include <linux/vbus_driver.h>
++#include <linux/spinlock.h>
++
++MODULE_AUTHOR("Gregory Haskins <ghaskins@novell.com>");
++MODULE_DESCRIPTION("virtio-vbus");
++MODULE_LICENSE("GPL");
++MODULE_VERSION("1");
++
++struct virtio_vbus_priv {
++	struct virtio_device                   virtio_dev;
++	struct vbus_device_proxy              *vbus_dev;
++	struct {
++		struct virtio_vbus_shm        *shm;
++		struct shm_signal             *signal;
++		struct shm_signal_notifier     notifier;
++	} config;
++};
++
++struct vbus_virtqueue {
++	struct virtqueue           *vq;
++	u64                         index;
++	int                         num;
++	struct virtio_vbus_shm     *shm;
++	size_t                      size;
++	struct shm_signal          *signal;
++	struct shm_signal_notifier  notifier;
++};
++
++static struct virtio_vbus_priv *
++virtio_to_priv(struct virtio_device *virtio_dev)
++{
++	return container_of(virtio_dev, struct virtio_vbus_priv, virtio_dev);
++}
++
++static int
++devcall(struct virtio_vbus_priv *priv, u32 func, void *data, size_t len)
++{
++	struct vbus_device_proxy *dev = priv->vbus_dev;
++
++	return dev->ops->call(dev, func, data, len, 0);
++}
++
++/*
++ * This is called whenever the host signals our config-space shm
++ */
++static void
++config_isr(struct shm_signal_notifier *notifier)
++{
++	struct virtio_vbus_priv *priv = container_of(notifier,
++						     struct virtio_vbus_priv,
++						     config.notifier);
++	struct virtio_driver *drv = container_of(priv->virtio_dev.dev.driver,
++						 struct virtio_driver, driver);
++
++	if (drv && drv->config_changed)
++		drv->config_changed(&priv->virtio_dev);
++}
++
++/*
++ * ------------------
++ * virtio config ops
++ * ------------------
++ */
++
++static u32
++_virtio_get_features(struct virtio_device *dev)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(dev);
++	u32 features;
++	int ret;
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_GET_FEATURES,
++		      &features, sizeof(features));
++	BUG_ON(ret < 0);
++
++	/*
++	 * When someone needs more than 32 feature bits, we'll need to
++	 * steal a bit to indicate that the rest are somewhere else.
++	 */
++	return features;
++}
++
++static void
++_virtio_finalize_features(struct virtio_device *dev)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(dev);
++	int ret;
++
++	/* Give virtio_ring a chance to accept features. */
++	vring_transport_features(dev);
++
++	/* We only support 32 feature bits. */
++	BUILD_BUG_ON(ARRAY_SIZE(dev->features) != 1);
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_FINALIZE_FEATURES,
++		      &dev->features[0], sizeof(dev->features[0]));
++	BUG_ON(ret < 0);
++}
++
++static void
++_virtio_get(struct virtio_device *vdev, unsigned offset,
++	    void *buf, unsigned len)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vdev);
++
++	BUG_ON((offset + len) > VIRTIO_VBUS_CONFIGSPACE_LEN);
++	memcpy(buf, &priv->config.shm->data[offset], len);
++}
++
++static void
++_virtio_set(struct virtio_device *vdev, unsigned offset,
++	    const void *buf, unsigned len)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vdev);
++	int ret;
++
++	BUG_ON((offset + len) > VIRTIO_VBUS_CONFIGSPACE_LEN);
++	memcpy(&priv->config.shm->data[offset], buf, len);
++
++	ret = shm_signal_inject(priv->config.signal, 0);
++	BUG_ON(ret < 0);
++}
++
++static u8
++_virtio_get_status(struct virtio_device *vdev)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vdev);
++	u8 data;
++	int ret;
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_GET_STATUS, &data, sizeof(data));
++	BUG_ON(ret < 0);
++
++	return data;
++}
++
++static void
++_virtio_set_status(struct virtio_device *vdev, u8 status)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vdev);
++	int ret;
++
++	/* We should never be setting status to 0. */
++	BUG_ON(status == 0);
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_SET_STATUS, &status,
++		      sizeof(status));
++	BUG_ON(ret < 0);
++}
++
++static void
++_virtio_reset(struct virtio_device *vdev)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vdev);
++	int ret;
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_RESET, NULL, 0);
++	BUG_ON(ret < 0);
++}
++
++/*
++ * ------------------
++ * virtqueue ops
++ * ------------------
++ */
++
++static int
++_vq_getlen(struct virtio_vbus_priv *priv, int index)
++{
++	struct virtio_vbus_queryqueue query = {
++		.index = index,
++	};
++	int ret;
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_QUERY_QUEUE,
++		      &query, sizeof(query));
++	if (ret < 0)
++		return ret;
++
++	return query.num;
++}
++
++static void
++_vq_kick(struct virtqueue *vq)
++{
++	struct vbus_virtqueue *_vq = vq->priv;
++	int ret;
++
++	ret = shm_signal_inject(_vq->signal, 0);
++	BUG_ON(ret < 0);
++}
++
++/*
++ * This is called whenever the host signals our virtqueue
++ */
++static void
++_vq_isr(struct shm_signal_notifier *notifier)
++{
++	struct vbus_virtqueue *_vq = container_of(notifier,
++						  struct vbus_virtqueue,
++						  notifier);
++	vring_interrupt(0, _vq->vq);
++}
++
++static struct virtqueue *
++_virtio_find_vq(struct virtio_device *vdev, unsigned index,
++	 void (*callback)(struct virtqueue *vq))
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vdev);
++	struct vbus_device_proxy *dev = priv->vbus_dev;
++	struct vbus_virtqueue *_vq;
++	struct virtqueue *vq;
++	unsigned long ringsize;
++	int num;
++	int ret;
++
++	num = _vq_getlen(priv, index);
++	if (num < 0)
++		return ERR_PTR(num);
++
++	_vq = kmalloc(sizeof(struct vbus_virtqueue), GFP_KERNEL);
++	if (!_vq)
++		return ERR_PTR(-ENOMEM);
++
++	ringsize = vring_size(num, PAGE_SIZE);
++
++	_vq->index = index;
++	_vq->num   = num;
++	_vq->size  = PAGE_ALIGN(sizeof(struct virtio_vbus_shm) + ringsize - 1);
++
++	_vq->shm = alloc_pages_exact(_vq->size, GFP_KERNEL|__GFP_ZERO);
++	if (!_vq->shm) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	/* initialize the shm with a ring */
++	vq = vring_new_virtqueue(_vq->num, PAGE_SIZE, vdev,
++				 &_vq->shm->data[0],
++				 _vq_kick,
++				 callback);
++	if (!vq) {
++		ret = -ENOMEM;
++		goto out_free;
++	}
++
++	/* register the shm with an id of the vq index + RING_OFFSET */
++	ret = dev->ops->shm(dev, index + VIRTIO_VBUS_RING_OFFSET, 0,
++			    _vq->shm, _vq->size,
++			    &_vq->shm->signal, &_vq->signal, 0);
++	if (ret < 0)
++		goto out_free;
++
++	_vq->notifier.signal = &_vq_isr;
++	_vq->signal->notifier = &_vq->notifier;
++
++	shm_signal_enable(_vq->signal, 0);
++
++	vq->priv = _vq;
++	_vq->vq = vq;
++
++	return vq;
++
++out_free:
++	free_pages_exact(_vq->shm, _vq->size);
++out:
++	if (_vq && _vq->signal)
++		shm_signal_put(_vq->signal);
++	kfree(_vq);
++	return ERR_PTR(ret);
++}
++
++/* the config->del_vq() implementation */
++static void
++_virtio_del_vq(struct virtqueue *vq)
++{
++	struct virtio_vbus_priv *priv = virtio_to_priv(vq->vdev);
++	struct vbus_virtqueue *_vq = vq->priv;
++
++	devcall(priv, VIRTIO_VBUS_FUNC_DEL_QUEUE,
++		&_vq->index, sizeof(_vq->index));
++
++	vring_del_virtqueue(vq);
++
++	shm_signal_put(_vq->signal);
++	free_pages_exact(_vq->shm, _vq->size);
++	kfree(_vq);
++}
++
++/*
++ * ------------------
++ * general setup
++ * ------------------
++ */
++
++static struct virtio_config_ops virtio_vbus_config_ops = {
++	.get		   = _virtio_get,
++	.set		   = _virtio_set,
++	.get_status	   = _virtio_get_status,
++	.set_status	   = _virtio_set_status,
++	.reset		   = _virtio_reset,
++	.find_vq	   = _virtio_find_vq,
++	.del_vq		   = _virtio_del_vq,
++	.get_features	   = _virtio_get_features,
++	.finalize_features = _virtio_finalize_features,
++};
++
++/*
++ * Negotiate vbus transport features.  This is not to be confused with the
++ * higher-level function FUNC_GET/FINALIZE_FEATURES, which is specifically
++ * for the virtio transport
++ */
++static void
++virtio_vbus_negcap(struct virtio_vbus_priv *priv)
++{
++	u64 features = 0; /* We do not have any advanced features to enable */
++	int ret;
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_NEG_CAP,
++		      &features, sizeof(features));
++	BUG_ON(ret < 0);
++}
++
++static void
++virtio_vbus_getid(struct virtio_vbus_priv *priv)
++{
++	struct virtio_vbus_id id;
++	int ret;
++
++	ret = devcall(priv, VIRTIO_VBUS_FUNC_GET_ID, &id, sizeof(id));
++	BUG_ON(ret < 0);
++
++	priv->virtio_dev.id.vendor = id.vendor;
++	priv->virtio_dev.id.device = id.device;
++}
++
++static int
++virtio_vbus_initconfig(struct virtio_vbus_priv *priv)
++{
++	struct vbus_device_proxy *vdev = priv->vbus_dev;
++	size_t len;
++	int ret;
++
++	len = sizeof(struct virtio_vbus_shm) + VIRTIO_VBUS_CONFIGSPACE_LEN - 1;
++
++	priv->config.shm = kzalloc(len, GFP_KERNEL);
++	if (!priv->config.shm)
++		return -ENOMEM;
++
++	ret = vdev->ops->shm(vdev, 0, 0,
++			     &priv->config.shm, len,
++			     &priv->config.shm->signal, &priv->config.signal,
++			     0);
++	BUG_ON(ret < 0);
++
++	priv->config.notifier.signal = &config_isr;
++	priv->config.signal->notifier = &priv->config.notifier;
++
++	shm_signal_enable(priv->config.signal, 0);
++
++	return 0;
++}
++
++/* the VBUS probing function */
++static int
++virtio_vbus_probe(struct vbus_device_proxy *vdev)
++{
++	struct virtio_vbus_priv *priv;
++	int ret;
++
++	printk(KERN_INFO "VIRTIO-VBUS: Found new device at %lld\n", vdev->id);
++
++	ret = vdev->ops->open(vdev, VIRTIO_VBUS_ABI_VERSION, 0);
++	if (ret < 0) {
++		printk(KERN_ERR "virtio_vbus: ABI version %d failed with: %d\n",
++		       VIRTIO_VBUS_ABI_VERSION, ret);
++		return ret;
++	}
++
++	priv = kzalloc(sizeof(struct virtio_vbus_priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->virtio_dev.config = &virtio_vbus_config_ops;
++	priv->vbus_dev = vdev;
++
++	/*
++	 * Negotiate for any vbus specific features
++	 */
++	virtio_vbus_negcap(priv);
++
++	/*
++	 * This probe occurs for any "virtio" device on the vbus, so we need
++	 * to hypercall the host to figure out what specific PCI-ID type
++	 * device this is
++	 */
++	virtio_vbus_getid(priv);
++
++	/*
++	 * Map our config-space to the device, and establish a signal-path
++	 * for config-space updates
++	 */
++	virtio_vbus_initconfig(priv);
++
++	/* finally register the virtio device */
++	ret = register_virtio_device(&priv->virtio_dev);
++	if (ret)
++		goto out;
++
++	vdev->priv = priv;
++
++	return 0;
++
++out:
++	kfree(priv);
++	return ret;
++}
++
++#ifdef NOTYET
++/* FIXME: wire this up */
++static void
++virtio_vbus_release(struct virtio_vbus_priv *priv)
++{
++	shm_signal_put(priv->config.signal);
++	kfree(priv->config.shm);
++	kfree(priv);
++}
++
++#endif
++
++static int
++virtio_vbus_remove(struct vbus_device_proxy *vdev)
++{
++	struct virtio_vbus_priv *priv = vdev->priv;
++
++	unregister_virtio_device(&priv->virtio_dev);
++
++	return 0;
++}
++
++/*
++ * Finally, the module stuff
++ */
++
++static struct vbus_driver_ops virtio_vbus_driver_ops = {
++	.probe  = virtio_vbus_probe,
++	.remove = virtio_vbus_remove,
++};
++
++static struct vbus_driver virtio_vbus_driver = {
++	.type   = "virtio",
++	.owner  = THIS_MODULE,
++	.ops    = &virtio_vbus_driver_ops,
++};
++
++static __init int
++virtio_vbus_init_module(void)
++{
++	printk(KERN_INFO "Virtio-VBUS: Copyright (C) 2009 Novell, Gregory Haskins\n");
++	return vbus_driver_register(&virtio_vbus_driver);
++}
++
++static __exit void
++virtio_vbus_cleanup(void)
++{
++	vbus_driver_unregister(&virtio_vbus_driver);
++}
++
++module_init(virtio_vbus_init_module);
++module_exit(virtio_vbus_cleanup);
++
+diff --git a/include/linux/virtio_vbus.h b/include/linux/virtio_vbus.h
+new file mode 100644
+index 0000000..05791bf
+--- /dev/null
++++ b/include/linux/virtio_vbus.h
+@@ -0,0 +1,163 @@
 +/*
 + * Copyright 2009 Novell.  All Rights Reserved.
 + *
-+ * Virtual-Bus
++ * Virtio VBUS driver
++ *
++ * This module allows virtio devices to be used over a VBUS interface
 + *
 + * Author:
 + *      Gregory Haskins <ghaskins@novell.com>
@@ -94,552 +609,809 @@ index 0000000..0b78686
 + * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 + */
 +
-+#ifndef _LINUX_VBUS_USERSPACE_H
-+#define _LINUX_VBUS_USERSPACE_H
++#ifndef _LINUX_VIRTIO_VBUS_H
++#define _LINUX_VIRTIO_VBUS_H
 +
-+#include <linux/ioctl.h>
-+#include <linux/vbus.h>
-+#include <linux/vbus_client.h>
++#include <linux/shm_signal.h>
 +
-+#define VBUS_USERSPACE_ABI_MAGIC 0x4fa23b58
-+#define VBUS_USERSPACE_ABI_VERSION 1
++#define VIRTIO_VBUS_ABI_VERSION 1
 +
-+struct vbus_userspace_busopen {
-+	__u32 magic;
-+	__u32 version;
-+	__u64 capabilities;
++enum {
++	VIRTIO_VBUS_FUNC_NEG_CAP,
++	VIRTIO_VBUS_FUNC_GET_ID,
++	VIRTIO_VBUS_FUNC_GET_FEATURES,
++	VIRTIO_VBUS_FUNC_FINALIZE_FEATURES,
++	VIRTIO_VBUS_FUNC_GET_STATUS,
++	VIRTIO_VBUS_FUNC_SET_STATUS,
++	VIRTIO_VBUS_FUNC_RESET,
++	VIRTIO_VBUS_FUNC_QUERY_QUEUE,
++	VIRTIO_VBUS_FUNC_DEL_QUEUE,
 +};
 +
-+#define VBUS_IOCTL_MAGIC 'v'
++struct virtio_vbus_id {
++	u16 vendor;
++	u16 device;
++};
 +
-+#define VBUS_BUSOPEN       _IOWR(VBUS_IOCTL_MAGIC, 0x00, struct vbus_userspace_busopen)
-+#define VBUS_DEVICEOPEN   _IOWR(VBUS_IOCTL_MAGIC, 0x01, struct vbus_deviceopen)
-+#define VBUS_DEVICECLOSE  _IOWR(VBUS_IOCTL_MAGIC, 0x02, __u64)
-+#define VBUS_DEVICECALL   _IOWR(VBUS_IOCTL_MAGIC, 0x03, struct vbus_devicecall)
-+#define VBUS_DEVICESHM    _IOWR(VBUS_IOCTL_MAGIC, 0x04, struct vbus_deviceshm)
-+#define VBUS_SHMSIGNAL    _IOWR(VBUS_IOCTL_MAGIC, 0x05, __u64)
++struct virtio_vbus_queryqueue {
++	u64 index;  /* in: queue index */
++	u32 num;    /* out: number of entries */
++	u32 pad[0];
++};
 +
-+#endif /* _LINUX_VBUS_USERSPACE_H */
++#define VIRTIO_VBUS_CONFIGSPACE_LEN 1024
++#define VIRTIO_VBUS_RING_OFFSET     10000 /* shm-index where rings start */
++
++struct virtio_vbus_shm {
++	struct shm_signal_desc signal;
++	char                   data[1];
++};
++
++/*
++ * --------------------------------------------------
++ * Backend support - These components are only needed
++ * for interfacing a virtio-backend to the vbus-backend
++ * --------------------------------------------------
++ */
++
++#include <linux/vbus_device.h>
++
++struct virtio_device_interface;
++struct virtio_connection;
++
++struct virtio_queue_def {
++	int index;
++	int entries;
++};
++
++/*
++ * ----------------------
++ * interface
++ * ----------------------
++ */
++
++struct virtio_device_interface_ops {
++	int (*open)(struct virtio_device_interface *intf,
++		    struct vbus_memctx *ctx,
++		    struct virtio_connection **conn);
++	void (*release)(struct virtio_device_interface *intf);
++};
++
++struct virtio_device_interface {
++	struct virtio_vbus_id id;
++	struct virtio_device_interface_ops *ops;
++	struct virtio_queue_def *queues;
++	struct vbus_device_interface *parent;
++};
++
++/**
++ * virtio_device_interface_register() - register an interface with a bus
++ * @dev:        The device context of the caller
++ * @vbus:       The bus context to register with
++ * @intf:       The interface context to register
++ *
++ * This function is invoked (usually in the context of a device::bus_connect()
++ * callback) to register a interface on a bus.  We make this an explicit
++ * operation instead of implicit on the bus_connect() to facilitate devices
++ * that may present multiple interfaces to a bus.  In those cases, a device
++ * may invoke this function multiple times (one per supported interface).
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int virtio_device_interface_register(struct vbus_device *dev,
++				   struct vbus *vbus,
++				   struct virtio_device_interface *intf);
++
++/**
++ * virtio_device_interface_unregister() - unregister an interface with a bus
++ * @intf:       The interface context to unregister
++ *
++ * This function is the converse of interface_register.  It is typically
++ * invoked in the context of a device::bus_disconnect().
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int virtio_device_interface_unregister(struct virtio_device_interface *intf);
++
++/*
++ * ----------------------
++ * connection
++ * ----------------------
++ */
++struct virtqueue;
++
++struct virtio_connection_ops {
++	void (*config_changed)(struct virtio_connection *vconn);
++	u8 (*get_status)(struct virtio_connection *vconn);
++	void (*set_status)(struct virtio_connection *vconn, u8 status);
++	void (*reset)(struct virtio_connection *vconn);
++	u32 (*get_features)(struct virtio_connection *vconn);
++	void (*finalize_features)(struct virtio_connection *vconn);
++	void (*add_vq)(struct virtio_connection *vconn, int index,
++		       struct virtqueue *vq);
++	void (*del_vq)(struct virtio_connection *vconn, int index);
++	void (*notify_vq)(struct virtio_connection *vconn, int index);
++	void (*release)(struct virtio_connection *conn);
++};
++
++struct virtio_connection {
++	struct virtio_connection_ops *ops;
++	struct vbus_connection *parent;
++};
++
++int virtio_connection_config_get(struct virtio_connection *vconn,
++				 int offset, void *buf, size_t len);
++
++int virtio_connection_config_set(struct virtio_connection *vconn,
++				 int offset, void *buf, size_t len);
++
++#endif /* _LINUX_VIRTIO_VBUS_H */
 diff --git a/kernel/vbus/Kconfig b/kernel/vbus/Kconfig
-index 3ce0adc..b894dd1 100644
+index b894dd1..5eeced2 100644
 --- a/kernel/vbus/Kconfig
 +++ b/kernel/vbus/Kconfig
-@@ -25,6 +25,16 @@ config VBUS_DEVICES
+@@ -14,6 +14,13 @@ config VBUS
  
- source "drivers/vbus/devices/Kconfig"
+ 	If unsure, say N
  
-+config VBUS_USERSPACE
-+       tristate "Virtual-Bus userspace client support"
++config VBUS_VIRTIO_BACKEND
++       tristate "Virtio VBUS Backend"
 +       depends on VBUS
-+       default y
++       default n
 +       help
-+         Provides facilities for userspace applications to access virtual-
-+	 bus objects.
++        Provides backend support for virtio devices over vbus
 +
-+	 If unsure, say N
-+
- config VBUS_DRIVERS
-        tristate "VBUS Driver support"
-        select IOQ
+ config VBUS_DEVICES
+        bool "Virtual-Bus Devices"
+        depends on VBUS
 diff --git a/kernel/vbus/Makefile b/kernel/vbus/Makefile
-index 45f6503..61d0371 100644
+index 61d0371..c2bd140 100644
 --- a/kernel/vbus/Makefile
 +++ b/kernel/vbus/Makefile
-@@ -4,3 +4,5 @@ obj-$(CONFIG_VBUS) += shm-ioq.o
+@@ -1,6 +1,9 @@
+ obj-$(CONFIG_VBUS) += core.o devclass.o config.o attribute.o map.o client.o
+ obj-$(CONFIG_VBUS) += shm-ioq.o
+ 
++virtio-backend-objs += virtio.o
++obj-$(CONFIG_VBUS_VIRTIO_BACKEND) += virtio-backend.o
++
  vbus-proxy-objs += proxy.o
  obj-$(CONFIG_VBUS_DRIVERS) += vbus-proxy.o
  
-+vbus-userspace-objs += userspace-client.o
-+obj-$(CONFIG_VBUS_USERSPACE) += vbus-userspace.o
-diff --git a/kernel/vbus/userspace-client.c b/kernel/vbus/userspace-client.c
+diff --git a/kernel/vbus/virtio.c b/kernel/vbus/virtio.c
 new file mode 100644
-index 0000000..b2fe447
+index 0000000..dac5cd4
 --- /dev/null
-+++ b/kernel/vbus/userspace-client.c
-@@ -0,0 +1,485 @@
-+#include <linux/ioctl.h>
-+#include <linux/fs.h>
-+#include <linux/miscdevice.h>
-+#include <linux/mm.h>
-+#include <linux/vmalloc.h>
-+#include <linux/uaccess.h>
-+#include <linux/spinlock.h>
++++ b/kernel/vbus/virtio.c
+@@ -0,0 +1,628 @@
++/*
++ * Copyright 2009 Novell.  All Rights Reserved.
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
 +#include <linux/module.h>
-+
-+#include <linux/vbus.h>
-+#include <linux/vbus_userspace.h>
-+
-+#include "vbus.h"
++#include <linux/virtio.h>
++#include <linux/virtio_ring.h>
++#include <linux/virtio_vbus.h>
 +
 +MODULE_AUTHOR("Gregory Haskins");
 +MODULE_LICENSE("GPL");
 +
-+struct userspace_chardev;
++#undef PDEBUG
++#ifdef VENETTAP_DEBUG
++#  define PDEBUG(fmt, args...) printk(KERN_DEBUG "virtio-vbus: " fmt, ## args)
++#else
++#  define PDEBUG(fmt, args...)
++#endif
 +
-+struct userspace_signal {
-+	struct userspace_chardev *cd;
-+	struct vbus_shm          *shm;
-+	struct shm_signal         signal;
-+	struct list_head          list;
-+	int                       signaled;
-+	int                       prio;
-+	u64                       cookie;
++struct _virtio_device_interface {
++	struct virtio_device_interface *vintf;
++	struct vbus_device_interface    intf;
 +};
 +
-+struct userspace_shm {
-+	struct vbus_shm shm;
++struct _virtio_connection {
++	struct _virtio_device_interface *_vintf;
++	struct virtio_connection        *vconn;
++	struct vbus_connection           conn;
++	struct vbus_memctx              *ctx;
++	struct list_head                 queues;
++
++	struct {
++		struct vbus_shm            *shm;
++		struct shm_signal          *signal;
++		struct shm_signal_notifier  notifier;
++	} config;
++
++	int running:1;
 +};
 +
-+struct userspace_chardev {
-+	spinlock_t lock;
-+	int opened;
-+	struct vbus_memctx *ctx;
-+	struct vbus_client *client;
-+	struct list_head signal_list;
-+	wait_queue_head_t wq;
-+	struct vbus *vbus;
++struct _virtio_queue {
++	int                         index;
++	int                         num;
++	struct _virtio_connection  *_vconn;
++	struct virtqueue           *vq;
++
++	struct vbus_shm            *shm;
++	struct shm_signal          *signal;
++	struct shm_signal_notifier  notifier;
++
++	struct list_head            node;
 +};
 +
-+static long
-+_busopen(struct userspace_chardev *cd, struct vbus_userspace_busopen *args)
++static struct _virtio_device_interface *
++to_vintf(struct vbus_device_interface *intf)
 +{
-+	if (cd->opened)
++	return container_of(intf, struct _virtio_device_interface, intf);
++}
++
++static struct _virtio_connection *
++to_vconn(struct vbus_connection *conn)
++{
++	return container_of(conn, struct _virtio_connection, conn);
++}
++
++int virtio_connection_config_get(struct virtio_connection *vconn,
++				 int offset, void *buf, size_t len)
++{
++	struct _virtio_connection *_vconn = to_vconn(vconn->parent);
++	char *data;
++
++	if (!_vconn->config.shm)
 +		return -EINVAL;
 +
-+	if (args->magic != VBUS_USERSPACE_ABI_MAGIC)
++	if (offset + len > _vconn->config.shm->len)
 +		return -EINVAL;
 +
-+	if (args->version != VBUS_USERSPACE_ABI_VERSION)
-+		return -EINVAL;
++	data = _vconn->config.shm->ptr;
 +
-+	/*
-+	 * We have no extended capabilities yet, so we dont care if they set
-+	 * any option bits.  Just clear them all.
-+	 */
-+	args->capabilities = 0;
-+
-+	cd->opened = 1;
++	memcpy(buf, &data[offset], len);
 +
 +	return 0;
 +}
++EXPORT_SYMBOL_GPL(virtio_connection_config_get);
 +
-+static long
-+_deviceopen(struct userspace_chardev *cd, struct vbus_deviceopen *args)
++int virtio_connection_config_set(struct virtio_connection *vconn,
++				 int offset, void *buf, size_t len)
 +{
-+	struct vbus_client *c = cd->client;
++	struct _virtio_connection *_vconn = to_vconn(vconn->parent);
++	char *data;
 +
-+	return c->ops->deviceopen(c, cd->ctx, args->devid, args->version,
-+				  &args->handle);
++	if (!_vconn->config.shm)
++		return -EINVAL;
++
++	if (offset + len > _vconn->config.shm->len)
++		return -EINVAL;
++
++	data = _vconn->config.shm->ptr;
++
++	memcpy(&data[offset], buf, len);
++
++	if (_vconn->config.signal)
++		shm_signal_inject(_vconn->config.signal, 0);
++
++	return 0;
 +}
++EXPORT_SYMBOL_GPL(virtio_connection_config_set);
 +
-+static long
-+_deviceclose(struct userspace_chardev *cd, unsigned long devh)
++/*
++ * Negotiate Capabilities - This function is provided so that the
++ * interface may be extended without breaking ABI compatability
++ *
++ * The caller is expected to send down any capabilities they would like
++ * to enable, and the device will OR them with capabilities that it
++ * supports.  This value is then returned so that both sides may
++ * ascertain the lowest-common-denominator of features to enable
++ */
++static int
++_virtio_connection_negcap(struct _virtio_connection *_vconn,
++			  void *data, unsigned long len)
 +{
-+	struct vbus_client *c = cd->client;
-+
-+	return c->ops->deviceclose(c, devh);
-+}
-+
-+static long
-+_devicecall(struct userspace_chardev *cd, struct vbus_devicecall *args)
-+{
-+	struct vbus_client *c = cd->client;
-+
-+	return c->ops->devicecall(c, args->devh, args->func,
-+				  (void *)args->datap,
-+				  args->len, args->flags);
-+}
-+
-+static void*
-+userspace_vmap(__u64 addr, size_t len)
-+{
-+	struct page **page_list;
-+	void *ptr = NULL;
-+	unsigned long base;
-+	off_t offset;
-+	size_t npages;
++	struct vbus_memctx *ctx = _vconn->ctx;
++	u64 features;
 +	int ret;
 +
-+	base = (unsigned long)addr & PAGE_MASK;
-+	offset = (unsigned long)addr & ~PAGE_MASK;
-+	npages = PAGE_ALIGN(len + offset) >> PAGE_SHIFT;
++	if (len != sizeof(features))
++		return -EINVAL;
 +
-+	if (npages > (PAGE_SIZE / sizeof(struct page *)))
-+		return NULL;
++	if (_vconn->running)
++		return -EINVAL;
 +
-+	page_list = (struct page **) __get_free_page(GFP_KERNEL);
-+	if (!page_list)
-+		return NULL;
++#ifdef NOTYET
++	ret = ctx->ops->copy_from(ctx, &features, data, sizeof(features));
++	if (ret)
++		return -EFAULT;
++#endif
 +
-+	down_write(&current->mm->mmap_sem);
++	/*
++	 * right now we dont support any advanced features, so just clear all
++	 * bits
++	 */
++	features = 0;
 +
-+	ret = get_user_pages(current, current->mm, base, npages,
-+			     1, 0, page_list, NULL);
-+	if (ret < 0)
-+		goto out;
++	ret = ctx->ops->copy_to(ctx, data, &features, sizeof(features));
++	if (ret)
++		return -EFAULT;
 +
-+	ptr = vmap(page_list, npages, VM_MAP, PAGE_KERNEL);
-+	if (ptr)
-+		current->mm->locked_vm += npages;
-+
-+out:
-+	up_write(&current->mm->mmap_sem);
-+	free_page((unsigned long)page_list);
-+
-+	return ptr+offset;
-+}
-+
-+static struct userspace_signal *to_userspace(struct shm_signal *signal)
-+{
-+       return container_of(signal, struct userspace_signal, signal);
++	return 0;
 +}
 +
 +static int
-+userspace_signal_inject(struct shm_signal *signal)
++_virtio_connection_getid(struct _virtio_connection *_vconn,
++			 void *data, unsigned long len)
 +{
-+	struct userspace_signal *_signal = to_userspace(signal);
-+	struct userspace_chardev *cd = _signal->cd;
-+	unsigned long flags;
++	struct vbus_memctx *ctx = _vconn->ctx;
++	struct virtio_vbus_id *id = &_vconn->_vintf->vintf->id;
++	int ret;
 +
-+	spin_lock_irqsave(&cd->lock, flags);
++	if (len != sizeof(*id))
++		return -EINVAL;
 +
-+	if (!_signal->signaled) {
-+		_signal->signaled = 1;
-+		list_add_tail(&_signal->list, &cd->signal_list);
-+		wake_up_interruptible(&cd->wq);
++	ret = ctx->ops->copy_to(ctx, data, id, sizeof(*id));
++	if (ret)
++		return -EFAULT;
++
++	return 0;
++}
++
++static int
++_virtio_connection_getstatus(struct _virtio_connection *_vconn,
++			     void *data, unsigned long len)
++{
++	struct virtio_connection *vconn = _vconn->vconn;
++	struct vbus_memctx *ctx = _vconn->ctx;
++	u8 val = 0;
++	int ret;
++
++	if (len != sizeof(val))
++		return -EINVAL;
++
++	if (vconn->ops->get_status)
++		val = vconn->ops->get_status(vconn);
++
++	ret = ctx->ops->copy_to(ctx, data, &val, sizeof(val));
++	if (ret)
++		return -EFAULT;
++
++	return 0;
++}
++
++static int
++_virtio_connection_setstatus(struct _virtio_connection *_vconn,
++			     void *data, unsigned long len)
++{
++	struct virtio_connection *vconn = _vconn->vconn;
++	struct vbus_memctx *ctx = _vconn->ctx;
++	u8 val;
++	int ret;
++
++	if (len != sizeof(val))
++		return -EINVAL;
++
++	if (!vconn->ops->set_status)
++		return 0;
++
++	ret = ctx->ops->copy_from(ctx, &val, data, sizeof(val));
++	if (ret)
++		return -EFAULT;
++
++	vconn->ops->set_status(vconn, val);
++
++	return 0;
++}
++
++static int
++_virtio_connection_getfeatures(struct _virtio_connection *_vconn,
++			       void *data, unsigned long len)
++{
++	struct virtio_connection *vconn = _vconn->vconn;
++	struct vbus_memctx *ctx = _vconn->ctx;
++	u32 val = 0;
++	int ret;
++
++	if (len != sizeof(val))
++		return -EINVAL;
++
++	if (vconn->ops->get_features)
++		val = vconn->ops->get_features(vconn);
++
++	ret = ctx->ops->copy_to(ctx, data, &val, sizeof(val));
++	if (ret)
++		return -EFAULT;
++
++	return 0;
++}
++
++static int
++_virtio_connection_finalizefeatures(struct _virtio_connection *_vconn)
++{
++	struct virtio_connection *vconn = _vconn->vconn;
++
++	if (vconn->ops->finalize_features)
++		vconn->ops->finalize_features(vconn);
++
++	return 0;
++}
++
++static int
++_virtio_connection_reset(struct _virtio_connection *_vconn)
++{
++	struct virtio_connection *vconn = _vconn->vconn;
++
++	if (vconn->ops->reset)
++		vconn->ops->reset(vconn);
++
++	return 0;
++}
++
++static struct _virtio_queue *
++_virtio_find_queue(struct _virtio_connection *_vconn, int index)
++{
++	struct _virtio_queue *vq;
++
++	list_for_each_entry(vq, &_vconn->queues, node) {
++		if (vq->index == index)
++			return vq;
 +	}
 +
-+	spin_unlock_irqrestore(&cd->lock, flags);
++	return NULL;
++}
++
++static int
++_virtio_connection_queryqueue(struct _virtio_connection *_vconn,
++			      void *data, unsigned long len)
++{
++	struct vbus_memctx *ctx = _vconn->ctx;
++	struct virtio_vbus_queryqueue val;
++	struct _virtio_queue *vq;
++	int ret;
++
++	if (len != sizeof(val))
++		return -EINVAL;
++
++	ret = ctx->ops->copy_from(ctx, &val, data, sizeof(val));
++	if (ret)
++		return -EFAULT;
++
++	vq = _virtio_find_queue(_vconn, val.index);
++
++	if (!vq)
++		return -EINVAL;
++
++	if (vq->shm)
++		return -EEXIST;
++
++	val.num = vq->num;
++
++	ret = ctx->ops->copy_to(ctx, data, &val, sizeof(val));
++	if (ret)
++		return -EFAULT;
 +
 +	return 0;
 +}
 +
-+static void
-+userspace_signal_release(struct shm_signal *signal)
++static int
++_virtio_connection_call(struct vbus_connection *conn,
++		    unsigned long func,
++		    void *data,
++		    unsigned long len,
++		    unsigned long flags)
 +{
-+	struct userspace_signal *_signal = to_userspace(signal);
++	struct _virtio_connection *_vconn = to_vconn(conn);
++	int ret = 0;
 +
-+	vbus_shm_put(_signal->shm);
-+	kfree(_signal);
-+}
++	PDEBUG("call -> %d with %p/%d\n", func, data, len);
 +
-+static struct shm_signal_ops userspace_signal_ops = {
-+	.inject  = userspace_signal_inject,
-+	.release = userspace_signal_release,
-+};
-+
-+static long
-+userspace_signal_alloc(struct vbus_shm *shm,
-+		       u32 offset, u32 prio, u64 cookie,
-+		       struct userspace_signal **usignal)
-+{
-+	struct userspace_signal *_signal;
-+	struct shm_signal *signal;
-+	struct shm_signal_desc *desc;
-+	int ret = -EINVAL;
-+
-+	_signal = kzalloc(sizeof(*_signal), GFP_KERNEL);
-+	if (!_signal)
-+		return -ENOMEM;
-+
-+	desc = (struct shm_signal_desc *)(shm->ptr + offset);
-+
-+	if (desc->magic != SHM_SIGNAL_MAGIC)
-+		goto out;
-+
-+	if (desc->ver != SHM_SIGNAL_VER)
-+		goto out;
-+
-+	signal = &_signal->signal;
-+
-+	shm_signal_init(signal);
-+
-+	signal->locale    = shm_locality_south;
-+	signal->ops       = &userspace_signal_ops;
-+	signal->desc      = desc;
-+
-+	_signal->shm      = shm;
-+	_signal->prio     = prio;
-+	_signal->cookie   = cookie;
-+	vbus_shm_get(shm); /* dropped when the signal is released */
-+
-+	*usignal = _signal;
-+
-+	return 0;
-+
-+out:
-+	kfree(_signal);
++	switch (func) {
++	case VIRTIO_VBUS_FUNC_NEG_CAP:
++		ret = _virtio_connection_negcap(_vconn, data, len);
++		break;
++	case VIRTIO_VBUS_FUNC_GET_ID:
++		ret = _virtio_connection_getid(_vconn, data, len);
++		break;
++	case VIRTIO_VBUS_FUNC_GET_FEATURES:
++		ret = _virtio_connection_getfeatures(_vconn, data, len);
++		break;
++	case VIRTIO_VBUS_FUNC_FINALIZE_FEATURES:
++		_virtio_connection_finalizefeatures(_vconn);
++		break;
++	case VIRTIO_VBUS_FUNC_GET_STATUS:
++		ret = _virtio_connection_getstatus(_vconn, data, len);
++		break;
++	case VIRTIO_VBUS_FUNC_SET_STATUS:
++		ret = _virtio_connection_setstatus(_vconn, data, len);
++		break;
++	case VIRTIO_VBUS_FUNC_RESET:
++		_virtio_connection_reset(_vconn);
++		break;
++	case VIRTIO_VBUS_FUNC_QUERY_QUEUE:
++		ret = _virtio_connection_queryqueue(_vconn, data, len);
++		break;
++	case VIRTIO_VBUS_FUNC_DEL_QUEUE:
++		break;
++	default:
++		ret = -EINVAL;
++		break;
++	}
 +
 +	return ret;
 +}
 +
-+static void
-+userspace_shm_release(struct vbus_shm *shm)
++static void _virtio_config_isr(struct shm_signal_notifier *notifier)
 +{
-+	struct userspace_shm *_shm = container_of(shm, struct userspace_shm,
-+						  shm);
++	struct _virtio_connection *_vconn;
++	struct virtio_connection *vconn;
 +
-+	/* FIXME: do we need to adjust current->mm->locked_vm? */
-+	vunmap((void *)((unsigned long)shm->ptr & PAGE_MASK));
-+	kfree(_shm);
++	_vconn = container_of(notifier, struct _virtio_connection,
++			      config.notifier);
++
++	vconn = _vconn->vconn;
++
++	if (vconn->ops->config_changed)
++		vconn->ops->config_changed(vconn);
 +}
-+
-+static struct vbus_shm_ops userspace_shm_ops = {
-+	.release = userspace_shm_release,
-+};
 +
 +static int
-+userspace_shm_map(struct userspace_chardev *cd,
-+		  __u64 ptr, __u32 len,
-+		  struct userspace_shm **ushm)
++_virtio_connection_open(struct _virtio_connection *_vconn)
++
 +{
-+	struct userspace_shm *_shm;
-+	struct vbus_shm *shm;
-+	void *vmap;
++	struct virtio_device_interface *vintf = _vconn->_vintf->vintf;
++	struct virtio_connection *vconn;
++	struct virtio_queue_def *def = vintf->queues;
++	int ret;
 +
-+	_shm = kzalloc(sizeof(*_shm), GFP_KERNEL);
-+	if (!_shm)
-+		return -ENOMEM;
-+
-+	shm = &_shm->shm;
-+
-+	vmap = userspace_vmap(ptr, len);
-+	if (!vmap) {
-+		kfree(_shm);
-+		return -EFAULT;
-+	}
-+
-+	vbus_shm_init(shm, &userspace_shm_ops, vmap, len);
-+
-+	*ushm = _shm;
-+
-+	return 0;
-+}
-+
-+static long
-+_deviceshm(struct userspace_chardev *cd, struct vbus_deviceshm *args)
-+{
-+	struct vbus_client *c = cd->client;
-+	struct userspace_signal *_signal = NULL;
-+	struct shm_signal *signal = NULL;
-+	struct userspace_shm *_shm;
-+	u64 handle;
-+	long ret;
-+
-+	ret = userspace_shm_map(cd, args->datap, args->len, &_shm);
++	ret = vintf->ops->open(vintf, _vconn->ctx, &vconn);
 +	if (ret < 0)
 +		return ret;
 +
-+	/*
-+	 * Establishing a signal is optional
-+	 */
-+	if (args->signal.offset != -1) {
-+		ret = userspace_signal_alloc(&_shm->shm,
-+					     args->signal.offset,
-+					     args->signal.prio,
-+					     args->signal.cookie,
-+					     &_signal);
-+		if (ret < 0)
-+			goto out;
++	while (def && def->index != -1) {
++		struct _virtio_queue *vq;
 +
-+		_signal->cd = cd;
-+		signal = &_signal->signal;
++		vq = kzalloc(sizeof(*vq), GFP_KERNEL);
++		if (!vq)
++			return -ENOMEM;
++
++		vq->index  = def->index;
++		vq->num    = def->entries;
++		vq->_vconn = _vconn;
++
++		list_add_tail(&vq->node, &_vconn->queues);
++
++		def++;
 +	}
 +
-+	ret = c->ops->deviceshm(c, args->devh, args->id,
-+				&_shm->shm, signal,
-+				args->flags, &handle);
++	_vconn->vconn  = vconn;
++	vconn->parent  = &_vconn->conn;
++
++	return 0;
++}
++
++static int
++_virtio_connection_initconfig(struct _virtio_connection *_vconn,
++			      struct vbus_shm *shm,
++			      struct shm_signal *signal)
++{
++	int ret;
++
++	if (_vconn->running)
++		return -EINVAL;
++
++	_vconn->config.signal = signal;
++	_vconn->config.shm = shm;
++	_vconn->config.notifier.signal = &_virtio_config_isr;
++	signal->notifier = &_vconn->config.notifier;
++
++	shm_signal_enable(signal, 0);
++
++	ret = _virtio_connection_open(_vconn);
 +	if (ret < 0)
-+		goto out;
++		return ret;
 +
-+	args->handle = handle;
++	_vconn->running = 1;
 +
 +	return 0;
-+
-+out:
-+	if (signal)
-+		shm_signal_put(signal);
-+
-+	vbus_shm_put(&_shm->shm);
-+	return ret;
 +}
 +
-+static long
-+_shmsignal(struct userspace_chardev *cd, unsigned long handle)
++static void _vq_isr(struct shm_signal_notifier *notifier)
 +{
-+	struct vbus_client *c = cd->client;
++	struct _virtio_queue *vq;
 +
-+	return c->ops->shmsignal(c, handle);
++	vq = container_of(notifier, struct _virtio_queue, notifier);
++
++	vring_interrupt(0, vq->vq);
++}
++
++static void _vq_notify(struct virtqueue *vq)
++{
++	struct _virtio_queue *_vq = vq->priv;
++
++	shm_signal_inject(_vq->signal, 0);
++}
++
++static void _vq_callback(struct virtqueue *vq)
++{
++	struct _virtio_queue *_vq = vq->priv;
++	struct virtio_connection *vconn = _vq->_vconn->vconn;
++
++	vconn->ops->notify_vq(vconn, _vq->index);
 +}
 +
 +static int
-+vbus_chardev_open(struct inode *inode, struct file *filp)
++_virtio_connection_shm(struct vbus_connection *conn,
++		   unsigned long id,
++		   struct vbus_shm *shm,
++		   struct shm_signal *signal,
++		   unsigned long flags)
 +{
-+	struct vbus *vbus = task_vbus_get(current);
-+	struct vbus_client *client;
-+	struct vbus_memctx *ctx;
-+	struct userspace_chardev *cd;
++	struct _virtio_connection *_vconn = to_vconn(conn);
++	struct virtio_connection *vconn = _vconn->vconn;
++	struct _virtio_queue *vq;
++	struct virtio_vbus_shm *_shm = shm->ptr;
 +
-+	if (!vbus)
-+		return -EPERM;
++	/* All shm connections that we support require a signal */
++	if (!signal)
++		return -EINVAL;
 +
-+	client = vbus_client_attach(vbus);
-+	vbus_put(vbus);
-+	if (!client)
-+		return -ENOMEM;
++	if (!id)
++		return _virtio_connection_initconfig(_vconn, shm, signal);
 +
-+	ctx = task_memctx_alloc(current);
-+	if (!ctx) {
-+		vbus_client_put(client);
-+		return -ENOMEM;
-+	}
++	vq = _virtio_find_queue(_vconn, id - VIRTIO_VBUS_RING_OFFSET);
++	if (!vq)
++		return -EINVAL;
 +
-+	cd = kzalloc(sizeof(*cd), GFP_KERNEL);
-+	if (!cd) {
-+		vbus_memctx_put(ctx);
-+		vbus_client_put(client);
-+		return -ENOMEM;
-+	}
++	if (vq->shm)
++		return -EEXIST;
 +
-+	spin_lock_init(&cd->lock);
-+	cd->opened = 0;
-+	cd->client = client;
-+	cd->ctx = ctx;
++	vq->shm = shm;
++	vq->signal = signal;
 +
-+	INIT_LIST_HEAD(&cd->signal_list);
-+	init_waitqueue_head(&cd->wq);
++	vq->notifier.signal = &_vq_isr;
++	signal->notifier = &vq->notifier;
 +
-+	filp->private_data = cd;
++	shm_signal_enable(signal, 0);
++
++	vq->vq = vring_new_virtqueue(vq->num, PAGE_SIZE, NULL,
++				     &_shm->data[0],
++				     _vq_notify, _vq_callback);
++
++	vq->vq->priv = vq;
++
++	vconn->ops->add_vq(vconn, vq->index, vq->vq);
 +
 +	return 0;
 +}
 +
-+static long
-+vbus_chardev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
++static void
++_virtio_connection_release(struct vbus_connection *conn)
 +{
-+	struct userspace_chardev *cd = filp->private_data;
++	struct _virtio_connection *_vconn = to_vconn(conn);
++	struct virtio_connection *vconn = _vconn->vconn;
++	struct _virtio_queue *vq, *tmp;
 +
-+	if (!cd->opened && ioctl != VBUS_BUSOPEN)
-+		return -EINVAL;
++	vconn->ops->release(vconn);
 +
-+	switch (ioctl) {
-+	case VBUS_BUSOPEN:
-+		return _busopen(cd, (struct vbus_userspace_busopen *)arg);
-+	case VBUS_DEVICEOPEN:
-+		return _deviceopen(cd, (struct vbus_deviceopen *)arg);
-+	case VBUS_DEVICECLOSE:
-+		return _deviceclose(cd, *(__u64 *)arg);
-+	case VBUS_DEVICECALL:
-+		return _devicecall(cd, (struct vbus_devicecall *)arg);
-+	case VBUS_DEVICESHM:
-+		return _deviceshm(cd, (struct vbus_deviceshm *)arg);
-+	case VBUS_SHMSIGNAL:
-+		return _shmsignal(cd, *(__u64 *)arg);
-+	default:
-+		return -EINVAL;
++	list_for_each_entry_safe(vq, tmp, &_vconn->queues, node) {
++		if (vq->vq)
++			vring_del_virtqueue(vq->vq);
++
++		if (vq->shm)
++			vbus_shm_put(vq->shm);
++
++		if (vq->signal)
++			shm_signal_put(vq->signal);
++
++		list_del(&vq->node);
++		kfree(vq);
 +	}
++
++	if (_vconn->config.signal)
++		shm_signal_put(_vconn->config.signal);
++
++	if (_vconn->config.shm)
++		vbus_shm_put(_vconn->config.shm);
++
++	kobject_put(&_vconn->_vintf->intf.kobj);
++	vbus_memctx_put(_vconn->ctx);
++
++	kfree(_vconn);
 +}
 +
-+static ssize_t
-+vbus_chardev_read(struct file *filp, char __user *buf, size_t len,
-+		  loff_t *ppos)
-+{
-+	DEFINE_WAIT(wait);
-+	struct userspace_chardev *cd = filp->private_data;
-+	ssize_t bytes = 0;
-+	int count, i;
-+	__u64 __user *p = (__u64 __user *)buf;
-+	unsigned long flags;
-+
-+	count = len/sizeof(__u64);
-+
-+	if (!count)
-+		return -EINVAL;
-+
-+	spin_lock_irqsave(&cd->lock, flags);
-+
-+	for (;;) {
-+		prepare_to_wait(&cd->wq, &wait, TASK_INTERRUPTIBLE);
-+
-+		if (!list_empty(&cd->signal_list))
-+			break;
-+
-+		if (signal_pending(current)) {
-+			finish_wait(&cd->wq, &wait);
-+			spin_unlock_irqrestore(&cd->lock, flags);
-+			return -EINTR;
-+		}
-+
-+		spin_unlock_irqrestore(&cd->lock, flags);
-+		schedule();
-+		spin_lock_irqsave(&cd->lock, flags);
-+	}
-+
-+	finish_wait(&cd->wq, &wait);
-+
-+	for (i = 0; i < count; i++) {
-+		struct userspace_signal *_signal;
-+		__u64 cookie;
-+
-+		if (list_empty(&cd->signal_list))
-+			break;
-+
-+		_signal = list_first_entry(&cd->signal_list,
-+					   struct userspace_signal, list);
-+
-+		_signal->signaled = 0;
-+		list_del(&_signal->list);
-+
-+		cookie = _signal->cookie;
-+
-+		put_user(cookie, p++);
-+
-+		bytes += sizeof(cookie);
-+	}
-+
-+	spin_unlock_irqrestore(&cd->lock, flags);
-+
-+	return bytes;
-+}
++static struct vbus_connection_ops _virtio_connection_ops = {
++	.call    = _virtio_connection_call,
++	.shm     = _virtio_connection_shm,
++	.release = _virtio_connection_release,
++};
 +
 +static int
-+vbus_chardev_release(struct inode *inode, struct file *filp)
++_virtio_intf_open(struct vbus_device_interface *intf,
++		  struct vbus_memctx *ctx,
++		  int version,
++		  struct vbus_connection **conn)
 +{
-+	struct userspace_chardev *cd = filp->private_data;
++	struct _virtio_device_interface *_vintf = to_vintf(intf);
++	struct _virtio_connection *_vconn;
++	int ret;
 +
-+	vbus_memctx_put(cd->ctx);
-+	vbus_client_put(cd->client);
-+	kfree(cd);
++	if (version != VIRTIO_VBUS_ABI_VERSION)
++		return -EINVAL;
++
++	_vconn = kzalloc(sizeof(*_vconn), GFP_KERNEL);
++	if (!_vconn)
++		return -ENOMEM;
++
++	vbus_connection_init(&_vconn->conn, &_virtio_connection_ops);
++	_vconn->_vintf = _vintf;
++	_vconn->ctx    = ctx;
++	INIT_LIST_HEAD(&_vconn->queues);
++
++	vbus_memctx_get(ctx);
++	kobject_get(&intf->kobj);
++
++	*conn         = &_vconn->conn;
 +
 +	return 0;
 +}
 +
-+static const struct file_operations vbus_chardev_ops = {
-+	.open           = vbus_chardev_open,
-+	.read           = vbus_chardev_read,
-+	.unlocked_ioctl = vbus_chardev_ioctl,
-+	.compat_ioctl   = vbus_chardev_ioctl,
-+	.release        = vbus_chardev_release,
-+};
-+
-+static struct miscdevice vbus_chardev = {
-+	MISC_DYNAMIC_MINOR,
-+	"vbus",
-+	&vbus_chardev_ops,
-+};
-+
-+static int __init
-+vbus_userspace_init(void)
++static void
++_virtio_intf_release(struct vbus_device_interface *intf)
 +{
-+	return misc_register(&vbus_chardev);
++	struct _virtio_device_interface *_vintf = to_vintf(intf);
++	struct virtio_device_interface *vintf = _vintf->vintf;
++
++	if (vintf && vintf->ops->release)
++		vintf->ops->release(vintf);
++	kfree(_vintf);
 +}
 +
-+static void __exit
-+vbus_userspace_cleanup(void)
-+{
-+	misc_deregister(&vbus_chardev);
-+}
++static struct vbus_device_interface_ops _virtio_device_interface_ops = {
++	.open    = _virtio_intf_open,
++	.release = _virtio_intf_release,
++};
 +
-+module_init(vbus_userspace_init);
-+module_exit(vbus_userspace_cleanup);
++int
++virtio_device_interface_register(struct vbus_device *dev,
++				 struct vbus *vbus,
++				 struct virtio_device_interface *vintf)
++{
++	struct _virtio_device_interface *_vintf;
++	struct vbus_device_interface *intf;
++
++	_vintf = kzalloc(sizeof(*_vintf), GFP_KERNEL);
++	if (!_vintf)
++		return -ENOMEM;
++
++	_vintf->vintf = vintf;
++
++	intf = &_vintf->intf;
++
++	intf->name = "0"; /* FIXME */
++	intf->type = "virtio";
++	intf->ops  = &_virtio_device_interface_ops;
++
++	return vbus_device_interface_register(dev, vbus, intf);
++}
++EXPORT_SYMBOL_GPL(virtio_device_interface_register);
++
++int
++virtio_device_interface_unregister(struct virtio_device_interface *intf)
++{
++	return vbus_device_interface_unregister(intf->parent);
++}
++EXPORT_SYMBOL_GPL(virtio_device_interface_unregister);
 
