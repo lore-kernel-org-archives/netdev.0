@@ -1,42 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] Be explict with what we are !'ing in
-	ixgbe_sfp_config_module_task()
-Date: Wed, 8 Apr 2009 19:26:08 -0700
-Message-ID: <9929d2390904081926m6176d705y481085318a930087@mail.gmail.com>
-References: <75761e1f53ed07c43a977d98b54d6467d8896530.1239165870.git.tony@bakeyournoodle.com>
+From: Alexander Beregalov <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: 2.6.30-rc1: e1000: list_add corruption
+Date: Thu, 9 Apr 2009 07:45:39 +0400
+Message-ID: <a4423d670904082045q41274747ha08d28a0645ae378@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tony Breeds <tony@bakeyournoodle.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <75761e1f53ed07c43a977d98b54d6467d8896530.1239165870.git.tony@bakeyournoodle.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBBcHIgNywgMjAwOSBhdCA5OjQ0IFBNLCBUb255IEJyZWVkcyA8dG9ueUBiYWtleW91
-cm5vb2RsZS5jb20+IHdyb3RlOgo+IEdDQyB3YXJuczoKPiBkcml2ZXJzL25ldC9peGdiZS9peGdi
-ZV9tYWluLmM6IEluIGZ1bmN0aW9uICdpeGdiZV9zZnBfY29uZmlnX21vZHVsZV90YXNrJzoKPiBk
-cml2ZXJzL25ldC9peGdiZS9peGdiZV9tYWluLmM6MzkyMDogd2FybmluZzogc3VnZ2VzdCBwYXJl
-bnRoZXNlcyBhcm91bmQgb3BlcmFuZCBvZiAnIScgb3IgY2hhbmdlICcmJyB0byAnJiYnIG9yICch
-JyB0byAnficKPgo+IFdoaWNoIEkgdGhpbmsgaXMgcmlnaHQuIMKgQnJhY2tldCB0byByZW1vdmUg
-YW1iaWd1aXR5Lgo+Cj4gU2lnbmVkLW9mZi1ieTogVG9ueSBCcmVlZHMgPHRvbnlAYmFrZXlvdXJu
-b29kbGUuY29tPgo+IC0tLQoKVGhhbmtzLCBJIHdpbGwgYWRkIGl0IHRvIG15IHF1ZXVlIG9mIGl4
-Z2JlIHBhdGNoZXMuClJlbWVtYmVyIHRvIENDIG5ldGRldiBtYWlsaW5nIGxpc3QgZm9yIG5ldHdv
-cmtpbmcgcGF0Y2hlcy4KCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpU
-aGlzIFNGLm5ldCBlbWFpbCBpcyBzcG9uc29yZWQgYnk6CkhpZ2ggUXVhbGl0eSBSZXF1aXJlbWVu
-dHMgaW4gYSBDb2xsYWJvcmF0aXZlIEVudmlyb25tZW50LgpEb3dubG9hZCBhIGZyZWUgdHJpYWwg
-b2YgUmF0aW9uYWwgUmVxdWlyZW1lbnRzIENvbXBvc2VyIE5vdyEKaHR0cDovL3Auc2YubmV0L3Nm
-dS93d3ctaWJtLWNvbQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9y
-Z2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAw
-LWRldmVsCg==
+ WARNING: at lib/list_debug.c:30 __list_add+0x89/0x90()
+ Hardware name:
+ list_add corruption. prev->next should be next (c06ea834), but was
+f70244c8. (prev=c06ea834).
+ Modules linked in: w83627hf hwmon_vid i2c_nforce2
+ Pid: 1436, comm: portageq Not tainted 2.6.30-rc1 #1
+ Call Trace:
+  [<c0129d73>] warn_slowpath+0x73/0xd0
+  [<c03c6008>] ? __kfree_skb+0x38/0x90
+  [<c03f9b06>] ? tcp_data_snd_check+0x26/0xe0
+  [<c03fd67f>] ? tcp_rcv_established+0x2bf/0x5e0
+  [<c040557a>] ? tcp_v4_rcv+0x47a/0x610
+  [<c014cebd>] ? print_lock_contention_bug+0x1d/0x110
+  [<c044a967>] ? _spin_unlock+0x27/0x50
+  [<c040564b>] ? tcp_v4_rcv+0x54b/0x610
+  [<c02d86f9>] __list_add+0x89/0x90
+  [<c03ccff9>] __napi_schedule+0x29/0x60
+  [<c036946d>] e1000_intr+0xbd/0x1a0
+  [<c015c5de>] handle_IRQ_event+0x3e/0x120
+  [<c015e190>] handle_fasteoi_irq+0x60/0xd0
+  [<c0104fd4>] handle_irq+0x34/0x60
+  [<c015f748>] ? rcu_irq_enter+0x8/0x40
+  [<c0104b29>] do_IRQ+0x39/0xa0
+  [<c03c592c>] ? skb_release_head_state+0x2c/0x60
+  [<c01034ee>] common_interrupt+0x2e/0x34
+  [<c02d8601>] ? list_del+0x21/0x90
+  [<c014e54b>] ? trace_hardirqs_on+0xb/0x10
+  [<c03cd4da>] __napi_complete+0x1a/0x30
+  [<c0381971>] nv_napi_poll+0xd1/0x5c0
+  [<c014e54b>] ? trace_hardirqs_on+0xb/0x10
+  [<c03cd5f6>] net_rx_action+0x106/0x1b0
+  [<c012e8df>] __do_softirq+0x6f/0x100
+  [<c044a967>] ? _spin_unlock+0x27/0x50
+  [<c015e1b8>] ? handle_fasteoi_irq+0x88/0xd0
+  [<c012e9cd>] do_softirq+0x5d/0x70
+  [<c012ebad>] irq_exit+0x7d/0xa0
+  [<c0104b32>] do_IRQ+0x42/0xa0
+  [<c012e9b7>] ? do_softirq+0x47/0x70
+  [<c01034ee>] common_interrupt+0x2e/0x34
