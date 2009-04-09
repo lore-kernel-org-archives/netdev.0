@@ -1,36 +1,27 @@
-From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
-Date: Wed, 8 Apr 2009 23:23:44 -0600
-Message-ID: <20090408232344.afed8103.zaitcev@redhat.com>
-References: <18906.49779.243047.207639@stoffel.org>
-	<20090407120022.GA6519@ff.dom.local>
-	<18907.28788.965069.573489@stoffel.org>
-	<20090407130403.e0061a8d.zaitcev@redhat.com>
-	<18908.42166.404232.721757@stoffel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <18908.42166.404232.721757-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Fondation De France" <gawe@eduhi.at>
+Subject: Grant Donation
+Date: Thu, 9 Apr 2009 05:42:48 -0000
+Message-ID: <20090409054248.D02C01F6841__48834.4277292073$1239256740$gmane$org@web4.eduhi.at>
+Reply-To: fdf00014@yahoo.com.hk
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgate3.eduhi.at ([193.170.67.95]:40863 "EHLO
+	mailgate3.eduhi.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754004AbZDIF5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 01:57:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 8 Apr 2009 09:20:54 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
 
-> Well I think that usbmon is probably at fault here for trusting
-> drivers too much and not doing any sanity checking. []
 
-By the way, please send me a full dmesg from the affected system
-and kernel. Any post-boot dmesg will do: I only want to see if
-IOMMU is active, where the aperture is, and if 0x20a15cc0 is a
-valid physical address.
 
--- Pete
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Congratulation for your $1,350,000.00 as grant from the
+Fondation De France. You are to send us the following
+details so that we can proceed to process your grant. Name:
+Address: Occupation: Sex: Tel.
+
+And send to Mr Patrice Williams (fdf00014@yahoo.com.hk)
+Sincerely,
+Mrs. Claudia Lauren Announcer.
+www.fdf.org
