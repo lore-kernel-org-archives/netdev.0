@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 1/3] igb: fix unused external references introduced with
-	sr-iov changes
-Date: Fri, 10 Apr 2009 01:49:02 -0700
-Message-ID: <20090410084901.14739.20428.stgit@localhost.localdomain>
+Subject: [PATCH 2/3] igbvf: fix unused external references
+Date: Fri, 10 Apr 2009 01:49:20 -0700
+Message-ID: <20090410084920.14739.64516.stgit@localhost.localdomain>
+References: <20090410084901.14739.20428.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -13,105 +13,112 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:47111
 	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S939008AbZDJRRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 13:17:31 -0400
+	by vger.kernel.org with ESMTP id S939010AbZDJRRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 13:17:49 -0400
+In-Reply-To: <20090410084901.14739.20428.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-There were several unused external references added with the sr-iov
-enablement changes.  This patch changes all those references to static
-local references.
+The igbvbf driver exposed several unused extrnal references due to the fact
+that code was copied from igb and then some functionality was removed.
+This changes that so that unused functions are either removed or made
+static.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_mac.c |    2 +-
- drivers/net/igb/e1000_mac.h |    1 -
- drivers/net/igb/e1000_mbx.c |   17 ++---------------
- drivers/net/igb/e1000_mbx.h |    2 --
- 4 files changed, 3 insertions(+), 19 deletions(-)
+ drivers/net/igbvf/igbvf.h  |    3 ---
+ drivers/net/igbvf/netdev.c |    9 ++++++---
+ drivers/net/igbvf/vf.c     |    2 +-
+ drivers/net/igbvf/vf.h     |    1 -
+ 4 files changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
-index f4c315b..472f3f1 100644
---- a/drivers/net/igb/e1000_mac.c
-+++ b/drivers/net/igb/e1000_mac.c
-@@ -111,7 +111,7 @@ void igb_clear_vfta(struct e1000_hw *hw)
-  *  Writes value at the given offset in the register array which stores
-  *  the VLAN filter table.
-  **/
--void igb_write_vfta(struct e1000_hw *hw, u32 offset, u32 value)
-+static void igb_write_vfta(struct e1000_hw *hw, u32 offset, u32 value)
- {
- 	array_wr32(E1000_VFTA, offset, value);
- 	wrfl();
-diff --git a/drivers/net/igb/e1000_mac.h b/drivers/net/igb/e1000_mac.h
-index a34de52..1d690b4 100644
---- a/drivers/net/igb/e1000_mac.h
-+++ b/drivers/net/igb/e1000_mac.h
-@@ -66,7 +66,6 @@ void igb_rar_set(struct e1000_hw *hw, u8 *addr, u32 index);
- s32  igb_check_alt_mac_addr(struct e1000_hw *hw);
- void igb_reset_adaptive(struct e1000_hw *hw);
- void igb_update_adaptive(struct e1000_hw *hw);
--void igb_write_vfta(struct e1000_hw *hw, u32 offset, u32 value);
+diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
+index 936ed2a..4bff35e 100644
+--- a/drivers/net/igbvf/igbvf.h
++++ b/drivers/net/igbvf/igbvf.h
+@@ -321,14 +321,11 @@ extern void igbvf_set_ethtool_ops(struct net_device *);
+ extern int igbvf_up(struct igbvf_adapter *);
+ extern void igbvf_down(struct igbvf_adapter *);
+ extern void igbvf_reinit_locked(struct igbvf_adapter *);
+-extern void igbvf_reset(struct igbvf_adapter *);
+ extern int igbvf_setup_rx_resources(struct igbvf_adapter *, struct igbvf_ring *);
+ extern int igbvf_setup_tx_resources(struct igbvf_adapter *, struct igbvf_ring *);
+ extern void igbvf_free_rx_resources(struct igbvf_ring *);
+ extern void igbvf_free_tx_resources(struct igbvf_ring *);
+ extern void igbvf_update_stats(struct igbvf_adapter *);
+-extern void igbvf_set_interrupt_capability(struct igbvf_adapter *);
+-extern void igbvf_reset_interrupt_capability(struct igbvf_adapter *);
  
- bool igb_enable_mng_pass_thru(struct e1000_hw *hw);
+ extern unsigned int copybreak;
  
-diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
-index fe71c7d..840782f 100644
---- a/drivers/net/igb/e1000_mbx.c
-+++ b/drivers/net/igb/e1000_mbx.c
-@@ -188,7 +188,7 @@ out:
-  *  returns SUCCESS if it successfully received a message notification and
-  *  copied it into the receive buffer.
-  **/
--s32 igb_read_posted_mbx(struct e1000_hw *hw, u32 *msg, u16 size, u16 mbx_id)
-+static s32 igb_read_posted_mbx(struct e1000_hw *hw, u32 *msg, u16 size, u16 mbx_id)
- {
- 	struct e1000_mbx_info *mbx = &hw->mbx;
- 	s32 ret_val = -E1000_ERR_MBX;
-@@ -214,7 +214,7 @@ out:
-  *  returns SUCCESS if it successfully copied message into the buffer and
-  *  received an ack to that message within delay * timeout period
-  **/
--s32 igb_write_posted_mbx(struct e1000_hw *hw, u32 *msg, u16 size, u16 mbx_id)
-+static s32 igb_write_posted_mbx(struct e1000_hw *hw, u32 *msg, u16 size, u16 mbx_id)
- {
- 	struct e1000_mbx_info *mbx = &hw->mbx;
- 	s32 ret_val = 0;
-@@ -232,19 +232,6 @@ out:
- 	return ret_val;
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index c564842..b774666 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -52,6 +52,9 @@ static const char igbvf_driver_string[] =
+ static const char igbvf_copyright[] = "Copyright (c) 2009 Intel Corporation.";
+ 
+ static int igbvf_poll(struct napi_struct *napi, int budget);
++static void igbvf_reset(struct igbvf_adapter *);
++static void igbvf_set_interrupt_capability(struct igbvf_adapter *);
++static void igbvf_reset_interrupt_capability(struct igbvf_adapter *);
+ 
+ static struct igbvf_info igbvf_vf_info = {
+ 	.mac                    = e1000_vfadapt,
+@@ -990,7 +993,7 @@ static void igbvf_configure_msix(struct igbvf_adapter *adapter)
+ 	e1e_flush();
  }
  
--/**
-- *  e1000_init_mbx_ops_generic - Initialize NVM function pointers
-- *  @hw: pointer to the HW structure
-- *
-- *  Setups up the function pointers to no-op functions
-- **/
--void e1000_init_mbx_ops_generic(struct e1000_hw *hw)
--{
--	struct e1000_mbx_info *mbx = &hw->mbx;
--	mbx->ops.read_posted = igb_read_posted_mbx;
--	mbx->ops.write_posted = igb_write_posted_mbx;
--}
--
- static s32 igb_check_for_bit_pf(struct e1000_hw *hw, u32 mask)
+-void igbvf_reset_interrupt_capability(struct igbvf_adapter *adapter)
++static void igbvf_reset_interrupt_capability(struct igbvf_adapter *adapter)
  {
- 	u32 mbvficr = rd32(E1000_MBVFICR);
-diff --git a/drivers/net/igb/e1000_mbx.h b/drivers/net/igb/e1000_mbx.h
-index 6ec9890..ebc02ea 100644
---- a/drivers/net/igb/e1000_mbx.h
-+++ b/drivers/net/igb/e1000_mbx.h
-@@ -67,8 +67,6 @@
+ 	if (adapter->msix_entries) {
+ 		pci_disable_msix(adapter->pdev);
+@@ -1005,7 +1008,7 @@ void igbvf_reset_interrupt_capability(struct igbvf_adapter *adapter)
+  * Attempt to configure interrupts using the best available
+  * capabilities of the hardware and kernel.
+  **/
+-void igbvf_set_interrupt_capability(struct igbvf_adapter *adapter)
++static void igbvf_set_interrupt_capability(struct igbvf_adapter *adapter)
+ {
+ 	int err = -ENOMEM;
+ 	int i;
+@@ -1447,7 +1450,7 @@ static void igbvf_configure(struct igbvf_adapter *adapter)
+  * set/changed during runtime. After reset the device needs to be
+  * properly configured for Rx, Tx etc.
+  */
+-void igbvf_reset(struct igbvf_adapter *adapter)
++static void igbvf_reset(struct igbvf_adapter *adapter)
+ {
+ 	struct e1000_mac_info *mac = &adapter->hw.mac;
+ 	struct net_device *netdev = adapter->netdev;
+diff --git a/drivers/net/igbvf/vf.c b/drivers/net/igbvf/vf.c
+index aa246c9..2a4faf9 100644
+--- a/drivers/net/igbvf/vf.c
++++ b/drivers/net/igbvf/vf.c
+@@ -44,7 +44,7 @@ static s32 e1000_set_vfta_vf(struct e1000_hw *, u16, bool);
+  *  e1000_init_mac_params_vf - Inits MAC params
+  *  @hw: pointer to the HW structure
+  **/
+-s32 e1000_init_mac_params_vf(struct e1000_hw *hw)
++static s32 e1000_init_mac_params_vf(struct e1000_hw *hw)
+ {
+ 	struct e1000_mac_info *mac = &hw->mac;
  
- s32 igb_read_mbx(struct e1000_hw *, u32 *, u16, u16);
- s32 igb_write_mbx(struct e1000_hw *, u32 *, u16, u16);
--s32 igb_read_posted_mbx(struct e1000_hw *, u32 *, u16, u16);
--s32 igb_write_posted_mbx(struct e1000_hw *, u32 *, u16, u16);
- s32 igb_check_for_msg(struct e1000_hw *, u16);
- s32 igb_check_for_ack(struct e1000_hw *, u16);
- s32 igb_check_for_rst(struct e1000_hw *, u16);
+diff --git a/drivers/net/igbvf/vf.h b/drivers/net/igbvf/vf.h
+index ec07228..1e8ce37 100644
+--- a/drivers/net/igbvf/vf.h
++++ b/drivers/net/igbvf/vf.h
+@@ -259,7 +259,6 @@ struct e1000_hw {
+ /* These functions must be implemented by drivers */
+ void e1000_rlpml_set_vf(struct e1000_hw *, u16);
+ void e1000_init_function_pointers_vf(struct e1000_hw *hw);
+-s32  e1000_init_mac_params_vf(struct e1000_hw *hw);
+ 
+ 
+ #endif /* _E1000_VF_H_ */
 
