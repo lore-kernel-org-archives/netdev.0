@@ -1,42 +1,64 @@
-From: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
-Date: Thu, 9 Apr 2009 23:01:09 -0400
-Message-ID: <18910.46709.707557.135033@stoffel.org>
-References: <18906.49779.243047.207639@stoffel.org>
-	<20090407120022.GA6519@ff.dom.local>
-	<18907.28788.965069.573489@stoffel.org>
-	<20090407130403.e0061a8d.zaitcev@redhat.com>
-	<18908.42166.404232.721757@stoffel.org>
-	<20090408232344.afed8103.zaitcev@redhat.com>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH 1/6] ariadne: convert to net_device_ops
+Date: Fri, 10 Apr 2009 07:24:07 +0400
+Message-ID: <20090410032407.GA9004@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>,
-	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090408232344.afed8103.zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, linux-m68k@lists.linux-m68k.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.186]:36072 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761730AbZDJDYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 23:24:13 -0400
+Received: by fk-out-0910.google.com with SMTP id 18so398056fkq.5
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2009 20:24:11 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Ok, I've confirmed that it's usbmon under 2.6.29.1 on x86_64 which causes
-complete system lockups when doing 'tcpdump host ##.##.##.##'.  I
-compiled usbmon as a module, started a tcpdump and couldn't get a
-crash. 
 
-Loaded the module with tcpdump still going, no problems.  Stop and
-restart tcpdump, bang!  Instant hang.  I'm now building 2.6.28 to see
-if that works properly or not.  I suspect I might have to go back
-farther, but I'm not sure.
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
 
-Any suggestions of a known good state I should start bisection from?
+ drivers/net/ariadne.c |   19 +++++++++++++------
+ 1 files changed, 13 insertions(+), 6 deletions(-)
 
-Thanks,
-John
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ariadne.c b/drivers/net/ariadne.c
+index e1d72e0..6c5826a 100644
+--- a/drivers/net/ariadne.c
++++ b/drivers/net/ariadne.c
+@@ -155,6 +155,18 @@ static struct zorro_driver ariadne_driver = {
+     .remove	= __devexit_p(ariadne_remove_one),
+ };
+ 
++static const struct net_device_ops ariadne_netdev_ops = {
++	.ndo_open		= ariadne_open,
++	.ndo_stop		= ariadne_close,
++	.ndo_start_xmit		= ariadne_start_xmit,
++	.ndo_tx_timeout		= ariadne_tx_timeout,
++	.ndo_get_stats		= ariadne_get_stats,
++	.ndo_set_multicast_list	= set_multicast_list,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_set_mac_address	= eth_mac_addr,
++};
++
+ static int __devinit ariadne_init_one(struct zorro_dev *z,
+ 				      const struct zorro_device_id *ent)
+ {
+@@ -197,13 +209,8 @@ static int __devinit ariadne_init_one(struct zorro_dev *z,
+     dev->mem_start = ZTWO_VADDR(mem_start);
+     dev->mem_end = dev->mem_start+ARIADNE_RAM_SIZE;
+ 
+-    dev->open = &ariadne_open;
+-    dev->stop = &ariadne_close;
+-    dev->hard_start_xmit = &ariadne_start_xmit;
+-    dev->tx_timeout = &ariadne_tx_timeout;
++    dev->netdev_ops = &ariadne_netdev_ops;;
+     dev->watchdog_timeo = 5*HZ;
+-    dev->get_stats = &ariadne_get_stats;
+-    dev->set_multicast_list = &set_multicast_list;
+ 
+     err = register_netdev(dev);
+     if (err) {
