@@ -1,53 +1,71 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 2/2] sysctl:  lockdep support for sysctl reference
- counting.
-Date: Fri, 10 Apr 2009 02:18:54 -0700
-Message-ID: <20090410021854.65c6662a.akpm@linux-foundation.org>
-References: <49B91A7E.76E4.0078.0@novell.com>
-	<tip-6a09dfa870ba0ed21b1124539968a36b42660661@git.kernel.org>
-	<1236934491.5188.209.camel@laptop>
-	<49BA33BE.76E4.0078.0@novell.com>
-	<1236937423.22914.3698.camel@twins>
-	<20090313103828.GB31094@elte.hu>
-	<m1d4cd9n4k.fsf@fess.ebiederm.org>
-	<20090320085205.GB16021@elte.hu>
-	<m14oxo8qis.fsf@fess.ebiederm.org>
-	<20090320182404.GA31629@elte.hu>
-	<1237575134.4667.5.camel@laptop>
-	<1237577688.4667.68.camel@laptop>
-	<m1iqm3xr2n.fsf_-_@fess.ebiederm.org>
-	<m1eiwrxr05.fsf_-_@fess.ebiederm.org>
-	<m1ab7fxqxw.fsf_-_@fess.ebiederm.org>
+From: Zhenwen Xu <helight.xu@gmail.com>
+Subject: [PATCH]fix a warning on drivers/net/via-velocity.c
+Date: Fri, 10 Apr 2009 21:11:57 +0800
+Message-ID: <20090410131157.GA10063@helight>
+Reply-To: Zhenwen Xu <helight.xu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Jan Beulich <jbeulich@novell.com>,
-	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
-	linux-kernel@vger.kernel.org, Gautham R Shenoy <ego@in.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>, <netdev@vger.kernel.org>
-To: ebiederm@xmission.com (Eric W. Biederman)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43845 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762180AbZDJJ04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 05:26:56 -0400
-In-Reply-To: <m1ab7fxqxw.fsf_-_@fess.ebiederm.org>
+Received: from ti-out-0910.google.com ([209.85.142.190]:16922 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756796AbZDJNNU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 09:13:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 21 Mar 2009 00:42:19 -0700 ebiederm@xmission.com (Eric W. Biederman) wrote:
+fix this waring:
 
-> It is possible for get lock ordering deadlocks between locks
-> and waiting for the sysctl used count to drop to zero.  We have
-> recently observed one of these in the networking code.
-> 
-> So teach the sysctl code how to speak lockdep so the kernel
-> can warn about these kinds of rare issues proactively.
+drivers/net/via-velocity.c: In function =E2=80=98velocity_open=E2=80=99=
+:
+drivers/net/via-velocity.c:1924: warning: passing argument 2 of =E2=80=98=
+request_irq=E2=80=99 from incompatible pointer type
 
-`make headers_check':
 
-/usr/src/25/usr/include/linux/sysctl.h:31: included file 'linux/lockdep.h' is not exported
-make[2]: *** [/usr/src/25/usr/include/linux/.check] Error 1
+=46rom daa9a8764a7a4261597a6b75230b9029d7723336 Mon Sep 17 00:00:00 200=
+1
+=46rom: Zhenwen Xu <Helight.Xu@gmail.com>
+Date: Fri, 10 Apr 2009 21:06:39 +0800
+Subject: [PATCH] fix a warning on drivers/net/via-velocity.c
 
-It looks like we'll need version 2 on these patches..
+Signed-off-by: Zhenwen Xu <helight.xu@gmail.com>
+---
+ drivers/net/via-velocity.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index fb53ef8..754a4b1 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -377,7 +377,7 @@ static void velocity_print_info(struct velocity_inf=
+o *vptr);
+ static int velocity_open(struct net_device *dev);
+ static int velocity_change_mtu(struct net_device *dev, int mtu);
+ static int velocity_xmit(struct sk_buff *skb, struct net_device *dev);
+-static int velocity_intr(int irq, void *dev_instance);
++static irqreturn_t velocity_intr(int irq, void *dev_instance);
+ static void velocity_set_multi(struct net_device *dev);
+ static struct net_device_stats *velocity_get_stats(struct net_device *=
+dev);
+ static int velocity_ioctl(struct net_device *dev, struct ifreq *rq, in=
+t cmd);
+@@ -2215,7 +2215,7 @@ out:
+  *	efficiently as possible.
+  */
+=20
+-static int velocity_intr(int irq, void *dev_instance)
++static irqreturn_t velocity_intr(int irq, void *dev_instance)
+ {
+ 	struct net_device *dev =3D dev_instance;
+ 	struct velocity_info *vptr =3D netdev_priv(dev);
+--=20
+1.5.6.5
+
+--=20
+---------------------------------
+Zhenwen Xu - Open and Free
+Home Page:	http://zhwen.org
+My Studio:	http://dim4.cn
