@@ -1,67 +1,59 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 02/12] RDS: Correct some iw references in rdma_transport.c
-Date: Thu,  9 Apr 2009 17:09:37 -0700
-Message-ID: <1239322187-3764-3-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 01/12] RDS/IW+IB: Set recv ring low water mark to 1/2 full.
+Date: Thu,  9 Apr 2009 17:09:36 -0700
+Message-ID: <1239322187-3764-2-git-send-email-andy.grover@oracle.com>
 References: <1239322187-3764-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com
+Cc: rds-devel@oss.oracle.com, Steve Wise <swise@opengridcomputing.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:16726 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762408AbZDJAKA (ORCPT
+Received: from rcsinet12.oracle.com ([148.87.113.124]:22797 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936876AbZDJAKA (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2009 20:10:00 -0400
-Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
-	by acsinet12.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n3A09SjI011609
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 10 Apr 2009 00:09:29 GMT
 In-Reply-To: <1239322187-3764-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Had some lingering instances of _iw_ variable names from when
-the listen code was centralized into rdma_transport.c
+From: Steve Wise <swise@opengridcomputing.com>
 
+Currently the recv ring low water mark is 1/4 the depth.  Performance
+measurements show that this limits iWARP throughput by flow controlling
+the rds-stress senders.  Setting it to 1/2 seems to max the T3
+performance.  I tried even higher levels but that didn't help and it
+started to increase the rds thread cpu utilization.
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- net/rds/rdma_transport.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ net/rds/ib_ring.c |    2 +-
+ net/rds/iw_ring.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
-index 7b19024..7d0f901 100644
---- a/net/rds/rdma_transport.c
-+++ b/net/rds/rdma_transport.c
-@@ -34,7 +34,7 @@
+diff --git a/net/rds/ib_ring.c b/net/rds/ib_ring.c
+index 99a6cca..ff97e8e 100644
+--- a/net/rds/ib_ring.c
++++ b/net/rds/ib_ring.c
+@@ -137,7 +137,7 @@ int rds_ib_ring_empty(struct rds_ib_work_ring *ring)
  
- #include "rdma_transport.h"
- 
--static struct rdma_cm_id *rds_iw_listen_id;
-+static struct rdma_cm_id *rds_rdma_listen_id;
- 
- int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
- 			      struct rdma_cm_event *event)
-@@ -161,7 +161,7 @@ static int __init rds_rdma_listen_init(void)
- 
- 	rdsdebug("cm %p listening on port %u\n", cm_id, RDS_PORT);
- 
--	rds_iw_listen_id = cm_id;
-+	rds_rdma_listen_id = cm_id;
- 	cm_id = NULL;
- out:
- 	if (cm_id)
-@@ -171,10 +171,10 @@ out:
- 
- static void rds_rdma_listen_stop(void)
+ int rds_ib_ring_low(struct rds_ib_work_ring *ring)
  {
--	if (rds_iw_listen_id) {
--		rdsdebug("cm %p\n", rds_iw_listen_id);
--		rdma_destroy_id(rds_iw_listen_id);
--		rds_iw_listen_id = NULL;
-+	if (rds_rdma_listen_id) {
-+		rdsdebug("cm %p\n", rds_rdma_listen_id);
-+		rdma_destroy_id(rds_rdma_listen_id);
-+		rds_rdma_listen_id = NULL;
- 	}
+-	return __rds_ib_ring_used(ring) <= (ring->w_nr >> 2);
++	return __rds_ib_ring_used(ring) <= (ring->w_nr >> 1);
  }
+ 
+ /*
+diff --git a/net/rds/iw_ring.c b/net/rds/iw_ring.c
+index d422d4b..da8e3b6 100644
+--- a/net/rds/iw_ring.c
++++ b/net/rds/iw_ring.c
+@@ -137,7 +137,7 @@ int rds_iw_ring_empty(struct rds_iw_work_ring *ring)
+ 
+ int rds_iw_ring_low(struct rds_iw_work_ring *ring)
+ {
+-	return __rds_iw_ring_used(ring) <= (ring->w_nr >> 2);
++	return __rds_iw_ring_used(ring) <= (ring->w_nr >> 1);
+ }
+ 
  
 -- 
 1.5.6.3
