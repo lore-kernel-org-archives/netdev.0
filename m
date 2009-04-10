@@ -1,47 +1,42 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: IRQF_SAMPLE_RANDOM question...
-Date: Thu, 09 Apr 2009 19:27:19 -0700
-Message-ID: <1239330439.3342.2.camel@calx>
-References: <200904061430.26276.rgetz@blackfin.uclinux.org>
-	 <200904071744.17727.rgetz@blackfin.uclinux.org>
-	 <1239220294.31467.55.camel@calx>
-	 <200904090954.54601.rgetz@blackfin.uclinux.org>
-	 <1239296459.31467.142.camel@calx>
-	 <a24804730904091829k167668f1y6e546693b2f8e5da@mail.gmail.com>
+From: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Thu, 9 Apr 2009 23:01:09 -0400
+Message-ID: <18910.46709.707557.135033@stoffel.org>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
+	<18908.42166.404232.721757@stoffel.org>
+	<20090408232344.afed8103.zaitcev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robin Getz <rgetz@blackfin.uclinux.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Peterson <cpeterso@cpeterso.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:58831 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756239AbZDJC2w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2009 22:28:52 -0400
-In-Reply-To: <a24804730904091829k167668f1y6e546693b2f8e5da@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Thu, 2009-04-09 at 18:29 -0700, Chris Peterson wrote:
-> > Hmm, this is a purely internal interface. Not sure if we need to bother
-> > with scheduling it. My plan was to simply get the new code in and sweep
-> > the kernel.
-> 
-> Matt, sounds like you're volunteering? :)
-> 
-> >From my understanding, the roadmap looks something like:
-> 
-> 1. Add checkpatch warning about IRQF_SAMPLE_RANDOM
-> 2. Add any new add_*_randomness() functions (e.g. RTC and main clocks?
-> Serial or USB interrupts?)
-> 3. Remove IRQF_SAMPLE_RANDOM macro (and checkpatch warning)
-> 4. Add "pragmatic entropy accounting model"?
-
-Yeah, I just sat down with Ted Tso this evening and hashed out a new
-design. More to come.
-
--- 
-http://selenic.com : development and support for Mercurial and Linux
+Cc: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090408232344.afed8103.zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
+Ok, I've confirmed that it's usbmon under 2.6.29.1 on x86_64 which causes
+complete system lockups when doing 'tcpdump host ##.##.##.##'.  I
+compiled usbmon as a module, started a tcpdump and couldn't get a
+crash. 
+
+Loaded the module with tcpdump still going, no problems.  Stop and
+restart tcpdump, bang!  Instant hang.  I'm now building 2.6.28 to see
+if that works properly or not.  I suspect I might have to go back
+farther, but I'm not sure.
+
+Any suggestions of a known good state I should start bisection from?
+
+Thanks,
+John
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
