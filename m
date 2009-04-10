@@ -1,45 +1,31 @@
-From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
-Date: Fri, 10 Apr 2009 00:24:35 -0600
-Message-ID: <20090410002435.52794220.zaitcev@redhat.com>
-References: <18906.49779.243047.207639@stoffel.org>
-	<20090407120022.GA6519@ff.dom.local>
-	<18907.28788.965069.573489@stoffel.org>
-	<20090407130403.e0061a8d.zaitcev@redhat.com>
-	<18908.42166.404232.721757@stoffel.org>
-	<20090408232344.afed8103.zaitcev@redhat.com>
-	<18910.46709.707557.135033@stoffel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 1/6] ariadne: convert to net_device_ops
+Date: Fri, 10 Apr 2009 09:03:22 +0200
+Message-ID: <10f740e80904100003i1a71ae9bh4bf21caaba7865f9@mail.gmail.com>
+References: <20090410032407.GA9004@orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <18910.46709.707557.135033-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org
+To: Alexander Beregalov <a.beregalov@gmail.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <20090410032407.GA9004@orion>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Apr 2009 23:01:09 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
+On Fri, Apr 10, 2009 at 05:24, Alexander Beregalov
+<a.beregalov@gmail.com> wrote:
+> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 
-> Any suggestions of a known good state I should start bisection from?
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-No suggestions, sorry. The part of usbmon that peeks at DMA-ed data
-wasn't touched since December 2006. It worked fine since then,
-your oops is the first. So, I don't expect bisection to help.
-At best you're going to find the commit where uvcvideo was merged.
+Gr{oetje,eeting}s,
 
-The right way forward is to deduce what's going on, IMHO. Maybe
-usbmon is trying to take an address in the GART aperture and convert
-it into a struct page. Or the direction in URB mismatches endpoint.
-Or any number of other things.
+						Geert
 
-I'm working on it, but I'm not done with puzzling out the dmesg
-you sent me, sorry again.
-
--- Pete
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
