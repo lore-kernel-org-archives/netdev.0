@@ -1,33 +1,44 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH 1/6] ariadne: convert to net_device_ops
-Date: Fri, 10 Apr 2009 18:13:54 +0200
-Message-ID: <49DF7042.7090502@computer.org>
-References: <20090410032407.GA9004@orion>
+From: "Paul Moore" <paul.moore@centrify.com>
+Subject: RE: reading SA state via XFRM / AF_NETLINK
+Date: Fri, 10 Apr 2009 09:25:50 -0700
+Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02EF3D74@exch-one.centrify.com>
+References: <BB7E16A14DE689469A181EC770AFBF4D02EF39B6@exch-one.centrify.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org
-To: Alexander Beregalov <a.beregalov@gmail.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20090410032407.GA9004@orion>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Paul Moore" <paul.moore@centrify.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.centrify.com ([216.112.107.103]:30351 "EHLO
+	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751309AbZDJQZz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 12:25:55 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <BB7E16A14DE689469A181EC770AFBF4D02EF39B6@exch-one.centrify.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexander Beregalov wrote:
-> 
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
-...
-> @@ -197,13 +209,8 @@ static int __devinit ariadne_init_one(struct zorro_dev *z,
->      dev->mem_start = ZTWO_VADDR(mem_start);
->      dev->mem_end = dev->mem_start+ARIADNE_RAM_SIZE;
->  
-> -    dev->open = &ariadne_open;
-> -    dev->stop = &ariadne_close;
-> -    dev->hard_start_xmit = &ariadne_start_xmit;
-> -    dev->tx_timeout = &ariadne_tx_timeout;
-> +    dev->netdev_ops = &ariadne_netdev_ops;;
+I will take the thunderous silence as a confirmation that this data is
+not available via xfrm
+any suggestions on how to synthesize it would be welcome
 
-We don't really need two semicolons there but I suppose that they won't 
-hurt.
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Paul Moore
+Sent: Tuesday, April 07, 2009 6:21 PM
+To: netdev@vger.kernel.org
+Subject: reading SA state via XFRM / AF_NETLINK
 
-Cheers, Jan
+as far as I can see there is no way to read the state (larval, mature,
+dying, etc) of an SA via AF_NETLINK
+
+af_key.c provides this information to AF_KEY callers by peeking at
+xfrm_state.km.state but xfrm_user.c does not seem to make this data
+available (and there dont appear to be places in the user mode xfrm
+structures for it either)
+
+is this correct? did I miss a back channel somewhere?
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
