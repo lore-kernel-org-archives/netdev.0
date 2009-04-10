@@ -1,44 +1,42 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: reading SA state via XFRM / AF_NETLINK
-Date: Fri, 10 Apr 2009 09:25:50 -0700
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02EF3D74@exch-one.centrify.com>
-References: <BB7E16A14DE689469A181EC770AFBF4D02EF39B6@exch-one.centrify.com>
+From: Cosmin Ratiu <cratiu@ixiacom.com>
+Subject: TCP TSecr question
+Date: Fri, 10 Apr 2009 19:24:56 +0300
+Message-ID: <49DF72D8.2020002@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Paul Moore" <paul.moore@centrify.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:30351 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751309AbZDJQZz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 12:25:55 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <BB7E16A14DE689469A181EC770AFBF4D02EF39B6@exch-one.centrify.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:28687 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S936557AbZDJQkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 12:40:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I will take the thunderous silence as a confirmation that this data is
-not available via xfrm
-any suggestions on how to synthesize it would be welcome
+Hello,
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Paul Moore
-Sent: Tuesday, April 07, 2009 6:21 PM
-To: netdev@vger.kernel.org
-Subject: reading SA state via XFRM / AF_NETLINK
+There is an issue with this field in SYN packets when tw reuse/recycle 
+is on.
+Quoting from RFC 1323, section 3.2:
+    The Timestamp Echo Reply field (TSecr) is only valid if the ACK
+    bit is set in the TCP header; if it is valid, it echos a times-
+    tamp value that was sent by the remote TCP in the TSval field
+    of a Timestamps option.  When TSecr is not valid, its value
+    must be zero.  The TSecr value will generally be from the most
+    recent Timestamp option that was received; however, there are
+    exceptions that are explained below.
 
-as far as I can see there is no way to read the state (larval, mature,
-dying, etc) of an SA via AF_NETLINK
+On Linux, when the sysctl_tcp_tw_reuse or recycle is on, the most recent
+timestamp from a previous connection is sent instead of 0.  From what I've
+seen in the source, this has to do with PAWS against delayed/duplicate SYN
+packets.
 
-af_key.c provides this information to AF_KEY callers by peeking at
-xfrm_state.km.state but xfrm_user.c does not seem to make this data
-available (and there dont appear to be places in the user mode xfrm
-structures for it either)
+My questions:
+1) Is this violation of RFC 1323 useful in PAWS or did I misunderstand
+   the whole situation?
+2) Is there any other RFC that amends 1323 to specify this behavior or is it
+   a Linux-specific enhancement?
 
-is this correct? did I miss a back channel somewhere?
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you,
+Cosmin.
