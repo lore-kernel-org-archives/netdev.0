@@ -1,74 +1,45 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] skge: fix occasional BUG during MTU change
-Date: Thu, 9 Apr 2009 21:59:02 -0700
-Message-ID: <20090409215902.0c6251b7.akpm@linux-foundation.org>
-References: <20090407183623.7545bb0b@leela>
+From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Fri, 10 Apr 2009 00:24:35 -0600
+Message-ID: <20090410002435.52794220.zaitcev@redhat.com>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
+	<18908.42166.404232.721757@stoffel.org>
+	<20090408232344.afed8103.zaitcev@redhat.com>
+	<18910.46709.707557.135033@stoffel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Michal Schmidt <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:32835 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752672AbZDJFBf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 01:01:35 -0400
-In-Reply-To: <20090407183623.7545bb0b@leela>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <18910.46709.707557.135033-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Apr 2009 18:36:23 +0200 Michal Schmidt <mschmidt@redhat.com> wrote:
+On Thu, 9 Apr 2009 23:01:09 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
 
-> The BUG_ON(skge->tx_ring.to_use != skge->tx_ring.to_clean) in skge_up()
-> was sometimes observed when setting MTU.
-> 
-> skge_down() disables the TX queue, but then reenables it by mistake via
-> skge_tx_clean().
-> Fix it by moving the waking of the queue from skge_tx_clean() to the
-> other caller. And to make sure start_xmit is not in progress on another
-> CPU, skge_down() should call netif_tx_disable().
-> 
-> The bug was reported to me by Jiri Jilek whose Debian system sometimes
-> failed to boot. He tested the patch and the bug did not happen anymore.
+> Any suggestions of a known good state I should start bisection from?
 
-It's conventional to add the reporter's "Reported-by:" tag to the
-changelog in this situation.
+No suggestions, sorry. The part of usbmon that peeks at DMA-ed data
+wasn't touched since December 2006. It worked fine since then,
+your oops is the first. So, I don't expect bisection to help.
+At best you're going to find the commit where uvcvideo was merged.
 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+The right way forward is to deduce what's going on, IMHO. Maybe
+usbmon is trying to take an address in the GART aperture and convert
+it into a struct page. Or the direction in URB mismatches endpoint.
+Or any number of other things.
 
-As the bug is present in 2.6.29 (and possibly earlier?) it's
-appropriate to add a Cc: <stable@kernel.org> too.  This makes davem go
-mad at you, but I prefer getting madded at over possibly losing bugfixes ;)
+I'm working on it, but I'm not done with puzzling out the dmesg
+you sent me, sorry again.
 
-> 
-> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> index 952d37f..b2a05af 100644
-> --- a/drivers/net/skge.c
-> +++ b/drivers/net/skge.c
-> @@ -2674,7 +2674,7 @@ static int skge_down(struct net_device *dev)
->  	if (netif_msg_ifdown(skge))
->  		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
->  
-> -	netif_stop_queue(dev);
-> +	netif_tx_disable(dev);
->  
->  	if (hw->chip_id == CHIP_ID_GENESIS && hw->phy_type == SK_PHY_XMAC)
->  		del_timer_sync(&skge->link_timer);
-> @@ -2881,7 +2881,6 @@ static void skge_tx_clean(struct net_device *dev)
->  	}
->  
->  	skge->tx_ring.to_clean = e;
-> -	netif_wake_queue(dev);
->  }
->  
->  static void skge_tx_timeout(struct net_device *dev)
-> @@ -2893,6 +2892,7 @@ static void skge_tx_timeout(struct net_device *dev)
->  
->  	skge_write8(skge->hw, Q_ADDR(txqaddr[skge->port], Q_CSR), CSR_STOP);
->  	skge_tx_clean(dev);
-> +	netif_wake_queue(dev);
->  }
->  
->  static int skge_change_mtu(struct net_device *dev, int new_mtu)
-
+-- Pete
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
