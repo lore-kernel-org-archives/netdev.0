@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 07/10] ixgbe: Remove unnecessary PHY reset,
-	properly identify multispeed fiber modules
-Date: Fri, 10 Apr 2009 01:28:15 -0700
-Message-ID: <20090410082815.14372.18601.stgit@localhost.localdomain>
+Subject: [PATCH 08/10] ixgbe: Update the usage of orig_autoc to be more
+	consistent
+Date: Fri, 10 Apr 2009 01:28:33 -0700
+Message-ID: <20090410082832.14372.72843.stgit@localhost.localdomain>
 References: <20090410082618.14372.86091.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,129 +12,152 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:52944 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762899AbZDJQ4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 12:56:43 -0400
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:35193 "EHLO
+	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761411AbZDJQ5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 12:57:00 -0400
 In-Reply-To: <20090410082618.14372.86091.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-This patch does two things:
-1) On 82599, the PHY is emedded in the MAC.  On 82598, the SFP+ NIC has an external PHY.  The reset in the SFP+ setup patch for 82598 is unnecessary on 82599, and adds extra dead time to device initialization.  This removes that PHY reset for 82599 only.
-
-2) On 82599, the SFP+ modules are multispeed fiber modules (10G/1G).  We need to make sure to identify them properly for the remaining init sections to properly set them up.
+The orig_autoc variable tracks the original setting of the autonegotiate
+state prior to trying a new speed.  The usage is inconsistent and not very
+maintainable.  This patch updates the usage to make it more consistent.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82599.c |   24 ++++++++++++++++--------
- drivers/net/ixgbe/ixgbe_phy.c   |   11 +++++++++++
- drivers/net/ixgbe/ixgbe_phy.h   |    1 +
- drivers/net/ixgbe/ixgbe_type.h  |    1 +
- 4 files changed, 29 insertions(+), 8 deletions(-)
+ drivers/net/ixgbe/ixgbe_82598.c |   15 +++++++++++----
+ drivers/net/ixgbe/ixgbe_82599.c |   37 ++++++++++++++++++++++++++++---------
+ 2 files changed, 39 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index 2400fcf..89bc87a 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -165,12 +165,19 @@ static s32 ixgbe_get_link_capabilities_82598(struct ixgbe_hw *hw,
+                                              bool *autoneg)
+ {
+ 	s32 status = 0;
++	u32 autoc = 0;
+ 
+ 	/*
+ 	 * Determine link capabilities based on the stored value of AUTOC,
+-	 * which represents EEPROM defaults.
++	 * which represents EEPROM defaults.  If AUTOC value has not been
++	 * stored, use the current register value.
+ 	 */
+-	switch (hw->mac.orig_autoc & IXGBE_AUTOC_LMS_MASK) {
++	if (hw->mac.orig_link_settings_stored)
++		autoc = hw->mac.orig_autoc;
++	else
++		autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++
++	switch (autoc & IXGBE_AUTOC_LMS_MASK) {
+ 	case IXGBE_AUTOC_LMS_1G_LINK_NO_AN:
+ 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
+ 		*autoneg = false;
+@@ -189,9 +196,9 @@ static s32 ixgbe_get_link_capabilities_82598(struct ixgbe_hw *hw,
+ 	case IXGBE_AUTOC_LMS_KX4_AN:
+ 	case IXGBE_AUTOC_LMS_KX4_AN_1G_AN:
+ 		*speed = IXGBE_LINK_SPEED_UNKNOWN;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX4_SUPP)
++		if (autoc & IXGBE_AUTOC_KX4_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX_SUPP)
++		if (autoc & IXGBE_AUTOC_KX_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_1GB_FULL;
+ 		*autoneg = true;
+ 		break;
 diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 35689d8..9528d8b 100644
+index 9528d8b..2faf190 100644
 --- a/drivers/net/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -100,6 +100,9 @@ s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
- 
- 	if (hw->phy.sfp_type != ixgbe_sfp_type_unknown) {
- 		ixgbe_init_mac_link_ops_82599(hw);
-+
-+		hw->phy.ops.reset = NULL;
-+
- 		ret_val = ixgbe_get_sfp_init_sequence_offsets(hw, &list_offset,
- 		                                              &data_offset);
- 
-@@ -714,19 +717,24 @@ s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
- 	/* Call adapter stop to disable tx/rx and clear interrupts */
- 	hw->mac.ops.stop_adapter(hw);
- 
--	/* Reset PHY */
--	if (hw->phy.reset_disable == false) {
--		/* PHY ops must be identified and initialized prior to reset */
-+	/* PHY ops must be identified and initialized prior to reset */
- 
--		/* Init PHY and function pointers, perform SFP setup */
--		status = hw->phy.ops.init(hw);
-+	/* Init PHY and function pointers, perform SFP setup */
-+	status = hw->phy.ops.init(hw);
- 
--		if (status == IXGBE_ERR_SFP_NOT_SUPPORTED)
--			goto reset_hw_out;
-+	if (status == IXGBE_ERR_SFP_NOT_SUPPORTED)
-+		goto reset_hw_out;
- 
--		hw->phy.ops.reset(hw);
-+	/* Setup SFP module if there is one present. */
-+	if (hw->phy.sfp_setup_needed) {
-+		status = hw->mac.ops.setup_sfp(hw);
-+		hw->phy.sfp_setup_needed = false;
- 	}
- 
-+	/* Reset PHY */
-+	if (hw->phy.reset_disable == false && hw->phy.ops.reset != NULL)
-+		hw->phy.ops.reset(hw);
-+
- 	/*
- 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
- 	 * access and verify no pending requests before reset
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index 14e9606..6f11df7 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -552,6 +552,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+@@ -219,8 +219,19 @@ s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
+                                       bool *negotiation)
  {
- 	s32 status = IXGBE_ERR_PHY_ADDR_INVALID;
- 	u32 vendor_oui = 0;
-+	enum ixgbe_sfp_type stored_sfp_type = hw->phy.sfp_type;
- 	u8 identifier = 0;
- 	u8 comp_codes_1g = 0;
- 	u8 comp_codes_10g = 0;
-@@ -620,6 +621,16 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 				hw->phy.sfp_type = ixgbe_sfp_type_unknown;
- 		}
+ 	s32 status = 0;
++	u32 autoc = 0;
  
-+		if (hw->phy.sfp_type != stored_sfp_type)
-+			hw->phy.sfp_setup_needed = true;
+-	switch (hw->mac.orig_autoc & IXGBE_AUTOC_LMS_MASK) {
++	/*
++	 * Determine link capabilities based on the stored value of AUTOC,
++	 * which represents EEPROM defaults.  If AUTOC value has not been
++	 * stored, use the current register value.
++	 */
++	if (hw->mac.orig_link_settings_stored)
++		autoc = hw->mac.orig_autoc;
++	else
++		autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
 +
-+		/* Determine if the SFP+ PHY is dual speed or not. */
-+		if (((comp_codes_1g & IXGBE_SFF_1GBASESX_CAPABLE) &&
-+		   (comp_codes_10g & IXGBE_SFF_10GBASESR_CAPABLE)) ||
-+		   ((comp_codes_1g & IXGBE_SFF_1GBASELX_CAPABLE) &&
-+		   (comp_codes_10g & IXGBE_SFF_10GBASELR_CAPABLE)))
-+			hw->phy.multispeed_fiber = true;
++	switch (autoc & IXGBE_AUTOC_LMS_MASK) {
+ 	case IXGBE_AUTOC_LMS_1G_LINK_NO_AN:
+ 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
+ 		*negotiation = false;
+@@ -244,22 +255,22 @@ s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
+ 	case IXGBE_AUTOC_LMS_KX4_KX_KR:
+ 	case IXGBE_AUTOC_LMS_KX4_KX_KR_1G_AN:
+ 		*speed = IXGBE_LINK_SPEED_UNKNOWN;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KR_SUPP)
++		if (autoc & IXGBE_AUTOC_KR_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX4_SUPP)
++		if (autoc & IXGBE_AUTOC_KX4_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX_SUPP)
++		if (autoc & IXGBE_AUTOC_KX_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_1GB_FULL;
+ 		*negotiation = true;
+ 		break;
+ 
+ 	case IXGBE_AUTOC_LMS_KX4_KX_KR_SGMII:
+ 		*speed = IXGBE_LINK_SPEED_100_FULL;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KR_SUPP)
++		if (autoc & IXGBE_AUTOC_KR_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX4_SUPP)
++		if (autoc & IXGBE_AUTOC_KX4_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX_SUPP)
++		if (autoc & IXGBE_AUTOC_KX_SUPP)
+ 			*speed |= IXGBE_LINK_SPEED_1GB_FULL;
+ 		*negotiation = true;
+ 		break;
+@@ -570,6 +581,7 @@ s32 ixgbe_setup_mac_link_speed_82599(struct ixgbe_hw *hw,
+ 	s32 status = 0;
+ 	u32 autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+ 	u32 autoc2 = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
++	u32 orig_autoc = 0;
+ 	u32 link_mode = autoc & IXGBE_AUTOC_LMS_MASK;
+ 	u32 pma_pmd_1g = autoc & IXGBE_AUTOC_1G_PMA_PMD_MASK;
+ 	u32 pma_pmd_10g_serial = autoc2 & IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_MASK;
+@@ -581,6 +593,13 @@ s32 ixgbe_setup_mac_link_speed_82599(struct ixgbe_hw *hw,
+ 	hw->mac.ops.get_link_capabilities(hw, &link_capabilities, &autoneg);
+ 	speed &= link_capabilities;
+ 
++	/* Use stored value (EEPROM defaults) of AUTOC to find KR/KX4 support*/
++	if (hw->mac.orig_link_settings_stored)
++		orig_autoc = hw->mac.orig_autoc;
++	else
++		orig_autoc = autoc;
 +
- 		/* Determine PHY vendor */
- 		if (hw->phy.type == ixgbe_phy_unknown) {
- 			hw->phy.id = identifier;
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index cc5f1b3..c9964b7 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -44,6 +44,7 @@
- /* Bitmasks */
- #define IXGBE_SFF_TWIN_AX_CAPABLE            0x80
- #define IXGBE_SFF_1GBASESX_CAPABLE           0x1
-+#define IXGBE_SFF_1GBASELX_CAPABLE           0x2
- #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
- #define IXGBE_SFF_10GBASELR_CAPABLE          0x20
- #define IXGBE_I2C_EEPROM_READ_MASK           0x100
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 06d7e8a..db65c05 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2198,6 +2198,7 @@ struct ixgbe_phy_info {
- 	u32                             addr;
- 	u32                             id;
- 	enum ixgbe_sfp_type             sfp_type;
-+	bool                            sfp_setup_needed;
- 	u32                             revision;
- 	enum ixgbe_media_type           media_type;
- 	bool                            reset_disable;
++
+ 	if (speed == IXGBE_LINK_SPEED_UNKNOWN) {
+ 		status = IXGBE_ERR_LINK_SETUP;
+ 	} else if (link_mode == IXGBE_AUTOC_LMS_KX4_KX_KR ||
+@@ -589,9 +608,9 @@ s32 ixgbe_setup_mac_link_speed_82599(struct ixgbe_hw *hw,
+ 		/* Set KX4/KX/KR support according to speed requested */
+ 		autoc &= ~(IXGBE_AUTOC_KX4_KX_SUPP_MASK | IXGBE_AUTOC_KR_SUPP);
+ 		if (speed & IXGBE_LINK_SPEED_10GB_FULL)
+-			if (hw->mac.orig_autoc & IXGBE_AUTOC_KX4_SUPP)
++			if (orig_autoc & IXGBE_AUTOC_KX4_SUPP)
+ 				autoc |= IXGBE_AUTOC_KX4_SUPP;
+-			if (hw->mac.orig_autoc & IXGBE_AUTOC_KR_SUPP)
++			if (orig_autoc & IXGBE_AUTOC_KR_SUPP)
+ 				autoc |= IXGBE_AUTOC_KR_SUPP;
+ 		if (speed & IXGBE_LINK_SPEED_1GB_FULL)
+ 			autoc |= IXGBE_AUTOC_KX_SUPP;
 
