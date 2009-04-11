@@ -1,50 +1,33 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: iptables very slow after commit
-	784544739a25c30637397ace5489eeb6e15d7d49
-Date: Sat, 11 Apr 2009 09:08:54 +0200
-Message-ID: <20090411070854.GC11799@elte.hu>
-References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com> <20090410095246.4fdccb56@s6510> <20090410.182507.140306636.davem@davemloft.net> <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain> <20090411041533.GB6822@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ixgbe: only allow WOL for 82599 KX4 NIC
+Date: Sat, 11 Apr 2009 01:44:23 -0700 (PDT)
+Message-ID: <20090411.014423.216045494.davem@davemloft.net>
+References: <20090408232031.8781.83459.stgit@localhost.localdomain>
+	<20090408232050.8781.68279.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>, shemminger@vyatta.com,
-	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
-	kaber@trash.net, r000n@r000n.net,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090411041533.GB6822@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42498
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753101AbZDKIod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 04:44:33 -0400
+In-Reply-To: <20090408232050.8781.68279.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 08 Apr 2009 16:20:50 -0700
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-
-> 	I will nevertheless suggest the following egregious hack to
-> 	get a consistent sample of one counter for some other CPU:
+> All NICs were reporting WOL support when only the KX4 NIC is capable of
+> supporting WOL.  This patch adds a function to check for and exclude all
+> non-WOL capable nics from enabling WOL in ethtool.
 > 
-> 	a.	Disable interrupts
-> 	b.	Atomically exchange the bottom 32 bits of the
-> 		counter with the value zero.
-> 	c.	Atomically exchange the top 32 bits of the counter
-> 		with the value zero.
-> 	d.	Concatenate the values obtained in (b) and (c), which
-> 		is the snapshot value.
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Note, i have recently implemented full atomic64_t support on 32-bit 
-x86, for the perfcounters code, based on the CMPXCHG8B instruction.
-
-Which, while not the lightest of instructions, is still much better 
-than the sequence above.
-
-So i think a better approach would be to also add a dumb generic 
-implementation for atomic64_t (using a global lock or so), and then 
-generic code could just assume that atomic64_t always exists.
-
-It is far nicer - and faster as well - as the hack above, even on 
-32-bit x86.
-
-	Ingo
+Applied.
