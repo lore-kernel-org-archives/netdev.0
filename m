@@ -1,61 +1,103 @@
-From: Jeff Chua <jeff.chua.linux@gmail.com>
-Subject: Re: iptables very slow after commit 784544739a25c30637397ace5489eeb6e15d7d49
-Date: Sun, 12 Apr 2009 00:05:34 +0800
-Message-ID: <b6a2187b0904110905kc2cca83ted751b42693b1565@mail.gmail.com>
-References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com>
-	 <20090410095246.4fdccb56@s6510>
-	 <20090410.182507.140306636.davem@davemloft.net>
-	 <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain>
-	 <20090411041533.GB6822@linux.vnet.ibm.com>
-	 <alpine.LSU.2.00.0904110657410.26485@fbirervta.pbzchgretzou.qr>
-	 <20090411080739.4cb77370@nehalam>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: kerneloops.org oops/warning report for the week of April 11 2009
+Date: Sat, 11 Apr 2009 09:31:53 -0700
+Message-ID: <20090411093153.0a70e08f@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Ingo Molnar <mingo@elte.hu>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>, dada1@cosmosbay.com,
-	kaber@trash.net, r000n@r000n.net,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090411080739.4cb77370@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, greg@kroah.com
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:36146 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751022AbZDKQaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 12:30:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 11, 2009 at 11:07 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
->> iptables works in whole tables. Userspace submits a table, checkentr=
-y is
->> called for all rules in the new table, things are swapped, then dest=
-roy
->> is called for all rules in the old table. By that logic (which exist=
-ed
->> since dawn I think), only the swap operation needs to be locked.
-> Part of the overhead is the API choice to take counter values from us=
-er
-> space during the replace. =A0If the rule replacement just always star=
-ted with
-> zero counters it could be done with less overhead.
+This week seems to be a networking special, with many of the networking
+drivers either being just buggy/chatty or getting caught in the iommu
+checking code...
 
-It's always good practice to start from zero with these ...
+This week, a total of 12130 oopses and warnings have been reported,
+compared to 14579 reports in the previous week.
 
-# iptables -F
-# iptables -t nat -F
-# iptables -X
 
-And most of the time, rules should be put into a file so that it can
-rerun easily after reboot. So if it can be speed up for just this
-case, it'll help many out there.
+Per file statistics
+1183	drivers/net/wireless/iwlwifi/iwl-3945-rs.c
+975	drivers/net/wireless/iwlwifi/iwl-sta.c
+444	drivers/net/forcedeth.c
+405	arch/x86/include/asm/mtrr.h
+371	drivers/net/tg3.c
+348	drivers/net/r8169.c
+331	drivers/gpu/drm/i915/i915_gem.c
+306	drivers/usb/core/endpoint.c
+250	drivers/net/wireless/iwlwifi/iwl-tx.c
+241	drivers/mtd/maps/ck804xrom.c
+240	drivers/net/e1000e/netdev.c
+228	drivers/net/e1000/e1000_main.c
 
-Thanks,
-Jeff.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Rank 1: rs_get_rate (warning)
+	Reported 1183 times (21447 total reports)
+	Bug in the Intel IWL wireless drivers
+	This warning was last seen in version 2.6.29-rc2, and first seen in 2.6.25-rc2-git5.
+	More info: http://www.kerneloops.org/searchweek.php?search=rs_get_rate
+
+Rank 2: iwl_set_dynamic_key (warning)
+	Reported 975 times (7558 total reports)
+        Another Intel IWL wireless bug
+	This warning was last seen in version 2.6.29.1, and first seen in 2.6.27.
+	More info: http://www.kerneloops.org/searchweek.php?search=iwl_set_dynamic_key
+
+Rank 3: mtrr_trim_uncached_memory (warning)
+	Reported 405 times (41995 total reports)
+	BIOS bug (often in VMWare) where the MTRR's are set up incorrectly or not at all
+	This warning was last seen in version 2.6.29.1, and first seen in 2.6.24.
+	More info: http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
+
+Rank 4: nv_tx_done_optimized (warning)
+	Caught by the IOMMU debugging code
+	Reported 389 times (2042 total reports)
+	This warning was last seen in version 2.6.29.1, and first seen in 2.6.29-rc3-git7.
+	More info: http://www.kerneloops.org/searchweek.php?search=nv_tx_done_optimized
+
+Rank 5: tg3_poll (warning)
+	Caught by the IOMMU debugging code
+	Reported 357 times (3326 total reports)
+	This warning was last seen in version 2.6.29.1, and first seen in 2.6.22.10.
+	More info: http://www.kerneloops.org/searchweek.php?search=tg3_poll
+
+Rank 6: dev_watchdog(r8169) (warning)
+	Reported 348 times (7138 total reports)
+	This oops was last seen in version 2.6.29.1, and first seen in 2.6.26.6.
+	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(r8169)
+
+Rank 7: i915_gem_leavevt_ioctl (warning)
+	Reported 323 times (4028 total reports)
+	This warning was last seen in version 2.6.29, and first seen in 2.6.27.7.
+	More info: http://www.kerneloops.org/searchweek.php?search=i915_gem_leavevt_ioctl
+
+Rank 8: usb_create_ep_files (warning)
+	Reported 303 times (1730 total reports)
+	This warning was last seen in version 2.6.29-rc0-git7, and first seen in 2.6.25-rc8.
+	More info: http://www.kerneloops.org/searchweek.php?search=usb_create_ep_files
+
+Rank 9: iwl_tx_cmd_complete (warning)
+	Reported 250 times (7231 total reports)
+	This warning was last seen in version 2.6.30-rc0-git8, and first seen in 2.6.27-rc9.
+	More info: http://www.kerneloops.org/searchweek.php?search=iwl_tx_cmd_complete
+
+Rank 10: e1000_put_txbuf (warning)
+	Caught by the IOMMU debugging code
+	Reported 240 times (2837 total reports)
+	This warning was last seen in version 2.6.29.1, and first seen in 2.6.29-rc3-git7.
+	More info: http://www.kerneloops.org/searchweek.php?search=e1000_put_txbuf
+
+
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
