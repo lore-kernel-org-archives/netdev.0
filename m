@@ -1,18 +1,18 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH 02/11] tsi108_eth: convert to net_device_ops
-Date: Sat, 11 Apr 2009 21:37:59 +0400
-Message-ID: <20090411173759.GB16999@orion>
+Subject: [PATCH 03/11] tc35815: convert to net_device_ops
+Date: Sat, 11 Apr 2009 21:38:54 +0400
+Message-ID: <20090411173854.GC16999@orion>
 References: <20090411173019.GA16999@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:44311 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322AbZDKRiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 13:38:07 -0400
-Received: by qw-out-2122.google.com with SMTP id 8so1786903qwh.37
-        for <netdev@vger.kernel.org>; Sat, 11 Apr 2009 10:38:05 -0700 (PDT)
+Received: from an-out-0708.google.com ([209.85.132.244]:1040 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752616AbZDKRjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 13:39:02 -0400
+Received: by an-out-0708.google.com with SMTP id d14so1349651and.1
+        for <netdev@vger.kernel.org>; Sat, 11 Apr 2009 10:39:00 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <20090411173019.GA16999@orion>
 Sender: netdev-owner@vger.kernel.org
@@ -23,45 +23,56 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
 
- drivers/net/tsi108_eth.c |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
+ drivers/net/tc35815.c |   27 +++++++++++++++++----------
+ 1 files changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
-index bb43e7f..0f78f99 100644
---- a/drivers/net/tsi108_eth.c
-+++ b/drivers/net/tsi108_eth.c
-@@ -1561,6 +1561,18 @@ static const struct ethtool_ops tsi108_ethtool_ops = {
- 	.set_settings	= tsi108_set_settings,
- };
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index d91e95b..0ce2db6 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -862,6 +862,22 @@ static int __devinit tc35815_init_dev_addr(struct net_device *dev)
+ 	return 0;
+ }
  
-+static const struct net_device_ops tsi108_netdev_ops = {
-+	.ndo_open		= tsi108_open,
-+	.ndo_stop		= tsi108_close,
-+	.ndo_start_xmit		= tsi108_send_packet,
-+	.ndo_set_multicast_list	= tsi108_set_rx_mode,
-+	.ndo_get_stats		= tsi108_get_stats,
-+	.ndo_do_ioctl		= tsi108_do_ioctl,
-+	.ndo_set_mac_address	= tsi108_set_mac,
++static const struct net_device_ops tc35815_netdev_ops = {
++	.ndo_open		= tc35815_open,
++	.ndo_stop		= tc35815_close,
++	.ndo_start_xmit		= tc35815_send_packet,
++	.ndo_get_stats		= tc35815_get_stats,
++	.ndo_set_multicast_list	= tc35815_set_multicast_list,
++	.ndo_tx_timeout		= tc35815_tx_timeout,
++	.ndo_do_ioctl		= tc35815_ioctl,
 +	.ndo_validate_addr	= eth_validate_addr,
 +	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_set_mac_address	= eth_mac_addr,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= tc35815_poll_controller,
++#endif
 +};
 +
- static int
- tsi108_init_one(struct platform_device *pdev)
+ static int __devinit tc35815_init_one(struct pci_dev *pdev,
+ 				      const struct pci_device_id *ent)
  {
-@@ -1616,14 +1628,8 @@ tsi108_init_one(struct platform_device *pdev)
- 	data->phy_type = einfo->phy_type;
- 	data->irq_num = einfo->irq_num;
- 	data->id = pdev->id;
--	dev->open = tsi108_open;
--	dev->stop = tsi108_close;
--	dev->hard_start_xmit = tsi108_send_packet;
--	dev->set_mac_address = tsi108_set_mac;
--	dev->set_multicast_list = tsi108_set_rx_mode;
--	dev->get_stats = tsi108_get_stats;
- 	netif_napi_add(dev, &data->napi, tsi108_poll, 64);
--	dev->do_ioctl = tsi108_do_ioctl;
-+	dev->netdev_ops = &tsi108_netdev_ops;
- 	dev->ethtool_ops = &tsi108_ethtool_ops;
+@@ -904,21 +920,12 @@ static int __devinit tc35815_init_one(struct pci_dev *pdev,
+ 	ioaddr = pcim_iomap_table(pdev)[1];
  
- 	/* Apparently, the Linux networking code won't use scatter-gather
+ 	/* Initialize the device structure. */
+-	dev->open = tc35815_open;
+-	dev->hard_start_xmit = tc35815_send_packet;
+-	dev->stop = tc35815_close;
+-	dev->get_stats = tc35815_get_stats;
+-	dev->set_multicast_list = tc35815_set_multicast_list;
+-	dev->do_ioctl = tc35815_ioctl;
++	dev->netdev_ops = &tc35815_netdev_ops;
+ 	dev->ethtool_ops = &tc35815_ethtool_ops;
+-	dev->tx_timeout = tc35815_tx_timeout;
+ 	dev->watchdog_timeo = TC35815_TX_TIMEOUT;
+ #ifdef TC35815_NAPI
+ 	netif_napi_add(dev, &lp->napi, tc35815_poll, NAPI_WEIGHT);
+ #endif
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = tc35815_poll_controller;
+-#endif
+ 
+ 	dev->irq = pdev->irq;
+ 	dev->base_addr = (unsigned long)ioaddr;
