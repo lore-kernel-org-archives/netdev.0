@@ -1,103 +1,79 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: kerneloops.org oops/warning report for the week of April 11 2009
-Date: Sat, 11 Apr 2009 09:31:53 -0700
-Message-ID: <20090411093153.0a70e08f@infradead.org>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH v2 00/19] virtual-bus
+Date: Sat, 11 Apr 2009 19:45:50 +0300
+Message-ID: <49E0C93E.5030205@redhat.com>
+References: <20090409155200.32740.19358.stgit@dev.haskins.net> <49DE26EE.9030402@novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, greg@kroah.com
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:36146 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022AbZDKQaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 12:30:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	herber@gondor.apana.org.au, chrisw@sous-sol.org,
+	shemminger@vyatta.com
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <49DE26EE.9030402@novell.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This week seems to be a networking special, with many of the networking
-drivers either being just buggy/chatty or getting caught in the iommu
-checking code...
+Gregory Haskins wrote:
+> Avi,
+>
+> Gregory Haskins wrote:
+>   
+>> Todo:
+>> *) Develop some kind of hypercall registration mechanism for KVM so that
+>>    we can use that as an integration point instead of directly hooking
+>>    kvm hypercalls
+>>   
+>>     
+>
+> What would you like to see here?  I now remember why I removed the
+> original patch I had for registration...it requires some kind of
+> discovery mechanism on its own.  Note that this is hard, but I figured
+> it would make the overall series simpler if I didn't go this route and
+> instead just integrated with a statically allocated vector.  That being
+> said, I have no problem adding this back in but figure we should discuss
+> the approach so I don't go down a rat-hole ;)
+>
+>   
 
-This week, a total of 12130 oopses and warnings have been reported,
-compared to 14579 reports in the previous week.
 
+One idea is similar to signalfd() or eventfd().  Provide a kvm ioctl 
+that takes a gsi and returns an fd.  Writes to the fd change the state 
+of the line, possible triggering an interrupt.  Another ioctl takes a 
+hypercall number or pio port as well as an existing fd.  Invocations of 
+the hypercall or writes to the port write to the fd (using the same 
+protocol as eventfd), so the other end can respond.
 
-Per file statistics
-1183	drivers/net/wireless/iwlwifi/iwl-3945-rs.c
-975	drivers/net/wireless/iwlwifi/iwl-sta.c
-444	drivers/net/forcedeth.c
-405	arch/x86/include/asm/mtrr.h
-371	drivers/net/tg3.c
-348	drivers/net/r8169.c
-331	drivers/gpu/drm/i915/i915_gem.c
-306	drivers/usb/core/endpoint.c
-250	drivers/net/wireless/iwlwifi/iwl-tx.c
-241	drivers/mtd/maps/ck804xrom.c
-240	drivers/net/e1000e/netdev.c
-228	drivers/net/e1000/e1000_main.c
+The nice thing is that this can be used by both kernel and userspace 
+components, and for kernel components, hypercalls can be either buffered 
+or unbuffered.
 
+> So, one thing we could do is use a string-identifier to discover
+> hypercall resources.  In this model, we would have one additional
+> hypercall registered with kvm (in addition to the mmu-ops, etc) called
+> KVM_HC_DYNHC or something like that.  The support for DYNHC could be
+> indicated in the cpuid (much like I do with the RESET, DYNIRQ, and VBUS
+> support today.   When hypercall provides register, the could provide a
+> string such as "vbus", and they would be allocated a hypercall id. 
+> Likewise, the HC_DYNHC interface would allow a guest to query the cpuid
+> for the DYNHC feature, and then query the HC_DYNHC vector for a string
+> to hc# translation.  If the provider is not present, we return -1 for
+> the hc#, otherwise we return the one that was allocated.
+>
+> I know how you feel about string-ids in general, but I am not quite sure
+> how to design this otherwise without it looking eerily similar to what I
+> already have (which is registering a new HC vector in kvm_para.h)
+>   
 
-Rank 1: rs_get_rate (warning)
-	Reported 1183 times (21447 total reports)
-	Bug in the Intel IWL wireless drivers
-	This warning was last seen in version 2.6.29-rc2, and first seen in 2.6.25-rc2-git5.
-	More info: http://www.kerneloops.org/searchweek.php?search=rs_get_rate
-
-Rank 2: iwl_set_dynamic_key (warning)
-	Reported 975 times (7558 total reports)
-        Another Intel IWL wireless bug
-	This warning was last seen in version 2.6.29.1, and first seen in 2.6.27.
-	More info: http://www.kerneloops.org/searchweek.php?search=iwl_set_dynamic_key
-
-Rank 3: mtrr_trim_uncached_memory (warning)
-	Reported 405 times (41995 total reports)
-	BIOS bug (often in VMWare) where the MTRR's are set up incorrectly or not at all
-	This warning was last seen in version 2.6.29.1, and first seen in 2.6.24.
-	More info: http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
-
-Rank 4: nv_tx_done_optimized (warning)
-	Caught by the IOMMU debugging code
-	Reported 389 times (2042 total reports)
-	This warning was last seen in version 2.6.29.1, and first seen in 2.6.29-rc3-git7.
-	More info: http://www.kerneloops.org/searchweek.php?search=nv_tx_done_optimized
-
-Rank 5: tg3_poll (warning)
-	Caught by the IOMMU debugging code
-	Reported 357 times (3326 total reports)
-	This warning was last seen in version 2.6.29.1, and first seen in 2.6.22.10.
-	More info: http://www.kerneloops.org/searchweek.php?search=tg3_poll
-
-Rank 6: dev_watchdog(r8169) (warning)
-	Reported 348 times (7138 total reports)
-	This oops was last seen in version 2.6.29.1, and first seen in 2.6.26.6.
-	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(r8169)
-
-Rank 7: i915_gem_leavevt_ioctl (warning)
-	Reported 323 times (4028 total reports)
-	This warning was last seen in version 2.6.29, and first seen in 2.6.27.7.
-	More info: http://www.kerneloops.org/searchweek.php?search=i915_gem_leavevt_ioctl
-
-Rank 8: usb_create_ep_files (warning)
-	Reported 303 times (1730 total reports)
-	This warning was last seen in version 2.6.29-rc0-git7, and first seen in 2.6.25-rc8.
-	More info: http://www.kerneloops.org/searchweek.php?search=usb_create_ep_files
-
-Rank 9: iwl_tx_cmd_complete (warning)
-	Reported 250 times (7231 total reports)
-	This warning was last seen in version 2.6.30-rc0-git8, and first seen in 2.6.27-rc9.
-	More info: http://www.kerneloops.org/searchweek.php?search=iwl_tx_cmd_complete
-
-Rank 10: e1000_put_txbuf (warning)
-	Caught by the IOMMU debugging code
-	Reported 240 times (2837 total reports)
-	This warning was last seen in version 2.6.29.1, and first seen in 2.6.29-rc3-git7.
-	More info: http://www.kerneloops.org/searchweek.php?search=e1000_put_txbuf
-
+No need for a string ID.  Reserve a range of hypercall numbers for 
+dynamic IDs.  Userspace allocates one and gives it to the device using 
+its configuration space (as applies to whatever bus it is using).
 
 
 -- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+
