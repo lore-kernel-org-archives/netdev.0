@@ -1,47 +1,46 @@
-From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Subject: Re: iptables very slow after commit 784544739a25c30637397ace5489eeb6e15d7d49
-Date: Sat, 11 Apr 2009 20:32:48 +0200
-Message-ID: <200904112032.49335.a.miskiewicz@gmail.com>
-References: <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain> <20090410.230016.176733137.davem@davemloft.net> <f73f7ab80904111112n7c95d06ei32eb1f081842ae41@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2] Bonding: fix zero address hole bug in arp_ip_target
+ list
+Date: Sat, 11 Apr 2009 11:52:25 -0700
+Message-ID: <20090411115225.8559c713.akpm@linux-foundation.org>
+References: <1239463202-7662-1-git-send-email-brian.haley@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jengelh@medozas.de,
-	paulmck@linux.vnet.ibm.com, torvalds@linux-foundation.org,
-	mingo@elte.hu, laijs@cn.fujitsu.com, shemminger@vyatta.com,
-	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, kaber@trash.net,
-	r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Kyle Moffett <kyle@moffetthome.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <f73f7ab80904111112n7c95d06ei32eb1f081842ae41@mail.gmail.com>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, steve@astutenetworks.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47366 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755305AbZDKSzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 14:55:25 -0400
+In-Reply-To: <1239463202-7662-1-git-send-email-brian.haley@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 11 of April 2009, Kyle Moffett wrote:
+On Sat, 11 Apr 2009 11:20:02 -0400 Brian Haley <brian.haley@hp.com> wrote:
 
-> Almost all of the standard firewall tools (such as shorewall, etc) ar=
-e
-> already using iptables-restore command to load firewall rules,
-> primarily because using separate iptables commands was *already* way
-> too slow. =20
+> Fix a zero address hole bug in the bonding arp_ip_target list
+> that was causing the bond to ignore ARP replies (bugz 13006).
+> Instead of just setting the array entry to zero, we now
+> copy any additional entries down one slot, putting the
+> zero entry at the end.  With this change we can now have
+> all the loops that walk the array stop when they hit a zero
+> since there will be no addresses after it.
+> 
+> Changes are based in part on code fragment provided in kernel
+> bugzilla 13006 by Steve Howard <steve@astutenetworks.com>
+> 
 
-Some time ago there was batch patch that allowed to use standard shell =
-format=20
-of calling iptables but did everything at once:
+This isn't written down anywhere, but...
 
-http://lists.netfilter.org/pipermail/netfilter-devel/2004-
-September/016704.html
+If the patch addresses a bugzilla report, please quote the full
+bugzilla URL in the changelog.  ie:
+http://bugzilla.kernel.org/show_bug.cgi?id=13006
 
-It didn't get merged - no idea why.
+Because people sometime will go through the commit logs closing off
+bugzilla reports.  Using a standardised pattern for them to search for
+helps in this activity.
 
---=20
-Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
