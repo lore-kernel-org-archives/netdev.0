@@ -1,31 +1,49 @@
-From: "Cyberus UpgradeTeam" <infoupgrade@cyberus.ca>
-Subject: Dear Email User
-Date: Fri, 10 Apr 2009 10:56:11 -0500
-Message-ID: <20090410155611.M41546@cyberus.ca>
-Reply-To: soupgradeteam222@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: iptables very slow after
+ commit784544739a25c30637397ace5489eeb6e15d7d49
+Date: Fri, 10 Apr 2009 18:25:07 -0700 (PDT)
+Message-ID: <20090410.182507.140306636.davem@davemloft.net>
+References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com>
+	<20090410095246.4fdccb56@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host11.oneononeinternet.com ([209.239.43.35]:41193 "EHLO
-	host11.oneononeinternet.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754097AbZDKBMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 21:12:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
+	kaber@trash.net, r000n@r000n.net, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090410095246.4fdccb56@s6510>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Cyberus Webmail User,   
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 10 Apr 2009 09:52:46 -0700
 
-To complete your account activation with us, you are required to reply to 
-this message and enter your password in the spaces provided (*********) you 
-are required to do this before the next 48 hours of receipt of this email or 
-your database will be erased and de-activated from our database.    
+[ CC:'ing netfilter-devel and netdev... ]
 
-Full Name:...
-Email Id:...
-Password: .....  
-Phone Number..... 
-
-Thank you for using Cyberus Mail Account.
-Cyberus UpgradeTeam.
+> On Fri, 10 Apr 2009 17:15:52 +0800 (SGT)
+> Jeff Chua <jeff.chua.linux@gmail.com> wrote:
+> 
+>> 
+>> 
+>> Adding 200 records in iptables took 6.0sec in 2.6.30-rc1 compared to 
+>> 0.2sec in 2.6.29. I've bisected down this commit.
+>> 
+>> There are a few patches on top of the original patch. When I reverted the 
+>> original commit + changing rcu_read() to rcu_read_bh(), it speeds up the 
+>> inserts back to .2sec again.
+>> 
+>> I'm loading all the firewall rules during boot-up and this 6 secs slowness 
+>> is really not very nice to wait for.
+> 
+> The performance benefit during operation is more important. The load
+> time is fixable. The problem is probably generic to any set of rules,
+> but could you post some info about your configuration (like the rule
+> set), and the system configuration (# of cpu's, config etc).
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
