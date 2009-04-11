@@ -1,121 +1,188 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] Bonding: fix zero address hole bug in arp_ip_target list
-Date: Fri, 10 Apr 2009 22:41:14 -0400
-Message-ID: <1239417674-8374-1-git-send-email-brian.haley@hp.com>
-References: <bug-13006-10286@http.bugzilla.kernel.org/>
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	akpm@linux-foundation.org
-To: fubar@us.ibm.com, steve@astutenetworks.com
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: iptables very slow after commit
+	784544739a25c30637397ace5489eeb6e15d7d49
+Date: Fri, 10 Apr 2009 21:15:33 -0700
+Message-ID: <20090411041533.GB6822@linux.vnet.ibm.com>
+References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com> <20090410095246.4fdccb56@s6510> <20090410.182507.140306636.davem@davemloft.net> <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Ingo Molnar <mingo@elte.hu>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>, shemminger@vyatta.com,
+	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
+	kaber@trash.net, r000n@r000n.net,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:48448 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755230AbZDKClR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2009 22:41:17 -0400
-In-Reply-To: <bug-13006-10286@http.bugzilla.kernel.org/>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:38806 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753151AbZDKEPr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Apr 2009 00:15:47 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a zero address hole bug in the bonding arp_ip_target list
-that was causing the bond to ignore ARP replies (bugz 13006).
-Instead of just setting the array entry to zero, we now
-copy any additional entries down one slot, putting the
-zero entry at the end.  With this change we can now have
-all the loops that walk the array stop when they hit a zero
-since there will be no addresses after it.
+On Fri, Apr 10, 2009 at 06:39:18PM -0700, Linus Torvalds wrote:
+> 
+> 
+> On Fri, 10 Apr 2009, David Miller wrote:
+> > 
+> > [ CC:'ing netfilter-devel and netdev... ]
+> 
+> I wonder if we should bring in the RCU people too, for them to tell you 
+> that the networking people are beign silly, and should not synchronize 
+> with the very heavy-handed
+> 
+> 	synchronize_net()
+> 
+> but instead of doing synchronization (which is probably why adding a few 
+> hundred rules then takes several seconds - each synchronizes and that 
+> takes a timer tick or so), add the rules to be free'd on some rcu-freeing 
+> list for later freeing.
+> 
+> Or whatever. Paul? synchronize_net() just calls synchronize_rcu(), and 
+> with that knowledge and a simple
+> 
+> 	git show 784544739a25c30637397ace5489eeb6e15d7d49
+> 
+> I bet you can already tell people how to fix their performance issue.
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
- Documentation/networking/bonding.txt |    2 +-
- drivers/net/bonding/bond_main.c      |    5 ++---
- drivers/net/bonding/bond_sysfs.c     |   14 ++++++++------
- 3 files changed, 11 insertions(+), 10 deletions(-)
+Well, I am certainly happy to demonstrate my ignorance of the networking
+code by throwing out a few suggestions.
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 5ede747..0876275 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -1242,7 +1242,7 @@ monitoring is enabled, and vice-versa.
- To add ARP targets:
- # echo +192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
- # echo +192.168.0.101 > /sys/class/net/bond0/bonding/arp_ip_target
--	NOTE:  up to 10 target addresses may be specified.
-+	NOTE:  up to 16 target addresses may be specified.
- 
- To remove an ARP target:
- # echo -192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 99610f3..63369b6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2570,7 +2570,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
- 		if (!targets[i])
--			continue;
-+			break;
- 		pr_debug("basa: target %x\n", targets[i]);
- 		if (list_empty(&bond->vlan_list)) {
- 			pr_debug("basa: empty vlan: arp_send\n");
-@@ -2677,7 +2677,6 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
- 	int i;
- 	__be32 *targets = bond->params.arp_targets;
- 
--	targets = bond->params.arp_targets;
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
- 		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip) %d\n",
- 			&sip, &tip, i, &targets[i], bond_has_this_ip(bond, tip));
-@@ -3303,7 +3302,7 @@ static void bond_info_show_master(struct seq_file *seq)
- 
- 		for(i = 0; (i < BOND_MAX_ARP_TARGETS) ;i++) {
- 			if (!bond->params.arp_targets[i])
--				continue;
-+				break;
- 			if (printed)
- 				seq_printf(seq, ",");
- 			seq_printf(seq, " %pI4", &bond->params.arp_targets[i]);
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 18cf478..d287315 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -684,17 +684,15 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 			goto out;
- 		}
- 		/* look for an empty slot to put the target in, and check for dupes */
--		for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
-+		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
- 			if (targets[i] == newtarget) { /* duplicate */
- 				printk(KERN_ERR DRV_NAME
- 				       ": %s: ARP target %pI4 is already present\n",
- 				       bond->dev->name, &newtarget);
--				if (done)
--					targets[i] = 0;
- 				ret = -EINVAL;
- 				goto out;
- 			}
--			if (targets[i] == 0 && !done) {
-+			if (targets[i] == 0) {
- 				printk(KERN_INFO DRV_NAME
- 				       ": %s: adding ARP target %pI4.\n",
- 				       bond->dev->name, &newtarget);
-@@ -720,12 +718,16 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 			goto out;
- 		}
- 
--		for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
-+		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
- 			if (targets[i] == newtarget) {
-+				int j;
- 				printk(KERN_INFO DRV_NAME
- 				       ": %s: removing ARP target %pI4.\n",
- 				       bond->dev->name, &newtarget);
--				targets[i] = 0;
-+				for (j = i; (j < (BOND_MAX_ARP_TARGETS-1)) && targets[j+1]; j++)
-+					targets[j] = targets[j+1];
-+
-+				targets[j] = 0;
- 				done = 1;
- 			}
- 		}
--- 
-1.5.4.3
+So, Dave and Steve, you might want to get out your barf bag before
+reading further.  You have been warned!  ;-)
 
+1.	Assuming that the synchronize_net() is intended to guarantee
+	that the new rules will be in effect before returning to
+	user space:
+
+	a.	Split this functionality, so that there is a new
+		user-space primitive that installs a new rule, but
+		without waiting.  They provide an additional user-space
+		primitive that waits for the rules to take effect.
+		Then, when loading a long list of rules, load them
+		using the non-waiting primitive, and wait at the end.
+
+	b.	As above, but provide a flag that says whether or not
+		to wait.  Same general effect.
+
+	But I am not seeing the direct connection between this patch
+	and netfilter, so...
+
+2.	For the xt_replace_table() case, it would be necessary to add an
+	rcu_head to the xt_table_info, and replace each caller's direct
+	calls to xt_free_table_info() with call_rcu().
+
+	Now this has an issue in that the caller wants to return the
+	final counter values.  My assumption is that these values do
+	not in fact need to be exact.  If I am wrong about that, then
+	my suggestion would lose the counts from late readers.
+	I must defer to the networking guys as to whether this is
+	acceptable or not.  If not, more head-scratching would be
+	required.  (But it looks to me that the rule is being trashed,
+	so who cares about the extra counts?)
+
+	In addition, a malicious user might be able to force this to
+	happen extremely frequently, running the system out of memory.
+	One way to fix this is to invoke synchronize_net() one out of
+	20 times or some such.
+
+3.	For the alloc_counters() case, the comments indicate that we
+	really truly do want an atomic sampling of the counters.
+	The counters are 64-bit entities, which is a bit inconvenient.
+	Though people using this functionality are no doubt quite happy
+	to never have to worry about overflow, I hasten to add!
+
+	I will nevertheless suggest the following egregious hack to
+	get a consistent sample of one counter for some other CPU:
+
+	a.	Disable interrupts
+	b.	Atomically exchange the bottom 32 bits of the
+		counter with the value zero.
+	c.	Atomically exchange the top 32 bits of the counter
+		with the value zero.
+	d.	Concatenate the values obtained in (b) and (c), which
+		is the snapshot value.
+	e.	Re-enable interrupts.  Yes, for each counter.  Do it
+		for the honor of the -rt patchset.  ;-)
+
+		Disabling interrupts should make it impossible for
+		the low-order 32 bits of the counter to overflow before
+		we get around to zeroing the upper 32 bits.  Yes, this
+		is horribly paranoid, but please keep in mind that even
+		my level of paranoia is not always sufficient to keep
+		RCU working correctly.  :-/
+
+		Architectures with 64-bit atomics can simply do a 64-bit
+		exchange (or cmpxchg(), for that matter).
+
+	Now we still have the possibility that the other CPU is still
+	hammering away on the counter that we just zeroed from a
+	long-running RCU read-side critical section.
+
+	So, we also need to add an rcu_head somewhere, perhaps reuse
+	the one in xt_table_info, create a second one, or squirrel one
+	away somewhere else.  As long as there is a way to get to the
+	old counter values.  And a flag to indicate that the rcu_head
+	is in use.  It is socially irresponsible to pass a given
+	rcu_head to call_rcu() before it has been invoked after the
+	previous time it was passed to call_rcu().  But you guys all
+	knew that already.
+
+	We replace the synchronize_net() with call_rcu(), more or less.
+	The call_rcu() probably needs to be under the lock -- or at the
+	very least, setting the flag saying that it is in use needs to
+	be under the lock.
+
+	The RCU callback function traverses the old counters one last
+	time, adding their values to the new set of counters.  No
+	atomic exchange tricks are required this time, since all the
+	RCU readers that could possibly have held a reference to the
+	old set of counters must now be done.  We now clear the flag,
+	allowing the next counter snapshot to proceed.
+
+OK, OK, Dave and Steve, I should have suggested that you get two
+barf bags.  Maybe three.  ;-)
+
+Additional caveat: coward that I am, I looked only at the IPv4 code.
+There might well be additional complications in the arp and IPv6 code.
+
+However, I do believe that something like this might actually work.
+
+Thoughts?
+
+						Thanx, Paul
+
+> 		Linus
+> 
+> ---
+> > > On Fri, 10 Apr 2009 17:15:52 +0800 (SGT)
+> > > Jeff Chua <jeff.chua.linux@gmail.com> wrote:
+> > >> 
+> > >> Adding 200 records in iptables took 6.0sec in 2.6.30-rc1 compared to 
+> > >> 0.2sec in 2.6.29. I've bisected down this commit.
+> > >> 
+> > >> There are a few patches on top of the original patch. When I reverted the 
+> > >> original commit + changing rcu_read() to rcu_read_bh(), it speeds up the 
+> > >> inserts back to .2sec again.
+> > >> 
+> > >> I'm loading all the firewall rules during boot-up and this 6 secs slowness 
+> > >> is really not very nice to wait for.
+> > > 
+> > > The performance benefit during operation is more important. The load
+> > > time is fixable. The problem is probably generic to any set of rules,
+> > > but could you post some info about your configuration (like the rule
+> > > set), and the system configuration (# of cpu's, config etc).
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > Please read the FAQ at  http://www.tux.org/lkml/
+> > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
