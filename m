@@ -1,124 +1,94 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH v2] Bonding: fix zero address hole bug in arp_ip_target list
-Date: Sat, 11 Apr 2009 11:20:02 -0400
-Message-ID: <1239463202-7662-1-git-send-email-brian.haley@hp.com>
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	akpm@linux-foundation.org
-To: fubar@us.ibm.com, steve@astutenetworks.com
+From: Andrew Lutomirski <amluto@gmail.com>
+Subject: Re: [PATCH 1/1] Tell linkwatch about new interfaces
+Date: Sat, 11 Apr 2009 11:46:00 -0400
+Message-ID: <cb0375e10904110846k53bd5edbvb9fc9f6ff43bc97c@mail.gmail.com>
+References: <cb0375e10904010840n1543a890w9039465d0f80ffcc@mail.gmail.com>
+	 <20090404.170539.148727646.davem@davemloft.net>
+	 <cb0375e10904042100o1a203512l593021ee66cb591d@mail.gmail.com>
+	 <alpine.WNT.2.00.0904091128270.6048@jbrandeb-desk1.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:29539 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753557AbZDKPUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 11:20:04 -0400
-In-Reply-To: <>
-References: <>
+Received: from mail-bw0-f169.google.com ([209.85.218.169]:62984 "EHLO
+	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbZDKPqC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 11:46:02 -0400
+In-Reply-To: <alpine.WNT.2.00.0904091128270.6048@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a zero address hole bug in the bonding arp_ip_target list
-that was causing the bond to ignore ARP replies (bugz 13006).
-Instead of just setting the array entry to zero, we now
-copy any additional entries down one slot, putting the
-zero entry at the end.  With this change we can now have
-all the loops that walk the array stop when they hit a zero
-since there will be no addresses after it.
+On Thu, Apr 9, 2009 at 8:48 PM, Brandeburg, Jesse
+<jesse.brandeburg@intel.com> wrote:
+>
+> does this patch also fix the issue?
 
-Changes are based in part on code fragment provided in kernel
-bugzilla 13006 by Steve Howard <steve@astutenetworks.com>
+Yes.
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
- Documentation/networking/bonding.txt |    2 +-
- drivers/net/bonding/bond_main.c      |    5 ++---
- drivers/net/bonding/bond_sysfs.c     |   14 ++++++++------
- 3 files changed, 11 insertions(+), 10 deletions(-)
+2: eth0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast
+state DOWN qlen 1000
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 5ede747..0876275 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -1242,7 +1242,7 @@ monitoring is enabled, and vice-versa.
- To add ARP targets:
- # echo +192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
- # echo +192.168.0.101 > /sys/class/net/bond0/bonding/arp_ip_target
--	NOTE:  up to 10 target addresses may be specified.
-+	NOTE:  up to 16 target addresses may be specified.
- 
- To remove an ARP target:
- # echo -192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 99610f3..63369b6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2570,7 +2570,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
- 		if (!targets[i])
--			continue;
-+			break;
- 		pr_debug("basa: target %x\n", targets[i]);
- 		if (list_empty(&bond->vlan_list)) {
- 			pr_debug("basa: empty vlan: arp_send\n");
-@@ -2677,7 +2677,6 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
- 	int i;
- 	__be32 *targets = bond->params.arp_targets;
- 
--	targets = bond->params.arp_targets;
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
- 		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip) %d\n",
- 			&sip, &tip, i, &targets[i], bond_has_this_ip(bond, tip));
-@@ -3303,7 +3302,7 @@ static void bond_info_show_master(struct seq_file *seq)
- 
- 		for(i = 0; (i < BOND_MAX_ARP_TARGETS) ;i++) {
- 			if (!bond->params.arp_targets[i])
--				continue;
-+				break;
- 			if (printed)
- 				seq_printf(seq, ",");
- 			seq_printf(seq, " %pI4", &bond->params.arp_targets[i]);
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 18cf478..d287315 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -684,17 +684,15 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 			goto out;
- 		}
- 		/* look for an empty slot to put the target in, and check for dupes */
--		for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
-+		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
- 			if (targets[i] == newtarget) { /* duplicate */
- 				printk(KERN_ERR DRV_NAME
- 				       ": %s: ARP target %pI4 is already present\n",
- 				       bond->dev->name, &newtarget);
--				if (done)
--					targets[i] = 0;
- 				ret = -EINVAL;
- 				goto out;
- 			}
--			if (targets[i] == 0 && !done) {
-+			if (targets[i] == 0) {
- 				printk(KERN_INFO DRV_NAME
- 				       ": %s: adding ARP target %pI4.\n",
- 				       bond->dev->name, &newtarget);
-@@ -720,12 +718,16 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 			goto out;
- 		}
- 
--		for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
-+		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
- 			if (targets[i] == newtarget) {
-+				int j;
- 				printk(KERN_INFO DRV_NAME
- 				       ": %s: removing ARP target %pI4.\n",
- 				       bond->dev->name, &newtarget);
--				targets[i] = 0;
-+				for (j = i; (j < (BOND_MAX_ARP_TARGETS-1)) && targets[j+1]; j++)
-+					targets[j] = targets[j+1];
-+
-+				targets[j] = 0;
- 				done = 1;
- 			}
- 		}
--- 
-1.5.4.3
+Tested-by: Andy Lutomirski <amluto@gmail.com>
 
+The link operational states are still funny, though:
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+3: wmaster0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
+pfifo_fast state UNKNOWN qlen 1000
+
+It looks like all interfaces that don't call netif_carrier_down after
+registration end up in UNKNOWN until something happens.  The case of
+carrier_on but UNKNOWN doesn't seem to confuse my userspace, but it's
+still odd.
+
+--Andy
+
+>
+> =3D=3D=3D=3D=3D begin =3D=3D=3D=3D=3D
+>
+> e1000e: indicate link down at load
+>
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>
+> same kind of patch as e1000, let driver explicitly push link state
+> once link comes up.
+>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> ---
+>
+> =A0drivers/net/e1000e/netdev.c | =A0 =A06 ++----
+> =A01 files changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.=
+c
+> index fb78278..6a0411e 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -3072,6 +3072,8 @@ static int e1000_open(struct net_device *netdev=
+)
+> =A0 =A0 =A0 =A0if (test_bit(__E1000_TESTING, &adapter->state))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EBUSY;
+>
+> + =A0 =A0 =A0 netif_carrier_off(netdev);
+> +
+> =A0 =A0 =A0 =A0/* allocate transmit descriptors */
+> =A0 =A0 =A0 =A0err =3D e1000e_setup_tx_resources(adapter);
+> =A0 =A0 =A0 =A0if (err)
+> @@ -5006,10 +5008,6 @@ static int __devinit e1000_probe(struct pci_de=
+v *pdev,
+> =A0 =A0 =A0 =A0if (!(adapter->flags & FLAG_HAS_AMT))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0e1000_get_hw_control(adapter);
+>
+> - =A0 =A0 =A0 /* tell the stack to leave us alone until e1000_open() =
+is called */
+> - =A0 =A0 =A0 netif_carrier_off(netdev);
+> - =A0 =A0 =A0 netif_tx_stop_all_queues(netdev);
+> -
+> =A0 =A0 =A0 =A0strcpy(netdev->name, "eth%d");
+> =A0 =A0 =A0 =A0err =3D register_netdev(netdev);
+> =A0 =A0 =A0 =A0if (err)
+>
