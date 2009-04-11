@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] igb: fix unused external references introduced
- with sr-iov changes
-Date: Sat, 11 Apr 2009 02:56:10 -0700 (PDT)
-Message-ID: <20090411.025610.74733098.davem@davemloft.net>
-References: <20090410084901.14739.20428.stgit@localhost.localdomain>
+Subject: Re: [PATCH 1/6] ariadne: convert to net_device_ops
+Date: Sat, 11 Apr 2009 02:56:26 -0700 (PDT)
+Message-ID: <20090411.025626.125053437.davem@davemloft.net>
+References: <20090410032407.GA9004@orion>
+	<49DF7042.7090502@computer.org>
+	<20090410175924.GA20243@orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58183
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750950AbZDKJ4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 05:56:19 -0400
-In-Reply-To: <20090410084901.14739.20428.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jan.ceuleers@computer.org, netdev@vger.kernel.org,
+	linux-m68k@vger.kernel.org, geert@linux-m68k.org
+To: a.beregalov@gmail.com
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <20090410175924.GA20243@orion>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 10 Apr 2009 01:49:02 -0700
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Fri, 10 Apr 2009 21:59:24 +0400
 
-> There were several unused external references added with the sr-iov
-> enablement changes.  This patch changes all those references to static
-> local references.
+> On Fri, Apr 10, 2009 at 06:13:54PM +0200, Jan Ceuleers wrote:
+>> Alexander Beregalov wrote:
+>> > 
+>> > Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+>> ...
+>> > @@ -197,13 +209,8 @@ static int __devinit ariadne_init_one(struct zorro_dev *z,
+>> >      dev->mem_start = ZTWO_VADDR(mem_start);
+>> >      dev->mem_end = dev->mem_start+ARIADNE_RAM_SIZE;
+>> >  
+>> > -    dev->open = &ariadne_open;
+>> > -    dev->stop = &ariadne_close;
+>> > -    dev->hard_start_xmit = &ariadne_start_xmit;
+>> > -    dev->tx_timeout = &ariadne_tx_timeout;
+>> > +    dev->netdev_ops = &ariadne_netdev_ops;;
+>> 
+>> We don't really need two semicolons there but I suppose that they won't 
+>> hurt.
+> Thanks!
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> David, please apply this patch
 
-Because these three IGB/IGBVF patches are curing fallout from the igvf
-driver recently merged, I'm adding them all directly to net-2.6
-
-Thanks.
+Just FYI I made sure to integrate this fixed up version.
