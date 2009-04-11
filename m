@@ -1,57 +1,51 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: iptables very slow after commit
-	784544739a25c30637397ace5489eeb6e15d7d49
-Date: Sat, 11 Apr 2009 10:48:01 -0700
-Message-ID: <20090411174801.GG6822@linux.vnet.ibm.com>
-References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com> <20090410095246.4fdccb56@s6510> <20090410.182507.140306636.davem@davemloft.net> <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain> <20090411041533.GB6822@linux.vnet.ibm.com> <20090411070854.GC11799@elte.hu>
-Reply-To: paulmck@linux.vnet.ibm.com
+ 784544739a25c30637397ace5489eeb6e15d7d49
+Date: Sat, 11 Apr 2009 10:51:20 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904111049010.4583@localhost.localdomain>
+References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com> <20090410095246.4fdccb56@s6510> <20090410.182507.140306636.davem@davemloft.net> <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain> <20090411041533.GB6822@linux.vnet.ibm.com>
+ <alpine.LSU.2.00.0904110657410.26485@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	David Miller <davem@davemloft.net>,
+	Ingo Molnar <mingo@elte.hu>,
 	Lai Jiangshan <laijs@cn.fujitsu.com>, shemminger@vyatta.com,
-	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
-	kaber@trash.net, r000n@r000n.net,
+	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, kaber@trash.net,
+	r000n@r000n.net,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	paulus@samba.org, benh@kernel.crashing.org
-To: Ingo Molnar <mingo@elte.hu>
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090411070854.GC11799@elte.hu>
+In-Reply-To: <alpine.LSU.2.00.0904110657410.26485@fbirervta.pbzchgretzou.qr>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 11, 2009 at 09:08:54AM +0200, Ingo Molnar wrote:
-> 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> > 	I will nevertheless suggest the following egregious hack to
-> > 	get a consistent sample of one counter for some other CPU:
-> > 
-> > 	a.	Disable interrupts
-> > 	b.	Atomically exchange the bottom 32 bits of the
-> > 		counter with the value zero.
-> > 	c.	Atomically exchange the top 32 bits of the counter
-> > 		with the value zero.
-> > 	d.	Concatenate the values obtained in (b) and (c), which
-> > 		is the snapshot value.
-> 
-> Note, i have recently implemented full atomic64_t support on 32-bit 
-> x86, for the perfcounters code, based on the CMPXCHG8B instruction.
-> 
-> Which, while not the lightest of instructions, is still much better 
-> than the sequence above.
-> 
-> So i think a better approach would be to also add a dumb generic 
-> implementation for atomic64_t (using a global lock or so), and then 
-> generic code could just assume that atomic64_t always exists.
-> 
-> It is far nicer - and faster as well - as the hack above, even on 
-> 32-bit x86.
 
-If the generic implementation is needed only on !SMP systems, that
-could work.  The architectures I would be worried about include
-powerpc and ia64, which I believe support 32-bit SMP builds.
 
-						Thanx, Paul
+On Sat, 11 Apr 2009, Jan Engelhardt wrote:
+> 
+> iptables works in whole tables.
+
+Not really.
+
+Yes, iptables as a single command works in whole tables.
+
+USERS, on the other hand, often work in multiple iptables commands, ie 
+they just add things to the tables. And in fact, I think this is the exact 
+workload that Jeff complains about - doing two hundred "update table" 
+commands.
+
+> Userspace submits a table, checkentry is called for all rules in the new 
+> table, things are swapped, then destroy is called for all rules in the 
+> old table. By that logic (which existed since dawn I think), only the 
+> swap operation needs to be locked.
+
+The problem is, the new code makes the "wait after swap" thing happen 
+after every switch. And if you do two hundred "update table" commands, you 
+now take a _long_ time to update.
+
+Sure, you could tell people to just do everything as one single table 
+update, but that isn't what they do.
+
+		Linus
