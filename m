@@ -1,77 +1,57 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 11/11] eth_v10: convert to net_device_ops
-Date: Sat, 11 Apr 2009 21:45:55 +0400
-Message-ID: <20090411174555.GK16999@orion>
-References: <20090411173019.GA16999@orion>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: iptables very slow after commit
+	784544739a25c30637397ace5489eeb6e15d7d49
+Date: Sat, 11 Apr 2009 10:48:01 -0700
+Message-ID: <20090411174801.GG6822@linux.vnet.ibm.com>
+References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com> <20090410095246.4fdccb56@s6510> <20090410.182507.140306636.davem@davemloft.net> <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain> <20090411041533.GB6822@linux.vnet.ibm.com> <20090411070854.GC11799@elte.hu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.30]:20446 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562AbZDKRqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 13:46:02 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so1587258ywb.1
-        for <netdev@vger.kernel.org>; Sat, 11 Apr 2009 10:46:01 -0700 (PDT)
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>, shemminger@vyatta.com,
+	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
+	kaber@trash.net, r000n@r000n.net,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	paulus@samba.org, benh@kernel.crashing.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090411173019.GA16999@orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090411070854.GC11799@elte.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Apr 11, 2009 at 09:08:54AM +0200, Ingo Molnar wrote:
+> 
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> > 	I will nevertheless suggest the following egregious hack to
+> > 	get a consistent sample of one counter for some other CPU:
+> > 
+> > 	a.	Disable interrupts
+> > 	b.	Atomically exchange the bottom 32 bits of the
+> > 		counter with the value zero.
+> > 	c.	Atomically exchange the top 32 bits of the counter
+> > 		with the value zero.
+> > 	d.	Concatenate the values obtained in (b) and (c), which
+> > 		is the snapshot value.
+> 
+> Note, i have recently implemented full atomic64_t support on 32-bit 
+> x86, for the perfcounters code, based on the CMPXCHG8B instruction.
+> 
+> Which, while not the lightest of instructions, is still much better 
+> than the sequence above.
+> 
+> So i think a better approach would be to also add a dumb generic 
+> implementation for atomic64_t (using a global lock or so), and then 
+> generic code could just assume that atomic64_t always exists.
+> 
+> It is far nicer - and faster as well - as the hack above, even on 
+> 32-bit x86.
 
+If the generic implementation is needed only on !SMP systems, that
+could work.  The architectures I would be worried about include
+powerpc and ia64, which I believe support 32-bit SMP builds.
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
-
- drivers/net/cris/eth_v10.c |   30 ++++++++++++++++++------------
- 1 files changed, 18 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/cris/eth_v10.c b/drivers/net/cris/eth_v10.c
-index c9806c5..7a18dc7 100644
---- a/drivers/net/cris/eth_v10.c
-+++ b/drivers/net/cris/eth_v10.c
-@@ -257,6 +257,23 @@ struct transceiver_ops transceivers[] =
- 
- struct transceiver_ops* transceiver = &transceivers[0];
- 
-+static const struct net_device_ops e100_netdev_ops = {
-+	.ndo_open		= e100_open,
-+	.ndo_stop		= e100_close,
-+	.ndo_start_xmit		= e100_send_packet,
-+	.ndo_tx_timeout		= e100_tx_timeout,
-+	.ndo_get_stats		= e100_get_stats,
-+	.ndo_set_multicast_list	= set_multicast_list,
-+	.ndo_do_ioctl		= e100_ioctl,
-+	.ndo_set_mac_address	= e100_set_mac_address,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_config		= e100_set_config,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= e100_netpoll,
-+#endif
-+};
-+
- #define tx_done(dev) (*R_DMA_CH0_CMD == 0)
- 
- /*
-@@ -300,19 +317,8 @@ etrax_ethernet_init(void)
- 
- 	/* fill in our handlers so the network layer can talk to us in the future */
- 
--	dev->open               = e100_open;
--	dev->hard_start_xmit    = e100_send_packet;
--	dev->stop               = e100_close;
--	dev->get_stats          = e100_get_stats;
--	dev->set_multicast_list = set_multicast_list;
--	dev->set_mac_address    = e100_set_mac_address;
- 	dev->ethtool_ops	= &e100_ethtool_ops;
--	dev->do_ioctl           = e100_ioctl;
--	dev->set_config		= e100_set_config;
--	dev->tx_timeout         = e100_tx_timeout;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = e100_netpoll;
--#endif
-+	dev->netdev_ops		= &e100_netdev_ops;
- 
- 	spin_lock_init(&np->lock);
- 	spin_lock_init(&np->led_lock);
+						Thanx, Paul
