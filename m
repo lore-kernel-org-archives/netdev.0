@@ -1,37 +1,32 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: [PATCH] remove unbalanced opening brace from drivers/atm/iphase.c
-Date: Sun, 12 Apr 2009 21:49:24 +0200
-Message-ID: <1239565764-8203-1-git-send-email-m.kozlowski@tuxland.pl>
-Cc: netdev@vger.kernel.org, Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-To: chas@cmf.nrl.navy.mil
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Sun, 12 Apr 2009 23:52:03 +0400
+Message-ID: <20090412195203.GA11899@ioremap.net>
+References: <1239112067.32737.51.camel@dogo.mojatatu.com> <7e0dd21a0904070738jd8a2714wd840352699f1e9f1@mail.gmail.com> <1239137800.21227.10.camel@dogo.mojatatu.com> <20090407211130.GA5918@ioremap.net> <7e0dd21a0904081406w31da460pe1c0c7153538f283@mail.gmail.com> <7e0dd21a0904120327q537956abkf75a17d477cc2e61@mail.gmail.com> <20090412103212.GA28397@ioremap.net> <7e0dd21a0904120423v4296898fl7ce82ec8c3e42d3a@mail.gmail.com> <20090412142451.GA2694@ioremap.net> <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
+To: Johann Baudy <johann.baudy@gnu-log.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion.ambsoft.pl ([212.109.144.130]:37411 "EHLO
-	orion.ambsoft.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbZDLTt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2009 15:49:26 -0400
+Received: from cs-studio.ru ([195.178.208.66]:59021 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752614AbZDLTwE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Apr 2009 15:52:04 -0400
+Content-Disposition: inline
+In-Reply-To: <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's under #ifdef 0 but I think it's worth fixing anyway.
+On Sun, Apr 12, 2009 at 09:27:37PM +0200, Johann Baudy (johann.baudy@gnu-log.net) wrote:
+> I've seen that during skb_linearize(), skb_shinfo(skb)->frags[i].page
+> is not lost even if pages has been put. So I can get back original
+> frag address from this info in skb destructor. Can I rely on
+> skb_shinfo(skb)->frags[i].page on more complicated sending paths ... ?
 
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
----
- drivers/atm/iphase.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+skb_shinfo(skb)->frags[i] can be overwritten, for example in
+__pskb_pull_tail() at pull_pages: label.
 
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 78c9736..dd8c3ec 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -795,7 +795,7 @@ static void ia_hw_type(IADEV *iadev) {
-          iadev->rx_buf_sz, iadev->rx_pkt_ram);)
- 
- #if 0
--   if ((memType & FE_MASK) == FE_SINGLE_MODE) {
-+   if ((memType & FE_MASK) == FE_SINGLE_MODE)
-       iadev->phy_type = PHY_OC3C_S;
-    else if ((memType & FE_MASK) == FE_UTP_OPTION)
-       iadev->phy_type = PHY_UTP155;
 -- 
-1.5.6.3
-
+	Evgeniy Polyakov
