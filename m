@@ -1,117 +1,266 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: iptables very slow after commit
-	784544739a25c30637397ace5489eeb6e15d7d49
-Date: Sat, 11 Apr 2009 17:34:45 -0700
-Message-ID: <20090412003445.GK6822@linux.vnet.ibm.com>
-References: <Pine.LNX.4.64.0904101656190.2093@boston.corp.fedex.com> <20090410095246.4fdccb56@s6510> <20090410.182507.140306636.davem@davemloft.net> <alpine.LFD.2.00.0904101828490.4583@localhost.localdomain> <20090411041533.GB6822@linux.vnet.ibm.com> <alpine.LFD.2.00.0904111150380.4583@localhost.localdomain>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] drivers/net: replace BUG() with BUG_ON() if possible
+Date: Sun, 12 Apr 2009 04:50:23 +0400
+Message-ID: <20090412005023.GA20388@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Ingo Molnar <mingo@elte.hu>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>, shemminger@vyatta.com,
-	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
-	kaber@trash.net, r000n@r000n.net,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.153]:57163 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbZDLAue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2009 20:50:34 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so205799fgg.17
+        for <netdev@vger.kernel.org>; Sat, 11 Apr 2009 17:50:31 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.0904111150380.4583@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 11, 2009 at 11:57:16AM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Fri, 10 Apr 2009, Paul E. McKenney wrote:
-> > 
-> > 1.	Assuming that the synchronize_net() is intended to guarantee
-> > 	that the new rules will be in effect before returning to
-> > 	user space:
-> 
-> Btw, I think that's a bad assumption.
 
-It does indeed appear to be!
 
-> The thing is, nobody can really care if the new rules are in effect or 
-> not, because the thing you race with is not the "return to user space" 
-> part, but the incoming packets.
-> 
-> And those incoming packets might have been incoming before the rules were 
-> set up too.
-> 
-> So I seriously doubt you need to synchronize with any returning to user 
-> space. What you want to synchronize with is then later actions that do 
-> things like turning on the interface that the rules are attached to etc!
-> 
-> So I would suggest:
-> 
->  - remove the synchronize_net() entirely. Replace it with just freeing the 
->    old rules using RCU.
-> 
->  - new packets will always end up seeing the new rules. That includes the 
->    case of somebody doing "ifconfig eth0 up" that enables a new source of 
->    packets, so there are no real security issues.
-> 
->  - if you enabled your network interfaces before you updated your packet 
->    filtering rules, you already had a window where packets would come in 
->    with the old rules, so doing a "synchronize_net()" in no way protects 
->    against any race conditions anyway.
-> 
-> Am I missing something?
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
 
-The issue at this point seems to be the need to get accurate snapshots
-of various counters -- there are a number of Linux networking users who
-need to account for every byte flowing through their systems.  However,
-it is also necessary to update these counters very efficiently, given
-that they are updated on a per-packet basis.  The current approach is
-as follows:
+ drivers/net/atl1e/atl1e_main.c            |    3 +--
+ drivers/net/atlx/atl1.c                   |    7 +++----
+ drivers/net/chelsio/sge.c                 |    4 ++--
+ drivers/net/fs_enet/mii-fec.c             |    6 ++----
+ drivers/net/ixgb/ixgb_osdep.h             |    2 +-
+ drivers/net/pppol2tp.c                    |    3 +--
+ drivers/net/tulip/winbond-840.c           |    3 +--
+ drivers/net/virtio_net.c                  |   12 ++++--------
+ drivers/net/wireless/ath5k/reset.c        |    5 ++---
+ drivers/net/wireless/ath9k/ath9k.h        |    6 +-----
+ drivers/net/wireless/ipw2x00/ipw2200.c    |    7 ++-----
+ drivers/net/wireless/libertas/if_usb.c    |    3 +--
+ drivers/net/wireless/libertas_tf/if_usb.c |    3 +--
+ 13 files changed, 22 insertions(+), 42 deletions(-)
 
-1.	Install a new set of counters.
-
-2.	Wait for a grace period to elapse.
-
-3.	At this point, we know that all subsequent counting will happen
-	on the new set of counters.
-
-4.	Add the value of the old set of counters to the new set of
-	counters.
-
-5.	Copy the old set of counters up to user space.
-
-So we get a good snapshot in #5, while #4 ensures that we don't lose
-any counts when taking future snapshots.  Unfortunately, #2 hits us
-with grace-period latencies on the critical path.
-
-We are going through the following possibilities:
-
-o	Stick with the current approach, and ask people to move to
-	new batch-oriented interfaces.  However, a 30x decrease in
-	performance is pretty grim, even for an old-style interface.
-
-o	Use various atomic tricks to get an immediate snapshot of the
-	old counters after step 1.  Make step 3 use call_rcu() instead
-	of synchronize_rcu(), and then step 4 happens off the
-	critical path.
-
-	This approach moves the RCU grace period off of the critical
-	path, but the atomic tricks are extremely ugly on 32-bit SMP
-	machines.  32-bit UP machines and 64-bit machines are not
-	too bad, though the 32-bit UP case does add preemption-disable
-	overhead on the counter-update fastpath.
-
-o	Provide some sort of expedited synchronize_rcu().  This might
-	be able to decrease the hit from 30x down to maybe 5x.
-	But I might need to do this for the fast-boot folks anyway,
-	though I am first trying to get away with just speeding
-	up synchronized_rcu().  Though I was not thinking in terms
-	of 6x, let alone 30x.
-
-	Please note that this would not be a drop-in replacement for
-	synchronize_rcu().  One would use synchronize_rcu_expedited()
-	(or whatever) only when the system really could not get any
-	useful work done while the grace period was in progress.
-	The general approach would be to keep the whole machine busy
-	trying to get the grace period done as soon as possible.
-
-							Thanx, Paul
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index fb57b75..adac061 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1794,8 +1794,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+ 			memcpy(use_tpd, tpd, sizeof(struct atl1e_tpd_desc));
+ 
+ 			tx_buffer = atl1e_get_tx_buffer(adapter, use_tpd);
+-			if (tx_buffer->skb)
+-				BUG();
++			BUG_ON(tx_buffer->skb);
+ 
+ 			tx_buffer->skb = NULL;
+ 			tx_buffer->length =
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index 0ab2254..13f0bdc 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -2207,8 +2207,7 @@ static void atl1_tx_map(struct atl1_adapter *adapter, struct sk_buff *skb,
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
+ 	next_to_use = atomic_read(&tpd_ring->next_to_use);
+ 	buffer_info = &tpd_ring->buffer_info[next_to_use];
+-	if (unlikely(buffer_info->skb))
+-		BUG();
++	BUG_ON(buffer_info->skb);
+ 	/* put skb in last TPD */
+ 	buffer_info->skb = NULL;
+ 
+@@ -2274,8 +2273,8 @@ static void atl1_tx_map(struct atl1_adapter *adapter, struct sk_buff *skb,
+ 			ATL1_MAX_TX_BUF_LEN;
+ 		for (i = 0; i < nseg; i++) {
+ 			buffer_info = &tpd_ring->buffer_info[next_to_use];
+-			if (unlikely(buffer_info->skb))
+-				BUG();
++			BUG_ON(buffer_info->skb);
++
+ 			buffer_info->skb = NULL;
+ 			buffer_info->length = (buf_len > ATL1_MAX_TX_BUF_LEN) ?
+ 				ATL1_MAX_TX_BUF_LEN : buf_len;
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+index 58f6fc0..5e97a1a 100644
+--- a/drivers/net/chelsio/sge.c
++++ b/drivers/net/chelsio/sge.c
+@@ -1149,8 +1149,8 @@ static inline void write_tx_desc(struct cmdQ_e *e, dma_addr_t mapping,
+ 				 unsigned int len, unsigned int gen,
+ 				 unsigned int eop)
+ {
+-	if (unlikely(len > SGE_TX_DESC_MAX_PLEN))
+-		BUG();
++	BUG_ON(len > SGE_TX_DESC_MAX_PLEN);
++
+ 	e->addr_lo = (u32)mapping;
+ 	e->addr_hi = (u64)mapping >> 32;
+ 	e->len_gen = V_CMD_LEN(len) | V_CMD_GEN1(gen);
+diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
+index 28077cc..61aaae4 100644
+--- a/drivers/net/fs_enet/mii-fec.c
++++ b/drivers/net/fs_enet/mii-fec.c
+@@ -54,8 +54,7 @@ static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int location)
+ 	fec_t __iomem *fecp = fec->fecp;
+ 	int i, ret = -1;
+ 
+-	if ((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0)
+-		BUG();
++	BUG_ON((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0);
+ 
+ 	/* Add PHY address to register command.  */
+ 	out_be32(&fecp->fec_mii_data, (phy_id << 23) | mk_mii_read(location));
+@@ -79,8 +78,7 @@ static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int location,
+ 	int i;
+ 
+ 	/* this must never happen */
+-	if ((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0)
+-		BUG();
++	BUG_ON((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0);
+ 
+ 	/* Add PHY address to register command.  */
+ 	out_be32(&fecp->fec_mii_data, (phy_id << 23) | mk_mii_write(location, val));
+diff --git a/drivers/net/ixgb/ixgb_osdep.h b/drivers/net/ixgb/ixgb_osdep.h
+index d92e72b..371a6be 100644
+--- a/drivers/net/ixgb/ixgb_osdep.h
++++ b/drivers/net/ixgb/ixgb_osdep.h
+@@ -40,7 +40,7 @@
+ #include <linux/sched.h>
+ 
+ #undef ASSERT
+-#define ASSERT(x)	if (!(x)) BUG()
++#define ASSERT(x)	BUG_ON(!(x))
+ #define MSGOUT(S, A, B)	printk(KERN_DEBUG S "\n", A, B)
+ 
+ #ifdef DBG
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index 5b07dd8..5981deb 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -1238,8 +1238,7 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
+ 	struct pppol2tp_session *session;
+ 	struct sock *sk;
+ 
+-	if (tunnel == NULL)
+-		BUG();
++	BUG_ON(tunnel == NULL);
+ 
+ 	PRINTK(tunnel->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
+ 	       "%s: closing all sessions...\n", tunnel->name);
+diff --git a/drivers/net/tulip/winbond-840.c b/drivers/net/tulip/winbond-840.c
+index 264e614..842b1a2 100644
+--- a/drivers/net/tulip/winbond-840.c
++++ b/drivers/net/tulip/winbond-840.c
+@@ -1601,8 +1601,7 @@ static int w840_suspend (struct pci_dev *pdev, pm_message_t state)
+ 
+ 		/* no more hardware accesses behind this line. */
+ 
+-		BUG_ON(np->csr6);
+-		if (ioread32(ioaddr + IntrEnable)) BUG();
++		BUG_ON(np->csr6 || ioread32(ioaddr + IntrEnable));
+ 
+ 		/* pci_power_off(pdev, -1); */
+ 
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 9c82a39..0718558 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -621,12 +621,9 @@ static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+ 	virtio_net_ctrl_ack status = ~0;
+ 	unsigned int tmp;
+ 
+-	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
+-		BUG();  /* Caller should know better */
+-		return false;
+-	}
+-
+-	BUG_ON(out + in > VIRTNET_SEND_COMMAND_SG_MAX);
++	/* Caller should know better */
++	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ||
++		(out + in > VIRTNET_SEND_COMMAND_SG_MAX));
+ 
+ 	out++; /* Add header */
+ 	in++; /* Add return status */
+@@ -640,8 +637,7 @@ static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+ 	memcpy(&sg[1], data, sizeof(struct scatterlist) * (out + in - 2));
+ 	sg_set_buf(&sg[out + in - 1], &status, sizeof(status));
+ 
+-	if (vi->cvq->vq_ops->add_buf(vi->cvq, sg, out, in, vi) != 0)
+-		BUG();
++	BUG_ON(vi->cvq->vq_ops->add_buf(vi->cvq, sg, out, in, vi));
+ 
+ 	vi->cvq->vq_ops->kick(vi->cvq);
+ 
+diff --git a/drivers/net/wireless/ath5k/reset.c b/drivers/net/wireless/ath5k/reset.c
+index 7a17d31..cb5e15f 100644
+--- a/drivers/net/wireless/ath5k/reset.c
++++ b/drivers/net/wireless/ath5k/reset.c
+@@ -54,9 +54,8 @@ static inline int ath5k_hw_write_ofdm_timings(struct ath5k_hw *ah,
+ 	u32 coef_scaled, coef_exp, coef_man,
+ 		ds_coef_exp, ds_coef_man, clock;
+ 
+-	if (!(ah->ah_version == AR5K_AR5212) ||
+-		!(channel->hw_value & CHANNEL_OFDM))
+-		BUG();
++	BUG_ON(!(ah->ah_version == AR5K_AR5212) ||
++		!(channel->hw_value & CHANNEL_OFDM));
+ 
+ 	/* Get coefficient
+ 	 * ALGO: coef = (5 * clock * carrier_freq) / 2)
+diff --git a/drivers/net/wireless/ath9k/ath9k.h b/drivers/net/wireless/ath9k/ath9k.h
+index 2689a08..7b1b40a 100644
+--- a/drivers/net/wireless/ath9k/ath9k.h
++++ b/drivers/net/wireless/ath9k/ath9k.h
+@@ -53,11 +53,7 @@ struct ath_node;
+ 
+ #define A_MAX(a, b) ((a) > (b) ? (a) : (b))
+ 
+-#define ASSERT(exp) do {			\
+-		if (unlikely(!(exp))) {		\
+-			BUG();			\
+-		}				\
+-	} while (0)
++#define ASSERT(exp) BUG_ON(!(exp))
+ 
+ #define TSF_TO_TU(_h,_l) \
+ 	((((u32)(_h)) << 22) | (((u32)(_l)) >> 10))
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index bd4dbcf..9a123fb 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -3176,11 +3176,8 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	/* Start the Dma */
+ 	rc = ipw_fw_dma_enable(priv);
+ 
+-	if (priv->sram_desc.last_cb_index > 0) {
+-		/* the DMA is already ready this would be a bug. */
+-		BUG();
+-		goto out;
+-	}
++	/* the DMA is already ready this would be a bug. */
++	BUG_ON(priv->sram_desc.last_cb_index > 0);
+ 
+ 	do {
+ 		chunk = (struct fw_chunk *)(data + offset);
+diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
+index ea3dc03..d649cae 100644
+--- a/drivers/net/wireless/libertas/if_usb.c
++++ b/drivers/net/wireless/libertas/if_usb.c
+@@ -686,8 +686,7 @@ static inline void process_cmdrequest(int recvlength, uint8_t *recvbuff,
+ 		return;
+ 	}
+ 
+-	if (!in_interrupt())
+-		BUG();
++	BUG_ON(!in_interrupt());
+ 
+ 	spin_lock(&priv->driver_lock);
+ 
+diff --git a/drivers/net/wireless/libertas_tf/if_usb.c b/drivers/net/wireless/libertas_tf/if_usb.c
+index 59634c3..392337b 100644
+--- a/drivers/net/wireless/libertas_tf/if_usb.c
++++ b/drivers/net/wireless/libertas_tf/if_usb.c
+@@ -461,8 +461,7 @@ static inline void process_cmdrequest(int recvlength, uint8_t *recvbuff,
+ 		return;
+ 	}
+ 
+-	if (!in_interrupt())
+-		BUG();
++	BUG_ON(!in_interrupt());
+ 
+ 	spin_lock(&priv->driver_lock);
+ 	memcpy(priv->cmd_resp_buff, recvbuff + MESSAGE_HEADER_LEN,
