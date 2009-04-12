@@ -1,61 +1,38 @@
-From: Johann Baudy <johann.baudy@gnu-log.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Sun, 12 Apr 2009 22:30:34 +0200
-Message-ID: <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com>
-References: <1239112067.32737.51.camel@dogo.mojatatu.com>
-	 <1239137800.21227.10.camel@dogo.mojatatu.com>
-	 <20090407211130.GA5918@ioremap.net>
-	 <7e0dd21a0904081406w31da460pe1c0c7153538f283@mail.gmail.com>
-	 <7e0dd21a0904120327q537956abkf75a17d477cc2e61@mail.gmail.com>
-	 <20090412103212.GA28397@ioremap.net>
-	 <7e0dd21a0904120423v4296898fl7ce82ec8c3e42d3a@mail.gmail.com>
-	 <20090412142451.GA2694@ioremap.net>
-	 <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com>
-	 <20090412195203.GA11899@ioremap.net>
+Date: Mon, 13 Apr 2009 00:53:34 +0400
+Message-ID: <20090412205334.GA14345@ioremap.net>
+References: <1239137800.21227.10.camel@dogo.mojatatu.com> <20090407211130.GA5918@ioremap.net> <7e0dd21a0904081406w31da460pe1c0c7153538f283@mail.gmail.com> <7e0dd21a0904120327q537956abkf75a17d477cc2e61@mail.gmail.com> <20090412103212.GA28397@ioremap.net> <7e0dd21a0904120423v4296898fl7ce82ec8c3e42d3a@mail.gmail.com> <20090412142451.GA2694@ioremap.net> <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com> <20090412195203.GA11899@ioremap.net> <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+To: Johann Baudy <johann.baudy@gnu-log.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f169.google.com ([209.85.218.169]:39659 "EHLO
-	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbZDLUag convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2009 16:30:36 -0400
-Received: by bwz17 with SMTP id 17so1798182bwz.37
-        for <netdev@vger.kernel.org>; Sun, 12 Apr 2009 13:30:34 -0700 (PDT)
-In-Reply-To: <20090412195203.GA11899@ioremap.net>
+Received: from netgear.net.ru ([195.178.208.66]:40231 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752429AbZDLUxg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Apr 2009 16:53:36 -0400
+Content-Disposition: inline
+In-Reply-To: <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Where do you see that skb_shinfo(skb)->frags[i].page (not other
-fields) can be overwritten ?
+On Sun, Apr 12, 2009 at 10:30:34PM +0200, Johann Baudy (johann.baudy@gnu-log.net) wrote:
+> Where do you see that skb_shinfo(skb)->frags[i].page (not other
+> fields) can be overwritten ?
 
-Thanks,
-Johann
-
-On Sun, Apr 12, 2009 at 9:52 PM, Evgeniy Polyakov <zbr@ioremap.net> wro=
-te:
-> On Sun, Apr 12, 2009 at 09:27:37PM +0200, Johann Baudy (johann.baudy@=
-gnu-log.net) wrote:
->> I've seen that during skb_linearize(), skb_shinfo(skb)->frags[i].pag=
-e
->> is not lost even if pages has been put. So I can get back original
->> frag address from this info in skb destructor. Can I rely on
->> skb_shinfo(skb)->frags[i].page on more complicated sending paths ...=
- ?
->
-> skb_shinfo(skb)->frags[i] can be overwritten, for example in
-> __pskb_pull_tail() at pull_pages: label.
->
-> --
-> =A0 =A0 =A0 =A0Evgeniy Polyakov
->
+pull_pages:
+	eat = delta;
+	k = 0;
+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+		if (skb_shinfo(skb)->frags[i].size <= eat) {
+			put_page(skb_shinfo(skb)->frags[i].page);
+			eat -= skb_shinfo(skb)->frags[i].size;
+		} else {
+			skb_shinfo(skb)->frags[k] = skb_shinfo(skb)->frags[i];
 
 
-
---=20
-Johann Baudy
-johaahn@gmail.com
+-- 
+	Evgeniy Polyakov
