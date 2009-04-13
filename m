@@ -1,135 +1,98 @@
-From: Anatoly Muliarski <x86ever@gmail.com>
-Subject: sky2 TX stuck problem
-Date: Mon, 13 Apr 2009 10:44:07 +0300
-Message-ID: <38db14850904130044y56cfb53bib0b9310dc0d7deae@mail.gmail.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH 1/2] be2net: changes for checksum and segmentation offload
+Date: Mon, 13 Apr 2009 13:34:35 +0530
+Message-ID: <20090413080434.GC6824@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Ajit Khaparde <ajitk@serverengines.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:53771 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbZDMHoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 03:44:09 -0400
-Received: by fxm2 with SMTP id 2so1885737fxm.37
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2009 00:44:08 -0700 (PDT)
+Received: from segment-124-30.sify.net ([124.30.166.146]:21003 "EHLO
+	ajitk-desktop" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752140AbZDMIPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 04:15:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi, this patch does the following:
 
-I need an advice as I am in a dead end with my problem :(
+- Enables Rx checksum feature by default.
+- Disables support for ipv6 tso.
+- Changes in Rx path to handle Rx completions with various checksum options.
 
-I have a router on iG31 motherboard equipped with integrated Realtek
-8111C chip and an extrenal PCI-E card on Marvell 88E8053. It's running
-under Linux 2.6.25.17. Both network interfaces running at 1 Gbit
-speed, Full-duplex, NO flow-control and connected to 2 managed
-switches. eth0(r8169 driver) is connected to an upper one and
-eth1(sky2 v1.21 with NAPI) to a lower one as a trunk interface( by
-eth1.11 interface ).
-The problem arises when there is a big input forwarding stream of
-64-byte UDP packets on eth1.11 and I CAN'T transmit any packets on
-this interface in response to this heavy  load. I tested it by ping
-from eth1.11 - without any RX load it works fine, then heavy RX load
-appears and ping stops( tcpdump shows outgoing packets but I can't see
-them on the port of the managed switch( by doing port-mirroring of
-this port ) - the packets must have stuck in TX ring ) and ping
-packets going resume after 30(!) seconds under this heavy RX load.
-
-What I tried:
- - the native Marvell's driver - v10.70.1.3
- - another network card on other Marvell's chip ( 88e8052)
- - another motherboard( on i945GC )
-
-And I had the same result - Marvell's TX is stuck under heavy RX load.
-
-BUT if I exchange Marvell and Realtek network interface( and cables
-too ) transmit packets under heavy RX load on Realtek chip works fine.
-The problem should be in Marvell's hardware. Is it possible to correct
-it by a driver?
-
-Additional info:
-kernel: sky2 0000:01:00.0: v1.21 addr 0xe1000000 irq 16 Yukon-EC (0xb6) rev 2
-kernel: sky2 eth1: addr 00:30:4f:64:72:27
-kernel: sky2 eth1: enabling interface
-kernel: sky2 eth1: Link is up at 1000 Mbps, full duplex, flow control both
+Thanks
+Ajit 
 
 
-Settings for eth1:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Half 1000baseT/Full
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Half 1000baseT/Full
-	Advertised auto-negotiation: Yes
-	Speed: 1000Mb/s
-	Duplex: Full
-	Port: Twisted Pair
-	PHYAD: 0
-	Transceiver: internal
-	Auto-negotiation: off
-	Supports Wake-on: pg
-	Wake-on: d
-	Current message level: 0x000000ff (255)
-	Link detected: yes
-	
-Offload parameters for eth1:
-rx-checksumming: off
-tx-checksumming: off
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
 
 
-Ring parameters for eth1:
-Pre-set maximums:
-RX:		168
-RX Mini:	0
-RX Jumbo:	0
-TX:		511
-Current hardware settings:
-RX:		168
-RX Mini:	0
-RX Jumbo:	0
-TX:		511
-
-Coalesce parameters for eth1:
-Adaptive RX: off  TX: off
-stats-block-usecs: 0
-sample-interval: 0
-pkt-rate-low: 0
-pkt-rate-high: 0
-
-rx-usecs: 100
-rx-frames: 16
-rx-usecs-irq: 20
-rx-frames-irq: 16
-
-tx-usecs: 1000
-tx-frames: 10
-tx-usecs-irq: 0
-tx-frames-irq: 0
-
-rx-usecs-low: 0
-rx-frame-low: 0
-tx-usecs-low: 0
-tx-frame-low: 0
-
-rx-usecs-high: 0
-rx-frame-high: 0
-tx-usecs-high: 0
-tx-frame-high: 0
-
-Pause parameters for eth1:
-Autonegotiate:	off
-RX:		off
-TX:		off
-
-
--- 
-Best regards
-Anatoly Muliarski
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+----
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 9b75aa6..8994b03 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -637,6 +637,22 @@ static void be_rx_stats_update(struct be_adapter *adapter,
+ 	stats->be_rx_bytes += pktsize;
+ }
+ 
++static inline bool do_pkt_csum(struct be_eth_rx_compl *rxcp, bool cso)
++{
++	u8 l4_cksm, ip_version, ipcksm, tcpf = 0, udpf = 0, ipv6_chk;
++
++	l4_cksm = AMAP_GET_BITS(struct amap_eth_rx_compl, l4_cksm, rxcp);
++	ipcksm = AMAP_GET_BITS(struct amap_eth_rx_compl, ipcksm, rxcp);
++	ip_version = AMAP_GET_BITS(struct amap_eth_rx_compl, ip_version, rxcp);
++	if (ip_version) {
++		tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl, tcpf, rxcp);
++		udpf = AMAP_GET_BITS(struct amap_eth_rx_compl, udpf, rxcp);
++	}
++	ipv6_chk = (ip_version && (tcpf || udpf));
++
++	return ((l4_cksm && ipv6_chk && ipcksm) && cso) ? false : true;
++}
++
+ static struct be_rx_page_info *
+ get_rx_page_info(struct be_adapter *adapter, u16 frag_idx)
+ {
+@@ -752,9 +768,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ {
+ 	struct sk_buff *skb;
+ 	u32 vtp, vid;
+-	int l4_cksm;
+ 
+-	l4_cksm = AMAP_GET_BITS(struct amap_eth_rx_compl, l4_cksm, rxcp);
+ 	vtp = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
+ 
+ 	skb = netdev_alloc_skb(adapter->netdev, BE_HDR_LEN + NET_IP_ALIGN);
+@@ -769,10 +783,10 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 
+ 	skb_fill_rx_data(adapter, skb, rxcp);
+ 
+-	if (l4_cksm && adapter->rx_csum)
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	else
++	if (do_pkt_csum(rxcp, adapter->rx_csum))
+ 		skb->ip_summed = CHECKSUM_NONE;
++	else
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+ 	skb->truesize = skb->len + sizeof(struct sk_buff);
+ 	skb->protocol = eth_type_trans(skb, adapter->netdev);
+@@ -1626,10 +1640,12 @@ static void be_netdev_init(struct net_device *netdev)
+ 
+ 	netdev->features |= NETIF_F_SG | NETIF_F_HW_VLAN_RX | NETIF_F_TSO |
+ 		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER | NETIF_F_IP_CSUM |
+-		NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
++		NETIF_F_IPV6_CSUM;
+ 
+ 	netdev->flags |= IFF_MULTICAST;
+ 
++	adapter->rx_csum = true;
++
+ 	BE_SET_NETDEV_OPS(netdev, &be_netdev_ops);
+ 
+ 	SET_ETHTOOL_OPS(netdev, &be_ethtool_ops);
