@@ -1,11 +1,11 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] net: introduce a list of device addresses
- dev_addr_list
-Date: Mon, 13 Apr 2009 15:53:35 -0700 (PDT)
-Message-ID: <20090413.155335.248383596.davem@davemloft.net>
+Subject: Re: [PATCH 3/4] net: bridge: use device address list instead of
+ dev_addr
+Date: Mon, 13 Apr 2009 15:54:07 -0700 (PDT)
+Message-ID: <20090413.155407.12944222.davem@davemloft.net>
 References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 	<20090413083729.GA23734@psychotron.englab.brq.redhat.com>
-	<20090413084201.GC23734@psychotron.englab.brq.redhat.com>
+	<20090413084407.GD23734@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -15,34 +15,20 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	bonding-devel@lists.sourceforge.net, kaber@trash.net,
 	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
 To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43331
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751622AbZDMWxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 18:53:44 -0400
-In-Reply-To: <20090413084201.GC23734@psychotron.englab.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754376AbZDMWyb@vger.kernel.org>
+In-Reply-To: <20090413084407.GD23734@psychotron.englab.brq.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Jiri Pirko <jpirko@redhat.com>
-Date: Mon, 13 Apr 2009 10:42:02 +0200
+Date: Mon, 13 Apr 2009 10:44:08 +0200
 
-> @@ -210,6 +210,12 @@ struct dev_addr_list
->  #define dmi_users	da_users
->  #define dmi_gusers	da_gusers
->  
-> +struct hw_addr {
-> +	struct list_head	list;
-> +	unsigned char		addr[MAX_ADDR_LEN];
-> +	int			refcount;
-> +};
-> +
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index a48f5ef..6efc556 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+ ...
+> +static inline int is_dev_addr(struct net_device *dev, unsigned char *addr)
+> +{
 
-Please don't pollute the global namespace with a structure name
-like this.  Use "netdev_hw_addr" or "net_hw_addr".
-
-> +static inline int __hw_addr_add(struct list_head *list, unsigned char *addr,
-> +				int addr_len)
-
-Please let the compiler inline things as it sees fit.  These
-aren't routines in some header file or anything like that.
+Please drop the inline, let the compiler work it out.
