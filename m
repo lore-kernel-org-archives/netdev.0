@@ -1,52 +1,104 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gro: Normalise skb before bypassing GRO on netpoll VLAN path
-Date: Mon, 13 Apr 2009 22:41:01 +0800
-Message-ID: <20090413144101.GA17575@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2/4] net: introduce a list of device addresses
+ dev_addr_list
+Date: Mon, 13 Apr 2009 07:49:17 -0700
+Message-ID: <20090413074917.4e317115@nehalam>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
+	<20090413083729.GA23734@psychotron.englab.brq.redhat.com>
+	<20090413084201.GC23734@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, kaber@trash.net,
+	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58418 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751567AbZDMOlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 10:41:08 -0400
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58866 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752141AbZDMOvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 10:51:19 -0400
+In-Reply-To: <20090413084201.GC23734@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+On Mon, 13 Apr 2009 10:42:02 +0200
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-gro: Normalise skb before bypassing GRO on netpoll VLAN path
+> This patch introduces a new list in struct net_device and brings a set of
+> functions to handle the work with device address list. The list is a replacement
+> for the original dev_addr field and because in some situations there is need to
+> carry several device addresses with the net device. To be backward compatible,
+> dev_addr is made to point to the first member of the list so original drivers
+> sees no difference.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+>  include/linux/netdevice.h |   51 +++++++++-
+>  net/core/dev.c            |  264 +++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 313 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index ff8db51..8cf62f1 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -210,6 +210,12 @@ struct dev_addr_list
+>  #define dmi_users	da_users
+>  #define dmi_gusers	da_gusers
+>  
+> +struct hw_addr {
+> +	struct list_head	list;
+> +	unsigned char		addr[MAX_ADDR_LEN];
+> +	int			refcount;
+> +};
+> +
+>  struct hh_cache
+>  {
+>  	struct hh_cache *hh_next;	/* Next entry			     */
+> @@ -776,8 +782,12 @@ struct net_device
+>   */
+>  	unsigned long		last_rx;	/* Time of last Rx	*/
+>  	/* Interface address info used in eth_type_trans() */
+> -	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast
+> -							   because most packets are unicast) */
+> +	unsigned char		*dev_addr;	/* hw address, (before bcast
+> +						   because most packets are
+> +						   unicast) */
+> +
+> +	struct list_head	dev_addr_list; /* list of device hw addresses */
+> +	spinlock_t              dev_addr_list_lock;
+>  
+>  	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+>  
+> @@ -1779,6 +1789,32 @@ static inline void netif_addr_unlock_bh(struct net_device *dev)
+>  	spin_unlock_bh(&dev->addr_list_lock);
+>  }
+>  
+> +/* Locking helpers for spinlock guarding dev_addr_list */
+> +
+> +static inline void netif_dev_addr_lock(struct net_device *dev)
+> +{
+> +	spin_lock(&dev->dev_addr_list_lock);
+> +}
+> +
+> +static inline void netif_dev_addr_lock_bh(struct net_device *dev)
+> +{
+> +	spin_lock_bh(&dev->dev_addr_list_lock);
+> +}
+> +
+> +static inline void netif_dev_addr_unlock(struct net_device *dev)
+> +{
+> +	spin_unlock(&dev->dev_addr_list_lock);
+> +}
+> +
+> +static inline void netif_dev_addr_unlock_bh(struct net_device *dev)
+> +{
+> +	spin_unlock_bh(&dev->dev_addr_list_lock);
+> +}
+> +
 
-When we detect netpoll RX on the GRO VLAN path we bail out and
-call the normal VLAN receive handler.  However, the packet needs
-to be normalised by calling eth_type_trans since that's what the
-normal path expects (normally the GRO path does the fixup).
-
-This patch adds the necessary call to vlan_gro_frags.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 654e45f..c67fe6f 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -121,8 +121,10 @@ int vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
- 	if (!skb)
- 		return NET_RX_DROP;
- 
--	if (netpoll_rx_on(skb))
-+	if (netpoll_rx_on(skb)) {
-+		skb->protocol = eth_type_trans(skb, skb->dev);
- 		return vlan_hwaccel_receive_skb(skb, grp, vlan_tci);
-+	}
- 
- 	return napi_frags_finish(napi, skb,
- 				 vlan_gro_common(napi, grp, vlan_tci, skb));
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This lock is unnecessary, use RCU list for read.
+Since all changes are under RTNL mutex, there is no chance
+for conflict on update.
