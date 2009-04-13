@@ -1,63 +1,78 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: mcp55 forcedeth woes
-Date: Mon, 13 Apr 2009 16:45:48 -0700
-Message-ID: <20090413164548.f241ec1e.akpm@linux-foundation.org>
-References: <e3e0f4f0ca9fdce35c24b30559d10f31.squirrel@www.datavault.us>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Tue, 14 Apr 2009 01:52:55 +0200
+Message-ID: <20090413235255.GJ817@elte.hu>
+References: <20090411174801.GG6822@linux.vnet.ibm.com> <18913.53699.544083.320542@cargo.ozlabs.ibm.com> <20090412173108.GO6822@linux.vnet.ibm.com> <20090412.181330.23529546.davem@davemloft.net> <20090413040413.GQ6822@linux.vnet.ibm.com> <20090413095309.631cf395@nehalam> <20090413152437.c48723f6.akpm@linux-foundation.org> <20090413162000.5f8d9a05@nehalam> <20090413162620.01353461.akpm@linux-foundation.org> <alpine.LFD.2.00.0904131631400.26713@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: "Yan Seiner" <yan@seiner.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35241 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751319AbZDMXsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 19:48:45 -0400
-In-Reply-To: <e3e0f4f0ca9fdce35c24b30559d10f31.squirrel@www.datavault.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	paulmck@linux.vnet.ibm.com, davem@davemloft.net, paulus@samba.org,
+	laijs@cn.fujitsu.com, jeff.chua.linux@gmail.com,
+	dada1@cosmosbay.com, jengelh@medozas.de, kaber@trash.net,
+	r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.0904131631400.26713@localhost.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(suitable cc's added)
 
-On Mon, 13 Apr 2009 15:13:05 -0700 (PDT)
-"Yan Seiner" <yan@seiner.com> wrote:
+* Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-> I have a few Asus M2N-SLI deluxe mobos.  These mobos have the MCP55
-> chipset and two 1gb ethernet ports.  Occasionally, and for no reason that
-> I can figure out, these ports will die.  There are various ways to try and
-> fix these; they seem to be about 50% effective, and approach something
-> akin to voodoo.
 > 
-> Based on this discussion here:
 > 
-> http://patchwork.kernel.org/patch/16212/
+> On Mon, 13 Apr 2009, Andrew Morton wrote:
+> > > > >  
+> > > > > -	rcu_read_lock_bh();
+> > > > > -	private = rcu_dereference(table->private);
+> > > > > -	table_base = rcu_dereference(private->entries[smp_processor_id()]);
+> > > > > +	local_bh_disable();
+> > > > > +	spin_lock(&__get_cpu_var(ip_tables_lock));
+> > > > 
+> > > > spin_lock_bh()?
+> > > 
+> > > No. get_cpu_var implies smp_processor_id which is not safe
+> > > without preempt_disable (ie bh disable).
+> > 
+> > spin_lock_bh() will dtrt, but spelling it out seems a good idea.
 > 
-> I've gotten the ability to turn the ports on and off somewhat.
+> No, spin_lock_bh() will _not_ do the right thing. 
 > 
-> For port 0,
+> On UP it will actually work for two reasons: it will work because (a) it's 
+> UP, so there are no issues with smp_processor_id() to beging with, but 
+> also because even if there _were_ issues, it would still work because it 
+> would all expand as a macro, and the preempt_disable() will actually 
+> happen before the argument is evaluated.
 > 
-> ethtool -s eth0 autoneg off speed 10 duplex full
+> But on SMP, spin_lock_bh() expands to just _spin_lock_bh(), and is 
+> a real function - and the argument will be evaluated before the 
+> call (obviously), and thus before the preempt_disable().
 > 
-> turns on the link, and gets me half-duplex, 10mb/sec. Not much, granted.
+> So
 > 
-> ethtool -s eth0 autoneg off speed 100 duplex full
+> 	local_bh_disable();
+> 	spin_lock(&__get_cpu_var(ip_tables_lock));
 > 
-> causes the link to go up and down on about a 2 second cycle.
+> is correct, and 
 > 
-> ethtool -s eth0 autoneg on
+> 	spin_lock_bh(&__get_cpu_var(ip_tables_lock));
 > 
-> causes the link to drop.
-> 
-> For port 1, the behavior is similar, except that I can get a stable 100
-> mbit connection.
-> 
-> So the problem is in the autoneg code. It's a driver issue as this is
-> reported widely to work under windows of various flavors.
-> 
-> I'm running 2.6.29.1; I'm ok with patching and building kernels, but I'm
-> not a kernel hacker.
-> 
-> What, if anything, can I provide and do to fix this?
-> 
+> is _not_ correct. The latter will do 
+> "&__get_cpu_var(ip_tables_lock)" with no protection from the 
+> process being switched to another CPU.
 
+One option would be to make it more robust for such use. The 
+downside would be all the other cases where the expression is really 
+constant (but still takes a few instructions to calculate) and could 
+be (and should be) evaluated outside of that critical section.
+
+So i'd tend to leave it in its current (optimistic) form: we've got 
+1283 uses of spin_lock_bh(), and just a quick look at git grep 
+suggests that the current optimistic optimization matters in 
+practice.
+
+	Ingo
