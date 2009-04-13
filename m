@@ -1,30 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] net: introduce a list of device addresses
- dev_addr_list
-Date: Mon, 13 Apr 2009 15:54:36 -0700 (PDT)
-Message-ID: <20090413.155436.230187370.davem@davemloft.net>
-References: <20090413083729.GA23734@psychotron.englab.brq.redhat.com>
-	<20090413084201.GC23734@psychotron.englab.brq.redhat.com>
-	<20090413074917.4e317115@nehalam>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: Re: [PATCH 01/11] xtsonic: convert to net_device_ops
+Date: Tue, 14 Apr 2009 03:12:27 +0400
+Message-ID: <a4423d670904131612pacc4f7fj4e8d03612a41a9b8@mail.gmail.com>
+References: <20090411173019.GA16999@orion>
+	 <20090413.151904.74427510.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, kaber@trash.net,
-	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
-To: shemminger@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754549AbZDMWzA@vger.kernel.org>
-In-Reply-To: <20090413074917.4e317115@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f165.google.com ([209.85.219.165]:36713 "EHLO
+	mail-ew0-f165.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751084AbZDMXM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 19:12:29 -0400
+Received: by ewy9 with SMTP id 9so2370855ewy.37
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2009 16:12:27 -0700 (PDT)
+In-Reply-To: <20090413.151904.74427510.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Mon, 13 Apr 2009 07:49:17 -0700
+2009/4/14 David Miller <davem@davemloft.net>:
+> From: Alexander Beregalov <a.beregalov@gmail.com>
+> Date: Sat, 11 Apr 2009 21:30:19 +0400
+>
+>> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+>
+> Applied.
 
-> This lock is unnecessary, use RCU list for read.
-> Since all changes are under RTNL mutex, there is no chance
-> for conflict on update.
+Thanks David.
 
-Agreed.
+It seems build should not fail with !CONFIG_COMPAT_NET_DEV_OPS anymore.
+Perhaps it can be changed to "default n" in next release (-next and 2.6.31) ?
