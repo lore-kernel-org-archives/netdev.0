@@ -1,62 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Null dereference in uli526x_rx_packet()
-Date: Sun, 12 Apr 2009 19:56:04 -0700 (PDT)
-Message-ID: <20090412.195604.19944866.davem@davemloft.net>
-References: <20090329053513.GD19602@colo.lackof.org>
-	<20090328.235931.45430524.davem@davemloft.net>
-	<20090413024505.GC13090@lackof.org>
+From: Lin Ming <ming.m.lin@intel.com>
+Subject: Re: 2.6.30-rc1 A few issues and a stall
+Date: Mon, 13 Apr 2009 10:50:31 +0800
+Message-ID: <1239591031.4445.4091.camel@minggr.sh.intel.com>
+References: <200904121124.07193.edt@aei.ca>
+	 <1239588307.7661.209.camel@rzhang-dt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kyle@mcmartin.ca, netdev@vger.kernel.org, error27@gmail.com
-To: grundler@parisc-linux.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58267
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753481AbZDMC4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2009 22:56:13 -0400
-In-Reply-To: <20090413024505.GC13090@lackof.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Zhang Rui <rui.zhang@intel.com>,
+	LKML <linux-kernel@vger.kernel.org>, Avi Kivity <avi@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
+To: Ed Tomlinson <edt@aei.ca>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1239588307.7661.209.camel@rzhang-dt>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Sun, 12 Apr 2009 20:45:05 -0600
+On Mon, 2009-04-13 at 10:05 +0800, Zhang Rui wrote:
+> On Sun, 2009-04-12 at 23:24 +0800, Ed Tomlinson wrote:
+> > Hi,
+> > 
+> > I got tired of building out of tree DRM drivers so decided to try 2.6.30-rc1.  For simple tasks
+> > it works fine, for slightly more complex ones it is not quite as good...
+> > 
+> > Here is an example.  I normally start a kvm session with the commands below:
+> > 
+> > ed@grover ~/vm $ sudo modprobe tun
+> > ed@grover ~/vm $ sudo brctl addbr br0
+> > ed@grover ~/vm $ sudo ifconfig br0 192.168.100.254 netmask 255.255.255.0 up
+> > ed@grover ~/vm $ sudo tunctl -b -u ed -t qtap0
+> > qtap0
+> > ed@grover ~/vm $ sudo brctl addif br0 qtap0
+> > ed@grover ~/vm $ sudo ifconfig qtap0 up 0.0.0.0 promisc
+> > ed@grover ~/vm $ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+> > iptables v1.4.2: can't initialize iptables table `nat': Table does not exist (do you need to insmod?)
+> > Perhaps iptables or your kernel needs to be upgraded.
+> > 
+> > Issue 1 - I need to manually modprobe be get iptables to work.  This exact procedure worked in 2.6.29.
+> > 
+> > ed@grover ~/vm $ sudo modprobe nf_nat
+> > ed@grover ~/vm $ sudo modprobe ipt_MASQUERADE
+> > ed@grover ~/vm $ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+> > 
+> > Once the above networking stuff is setup I start kvm with the command below
+> > 
+> > QEMU_AUDIO_DRV=alsa kvm -m 1024 -cdrom /mnt/sdc4/divx/archlinux-2009.02-ftp-i686.iso -boot c -smp 3 -usb -usbdevice tablet -vga std -drive file=arch.img -net nic,macaddr=52:54:00:12:34:23 -net tap,ifname=qtap0,script=no -soundhw all -mem-path /hugepages
+> > 
+> > which works and the kvm session boots just fine.  
+> > 
+> > Issue 2.  When I attempt to ping outside the kvm session the pc (not just the kvm session) hangs.
+> > Its impossible to kill the kvm session and there are numerious info messages from RCU (tree RCU enabled)
+> > about stalls.  
+> > 
+> > Issue 3.  ACPI is having fun during startup.  This does not seem to cause problems later but is 
+> > noisy and probably should be fixed before .30's release.
+> > 
+> this is a duplicate of bug
+> http://bugzilla.kernel.org/show_bug.cgi?id=13036
+> please try the patch in comment #6 there and see if it helps.
 
-> On Sat, Mar 28, 2009 at 11:59:31PM -0700, David Miller wrote:
->> From: Grant Grundler <grundler@parisc-linux.org>
->> Date: Sat, 28 Mar 2009 23:35:13 -0600
->> 
->> > On Fri, Mar 27, 2009 at 11:23:32PM -0400, Kyle McMartin wrote:
->> > > On Fri, Mar 27, 2009 at 10:47:54PM -0400, Kyle McMartin wrote:
->> > > > > I don't know if the right fix is to return like this patch does or to set 
->> > > > > skb = rxptr->rx_skb_ptr again.
->> > > > > 
->> > > > 
->> > > > Ick... that's a good catch. I'll have to think about this.
->> > > > 
->> > > 
->> > > I think this is alright, it at least keeps the original intent of the
->> > > code. I don't pretend to have figured it out yet though.
->> > > 
->> > > I'll stare more at this Monday...
->> > > 
->> > > I guess the real question is does anyone still have one of these
->> > > cards. I don't think I do, just the proper tulips. :/
->> > 
->> > Ditto. AFAIK, I only have tulips.
->> > 
->> > Patch below looks right to me. Clobbering the skb is certainly wrong.
->> > 
->> > Acked-by: Grant Grundler <grundler@parisc-linux.org>
->> 
->> It looks correct to me, can we get a proper submission with
->> signoffs etc.?
+please also have a try the patch in comment #10 (don't apply the patch
+in comment #6).
+
+Thanks.
+
 > 
-> Dave,
-> Is that something I have to do or the original submitter?
+> thanks,
+> rui
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I would like the original submitted to do this.
-
-> Was the "Acked-by" appropriate for me to provide (as maintainer)?
-
-Yes, it is of course fine.
