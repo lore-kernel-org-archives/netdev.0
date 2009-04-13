@@ -1,34 +1,42 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 01/11] xtsonic: convert to net_device_ops
-Date: Tue, 14 Apr 2009 03:12:27 +0400
-Message-ID: <a4423d670904131612pacc4f7fj4e8d03612a41a9b8@mail.gmail.com>
+Date: Mon, 13 Apr 2009 16:19:35 -0700 (PDT)
+Message-ID: <20090413.161935.118273968.davem@davemloft.net>
 References: <20090411173019.GA16999@orion>
-	 <20090413.151904.74427510.davem@davemloft.net>
+	<20090413.151904.74427510.davem@davemloft.net>
+	<a4423d670904131612pacc4f7fj4e8d03612a41a9b8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: a.beregalov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f165.google.com ([209.85.219.165]:36713 "EHLO
-	mail-ew0-f165.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751084AbZDMXM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 19:12:29 -0400
-Received: by ewy9 with SMTP id 9so2370855ewy.37
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2009 16:12:27 -0700 (PDT)
-In-Reply-To: <20090413.151904.74427510.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37047
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752342AbZDMXTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 19:19:44 -0400
+In-Reply-To: <a4423d670904131612pacc4f7fj4e8d03612a41a9b8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/4/14 David Miller <davem@davemloft.net>:
-> From: Alexander Beregalov <a.beregalov@gmail.com>
-> Date: Sat, 11 Apr 2009 21:30:19 +0400
->
->> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
->
-> Applied.
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Tue, 14 Apr 2009 03:12:27 +0400
 
-Thanks David.
+> 2009/4/14 David Miller <davem@davemloft.net>:
+>> From: Alexander Beregalov <a.beregalov@gmail.com>
+>> Date: Sat, 11 Apr 2009 21:30:19 +0400
+>>
+>>> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+>>
+>> Applied.
+> 
+> Thanks David.
+> 
+> It seems build should not fail with !CONFIG_COMPAT_NET_DEV_OPS anymore.
+> Perhaps it can be changed to "default n" in next release (-next and 2.6.31) ?
 
-It seems build should not fail with !CONFIG_COMPAT_NET_DEV_OPS anymore.
-Perhaps it can be changed to "default n" in next release (-next and 2.6.31) ?
+I think we probably do that, sure.  I'll try to remember to do
+this next time I merge net-2.6 into net-next-2.6
+
+And after a few weeks of -next exposure I think we can remove
+the option and protected code entirely.
