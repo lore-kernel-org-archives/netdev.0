@@ -1,43 +1,43 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [Bugme-new] [Bug 12877] New: tg3: eth0 transit timed out,	resetting
- -> dead NIC
-Date: Mon, 13 Apr 2009 23:54:40 +0200
-Message-ID: <49E3B4A0.8040009@birkenwald.de>
-References: <bug-12877-10286@http.bugzilla.kernel.org/> <20090315143214.90c71fb7.akpm@linux-foundation.org> <1237238601.8839.85.camel@HP1> <49C01F7F.9030306@birkenwald.de> <20090319165842.GA10819@xw6200.broadcom.net> <20090322132121.GA7871@pest> <20090331162617.GB15533@xw6200.broadcom.net> <20090331221621.GA1324@schleppi.birkenwald.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: initial congestion window for connections in the listen queue
+Date: Mon, 13 Apr 2009 14:58:29 -0700 (PDT)
+Message-ID: <20090413.145829.97306950.davem@davemloft.net>
+References: <200904132346.15783.opurdila@ixiacom.com>
+	<20090413.142653.267913010.davem@davemloft.net>
+	<Pine.LNX.4.64.0904140051100.9234@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.svr02.mucip.net ([83.170.6.69]:34712 "EHLO
-	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753718AbZDMVys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 17:54:48 -0400
-In-Reply-To: <20090331221621.GA1324@schleppi.birkenwald.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48646
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751540AbZDMV6l convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 17:58:41 -0400
+In-Reply-To: <Pine.LNX.4.64.0904140051100.9234@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matt,
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 14 Apr 2009 00:54:40 +0300 (EEST)
 
->>> I'm now switching to eth1.
->> Bernhard, any word on what happened?
-> 
-> So far so good. In the last week my watchdog (cannot reach the default
-> gateway) triggered once, but since there were no "PCI Memory Mapped IO
-> Disabled!!!!" messages in the logfile I assume that was a real network
-> problem. Since the box ran fine for months initially and the first two
-> occurances of this issue were two weeks apart I cannot say for sure, but
-> it definitely feels better than the "once in two days" in the end.
+> A long-standing feature in tcp_init_metrics() is such that any of its=
+ goto=20
+> reset prevents call to tcp_init_cwnd(). I never remembered to fix tha=
+t.
 
-No crashes in the last two weeks.
+Grumble, we definitely need to fix that!
 
-Do you have any further suggestions how to debug this or should we 
-accept that portsharing doesn't work very well? This is the second 
-problem we can directly attribute to the sharing with the iLO (the first 
-one being the "no IPv6 unless the port is in promiscous mode", we had a 
-thread about this here on netdev a few months ago).
+I suspect I added that problem, because tcp_init_metrics() at one
+point couldn't cope with a NULL dst.  But that is no longer the
+case so I'm pretty sure we can unconditionally go:
 
-Bernhard
+	tp->snd_cwnd =3D tcp_init_cwnd(tp, dst);
+	tp->snd_cwnd_stamp =3D tcp_time_stamp;
+
+in the 'reset' path too, right?
+
+But note thata even if this reset path is taken, we should still have
+at least the default ->snd_cwnd value of 2.
