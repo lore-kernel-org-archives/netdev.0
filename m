@@ -1,58 +1,63 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
-Date: Mon, 13 Apr 2009 17:41:05 -0600
-Message-ID: <20090413174105.b03a1f19.zaitcev@redhat.com>
-References: <18906.49779.243047.207639@stoffel.org>
-	<20090407120022.GA6519@ff.dom.local>
-	<18907.28788.965069.573489@stoffel.org>
-	<20090407130403.e0061a8d.zaitcev@redhat.com>
-	<18908.42166.404232.721757@stoffel.org>
-	<20090408232344.afed8103.zaitcev@redhat.com>
-	<18909.65347.234817.29689@stoffel.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Mon, 13 Apr 2009 16:37:26 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904131631400.26713@localhost.localdomain>
+References: <20090411174801.GG6822@linux.vnet.ibm.com> <18913.53699.544083.320542@cargo.ozlabs.ibm.com> <20090412173108.GO6822@linux.vnet.ibm.com> <20090412.181330.23529546.davem@davemloft.net> <20090413040413.GQ6822@linux.vnet.ibm.com> <20090413095309.631cf395@nehalam>
+ <20090413152437.c48723f6.akpm@linux-foundation.org> <20090413162000.5f8d9a05@nehalam> <20090413162620.01353461.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	zaitcev@redhat.com
-To: "John Stoffel" <john@stoffel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:45462 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753066AbZDMXmg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2009 19:42:36 -0400
-In-Reply-To: <18909.65347.234817.29689@stoffel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	paulmck@linux.vnet.ibm.com, davem@davemloft.net, paulus@samba.org,
+	mingo@elte.hu, laijs@cn.fujitsu.com, jeff.chua.linux@gmail.com,
+	dada1@cosmosbay.com, jengelh@medozas.de, kaber@trash.net,
+	r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090413162620.01353461.akpm@linux-foundation.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Apr 2009 09:59:31 -0400, "John Stoffel" <john@stoffel.org> wrote:
 
-> Here's a dmesg of bootup:
 
-> [    0.000000] Linux version 2.6.29.1 (john@sail) (gcc version 4.3.3 (Ubuntu 4.3.3-5ubuntu4) ) #24 SMP PREEMPT Tue Apr 7 11:30:52 EDT 2009
-> [    0.000999] Checking aperture...
-> [    0.000999] No AGP bridge found
-> [    0.000999] Node 0: aperture @ 20000000 size 32 MB
-> [    0.000999] Aperture pointing to e820 RAM. Ignoring.
-> [    0.000999] Your BIOS doesn't leave a aperture memory hole
-> [    0.000999] Please enable the IOMMU option in the BIOS setup
-> [    0.000999] This costs you 64 MB of RAM
-> [    0.000999] Mapping aperture over 65536 KB of RAM @ 20000000
+On Mon, 13 Apr 2009, Andrew Morton wrote:
+> > > >  
+> > > > -	rcu_read_lock_bh();
+> > > > -	private = rcu_dereference(table->private);
+> > > > -	table_base = rcu_dereference(private->entries[smp_processor_id()]);
+> > > > +	local_bh_disable();
+> > > > +	spin_lock(&__get_cpu_var(ip_tables_lock));
+> > > 
+> > > spin_lock_bh()?
+> > 
+> > No. get_cpu_var implies smp_processor_id which is not safe
+> > without preempt_disable (ie bh disable).
+> 
+> spin_lock_bh() will dtrt, but spelling it out seems a good idea.
 
-> [ 1396.271782] BUG: unable to handle kernel paging request at ffff880020a15cc0
+No, spin_lock_bh() will _not_ do the right thing. 
 
-So 20a15000 is in the aperture. Oh well, I screwed up. I meant to
-check for this back in 2006 but forgot, and miraclously it worked
-until now.
+On UP it will actually work for two reasons: it will work because (a) it's 
+UP, so there are no issues with smp_processor_id() to beging with, but 
+also because even if there _were_ issues, it would still work because it 
+would all expand as a macro, and the preempt_disable() will actually 
+happen before the argument is evaluated.
 
-Here's the problem:
+But on SMP, spin_lock_bh() expands to just _spin_lock_bh(), and is a real 
+function - and the argument will be evaluated before the call (obviously), 
+and thus before the preempt_disable().
 
-	pg = phys_to_page(dma_addr);
-	map = kmap_atomic(pg, KM_IRQ0);
-	offset = mon_copy_to_buff(rp, offset, map + page_off, step_len);
-	kunmap_atomic(map, KM_IRQ0);
+So
 
-Obviously we don't want the page that's overlayed by the aperture,
-but the page where IOMMU is pointing.
+	local_bh_disable();
+	spin_lock(&__get_cpu_var(ip_tables_lock));
 
--- Pete
+is correct, and 
+
+	spin_lock_bh(&__get_cpu_var(ip_tables_lock));
+
+is _not_ correct. The latter will do "&__get_cpu_var(ip_tables_lock)"
+with no protection from the process being switched to another CPU.
+
+			Linus
