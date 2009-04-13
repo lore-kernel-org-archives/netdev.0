@@ -1,55 +1,48 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH 2/2] be2net: fix for default setting of pause
-	auto-negotiation
-Date: Mon, 13 Apr 2009 13:47:06 +0530
-Message-ID: <20090413081705.GE6824@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH 0/4] bonding: allow bond in mode balance-alb to work
+	properly in bridge -try5
+Date: Mon, 13 Apr 2009 10:37:30 +0200
+Message-ID: <20090413083729.GA23734@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Ajit Khaparde <ajitk@serverengines.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	kaber@trash.net, mschmidt@redhat.com, dada1@cosmosbay.com,
+	ivecera@redhat.com
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:21292 "EHLO
-	ajitk-desktop" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753133AbZDMIRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 04:17:09 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:53384 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751249AbZDMIjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 04:39:09 -0400
 Content-Disposition: inline
+In-Reply-To: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-This patch fixes the default value of pause auto-negotiation supported by
-PCS.
+(resend, updated changelog, completely reworked)
 
-Thanks
-Ajit
+Hi all.
 
+The problem is described in following bugzilla:
+https://bugzilla.redhat.com/show_bug.cgi?id=487763
 
+Basically here's what's going on. In every mode, bonding interface uses the same
+mac address for all enslaved devices (except fail_over_mac). Only balance-alb
+will simultaneously use multiple MAC addresses across different slaves. When you
+put this kind of bond device into a bridge it will only add one of mac adresses
+into a hash list of mac addresses, say X. This mac address is marked as local.
+But this bonding interface also has mac address Y. Now then packet arrives with
+destination address Y, this address is not marked as local and the packed looks
+like it needs to be forwarded. This packet is then lost which is wrong.
 
+Notice that interfaces can be added and removed from bond while it is in bridge.
 
+This patchset solves this issue in the best way it can be possibly solved. By
+adding all mac addresses of all slave devices to the bridge hash list. To carry
+these addresses the new list has to be introduced in struct net_device.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
-----
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 04f4b73..9592f22 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -319,7 +319,7 @@ be_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
- 
- 	be_cmd_get_flow_control(&adapter->ctrl, &ecmd->tx_pause,
- 		&ecmd->rx_pause);
--	ecmd->autoneg = AUTONEG_ENABLE;
-+	ecmd->autoneg = 0;
- }
- 
- static int
-@@ -328,7 +328,7 @@ be_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	int status;
- 
--	if (ecmd->autoneg != AUTONEG_ENABLE)
-+	if (ecmd->autoneg != 0)
- 		return -EINVAL;
- 
- 	status = be_cmd_set_flow_control(&adapter->ctrl, ecmd->tx_pause,
+Jirka
+
