@@ -1,47 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: iptables very slow after commit
- 784544739a25c30637397ace5489eeb6e15d7d49
-Date: Sun, 12 Apr 2009 18:13:30 -0700 (PDT)
-Message-ID: <20090412.181330.23529546.davem@davemloft.net>
-References: <20090411174801.GG6822@linux.vnet.ibm.com>
-	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>
-	<20090412173108.GO6822@linux.vnet.ibm.com>
+From: Zhang Rui <rui.zhang@intel.com>
+Subject: Re: 2.6.30-rc1 A few issues and a stall
+Date: Mon, 13 Apr 2009 10:05:07 +0800
+Message-ID: <1239588307.7661.209.camel@rzhang-dt>
+References: <200904121124.07193.edt@aei.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, mingo@elte.hu, torvalds@linux-foundation.org,
-	laijs@cn.fujitsu.com, shemminger@vyatta.com,
-	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
-	kaber@trash.net, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090412173108.GO6822@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>, Avi Kivity <avi@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
+To: Ed Tomlinson <edt@aei.ca>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <200904121124.07193.edt@aei.ca>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Sun, 12 Apr 2009 10:31:08 -0700
-
-> On Sun, Apr 12, 2009 at 09:34:27PM +1000, Paul Mackerras wrote:
->> Paul E. McKenney writes:
->> 
->> > If the generic implementation is needed only on !SMP systems, that
->> > could work.  The architectures I would be worried about include
->> > powerpc and ia64, which I believe support 32-bit SMP builds.
->> 
->> 32-bit powerpc doesn't have 64-bit atomic operations and does support
->> SMP.
->> 
->> What about ARM?  I thought they had 32-bit SMP these days as well.
+On Sun, 2009-04-12 at 23:24 +0800, Ed Tomlinson wrote:
+> Hi,
 > 
-> Some of Steve Hemminger's recent suggestions in this thread seem to me
-> to avoid this whole issue nicely.  But we will see!  ;-)
+> I got tired of building out of tree DRM drivers so decided to try 2.6.30-rc1.  For simple tasks
+> it works fine, for slightly more complex ones it is not quite as good...
+> 
+> Here is an example.  I normally start a kvm session with the commands below:
+> 
+> ed@grover ~/vm $ sudo modprobe tun
+> ed@grover ~/vm $ sudo brctl addbr br0
+> ed@grover ~/vm $ sudo ifconfig br0 192.168.100.254 netmask 255.255.255.0 up
+> ed@grover ~/vm $ sudo tunctl -b -u ed -t qtap0
+> qtap0
+> ed@grover ~/vm $ sudo brctl addif br0 qtap0
+> ed@grover ~/vm $ sudo ifconfig qtap0 up 0.0.0.0 promisc
+> ed@grover ~/vm $ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+> iptables v1.4.2: can't initialize iptables table `nat': Table does not exist (do you need to insmod?)
+> Perhaps iptables or your kernel needs to be upgraded.
+> 
+> Issue 1 - I need to manually modprobe be get iptables to work.  This exact procedure worked in 2.6.29.
+> 
+> ed@grover ~/vm $ sudo modprobe nf_nat
+> ed@grover ~/vm $ sudo modprobe ipt_MASQUERADE
+> ed@grover ~/vm $ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+> 
+> Once the above networking stuff is setup I start kvm with the command below
+> 
+> QEMU_AUDIO_DRV=alsa kvm -m 1024 -cdrom /mnt/sdc4/divx/archlinux-2009.02-ftp-i686.iso -boot c -smp 3 -usb -usbdevice tablet -vga std -drive file=arch.img -net nic,macaddr=52:54:00:12:34:23 -net tap,ifname=qtap0,script=no -soundhw all -mem-path /hugepages
+> 
+> which works and the kvm session boots just fine.  
+> 
+> Issue 2.  When I attempt to ping outside the kvm session the pc (not just the kvm session) hangs.
+> Its impossible to kill the kvm session and there are numerious info messages from RCU (tree RCU enabled)
+> about stalls.  
+> 
+> Issue 3.  ACPI is having fun during startup.  This does not seem to cause problems later but is 
+> noisy and probably should be fixed before .30's release.
+> 
+this is a duplicate of bug
+http://bugzilla.kernel.org/show_bug.cgi?id=13036
+please try the patch in comment #6 there and see if it helps.
 
-I hope so.
+thanks,
+rui
 
-Eventually it seems that all of the older 32-bit SMP platforms
-will be run under a bus having to execute some many "efficient"
-primitives using the "hash table of spinlocks" scheme for
-synchronization.
