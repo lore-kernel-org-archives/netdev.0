@@ -1,137 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
-Date: Mon, 13 Apr 2009 16:20:00 -0700
-Message-ID: <20090413162000.5f8d9a05@nehalam>
-References: <20090411174801.GG6822@linux.vnet.ibm.com>
-	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>
-	<20090412173108.GO6822@linux.vnet.ibm.com>
-	<20090412.181330.23529546.davem@davemloft.net>
-	<20090413040413.GQ6822@linux.vnet.ibm.com>
-	<20090413095309.631cf395@nehalam>
-	<20090413152437.c48723f6.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET/r8169: Rework suspend and resume
+Date: Mon, 13 Apr 2009 16:20:42 -0700 (PDT)
+Message-ID: <20090413.162042.79456870.davem@davemloft.net>
+References: <200904052040.04752.rjw@sisk.pl>
+	<20090405223318.5a494e4e@neptune.home>
+	<200904052359.31629.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, davem@davemloft.net, paulus@samba.org,
-	mingo@elte.hu, torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
-	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
-	kaber@trash.net, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39538 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482AbZDMXUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2009 19:20:19 -0400
-In-Reply-To: <20090413152437.c48723f6.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bonbons@linux-vserver.org, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-pm@lists.linux-foundation.org
+To: rjw@sisk.pl
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754367AbZDMXVM@vger.kernel.org>
+In-Reply-To: <200904052359.31629.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Apr 2009 15:24:37 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+=46rom: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Sun, 5 Apr 2009 23:59:31 +0200
 
-> On Mon, 13 Apr 2009 09:53:09 -0700
-> Stephen Hemminger <shemminger@vyatta.com> wrote:
-> 
-> > This is an alternative version of ip/ip6/arp tables locking using
-> > per-cpu locks.  This avoids the overhead of synchronize_net() during
-> > update but still removes the expensive rwlock in earlier versions.
-> > 
-> > The idea for this came from an earlier version done by Eric Duzamet.
-> > Locking is done per-cpu, the fast path locks on the current cpu
-> > and updates counters.  The slow case involves acquiring the locks on
-> > all cpu's.
-> > 
-> > The mutex that was added for 2.6.30 in xt_table is unnecessary since
-> > there already is a mutex for xt[af].mutex that is held.
-> > 
-> > Tested basic functionality (add/remove/list), but don't have test cases
-> > for stress, ip6tables or arptables.
-> > 
-> >  unsigned int
-> >  ipt_do_table(struct sk_buff *skb,
-> > @@ -339,9 +341,10 @@ ipt_do_table(struct sk_buff *skb,
-> >  
-> >  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
-> >  
-> > -	rcu_read_lock_bh();
-> > -	private = rcu_dereference(table->private);
-> > -	table_base = rcu_dereference(private->entries[smp_processor_id()]);
-> > +	local_bh_disable();
-> > +	spin_lock(&__get_cpu_var(ip_tables_lock));
-> 
-> spin_lock_bh()?
+> On Sunday 05 April 2009, Bruno Pr=E9mont wrote:
+>> On Sun, 05 April 2009 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+>> > From: Rafael J. Wysocki <rjw@sisk.pl>
+>> >=20
+>> > The recent changes of the PCI PM core allow us to simplify the
+>> > suspend and resume handling in a number of device drivers, since t=
+hey
+>> > don't need to carry out the general PCI PM operations, such as
+>> > changing the power state of the device, during suspend and resume =
+any
+>> > more.
+>> >=20
+>> > Simplify the suspend and resume callbacks of r8169 using the
+>> > observation that the PCI PM core can take care of some operations
+>> > carried out by the driver.
+>> >=20
+>> > Additionally, make the shutdown callback of r8169 only put the dev=
+ice
+>> > into a low power state if the system is going to be powered off
+>> > (kexec is known to have problems with network adapters that are pu=
+t
+>> > into low power states on shutdown).
+>> >=20
+>> > This patch has been tested on MSI Wind U100.
+>>=20
+>> Tested against 2.6.29.1 on my Commell LE-365 and suspend (S3) + WoL
+>> still works as expected.
+>>=20
+>> 02:08.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd.
+>>                      RTL-8169 Gigabit Ethernet [10ec:8169] (rev 10)
+>=20
+> Thanks for testing!
 
-No. get_cpu_var implies smp_processor_id which is not safe
-without preempt_disable (ie bh disable).
-
-> 
-> > +	private = table->private;
-> > +	table_base = private->entries[smp_processor_id()];
-> >  
-> >  	e = get_entry(table_base, private->hook_entry[hook]);
-> >  
-> > @@ -436,8 +439,8 @@ ipt_do_table(struct sk_buff *skb,
-> >  			e = (void *)e + e->next_offset;
-> >  		}
-> >  	} while (!hotdrop);
-> > -
-> > -	rcu_read_unlock_bh();
-> > +	spin_unlock(&__get_cpu_var(ip_tables_lock));
-> > +	local_bh_enable();
-> >  
-> >  #ifdef DEBUG_ALLOW_ALL
-> >  	return NF_ACCEPT;
-> > @@ -891,86 +894,34 @@ get_counters(const struct xt_table_info 
-> >  	     struct xt_counters counters[])
-> >  {
-> >  	unsigned int cpu;
-> > -	unsigned int i;
-> > -	unsigned int curcpu;
-> > +	unsigned int i = 0;
-> > +	unsigned int curcpu = raw_smp_processor_id();
-> >  
-> >  	/* Instead of clearing (by a previous call to memset())
-> >  	 * the counters and using adds, we set the counters
-> >  	 * with data used by 'current' CPU
-> >  	 * We dont care about preemption here.
-> >  	 */
-> > -	curcpu = raw_smp_processor_id();
-> > -
-> > -	i = 0;
-> > +	spin_lock_bh(&per_cpu(ip_tables_lock, curcpu));
-> >  	IPT_ENTRY_ITERATE(t->entries[curcpu],
-> >  			  t->size,
-> >  			  set_entry_to_counter,
-> >  			  counters,
-> >  			  &i);
-> > +	spin_unlock_bh(&per_cpu(ip_tables_lock, curcpu));
-> >  
-> >  	for_each_possible_cpu(cpu) {
-> >  		if (cpu == curcpu)
-> >  			continue;
-> > +
-> >  		i = 0;
-> > +		spin_lock_bh(&per_cpu(ip_tables_lock, cpu));
-> >  		IPT_ENTRY_ITERATE(t->entries[cpu],
-> >  				  t->size,
-> >  				  add_entry_to_counter,
-> >  				  counters,
-> >  				  &i);
-> > -	}
-> 
-> This would be racy against cpu hotplug if this code was hotplug-aware.
-> 
-> And it should be hotplug aware, really.  num_possible_cpus() can exceed
-> num_online_cpus().  The extent by which possible>online is
-> controversial, but one can conceive of situations where it is "lots".
-
-It is doing right thing already with hotplug.
-This code still needs to count packets processed by previously online
-cpu, that is no longer there.
-
-> Is lib/percpu_counter.c no good for this application?  Unfixably no
-> good?  That code automagically handles cpu hotplug.
-
-percpu_counter can't deal with the layout/load here.
+I've applied this patch to net-next-2.6, thanks everyone.
