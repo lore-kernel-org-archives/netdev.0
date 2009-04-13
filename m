@@ -1,78 +1,71 @@
-From: Ed Tomlinson <edt@aei.ca>
-Subject: Re: 2.6.30-rc1 A few issues and a stall
-Date: Mon, 13 Apr 2009 18:22:06 -0400
-Message-ID: <200904131822.06815.edt@aei.ca>
-References: <200904121124.07193.edt@aei.ca> <1239588307.7661.209.camel@rzhang-dt> <1239591031.4445.4091.camel@minggr.sh.intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
+Date: Mon, 13 Apr 2009 15:17:39 -0700
+Message-ID: <1239661059.9237.4.camel@HP1>
+References: <1239636594.3278.31.camel@mulgrave.int.hansenpartnership.com>
+ <20090413.143211.214694858.davem@davemloft.net>
+ <1239658951.3278.104.camel@mulgrave.int.hansenpartnership.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Zhang Rui <rui.zhang@intel.com>,
-	LKML <linux-kernel@vger.kernel.org>, Avi Kivity <avi@redhat.com>,
+Cc: "David Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
-To: Lin Ming <ming.m.lin@intel.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1239591031.4445.4091.camel@minggr.sh.intel.com>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "James Bottomley" <James.Bottomley@HansenPartnership.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4478 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754043AbZDMWX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 18:23:26 -0400
+In-Reply-To: <1239658951.3278.104.camel@mulgrave.int.hansenpartnership.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 12 April 2009 22:50:31 Lin Ming wrote:
-> On Mon, 2009-04-13 at 10:05 +0800, Zhang Rui wrote:
-> > On Sun, 2009-04-12 at 23:24 +0800, Ed Tomlinson wrote:
-> > > Hi,
-> > > 
-> > > I got tired of building out of tree DRM drivers so decided to try 2.6.30-rc1.  For simple tasks
-> > > it works fine, for slightly more complex ones it is not quite as good...
-> > > 
-> > > Here is an example.  I normally start a kvm session with the commands below:
-> > > 
-> > > ed@grover ~/vm $ sudo modprobe tun
-> > > ed@grover ~/vm $ sudo brctl addbr br0
-> > > ed@grover ~/vm $ sudo ifconfig br0 192.168.100.254 netmask 255.255.255.0 up
-> > > ed@grover ~/vm $ sudo tunctl -b -u ed -t qtap0
-> > > qtap0
-> > > ed@grover ~/vm $ sudo brctl addif br0 qtap0
-> > > ed@grover ~/vm $ sudo ifconfig qtap0 up 0.0.0.0 promisc
-> > > ed@grover ~/vm $ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-> > > iptables v1.4.2: can't initialize iptables table `nat': Table does not exist (do you need to insmod?)
-> > > Perhaps iptables or your kernel needs to be upgraded.
-> > > 
-> > > Issue 1 - I need to manually modprobe be get iptables to work.  This exact procedure worked in 2.6.29.
-> > > 
-> > > ed@grover ~/vm $ sudo modprobe nf_nat
-> > > ed@grover ~/vm $ sudo modprobe ipt_MASQUERADE
-> > > ed@grover ~/vm $ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-> > > 
-> > > Once the above networking stuff is setup I start kvm with the command below
-> > > 
-> > > QEMU_AUDIO_DRV=alsa kvm -m 1024 -cdrom /mnt/sdc4/divx/archlinux-2009.02-ftp-i686.iso -boot c -smp 3 -usb -usbdevice tablet -vga std -drive file=arch.img -net nic,macaddr=52:54:00:12:34:23 -net tap,ifname=qtap0,script=no -soundhw all -mem-path /hugepages
-> > > 
-> > > which works and the kvm session boots just fine.  
-> > > 
-> > > Issue 2.  When I attempt to ping outside the kvm session the pc (not just the kvm session) hangs.
-> > > Its impossible to kill the kvm session and there are numerious info messages from RCU (tree RCU enabled)
-> > > about stalls.  
-> > > 
-> > > Issue 3.  ACPI is having fun during startup.  This does not seem to cause problems later but is 
-> > > noisy and probably should be fixed before .30's release.
-> > > 
-> > this is a duplicate of bug
-> > http://bugzilla.kernel.org/show_bug.cgi?id=13036
-> > please try the patch in comment #6 there and see if it helps.
+
+On Mon, 2009-04-13 at 14:42 -0700, James Bottomley wrote:
+
+> ---
+> On Mon, 2009-04-13 at 11:37 -0700, Matt Carlson wrote:
+> > But that is exactly what the code is doing.  tg3_nvram_read_be32() will
+> > return the data in bytestream format.  A memcpy() should be all that is
+> > needed to transport the data to a different memory location.
 > 
-> please also have a try the patch in comment #10 (don't apply the patch
-> in comment #6).
+> But not the one you've done.  cpu_to_be32 is a nop pass through on our
+> architecture, so tg3_nvram_read_be32 is equivalent to tg3_nvram_read on
+> our architecture (i.e. identical to the code that was doing the read in
+> 2.6.29).  However, the memcpy is the wrong way around for us.  If you
+> look at an example, the original code said
 
-The patch from   http://bugzilla.kernel.org/show_bug.cgi?id=13036 in comment 10 cleans up the console 
-acpi messages nicely.
+The old tg3_nvram_read() had a swab32() after the readl().  The new
+tg3_nvram_read() no longer has the swab32().  There were too many layers
+of swapping in the old code and that's why Matt wanted to clean it up.
 
-<ACK> Ed  Tomlinson <edt@aei.ca>
+James, can do dump out the nvram content on the parisc?
 
-Except for the following entry which, possibily, is valid:
+ethtool -e eth0 length 0x90
 
-[    0.341115] ACPI Warning (tbutils-0246): Incorrect checksum in table [OEMB] - E8, should be DF [20090320]
+Thanks.
 
-Thanks,
-Ed
+> 
+> dev_addr[0] = hi >> 16;
+> dev_addr[1] = hi >> 24
+> 
+> So MSB-1 and MSB.  However, on a BE machine these are at offset one and
+> zero from the start of the word.  The replacement memcopy is:
+> 
+> memcpy(&dev->dev_addr[0], ((char *)&hi) + 2, 2)
+> 
+> i.e. offset 3 and 4, which actually copies LSB-1 and LSB into there.
+> You can follow similar logic to show that the lo copy is wrong too.
+> 
+> Perhaps the fix is just to put the tg3_nvram_read() back as well as the
+> original by loads?
+> ---
+> 
+> James
+> 
+> 
+> 
+
+
