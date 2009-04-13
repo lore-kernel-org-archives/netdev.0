@@ -1,42 +1,137 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] xtsonic: convert to net_device_ops
-Date: Mon, 13 Apr 2009 16:19:35 -0700 (PDT)
-Message-ID: <20090413.161935.118273968.davem@davemloft.net>
-References: <20090411173019.GA16999@orion>
-	<20090413.151904.74427510.davem@davemloft.net>
-	<a4423d670904131612pacc4f7fj4e8d03612a41a9b8@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Mon, 13 Apr 2009 16:20:00 -0700
+Message-ID: <20090413162000.5f8d9a05@nehalam>
+References: <20090411174801.GG6822@linux.vnet.ibm.com>
+	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>
+	<20090412173108.GO6822@linux.vnet.ibm.com>
+	<20090412.181330.23529546.davem@davemloft.net>
+	<20090413040413.GQ6822@linux.vnet.ibm.com>
+	<20090413095309.631cf395@nehalam>
+	<20090413152437.c48723f6.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: a.beregalov@gmail.com
+Cc: paulmck@linux.vnet.ibm.com, davem@davemloft.net, paulus@samba.org,
+	mingo@elte.hu, torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
+	kaber@trash.net, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37047
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752342AbZDMXTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 19:19:44 -0400
-In-Reply-To: <a4423d670904131612pacc4f7fj4e8d03612a41a9b8@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:39538 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751482AbZDMXUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 19:20:19 -0400
+In-Reply-To: <20090413152437.c48723f6.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Date: Tue, 14 Apr 2009 03:12:27 +0400
+On Mon, 13 Apr 2009 15:24:37 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-> 2009/4/14 David Miller <davem@davemloft.net>:
->> From: Alexander Beregalov <a.beregalov@gmail.com>
->> Date: Sat, 11 Apr 2009 21:30:19 +0400
->>
->>> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
->>
->> Applied.
+> On Mon, 13 Apr 2009 09:53:09 -0700
+> Stephen Hemminger <shemminger@vyatta.com> wrote:
 > 
-> Thanks David.
+> > This is an alternative version of ip/ip6/arp tables locking using
+> > per-cpu locks.  This avoids the overhead of synchronize_net() during
+> > update but still removes the expensive rwlock in earlier versions.
+> > 
+> > The idea for this came from an earlier version done by Eric Duzamet.
+> > Locking is done per-cpu, the fast path locks on the current cpu
+> > and updates counters.  The slow case involves acquiring the locks on
+> > all cpu's.
+> > 
+> > The mutex that was added for 2.6.30 in xt_table is unnecessary since
+> > there already is a mutex for xt[af].mutex that is held.
+> > 
+> > Tested basic functionality (add/remove/list), but don't have test cases
+> > for stress, ip6tables or arptables.
+> > 
+> >  unsigned int
+> >  ipt_do_table(struct sk_buff *skb,
+> > @@ -339,9 +341,10 @@ ipt_do_table(struct sk_buff *skb,
+> >  
+> >  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+> >  
+> > -	rcu_read_lock_bh();
+> > -	private = rcu_dereference(table->private);
+> > -	table_base = rcu_dereference(private->entries[smp_processor_id()]);
+> > +	local_bh_disable();
+> > +	spin_lock(&__get_cpu_var(ip_tables_lock));
 > 
-> It seems build should not fail with !CONFIG_COMPAT_NET_DEV_OPS anymore.
-> Perhaps it can be changed to "default n" in next release (-next and 2.6.31) ?
+> spin_lock_bh()?
 
-I think we probably do that, sure.  I'll try to remember to do
-this next time I merge net-2.6 into net-next-2.6
+No. get_cpu_var implies smp_processor_id which is not safe
+without preempt_disable (ie bh disable).
 
-And after a few weeks of -next exposure I think we can remove
-the option and protected code entirely.
+> 
+> > +	private = table->private;
+> > +	table_base = private->entries[smp_processor_id()];
+> >  
+> >  	e = get_entry(table_base, private->hook_entry[hook]);
+> >  
+> > @@ -436,8 +439,8 @@ ipt_do_table(struct sk_buff *skb,
+> >  			e = (void *)e + e->next_offset;
+> >  		}
+> >  	} while (!hotdrop);
+> > -
+> > -	rcu_read_unlock_bh();
+> > +	spin_unlock(&__get_cpu_var(ip_tables_lock));
+> > +	local_bh_enable();
+> >  
+> >  #ifdef DEBUG_ALLOW_ALL
+> >  	return NF_ACCEPT;
+> > @@ -891,86 +894,34 @@ get_counters(const struct xt_table_info 
+> >  	     struct xt_counters counters[])
+> >  {
+> >  	unsigned int cpu;
+> > -	unsigned int i;
+> > -	unsigned int curcpu;
+> > +	unsigned int i = 0;
+> > +	unsigned int curcpu = raw_smp_processor_id();
+> >  
+> >  	/* Instead of clearing (by a previous call to memset())
+> >  	 * the counters and using adds, we set the counters
+> >  	 * with data used by 'current' CPU
+> >  	 * We dont care about preemption here.
+> >  	 */
+> > -	curcpu = raw_smp_processor_id();
+> > -
+> > -	i = 0;
+> > +	spin_lock_bh(&per_cpu(ip_tables_lock, curcpu));
+> >  	IPT_ENTRY_ITERATE(t->entries[curcpu],
+> >  			  t->size,
+> >  			  set_entry_to_counter,
+> >  			  counters,
+> >  			  &i);
+> > +	spin_unlock_bh(&per_cpu(ip_tables_lock, curcpu));
+> >  
+> >  	for_each_possible_cpu(cpu) {
+> >  		if (cpu == curcpu)
+> >  			continue;
+> > +
+> >  		i = 0;
+> > +		spin_lock_bh(&per_cpu(ip_tables_lock, cpu));
+> >  		IPT_ENTRY_ITERATE(t->entries[cpu],
+> >  				  t->size,
+> >  				  add_entry_to_counter,
+> >  				  counters,
+> >  				  &i);
+> > -	}
+> 
+> This would be racy against cpu hotplug if this code was hotplug-aware.
+> 
+> And it should be hotplug aware, really.  num_possible_cpus() can exceed
+> num_online_cpus().  The extent by which possible>online is
+> controversial, but one can conceive of situations where it is "lots".
+
+It is doing right thing already with hotplug.
+This code still needs to count packets processed by previously online
+cpu, that is no longer there.
+
+> Is lib/percpu_counter.c no good for this application?  Unfixably no
+> good?  That code automagically handles cpu hotplug.
+
+percpu_counter can't deal with the layout/load here.
