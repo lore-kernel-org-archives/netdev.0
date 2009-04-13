@@ -1,199 +1,121 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
-Date: Mon, 13 Apr 2009 22:32:14 +0000
-Message-ID: <1239661934.3278.113.camel@mulgrave.int.hansenpartnership.com>
-References: <1239636594.3278.31.camel@mulgrave.int.hansenpartnership.com>
-	 <20090413.143211.214694858.davem@davemloft.net>
-	 <1239658951.3278.104.camel@mulgrave.int.hansenpartnership.com>
-	 <1239661059.9237.4.camel@HP1>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Mon, 13 Apr 2009 15:24:37 -0700
+Message-ID: <20090413152437.c48723f6.akpm@linux-foundation.org>
+References: <20090411174801.GG6822@linux.vnet.ibm.com>
+	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>
+	<20090412173108.GO6822@linux.vnet.ibm.com>
+	<20090412.181330.23529546.davem@davemloft.net>
+	<20090413040413.GQ6822@linux.vnet.ibm.com>
+	<20090413095309.631cf395@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	Matthew Carlson <mcarlson@broadcom.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <1239661059.9237.4.camel@HP1>
-Sender: linux-parisc-owner@vger.kernel.org
+Cc: paulmck@linux.vnet.ibm.com, davem@davemloft.net, paulus@samba.org,
+	mingo@elte.hu, torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jeff.chua.linux@gmail.com, dada1@cosmosbay.com, jengelh@medozas.de,
+	kaber@trash.net, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090413095309.631cf395@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-04-13 at 15:17 -0700, Michael Chan wrote:
-> On Mon, 2009-04-13 at 14:42 -0700, James Bottomley wrote:
-> 
-> > ---
-> > On Mon, 2009-04-13 at 11:37 -0700, Matt Carlson wrote:
-> > > But that is exactly what the code is doing.  tg3_nvram_read_be32() will
-> > > return the data in bytestream format.  A memcpy() should be all that is
-> > > needed to transport the data to a different memory location.
-> > 
-> > But not the one you've done.  cpu_to_be32 is a nop pass through on our
-> > architecture, so tg3_nvram_read_be32 is equivalent to tg3_nvram_read on
-> > our architecture (i.e. identical to the code that was doing the read in
-> > 2.6.29).  However, the memcpy is the wrong way around for us.  If you
-> > look at an example, the original code said
-> 
-> The old tg3_nvram_read() had a swab32() after the readl().  The new
-> tg3_nvram_read() no longer has the swab32().  There were too many layers
-> of swapping in the old code and that's why Matt wanted to clean it up.
-> 
-> James, can do dump out the nvram content on the parisc?
-> 
-> ethtool -e eth0 length 0x90
-> 
-> Thanks.
+On Mon, 13 Apr 2009 09:53:09 -0700
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-Sure, ion's is
+> This is an alternative version of ip/ip6/arp tables locking using
+> per-cpu locks.  This avoids the overhead of synchronize_net() during
+> update but still removes the expensive rwlock in earlier versions.
+> 
+> The idea for this came from an earlier version done by Eric Duzamet.
+> Locking is done per-cpu, the fast path locks on the current cpu
+> and updates counters.  The slow case involves acquiring the locks on
+> all cpu's.
+> 
+> The mutex that was added for 2.6.30 in xt_table is unnecessary since
+> there already is a mutex for xt[af].mutex that is held.
+> 
+> Tested basic functionality (add/remove/list), but don't have test cases
+> for stress, ip6tables or arptables.
+> 
+>  unsigned int
+>  ipt_do_table(struct sk_buff *skb,
+> @@ -339,9 +341,10 @@ ipt_do_table(struct sk_buff *skb,
+>  
+>  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+>  
+> -	rcu_read_lock_bh();
+> -	private = rcu_dereference(table->private);
+> -	table_base = rcu_dereference(private->entries[smp_processor_id()]);
+> +	local_bh_disable();
+> +	spin_lock(&__get_cpu_var(ip_tables_lock));
 
-ion:~# ethtool -e eth0 length 0x90
-Address         Data
-----------      ----
-0x00000000      0xaa
-0x00000001      0x55
-0x00000002      0x99
-0x00000003      0x66
-0x00000004      0x00
-0x00000005      0x00
-0x00000006      0x00
-0x00000007      0x08
-0x00000008      0x29
-0x00000009      0x02
-0x0000000a      0x00
-0x0000000b      0x00
-0x0000000c      0x00
-0x0000000d      0x02
-0x0000000e      0x00
-0x0000000f      0x00
-0x00000010      0xc5
-0x00000011      0x3c
-0x00000012      0x82
-0x00000013      0x9b
-0x00000014      0x00
-0x00000015      0x00
-0x00000016      0x00
-0x00000017      0x00
-0x00000018      0x00
-0x00000019      0x00
-0x0000001a      0x00
-0x0000001b      0x00
-0x0000001c      0x00
-0x0000001d      0x00
-0x0000001e      0x00
-0x0000001f      0x00
-0x00000020      0x00
-0x00000021      0x00
-0x00000022      0x00
-0x00000023      0x00
-0x00000024      0x00
-0x00000025      0x00
-0x00000026      0x00
-0x00000027      0x00
-0x00000028      0x00
-0x00000029      0x00
-0x0000002a      0x00
-0x0000002b      0x00
-0x0000002c      0x00
-0x0000002d      0x00
-0x0000002e      0x00
-0x0000002f      0x00
-0x00000030      0x00
-0x00000031      0x00
-0x00000032      0x00
-0x00000033      0x00
-0x00000034      0x00
-0x00000035      0x00
-0x00000036      0x00
-0x00000037      0x00
-0x00000038      0x00
-0x00000039      0x00
-0x0000003a      0x00
-0x0000003b      0x00
-0x0000003c      0x00
-0x0000003d      0x00
-0x0000003e      0x00
-0x0000003f      0x00
-0x00000040      0x00
-0x00000041      0x00
-0x00000042      0x00
-0x00000043      0x00
-0x00000044      0x00
-0x00000045      0x00
-0x00000046      0x00
-0x00000047      0x00
-0x00000048      0x00
-0x00000049      0x00
-0x0000004a      0x00
-0x0000004b      0x00
-0x0000004c      0x00
-0x0000004d      0x00
-0x0000004e      0x00
-0x0000004f      0x00
-0x00000050      0x00
-0x00000051      0x00
-0x00000052      0x00
-0x00000053      0x00
-0x00000054      0x00
-0x00000055      0x00
-0x00000056      0x00
-0x00000057      0x00
-0x00000058      0x00
-0x00000059      0x00
-0x0000005a      0x00
-0x0000005b      0x00
-0x0000005c      0x00
-0x0000005d      0x00
-0x0000005e      0x00
-0x0000005f      0x00
-0x00000060      0x00
-0x00000061      0x00
-0x00000062      0x00
-0x00000063      0x00
-0x00000064      0x00
-0x00000065      0x00
-0x00000066      0x00
-0x00000067      0x00
-0x00000068      0x00
-0x00000069      0x00
-0x0000006a      0x00
-0x0000006b      0x00
-0x0000006c      0x00
-0x0000006d      0x00
-0x0000006e      0x00
-0x0000006f      0x00
-0x00000070      0x00
-0x00000071      0x00
-0x00000072      0x00
-0x00000073      0x00
-0x00000074      0x8c
-0x00000075      0x00
-0x00000076      0x00
-0x00000077      0x43
-0x00000078      0x10
-0x00000079      0x61
-0x0000007a      0x20
-0x0000007b      0x00
-0x0000007c      0x30
-0x0000007d      0x00
-0x0000007e      0x00
-0x0000007f      0x00
-0x00000080      0x59
-0x00000081      0x15
-0x00000082      0x4b
-0x00000083      0x6e
-0x00000084      0x39
-0x00000085      0x4d
-0x00000086      0x43
-0x00000087      0x42
-0x00000088      0x30
-0x00000089      0x30
-0x0000008a      0x37
-0x0000008b      0x35
-0x0000008c      0x00
-0x0000008d      0x00
-0x0000008e      0x36
-0x0000008f      0x41
+spin_lock_bh()?
 
-James
+> +	private = table->private;
+> +	table_base = private->entries[smp_processor_id()];
+>  
+>  	e = get_entry(table_base, private->hook_entry[hook]);
+>  
+> @@ -436,8 +439,8 @@ ipt_do_table(struct sk_buff *skb,
+>  			e = (void *)e + e->next_offset;
+>  		}
+>  	} while (!hotdrop);
+> -
+> -	rcu_read_unlock_bh();
+> +	spin_unlock(&__get_cpu_var(ip_tables_lock));
+> +	local_bh_enable();
+>  
+>  #ifdef DEBUG_ALLOW_ALL
+>  	return NF_ACCEPT;
+> @@ -891,86 +894,34 @@ get_counters(const struct xt_table_info 
+>  	     struct xt_counters counters[])
+>  {
+>  	unsigned int cpu;
+> -	unsigned int i;
+> -	unsigned int curcpu;
+> +	unsigned int i = 0;
+> +	unsigned int curcpu = raw_smp_processor_id();
+>  
+>  	/* Instead of clearing (by a previous call to memset())
+>  	 * the counters and using adds, we set the counters
+>  	 * with data used by 'current' CPU
+>  	 * We dont care about preemption here.
+>  	 */
+> -	curcpu = raw_smp_processor_id();
+> -
+> -	i = 0;
+> +	spin_lock_bh(&per_cpu(ip_tables_lock, curcpu));
+>  	IPT_ENTRY_ITERATE(t->entries[curcpu],
+>  			  t->size,
+>  			  set_entry_to_counter,
+>  			  counters,
+>  			  &i);
+> +	spin_unlock_bh(&per_cpu(ip_tables_lock, curcpu));
+>  
+>  	for_each_possible_cpu(cpu) {
+>  		if (cpu == curcpu)
+>  			continue;
+> +
+>  		i = 0;
+> +		spin_lock_bh(&per_cpu(ip_tables_lock, cpu));
+>  		IPT_ENTRY_ITERATE(t->entries[cpu],
+>  				  t->size,
+>  				  add_entry_to_counter,
+>  				  counters,
+>  				  &i);
+> -	}
+
+This would be racy against cpu hotplug if this code was hotplug-aware.
+
+And it should be hotplug aware, really.  num_possible_cpus() can exceed
+num_online_cpus().  The extent by which possible>online is
+controversial, but one can conceive of situations where it is "lots".
+
+Is lib/percpu_counter.c no good for this application?  Unfixably no
+good?  That code automagically handles cpu hotplug.
 
 
