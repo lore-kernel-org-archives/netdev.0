@@ -1,11 +1,11 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/4] net: bridge: use device address list instead of
- dev_addr
-Date: Mon, 13 Apr 2009 07:54:00 -0700
-Message-ID: <20090413075400.34604e72@nehalam>
+Subject: Re: [PATCH 4/4] net: bonding: add slave device addresses in mode
+ alb
+Date: Mon, 13 Apr 2009 07:56:38 -0700
+Message-ID: <20090413075638.61839874@nehalam>
 References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
 	<20090413083729.GA23734@psychotron.englab.brq.redhat.com>
-	<20090413084407.GD23734@psychotron.englab.brq.redhat.com>
+	<20090413084614.GE23734@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -15,127 +15,62 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	bonding-devel@lists.sourceforge.net, kaber@trash.net,
 	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
 To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754705AbZDMOyZ@vger.kernel.org>
-In-Reply-To: <20090413084407.GD23734@psychotron.englab.brq.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42075 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754258AbZDMO4p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 10:56:45 -0400
+In-Reply-To: <20090413084614.GE23734@psychotron.englab.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 13 Apr 2009 10:44:08 +0200
+On Mon, 13 Apr 2009 10:46:15 +0200
 Jiri Pirko <jpirko@redhat.com> wrote:
 
-> This patch changes the handling of mac addresses of bridge port devices. Now
-> it uses previously introduced list of device addresses. It allows the bridge to
-> know more then one local mac address per port which is mandatory for the right
-> work in some cases.
+> When in mode alb, add all device addresses which belong to an enslaved slave
+> device to the bond device. This ensures that all mac addresses will be
+> treated as local and bonding in this mode will work fine in bridge.
 > 
 > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 > ---
->  net/bridge/br_fdb.c     |  120 +++++++++++++++++++++++++++++++++--------------
->  net/bridge/br_if.c      |    2 +-
->  net/bridge/br_notify.c  |    2 +-
->  net/bridge/br_private.h |    4 +-
->  4 files changed, 89 insertions(+), 39 deletions(-)
+>  drivers/net/bonding/bond_main.c |   30 +++++++++++++++++++++++++++++-
+>  1 files changed, 29 insertions(+), 1 deletions(-)
 > 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index a48f5ef..6efc556 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -77,10 +77,45 @@ static inline void fdb_delete(struct net_bridge_fdb_entry *f)
->  	br_fdb_put(f);
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 99610f3..47795c7 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1385,6 +1385,11 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
+>  	bond->setup_by_slave = 1;
 >  }
 >  
-> -void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
-> +/*
-> + * Finds out if passed address is one of the addresses assigned to the device.
-> + * Returns 1 on positive result
-> + */
-> +static inline int is_dev_addr(struct net_device *dev, unsigned char *addr)
-
-Why not a general version in net_device.h or etherdevice.h?
-
-static inline bool is_etherdev_addr(const struct net_device *dev, const unsigned char addr[ETH_ALEN])
-
+> +static inline int should_copy_dev_addrs(struct bonding *bond)
 > +{
-> +	struct hw_addr *ha;
-> +	int ret = 1;
-> +
-> +	netif_dev_addr_lock_bh(dev);
-> +	for_each_dev_addr(dev, ha) {
-User RCU
-
-> +		ret = compare_ether_addr(addr, ha->addr);
-> +		if (!ret)
-> +			break;
-> +	}
-> +	netif_dev_addr_unlock_bh(dev);
-> +	return !ret ? 1 : 0;
-> +}
-> +
-> +static int another_port_has_addr(const struct net_bridge_port *p,
-> +				 struct net_bridge_fdb_entry *f)
-> +{
-> +	struct net_bridge *br = p->br;
-> +	struct net_bridge_port *op;
-> +
-> +	list_for_each_entry(op, &br->port_list, list) {
-> +		if (op != p && is_dev_addr(op->dev, f->addr.addr)) {
-> +			f->dst = op;
-> +			return 1;
-> +		}
-> +	}
-> +	return 0;
+> +	return bond->params.mode == BOND_MODE_ALB ? 1 : 0;
 > +}
 
-Forwarding database is hot path, people sometimes run lots of devices
-on single bridge, doesn't this scale worse?
+static inline bool should_copy_dev_addrs(const struct bonding *bond)
+{
+	return (bond->params.mode == BOND_MODE_ALB);
+}
 
-> +void br_fdb_changeaddr(struct net_bridge_port *p, struct net_device *dev)
+Three things are wrong with your style here:
+   1. Needless use of tri-graph operator, just return the result
+   2. Use const for test_foo() type functions
+   3. Use bool to make it clearer what the result is.
+
+>  /* enslave device <slave> to bond device <master> */
+>  int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 >  {
->  	struct net_bridge *br = p->br;
->  	int i;
-> +	struct hw_addr *ha;
+> @@ -1510,6 +1515,13 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  	 */
+>  	new_slave->original_flags = slave_dev->flags;
 >  
->  	spin_lock_bh(&br->hash_lock);
->  
-> @@ -92,26 +127,23 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
->  
->  			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
->  			if (f->dst == p && f->is_local) {
-> -				/* maybe another port has same hw addr? */
-> -				struct net_bridge_port *op;
-> -				list_for_each_entry(op, &br->port_list, list) {
-> -					if (op != p &&
-> -					    !compare_ether_addr(op->dev->dev_addr,
-> -								f->addr.addr)) {
-> -						f->dst = op;
-> -						goto insert;
-> -					}
-> -				}
-> -
-> -				/* delete old one */
-> -				fdb_delete(f);
-> -				goto insert;
-> +				/*
-> +				 * maybe another port has same hw addr?,
-> +				 * if not then delete it
-> +				 */
-> +				if (!another_port_has_addr(p, f))
-> +					fdb_delete(f);
->  			}
->  		}
->  	}
-> - insert:
-> -	/* insert new address,  may fail if invalid address or dup. */
-> -	fdb_insert(br, p, newaddr);
-> +
-> +	/* insert device addresses, may fail if invalid address. */
-> +
-> +	netif_dev_addr_lock_bh(dev);
-> +	for_each_dev_addr(dev, ha) {
-> +		fdb_insert(br, p, ha->addr);
-> +	}
-> +	netif_dev_addr_unlock_bh(dev);
->
+> +	if (should_copy_dev_addrs(bond)) {
+> +		res = dev_addr_add_multiple(bond_dev, slave_dev);
+> +		if (res)
+> +			goto err_free;
+> +		dev_mac_address_changed(bond_dev);
 
-You added another layer of locking on the already hot bridge
-fast path.
+The notifier (dev_mac_address_changed) should be part of dev_addr_add
+
