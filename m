@@ -1,45 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] phylib: Allow early-out in phy_change
-Date: Mon, 13 Apr 2009 14:52:10 -0700 (PDT)
-Message-ID: <20090413.145210.265793440.davem@davemloft.net>
-References: <1239105703-26240-1-git-send-email-agust@denx.de>
-	<1239105703-26240-2-git-send-email-agust@denx.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: initial congestion window for connections in the listen queue
+Date: Tue, 14 Apr 2009 00:54:40 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0904140051100.9234@wrl-59.cs.helsinki.fi>
+References: <200904132346.15783.opurdila@ixiacom.com>
+ <20090413.142653.267913010.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com
-To: agust@denx.de
+Cc: opurdila@ixiacom.com, Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40012
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751467AbZDMVwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 17:52:19 -0400
-In-Reply-To: <1239105703-26240-2-git-send-email-agust@denx.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47916 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbZDMVyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 17:54:44 -0400
+In-Reply-To: <20090413.142653.267913010.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anatolij Gustschin <agust@denx.de>
-Date: Tue,  7 Apr 2009 14:01:42 +0200
+On Mon, 13 Apr 2009, David Miller wrote:
 
-> Marvell 88E1121R Dual PHY device can be hardware-configured
-> to use shared interrupt pin for both PHY ports. For such
-> PHY configurations using shared PHY interrupt phy_interrupt()
-> handler will also schedule a work for PHY port which didn't
-> cause an interrupt.
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Mon, 13 Apr 2009 23:46:15 +0300
 > 
-> This patch adds a possibility for PHY drivers to provide
-> did_interrupt() function which reports if the PHY (or a PHY
-> port in a multi-PHY device) generated an interrupt. This
-> function is called in phy_change() as phy_change() shouldn't
-> proceed if it is invoked for a PHY which didn't cause an
-> interrupt. So check for interrupt originator in phy_change()
-> to allow early-out.
+> > 
+> > A question for the TCP wizards:
+> > 
+> >>struct sock *tcp_create_openreq_child(struct sock *sk, 
+> >>        struct request_sock >*req, struct sk_buff *skb)
+> >>{
+> >>...
+> >>         /* So many TCP implementations out there (incorrectly) count the
+> >>          * initial SYN frame in their delayed-ACK and congestion control
+> >>          * algorithms that we must have the following bandaid to talk 
+> >>          * efficiently to them.  -DaveM
+> >>          */
+> >>          newtp->snd_cwnd = 2;
+> > 
+> > Shouldn't the same logic from tcp_init_cwnd() be used here?
+> > 
+> >>From my traces, this seems to prevent TSO from helping short lived 
+> > connections.
 > 
-> Signed-off-by: Anatolij Gustschin <agust@denx.de>
+> On any standard ethernet MTU or larger, you should be getting
+> an initial CWND of 3 or 4 because of the logic in tcp_init_cwnd().
+> 
+> Don't just guesstimate what initial ->snd_cwnd value the
+> kernel is using by looking casually at tcpdump traces.  Add
+> some kernel debugging printk's and find out for sure.
 
-Applied.
+A long-standing feature in tcp_init_metrics() is such that any of its goto 
+reset prevents call to tcp_init_cwnd(). I never remembered to fix that.
 
-> +	 * For multy-PHY devices with shared PHY interrupt pin
-               ^^^^^
-
-I fixed that typo when commiting this change.
+-- 
+ i.
