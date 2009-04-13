@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
-Date: Mon, 13 Apr 2009 14:44:18 -0700 (PDT)
-Message-ID: <20090413.144418.242388332.davem@davemloft.net>
-References: <1239636594.3278.31.camel@mulgrave.int.hansenpartnership.com>
-	<20090413.143211.214694858.davem@davemloft.net>
-	<1239658951.3278.104.camel@mulgrave.int.hansenpartnership.com>
+Subject: Re: [PATCH 1/3] phylib: Basic support for the M88E1121R Marvell
+ chip
+Date: Mon, 13 Apr 2009 14:51:43 -0700 (PDT)
+Message-ID: <20090413.145143.109546071.davem@davemloft.net>
+References: <1239105703-26240-1-git-send-email-agust@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
-	mcarlson@broadcom.com, mchan@broadcom.com
-To: James.Bottomley@HansenPartnership.com
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <1239658951.3278.104.camel@mulgrave.int.hansenpartnership.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, afleming@freescale.com,
+	sposelenov@emcraft.com, yur@emcraft.com
+To: agust@denx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40000
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751035AbZDMVvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 17:51:52 -0400
+In-Reply-To: <1239105703-26240-1-git-send-email-agust@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Mon, 13 Apr 2009 21:42:31 +0000
+From: Anatolij Gustschin <agust@denx.de>
+Date: Tue,  7 Apr 2009 14:01:41 +0200
 
-> Actually, hang on ... I fat fingered the list address first time around
-> and we've been replying on the wrong list.
+> From: Sergei Poselenov <sposelenov@emcraft.com>
 > 
-> Michael apparently has the code working for sparc and we're all a bit
-> stumped why it doesn't work on parisc since they should follow identical
-> code paths.
+> Add support for the Marvell M88E1121R Dual GigE PHY
 > 
-> This is the latest state of play:
+> Signed-off-by: Yuri Tikhonov <yur@emcraft.com>
+> Signed-off-by: Sergei Poselenov <sposelenov@emcraft.com>
+> Signed-off-by: Anatolij Gustschin <agust@denx.de>
 
-Too late, I already pushed out to my net-2.6 tree on kernel.org
-
-You'll need to send me any fixups relative to this patch.
-
-Thanks.
+Applied.
