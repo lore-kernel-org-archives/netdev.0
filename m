@@ -1,7 +1,8 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH 2/4] net: introduce a list of device addresses dev_addr_list
-Date: Mon, 13 Apr 2009 10:42:02 +0200
-Message-ID: <20090413084201.GC23734@psychotron.englab.brq.redhat.com>
+Subject: [PATCH 3/4] net: bridge: use device address list instead of
+	dev_addr
+Date: Mon, 13 Apr 2009 10:44:08 +0200
+Message-ID: <20090413084407.GD23734@psychotron.englab.brq.redhat.com>
 References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090413083729.GA23734@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -12,407 +13,246 @@ Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
 	ivecera@redhat.com
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:59785 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:48437 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751792AbZDMInd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2009 04:43:33 -0400
+	id S1750899AbZDMIqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 04:46:39 -0400
 Content-Disposition: inline
 In-Reply-To: <20090413083729.GA23734@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces a new list in struct net_device and brings a set of
-functions to handle the work with device address list. The list is a replacement
-for the original dev_addr field and because in some situations there is need to
-carry several device addresses with the net device. To be backward compatible,
-dev_addr is made to point to the first member of the list so original drivers
-sees no difference.
+This patch changes the handling of mac addresses of bridge port devices. Now
+it uses previously introduced list of device addresses. It allows the bridge to
+know more then one local mac address per port which is mandatory for the right
+work in some cases.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- include/linux/netdevice.h |   51 +++++++++-
- net/core/dev.c            |  264 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 313 insertions(+), 2 deletions(-)
+ net/bridge/br_fdb.c     |  120 +++++++++++++++++++++++++++++++++--------------
+ net/bridge/br_if.c      |    2 +-
+ net/bridge/br_notify.c  |    2 +-
+ net/bridge/br_private.h |    4 +-
+ 4 files changed, 89 insertions(+), 39 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ff8db51..8cf62f1 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -210,6 +210,12 @@ struct dev_addr_list
- #define dmi_users	da_users
- #define dmi_gusers	da_gusers
- 
-+struct hw_addr {
-+	struct list_head	list;
-+	unsigned char		addr[MAX_ADDR_LEN];
-+	int			refcount;
-+};
-+
- struct hh_cache
- {
- 	struct hh_cache *hh_next;	/* Next entry			     */
-@@ -776,8 +782,12 @@ struct net_device
-  */
- 	unsigned long		last_rx;	/* Time of last Rx	*/
- 	/* Interface address info used in eth_type_trans() */
--	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast
--							   because most packets are unicast) */
-+	unsigned char		*dev_addr;	/* hw address, (before bcast
-+						   because most packets are
-+						   unicast) */
-+
-+	struct list_head	dev_addr_list; /* list of device hw addresses */
-+	spinlock_t              dev_addr_list_lock;
- 
- 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
- 
-@@ -1779,6 +1789,32 @@ static inline void netif_addr_unlock_bh(struct net_device *dev)
- 	spin_unlock_bh(&dev->addr_list_lock);
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index a48f5ef..6efc556 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -77,10 +77,45 @@ static inline void fdb_delete(struct net_bridge_fdb_entry *f)
+ 	br_fdb_put(f);
  }
  
-+/* Locking helpers for spinlock guarding dev_addr_list */
-+
-+static inline void netif_dev_addr_lock(struct net_device *dev)
-+{
-+	spin_lock(&dev->dev_addr_list_lock);
-+}
-+
-+static inline void netif_dev_addr_lock_bh(struct net_device *dev)
-+{
-+	spin_lock_bh(&dev->dev_addr_list_lock);
-+}
-+
-+static inline void netif_dev_addr_unlock(struct net_device *dev)
-+{
-+	spin_unlock(&dev->dev_addr_list_lock);
-+}
-+
-+static inline void netif_dev_addr_unlock_bh(struct net_device *dev)
-+{
-+	spin_unlock_bh(&dev->dev_addr_list_lock);
-+}
-+
-+/* dev_addr_list walker */
-+#define for_each_dev_addr(dev, ha) \
-+		list_for_each_entry(ha, &dev->dev_addr_list, list)
-+
- /* These functions live elsewhere (drivers/net/net_init.c, but related) */
- 
- extern void		ether_setup(struct net_device *dev);
-@@ -1791,6 +1827,17 @@ extern struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	alloc_netdev_mq(sizeof_priv, name, setup, 1)
- extern int		register_netdev(struct net_device *dev);
- extern void		unregister_netdev(struct net_device *dev);
-+
-+/* Functions used for device addresses handling */
-+extern int		dev_addr_add(struct net_device *dev,
-+				     unsigned char *addr);
-+extern int		dev_addr_del(struct net_device *dev,
-+				     unsigned char *addr);
-+extern int		dev_addr_add_multiple(struct net_device *to_dev,
-+					      struct net_device *from_dev);
-+extern int		dev_addr_del_multiple(struct net_device *to_dev,
-+					      struct net_device *from_dev);
-+
- /* Functions used for secondary unicast and multicast support */
- extern void		dev_set_rx_mode(struct net_device *dev);
- extern void		__dev_set_rx_mode(struct net_device *dev);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1adc89b..0b154b3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3437,6 +3437,263 @@ void dev_set_rx_mode(struct net_device *dev)
- 	netif_addr_unlock_bh(dev);
- }
- 
-+/* hw addresses list handling functions */
-+
-+static int __hw_addr_add_ii(struct list_head *list, unsigned char *addr,
-+			    int addr_len, int ignore_index)
+-void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
++/*
++ * Finds out if passed address is one of the addresses assigned to the device.
++ * Returns 1 on positive result
++ */
++static inline int is_dev_addr(struct net_device *dev, unsigned char *addr)
 +{
 +	struct hw_addr *ha;
-+	int i = 0;
++	int ret = 1;
 +
-+	if (addr_len > MAX_ADDR_LEN)
-+		return -EINVAL;
++	netif_dev_addr_lock_bh(dev);
++	for_each_dev_addr(dev, ha) {
++		ret = compare_ether_addr(addr, ha->addr);
++		if (!ret)
++			break;
++	}
++	netif_dev_addr_unlock_bh(dev);
++	return !ret ? 1 : 0;
++}
 +
-+	list_for_each_entry(ha, list, list) {
-+		if (i++ != ignore_index &&
-+		    !memcmp(ha->addr, addr, addr_len)) {
-+			ha->refcount++;
-+			return 0;
++static int another_port_has_addr(const struct net_bridge_port *p,
++				 struct net_bridge_fdb_entry *f)
++{
++	struct net_bridge *br = p->br;
++	struct net_bridge_port *op;
++
++	list_for_each_entry(op, &br->port_list, list) {
++		if (op != p && is_dev_addr(op->dev, f->addr.addr)) {
++			f->dst = op;
++			return 1;
 +		}
 +	}
-+
-+	ha = kzalloc(sizeof(*ha), GFP_ATOMIC);
-+	if (!ha)
-+		return -ENOMEM;
-+	memcpy(ha->addr, addr, addr_len);
-+	ha->refcount = 1;
-+	list_add_tail(&ha->list, list);
 +	return 0;
 +}
 +
-+static inline int __hw_addr_add(struct list_head *list, unsigned char *addr,
-+				int addr_len)
-+{
-+	return __hw_addr_add_ii(list, addr, addr_len, -1);
-+}
-+
-+static int __hw_addr_del_ii(struct list_head *list, unsigned char *addr,
-+			    int addr_len, int ignore_index)
-+{
++void br_fdb_changeaddr(struct net_bridge_port *p, struct net_device *dev)
+ {
+ 	struct net_bridge *br = p->br;
+ 	int i;
 +	struct hw_addr *ha;
-+	int i = 0;
+ 
+ 	spin_lock_bh(&br->hash_lock);
+ 
+@@ -92,26 +127,23 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+ 
+ 			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
+ 			if (f->dst == p && f->is_local) {
+-				/* maybe another port has same hw addr? */
+-				struct net_bridge_port *op;
+-				list_for_each_entry(op, &br->port_list, list) {
+-					if (op != p &&
+-					    !compare_ether_addr(op->dev->dev_addr,
+-								f->addr.addr)) {
+-						f->dst = op;
+-						goto insert;
+-					}
+-				}
+-
+-				/* delete old one */
+-				fdb_delete(f);
+-				goto insert;
++				/*
++				 * maybe another port has same hw addr?,
++				 * if not then delete it
++				 */
++				if (!another_port_has_addr(p, f))
++					fdb_delete(f);
+ 			}
+ 		}
+ 	}
+- insert:
+-	/* insert new address,  may fail if invalid address or dup. */
+-	fdb_insert(br, p, newaddr);
 +
-+	list_for_each_entry(ha, list, list) {
-+		if (i++ != ignore_index &&
-+		    !memcmp(ha->addr, addr, addr_len)) {
-+			if (--ha->refcount)
-+				return 0;
-+			list_del(&ha->list);
-+			kfree(ha);
-+			return 0;
-+		}
++	/* insert device addresses, may fail if invalid address. */
++
++	netif_dev_addr_lock_bh(dev);
++	for_each_dev_addr(dev, ha) {
++		fdb_insert(br, p, ha->addr);
 +	}
-+	return -ENOENT;
-+}
-+
-+static inline int __hw_addr_del(struct list_head *list, unsigned char *addr,
-+				int addr_len)
++	netif_dev_addr_unlock_bh(dev);
+ 
+ 	spin_unlock_bh(&br->hash_lock);
+ }
+@@ -189,20 +221,9 @@ void br_fdb_delete_by_port(struct net_bridge *br,
+ 			 * then when one port is deleted, assign
+ 			 * the local entry to other port
+ 			 */
+-			if (f->is_local) {
+-				struct net_bridge_port *op;
+-				list_for_each_entry(op, &br->port_list, list) {
+-					if (op != p &&
+-					    !compare_ether_addr(op->dev->dev_addr,
+-								f->addr.addr)) {
+-						f->dst = op;
+-						goto skip_delete;
+-					}
+-				}
+-			}
+-
+-			fdb_delete(f);
+-		skip_delete: ;
++			if (!f->is_local ||
++			    !another_port_has_addr(p, f))
++				fdb_delete(f);
+ 		}
+ 	}
+ 	spin_unlock_bh(&br->hash_lock);
+@@ -338,7 +359,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ }
+ 
+ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+-		  const unsigned char *addr)
++		      const unsigned char *addr)
+ {
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
+ 	struct net_bridge_fdb_entry *fdb;
+@@ -366,13 +387,42 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 	return 0;
+ }
+ 
++static int fdb_insert_dev(struct net_bridge *br, struct net_bridge_port *source,
++			  struct net_device *dev)
 +{
-+	return __hw_addr_del_ii(list, addr, addr_len, -1);
-+}
-+
-+static int __hw_addr_add_multiple_ii(struct list_head *to_list,
-+				     struct list_head *from_list,
-+				     int addr_len, int ignore_index)
-+{
-+	int err;
 +	struct hw_addr *ha, *ha2;
++	struct net_bridge_fdb_entry *fdb;
++	struct hlist_head *head;
++	int ret = 0;
 +
-+	list_for_each_entry(ha, from_list, list) {
-+		err = __hw_addr_add_ii(to_list, ha->addr, addr_len, 0);
-+		if (err)
++	netif_dev_addr_lock_bh(dev);
++	for_each_dev_addr(dev, ha) {
++		ret = fdb_insert(br, source, ha->addr);
++		if (ret)
 +			goto unroll;
 +	}
-+	return 0;
++	goto unlock;
 +unroll:
-+	list_for_each_entry(ha2, from_list, list) {
++	for_each_dev_addr(dev, ha2) {
 +		if (ha2 == ha)
 +			break;
-+		__hw_addr_del_ii(to_list, ha2->addr, addr_len, 0);
++		head = &br->hash[br_mac_hash(ha2->addr)];
++		fdb = fdb_find(head, ha2->addr);
++		if (fdb && fdb->is_local)
++			fdb_delete(fdb);
 +	}
-+	return err;
-+}
-+
-+static inline int __hw_addr_add_multiple(struct list_head *to_list,
-+					 struct list_head *from_list,
-+					 int addr_len)
-+{
-+	return __hw_addr_add_multiple_ii(to_list, from_list, addr_len, -1);
-+}
-+
-+static void __hw_addr_del_multiple_ii(struct list_head *to_list,
-+				      struct list_head *from_list,
-+				      int addr_len, int ignore_index)
-+{
-+	struct hw_addr *ha;
-+
-+	list_for_each_entry(ha, from_list, list) {
-+		__hw_addr_del_ii(to_list, ha->addr, addr_len, 0);
-+	}
-+}
-+
-+static inline void __hw_addr_del_multiple(struct list_head *to_list,
-+					 struct list_head *from_list,
-+					 int addr_len)
-+{
-+	__hw_addr_del_multiple_ii(to_list, from_list, addr_len, -1);
-+}
-+
-+static void __hw_addr_flush(struct list_head *list)
-+{
-+	struct hw_addr *ha, *tmp;
-+
-+	list_for_each_entry_safe(ha, tmp, list, list) {
-+		list_del(&ha->list);
-+	}
-+}
-+
-+/* Device addresses handling functions */
-+
-+static void dev_addr_flush(struct net_device *dev)
-+{
-+	netif_dev_addr_lock_bh(dev);
-+	__hw_addr_flush(&dev->dev_addr_list);
-+	dev->dev_addr = NULL;
++unlock:
 +	netif_dev_addr_unlock_bh(dev);
++	return ret;
 +}
 +
-+static int dev_addr_init(struct net_device *dev)
-+{
-+	unsigned char addr[MAX_ADDR_LEN];
-+	struct hw_addr *ha;
-+	int err;
-+
-+	spin_lock_init(&dev->dev_addr_list_lock);
-+	INIT_LIST_HEAD(&dev->dev_addr_list);
-+	memset(addr, 0, sizeof(*addr));
-+	netif_dev_addr_lock_bh(dev);
-+	err = __hw_addr_add(&dev->dev_addr_list, addr, sizeof(*addr));
-+	if (!err) {
-+		/*
-+		 * Get the first (previously created) address from the list
-+		 * and set dev_addr pointer to this location.
-+		 */
-+		ha = list_first_entry(&dev->dev_addr_list,
-+				      struct hw_addr, list);
-+		dev->dev_addr = ha->addr;
-+	}
-+	netif_dev_addr_unlock_bh(dev);
-+	return err;
-+}
-+
-+/**
-+ *	dev_addr_add	- Add a device address
-+ *	@dev: device
-+ *	@addr: address to add
-+ *
-+ *	Add a device address to the device or increase the reference count if
-+ *	it already exists.
-+ *
-+ *	The caller must hold the rtnl_mutex.
-+ */
-+int dev_addr_add(struct net_device *dev, unsigned char *addr)
-+{
-+	int err;
-+
-+	ASSERT_RTNL();
-+
-+	netif_dev_addr_lock_bh(dev);
-+	err = __hw_addr_add_ii(&dev->dev_addr_list, addr, dev->addr_len, 0);
-+	netif_dev_addr_unlock_bh(dev);
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_addr_add);
-+
-+/**
-+ *	dev_addr_del	- Release a device address.
-+ *	@dev: device
-+ *	@addr: address to delete
-+ *
-+ *	Release reference to a device address and remove it from the device
-+ *	if the reference count drops to zero.
-+ *
-+ *	The caller must hold the rtnl_mutex.
-+ */
-+int dev_addr_del(struct net_device *dev, unsigned char *addr)
-+{
-+	int err;
-+
-+	ASSERT_RTNL();
-+
-+	netif_dev_addr_lock_bh(dev);
-+	err = __hw_addr_del_ii(&dev->dev_addr_list, addr, dev->addr_len, 0);
-+	netif_dev_addr_unlock_bh(dev);
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_addr_del);
-+
-+/**
-+ *	dev_addr_add_multiple	- Add device addresses from another device
-+ *	@to_dev: device to which addresses will be added
-+ *	@from_dev: device from which addresses will be added
-+ *
-+ *	Add device addresses of the one device to another.
-+ *
-+ *	The caller must hold the rtnl_mutex.
-+ */
-+int dev_addr_add_multiple(struct net_device *to_dev,
-+			  struct net_device *from_dev)
-+{
-+	int err;
-+
-+	ASSERT_RTNL();
-+
-+	if (from_dev->addr_len != to_dev->addr_len)
-+		return -EINVAL;
-+
-+	netif_dev_addr_lock_bh(from_dev);
-+	netif_dev_addr_lock_bh(to_dev);
-+	err = __hw_addr_add_multiple_ii(&to_dev->dev_addr_list,
-+					&from_dev->dev_addr_list,
-+					to_dev->addr_len, 0);
-+	netif_dev_addr_unlock_bh(to_dev);
-+	netif_dev_addr_unlock_bh(from_dev);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_addr_add_multiple);
-+
-+/**
-+ *	dev_addr_del_multiple	- Delete device addresses by another device
-+ *	@to_dev: device where the addresses will be deleted
-+ *	@from_dev: device by which addresses the addresses will be deleted
-+ *
-+ *	Deletes addresses in to device by the list of addresses in from device.
-+ *
-+ *	The caller must hold the rtnl_mutex.
-+ */
-+int dev_addr_del_multiple(struct net_device *to_dev,
-+			  struct net_device *from_dev)
-+{
-+	ASSERT_RTNL();
-+
-+	if (from_dev->addr_len != to_dev->addr_len)
-+		return -EINVAL;
-+
-+	netif_dev_addr_lock_bh(from_dev);
-+	netif_dev_addr_lock_bh(to_dev);
-+	__hw_addr_add_multiple_ii(&to_dev->dev_addr_list,
-+				  &from_dev->dev_addr_list,
-+				  to_dev->addr_len, 0);
-+	netif_dev_addr_unlock_bh(to_dev);
-+	netif_dev_addr_unlock_bh(from_dev);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(dev_addr_del_multiple);
-+
-+/* unicast and multicast addresses handling functions */
-+
- int __dev_addr_delete(struct dev_addr_list **list, int *count,
- 		      void *addr, int alen, int glbl)
+ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+-		  const unsigned char *addr)
++		  struct net_device *dev)
  {
-@@ -4269,6 +4526,9 @@ static void rollback_registered(struct net_device *dev)
- 	 */
- 	dev_addr_discard(dev);
+ 	int ret;
  
-+	/* Flush device addresses */
-+	dev_addr_flush(dev);
-+
- 	if (dev->netdev_ops->ndo_uninit)
- 		dev->netdev_ops->ndo_uninit(dev);
+ 	spin_lock_bh(&br->hash_lock);
+-	ret = fdb_insert(br, source, addr);
++	ret = fdb_insert_dev(br, source, dev);
+ 	spin_unlock_bh(&br->hash_lock);
+ 	return ret;
+ }
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 8a96672..789cb30 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -392,7 +392,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (err)
+ 		goto err0;
  
-@@ -4791,6 +5051,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+-	err = br_fdb_insert(br, p, dev->dev_addr);
++	err = br_fdb_insert(br, p, dev);
+ 	if (err)
+ 		goto err1;
  
- 	dev->gso_max_size = GSO_MAX_SIZE;
+diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+index 763a3ec..1423541 100644
+--- a/net/bridge/br_notify.c
++++ b/net/bridge/br_notify.c
+@@ -48,7 +48,7 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
  
-+	dev_addr_init(dev);
- 	netdev_init_queues(dev);
- 
- 	INIT_LIST_HEAD(&dev->napi_list);
-@@ -4977,6 +5238,9 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	 */
- 	dev_addr_discard(dev);
- 
-+	/* Flush device addresses */
-+	dev_addr_flush(dev);
-+
- 	netdev_unregister_kobject(dev);
- 
- 	/* Actually switch the network namespace */
+ 	case NETDEV_CHANGEADDR:
+ 		spin_lock_bh(&br->lock);
+-		br_fdb_changeaddr(p, dev->dev_addr);
++		br_fdb_changeaddr(p, dev);
+ 		br_stp_recalculate_bridge_id(br);
+ 		spin_unlock_bh(&br->lock);
+ 		break;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index b6c3b71..65ffe3d 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -148,7 +148,7 @@ extern int br_fdb_init(void);
+ extern void br_fdb_fini(void);
+ extern void br_fdb_flush(struct net_bridge *br);
+ extern void br_fdb_changeaddr(struct net_bridge_port *p,
+-			      const unsigned char *newaddr);
++			      struct net_device *dev);
+ extern void br_fdb_cleanup(unsigned long arg);
+ extern void br_fdb_delete_by_port(struct net_bridge *br,
+ 				  const struct net_bridge_port *p, int do_all);
+@@ -161,7 +161,7 @@ extern int br_fdb_fillbuf(struct net_bridge *br, void *buf,
+ 			  unsigned long count, unsigned long off);
+ extern int br_fdb_insert(struct net_bridge *br,
+ 			 struct net_bridge_port *source,
+-			 const unsigned char *addr);
++			 struct net_device *dev);
+ extern void br_fdb_update(struct net_bridge *br,
+ 			  struct net_bridge_port *source,
+ 			  const unsigned char *addr);
 -- 
 1.6.0.6
 
