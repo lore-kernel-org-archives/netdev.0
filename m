@@ -1,29 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
-Date: Mon, 13 Apr 2009 19:51:59 -0700 (PDT)
-Message-ID: <20090413.195159.56924183.davem@davemloft.net>
-References: <20090414012548.GB11615@xw6200.broadcom.net>
-	<20090413.184035.137905532.davem@davemloft.net>
-	<20090414020015.GC11615@xw6200.broadcom.net>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH]ipv6:remove useless check
+Date: Tue, 14 Apr 2009 11:31:40 +0800
+Message-ID: <49E4039C.5080908@cn.fujitsu.com>
+References: <49E3EC04.5000105@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: James.Bottomley@HansenPartnership.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, linux-parisc@vger.kernel.org
-To: mcarlson@broadcom.com
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20090414020015.GC11615@xw6200.broadcom.net>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, brian.haley@hp.com
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:58662 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753068AbZDNDh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 23:37:56 -0400
+In-Reply-To: <49E3EC04.5000105@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 13 Apr 2009 19:00:15 -0700
+Yang Hongyang said:
+> After switch (rthdr->type) {...},the check below is completely useless.Because:
+> if the type is 2,then hdrlen must be 2 and segments_left must be 1,clearly the
+> check is redundant;if the type is not 2,then goto sticky_done,the check is useless
+> too.
+> 
 
-> I did run some tests this afternoon on a similar IA64 HP machine and
-> they ran fine.
+Add CC  Brian Haley.
 
-It can't be similar, James Bottomly is on HP PARISC (big endian) not
-IA64 (which is little endian).
+The check is defined only for Type 0 Routing header in section 4.4 of RFC2460: 
 
-I'm still convinced this is a big-endian driver problem and it has
-nothing to do with broken NVRAM or similar.
+   Hdr Ext Len          8-bit unsigned integer.  Length of the Routing
+                        header in 8-octet units, not including the first
+                        8 octets.  For the Type 0 Routing header, Hdr
+                        Ext Len is equal to two times the number of
+                        addresses in the header.
+
+Now, Type 0 Routing header has been removed, the check is redundant.
+
+Reviewed-by: Shan Wei <shanwei@cn.fujitsu.com>
+
+> Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
+> 
+> ---
+>  net/ipv6/ipv6_sockglue.c |    4 ----
+>  1 files changed, 0 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index d31df0f..a7fdf9a 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -380,10 +380,6 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  			default:
+>  				goto sticky_done;
+>  			}
+> -
+> -			if ((rthdr->hdrlen & 1) ||
+> -			    (rthdr->hdrlen >> 1) != rthdr->segments_left)
+> -				goto sticky_done;
+>  		}
+>  
+>  		retv = 0;
+
+-- 
+Best Regards
+Shan Wei
