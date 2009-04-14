@@ -1,49 +1,49 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: [PATCH]ipv6:remove useless check
-Date: Tue, 14 Apr 2009 09:51:00 +0800
-Message-ID: <49E3EC04.5000105@cn.fujitsu.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
+Date: Mon, 13 Apr 2009 19:00:15 -0700
+Message-ID: <20090414020015.GC11615@xw6200.broadcom.net>
+References: <1239661059.9237.4.camel@HP1>
+ <1239661934.3278.113.camel@mulgrave.int.hansenpartnership.com>
+ <20090414012548.GB11615@xw6200.broadcom.net>
+ <20090413.184035.137905532.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60332 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752439AbZDNBul (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2009 21:50:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <20090413.184035.137905532.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After switch (rthdr->type) {...},the check below is completely useless.Because:
-if the type is 2,then hdrlen must be 2 and segments_left must be 1,clearly the
-check is redundant;if the type is not 2,then goto sticky_done,the check is useless
-too.
+On Mon, Apr 13, 2009 at 06:40:35PM -0700, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Mon, 13 Apr 2009 18:25:48 -0700
+> 
+> > Michael noticed that your NVRAM signature is byteswapped in NVRAM. (!)
+> > That also explains why the driver is trying to obtain the MAC address
+> > through NVRAM, rather than getting it from shared memory.  The device's
+> > bootcode is not working correctly.
+> 
+> If this problem is pervasive, which it seems it is since we
+> have at least two people hitting this problem, we'll need
+> to find a way to handle it without saying "update your
+> BIOS or system firmware"
 
-Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
+Well, Robin's problem looks distinctly different than James'.  I believe
+Robin's problem has to do with the legacy EEPROM access routines.  The
+patchset may have overlooked something in that area.  I just need to
+gather evidence to prove it.
 
----
- net/ipv6/ipv6_sockglue.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+I did run some tests this afternoon on a similar IA64 HP machine and
+they ran fine.  Consequently, I'm optimistic that James' problem is local
+to his machine.  If this turns out to be a wider problem, then I agree
+we'll need to find an appropriate solution.
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index d31df0f..a7fdf9a 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -380,10 +380,6 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 			default:
- 				goto sticky_done;
- 			}
--
--			if ((rthdr->hdrlen & 1) ||
--			    (rthdr->hdrlen >> 1) != rthdr->segments_left)
--				goto sticky_done;
- 		}
- 
- 		retv = 0;
--- 
-1.6.0.3
-
--- 
-Regards
-Yang Hongyang
