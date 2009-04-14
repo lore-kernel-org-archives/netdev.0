@@ -1,40 +1,45 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: 2.6.30-rc1 A few issues and a stall
-Date: Tue, 14 Apr 2009 13:03:58 +0300
-Message-ID: <49E45F8E.9080803@redhat.com>
-References: <200904121124.07193.edt@aei.ca>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH 3/4] net: bridge: use device address list instead of
+	dev_addr
+Date: Tue, 14 Apr 2009 12:15:13 +0200
+Message-ID: <20090414101512.GA3999@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090413083729.GA23734@psychotron.englab.brq.redhat.com> <20090413084407.GD23734@psychotron.englab.brq.redhat.com> <20090413075400.34604e72@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-acpi@vger.kernel.org
-To: Ed Tomlinson <edt@aei.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, kaber@trash.net,
+	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:34005 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:33626 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756365AbZDNKDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2009 06:03:38 -0400
-In-Reply-To: <200904121124.07193.edt@aei.ca>
+	id S1751965AbZDNKRK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2009 06:17:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20090413075400.34604e72@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ed Tomlinson wrote:
-> Once the above networking stuff is setup I start kvm with the command below
+Mon, Apr 13, 2009 at 04:54:00PM CEST, shemminger@vyatta.com wrote:
+>> +static int another_port_has_addr(const struct net_bridge_port *p,
+>> +				 struct net_bridge_fdb_entry *f)
+>> +{
+>> +	struct net_bridge *br = p->br;
+>> +	struct net_bridge_port *op;
+>> +
+>> +	list_for_each_entry(op, &br->port_list, list) {
+>> +		if (op != p && is_dev_addr(op->dev, f->addr.addr)) {
+>> +			f->dst = op;
+>> +			return 1;
+>> +		}
+>> +	}
+>> +	return 0;
+>> +}
 >
-> QEMU_AUDIO_DRV=alsa kvm -m 1024 -cdrom /mnt/sdc4/divx/archlinux-2009.02-ftp-i686.iso -boot c -smp 3 -usb -usbdevice tablet -vga std -drive file=arch.img -net nic,macaddr=52:54:00:12:34:23 -net tap,ifname=qtap0,script=no -soundhw all -mem-path /hugepages
+>Forwarding database is hot path, people sometimes run lots of devices
+>on single bridge, doesn't this scale worse?
 >
-> which works and the kvm session boots just fine.  
->
-> Issue 2.  When I attempt to ping outside the kvm session the pc (not just the kvm session) hangs.
-> Its impossible to kill the kvm session and there are numerious info messages from RCU (tree RCU enabled)
-> about stalls.  
->   
-
-The rcu messages are likely because a processor has died.
-
-Do things work if you drop -mem-path?
-
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
-
+This only puts the original loop code to the function, so if compiler decides to
+inline this there might be no difference.
