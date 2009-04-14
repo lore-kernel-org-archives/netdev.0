@@ -1,165 +1,60 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
-	messages
-Date: Tue, 14 Apr 2009 16:44:45 -0400
-Message-ID: <20090414204445.GB17196@hmsreliant.think-freely.org>
-References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: rfkill rewrite bug
+Date: Tue, 14 Apr 2009 22:46:08 +0200
+Message-ID: <1239741968.4205.1.camel@johannes.local>
+References: <49DCA88E.6060400@tuffmail.co.uk>
+	 (sfid-20090408_153722_059382_FB44D658) <1239204090.16477.1.camel@johannes.local>
+	 <49DCDD2E.80705@tuffmail.co.uk>  <49E38BBC.5010708@tuffmail.co.uk>
+	 (sfid-20090413_205524_915082_56358705)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Christoph Lameter <cl@linux.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-qqQk0AIqcKsVk98imhZW"
+Cc: netdev@vger.kernel.org
+To: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48236 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752972AbZDNUoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 16:44:55 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0904141447310.30596@qirst.com>
+Received: from xc.sipsolutions.net ([83.246.72.84]:47139 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753316AbZDNUql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 16:46:41 -0400
+In-Reply-To: <49E38BBC.5010708@tuffmail.co.uk> (sfid-20090413_205524_915082_56358705)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2009 at 02:48:48PM -0400, Christoph Lameter wrote:
-> Neil: Could you test this?
-> 
-I can and will, although it will take me a few days to get a system I can play
-with it on.  I really don't think it needs much testing as it clearly provides
-the functionality that you describe. 
 
-That said, I still disagree with the addition of this switch, as its
-superfolous.  Programatically an application can do what you want without this
-change already .If you provide me with the test application that you've been working with, I can
-demonstrate exactly how.
+--=-qqQk0AIqcKsVk98imhZW
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Regards
-Neil
+On Mon, 2009-04-13 at 20:00 +0100, Alan Jenkins wrote:
 
-> 
-> Subject: Multicast: Avoid useless duplication of multicast messages
-> 
-> If two processes open the same port as a multicast socket and then
-> join two different multicast groups then traffic for both multicast groups
-> is forwarded to either process. This means that application will get surprising
-> data that they did not ask for. Applications will have to filter these out in
-> order to work correctly if multiple apps run on the same system.
-> 
-> These are pretty strange semantics but they have been around since the
-> beginning of multicast support on Unix systems.
-> 
-> Add an option
-> 
-> 	igmp_mc_socket_based_filtering
-> 
-> that is off by default so that the default behavior stays as is.
-> 
-> If one wants to have sane multicast behavior for the above case
-> then this option can be set. Thereupon applications will not get
-> additional traffic forwarded to them if they happen to run on a host
-> where another application also receives multicast traffic from a
-> different multicast group.
-> 
-> Signed-off-by: Christoph Lameter <cl@linux.com>
-> 
-> ---
->  Documentation/networking/ip-sysctl.txt |   10 ++++++++++
->  include/linux/igmp.h                   |    1 +
->  include/linux/sysctl.h                 |    1 +
->  net/ipv4/igmp.c                        |    6 +++---
->  net/ipv4/sysctl_net_ipv4.c             |    8 ++++++++
->  5 files changed, 23 insertions(+), 3 deletions(-)
-> 
-> Index: linux-2.6/net/ipv4/igmp.c
-> ===================================================================
-> --- linux-2.6.orig/net/ipv4/igmp.c	2009-04-14 13:03:14.000000000 -0500
-> +++ linux-2.6/net/ipv4/igmp.c	2009-04-14 13:11:38.000000000 -0500
-> @@ -1419,7 +1419,7 @@ static struct in_device *ip_mc_find_dev(
->   */
->  int sysctl_igmp_max_memberships __read_mostly = IP_MAX_MEMBERSHIPS;
->  int sysctl_igmp_max_msf __read_mostly = IP_MAX_MSF;
-> -
-> +int sysctl_igmp_mc_socket_based_filtering = 0;
-> 
->  static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
->  	__be32 *psfsrc)
-> @@ -2187,7 +2187,7 @@ int ip_mc_sf_allow(struct sock *sk, __be
->  	struct ip_sf_socklist *psl;
->  	int i;
-> 
-> -	if (!ipv4_is_multicast(loc_addr))
-> +	if (ipv4_is_lbcast(loc_addr) || !ipv4_is_multicast(loc_addr))
->  		return 1;
-> 
->  	for (pmc=inet->mc_list; pmc; pmc=pmc->next) {
-> @@ -2196,7 +2196,7 @@ int ip_mc_sf_allow(struct sock *sk, __be
->  			break;
->  	}
->  	if (!pmc)
-> -		return 1;
-> +		return !sysctl_igmp_mc_socket_based_filtering;
->  	psl = pmc->sflist;
->  	if (!psl)
->  		return pmc->sfmode == MCAST_EXCLUDE;
-> Index: linux-2.6/include/linux/igmp.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/igmp.h	2009-04-14 13:13:14.000000000 -0500
-> +++ linux-2.6/include/linux/igmp.h	2009-04-14 13:41:14.000000000 -0500
-> @@ -150,6 +150,7 @@ static inline struct igmpv3_query *
-> 
->  extern int sysctl_igmp_max_memberships;
->  extern int sysctl_igmp_max_msf;
-> +extern int sysctl_igmp_mc_socket_based_filtering;
-> 
->  struct ip_sf_socklist
->  {
-> Index: linux-2.6/include/linux/sysctl.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/sysctl.h	2009-04-14 13:15:57.000000000 -0500
-> +++ linux-2.6/include/linux/sysctl.h	2009-04-14 13:16:49.000000000 -0500
-> @@ -435,6 +435,7 @@ enum
->  	NET_TCP_ALLOWED_CONG_CONTROL=123,
->  	NET_TCP_MAX_SSTHRESH=124,
->  	NET_TCP_FRTO_RESPONSE=125,
-> +	NET_IPV4_IGMP_MC_SOCKET_BASED_FILTERING=126,
->  };
-> 
->  enum {
-> Index: linux-2.6/net/ipv4/sysctl_net_ipv4.c
-> ===================================================================
-> --- linux-2.6.orig/net/ipv4/sysctl_net_ipv4.c	2009-04-14 13:13:53.000000000 -0500
-> +++ linux-2.6/net/ipv4/sysctl_net_ipv4.c	2009-04-14 13:15:44.000000000 -0500
-> @@ -408,6 +408,14 @@ static struct ctl_table ipv4_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec
->  	},
-> +	{
-> +		.ctl_name	= NET_IPV4_IGMP_MC_SOCKET_BASED_FILTERING,
-> +		.procname	= "igmp_mc_socked_based_filtering",
-> +		.data		= &sysctl_igmp_mc_socket_based_filtering,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec
-> +	},
-> 
->  #endif
->  	{
-> Index: linux-2.6/Documentation/networking/ip-sysctl.txt
-> ===================================================================
-> --- linux-2.6.orig/Documentation/networking/ip-sysctl.txt	2009-04-14 13:48:09.000000000 -0500
-> +++ linux-2.6/Documentation/networking/ip-sysctl.txt	2009-04-14 13:53:10.000000000 -0500
-> @@ -611,6 +611,16 @@ igmp_max_memberships - INTEGER
->  	Change the maximum number of multicast groups we can subscribe to.
->  	Default: 20
-> 
-> +igmp_mc_socket_based_filtering - INTEGER
-> +	Use the list of subscribed multicast addresses to filter the traffic
-> +	going to a multicast socket. If set to zero then multicast traffic
-> +        is forwarded to any socket subscribed to a port number ignoring the
-> +        list of multicast groups that a socket has been subscribed to. This mode
-> +        is the default since it has been done that way in the past.
-> +	If set to one then only multicast traffic of the multicast groups
-> +        that a socket has joined are forwarded to the socket.
-> +	Default: 0
-> +
->  conf/interface/*  changes special settings per interface (where "interface" is
->  		  the name of your network interface)
->  conf/all/*	  is special, changes the settings for all interfaces
-> 
+> I tried the latest patch (#19) from your website, it didn't work so well=20
+> :-).
+
+I think I fixed that now, I allowed using set_sw_state before register
+and that didn't go too well with the LED system w/o any checks.
+
+johannes
+
+--=-qqQk0AIqcKsVk98imhZW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJ5PYOAAoJEKVg1VMiehFYHKEP/jJDcV0H2diuiOh9E9UAGY6f
+Fx6OqftDVxd5gOyB3FwIZehJxD79zPtd1hBTbhXxNankhHjU6jUDy4tqMc5JdxD2
+3n4fRRPs0iIe7+s57rt2koly+KICZmI5FwD/KY3XrCpxldmqEusirKLiu+Yq40Sg
+0vPH+l3O7tTpRxclJNykU10+EhvjOnrmjmZq7dyOjcM42+Fofi9dGmZ7IL0lIaOG
+uPD5v9tCeJBnd8w0ZRb21b2sKCMggShC4z0vgT3oLS3R/OhmLbgCR3UsqUV0O9pf
+yV9lKC5D4xL8RUoLbBUT4ARU1MtPRpe8imS+OzdFWlR/VcPO/7RrLuF6bjCGnpX0
+4zo517CjkzQsMjspW2iYVtS2wXW3FvIvPwNHkfuorV+fgfjKd7v040n78e1PXYKL
+Q9zDPxiJhzBsYspWmfQsHWOgGyM55pMyy2rFs5ugzPNeX83EXwmRcUS1cpOvkFYP
+LxN79q7Cc5GtbSteDAb9a6dGiIpWdJDr6nyEvW4OR9+T3agC53Oc7el8DTZjjdyu
+YjVs7Wburc33/bFSna4oUsIS7nSdbKrtx/f/9qRfXWa5SeZWKMB+C5O4yOgMxfxz
+PzMqv1JlcREN/MQoUIm3BKiLv0Pf0iZSAcnZ8PHXKA8m3PLA6rVjxNFQEJjHh4CJ
+URKCOoZ0PEWRqUAEM6sn
+=uvR6
+-----END PGP SIGNATURE-----
+
+--=-qqQk0AIqcKsVk98imhZW--
+
