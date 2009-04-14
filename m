@@ -1,61 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gro: Restore correct value to gso_size
-Date: Tue, 14 Apr 2009 20:42:49 +0800
-Message-ID: <20090414124249.GA31314@gondor.apana.org.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Kernel sends multicast groups to sockets that did not
+	subscribe to the MC group
+Date: Tue, 14 Apr 2009 09:25:51 -0400
+Message-ID: <20090414132551.GC14305@hmsreliant.think-freely.org>
+References: <alpine.DEB.1.10.0904131704120.3517@qirst.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mark Wagner <mwagner@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39725 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756058AbZDNMmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 08:42:52 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42198 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753541AbZDNN1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 09:27:40 -0400
 Content-Disposition: inline
+In-Reply-To: <alpine.DEB.1.10.0904131704120.3517@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+On Mon, Apr 13, 2009 at 05:06:08PM -0400, Christoph Lameter wrote:
+> I ran two processes listening to two multicast groups:
+> 
+> One listening for 239.0.0.51 and the other on 239.0.0.50. Both are
+> listening on the same port.
+> 
+> If I send a multicast message to 239.0.0.50 then both receive it. Why is
+> the process listening to 239.0.0.51 receiving the multicast message send
+> to 239.0.0.50?
+> 
+> 
+Its correct behavior.  I had the same misunderstanding a few months back, but
+Dave stevens set me right:
+http://kerneltrap.org/index.php?q=mailarchive/linux-netdev/2008/7/11/2430904
 
-gro: Restore correct value to gso_size
+Basically, its handled the exact same way that unicast addresses are handled,
+its just a bit counter intuitive since group membership modifications are made
+through a particular socket descriptor.  Despite that, multicast groups are
+treated as being owned by the system, rather than by a socket.  So if you have a
+situation in which you do a group membership add to 239.0.0.50 port 1024 on
+socket A, and then do a bind on socket B to INADDR_ANY port 1024, you get those
+multicast frames that socket A subscribed to.  Theres a link in the thread above
+to a few papers that describe the operation in detail.
 
-Since everybody has been focusing on baremetal GRO performance
-no one noticed when I added a bug that zapped gso_size for all
-GRO packets.  This only gets picked up when you forward the skb
-out of an interface.
+Regards
+Neil
 
-Thanks to Mark Wagner for noticing this bug when testing kvm.
-
-Reported-by: Mark Wagner <mwagner@redhat.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 91d792d..55628cc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2328,8 +2328,10 @@ static int napi_gro_complete(struct sk_buff *skb)
- 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
- 	int err = -ENOENT;
- 
--	if (NAPI_GRO_CB(skb)->count == 1)
-+	if (NAPI_GRO_CB(skb)->count == 1) {
-+		skb_shinfo(skb)->gso_size = 0;
- 		goto out;
-+	}
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ptype, head, list) {
-@@ -2348,7 +2350,6 @@ static int napi_gro_complete(struct sk_buff *skb)
- 	}
- 
- out:
--	skb_shinfo(skb)->gso_size = 0;
- 	return netif_receive_skb(skb);
- }
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
