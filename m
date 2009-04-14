@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
-Date: Mon, 13 Apr 2009 18:40:35 -0700 (PDT)
-Message-ID: <20090413.184035.137905532.davem@davemloft.net>
-References: <1239661059.9237.4.camel@HP1>
-	<1239661934.3278.113.camel@mulgrave.int.hansenpartnership.com>
-	<20090414012548.GB11615@xw6200.broadcom.net>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH]ipv6:remove useless check
+Date: Tue, 14 Apr 2009 09:51:00 +0800
+Message-ID: <49E3EC04.5000105@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: James.Bottomley@HansenPartnership.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, linux-parisc@vger.kernel.org
-To: mcarlson@broadcom.com
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20090414012548.GB11615@xw6200.broadcom.net>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60332 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752439AbZDNBul (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2009 21:50:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 13 Apr 2009 18:25:48 -0700
+After switch (rthdr->type) {...},the check below is completely useless.Because:
+if the type is 2,then hdrlen must be 2 and segments_left must be 1,clearly the
+check is redundant;if the type is not 2,then goto sticky_done,the check is useless
+too.
 
-> Michael noticed that your NVRAM signature is byteswapped in NVRAM. (!)
-> That also explains why the driver is trying to obtain the MAC address
-> through NVRAM, rather than getting it from shared memory.  The device's
-> bootcode is not working correctly.
+Signed-off-by: Yang Hongyang <yanghy@cn.fujitsu.com>
 
-If this problem is pervasive, which it seems it is since we
-have at least two people hitting this problem, we'll need
-to find a way to handle it without saying "update your
-BIOS or system firmware"
+---
+ net/ipv6/ipv6_sockglue.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index d31df0f..a7fdf9a 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -380,10 +380,6 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 			default:
+ 				goto sticky_done;
+ 			}
+-
+-			if ((rthdr->hdrlen & 1) ||
+-			    (rthdr->hdrlen >> 1) != rthdr->segments_left)
+-				goto sticky_done;
+ 		}
+ 
+ 		retv = 0;
+-- 
+1.6.0.3
+
+-- 
+Regards
+Yang Hongyang
