@@ -1,53 +1,59 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
- messages
-Date: Tue, 14 Apr 2009 17:45:58 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904141740280.3973@qirst.com>
-References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com>
- <20090414204445.GB17196@hmsreliant.think-freely.org>
+From: Ira Snyder <iws@ovro.caltech.edu>
+Subject: Re: [RFC v2] virtio: add virtio-over-PCI driver
+Date: Tue, 14 Apr 2009 14:53:42 -0700
+Message-ID: <20090414215342.GB9877@ovro.caltech.edu>
+References: <20090224000002.GA578@ovro.caltech.edu>
+	<fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:56770 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756189AbZDNVw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 17:52:56 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 0B7E782C389
-	for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 18:02:38 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id HUERnfWtTS-a for <netdev@vger.kernel.org>;
-	Tue, 14 Apr 2009 18:02:31 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id E4E3D82C350
-	for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 18:02:27 -0400 (EDT)
-In-Reply-To: <20090414204445.GB17196@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Apr 2009, Neil Horman wrote:
+On Tue, Apr 14, 2009 at 02:28:26PM -0600, Grant Likely wrote:
+> On Mon, Feb 23, 2009 at 6:00 PM, Ira Snyder <iws@ovro.caltech.edu> wrote:
+> > This adds support to Linux for using virtio between two computers linked by
+> > a PCI interface. This allows the use of virtio_net to create a familiar,
+> > fast interface for communication. It should be possible to use other virtio
+> > devices in the future, but this has not been tested.
+> 
+> Hey Ira,
+> 
+> I like this a lot.  I need to do much the same thing on one of my
+> platforms, so I'm going to use your patch as my starting point.  Have
+> you made many changes since you posted this version of your patch?
+> I'd like to collaborate on the development and help to get it
+> mainlined.
+> 
 
-> That said, I still disagree with the addition of this switch, as its
-> superfolous.  Programatically an application can do what you want without this
-> change already .If you provide me with the test application that you've been working with, I can
-> demonstrate exactly how.
+This would be great. I'd really appreciate the help. I haven't had time
+to make any changes since I last posted the patch. I started work on
+converting all of the usage of struct vop_loc_* to just use the on-wire
+structures, but I didn't get very far before other work got in the way.
 
-Ok. First applications listens to multicast groups A and B. Second one
-uses C and D. All use a port 4711 for communication which is the
-standard for a certain application. Both applications are very latency
-sensitive. You do not want the data to be duplicated into the user space
-of both processes.
+> In my case I've got an MPC5200 as the 'host' and a Xilinx Virtex
+> (ppc440) as the 'client'.  I intend set aside a region of the Xilinx
+> Virtex's memory space for the shared queues.  I'm starting work on it
+> now, and I'll provide you with feedback and/or patches as I make
+> progress.
+> 
 
-Both processes need to reply to messages on the
-multicast groups. The receiver always needs the source IP address for
-authentication otherwise messages are ignored
+I'm looking forward to seeing your implementation. If you have any
+questions, I'd be happy to attempt to answer them :)
 
-How are you going to do this? Its trivial to do with this patch and one
-socket in each process listening to port 4711 that subscribes to the
-necessary multicast groups. Plus one the problem is that some of the
-applications here are only available in binary form and they were naively
-coded assuming that the socket layer would not need exotic tricks to
-convince it to do the right thing.
+Ira
