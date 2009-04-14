@@ -1,52 +1,70 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Kernel sends multicast groups to sockets that did not
-	subscribe to the MC group
-Date: Tue, 14 Apr 2009 09:25:51 -0400
-Message-ID: <20090414132551.GC14305@hmsreliant.think-freely.org>
-References: <alpine.DEB.1.10.0904131704120.3517@qirst.com>
+From: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Tue, 14 Apr 2009 09:38:47 -0400
+Message-ID: <18916.37351.872568.757026@stoffel.org>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
+	<18908.42166.404232.721757@stoffel.org>
+	<20090408232344.afed8103.zaitcev@redhat.com>
+	<18909.65347.234817.29689@stoffel.org>
+	<20090413174105.b03a1f19.zaitcev@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42198 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753541AbZDNN1k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 09:27:40 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0904131704120.3517@qirst.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090413174105.b03a1f19.zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 13, 2009 at 05:06:08PM -0400, Christoph Lameter wrote:
-> I ran two processes listening to two multicast groups:
-> 
-> One listening for 239.0.0.51 and the other on 239.0.0.50. Both are
-> listening on the same port.
-> 
-> If I send a multicast message to 239.0.0.50 then both receive it. Why is
-> the process listening to 239.0.0.51 receiving the multicast message send
-> to 239.0.0.50?
-> 
-> 
-Its correct behavior.  I had the same misunderstanding a few months back, but
-Dave stevens set me right:
-http://kerneltrap.org/index.php?q=mailarchive/linux-netdev/2008/7/11/2430904
+>>>>> "Pete" == Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
 
-Basically, its handled the exact same way that unicast addresses are handled,
-its just a bit counter intuitive since group membership modifications are made
-through a particular socket descriptor.  Despite that, multicast groups are
-treated as being owned by the system, rather than by a socket.  So if you have a
-situation in which you do a group membership add to 239.0.0.50 port 1024 on
-socket A, and then do a bind on socket B to INADDR_ANY port 1024, you get those
-multicast frames that socket A subscribed to.  Theres a link in the thread above
-to a few papers that describe the operation in detail.
+Pete> On Thu, 9 Apr 2009 09:59:31 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
+>> Here's a dmesg of bootup:
 
-Regards
-Neil
+>> [    0.000000] Linux version 2.6.29.1 (john@sail) (gcc version 4.3.3 (Ubuntu 4.3.3-5ubuntu4) ) #24 SMP PREEMPT Tue Apr 7 11:30:52 EDT 2009
+>> [    0.000999] Checking aperture...
+>> [    0.000999] No AGP bridge found
+>> [    0.000999] Node 0: aperture @ 20000000 size 32 MB
+>> [    0.000999] Aperture pointing to e820 RAM. Ignoring.
+>> [    0.000999] Your BIOS doesn't leave a aperture memory hole
+>> [    0.000999] Please enable the IOMMU option in the BIOS setup
+>> [    0.000999] This costs you 64 MB of RAM
+>> [    0.000999] Mapping aperture over 65536 KB of RAM @ 20000000
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>> [ 1396.271782] BUG: unable to handle kernel paging request at ffff880020a15cc0
+
+Pete> So 20a15000 is in the aperture. Oh well, I screwed up. I meant
+Pete> to check for this back in 2006 but forgot, and miraclously it
+Pete> worked until now.
+
+Pete> Here's the problem:
+
+Pete> 	pg = phys_to_page(dma_addr);
+Pete> 	map = kmap_atomic(pg, KM_IRQ0);
+Pete> 	offset = mon_copy_to_buff(rp, offset, map + page_off, step_len);
+Pete> 	kunmap_atomic(map, KM_IRQ0);
+
+Pete> Obviously we don't want the page that's overlayed by the
+Pete> aperture, but the page where IOMMU is pointing.
+
+Thanks for finding this!  I was working on getting 2.6.25 built and
+running, but it hates my Forcedeth ethernet ports and won't bring them
+up, which complicated testing immensely.  It's tough when your home
+directory is on NFS and the network is down...
+
+I'm happy to test any patches you have.
+
+Thanks,
+John
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
