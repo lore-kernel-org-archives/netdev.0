@@ -1,56 +1,53 @@
-From: David Hawkins <dwh@ovro.caltech.edu>
-Subject: Re: [RFC v2] virtio: add virtio-over-PCI driver
-Date: Tue, 14 Apr 2009 14:52:51 -0700
-Message-ID: <49E505B3.5070005@ovro.caltech.edu>
-References: <20090224000002.GA578@ovro.caltech.edu> <fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com> 	<49E4FED0.1020003@ovro.caltech.edu> <fa686aa40904141445x6a125e12r391e0853d89baf72@mail.gmail.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
+ messages
+Date: Tue, 14 Apr 2009 17:45:58 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904141740280.3973@qirst.com>
+References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com>
+ <20090414204445.GB17196@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ira Snyder <iws@ovro.caltech.edu>, Arnd Bergmann <arnd@arndb.de>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:44299 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630AbZDNVwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 17:52:50 -0400
-In-Reply-To: <fa686aa40904141445x6a125e12r391e0853d89baf72@mail.gmail.com>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:56770 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756189AbZDNVw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 17:52:56 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 0B7E782C389
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 18:02:38 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id HUERnfWtTS-a for <netdev@vger.kernel.org>;
+	Tue, 14 Apr 2009 18:02:31 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id E4E3D82C350
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 18:02:27 -0400 (EDT)
+In-Reply-To: <20090414204445.GB17196@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Grant,
+On Tue, 14 Apr 2009, Neil Horman wrote:
 
-> Thanks David.  I haven't looked closely at the xilinx pci data sheet
-> yet, but I don't expect too many issues in this area.  As you say, it
-> won't take much to code it up.  I'll be poking my VHDL engineer to
-> make it do what I want it to.  :-)
+> That said, I still disagree with the addition of this switch, as its
+> superfolous.  Programatically an application can do what you want without this
+> change already .If you provide me with the test application that you've been working with, I can
+> demonstrate exactly how.
 
-The key aspects of the core will be that it is Master/Target
-so that it can take over the PCI bus, and that it has a
-DMA engine that can take care of most of the work. In
-your case, since you have a DMA controller on the host
-(MPC5200) and the target (Xilinx), your driver might end
-up having nicer symmetry than our application. The
-most efficient implementation will be the one that
-uses PCI writes, i.e., MPC5200 DMAs to the Xilinx core,
-and the Xilinx core DMAs to the MPC5200. If you use
-a PCI Target only core, then the MPC5200 DMA controller
-will have to do all the work, and read transfers might
-be slightly less efficient.
+Ok. First applications listens to multicast groups A and B. Second one
+uses C and D. All use a port 4711 for communication which is the
+standard for a certain application. Both applications are very latency
+sensitive. You do not want the data to be duplicated into the user space
+of both processes.
 
-Our target boards (PowerPC) live in compactPCI backplanes
-and talk to x86 boards that do not have DMA controllers.
-So the PCI target board DMA controllers are used to
-transfer data efficiently to the x86 host (writes)
-and less efficiently from the host to the boards
-(reads). Our bandwidth requirements are 'to the host',
-so we can live with the asymmetry in performance.
+Both processes need to reply to messages on the
+multicast groups. The receiver always needs the source IP address for
+authentication otherwise messages are ignored
 
-> I'll keep you up to date on my progress.
-
-Sounds good.
-
-Cheers,
-Dave
+How are you going to do this? Its trivial to do with this patch and one
+socket in each process listening to port 4711 that subscribes to the
+necessary multicast groups. Plus one the problem is that some of the
+applications here are only available in binary form and they were naively
+coded assuming that the socket layer would not need exotic tricks to
+convince it to do the right thing.
