@@ -1,304 +1,71 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [PATCH] LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
-Date: Tue, 14 Apr 2009 19:44:35 +0900
-Message-ID: <200904141944.JFE64074.FHtOMOFQLFJOVS@I-love.SAKURA.ne.jp>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: panic on rmmod of nf_conntrack_irc
+Date: Tue, 14 Apr 2009 13:32:29 +0200
+Message-ID: <49E4744D.5090205@trash.net>
+References: <20090410191736.21efab8c@mako-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paul.moore@hp.com, netdev@vger.kernel.org
-To: linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080301010504090100010307"
+Cc: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Mariusz Kozlowski <m.kozlowski-NWF1p15JEu3VItvQsEIGlw@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090410191736.21efab8c@mako-desktop>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This is a multi-part message in MIME format.
+--------------080301010504090100010307
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The security_socket_post_accept() hook was recently removed because this hook
-was not used by any in-tree modules and its existence continued to cause
-problems by confusing people about what can be safely accomplished using this
-hook. Now, TOMOYO became in-tree and TOMOYO wants to add network access control
-in 2.6.31.
+Mariusz Kozlowski wrote:
+> 	Recent kernels (i.e. 2.6.30-rc1) will panic while doing rmmod of nf_conntrack_irc.
+> 
+> (gdb) l *(nf_conntrack_helper_unregister+0x158)
+> 0x4f8 is in nf_conntrack_helper_unregister (/home/mako/linux/lkt/sources/linux-2.6/include/net/netfilter/nf_conntrack.h:133).
+> 128	};
+> 129	
+> 130	static inline struct nf_conn *
+> 131	nf_ct_tuplehash_to_ctrack(const struct nf_conntrack_tuple_hash *hash)
+> 132	{
+> 133		return container_of(hash, struct nf_conn,
+> 134				    tuplehash[hash->tuple.dst.dir]);
+> 135	}
+> 136	
+> 137	static inline u_int16_t nf_ct_l3num(const struct nf_conn *ct)
+> 
+> 
+> I bisected it down to
+> 
+>     netfilter: nf_conntrack: use SLAB_DESTROY_BY_RCU and get rid of call_rcu()
 
-TOMOYO is not a label based access control and won't cause packet labeling
-problem. TOMOYO won't care as long as packets are not copied to userspace.
+Thanks for the report. Does this patch fix it?
 
-Regards.
---------------------
-Subject: LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
 
-This patch allows LSM modules to filter incoming connections/datagrams based on
-the process's security context who is attempting to pick up.
+--------------080301010504090100010307
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-There are already hooks for filtering incoming connections/datagrams based on
-the socket's security context, but these hooks are not applicable when someone
-wants to do TCP Wrapper-like filtering (e.g. App1 is permitted to accept TCP
-connections from 192.168.0.0/16) because nobody can tell who picks them up
-before the moment of accept()/recvmsg() request.
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 30b8e90..0fa5a42 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -176,7 +176,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
+ 	}
+ 
+ 	/* Get rid of expecteds, set helpers to NULL. */
+-	hlist_for_each_entry(h, nn, &net->ct.unconfirmed, hnnode)
++	hlist_nulls_for_each_entry(h, nn, &net->ct.unconfirmed, hnnode)
+ 		unhelp(h, me);
+ 	for (i = 0; i < nf_conntrack_htable_size; i++) {
+ 		hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
 
-Precautions: These hooks have a side effect if improperly used.
-
-If a socket is shared by multiple processes with different policy, the process
-who should be able to accept this connection will not be able to accept this
-connection because socket_post_accept() aborts this connection.
-This is needed because the process who must not be able to accept this
-connection will repeat accept() request (and consume CPU resource) forever
-if socket_post_accept() doesn't abort this connection.
-
-Similarly, if a socket is shared by multiple processes with different policy,
-the process who should be able to pick up this datagram will not be able to
-pick up this datagram because socket_post_recv_datagram() discards this
-datagram.
-This is needed because the process who must not be able to pick up this
-datagram will repeat recvmsg() request (and consume CPU resource) forever
-if socket_post_recv_datagram() doesn't discard this datagram.
-
-Therefore, don't give different policy between processes who share one socket.
-Otherwise, some connections/datagrams cannot be delivered to intended process.
-
-Signed-off-by: Kentaro Takeda <takedakn@nttdata.co.jp>
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Signed-off-by: Toshiharu Harada <haradats@nttdata.co.jp>
-
- include/linux/security.h |   39 +++++++++++++++++++++++++++++++++++++++
- net/core/datagram.c      |   29 ++++++++++++++++++++++++++++-
- net/socket.c             |    5 +++++
- security/capability.c    |   13 +++++++++++++
- security/security.c      |   11 +++++++++++
- 5 files changed, 96 insertions(+), 1 deletion(-)
-
----
-
---- security-testing-2.6.git.orig/include/linux/security.h
-+++ security-testing-2.6.git/include/linux/security.h
-@@ -880,6 +880,17 @@ static inline void security_free_mnt_opt
-  *	@sock contains the listening socket structure.
-  *	@newsock contains the newly created server socket for connection.
-  *	Return 0 if permission is granted.
-+ * @socket_post_accept:
-+ *	This hook allows a security module to filter connections from unwanted
-+ *	peers based on the process accepting this connection.
-+ *	The connection will be aborted if this hook returns nonzero.
-+ *	This hook is not designed for updating security attributes of
-+ *	an accept()ed socket, for the accept()ed socket has already sent
-+ *	several packets (e.g. TCP's SYN/ACK packet and some ACK packets for
-+ *	incoming data) before this hook is called.
-+ *	@sock contains the listening socket structure.
-+ *	@newsock contains the newly created server socket for connection.
-+ *	Return 0 if permission is granted.
-  * @socket_sendmsg:
-  *	Check permission before transmitting a message to another socket.
-  *	@sock contains the socket structure.
-@@ -893,6 +904,15 @@ static inline void security_free_mnt_opt
-  *	@size contains the size of message structure.
-  *	@flags contains the operational flags.
-  *	Return 0 if permission is granted.
-+ * @socket_post_recv_datagram:
-+ *	Check permission after receiving a datagram.
-+ *	This hook allows a security module to filter packets
-+ *	from unwanted peers based on the process receiving this datagram.
-+ *	The packet will be discarded if this hook returns nonzero.
-+ *	@sk contains the socket.
-+ *	@skb contains the socket buffer.
-+ *	@flags contains the operational flags.
-+ *	Return 0 if permission is granted.
-  * @socket_getsockname:
-  *	Check permission before the local address (name) of the socket object
-  *	@sock is retrieved.
-@@ -1549,10 +1569,13 @@ struct security_operations {
- 			       struct sockaddr *address, int addrlen);
- 	int (*socket_listen) (struct socket *sock, int backlog);
- 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
-+	int (*socket_post_accept) (struct socket *sock, struct socket *newsock);
- 	int (*socket_sendmsg) (struct socket *sock,
- 			       struct msghdr *msg, int size);
- 	int (*socket_recvmsg) (struct socket *sock,
- 			       struct msghdr *msg, int size, int flags);
-+	int (*socket_post_recv_datagram) (struct sock *sk, struct sk_buff *skb,
-+					  unsigned int flags);
- 	int (*socket_getsockname) (struct socket *sock);
- 	int (*socket_getpeername) (struct socket *sock);
- 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
-@@ -2530,9 +2553,12 @@ int security_socket_bind(struct socket *
- int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
- int security_socket_listen(struct socket *sock, int backlog);
- int security_socket_accept(struct socket *sock, struct socket *newsock);
-+int security_socket_post_accept(struct socket *sock, struct socket *newsock);
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
- int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
- 			    int size, int flags);
-+int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
-+				       unsigned int flags);
- int security_socket_getsockname(struct socket *sock);
- int security_socket_getpeername(struct socket *sock);
- int security_socket_getsockopt(struct socket *sock, int level, int optname);
-@@ -2608,6 +2634,12 @@ static inline int security_socket_accept
- 	return 0;
- }
- 
-+static inline int security_socket_post_accept(struct socket *sock,
-+					      struct socket *newsock)
-+{
-+	return 0;
-+}
-+
- static inline int security_socket_sendmsg(struct socket *sock,
- 					  struct msghdr *msg, int size)
- {
-@@ -2621,6 +2653,13 @@ static inline int security_socket_recvms
- 	return 0;
- }
- 
-+static inline int security_socket_post_recv_datagram(struct sock *sk,
-+						     struct sk_buff *skb,
-+						     unsigned int flags)
-+{
-+	return 0;
-+}
-+
- static inline int security_socket_getsockname(struct socket *sock)
- {
- 	return 0;
---- security-testing-2.6.git.orig/net/core/datagram.c
-+++ security-testing-2.6.git/net/core/datagram.c
-@@ -55,6 +55,7 @@
- #include <net/checksum.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
-+#include <linux/security.h>
- 
- /*
-  *	Is a socket 'connection oriented' ?
-@@ -148,6 +149,7 @@ struct sk_buff *__skb_recv_datagram(stru
- {
- 	struct sk_buff *skb;
- 	long timeo;
-+	unsigned long cpu_flags;
- 	/*
- 	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
- 	 */
-@@ -165,7 +167,6 @@ struct sk_buff *__skb_recv_datagram(stru
- 		 * Look at current nfs client by the way...
- 		 * However, this function was corrent in any case. 8)
- 		 */
--		unsigned long cpu_flags;
- 
- 		spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
- 		skb = skb_peek(&sk->sk_receive_queue);
-@@ -179,6 +180,14 @@ struct sk_buff *__skb_recv_datagram(stru
- 		}
- 		spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
- 
-+		/* Filter packets from unwanted peers. */
-+		if (skb) {
-+			error = security_socket_post_recv_datagram(sk, skb,
-+								   flags);
-+			if (error)
-+				goto force_dequeue;
-+		}
-+
- 		if (skb)
- 			return skb;
- 
-@@ -191,6 +200,24 @@ struct sk_buff *__skb_recv_datagram(stru
- 
- 	return NULL;
- 
-+force_dequeue:
-+	/* Drop this packet because LSM says "Don't pass it to the caller". */
-+	if (!(flags & MSG_PEEK))
-+		goto no_peek;
-+	/*
-+	 * If this packet is MSG_PEEK'ed, dequeue it forcibly
-+	 * so that this packet won't prevent the caller from picking up
-+	 * next packet.
-+	 */
-+	spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
-+	if (skb == skb_peek(&sk->sk_receive_queue)) {
-+		__skb_unlink(skb, &sk->sk_receive_queue);
-+		atomic_dec(&skb->users);
-+		/* Do I have something to do with skb->peeked ? */
-+	}
-+	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
-+no_peek:
-+	kfree_skb(skb);
- no_packet:
- 	*err = error;
- 	return NULL;
---- security-testing-2.6.git.orig/net/socket.c
-+++ security-testing-2.6.git/net/socket.c
-@@ -1519,6 +1519,11 @@ SYSCALL_DEFINE4(accept4, int, fd, struct
- 	if (err < 0)
- 		goto out_fd;
- 
-+	/* Filter connections from unwanted peers. */
-+	err = security_socket_post_accept(sock, newsock);
-+	if (err)
-+		goto out_fd;
-+
- 	if (upeer_sockaddr) {
- 		if (newsock->ops->getname(newsock, (struct sockaddr *)&address,
- 					  &len, 2) < 0) {
---- security-testing-2.6.git.orig/security/capability.c
-+++ security-testing-2.6.git/security/capability.c
-@@ -620,6 +620,11 @@ static int cap_socket_accept(struct sock
- 	return 0;
- }
- 
-+static int cap_socket_post_accept(struct socket *sock, struct socket *newsock)
-+{
-+	return 0;
-+}
-+
- static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
- {
- 	return 0;
-@@ -631,6 +636,12 @@ static int cap_socket_recvmsg(struct soc
- 	return 0;
- }
- 
-+static int cap_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
-+					 unsigned int flags)
-+{
-+	return 0;
-+}
-+
- static int cap_socket_getsockname(struct socket *sock)
- {
- 	return 0;
-@@ -1010,8 +1021,10 @@ void security_fixup_ops(struct security_
- 	set_to_cap_if_null(ops, socket_connect);
- 	set_to_cap_if_null(ops, socket_listen);
- 	set_to_cap_if_null(ops, socket_accept);
-+	set_to_cap_if_null(ops, socket_post_accept);
- 	set_to_cap_if_null(ops, socket_sendmsg);
- 	set_to_cap_if_null(ops, socket_recvmsg);
-+	set_to_cap_if_null(ops, socket_post_recv_datagram);
- 	set_to_cap_if_null(ops, socket_getsockname);
- 	set_to_cap_if_null(ops, socket_getpeername);
- 	set_to_cap_if_null(ops, socket_setsockopt);
---- security-testing-2.6.git.orig/security/security.c
-+++ security-testing-2.6.git/security/security.c
-@@ -1007,6 +1007,11 @@ int security_socket_accept(struct socket
- 	return security_ops->socket_accept(sock, newsock);
- }
- 
-+int security_socket_post_accept(struct socket *sock, struct socket *newsock)
-+{
-+	return security_ops->socket_post_accept(sock, newsock);
-+}
-+
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
- {
- 	return security_ops->socket_sendmsg(sock, msg, size);
-@@ -1018,6 +1023,12 @@ int security_socket_recvmsg(struct socke
- 	return security_ops->socket_recvmsg(sock, msg, size, flags);
- }
- 
-+int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
-+				       unsigned int flags)
-+{
-+	return security_ops->socket_post_recv_datagram(sk, skb, flags);
-+}
-+
- int security_socket_getsockname(struct socket *sock)
- {
- 	return security_ops->socket_getsockname(sock);
+--------------080301010504090100010307--
