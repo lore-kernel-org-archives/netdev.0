@@ -1,46 +1,61 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: 2.6.30-rc1 A few issues and a stall
-Date: Tue, 14 Apr 2009 15:39:42 +0300
-Message-ID: <49E4840E.6010300@redhat.com>
-References: <200904121124.07193.edt@aei.ca> <49E45F8E.9080803@redhat.com> <200904140832.25057.edt@aei.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Restore correct value to gso_size
+Date: Tue, 14 Apr 2009 20:42:49 +0800
+Message-ID: <20090414124249.GA31314@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-acpi@vger.kernel.org
-To: Ed Tomlinson <edt@aei.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751896AbZDNMjY@vger.kernel.org>
-In-Reply-To: <200904140832.25057.edt@aei.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Wagner <mwagner@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:39725 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756058AbZDNMmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 08:42:52 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ed Tomlinson wrote:
-> On Tuesday 14 April 2009 06:03:58 Avi Kivity wrote:
->   
->> Ed Tomlinson wrote:
->>     
->>> Once the above networking stuff is setup I start kvm with the command below
->>>
->>> QEMU_AUDIO_DRV=alsa kvm -m 1024 -cdrom /mnt/sdc4/divx/archlinux-2009.02-ftp-i686.iso -boot c -smp 3 -usb -usbdevice tablet -vga std -drive file=arch.img -net nic,macaddr=52:54:00:12:34:23 -net tap,ifname=qtap0,script=no -soundhw all -mem-path /hugepages
->>>
->>> which works and the kvm session boots just fine.  
->>>
->>> Issue 2.  When I attempt to ping outside the kvm session the pc (not just the kvm session) hangs.
->>> Its impossible to kill the kvm session and there are numerious info messages from RCU (tree RCU enabled)
->>> about stalls.  
->>>   
->>>       
->> The rcu messages are likely because a processor has died.
->>
->> Do things work if you drop -mem-path?
->>     
->
-> It makes no difference.  I did notice that one cpu is peged at 100% though.  I'll be trying
-> CONFIG_PROVE_LOCKING tonight for another problem - might give interesting results.
->   
+Hi:
 
-Oh, so this goes away without CONFIG_PROVE_LOCKING?
+gro: Restore correct value to gso_size
 
+Since everybody has been focusing on baremetal GRO performance
+no one noticed when I added a bug that zapped gso_size for all
+GRO packets.  This only gets picked up when you forward the skb
+out of an interface.
+
+Thanks to Mark Wagner for noticing this bug when testing kvm.
+
+Reported-by: Mark Wagner <mwagner@redhat.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 91d792d..55628cc 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2328,8 +2328,10 @@ static int napi_gro_complete(struct sk_buff *skb)
+ 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+ 	int err = -ENOENT;
+ 
+-	if (NAPI_GRO_CB(skb)->count == 1)
++	if (NAPI_GRO_CB(skb)->count == 1) {
++		skb_shinfo(skb)->gso_size = 0;
+ 		goto out;
++	}
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, head, list) {
+@@ -2348,7 +2350,6 @@ static int napi_gro_complete(struct sk_buff *skb)
+ 	}
+ 
+ out:
+-	skb_shinfo(skb)->gso_size = 0;
+ 	return netif_receive_skb(skb);
+ }
+
+Cheers,
 -- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
