@@ -1,79 +1,52 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [RFC][PATCH v3 6/6] fix wrong get_user_pages usage in iovlock.c
-Date: Tue, 14 Apr 2009 15:58:00 +0900 (JST)
-Message-ID: <20090414155719.C66B.A69D9226@jp.fujitsu.com>
-References: <20090414152151.C659.A69D9226@jp.fujitsu.com> <200904141656.14191.nickpiggin@yahoo.com.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/1] Tell linkwatch about new interfaces
+Date: Tue, 14 Apr 2009 00:43:19 -0700
+Message-ID: <9929d2390904140043v4fa34f6cj2c9ebad3ce1f9894@mail.gmail.com>
+References: <20090404.170539.148727646.davem@davemloft.net>
+	 <cb0375e10904042100o1a203512l593021ee66cb591d@mail.gmail.com>
+	 <alpine.WNT.2.00.0904091128270.6048@jbrandeb-desk1.amr.corp.intel.com>
+	 <20090413.162248.60285999.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, LKML <linux-kernel@vger.kernel.org>,
-        Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-        Andrea Arcangeli <aarcange@redhat.com>, Jeff Moyer <jmoyer@redhat.com>,
-        linux-mm@kvack.org, linux-fsdevel@vger.kernel.org,
-        Maciej Sosnowski <maciej.sosnowski@intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Chris Leech <christopher.leech@intel.com>, netdev@vger.kernel.org
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200904141656.14191.nickpiggin@yahoo.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: jesse.brandeburg@intel.com, amluto@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.247]:59594 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbZDNHnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 03:43:20 -0400
+In-Reply-To: <20090413.162248.60285999.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Tuesday 14 April 2009 16:23:13 KOSAKI Motohiro wrote:
-> > I don't have NET-DMA usable device. I hope to get expert review.
-> > 
-> > =========================
-> > Subject: [Untested][RFC][PATCH] fix wrong get_user_pages usage in iovlock.c
-> > 
-> > 	down_read(mmap_sem)
-> > 	get_user_pages()
-> > 	up_read(mmap_sem)
-> > 
-> > is fork unsafe.
-> > fix it.
-> > 
-> > Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> > Cc: Maciej Sosnowski <maciej.sosnowski@intel.com>
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Cc: Chris Leech <christopher.leech@intel.com>
-> > Cc: netdev@vger.kernel.org
-> > ---
-> >  drivers/dma/iovlock.c |   18 ++++++------------
-> >  1 file changed, 6 insertions(+), 12 deletions(-)
-> > 
-> > Index: b/drivers/dma/iovlock.c
-> > ===================================================================
-> > --- a/drivers/dma/iovlock.c	2009-02-21 16:53:23.000000000 +0900
-> > +++ b/drivers/dma/iovlock.c	2009-04-13 04:46:02.000000000 +0900
-> > @@ -94,18 +94,10 @@ struct dma_pinned_list *dma_pin_iovec_pa
-> >  		pages += page_list->nr_pages;
-> >  
-> >  		/* pin pages down */
-> > -		down_read(&current->mm->mmap_sem);
-> > -		ret = get_user_pages(
-> > -			current,
-> > -			current->mm,
-> > -			(unsigned long) iov[i].iov_base,
-> > -			page_list->nr_pages,
-> > -			1,	/* write */
-> > -			0,	/* force */
-> > -			page_list->pages,
-> > -			NULL);
-> > -		up_read(&current->mm->mmap_sem);
-> > -
-> > +		down_read(&current->mm->mm_pinned_sem);
-> > +		ret = get_user_pages_fast((unsigned long) iov[i].iov_base,
-> > +					  page_list->nr_pages, 1,
-> > +					  page_list->pages);
-> 
-> I would perhaps not fold gup_fast conversions into the same patch as
-> the fix.
+On Mon, Apr 13, 2009 at 4:22 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+> Date: Thu, 9 Apr 2009 17:48:04 -0700 (Pacific Daylight Time)
+>
+>> Dave, if we move the netif_carrier_off call to our dev->open like tg3 has,
+>> do you think this is sufficient?
+>
+> Yes.
+>
+>> e1000e: indicate link down at load
+>>
+>> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>
+>> same kind of patch as e1000, let driver explicitly push link state
+>> once link comes up.
+>>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>
+> I'll wait to get this via Jeff Kirsher.
+>
+> Thanks.
+> --
 
-OK. I'll fix.
+I have added this to my queue and will be sent out with the other
+e1000 patch I have,in the next day or two.
 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Cheers,
+Jeff
