@@ -1,326 +1,523 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: [PATCH] tg3: fix big endian MAC address collection failure
-Date: Tue, 14 Apr 2009 10:31:19 -0500
-Message-ID: <20090414153119.GL10768@sgi.com>
-References: <1239681085.3278.122.camel@mulgrave.int.hansenpartnership.com> <C27F8246C663564A84BB7AB343977242177D75A052@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Tue, 14 Apr 2009 17:49:57 +0200
+Message-ID: <49E4B0A5.70404@cosmosbay.com>
+References: <20090411174801.GG6822@linux.vnet.ibm.com>	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>	<20090412173108.GO6822@linux.vnet.ibm.com>	<20090412.181330.23529546.davem@davemloft.net>	<20090413040413.GQ6822@linux.vnet.ibm.com>	<20090413095309.631cf395@nehalam>	<49E48136.5060700@trash.net>	<49E49C65.8060808@cosmosbay.com> <20090414074554.7fa73e2f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'James Bottomley' <James.Bottomley@HansenPartnership.com>,
-	Matthew Carlson <mcarlson@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.179.29]:51086 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751833AbZDNPbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2009 11:31:21 -0400
-Content-Disposition: inline
-In-Reply-To: <C27F8246C663564A84BB7AB343977242177D75A052@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, paulmck@linux.vnet.ibm.com,
+	David Miller <davem@davemloft.net>, paulus@samba.org,
+	mingo@elte.hu, torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jeff.chua.linux@gmail.com, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090414074554.7fa73e2f@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please don't let me distract from this conversation, but here are the
-ethtool dumps on ia64 for the same BCM5701 adapter for both 2.6.30-rc1
-and 2.6.27.y
+Stephen Hemminger a =C3=A9crit :
+> On Tue, 14 Apr 2009 16:23:33 +0200
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+>=20
+>> Patrick McHardy a =C3=A9crit :
+>>> Stephen Hemminger wrote:
+>>>> This is an alternative version of ip/ip6/arp tables locking using
+>>>> per-cpu locks.  This avoids the overhead of synchronize_net() duri=
+ng
+>>>> update but still removes the expensive rwlock in earlier versions.
+>>>>
+>>>> The idea for this came from an earlier version done by Eric Duzame=
+t.
+>>>> Locking is done per-cpu, the fast path locks on the current cpu
+>>>> and updates counters.  The slow case involves acquiring the locks =
+on
+>>>> all cpu's.
+>>>>
+>>>> The mutex that was added for 2.6.30 in xt_table is unnecessary sin=
+ce
+>>>> there already is a mutex for xt[af].mutex that is held.
+>>>>
+>>>> Tested basic functionality (add/remove/list), but don't have test =
+cases
+>>>> for stress, ip6tables or arptables.
+>>> Thanks Stephen, I'll do some testing with ip6tables.
+>> Here is the patch I cooked on top of Stephen one to get proper locki=
+ng.
+>=20
+> I see no demonstrated problem with locking in my version.
 
-When I dump BCM5704 adapters, the first four bytes match.
+Yes, I did not crash any machine around there, should we wait for a bug=
+ report ? :)
 
-2.6.27.19
-Address   	Data
-----------	----
-0x00000000	0x66
-0x00000001	0x99
-0x00000002	0x55
-0x00000003	0xaa
-0x00000004	0x08
-0x00000005	0x00
-0x00000006	0x00
-0x00000007	0x00
-0x00000008	0x00
-0x00000009	0x00
-0x0000000a	0x02
-0x0000000b	0xa5
-0x0000000c	0x00
-0x0000000d	0x00
-0x0000000e	0x02
-0x0000000f	0x00
-0x00000010	0x08
-0x00000011	0xdf
-0x00000012	0x2a
-0x00000013	0xb1
-0x00000014	0x00
-0x00000015	0x01
-0x00000016	0x00
-0x00000017	0x00
-0x00000018	0x00
-0x00000019	0x00
-0x0000001a	0x3c
-0x0000001b	0x00
-0x0000001c	0x00
-0x0000001d	0x00
-0x0000001e	0x10
-0x0000001f	0x00
-0x00000020	0x00
-0x00000021	0x00
-0x00000022	0x00
-0x00000023	0x00
-0x00000024	0x00
-0x00000025	0x00
-0x00000026	0x00
-0x00000027	0x00
-0x00000028	0x00
-0x00000029	0x00
-0x0000002a	0x00
-0x0000002b	0x00
-0x0000002c	0x00
-0x0000002d	0x00
-0x0000002e	0x00
-0x0000002f	0x00
-0x00000030	0x00
-0x00000031	0x00
-0x00000032	0x00
-0x00000033	0x00
-0x00000034	0x00
-0x00000035	0x00
-0x00000036	0x00
-0x00000037	0x00
-0x00000038	0x00
-0x00000039	0x00
-0x0000003a	0x00
-0x0000003b	0x00
-0x0000003c	0x00
-0x0000003d	0x00
-0x0000003e	0x00
-0x0000003f	0x00
-0x00000040	0x00
-0x00000041	0x00
-0x00000042	0x00
-0x00000043	0x00
-0x00000044	0x00
-0x00000045	0x00
-0x00000046	0x00
-0x00000047	0x00
-0x00000048	0x00
-0x00000049	0x00
-0x0000004a	0x00
-0x0000004b	0x00
-0x0000004c	0x00
-0x0000004d	0x00
-0x0000004e	0x00
-0x0000004f	0x00
-0x00000050	0x00
-0x00000051	0x00
-0x00000052	0x00
-0x00000053	0x00
-0x00000054	0x00
-0x00000055	0x00
-0x00000056	0x00
-0x00000057	0x00
-0x00000058	0x00
-0x00000059	0x00
-0x0000005a	0x00
-0x0000005b	0x00
-0x0000005c	0x00
-0x0000005d	0x00
-0x0000005e	0x00
-0x0000005f	0x00
-0x00000060	0x00
-0x00000061	0x00
-0x00000062	0x00
-0x00000063	0x00
-0x00000064	0x00
-0x00000065	0x00
-0x00000066	0x00
-0x00000067	0x00
-0x00000068	0x00
-0x00000069	0x00
-0x0000006a	0x00
-0x0000006b	0x00
-0x0000006c	0x00
-0x0000006d	0x00
-0x0000006e	0x00
-0x0000006f	0x00
-0x00000070	0x00
-0x00000071	0x00
-0x00000072	0x00
-0x00000073	0x00
-0x00000074	0x43
-0x00000075	0x00
-0x00000076	0x00
-0x00000077	0x8c
-0x00000078	0x00
-0x00000079	0x00
-0x0000007a	0x00
-0x0000007b	0x01
-0x0000007c	0x00
-0x0000007d	0x00
-0x0000007e	0x08
-0x0000007f	0x00
-0x00000080	0x69
-0x00000081	0x13
-0x00000082	0xe6
-0x00000083	0x3c
-0x00000084	0x33
-0x00000085	0x43
-0x00000086	0x39
-0x00000087	0x39
-0x00000088	0x36
-0x00000089	0x42
-0x0000008a	0x2d
-0x0000008b	0x54
-0x0000008c	0x00
-0x0000008d	0x00
-0x0000008e	0x00
-0x0000008f	0x00
+> The reader/writer race is already handled. On replace the race of
+>=20
+> CPU 0                          CPU 1
+>                            lock (iptables(1))
+>                            refer to oldinfo
+> swap in new info
+> foreach CPU
+>    lock iptables(i)
+>    (spin)                  unlock(iptables(1))
+>    read oldinfo
+>    unlock
+> ...
+>=20
+> The point is my locking works, you just seem to feel more comfortable=
+ with
+> a global "stop all CPU's" solution.
+
+Oh right, I missed that xt_replace_table() was *followed* by a get_coun=
+ters()
+call, but I am pretty sure something is needed in xt_replace_table().
+
+A memory barrier at least (smp_wmb())
+
+As soon as we do "table->private =3D newinfo;", other cpus might fetch =
+incorrect
+values for newinfo->fields.
+
+In the past, we had a write_lock_bh()/write_unlock_bh() pair that was
+doing this for us.
+Then we had rcu_assign_pointer() that also had this memory barrier impl=
+ied.
+
+Even if vmalloc() calls we do before calling xt_replace_table() probabl=
+y
+already force barriers, add one for reference, just in case we change c=
+allers
+logic to call kmalloc() instead of vmalloc() or whatever...
+
+>=20
+>> In the "iptables -L" case, we freeze updates on all cpus to get prev=
+ious
+>> RCU behavior (not sure it is mandatory, but anyway...)
+>=20
+> No, it isn't. Because the code in get_counters will fetch all CPU's.
+
+Previous to RCU conversion, we had a rwlock.
+
+Doing a write_lock_bh() on it while reading counters (iptables -L)
+*did* stop all cpus from doing their read_lock_bh() and counters update=
+s.
+
+After RCU and your last patch, an "iptables -L" locks each table one by=
+ one.
+
+This is correct, since a cpu wont update its table while we are fetchin=
+g it,
+but we lost previous "rwlock freeze all" behavior, and some apps/users =
+could
+complain about it, this is why I said "not sure it is mandatory"...
+
+Here is an updated patch ontop of yours, with the smp_wmb() in xt_repla=
+ce_table() :
+
+Thank you
+
+ include/linux/netfilter/x_tables.h |    5 ++
+ net/ipv4/netfilter/arp_tables.c    |   20 +++------
+ net/ipv4/netfilter/ip_tables.c     |   24 ++++-------
+ net/ipv6/netfilter/ip6_tables.c    |   24 ++++-------
+ net/netfilter/x_tables.c           |   57 ++++++++++++++++++++++++++-
+ 5 files changed, 86 insertions(+), 44 deletions(-)
+
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilt=
+er/x_tables.h
+index 1ff1a76..a5840a4 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -426,6 +426,11 @@ extern struct xt_table *xt_find_table_lock(struct =
+net *net, u_int8_t af,
+ 					   const char *name);
+ extern void xt_table_unlock(struct xt_table *t);
+=20
++extern void xt_tlock_lockall(void);
++extern void xt_tlock_unlockall(void);
++extern void xt_tlock_lock(void);
++extern void xt_tlock_unlock(void);
++
+ extern int xt_proto_init(struct net *net, u_int8_t af);
+ extern void xt_proto_fini(struct net *net, u_int8_t af);
+=20
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_t=
+ables.c
+index c60cc11..b561e1e 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -231,8 +231,6 @@ static inline struct arpt_entry *get_entry(void *ba=
+se, unsigned int offset)
+ 	return (struct arpt_entry *)(base + offset);
+ }
+=20
+-static DEFINE_PER_CPU(spinlock_t, arp_tables_lock);
+-
+ unsigned int arpt_do_table(struct sk_buff *skb,
+ 			   unsigned int hook,
+ 			   const struct net_device *in,
+@@ -256,7 +254,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ 	outdev =3D out ? out->name : nulldevname;
+=20
+ 	local_bh_disable();
+-	spin_lock(&__get_cpu_var(arp_tables_lock));
++	xt_tlock_lock();
+ 	private =3D table->private;
+ 	table_base =3D private->entries[smp_processor_id()];
+=20
+@@ -331,7 +329,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ 			e =3D (void *)e + e->next_offset;
+ 		}
+ 	} while (!hotdrop);
+-	spin_unlock(&__get_cpu_var(arp_tables_lock));
++	xt_tlock_unlock();
+ 	local_bh_enable();
+=20
+ 	if (hotdrop)
+@@ -709,33 +707,31 @@ static void get_counters(const struct xt_table_in=
+fo *t,
+ {
+ 	unsigned int cpu;
+ 	unsigned int i =3D 0;
+-	unsigned int curcpu =3D raw_smp_processor_id();
++	unsigned int curcpu;
+=20
++	xt_tlock_lockall();
+ 	/* Instead of clearing (by a previous call to memset())
+ 	 * the counters and using adds, we set the counters
+ 	 * with data used by 'current' CPU
+-	 * We dont care about preemption here.
+ 	 */
+-	spin_lock_bh(&per_cpu(arp_tables_lock, curcpu));
++	curcpu =3D smp_processor_id();
+ 	ARPT_ENTRY_ITERATE(t->entries[curcpu],
+ 			   t->size,
+ 			   set_entry_to_counter,
+ 			   counters,
+ 			   &i);
+-	spin_unlock_bh(&per_cpu(arp_tables_lock, curcpu));
+=20
+ 	for_each_possible_cpu(cpu) {
+ 		if (cpu =3D=3D curcpu)
+ 			continue;
+ 		i =3D 0;
+-		spin_lock_bh(&per_cpu(arp_tables_lock, cpu));
+ 		ARPT_ENTRY_ITERATE(t->entries[cpu],
+ 				   t->size,
+ 				   add_entry_to_counter,
+ 				   counters,
+ 				   &i);
+-		spin_unlock_bh(&per_cpu(arp_tables_lock, cpu));
+ 	}
++	xt_tlock_unlockall();
+ }
+=20
+ static struct xt_counters *alloc_counters(struct xt_table *table)
+@@ -1181,14 +1177,14 @@ static int do_add_counters(struct net *net, voi=
+d __user *user, unsigned int len,
+ 	/* Choose the copy that is on our node */
+ 	local_bh_disable();
+ 	curcpu =3D smp_processor_id();
+-	spin_lock(&__get_cpu_var(arp_tables_lock));
++	xt_tlock_lock();
+ 	loc_cpu_entry =3D private->entries[curcpu];
+ 	ARPT_ENTRY_ITERATE(loc_cpu_entry,
+ 			   private->size,
+ 			   add_counter_to_entry,
+ 			   paddc,
+ 			   &i);
+-	spin_unlock(&__get_cpu_var(arp_tables_lock));
++	xt_tlock_unlock();
+ 	local_bh_enable();
+  unlock_up_free:
+=20
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tab=
+les.c
+index cb3b779..81d173e 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -297,7 +297,6 @@ static void trace_packet(struct sk_buff *skb,
+ }
+ #endif
+=20
+-static DEFINE_PER_CPU(spinlock_t, ip_tables_lock);
+=20
+ /* Returns one of the generic firewall policies, like NF_ACCEPT. */
+ unsigned int
+@@ -342,7 +341,7 @@ ipt_do_table(struct sk_buff *skb,
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+=20
+ 	local_bh_disable();
+-	spin_lock(&__get_cpu_var(ip_tables_lock));
++	xt_tlock_lock();
+ 	private =3D table->private;
+ 	table_base =3D private->entries[smp_processor_id()];
+=20
+@@ -439,7 +438,7 @@ ipt_do_table(struct sk_buff *skb,
+ 			e =3D (void *)e + e->next_offset;
+ 		}
+ 	} while (!hotdrop);
+-	spin_unlock(&__get_cpu_var(ip_tables_lock));
++	xt_tlock_unlock();
+ 	local_bh_enable();
+=20
+ #ifdef DEBUG_ALLOW_ALL
+@@ -895,34 +894,32 @@ get_counters(const struct xt_table_info *t,
+ {
+ 	unsigned int cpu;
+ 	unsigned int i =3D 0;
+-	unsigned int curcpu =3D raw_smp_processor_id();
++	unsigned int curcpu;
+=20
++	xt_tlock_lockall();
+ 	/* Instead of clearing (by a previous call to memset())
+ 	 * the counters and using adds, we set the counters
+ 	 * with data used by 'current' CPU
+-	 * We dont care about preemption here.
+ 	 */
+-	spin_lock_bh(&per_cpu(ip_tables_lock, curcpu));
++	curcpu =3D smp_processor_id();
+ 	IPT_ENTRY_ITERATE(t->entries[curcpu],
+ 			  t->size,
+ 			  set_entry_to_counter,
+ 			  counters,
+ 			  &i);
+-	spin_unlock_bh(&per_cpu(ip_tables_lock, curcpu));
+=20
+ 	for_each_possible_cpu(cpu) {
+ 		if (cpu =3D=3D curcpu)
+ 			continue;
+=20
+ 		i =3D 0;
+-		spin_lock_bh(&per_cpu(ip_tables_lock, cpu));
+ 		IPT_ENTRY_ITERATE(t->entries[cpu],
+ 				  t->size,
+ 				  add_entry_to_counter,
+ 				  counters,
+ 				  &i);
+-		spin_unlock_bh(&per_cpu(ip_tables_lock, cpu));
+ 	}
++	xt_tlock_unlockall();
+ }
+=20
+ static struct xt_counters * alloc_counters(struct xt_table *table)
+@@ -1393,14 +1390,14 @@ do_add_counters(struct net *net, void __user *u=
+ser, unsigned int len, int compat
+ 	local_bh_disable();
+ 	/* Choose the copy that is on our node */
+ 	curcpu =3D smp_processor_id();
+-	spin_lock(&__get_cpu_var(ip_tables_lock));
++	xt_tlock_lock();
+ 	loc_cpu_entry =3D private->entries[curcpu];
+ 	IPT_ENTRY_ITERATE(loc_cpu_entry,
+ 			  private->size,
+ 			  add_counter_to_entry,
+ 			  paddc,
+ 			  &i);
+-	spin_unlock(&__get_cpu_var(ip_tables_lock));
++	xt_tlock_unlock();
+ 	local_bh_enable();
+=20
+  unlock_up_free:
+@@ -2220,10 +2217,7 @@ static struct pernet_operations ip_tables_net_op=
+s =3D {
+=20
+ static int __init ip_tables_init(void)
+ {
+-	int cpu, ret;
+-
+-	for_each_possible_cpu(cpu)
+-		spin_lock_init(&per_cpu(ip_tables_lock, cpu));
++	int ret;
+=20
+ 	ret =3D register_pernet_subsys(&ip_tables_net_ops);
+ 	if (ret < 0)
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_t=
+ables.c
+index ac46ca4..d6ba69e 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -329,7 +329,6 @@ static void trace_packet(struct sk_buff *skb,
+ }
+ #endif
+=20
+-static DEFINE_PER_CPU(spinlock_t, ip6_tables_lock);
+=20
+ /* Returns one of the generic firewall policies, like NF_ACCEPT. */
+ unsigned int
+@@ -368,7 +367,7 @@ ip6t_do_table(struct sk_buff *skb,
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+=20
+ 	local_bh_disable();
+-	spin_lock(&__get_cpu_var(ip6_tables_lock));
++	xt_tlock_lock();
+ 	private =3D table->private;
+ 	table_base =3D private->entries[smp_processor_id()];
+=20
+@@ -469,7 +468,7 @@ ip6t_do_table(struct sk_buff *skb,
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	((struct ip6t_entry *)table_base)->comefrom =3D NETFILTER_LINK_POISON=
+;
+ #endif
+-	spin_unlock(&__get_cpu_var(ip6_tables_lock));
++	xt_tlock_unlock();
+ 	local_bh_enable();
+=20
+ #ifdef DEBUG_ALLOW_ALL
+@@ -925,33 +924,31 @@ get_counters(const struct xt_table_info *t,
+ {
+ 	unsigned int cpu;
+ 	unsigned int i =3D 0;
+-	unsigned int curcpu =3D raw_smp_processor_id();
++	unsigned int curcpu;
+=20
++	xt_tlock_lockall();
+ 	/* Instead of clearing (by a previous call to memset())
+ 	 * the counters and using adds, we set the counters
+ 	 * with data used by 'current' CPU
+-	 * We dont care about preemption here.
+ 	 */
+-	spin_lock_bh(&per_cpu(ip6_tables_lock, curcpu));
++	curcpu =3D smp_processor_id();
+ 	IP6T_ENTRY_ITERATE(t->entries[curcpu],
+ 			   t->size,
+ 			   set_entry_to_counter,
+ 			   counters,
+ 			   &i);
+-	spin_unlock_bh(&per_cpu(ip6_tables_lock, curcpu));
+=20
+ 	for_each_possible_cpu(cpu) {
+ 		if (cpu =3D=3D curcpu)
+ 			continue;
+ 		i =3D 0;
+-		spin_lock_bh(&per_cpu(ip6_tables_lock, cpu));
+ 		IP6T_ENTRY_ITERATE(t->entries[cpu],
+ 				  t->size,
+ 				  add_entry_to_counter,
+ 				  counters,
+ 				  &i);
+-		spin_unlock_bh(&per_cpu(ip6_tables_lock, cpu));
+ 	}
++	xt_tlock_unlockall();
+ }
+=20
+ static struct xt_counters *alloc_counters(struct xt_table *table)
+@@ -1423,14 +1420,14 @@ do_add_counters(struct net *net, void __user *u=
+ser, unsigned int len,
+ 	local_bh_disable();
+ 	/* Choose the copy that is on our node */
+ 	curcpu =3D smp_processor_id();
+-	spin_lock(&__get_cpu_var(ip6_tables_lock));
++	xt_tlock_lock();
+ 	loc_cpu_entry =3D private->entries[curcpu];
+ 	IP6T_ENTRY_ITERATE(loc_cpu_entry,
+ 			  private->size,
+ 			  add_counter_to_entry,
+ 			  paddc,
+ 			  &i);
+-	spin_unlock(&__get_cpu_var(ip6_tables_lock));
++	xt_tlock_unlock();
+ 	local_bh_enable();
+=20
+  unlock_up_free:
+@@ -2248,10 +2245,7 @@ static struct pernet_operations ip6_tables_net_o=
+ps =3D {
+=20
+ static int __init ip6_tables_init(void)
+ {
+-	int cpu, ret;
+-
+-	for_each_possible_cpu(cpu)
+-		spin_lock_init(&per_cpu(ip6_tables_lock, cpu));
++	int ret;
+=20
+ 	ret =3D register_pernet_subsys(&ip6_tables_net_ops);
+ 	if (ret < 0)
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 0d94020..3cf19bf 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -680,9 +680,13 @@ xt_replace_table(struct xt_table *table,
+ 		return NULL;
+ 	}
+ 	oldinfo =3D private;
++	/*
++	 * make sure all newinfo fields are committed to memory before changi=
+ng
++	 * table->private, since other cpus have no synchronization with us.
++	 */
++	smp_wmb();
+ 	table->private =3D newinfo;
+ 	newinfo->initial_entries =3D oldinfo->initial_entries;
+-
+ 	return oldinfo;
+ }
+ EXPORT_SYMBOL_GPL(xt_replace_table);
+@@ -1126,9 +1130,58 @@ static struct pernet_operations xt_net_ops =3D {
+ 	.init =3D xt_net_init,
+ };
+=20
++static DEFINE_PER_CPU(spinlock_t, xt_tables_lock);
++
++void xt_tlock_lockall(void)
++{
++	int cpu;
++
++	local_bh_disable();
++	preempt_disable();
++	for_each_possible_cpu(cpu) {
++		spin_lock(&per_cpu(xt_tables_lock, cpu));
++		/*
++		 * avoid preempt counter overflow
++		 */
++		preempt_enable_no_resched();
++	}
++}
++EXPORT_SYMBOL(xt_tlock_lockall);
++
++void xt_tlock_unlockall(void)
++{
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		preempt_disable();
++		spin_unlock(&per_cpu(xt_tables_lock, cpu));
++	}
++	preempt_enable();
++	local_bh_enable();
++}
++EXPORT_SYMBOL(xt_tlock_unlockall);
++
++/*
++ * preemption should be disabled by caller
++ */
++void xt_tlock_lock(void)
++{
++	spin_lock(&__get_cpu_var(xt_tables_lock));
++}
++EXPORT_SYMBOL(xt_tlock_lock);
++
++void xt_tlock_unlock(void)
++{
++	spin_unlock(&__get_cpu_var(xt_tables_lock));
++}
++EXPORT_SYMBOL(xt_tlock_unlock);
++
+ static int __init xt_init(void)
+ {
+-	int i, rv;
++	int i, rv, cpu;
++
++	for_each_possible_cpu(cpu)
++		spin_lock_init(&per_cpu(xt_tables_lock, cpu));
+=20
+ 	xt =3D kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL);
+ 	if (!xt)
 
 
-2.6.30-rc1
-Address   	Data
-----------	----
-0x00000000	0xaa
-0x00000001	0x55
-0x00000002	0x99
-0x00000003	0x66
-0x00000004	0x00
-0x00000005	0x00
-0x00000006	0x00
-0x00000007	0x08
-0x00000008	0xa5
-0x00000009	0x02
-0x0000000a	0x00
-0x0000000b	0x00
-0x0000000c	0x00
-0x0000000d	0x02
-0x0000000e	0x00
-0x0000000f	0x00
-0x00000010	0xb1
-0x00000011	0x2a
-0x00000012	0xdf
-0x00000013	0x08
-0x00000014	0x00
-0x00000015	0x00
-0x00000016	0x01
-0x00000017	0x00
-0x00000018	0x00
-0x00000019	0x3c
-0x0000001a	0x00
-0x0000001b	0x00
-0x0000001c	0x00
-0x0000001d	0x10
-0x0000001e	0x00
-0x0000001f	0x00
-0x00000020	0x00
-0x00000021	0x00
-0x00000022	0x00
-0x00000023	0x00
-0x00000024	0x00
-0x00000025	0x00
-0x00000026	0x00
-0x00000027	0x00
-0x00000028	0x00
-0x00000029	0x00
-0x0000002a	0x00
-0x0000002b	0x00
-0x0000002c	0x00
-0x0000002d	0x00
-0x0000002e	0x00
-0x0000002f	0x00
-0x00000030	0x00
-0x00000031	0x00
-0x00000032	0x00
-0x00000033	0x00
-0x00000034	0x00
-0x00000035	0x00
-0x00000036	0x00
-0x00000037	0x00
-0x00000038	0x00
-0x00000039	0x00
-0x0000003a	0x00
-0x0000003b	0x00
-0x0000003c	0x00
-0x0000003d	0x00
-0x0000003e	0x00
-0x0000003f	0x00
-0x00000040	0x00
-0x00000041	0x00
-0x00000042	0x00
-0x00000043	0x00
-0x00000044	0x00
-0x00000045	0x00
-0x00000046	0x00
-0x00000047	0x00
-0x00000048	0x00
-0x00000049	0x00
-0x0000004a	0x00
-0x0000004b	0x00
-0x0000004c	0x00
-0x0000004d	0x00
-0x0000004e	0x00
-0x0000004f	0x00
-0x00000050	0x00
-0x00000051	0x00
-0x00000052	0x00
-0x00000053	0x00
-0x00000054	0x00
-0x00000055	0x00
-0x00000056	0x00
-0x00000057	0x00
-0x00000058	0x00
-0x00000059	0x00
-0x0000005a	0x00
-0x0000005b	0x00
-0x0000005c	0x00
-0x0000005d	0x00
-0x0000005e	0x00
-0x0000005f	0x00
-0x00000060	0x00
-0x00000061	0x00
-0x00000062	0x00
-0x00000063	0x00
-0x00000064	0x00
-0x00000065	0x00
-0x00000066	0x00
-0x00000067	0x00
-0x00000068	0x00
-0x00000069	0x00
-0x0000006a	0x00
-0x0000006b	0x00
-0x0000006c	0x00
-0x0000006d	0x00
-0x0000006e	0x00
-0x0000006f	0x00
-0x00000070	0x00
-0x00000071	0x00
-0x00000072	0x00
-0x00000073	0x00
-0x00000074	0x8c
-0x00000075	0x00
-0x00000076	0x00
-0x00000077	0x43
-0x00000078	0x01
-0x00000079	0x00
-0x0000007a	0x00
-0x0000007b	0x00
-0x0000007c	0x00
-0x0000007d	0x08
-0x0000007e	0x00
-0x0000007f	0x00
-0x00000080	0x3c
-0x00000081	0xe6
-0x00000082	0x13
-0x00000083	0x69
-0x00000084	0x39
-0x00000085	0x39
-0x00000086	0x43
-0x00000087	0x33
-0x00000088	0x54
-0x00000089	0x2d
-0x0000008a	0x42
-0x0000008b	0x36
-0x0000008c	0x00
-0x0000008d	0x00
-0x0000008e	0x00
-0x0000008f	0x00
-
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
