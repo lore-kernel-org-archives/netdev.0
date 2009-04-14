@@ -1,59 +1,55 @@
-From: "Yan Seiner" <yan@seiner.com>
-Subject: Re: mcp55 forcedeth woes
-Date: Tue, 14 Apr 2009 09:47:59 -0700 (PDT)
-Message-ID: <acfb5c7f894e2376902adb7d9d5512f6.squirrel@www.datavault.us>
-References: <e3e0f4f0ca9fdce35c24b30559d10f31.squirrel@www.datavault.us>
-    <200904132100.58056.gene.heskett@verizon.net>
-    <49E3EF9F.6090600@seiner.com>
-    <200904132224.13716.gene.heskett@verizon.net>
-    <49E49F46.8030509@seiner.com> <18916.47906.73896.346385@stoffel.org>
+From: Jeff Chua <jeff.chua.linux@gmail.com>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Wed, 15 Apr 2009 00:51:59 +0800
+Message-ID: <b6a2187b0904140951r3c6a41fdnc26b149202bdfa84@mail.gmail.com>
+References: <20090411174801.GG6822@linux.vnet.ibm.com>
+	 <18913.53699.544083.320542@cargo.ozlabs.ibm.com>
+	 <20090412173108.GO6822@linux.vnet.ibm.com>
+	 <20090412.181330.23529546.davem@davemloft.net>
+	 <20090413040413.GQ6822@linux.vnet.ibm.com>
+	 <20090413095309.631cf395@nehalam> <49E48136.5060700@trash.net>
+	 <49E49C65.8060808@cosmosbay.com> <20090414074554.7fa73e2f@nehalam>
+	 <49E4B0A5.70404@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Gene Heskett" <gene.heskett@verizon.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	aabdulla@nvidia.com
-To: "John Stoffel" <john@stoffel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>, paulmck@linux.vnet.ibm.com,
+	David Miller <davem@davemloft.net>, paulus@samba.org,
+	mingo@elte.hu, torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from flatoutfitness.com ([66.178.130.209]:33507 "EHLO selene"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755992AbZDNQsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2009 12:48:04 -0400
-In-Reply-To: <18916.47906.73896.346385@stoffel.org>
+Received: from wf-out-1314.google.com ([209.85.200.174]:9855 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338AbZDNQwB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 12:52:01 -0400
+In-Reply-To: <49E4B0A5.70404@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 14, 2009 at 11:49 PM, Eric Dumazet <dada1@cosmosbay.com> wr=
+ote:
+> Stephen Hemminger a =E9crit :
+>> On Tue, 14 Apr 2009 16:23:33 +0200
+>> Eric Dumazet <dada1@cosmosbay.com> wrote:
+>>
+>>> Patrick McHardy a =E9crit :
+>>>> Stephen Hemminger wrote:
+>>>>> This is an alternative version of ip/ip6/arp tables locking using
+>>>>> per-cpu locks. =A0This avoids the overhead of synchronize_net() d=
+uring
+>>>>> update but still removes the expensive rwlock in earlier versions=
+=2E
 
-On Tue, April 14, 2009 9:34 am, John Stoffel wrote:
->
-> I've also got one of these boards, but I seem to recall that 2.6.28
-> and higher worked just fine, but when I was chasing another problem
-> with complete system crashes when running tcpdump, I found the dead
-> port problem as well.
+Tested. Loaded as fast as 2.6.29.
 
-Yeah, this one surfaced after I had a memory stick go bad and lock up the
-machine several times.
+> Here is an updated patch ontop of yours, with the smp_wmb() in xt_rep=
+lace_table() :
 
->
-> Thanks for posting your workaround, they'll be a big help.  Esp if I
-> put them in early to the system boot process as a quick hack.
->
-> The M2N-SLI Deluxe boards are nice though, stable stable stable.  I've
-> been very happy with mine.  I wonder if there's a newer BIOS which
-> might address some of these issues as well, since it seems to me that
-> the BIOS, esp on power up, should be reseting the ports to something
-> more sane.
+Tested as well. Loaded as fast as 2.6.29.
 
-There is a newer bios, 1702, that may address these issues - at least teh
-writeup for the 17xx bios for the m2n32 talks about a network lockup fix. 
-I haven't tried yet.  These are the most stable boards I've found; one of
-mine runs 6 SATA drives locally, 9 via eSATA, 2 dual DVI video cards, and
-2 15K scsi drives, all without a hitch.  It never glitches - except for
-the d*mn network, this board is a piece of perfection.
-
--- 
-Yan Seiner, PE
-
-Support my bid for the 4J School Board
-http://www.seiner.com
-
+Thanks,
+Jeff.
