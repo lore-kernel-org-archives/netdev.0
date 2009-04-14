@@ -1,59 +1,54 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [RFC v2] virtio: add virtio-over-PCI driver
-Date: Tue, 14 Apr 2009 14:53:42 -0700
-Message-ID: <20090414215342.GB9877@ovro.caltech.edu>
-References: <20090224000002.GA578@ovro.caltech.edu>
-	<fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
+From: Ed Tomlinson <edt@aei.ca>
+Subject: Re: 2.6.30-rc1 A few issues and a stall
+Date: Tue, 14 Apr 2009 18:03:14 -0400
+Message-ID: <200904141803.14660.edt@aei.ca>
+References: <200904121124.07193.edt@aei.ca> <200904140832.25057.edt@aei.ca> <49E4840E.6010300@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-acpi@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail001.aei.ca ([206.123.6.130]:49983 "EHLO mail001.aei.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751233AbZDNWDS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2009 18:03:18 -0400
+In-Reply-To: <49E4840E.6010300@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2009 at 02:28:26PM -0600, Grant Likely wrote:
-> On Mon, Feb 23, 2009 at 6:00 PM, Ira Snyder <iws@ovro.caltech.edu> wrote:
-> > This adds support to Linux for using virtio between two computers linked by
-> > a PCI interface. This allows the use of virtio_net to create a familiar,
-> > fast interface for communication. It should be possible to use other virtio
-> > devices in the future, but this has not been tested.
+On Tuesday 14 April 2009 08:39:42 Avi Kivity wrote:
+> Ed Tomlinson wrote:
+> > On Tuesday 14 April 2009 06:03:58 Avi Kivity wrote:
+> >   
+> >> Ed Tomlinson wrote:
+> >>     
+> >>> Once the above networking stuff is setup I start kvm with the command below
+> >>>
+> >>> QEMU_AUDIO_DRV=alsa kvm -m 1024 -cdrom /mnt/sdc4/divx/archlinux-2009.02-ftp-i686.iso -boot c -smp 3 -usb -usbdevice tablet -vga std -drive file=arch.img -net nic,macaddr=52:54:00:12:34:23 -net tap,ifname=qtap0,script=no -soundhw all -mem-path /hugepages
+> >>>
+> >>> which works and the kvm session boots just fine.  
+> >>>
+> >>> Issue 2.  When I attempt to ping outside the kvm session the pc (not just the kvm session) hangs.
+> >>> Its impossible to kill the kvm session and there are numerious info messages from RCU (tree RCU enabled)
+> >>> about stalls.  
+> >>>   
+> >>>       
+> >> The rcu messages are likely because a processor has died.
+> >>
+> >> Do things work if you drop -mem-path?
+> >>     
+> >
+> > It makes no difference.  I did notice that one cpu is peged at 100% though.  I'll be trying
+> > CONFIG_PROVE_LOCKING tonight for another problem - might give interesting results.
+> >   
 > 
-> Hey Ira,
-> 
-> I like this a lot.  I need to do much the same thing on one of my
-> platforms, so I'm going to use your patch as my starting point.  Have
-> you made many changes since you posted this version of your patch?
-> I'd like to collaborate on the development and help to get it
-> mainlined.
-> 
+> Oh, so this goes away without CONFIG_PROVE_LOCKING?
 
-This would be great. I'd really appreciate the help. I haven't had time
-to make any changes since I last posted the patch. I started work on
-converting all of the usage of struct vop_loc_* to just use the on-wire
-structures, but I didn't get very far before other work got in the way.
+Nothing goes away.  This happens without CONFIG_PROVE_LOCKING active in the kernel.  Given 
+that one CPU is running at 100% I suspect that a spinlock is stuck...
 
-> In my case I've got an MPC5200 as the 'host' and a Xilinx Virtex
-> (ppc440) as the 'client'.  I intend set aside a region of the Xilinx
-> Virtex's memory space for the shared queues.  I'm starting work on it
-> now, and I'll provide you with feedback and/or patches as I make
-> progress.
-> 
-
-I'm looking forward to seeing your implementation. If you have any
-questions, I'd be happy to attempt to answer them :)
-
-Ira
+Ed
