@@ -1,34 +1,42 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: SEEPROM test patch
-Date: Tue, 14 Apr 2009 17:44:17 +0000
-Message-ID: <1239731057.3357.71.camel@mulgrave.int.hansenpartnership.com>
-References: <20090414172123.GA12319@xw6200.broadcom.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skge: fix occasional BUG during MTU change
+Date: Tue, 14 Apr 2009 10:55:39 -0700
+Message-ID: <20090414105539.6388f677@nehalam>
+References: <20090407183623.7545bb0b@leela>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robin Holt <holt@sgi.com>, Michael Chan <mchan@broadcom.com>,
-	netdev@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20090414172123.GA12319@xw6200.broadcom.net>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michal Schmidt <mschmidt@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56967 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751268AbZDNRz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2009 13:55:58 -0400
+In-Reply-To: <20090407183623.7545bb0b@leela>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-04-14 at 10:21 -0700, Matt Carlson wrote:
-> James, Robin.  I looked through the patches again and found that the
-> SEEPROM routines were not being adjusted correctly along with the flash
-> NVRAM access routines.  The patch below should shore up the difference.
-> The patch works on both BE and LE systems.
+On Tue, 7 Apr 2009 18:36:23 +0200
+Michal Schmidt <mschmidt@redhat.com> wrote:
+
+> The BUG_ON(skge->tx_ring.to_use != skge->tx_ring.to_clean) in skge_up()
+> was sometimes observed when setting MTU.
 > 
-> Can you apply the patch below and see if it fixes your problem?  (You
-> may have to back out David's changes for the mac addresses to be
-> restored, but 'eeprom -e' dumps should be fixed.)  If it does, I'll
-> post a replacement patch that documents why the code is doing what it's
-> doing.
+> skge_down() disables the TX queue, but then reenables it by mistake via
+> skge_tx_clean().
+> Fix it by moving the waking of the queue from skge_tx_clean() to the
+> other caller. And to make sure start_xmit is not in progress on another
+> CPU, skge_down() should call netif_tx_disable().
+> 
+> The bug was reported to me by Jiri Jilek whose Debian system sometimes
+> failed to boot. He tested the patch and the bug did not happen anymore.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> ---
+>  drivers/net/skge.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 
-Yes, that seems to work better:  both the mac address and ethtool -e
-output are back to what 2.6.29 reports.
+Tested fine. This should go to stable as well.
 
-James
-
-
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
