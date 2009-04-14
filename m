@@ -1,40 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] netsched: Allow meta match on vlan tag on receive
-Date: Mon, 13 Apr 2009 17:30:08 -0700
-Message-ID: <20090413173008.3278a54c@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netsched: Allow meta match on vlan tag on receive
+Date: Mon, 13 Apr 2009 18:13:06 -0700 (PDT)
+Message-ID: <20090413.181306.39229675.davem@davemloft.net>
+References: <20090413173008.3278a54c@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>
+Cc: kaber@trash.net, tgraf@suug.ch, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42736 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751319AbZDNAaP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2009 20:30:15 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38909
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750721AbZDNBNP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2009 21:13:15 -0400
+In-Reply-To: <20090413173008.3278a54c@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When vlan acceleration is used on receive, the vlan tag is maintained
-outside of the skb data. The existing vlan tag match only works on TX
-path because it uses vlan_get_tag which tests for VLAN_HW_TX_ACCEL.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 13 Apr 2009 17:30:08 -0700
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> When vlan acceleration is used on receive, the vlan tag is maintained
+> outside of the skb data. The existing vlan tag match only works on TX
+> path because it uses vlan_get_tag which tests for VLAN_HW_TX_ACCEL.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/net/sched/em_meta.c	2009-04-08 08:45:13.000000000 -0700
-+++ b/net/sched/em_meta.c	2009-04-09 09:26:32.397494374 -0700
-@@ -176,8 +176,10 @@ META_COLLECTOR(var_dev)
- 
- META_COLLECTOR(int_vlan_tag)
- {
--	unsigned short uninitialized_var(tag);
--	if (vlan_get_tag(skb, &tag) < 0)
-+	unsigned short tag;
-+
-+	tag = vlan_tx_tag_get(skb);
-+	if (!tag && __vlan_get_tag(skb, &tag))
- 		*err = -1;
- 	else
- 		dst->value = tag;
+Looks good, applied, thanks!
