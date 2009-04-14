@@ -1,75 +1,96 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [BUILD FAILURE 06/12] Next April 14 : PPC64 randconfig
-	[drivers/net/ehea/ehea_main.c]
-Date: Tue, 14 Apr 2009 22:39:38 +0400
-Message-ID: <20090414183938.GA17134@orion>
-References: <1239733747.5344.78.camel@subratamodak.linux.ibm.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Kernel sends multicast groups to sockets that did not subscribe
+ to the MC group
+Date: Tue, 14 Apr 2009 14:33:53 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904141424440.30596@qirst.com>
+References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linuxppc-dev <Linuxppc-dev@ozlabs.org>, Greg KH <greg@kroah.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>, Julia Lawall <julia@diku.dk>,
-	Jeff Garzik <jgarzik@pobox.com>, Mel Gorman <mel@skynet.ie>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	sachinp <sachinp@linux.vnet.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-net <linux-net@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Subrata Modak <subrata@linux.vnet.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.186]:36847 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912AbZDNSkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 14:40:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1239733747.5344.78.camel@subratamodak.linux.ibm.com>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:43071 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758454AbZDNSkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 14:40:47 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 32FB282C4A4
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 14:50:27 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id kUPqQHvxjTdu for <netdev@vger.kernel.org>;
+	Tue, 14 Apr 2009 14:50:21 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 15C6682C246
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 14:50:21 -0400 (EDT)
+In-Reply-To: <20090414182731.GD14305@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2009 at 11:59:07PM +0530, Subrata Modak wrote:
-> Observed the following build error:
-> CC      drivers/net/ehea/ehea_main.o
-> drivers/net/ehea/ehea_main.c: In function ???ehea_setup_single_port???:
-> drivers/net/ehea/ehea_main.c:3145: error: ???struct net_device??? has no
-> member named ???tx_timeout???
+On Tue, 14 Apr 2009, Neil Horman wrote:
 
->From 56142fa2ed992aeee3f2635990ac37807379a310 Mon Sep 17 00:00:00 2001
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Date: Tue, 14 Apr 2009 22:35:32 +0400
-Subject: [PATCH] ehea: Fix incomplete conversion to net_device_ops
+> The only reason that happens is because the apps themselves are broken.  The
+> only way an application would get messages from unexpected Multicast addresses
+> is if it joined a group, and then bound the socket to INADDR_ANY, rather than to
+> the multicast group and port that it joined to.  And if it does that, it has to
+> be written to detect and cope with malformed data from unexpected hosts, lest it
+> be vulnurable to any number of bugs.
 
+This occurs here if two applications on a machine bind to the
+different MC groups but the same port. Applications need to bind to the
+same port since MC traffic has a port number included. Do I need to bind
+to the IP address of the NIC? What does INADDR_ANY have to do with it?
 
-Reported-by: Subrata Modak <subrata@linux.vnet.ibm.com>
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
- drivers/net/ehea/ehea_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> It works exactly the same way with unicast UDP.  If an application receives on a
+> socket that is bound to INADDR_ANY, it needs to be especially careful in parsing
+> the data that it receives, since there is no transport layer validation of the
+> sending clients status (the way there is with tcp or sctp).  If host A has a
+> socket on an application bound to INADDR_ANY and is receiving data from host B,
+> nothing is stopping host C from starting to send whatever garbage it wants to
+> host A as well, and its up to the application to sort that out.  Its exactly the
+> same with multicast.  Its just that people assume it works in a certain way
+> (like I did), and it doesn't.
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index ac0c5b4..604c844 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -3080,7 +3080,8 @@ static const struct net_device_ops ehea_netdev_ops = {
- 	.ndo_change_mtu		= ehea_change_mtu,
- 	.ndo_vlan_rx_register	= ehea_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid	= ehea_vlan_rx_add_vid,
--	.ndo_vlan_rx_kill_vid	= ehea_vlan_rx_kill_vid
-+	.ndo_vlan_rx_kill_vid	= ehea_vlan_rx_kill_vid,
-+	.ndo_tx_timeout		= ehea_tx_watchdog,
- };
- 
- struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
-@@ -3142,7 +3143,6 @@ struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
- 		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
- 		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER
- 		      | NETIF_F_LLTX;
--	dev->tx_timeout = &ehea_tx_watchdog;
- 	dev->watchdog_timeo = EHEA_WATCH_DOG_TIMEOUT;
- 
- 	INIT_WORK(&port->reset_task, ehea_reset_port);
--- 
-1.6.2.3
+Again what does this have to do with INADDR_ANY? You are talking about UDP
+sockets? In that case the sorting out usually happens based on the source
+address anyways.
+
+> Yes, we can change the code, and its not hard, the question is: why?  It would
+> make the use of multicast a bit more intuitive, yes, but I would be concerned
+> about applications which expect this behavior.  They would all break with this
+> change.  I can certainly envision an application listening on multiple multicast
+> groups, and as a matter of simplification, binding to INADDR_ANY, and validating
+> any received data to toss messages from groups they don't want in user space.  I
+> suppose theres some advantage in doing the filtering in kernel space to avoid
+> the extraneous copy_to_user, but I'm not sure thats always feasible, As an
+> application might not know at any given moment what multicast groups it needs to
+> receive on.
+
+Please read the initial message that started this thread.
+
+If an application listens on multiple multicast groups then it needs to
+perform join operations otherwise the switch will not forward the
+multicast groups to the host.
+(Just ignoring the INADDR_ANY bits since I do not know what this would
+have to do with the issue at hand)
+
+> Possible, but I'd still be worried about the above.  Using a switch like this is
+> global (or at least per net namespace), and prevents a mix of apps written to
+> the 'new model' and the current model.  A prctl option or an additional socket
+> option might be more palatable.  I think if you could find some standard,
+> specification or common practice documenting that multicast works the way
+> you 'expect' on other systems, thsi might get more traction.  I've not found
+> anything to that effect though (although I've not looked very hard).
+
+I cannot envision that there would be many applications having made any
+use of the current situation where all mc traffic to a port is forwarded
+to the multiple applications that may have subscribed to disjunct sets of
+multicast groups.
+
+One could envison having two processes that open the same socket/port and
+coordinate: The first joins the multicast groups and then continues in a
+monitoring role whereas the second actually processes the data. But then
+the data is forwarded to both processes and one of them is not processing
+it. So its fundamentally bad behavior. I would even suggest to make the
+socket based filtering the default (as in other OSes).
 
