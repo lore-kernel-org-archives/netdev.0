@@ -1,122 +1,510 @@
-From: Yan Seiner <yan@seiner.com>
-Subject: Re: mcp55 forcedeth woes
-Date: Tue, 14 Apr 2009 07:35:50 -0700
-Message-ID: <49E49F46.8030509@seiner.com>
-References: <e3e0f4f0ca9fdce35c24b30559d10f31.squirrel@www.datavault.us> <200904132100.58056.gene.heskett@verizon.net> <49E3EF9F.6090600@seiner.com> <200904132224.13716.gene.heskett@verizon.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU
+Date: Tue, 14 Apr 2009 07:45:54 -0700
+Message-ID: <20090414074554.7fa73e2f@nehalam>
+References: <20090411174801.GG6822@linux.vnet.ibm.com>
+	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>
+	<20090412173108.GO6822@linux.vnet.ibm.com>
+	<20090412.181330.23529546.davem@davemloft.net>
+	<20090413040413.GQ6822@linux.vnet.ibm.com>
+	<20090413095309.631cf395@nehalam>
+	<49E48136.5060700@trash.net>
+	<49E49C65.8060808@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	aabdulla@nvidia.com
-To: Gene Heskett <gene.heskett@verizon.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756446AbZDNOhE@vger.kernel.org>
-In-Reply-To: <200904132224.13716.gene.heskett@verizon.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, paulmck@linux.vnet.ibm.com,
+	David Miller <davem@davemloft.net>, paulus@samba.org,
+	mingo@elte.hu, torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jeff.chua.linux@gmail.com, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:47692 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754970AbZDNOqE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 10:46:04 -0400
+In-Reply-To: <49E49C65.8060808@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gene Heskett wrote:
-> On Monday 13 April 2009, Yan Seiner wrote:
->   
->> Gene Heskett wrote:
->>     
->>> On Monday 13 April 2009, Yan Seiner wrote:
->>>       
->>>> I have a few Asus M2N-SLI deluxe mobos.  These mobos have the MCP55
->>>> chipset and two 1gb ethernet ports.  Occasionally, and for no reason that
->>>> I can figure out, these ports will die.  There are various ways to try
->>>> and fix these; they seem to be about 50% effective, and approach
->>>> something akin to voodoo.
->>>>
->>>> Based on this discussion here:
->>>>
->>>> http://patchwork.kernel.org/patch/16212/
->>>>
->>>> I've gotten the ability to turn the ports on and off somewhat.
->>>>
->>>> For port 0,
->>>>
->>>> ethtool -s eth0 autoneg off speed 10 duplex full
->>>>
->>>> turns on the link, and gets me half-duplex, 10mb/sec. Not much, granted.
->>>>
->>>> ethtool -s eth0 autoneg off speed 100 duplex full
->>>>
->>>> causes the link to go up and down on about a 2 second cycle.
->>>>
->>>> ethtool -s eth0 autoneg on
->>>>
->>>> causes the link to drop.
->>>>
->>>> For port 1, the behavior is similar, except that I can get a stable 100
->>>> mbit connection.
->>>>
->>>> So the problem is in the autoneg code. It's a driver issue as this is
->>>> reported widely to work under windows of various flavors.
->>>>
->>>> I'm running 2.6.29.1; I'm ok with patching and building kernels, but I'm
->>>> not a kernel hacker.
->>>>
->>>> What, if anything, can I provide and do to fix this?
->>>>         
->>> It was in 2.6.29-rc8 or 9 that they finally got the ability to turn them
->>> back on on my identical mobo.  Through most of the 29-rcx series we had
->>> the choice of rebooting with the reset button, or powering everything
->>> associated with the ports down for about 2 minutes so they would forget
->>> they were turned off by a graceful shutdown.  Now they are turned off (and
->>> I've still NDI why) and back on like they are supposed to be.   I called
->>> that a PIMA.
->>>       
->> Yeah, I've been fighting this for a while....  The boards are rock-solid
->> under load, which is why I like them.... But this is a PITA.
->>
->> This board worked fine, then I shutdown and the ports have not come back
->> since.  I'm running 2.6.29.1 - no joy on the ports.
->>
->>     
->
-> Shut it down, including removing the power cord, and unplug all ethernet 
-> cables attached, give it time to fully discharge all stored power in the caps, 
-> at least 30 secs, I usually go make a cup of tea in the microwave, so its 
-> about 3 minutes.  Plug everything back in and power it up, they should work 
-> again.
->
-> However, I've been running 2.6.29.1-rc2, and that has not been a problem, I 
-> can see the leds on the ports go plumb dark at it runs the shutdown, and come 
-> back on about 15 seconds before the init.d/network script runs as it boots up.
->  
->   
->> I'm building forcedeth from .30-rc1 - we'll see if that helps.
->> Something like 15% of the driver changed, so it's still in very heavy
->> development.
->>     
->
-> Wow!  Like you, I'm using forcedeth. 2.6.29.1-rc1 did have a short uptime for 
-> forcedeth bug IIRC, but so far, -rc2 has lasted longer than KDE-4.2.1 on this 
-> F10 system will, I had an 8 day uptime at first, and I'm in the 5th day again.  
-> I killed it the first time screwing with some worthless bluetooth dongles I 
-> got from USBGear.  Locked it up tighter than a Nebraska bulls ass in flytime.  
-> Had to use the reset button. :(
->   
-I followed Gene's advice and got some progress....
+On Tue, 14 Apr 2009 16:23:33 +0200
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-port 0 is now fully functional.  Port 1, however, remains in its 
-semi-zombie state.  Maybe I'll take the machine off-line longer next 
-time.   Maybe I'll sacrifice a black and white chicken at the same time.
+> Patrick McHardy a =C3=A9crit :
+> > Stephen Hemminger wrote:
+> >> This is an alternative version of ip/ip6/arp tables locking using
+> >> per-cpu locks.  This avoids the overhead of synchronize_net() duri=
+ng
+> >> update but still removes the expensive rwlock in earlier versions.
+> >>
+> >> The idea for this came from an earlier version done by Eric Duzame=
+t.
+> >> Locking is done per-cpu, the fast path locks on the current cpu
+> >> and updates counters.  The slow case involves acquiring the locks =
+on
+> >> all cpu's.
+> >>
+> >> The mutex that was added for 2.6.30 in xt_table is unnecessary sin=
+ce
+> >> there already is a mutex for xt[af].mutex that is held.
+> >>
+> >> Tested basic functionality (add/remove/list), but don't have test =
+cases
+> >> for stress, ip6tables or arptables.
+> >=20
+> > Thanks Stephen, I'll do some testing with ip6tables.
+>=20
+> Here is the patch I cooked on top of Stephen one to get proper lockin=
+g.
 
-I also back-ported 2.9.30-rc1 forcedeth.c to my 2.6.29.1 kernel; no 
-difference whatsoever.
+I see no demonstrated problem with locking in my version.
+The reader/writer race is already handled. On replace the race of
 
-One other observation:
+CPU 0                          CPU 1
+                           lock (iptables(1))
+                           refer to oldinfo
+swap in new info
+foreach CPU
+   lock iptables(i)
+   (spin)                  unlock(iptables(1))
+   read oldinfo
+   unlock
+=2E..
 
-On the switch, the status LEDs glow with half-brightness when I enable 
-port 1 using ethtool...  This leads me to suspect that the voltage 
-levels on the port aren't normal.  Not being a hardware engineer, I have 
-no idea what importance this has; I am offering this as an observation.
+The point is my locking works, you just seem to feel more comfortable w=
+ith
+a global "stop all CPU's" solution.
 
---Yan
+> In the "iptables -L" case, we freeze updates on all cpus to get previ=
+ous
+> RCU behavior (not sure it is mandatory, but anyway...)
 
--- 
-Yan Seiner 
+No, it isn't. Because the code in get_counters will fetch all CPU's.
 
-Support my bid for the 4J School Board.
-Visit http://www.seiner.com/schoolboard
+> And xt_replace_table() uses same logic to make sure a cpu wont try to=
+ parse rules
+> and update counters while a writer is replacing tables (and thus call=
+ing
+> vfree() and unmapping in-use pages)
+
+With RCU type semantics this isn't an issue. A CPU always sees consiste=
+nt
+state, and it counters never get lost.
+
+> Feel free to merge this patch to Stephen one before upstream submissi=
+on
+>=20
+> Thank you
+>=20
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> ---
+>  include/linux/netfilter/x_tables.h |    5 ++
+>  net/ipv4/netfilter/arp_tables.c    |   20 +++------
+>  net/ipv4/netfilter/ip_tables.c     |   24 ++++-------
+>  net/ipv6/netfilter/ip6_tables.c    |   24 ++++-------
+>  net/netfilter/x_tables.c           |   55 ++++++++++++++++++++++++++=
+-
+>  5 files changed, 84 insertions(+), 44 deletions(-)
+> diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfi=
+lter/x_tables.h
+> index 1ff1a76..a5840a4 100644
+> --- a/include/linux/netfilter/x_tables.h
+> +++ b/include/linux/netfilter/x_tables.h
+> @@ -426,6 +426,11 @@ extern struct xt_table *xt_find_table_lock(struc=
+t net *net, u_int8_t af,
+>  					   const char *name);
+>  extern void xt_table_unlock(struct xt_table *t);
+> =20
+> +extern void xt_tlock_lockall(void);
+> +extern void xt_tlock_unlockall(void);
+> +extern void xt_tlock_lock(void);
+> +extern void xt_tlock_unlock(void);
+> +
+>  extern int xt_proto_init(struct net *net, u_int8_t af);
+>  extern void xt_proto_fini(struct net *net, u_int8_t af);
+> =20
+> diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp=
+_tables.c
+> index c60cc11..b561e1e 100644
+> --- a/net/ipv4/netfilter/arp_tables.c
+> +++ b/net/ipv4/netfilter/arp_tables.c
+> @@ -231,8 +231,6 @@ static inline struct arpt_entry *get_entry(void *=
+base, unsigned int offset)
+>  	return (struct arpt_entry *)(base + offset);
+>  }
+> =20
+> -static DEFINE_PER_CPU(spinlock_t, arp_tables_lock);
+> -
+>  unsigned int arpt_do_table(struct sk_buff *skb,
+>  			   unsigned int hook,
+>  			   const struct net_device *in,
+> @@ -256,7 +254,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+>  	outdev =3D out ? out->name : nulldevname;
+> =20
+>  	local_bh_disable();
+> -	spin_lock(&__get_cpu_var(arp_tables_lock));
+> +	xt_tlock_lock();
+>  	private =3D table->private;
+>  	table_base =3D private->entries[smp_processor_id()];
+> =20
+> @@ -331,7 +329,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+>  			e =3D (void *)e + e->next_offset;
+>  		}
+>  	} while (!hotdrop);
+> -	spin_unlock(&__get_cpu_var(arp_tables_lock));
+> +	xt_tlock_unlock();
+>  	local_bh_enable();
+> =20
+>  	if (hotdrop)
+> @@ -709,33 +707,31 @@ static void get_counters(const struct xt_table_=
+info *t,
+>  {
+>  	unsigned int cpu;
+>  	unsigned int i =3D 0;
+> -	unsigned int curcpu =3D raw_smp_processor_id();
+> +	unsigned int curcpu;
+> =20
+> +	xt_tlock_lockall();
+>  	/* Instead of clearing (by a previous call to memset())
+>  	 * the counters and using adds, we set the counters
+>  	 * with data used by 'current' CPU
+> -	 * We dont care about preemption here.
+>  	 */
+> -	spin_lock_bh(&per_cpu(arp_tables_lock, curcpu));
+> +	curcpu =3D smp_processor_id();
+>  	ARPT_ENTRY_ITERATE(t->entries[curcpu],
+>  			   t->size,
+>  			   set_entry_to_counter,
+>  			   counters,
+>  			   &i);
+> -	spin_unlock_bh(&per_cpu(arp_tables_lock, curcpu));
+> =20
+>  	for_each_possible_cpu(cpu) {
+>  		if (cpu =3D=3D curcpu)
+>  			continue;
+>  		i =3D 0;
+> -		spin_lock_bh(&per_cpu(arp_tables_lock, cpu));
+>  		ARPT_ENTRY_ITERATE(t->entries[cpu],
+>  				   t->size,
+>  				   add_entry_to_counter,
+>  				   counters,
+>  				   &i);
+> -		spin_unlock_bh(&per_cpu(arp_tables_lock, cpu));
+>  	}
+> +	xt_tlock_unlockall();
+>  }
+> =20
+>  static struct xt_counters *alloc_counters(struct xt_table *table)
+> @@ -1181,14 +1177,14 @@ static int do_add_counters(struct net *net, v=
+oid __user *user, unsigned int len,
+>  	/* Choose the copy that is on our node */
+>  	local_bh_disable();
+>  	curcpu =3D smp_processor_id();
+> -	spin_lock(&__get_cpu_var(arp_tables_lock));
+> +	xt_tlock_lock();
+>  	loc_cpu_entry =3D private->entries[curcpu];
+>  	ARPT_ENTRY_ITERATE(loc_cpu_entry,
+>  			   private->size,
+>  			   add_counter_to_entry,
+>  			   paddc,
+>  			   &i);
+> -	spin_unlock(&__get_cpu_var(arp_tables_lock));
+> +	xt_tlock_unlock();
+>  	local_bh_enable();
+>   unlock_up_free:
+> =20
+> diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_t=
+ables.c
+> index cb3b779..81d173e 100644
+> --- a/net/ipv4/netfilter/ip_tables.c
+> +++ b/net/ipv4/netfilter/ip_tables.c
+> @@ -297,7 +297,6 @@ static void trace_packet(struct sk_buff *skb,
+>  }
+>  #endif
+> =20
+> -static DEFINE_PER_CPU(spinlock_t, ip_tables_lock);
+> =20
+>  /* Returns one of the generic firewall policies, like NF_ACCEPT. */
+>  unsigned int
+> @@ -342,7 +341,7 @@ ipt_do_table(struct sk_buff *skb,
+>  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+> =20
+>  	local_bh_disable();
+> -	spin_lock(&__get_cpu_var(ip_tables_lock));
+> +	xt_tlock_lock();
+>  	private =3D table->private;
+>  	table_base =3D private->entries[smp_processor_id()];
+> =20
+> @@ -439,7 +438,7 @@ ipt_do_table(struct sk_buff *skb,
+>  			e =3D (void *)e + e->next_offset;
+>  		}
+>  	} while (!hotdrop);
+> -	spin_unlock(&__get_cpu_var(ip_tables_lock));
+> +	xt_tlock_unlock();
+>  	local_bh_enable();
+> =20
+>  #ifdef DEBUG_ALLOW_ALL
+> @@ -895,34 +894,32 @@ get_counters(const struct xt_table_info *t,
+>  {
+>  	unsigned int cpu;
+>  	unsigned int i =3D 0;
+> -	unsigned int curcpu =3D raw_smp_processor_id();
+> +	unsigned int curcpu;
+> =20
+> +	xt_tlock_lockall();
+>  	/* Instead of clearing (by a previous call to memset())
+>  	 * the counters and using adds, we set the counters
+>  	 * with data used by 'current' CPU
+> -	 * We dont care about preemption here.
+>  	 */
+> -	spin_lock_bh(&per_cpu(ip_tables_lock, curcpu));
+> +	curcpu =3D smp_processor_id();
+>  	IPT_ENTRY_ITERATE(t->entries[curcpu],
+>  			  t->size,
+>  			  set_entry_to_counter,
+>  			  counters,
+>  			  &i);
+> -	spin_unlock_bh(&per_cpu(ip_tables_lock, curcpu));
+> =20
+>  	for_each_possible_cpu(cpu) {
+>  		if (cpu =3D=3D curcpu)
+>  			continue;
+> =20
+>  		i =3D 0;
+> -		spin_lock_bh(&per_cpu(ip_tables_lock, cpu));
+>  		IPT_ENTRY_ITERATE(t->entries[cpu],
+>  				  t->size,
+>  				  add_entry_to_counter,
+>  				  counters,
+>  				  &i);
+> -		spin_unlock_bh(&per_cpu(ip_tables_lock, cpu));
+>  	}
+> +	xt_tlock_unlockall();
+>  }
+> =20
+>  static struct xt_counters * alloc_counters(struct xt_table *table)
+> @@ -1393,14 +1390,14 @@ do_add_counters(struct net *net, void __user =
+*user, unsigned int len, int compat
+>  	local_bh_disable();
+>  	/* Choose the copy that is on our node */
+>  	curcpu =3D smp_processor_id();
+> -	spin_lock(&__get_cpu_var(ip_tables_lock));
+> +	xt_tlock_lock();
+>  	loc_cpu_entry =3D private->entries[curcpu];
+>  	IPT_ENTRY_ITERATE(loc_cpu_entry,
+>  			  private->size,
+>  			  add_counter_to_entry,
+>  			  paddc,
+>  			  &i);
+> -	spin_unlock(&__get_cpu_var(ip_tables_lock));
+> +	xt_tlock_unlock();
+>  	local_bh_enable();
+> =20
+>   unlock_up_free:
+> @@ -2220,10 +2217,7 @@ static struct pernet_operations ip_tables_net_=
+ops =3D {
+> =20
+>  static int __init ip_tables_init(void)
+>  {
+> -	int cpu, ret;
+> -
+> -	for_each_possible_cpu(cpu)
+> -		spin_lock_init(&per_cpu(ip_tables_lock, cpu));
+> +	int ret;
+> =20
+>  	ret =3D register_pernet_subsys(&ip_tables_net_ops);
+>  	if (ret < 0)
+> diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6=
+_tables.c
+> index ac46ca4..d6ba69e 100644
+> --- a/net/ipv6/netfilter/ip6_tables.c
+> +++ b/net/ipv6/netfilter/ip6_tables.c
+> @@ -329,7 +329,6 @@ static void trace_packet(struct sk_buff *skb,
+>  }
+>  #endif
+> =20
+> -static DEFINE_PER_CPU(spinlock_t, ip6_tables_lock);
+> =20
+>  /* Returns one of the generic firewall policies, like NF_ACCEPT. */
+>  unsigned int
+> @@ -368,7 +367,7 @@ ip6t_do_table(struct sk_buff *skb,
+>  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+> =20
+>  	local_bh_disable();
+> -	spin_lock(&__get_cpu_var(ip6_tables_lock));
+> +	xt_tlock_lock();
+>  	private =3D table->private;
+>  	table_base =3D private->entries[smp_processor_id()];
+> =20
+> @@ -469,7 +468,7 @@ ip6t_do_table(struct sk_buff *skb,
+>  #ifdef CONFIG_NETFILTER_DEBUG
+>  	((struct ip6t_entry *)table_base)->comefrom =3D NETFILTER_LINK_POIS=
+ON;
+>  #endif
+> -	spin_unlock(&__get_cpu_var(ip6_tables_lock));
+> +	xt_tlock_unlock();
+>  	local_bh_enable();
+> =20
+>  #ifdef DEBUG_ALLOW_ALL
+> @@ -925,33 +924,31 @@ get_counters(const struct xt_table_info *t,
+>  {
+>  	unsigned int cpu;
+>  	unsigned int i =3D 0;
+> -	unsigned int curcpu =3D raw_smp_processor_id();
+> +	unsigned int curcpu;
+> =20
+> +	xt_tlock_lockall();
+>  	/* Instead of clearing (by a previous call to memset())
+>  	 * the counters and using adds, we set the counters
+>  	 * with data used by 'current' CPU
+> -	 * We dont care about preemption here.
+>  	 */
+> -	spin_lock_bh(&per_cpu(ip6_tables_lock, curcpu));
+> +	curcpu =3D smp_processor_id();
+>  	IP6T_ENTRY_ITERATE(t->entries[curcpu],
+>  			   t->size,
+>  			   set_entry_to_counter,
+>  			   counters,
+>  			   &i);
+> -	spin_unlock_bh(&per_cpu(ip6_tables_lock, curcpu));
+> =20
+>  	for_each_possible_cpu(cpu) {
+>  		if (cpu =3D=3D curcpu)
+>  			continue;
+>  		i =3D 0;
+> -		spin_lock_bh(&per_cpu(ip6_tables_lock, cpu));
+>  		IP6T_ENTRY_ITERATE(t->entries[cpu],
+>  				  t->size,
+>  				  add_entry_to_counter,
+>  				  counters,
+>  				  &i);
+> -		spin_unlock_bh(&per_cpu(ip6_tables_lock, cpu));
+>  	}
+> +	xt_tlock_unlockall();
+>  }
+> =20
+>  static struct xt_counters *alloc_counters(struct xt_table *table)
+> @@ -1423,14 +1420,14 @@ do_add_counters(struct net *net, void __user =
+*user, unsigned int len,
+>  	local_bh_disable();
+>  	/* Choose the copy that is on our node */
+>  	curcpu =3D smp_processor_id();
+> -	spin_lock(&__get_cpu_var(ip6_tables_lock));
+> +	xt_tlock_lock();
+>  	loc_cpu_entry =3D private->entries[curcpu];
+>  	IP6T_ENTRY_ITERATE(loc_cpu_entry,
+>  			  private->size,
+>  			  add_counter_to_entry,
+>  			  paddc,
+>  			  &i);
+> -	spin_unlock(&__get_cpu_var(ip6_tables_lock));
+> +	xt_tlock_unlock();
+>  	local_bh_enable();
+> =20
+>   unlock_up_free:
+> @@ -2248,10 +2245,7 @@ static struct pernet_operations ip6_tables_net=
+_ops =3D {
+> =20
+>  static int __init ip6_tables_init(void)
+>  {
+> -	int cpu, ret;
+> -
+> -	for_each_possible_cpu(cpu)
+> -		spin_lock_init(&per_cpu(ip6_tables_lock, cpu));
+> +	int ret;
+> =20
+>  	ret =3D register_pernet_subsys(&ip6_tables_net_ops);
+>  	if (ret < 0)
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index 0d94020..f2ad79f 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -670,19 +670,21 @@ xt_replace_table(struct xt_table *table,
+>  {
+>  	struct xt_table_info *oldinfo, *private;
+> =20
+> +	xt_tlock_lockall();
+>  	/* Do the substitution. */
+>  	private =3D table->private;
+>  	/* Check inside lock: is the old number correct? */
+>  	if (num_counters !=3D private->number) {
+>  		duprintf("num_counters !=3D table->private->number (%u/%u)\n",
+>  			 num_counters, private->number);
+> +		xt_tlock_unlockall();
+>  		*error =3D -EAGAIN;
+>  		return NULL;
+>  	}
+>  	oldinfo =3D private;
+>  	table->private =3D newinfo;
+>  	newinfo->initial_entries =3D oldinfo->initial_entries;
+> -
+> +	xt_tlock_unlockall();
+>  	return oldinfo;
+>  }
+>  EXPORT_SYMBOL_GPL(xt_replace_table);
+> @@ -1126,9 +1128,58 @@ static struct pernet_operations xt_net_ops =3D=
+ {
+>  	.init =3D xt_net_init,
+>  };
+> =20
+> +static DEFINE_PER_CPU(spinlock_t, xt_tables_lock);
+> +
+> +void xt_tlock_lockall(void)
+> +{
+> +	int cpu;
+> +
+> +	local_bh_disable();
+> +	preempt_disable();
+> +	for_each_possible_cpu(cpu) {
+> +		spin_lock(&per_cpu(xt_tables_lock, cpu));
+> +		/*
+> +		 * avoid preempt counter overflow
+> +		 */
+> +		preempt_enable_no_resched();
+> +	}
+> +}
+> +EXPORT_SYMBOL(xt_tlock_lockall);
+> +
+> +void xt_tlock_unlockall(void)
+> +{
+> +	int cpu;
+> +
+> +	for_each_possible_cpu(cpu) {
+> +		preempt_disable();
+> +		spin_unlock(&per_cpu(xt_tables_lock, cpu));
+> +	}
+> +	preempt_enable();
+> +	local_bh_enable();
+> +}
+> +EXPORT_SYMBOL(xt_tlock_unlockall);
+> +
+> +/*
+> + * preemption should be disabled by caller
+> + */
+> +void xt_tlock_lock(void)
+> +{
+> +	spin_lock(&__get_cpu_var(xt_tables_lock));
+> +}
+> +EXPORT_SYMBOL(xt_tlock_lock);
+> +
+> +void xt_tlock_unlock(void)
+> +{
+> +	spin_unlock(&__get_cpu_var(xt_tables_lock));
+> +}
+> +EXPORT_SYMBOL(xt_tlock_unlock);
+> +
+>  static int __init xt_init(void)
+>  {
+> -	int i, rv;
+> +	int i, rv, cpu;
+> +
+> +	for_each_possible_cpu(cpu)
+> +		spin_lock_init(&per_cpu(xt_tables_lock, cpu));
+> =20
+>  	xt =3D kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL)=
+;
+>  	if (!xt)
+>=20
+>=20
