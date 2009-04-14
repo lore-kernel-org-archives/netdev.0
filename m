@@ -1,60 +1,92 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: rfkill rewrite bug
-Date: Tue, 14 Apr 2009 22:46:08 +0200
-Message-ID: <1239741968.4205.1.camel@johannes.local>
-References: <49DCA88E.6060400@tuffmail.co.uk>
-	 (sfid-20090408_153722_059382_FB44D658) <1239204090.16477.1.camel@johannes.local>
-	 <49DCDD2E.80705@tuffmail.co.uk>  <49E38BBC.5010708@tuffmail.co.uk>
-	 (sfid-20090413_205524_915082_56358705)
+From: Eric Leblond <eric@inl.fr>
+Subject: Re: panic on rmmod of nf_conntrack_irc
+Date: Tue, 14 Apr 2009 22:46:40 +0200
+Message-ID: <1239742000.24204.9.camel@ice-age>
+References: <20090410191736.21efab8c@mako-desktop>
+	 <49E4744D.5090205@trash.net>	<49E47C2D.1050508@cosmosbay.com>
+	 <49E47EA5.3060706@trash.net> <20090414211946.4ea0455e@mako-desktop>
+	 <49E4EE9C.7040509@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-qqQk0AIqcKsVk98imhZW"
-Cc: netdev@vger.kernel.org
-To: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-KoKp9vY0SOtVaCnm3HmS"
+Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>,
+	Patrick McHardy <kaber@trash.net>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:47139 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316AbZDNUql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 16:46:41 -0400
-In-Reply-To: <49E38BBC.5010708@tuffmail.co.uk> (sfid-20090413_205524_915082_56358705)
+Received: from home.regit.org ([91.121.73.151]:50817 "EHLO
+	ks301150.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123AbZDNUuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 16:50:20 -0400
+In-Reply-To: <49E4EE9C.7040509@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-qqQk0AIqcKsVk98imhZW
-Content-Type: text/plain
+--=-KoKp9vY0SOtVaCnm3HmS
+Content-Type: text/plain; charset="ISO-8859-15"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2009-04-13 at 20:00 +0100, Alan Jenkins wrote:
+Hi,
 
-> I tried the latest patch (#19) from your website, it didn't work so well=20
-> :-).
+Le mardi 14 avril 2009 =E0 22:14 +0200, Eric Dumazet a =E9crit :
+> Mariusz Kozlowski a =E9crit :
+> > On Tue, 14 Apr 2009 14:16:37 +0200
+> > Patrick McHardy <kaber@trash.net> wrote:
+> >=20
+> >> Eric Dumazet wrote:
+> >>> Patrick McHardy a =E9crit :
+> >>>> Mariusz Kozlowski wrote:
+> >>>>>     netfilter: nf_conntrack: use SLAB_DESTROY_BY_RCU and get rid of
+> >>>>> call_rcu()
+> >>>> Thanks for the report. Does this patch fix it?
+> >>>>
+> >>> Hi Patrick, sorry for the delay, I was in holidays.
+> >> No problem, me too :)
+> >>
+...
 
-I think I fixed that now, I allowed using set_sw_state before register
-and that didn't go too well with the LED system w/o any checks.
+>=20
+> Check commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222
+>=20
+> netfilter: use a linked list of loggers
 
-johannes
+...
 
---=-qqQk0AIqcKsVk98imhZW
+> Signed-off-by: Eric Leblond <eric@inl.fr>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+>=20
+> It seems "struct list_head        list[NFPROTO_NUMPROTO];" is not initial=
+ized in "struct nf_logger" ?
+>=20
+> Please try following patch ?
+
+I've just tested your patch. Without it, I was able to trigger the bug
+(modprobe ebt_ulog ; rmmod ebt_ulog). All run cleanly with it.
+
+All my apologies for having forgot to do this test.
+
+BR,
+--=20
+Eric Leblond <eric@inl.fr>
+INL: http://www.inl.fr/
+NuFW: http://www.nufw.org/
+
+--=-KoKp9vY0SOtVaCnm3HmS
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Description: Ceci est une partie de message
+ =?ISO-8859-1?Q?num=E9riquement?= =?ISO-8859-1?Q?_sign=E9e?=
 
 -----BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-iQIcBAABAgAGBQJJ5PYOAAoJEKVg1VMiehFYHKEP/jJDcV0H2diuiOh9E9UAGY6f
-Fx6OqftDVxd5gOyB3FwIZehJxD79zPtd1hBTbhXxNankhHjU6jUDy4tqMc5JdxD2
-3n4fRRPs0iIe7+s57rt2koly+KICZmI5FwD/KY3XrCpxldmqEusirKLiu+Yq40Sg
-0vPH+l3O7tTpRxclJNykU10+EhvjOnrmjmZq7dyOjcM42+Fofi9dGmZ7IL0lIaOG
-uPD5v9tCeJBnd8w0ZRb21b2sKCMggShC4z0vgT3oLS3R/OhmLbgCR3UsqUV0O9pf
-yV9lKC5D4xL8RUoLbBUT4ARU1MtPRpe8imS+OzdFWlR/VcPO/7RrLuF6bjCGnpX0
-4zo517CjkzQsMjspW2iYVtS2wXW3FvIvPwNHkfuorV+fgfjKd7v040n78e1PXYKL
-Q9zDPxiJhzBsYspWmfQsHWOgGyM55pMyy2rFs5ugzPNeX83EXwmRcUS1cpOvkFYP
-LxN79q7Cc5GtbSteDAb9a6dGiIpWdJDr6nyEvW4OR9+T3agC53Oc7el8DTZjjdyu
-YjVs7Wburc33/bFSna4oUsIS7nSdbKrtx/f/9qRfXWa5SeZWKMB+C5O4yOgMxfxz
-PzMqv1JlcREN/MQoUIm3BKiLv0Pf0iZSAcnZ8PHXKA8m3PLA6rVjxNFQEJjHh4CJ
-URKCOoZ0PEWRqUAEM6sn
-=uvR6
+iD8DBQBJ5PYtnxA7CdMWjzIRAv85AJsH8FxtF/xeSQqSYLOH0H8SAlTjngCfeuJW
+XHMd3z9oPyOtTEJ+jezdJRM=
+=83kK
 -----END PGP SIGNATURE-----
 
---=-qqQk0AIqcKsVk98imhZW--
+--=-KoKp9vY0SOtVaCnm3HmS--
 
