@@ -1,79 +1,55 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [RFC][PATCH v3 6/6] fix wrong get_user_pages usage in iovlock.c
-Date: Wed, 15 Apr 2009 17:48:07 +0900 (JST)
-Message-ID: <20090415174658.AC4F.A69D9226@jp.fujitsu.com>
-References: <200904141656.14191.nickpiggin@yahoo.com.au> <20090414155719.C66B.A69D9226@jp.fujitsu.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [Lguest] [PATCH 4/5] lguest: use KVM hypercalls
+Date: Wed, 15 Apr 2009 11:07:05 +0200
+Message-ID: <200904151107.05949.borntraeger@de.ibm.com>
+References: <200903271022.38244.rusty@rustcorp.com.au> <20090415083610.GA8579@gondor.apana.org.au> <20090415084717.GA8829@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, LKML <linux-kernel@vger.kernel.org>,
-        Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-        Andrea Arcangeli <aarcange@redhat.com>, Jeff Moyer <jmoyer@redhat.com>,
-        linux-mm@kvack.org, linux-fsdevel@vger.kernel.org,
-        Maciej Sosnowski <maciej.sosnowski@intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Chris Leech <christopher.leech@intel.com>, netdev@vger.kernel.org
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090414155719.C66B.A69D9226@jp.fujitsu.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Matias Zabaljauregui <zabaljauregui@gmail.com>, odie@cs.aau.dk,
+	Rusty Russell <rusty@rustcorp.com.au>, lguest@ozlabs.org,
+	virtualization@lists.osdl.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:51094 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992AbZDOJHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 05:07:09 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.1/8.13.1) with ESMTP id n3F978wi010034
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 09:07:08 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3F977aC3567666
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 11:07:07 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3F976VZ015642
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 11:07:07 +0200
+In-Reply-To: <20090415084717.GA8829@gondor.apana.org.au>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Am Wednesday 15 April 2009 10:47:17 schrieb Herbert Xu:
+> tun: Fix sk_sleep races when attaching/detaching
+>
+> As the sk_sleep wait queue actually lives in tfile, which may be
+> detached from the tun device, bad things will happen when we use
+> sk_sleep after detaching.
+>
+> Since the tun device is the persistent data structure here (when
+> requested by the user), it makes much more sense to have the wait
+> queue live there.  There is no reason to have it in tfile at all
+> since the only time we can wait is if we have a tun attached.
+> In fact we already have a wait queue in tun_struct, so we might
+> as well use it.
+>
+> Reported-by: Christian Borntraeger <borntraeger@de.ibm.com>
+> Reported-by: Eric W. Biederman <ebiederm@xmission.com>
+> Reported-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> > I would perhaps not fold gup_fast conversions into the same patch as
-> > the fix.
-> 
-> OK. I'll fix.
-
-Done.
-
-
-
-===================================
-Subject: [Untested][RFC][PATCH] fix wrong get_user_pages usage in iovlock.c
-
-	down_read(mmap_sem)
-	get_user_pages()
-	up_read(mmap_sem)
-
-is fork unsafe.
-fix it.
-
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Cc: Maciej Sosnowski <maciej.sosnowski@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Chris Leech <christopher.leech@intel.com>
-Cc: netdev@vger.kernel.org
----
- drivers/dma/iovlock.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-Index: b/drivers/dma/iovlock.c
-===================================================================
---- a/drivers/dma/iovlock.c	2009-04-13 22:58:36.000000000 +0900
-+++ b/drivers/dma/iovlock.c	2009-04-14 20:27:16.000000000 +0900
-@@ -104,8 +104,6 @@ struct dma_pinned_list *dma_pin_iovec_pa
- 			0,	/* force */
- 			page_list->pages,
- 			NULL);
--		up_read(&current->mm->mmap_sem);
--
- 		if (ret != page_list->nr_pages)
- 			goto unpin;
- 
-@@ -127,6 +125,8 @@ void dma_unpin_iovec_pages(struct dma_pi
- 	if (!pinned_list)
- 		return;
- 
-+	up_read(&current->mm->mmap_sem);
-+
- 	for (i = 0; i < pinned_list->nr_iovecs; i++) {
- 		struct dma_page_list *page_list = &pinned_list->page_list[i];
- 		for (j = 0; j < page_list->nr_pages; j++) {
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Tested-by: Christian Borntraeger <borntraeger@de.ibm.com>
