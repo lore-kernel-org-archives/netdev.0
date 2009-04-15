@@ -1,69 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
-	messages
-Date: Wed, 15 Apr 2009 07:07:14 -0400
-Message-ID: <20090415110714.GA21448@hmsreliant.think-freely.org>
-References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Lguest] [PATCH 4/5] lguest: use KVM hypercalls
+Date: Wed, 15 Apr 2009 13:07:32 +0200
+Message-ID: <49E5BFF4.3090606@trash.net>
+References: <200903271022.38244.rusty@rustcorp.com.au> <1238709324.5823.8.camel@odie.local> <1239043798.27826.93.camel@zetabook> <200904081021.39877.rusty@rustcorp.com.au> <1239224319.17844.16.camel@zetabook> <49DDE91A.8060603@trash.net> <49DDF614.1060909@trash.net> <m1bpr6hqrm.fsf@fess.ebiederm.org> <49E47976.8020005@trash.net> <20090415083610.GA8579@gondor.apana.org.au> <20090415084717.GA8829@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Christoph Lameter <cl@linux.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Matias Zabaljauregui <zabaljauregui@gmail.com>, odie@cs.aau.dk,
+	Rusty Russell <rusty@rustcorp.com.au>, lguest@ozlabs.org,
+	virtualization@lists.osdl.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47273 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752025AbZDOLHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:07:23 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0904141740280.3973@qirst.com>
+Received: from stinky.trash.net ([213.144.137.162]:56693 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753624AbZDOLHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:07:46 -0400
+In-Reply-To: <20090415084717.GA8829@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2009 at 05:45:58PM -0400, Christoph Lameter wrote:
-> On Tue, 14 Apr 2009, Neil Horman wrote:
+Herbert Xu wrote:
+> On Wed, Apr 15, 2009 at 04:36:10PM +0800, Herbert Xu wrote:
+>> Let me whip up a patch.
 > 
-> > That said, I still disagree with the addition of this switch, as its
-> > superfolous.  Programatically an application can do what you want without this
-> > change already .If you provide me with the test application that you've been working with, I can
-> > demonstrate exactly how.
+> tun: Fix sk_sleep races when attaching/detaching
 > 
-> Ok. First applications listens to multicast groups A and B. Second one
-> uses C and D. All use a port 4711 for communication which is the
-> standard for a certain application. Both applications are very latency
-> sensitive. You do not want the data to be duplicated into the user space
-> of both processes.
+> As the sk_sleep wait queue actually lives in tfile, which may be
+> detached from the tun device, bad things will happen when we use
+> sk_sleep after detaching.
 > 
-> Both processes need to reply to messages on the
-> multicast groups. The receiver always needs the source IP address for
-> authentication otherwise messages are ignored
-> 
-> How are you going to do this? 
-I'm going to write each application to use 2 sockets, one bound to each
-multicast group.  Thats the way it works now.  I think you missed the obvious in
-your construction of this example.
+> Since the tun device is the persistent data structure here (when
+> requested by the user), it makes much more sense to have the wait
+> queue live there.  There is no reason to have it in tfile at all
+> since the only time we can wait is if we have a tun attached.
+> In fact we already have a wait queue in tun_struct, so we might
+> as well use it.
 
-> Its trivial to do with this patch and one
-> socket in each process listening to port 4711 that subscribes to the
-> necessary multicast groups. 
-Its trivial without the patch as well.
-
-> Plus one the problem is that some of the
-> applications here are only available in binary form and they were naively
-> coded assuming that the socket layer would not need exotic tricks to
-> convince it to do the right thing.
-What?  If you have binary only software thats written for Linux and it
-malfunctions,  This has been the accepted and standard multicast behavior on
-Linux and various other unicies for decades.  What you are describing is a
-vendor bug in your application, something you need to either contact the vendor
-about, or find a new vendor.  They made an application based on an assumption,
-and their assumption was wrong, they need to fix it.  We could do them a favor,
-I suppose, but I don't see why.
-
-It boils down to this:  This is the way multicast subscriptions have worked in
-bsd, linux, and presumably various other unix and non-unix operating systems for
-lord only knows how long.  Provide some documentation that shows its in
-violation of a newer standard, or that it is common practice to behave
-differently on another OS (such that including this directive would make porting
-easier).  As it stands currently, this patch only serves to create a crutch to
-perpetuate misundersandings about how the behavior currently works.
-
-Neil
+Tested and works fine, thanks Herbert.
