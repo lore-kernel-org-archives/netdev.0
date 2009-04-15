@@ -1,53 +1,65 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 4/5] lguest: use KVM hypercalls
-Date: Thu, 16 Apr 2009 06:27:38 +0800
-Message-ID: <20090415222738.GA15792@gondor.apana.org.au>
-References: <20090415084717.GA8829@gondor.apana.org.au>
-	<m18wm2rqy6.fsf@fess.ebiederm.org>
-	<20090415132802.GA11408@gondor.apana.org.au>
-	<m1skkaox8h.fsf@fess.ebiederm.org>
-	<20090415134610.GA11683@gondor.apana.org.au>
-	<m11vruovu5.fsf@fess.ebiederm.org>
-	<20090415140819.GA11991@gondor.apana.org.au>
-	<m1iql6m24b.fsf@fess.ebiederm.org>
-	<20090415143834.GA12384@gondor.apana.org.au>
-	<m1zleiklsl.fsf@fess.ebiederm.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 13097] New: Kernel will freeze network after
+ using a tun/tap device
+Date: Wed, 15 Apr 2009 15:29:46 -0700
+Message-ID: <20090415152946.90bbdfc0.akpm@linux-foundation.org>
+References: <bug-13097-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
-	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <m1zleiklsl.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: bugzilla-daemon@bugzilla.kernel.org
+To: netdev@vger.kernel.org, maxk@qualcomm.com, vtun@office.satix.net,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52973 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752336AbZDOWdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 18:33:14 -0400
+In-Reply-To: <bug-13097-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2009 at 07:56:42AM -0700, Eric W. Biederman wrote:
->
-> I still have the feeling that putting the socket in tun_file instead
-> of in tun_struct might be conceptually cleaner, but one big blob that
-> is allocated and destroyed together is certainly easier and a lot
-> less racy to deal with.
 
-As I said the difficulty with putting the socket in tun_file
-is how do you get it on the RX callback path without introducing
-new races.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Big fat regression!
+
+On Wed, 15 Apr 2009 22:19:06 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=13097
+> 
+>            Summary: Kernel will freeze network after using a tun/tap
+>                     device
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.30-rc2
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: fragabr@gmail.com
+>         Regression: Yes
+> 
+> 
+> I choose the forcedeth driver to report this bug because I think it's related
+> to forcedeth and not tun/tap driver, although I can be wrong.
+> 
+> With 2.6.29 kernel everything works fine, but with 2.6.30-rc2, a simple ping to
+> a tun/tap device (for example ping to a vpn using openvpn) will freeze the
+> network. In X I can't even use the keyboard anymore.
+> 
+> It just happens with a tun/tap device, not with a normal ethernet device or a
+> normal internet connection.
+> 
+> If you think it's a tun/tap driver problem, please change the bug, but as I'm
+> not completely sure, I choose forcedeth.
+
+An obvious question would be: are you able to test the same setup with
+a different type of network card?
+
