@@ -1,47 +1,58 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Wed, 15 Apr 2009 09:01:47 -0400
-Message-ID: <49E5DABB.9070806@myri.com>
-References: <20090415100937.4b08ce28@dhcp-lab-109.englab.brq.redhat.com>	<20090415.022809.90182032.davem@davemloft.net>	<49E5AD56.6020701@myri.com> <20090415.030213.249634462.davem@davemloft.net>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH 4/5] lguest: use KVM hypercalls
+Date: Wed, 15 Apr 2009 06:35:58 -0700
+Message-ID: <m1skkaox8h.fsf@fess.ebiederm.org>
+References: <1239043798.27826.93.camel@zetabook>
+	<200904081021.39877.rusty@rustcorp.com.au>
+	<1239224319.17844.16.camel@zetabook> <49DDE91A.8060603@trash.net>
+	<49DDF614.1060909@trash.net> <m1bpr6hqrm.fsf@fess.ebiederm.org>
+	<49E47976.8020005@trash.net>
+	<20090415083610.GA8579@gondor.apana.org.au>
+	<20090415084717.GA8829@gondor.apana.org.au>
+	<m18wm2rqy6.fsf@fess.ebiederm.org>
+	<20090415132802.GA11408@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: brice@myri.com, sgruszka@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1824 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752059AbZDON3x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2009 09:29:53 -0400
-In-Reply-To: <20090415.030213.249634462.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
+	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <20090415132802.GA11408-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> (Herbert Xu's
+	message of "Wed\, 15 Apr 2009 21\:28\:02 +0800")
+List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
+	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
+	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Brice Goglin <brice@myri.com>
->> Is there a good summary somewhere of why GRO is better,
-> 
-> Transparent forwarding/bridging support, easier driver port.
-> 
->> and how to
->> actually convert drivers?
-> 
-> Step 1: Remove all of your LRO support code, every last line
-> Step 2: netif_receive_skb() --> napi_gro_receive()
->         vlan_hwaccel_rx() --> vlan_gro_receive()
-> 
-> It couldn't be any easier.
-> 
-> And it would also behoove you to look at the commits that converted or
-> added GRO support to other drivers.  That's how I learned it :-)
+Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> writes:
 
-Unfortunately, it doesn't appear that GRO is able to handle frags
-(like lro_receive_frags()), so I anticipate its overhead would
-be much higher than LRO for us, due to extra memory allocation
-and freeing overheads.   I'll try to find the time to convert
-the driver and run some quick tests to confirm.
+> On Wed, Apr 15, 2009 at 06:23:29AM -0700, Eric W. Biederman wrote:
+>> 
+>> There is a GIGANTIC reason to have the wait queue on tfile.
+>> 
+>> If you open a file, and do ip link del tapN you can still
+>> be blocked waiting in poll.
+>> 
+>> The problem is specifically free_poll_entry, where we call
+>> remove_wait_queue and fput without calling any file methods.
+>> So all of this happens without struct tun_file's count being
+>> elevated.  Which means tun_net_uninit can detach before we get
+>> off of the stupid poll wait queue.
+>
+> What about taking a netdev refcount before calling poll_wait?
 
-However, since LRO is optional, it would make sense to
-convert the non-LRO code path at the very least.
+Because as far as I can tell we would just leak that refcount.
 
-Drew
+The poll code does not appear to call back into any of the file
+methods when it frees itself from the wait queue.
+
+Eric
