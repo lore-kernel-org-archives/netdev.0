@@ -1,104 +1,44 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast	messages
-Date: Wed, 15 Apr 2009 10:41:03 -0400
-Message-ID: <49E5F1FF.1000801@hp.com>
-References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com> <20090415110714.GA21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904150841550.10217@qirst.com> <20090415142208.GB21448@hmsreliant.think-freely.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH 1/3] net: introduce a list of device addresses
+	dev_addr_list
+Date: Wed, 15 Apr 2009 16:42:05 +0200
+Message-ID: <20090415144204.GI21342@psychotron.englab.brq.redhat.com>
+References: <49E59A1C.9030108@cn.fujitsu.com> <20090415083223.GF21342@psychotron.englab.brq.redhat.com> <49E5A896.90408@cosmosbay.com> <20090415.023104.82135803.davem@davemloft.net> <49E5B365.2010008@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <cl@linux.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	lizf@cn.fujitsu.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	mschmidt@redhat.com, ivecera@redhat.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:27536 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754278AbZDOOlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 10:41:06 -0400
-In-Reply-To: <20090415142208.GB21448@hmsreliant.think-freely.org>
+Received: from mx2.redhat.com ([66.187.237.31]:35606 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751522AbZDOOov (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2009 10:44:51 -0400
+Content-Disposition: inline
+In-Reply-To: <49E5B365.2010008@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman wrote:
-> On Wed, Apr 15, 2009 at 08:51:35AM -0400, Christoph Lameter wrote:
->> On Wed, 15 Apr 2009, Neil Horman wrote:
+Wed, Apr 15, 2009 at 12:13:57PM CEST, kaber@trash.net wrote:
+> David Miller wrote:
+>> From: Eric Dumazet <dada1@cosmosbay.com>
+>> Date: Wed, 15 Apr 2009 11:27:50 +0200
 >>
->>>> How are you going to do this?
->>> I'm going to write each application to use 2 sockets, one bound to each
->>> multicast group.  Thats the way it works now.  I think you missed the obvious in
->>> your construction of this example.
->> Ok it could be done with binding. But you would need 3 sockets. One per MC
->> groups bound to a MC group each and then one for the replies (hmmm...
->> looks like you could use SO_BINDTODEVICE on one socket to get around the
-> Depending on your setup, 2 is perfectly sufficient.  In fact 1 can be sufficient
-> if you want to filter in your application, but we've been over that.
-> 
->> third one --there is even an exception case for this in inet_bind causing
->> more weird semantics-- but then the application needs to know the device
->> name of the NIC, argh)
-> Of course it does, but thats zero incremental cost, since you need to know the
-> device name anyway, when specifying the ifindex to the join request.
-> 
->>>> Its trivial to do with this patch and one
->>>> socket in each process listening to port 4711 that subscribes to the
->>>> necessary multicast groups.
->>> Its trivial without the patch as well.
->> I do not see how you can justify making such a statement.
+>>> Since you obviously need a write lock here to be sure following
+>>> can be done by one cpu only.
+>>>
+>>> You have same problem all over this patch.
 >>
-> I find it justified because I don't see an application using 2 or 3 sockets and a poll or
-> select call as anything more than trivial.  If you find that to be non-trivial,
-> perhaps a refresher programming course might be in order for you?
-> 
->>> It boils down to this:  This is the way multicast subscriptions have worked in
->>> bsd, linux, and presumably various other unix and non-unix operating systems for
->>> lord only knows how long.  Provide some documentation that shows its in
->>> violation of a newer standard, or that it is common practice to behave
->>> differently on another OS (such that including this directive would make porting
->>> easier).  As it stands currently, this patch only serves to create a crutch to
->>> perpetuate misundersandings about how the behavior currently works.
->> The way things work is counterintuitive and leads to weird code constructs
->> with the application having to manage multiple sockets because weird
->> semantics have developed over the years.
-> 
-> The way things work is counterintuitive to _you_ (is it was to me a few months
-> ago).  That asside, I came to understand how this actually works, how it has
-> worked for decades, and how programmers have successfully written applications
-> that use this model over that time period.  Can we modify the model?  Sure.
-> Should we?  I certainly don't see any need, given that it does little except
-> change the model.  For those who understand it, its compltely useless.  I'm
-> willing to concede that I'm wrong, but not without some modicum of evidence that
-> this change will benefit existing applications.  If some other operating system
-> adheres to the model you expect it to, perhaps this has legs, but I don't know
-> of any that do.  The current model, even if counter intuitive, is well defined,
-> well understood, and documented.  I fail to see how adding an alternate,
-> undocumented model (that may itself be counterintuitive to all the developers
-> who have developed under the current model) adds anything significant.
-> 
-> Neil
+>> RTNL semaphore is held across all modification operations.
+>
+> If this will also be used for multicast lists, changes can happen
+> (IPv6) without the RTNL.
 
-Hi Neil
-
-This has been somewhat bugging me for a while, so I went digging.
-
-Here is a rather pertinent text that points out that we "might" have a bug.
-RFC 4607:
-
-4.2.  Requirements on the Host IP Module
-
-   An incoming datagram destined to an SSM address MUST be delivered by
-   the IP module to all sockets that have indicated (via Subscribe) a
-   desire to receive data that matches the datagram's source address,
-   destination address, and arriving interface.  It MUST NOT be
-   delivered to other sockets.
-
-
-Additionally, RFC 3678 describes IP_ADD_MEMBERSHIP as an 'any-source group'
-and is allowed by the SSM spec.  This is also how it is implemented in the kernel.
-However, we do not appear to perform the filtering required by the above quoted
-section 4.2.  In particular, if we fail to match the 'datagram's destination address',
-we deliver the packet, which I believe is in violation of the "MUST NOT" above.
-
-I've CC'd Dave Stevens, since I'd like to hear his opinion regarding this text.
-
-Thanks
--vlad
+Ok, but for dev_addr_X() functions the RTNL mutex is sufficient so I see no
+point of adding another lock here. When the multicast handling functions will be
+implemented to use netdev_hw_addr and it's layer, then we need to use update
+lock in dev_multicast_X.
