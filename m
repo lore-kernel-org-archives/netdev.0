@@ -1,60 +1,104 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 4/5] lguest: use KVM hypercalls
-Date: Wed, 15 Apr 2009 22:38:34 +0800
-Message-ID: <20090415143834.GA12384@gondor.apana.org.au>
-References: <49E47976.8020005@trash.net>
-	<20090415083610.GA8579@gondor.apana.org.au>
-	<20090415084717.GA8829@gondor.apana.org.au>
-	<m18wm2rqy6.fsf@fess.ebiederm.org>
-	<20090415132802.GA11408@gondor.apana.org.au>
-	<m1skkaox8h.fsf@fess.ebiederm.org>
-	<20090415134610.GA11683@gondor.apana.org.au>
-	<m11vruovu5.fsf@fess.ebiederm.org>
-	<20090415140819.GA11991@gondor.apana.org.au>
-	<m1iql6m24b.fsf@fess.ebiederm.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast	messages
+Date: Wed, 15 Apr 2009 10:41:03 -0400
+Message-ID: <49E5F1FF.1000801@hp.com>
+References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com> <20090415110714.GA21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904150841550.10217@qirst.com> <20090415142208.GB21448@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
-	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <m1iql6m24b.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Christoph Lameter <cl@linux.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:27536 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754278AbZDOOlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 10:41:06 -0400
+In-Reply-To: <20090415142208.GB21448@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2009 at 07:18:44AM -0700, Eric W. Biederman wrote:
->
-> So holding the reference only blocks us indefinitely in
-> netdev_wait_allrefs, blocking the network namespace exit, and holding
-> net_mutex indefinitely.
+Neil Horman wrote:
+> On Wed, Apr 15, 2009 at 08:51:35AM -0400, Christoph Lameter wrote:
+>> On Wed, 15 Apr 2009, Neil Horman wrote:
+>>
+>>>> How are you going to do this?
+>>> I'm going to write each application to use 2 sockets, one bound to each
+>>> multicast group.  Thats the way it works now.  I think you missed the obvious in
+>>> your construction of this example.
+>> Ok it could be done with binding. But you would need 3 sockets. One per MC
+>> groups bound to a MC group each and then one for the replies (hmmm...
+>> looks like you could use SO_BINDTODEVICE on one socket to get around the
+> Depending on your setup, 2 is perfectly sufficient.  In fact 1 can be sufficient
+> if you want to filter in your application, but we've been over that.
+> 
+>> third one --there is even an exception case for this in inet_bind causing
+>> more weird semantics-- but then the application needs to know the device
+>> name of the NIC, argh)
+> Of course it does, but thats zero incremental cost, since you need to know the
+> device name anyway, when specifying the ifindex to the join request.
+> 
+>>>> Its trivial to do with this patch and one
+>>>> socket in each process listening to port 4711 that subscribes to the
+>>>> necessary multicast groups.
+>>> Its trivial without the patch as well.
+>> I do not see how you can justify making such a statement.
+>>
+> I find it justified because I don't see an application using 2 or 3 sockets and a poll or
+> select call as anything more than trivial.  If you find that to be non-trivial,
+> perhaps a refresher programming course might be in order for you?
+> 
+>>> It boils down to this:  This is the way multicast subscriptions have worked in
+>>> bsd, linux, and presumably various other unix and non-unix operating systems for
+>>> lord only knows how long.  Provide some documentation that shows its in
+>>> violation of a newer standard, or that it is common practice to behave
+>>> differently on another OS (such that including this directive would make porting
+>>> easier).  As it stands currently, this patch only serves to create a crutch to
+>>> perpetuate misundersandings about how the behavior currently works.
+>> The way things work is counterintuitive and leads to weird code constructs
+>> with the application having to manage multiple sockets because weird
+>> semantics have developed over the years.
+> 
+> The way things work is counterintuitive to _you_ (is it was to me a few months
+> ago).  That asside, I came to understand how this actually works, how it has
+> worked for decades, and how programmers have successfully written applications
+> that use this model over that time period.  Can we modify the model?  Sure.
+> Should we?  I certainly don't see any need, given that it does little except
+> change the model.  For those who understand it, its compltely useless.  I'm
+> willing to concede that I'm wrong, but not without some modicum of evidence that
+> this change will benefit existing applications.  If some other operating system
+> adheres to the model you expect it to, perhaps this has legs, but I don't know
+> of any that do.  The current model, even if counter intuitive, is well defined,
+> well understood, and documented.  I fail to see how adding an alternate,
+> undocumented model (that may itself be counterintuitive to all the developers
+> who have developed under the current model) adds anything significant.
+> 
+> Neil
 
-OK that's a killer because process A in my previous scenario can
-kill the device itself and cause a dead-lock.
+Hi Neil
 
-So how about this? We replace the dev destructor with our own that
-doesn't immediately call free_netdev.  We only call free_netdev once
-all tun fd's attached to the device have been closed.
+This has been somewhat bugging me for a while, so I went digging.
 
-This can be achieved by simply adding a counter to tun_struct.
-We'd also change the async detach path to set a marker instead
-of detaching.  That marker can then be checked in places like
-tun_get.
+Here is a rather pertinent text that points out that we "might" have a bug.
+RFC 4607:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+4.2.  Requirements on the Host IP Module
+
+   An incoming datagram destined to an SSM address MUST be delivered by
+   the IP module to all sockets that have indicated (via Subscribe) a
+   desire to receive data that matches the datagram's source address,
+   destination address, and arriving interface.  It MUST NOT be
+   delivered to other sockets.
+
+
+Additionally, RFC 3678 describes IP_ADD_MEMBERSHIP as an 'any-source group'
+and is allowed by the SSM spec.  This is also how it is implemented in the kernel.
+However, we do not appear to perform the filtering required by the above quoted
+section 4.2.  In particular, if we fail to match the 'datagram's destination address',
+we deliver the packet, which I believe is in violation of the "MUST NOT" above.
+
+I've CC'd Dave Stevens, since I'd like to hear his opinion regarding this text.
+
+Thanks
+-vlad
