@@ -1,28 +1,41 @@
-From: Claudia Zuniga <claudia-RSmzi7Jt+dcAvxtiuMwx3w@public.gmane.org>
-Subject: =?iso-8859-1?b?QWNhaSBTdXBlciBCZXJyeSBDYXBzdWxlcywgeW91IHdpbGwgbG92ZSA=?=
- =?iso-8859-1?b?eW91ciBuZXcgYm9keQ==?=
-Date: Tue, 14 Apr 2009 20:49:07 +0200
-Message-ID: <790797880.200904142049@forte.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH] myr10ge: again fix lro_gen_skb() alignment
+Date: Wed, 15 Apr 2009 10:09:37 +0200
+Message-ID: <20090415100937.4b08ce28@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: util-linux-ng-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Gallatin <gallatin@myri.com>, Brice Goglin <brice@myri.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:35246 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754370AbZDOIPw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2009 04:15:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-g0od afterno0n
+Add LRO alignment initially committed in 621544eb8c3beaa859c75850f816dd9b056a00a3
+and removed in 0dcffac1a329be69bab0ac604bf7283737108e68 during conversion to
+multi-slice.
 
-Get your healthy lifetyle now. With Acai Berry you will Enhance your body ability to burn fat. You will be able to enjoy everyday to its fullest with your new found energy . You are one click away from qualifying for a free trial of acai berry 
-visit site http://77mao7osh.blogspot.com
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-code msg sdfthcvb
-id 2
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 9eed126..f2c4a66 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -2447,6 +2447,7 @@ static int myri10ge_open(struct net_device *dev)
+ 		lro_mgr->lro_arr = ss->rx_done.lro_desc;
+ 		lro_mgr->get_frag_header = myri10ge_get_frag_header;
+ 		lro_mgr->max_aggr = myri10ge_lro_max_pkts;
++		lro_mgr->frag_align_pad = 2;
+ 		if (lro_mgr->max_aggr > MAX_SKB_FRAGS)
+ 			lro_mgr->max_aggr = MAX_SKB_FRAGS;
+ 
+-- 
+1.5.5.6
+
