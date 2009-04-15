@@ -1,45 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Tue, 14 Apr 2009 20:23:59 -0700 (PDT)
-Message-ID: <20090414.202359.07968871.davem@davemloft.net>
-References: <20090414111716.28585806@nehalam>
-	<49E4E3E8.5090201@cosmosbay.com>
-	<20090414141351.0f63ac98@nehalam>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/2] ixgbe: fix tx queue index
+Date: Tue, 14 Apr 2009 20:51:58 -0700
+Message-ID: <20090415035155.10107.6878.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, jeff.chua.linux@gmail.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, paulus@samba.org, mingo@elte.hu,
-	torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: shemminger@vyatta.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090414141351.0f63ac98@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Wu Fengguang <fengguang.wu@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:58938
+	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751307AbZDODwR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 23:52:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 14 Apr 2009 14:13:51 -0700
+From: Wu Fengguang <fengguang.wu@intel.com>
 
-> This is an alternative version of ip/ip6/arp tables locking using
-> per-cpu locks.  This avoids the overhead of synchronize_net() during
-> update but still removes the expensive rwlock in earlier versions.
-> 
-> The idea for this came from an earlier version done by Eric Dumazet.
-> Locking is done per-cpu, the fast path locks on the current cpu
-> and updates counters.  The slow case involves acquiring the locks on
-> all cpu's.
-> 
-> The mutex that was added for 2.6.30 in xt_table is unnecessary since
-> there already is a mutex for xt[af].mutex that is held.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Don't do the num_tx_queues based masking on calculating tx queue
+index.
 
-Things seem to be winding down, good. :-)
+ 1) num_tx_queues is not always power-of-2, because it also depends on
+    the online cpu numbers. So the masking could be a performance bug
+    on a 6 cpu system.
+ 2) queue_mapping will be limited by real_num_tx_queues=num_tx_queues
+    in the generic netdev function set_cur_queue_map(). So the bound
+    limiting here is not necessary.
 
-I'll let Patrick McHardy merge this to me with his other pending
-netfilter fixes.
+Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Thanks!
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 9ef128a..862dd34 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4342,7 +4342,7 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	int count = 0;
+ 	unsigned int f;
+ 
+-	r_idx = (adapter->num_tx_queues - 1) & skb->queue_mapping;
++	r_idx = skb->queue_mapping;
+ 	tx_ring = &adapter->tx_ring[r_idx];
+ 
+ 	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
+
