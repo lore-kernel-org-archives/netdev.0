@@ -1,66 +1,32 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 5/5] declance: convert to net_device_ops
-Date: Wed, 15 Apr 2009 08:30:25 +0400
-Message-ID: <1239769825-12413-5-git-send-email-a.beregalov@gmail.com>
-References: <1239769825-12413-1-git-send-email-a.beregalov@gmail.com>
- <1239769825-12413-2-git-send-email-a.beregalov@gmail.com>
- <1239769825-12413-3-git-send-email-a.beregalov@gmail.com>
- <1239769825-12413-4-git-send-email-a.beregalov@gmail.com>
-Cc: Alexander Beregalov <a.beregalov@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 2/2] ixgbe: update real_num_tx_queues on
+ changing num_rx_queues
+Date: Tue, 14 Apr 2009 21:54:23 -0700 (PDT)
+Message-ID: <20090414.215423.49028564.davem@davemloft.net>
+References: <20090415035155.10107.6878.stgit@localhost.localdomain>
+	<20090415035217.10107.54118.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, fengguang.wu@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:25628 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180AbZDOEak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 00:30:40 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so1253680fkq.5
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 21:30:39 -0700 (PDT)
-In-Reply-To: <1239769825-12413-4-git-send-email-a.beregalov@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55876
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750937AbZDOEyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 00:54:32 -0400
+In-Reply-To: <20090415035217.10107.54118.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 14 Apr 2009 20:52:17 -0700
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
- drivers/net/declance.c |   17 ++++++++++++-----
- 1 files changed, 12 insertions(+), 5 deletions(-)
+> Move the update of real_num_tx_queues from
+> ixgbe_acquire_msix_vectors() to ixgbe_set_num_queues(), to ensure it
+> be always in sync with num_tx_queues.
+> 
+> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-diff --git a/drivers/net/declance.c b/drivers/net/declance.c
-index 861c867..b62405a 100644
---- a/drivers/net/declance.c
-+++ b/drivers/net/declance.c
-@@ -1010,6 +1010,17 @@ static void lance_set_multicast_retry(unsigned long _opaque)
- 	lance_set_multicast(dev);
- }
- 
-+static const struct net_device_ops lance_netdev_ops = {
-+	.ndo_open		= lance_open,
-+	.ndo_stop		= lance_close,
-+	.ndo_start_xmit		= lance_start_xmit,
-+	.ndo_tx_timeout		= lance_tx_timeout,
-+	.ndo_set_multicast_list	= lance_set_multicast,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
-+};
-+
- static int __init dec_lance_probe(struct device *bdev, const int type)
- {
- 	static unsigned version_printed;
-@@ -1223,12 +1234,8 @@ static int __init dec_lance_probe(struct device *bdev, const int type)
- 
- 	printk(", addr = %pM, irq = %d\n", dev->dev_addr, dev->irq);
- 
--	dev->open = &lance_open;
--	dev->stop = &lance_close;
--	dev->hard_start_xmit = &lance_start_xmit;
--	dev->tx_timeout = &lance_tx_timeout;
-+	dev->netdev_ops = &lance_netdev_ops;
- 	dev->watchdog_timeo = 5*HZ;
--	dev->set_multicast_list = &lance_set_multicast;
- 
- 	/* lp->ll is the location of the registers for lance card */
- 	lp->ll = ll;
--- 
-1.6.2.3
-
+Applied.
