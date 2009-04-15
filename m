@@ -1,7 +1,7 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 20/26] pasemi_mac: convert to net_device_ops
-Date: Thu, 16 Apr 2009 02:52:54 +0400
-Message-ID: <1239835980-22502-20-git-send-email-a.beregalov@gmail.com>
+Subject: [PATCH 25/26] smc911x: convert to net_device_ops
+Date: Thu, 16 Apr 2009 02:52:59 +0400
+Message-ID: <1239835980-22502-25-git-send-email-a.beregalov@gmail.com>
 References: <1239835980-22502-1-git-send-email-a.beregalov@gmail.com>
  <1239835980-22502-2-git-send-email-a.beregalov@gmail.com>
  <1239835980-22502-3-git-send-email-a.beregalov@gmail.com>
@@ -21,70 +21,73 @@ References: <1239835980-22502-1-git-send-email-a.beregalov@gmail.com>
  <1239835980-22502-17-git-send-email-a.beregalov@gmail.com>
  <1239835980-22502-18-git-send-email-a.beregalov@gmail.com>
  <1239835980-22502-19-git-send-email-a.beregalov@gmail.com>
+ <1239835980-22502-20-git-send-email-a.beregalov@gmail.com>
+ <1239835980-22502-21-git-send-email-a.beregalov@gmail.com>
+ <1239835980-22502-22-git-send-email-a.beregalov@gmail.com>
+ <1239835980-22502-23-git-send-email-a.beregalov@gmail.com>
+ <1239835980-22502-24-git-send-email-a.beregalov@gmail.com>
 Cc: Alexander Beregalov <a.beregalov@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f169.google.com ([209.85.218.169]:50591 "EHLO
-	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756565AbZDOWx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 18:53:28 -0400
-Received: by mail-bw0-f169.google.com with SMTP id 17so114640bwz.37
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 15:53:27 -0700 (PDT)
-In-Reply-To: <1239835980-22502-19-git-send-email-a.beregalov@gmail.com>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:48714 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756680AbZDOWxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 18:53:34 -0400
+Received: by mail-fx0-f158.google.com with SMTP id 2so121386fxm.37
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 15:53:33 -0700 (PDT)
+In-Reply-To: <1239835980-22502-24-git-send-email-a.beregalov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
- drivers/net/pasemi_mac.c |   23 ++++++++++++++---------
- 1 files changed, 14 insertions(+), 9 deletions(-)
+ drivers/net/smc911x.c |   23 +++++++++++++++--------
+ 1 files changed, 15 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
-index 5eeb5a8..067caba 100644
---- a/drivers/net/pasemi_mac.c
-+++ b/drivers/net/pasemi_mac.c
-@@ -1735,6 +1735,19 @@ out:
- 	return ret;
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index 2936103..bc4976a 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -1774,6 +1774,20 @@ static int __devinit smc911x_findirq(struct net_device *dev)
+ 	return probe_irq_off(cookie);
  }
  
-+static const struct net_device_ops pasemi_netdev_ops = {
-+	.ndo_open		= pasemi_mac_open,
-+	.ndo_stop		= pasemi_mac_close,
-+	.ndo_start_xmit		= pasemi_mac_start_tx,
-+	.ndo_set_multicast_list	= pasemi_mac_set_rx_mode,
-+	.ndo_set_mac_address	= pasemi_mac_set_mac_addr,
-+	.ndo_change_mtu		= pasemi_mac_change_mtu,
++static const struct net_device_ops smc911x_netdev_ops = {
++	.ndo_open		= smc911x_open,
++	.ndo_stop		= smc911x_close,
++	.ndo_start_xmit		= smc911x_hard_start_xmit,
++	.ndo_tx_timeout		= smc911x_timeout,
++	.ndo_set_multicast_list	= smc911x_set_multicast_list,
++	.ndo_change_mtu		= eth_change_mtu,
 +	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_set_mac_address	= eth_mac_addr,
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= pasemi_mac_netpoll,
++	.ndo_poll_controller	= smc911x_poll_controller,
 +#endif
 +};
 +
- static int __devinit
- pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
-@@ -1817,19 +1830,11 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto out;
- 	}
+ /*
+  * Function: smc911x_probe(unsigned long ioaddr)
+  *
+@@ -1940,16 +1954,9 @@ static int __devinit smc911x_probe(struct net_device *dev)
+ 	/* Fill in the fields of the device structure with ethernet values. */
+ 	ether_setup(dev);
  
--	dev->open = pasemi_mac_open;
--	dev->stop = pasemi_mac_close;
--	dev->hard_start_xmit = pasemi_mac_start_tx;
--	dev->set_multicast_list = pasemi_mac_set_rx_mode;
--	dev->set_mac_address = pasemi_mac_set_mac_addr;
-+	dev->netdev_ops = &pasemi_netdev_ops;
- 	dev->mtu = PE_DEF_MTU;
- 	/* 1500 MTU + ETH_HLEN + VLAN_HLEN + 2 64B cachelines */
- 	mac->bufsz = dev->mtu + ETH_HLEN + ETH_FCS_LEN + LOCAL_SKB_ALIGN + 128;
+-	dev->open = smc911x_open;
+-	dev->stop = smc911x_close;
+-	dev->hard_start_xmit = smc911x_hard_start_xmit;
+-	dev->tx_timeout = smc911x_timeout;
++	dev->netdev_ops = &smc911x_netdev_ops;
+ 	dev->watchdog_timeo = msecs_to_jiffies(watchdog);
+-	dev->set_multicast_list = smc911x_set_multicast_list;
+ 	dev->ethtool_ops = &smc911x_ethtool_ops;
 -#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = pasemi_mac_netpoll;
+-	dev->poll_controller = smc911x_poll_controller;
 -#endif
  
--	dev->change_mtu = pasemi_mac_change_mtu;
- 	dev->ethtool_ops = &pasemi_mac_ethtool_ops;
- 
- 	if (err)
+ 	INIT_WORK(&lp->phy_configure, smc911x_phy_configure);
+ 	lp->mii.phy_id_mask = 0x1f;
 -- 
 1.6.2.3
 
