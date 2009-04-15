@@ -1,44 +1,29 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: remove superfluous call to synchronize_net()
-Date: Wed, 15 Apr 2009 17:38:06 +0200
-Message-ID: <49E5FF5E.50409@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: fixed phy -- how do we decide to use this code?
+Date: Wed, 15 Apr 2009 10:54:40 -0500
+Message-ID: <B660E2DF-5F6A-4939-9D20-3AB8E7C69EDB@kernel.crashing.org>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43716 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522AbZDOPiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 11:38:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linuxppc-dev Development <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+To: Vitaly Bordug <vitb@kernel.crashing.org>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-inet_register_protosw() is adding inet_protosw to inetsw[] with appropriate
-locking section and rcu variant. No need to call synchronize_net() to wait
-for a RCU grace period. Changes are immediatly visible to other cpus anyway.
+Vitaly, Anton
 
-This saves about 13 ms on boot time on a HZ=1000 8 cpus machine ;)
-(4 calls to inet_register_protosw(), and about 3200 us per call)
+You guys have used this code.. I was wondering how we decide to used  
+the fixed phy vs another phy.  Is this a runtime decision based on  
+something in the device tree or purely at compile time?
 
-But more seriously, we should audit all synchronize_{rcu|net}() calls
-to make sure we dont waste time and hide some bugs because of artificial
-delays.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 7f03373..1706896 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1003,8 +1003,6 @@ void inet_register_protosw(struct inet_protosw *p)
- out:
- 	spin_unlock_bh(&inetsw_lock);
- 
--	synchronize_net();
--
- 	return;
- 
- out_permanent:
+- k
