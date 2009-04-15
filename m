@@ -1,84 +1,80 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast	messages
-Date: Wed, 15 Apr 2009 14:42:06 -0700
-Message-ID: <OFC72984F0.3784D936-ON88257599.007609F8-88257599.00773519@us.ibm.com>
-References: <49E5F1FF.1000801@hp.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: remove superfluous call to synchronize_net()
+Date: Wed, 15 Apr 2009 14:54:54 -0700
+Message-ID: <20090415215454.GU6766@linux.vnet.ibm.com>
+References: <49E5FF5E.50409@cosmosbay.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:41890 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752868AbZDOVmK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 17:42:10 -0400
-In-Reply-To: <49E5F1FF.1000801@hp.com>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:37798 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750953AbZDOVy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2009 17:54:57 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e7.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3FLimrx022710
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 17:44:48 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3FLssWh183304
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 17:54:54 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3FLsrnq029253
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 17:54:53 -0400
+Content-Disposition: inline
+In-Reply-To: <49E5FF5E.50409@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad, Neil,
-        [Sorry if I'm behind -- just saw this thread...]
+On Wed, Apr 15, 2009 at 05:38:06PM +0200, Eric Dumazet wrote:
+> inet_register_protosw() is adding inet_protosw to inetsw[] with appropriate
+> locking section and rcu variant. No need to call synchronize_net() to wait
+> for a RCU grace period. Changes are immediatly visible to other cpus anyway.
 
-> Here is a rather pertinent text that points out that we "might" have a 
-bug.
-> RFC 4607:
+I agree with the conclusion (that this change is safe), but not with
+the reasoning process.  ;-)
+
+The reason that this change is safe is that any inter-process
+communication mechanism used to tell other CPUs that this protocol has
+been registered must contain relevant memory barriers, otherwise, that
+mechanism won't be reliable.
+
+If an unreliable mechanism was to be used, the other CPU might not yet see
+the protocol.  For example, if the caller did a simple non-atomic store
+to a variable that the other CPU accessed with a simple non-atomic load,
+then that other CPU could potentially see the inetsw[] without the new
+protocol, given that inet_create() is lockless.  Unlikely, but possible.
+
+But if a proper inter-process communication mechanism is used to inform
+the other CPU, then the first CPU's memory operations will be seen.
+
+So I suggest a comment to this effect.
+
+> This saves about 13 ms on boot time on a HZ=1000 8 cpus machine ;)
+> (4 calls to inet_register_protosw(), and about 3200 us per call)
 > 
-> 4.2.  Requirements on the Host IP Module
+> But more seriously, we should audit all synchronize_{rcu|net}() calls
+> to make sure we dont waste time and hide some bugs because of artificial
+> delays.
+
+Good point!
+
+							Thanx, Paul
+
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 > 
->    An incoming datagram destined to an SSM address MUST be delivered by
->    the IP module to all sockets that have indicated (via Subscribe) a
->    desire to receive data that matches the datagram's source address,
->    destination address, and arriving interface.  It MUST NOT be
->    delivered to other sockets.
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 7f03373..1706896 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1003,8 +1003,6 @@ void inet_register_protosw(struct inet_protosw *p)
+>  out:
+>  	spin_unlock_bh(&inetsw_lock);
 > 
+> -	synchronize_net();
+> -
+>  	return;
 > 
-> Additionally, RFC 3678 describes IP_ADD_MEMBERSHIP as an 'any-source 
-group'
-> and is allowed by the SSM spec.  This is also how it is implemented in 
-the kernel.
-> However, we do not appear to perform the filtering required by the above 
-quoted
-> section 4.2.  In particular, if we fail to match the 'datagram's 
-destination address',
-> we deliver the packet, which I believe is in violation of the "MUST NOT" 
-above.
-
-        "SSM" stands for "Source-Specific Multicast". "Any source" is 
-explicitly
-*not* source-specific. Nothing in RFC 4607 is intended to change legacy 
-behavior
-where there is no source filtering. If you do SSM on Linux, you will have 
-the
-group-join check.
-        The legacy behavior you don't like was not a bug in BSD. It was 
-intentional
-and authored by Steve Deering, who is also the author of the original 
-multicast
-RFC. The intent was that multicast address socket behavior would be just 
-like
-unicast address behavior, with the exception that multicast addresses are
-interface-specific. If you add a new unicast address to the machine, and
-the binding on the socket doesn't restrict it, you will receive packets
-from any of the addresses on the machine. That's what INADDR_ANY means. 
-Your
-multicast application may also receive unicast traffic on that port too.
-        It does seem to cause a lot of confusion for people, though I'm 
-not
-sure why. *Any* multicast application can receive traffic not intended for
-it because there is no exclusion on multicast senders. So, applications 
-must
-handle packets not for it, period. Unless you have an IANA-allocated 
-multicast
-address and port, someone else may use it for something else on the same
-network, while still following the rules. And if you do have assigned 
-addresses
-and ports, someone may send you garbage, anyway.
-        I'll read the rest of the thread and see if there's any more to 
-respond
-to... :-)
-
- +-DLS
-
-
+>  out_permanent:
