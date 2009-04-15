@@ -1,46 +1,55 @@
 From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH] FEC driver: patches for -next
-Date: Wed, 15 Apr 2009 13:32:13 +0200
-Message-ID: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de>
-Cc: Greg Ungerer <gerg@snapgear.com>
+Subject: [PATCH 08/12] fec: align receive packets
+Date: Wed, 15 Apr 2009 13:32:21 +0200
+Message-ID: <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de>
+References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-2-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-3-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-4-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de>
+Cc: Greg Ungerer <gerg@snapgear.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37828 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37836 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758221AbZDOLc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:32:28 -0400
+	with ESMTP id S1759421AbZDOLcs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:32:48 -0400
+In-Reply-To: <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Otherwise we get a lot of alignment errors
 
-These patches aim to modernize the FEC ethernet driver.
-Greg, can you please confirm that the ifdef in patch 01/12 is indeed unused?
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/net/fec.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Sascha
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index a3037ab..be3226c 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -598,13 +598,14 @@ fec_enet_rx(struct net_device *dev)
+ 		 * include that when passing upstream as it messes up
+ 		 * bridging applications.
+ 		 */
+-		skb = dev_alloc_skb(pkt_len - 4);
++		skb = dev_alloc_skb(pkt_len - 4 + NET_IP_ALIGN);
+ 
+-		if (skb == NULL) {
++		if (unlikely(!skb)) {
+ 			printk("%s: Memory squeeze, dropping packet.\n",
+ 					dev->name);
+ 			dev->stats.rx_dropped++;
+ 		} else {
++			skb_reserve(skb, NET_IP_ALIGN);
+ 			skb_put(skb, pkt_len - 4);	/* Make room */
+ 			skb_copy_to_linear_data(skb, data, pkt_len - 4);
+ 			skb->protocol = eth_type_trans(skb, dev);
+-- 
+1.6.2.1
 
-The following changes since commit 0882e8dd3aad33eca41696d463bb896e6c8817eb:
-  Linus Torvalds (1):
-        Linux 2.6.30-rc2
-
-are available in the git repository at:
-
-  git://git.pengutronix.de/git/sha/linux-2.6.git fec
-
-Sascha Hauer (12):
-      fec: remove unused ifdef
-      fec: switch to writel/readl
-      fec: do not typedef struct types
-      fec: remove unnecessary cast
-      fec: Codingstyle cleanups
-      fec: refactor set_multicast_list() to make it more readable
-      fec: refactor init function
-      fec: align receive packets
-      fec: remove debugging printks
-      fec: switch to net_device_ops
-      FEC Buffer rework
-      fec: call fec_restart() in fec_open()
-
- drivers/net/fec.c |  897 ++++++++++++++++++++++-------------------------------
- drivers/net/fec.h |  112 ++-----
- 2 files changed, 402 insertions(+), 607 deletions(-)
