@@ -1,108 +1,90 @@
-From: Paul Smith <paul@mad-scientist.net>
-Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying to
-	ifenslave a second interface to my bond
-Date: Wed, 15 Apr 2009 12:56:42 -0400
-Message-ID: <1239814602.8944.593.camel@psmith-ubeta.netezza.com>
-References: <1239657348.8944.529.camel@psmith-ubeta.netezza.com>
-	 <11276.1239757967@death.nxdomain.ibm.com>
-Reply-To: paul@mad-scientist.net
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast	messages
+Date: Wed, 15 Apr 2009 13:19:41 -0400
+Message-ID: <49E6172D.8080201@hp.com>
+References: <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com> <20090415110714.GA21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904150841550.10217@qirst.com> <20090415142208.GB21448@hmsreliant.think-freely.org> <49E5F1FF.1000801@hp.com> <20090415155702.GC21448@hmsreliant.think-freely.org> <49E6063B.3040107@hp.com> <20090415163812.GD21448@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Christoph Lameter <cl@linux.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta.netezza.com ([12.148.248.132]:51364 "EHLO netezza.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752059AbZDOQ4r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2009 12:56:47 -0400
-In-Reply-To: <11276.1239757967@death.nxdomain.ibm.com>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:44982 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753103AbZDORTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 13:19:45 -0400
+In-Reply-To: <20090415163812.GD21448@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-04-14 at 18:12 -0700, Jay Vosburgh wrote:
-> 	I think I know what's going on.  I believe this patch will
-> resolve things, but I won't be able to test it until tomorrow.  If you
-> want to test this, great; if you want to wait, that's fine too.
+Neil Horman wrote:
+find the multicast in the socket's list.
+>>
+> Also see above, hes using multicast group 239.x.x.x.  SSM only encompases
+> addresses in the 232.0.0.1 to 232.255.255.255 range.  He's using ASM not SSM,
+> regardless of what SSM allows.  I agree it sounds like we have a bug in SSM
+> behavior, but its not overly relevant to this discussion (saving for the fact
+> that his new feature would inadvertantly fix the bug, in addition to altering
+> ASM behavior).  If we want to fix the SSM bug, thats great, lets fix it, but
+> lets not do it by introducing a new behavior to ASM.
 
-Hi Jay; as I mentioned last night this patch is working fine for me so
-far.
+Sorry, but I don't buy it.  What we have is essentially "backward-brokeness".
 
-However, looking at the rest of this function it seems to me that there
-are other locking issues, at least based on the documentation in the
-header file:
+Looking at BSD, which was the root of the original brokeness, they have it fixed.
+The code will skip sockets that are not members of a particular group.  So, we
+are trying really hard to stay bug-for-bug compatible with old implementations.
 
- * Here are the locking policies for the two bonding locks:
- *
- * 1) Get bond->lock when reading/writing slave list.
- * 2) Get bond->curr_slave_lock when reading/writing bond->curr_active_slave.
- *    (It is unnecessary when the write-lock is put with bond->lock.)
- * 3) When we lock with bond->curr_slave_lock, we must lock with bond->lock
- *    beforehand.
+> 
+> And thats all moot anyway, becaues Christoph (unless I'm mistaken) is not, and
+> does not want to restrict source sending privlidges.  He wants to get data on
+> multicast groups from all/any source, he just doesn't want to get multicast data
+> from groups he didn't explicitly join in the app doing the receiving, which is
+> exactly what you can currently use bind for.
 
-For example, don't you need to hold bond->curr_slave_lock at least
-around the "if (!bond->curr_active_slave)"?  What about around the
-"bond_for_each_slave" loop?
+Let's look at it the other way.  What is broken if we actually filter based on the
+socket group membership?  The only applications that will be impacted are ones that
+do not join groups themselves and expect to get multicast traffic.  Such applications
+are broken to start with.
 
-Many of the other functions, later, also seem to work with
-bond->curr_active_slave and they don't take this lock.
+We already do group membership check for the socket. We simply incorrectly determine
+that any socket that doesn't list a group.
 
-Unless I'm missing something, I think there are still more problems in
-the locking in bond_alb_set_mac_address().
+What's worse is that if you have a socket that doesn't care about any mulicast
+destinations (never did an ADD_MEMBERSHIP), it will still get multicast traffic if
+it bound to that port.
 
-Thoughts?
+We need to take into account the socket's multicast group list.
 
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index 8dc6fbb..b22467a 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -1708,10 +1708,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
->   * Called with RTNL
->   */
->  int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
-> -	__releases(&bond->curr_slave_lock)
-> -	__releases(&bond->lock)
->  	__acquires(&bond->lock)
-> -	__acquires(&bond->curr_slave_lock)
-> +	__releases(&bond->lock)
->  {
->  	struct bonding *bond = netdev_priv(bond_dev);
->  	struct sockaddr *sa = addr;
-> @@ -1747,9 +1745,6 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
->  		}
->  	}
->  
-> -	write_unlock_bh(&bond->curr_slave_lock);
-> -	read_unlock(&bond->lock);
-> -
->  	if (swap_slave) {
->  		alb_swap_mac_addr(bond, swap_slave, bond->curr_active_slave);
->  		alb_fasten_mac_swap(bond, swap_slave, bond->curr_active_slave);
-> @@ -1757,16 +1752,17 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
->  		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr,
->  				       bond->alb_info.rlb_enabled);
->  
-> -		alb_send_learning_packets(bond->curr_active_slave, bond_dev->dev_addr);
-> +		read_lock(&bond->lock);
-> +		alb_send_learning_packets(bond->curr_active_slave,
-> +					  bond_dev->dev_addr);
->  		if (bond->alb_info.rlb_enabled) {
->  			/* inform clients mac address has changed */
-> -			rlb_req_update_slave_clients(bond, bond->curr_active_slave);
-> +			rlb_req_update_slave_clients(bond,
-> +						     bond->curr_active_slave);
->  		}
-> +		read_unlock(&bond->lock);
->  	}
->  
-> -	read_lock(&bond->lock);
-> -	write_lock_bh(&bond->curr_slave_lock);
-> -
->  	return 0;
->  }
->  
+-vlad
 
--- 
-Paul Smith <paul@mad-scientist.net>
-
+> 
+> Neil
+> 
+>> -vlad
+>>
+>>> In particular, if we fail to match the 'datagram's destination address',
+>>>> we deliver the packet, which I believe is in violation of the "MUST NOT" above.
+>>>>
+>>> I think only if the SSM model is used via the socket extensions the RFC
+>>> describes.  If Christophs app is subscribing via IP_ADD_SOURCE_MEMBERSHIP, then
+>>> yes, we have a problem.  But everything I've read says he uses the standard, any-source
+>>> IP_ADD_MEMBERSHIP option which I think makes assertions from RFC 4607 void.
+>>> Christoph, are you using IP_ADD_SOURCE_MEMBERSHIP?
+>>>
+>>> Neil
+>>>
+>>>> I've CC'd Dave Stevens, since I'd like to hear his opinion regarding this text.
+>>>>
+>>>> Thanks
+>>>> -vlad
+>>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>
+> 
 
