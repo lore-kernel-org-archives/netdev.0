@@ -1,78 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/2] ixgbe: update real_num_tx_queues on changing
-	num_rx_queues
-Date: Tue, 14 Apr 2009 20:52:17 -0700
-Message-ID: <20090415035217.10107.54118.stgit@localhost.localdomain>
-References: <20090415035155.10107.6878.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Wu Fengguang <fengguang.wu@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH 4/5] bfin_mac: convert to net_device_ops
+Date: Wed, 15 Apr 2009 08:30:24 +0400
+Message-ID: <1239769825-12413-4-git-send-email-a.beregalov@gmail.com>
+References: <1239769825-12413-1-git-send-email-a.beregalov@gmail.com>
+ <1239769825-12413-2-git-send-email-a.beregalov@gmail.com>
+ <1239769825-12413-3-git-send-email-a.beregalov@gmail.com>
+Cc: Alexander Beregalov <a.beregalov@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:38574 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752328AbZDODwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 23:52:34 -0400
-In-Reply-To: <20090415035155.10107.6878.stgit@localhost.localdomain>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:43042 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080AbZDOEai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 00:30:38 -0400
+Received: by mail-fx0-f158.google.com with SMTP id 2so2713444fxm.37
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2009 21:30:37 -0700 (PDT)
+In-Reply-To: <1239769825-12413-3-git-send-email-a.beregalov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wu Fengguang <fengguang.wu@intel.com>
 
-Move the update of real_num_tx_queues from
-ixgbe_acquire_msix_vectors() to ixgbe_set_num_queues(), to ensure it
-be always in sync with num_tx_queues.
-
-Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 ---
+ drivers/net/bfin_mac.c |   24 +++++++++++++++---------
+ 1 files changed, 15 insertions(+), 9 deletions(-)
 
- drivers/net/ixgbe/ixgbe_main.c |   19 ++++++++++---------
- 1 files changed, 10 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 862dd34..11fd153 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2723,17 +2723,21 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
-  **/
- static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- {
--	/* Start with base case */
--	adapter->num_rx_queues = 1;
--	adapter->num_tx_queues = 1;
--
- #ifdef CONFIG_IXGBE_DCB
- 	if (ixgbe_set_dcb_queues(adapter))
--		return;
-+		goto done;
- 
- #endif
- 	if (ixgbe_set_rss_queues(adapter))
--		return;
-+		goto done;
-+
-+	/* fallback to base case */
-+	adapter->num_rx_queues = 1;
-+	adapter->num_tx_queues = 1;
-+
-+done:
-+	/* Notify the stack of the (possibly) reduced Tx Queue count. */
-+	adapter->netdev->real_num_tx_queues = adapter->num_tx_queues;
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index 9afe809..9326aef 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -979,6 +979,20 @@ static int bfin_mac_open(struct net_device *dev)
+ 	return 0;
  }
  
- static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
-@@ -2992,9 +2996,6 @@ try_msi:
- 	}
++static const struct net_device_ops bfin_mac_netdev_ops = {
++	.ndo_open		= bfin_mac_open,
++	.ndo_stop		= bfin_mac_close,
++	.ndo_start_xmit		= bfin_mac_hard_start_xmit,
++	.ndo_set_mac_address	= bfin_mac_set_mac_address,
++	.ndo_tx_timeout		= bfin_mac_timeout,
++	.ndo_set_multicast_list	= bfin_mac_set_multicast_list,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= eth_change_mtu,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= bfin_mac_poll,
++#endif
++};
++
+ /*
+  *
+  * this makes the board clean up everything that it can
+@@ -1086,15 +1100,7 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
+ 	/* Fill in the fields of the device structure with ethernet values. */
+ 	ether_setup(ndev);
  
- out:
--	/* Notify the stack of the (possibly) reduced Tx Queue count. */
--	adapter->netdev->real_num_tx_queues = adapter->num_tx_queues;
--
- 	return err;
- }
+-	ndev->open = bfin_mac_open;
+-	ndev->stop = bfin_mac_close;
+-	ndev->hard_start_xmit = bfin_mac_hard_start_xmit;
+-	ndev->set_mac_address = bfin_mac_set_mac_address;
+-	ndev->tx_timeout = bfin_mac_timeout;
+-	ndev->set_multicast_list = bfin_mac_set_multicast_list;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	ndev->poll_controller = bfin_mac_poll;
+-#endif
++	ndev->netdev_ops = &bfin_mac_netdev_ops;
+ 	ndev->ethtool_ops = &bfin_mac_ethtool_ops;
  
+ 	spin_lock_init(&lp->lock);
+-- 
+1.6.2.3
 
