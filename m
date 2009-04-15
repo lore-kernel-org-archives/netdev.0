@@ -1,42 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: nf_log fix
-Date: Wed, 15 Apr 2009 12:20:47 +0200
-Message-ID: <49E5B4FF.50606@trash.net>
-References: <20090410191736.21efab8c@mako-desktop>	 <49E4744D.5090205@trash.net>	<49E47C2D.1050508@cosmosbay.com>	 <49E47EA5.3060706@trash.net> <20090414211946.4ea0455e@mako-desktop>	 <49E4EE9C.7040509@cosmosbay.com> <1239742000.24204.9.camel@ice-age> <49E4FB0C.1080103@cosmosbay.com>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: panic on rmmod of nf_conntrack_irc
+Date: Wed, 15 Apr 2009 12:26:53 +0200
+Message-ID: <49E5B66D.30602@trash.net>
+References: <20090410191736.21efab8c@mako-desktop> <49E4744D.5090205@trash.net> <49E47C2D.1050508@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Leblond <eric@inl.fr>,
-	Mariusz Kozlowski <m.kozlowski@tuxland.pl>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Cc: Mariusz Kozlowski <m.kozlowski-NWF1p15JEu3VItvQsEIGlw@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55673 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbZDOKU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 06:20:58 -0400
-In-Reply-To: <49E4FB0C.1080103@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	<netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <49E47C2D.1050508-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Eric Dumazet wrote:
-> OK thanks everybody, I submit it more formally then, using ARRAY_SIZE() macro too :)
+> I should have used different fields names (from "next", "first", ...) to catch this
+> kind of errors at compile time :(
 > 
-> [PATCH] netfilter: nf_log fix
+> Something like :
 > 
-> commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222
-> 'netfilter: use a linked list of loggers'
-> introduced an array of list_head in "struct nf_logger", but
-> forgot to initialize it in nf_log_register(). This resulted
-> in oops when calling nf_log_unregister() at module unload time.
-> 
-> Reported-and-tested-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> Acked-by: Eric Leblond <eric@inl.fr>
+> diff --git a/include/linux/list_nulls.h b/include/linux/list_nulls.h
 
-Applied, thanks everyone.
-
+Eric, on second thought, could you please resubmit this to Dave?
+It touches too many files outside of netfilter to go through my
+tree.
