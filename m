@@ -1,61 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Wed, 15 Apr 2009 12:59:03 +0200
-Message-ID: <49E5BDF7.8090502@trash.net>
-References: <20090411174801.GG6822@linux.vnet.ibm.com>	<18913.53699.544083.320542@cargo.ozlabs.ibm.com>	<20090412173108.GO6822@linux.vnet.ibm.com>	<20090412.181330.23529546.davem@davemloft.net>	<20090413040413.GQ6822@linux.vnet.ibm.com>	<20090413095309.631cf395@nehalam>	<49E48136.5060700@trash.net>	<49E49C65.8060808@cosmosbay.com>	<20090414074554.7fa73e2f@nehalam>	<49E4B0A5.70404@cosmosbay.com>	<b6a2187b0904140951r3c6a41fdnc26b149202bdfa84@mail.gmail.com>	<20090414111716.28585806@nehalam>	<49E4E3E8.5090201@cosmosbay.com> <20090414141351.0f63ac98@nehalam> <49E502B5.7070700@cosmosbay.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
+	messages
+Date: Wed, 15 Apr 2009 07:07:14 -0400
+Message-ID: <20090415110714.GA21448@hmsreliant.think-freely.org>
+References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jeff Chua <jeff.chua.linux@gmail.com>,
-	paulmck@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
-	paulus@samba.org, mingo@elte.hu, torvalds@linux-foundation.org,
-	laijs@cn.fujitsu.com, jengelh@medozas.de, r000n@r000n.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, benh@kernel.crashing.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49E502B5.7070700@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47273 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbZDOLHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:07:23 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.1.10.0904141740280.3973@qirst.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Stephen Hemminger a =E9crit :
->> This is an alternative version of ip/ip6/arp tables locking using
->> per-cpu locks.  This avoids the overhead of synchronize_net() during
->> update but still removes the expensive rwlock in earlier versions.
->>
->> The idea for this came from an earlier version done by Eric Dumazet.
->> Locking is done per-cpu, the fast path locks on the current cpu
->> and updates counters.  The slow case involves acquiring the locks on
->> all cpu's.
->>
->> The mutex that was added for 2.6.30 in xt_table is unnecessary since
->> there already is a mutex for xt[af].mutex that is held.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>
->> ---
->>  include/linux/netfilter/x_tables.h |    5 -
->>  net/ipv4/netfilter/arp_tables.c    |  112 +++++++++----------------=
---------
->>  net/ipv4/netfilter/ip_tables.c     |  123 +++++++++++--------------=
-------------
->>  net/ipv6/netfilter/ip6_tables.c    |  119 +++++++++++--------------=
-----------
->>  net/netfilter/x_tables.c           |   28 --------
->>  5 files changed, 110 insertions(+), 277 deletions(-)
->>
->=20
-> Tested successfuly on my dev machine, thanks Stephen.
->=20
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+On Tue, Apr 14, 2009 at 05:45:58PM -0400, Christoph Lameter wrote:
+> On Tue, 14 Apr 2009, Neil Horman wrote:
+> 
+> > That said, I still disagree with the addition of this switch, as its
+> > superfolous.  Programatically an application can do what you want without this
+> > change already .If you provide me with the test application that you've been working with, I can
+> > demonstrate exactly how.
+> 
+> Ok. First applications listens to multicast groups A and B. Second one
+> uses C and D. All use a port 4711 for communication which is the
+> standard for a certain application. Both applications are very latency
+> sensitive. You do not want the data to be duplicated into the user space
+> of both processes.
+> 
+> Both processes need to reply to messages on the
+> multicast groups. The receiver always needs the source IP address for
+> authentication otherwise messages are ignored
+> 
+> How are you going to do this? 
+I'm going to write each application to use 2 sockets, one bound to each
+multicast group.  Thats the way it works now.  I think you missed the obvious in
+your construction of this example.
 
-Applied, thanks everyone. I'll give it some testing myself and
-will send it upstream tonight.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Its trivial to do with this patch and one
+> socket in each process listening to port 4711 that subscribes to the
+> necessary multicast groups. 
+Its trivial without the patch as well.
+
+> Plus one the problem is that some of the
+> applications here are only available in binary form and they were naively
+> coded assuming that the socket layer would not need exotic tricks to
+> convince it to do the right thing.
+What?  If you have binary only software thats written for Linux and it
+malfunctions,  This has been the accepted and standard multicast behavior on
+Linux and various other unicies for decades.  What you are describing is a
+vendor bug in your application, something you need to either contact the vendor
+about, or find a new vendor.  They made an application based on an assumption,
+and their assumption was wrong, they need to fix it.  We could do them a favor,
+I suppose, but I don't see why.
+
+It boils down to this:  This is the way multicast subscriptions have worked in
+bsd, linux, and presumably various other unix and non-unix operating systems for
+lord only knows how long.  Provide some documentation that shows its in
+violation of a newer standard, or that it is common practice to behave
+differently on another OS (such that including this directive would make porting
+easier).  As it stands currently, this patch only serves to create a crutch to
+perpetuate misundersandings about how the behavior currently works.
+
+Neil
