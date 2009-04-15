@@ -1,50 +1,63 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Wed, 15 Apr 2009 17:04:36 -0400
-Message-ID: <49E64BE4.1050908@myri.com>
-References: <20090415100937.4b08ce28@dhcp-lab-109.englab.brq.redhat.com>	<20090415.022809.90182032.davem@davemloft.net>	<49E5AD56.6020701@myri.com> <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast messages
+Date: Wed, 15 Apr 2009 17:06:47 -0400
+Message-ID: <49E64C67.90201@hp.com>
+References: <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com> <20090415110714.GA21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904150841550.10217@qirst.com> <20090415142208.GB21448@hmsreliant.think-freely.org> <49E5F1FF.1000801@hp.com> <20090415155702.GC21448@hmsreliant.think-freely.org> <49E6063B.3040107@hp.com> <20090415163812.GD21448@hmsreliant.think-freely.org> <49E6172D.8080201@hp.com> <alpine.DEB.1.10.0904151516380.18317@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: brice@myri.com, sgruszka@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	David Stevens <dlstevens@us.ibm.com>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1929 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752307AbZDOVEz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2009 17:04:55 -0400
-In-Reply-To: <49E5DABB.9070806@myri.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:35490 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753056AbZDOVGu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 17:06:50 -0400
+In-Reply-To: <alpine.DEB.1.10.0904151516380.18317@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Gallatin wrote:
-> David Miller wrote:
->> From: Brice Goglin <brice@myri.com>
->>> Is there a good summary somewhere of why GRO is better,
->>
->> Transparent forwarding/bridging support, easier driver port.
->>
->>> and how to
->>> actually convert drivers?
->>
->> Step 1: Remove all of your LRO support code, every last line
->> Step 2: netif_receive_skb() --> napi_gro_receive()
->>         vlan_hwaccel_rx() --> vlan_gro_receive()
->>
->> It couldn't be any easier.
->>
->> And it would also behoove you to look at the commits that converted or
->> added GRO support to other drivers.  That's how I learned it :-)
+Christoph Lameter wrote:
+> On Wed, 15 Apr 2009, Vlad Yasevich wrote:
 > 
-> Unfortunately, it doesn't appear that GRO is able to handle frags
-> (like lro_receive_frags()), so I anticipate its overhead would
+>> Looking at BSD, which was the root of the original brokeness, they have it fixed.
+>> The code will skip sockets that are not members of a particular group.  So, we
+>> are trying really hard to stay bug-for-bug compatible with old implementations.
+> 
+> Ahh interesting. David: Could you say something on this?
 
-Ah, I missed napi_gro_frags()!   I've got quick and dirty test
-patch which uses that, but I need to fix a few things. I also need
-to figure out why it seems to be a bit slower than LRO
-(varies from 8.5 to 9.2 Gb/s, rather than always 9.4Gb/s)
-on my old, weak 2.0GHz athlon64.
+Just digging around some more, it appears that OpenSolaris also filters out
+non-joined groups at the socket:
 
-Thanks for the pointer,
+http://src.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/uts/common/inet/ip/ip_multi.c#ilg_lookup_ill_withsrc
 
-Drew
+In that code, connp is essentially a socket and ilg is the membership list.
+That function function called from conn_wantpacket(), which is in turn called
+for every socket that matches the packet.
+
+> 
+>> What's worse is that if you have a socket that doesn't care about any mulicast
+>> destinations (never did an ADD_MEMBERSHIP), it will still get multicast traffic if
+>> it bound to that port.
+>>
+>> We need to take into account the socket's multicast group list.
+> 
+> Right. The fix is pretty simple too since the infrastructure has been
+> there since the IGMPv3 updates.
+> 
+
+Right. since IGMPv3 introduced the concept of filtering.  It even states this
+in RFC 3376:
+
+     Filtering of packets based upon a socket's multicast reception
+     state is a new feature of this service interface.  The previous
+     service interface [RFC1112] described no filtering based upon
+     multicast join state; rather, a join on a socket simply caused the
+     host to join a group on the given interface, and packets destined
+     for that group could be delivered to all sockets whether they had
+     joined or not.
+
+
+-vlad
