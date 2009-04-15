@@ -1,31 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: panic on rmmod of nf_conntrack_irc
-Date: Wed, 15 Apr 2009 03:45:51 -0700 (PDT)
-Message-ID: <20090415.034551.214493254.davem@davemloft.net>
-References: <49E47C2D.1050508@cosmosbay.com>
-	<49E5B66D.30602@trash.net>
-	<49E5BA13.7000501@cosmosbay.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/3] net: introduce a list of device addresses dev_addr_list
+Date: Wed, 15 Apr 2009 12:47:43 +0200
+Message-ID: <49E5BB4F.2060607@trash.net>
+References: <49E5B365.2010008@trash.net>	<20090415.031510.162624644.davem@davemloft.net>	<49E5B9BD.5070204@trash.net> <20090415.034507.208815568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, m.kozlowski@tuxland.pl,
-	kernel-testers@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759283AbZDOKq0@vger.kernel.org>
-In-Reply-To: <49E5BA13.7000501@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dada1@cosmosbay.com, jpirko@redhat.com, lizf@cn.fujitsu.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, shemminger@linux-foundation.org,
+	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, mschmidt@redhat.com,
+	ivecera@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56270 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753330AbZDOKry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 06:47:54 -0400
+In-Reply-To: <20090415.034507.208815568.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 15 Apr 2009 12:42:27 +0200
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 15 Apr 2009 12:41:01 +0200
+> 
+>> Herbert (I think) suggested to make address list updates in softirq
+>> context a two-step process, where addresses would first be added to
+>> a temporary list and the final change would be done in process context
+>> while holding the RTNL.
+>>
+>> Given the complicated mess we currently have, this would be a very
+>> worthwhile change IMO.
+> 
+> This would break the IPV6 TAHI tests if you think we could use
+> such an idea for that.
+> 
+> When IPV6 packets arrive that influence multicast and unicast
+> address lists, the effect must be essentially immediate.  Such
+> that a subsequent packet will cause the kernel the behave
+> with the necessary side effects, no matter how quickly that
+> next packet arrives.
 
-> Sure, but its a cleanup (and was an RFC to show my point)
-> so should wait a litle bit until David opens his -next tree (for 2.6.31)
+I see, thanks for the explanation.
 
-The net-next-2.6 tree is open for business since 2.6.30-rc1 :-)
-
-> Please just submit your patch for 2.6.30 ?
-
-I'll let Patrick voice his opinion on this, I don't care either
-way.
