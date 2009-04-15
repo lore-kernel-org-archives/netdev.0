@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying to
- ifenslave a second interface to my bond
-Date: Tue, 14 Apr 2009 20:23:09 -0700 (PDT)
-Message-ID: <20090414.202309.01722171.davem@davemloft.net>
-References: <1239657348.8944.529.camel@psmith-ubeta.netezza.com>
-	<11276.1239757967@death.nxdomain.ibm.com>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
+Date: Tue, 14 Apr 2009 20:23:59 -0700 (PDT)
+Message-ID: <20090414.202359.07968871.davem@davemloft.net>
+References: <20090414111716.28585806@nehalam>
+	<49E4E3E8.5090201@cosmosbay.com>
+	<20090414141351.0f63ac98@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul@mad-scientist.net, netdev@vger.kernel.org
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46956
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752420AbZDODXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2009 23:23:18 -0400
-In-Reply-To: <11276.1239757967@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dada1@cosmosbay.com, jeff.chua.linux@gmail.com, kaber@trash.net,
+	paulmck@linux.vnet.ibm.com, paulus@samba.org, mingo@elte.hu,
+	torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: shemminger@vyatta.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090414141351.0f63ac98@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Tue, 14 Apr 2009 18:12:47 -0700
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 14 Apr 2009 14:13:51 -0700
 
-> 	I think I know what's going on.  I believe this patch will
-> resolve things, but I won't be able to test it until tomorrow.  If you
-> want to test this, great; if you want to wait, that's fine too.
+> This is an alternative version of ip/ip6/arp tables locking using
+> per-cpu locks.  This avoids the overhead of synchronize_net() during
+> update but still removes the expensive rwlock in earlier versions.
+> 
+> The idea for this came from an earlier version done by Eric Dumazet.
+> Locking is done per-cpu, the fast path locks on the current cpu
+> and updates counters.  The slow case involves acquiring the locks on
+> all cpu's.
+> 
+> The mutex that was added for 2.6.30 in xt_table is unnecessary since
+> there already is a mutex for xt[af].mutex that is held.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Jay, thanks for working on this.
+Things seem to be winding down, good. :-)
 
-Let me know when you have a final version of this fix for me
-to include.
+I'll let Patrick McHardy merge this to me with his other pending
+netfilter fixes.
+
+Thanks!
