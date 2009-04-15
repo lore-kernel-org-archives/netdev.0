@@ -1,65 +1,92 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
-	messages
-Date: Wed, 15 Apr 2009 15:43:55 -0400
-Message-ID: <20090415194355.GF21448@hmsreliant.think-freely.org>
-References: <20090415110714.GA21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904150841550.10217@qirst.com> <20090415142208.GB21448@hmsreliant.think-freely.org> <49E5F1FF.1000801@hp.com> <20090415155702.GC21448@hmsreliant.think-freely.org> <49E6063B.3040107@hp.com> <20090415163812.GD21448@hmsreliant.think-freely.org> <49E6172D.8080201@hp.com> <20090415175329.GE21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904151517540.18317@qirst.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: An inconsistency/bug in ingress netem timestamps
+Date: Wed, 15 Apr 2009 21:50:22 +0200
+Message-ID: <20090415195022.GA3322@ami.dom.local>
+References: <200904131550.37208.asid@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>
-To: Christoph Lameter <cl@linux.com>
+Cc: netdev@vger.kernel.org
+To: Alex Sidorenko <asid@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47502 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753544AbZDOToL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 15:44:11 -0400
+Received: from ti-out-0910.google.com ([209.85.142.186]:34882 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821AbZDOTva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 15:51:30 -0400
+Received: by ti-out-0910.google.com with SMTP id 11so22214tim.23
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 12:51:28 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0904151517540.18317@qirst.com>
+In-Reply-To: <200904131550.37208.asid@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2009 at 03:21:27PM -0400, Christoph Lameter wrote:
-> On Wed, 15 Apr 2009, Neil Horman wrote:
-> 
-> > I can easily envision on application which expects to get multicast traffic that
-> > doesn't join a group within the context of its own process, specifically relying
-> > on the behavior as its documented today.  Consider a data processing
-> > application whos group management is segmented into a different utility.  This
-> > is really the problem here though isn't it?  A proposal to change the 20 year
-> > old behavior of multicast reception with no way to know how strongly
-> > applications rely on this behavior and no documentation to support the assertion
-> > that the current behavior is broken.
-> 
-> The "utility" must be a daemon that keeps the socket open. You are
-> talking about a sheperding process that first opens a socket and
-> then performs multicast groups. It then keeps the socket open
-> (otherwise would be unsubscribed) and starts other processes that then
-> open their own sockets and expect the subscriptions to work.
-> 
-> That does not look convincing. Can you cite a case of an
-> application actually depending on this behavior?
-> 
-No, of course not, since I'm just hypothesizing.  Of course that doesn't mean
-they don't exist.  And by that token you can't predict what will happen to
-applications that do rely (either explicitly or inadvertently) on the current
-behavior.
+Alex Sidorenko wrote, On 04/13/2009 09:50 PM:
 
-None of which _really_ matters, anyway, they're applications, they can be fixed
-to work with either.  The question really is, do we need to, and I think the
-answer is no
-
-> > I'll refer you again to this exact conversation months ago, when I was on the
-> > opposite end of this, and shown to be wrong:
-> > http://kerneltrap.org/mailarchive/linux-netdev/2008/7/11/2430904
+> Hello,
 > 
-> Just you backing down does not mean that this is wrong. We have many
-> more factiods here now.
+> while experimenting with 'netem' we have found some strange behaviour. It 
+> seemed that ingress delay as measured by 'ping' command shows up on some 
+> hosts but not on others.
+> 
+> After some investigation I have found that the problem is that skbuff->tstamp 
+> field value depends on whether there are any packet sniffers enabled. That 
+> is:
+> 
+> - if any ptype_all handler is registered, the tstamp field is as expected
+> - if there are no ptype_all handlers, the tstamp field does not show the delay
+> 
+> I was able to see the problem on RHEL5 (2.6.18 kernel) and Ubuntu/Jaunty 
+> (2.6.28 kernel).
+> 
+> Duplication
+> -----------
+> 
+> 1. Enable ingress delay, e.g. 100ms
+> 
+> # modprobe ifb
+> # ip link set dev ifb0 up
+> # tc qdisc add dev eth0 ingress
+> # tc filter add dev eth0 parent ffff: \
+>    protocol ip u32 match u32 0 0 flowid 1:1 action mirred egress \
+>    redirect dev ifb0
+> # tc qdisc add dev ifb0 root netem delay 100ms
+> 
+> 2. Check that there are no ptype_all handlers registered (stop DHCP, tcpdump, 
+> vmware etc.)
+> 
+> 3. ping any other host on the LAN, e.g.
+> {asid 14:54:24} ping cats
+> PING cats (192.168.0.33) 56(84) bytes of data.
+> 64 bytes from cats (192.168.0.33): icmp_seq=1 ttl=64 time=0.258 ms
+>                                                      ^^^^^^^^^^^^^
+> Now start tcpdump on any interface (not necessarily eth0)
+> 
+> {asid 15:25:45} ping cats
+> PING cats (192.168.0.33) 56(84) bytes of data.
+> 64 bytes from cats (192.168.0.33): icmp_seq=1 ttl=64 time=100 ms
+>                                                      ^^^^^^^^^^^
+> 
+> The ingress packets are really delayed as can be seen from 'ping -U', even 
+> without tcpdump running:
+> 
+> {asid 15:26:12} ping -U cats
+> PING cats (192.168.0.33) 56(84) bytes of data.
+> 64 bytes from cats (192.168.0.33): icmp_seq=1 ttl=64 time=100 ms
+>                                                      ^^^^^^^^^^^
 
-No, it doesn't mean this is wrong, but it does mean David convinced me what we
-have now is right.  I'm obviously not going to be able to pass that on to you,
-so I'm done.  Perhaps he will pick this up, I've said my peace.
+I agree there is an inconsistency, but it seems 100 ms isn't the
+"right" thing to show here. It shows an internal delay added on ifb by
+any packet scheduler, so probably not what a user usually expects.
 
-Neil
+> 
+> The problem is that modern 'ping' uses SO_TIMESTAMP facility and for some 
+> reason skb->tstamp is not updated. I was able to verify this with stap script 
+> (printing skb->tstamp.tv64 in several places).
+> 
+> The strange thing is that as soon as there is any ptype_all handler installed, 
+> skb->tstamp is updated properly. Unfortunately, my knowledge of TC internals 
+> is not good enough to find how exactly this happens.
 
+Isn't it when act_mirred calls dev_queue_xmit with dev_queue_xmit_nit?
+But, as above mentioned, I doubt it's "updated properly" in this case.
+
+Jarek P.
