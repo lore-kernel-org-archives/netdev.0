@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: introduce a list of device addresses
- dev_addr_list
-Date: Wed, 15 Apr 2009 03:15:10 -0700 (PDT)
-Message-ID: <20090415.031510.162624644.davem@davemloft.net>
-References: <49E5A896.90408@cosmosbay.com>
-	<20090415.023104.82135803.davem@davemloft.net>
-	<49E5B365.2010008@trash.net>
+Subject: Re: [PATCH] net: fix unaligned memory accesses in ASIX
+Date: Wed, 15 Apr 2009 03:14:39 -0700 (PDT)
+Message-ID: <20090415.031439.162179625.davem@davemloft.net>
+References: <49CB3F6D.2010508@st.com>
+	<20090326.020018.26561577.davem@davemloft.net>
+	<49CB528E.9060505@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, jpirko@redhat.com, lizf@cn.fujitsu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, shemminger@linux-foundation.org,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, mschmidt@redhat.com,
-	ivecera@redhat.com
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45300
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45293
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759588AbZDOKPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 06:15:19 -0400
-In-Reply-To: <49E5B365.2010008@trash.net>
+	by vger.kernel.org with ESMTP id S1759520AbZDOKOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 06:14:48 -0400
+In-Reply-To: <49CB528E.9060505@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 15 Apr 2009 12:13:57 +0200
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Thu, 26 Mar 2009 11:01:50 +0100
 
-> David Miller wrote:
->> From: Eric Dumazet <dada1@cosmosbay.com>
->> Date: Wed, 15 Apr 2009 11:27:50 +0200
->> 
->>> Since you obviously need a write lock here to be sure following
->>> can be done by one cpu only.
->>>
->>> You have same problem all over this patch.
->> RTNL semaphore is held across all modification operations.
-> 
-> If this will also be used for multicast lists, changes can happen
-> (IPv6) without the RTNL.
+> In any case, at first glance, I understand that the urb->transfer_buffer
+> directly points to the preallocated skb data.
+> These are filled by the HWs. I mean, the buffers are treated by the HW.
+> So I guess, the meaning of the rx_fixup functions is just to solve this
+> kind of situations.
+> In fact, each usb net driver has an own fixup code according to their HW
+> specifications.
 
-Indeed, that is true :-/
+Now I understand, thanks for the explanation.
+
+Please resubmit your patch for ASIX, and I will apply it.
+
+Thanks!
