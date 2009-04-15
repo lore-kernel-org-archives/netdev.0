@@ -1,178 +1,108 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
-	messages
-Date: Wed, 15 Apr 2009 12:38:12 -0400
-Message-ID: <20090415163812.GD21448@hmsreliant.think-freely.org>
-References: <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com> <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com> <20090415110714.GA21448@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904150841550.10217@qirst.com> <20090415142208.GB21448@hmsreliant.think-freely.org> <49E5F1FF.1000801@hp.com> <20090415155702.GC21448@hmsreliant.think-freely.org> <49E6063B.3040107@hp.com>
+From: Paul Smith <paul@mad-scientist.net>
+Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying to
+	ifenslave a second interface to my bond
+Date: Wed, 15 Apr 2009 12:56:42 -0400
+Message-ID: <1239814602.8944.593.camel@psmith-ubeta.netezza.com>
+References: <1239657348.8944.529.camel@psmith-ubeta.netezza.com>
+	 <11276.1239757967@death.nxdomain.ibm.com>
+Reply-To: paul@mad-scientist.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl@linux.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42412 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752393AbZDOQiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 12:38:24 -0400
-Content-Disposition: inline
-In-Reply-To: <49E6063B.3040107@hp.com>
+Received: from mta.netezza.com ([12.148.248.132]:51364 "EHLO netezza.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752059AbZDOQ4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2009 12:56:47 -0400
+In-Reply-To: <11276.1239757967@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2009 at 12:07:23PM -0400, Vlad Yasevich wrote:
-> Neil Horman wrote:
-> > On Wed, Apr 15, 2009 at 10:41:03AM -0400, Vlad Yasevich wrote:
-> >> Neil Horman wrote:
-> >>> On Wed, Apr 15, 2009 at 08:51:35AM -0400, Christoph Lameter wrote:
-> >>>> On Wed, 15 Apr 2009, Neil Horman wrote:
-> >>>>
-> >>>>>> How are you going to do this?
-> >>>>> I'm going to write each application to use 2 sockets, one bound to each
-> >>>>> multicast group.  Thats the way it works now.  I think you missed the obvious in
-> >>>>> your construction of this example.
-> >>>> Ok it could be done with binding. But you would need 3 sockets. One per MC
-> >>>> groups bound to a MC group each and then one for the replies (hmmm...
-> >>>> looks like you could use SO_BINDTODEVICE on one socket to get around the
-> >>> Depending on your setup, 2 is perfectly sufficient.  In fact 1 can be sufficient
-> >>> if you want to filter in your application, but we've been over that.
-> >>>
-> >>>> third one --there is even an exception case for this in inet_bind causing
-> >>>> more weird semantics-- but then the application needs to know the device
-> >>>> name of the NIC, argh)
-> >>> Of course it does, but thats zero incremental cost, since you need to know the
-> >>> device name anyway, when specifying the ifindex to the join request.
-> >>>
-> >>>>>> Its trivial to do with this patch and one
-> >>>>>> socket in each process listening to port 4711 that subscribes to the
-> >>>>>> necessary multicast groups.
-> >>>>> Its trivial without the patch as well.
-> >>>> I do not see how you can justify making such a statement.
-> >>>>
-> >>> I find it justified because I don't see an application using 2 or 3 sockets and a poll or
-> >>> select call as anything more than trivial.  If you find that to be non-trivial,
-> >>> perhaps a refresher programming course might be in order for you?
-> >>>
-> >>>>> It boils down to this:  This is the way multicast subscriptions have worked in
-> >>>>> bsd, linux, and presumably various other unix and non-unix operating systems for
-> >>>>> lord only knows how long.  Provide some documentation that shows its in
-> >>>>> violation of a newer standard, or that it is common practice to behave
-> >>>>> differently on another OS (such that including this directive would make porting
-> >>>>> easier).  As it stands currently, this patch only serves to create a crutch to
-> >>>>> perpetuate misundersandings about how the behavior currently works.
-> >>>> The way things work is counterintuitive and leads to weird code constructs
-> >>>> with the application having to manage multiple sockets because weird
-> >>>> semantics have developed over the years.
-> >>> The way things work is counterintuitive to _you_ (is it was to me a few months
-> >>> ago).  That asside, I came to understand how this actually works, how it has
-> >>> worked for decades, and how programmers have successfully written applications
-> >>> that use this model over that time period.  Can we modify the model?  Sure.
-> >>> Should we?  I certainly don't see any need, given that it does little except
-> >>> change the model.  For those who understand it, its compltely useless.  I'm
-> >>> willing to concede that I'm wrong, but not without some modicum of evidence that
-> >>> this change will benefit existing applications.  If some other operating system
-> >>> adheres to the model you expect it to, perhaps this has legs, but I don't know
-> >>> of any that do.  The current model, even if counter intuitive, is well defined,
-> >>> well understood, and documented.  I fail to see how adding an alternate,
-> >>> undocumented model (that may itself be counterintuitive to all the developers
-> >>> who have developed under the current model) adds anything significant.
-> >>>
-> >>> Neil
-> >> Hi Neil
-> >>
-> >> This has been somewhat bugging me for a while, so I went digging.
-> >>
-> >> Here is a rather pertinent text that points out that we "might" have a bug.
-> >> RFC 4607:
-> >>
-> >> 4.2.  Requirements on the Host IP Module
-> >>
-> >>    An incoming datagram destined to an SSM address MUST be delivered by
-> >>    the IP module to all sockets that have indicated (via Subscribe) a
-> >>    desire to receive data that matches the datagram's source address,
-> >>    destination address, and arriving interface.  It MUST NOT be
-> >>    delivered to other sockets.
-> >>
-> > I'll let David respond more fully, since I'm not familiar with this RFC, but a
-> > quick read would suggest that (from the abstract), this only applies to a subset
-> > of addresses, which are not being used in the application in question here.
-> > From what I read, the RFC defines an extenstion to the sockets api which allows
-> > you to subscribe to a multicast group from a specific source, using one of the
-> > reserved muticast ranges provided in the abstract.  It appears that we support
-> > this RFC via the IP_ADD_SOURCE_MEMBERSHIP socket option.  Now, if we allow
-> > sockets that issue IP_ADD_SOURCE_MEMBERSHIP calls to receive datagrams from
-> > multicast addresses within the range defined by the rfc from other sources that
-> > they have not subscribed to, yes we have a bug, but thats not overly relevant I
-> > think to Christophs problem, since he's using the any-source model, and its
-> > corresponding addresses.  Switching to the specific-source model would solve his
-> > immeidate problem here that we've been debating, but would likely introduce a
-> > new set, in that he would then have to write his app to subscribe to the myrriad
-> > of sources that are sending to that multicast group.
-> 
-> The problem is that if an application follows an IP_ADD_MEMBERSHIP call with
-> an IP_BLOCK_SOURCE call, thus extending the exclude the list, we would still
-> deliver packets that don't match the multicast destination.  That violates the
-> above SSM requirement.  It appears to be an API bug that allows for a violation
-> of the protocol specification.
-> 
-Ok, but IP_BLOCK_SOURCE is part of the any-source api, not the SSM api (although
-it allows it).  I agree what you've described is a bug, but its a bug against
-the SSM RFC, not RFC 3678, which is what Christoph is using based on the
-selection of his multicast address being outside the range of that defined by
-SSM.
+On Tue, 2009-04-14 at 18:12 -0700, Jay Vosburgh wrote:
+> 	I think I know what's going on.  I believe this patch will
+> resolve things, but I won't be able to test it until tomorrow.  If you
+> want to test this, great; if you want to wait, that's fine too.
 
-> > 
-> >> Additionally, RFC 3678 describes IP_ADD_MEMBERSHIP as an 'any-source group'
-> >> and is allowed by the SSM spec.  This is also how it is implemented in the kernel.
-> >> However, we do not appear to perform the filtering required by the above quoted
-> >> section 4.2.  
-> > Very true, so we may have a bug in the SSM model, but again, thats not what
-> > Christoph is using, its the any-source model, using group address unrelated to
-> > the ssm RFC.
-> > 
-> 
-> See above.  IP_ADD_MEMBERSHIP is also part of the ssm model since it can be
-> followed with IP_BLOCK_SOURCE.  They have to work together, but the socket matching
-> code is ignoring it if it can't find the multicast in the socket's list.
-> 
-Also see above, hes using multicast group 239.x.x.x.  SSM only encompases
-addresses in the 232.0.0.1 to 232.255.255.255 range.  He's using ASM not SSM,
-regardless of what SSM allows.  I agree it sounds like we have a bug in SSM
-behavior, but its not overly relevant to this discussion (saving for the fact
-that his new feature would inadvertantly fix the bug, in addition to altering
-ASM behavior).  If we want to fix the SSM bug, thats great, lets fix it, but
-lets not do it by introducing a new behavior to ASM.
+Hi Jay; as I mentioned last night this patch is working fine for me so
+far.
 
-And thats all moot anyway, becaues Christoph (unless I'm mistaken) is not, and
-does not want to restrict source sending privlidges.  He wants to get data on
-multicast groups from all/any source, he just doesn't want to get multicast data
-from groups he didn't explicitly join in the app doing the receiving, which is
-exactly what you can currently use bind for.
+However, looking at the rest of this function it seems to me that there
+are other locking issues, at least based on the documentation in the
+header file:
 
-Neil
+ * Here are the locking policies for the two bonding locks:
+ *
+ * 1) Get bond->lock when reading/writing slave list.
+ * 2) Get bond->curr_slave_lock when reading/writing bond->curr_active_slave.
+ *    (It is unnecessary when the write-lock is put with bond->lock.)
+ * 3) When we lock with bond->curr_slave_lock, we must lock with bond->lock
+ *    beforehand.
 
-> -vlad
-> 
-> > In particular, if we fail to match the 'datagram's destination address',
-> >> we deliver the packet, which I believe is in violation of the "MUST NOT" above.
-> >>
-> > I think only if the SSM model is used via the socket extensions the RFC
-> > describes.  If Christophs app is subscribing via IP_ADD_SOURCE_MEMBERSHIP, then
-> > yes, we have a problem.  But everything I've read says he uses the standard, any-source
-> > IP_ADD_MEMBERSHIP option which I think makes assertions from RFC 4607 void.
-> > Christoph, are you using IP_ADD_SOURCE_MEMBERSHIP?
-> > 
-> > Neil
-> > 
-> >> I've CC'd Dave Stevens, since I'd like to hear his opinion regarding this text.
-> >>
-> >> Thanks
-> >> -vlad
-> >>
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> 
-> 
+For example, don't you need to hold bond->curr_slave_lock at least
+around the "if (!bond->curr_active_slave)"?  What about around the
+"bond_for_each_slave" loop?
+
+Many of the other functions, later, also seem to work with
+bond->curr_active_slave and they don't take this lock.
+
+Unless I'm missing something, I think there are still more problems in
+the locking in bond_alb_set_mac_address().
+
+Thoughts?
+
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index 8dc6fbb..b22467a 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -1708,10 +1708,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+>   * Called with RTNL
+>   */
+>  int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+> -	__releases(&bond->curr_slave_lock)
+> -	__releases(&bond->lock)
+>  	__acquires(&bond->lock)
+> -	__acquires(&bond->curr_slave_lock)
+> +	__releases(&bond->lock)
+>  {
+>  	struct bonding *bond = netdev_priv(bond_dev);
+>  	struct sockaddr *sa = addr;
+> @@ -1747,9 +1745,6 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+>  		}
+>  	}
+>  
+> -	write_unlock_bh(&bond->curr_slave_lock);
+> -	read_unlock(&bond->lock);
+> -
+>  	if (swap_slave) {
+>  		alb_swap_mac_addr(bond, swap_slave, bond->curr_active_slave);
+>  		alb_fasten_mac_swap(bond, swap_slave, bond->curr_active_slave);
+> @@ -1757,16 +1752,17 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+>  		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr,
+>  				       bond->alb_info.rlb_enabled);
+>  
+> -		alb_send_learning_packets(bond->curr_active_slave, bond_dev->dev_addr);
+> +		read_lock(&bond->lock);
+> +		alb_send_learning_packets(bond->curr_active_slave,
+> +					  bond_dev->dev_addr);
+>  		if (bond->alb_info.rlb_enabled) {
+>  			/* inform clients mac address has changed */
+> -			rlb_req_update_slave_clients(bond, bond->curr_active_slave);
+> +			rlb_req_update_slave_clients(bond,
+> +						     bond->curr_active_slave);
+>  		}
+> +		read_unlock(&bond->lock);
+>  	}
+>  
+> -	read_lock(&bond->lock);
+> -	write_lock_bh(&bond->curr_slave_lock);
+> -
+>  	return 0;
+>  }
+>  
+
+-- 
+Paul Smith <paul@mad-scientist.net>
+
+
