@@ -1,10 +1,11 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: panic on rmmod of nf_conntrack_irc
-Date: Wed, 15 Apr 2009 12:42:27 +0200
-Message-ID: <49E5BA13.7000501@cosmosbay.com>
-References: <20090410191736.21efab8c@mako-desktop> <49E4744D.5090205@trash.net> <49E47C2D.1050508@cosmosbay.com> <49E5B66D.30602@trash.net>
+Date: Wed, 15 Apr 2009 12:44:19 +0200
+Message-ID: <49E5BA83.2010602@trash.net>
+References: <20090410191736.21efab8c@mako-desktop> <49E4744D.5090205@trash.net> <49E47C2D.1050508@cosmosbay.com> <49E5B66D.30602@trash.net> <49E5BA13.7000501@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>,
 	Kernel Testers List <kernel-testers@vger.kernel.org>,
@@ -12,38 +13,28 @@ Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>,
 	Netfilter Development Mailinglist
 	<netfilter-devel@vger.kernel.org>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49E5B66D.30602@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56184 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758700AbZDOKo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 06:44:29 -0400
+In-Reply-To: <49E5BA13.7000501@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy a =E9crit :
-> Eric Dumazet wrote:
->> I should have used different fields names (from "next", "first", ...=
-)
->> to catch this
->> kind of errors at compile time :(
->>
->> Something like :
->>
->> diff --git a/include/linux/list_nulls.h b/include/linux/list_nulls.h
+Eric Dumazet wrote:
+> Patrick McHardy a =E9crit :
+>> Eric, on second thought, could you please resubmit this to Dave?
+>> It touches too many files outside of netfilter to go through my
+>> tree.
 >=20
-> Eric, on second thought, could you please resubmit this to Dave?
-> It touches too many files outside of netfilter to go through my
-> tree.
->=20
->=20
+> Sure, but its a cleanup (and was an RFC to show my point)
+> so should wait a litle bit until David opens his -next tree (for 2.6.=
+31)
 
-Sure, but its a cleanup (and was an RFC to show my point)
-so should wait a litle bit until David opens his -next tree (for 2.6.31=
-)
+=46ine with me :)
 
-Please just submit your patch for 2.6.30 ?
+> Please just submit your patch for 2.6.30 ?
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+OK, I'll do that.
