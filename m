@@ -1,83 +1,62 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] FEC driver: patches for -next
-Date: Wed, 15 Apr 2009 14:55:36 +0200
-Message-ID: <20090415125536.GV14383@pengutronix.de>
-References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de> <49E5CF15.80601@snapgear.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH] Multicast: Avoid useless duplication of multicast
+ messages
+Date: Wed, 15 Apr 2009 08:51:35 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904150841550.10217@qirst.com>
+References: <alpine.DEB.1.10.0904131704120.3517@qirst.com> <20090414132551.GC14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904140946130.5712@qirst.com> <20090414182731.GD14305@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141447310.30596@qirst.com>
+ <20090414204445.GB17196@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904141740280.3973@qirst.com> <20090415110714.GA21448@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Greg Ungerer <gerg@snapgear.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37966 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753082AbZDOMzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 08:55:37 -0400
-Content-Disposition: inline
-In-Reply-To: <49E5CF15.80601@snapgear.com>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:40983 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752522AbZDOM61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 08:58:27 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 1AB2982C3F8
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 09:08:13 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id lyhIZEBh6XhI for <netdev@vger.kernel.org>;
+	Wed, 15 Apr 2009 09:08:07 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 06BEA82C3F2
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 09:08:07 -0400 (EDT)
+In-Reply-To: <20090415110714.GA21448@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2009 at 10:12:05PM +1000, Greg Ungerer wrote:
->
-> Hi Sascha,
->
-> Sascha Hauer wrote:
->> These patches aim to modernize the FEC ethernet driver.
->> Greg, can you please confirm that the ifdef in patch 01/12 is indeed unused?
->
-> It is used for the CONFIG_M5272 case. The offsets to some registers
-> are slightly different for the version of the FEC hardware in that
-> SoC CPU.
+On Wed, 15 Apr 2009, Neil Horman wrote:
 
-Ok, then I'll skip the first patch and update the second one
-accordingly.
+> > How are you going to do this?
+> I'm going to write each application to use 2 sockets, one bound to each
+> multicast group.  Thats the way it works now.  I think you missed the obvious in
+> your construction of this example.
 
-Regards
-  Sascha
+Ok it could be done with binding. But you would need 3 sockets. One per MC
+groups bound to a MC group each and then one for the replies (hmmm...
+looks like you could use SO_BINDTODEVICE on one socket to get around the
+third one --there is even an exception case for this in inet_bind causing
+more weird semantics-- but then the application needs to know the device
+name of the NIC, argh)
 
->
-> Regards
-> Greg
->
->
->> The following changes since commit 0882e8dd3aad33eca41696d463bb896e6c8817eb:
->>   Linus Torvalds (1):
->>         Linux 2.6.30-rc2
->>
->> are available in the git repository at:
->>
->>   git://git.pengutronix.de/git/sha/linux-2.6.git fec
->>
->> Sascha Hauer (12):
->>       fec: remove unused ifdef
->>       fec: switch to writel/readl
->>       fec: do not typedef struct types
->>       fec: remove unnecessary cast
->>       fec: Codingstyle cleanups
->>       fec: refactor set_multicast_list() to make it more readable
->>       fec: refactor init function
->>       fec: align receive packets
->>       fec: remove debugging printks
->>       fec: switch to net_device_ops
->>       FEC Buffer rework
->>       fec: call fec_restart() in fec_open()
->>
->>  drivers/net/fec.c |  897 ++++++++++++++++++++++-------------------------------
->>  drivers/net/fec.h |  112 ++-----
->>  2 files changed, 402 insertions(+), 607 deletions(-)
->>
->
->
-> -- 
-> ------------------------------------------------------------------------
-> Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-> SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
-> 825 Stanley St,                             FAX:         +61 7 3891 3630
-> Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
->
+> > Its trivial to do with this patch and one
+> > socket in each process listening to port 4711 that subscribes to the
+> > necessary multicast groups.
+> Its trivial without the patch as well.
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+I do not see how you can justify making such a statement.
+
+> It boils down to this:  This is the way multicast subscriptions have worked in
+> bsd, linux, and presumably various other unix and non-unix operating systems for
+> lord only knows how long.  Provide some documentation that shows its in
+> violation of a newer standard, or that it is common practice to behave
+> differently on another OS (such that including this directive would make porting
+> easier).  As it stands currently, this patch only serves to create a crutch to
+> perpetuate misundersandings about how the behavior currently works.
+
+The way things work is counterintuitive and leads to weird code constructs
+with the application having to manage multiple sockets because weird
+semantics have developed over the years.
