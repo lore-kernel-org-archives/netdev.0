@@ -1,85 +1,44 @@
-From: Paul Smith <paul@mad-scientist.net>
-Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying to
-	ifenslave a second interface to my bond
-Date: Wed, 15 Apr 2009 01:29:27 -0400
-Message-ID: <1239773367.6499.170.camel@homebase.localnet>
-References: <1239657348.8944.529.camel@psmith-ubeta.netezza.com>
-	 <11276.1239757967@death.nxdomain.ibm.com>
-Reply-To: paul@mad-scientist.net
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Wed, 15 Apr 2009 11:10:23 +0400
+Message-ID: <20090415071023.GA26986@ioremap.net>
+References: <7e0dd21a0904081406w31da460pe1c0c7153538f283@mail.gmail.com> <7e0dd21a0904120327q537956abkf75a17d477cc2e61@mail.gmail.com> <20090412103212.GA28397@ioremap.net> <7e0dd21a0904120423v4296898fl7ce82ec8c3e42d3a@mail.gmail.com> <20090412142451.GA2694@ioremap.net> <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com> <20090412195203.GA11899@ioremap.net> <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com> <20090412205334.GA14345@ioremap.net> <7e0dd21a0904121631u3fc7c676r12eb7e71fe87e02b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Linux netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
+To: Johann Baudy <johann.baudy@gnu-log.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.lnh.mail.rcn.net ([207.172.157.102]:28967 "EHLO
-	smtp02.lnh.mail.rcn.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886AbZDOFjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 01:39:09 -0400
-Received: from psmith by homebase.localnet with local (Exim 4.69)
-	(envelope-from <paul@mad-scientist.net>)
-	id 1Ltxge-0002tl-1l
-	for netdev@vger.kernel.org; Wed, 15 Apr 2009 01:29:28 -0400
-In-Reply-To: <11276.1239757967@death.nxdomain.ibm.com>
+Received: from cs-studio.ru ([195.178.208.66]:49963 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751180AbZDOHKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2009 03:10:33 -0400
+Content-Disposition: inline
+In-Reply-To: <7e0dd21a0904121631u3fc7c676r12eb7e71fe87e02b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-04-14 at 18:12 -0700, Jay Vosburgh wrote:
-> 	I think I know what's going on.  I believe this patch will
-> resolve things, but I won't be able to test it until tomorrow.  If you
-> want to test this, great; if you want to wait, that's fine too.
+Hi Johann.
 
-I tested this; it works great.  All my systems came up fine with this
-change applied.  Thanks!
+On Mon, Apr 13, 2009 at 01:31:14AM +0200, Johann Baudy (johann.baudy@gnu-log.net) wrote:
+> So if my understanding is correct, there is no way to get original
+> fragment address in destructor using skb fragment page/data.
+> 
+> Then,
+> I can't use fragments due to skb_linearize
+> I can't hide pointer into skb data due to skb_copy.
+> I can't rely on other fields of skb.
+> IMHO, using skb pointer requires too much cpu resources (parsing
+> headers to identify the right buffer...)
+> 
+> So what can I do except using a new field?
+> What do you think about adding a new field that is always linked to destructor?
+> I mean adding a generic new field skb->destructor_arg.
 
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index 8dc6fbb..b22467a 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -1708,10 +1708,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
->   * Called with RTNL
->   */
->  int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
-> -	__releases(&bond->curr_slave_lock)
-> -	__releases(&bond->lock)
->  	__acquires(&bond->lock)
-> -	__acquires(&bond->curr_slave_lock)
-> +	__releases(&bond->lock)
->  {
->  	struct bonding *bond = netdev_priv(bond_dev);
->  	struct sockaddr *sa = addr;
-> @@ -1747,9 +1745,6 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
->  		}
->  	}
->  
-> -	write_unlock_bh(&bond->curr_slave_lock);
-> -	read_unlock(&bond->lock);
-> -
->  	if (swap_slave) {
->  		alb_swap_mac_addr(bond, swap_slave, bond->curr_active_slave);
->  		alb_fasten_mac_swap(bond, swap_slave, bond->curr_active_slave);
-> @@ -1757,16 +1752,17 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
->  		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr,
->  				       bond->alb_info.rlb_enabled);
->  
-> -		alb_send_learning_packets(bond->curr_active_slave, bond_dev->dev_addr);
-> +		read_lock(&bond->lock);
-> +		alb_send_learning_packets(bond->curr_active_slave,
-> +					  bond_dev->dev_addr);
->  		if (bond->alb_info.rlb_enabled) {
->  			/* inform clients mac address has changed */
-> -			rlb_req_update_slave_clients(bond, bond->curr_active_slave);
-> +			rlb_req_update_slave_clients(bond,
-> +						     bond->curr_active_slave);
->  		}
-> +		read_unlock(&bond->lock);
->  	}
->  
-> -	read_lock(&bond->lock);
-> -	write_lock_bh(&bond->curr_slave_lock);
-> -
->  	return 0;
->  }
->  
+It can work but do not place it into skb itself, but into shared area,
+which is slab allocated and does not suffer from size restrictions.
+You can also add shared-info destructor, which could be used by other
 
 -- 
-Paul Smith <paul@mad-scientist.net>
+	Evgeniy Polyakov
