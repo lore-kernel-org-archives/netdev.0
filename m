@@ -1,44 +1,66 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH 1/3] net: introduce a list of device addresses
-	dev_addr_list
-Date: Wed, 15 Apr 2009 16:42:05 +0200
-Message-ID: <20090415144204.GI21342@psychotron.englab.brq.redhat.com>
-References: <49E59A1C.9030108@cn.fujitsu.com> <20090415083223.GF21342@psychotron.englab.brq.redhat.com> <49E5A896.90408@cosmosbay.com> <20090415.023104.82135803.davem@davemloft.net> <49E5B365.2010008@trash.net>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH 4/5] lguest: use KVM hypercalls
+Date: Wed, 15 Apr 2009 07:56:42 -0700
+Message-ID: <m1zleiklsl.fsf@fess.ebiederm.org>
+References: <49E47976.8020005@trash.net>
+	<20090415083610.GA8579@gondor.apana.org.au>
+	<20090415084717.GA8829@gondor.apana.org.au>
+	<m18wm2rqy6.fsf@fess.ebiederm.org>
+	<20090415132802.GA11408@gondor.apana.org.au>
+	<m1skkaox8h.fsf@fess.ebiederm.org>
+	<20090415134610.GA11683@gondor.apana.org.au>
+	<m11vruovu5.fsf@fess.ebiederm.org>
+	<20090415140819.GA11991@gondor.apana.org.au>
+	<m1iql6m24b.fsf@fess.ebiederm.org>
+	<20090415143834.GA12384@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
-	lizf@cn.fujitsu.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-	mschmidt@redhat.com, ivecera@redhat.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:35606 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751522AbZDOOov (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2009 10:44:51 -0400
-Content-Disposition: inline
-In-Reply-To: <49E5B365.2010008@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
+	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <20090415143834.GA12384-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> (Herbert Xu's
+	message of "Wed\, 15 Apr 2009 22\:38\:34 +0800")
+List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
+	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
+	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Apr 15, 2009 at 12:13:57PM CEST, kaber@trash.net wrote:
-> David Miller wrote:
->> From: Eric Dumazet <dada1@cosmosbay.com>
->> Date: Wed, 15 Apr 2009 11:27:50 +0200
+Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> writes:
+
+> On Wed, Apr 15, 2009 at 07:18:44AM -0700, Eric W. Biederman wrote:
 >>
->>> Since you obviously need a write lock here to be sure following
->>> can be done by one cpu only.
->>>
->>> You have same problem all over this patch.
->>
->> RTNL semaphore is held across all modification operations.
+>> So holding the reference only blocks us indefinitely in
+>> netdev_wait_allrefs, blocking the network namespace exit, and holding
+>> net_mutex indefinitely.
 >
-> If this will also be used for multicast lists, changes can happen
-> (IPv6) without the RTNL.
+> OK that's a killer because process A in my previous scenario can
+> kill the device itself and cause a dead-lock.
+>
+> So how about this? We replace the dev destructor with our own that
+> doesn't immediately call free_netdev.  We only call free_netdev once
+> all tun fd's attached to the device have been closed.
+>
+> This can be achieved by simply adding a counter to tun_struct.
+> We'd also change the async detach path to set a marker instead
+> of detaching.  That marker can then be checked in places like
+> tun_get.
 
-Ok, but for dev_addr_X() functions the RTNL mutex is sufficient so I see no
-point of adding another lock here. When the multicast handling functions will be
-implemented to use netdev_hw_addr and it's layer, then we need to use update
-lock in dev_multicast_X.
+That sounds like it would work, and allow us to have big tun_struct.
+Which is sounds simpler overall.
+
+I still have the feeling that putting the socket in tun_file instead
+of in tun_struct might be conceptually cleaner, but one big blob that
+is allocated and destroyed together is certainly easier and a lot
+less racy to deal with.
+
+Eric
