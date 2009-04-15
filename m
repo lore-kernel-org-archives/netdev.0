@@ -1,121 +1,164 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 1/3] net: introduce a list of device addresses	dev_addr_list
-Date: Wed, 15 Apr 2009 14:28:37 +0200
-Message-ID: <49E5D2F5.8060108@cosmosbay.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090415081720.GA21342@psychotron.englab.brq.redhat.com> <20090415081819.GB21342@psychotron.englab.brq.redhat.com> <49E59A1C.9030108@cn.fujitsu.com> <20090415083223.GF21342@psychotron.englab.brq.redhat.com> <49E5A896.90408@cosmosbay.com> <20090415111724.GG21342@psychotron.englab.brq.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 12954] New: SAMEIP --nodst functionality gone
+ missing
+Date: Wed, 15 Apr 2009 14:35:58 +0200
+Message-ID: <49E5D4AE.3040203@trash.net>
+References: <bug-12954-10286@http.bugzilla.kernel.org/> <20090407143509.05ab3b28.akpm@linux-foundation.org> <Pine.LNX.4.62.0904080941370.10428@wlug.westbo.se> <49DCC3A0.7050001@trash.net> <49E5CAB5.3060605@trash.net> <alpine.LSU.2.00.0904151410350.11308@fbirervta.pbzchgretzou.qr> <49E5CF6D.2070709@trash.net> <alpine.LSU.2.00.0904151421070.11961@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Li Zefan <lizf@cn.fujitsu.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-	kaber@trash.net, mschmidt@redhat.com, ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------030700030103020702000204"
+Cc: Martin Josefsson <gandalf@mjufs.se>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	berni@birkenwald.de, netfilter-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54815 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758334AbZDOMbx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 08:31:53 -0400
-In-Reply-To: <20090415111724.GG21342@psychotron.englab.brq.redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:58651 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759582AbZDOMgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 08:36:00 -0400
+In-Reply-To: <alpine.LSU.2.00.0904151421070.11961@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko a =E9crit :
-> Wed, Apr 15, 2009 at 11:27:50AM CEST, dada1@cosmosbay.com wrote:
+This is a multi-part message in MIME format.
+--------------030700030103020702000204
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
->> kzalloc(max(sizeof(*ha), L1_CACHE_SIZE)) is thus higly recommended h=
-ere.
-> You mean PAGE_CACHE_SIZE? I think that would be little wasting... But=
- I see your
-> point...
+Jan Engelhardt wrote:
+> On Wednesday 2009-04-15 14:13, Patrick McHardy wrote:
+>> Jan Engelhardt wrote:
+>>> On Wednesday 2009-04-15 13:53, Patrick McHardy wrote:
+>>>   
+>>>> How about this patch? If the IP_NAT_RANGE_PERSISTENT flag is set
+>>>> on a NAT range, we ignore the destination address in the selection.
+>>> But where do you set IP_NAT_RANGE_PERSISTENT? (It seems like a dead 
+>>> feature right now.)
+>> In userspace of course :)
+> 
+> Ah I hear the crisp sound of an upcoming iptables 1.4.4.
 
-No, I meant L1_CACHE_BYTES    (usually 64 bytes on x86), I always confu=
-se BYTES and SIZE on this one...
+In a while :)
 
-
->>> +	list_for_each_entry(ha, list, list) {
->>> +		if (i++ !=3D ignore_index &&
->>> +		    !memcmp(ha->addr, addr, addr_len)) {
->>> +			if (--ha->refcount)
->>> +				return 0;
->>> +			list_del_rcu(&ha->list);
->>> +			synchronize_rcu();
->> Oh well... I'm pretty sure this synchronize_rcu() call can be avoide=
-d,
->> dont you think ? Check kfree_rcu() or equivalent, as it seems not ye=
-t
->> included in current kernels...
->>
-> Well once kfree_rcu() will be in the tree I will be happy to replace =
-this.
-
-If kfree_rcu() not yet available, please use a regular call_rcu() const=
-ruct
-(thus adding a struct rcu_head rcu; in struct netdev_hw_addr)
-
-If you delete say 10 addresses on a device, while RTNL (or other lock) =
-locked,
-that means a lot of calls to synchronize_rcu() and a long lock hold tim=
-e.
-
->=20
->>> +			kfree(ha);
->>> +			return 0;
->>> +		}
->>> +	}
->>> +	return -ENOENT;
->=20
-> <snip>
->=20
->>> +	err =3D __hw_addr_add(&dev->dev_addr_list, addr, sizeof(*addr));
->>> +	if (!err) {
->>> +		/*
->>> +		 * Get the first (previously created) address from the list
->>> +		 * and set dev_addr pointer to this location.
->>> +		 */
->>> +		rcu_read_lock();
->> locking is not correct or unnecessary
->=20
-> Agree that here locking is not necessary, but I wanted to stay consis=
-tent to the
-> rest of the code. Do you think I should remove locking here entirely?
-
-Yes, it is very confusing for reviewers because we feel patch submiter
-is not comfortable with locking rules.
-
-Check for example dev_add_pack() in net/core/dev.c : It uses list_add_r=
-cu()
-but as it also uses a regular spinlock, there is no point using rcu_rea=
-d_lock().
-
-void dev_add_pack(struct packet_type *pt)
-{
-        int hash;
-
-        spin_lock_bh(&ptype_lock);
-        if (pt->type =3D=3D htons(ETH_P_ALL))
-                list_add_rcu(&pt->list, &ptype_all);
-        else {
-                hash =3D ntohs(pt->type) & PTYPE_HASH_MASK;
-                list_add_rcu(&pt->list, &ptype_base[hash]);
-        }
-        spin_unlock_bh(&ptype_lock);
-}
+This is the corresponding userspace patch:
 
 
+--------------030700030103020702000204
+Content-Type: text/x-patch;
+ name="nat.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="nat.diff"
 
-Please note list_add_rcu() (and/or rcu_assign_pointer()) are still need=
-ed to protect
-readers that dont use the spinlock at all.
+diff --git a/extensions/libipt_DNAT.c b/extensions/libipt_DNAT.c
+index b5f8028..dc79b44 100644
+--- a/extensions/libipt_DNAT.c
++++ b/extensions/libipt_DNAT.c
+@@ -27,12 +27,13 @@ static void DNAT_help(void)
+ "DNAT target options:\n"
+ " --to-destination <ipaddr>[-<ipaddr>][:port-port]\n"
+ "				Address to map destination to.\n"
+-"[--random]\n");
++"[--random] [--persistent]\n");
+ }
+ 
+ static const struct option DNAT_opts[] = {
+ 	{ "to-destination", 1, NULL, '1' },
+ 	{ "random", 0, NULL, '2' },
++	{ "persistent", 0, NULL, '3' },
+ 	{ .name = NULL }
+ };
+ 
+@@ -178,6 +179,11 @@ static int DNAT_parse(int c, char **argv, int invert, unsigned int *flags,
+ 		} else
+ 			*flags |= IPT_DNAT_OPT_RANDOM;
+ 		return 1;
++
++	case '3':
++		info->mr.range[0].flags |= IP_NAT_RANGE_PERSISTENT;
++		return 1;
++
+ 	default:
+ 		return 0;
+ 	}
+@@ -222,6 +228,8 @@ static void DNAT_print(const void *ip, const struct xt_entry_target *target,
+ 		printf(" ");
+ 		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+ 			printf("random ");
++		if (info->mr.range[i].flags & IP_NAT_RANGE_PERSISTENT)
++			printf("persistent ");
+ 	}
+ }
+ 
+@@ -236,6 +244,8 @@ static void DNAT_save(const void *ip, const struct xt_entry_target *target)
+ 		printf(" ");
+ 		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+ 			printf("--random ");
++		if (info->mr.range[i].flags & IP_NAT_RANGE_PERSISTENT)
++			printf("--persistent ");
+ 	}
+ }
+ 
+diff --git a/extensions/libipt_SNAT.c b/extensions/libipt_SNAT.c
+index 944fe67..762d8d0 100644
+--- a/extensions/libipt_SNAT.c
++++ b/extensions/libipt_SNAT.c
+@@ -27,12 +27,13 @@ static void SNAT_help(void)
+ "SNAT target options:\n"
+ " --to-source <ipaddr>[-<ipaddr>][:port-port]\n"
+ "				Address to map source to.\n"
+-"[--random]\n");
++"[--random] [ --persistent]\n");
+ }
+ 
+ static const struct option SNAT_opts[] = {
+ 	{ "to-source", 1, NULL, '1' },
+ 	{ "random", 0, NULL, '2' },
++	{ "perstistent", 0, NULL, '3' },
+ 	{ .name = NULL }
+ };
+ 
+@@ -179,6 +180,10 @@ static int SNAT_parse(int c, char **argv, int invert, unsigned int *flags,
+ 			*flags |= IPT_SNAT_OPT_RANDOM;
+ 		return 1;
+ 
++	case '3':
++		info->mr.range[0].flags |= IP_NAT_RANGE_PERSISTENT;
++		return 1;
++
+ 	default:
+ 		return 0;
+ 	}
+@@ -223,6 +228,8 @@ static void SNAT_print(const void *ip, const struct xt_entry_target *target,
+ 		printf(" ");
+ 		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+ 			printf("random ");
++		if (info->mr.range[i].flags & IP_NAT_RANGE_PERSISTENT)
++			printf("persistent ");
+ 	}
+ }
+ 
+@@ -237,6 +244,8 @@ static void SNAT_save(const void *ip, const struct xt_entry_target *target)
+ 		printf(" ");
+ 		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+ 			printf("--random ");
++		if (info->mr.range[i].flags & IP_NAT_RANGE_PERSISTENT)
++			printf("--persistent ");
+ 	}
+ }
+ 
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index 094473e..c3e2060 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -18,6 +18,7 @@ enum nf_nat_manip_type
+ #define IP_NAT_RANGE_MAP_IPS 1
+ #define IP_NAT_RANGE_PROTO_SPECIFIED 2
+ #define IP_NAT_RANGE_PROTO_RANDOM 4
++#define IP_NAT_RANGE_PERSISTENT 8
+ 
+ /* NAT sequence number modifications */
+ struct nf_nat_seq {
 
-If you use fact that RTNL is locked when calling your code, you could a=
-dd
-ASSERT_RTNL();
-at strategic points so that this assertion can be checked at runtime.
-
-(but Patrick & David wrote that you should not assume RTNL, so you prob=
-ably need another lock...)
-
-Thank you
-
+--------------030700030103020702000204--
