@@ -1,82 +1,79 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH 09/12] fec: remove debugging printks
-Date: Wed, 15 Apr 2009 13:32:22 +0200
-Message-ID: <1239795145-27558-10-git-send-email-s.hauer@pengutronix.de>
-References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-2-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-3-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-4-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de>
- <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de>
-Cc: Greg Ungerer <gerg@snapgear.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49344 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757855AbZDOLh2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:37:28 -0400
-In-Reply-To: <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 12954] New: SAMEIP --nodst functionality gone
+ missing
+Date: Wed, 15 Apr 2009 13:53:25 +0200
+Message-ID: <49E5CAB5.3060605@trash.net>
+References: <bug-12954-10286@http.bugzilla.kernel.org/> <20090407143509.05ab3b28.akpm@linux-foundation.org> <Pine.LNX.4.62.0904080941370.10428@wlug.westbo.se> <49DCC3A0.7050001@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020606070008020805070305"
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, berni@birkenwald.de,
+	netfilter-devel@vger.kernel.org
+To: Martin Josefsson <gandalf@mjufs.se>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49DCC3A0.7050001@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These printks in fec_timeout do not give useful information in
-a production kernel.
+This is a multi-part message in MIME format.
+--------------020606070008020805070305
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
----
- drivers/net/fec.c |   33 ---------------------------------
- 1 files changed, 0 insertions(+), 33 deletions(-)
+Patrick McHardy wrote:
+> [Resend to mailing list, I didn't notice this had left bugzilla]
+> 
+> Martin Josefsson wrote:
+>> Patrick, how about making the ipaddress selection based on only client 
+>> ipaddress behaviour selectable with an SNAT parameter if the problem 
+>> with the patch is that the distribution can be uneven for a small 
+>> number of clients?
+> 
+> Actually I think the results back then were incorrect or it was
+> just bad luck or something. Ideally we would just enable this
+> unconditionally I think. I'll do some testing of the distribution
+> myself during the next days and see how it goes.
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index be3226c..d96aba9 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -377,41 +377,8 @@ fec_timeout(struct net_device *dev)
- {
- 	struct fec_enet_private *fep = netdev_priv(dev);
+The distribution did suffer noticably in some cases, so offering
+this optionally seems better.
+
+How about this patch? If the IP_NAT_RANGE_PERSISTENT flag is set
+on a NAT range, we ignore the destination address in the selection.
+
+
+--------------020606070008020805070305
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index 9dc1039..8df0b7f 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -18,6 +18,7 @@ enum nf_nat_manip_type
+ #define IP_NAT_RANGE_MAP_IPS 1
+ #define IP_NAT_RANGE_PROTO_SPECIFIED 2
+ #define IP_NAT_RANGE_PROTO_RANDOM 4
++#define IP_NAT_RANGE_PERSISTENT 8
  
--	printk("%s: transmit timed out.\n", dev->name);
- 	dev->stats.tx_errors++;
--#ifndef final_version
--	{
--	int	i;
--	struct bufdesc *bdp;
--
--	printk("Ring data dump: cur_tx %lx%s, dirty_tx %lx cur_rx: %lx\n",
--	       (unsigned long)fep->cur_tx, fep->tx_full ? " (full)" : "",
--	       (unsigned long)fep->dirty_tx,
--	       (unsigned long)fep->cur_rx);
--
--	bdp = fep->tx_bd_base;
--	printk(" tx: %u buffers\n",  TX_RING_SIZE);
--	for (i = 0 ; i < TX_RING_SIZE; i++) {
--		printk("  %08x: %04x %04x %08x\n",
--		       (uint) bdp,
--		       bdp->cbd_sc,
--		       bdp->cbd_datlen,
--		       (int) bdp->cbd_bufaddr);
--		bdp++;
--	}
- 
--	bdp = fep->rx_bd_base;
--	printk(" rx: %lu buffers\n",  (unsigned long) RX_RING_SIZE);
--	for (i = 0 ; i < RX_RING_SIZE; i++) {
--		printk("  %08x: %04x %04x %08x\n",
--		       (uint) bdp,
--		       bdp->cbd_sc,
--		       bdp->cbd_datlen,
--		       (int) bdp->cbd_bufaddr);
--		bdp++;
--	}
--	}
--#endif
- 	fec_restart(dev, fep->full_duplex);
- 	netif_wake_queue(dev);
+ /* NAT sequence number modifications */
+ struct nf_nat_seq {
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index fe65187..3229e0a 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -211,7 +211,8 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
+ 	minip = ntohl(range->min_ip);
+ 	maxip = ntohl(range->max_ip);
+ 	j = jhash_2words((__force u32)tuple->src.u3.ip,
+-			 (__force u32)tuple->dst.u3.ip, 0);
++			 range->flags & IP_NAT_RANGE_PERSISTENT ?
++				(__force u32)tuple->dst.u3.ip : 0, 0);
+ 	j = ((u64)j * (maxip - minip + 1)) >> 32;
+ 	*var_ipp = htonl(minip + j);
  }
--- 
-1.6.2.1
 
+--------------020606070008020805070305--
