@@ -1,7 +1,7 @@
 From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH 07/12] fec: refactor init function
-Date: Wed, 15 Apr 2009 13:32:20 +0200
-Message-ID: <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de>
+Subject: [PATCH 12/12] fec: call fec_restart() in fec_open()
+Date: Wed, 15 Apr 2009 13:32:25 +0200
+Message-ID: <1239795145-27558-13-git-send-email-s.hauer@pengutronix.de>
 References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de>
  <1239795145-27558-2-git-send-email-s.hauer@pengutronix.de>
  <1239795145-27558-3-git-send-email-s.hauer@pengutronix.de>
@@ -9,113 +9,69 @@ References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de>
  <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de>
  <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de>
  <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-10-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-11-git-send-email-s.hauer@pengutronix.de>
+ <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
 Cc: Greg Ungerer <gerg@snapgear.com>,
 	Sascha Hauer <s.hauer@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49312 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49322 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759755AbZDOLgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:36:01 -0400
-In-Reply-To: <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de>
+	with ESMTP id S1758894AbZDOLgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 07:36:24 -0400
+In-Reply-To: <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fec_enet_init() does the hardware initialisation and then calls
-fec_restart() which does the same initialisation again, so we
-can safely remove the initialisation from fec_enet_init().
+We called fec_stop() in fec_enet_close(), thus we have to call
+fec_restart() in fec_enet_open().
 
 Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- drivers/net/fec.c |   39 ++++-----------------------------------
- 1 files changed, 4 insertions(+), 35 deletions(-)
+ drivers/net/fec.c |   18 ++++++++----------
+ 1 files changed, 8 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index b72df48..a3037ab 100644
+index 0e1d268..28db691 100644
 --- a/drivers/net/fec.c
 +++ b/drivers/net/fec.c
-@@ -1616,10 +1616,6 @@ int __init fec_enet_init(struct net_device *dev, int index)
- 	fep->hwp = (void __iomem *)dev->base_addr;
- 	fep->netdev = dev;
+@@ -1490,6 +1490,8 @@ fec_enet_open(struct net_device *dev)
+ 	fep->sequence_done = 0;
+ 	fep->link = 0;
  
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
--
- 	/* Set the Ethernet address */
- #ifdef CONFIG_M5272
- 	fec_get_mac(dev);
-@@ -1641,11 +1637,6 @@ int __init fec_enet_init(struct net_device *dev, int index)
- 	fep->rx_bd_base = cbd_base;
- 	fep->tx_bd_base = cbd_base + RX_RING_SIZE;
++	fec_restart(dev, 1);
++
+ 	if (fep->phy) {
+ 		mii_do_cmd(dev, fep->phy->ack_int);
+ 		mii_do_cmd(dev, fep->phy->config);
+@@ -1506,18 +1508,14 @@ fec_enet_open(struct net_device *dev)
+ 			schedule();
  
--	fep->dirty_tx = fep->cur_tx = fep->tx_bd_base;
--	fep->cur_rx = fep->rx_bd_base;
+ 		mii_do_cmd(dev, fep->phy->startup);
 -
--	fep->skb_cur = fep->skb_dirty = 0;
--
- 	/* Initialize the receive buffer descriptors. */
- 	bdp = fep->rx_bd_base;
- 	for (i=0; i<FEC_ENET_RX_PAGES; i++) {
-@@ -1689,25 +1680,9 @@ int __init fec_enet_init(struct net_device *dev, int index)
- 	bdp--;
- 	bdp->cbd_sc |= BD_SC_WRAP;
+-		/* Set the initial link state to true. A lot of hardware
+-		 * based on this device does not implement a PHY interrupt,
+-		 * so we are never notified of link change.
+-		 */
+-		fep->link = 1;
+-	} else {
+-		fep->link = 1; /* lets just try it and see */
+-		/* no phy,  go full duplex,  it's most likely a hub chip */
+-		fec_restart(dev, 1);
+ 	}
  
--	/* Set receive and transmit descriptor base */
--	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
--	writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc) * RX_RING_SIZE,
--			fep->hwp + FEC_X_DES_START);
--
- #ifdef HAVE_mii_link_interrupt
- 	fec_request_mii_intr(dev);
- #endif
--
--	writel(0, fep->hwp + FEC_GRP_HASH_TABLE_HIGH);
--	writel(0, fep->hwp + FEC_GRP_HASH_TABLE_LOW);
--	writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE);
--	writel(2, fep->hwp + FEC_ECNTRL);
--	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
--#ifndef CONFIG_M5272
--	writel(0, fep->hwp + FEC_HASH_TABLE_HIGH);
--	writel(0, fep->hwp + FEC_HASH_TABLE_LOW);
--#endif
--
- 	/* The FEC Ethernet specific entries in the device structure */
- 	dev->open = fec_enet_open;
- 	dev->hard_start_xmit = fec_enet_start_xmit;
-@@ -1720,21 +1695,11 @@ int __init fec_enet_init(struct net_device *dev, int index)
- 		mii_cmds[i].mii_next = &mii_cmds[i+1];
- 	mii_free = mii_cmds;
- 
--	/* setup MII interface */
--	writel(OPT_FRAME_SIZE | 0x04, fep->hwp + FEC_R_CNTRL);
--	writel(0, fep->hwp + FEC_X_CNTRL);
--
- 	/* Set MII speed to 2.5 MHz */
- 	fep->phy_speed = ((((clk_get_rate(fep->clk) / 2 + 4999999)
- 					/ 2500000) / 2) & 0x3F) << 1;
--	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 	fec_restart(dev, 0);
- 
--	/* Clear and enable interrupts */
--	writel(0xffc00000, fep->hwp + FEC_IEVENT);
--	writel(FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII,
--			fep->hwp + FEC_IMASK);
--
- 	/* Queue up command to detect the PHY and initialize the
- 	 * remainder of the interface.
- 	 */
-@@ -1769,6 +1734,10 @@ fec_restart(struct net_device *dev, int duplex)
- 	/* Reset all multicast.	*/
- 	writel(0, fep->hwp + FEC_GRP_HASH_TABLE_HIGH);
- 	writel(0, fep->hwp + FEC_GRP_HASH_TABLE_LOW);
-+#ifndef CONFIG_M5272
-+	writel(0, fep->hwp + FEC_HASH_TABLE_HIGH);
-+	writel(0, fep->hwp + FEC_HASH_TABLE_LOW);
-+#endif
- 
- 	/* Set maximum receive buffer size. */
- 	writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE);
++	/* Set the initial link state to true. A lot of hardware
++	 * based on this device does not implement a PHY interrupt,
++	 * so we are never notified of link change.
++	 */
++	fep->link = 1;
++
+ 	netif_start_queue(dev);
+ 	fep->opened = 1;
+ 	return 0;
 -- 
 1.6.2.1
 
