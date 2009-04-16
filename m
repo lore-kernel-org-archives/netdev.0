@@ -1,51 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] Be explict with what we are !'ing in
-	ixgbe_sfp_config_module_task()
-Date: Thu, 16 Apr 2009 16:22:28 -0700
-Message-ID: <20090416232225.18637.33348.stgit@localhost.localdomain>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] iwl3945-base.c: Add missing space to debug print
+Date: Thu, 16 Apr 2009 16:23:26 -0700
+Message-ID: <1239924206.32157.149.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	akpm@linux-foundation.org, roel.kluin@gmail.com,
-	Tony Breeds <tony@bakeyournoodle.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:56779
-	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753338AbZDPXWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 19:22:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Abhijeet Kolekar <abhijeet.kolekar-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Breeds <tony@bakeyournoodle.com>
+"not" is not printed without a space after %pM
 
-GCC warns:
-drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_sfp_config_module_task':
-drivers/net/ixgbe/ixgbe_main.c:3920: warning: suggest parantheses around
-operand of '!' or change '&' to '&&' or '!' to '~'
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Which I think is right.  Bracket to remove ambiguity.
+diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+index ce72928..f6a6177 100644
+--- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
++++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+@@ -4075,7 +4075,7 @@ static int iwl3945_mac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 	if (!static_key) {
+ 		sta_id = iwl3945_hw_find_station(priv, addr);
+ 		if (sta_id == IWL_INVALID_STATION) {
+-			IWL_DEBUG_MAC80211(priv, "leave - %pMnot in station map.\n",
++			IWL_DEBUG_MAC80211(priv, "leave - %pM not in station map.\n",
+ 					    addr);
+ 			return -EINVAL;
+ 		}
 
-Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index febde45..49a9037 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3946,7 +3946,7 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
- 	}
- 	hw->mac.ops.setup_sfp(hw);
- 
--	if (!adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK)
-+	if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
- 		/* This will also work for DA Twinax connections */
- 		schedule_work(&adapter->multispeed_fiber_task);
- 	adapter->flags &= ~IXGBE_FLAG_IN_SFP_MOD_TASK;
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
