@@ -1,44 +1,63 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] ixgbe: missing parentheses
-Date: Thu, 16 Apr 2009 14:16:10 -0700
-Message-ID: <20090416141610.ad8b9909.akpm@linux-foundation.org>
-References: <49E79D7C.2080200@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29
+Date: Thu, 16 Apr 2009 22:19:18 +0100
+Message-ID: <1239916758.3203.57.camel@achroite>
+References: <alpine.DEB.1.10.0904161151330.13531@qirst.com>
+	 <1239905279.3203.30.camel@achroite>
+	 <alpine.DEB.1.10.0904161500020.15835@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Roel Kluin <roel.kluin@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38155 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750916AbZDPVTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 17:19:09 -0400
-In-Reply-To: <49E79D7C.2080200@gmail.com>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:50794 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752501AbZDPVTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 17:19:22 -0400
+In-Reply-To: <alpine.DEB.1.10.0904161500020.15835@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(cc netdev)
-
-On Thu, 16 Apr 2009 23:05:00 +0200
-Roel Kluin <roel.kluin@gmail.com> wrote:
-
-> `!' has a higher precedence than `&'
+On Thu, 2009-04-16 at 15:02 -0400, Christoph Lameter wrote:
+> On Thu, 16 Apr 2009, Ben Hutchings wrote:
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index febde45..49a9037 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -3946,7 +3946,7 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
->  	}
->  	hw->mac.ops.setup_sfp(hw);
->  
-> -	if (!adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK)
-> +	if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
->  		/* This will also work for DA Twinax connections */
->  		schedule_work(&adapter->multispeed_fiber_task);
->  	adapter->flags &= ~IXGBE_FLAG_IN_SFP_MOD_TASK;
+> > On Thu, 2009-04-16 at 12:10 -0400, Christoph Lameter wrote:
+> > > The following are results of lantency measurements using udpping
+> > > (available from http://gentwo.org/ll). It shows that significant latencies
+> > > were added since 2.6.27. I surely wish we could get back to times below 90
+> > > microseconds.
+> > [...]
+> >
+> > This "90 microseconds" figure is specific to a particular driver and
+> > hardware.  Have you verified that it applies to others?  The variation
+> > you've reported is tiny compared to the improvements that can be made or
+> > lost by hardware tuning.
+> 
+> The RX delay can influence this of course and so can the driver. But the
+> measurements are with the same RX delay and the same driver. Variations
+> are up to 20% which is not tiny and its only due to different kernel
+> versions.
 
-This is fixed in linux-next, but hasn't been pushed to Linus yet.
+I just ran netperf UDP_RR against sfc (the out-of-tree version, so that
+driver changes should not be a factor) on "my" test rig (a couple of
+servers from 2005; don't quote these figures).  The transaction rates
+were:
+
+2.6.22:   38584.58
+2.6.27:   35312.01
+2.6.29.1: 38006.50
+
+So for this hardware and driver, 2.6.27 has slightly _higher_ latency.
+This is why I'm asking whether you tested with multiple drivers, so you
+are not measuring changes in tg3 (or whichever driver it was).
+
+Note also that 1G Ethernet is hardly representative of HPC hardware.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
