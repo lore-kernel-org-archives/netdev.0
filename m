@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 12/12] fec: call fec_restart() in fec_open()
-Date: Thu, 16 Apr 2009 02:38:15 -0700 (PDT)
-Message-ID: <20090416.023815.182500497.davem@davemloft.net>
-References: <1239795145-27558-11-git-send-email-s.hauer@pengutronix.de>
-	<1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
-	<1239795145-27558-13-git-send-email-s.hauer@pengutronix.de>
+Subject: Re: [PATCH] phylib: Fix delay argument of schedule_delayed_work
+Date: Thu, 16 Apr 2009 02:43:47 -0700 (PDT)
+Message-ID: <20090416.024347.22681928.davem@davemloft.net>
+References: <1239811551-6101-1-git-send-email-anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gerg@snapgear.com
-To: s.hauer@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51693
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753850AbZDPJiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 05:38:24 -0400
-In-Reply-To: <1239795145-27558-13-git-send-email-s.hauer@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: marcin.slusarz@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: anemo@mba.ocn.ne.jp
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754750AbZDPJoR@vger.kernel.org>
+In-Reply-To: <1239811551-6101-1-git-send-email-anemo@mba.ocn.ne.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Date: Wed, 15 Apr 2009 13:32:25 +0200
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Date: Thu, 16 Apr 2009 01:05:51 +0900
 
-> We called fec_stop() in fec_enet_close(), thus we have to call
-> fec_restart() in fec_enet_open().
+> The commit a390d1f3 ("phylib: convert state_queue work to
+> delayed_work") missed converting 'expires' value to 'delay' value.
 > 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 
-Applied.
+Applied, thank you very much.
