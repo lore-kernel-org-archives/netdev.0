@@ -1,112 +1,91 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: remove superfluous call to synchronize_net()
-Date: Thu, 16 Apr 2009 07:40:23 +0200
-Message-ID: <49E6C4C7.3050105@cosmosbay.com>
-References: <49E5FF5E.50409@cosmosbay.com> <20090415215454.GU6766@linux.vnet.ibm.com>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
+Date: Thu, 16 Apr 2009 08:26:58 +0200
+Message-ID: <49E6CFB2.2020905@cosmosbay.com>
+References: <49E5BDF7.8090502@trash.net>	<20090415135526.2afc4d18@nehalam>	<49E64C91.5020708@cosmosbay.com> <20090415.164811.19905145.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
+Cc: shemminger@vyatta.com, kaber@trash.net, jeff.chua.linux@gmail.com,
+	paulmck@linux.vnet.ibm.com, paulus@samba.org, mingo@elte.hu,
+	torvalds@linux-foundation.org, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45271 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:51849 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbZDPFkf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 01:40:35 -0400
-In-Reply-To: <20090415215454.GU6766@linux.vnet.ibm.com>
+	with ESMTP id S1751059AbZDPG15 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 02:27:57 -0400
+In-Reply-To: <20090415.164811.19905145.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul E. McKenney a =E9crit :
-> On Wed, Apr 15, 2009 at 05:38:06PM +0200, Eric Dumazet wrote:
->> inet_register_protosw() is adding inet_protosw to inetsw[] with appr=
-opriate
->> locking section and rcu variant. No need to call synchronize_net() t=
-o wait
->> for a RCU grace period. Changes are immediatly visible to other cpus=
- anyway.
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 15 Apr 2009 23:07:29 +0200
 >=20
-> I agree with the conclusion (that this change is safe), but not with
-> the reasoning process.  ;-)
+>> Well, it seems original patch was not so bad after all
+>>
+>> http://lists.netfilter.org/pipermail/netfilter-devel/2006-January/02=
+3175.html
+>>
+>> So change per-cpu spinlocks to per-cpu rwlocks=20
+>>
+>> and use read_lock() in ipt_do_table() to allow recursion...
 >=20
-> The reason that this change is safe is that any inter-process
-> communication mechanism used to tell other CPUs that this protocol ha=
-s
-> been registered must contain relevant memory barriers, otherwise, tha=
-t
-> mechanism won't be reliable.
-
-But my patch is not fixing some unreliable algo. It is already reliable=
-,
-but pessimistic since containing a superflous call to not-related funct=
-ion.
-
+> Grumble, one more barrier to getting rid of rwlocks in the whole
+> tree. :-/
 >=20
-> If an unreliable mechanism was to be used, the other CPU might not ye=
-t see
-> the protocol.  For example, if the caller did a simple non-atomic sto=
-re
-> to a variable that the other CPU accessed with a simple non-atomic lo=
-ad,
-> then that other CPU could potentially see the inetsw[] without the ne=
+> I really think we should entertain the idea where we don't RCU quiesc=
+e
+> when adding rules.  That was dismissed as not workable because the ne=
 w
-> protocol, given that inet_create() is lockless.  Unlikely, but possib=
-le.
+> rule must be "visible" as soon as we return to userspace but let's ge=
+t
+> real, effectively it will be.
 
-Well, this reasoning process is a litle it wrong too ;)
-store or loads of the pointer are always atomic.
-You probably meant to say that the store had to be done when memory sta=
-te
-is stable and committed by the processor doing the _register() thing.
+We had to RCU quiesce to be sure old rules were not any more used befor=
+e
+freeing them. Alternative is to defer freeing via call_rcu() but
+subject to OOM.
+
+With 200 basic rules, size of rules table is about 40960 bytes per cpu.
+(88 pages taken on vmalloc virtual space on my 8 cpus machine)
+0xfcaf8000-0xfcb03000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb04000-0xfcb0f000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb10000-0xfcb1b000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb1c000-0xfcb27000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb28000-0xfcb33000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb34000-0xfcb3f000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb40000-0xfcb4b000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+0xfcb4c000-0xfcb57000   45056 xt_alloc_table_info+0xa8/0xd0 pages=3D10 =
+vmalloc
+
+This kind of monolithic huge object is hard to handle with RCU semantic=
+,
+more suitable for handling set of small objects (struct file for exampl=
+e),
+even if RCU can have a backoff of 10000 elements in its queue...
 
 >=20
-> But if a proper inter-process communication mechanism is used to info=
-rm
-> the other CPU, then the first CPU's memory operations will be seen.
+> If there are any stale object reference issues, we can use RCU object
+> destruction to handle that kind of thing.
 >=20
-> So I suggest a comment to this effect.
+> I almost cringed when the per-spinlock idea was proposed, but per-cpu
+> rwlocks just takes things too far for my tastes.
 
-Yes, I should really take special attention to ChangeLogs :)
 
-Thanks a lot Patrick
+In my humble opinion, this is a reasonnable compromise, and Stephen pat=
+ch
+version 4 is ok for me.
 
-[PATCH] net: remove superfluous call to synchronize_net()
-
-inet_register_protosw() function is responsible for adding a new
-inet protocol into a global table (inetsw[]) that is used with RCU rule=
-s.
-
-As soon as the store of the pointer is done, other cpus might see
-this new protocol in inetsw[], so we have to make sure new protocol
-is ready for use. All pending memory updates should thus be committed
-to memory before setting the pointer.
-This is correctly done using rcu_assign_pointer()
-
-synchronize_net() is typically used at unregister time, after
-unsetting the pointer, to make sure no other cpu is still using
-the object we want to dismantle. Using it at register time
-is only adding an artificial delay that could hide a real bug,
-and this bug could popup if/when synchronize_rcu() can proceed
-faster than now.
-
-This saves about 13 ms on boot time on a HZ=3D1000 8 cpus machine  ;)=20
-(4 calls to inet_register_protosw(), and about 3200 us per call)
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 7f03373..1706896 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1003,8 +1003,6 @@ void inet_register_protosw(struct inet_protosw *p=
-)
- out:
- 	spin_unlock_bh(&inetsw_lock);
-=20
--	synchronize_net();
--
- 	return;
-=20
- out_permanent:
 
