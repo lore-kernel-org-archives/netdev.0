@@ -1,57 +1,56 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Network latency regressions from 2.6.22 to 2.6.29
-Date: Thu, 16 Apr 2009 12:10:01 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904161151330.13531@qirst.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [IPV6]: ROUTE:read ifname in rt6_info_route()
+Date: Thu, 16 Apr 2009 12:17:28 -0400
+Message-ID: <49E75A18.7020002@hp.com>
+References: <49E710E1.3060209@miraclelinux.com>	<20090416.043800.171462037.davem@davemloft.net> <20090416083031.1cc24489@nehalam>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ysugiura@miraclelinux.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:57355 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754773AbZDPQRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 12:17:05 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 8F78482C28B
-	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 12:26:58 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 5lOI8KaE0fYT for <netdev@vger.kernel.org>;
-	Thu, 16 Apr 2009 12:26:52 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 27FBA82C16C
-	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 12:26:52 -0400 (EDT)
-Received: from cl (helo=localhost)
-	by qirst.com with local-esmtp (Exim 4.69)
-	(envelope-from <cl@linux.com>)
-	id 1LuUA5-0002dv-AX
-	for netdev@vger.kernel.org; Thu, 16 Apr 2009 12:10:01 -0400
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:25692 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755463AbZDPQRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 12:17:31 -0400
+In-Reply-To: <20090416083031.1cc24489@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following are results of lantency measurements using udpping
-(available from http://gentwo.org/ll). It shows that significant latencies
-were added since 2.6.27. I surely wish we could get back to times below 90
-microseconds.
+Stephen Hemminger wrote:
+> On Thu, 16 Apr 2009 04:38:00 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> From: Yuta sugiura <ysugiura@miraclelinux.com>
+>> Date: Thu, 16 Apr 2009 20:05:05 +0900
+>>
+>>> Hi,
+>>> I have a suggestion about /proc/net/IPv6_route format.
+>>> In rt6_info_route(), interface name is treated as a maximum 8
+>>> characters.
+>>> But the type of (struct rt6_inf *)->u.dst.dev->name is char[IFNAMESIZ=
+>>> 16]
+>>> so, I think that it should change "%8s" to "%16s".
+>> Isn't there a way to pass the field length as a paramenter
+>> to formatting functions?  Then we can just pass in
+>> IFNAMESIZE as that parameter.
+> 
+> 	seq_printf(m, " %08x %08x %08x %08x %*s\n"
+>                    rt->rt6i_metric, atomic_read(&rt->u.dst.__refcnt),
+>  		   rt->u.dst.__use, rt->rt6i_flags,
+>                    IFNAMESIZE, 
+>  		   rt->rt6i_dev ? rt->rt6i_dev->name : "")
 
-The tests were done over 1G ethernet using
-09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5754
-Gigabit Ethernet PCI Express (rev 02)
+Does the kernel actually truncate an interface name more than 8 chars long in
+the original version?  I did a quick test in userspace and found that
 
-Results:
+	printf("%*s\n", 1, "foo");
 
-           2.6.22 2.6.23 2.6.24 2.6.25 2.6.26 2.6.27 2.6.28 2.6.29
-40 Bytes    89.50  90.75  89.61  91.51  91.89  99.17  99.80  99.34
-400 Bytes   98.58 101.44  97.85  99.61 100.36 117.96 118.10 126.79
-1400 Bytes 152.76 153.75 153.85	156.22 156.66 163.92 165.54 166.04
+prints:
 
-Compared to 2.6.22 2.6.23 2.6.24 2.6.25 2.6.26 2.6.27 2.6.28 2.6.29
-40 Bytes            -1.4%  -0.1%  -2.2%  -2.6%  -9.8%  -10.3% -9.9%
-400 Bytes           -2.8%   0.7%  -1.0%  -1.8% -16.4%  -16.5%-22.2%
-1400 Bytes          -0.6%  -0.7%  -2.2%  -2.5%  -6.8%  -7.7%  -8.0%
+foo
 
-I presented these numbers with some nice graphs at the Linux Collab Summit
-last week.
+I think the width specifier is used for *minimum* width, not maximum.
 
-See
-http://www.kernel.org/pub/linux/kernel/people/christoph/collab-spring-2009/Collab-summit-2009-sf.pdf
-
+-Brian
