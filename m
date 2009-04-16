@@ -1,53 +1,60 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/03: nf_log regression fix
-Date: Thu, 16 Apr 2009 19:16:23 +0200 (MEST)
-Message-ID: <20090416171622.11406.71514.sendpatchset@x2.localnet>
+Subject: netfilter 03/03: nf_nat: add support for persistent mappings
+Date: Thu, 16 Apr 2009 19:16:26 +0200 (MEST)
+Message-ID: <20090416171625.11406.88464.sendpatchset@x2.localnet>
 References: <20090416171621.11406.78609.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61771 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757019AbZDPRQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 13:16:25 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090416171621.11406.78609.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit b6f0a3652ea9d2296fdc98c3b2c96603be611c4d
-Author: Eric Dumazet <dada1@cosmosbay.com>
-Date:   Wed Apr 15 12:16:19 2009 +0200
+commit 98d500d66cb7940747b424b245fc6a51ecfbf005
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Thu Apr 16 18:33:01 2009 +0200
 
-    netfilter: nf_log regression fix
+    netfilter: nf_nat: add support for persistent mappings
     
-    commit ca735b3aaa945626ba65a3e51145bfe4ecd9e222
-    'netfilter: use a linked list of loggers'
-    introduced an array of list_head in "struct nf_logger", but
-    forgot to initialize it in nf_log_register(). This resulted
-    in oops when calling nf_log_unregister() at module unload time.
+    The removal of the SAME target accidentally removed one feature that is
+    not available from the normal NAT targets so far, having multi-range
+    mappings that use the same mapping for each connection from a single
+    client. The current behaviour is to choose the address from the range
+    based on source and destination IP, which breaks when communicating
+    with sites having multiple addresses that require all connections to
+    originate from the same IP address.
     
-    Reported-and-tested-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-    Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-    Acked-by: Eric Leblond <eric@inl.fr>
+    Introduce a IP_NAT_RANGE_PERSISTENT option that controls whether the
+    destination address is taken into account for selecting addresses.
+    
+    http://bugzilla.kernel.org/show_bug.cgi?id=12954
+    
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index 8bb998f..beb3731 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -36,10 +36,14 @@ static struct nf_logger *__find_logger(int pf, const char *str_logger)
- int nf_log_register(u_int8_t pf, struct nf_logger *logger)
- {
- 	const struct nf_logger *llog;
-+	int i;
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index 9dc1039..8df0b7f 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -18,6 +18,7 @@ enum nf_nat_manip_type
+ #define IP_NAT_RANGE_MAP_IPS 1
+ #define IP_NAT_RANGE_PROTO_SPECIFIED 2
+ #define IP_NAT_RANGE_PROTO_RANDOM 4
++#define IP_NAT_RANGE_PERSISTENT 8
  
- 	if (pf >= ARRAY_SIZE(nf_loggers))
- 		return -EINVAL;
- 
-+	for (i = 0; i < ARRAY_SIZE(logger->list); i++)
-+		INIT_LIST_HEAD(&logger->list[i]);
-+
- 	mutex_lock(&nf_log_mutex);
- 
- 	if (pf == NFPROTO_UNSPEC) {
+ /* NAT sequence number modifications */
+ struct nf_nat_seq {
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index fe65187..3229e0a 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -211,7 +211,8 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
+ 	minip = ntohl(range->min_ip);
+ 	maxip = ntohl(range->max_ip);
+ 	j = jhash_2words((__force u32)tuple->src.u3.ip,
+-			 (__force u32)tuple->dst.u3.ip, 0);
++			 range->flags & IP_NAT_RANGE_PERSISTENT ?
++				(__force u32)tuple->dst.u3.ip : 0, 0);
+ 	j = ((u64)j * (maxip - minip + 1)) >> 32;
+ 	*var_ipp = htonl(minip + j);
+ }
