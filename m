@@ -1,39 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/2] MAINTAINERS - Update NETWORKING W: url and standardize T: git url
-Date: Thu, 16 Apr 2009 12:38:46 -0700
-Message-ID: <1239910726-20712-2-git-send-email-joe@perches.com>
-References: <1239910726-20712-1-git-send-email-joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29
+Date: Thu, 16 Apr 2009 15:33:06 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904161532350.22449@qirst.com>
+References: <alpine.DEB.1.10.0904161151330.13531@qirst.com> <49E76906.2060205@hp.com> <alpine.DEB.1.10.0904161504090.15835@qirst.com> <49E786FE.6090304@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3639 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751975AbZDPTiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 15:38:50 -0400
-In-Reply-To: <1239910726-20712-1-git-send-email-joe@perches.com>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:57753 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758935AbZDPTkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 15:40:23 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id F356C82C2F0
+	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 15:50:16 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id RL6RKZIGejU0 for <netdev@vger.kernel.org>;
+	Thu, 16 Apr 2009 15:50:10 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id CFF7882C2E2
+	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 15:50:04 -0400 (EDT)
+In-Reply-To: <49E786FE.6090304@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- MAINTAINERS |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Thu, 16 Apr 2009, Eric Dumazet wrote:
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 2e80e68..724f65e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3921,8 +3921,8 @@ NETWORKING [GENERAL]
- P:	David S. Miller
- M:	davem@davemloft.net
- L:	netdev@vger.kernel.org
--W:	http://linux-net.osdl.org/
--T:	git kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
-+W:	http://www.linuxfoundation.org/en/Net
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
- S:	Maintained
- F:	net/
- F:	include/net/
--- 
-1.6.1
+> When you perform your test, you upgrade kernels of both machines ?
+
+Yes. Both machines always run the same kernel version.
 
