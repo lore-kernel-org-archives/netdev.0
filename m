@@ -1,105 +1,51 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH[] netfilter: use per-cpu reader-writer lock (v0.7)
-Date: Fri, 17 Apr 2009 01:04:57 +0200
-Message-ID: <20090416230457.GA16226@elte.hu>
-References: <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <20090415174551.529d241c@nehalam> <49E6BBA9.2030701@cosmosbay.com> <49E7384B.5020707@trash.net> <20090416144748.GB6924@linux.vnet.ibm.com> <49E75876.10509@cosmosbay.com> <20090416175850.GH6924@linux.vnet.ibm.com> <49E77BF6.1080206@cosmosbay.com> <20090416134956.6c1f0087@nehalam> <alpine.LFD.2.00.0904161353370.4042@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] Be explict with what we are !'ing in
+	ixgbe_sfp_config_module_task()
+Date: Thu, 16 Apr 2009 16:22:28 -0700
+Message-ID: <20090416232225.18637.33348.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, paulmck@linux.vnet.ibm.com,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	akpm@linux-foundation.org, roel.kluin@gmail.com,
+	Tony Breeds <tony@bakeyournoodle.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:53117 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754536AbZDPXFa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2009 19:05:30 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.0904161353370.4042@localhost.localdomain>
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:56779
+	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753338AbZDPXWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 19:22:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Tony Breeds <tony@bakeyournoodle.com>
 
-* Linus Torvalds <torvalds@linux-foundation.org> wrote:
+GCC warns:
+drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_sfp_config_module_task':
+drivers/net/ixgbe/ixgbe_main.c:3920: warning: suggest parantheses around
+operand of '!' or change '&' to '&&' or '!' to '~'
 
-> On Thu, 16 Apr 2009, Stephen Hemminger wrote:
-> >
-> > This version of x_tables (ip/ip6/arp) locking uses a per-cpu
-> > rwlock that can be nested. It is sort of like earlier brwlock 
-> > (fast reader, slow writer). The locking is isolated so future improvements
-> > can concentrate on measuring/optimizing xt_table_info_lock. I tried
-> > other versions based on recursive spin locks and sequence counters and 
-> > for me, the risk of inventing own locking primitives not worth it at this time.
-> 
-> This is stil scary.
-> 
-> Do we guarantee that read-locks nest in the presense of a waiting 
-> writer on another CPU? Now, I know we used to (ie readers always 
-> nested happily with readers even if there were pending writers), 
-> and then we broke it. I don't know that we ever unbroke it.
-> 
-> IOW, at least at some point we deadlocked on this (due to trying 
-> to be fair, and not lettign in readers while earlier writers were 
-> waiting):
-> 
-> 	CPU#1			CPU#2
-> 
-> 	read_lock
-> 
-> 				write_lock
-> 				.. spins with write bit set, waiting for
-> 				   readers to go away ..
-> 
-> 	recursive read_lock
-> 	.. spins due to the write bit
-> 	   being. BOOM: deadlock  ..
-> 
-> Now, I _think_ we avoid this, but somebody should double-check.
+Which I think is right.  Bracket to remove ambiguity.
 
-This is a narrow special-case where the spin-rwlock is safe, and the 
-rwsem is unsafe.
+Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-But it should work for rwlocks - it always worked and the networking 
-code always relied on that AFAIK.
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Here's the x86 assembly code of the write-side slowpath:
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index febde45..49a9037 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3946,7 +3946,7 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
+ 	}
+ 	hw->mac.ops.setup_sfp(hw);
+ 
+-	if (!adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK)
++	if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
+ 		/* This will also work for DA Twinax connections */
+ 		schedule_work(&adapter->multispeed_fiber_task);
+ 	adapter->flags &= ~IXGBE_FLAG_IN_SFP_MOD_TASK;
 
-ENTRY(__write_lock_failed)
-        CFI_STARTPROC
-        LOCK_PREFIX
-        addl $RW_LOCK_BIAS,(%rdi)
-1:      rep
-        nop
-        cmpl $RW_LOCK_BIAS,(%rdi)
-        jne 1b
-        LOCK_PREFIX
-        subl $RW_LOCK_BIAS,(%rdi)
-        jnz  __write_lock_failed
-        ret
-        CFI_ENDPROC
-
-the fastpath decreased the value with RW_LOCK_BIAS, and when we 
-enter this function we undo that effect by adding RW_LOCK_BIAS. Then 
-we spin (without signalling our write-intent) passively until the 
-count reaches RW_LOCK_BIAS. Then we try to lock it again and bring 
-it to zero (meaning no other readers or writers - we got the lock).
-
-This is pretty much the most unfair strategy possible for writers - 
-but this is how rwlocks always behaved - and they do so mostly for 
-recursive use within networking.
-
-This is why the tasklist_lock was always so suspect to insane 
-starvation symptoms on really large SMP systems, and this is why 
-write_lock_irq(&tasklist_lock) was always a dangerous operation to 
-do. (it can spin for a _long_ time with irqs off.)
-
-It's not the most optimal of situations. Some patches are in the 
-works to fix the irqs-off artifact (on ia64 - no x86 patches yet 
-AFAICS) - but that's just papering it over.
-
-	Ingo
