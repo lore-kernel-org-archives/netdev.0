@@ -1,45 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Thu, 16 Apr 2009 02:02:52 -0700 (PDT)
-Message-ID: <20090416.020252.74112364.davem@davemloft.net>
-References: <49E64BE4.1050908@myri.com>
-	<20090415.164248.188350673.davem@davemloft.net>
-	<20090416085022.GA19731@gondor.apana.org.au>
+From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Subject: Re: [PATCH] macb: Add support of the netpoll API
+Date: Thu, 16 Apr 2009 11:07:53 +0200
+Message-ID: <20090416110753.5c75b805@hskinnemoen-d830>
+References: <20090415154658.40e3639a@surf>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: gallatin@myri.com, brice@myri.com, sgruszka@redhat.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org,
+	Michael Opdenacker <michael@free-electrons.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36968
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751930AbZDPJDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 05:03:01 -0400
-In-Reply-To: <20090416085022.GA19731@gondor.apana.org.au>
+Received: from relay.atmel.no ([80.232.32.139]:57468 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752395AbZDPJIB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2009 05:08:01 -0400
+In-Reply-To: <20090415154658.40e3639a@surf>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 16 Apr 2009 16:50:22 +0800
+Thomas Petazzoni wrote:
+> macb: Add support of the netpoll API
+> 
+> With this patch in place, I'm successfully able to use the netconsole
+> mechanism with the Calao USB-A9263 board, which uses the AT91SAM9263
+> CPU, which in terms of Ethernet controller is supported by the macb
+> driver.
+> 
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  drivers/net/macb.c |   16 ++++++++++++++++
+>  1 file changed, 16 insertions(+)
+> 
+> Index: linux/drivers/net/macb.c
+> ===================================================================
+> --- linux.orig/drivers/net/macb.c
+> +++ linux/drivers/net/macb.c
+> @@ -616,6 +616,19 @@
+>  	return IRQ_HANDLED;
+>  }
+>  
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +/*
+> + * Polling receive - used by netconsole and other diagnostic tools
+> + * to allow network i/o with interrupts disabled.
+> + */
+> +static void macb_poll_controller(struct net_device *dev)
+> +{
+> +	disable_irq(dev->irq);
 
-> On Wed, Apr 15, 2009 at 04:42:48PM -0700, David Miller wrote:
->> 
->> Herbert has been working on various optimizations to get
->> cxgb3 GRO performance on par with LRO.  Perhaps he has
->> some things for you to try :-)
-> 
-> Yes, this patch should improve performace.  In fact, when you
-> reopen the net-next tree feel free to put this patch in :)
-> 
-> gro: New frags interface to avoid copying shinfo
-> 
-> It turns out that copying a 16-byte area at ~800k times a second
-> can be really expensive :) This patch redesigns the frags GRO
-> interface to avoid copying that area twice.
-> 
-> The two disciples of the frags interface have been converted.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Hmm...is this safe? What if printk() is called from the macb interrupt
+handler?
 
-It is open already, so, applied :-)
+Haavard
