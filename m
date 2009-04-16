@@ -1,46 +1,40 @@
-From: "Chris Friesen" <cfriesen-ZIRUuHA3oDzQT0dZR+AlfA@public.gmane.org>
-Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
-Date: Thu, 16 Apr 2009 15:08:40 -0600
-Message-ID: <49E79E58.9000606@nortel.com>
-References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain> <200904070035.00784.rjw@sisk.pl>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Thu, 16 Apr 2009 17:04:30 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904161659440.7855@qirst.com>
+References: <OF0F292ED0.17C084A6-ON8825759A.00718BFC-8825759A.00730FD8@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200904070035.00784.rjw-KKrjLPT3xs0@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	vladislav.yasevich@hp.com
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:40618 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbZDPVLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 17:11:49 -0400
+In-Reply-To: <OF0F292ED0.17C084A6-ON8825759A.00718BFC-8825759A.00730FD8@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafael J. Wysocki wrote:
-> On Monday 06 April 2009, Linus Torvalds wrote:
->> On Mon, 6 Apr 2009, Rafael J. Wysocki wrote:
->>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13019
->>> Subject		: /proc/<pid>/maps offset output broken in 2.6.29
->>> Submitter	: "Chris Friesen" <cfriesen-ZIRUuHA3oDzQT0dZR+AlfA@public.gmane.org>
->>> Date		: 2009-04-01 23:18 (6 days old)
->>> References	: http://marc.info/?l=linuxppc-embedded&m=123862902916059&w=4
->>> Handled-By	: Hugh Dickins <hugh-DTz5qymZ9yRBDgjK7y7TUQ@public.gmane.org>
->> I don't think that's a regression, nor really a bug. It looks cosmetic, 
->> and likely to be fixed, but not really worth worrying about.
-> 
-> OK, I've dropped it from the list.
+On Thu, 16 Apr 2009, David Stevens wrote:
 
-I'm okay with that.  The problem causes some backwards compatibility 
-problems with existing apps that get confused by the large "offset" 
-number.  The fix is going to cause problems too, but in a different way.
+> must be a new app, is fine. Adding a socket option as part of a port
+> is no great hurdle, and I'm guessing you aren't trying to run a Solaris
+> binary on Linux. So what's the problem?
 
-We'll work around it.
+Guess its the obvious: Software should run on multiple OSes without
+too much special casing. Linux is the only special case that I am aware of
+that misbehaves.
 
-Chris
+Adding a socket is no easy thing given the architecture of the software
+(and of other software) that did not consider that Linux faithfully
+replicating bugs from 25 years ago that no longer exist in other OSes.
+
+Cannot imagine there to be too much software out there that relies on this
+strange behavior. Otherwise the software would not work on various other
+platforms.
+
+Can you give us a list of products that verifiably rely on the current
+behavior?
