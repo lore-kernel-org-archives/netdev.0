@@ -1,55 +1,47 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Thu, 16 Apr 2009 16:49:55 -0700
-Message-ID: <20090416234955.GL6924@linux.vnet.ibm.com>
-References: <20090415170111.6e1ca264@nehalam> <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <49E72E83.50702@trash.net> <20090416.153354.170676392.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tun: fix BUG with large packets without TUN_VNET_HDR
+Date: Fri, 17 Apr 2009 07:50:23 +0800
+Message-ID: <20090416235023.GC29988@gondor.apana.org.au>
+References: <20090416204556.GA5846@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, torvalds@linux-foundation.org,
-	shemminger@vyatta.com, dada1@cosmosbay.com,
-	jeff.chua.linux@gmail.com, paulus@samba.org, mingo@elte.hu,
-	laijs@cn.fujitsu.com, jengelh@medozas.de, r000n@r000n.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, benh@kernel.crashing.org
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Max Krasnyansky <maxk@qualcomm.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:53593 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516AbZDPXt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2009 19:49:59 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:40466 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758142AbZDPXug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 19:50:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20090416.153354.170676392.davem@davemloft.net>
+In-Reply-To: <20090416204556.GA5846@dhcp-1-124.tlv.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 16, 2009 at 03:33:54PM -0700, David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Thu, 16 Apr 2009 15:11:31 +0200
+On Thu, Apr 16, 2009 at 11:45:57PM +0300, Michael S. Tsirkin wrote:
+> On a tap device, the linear part of skb must be at least ETH_HLEN,
+> otherwise eth_type_trans triggers BUG_ON in skb_pull(skb, ETH_HLEN).
+> This patch makes sure the linear part is always large enough.
 > 
-> > Linus Torvalds wrote:
-> >> On Wed, 15 Apr 2009, Stephen Hemminger wrote:
-> >>> The counters are the bigger problem, otherwise we could just free
-> >>> table
-> >>> info via rcu.  Do we really have to support: replace where the counter
-> >>> values coming out to user space are always exactly accurate, or is it
-> >>> allowed to replace a rule and maybe lose some counter ticks (worst
-> >>> case
-> >>> NCPU-1).
-> >> Why not just read the counters fromt he old one at RCU free time (they
-> >> are guaranteed to be stable at that point, since we're all done with
-> >> those entries), and apply them at that point to the current setup?
-> > 
-> > We need the counters immediately to copy them to userspace, so waiting
-> > for an asynchronous RCU free is not going to work.
+> Without the patch, tun sets the linear part size to 0 if TUN_VNET_HDR
+> is not set and the packet is too large to put in a linear skb,
+> which causes BUGs for me.
 > 
-> It just occurred to me that since all netfilter packet handling
-> goes through one place, we could have a sort-of "netfilter RCU"
-> of sorts to solve this problem.
+> BTW, it seems that this behaviour has been there for a long while, since at
+> least v2.6.27 (commit f42157cb568c1eb02eca7df4da67553a9edae24a: tun: fallback
+> if skb_alloc() fails on big packets), but started triggering for me only in
+> v2.6.30-rc1, because of commit 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554 (tun:
+> Limit amount of queued packets per device), which made all large packets
+> non-linear.  Before that, most packets would still typically be linear until
+> memory gets fragmented, which hides the issue.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-OK, I am putting one together...
-
-It will be needed sooner or later, though I suspect per-CPU locking
-would work fine in this case.
-
-							Thanx, Paul
+I'd already fixed that a couple of days ago :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
