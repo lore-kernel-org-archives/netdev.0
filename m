@@ -1,63 +1,119 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH 2.6.30] Network Drop Monitor: Make use of consume_skb() in
- af_can.c
-Date: Thu, 16 Apr 2009 21:58:29 +0200
-Message-ID: <49E78DE5.10104@hartkopp.net>
+From: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
+Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors are
+	closed
+Date: Thu, 16 Apr 2009 22:57:45 +0300
+Message-ID: <20090416195745.GA5826@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030803080008010800060906"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Matias Zabaljauregui <zabaljauregui@gmail.com>, odie@cs.aau.dk,
+	Rusty Russell <rusty@rustcorp.com.au>, lguest@ozlabs.org,
+	virtualization@lists.osdl.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:52796 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756609AbZDPT6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 15:58:33 -0400
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:61600 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756883AbZDPT6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 15:58:55 -0400
+Received: by fxm2 with SMTP id 2so600576fxm.37
+        for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 12:58:53 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030803080008010800060906
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Thu, Apr 16, 2009 at 01:08:18AM -0000, Herbert Xu wrote:
+> On Wed, Apr 15, 2009 at 10:38:34PM +0800, Herbert Xu wrote:
+> > 
+> > So how about this? We replace the dev destructor with our own that
+> > doesn't immediately call free_netdev.  We only call free_netdev once
+> > all tun fd's attached to the device have been closed.
+> 
+> Here's the patch.  I'd appreciate if everyone can review it
+> and see if they can recreate the original race by
+> 
+> 1) Starting a process using tun and polls on it;
+> 2) Doing ip tun del tunXXX while the process is polling.
+> 
+> tun: Only free a netdev when all tun descriptors are closed
+> 
+> The commit c70f182940f988448f3c12a209d18b1edc276e33 ("tun: Fix
+> races between tun_net_close and free_netdev") fixed a race where
+> an asynchronous deletion of a tun device can hose a poll(2) on
+> a tun fd attached to that device.
+> 
+> However, this came at the cost of moving the tun wait queue into
+> the tun file data structure.  The problem with this is that it
+> imposes restrictions on when and where the tun device can access
+> the wait queue since the tun file may change at any time due to
+> detaching and reattaching.
+> 
+> In particular, now that we need to use the wait queue on the
+> receive path it becomes difficult to properly synchronise this
+> with the detachment of the tun device.
+> 
+> This patch solves the original race in a different way.  Since
+> the race is only because the underlying memory gets freed, we
+> can prevent it simply by ensuring that we don't do that until
+> all tun descriptors ever attached to the device (even if they
+> have since be detached because they may still be sitting in poll)
+> have been closed.
+> 
+> This is done by using reference counting the attached tun file
+> descriptors.  The refcount in tun->sk has been reappropriated
+> for this purpose since it was already being used for that, albeit
+> from the opposite angle.
+> 
+> Note that we no longer zero tfile->tun since tun_get will return
+> NULL anyway after the refcount on tfile hits zero.  Instead it
+> represents whether this device has ever been attached to a device.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> 
+> Cheers,
+> 
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> 
+> .....
+>
+> @@ -1275,20 +1278,18 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+>  	struct tun_file *tfile = file->private_data;
+>  	struct tun_struct *tun = __tun_get(tfile);
+>  
+> -
+>  	if (tun) {
+> -		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
+> -
+> -		rtnl_lock();
+> -		__tun_detach(tun);
+> -
+>  		/* If desireable, unregister the netdevice. */
+> -		if (!(tun->flags & TUN_PERSIST)) {
+> -			sock_put(tun->sk);
+> -			unregister_netdevice(tun->dev);
+> -		}
+> +		if (!(tun->flags & TUN_PERSIST))
+> +			unregister_netdev(tun->dev);
+> +		else
+> +			tun_put(tun);
+> +	} else
+> +		tun = tfile->tun;
+>  
+> -		rtnl_unlock();
+> +	if (tun) {
+> +		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
+> +		sock_put(tun->sk);
+>  	}
+>  
+>  	put_net(tfile->net);
 
-Since commit ead2ceb0ec9f85cff19c43b5cdb2f8a054484431 so called end-of-line
-points for skb's should use consume_skb() to free the socket buffer.
-
-In opposite to consume_skb() the function kfree_skb() is intended to be used
-for unexpected skb drops e.g. in error conditions that now can trigger the
-network drop monitor if enabled.
-
-This patch moves the skb end-of-line point in af_can.c to use consume_skb().
-
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-
----
+This last bit seems to make a simple test using a non-persistent tap device
+deadlock for me: we don't drop a reference acquired with __tun_get sock
+unregister_netdevice blocks printing unregister_netdevice: waiting for tap0 to
+become free. Usage count = 1.
 
 
-
---------------030803080008010800060906
-Content-Type: text/x-patch;
- name="can_consume_skb.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="can_consume_skb.patch"
-
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 547bafc..10f0528 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -674,8 +674,8 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
- 
- 	rcu_read_unlock();
- 
--	/* free the skbuff allocated by the netdevice driver */
--	kfree_skb(skb);
-+	/* consume the skbuff allocated by the netdevice driver */
-+	consume_skb(skb);
- 
- 	if (matches > 0) {
- 		can_stats.matches++;
-
---------------030803080008010800060906--
