@@ -1,53 +1,44 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Thu, 16 Apr 2009 15:22:49 -0700
-Message-ID: <OF5FEB5C36.3F71F1EC-ON8825759A.00785E5C-8825759A.007AEF72@us.ibm.com>
-References: <49E7A0D2.60504@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
+Date: Thu, 16 Apr 2009 15:33:54 -0700 (PDT)
+Message-ID: <20090416.153354.170676392.davem@davemloft.net>
+References: <20090415170111.6e1ca264@nehalam>
+	<alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>
+	<49E72E83.50702@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:33904 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753516AbZDPWWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 18:22:52 -0400
-In-Reply-To: <49E7A0D2.60504@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, shemminger@vyatta.com,
+	dada1@cosmosbay.com, jeff.chua.linux@gmail.com,
+	paulmck@linux.vnet.ibm.com, paulus@samba.org, mingo@elte.hu,
+	laijs@cn.fujitsu.com, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49E72E83.50702@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vlad Yasevich wrote on 04/16/2009 02:19:14 PM:
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 16 Apr 2009 15:11:31 +0200
 
-> What seems to be happening though, is that there is an expectation that
-> this behavior would change with advent of IGMPv3, which adds the 
-additional
-> filtering text.  Now, we could point out that there is no normative text
-> that requires this filtering on groups, only on sources, but the 
-expectation
-> is still there.
+> Linus Torvalds wrote:
+>> On Wed, 15 Apr 2009, Stephen Hemminger wrote:
+>>> The counters are the bigger problem, otherwise we could just free
+>>> table
+>>> info via rcu.  Do we really have to support: replace where the counter
+>>> values coming out to user space are always exactly accurate, or is it
+>>> allowed to replace a rule and maybe lose some counter ticks (worst
+>>> case
+>>> NCPU-1).
+>> Why not just read the counters fromt he old one at RCU free time (they
+>> are guaranteed to be stable at that point, since we're all done with
+>> those entries), and apply them at that point to the current setup?
+> 
+> We need the counters immediately to copy them to userspace, so waiting
+> for an asynchronous RCU free is not going to work.
 
-        I have no such expectation. :-) The additional filters are 
-(already)
-applied per-socket, but existing apps not using source filters behave as
-they did before IGMPv3. That's what I'd expect.
-        The RFC you quoted for SSM applies to only the SSM address space,
-mentions this behavior explicitly as the norm for outside of that space,
-and Linux doesn't support that RFC. If it did, it would include an
-address range check as part of it.
-
-> I wonder how BSD and Solaris got away with it?  They both filter on 
-multicast
-> groups and source addresses.  This is not meant as rhetorical or 
-provocative,
-> just genuinely wondering.
-
-        I think in practice, it doesn't come up much. That's why people
-seem so surprised to learn it works this way, and not the way they
-thought it did after using it, sometimes for years. But the documentation
-doesn't say a join limits what you receive on a socket, or that it
-has to be the same socket you're doing I/O on; people simply assume it.
-
-                                                                +-DLS
-
+It just occurred to me that since all netfilter packet handling
+goes through one place, we could have a sort-of "netfilter RCU"
+of sorts to solve this problem.
