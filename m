@@ -1,33 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6]: ROUTE:read ifname in rt6_info_route()
-Date: Thu, 16 Apr 2009 04:38:00 -0700 (PDT)
-Message-ID: <20090416.043800.171462037.davem@davemloft.net>
-References: <49E710E1.3060209@miraclelinux.com>
+From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+Subject: Re: An inconsistency/bug in ingress netem timestamps
+Date: Thu, 16 Apr 2009 08:09:56 -0400
+Message-ID: <200904160809.56228.alexandre.sidorenko@hp.com>
+References: <20090415195022.GA3322@ami.dom.local> <200904151610.43980.alexandre.sidorenko@hp.com> <20090416.031034.41207844.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ysugiura@miraclelinux.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "jarkao2@gmail.com" <jarkao2@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33055
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751169AbZDPLiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 07:38:08 -0400
-In-Reply-To: <49E710E1.3060209@miraclelinux.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:5387 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbZDPMJ5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 08:09:57 -0400
+In-Reply-To: <20090416.031034.41207844.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuta sugiura <ysugiura@miraclelinux.com>
-Date: Thu, 16 Apr 2009 20:05:05 +0900
+On April 16, 2009 06:10:34 am David Miller wrote:
+> Since IFB completely bypasses netif_rx() and netif_receive_skb() I
+> think it should unconditionally set skb->tstamp.tv64 to zero and
+> invoke net_timestamp()
 
-> Hi,
-> I have a suggestion about /proc/net/IPv6_route format.
-> In rt6_info_route(), interface name is treated as a maximum 8
-> characters.
-> But the type of (struct rt6_inf *)->u.dst.dev->name is char[IFNAMESIZ=
-> 16]
-> so, I think that it should change "%8s" to "%16s".
+>From ifb.c (2.6.29):
 
-Isn't there a way to pass the field length as a paramenter
-to formatting functions?  Then we can just pass in
-IFNAMESIZE as that parameter.
+ 109                if (from & AT_EGRESS) {
+ 110                        dp->st_rx_frm_egr++;
+ 111                        dev_queue_xmit(skb);
+ 112                } else if (from & AT_INGRESS) {
+ 113                        dp->st_rx_frm_ing++;
+ 114                        skb_pull(skb, skb->dev->hard_header_len);
+ 115                        netif_rx(skb);
+ 116                }
+
+Adding skb->tstamp.tv64 = 0 between lines 114 and 115 made 'ping' report the 
+delay as expected (tested on 2.6.28)
+
+Alex
+
+
+-- 
+------------------------------------------------------------------
+Alexandre Sidorenko             email: asid@hp.com
+WTEC Linux			Hewlett-Packard (Canada)
+------------------------------------------------------------------
