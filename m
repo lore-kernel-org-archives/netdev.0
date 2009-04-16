@@ -1,47 +1,123 @@
 From: dmitry.krivoschekov@gmail.com
-Subject: [PATCH 0/3]
-Date: Thu, 16 Apr 2009 13:37:36 +0400
-Message-ID: <1239874659-19273-1-git-send-email-dmitry.krivoschekov@gmail.com>
+Subject: [PATCH 2/3] ipconfig: add 'ipwait' cmdline parameter
+Date: Thu, 16 Apr 2009 13:37:38 +0400
+Message-ID: <1239874659-19273-3-git-send-email-dmitry.krivoschekov@gmail.com>
+References: <1239874659-19273-1-git-send-email-dmitry.krivoschekov@gmail.com>
+Cc: Dmitry Krivoschekov <dkrivoschekov@ru.mvista.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.79.90.228] ([213.79.90.228]:10137 "EHLO
+Received: from [213.79.90.228] ([213.79.90.228]:10139 "EHLO
 	buildserver.ru.mvista.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752437AbZDPJgL (ORCPT
+	by vger.kernel.org with ESMTP id S1752249AbZDPJgL (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 05:36:11 -0400
+In-Reply-To: <1239874659-19273-1-git-send-email-dmitry.krivoschekov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Dmitry Krivoschekov <dkrivoschekov@ru.mvista.com>
 
-this patch series adds some flexibility to ip_auto_config() function.
-Currently the function assumes that 500 msec delay before opening
-a network device is enough, but it's not true for some h/w configurations,
-e.g. if you're using a USB network device. 
-In my case it may take up to 2 seconds before the device gets available 
-for opening.
+Adding a cmdline parameter so it's possible to change the delay
+before and after opening a network device, e.g. "ipwait=300,700"
+sets a delay for 300 and 700 msec before and after opening respectively.
 
-[PATCH 1/3] ipconfig: use same time units for CONF_{PRE,POST}_OPEN delays
-	this is just a small cleanup
+Signed-off-by: Dmitry Krivoschekov <dkrivoschekov@ru.mvista.com>
+---
+ Documentation/filesystems/nfsroot.txt |   11 +++++++++++
+ net/ipv4/ipconfig.c                   |   29 ++++++++++++++++++++++++++---
+ 2 files changed, 37 insertions(+), 3 deletions(-)
 
-[PATCH 2/3] ipconfig: add 'ipwait' cmdline parameter
-	I introduce a new cmdline parameter so it's possible to configure two 
-	delays, before and after opening of network devices. It can be used 
-	to increase default delay and it also might be useful in optimizing of
-	kernel boot-up time, you can save ~1 second if you know that you h/w
-	does not need that delays, 500 msec before and 1 second after.
-
-[PATCH 3/3] ipconfig: look for a network device forever if NFS root
-	As time needed for a USB net device to settle may vary from
-	time to time, it's hard to predict how much msecs it would 
-	take next time. If we're using such a device to mount a NFS root
-	filesystem it gets critical for us as we can't proceed 
-	work if a net device has not found, so we have to
-	loop until a suitable device gets available.
-	
-
-Tested on TI OMAP3530 Beagle board.
-
-
-Regards,
-Dmitry
+diff --git a/Documentation/filesystems/nfsroot.txt b/Documentation/filesystems/nfsroot.txt
+index 68baddf..9b05025 100644
+--- a/Documentation/filesystems/nfsroot.txt
++++ b/Documentation/filesystems/nfsroot.txt
+@@ -156,8 +156,19 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>
+ 
+                 Default: any
+ 
++ipwait=<delay-pre>,<delay-post>
+ 
++  This parameter allows you to change a pause before and after opening of
++  a network device. It is useful if you want to optimize boot-up time for
++  your system, or if default delays are not sufficient for your net device.
+ 
++  <delay-pre>	Delay (in msecs) to pause before opening a net device
++
++                Default: 500 msec
++
++  <delay-post>	Delay (in msecs) to pause after a net device has been opened
++
++                Default: 1000 msec
+ 
+ 3.) Boot Loader
+     ----------
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 4c6e38f..8222466 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -85,7 +85,7 @@
+ #define IPCONFIG_DYNAMIC
+ #endif
+ 
+-/* Define the friendly delay before and after opening net devices */
++/* Define the default friendly delay before and after opening net devices */
+ #define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
+ #define CONF_POST_OPEN		1000	/* After opening: 1 second */
+ 
+@@ -182,6 +182,10 @@ struct ic_device {
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
+ 
++/* delay before and after opening devices */
++static unsigned long ic_wait_pre __initdata;
++static unsigned long ic_wait_post __initdata;
++
+ static int __init ic_open_devs(void)
+ {
+ 	struct ic_device *d, **last;
+@@ -1283,15 +1287,22 @@ static int __init ip_auto_config(void)
+ #ifdef IPCONFIG_DYNAMIC
+  try_try_again:
+ #endif
++
++	if (!ic_wait_pre)
++		ic_wait_pre = CONF_PRE_OPEN;
++
+ 	/* Give hardware a chance to settle */
+-	msleep(CONF_PRE_OPEN);
++	msleep(ic_wait_pre);
+ 
+ 	/* Setup all network devices */
+ 	if (ic_open_devs() < 0)
+ 		return -1;
+ 
++	if (!ic_wait_post)
++		ic_wait_post = CONF_POST_OPEN;
++
+ 	/* Give drivers a chance to settle */
+-	msleep(CONF_POST_OPEN);
++	msleep(ic_wait_post);
+ 
+ 	/*
+ 	 * If the config information is insufficient (e.g., our IP address or
+@@ -1529,6 +1540,18 @@ static int __init vendor_class_identifier_setup(char *addrs)
+ 	return 1;
+ }
+ 
++static int __init ipwait_setup(char *addrs)
++{
++	char *p;
++
++	p = strsep(&addrs, ",");
++	if (strict_strtoul(p, 10, &ic_wait_pre) == 0)
++		strict_strtoul(addrs, 10, &ic_wait_post);
++
++	return 1;
++}
++
+ __setup("ip=", ip_auto_config_setup);
++__setup("ipwait=", ipwait_setup);
+ __setup("nfsaddrs=", nfsaddrs_config_setup);
+ __setup("dhcpclass=", vendor_class_identifier_setup);
+-- 
+1.6.1.2.MVISTA.5.ga9f3b
 
