@@ -1,231 +1,300 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: sparc: struct device - replace bus_id with dev_name(),
- dev_set_name()
-Date: Thu, 16 Apr 2009 18:21:52 +0200
-Message-ID: <1239898912.17211.7.camel@poy>
-References: <ac3eb2510811070033m108d8ed5t499c20ee02b2618f@mail.gmail.com>
-	 <20081107.013833.147302570.davem@davemloft.net>
-	 <ac3eb2510903270521i113df787u7ac5d842ece83740@mail.gmail.com>
-	 <20090327.172743.30040617.davem@davemloft.net>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [tree] latest kill-the-BKL tree, v12
+Date: Thu, 16 Apr 2009 18:40:25 +0200
+Message-ID: <20090416164024.GJ6004@nowhere>
+References: <1239680065-25013-1-git-send-email-fweisbec@gmail.com> <20090414045109.GA26908@orion> <20090414090146.GH27003@elte.hu> <a4423d670904151558r4252c7eamd115793fb36a9163@mail.gmail.com> <20090415230736.GA22710@elte.hu> <20090415233533.GA5962@nowhere> <20090416085153.GC9813@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Beregalov <a.beregalov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alessio Igor Bogani <abogani@texware.it>,
+	Jeff Mahoney <jeffm@suse.com>,
+	ReiserFS Development List <reiserfs-devel@vger.kernel.org>,
+	Chris Mason <chris.mason@oracle.com>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f169.google.com ([209.85.218.169]:41533 "EHLO
+Received: from mail-bw0-f169.google.com ([209.85.218.169]:57176 "EHLO
 	mail-bw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757162AbZDPQV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 12:21:59 -0400
-In-Reply-To: <20090327.172743.30040617.davem@davemloft.net>
+	with ESMTP id S1757453AbZDPQkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 12:40:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20090416085153.GC9813@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-03-27 at 17:27 -0700, David Miller wrote:
-> From: Kay Sievers <kay.sievers@vrfy.org>
-> Date: Fri, 27 Mar 2009 13:21:56 +0100
-> 
-> > it took a while, but it happened now, so this issue is coming back. :)
-> > 
-> > The name size limit is gone, there is no BUS_ID_SIZE thing anymore in
-> > the driver core. BUS_ID_SIZE should go away in the 2.6.30 timeframe.
-> > 
-> > Could you please convert/remove BUS_ID_SIZE value from:
-> >   drivers/net/gianfar.h:	char	phy_bus_id[BUS_ID_SIZE];
-> >   drivers/net/ucc_geth.h:	char phy_bus_id[BUS_ID_SIZE];
-> >   drivers/net/pasemi_mac.h:	char	phy_id[BUS_ID_SIZE];
-> >   include/linux/phy.h:#define MII_BUS_ID_SIZE	(BUS_ID_SIZE - 3)
-> >   include/linux/phy.h:	char bus_id[BUS_ID_SIZE];
-> > 
-> > Or let me know how you want to convert it, so I can do it?
-> 
-> Thanks a lot Kay, I'll look into these cases and take care
-> of it.
+On Thu, Apr 16, 2009 at 10:51:53AM +0200, Ingo Molnar wrote:
+>=20
+> * Frederic Weisbecker <fweisbec@gmail.com> wrote:
+>=20
+> > On Thu, Apr 16, 2009 at 01:07:36AM +0200, Ingo Molnar wrote:
+> > >=20
+> > > * Alexander Beregalov <a.beregalov@gmail.com> wrote:
+> > >=20
+> > > > 2009/4/14 Ingo Molnar <mingo@elte.hu>:
+> > > > >
+> > > > > * Alexander Beregalov <a.beregalov@gmail.com> wrote:
+> > > > >
+> > > > >> On Tue, Apr 14, 2009 at 05:34:22AM +0200, Frederic Weisbecke=
+r wrote:
+> > > > >> > Ingo,
+> > > > >> >
+> > > > >> > This small patchset fixes some deadlocks I've faced after =
+trying
+> > > > >> > some pressures with dbench on a reiserfs partition.
+> > > > >> >
+> > > > >> > There is still some work pending such as adding some check=
+s to ensure we
+> > > > >> > _always_ release the lock before sleeping, as you suggeste=
+d.
+> > > > >> > Also I have to fix a lockdep warning reported by Alessio I=
+gor Bogani.
+> > > > >> > And also some optimizations....
+> > > > >> >
+> > > > >> > Thanks,
+> > > > >> > Frederic.
+> > > > >> >
+> > > > >> > Frederic Weisbecker (3):
+> > > > >> > =A0 kill-the-BKL/reiserfs: provide a tool to lock only onc=
+e the write lock
+> > > > >> > =A0 kill-the-BKL/reiserfs: lock only once in reiserfs_trun=
+cate_file
+> > > > >> > =A0 kill-the-BKL/reiserfs: only acquire the write lock onc=
+e in
+> > > > >> > =A0 =A0 reiserfs_dirty_inode
+> > > > >> >
+> > > > >> > =A0fs/reiserfs/inode.c =A0 =A0 =A0 =A0 | =A0 10 +++++++---
+> > > > >> > =A0fs/reiserfs/lock.c =A0 =A0 =A0 =A0 =A0| =A0 26 ++++++++=
+++++++++++++++++++
+> > > > >> > =A0fs/reiserfs/super.c =A0 =A0 =A0 =A0 | =A0 15 +++++++++-=
+-----
+> > > > >> > =A0include/linux/reiserfs_fs.h | =A0 =A02 ++
+> > > > >> > =A04 files changed, 44 insertions(+), 9 deletions(-)
+> > > > >> >
+> > > > >>
+> > > > >> Hi
+> > > > >>
+> > > > >> The same test - dbench on reiserfs on loop on sparc64.
+> > > > >>
+> > > > >> [ INFO: possible circular locking dependency detected ]
+> > > > >> 2.6.30-rc1-00457-gb21597d-dirty #2
+> > > > >
+> > > > > I'm wondering ... your version hash suggests you used vanilla
+> > > > > upstream as a base for your test. There's a string of other f=
+ixes
+> > > > > from Frederic in tip:core/kill-the-BKL branch, have you picke=
+d them
+> > > > > all up when you did your testing?
+> > > > >
+> > > > > The most coherent way to test this would be to pick up the la=
+test
+> > > > > core/kill-the-BKL git tree from:
+> > > > >
+> > > > > =A0 git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2=
+=2E6-tip.git core/kill-the-BKL
+> > > > >
+> > > >=20
+> > > > I did not know about this branch, now I am testing it and there=
+ is=20
+> > > > no more problem with that testcase (dbench).
+> > > >=20
+> > > > I will continue testing.
+> > >=20
+> > > thanks for testing it! It seems reiserfs with Frederic's changes=20
+> > > appears to be more stable now on your system.
+> >=20
+> >=20
+> >=20
+> >=20
+> > Yeah, thanks a lot for this testing!
+> >=20
+> >=20
+> > =20
+> > > I saw your NFS circular locking kill-the-BKL problem report on LK=
+ML=20
+> > > - also attached below.
+> > >=20
+> > > Hopefully someone on the Cc: list with NFS experience can point o=
+ut=20
+> > > the BKL assumption that is causing this.
+> > >=20
+> > > 	Ingo
+> > >=20
+> > > ----- Forwarded message from Alexander Beregalov <a.beregalov@gma=
+il.com> -----
+> > >=20
+> > > Date: Wed, 15 Apr 2009 22:08:01 +0400
+> > > From: Alexander Beregalov <a.beregalov@gmail.com>
+> > > To: linux-kernel <linux-kernel@vger.kernel.org>,
+> > > 	Ingo Molnar <mingo@elte.hu>, linux-nfs@vger.kernel.org
+> > > Subject: [core/kill-the-BKL] nfs3: possible circular locking depe=
+ndency
+> > >=20
+> > > Hi
+> > >=20
+> > > I have pulled core/kill-the-BKL on top of 2.6.30-rc2.
+> > >=20
+> > > device: '0:18': device_add
+> > >=20
+> > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > > [ INFO: possible circular locking dependency detected ]
+> > > 2.6.30-rc2-00057-g30aa902-dirty #5
+> > > -------------------------------------------------------
+> > > mount.nfs/1740 is trying to acquire lock:
+> > >  (kernel_mutex){+.+.+.}, at: [<00000000006f32dc>] lock_kernel+0x2=
+8/0x3c
+> > >=20
+> > > but task is already holding lock:
+> > >  (&type->s_umount_key#24/1){+.+.+.}, at: [<00000000004b88a0>] sge=
+t+0x228/0x36c
+> > >=20
+> > > which lock already depends on the new lock.
+> > >=20
+> > >=20
+> > > the existing dependency chain (in reverse order) is:
+> > >=20
+> > > -> #1 (&type->s_umount_key#24/1){+.+.+.}:
+> > >        [<00000000004776d0>] lock_acquire+0x5c/0x74
+> > >        [<0000000000469f5c>] down_write_nested+0x38/0x50
+> > >        [<00000000004b88a0>] sget+0x228/0x36c
+> > >        [<00000000005688fc>] nfs_get_sb+0x80c/0xa7c
+> > >        [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
+> > >        [<00000000004b7f84>] do_kern_mount+0x30/0xcc
+> > >        [<00000000004cf300>] do_mount+0x7c8/0x80c
+> > >        [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
+> > >        [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
+> > >=20
+> > > -> #0 (kernel_mutex){+.+.+.}:
+> > >        [<00000000004776d0>] lock_acquire+0x5c/0x74
+> > >        [<00000000006f0ebc>] mutex_lock_nested+0x48/0x380
+> > >        [<00000000006f32dc>] lock_kernel+0x28/0x3c
+> > >        [<00000000006d20ec>] rpc_wait_bit_killable+0x64/0x8c
+> > >        [<00000000006f0620>] __wait_on_bit+0x64/0xc0
+> > >        [<00000000006f06e4>] out_of_line_wait_on_bit+0x68/0x7c
+> > >        [<00000000006d2938>] __rpc_execute+0x150/0x2b4
+> > >        [<00000000006d2ac0>] rpc_execute+0x24/0x34
+> > >        [<00000000006cc338>] rpc_run_task+0x64/0x74
+> > >        [<00000000006cc474>] rpc_call_sync+0x58/0x7c
+> > >        [<00000000005717b0>] nfs3_rpc_wrapper+0x24/0xa0
+> > >        [<0000000000572024>] do_proc_get_root+0x6c/0x10c
+> > >        [<00000000005720dc>] nfs3_proc_get_root+0x18/0x5c
+> > >        [<000000000056401c>] nfs_get_root+0x34/0x17c
+> > >        [<0000000000568adc>] nfs_get_sb+0x9ec/0xa7c
+> > >        [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
+> > >        [<00000000004b7f84>] do_kern_mount+0x30/0xcc
+> > >        [<00000000004cf300>] do_mount+0x7c8/0x80c
+> > >        [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
+> > >        [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
+> >=20
+> >=20
+> >=20
+> >=20
+> > This is still the dependency between bkl and s_umount_key that has=20
+> > been reported recently. I wonder if this is not a problem in the=20
+> > fs layer. I should investigate on it.
+>=20
+> The problem seem to be that this NFS call context:
+>=20
+> -> #0 (kernel_mutex){+.+.+.}:
+>        [<00000000004776d0>] lock_acquire+0x5c/0x74
+>        [<00000000006f0ebc>] mutex_lock_nested+0x48/0x380
+>        [<00000000006f32dc>] lock_kernel+0x28/0x3c
+>        [<00000000006d20ec>] rpc_wait_bit_killable+0x64/0x8c
+>        [<00000000006f0620>] __wait_on_bit+0x64/0xc0
+>        [<00000000006f06e4>] out_of_line_wait_on_bit+0x68/0x7c
+>        [<00000000006d2938>] __rpc_execute+0x150/0x2b4
+>        [<00000000006d2ac0>] rpc_execute+0x24/0x34
+>        [<00000000006cc338>] rpc_run_task+0x64/0x74
+>        [<00000000006cc474>] rpc_call_sync+0x58/0x7c
+>        [<00000000005717b0>] nfs3_rpc_wrapper+0x24/0xa0
+>        [<0000000000572024>] do_proc_get_root+0x6c/0x10c
+>        [<00000000005720dc>] nfs3_proc_get_root+0x18/0x5c
+>        [<000000000056401c>] nfs_get_root+0x34/0x17c
+>        [<0000000000568adc>] nfs_get_sb+0x9ec/0xa7c
+>        [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
+>        [<00000000004b7f84>] do_kern_mount+0x30/0xcc
+>        [<00000000004cf300>] do_mount+0x7c8/0x80c
+>        [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
+>        [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
+>=20
+> Can be called with the BKL held - and then it schedule()s with the=20
+> BKL held, creating dependencies. I did the quick hack below (a year=20
+> ago! :-) but indeed that's probably wrong: we just drop and then=20
+> re-acquire the BKL at a very low level - inverting the dependency=20
+> chain.
 
-This moves the 20 into the netdevice header, we need to get rid
-of the driver core define now, otherwise people start adding new
-code using it, and we want to finish this thankless job finally. :)
 
-Thanks,
-Kay
+Indeed, the problem remains if we do that :-)
 
 
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: net: remove driver-core BUS_ID_SIZE
+> It's not a problem of the NFS code, it's the probem of=20
+> vfs_kern_mount taking the BKL.
 
-The name size limit is gone from the driver-core, the BUS_ID_SIZE
-value will be removed.
 
-This moves the BUS_ID_SIZE limit to the netdevice as NET_BUS_ID_SIZE.
-The limit can probably removed after review and possible adaption of
-the netdevice code.
+Yes, and I think the idea of Alessio to remove the Bkl at this level
+is the right way. Even though this patch is beeing discussed, I
+think it opened the right direction to dig.
 
-Cc: davem@davemloft.net
-Cc: netdev@vger.kernel.org
-Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
-Signed-off-by: Kay Sievers <kay.sievers@vrfy.org>
----
- drivers/net/arm/ixp4xx_eth.c |    4 ++--
- drivers/net/cpmac.c          |    2 +-
- drivers/net/fec_mpc52xx.c    |    2 +-
- drivers/net/gianfar.h        |    2 +-
- drivers/net/pasemi_mac.h     |    2 +-
- drivers/net/sh_eth.c         |    2 +-
- drivers/net/ucc_geth.h       |    2 +-
- include/linux/netdevice.h    |    3 +++
- include/linux/phy.h          |    5 +++--
- net/core/net-sysfs.c         |    2 +-
- net/wireless/nl80211.c       |    2 +-
- 11 files changed, 16 insertions(+), 12 deletions(-)
 
---- a/drivers/net/arm/ixp4xx_eth.c
-+++ b/drivers/net/arm/ixp4xx_eth.c
-@@ -1149,7 +1149,7 @@ static int __devinit eth_init_one(struct
- 	struct net_device *dev;
- 	struct eth_plat_info *plat = pdev->dev.platform_data;
- 	u32 regs_phys;
--	char phy_id[BUS_ID_SIZE];
-+	char phy_id[NET_BUS_ID_SIZE];
- 	int err;
- 
- 	if (!(dev = alloc_etherdev(sizeof(struct port))))
-@@ -1212,7 +1212,7 @@ static int __devinit eth_init_one(struct
- 	__raw_writel(DEFAULT_CORE_CNTRL, &port->regs->core_control);
- 	udelay(50);
- 
--	snprintf(phy_id, BUS_ID_SIZE, PHY_ID_FMT, "0", plat->phy);
-+	snprintf(phy_id, NET_BUS_ID_SIZE, PHY_ID_FMT, "0", plat->phy);
- 	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link, 0,
- 				   PHY_INTERFACE_MODE_MII);
- 	if (IS_ERR(port->phydev)) {
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -202,7 +202,7 @@ struct cpmac_priv {
- 	void __iomem *regs;
- 	struct mii_bus *mii_bus;
- 	struct phy_device *phy;
--	char phy_name[BUS_ID_SIZE];
-+	char phy_name[NET_BUS_ID_SIZE];
- 	int oldlink, oldspeed, oldduplex;
- 	u32 msg_enable;
- 	struct net_device *dev;
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -215,7 +215,7 @@ static int mpc52xx_fec_init_phy(struct n
- {
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
- 	struct phy_device *phydev;
--	char phy_id[BUS_ID_SIZE];
-+	char phy_id[NET_BUS_ID_SIZE];
- 
- 	snprintf(phy_id, sizeof(phy_id), "%x:%02x",
- 			(unsigned int)dev->base_addr, priv->phy_addr);
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -779,7 +779,7 @@ struct gfar_private {
- 	spinlock_t bflock;
- 
- 	phy_interface_t interface;
--	char	phy_bus_id[BUS_ID_SIZE];
-+	char	phy_bus_id[NET_BUS_ID_SIZE];
- 	u32 device_flags;
- 	unsigned char rx_csum_enable:1,
- 		extended_hash:1,
---- a/drivers/net/pasemi_mac.h
-+++ b/drivers/net/pasemi_mac.h
-@@ -100,7 +100,7 @@ struct pasemi_mac {
- 	int	duplex;
- 
- 	unsigned int	msg_enable;
--	char	phy_id[BUS_ID_SIZE];
-+	char	phy_id[NET_BUS_ID_SIZE];
- };
- 
- /* Software status descriptor (ring_info) */
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -804,7 +804,7 @@ static void sh_eth_adjust_link(struct ne
- static int sh_eth_phy_init(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
--	char phy_id[BUS_ID_SIZE];
-+	char phy_id[NET_BUS_ID_SIZE];
- 	struct phy_device *phydev = NULL;
- 
- 	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
---- a/drivers/net/ucc_geth.h
-+++ b/drivers/net/ucc_geth.h
-@@ -1100,7 +1100,7 @@ struct ucc_geth_info {
- 	u32 eventRegMask;
- 	u16 pausePeriod;
- 	u16 extensionField;
--	char phy_bus_id[BUS_ID_SIZE];
-+	char phy_bus_id[NET_BUS_ID_SIZE];
- 	u8 weightfactor[NUM_TX_QUEUES];
- 	u8 interruptcoalescingmaxvalue[NUM_RX_QUEUES];
- 	u8 l2qt[UCC_GETH_VLAN_PRIORITY_MAX];
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -93,6 +93,9 @@ struct wireless_dev;
- 
- #ifdef  __KERNEL__
- 
-+/* old driver core device name limit */
-+#define NET_BUS_ID_SIZE		20
-+
- /*
-  *	Compute the worst case header length according to the protocols
-  *	used.
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -20,6 +20,7 @@
- 
- #include <linux/spinlock.h>
- #include <linux/device.h>
-+#include <linux/netdevice.h>
- #include <linux/ethtool.h>
- #include <linux/mii.h>
- #include <linux/timer.h>
-@@ -79,7 +80,7 @@ typedef enum {
-  * Need to be a little smaller than phydev->dev.bus_id to leave room
-  * for the ":%02x"
-  */
--#define MII_BUS_ID_SIZE	(BUS_ID_SIZE - 3)
-+#define MII_BUS_ID_SIZE	(NET_BUS_ID_SIZE - 3)
- 
- /*
-  * The Bus class for PHYs.  Devices which provide access to
-@@ -407,7 +408,7 @@ struct phy_driver {
- /* A Structure for boards to register fixups with the PHY Lib */
- struct phy_fixup {
- 	struct list_head list;
--	char bus_id[BUS_ID_SIZE];
-+	char bus_id[NET_BUS_ID_SIZE];
- 	u32 phy_uid;
- 	u32 phy_uid_mask;
- 	int (*run)(struct phy_device *phydev);
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -497,7 +497,7 @@ int netdev_register_kobject(struct net_d
- 	dev->platform_data = net;
- 	dev->groups = groups;
- 
--	BUILD_BUG_ON(BUS_ID_SIZE < IFNAMSIZ);
-+	BUILD_BUG_ON(NET_BUS_ID_SIZE < IFNAMSIZ);
- 	dev_set_name(dev, "%s", net->name);
- 
- #ifdef CONFIG_SYSFS
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -57,7 +57,7 @@ static int get_drv_dev_by_info_ifindex(s
- static struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] __read_mostly = {
- 	[NL80211_ATTR_WIPHY] = { .type = NLA_U32 },
- 	[NL80211_ATTR_WIPHY_NAME] = { .type = NLA_NUL_STRING,
--				      .len = BUS_ID_SIZE-1 },
-+				      .len = NET_BUS_ID_SIZE-1 },
- 	[NL80211_ATTR_WIPHY_TXQ_PARAMS] = { .type = NLA_NESTED },
- 	[NL80211_ATTR_WIPHY_FREQ] = { .type = NLA_U32 },
- 	[NL80211_ATTR_WIPHY_CHANNEL_TYPE] = { .type = NLA_U32 },
+> Maybe it would be better if nfs_get_sb() dropped the BKL (knowing=20
+> that it's called with the BKL held) - since it does not rely on the=20
+> BKL? Not rpc_wait_bit_killable().
 
+
+I wonder if it is not dropped because it implicitly protects something =
+else.
+May be simply concurrent accesses to the superblock?
+
+=46rederic.
+
+
+> 	Ingo
+>=20
+> -------------->
+> From 352e0d25def53e6b36234e4dc2083ca7f5d712a9 Mon Sep 17 00:00:00 200=
+1
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Wed, 14 May 2008 17:31:41 +0200
+> Subject: [PATCH] remove the BKL: restructure NFS code
+>=20
+> the naked schedule() in rpc_wait_bit_killable() caused the BKL to
+> be auto-dropped in the past.
+>=20
+> avoid the immediate hang in such code. Note that this still leaves
+> some other locking dependencies to be sorted out in the NFS code.
+>=20
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> ---
+>  net/sunrpc/sched.c |    6 ++++++
+>  1 files changed, 6 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
+> index 6eab9bf..e12e571 100644
+> --- a/net/sunrpc/sched.c
+> +++ b/net/sunrpc/sched.c
+> @@ -224,9 +224,15 @@ EXPORT_SYMBOL_GPL(rpc_destroy_wait_queue);
+> =20
+>  static int rpc_wait_bit_killable(void *word)
+>  {
+> +	int bkl =3D kernel_locked();
+> +
+>  	if (fatal_signal_pending(current))
+>  		return -ERESTARTSYS;
+> +	if (bkl)
+> +		unlock_kernel();
+>  	schedule();
+> +	if (bkl)
+> +		lock_kernel();
+
+
+Yeah as you said, it may not drop but invert the dependency.
+
+
+>  	return 0;
+>  }
+> =20
 
