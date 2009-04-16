@@ -1,49 +1,38 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Wed, 15 Apr 2009 17:02:57 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904151659360.4042@localhost.localdomain>
-References: <49E5BDF7.8090502@trash.net> <20090415135526.2afc4d18@nehalam> <49E64C91.5020708@cosmosbay.com> <20090415.164811.19905145.davem@davemloft.net>
+Date: Wed, 15 Apr 2009 17:10:19 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>
+References: <49E5BDF7.8090502@trash.net> <20090415135526.2afc4d18@nehalam> <49E64C91.5020708@cosmosbay.com> <20090415.164811.19905145.davem@davemloft.net> <20090415170111.6e1ca264@nehalam>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dada1@cosmosbay.com, shemminger@vyatta.com, kaber@trash.net,
-	jeff.chua.linux@gmail.com, paulmck@linux.vnet.ibm.com,
-	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090415.164811.19905145.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	kaber@trash.net, jeff.chua.linux@gmail.com,
+	paulmck@linux.vnet.ibm.com, paulus@samba.org, mingo@elte.hu,
+	laijs@cn.fujitsu.com, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48829 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754379AbZDPAUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 20:20:14 -0400
+In-Reply-To: <20090415170111.6e1ca264@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On Wed, 15 Apr 2009, David Miller wrote:
+On Wed, 15 Apr 2009, Stephen Hemminger wrote:
 > 
-> I really think we should entertain the idea where we don't RCU quiesce
-> when adding rules.  That was dismissed as not workable because the new
-> rule must be "visible" as soon as we return to userspace but let's get
-> real, effectively it will be.
+> The counters are the bigger problem, otherwise we could just free table
+> info via rcu.  Do we really have to support: replace where the counter
+> values coming out to user space are always exactly accurate, or is it
+> allowed to replace a rule and maybe lose some counter ticks (worst case
+> NCPU-1).
 
-I never understood that dismissal.
+Why not just read the counters fromt he old one at RCU free time (they are 
+guaranteed to be stable at that point, since we're all done with those 
+entries), and apply them at that point to the current setup?
 
-The new rule _will_ be visible as we return to user space. It's just that 
-old packets may still be in flight in other queues.
-
-But that is true even _without_ the "synchronize_net()". The old packets 
-just had to make it slightly further in the queueing - but as far as user 
-space is concerned, there is absolutely _zero_ difference between the two. 
-In both cases it may see packets queued with the old rules. 
-
-> I almost cringed when the per-spinlock idea was proposed, but per-cpu
-> rwlocks just takes things too far for my tastes.
-
-I really personally would prefer the RCU approach too. I don't think 
-rwlocks are any more cringe-worthy than spinlocks, although it is true 
-that they tend to be slightly more expensive.
-
-The pure RCU "just get rid of the unnecessary 'serialze_net()'" approach 
-seems to be clearly superior to either.
-
-		Linus
+			Linus
