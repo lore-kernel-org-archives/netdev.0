@@ -1,42 +1,50 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Thu, 16 Apr 2009 15:12:43 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904161508520.15835@qirst.com>
-References: <alpine.DEB.1.10.0904161035390.19650@qirst.com> <20090416151504.GA28978@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904161136220.15629@qirst.com> <20090416174422.GB28978@hmsreliant.think-freely.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29
+Date: Thu, 16 Apr 2009 21:29:02 +0200
+Message-ID: <49E786FE.6090304@cosmosbay.com>
+References: <alpine.DEB.1.10.0904161151330.13531@qirst.com> <49E76906.2060205@hp.com> <alpine.DEB.1.10.0904161504090.15835@qirst.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	vladislav.yasevich@hp.com, dlstevens@us.ibm.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:41552 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503AbZDPTTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 15:19:51 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 5D53082C270
-	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 15:29:45 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id P15hN5UJA11D for <netdev@vger.kernel.org>;
-	Thu, 16 Apr 2009 15:29:45 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id A419E82C283
-	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 15:29:40 -0400 (EDT)
-In-Reply-To: <20090416174422.GB28978@hmsreliant.think-freely.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:56906 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391AbZDPT3s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 15:29:48 -0400
+In-Reply-To: <alpine.DEB.1.10.0904161504090.15835@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Apr 2009, Neil Horman wrote:
+Christoph Lameter a =E9crit :
+> On Thu, 16 Apr 2009, Rick Jones wrote:
+>=20
+>> Does udpping have a concept of service demand a la netperf?  That co=
+uld help
+>> show how much was code bloat vs say some tweak to interrupt coalesci=
+ng
+>> parameters in the NIC/driver.
+>=20
+> No. What does service on demand mean? The ping pong tests are very si=
+mple
+> back and forths without any streaming or overlay.
+> --
 
-> I'm sorry, I misread it (confused the definiton of a bitfield with its default
-> value.  As Dave noted, the default needs to be the current behavior, not your
-> new behavior.  Until thats changed, I rescind my Ack
+Would be good to measure a ping flood, because this one doesnt
+need wakeup of a user process on the remote side.
 
-Well guess then we need the global proc setting after all. With the
-current misbehavior as a default applications need to be rebuilt and
-source code that is running on multiple OSes now would have to customized
-to special case for Linux.
 
-So add a global proc setting to determine the initial setting of IP_MULTICAST_ALL?
+$ ping -f 192.168.20.112 -c 10000
+PING 192.168.20.112 (192.168.20.112) 56(84) bytes of data.
+
+--- 192.168.20.112 ping statistics ---
+10000 packets transmitted, 10000 received, 0% packet loss, time 3337ms
+rtt min/avg/max/mdev =3D 0.072/0.184/20.011/1.389 ms, pipe 2, ipg/ewma =
+0.333/0.078 ms
+
+and check if various kernel versions already give you different values =
+(for avg)
+
+When you perform your test, you upgrade kernels of both machines ?
 
