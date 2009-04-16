@@ -1,42 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: An inconsistency/bug in ingress netem timestamps
-Date: Thu, 16 Apr 2009 03:10:34 -0700 (PDT)
-Message-ID: <20090416.031034.41207844.davem@davemloft.net>
-References: <20090415195022.GA3322@ami.dom.local>
-	<200904151610.43980.alexandre.sidorenko@hp.com>
+From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Subject: Re: [PATCH] macb: Add support of the netpoll API
+Date: Thu, 16 Apr 2009 12:31:02 +0200
+Message-ID: <20090416123102.6a5453b4@hskinnemoen-d830>
+References: <20090415154658.40e3639a@surf>
+	<20090416110753.5c75b805@hskinnemoen-d830>
+	<20090416112435.0b779859@surf>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org
-To: alexandre.sidorenko@hp.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Michael Opdenacker <michael@free-electrons.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50694
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752464AbZDPKKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 06:10:43 -0400
-In-Reply-To: <200904151610.43980.alexandre.sidorenko@hp.com>
+Received: from relay.atmel.no ([80.232.32.139]:60562 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751579AbZDPKbJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 06:31:09 -0400
+In-Reply-To: <20090416112435.0b779859@surf>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Sidorenko <alexandre.sidorenko@hp.com>
-Date: Wed, 15 Apr 2009 16:10:43 -0400
+Thomas Petazzoni wrote:
+> Le Thu, 16 Apr 2009 11:07:53 +0200,
+> Haavard Skinnemoen <haavard.skinnemoen@atmel.com> a =C3=A9crit :
+>=20
+> > Hmm...is this safe? What if printk() is called from the macb interr=
+upt
+> > handler? =20
+>=20
+> I'm not sure, but that strategy is used in most drivers supporting th=
+e
+> netpoll API (3c509.c, 8139cp.c, 8139too.c, b44.c, bfin_mac.c,
+> bnx2x_main.c, etc.). It also seems to be the way suggested by netpoll
+> author, http://oss.sgi.com/archives/netdev/2003-10/msg00800.html.
+>=20
+> disable_irq() only disables the macb IRQ line. Is that an issue for
+> printk() execution ?
 
-> On April 15, 2009 03:50:22 pm Jarek Poplawski wrote:
-> 
->> Isn't it when act_mirred calls dev_queue_xmit with dev_queue_xmit_nit?
->> But, as above mentioned, I doubt it's "updated properly" in this case.
-> 
-> I can see that dev_queue_xmit_nit calls net_timestamp(skb) unconditionally. I 
-> agree that to fix this properly we need to update tstamp in another place 
-> explicitly (in ifb or netem?).
+I'm worried about this potential deadlock:
+  macb_interrupt()
+  calls printk()
+  calls macb_poll_controller()
+  calls disable_irq()
+  calls synchronize_irq()
+  waits until macb_interrupt() returns, which will never happen
 
-Since IFB completely bypasses netif_rx() and netif_receive_skb() I
-think it should unconditionally set skb->tstamp.tv64 to zero and
-invoke net_timestamp()
+So I think it's safer to just use local_irq_save(). The interrupt
+handler shouldn't run for long anyway since it uses NAPI for RX
+processing, and it probably ought to use NAPI for TX processing too,
+eventually.
 
-This would match the behavior of loopback and tunnels, and in my
-opinion this is reasonable.  There will be virtually no overhead
-added unless timestamping is enabled via ping or similar, and in
-return we get what I think is correctness :-)
-
-This also means we need to export net_timestamp() to modules.
+Haavard
