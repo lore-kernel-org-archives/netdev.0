@@ -1,52 +1,77 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Thu, 16 Apr 2009 13:56:49 -0700
-Message-ID: <OF0F292ED0.17C084A6-ON8825759A.00718BFC-8825759A.00730FD8@us.ibm.com>
-References: <alpine.DEB.1.10.0904161508520.15835@qirst.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] tun: fix BUG with large packets without TUN_VNET_HDR
+Date: Thu, 16 Apr 2009 13:56:52 -0700
+Message-ID: <20090416135652.57afec63@nehalam>
+References: <20090416204556.GA5846@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	vladislav.yasevich@hp.com
-To: Christoph Lameter <cl@linux.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Max Krasnyansky <maxk@qualcomm.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:33867 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853AbZDPU4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 16:56:54 -0400
-In-Reply-To: <alpine.DEB.1.10.0904161508520.15835@qirst.com>
+Received: from mail.vyatta.com ([76.74.103.46]:55827 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751751AbZDPU47 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2009 16:56:59 -0400
+In-Reply-To: <20090416204556.GA5846@dhcp-1-124.tlv.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Well guess then we need the global proc setting after all. With the
-> current misbehavior as a default applications need to be rebuilt and
+On Thu, 16 Apr 2009 23:45:57 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-        The current behavior, as either your or Vlad's RFC quotes pointed
-out as easily as the history to go with it, is exactly the expected 
-behavior
-for decades. I think it is not misbehavior so much as your misconception,
-though a common one.
+> On a tap device, the linear part of skb must be at least ETH_HLEN,
+> otherwise eth_type_trans triggers BUG_ON in skb_pull(skb, ETH_HLEN).
+> This patch makes sure the linear part is always large enough.
+> 
+> Without the patch, tun sets the linear part size to 0 if TUN_VNET_HDR
+> is not set and the packet is too large to put in a linear skb,
+> which causes BUGs for me.
+> 
+> BTW, it seems that this behaviour has been there for a long while, since at
+> least v2.6.27 (commit f42157cb568c1eb02eca7df4da67553a9edae24a: tun: fallback
+> if skb_alloc() fails on big packets), but started triggering for me only in
+> v2.6.30-rc1, because of commit 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554 (tun:
+> Limit amount of queued packets per device), which made all large packets
+> non-linear.  Before that, most packets would still typically be linear until
+> memory gets fragmented, which hides the issue.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
 
-> source code that is running on multiple OSes now would have to 
-customized
-> to special case for Linux.
+Why not just use pskb_may_pull?
 
-        No, actually. If you write it for the current behavior, it'll work
-fine on an OS like Solaris that has departed from the original socket
-behavior. If you're sloppy and don't handle unexpected traffic, it'll be
-wrong on both-- you just won't know it until someone runs something with
-the same port and multicast address on your network and wrecks your app.
-
-> So add a global proc setting to determine the initial setting of 
-IP_MULTICAST_ALL?
-
-        This breaks unknown existing applications that are correctly
-written. I think it's clearly wrong to change the behavior of someone
-else's socket to match your idea of how it should've been done 25 years
-too late. An option that enables new behavior for your own socket, which
-must be a new app, is fine. Adding a socket option as part of a port
-is no great hurdle, and I'm guessing you aren't trying to run a Solaris
-binary on Linux. So what's the problem?
-
-                                                                +-DLS
-
+--- a/drivers/net/tun.c	2009-04-16 13:52:00.178013518 -0700
++++ b/drivers/net/tun.c	2009-04-16 13:55:47.227752328 -0700
+@@ -595,6 +595,9 @@ static __inline__ ssize_t tun_get_user(s
+ 
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case TUN_TUN_DEV:
++		if (!pskb_may_pull(skb, 1))
++			goto drop;
++
+ 		if (tun->flags & TUN_NO_PI) {
+ 			switch (skb->data[0] & 0xf0) {
+ 			case 0x40:
+@@ -604,6 +607,7 @@ static __inline__ ssize_t tun_get_user(s
+ 				pi.proto = htons(ETH_P_IPV6);
+ 				break;
+ 			default:
++			drop:
+ 				tun->dev->stats.rx_dropped++;
+ 				kfree_skb(skb);
+ 				return -EINVAL;
+@@ -615,6 +619,9 @@ static __inline__ ssize_t tun_get_user(s
+ 		skb->dev = tun->dev;
+ 		break;
+ 	case TUN_TAP_DEV:
++		if (!pskb_may_pull(skb, ETH_HLEN))
++			goto drop;
++
+ 		skb->protocol = eth_type_trans(skb, tun->dev);
+ 		break;
+ 	};
