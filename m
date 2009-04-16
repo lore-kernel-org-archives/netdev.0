@@ -1,36 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] Be explict with what we are !'ing in
- ixgbe_sfp_config_module_task()
-Date: Thu, 16 Apr 2009 16:27:33 -0700 (PDT)
-Message-ID: <20090416.162733.121413610.davem@davemloft.net>
-References: <20090416232225.18637.33348.stgit@localhost.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Thu, 16 Apr 2009 16:30:39 -0700
+Message-ID: <20090416163039.33d5eeed@nehalam>
+References: <49E7A0D2.60504@hp.com>
+	<OF5FEB5C36.3F71F1EC-ON8825759A.00785E5C-8825759A.007AEF72@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	akpm@linux-foundation.org, roel.kluin@gmail.com,
-	tony@bakeyournoodle.com
-To: jeffrey.t.kirsher@intel.com
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39241
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754022AbZDPX1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 19:27:41 -0400
-In-Reply-To: <20090416232225.18637.33348.stgit@localhost.localdomain>
+Received: from mail.vyatta.com ([76.74.103.46]:34611 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756297AbZDPXap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2009 19:30:45 -0400
+In-Reply-To: <OF5FEB5C36.3F71F1EC-ON8825759A.00785E5C-8825759A.007AEF72@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 16 Apr 2009 16:22:28 -0700
+On Thu, 16 Apr 2009 15:22:49 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-> GCC warns:
-> drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_sfp_config_module_task':
-> drivers/net/ixgbe/ixgbe_main.c:3920: warning: suggest parantheses around
-> operand of '!' or change '&' to '&&' or '!' to '~'
+> Vlad Yasevich wrote on 04/16/2009 02:19:14 PM:
 > 
-> Which I think is right.  Bracket to remove ambiguity.
+> > What seems to be happening though, is that there is an expectation that
+> > this behavior would change with advent of IGMPv3, which adds the 
+> additional
+> > filtering text.  Now, we could point out that there is no normative text
+> > that requires this filtering on groups, only on sources, but the 
+> expectation
+> > is still there.
 > 
-> Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>         I have no such expectation. :-) The additional filters are 
+> (already)
+> applied per-socket, but existing apps not using source filters behave as
+> they did before IGMPv3. That's what I'd expect.
+>         The RFC you quoted for SSM applies to only the SSM address space,
+> mentions this behavior explicitly as the norm for outside of that space,
+> and Linux doesn't support that RFC. If it did, it would include an
+> address range check as part of it.
+> 
+> > I wonder how BSD and Solaris got away with it?  They both filter on 
+> multicast
+> > groups and source addresses.  This is not meant as rhetorical or 
+> provocative,
+> > just genuinely wondering.
+> 
+>         I think in practice, it doesn't come up much. That's why people
+> seem so surprised to learn it works this way, and not the way they
+> thought it did after using it, sometimes for years. But the documentation
+> doesn't say a join limits what you receive on a socket, or that it
+> has to be the same socket you're doing I/O on; people simply assume it.
+> 
+>                                                                 +-DLS
 
-Applied, thanks.
+You could always use packet/socket filter to keep the packets from
+coming out to user space.
