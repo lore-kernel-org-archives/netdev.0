@@ -1,29 +1,53 @@
-From: David Miller <davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Thu, 16 Apr 2009 15:20:21 -0700 (PDT)
-Message-ID: <20090416.152021.03754751.davem@davemloft.net>
-References: <OF0F292ED0.17C084A6-ON8825759A.00718BFC-8825759A.00730FD8@us.ibm.com>
-	<49E7A0D2.60504@hp.com>
+Date: Thu, 16 Apr 2009 15:22:49 -0700
+Message-ID: <OF5FEB5C36.3F71F1EC-ON8825759A.00785E5C-8825759A.007AEF72@us.ibm.com>
+References: <49E7A0D2.60504@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, cl@linux.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, nhorman@tuxdriver.com
-To: vladislav.yasevich@hp.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53261
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753449AbZDPWU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 18:20:29 -0400
+Received: from e37.co.us.ibm.com ([32.97.110.158]:33904 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753516AbZDPWWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 18:22:52 -0400
 In-Reply-To: <49E7A0D2.60504@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Thu, 16 Apr 2009 17:19:14 -0400
+Vlad Yasevich wrote on 04/16/2009 02:19:14 PM:
 
-> I wonder how BSD and Solaris got away with it?  They both filter on
-> multicast groups and source addresses.  This is not meant as
-> rhetorical or provocative, just genuinely wondering.
+> What seems to be happening though, is that there is an expectation that
+> this behavior would change with advent of IGMPv3, which adds the 
+additional
+> filtering text.  Now, we could point out that there is no normative text
+> that requires this filtering on groups, only on sources, but the 
+expectation
+> is still there.
 
-Smaller user base.
+        I have no such expectation. :-) The additional filters are 
+(already)
+applied per-socket, but existing apps not using source filters behave as
+they did before IGMPv3. That's what I'd expect.
+        The RFC you quoted for SSM applies to only the SSM address space,
+mentions this behavior explicitly as the norm for outside of that space,
+and Linux doesn't support that RFC. If it did, it would include an
+address range check as part of it.
+
+> I wonder how BSD and Solaris got away with it?  They both filter on 
+multicast
+> groups and source addresses.  This is not meant as rhetorical or 
+provocative,
+> just genuinely wondering.
+
+        I think in practice, it doesn't come up much. That's why people
+seem so surprised to learn it works this way, and not the way they
+thought it did after using it, sometimes for years. But the documentation
+doesn't say a join limits what you receive on a socket, or that it
+has to be the same socket you're doing I/O on; people simply assume it.
+
+                                                                +-DLS
+
