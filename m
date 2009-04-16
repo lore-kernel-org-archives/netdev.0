@@ -1,44 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive spinlock  (v6)
-Date: Thu, 16 Apr 2009 18:59:07 +0200
-Message-ID: <49E763DB.1000706@trash.net>
-References: <49E5BDF7.8090502@trash.net> <20090415135526.2afc4d18@nehalam> <49E64C91.5020708@cosmosbay.com> <20090415.164811.19905145.davem@davemloft.net> <20090415170111.6e1ca264@nehalam> <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <20090415174551.529d241c@nehalam> <49E6BBA9.2030701@cosmosbay.com> <49E7384B.5020707@trash.net> <20090416144748.GB6924@linux.vnet.ibm.com> <49E75876.10509@cosmosbay.com> <alpine.LFD.2.00.0904160926520.4042@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, paulmck@linux.vnet.ibm.com,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
-	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904160926520.4042@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: netfilter 00/03: netfilter fixes
+Date: Thu, 16 Apr 2009 19:16:22 +0200 (MEST)
+Message-ID: <20090416171621.11406.78609.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:61767 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755463AbZDPRQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 13:16:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds wrote:
-> Guys, this whole discussion has just been filled with crazy crap. Can 
-> somebody even explain why we care so deeply about some counters for 
-> something that we just _deleted_ and that have random values anyway?
-> 
-> I can see the counters being interesting while a firewall is active, but I 
-> sure don't see what's so wonderfully interesting after-the-fact about a 
-> counter on something that NO LONGER EXISTS that it has to be somehow 
-> "exactly right".
+Hi Dave,
 
-They're copied to userspace after replacing the ruleset, associated with
-the rules that are still active after the change and then added to the
-current counters in a second operation. The end result is that the
-counters are accurate for rules not changed.
+the following three patches fix two netfilter bugs introduced during the merge
+window and re-add support for a feature that accidentally got dropped with the
+SAME target removal:
 
-> Show of hands, here: tell me a single use that really _requires_ those 
-> exact counters of a netfilter rule that got deleted and is no longer 
-> active?
+- a missing list initialization of the nf_log logger lists
 
-People use netfilter for accounting quite a lot. Having dynamic updates
-is also not uncommon, so this might actually matter.
+- a missing conversion to use the hlist_nulls list function in connection tracking
+  helper unregistration
+
+- support for persistent multi-range NAT mappings
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+
+Thanks!
 
 
+ include/net/netfilter/nf_nat.h      |    1 +
+ net/ipv4/netfilter/nf_nat_core.c    |    3 ++-
+ net/netfilter/nf_conntrack_helper.c |    2 +-
+ net/netfilter/nf_log.c              |    4 ++++
+ 4 files changed, 8 insertions(+), 2 deletions(-)
+
+Eric Dumazet (1):
+      netfilter: nf_log regression fix
+
+Patrick McHardy (2):
+      netfilter: nf_conntrack: fix crash when unloading helpers
+      netfilter: nf_nat: add support for persistent mappings
