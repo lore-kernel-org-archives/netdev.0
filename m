@@ -1,72 +1,137 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: remove superfluous call to synchronize_net()
-Date: Thu, 16 Apr 2009 20:43:24 +0200
-Message-ID: <49E77C4C.5060508@cosmosbay.com>
-References: <49E5FF5E.50409@cosmosbay.com> <20090415215454.GU6766@linux.vnet.ibm.com> <49E6C4C7.3050105@cosmosbay.com> <20090416155201.GF6924@linux.vnet.ibm.com> <49E756EB.7020003@cosmosbay.com> <20090416180231.GI6924@linux.vnet.ibm.com>
+From: "Gerard Kam" <gerardk5@verizon.net>
+Subject: RE: [PATCH 2/2] macb: process the RX ring regardless of interrupt status
+Date: Thu, 16 Apr 2009 11:41:57 -0700
+Message-ID: <4C1740923F034ABB8BFCC03E69B8E3AC@hobbes>
+References: <1239874331-9431-2-git-send-email-haavard.skinnemoen@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "'Nicolas Ferre'" <nicolas.ferre@atmel.com>,
+	"'Erik Waling'" <erik.waling@konftel.com>
+To: "'Haavard Skinnemoen'" <haavard.skinnemoen@atmel.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40753 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757178AbZDPSna convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 14:43:30 -0400
-In-Reply-To: <20090416180231.GI6924@linux.vnet.ibm.com>
+Received: from smtp104.vzn.mail.mud.yahoo.com ([68.142.199.252]:21347 "HELO
+	smtp104.vzn.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756609AbZDPSsn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2009 14:48:43 -0400
+In-reply-to: <1239874331-9431-2-git-send-email-haavard.skinnemoen@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul E. McKenney a =E9crit :
->=20
-> Please add a comment where the synchronize_rcu() used to be explainin=
-g why
-> it is not needed.  The poor slob who copies your code isn't going to =
-read
-> theh Documentation/RCU, he is just going to expect it to magically wo=
-rk.
->=20
-> With the synchronize_rcu(), it does just magically work.  Without the
-> synchronize_rcu(), you have to be careful.  Therefore, please add the
-> comment saying that care is required.
->=20
+Hi there
 
-Sorry Paul, I dont understand why I should put a comment to say :
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> Sent: Thursday, April 16, 2009 2:32 AM
 
-/*
- * Dont need to use synchronize_net() or call_rcu() or msleep(100) or
- * whatever function here because bla bla ...
- */
+> Fix this by scanning the ring no matter what flags are set in the
+> interrupt status register.
 
-We could add this comment in about 99% of all functions in linux kernel=
- ;)
+I've been using a similar patch to macb, however, it's to fix an issue with
+rotting packets.  I'm using kernel 2.6.25, and haven't updated this patch to
+a more recent kernel version.  Patch was developed with input from Travis
+Stratman, tstratman@emacinc.com.
 
-I checked inet6_register_protosw(struct inet_protosw *p)
-and it doesnt have this synchronize_rcu() neither the comment you advis=
-e...
 
-=46ollowing construct is obvious and should not be commented in code it=
-self.
+Fix for RX rotting packets.
 
-spin_lock_bh(&somelock);
-list_for_each(..., ...) {
-	if (some_condition) {
-		list_add_rcu(..., ...)
-or		rcu_assign_pointer(...)=20
-		break;
-	}
-}
-spin_unlock_bh(&somelock);
+diff -pruN a/drivers/net/macb.c b/drivers/net/macb.c
+--- a/drivers/net/macb.c	2008-05-18 22:21:53.000000000 -0700
++++ b/drivers/net/macb.c	2008-08-28 11:36:42.000000000 -0700
+@@ -508,40 +508,29 @@ static int macb_poll(struct napi_struct 
+ 	u32 status;
+ 
+ 	status = macb_readl(bp, RSR);
+-	macb_writel(bp, RSR, status);
+-
+-	work_done = 0;
+-	if (!status) {
+-		/*
+-		 * This may happen if an interrupt was pending before
+-		 * this function was called last time, and no packets
+-		 * have been received since.
+-		 */
+-		netif_rx_complete(dev, napi);
+-		goto out;
+-	}
++	macb_writel(bp, RSR, status);	/* not atomic read-clear! */
+ 
+ 	dev_dbg(&bp->pdev->dev, "poll: status = %08lx, budget = %d\n",
+ 		(unsigned long)status, budget);
+ 
+-	if (!(status & MACB_BIT(REC))) {
+-		dev_warn(&bp->pdev->dev,
+-			 "No RX buffers complete, status = %02lx\n",
+-			 (unsigned long)status);
+-		netif_rx_complete(dev, napi);
+-		goto out;
+-	}
+-
+ 	work_done = macb_rx(bp, budget);
+-	if (work_done < budget)
++	if ((work_done < budget) && !macb_readl(bp, RSR)) {
++		/*
++		 * We've done what we can to clean the buffers.
++		 * Make sure there's no new RX activity during transition
++		 * from poll mode back to interrupt mode.
++		 */
+ 		netif_rx_complete(dev, napi);
+-
+-	/*
+-	 * We've done what we can to clean the buffers. Make sure we
+-	 * get notified when new packets arrive.
+-	 */
+-out:
+-	macb_writel(bp, IER, MACB_RX_INT_FLAGS);
++		macb_writel(bp, IER, MACB_RX_INT_FLAGS);
++		status = macb_readl(bp, RSR);
++		if (status) {
++			/* new RX, undo the polling-done operations */
++			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
++			netif_rx_reschedule(dev, napi);
++			dev_dbg(&bp->pdev->dev, "poll: undo status =
+%08lx\n",
++				(unsigned long)status);
++		}
++	}
+ 
+ 	/* TODO: Handle errors */
+ 
+@@ -554,7 +543,7 @@ static irqreturn_t macb_interrupt(int ir
+ 	struct macb *bp = netdev_priv(dev);
+ 	u32 status;
+ 
+-	status = macb_readl(bp, ISR);
++	status = macb_readl(bp, ISR) & ~macb_readl(bp, IMR);
+ 
+ 	if (unlikely(!status))
+ 		return IRQ_NONE;
+@@ -578,7 +567,9 @@ static irqreturn_t macb_interrupt(int ir
+ 				dev_dbg(&bp->pdev->dev,
+ 					"scheduling RX softirq\n");
+ 				__netif_rx_schedule(dev, &bp->napi);
+-			}
++			} else
++				printk(KERN_ERR "%s: sched RX poll
+failed\n",
++					dev->name);
+ 		}
+ 
+ 		if (status & (MACB_BIT(TCOMP) | MACB_BIT(ISR_TUND)))
+@@ -598,7 +589,7 @@ static irqreturn_t macb_interrupt(int ir
+ 			       dev->name);
+ 		}
+ 
+-		status = macb_readl(bp, ISR);
++		status = macb_readl(bp, ISR) & ~macb_readl(bp, IMR);
+ 	}
+ 
+ 	spin_unlock(&bp->lock);
+--
 
-If it is not obvious, then it should be documented once in Documentatio=
-n/RCU, since
-we find hundred of similar code in kernel.
 
-On the contrary, places where we *use* synchronize_{rcu|net}() should g=
-et a comment
-to explain why this is really necessary since this function can be a re=
-al problem.
 
-Thanks
+ 
 
