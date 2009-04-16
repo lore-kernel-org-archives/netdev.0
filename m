@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 2/3] NET/e1000e: Fix powering off during
- shutdown
-Date: Thu, 16 Apr 2009 02:16:16 -0700 (PDT)
-Message-ID: <20090416.021616.173864254.davem@davemloft.net>
-References: <20090416034323.14634.30701.stgit@localhost.localdomain>
-	<20090416034343.14634.62484.stgit@localhost.localdomain>
+Subject: Re: [PATCH -next 1/3] ipw2x00: remove old compat_net_dev_ops code
+Date: Thu, 16 Apr 2009 02:24:19 -0700 (PDT)
+Message-ID: <20090416.022419.247109612.davem@davemloft.net>
+References: <1239818309-14899-1-git-send-email-a.beregalov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, rjw@sisk.pl
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: a.beregalov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44811
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40327
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753375AbZDPJQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 05:16:25 -0400
-In-Reply-To: <20090416034343.14634.62484.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752600AbZDPJY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 05:24:27 -0400
+In-Reply-To: <1239818309-14899-1-git-send-email-a.beregalov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 15 Apr 2009 20:43:43 -0700
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Wed, 15 Apr 2009 21:58:27 +0400
 
-> Prevent e1000e from putting the adapter into D3 during shutdown except when
-> we're going to power off the system, since doing that may generally cause
-> problems with kexec to happen (such problems were observed for igb and
-> forcedeth).  For this purpose seperate e1000e_shutdown() from e1000e_suspend()
-> and use the appropriate PCI PM callbacks in both of them.
+> Since both ipw2100 and ipw2200 are already converted to new
+> net_device_ops this code is useless.
 > 
-> Signed-off-by: "Rafael J. Wysocki" <rjw@sisk.pl>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 
 Applied.
