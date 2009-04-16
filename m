@@ -1,28 +1,50 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] ixgbe: missing parentheses
-Date: Thu, 16 Apr 2009 16:04:27 -0700 (PDT)
-Message-ID: <20090416.160427.51847460.davem@davemloft.net>
+Date: Thu, 16 Apr 2009 16:03:38 -0700 (PDT)
+Message-ID: <20090416.160338.35558187.davem@davemloft.net>
 References: <49E79D7C.2080200@gmail.com>
 	<20090416141610.ad8b9909.akpm@linux-foundation.org>
-	<A78C6259B11833419567082E2DC0C256CB288425@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, roel.kluin@gmail.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754511AbZDPXEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 19:04:36 -0400
-In-Reply-To: <A78C6259B11833419567082E2DC0C256CB288425@orsmsx508.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	roel.kluin@gmail.com, jeffrey.t.kirsher@intel.com
+To: akpm@linux-foundation.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090416141610.ad8b9909.akpm@linux-foundation.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Date: Thu, 16 Apr 2009 14:25:44 -0700
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 16 Apr 2009 14:16:10 -0700
 
-> Dave - Can we pull this fix into net-2.6?
+>> @@ -3946,7 +3946,7 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
+>>  	}
+>>  	hw->mac.ops.setup_sfp(hw);
+>>  
+>> -	if (!adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK)
+>> +	if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
+>>  		/* This will also work for DA Twinax connections */
+>>  		schedule_work(&adapter->multispeed_fiber_task);
+>>  	adapter->flags &= ~IXGBE_FLAG_IN_SFP_MOD_TASK;
+> 
+> This is fixed in linux-next, but hasn't been pushed to Linus yet.
 
-Just toss me a patch and I'll apply it directly.
+If I recall correctly, this got submitted to me as a net-next-2.6 only
+patch, which obviously isn't correct.
+
+Intel folks, please resubmit this to me for net-2.6 too, thanks.
+
+------------------------------------------------------------------------------
+Stay on top of everything new and different, both inside and 
+around Java (TM) technology - register by April 22, and save
+$200 on the JavaOne (SM) conference, June 2-5, 2009, San Francisco.
+300 plus technical and hands-on sessions. Register today. 
+Use priority code J9JMT32. http://p.sf.net/sfu/p
