@@ -1,416 +1,274 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Thu, 16 Apr 2009 16:50:22 +0800
-Message-ID: <20090416085022.GA19731@gondor.apana.org.au>
-References: <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [tree] latest kill-the-BKL tree, v12
+Date: Thu, 16 Apr 2009 10:51:53 +0200
+Message-ID: <20090416085153.GC9813@elte.hu>
+References: <1239680065-25013-1-git-send-email-fweisbec@gmail.com> <20090414045109.GA26908@orion> <20090414090146.GH27003@elte.hu> <a4423d670904151558r4252c7eamd115793fb36a9163@mail.gmail.com> <20090415230736.GA22710@elte.hu> <20090415233533.GA5962@nowhere>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gallatin@myri.com, brice@myri.com, sgruszka@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Beregalov <a.beregalov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alessio Igor Bogani <abogani@texware.it>,
+	Jeff Mahoney <jeffm@suse.com>,
+	ReiserFS Development List <reiserfs-devel@vger.kernel.org>,
+	Chris Mason <chris.mason@oracle.com>
+To: Frederic Weisbecker <fweisbec@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33578 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752509AbZDPIuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 04:50:44 -0400
+Received: from mx3.mail.elte.hu ([157.181.1.138]:47951 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751930AbZDPIwP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2009 04:52:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20090415.164248.188350673.davem@davemloft.net>
+In-Reply-To: <20090415233533.GA5962@nowhere>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2009 at 04:42:48PM -0700, David Miller wrote:
-> 
-> Herbert has been working on various optimizations to get
-> cxgb3 GRO performance on par with LRO.  Perhaps he has
-> some things for you to try :-)
 
-Yes, this patch should improve performace.  In fact, when you
-reopen the net-next tree feel free to put this patch in :)
+* Frederic Weisbecker <fweisbec@gmail.com> wrote:
 
-gro: New frags interface to avoid copying shinfo
+> On Thu, Apr 16, 2009 at 01:07:36AM +0200, Ingo Molnar wrote:
+> >=20
+> > * Alexander Beregalov <a.beregalov@gmail.com> wrote:
+> >=20
+> > > 2009/4/14 Ingo Molnar <mingo@elte.hu>:
+> > > >
+> > > > * Alexander Beregalov <a.beregalov@gmail.com> wrote:
+> > > >
+> > > >> On Tue, Apr 14, 2009 at 05:34:22AM +0200, Frederic Weisbecker =
+wrote:
+> > > >> > Ingo,
+> > > >> >
+> > > >> > This small patchset fixes some deadlocks I've faced after tr=
+ying
+> > > >> > some pressures with dbench on a reiserfs partition.
+> > > >> >
+> > > >> > There is still some work pending such as adding some checks =
+to ensure we
+> > > >> > _always_ release the lock before sleeping, as you suggested.
+> > > >> > Also I have to fix a lockdep warning reported by Alessio Igo=
+r Bogani.
+> > > >> > And also some optimizations....
+> > > >> >
+> > > >> > Thanks,
+> > > >> > Frederic.
+> > > >> >
+> > > >> > Frederic Weisbecker (3):
+> > > >> > =A0 kill-the-BKL/reiserfs: provide a tool to lock only once =
+the write lock
+> > > >> > =A0 kill-the-BKL/reiserfs: lock only once in reiserfs_trunca=
+te_file
+> > > >> > =A0 kill-the-BKL/reiserfs: only acquire the write lock once =
+in
+> > > >> > =A0 =A0 reiserfs_dirty_inode
+> > > >> >
+> > > >> > =A0fs/reiserfs/inode.c =A0 =A0 =A0 =A0 | =A0 10 +++++++---
+> > > >> > =A0fs/reiserfs/lock.c =A0 =A0 =A0 =A0 =A0| =A0 26 ++++++++++=
+++++++++++++++++
+> > > >> > =A0fs/reiserfs/super.c =A0 =A0 =A0 =A0 | =A0 15 +++++++++---=
+---
+> > > >> > =A0include/linux/reiserfs_fs.h | =A0 =A02 ++
+> > > >> > =A04 files changed, 44 insertions(+), 9 deletions(-)
+> > > >> >
+> > > >>
+> > > >> Hi
+> > > >>
+> > > >> The same test - dbench on reiserfs on loop on sparc64.
+> > > >>
+> > > >> [ INFO: possible circular locking dependency detected ]
+> > > >> 2.6.30-rc1-00457-gb21597d-dirty #2
+> > > >
+> > > > I'm wondering ... your version hash suggests you used vanilla
+> > > > upstream as a base for your test. There's a string of other fix=
+es
+> > > > from Frederic in tip:core/kill-the-BKL branch, have you picked =
+them
+> > > > all up when you did your testing?
+> > > >
+> > > > The most coherent way to test this would be to pick up the late=
+st
+> > > > core/kill-the-BKL git tree from:
+> > > >
+> > > > =A0 git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6=
+-tip.git core/kill-the-BKL
+> > > >
+> > >=20
+> > > I did not know about this branch, now I am testing it and there i=
+s=20
+> > > no more problem with that testcase (dbench).
+> > >=20
+> > > I will continue testing.
+> >=20
+> > thanks for testing it! It seems reiserfs with Frederic's changes=20
+> > appears to be more stable now on your system.
+>=20
+>=20
+>=20
+>=20
+> Yeah, thanks a lot for this testing!
+>=20
+>=20
+> =20
+> > I saw your NFS circular locking kill-the-BKL problem report on LKML=
+=20
+> > - also attached below.
+> >=20
+> > Hopefully someone on the Cc: list with NFS experience can point out=
+=20
+> > the BKL assumption that is causing this.
+> >=20
+> > 	Ingo
+> >=20
+> > ----- Forwarded message from Alexander Beregalov <a.beregalov@gmail=
+=2Ecom> -----
+> >=20
+> > Date: Wed, 15 Apr 2009 22:08:01 +0400
+> > From: Alexander Beregalov <a.beregalov@gmail.com>
+> > To: linux-kernel <linux-kernel@vger.kernel.org>,
+> > 	Ingo Molnar <mingo@elte.hu>, linux-nfs@vger.kernel.org
+> > Subject: [core/kill-the-BKL] nfs3: possible circular locking depend=
+ency
+> >=20
+> > Hi
+> >=20
+> > I have pulled core/kill-the-BKL on top of 2.6.30-rc2.
+> >=20
+> > device: '0:18': device_add
+> >=20
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D
+> > [ INFO: possible circular locking dependency detected ]
+> > 2.6.30-rc2-00057-g30aa902-dirty #5
+> > -------------------------------------------------------
+> > mount.nfs/1740 is trying to acquire lock:
+> >  (kernel_mutex){+.+.+.}, at: [<00000000006f32dc>] lock_kernel+0x28/=
+0x3c
+> >=20
+> > but task is already holding lock:
+> >  (&type->s_umount_key#24/1){+.+.+.}, at: [<00000000004b88a0>] sget+=
+0x228/0x36c
+> >=20
+> > which lock already depends on the new lock.
+> >=20
+> >=20
+> > the existing dependency chain (in reverse order) is:
+> >=20
+> > -> #1 (&type->s_umount_key#24/1){+.+.+.}:
+> >        [<00000000004776d0>] lock_acquire+0x5c/0x74
+> >        [<0000000000469f5c>] down_write_nested+0x38/0x50
+> >        [<00000000004b88a0>] sget+0x228/0x36c
+> >        [<00000000005688fc>] nfs_get_sb+0x80c/0xa7c
+> >        [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
+> >        [<00000000004b7f84>] do_kern_mount+0x30/0xcc
+> >        [<00000000004cf300>] do_mount+0x7c8/0x80c
+> >        [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
+> >        [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
+> >=20
+> > -> #0 (kernel_mutex){+.+.+.}:
+> >        [<00000000004776d0>] lock_acquire+0x5c/0x74
+> >        [<00000000006f0ebc>] mutex_lock_nested+0x48/0x380
+> >        [<00000000006f32dc>] lock_kernel+0x28/0x3c
+> >        [<00000000006d20ec>] rpc_wait_bit_killable+0x64/0x8c
+> >        [<00000000006f0620>] __wait_on_bit+0x64/0xc0
+> >        [<00000000006f06e4>] out_of_line_wait_on_bit+0x68/0x7c
+> >        [<00000000006d2938>] __rpc_execute+0x150/0x2b4
+> >        [<00000000006d2ac0>] rpc_execute+0x24/0x34
+> >        [<00000000006cc338>] rpc_run_task+0x64/0x74
+> >        [<00000000006cc474>] rpc_call_sync+0x58/0x7c
+> >        [<00000000005717b0>] nfs3_rpc_wrapper+0x24/0xa0
+> >        [<0000000000572024>] do_proc_get_root+0x6c/0x10c
+> >        [<00000000005720dc>] nfs3_proc_get_root+0x18/0x5c
+> >        [<000000000056401c>] nfs_get_root+0x34/0x17c
+> >        [<0000000000568adc>] nfs_get_sb+0x9ec/0xa7c
+> >        [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
+> >        [<00000000004b7f84>] do_kern_mount+0x30/0xcc
+> >        [<00000000004cf300>] do_mount+0x7c8/0x80c
+> >        [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
+> >        [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
+>=20
+>=20
+>=20
+>=20
+> This is still the dependency between bkl and s_umount_key that has=20
+> been reported recently. I wonder if this is not a problem in the=20
+> fs layer. I should investigate on it.
 
-It turns out that copying a 16-byte area at ~800k times a second
-can be really expensive :) This patch redesigns the frags GRO
-interface to avoid copying that area twice.
+The problem seem to be that this NFS call context:
 
-The two disciples of the frags interface have been converted.
+-> #0 (kernel_mutex){+.+.+.}:
+       [<00000000004776d0>] lock_acquire+0x5c/0x74
+       [<00000000006f0ebc>] mutex_lock_nested+0x48/0x380
+       [<00000000006f32dc>] lock_kernel+0x28/0x3c
+       [<00000000006d20ec>] rpc_wait_bit_killable+0x64/0x8c
+       [<00000000006f0620>] __wait_on_bit+0x64/0xc0
+       [<00000000006f06e4>] out_of_line_wait_on_bit+0x68/0x7c
+       [<00000000006d2938>] __rpc_execute+0x150/0x2b4
+       [<00000000006d2ac0>] rpc_execute+0x24/0x34
+       [<00000000006cc338>] rpc_run_task+0x64/0x74
+       [<00000000006cc474>] rpc_call_sync+0x58/0x7c
+       [<00000000005717b0>] nfs3_rpc_wrapper+0x24/0xa0
+       [<0000000000572024>] do_proc_get_root+0x6c/0x10c
+       [<00000000005720dc>] nfs3_proc_get_root+0x18/0x5c
+       [<000000000056401c>] nfs_get_root+0x34/0x17c
+       [<0000000000568adc>] nfs_get_sb+0x9ec/0xa7c
+       [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
+       [<00000000004b7f84>] do_kern_mount+0x30/0xcc
+       [<00000000004cf300>] do_mount+0x7c8/0x80c
+       [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
+       [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Can be called with the BKL held - and then it schedule()s with the=20
+BKL held, creating dependencies. I did the quick hack below (a year=20
+ago! :-) but indeed that's probably wrong: we just drop and then=20
+re-acquire the BKL at a very low level - inverting the dependency=20
+chain.
 
-diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
-index 714df2b..322434a 100644
---- a/drivers/net/cxgb3/adapter.h
-+++ b/drivers/net/cxgb3/adapter.h
-@@ -195,7 +195,7 @@ struct sge_qset {		/* an SGE queue set */
- 	struct sge_rspq rspq;
- 	struct sge_fl fl[SGE_RXQ_PER_SET];
- 	struct sge_txq txq[SGE_TXQ_PER_SET];
--	struct napi_gro_fraginfo lro_frag_tbl;
-+	int nomem;
- 	int lro_enabled;
- 	void *lro_va;
- 	struct net_device *netdev;
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 26d3587..73d569e 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -654,7 +654,8 @@ static void t3_reset_qset(struct sge_qset *q)
- 	q->txq_stopped = 0;
- 	q->tx_reclaim_timer.function = NULL; /* for t3_stop_sge_timers() */
- 	q->rx_reclaim_timer.function = NULL;
--	q->lro_frag_tbl.nr_frags = q->lro_frag_tbl.len = 0;
-+	q->nomem = 0;
-+	napi_free_frags(&q->napi);
- }
- 
- 
-@@ -2074,20 +2075,19 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
- 			 struct sge_fl *fl, int len, int complete)
+It's not a problem of the NFS code, it's the probem of=20
+vfs_kern_mount taking the BKL.
+
+Maybe it would be better if nfs_get_sb() dropped the BKL (knowing=20
+that it's called with the BKL held) - since it does not rely on the=20
+BKL? Not rpc_wait_bit_killable().
+
+	Ingo
+
+-------------->
+=46rom 352e0d25def53e6b36234e4dc2083ca7f5d712a9 Mon Sep 17 00:00:00 200=
+1
+=46rom: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 14 May 2008 17:31:41 +0200
+Subject: [PATCH] remove the BKL: restructure NFS code
+
+the naked schedule() in rpc_wait_bit_killable() caused the BKL to
+be auto-dropped in the past.
+
+avoid the immediate hang in such code. Note that this still leaves
+some other locking dependencies to be sorted out in the NFS code.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ net/sunrpc/sched.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
+index 6eab9bf..e12e571 100644
+--- a/net/sunrpc/sched.c
++++ b/net/sunrpc/sched.c
+@@ -224,9 +224,15 @@ EXPORT_SYMBOL_GPL(rpc_destroy_wait_queue);
+=20
+ static int rpc_wait_bit_killable(void *word)
  {
- 	struct rx_sw_desc *sd = &fl->sdesc[fl->cidx];
-+	struct sk_buff *skb = NULL;
- 	struct cpl_rx_pkt *cpl;
--	struct skb_frag_struct *rx_frag = qs->lro_frag_tbl.frags;
--	int nr_frags = qs->lro_frag_tbl.nr_frags;
--	int frag_len = qs->lro_frag_tbl.len;
-+	struct skb_frag_struct *rx_frag;
-+	int nr_frags;
- 	int offset = 0;
- 
--	if (!nr_frags) {
--		offset = 2 + sizeof(struct cpl_rx_pkt);
--		qs->lro_va = cpl = sd->pg_chunk.va + 2;
-+	if (!qs->nomem) {
-+		skb = napi_get_frags(&qs->napi);
-+		qs->nomem = !skb;
- 	}
- 
- 	fl->credits--;
- 
--	len -= offset;
- 	pci_dma_sync_single_for_cpu(adap->pdev,
- 				    pci_unmap_addr(sd, dma_addr),
- 				    fl->buf_size - SGE_PG_RSVD,
-@@ -2100,21 +2100,38 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
- 			       fl->alloc_size,
- 			       PCI_DMA_FROMDEVICE);
- 
-+	if (!skb) {
-+		put_page(sd->pg_chunk.page);
-+		if (complete)
-+			qs->nomem = 0;
-+		return;
-+	}
++	int bkl =3D kernel_locked();
 +
-+	rx_frag = skb_shinfo(skb)->frags;
-+	nr_frags = skb_shinfo(skb)->nr_frags;
-+
-+	if (!nr_frags) {
-+		offset = 2 + sizeof(struct cpl_rx_pkt);
-+		qs->lro_va = sd->pg_chunk.va + 2;
-+	}
-+	len -= offset;
-+
- 	prefetch(qs->lro_va);
- 
- 	rx_frag += nr_frags;
- 	rx_frag->page = sd->pg_chunk.page;
- 	rx_frag->page_offset = sd->pg_chunk.offset + offset;
- 	rx_frag->size = len;
--	frag_len += len;
--	qs->lro_frag_tbl.nr_frags++;
--	qs->lro_frag_tbl.len = frag_len;
- 
-+	skb->len += len;
-+	skb->data_len += len;
-+	skb->truesize += len;
-+	skb_shinfo(skb)->nr_frags++;
- 
- 	if (!complete)
- 		return;
- 
--	qs->lro_frag_tbl.ip_summed = CHECKSUM_UNNECESSARY;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	cpl = qs->lro_va;
- 
- 	if (unlikely(cpl->vlan_valid)) {
-@@ -2123,15 +2140,11 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
- 		struct vlan_group *grp = pi->vlan_grp;
- 
- 		if (likely(grp != NULL)) {
--			vlan_gro_frags(&qs->napi, grp, ntohs(cpl->vlan),
--				       &qs->lro_frag_tbl);
--			goto out;
-+			vlan_gro_frags(&qs->napi, grp, ntohs(cpl->vlan));
-+			return;
- 		}
- 	}
--	napi_gro_frags(&qs->napi, &qs->lro_frag_tbl);
--
--out:
--	qs->lro_frag_tbl.nr_frags = qs->lro_frag_tbl.len = 0;
-+	napi_gro_frags(&qs->napi);
+ 	if (fatal_signal_pending(current))
+ 		return -ERESTARTSYS;
++	if (bkl)
++		unlock_kernel();
+ 	schedule();
++	if (bkl)
++		lock_kernel();
+ 	return 0;
  }
- 
- /**
-@@ -2300,8 +2313,6 @@ no_mem:
- 			if (fl->use_pages) {
- 				void *addr = fl->sdesc[fl->cidx].pg_chunk.va;
- 
--				prefetch(&qs->lro_frag_tbl);
--
- 				prefetch(addr);
- #if L1_CACHE_BYTES < 128
- 				prefetch(addr + L1_CACHE_BYTES);
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index 66d7fe3..01f9432 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -450,17 +450,27 @@ static void efx_rx_packet_lro(struct efx_channel *channel,
- 
- 	/* Pass the skb/page into the LRO engine */
- 	if (rx_buf->page) {
--		struct napi_gro_fraginfo info;
-+		struct sk_buff *skb = napi_get_frags(napi);
- 
--		info.frags[0].page = rx_buf->page;
--		info.frags[0].page_offset = efx_rx_buf_offset(rx_buf);
--		info.frags[0].size = rx_buf->len;
--		info.nr_frags = 1;
--		info.ip_summed = CHECKSUM_UNNECESSARY;
--		info.len = rx_buf->len;
-+		if (!skb) {
-+			put_page(rx_buf->page);
-+			goto out;
-+		}
-+
-+		skb_shinfo(skb)->frags[0].page = rx_buf->page;
-+		skb_shinfo(skb)->frags[0].page_offset =
-+			efx_rx_buf_offset(rx_buf);
-+		skb_shinfo(skb)->frags[0].size = rx_buf->len;
-+		skb_shinfo(skb)->nr_frags = 1;
-+
-+		skb->len = rx_buf->len;
-+		skb->data_len = rx_buf->len;
-+		skb->truesize += rx_buf->len;
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--		napi_gro_frags(napi, &info);
-+		napi_gro_frags(napi);
- 
-+out:
- 		EFX_BUG_ON_PARANOID(rx_buf->skb);
- 		rx_buf->page = NULL;
- 	} else {
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index e1ff5b1..7ff9af1 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -118,8 +118,7 @@ extern int vlan_hwaccel_do_receive(struct sk_buff *skb);
- extern int vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
- 			    unsigned int vlan_tci, struct sk_buff *skb);
- extern int vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
--			  unsigned int vlan_tci,
--			  struct napi_gro_fraginfo *info);
-+			  unsigned int vlan_tci);
- 
- #else
- static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
-@@ -154,8 +153,7 @@ static inline int vlan_gro_receive(struct napi_struct *napi,
- }
- 
- static inline int vlan_gro_frags(struct napi_struct *napi,
--				 struct vlan_group *grp, unsigned int vlan_tci,
--				 struct napi_gro_fraginfo *info)
-+				 struct vlan_group *grp, unsigned int vlan_tci)
- {
- 	return NET_RX_DROP;
- }
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2e7783f..54db3eb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1047,14 +1047,6 @@ struct packet_type {
- 	struct list_head	list;
- };
- 
--struct napi_gro_fraginfo {
--	skb_frag_t frags[MAX_SKB_FRAGS];
--	unsigned int nr_frags;
--	unsigned int ip_summed;
--	unsigned int len;
--	__wsum csum;
--};
--
- #include <linux/interrupt.h>
- #include <linux/notifier.h>
- 
-@@ -1442,12 +1434,18 @@ extern int		napi_gro_receive(struct napi_struct *napi,
- 					 struct sk_buff *skb);
- extern void		napi_reuse_skb(struct napi_struct *napi,
- 				       struct sk_buff *skb);
--extern struct sk_buff *	napi_fraginfo_skb(struct napi_struct *napi,
--					  struct napi_gro_fraginfo *info);
-+extern struct sk_buff *	napi_get_frags(struct napi_struct *napi);
- extern int		napi_frags_finish(struct napi_struct *napi,
- 					  struct sk_buff *skb, int ret);
--extern int		napi_gro_frags(struct napi_struct *napi,
--				       struct napi_gro_fraginfo *info);
-+extern struct sk_buff *	napi_frags_skb(struct napi_struct *napi);
-+extern int		napi_gro_frags(struct napi_struct *napi);
-+
-+static inline void napi_free_frags(struct napi_struct *napi)
-+{
-+	kfree_skb(napi->skb);
-+	napi->skb = NULL;
-+}
-+
- extern void		netif_nit_deliver(struct sk_buff *skb);
- extern int		dev_valid_name(const char *name);
- extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index c67fe6f..7f7de1a 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -114,9 +114,9 @@ int vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
- EXPORT_SYMBOL(vlan_gro_receive);
- 
- int vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
--		   unsigned int vlan_tci, struct napi_gro_fraginfo *info)
-+		   unsigned int vlan_tci)
- {
--	struct sk_buff *skb = napi_fraginfo_skb(napi, info);
-+	struct sk_buff *skb = napi_frags_skb(napi);
- 
- 	if (!skb)
- 		return NET_RX_DROP;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 91d792d..619fa14 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2519,16 +2519,10 @@ void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(napi_reuse_skb);
- 
--struct sk_buff *napi_fraginfo_skb(struct napi_struct *napi,
--				  struct napi_gro_fraginfo *info)
-+struct sk_buff *napi_get_frags(struct napi_struct *napi)
- {
- 	struct net_device *dev = napi->dev;
- 	struct sk_buff *skb = napi->skb;
--	struct ethhdr *eth;
--	skb_frag_t *frag;
--	int i;
--
--	napi->skb = NULL;
- 
- 	if (!skb) {
- 		skb = netdev_alloc_skb(dev, GRO_MAX_HEAD + NET_IP_ALIGN);
-@@ -2536,47 +2530,14 @@ struct sk_buff *napi_fraginfo_skb(struct napi_struct *napi,
- 			goto out;
- 
- 		skb_reserve(skb, NET_IP_ALIGN);
--	}
--
--	BUG_ON(info->nr_frags > MAX_SKB_FRAGS);
--	frag = &info->frags[info->nr_frags - 1];
- 
--	for (i = skb_shinfo(skb)->nr_frags; i < info->nr_frags; i++) {
--		skb_fill_page_desc(skb, i, frag->page, frag->page_offset,
--				   frag->size);
--		frag++;
-+		napi->skb = skb;
- 	}
--	skb_shinfo(skb)->nr_frags = info->nr_frags;
--
--	skb->data_len = info->len;
--	skb->len += info->len;
--	skb->truesize += info->len;
--
--	skb_reset_mac_header(skb);
--	skb_gro_reset_offset(skb);
--
--	eth = skb_gro_header(skb, sizeof(*eth));
--	if (!eth) {
--		napi_reuse_skb(napi, skb);
--		skb = NULL;
--		goto out;
--	}
--
--	skb_gro_pull(skb, sizeof(*eth));
--
--	/*
--	 * This works because the only protocols we care about don't require
--	 * special handling.  We'll fix it up properly at the end.
--	 */
--	skb->protocol = eth->h_proto;
--
--	skb->ip_summed = info->ip_summed;
--	skb->csum = info->csum;
- 
- out:
- 	return skb;
- }
--EXPORT_SYMBOL(napi_fraginfo_skb);
-+EXPORT_SYMBOL(napi_get_frags);
- 
- int napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb, int ret)
- {
-@@ -2606,9 +2567,39 @@ int napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb, int ret)
- }
- EXPORT_SYMBOL(napi_frags_finish);
- 
--int napi_gro_frags(struct napi_struct *napi, struct napi_gro_fraginfo *info)
-+struct sk_buff *napi_frags_skb(struct napi_struct *napi)
-+{
-+	struct sk_buff *skb = napi->skb;
-+	struct ethhdr *eth;
-+
-+	napi->skb = NULL;
-+
-+	skb_reset_mac_header(skb);
-+	skb_gro_reset_offset(skb);
-+
-+	eth = skb_gro_header(skb, sizeof(*eth));
-+	if (!eth) {
-+		napi_reuse_skb(napi, skb);
-+		skb = NULL;
-+		goto out;
-+	}
-+
-+	skb_gro_pull(skb, sizeof(*eth));
-+
-+	/*
-+	 * This works because the only protocols we care about don't require
-+	 * special handling.  We'll fix it up properly at the end.
-+	 */
-+	skb->protocol = eth->h_proto;
-+
-+out:
-+	return skb;
-+}
-+EXPORT_SYMBOL(napi_frags_skb);
-+
-+int napi_gro_frags(struct napi_struct *napi)
- {
--	struct sk_buff *skb = napi_fraginfo_skb(napi, info);
-+	struct sk_buff *skb = napi_frags_skb(napi);
- 
- 	if (!skb)
- 		return NET_RX_DROP;
-@@ -2712,7 +2703,7 @@ void netif_napi_del(struct napi_struct *napi)
- 	struct sk_buff *skb, *next;
- 
- 	list_del_init(&napi->dev_list);
--	kfree_skb(napi->skb);
-+	napi_free_frags(napi);
- 
- 	for (skb = napi->gro_list; skb; skb = next) {
- 		next = skb->next;
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+=20
