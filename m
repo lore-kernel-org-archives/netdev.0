@@ -1,104 +1,101 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 3/3] NET/ixgbe: Fix powering off during shutdown
-Date: Wed, 15 Apr 2009 20:44:01 -0700
-Message-ID: <20090416034401.14634.77826.stgit@localhost.localdomain>
-References: <20090416034323.14634.30701.stgit@localhost.localdomain>
+From: Ed Swierk <eswierk@aristanetworks.com>
+Subject: e1000 watchdog timer fails to start after ethool settings change
+Date: Wed, 15 Apr 2009 21:57:49 -0700
+Message-ID: <1239857869.31663.29.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+To: jesse.brandeburg@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:36679 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752281AbZDPDoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2009 23:44:19 -0400
-In-Reply-To: <20090416034323.14634.30701.stgit@localhost.localdomain>
+Received: from rv-out-0506.google.com ([209.85.198.237]:57934 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbZDPE5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 00:57:55 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so238649rvb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2009 21:57:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rafael J. Wysocki <rjw@sisk.pl>
+A recent patch to e1000, intended to avoid a race in the interrupt code,
+seems to prevent the watchdog timer from resuming properly.  It neuters
+the effect of
 
-Impact: Fix
+  /* fire a link change interrupt to start the watchdog */ 
+  ew32(ICS, E1000_ICS_LSC); 
+ 
+in e1000_up() when the __E1000_RESETTING flag is set, for example when
+invoked by e1000_set_settings().
 
-Prevent ixgbe from putting the adapter into D3 during shutdown except when
-we're going to power off the system, since doing that may generally cause
-problems with kexec to happen (such problems were observed for igb and
-forcedeth).  For this purpose seperate ixgbe_shutdown() from ixgbe_suspend()
-and use the appropriate PCI PM callbacks in both of them.
+The result is that running
 
-Signed-off-by: "Rafael J. Wysocki" <rjw@sisk.pl>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+  ethtool -s eth0 autoneg on
+
+in Qemu with an emulated e1000 NIC causes the kernel to stop noticing
+link status changes, leaving the link down until I prod the driver with
+ifconfig eth0 down; ifconfig eth0 up.
+
+Here is the patch causing the bug:
+
+> From: Jesse Brandeburg <jesse.brandeburg@xxxxxxxxx>
+> 
+> A nasty bug was found where an MTU change (or anything else that caused a
+> reset) could race with the interrupt code.  The interrupt code was entered
+> by a shared interrupt during the MTU change.
+> 
+> This change prevents the interrupt code from running while the driver is in
+> the middle of its reset path.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@xxxxxxxxx>
+> ---
+> 
+>  drivers/net/e1000/e1000_main.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 26474c9..c986978 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -31,7 +31,7 @@
+>  
+>  char e1000_driver_name[] = "e1000";
+>  static char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
+> -#define DRV_VERSION "7.3.20-k3-NAPI"
+> +#define DRV_VERSION "7.3.21-k3-NAPI"
+>  const char e1000_driver_version[] = DRV_VERSION;
+>  static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
+>  
+> @@ -3712,7 +3712,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+>  	struct e1000_hw *hw = &adapter->hw;
+>  	u32 rctl, icr = er32(ICR);
+>  
+> -	if (unlikely(!icr))
+> +	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
+>  		return IRQ_NONE;  /* Not our interrupt */
+>  
+>  	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
+> 
+
+Undoing the patch fixes the problem on a Qemu emulated e1000 NIC:
+
+Index: linux-2.6.29.1/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.29.1.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6.29.1/drivers/net/e1000/e1000_main.c
+@@ -3712,7 +3712,7 @@ static irqreturn_t e1000_intr(int irq, v
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 rctl, icr = er32(ICR);
+ 
+-	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
++	if (unlikely(!icr))
+ 		return IRQ_NONE;  /* Not our interrupt */
+ 
+ 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
+
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   36 ++++++++++++++++++++++++++++++++----
- 1 files changed, 32 insertions(+), 4 deletions(-)
+Of course this leaves the original problem unfixed; hopefully someone
+can suggest a better solution.
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 11fd153..febde45 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3612,9 +3612,9 @@ static int ixgbe_resume(struct pci_dev *pdev)
- 
- 	return 0;
- }
--
- #endif /* CONFIG_PM */
--static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
-+
-+static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -3673,18 +3673,46 @@ static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
- 	}
- 
-+	*enable_wake = !!wufc;
-+
- 	ixgbe_release_hw_control(adapter);
- 
- 	pci_disable_device(pdev);
- 
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+	return 0;
-+}
-+
-+#ifdef CONFIG_PM
-+static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	int retval;
-+	bool wake;
-+
-+	retval = __ixgbe_shutdown(pdev, &wake);
-+	if (retval)
-+		return retval;
-+
-+	if (wake) {
-+		pci_prepare_to_sleep(pdev);
-+	} else {
-+		pci_wake_from_d3(pdev, false);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
- 
- 	return 0;
- }
-+#endif /* CONFIG_PM */
- 
- static void ixgbe_shutdown(struct pci_dev *pdev)
- {
--	ixgbe_suspend(pdev, PMSG_SUSPEND);
-+	bool wake;
-+
-+	__ixgbe_shutdown(pdev, &wake);
-+
-+	if (system_state == SYSTEM_POWER_OFF) {
-+		pci_wake_from_d3(pdev, wake);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
- }
- 
- /**
+--Ed
+
 
