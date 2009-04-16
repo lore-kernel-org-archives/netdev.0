@@ -1,42 +1,42 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] macb: Add support of the netpoll API
-Date: Thu, 16 Apr 2009 11:24:35 +0200
-Message-ID: <20090416112435.0b779859@surf>
-References: <20090415154658.40e3639a@surf>
-	<20090416110753.5c75b805@hskinnemoen-d830>
+From: David Miller <davem@davemloft.net>
+Subject: Re: An inconsistency/bug in ingress netem timestamps
+Date: Thu, 16 Apr 2009 03:10:34 -0700 (PDT)
+Message-ID: <20090416.031034.41207844.davem@davemloft.net>
+References: <20090415195022.GA3322@ami.dom.local>
+	<200904151610.43980.alexandre.sidorenko@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Michael Opdenacker <michael@free-electrons.com>
-To: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: alexandre.sidorenko@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns6.enix.org ([193.19.211.1]:57254 "EHLO the-doors.enix.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754990AbZDPJxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2009 05:53:22 -0400
-In-Reply-To: <20090416110753.5c75b805@hskinnemoen-d830>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50694
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752464AbZDPKKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 06:10:43 -0400
+In-Reply-To: <200904151610.43980.alexandre.sidorenko@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Thu, 16 Apr 2009 11:07:53 +0200,
-Haavard Skinnemoen <haavard.skinnemoen@atmel.com> a =C3=A9crit :
+From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+Date: Wed, 15 Apr 2009 16:10:43 -0400
 
-> Hmm...is this safe? What if printk() is called from the macb interrup=
-t
-> handler?
+> On April 15, 2009 03:50:22 pm Jarek Poplawski wrote:
+> 
+>> Isn't it when act_mirred calls dev_queue_xmit with dev_queue_xmit_nit?
+>> But, as above mentioned, I doubt it's "updated properly" in this case.
+> 
+> I can see that dev_queue_xmit_nit calls net_timestamp(skb) unconditionally. I 
+> agree that to fix this properly we need to update tstamp in another place 
+> explicitly (in ifb or netem?).
 
-I'm not sure, but that strategy is used in most drivers supporting the
-netpoll API (3c509.c, 8139cp.c, 8139too.c, b44.c, bfin_mac.c,
-bnx2x_main.c, etc.). It also seems to be the way suggested by netpoll
-author, http://oss.sgi.com/archives/netdev/2003-10/msg00800.html.
+Since IFB completely bypasses netif_rx() and netif_receive_skb() I
+think it should unconditionally set skb->tstamp.tv64 to zero and
+invoke net_timestamp()
 
-disable_irq() only disables the macb IRQ line. Is that an issue for
-printk() execution ?
+This would match the behavior of loopback and tunnels, and in my
+opinion this is reasonable.  There will be virtually no overhead
+added unless timestamping is enabled via ping or similar, and in
+return we get what I think is correctness :-)
 
-Thomas
---=20
-Thomas Petazzoni, Free Electrons
-Kernel, drivers and embedded Linux development,
-consulting, training and support.
-http://free-electrons.com
+This also means we need to export net_timestamp() to modules.
