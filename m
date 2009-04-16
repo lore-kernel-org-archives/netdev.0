@@ -1,61 +1,44 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH[] netfilter: use per-cpu reader-writer lock (v0.7)
-Date: Thu, 16 Apr 2009 14:02:42 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904161353370.4042@localhost.localdomain>
-References: <20090415135526.2afc4d18@nehalam> <49E64C91.5020708@cosmosbay.com> <20090415.164811.19905145.davem@davemloft.net> <20090415170111.6e1ca264@nehalam> <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <20090415174551.529d241c@nehalam>
- <49E6BBA9.2030701@cosmosbay.com> <49E7384B.5020707@trash.net> <20090416144748.GB6924@linux.vnet.ibm.com> <49E75876.10509@cosmosbay.com> <20090416175850.GH6924@linux.vnet.ibm.com> <49E77BF6.1080206@cosmosbay.com> <20090416134956.6c1f0087@nehalam>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] ixgbe: missing parentheses
+Date: Thu, 16 Apr 2009 14:16:10 -0700
+Message-ID: <20090416141610.ad8b9909.akpm@linux-foundation.org>
+References: <49E79D7C.2080200@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <dada1@cosmosbay.com>, paulmck@linux.vnet.ibm.com,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
-	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090416134956.6c1f0087@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38155 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750916AbZDPVTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 17:19:09 -0400
+In-Reply-To: <49E79D7C.2080200@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+(cc netdev)
 
+On Thu, 16 Apr 2009 23:05:00 +0200
+Roel Kluin <roel.kluin@gmail.com> wrote:
 
-On Thu, 16 Apr 2009, Stephen Hemminger wrote:
->
-> This version of x_tables (ip/ip6/arp) locking uses a per-cpu
-> rwlock that can be nested. It is sort of like earlier brwlock 
-> (fast reader, slow writer). The locking is isolated so future improvements
-> can concentrate on measuring/optimizing xt_table_info_lock. I tried
-> other versions based on recursive spin locks and sequence counters and 
-> for me, the risk of inventing own locking primitives not worth it at this time.
+> `!' has a higher precedence than `&'
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index febde45..49a9037 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -3946,7 +3946,7 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
+>  	}
+>  	hw->mac.ops.setup_sfp(hw);
+>  
+> -	if (!adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK)
+> +	if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
+>  		/* This will also work for DA Twinax connections */
+>  		schedule_work(&adapter->multispeed_fiber_task);
+>  	adapter->flags &= ~IXGBE_FLAG_IN_SFP_MOD_TASK;
 
-This is stil scary.
-
-Do we guarantee that read-locks nest in the presense of a waiting writer 
-on another CPU? Now, I know we used to (ie readers always nested happily 
-with readers even if there were pending writers), and then we broke it. I 
-don't know that we ever unbroke it.
-
-IOW, at least at some point we deadlocked on this (due to trying to be 
-fair, and not lettign in readers while earlier writers were waiting):
-
-	CPU#1			CPU#2
-
-	read_lock
-
-				write_lock
-				.. spins with write bit set, waiting for
-				   readers to go away ..
-
-	recursive read_lock
-	.. spins due to the write bit
-	   being. BOOM: deadlock  ..
-
-Now, I _think_ we avoid this, but somebody should double-check.
-
-Also, I have still yet to hear the answer to why we care about stale 
-counters of dead rules so much that we couldn't just free them later with 
-RCU.
-
-			Linus
+This is fixed in linux-next, but hasn't been pushed to Linus yet.
