@@ -1,71 +1,148 @@
-From: Alessio Igor Bogani <abogani-c2gU+FDvWfqonA0d6jMUrA@public.gmane.org>
-Subject: Re: [tree] latest kill-the-BKL tree, v12
-Date: Thu, 16 Apr 2009 16:35:58 +0200
-Message-ID: <63a49ef40904160735w3eab9ea7s3fc5da177ee2ac87@mail.gmail.com>
-References: <1239680065-25013-1-git-send-email-fweisbec@gmail.com>
-	 <20090414045109.GA26908@orion> <20090414090146.GH27003@elte.hu>
-	 <a4423d670904151558r4252c7eamd115793fb36a9163@mail.gmail.com>
-	 <20090415230736.GA22710@elte.hu> <20090415233533.GA5962@nowhere>
-	 <20090416085153.GC9813@elte.hu>
+From: Christoph Lameter <cl@linux.com>
+Subject: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Thu, 16 Apr 2009 10:38:23 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904161035390.19650@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frederic Weisbecker <fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexander Beregalov <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jeff Mahoney <jeffm-IBi9RG/b67k@public.gmane.org>,
-	ReiserFS Development List <reiserfs-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Chris Mason <chris.mason-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090416085153.GC9813-X9Un+BFzKDI@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com,
+	nhorman@tuxdriver.com, dlstevens@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:41350 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621AbZDPOpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 10:45:45 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id A01F282C29E
+	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 10:55:36 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 9TIVyUe-5z3I for <netdev@vger.kernel.org>;
+	Thu, 16 Apr 2009 10:55:30 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 80F6E82C294
+	for <netdev@vger.kernel.org>; Thu, 16 Apr 2009 10:55:30 -0400 (EDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Sir Molnar,
+Do what David Stevens suggest: Add a per socket option
 
-2009/4/16 Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>:
-[...]
->> This is still the dependency between bkl and s_umount_key that has
->> been reported recently. I wonder if this is not a problem in the
->> fs layer. I should investigate on it.
->
-> The problem seem to be that this NFS call context:
->
-> -> #0 (kernel_mutex){+.+.+.}:
-> =A0 =A0 =A0 [<00000000004776d0>] lock_acquire+0x5c/0x74
-> =A0 =A0 =A0 [<00000000006f0ebc>] mutex_lock_nested+0x48/0x380
-> =A0 =A0 =A0 [<00000000006f32dc>] lock_kernel+0x28/0x3c
-> =A0 =A0 =A0 [<00000000006d20ec>] rpc_wait_bit_killable+0x64/0x8c
-> =A0 =A0 =A0 [<00000000006f0620>] __wait_on_bit+0x64/0xc0
-> =A0 =A0 =A0 [<00000000006f06e4>] out_of_line_wait_on_bit+0x68/0x7c
-> =A0 =A0 =A0 [<00000000006d2938>] __rpc_execute+0x150/0x2b4
-> =A0 =A0 =A0 [<00000000006d2ac0>] rpc_execute+0x24/0x34
-> =A0 =A0 =A0 [<00000000006cc338>] rpc_run_task+0x64/0x74
-> =A0 =A0 =A0 [<00000000006cc474>] rpc_call_sync+0x58/0x7c
-> =A0 =A0 =A0 [<00000000005717b0>] nfs3_rpc_wrapper+0x24/0xa0
-> =A0 =A0 =A0 [<0000000000572024>] do_proc_get_root+0x6c/0x10c
-> =A0 =A0 =A0 [<00000000005720dc>] nfs3_proc_get_root+0x18/0x5c
-> =A0 =A0 =A0 [<000000000056401c>] nfs_get_root+0x34/0x17c
-> =A0 =A0 =A0 [<0000000000568adc>] nfs_get_sb+0x9ec/0xa7c
-> =A0 =A0 =A0 [<00000000004b7ec8>] vfs_kern_mount+0x44/0xa4
-> =A0 =A0 =A0 [<00000000004b7f84>] do_kern_mount+0x30/0xcc
-> =A0 =A0 =A0 [<00000000004cf300>] do_mount+0x7c8/0x80c
-> =A0 =A0 =A0 [<00000000004ed2a4>] compat_sys_mount+0x224/0x274
-> =A0 =A0 =A0 [<0000000000406154>] linux_sparc_syscall32+0x34/0x40
 
-Proposed patch that i just sent
-(http://marc.info/?l=3Dlinux-kernel&m=3D123989213917572&w=3D2) seems fi=
-x the
-lock dependency.
-I don't know if it is the right way to solve the problem in any case
-but it works on my laptop, at least.
 
-Ciao,
-Alessio
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Subject: Multicast: Filter Multicast traffic per socket mc_list
+
+If two processes open the same port as a multicast socket and then
+join two different multicast groups then traffic for both multicast groups
+is forwarded to either process. This means that application will get surprising
+data that they did not ask for. Applications will have to filter these out in
+order to work correctly if multiple apps run on the same system.
+
+These are pretty strange semantics but they have been around since the
+beginning of multicast support on Unix systems. Most of the other operating
+systems supporting Multicast have since changed to only supplying multicast
+traffic to a socket that was selected through multicast join operations.
+
+This patch does change Linux to behave in the same way. But there may be
+applications that rely on the old behavior. Therefore we provide a means
+to switch back to the old behavior using a new multicast socket option
+
+	IP_MULTICAST_ALL
+
+If set then all multicast traffic to the port is forwarded to the socket
+(additional constraints are the SSM inclusion and exclusion lists!).
+If not set (default) then only traffic for multicast groups that were
+joined by thesocket is received.
+
+Signed-off-by: Christoph Lameter <cl@linux.com>
+
+---
+ include/linux/in.h      |    1 +
+ include/net/inet_sock.h |    3 ++-
+ net/ipv4/igmp.c         |    4 ++--
+ net/ipv4/ip_sockglue.c  |   11 +++++++++++
+ 4 files changed, 16 insertions(+), 3 deletions(-)
+
+Index: linux-2.6/include/net/inet_sock.h
+===================================================================
+--- linux-2.6.orig/include/net/inet_sock.h	2009-04-16 08:59:20.000000000 -0500
++++ linux-2.6/include/net/inet_sock.h	2009-04-16 09:04:47.000000000 -0500
+@@ -130,7 +130,8 @@ struct inet_sock {
+ 				freebind:1,
+ 				hdrincl:1,
+ 				mc_loop:1,
+-				transparent:1;
++				transparent:1,
++				mc_all:1;
+ 	int			mc_index;
+ 	__be32			mc_addr;
+ 	struct ip_mc_socklist	*mc_list;
+Index: linux-2.6/net/ipv4/igmp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/igmp.c	2009-04-16 08:54:47.000000000 -0500
++++ linux-2.6/net/ipv4/igmp.c	2009-04-16 09:04:06.000000000 -0500
+@@ -2187,7 +2187,7 @@ int ip_mc_sf_allow(struct sock *sk, __be
+ 	struct ip_sf_socklist *psl;
+ 	int i;
+
+-	if (!ipv4_is_multicast(loc_addr))
++	if (ipv4_is_lbcast(loc_addr) || !ipv4_is_multicast(loc_addr))
+ 		return 1;
+
+ 	for (pmc=inet->mc_list; pmc; pmc=pmc->next) {
+@@ -2196,7 +2196,7 @@ int ip_mc_sf_allow(struct sock *sk, __be
+ 			break;
+ 	}
+ 	if (!pmc)
+-		return 1;
++		return inet->mc_all;
+ 	psl = pmc->sflist;
+ 	if (!psl)
+ 		return pmc->sfmode == MCAST_EXCLUDE;
+Index: linux-2.6/include/linux/in.h
+===================================================================
+--- linux-2.6.orig/include/linux/in.h	2009-04-16 09:05:41.000000000 -0500
++++ linux-2.6/include/linux/in.h	2009-04-16 09:32:52.000000000 -0500
+@@ -107,6 +107,7 @@ struct in_addr {
+ #define MCAST_JOIN_SOURCE_GROUP		46
+ #define MCAST_LEAVE_SOURCE_GROUP	47
+ #define MCAST_MSFILTER			48
++#define IP_MULTICAST_ALL		49
+
+ #define MCAST_EXCLUDE	0
+ #define MCAST_INCLUDE	1
+Index: linux-2.6/net/ipv4/ip_sockglue.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/ip_sockglue.c	2009-04-16 09:09:52.000000000 -0500
++++ linux-2.6/net/ipv4/ip_sockglue.c	2009-04-16 09:31:40.000000000 -0500
+@@ -449,6 +449,7 @@ static int do_ip_setsockopt(struct sock
+ 			     (1<<IP_ROUTER_ALERT) | (1<<IP_FREEBIND) |
+ 			     (1<<IP_PASSSEC) | (1<<IP_TRANSPARENT))) ||
+ 	    optname == IP_MULTICAST_TTL ||
++	    optname == IP_MULTICAST_ALL ||
+ 	    optname == IP_MULTICAST_LOOP ||
+ 	    optname == IP_RECVORIGDSTADDR) {
+ 		if (optlen >= sizeof(int)) {
+@@ -895,6 +896,13 @@ static int do_ip_setsockopt(struct sock
+ 		kfree(gsf);
+ 		break;
+ 	}
++	case IP_MULTICAST_ALL:
++		if (optlen<1)
++			goto e_inval;
++		if (val != 0 && val != 1)
++			goto e_inval;
++		inet->mc_all = val;
++		break;
+ 	case IP_ROUTER_ALERT:
+ 		err = ip_ra_control(sk, val ? 1 : 0, NULL);
+ 		break;
+@@ -1147,6 +1155,9 @@ static int do_ip_getsockopt(struct sock
+ 		release_sock(sk);
+ 		return err;
+ 	}
++	case IP_MULTICAST_ALL:
++		val = inet->mc_all;
++		break;
+ 	case IP_PKTOPTIONS:
+ 	{
+ 		struct msghdr msg;
