@@ -1,62 +1,42 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Fri, 17 Apr 2009 08:37:36 -0700
-Message-ID: <49E8A240.8050404@us.ibm.com>
-References: <alpine.DEB.1.10.0904161136220.15629@qirst.com> <20090416174422.GB28978@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904161508520.15835@qirst.com> <20090416.151641.220683663.davem@davemloft.net> <alpine.DEB.1.10.0904170952050.11877@qirst.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Allow fragmentation of VLAN packets traversing a bridge.
+Date: Fri, 17 Apr 2009 17:57:19 +0200
+Message-ID: <49E8A6DF.3040905@trash.net>
+References: <49E89E0D.5080000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org, vladislav.yasevich@hp.com,
-	dlstevens@us.ibm.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:42627 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759025AbZDQPhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 11:37:40 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3HFa39V016085
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 09:36:03 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3HFbac5226924
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 09:37:36 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3HFbZ81005315
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 09:37:36 -0600
-In-Reply-To: <alpine.DEB.1.10.0904170952050.11877@qirst.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Saikiran Madugula <hummerbliss@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49E89E0D.5080000@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Lameter wrote:
-> On Thu, 16 Apr 2009, David Miller wrote:
+Saikiran Madugula wrote:
+> br_nf_dev_queue_xmit only checks for ETH_P_IP packets for fragmenting but not
+> VLAN packets. This results in dropping of large VLAN packets. This can be
+> observed when connection tracking is enabled. Connection tracking re-assembles
+> fragmented packets, and these have to be re-fragmented when transmitting out.
 > 
->> No Christoph, do this right.
->>
-> 	> Linux by default will behave the way it has for 15+ years.  And if an
->> application wants new behavior, you have to ask for it.
->>
->> End of story.
+> Signed-off-by: Saikiran Madugula <hummerbliss@gmail.com>
+> ---
+>  net/bridge/br_netfilter.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> This is not right. All other OSes filter multicast traffic according to
-> the multicast groups subscribed too (and that includes the evil one).
-> There is no requirement of asking for "new" behavior. Why should multicast
-> applications have to add special code to request something that comes by
-> default on other platforms?
+> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+> index 3953ac4..941f702 100644
+> --- a/net/bridge/br_netfilter.c
+> +++ b/net/bridge/br_netfilter.c
+> @@ -790,7 +790,7 @@ static unsigned int br_nf_local_out(unsigned int hook, struct sk_buff *skb,
+>  
+>  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+>  {
+> -	if (skb->protocol == htons(ETH_P_IP) &&
+> +	if ((skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb)) &&
+>  	    skb->len > skb->dev->mtu &&
+>  	    !skb_is_gso(skb))
+>  		return ip_fragment(skb, br_dev_queue_push_xmit);
 
-I need the current behaviour to not change, as it would
-break some people I support.  DaveM is making the right
-decision here, and I fully support this.
-
-And I'm one of those people working on low latency and
-hoping messaging clients get better in their multicast
-usage..just that this is not one of those ways.
-
-Ideally, you could tweak OS environment configuration
-setting, if you don't want per socket. But it cannot
-be the default.
-
-
-thanks,
-Nivedita
-
+Please add an additional check for skb->nfct != NULL to make sure
+that this only refragments packets defragmented by conntrack.
