@@ -1,60 +1,55 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Fri, 17 Apr 2009 14:31:33 -0700
-Message-ID: <OFDADDACF0.D592E966-ON8825759B.0073E304-8825759B.00763DF6@us.ibm.com>
-References: <alpine.DEB.1.10.0904170952050.11877@qirst.com>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
+Date: Fri, 17 Apr 2009 23:35:27 +0200
+Message-ID: <200904172335.28304.rjw@sisk.pl>
+References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <1239931813.7661.394.camel@rzhang-dt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, nhorman@tuxdriver.com,
-	vladislav.yasevich@hp.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:39807 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944AbZDQVbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 17:31:39 -0400
-In-Reply-To: <alpine.DEB.1.10.0904170952050.11877@qirst.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1239931813.7661.394.camel@rzhang-dt>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 04/17/2009 06:56:04 AM:
+On Friday 17 April 2009, Zhang Rui wrote:
+> On Fri, 2009-04-17 at 05:42 +0800, Rafael J. Wysocki wrote:
+> > 
+> > 
+> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13095
+> > Subject         : thinkpad-acpi: cannot control brightness with hotkeys
+> > Submitter       : Niel Lambrechts <niel.lambrechts-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Date            : 2009-04-11 23:07 (6 days old)
+> > References      : http://lkml.org/lkml/2009/4/11/160
+> > Handled-By      : Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
+> > Patch           : http://lkml.org/lkml/2009/4/15/339
+> > 
+> > 
+> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13048
+> > Subject         : /sys/class/backlight/acpi_video0/* is gone on vaio laptop with Intel GM45.
+> > Submitter       : Rodrigo L. Batista <rodrigo-1dof46nAmC8dnm+yROfE0A@public.gmane.org>
+> > Date            : 2009-04-09 04:57 (8 days old)
+> > Handled-By      : yakui_zhao <yakui.zhao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > Patch           : http://bugzilla.kernel.org/attachment.cgi?id=20967
+> >                   http://bugzilla.kernel.org/attachment.cgi?id=20959
+> > 
+> > 
+> bug 13095 is a duplicate of bug 13048.
+> patches from Matthew and Yakui are for the same issue.
 
-> On Thu, 16 Apr 2009, David Miller wrote:
-> 
-> > No Christoph, do this right.
-> >
->    > Linux by default will behave the way it has for 15+ years.  And if 
-an
-> > application wants new behavior, you have to ask for it.
-> >
-> > End of story.
-> 
-> This is not right. All other OSes filter multicast traffic according to
-> the multicast groups subscribed too (and that includes the evil one).
+OK, closed 13095 as a duplicate.
 
-        This is not true.
-
-> There is no requirement of asking for "new" behavior. Why should 
-multicast
-> applications have to add special code to request something that comes by
-> default on other platforms?
-
-        Linux is not Solaris. I think Solaris is wrong to change the
-behavior from the original BSD behavior, but it should be no surprise
-that there are other differences in the API's, too. It's not difficult
-to write code that works as intended on both, and the case Solaris is
-trying to avoid is not really avoided since you can still receive
-unicast traffic, or totally unrelated multicast traffic on the shared
-port and multicast address space. If the app doesn't use the port to
-distinguish it, it simply should bind the multicast address it wants,
-use PKTINFO, SO_BINDTODEVICE or the like as well. In your case, multiple
-sockets or filtering based on the "to" address are possibilties that
-work on Solaris too, and fix more unintended traffic problems than
-just a different group.
-        A per-socket option is a more trivial way to do this, but
-turning it on for sockets that want the existing, intended and
-long-standing behavior is obviously wrong.
-
-                                                                +-DLS
-
+Thanks,
+Rafael
