@@ -1,37 +1,29 @@
-From: Radu Rendec <radu.rendec@ines.ro>
-Subject: htb parallelism on multi-core platforms
-Date: Fri, 17 Apr 2009 13:40:44 +0300
-Message-ID: <1239964844.21569.57.camel@blade.ines.ro>
+From: David Miller <davem@davemloft.net>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Fri, 17 Apr 2009 04:31:51 -0700 (PDT)
+Message-ID: <20090417.043151.61240311.davem@davemloft.net>
+References: <1239964844.21569.57.camel@blade.ines.ro>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: radu.rendec@ines.ro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from NAT-172-Unkn.Local.iNES.RO ([80.86.100.172]:59321 "EHLO
-	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756247AbZDQLS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 07:18:28 -0400
-Received: from [127.0.0.1] (localhost.localdomain [127.0.0.1])
-	by blade.ines.ro (8.14.2/8.14.2) with ESMTP id n3HAeiqX006768
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 13:40:45 +0300
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44043
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757550AbZDQLcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 07:32:00 -0400
+In-Reply-To: <1239964844.21569.57.camel@blade.ines.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Radu Rendec <radu.rendec@ines.ro>
+Date: Fri, 17 Apr 2009 13:40:44 +0300
 
-I'm using htb on a dedicated shaping machine. Under heavy traffic (high
-packet rate) all htb work is done on a single cpu - only one ksoftirqd
-is consuming cpu power.
+> Is there any (simple) approach to distribute htb work (for one
+> interface) on multiple cpus?
 
-I have limited network stack knowledge, but I guess all htb work for a
-particular interface is done on the same softirq context. Of course this
-does not scale with multiple cpus, since only one of them would be used.
+HTB acts upon global state, so anything that goes into a particular
+device's HTB ruleset is going to be single threaded.
 
-Is there any (simple) approach to distribute htb work (for one
-interface) on multiple cpus?
-
-Thanks,
-
-Radu Rendec
-
-
+There really isn't any way around this.
