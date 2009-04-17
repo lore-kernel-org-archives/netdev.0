@@ -1,77 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gro: Fix use after free in tcp_gro_receive
-Date: Fri, 17 Apr 2009 17:25:53 +0800
-Message-ID: <20090417092553.GA1601@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] loopback: packet drops accounting
+Date: Fri, 17 Apr 2009 11:27:53 +0200
+Message-ID: <49E84B99.1080502@cosmosbay.com>
+References: <49E78DE5.10104@hartkopp.net>	<20090417.013853.04495551.davem@davemloft.net>	<49E84459.1060507@cosmosbay.com> <20090417.015914.09817926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mark Wagner <mwagner@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38365 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752123AbZDQJZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 05:25:57 -0400
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44667 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755696AbZDQJ2D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 05:28:03 -0400
+In-Reply-To: <20090417.015914.09817926.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Fri, 17 Apr 2009 10:56:57 +0200
+>=20
+>> We can in some situations drop packets in netif_rx()
+>>
+>> loopback driver does not report these (unlikely) drops to its stats,
+>> and incorrectly change packets/bytes counts.
+>>
+>> After this patch applied, "ifconfig lo" can reports these drops as i=
+n :
+>>
+>> # ifconfig lo
+>> lo        Link encap:Local Loopback
+>>           inet addr:127.0.0.1  Mask:255.0.0.0
+>>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+>>           RX packets:692562900 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:692562900 errors:3228 dropped:3228 overruns:0 c=
+arrier:0
+>>           collisions:0 txqueuelen:0
+>>           RX bytes:2865674174 (2.6 GiB)  TX bytes:2865674174 (2.6 Gi=
+B)
+>>
+>> I chose to reflect those errors only in tx_dropped/tx_errors, and no=
+t mirror
+>> these errors in rx_dropped/rx_errors.
+>>
+>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> Well, logically the receive is what failed, not the transmit.
+>=20
+> I think it's therefore misleading to count it as a TX drop.
+>=20
+> Do you feel strongly about this?
 
-gro: Fix use after free in tcp_gro_receive
+Not at all, but my plan was to go a litle bit further, ie being able to=
+=20
+return from loopback_xmit() with a non null value.
 
-After calling skb_gro_receive skb->len can no longer be relied
-on since if the skb was merged using frags, then its pages will
-have been removed and the length reduced.
+netif_rx() usage in loopback device is biased, since its really a trans=
+mit :)
 
-This caused tcp_gro_receive to prematurely end merging which
-resulted in suboptimal performance with ixgbe.
+Oh well...
 
-The fix is to store skb->len on the stack.
-
-Reported-by: Mark Wagner <mwagner@redhat.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index fafbec8..1d7f49c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2511,6 +2511,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	struct sk_buff *p;
- 	struct tcphdr *th;
- 	struct tcphdr *th2;
-+	unsigned int len;
- 	unsigned int thlen;
- 	unsigned int flags;
- 	unsigned int mss = 1;
-@@ -2531,6 +2532,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- 	skb_gro_pull(skb, thlen);
- 
-+	len = skb_gro_len(skb);
- 	flags = tcp_flag_word(th);
- 
- 	for (; (p = *head); head = &p->next) {
-@@ -2561,7 +2563,7 @@ found:
- 
- 	mss = skb_shinfo(p)->gso_size;
- 
--	flush |= (skb_gro_len(skb) > mss) | !skb_gro_len(skb);
-+	flush |= (len > mss) | !len;
- 	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
- 
- 	if (flush || skb_gro_receive(head, skb)) {
-@@ -2574,7 +2576,7 @@ found:
- 	tcp_flag_word(th2) |= flags & (TCP_FLAG_FIN | TCP_FLAG_PSH);
- 
- out_check_final:
--	flush = skb_gro_len(skb) < mss;
-+	flush = len < mss;
- 	flush |= flags & (TCP_FLAG_URG | TCP_FLAG_PSH | TCP_FLAG_RST |
- 			  TCP_FLAG_SYN | TCP_FLAG_FIN);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
