@@ -1,53 +1,38 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Fri, 17 Apr 2009 10:32:46 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904171028070.4042@localhost.localdomain>
-References: <20090416215033.3e648a7a@nehalam>  <49E810B0.9000906@cosmosbay.com> <20090417054032.GD6885@linux.vnet.ibm.com>  <20090417.010710.59150850.davem@davemloft.net> <1239988979.23397.4841.camel@laptop>
+From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Fri, 17 Apr 2009 12:09:33 -0600
+Message-ID: <20090417120933.48804eec.zaitcev@redhat.com>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
+	<18908.42166.404232.721757@stoffel.org>
+	<20090408232344.afed8103.zaitcev@redhat.com>
+	<18909.65347.234817.29689@stoffel.org>
+	<20090413174105.b03a1f19.zaitcev@redhat.com>
+	<18916.37351.872568.757026@stoffel.org>
+	<18919.61639.864206.337181@stoffel.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	dada1@cosmosbay.com, shemminger@vyatta.com, kaber@trash.net,
-	jeff.chua.linux@gmail.com, paulus@samba.org, mingo@elte.hu,
-	laijs@cn.fujitsu.com, jengelh@medozas.de, r000n@r000n.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51068 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762280AbZDQRou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 13:44:50 -0400
-In-Reply-To: <1239988979.23397.4841.camel@laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <18919.61639.864206.337181-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 16 Apr 2009 23:00:23 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
 
+> Is there any update on this bug?  I'm off for five+ days of vacation,
+> but I'll be happy to test when I get back, and even build test kernels
+> while I'm away if I find some time.
 
-On Fri, 17 Apr 2009, Peter Zijlstra wrote:
-> 
-> Since its a full broadcast, we can do that _today_ using on_each_cpu().
-> But whatever way we turn this, this will be a very expensive operation.
-> Imagine doing that on your 256-way for every iptables rules change.
+Sorry, John, no update thus far.
 
-Well, you _could_ just have a per-CPU bit of "have I used nf rules since 
-the last update", and skip those CPU's. Use memory ordering to check the 
-bits (set the bit _before_ looking up a NF rule, and check them _after_ 
-doing the update, and have a barrier in between if you really think it 
-matters).
-
-Remember: the cost was never about a single filter rule update. The cost 
-of a single one is almost immaterial, as long as it's not in hundreds of 
-milliseconds. It's the cost of people building up things incrementally 
-that caused this thing.
-
-So if you have 200 "iptables" commands in a sequence, and especially 
-during bootup, a trivial "has the old rule been ever even looked at on 
-this CPU" would already fix the issue. Because it would always be zero in 
-the only case where it matters.
-
-This is, of course, what we do for the TLB flushing issue. We don't want 
-to send IPI's to all CPU's, and in 99.999% of all cases we don't need to, 
-because the other CPU's never even loaded the MM.
-
-			Linus
+-- Pete
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
