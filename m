@@ -1,70 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/2] e1000: fix transmit routine exit bug
-Date: Thu, 16 Apr 2009 19:59:47 -0700
-Message-ID: <20090417025946.19671.21412.stgit@localhost.localdomain>
-References: <20090417025928.19671.88859.stgit@localhost.localdomain>
+From: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
+Date: Thu, 16 Apr 2009 23:00:23 -0400
+Message-ID: <18919.61639.864206.337181@stoffel.org>
+References: <18906.49779.243047.207639@stoffel.org>
+	<20090407120022.GA6519@ff.dom.local>
+	<18907.28788.965069.573489@stoffel.org>
+	<20090407130403.e0061a8d.zaitcev@redhat.com>
+	<18908.42166.404232.721757@stoffel.org>
+	<20090408232344.afed8103.zaitcev@redhat.com>
+	<18909.65347.234817.29689@stoffel.org>
+	<20090413174105.b03a1f19.zaitcev@redhat.com>
+	<18916.37351.872568.757026@stoffel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:52879 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754736AbZDQDAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2009 23:00:03 -0400
-In-Reply-To: <20090417025928.19671.88859.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <18916.37351.872568.757026-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-If the e1000 transmit cleanup inner loop exited early, then
-cleaned might not be true.  This could cause tx hangs or other
-badness.  Use count to track the total number of descriptors
-cleaned instead of basing a tx queue restart off of a temporary
-working state variable.
+Pete,
 
-This code now makes the flow the same for e1000/e1000e/igb/ixgbe
+Is there any update on this bug?  I'm off for five+ days of vacation,
+but I'll be happy to test when I get back, and even build test kernels
+while I'm away if I find some time.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/e1000/e1000_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index ef12931..6a46cee 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3834,7 +3834,6 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 	struct e1000_buffer *buffer_info;
- 	unsigned int i, eop;
- 	unsigned int count = 0;
--	bool cleaned = false;
- 	unsigned int total_tx_bytes=0, total_tx_packets=0;
- 
- 	i = tx_ring->next_to_clean;
-@@ -3843,7 +3842,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 
- 	while ((eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) &&
- 	       (count < tx_ring->count)) {
--		for (cleaned = false; !cleaned; count++) {
-+		bool cleaned = false;
-+		for ( ; !cleaned; count++) {
- 			tx_desc = E1000_TX_DESC(*tx_ring, i);
- 			buffer_info = &tx_ring->buffer_info[i];
- 			cleaned = (i == eop);
-@@ -3871,7 +3871,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 	tx_ring->next_to_clean = i;
- 
- #define TX_WAKE_THRESHOLD 32
--	if (unlikely(cleaned && netif_carrier_ok(netdev) &&
-+	if (unlikely(count && netif_carrier_ok(netdev) &&
- 		     E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD)) {
- 		/* Make sure that anybody stopping the queue after this
- 		 * sees the new next_to_clean.
-
+Thanks,
+John
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
