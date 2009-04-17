@@ -1,51 +1,49 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Fri, 17 Apr 2009 23:36:11 +0200
-Message-ID: <200904172336.12414.rjw@sisk.pl>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <d82e647a0904161837w6b6fb652la0da05f9061e95dc@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29
+Date: Sat, 18 Apr 2009 00:43:09 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0904172354160.2522@wrl-59.cs.helsinki.fi>
+References: <alpine.DEB.1.10.0904161504090.15835@qirst.com>
+ <49E786FE.6090304@cosmosbay.com> <alpine.DEB.1.10.0904161532350.22449@qirst.com>
+ <20090416.154701.21872281.davem@davemloft.net> <alpine.DEB.1.10.0904170943300.11877@qirst.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	video4linux-list@redhat.com, laurent.pinchart@skynet.be,
-	mchehab@infradead.org
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <d82e647a0904161837w6b6fb652la0da05f9061e95dc@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
+	rick.jones2@hp.com, Netdev <netdev@vger.kernel.org>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35362 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753022AbZDQVnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 17:43:11 -0400
+In-Reply-To: <alpine.DEB.1.10.0904170943300.11877@qirst.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 17 April 2009, Ming Lei wrote:
-> 2009/4/17 Rafael J. Wysocki <rjw@sisk.pl>:
-> >
-> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13125
-> > Subject         : active uvcvideo breaks over suspend
-> > Submitter       : Alan Jenkins <alan-jenkins@tuffmail.co.uk>
-> > Date            : 2009-04-15 10:12 (2 days old)
-> > References      : http://marc.info/?l=linux-kernel&m=123979009508840&w=4
-> >
-> 
-> It is a bug in resume path of uvcvideo driver, and I have sent a patch
-> to laurent.pinchart@skynet.be,
-> mchehab@infradead.org  and video4linux-list@redhat.com to fix it, but
-> still no echo from them.
-> 
-> The patch title is V4L/DVB:usbvideo:fix uvc resume failed.
-> 
-> Rafael J.
->         If you would like to apply it ,I can resend to you.  Thanks!
+On Fri, 17 Apr 2009, Christoph Lameter wrote:
 
-Please resend.
+> On Thu, 16 Apr 2009, David Miller wrote:
+> 
+> > More seriously, it's going to be hard to isolate anything
+> > unless you concern yourself with changes to one thing
+> > on one system at a time.
+> 
+> Only the kernel version was changed on both systems. Changing only a
+> single system would have meant considering complex interactions between
+> the network layers of varying versions which would make
+> the problem even more difficult to track down.
+> 
+> I changed one thing: The kernel version.
 
-Rafael
+No we're not talking about n^2 results here but claiming that changing 
+only a single network endpoint makes things _more complex_ is quite bogus? 
+Like it or not, those network layers you mention are still separated by 
+pretty standadized medium whose encoding and timing is certainly quite 
+independent of the kernel version :-).
+
+I'd suggest you take the latest and v2.6.22 and run the remaining two 
+mixed setups (I hope your scripts are not too fixed with identical 
+versions... :-)).
+
+-- 
+ i.
