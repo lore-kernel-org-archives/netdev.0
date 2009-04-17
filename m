@@ -1,150 +1,51 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Fri, 17 Apr 2009 09:33:52 -0700
-Message-ID: <20090417163351.GC6742@linux.vnet.ibm.com>
-References: <20090415170111.6e1ca264@nehalam> <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <49E72E83.50702@trash.net> <20090416.153354.170676392.davem@davemloft.net> <20090416234955.GL6924@linux.vnet.ibm.com> <20090417012812.GA25534@linux.vnet.ibm.com> <1239948734.23397.4052.camel@laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29 (results with
+ IRQ affinity)
+Date: Fri, 17 Apr 2009 12:42:40 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904171238550.20049@qirst.com>
+References: <49E78A79.6050604@cosmosbay.com> <49E78C1E.9060405@cosmosbay.com> <alpine.DEB.1.10.0904161555040.23632@qirst.com> <20090416.160002.09845606.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, shemminger@vyatta.com,
-	dada1@cosmosbay.com, jeff.chua.linux@gmail.com, paulus@samba.org,
-	mingo@elte.hu, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760310AbZDQQe1@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1239948734.23397.4052.camel@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: dada1@cosmosbay.com, Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:38129 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761758AbZDQQt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 12:49:56 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 84A7A82C3B3
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 12:59:55 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Wspo13H60khL for <netdev@vger.kernel.org>;
+	Fri, 17 Apr 2009 12:59:55 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 5013482C3B7
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 12:59:49 -0400 (EDT)
+In-Reply-To: <20090416.160002.09845606.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 17, 2009 at 08:12:14AM +0200, Peter Zijlstra wrote:
-> On Thu, 2009-04-16 at 18:28 -0700, Paul E. McKenney wrote:
-> > On Thu, Apr 16, 2009 at 04:49:55PM -0700, Paul E. McKenney wrote:
-> > > On Thu, Apr 16, 2009 at 03:33:54PM -0700, David Miller wrote:
-> > > > From: Patrick McHardy <kaber@trash.net>
-> > > > Date: Thu, 16 Apr 2009 15:11:31 +0200
-> > > > 
-> > > > > Linus Torvalds wrote:
-> > > > >> On Wed, 15 Apr 2009, Stephen Hemminger wrote:
-> > > > >>> The counters are the bigger problem, otherwise we could just free
-> > > > >>> table
-> > > > >>> info via rcu.  Do we really have to support: replace where the counter
-> > > > >>> values coming out to user space are always exactly accurate, or is it
-> > > > >>> allowed to replace a rule and maybe lose some counter ticks (worst
-> > > > >>> case
-> > > > >>> NCPU-1).
-> > > > >> Why not just read the counters fromt he old one at RCU free time (they
-> > > > >> are guaranteed to be stable at that point, since we're all done with
-> > > > >> those entries), and apply them at that point to the current setup?
-> > > > > 
-> > > > > We need the counters immediately to copy them to userspace, so waiting
-> > > > > for an asynchronous RCU free is not going to work.
-> > > > 
-> > > > It just occurred to me that since all netfilter packet handling
-> > > > goes through one place, we could have a sort-of "netfilter RCU"
-> > > > of sorts to solve this problem.
-> > > 
-> > > OK, I am putting one together...
-> > > 
-> > > It will be needed sooner or later, though I suspect per-CPU locking
-> > > would work fine in this case.
-> > 
-> > And here is a crude first cut.  Untested, probably does not even compile.
-> > 
-> > Straight conversion of Mathieu Desnoyers's user-space RCU implementation
-> > at git://lttng.org/userspace-rcu.git to the kernel (and yes, I did help
-> > a little, but he must bear the bulk of the guilt).  Pick on srcu.h
-> > and srcu.c out of sheer laziness.  User-space testing gives deep
-> > sub-microsecond grace-period latencies, so should be fast enough, at
-> > least if you don't mind two smp_call_function() invocations per grace
-> > period and spinning on each instance of a per-CPU variable.
-> > 
-> > Again, I believe per-CPU locking should work fine for the netfilter
-> > counters, but I guess "friends don't let friends use hashed locks".
-> > (I would not know for sure, never having used them myself, except of
-> > course to protect hash tables.)
-> > 
-> > Most definitely -not- for inclusion at this point.  Next step is to hack
-> > up the relevant rcutorture code and watch it explode on contact.  ;-)
-> 
-> One comment, its again a global thing..
-> 
-> I've been playing with the idea for a while now to make all RCU
-> implementations into proper objects so that you can do things like:
-> 
->   struct atomic_rcu_domain my_rcu_domain = create_atomic_rcu();
-> 
->   atomic_rcu_read_lock(&my_rcu_domain());
->   ...
-> 
->   atomic_rcu_read_unlock(&my_rcu_domain());
-> 
-> and
-> 
->   call_atomic_rcu(&my_rcu_domain, &my_obj->rcu_head, do_something);
-> 
-> etc..
-> 
-> We would have:
-> 
->   atomic_rcu  --  'classic' non preemptible RCU (treercu these days)
->   sleep_rcu   --  'preemptible' RCU
-> 
-> Then have 3 default domains:
-> 
-> sched_rcu     -- always atomic_rcu
+On Thu, 16 Apr 2009, David Miller wrote:
 
-This is the call_rcu_sched() variant.
+> We really need to find a good way to fix that IRQ affinity issue.
 
-> rcu           -- depends on PREEMPT_RCU
+Here are the results with setting interrupt affinity. We are still loosing
+5 usecs from .22 to .30-rc2. We will investigate more in depth time
+permitting.
 
-This is the call_rcu() variant.
+	UDP ping pong 40 bytes
 
-> preempt_rcu   -- always sleep_rcu
-
-I guess that this one could allow sleeping on mutexes...  Does anyone
-need to do that?
-
-> This would allow generic code to:
->   1) use preemptible RCU for those cases where needed
->   2) create smaller RCU domains where needed, such as in this case
->   3) mostly do away with SRCU
-
-#3 would be good!  But...
-
-At an API level, there are two differences between SRCU and the other
-RCU implementations:
-
-a.	The return value from srcu_read_lock() is passed to
-	srcu_read_unlock().
-
-b.	There is a control block passed in to each SRCU primitive.
-
-Difference (a) could potentially be taken care of with a few tricks I
-am trying in the process of getting preemptrcu merged into treercu.
-
-Your approach to (b) certainly makes it uniform, there are >500
-occurrences of rcu_read_lock() and rcu_read_unlock() each, but only
-a very few occurrences of srcu_read_lock() and srcu_read_unlock()
-(like exactly one each!).  So adding an argument to rcu_read_lock()
-does not sound at all reasonable.
-
-> Now I realize that the presented RCU implementation has a different
-> grace period method than the existing ones that use the timer tick to
-> drive the state machine, so 2) might not be too relevant here. But maybe
-> we can do something with different grace periods too.
-> 
-> Anyway, just an idea because I always get a little offended at the hard
-> coded global variables in all these RCU implementations :-)
-
-I am thinking in terms of adding a synchronize_rcu_bh() with the desired
-properties.  That way we avoid yet another RCU flavor.  (What can I say?
-I got carried away!)  Also, since the rcu-bh flavor is used only by
-networking, we have a fair amount of freedom to tweak it.  It will take
-longer than introducing a new flavor, but Steve Hemminger has a good
-solution already, and RCU really isn't the thing to do quick hacks on.
-
-							Thanx, Paul
+Kernel		Test 1	Test 2	Test 3	Test 4	Avg
+2.6.22		83.1125	83.4	83.03	82.95	83.07
+2.6.23		83.33	83.51	83.18	83.42	83.21
+2.6.24		82.7775	82.8	82.77	82.77	82.77
+2.6.25		85.875	85.94	85.75	86.06	85.75
+2.6.26		87.4025	87.53	87.25	87.3	87.53
+2.6.27		87.81	87.81	87.77	87.82	87.84
+2.6.28		87.4275	87.77	87.24	87.28	87.42
+2.6.29		88.4325	88.48	88.42	88.44	88.39
+2.6.30-rc2	88.4925	88.49	88.44	88.56	88.48
