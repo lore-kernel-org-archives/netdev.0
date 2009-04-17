@@ -1,38 +1,55 @@
-From: Pete Zaitcev <zaitcev-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: usb_mon oops Re: tcpdump crashes 2.6.29.1 (and 2.6.29-rc5)
-Date: Fri, 17 Apr 2009 12:09:33 -0600
-Message-ID: <20090417120933.48804eec.zaitcev@redhat.com>
-References: <18906.49779.243047.207639@stoffel.org>
-	<20090407120022.GA6519@ff.dom.local>
-	<18907.28788.965069.573489@stoffel.org>
-	<20090407130403.e0061a8d.zaitcev@redhat.com>
-	<18908.42166.404232.721757@stoffel.org>
-	<20090408232344.afed8103.zaitcev@redhat.com>
-	<18909.65347.234817.29689@stoffel.org>
-	<20090413174105.b03a1f19.zaitcev@redhat.com>
-	<18916.37351.872568.757026@stoffel.org>
-	<18919.61639.864206.337181@stoffel.org>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: dropwatch for network drop monitor
+Date: Fri, 17 Apr 2009 20:13:58 +0200
+Message-ID: <49E8C6E6.9020601@hartkopp.net>
+References: <200904171257.n3HCvOba029938@post.webmailer.de> <20090417132848.GA2723@hmsreliant.think-freely.org> <49E88F2A.4010301@hartkopp.net> <20090417172239.GC2723@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <18919.61639.864206.337181-HgN6juyGXH5AfugRpC6u6w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:40870 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761015AbZDQSOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 14:14:03 -0400
+In-Reply-To: <20090417172239.GC2723@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Apr 2009 23:00:23 -0400, "John Stoffel" <john-HgN6juyGXH5AfugRpC6u6w@public.gmane.org> wrote:
+Neil Horman wrote:
 
-> Is there any update on this bug?  I'm off for five+ days of vacation,
-> but I'll be happy to test when I get back, and even build test kernels
-> while I'm away if I find some time.
+> 
+> Quick update for you, I've reproduced the problem.  The inability to restart
+> after the first few errors is actually by design.  Since you had to kill the
+> user space process, it left the kernel bits in a state where they were still
+> monitoring, so a second start command (when you restarted the user space daemon)
+> caused an error, and the program shutdown (which I probably shouldn't do,
+> returning instead to the command console).  You can work around this by issuing
+> a stop command, which successfully stops the kernel bits and lets you restart
+> them.
 
-Sorry, John, no update thus far.
+Hard terminations are mostly critical to handle. I'll try the workaround.
 
--- Pete
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> This also tells me that the kernel netlink warning is not fatal (as our netlink
+> message commands are getting processed properly).  I still need to figure out
+> why thats happening though.
+> 
+
+Ok.
+
+> As for the ctrl-c issue, I've got no idea whats going on there, its like the
+> recv operation is restarting after we catch the SIGINT.  I think I may just
+> switch that to a poll operation on the netlink socket and stdin input.  That
+> should fix that up quick.  Expect a git commit on that sometime this weekend,
+> and some subseqent netdev posts to fix the kernel bits. 
+
+You can also send me an off-list mail when you have something to test this
+weekend.
+
+I can produce a lot of drops on my machine ;-)
+
+Regards,
+Oliver
+
