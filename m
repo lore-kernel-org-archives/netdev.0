@@ -1,26 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 12954] New: SAMEIP --nodst functionality gone
- missing
-Date: Fri, 17 Apr 2009 18:16:09 +0200
-Message-ID: <49E8AB49.7040601@trash.net>
-References: <bug-12954-10286@http.bugzilla.kernel.org/> <20090407143509.05ab3b28.akpm@linux-foundation.org> <Pine.LNX.4.62.0904080941370.10428@wlug.westbo.se> <49DCC3A0.7050001@trash.net> <49E5CAB5.3060605@trash.net> <alpine.LSU.2.00.0904151410350.11308@fbirervta.pbzchgretzou.qr> <49E5CF6D.2070709@trash.net> <alpine.LSU.2.00.0904151421070.11961@fbirervta.pbzchgretzou.qr> <49E5D4AE.3040203@trash.net>
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Fri, 17 Apr 2009 09:28:25 -0700
+Message-ID: <49E8AE29.3030702@us.ibm.com>
+References: <alpine.DEB.1.10.0904161136220.15629@qirst.com> <20090416174422.GB28978@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904161508520.15835@qirst.com> <20090416.151641.220683663.davem@davemloft.net> <alpine.DEB.1.10.0904170952050.11877@qirst.com> <49E8A240.8050404@us.ibm.com> <alpine.DEB.1.10.0904171158220.13734@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Martin Josefsson <gandalf@mjufs.se>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	berni@birkenwald.de, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49E5D4AE.3040203@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, vladislav.yasevich@hp.com,
+	dlstevens@us.ibm.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:58701 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761726AbZDQQ22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 12:28:28 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3HGPPXU001446
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:25:25 -0600
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3HGSQid141808
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:28:27 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3HGSPH7018087
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:28:26 -0600
+In-Reply-To: <alpine.DEB.1.10.0904171158220.13734@qirst.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> This is the corresponding userspace patch:
+Christoph Lameter wrote:
+
+>> Ideally, you could tweak OS environment configuration
+>> setting, if you don't want per socket. But it cannot
+>> be the default.
 > 
+> Would you support an additional OS config variable that would set the
+> default for socket operations? Then we could have a per socket option that
+> would allow overriding the OS config variable?
 
-I've just commited the patch to the iptables git tree. The kernel
-patch is on its way upstream.
+That would be my choice personally, because it would be
+easier than scripting some solution to modify potentially
+hundreds of sockets on a system...
 
+Does that sound acceptable?
+
+thanks,
+Nivedita
