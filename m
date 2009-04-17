@@ -1,48 +1,63 @@
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Subject: Re: [PATCH] macb: Add support of the netpoll API
-Date: Fri, 17 Apr 2009 13:41:37 +0200
-Message-ID: <20090417134137.77b5dbd7@hskinnemoen-d830>
-References: <20090417112553.21e1f2e5@hskinnemoen-d830>
-	<20090417.023357.121366056.davem@davemloft.net>
-	<20090417115011.5c3d17e1@hskinnemoen-d830>
-	<20090417.034416.110856368.davem@davemloft.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Fri, 17 Apr 2009 15:33:36 +0400
+Message-ID: <49E86910.7020804@bigtelecom.ru>
+References: <1239964844.21569.57.camel@blade.ines.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1251
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-	michael@free-electrons.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Radu Rendec <radu.rendec@ines.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.atmel.no ([80.232.32.139]:60438 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756349AbZDQLlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Apr 2009 07:41:49 -0400
-In-Reply-To: <20090417.034416.110856368.davem@davemloft.net>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:60993 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756636AbZDQLok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 07:44:40 -0400
+In-Reply-To: <1239964844.21569.57.camel@blade.ines.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-> Date: Fri, 17 Apr 2009 11:50:11 +0200
-> 
-> > No, therefore, I'd prefer local_irq_save() :-)
-> 
-> I'm pretty sure there is a specific reason driver's use
-> disable_irq() rather than disabling local cpu IRQs.
+hello
 
-Looks like most if not all of the ARM drivers use local_irq_save()...I
-couldn't figure out what etherh does from a quick scan.
+100% SI on ksoftirqd on one CPU because PC can't forward such packets
+(napi off if i understand). 2 cpu xeon 2.4 ghz can forward about 400-500
+mbs full duplex with about 20-30k htb rules. If we try do more - we get
+100% SI. Its our example.
 
-> I just can't remember it at the moment.
-> 
-> And there absolutely must be a reason, because disable_irq()
-> is a lot more expensive.
+We now use multiple pc for this and will try to by intel 10G with A/IO
+that can use Multiqueue.
 
-Sounds like another reason _not_ to use it ;-)
+Anyone can say:
+How match CPU we must have for about 5-7G in/out with 2 x intel 10G +
+A/IO (1x10g to lan + 1x10g to wan) ?
+Any statistic or formula to calculate? pps or mbs?
+tc + iptables (+ipset) now use 10-30%. All other cpu now use e1000e driver.
 
-Well, if you're really sure about this, I guess you might as well go
-ahead and apply it. But it feels wrong to Ack the patch when I don't
-know the reason for using disable_irq() and can think of several
-reasons _not_ to use it...
+Thanks
 
-Haavard
+> Hi,
+>
+> I'm using htb on a dedicated shaping machine. Under heavy traffic (high
+> packet rate) all htb work is done on a single cpu - only one ksoftirqd
+> is consuming cpu power.
+>
+> I have limited network stack knowledge, but I guess all htb work for a
+> particular interface is done on the same softirq context. Of course this
+> does not scale with multiple cpus, since only one of them would be used.
+>
+> Is there any (simple) approach to distribute htb work (for one
+> interface) on multiple cpus?
+>
+> Thanks,
+>
+> Radu Rendec
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>   
+
