@@ -1,59 +1,26 @@
-From: Saikiran Madugula <hummerbliss@gmail.com>
-Subject: [PATCH] Allow fragmentation of VLAN packets traversing a bridge.
-Date: Fri, 17 Apr 2009 23:51:14 +0100
-Message-ID: <49E907E2.3020304@gmail.com>
-References: <49E89E0D.5080000@gmail.com> <49E8A6DF.3040905@trash.net> <49E8B73C.7080004@gmail.com> <49E8BA68.50605@trash.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-04-17
+Date: Fri, 17 Apr 2009 15:55:38 -0700 (PDT)
+Message-ID: <20090417.155538.246001651.davem@davemloft.net>
+References: <20090417195407.GC3291@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Saikiran Madugula <hummerbliss@gmail.com>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49E8BA68.50605@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090417195407.GC3291-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-br_nf_dev_queue_xmit only checks for ETH_P_IP packets for fragmenting but not
-VLAN packets. This results in dropping of large VLAN packets. This can be
-observed when connection tracking is enabled. Connection tracking re-assembles
-fragmented packets, and these have to re-fragmented when transmitting out. Also,
-make sure only refragmented packets are defragmented as per suggestion from
-Patrick McHardy.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 17 Apr 2009 15:54:07 -0400
 
-Signed-off-by: Saikiran Madugula <hummerbliss@gmail.com>
----
- net/bridge/br_netfilter.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+> git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 3953ac4..e4a418f 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -788,15 +788,23 @@ static unsigned int br_nf_local_out(unsigned int hook, struct sk_buff *skb,
- 	return NF_STOLEN;
- }
- 
-+#if defined(CONFIG_NF_CONNTRACK_IPV4) || defined(CONFIG_NF_CONNTRACK_IPV4_MODULE)
- static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- {
--	if (skb->protocol == htons(ETH_P_IP) &&
-+	if (skb->nfct != NULL &&
-+	    (skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb)) &&
- 	    skb->len > skb->dev->mtu &&
- 	    !skb_is_gso(skb))
- 		return ip_fragment(skb, br_dev_queue_push_xmit);
- 	else
- 		return br_dev_queue_push_xmit(skb);
- }
-+#else
-+static int br_nf_dev_queue_xmit(struct sk_buff *skb)
-+{
-+        return br_dev_queue_push_xmit(skb);
-+}
-+#endif
- 
- /* PF_BRIDGE/POST_ROUTING ********************************************/
- static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
--- 
-1.5.6.3
+Looks good, pulled, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
