@@ -1,53 +1,60 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Fri, 17 Apr 2009 23:31:05 +0200
-Message-ID: <200904172331.06910.rjw@sisk.pl>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <alpine.LFD.2.00.0904161742140.4042@localhost.localdomain>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Fri, 17 Apr 2009 14:31:33 -0700
+Message-ID: <OFDADDACF0.D592E966-ON8825759B.0073E304-8825759B.00763DF6@us.ibm.com>
+References: <alpine.DEB.1.10.0904170952050.11877@qirst.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761730AbZDQVbd@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904161742140.4042@localhost.localdomain>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, nhorman@tuxdriver.com,
+	vladislav.yasevich@hp.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:39807 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbZDQVbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 17:31:39 -0400
+In-Reply-To: <alpine.DEB.1.10.0904170952050.11877@qirst.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 17 April 2009, Linus Torvalds wrote:
+netdev-owner@vger.kernel.org wrote on 04/17/2009 06:56:04 AM:
+
+> On Thu, 16 Apr 2009, David Miller wrote:
 > 
-> On Thu, 16 Apr 2009, Rafael J. Wysocki wrote:
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13098
-> > Subject		: 2.6.29-git12 breaks vga=0x0f07 on MSI/Intel GPU
-> > Submitter	: Andi Kleen <andi@firstfloor.org>
-> > Date		: 2009-04-06 01:14 (11 days old)
-> > References	: http://lkml.org/lkml/2009/4/5/200
-> > Handled-By	: H. Peter Anvin <hpa@zytor.com>
+> > No Christoph, do this right.
+> >
+>    > Linux by default will behave the way it has for 15+ years.  And if 
+an
+> > application wants new behavior, you have to ask for it.
+> >
+> > End of story.
 > 
-> I think this got fixed already. The VGA moresettign was reverted back to 
-> the old order.
+> This is not right. All other OSes filter multicast traffic according to
+> the multicast groups subscribed too (and that includes the evil one).
 
-Closed.
+        This is not true.
 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13044
-> > Subject		: 2.6.30-rc1 can't find the root fs
-> > Submitter	: Heinz Diehl <htd@fancy-poultry.org>
-> > Date		: 2009-04-08 13:35 (9 days old)
-> 
-> This was one of the async things that got fixed by just waiting for module 
-> async work to finish.
+> There is no requirement of asking for "new" behavior. Why should 
+multicast
+> applications have to add special code to request something that comes by
+> default on other platforms?
 
-Closed.
+        Linux is not Solaris. I think Solaris is wrong to change the
+behavior from the original BSD behavior, but it should be no surprise
+that there are other differences in the API's, too. It's not difficult
+to write code that works as intended on both, and the case Solaris is
+trying to avoid is not really avoided since you can still receive
+unicast traffic, or totally unrelated multicast traffic on the shared
+port and multicast address space. If the app doesn't use the port to
+distinguish it, it simply should bind the multicast address it wants,
+use PKTINFO, SO_BINDTODEVICE or the like as well. In your case, multiple
+sockets or filtering based on the "to" address are possibilties that
+work on Solaris too, and fix more unintended traffic problems than
+just a different group.
+        A per-socket option is a more trivial way to do this, but
+turning it on for sockets that want the existing, intended and
+long-standing behavior is obviously wrong.
 
-Thanks,
-Rafael
+                                                                +-DLS
+
