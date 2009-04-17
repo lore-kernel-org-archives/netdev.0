@@ -1,50 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: Fix GRO for multiple page fragments
-Date: Fri, 17 Apr 2009 15:01:12 +0100
-Message-ID: <1239976872.5297.15.camel@deadeye.i.decadent.org.uk>
-References: <1239905060.3203.28.camel@achroite>
-	 <20090417.012759.184081814.davem@davemloft.net>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: dropwatch for network drop monitor
+Date: Fri, 17 Apr 2009 16:16:10 +0200
+Message-ID: <49E88F2A.4010301@hartkopp.net>
+References: <200904171257.n3HCvOba029938@post.webmailer.de> <20090417132848.GA2723@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57728 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752753AbZDQOBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 10:01:18 -0400
-In-Reply-To: <20090417.012759.184081814.davem@davemloft.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:8411 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760057AbZDQOQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 10:16:10 -0400
+In-Reply-To: <20090417132848.GA2723@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-04-17 at 01:27 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Thu, 16 Apr 2009 19:04:20 +0100
-> 
-> > This loop over fragments in napi_fraginfo_skb() was "interesting".
-> > 
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > ---
-> > This is not tested, as only cxgb3 will currently pass in multiple
-> > fragments at the same time.  skb_shinfo(skb)->nr_frags would already be
-> > 0 but it makes no sense to rely on that.  I hope I'm not missing some
-> > subtlety...
-> 
-> I think the code still isn't right after your changes.
-> 
-> The intent seems to be to append frags from 'info' into the SKB,
-> so that it works even if the SKB already has some frags.
-[...]
+Hi Neil,
 
-This function is setting up a 'new' skb from the fragments it's given.
-To avoid allocation overhead it recycles skbs via napi->skb if they are
-merged (or otherwise discarded).  There should be no data attached to
-the recycled skb.
+>> Initalizing kallsyms db
+>> dropwatch> start
+>> Enabling monitoring...
+>> Waiting for activation ack....
+>> Waiting for activation ack....
+>> Waiting for activation ack....
+>> Waiting for activation ack....
+>> Waiting for activation ack....
+>> Waiting for activation ack....
+>> Failed activation request, error: Operation now in progress
+>> Shutting down ...
+>> vwagwolkf320:/home/hartko/dropwatch/src# 
 
-Ben.
+Indeed i only get this the second time.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The first time i get
+
+hartko@vwagwolkf320:~/dropwatch/src$ ./dropwatch
+Initalizing kallsyms db
+dropwatch> start
+Enabling monitoring...
+Kernel monitoring activated.
+Issue Ctrl-C to stop monitoring
+
+But Ctrl-C does not work. I only get 100% CPU load on the CPU executing dropwatch.
+
+After killing the process, i get the above originally described behaviour.
+
+
+>>
+>> And in my kernel log i get at the same time:
+>> [ 7070.568482] netlink: 60 bytes leftover after parsing attributes.
+
+And this comes every time, i invoke dropwatch.
+
+I'm running a debian system here on a Dell 830 Laptop with Core2Duo and the
+latest linux-2.6 git
+
+Regards,
+Oliver
+
+ps. Do i need to be root to run dropwatch?
+
