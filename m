@@ -1,269 +1,48 @@
-From: Greg Ungerer <gerg@snapgear.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
 Subject: Re: [PATCH 11/12] FEC Buffer rework
-Date: Fri, 17 Apr 2009 20:07:26 +1000
-Message-ID: <49E854DE.2050302@snapgear.com>
-References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-2-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-3-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-4-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-10-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-11-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
+Date: Fri, 17 Apr 2009 12:12:09 +0200
+Message-ID: <20090417101209.GN21747@pengutronix.de>
+References: <1239795145-27558-4-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-10-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-11-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de> <49E854DE.2050302@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
+To: Greg Ungerer <gerg@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:41472 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758879AbZDQKHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:07:31 -0400
-In-Reply-To: <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:52167 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759562AbZDQKMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:12:10 -0400
+Content-Disposition: inline
+In-Reply-To: <49E854DE.2050302@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 17, 2009 at 08:07:26PM +1000, Greg Ungerer wrote:
+>
+> Hi Sascha,
+>
+> Sascha Hauer wrote:
+>> Allocate buffers in fec_open and free them again in fec_close. This makes
+>> it possible to use this driver as a module.
+>>
+>> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+>
+> This is the only one that doesn't work for ColdFire. There is no
+> dma_map_single() or dma_unmap_single() currently. I will fix that,
+> so I am fine with this anyways.
+>
+> With all the other patches applied it still basically works on ColdFire
+> (at least on initial testing on a 5208). I have seen a few spurious
+> interrupts though with these changes applied, that didn't happen
+> before. I will investigate further when get a few minutes.
 
-Hi Sascha,
+Ok, thanks for testing
 
-Sascha Hauer wrote:
-> Allocate buffers in fec_open and free them again in fec_close. This makes
-> it possible to use this driver as a module.
-> 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-
-This is the only one that doesn't work for ColdFire. There is no
-dma_map_single() or dma_unmap_single() currently. I will fix that,
-so I am fine with this anyways.
-
-With all the other patches applied it still basically works on ColdFire
-(at least on initial testing on a 5208). I have seen a few spurious
-interrupts though with these changes applied, that didn't happen
-before. I will investigate further when get a few minutes.
-
-Regards
-Greg
-
-
-
-> ---
->  drivers/net/fec.c |  139 +++++++++++++++++++++++++++++++++-------------------
->  1 files changed, 88 insertions(+), 51 deletions(-)
-> 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index f4afbe9..0e1d268 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -172,6 +172,7 @@ struct fec_enet_private {
->  	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
->  	unsigned char *tx_bounce[TX_RING_SIZE];
->  	struct	sk_buff* tx_skbuff[TX_RING_SIZE];
-> +	struct	sk_buff* rx_skbuff[RX_RING_SIZE];
->  	ushort	skb_cur;
->  	ushort	skb_dirty;
->  
-> @@ -335,8 +336,8 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	/* Push the data cache so the CPM does not get stale memory
->  	 * data.
->  	 */
-> -	dma_sync_single(NULL, bdp->cbd_bufaddr,
-> -			bdp->cbd_datlen, DMA_TO_DEVICE);
-> +	bdp->cbd_bufaddr = dma_map_single(&dev->dev, skb->data,
-> +			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
->  
->  	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
->  	 * it's the last BD of the frame, and to put the CRC on the end.
-> @@ -429,7 +430,11 @@ fec_enet_tx(struct net_device *dev)
->  	bdp = fep->dirty_tx;
->  
->  	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
-> -		if (bdp == fep->cur_tx && fep->tx_full == 0) break;
-> +		if (bdp == fep->cur_tx && fep->tx_full == 0)
-> +			break;
-> +
-> +		dma_unmap_single(&dev->dev, bdp->cbd_bufaddr, FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
-> +		bdp->cbd_bufaddr = 0;
->  
->  		skb = fep->tx_skbuff[fep->skb_dirty];
->  		/* Check for errors. */
-> @@ -553,8 +558,8 @@ fec_enet_rx(struct net_device *dev)
->  		dev->stats.rx_bytes += pkt_len;
->  		data = (__u8*)__va(bdp->cbd_bufaddr);
->  
-> -		dma_sync_single(NULL, (unsigned long)__pa(data),
-> -			pkt_len - 4, DMA_FROM_DEVICE);
-> +	        dma_unmap_single(NULL, bdp->cbd_bufaddr, bdp->cbd_datlen,
-> +        			DMA_FROM_DEVICE);
->  
->  		/* This does 16 byte alignment, exactly what we need.
->  		 * The packet length includes FCS, but we don't want to
-> @@ -574,6 +579,9 @@ fec_enet_rx(struct net_device *dev)
->  			skb->protocol = eth_type_trans(skb, dev);
->  			netif_rx(skb);
->  		}
-> +
-> +        	bdp->cbd_bufaddr = dma_map_single(NULL, data, bdp->cbd_datlen,
-> +			DMA_FROM_DEVICE);
->  rx_processing_done:
->  		/* Clear the status flags for this buffer */
->  		status &= ~BD_ENET_RX_STATS;
-> @@ -1399,15 +1407,86 @@ mii_link_interrupt(int irq, void * dev_id)
->  }
->  #endif
->  
-> +static void fec_enet_free_buffers(struct net_device *dev)
-> +{
-> +	struct fec_enet_private *fep = netdev_priv(dev);
-> +	int i;
-> +	struct sk_buff *skb;
-> +	struct bufdesc	*bdp;
-> +
-> +	bdp = fep->rx_bd_base;
-> +	for (i = 0; i < RX_RING_SIZE; i++) {
-> +		skb = fep->rx_skbuff[i];
-> +
-> +		if (bdp->cbd_bufaddr)
-> +			dma_unmap_single(&dev->dev, bdp->cbd_bufaddr,
-> +					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
-> +		if (skb)
-> +			dev_kfree_skb(skb);
-> +		bdp++;
-> +	}
-> +
-> +	bdp = fep->tx_bd_base;
-> +	for (i = 0; i < TX_RING_SIZE; i++)
-> +		kfree(fep->tx_bounce[i]);
-> +}
-> +
-> +static int fec_enet_alloc_buffers(struct net_device *dev)
-> +{
-> +	struct fec_enet_private *fep = netdev_priv(dev);
-> +	int i;
-> +	struct sk_buff *skb;
-> +	struct bufdesc	*bdp;
-> +
-> +	bdp = fep->rx_bd_base;
-> +	for (i = 0; i < RX_RING_SIZE; i++) {
-> +		skb = dev_alloc_skb(FEC_ENET_RX_FRSIZE);
-> +		if (!skb) {
-> +			fec_enet_free_buffers(dev);
-> +			return -ENOMEM;
-> +		}
-> +		fep->rx_skbuff[i] = skb;
-> +
-> +		bdp->cbd_bufaddr = dma_map_single(&dev->dev, skb->data,
-> +				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
-> +		bdp->cbd_sc = BD_ENET_RX_EMPTY;
-> +		bdp++;
-> +	}
-> +
-> +	/* Set the last buffer to wrap. */
-> +	bdp--;
-> +	bdp->cbd_sc |= BD_SC_WRAP;
-> +
-> +	bdp = fep->tx_bd_base;
-> +	for (i = 0; i < TX_RING_SIZE; i++) {
-> +		fep->tx_bounce[i] = kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
-> +
-> +		bdp->cbd_sc = 0;
-> +		bdp->cbd_bufaddr = 0;
-> +		bdp++;
-> +	}
-> +
-> +	/* Set the last buffer to wrap. */
-> +	bdp--;
-> +	bdp->cbd_sc |= BD_SC_WRAP;
-> +
-> +	return 0;
-> +}
-> +
->  static int
->  fec_enet_open(struct net_device *dev)
->  {
->  	struct fec_enet_private *fep = netdev_priv(dev);
-> +	int ret;
->  
->  	/* I should reset the ring buffers here, but I don't yet know
->  	 * a simple way to do that.
->  	 */
->  
-> +	ret = fec_enet_alloc_buffers(dev);
-> +	if (ret)
-> +		return ret;
-> +
->  	fep->sequence_done = 0;
->  	fep->link = 0;
->  
-> @@ -1454,6 +1533,8 @@ fec_enet_close(struct net_device *dev)
->  	netif_stop_queue(dev);
->  	fec_stop(dev);
->  
-> +        fec_enet_free_buffers(dev);
-> +
->  	return 0;
->  }
->  
-> @@ -1576,9 +1657,8 @@ static const struct net_device_ops fec_netdev_ops = {
->  int __init fec_enet_init(struct net_device *dev, int index)
->  {
->  	struct fec_enet_private *fep = netdev_priv(dev);
-> -	unsigned long	mem_addr;
-> -	struct bufdesc *bdp, *cbd_base;
-> -	int 		i, j;
-> +	struct bufdesc *cbd_base;
-> +	int i;
->  
->  	/* Allocate memory for buffer descriptors. */
->  	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
-> @@ -1616,49 +1696,6 @@ int __init fec_enet_init(struct net_device *dev, int index)
->  	fep->rx_bd_base = cbd_base;
->  	fep->tx_bd_base = cbd_base + RX_RING_SIZE;
->  
-> -	/* Initialize the receive buffer descriptors. */
-> -	bdp = fep->rx_bd_base;
-> -	for (i=0; i<FEC_ENET_RX_PAGES; i++) {
-> -
-> -		/* Allocate a page */
-> -		mem_addr = __get_free_page(GFP_KERNEL);
-> -		/* XXX: missing check for allocation failure */
-> -
-> -		/* Initialize the BD for every fragment in the page */
-> -		for (j=0; j<FEC_ENET_RX_FRPPG; j++) {
-> -			bdp->cbd_sc = BD_ENET_RX_EMPTY;
-> -			bdp->cbd_bufaddr = __pa(mem_addr);
-> -			mem_addr += FEC_ENET_RX_FRSIZE;
-> -			bdp++;
-> -		}
-> -	}
-> -
-> -	/* Set the last buffer to wrap */
-> -	bdp--;
-> -	bdp->cbd_sc |= BD_SC_WRAP;
-> -
-> -	/* ...and the same for transmit */
-> -	bdp = fep->tx_bd_base;
-> -	for (i=0, j=FEC_ENET_TX_FRPPG; i<TX_RING_SIZE; i++) {
-> -		if (j >= FEC_ENET_TX_FRPPG) {
-> -			mem_addr = __get_free_page(GFP_KERNEL);
-> -			j = 1;
-> -		} else {
-> -			mem_addr += FEC_ENET_TX_FRSIZE;
-> -			j++;
-> -		}
-> -		fep->tx_bounce[i] = (unsigned char *) mem_addr;
-> -
-> -		/* Initialize the BD for every fragment in the page */
-> -		bdp->cbd_sc = 0;
-> -		bdp->cbd_bufaddr = 0;
-> -		bdp++;
-> -	}
-> -
-> -	/* Set the last buffer to wrap */
-> -	bdp--;
-> -	bdp->cbd_sc |= BD_SC_WRAP;
-> -
->  #ifdef HAVE_mii_link_interrupt
->  	fec_request_mii_intr(dev);
->  #endif
-
+Regards,
+  Sascha
 
 -- 
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
-825 Stanley St,                             FAX:         +61 7 3891 3630
-Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
