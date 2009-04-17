@@ -1,11 +1,11 @@
-From: Zhang Rui <rui.zhang@intel.com>
+From: Ming Lei <tom.leiming@gmail.com>
 Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Fri, 17 Apr 2009 09:30:13 +0800
-Message-ID: <1239931813.7661.394.camel@rzhang-dt>
+Date: Fri, 17 Apr 2009 09:37:10 +0800
+Message-ID: <d82e647a0904161837w6b6fb652la0da05f9061e95dc@mail.gmail.com>
 References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Adrian Bunk <bunk@kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -15,38 +15,40 @@ Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>,
 	Linux ACPI <linux-acpi@vger.kernel.org>,
 	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	video4linux-list@redhat.com, laurent.pinchart@skynet.be,
+	mchehab@infradead.org
 To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759399AbZDQBaV@vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-04-17 at 05:42 +0800, Rafael J. Wysocki wrote:
-> 
-> 
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13095
-> Subject         : thinkpad-acpi: cannot control brightness with hotkeys
-> Submitter       : Niel Lambrechts <niel.lambrechts@gmail.com>
-> Date            : 2009-04-11 23:07 (6 days old)
-> References      : http://lkml.org/lkml/2009/4/11/160
-> Handled-By      : Matthew Garrett <mjg59@srcf.ucam.org>
-> Patch           : http://lkml.org/lkml/2009/4/15/339
-> 
-> 
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13048
-> Subject         : /sys/class/backlight/acpi_video0/* is gone on vaio laptop with Intel GM45.
-> Submitter       : Rodrigo L. Batista <rodrigo@gus-mg.org>
-> Date            : 2009-04-09 04:57 (8 days old)
-> Handled-By      : yakui_zhao <yakui.zhao@intel.com>
-> Patch           : http://bugzilla.kernel.org/attachment.cgi?id=20967
->                   http://bugzilla.kernel.org/attachment.cgi?id=20959
-> 
-> 
-bug 13095 is a duplicate of bug 13048.
-patches from Matthew and Yakui are for the same issue.
+2009/4/17 Rafael J. Wysocki <rjw@sisk.pl>:
+>
+> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
+13125
+> Subject =A0 =A0 =A0 =A0 : active uvcvideo breaks over suspend
+> Submitter =A0 =A0 =A0 : Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+> Date =A0 =A0 =A0 =A0 =A0 =A0: 2009-04-15 10:12 (2 days old)
+> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D123979=
+009508840&w=3D4
+>
 
-Yakui, could you verify which patch should be taken please?
+It is a bug in resume path of uvcvideo driver, and I have sent a patch
+to laurent.pinchart@skynet.be,
+mchehab@infradead.org  and video4linux-list@redhat.com to fix it, but
+still no echo from them.
 
-thanks,
-rui
+The patch title is V4L/DVB:usbvideo:fix uvc resume failed.
+
+Rafael J.
+        If you would like to apply it ,I can resend to you.  Thanks!
+
+--=20
+Lei Ming
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
