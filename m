@@ -1,46 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macb: Add support of the netpoll API
-Date: Fri, 17 Apr 2009 03:44:16 -0700 (PDT)
-Message-ID: <20090417.034416.110856368.davem@davemloft.net>
-References: <20090417112553.21e1f2e5@hskinnemoen-d830>
-	<20090417.023357.121366056.davem@davemloft.net>
-	<20090417115011.5c3d17e1@hskinnemoen-d830>
+Subject: Re: [PATCH 0/3] ipconfig tweaks
+Date: Fri, 17 Apr 2009 03:45:12 -0700 (PDT)
+Message-ID: <20090417.034512.40940557.davem@davemloft.net>
+References: <1239874659-19273-1-git-send-email-dmitry.krivoschekov@gmail.com>
+	<20090417.012316.209396377.davem@davemloft.net>
+	<49E85348.8080906@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-	michael@free-electrons.com
-To: haavard.skinnemoen@atmel.com
+Cc: netdev@vger.kernel.org
+To: dmitry.krivoschekov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46504
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754688AbZDQKoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:44:25 -0400
-In-Reply-To: <20090417115011.5c3d17e1@hskinnemoen-d830>
+	by vger.kernel.org with ESMTP id S1757709AbZDQKpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:45:20 -0400
+In-Reply-To: <49E85348.8080906@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Date: Fri, 17 Apr 2009 11:50:11 +0200
+From: Dmitry Krivoschekov <dmitry.krivoschekov@gmail.com>
+Date: Fri, 17 Apr 2009 14:00:40 +0400
 
-> David Miller wrote:
->> From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
->> Date: Fri, 17 Apr 2009 11:25:53 +0200
->> 
->> > I guess you're right -- we just have to be careful about calling
->> > printk() from within the driver. But it seems a lot easier to just drop
->> > the lock before dumping an error message than it is to work around that
->> > disable_irq() deadlock. And if you're running with verbose debugging
->> > enabled, you probably shouldn't be using netconsole anyway.  
->> 
->> Therefore, do you agree to add Thomas's patch as-is?
-> 
-> No, therefore, I'd prefer local_irq_save() :-)
+> Why don't let users to optimize boot-up time?
 
-I'm pretty sure there is a specific reason driver's use
-disable_irq() rather than disabling local cpu IRQs.
-
-I just can't remember it at the moment.
-
-And there absolutely must be a reason, because disable_irq()
-is a lot more expensive.
+Because a generic scheme that works automatically is 1,000
+times better than random kernel command line parms.
