@@ -1,52 +1,38 @@
-From: Saikiran Madugula <hummerbliss@gmail.com>
-Subject: Re: [PATCH] Allow fragmentation of VLAN packets traversing a bridge.
-Date: Fri, 17 Apr 2009 18:07:08 +0100
-Message-ID: <49E8B73C.7080004@gmail.com>
-References: <49E89E0D.5080000@gmail.com> <49E8A6DF.3040905@trash.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] netfilter: per-cpu spin-lock with recursion (v0.8)
+Date: Fri, 17 Apr 2009 19:08:15 +0200
+Message-ID: <1239988095.23397.4823.camel@laptop>
+References: <20090415170111.6e1ca264@nehalam>
+	 <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>
+	 <49E72E83.50702@trash.net>	<20090416.153354.170676392.davem@davemloft.net>
+	 <20090416234955.GL6924@linux.vnet.ibm.com>
+	 <20090416165233.5d8bbfb5@nehalam> <49E81B9D.3030807@cosmosbay.com>
+	 <49E81E63.2090909@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	paulmck@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
+	kaber@trash.net, torvalds@linux-foundation.org,
+	jeff.chua.linux@gmail.com, paulus@samba.org, mingo@elte.hu,
+	laijs@cn.fujitsu.com, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49E8A6DF.3040905@trash.net>
+In-Reply-To: <49E81E63.2090909@cosmosbay.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Saikiran Madugula wrote:
->> br_nf_dev_queue_xmit only checks for ETH_P_IP packets for fragmenting
->> but not
->> VLAN packets. This results in dropping of large VLAN packets. This can be
->> observed when connection tracking is enabled. Connection tracking
->> re-assembles
->> fragmented packets, and these have to be re-fragmented when
->> transmitting out.
->>
->> Signed-off-by: Saikiran Madugula <hummerbliss@gmail.com>
->> ---
->>  net/bridge/br_netfilter.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
->> index 3953ac4..941f702 100644
->> --- a/net/bridge/br_netfilter.c
->> +++ b/net/bridge/br_netfilter.c
->> @@ -790,7 +790,7 @@ static unsigned int br_nf_local_out(unsigned int
->> hook, struct sk_buff *skb,
->>  
->>  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
->>  {
->> -    if (skb->protocol == htons(ETH_P_IP) &&
->> +    if ((skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb)) &&
->>          skb->len > skb->dev->mtu &&
->>          !skb_is_gso(skb))
->>          return ip_fragment(skb, br_dev_queue_push_xmit);
+On Fri, 2009-04-17 at 08:14 +0200, Eric Dumazet wrote:
+> > Also, please dont call this a 'recursive lock', since it is not a general
+> > recursive lock, as pointed by Linus and Paul.
+> > 
+> > Second question is about MAX_LOCK_DEPTH
 > 
-> Please add an additional check for skb->nfct != NULL to make sure
-> that this only refragments packets defragmented by conntrack.
+> I meant here the ~256 limit we have on preempt_count, not related to LOCKDEP
 
-Thanks for the feedback, skb->nfct is present only if CONFIG_NF_CONNTRACK or
-CONFIG_NF_CONNTRACK_MODULE is defined. Was wondering if the entire check before
-ip_fragment is necessary if NF_CONNTRACK is not defined. If not, I will post
-updated patch as per your suggestion.
+Very good point, so 256 nested spin_lock() instances will make the
+kernel unhappy -- since we now (almost?) support up to 4096 cpus, this
+seems like a no-no.
+
