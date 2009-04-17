@@ -1,56 +1,77 @@
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Subject: Re: [PATCH] macb: Add support of the netpoll API
-Date: Fri, 17 Apr 2009 11:25:53 +0200
-Message-ID: <20090417112553.21e1f2e5@hskinnemoen-d830>
-References: <20090416112435.0b779859@surf>
-	<20090417.013450.02738760.davem@davemloft.net>
-	<20090417110703.781f8a0e@hskinnemoen-d830>
-	<20090417.020841.21679845.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Fix use after free in tcp_gro_receive
+Date: Fri, 17 Apr 2009 17:25:53 +0800
+Message-ID: <20090417092553.GA1601@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-	michael@free-electrons.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mark Wagner <mwagner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.atmel.no ([80.232.32.139]:50549 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755731AbZDQJ0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Apr 2009 05:26:01 -0400
-In-Reply-To: <20090417.020841.21679845.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:38365 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752123AbZDQJZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 05:25:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-> Date: Fri, 17 Apr 2009 11:07:03 +0200
-> 
-> > David Miller wrote:
-> >> And in response to this Haavard explained the potential deadlock
-> >> (sorry I deleted that email) and suggested to use local_irq_save()
-> >> 
-> >> But that won't work either, because it doesn't prevent the interrupt
-> >> handler from running on other cpus, it only prevents that on the
-> >> local cpu.
-> > 
-> > The interrupt handler takes bp->lock. Isn't that sufficient to prevent
-> > it from running on other cpus?
-> 
-> We don't necessarily hold bp->lock here, we could be called from
-> the netpoll code.  Another cpu could easily hold bp->lock and be
-> in the middle of the interrupt handler.
+Hi:
 
-Yes, but we're about to take it. poll_controller() disables interrupts
-and calls the interrupt handler, which takes the lock. That's
-essentially an open-coded spin_lock_irqsave().
+gro: Fix use after free in tcp_gro_receive
 
-Now, that will obviously deadlock too if we're called from within the
-interrupt handler or some other place holding bp->lock...
+After calling skb_gro_receive skb->len can no longer be relied
+on since if the skb was merged using frags, then its pages will
+have been removed and the length reduced.
 
-I guess you're right -- we just have to be careful about calling
-printk() from within the driver. But it seems a lot easier to just drop
-the lock before dumping an error message than it is to work around that
-disable_irq() deadlock. And if you're running with verbose debugging
-enabled, you probably shouldn't be using netconsole anyway.
+This caused tcp_gro_receive to prematurely end merging which
+resulted in suboptimal performance with ixgbe.
 
-Haavard
+The fix is to store skb->len on the stack.
+
+Reported-by: Mark Wagner <mwagner@redhat.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index fafbec8..1d7f49c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2511,6 +2511,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	struct sk_buff *p;
+ 	struct tcphdr *th;
+ 	struct tcphdr *th2;
++	unsigned int len;
+ 	unsigned int thlen;
+ 	unsigned int flags;
+ 	unsigned int mss = 1;
+@@ -2531,6 +2532,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 
+ 	skb_gro_pull(skb, thlen);
+ 
++	len = skb_gro_len(skb);
+ 	flags = tcp_flag_word(th);
+ 
+ 	for (; (p = *head); head = &p->next) {
+@@ -2561,7 +2563,7 @@ found:
+ 
+ 	mss = skb_shinfo(p)->gso_size;
+ 
+-	flush |= (skb_gro_len(skb) > mss) | !skb_gro_len(skb);
++	flush |= (len > mss) | !len;
+ 	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
+ 
+ 	if (flush || skb_gro_receive(head, skb)) {
+@@ -2574,7 +2576,7 @@ found:
+ 	tcp_flag_word(th2) |= flags & (TCP_FLAG_FIN | TCP_FLAG_PSH);
+ 
+ out_check_final:
+-	flush = skb_gro_len(skb) < mss;
++	flush = len < mss;
+ 	flush |= flags & (TCP_FLAG_URG | TCP_FLAG_PSH | TCP_FLAG_RST |
+ 			  TCP_FLAG_SYN | TCP_FLAG_FIN);
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
