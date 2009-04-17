@@ -1,140 +1,169 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netfilter: use per-cpu spinlock rather than RCU (v3)
-Date: Fri, 17 Apr 2009 07:51:02 -0700
-Message-ID: <20090417145102.GA6742@linux.vnet.ibm.com>
-References: <20090415170111.6e1ca264@nehalam> <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <49E72E83.50702@trash.net> <20090416.153354.170676392.davem@davemloft.net> <20090416234955.GL6924@linux.vnet.ibm.com> <20090417012812.GA25534@linux.vnet.ibm.com> <20090417021902.GC24956@Krystal> <20090417050530.GB6885@linux.vnet.ibm.com> <20090417054451.GA31411@Krystal>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] loopback: better handling of packet drops
+Date: Fri, 17 Apr 2009 07:58:01 -0700
+Message-ID: <20090417075801.2f9fe64e@nehalam>
+References: <49E78DE5.10104@hartkopp.net>
+	<20090417.013853.04495551.davem@davemloft.net>
+	<49E84459.1060507@cosmosbay.com>
+	<20090417.015914.09817926.davem@davemloft.net>
+	<49E84B99.1080502@cosmosbay.com>
+	<49E854A4.1010204@cosmosbay.com>
+	<49E85AFD.6080407@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, shemminger@vyatta.com,
-	dada1@cosmosbay.com, jeff.chua.linux@gmail.com, paulus@samba.org,
-	mingo@elte.hu, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090417054451.GA31411@Krystal>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43841 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757500AbZDQO6J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 10:58:09 -0400
+In-Reply-To: <49E85AFD.6080407@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 17, 2009 at 01:44:51AM -0400, Mathieu Desnoyers wrote:
-> * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > On Thu, Apr 16, 2009 at 10:19:02PM -0400, Mathieu Desnoyers wrote:
-> > > * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > > > On Thu, Apr 16, 2009 at 04:49:55PM -0700, Paul E. McKenney wrote:
+On Fri, 17 Apr 2009 12:33:33 +0200
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-[ . . . ]
+> Eric Dumazet a =C3=A9crit :
+> > Eric Dumazet a =C3=A9crit :
+> >> David Miller a =C3=A9crit :
+> >>> From: Eric Dumazet <dada1@cosmosbay.com>
+> >>> Date: Fri, 17 Apr 2009 10:56:57 +0200
+> >>>
+> >>>> We can in some situations drop packets in netif_rx()
+> >>>>
+> >>>> loopback driver does not report these (unlikely) drops to its st=
+ats,
+> >>>> and incorrectly change packets/bytes counts.
+> >>>>
+> >>>> After this patch applied, "ifconfig lo" can reports these drops =
+as in :
+> >>>>
+> >>>> # ifconfig lo
+> >>>> lo        Link encap:Local Loopback
+> >>>>           inet addr:127.0.0.1  Mask:255.0.0.0
+> >>>>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+> >>>>           RX packets:692562900 errors:0 dropped:0 overruns:0 fra=
+me:0
+> >>>>           TX packets:692562900 errors:3228 dropped:3228 overruns=
+:0 carrier:0
+> >>>>           collisions:0 txqueuelen:0
+> >>>>           RX bytes:2865674174 (2.6 GiB)  TX bytes:2865674174 (2.=
+6 GiB)
+> >>>>
+> >>>> I chose to reflect those errors only in tx_dropped/tx_errors, an=
+d not mirror
+> >>>> these errors in rx_dropped/rx_errors.
+> >>>>
+> >>>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> >>> Well, logically the receive is what failed, not the transmit.
+> >>>
+> >>> I think it's therefore misleading to count it as a TX drop.
+> >>>
+> >>> Do you feel strongly about this?
+> >> Not at all, but my plan was to go a litle bit further, ie being ab=
+le to=20
+> >> return from loopback_xmit() with a non null value.
+> >>
+> >=20
+> > Something like this :
+>=20
+> I just noticed NETDEV_TX_BUSY & NETDEV_TX_OK, so here is an updated v=
+ersion
+> using these macros instead of 0 & 1
+>=20
+> [PATCH] loopback: better handling of packet drops
+>=20
+> We can in some situations drop packets in netif_rx()
+>=20
+> loopback driver does not report these (unlikely) drops to its stats,
+> and incorrectly change packets/bytes counts. Also upper layers are
+> not warned of these transmit failures.
+>=20
+> After this patch applied, "ifconfig lo" can reports these drops as in=
+ :
+>=20
+> # ifconfig lo
+> lo        Link encap:Local Loopback
+>           inet addr:127.0.0.1  Mask:255.0.0.0
+>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+>           RX packets:692562900 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:692562900 errors:3228 dropped:3228 overruns:0 ca=
+rrier:0
+>           collisions:0 txqueuelen:0
+>           RX bytes:2865674174 (2.6 GiB)  TX bytes:2865674174 (2.6 GiB=
+)
+>=20
+> More over, loopback_xmit() can now return to its caller the indicatio=
+n that
+> packet was not transmitted for better queue management and error hand=
+ling.
+>=20
+> I chose to reflect those errors only in tx_dropped/tx_errors, and not=
+ mirror
+> them in rx_dropped/rx_errors.
+>=20
+> Splitting netif_rx() with a helper function boosts tbench performance=
+ by 1%,
+> because we can avoid two tests (about netpoll and timestamping)
+>=20
+> Tested with /proc/sys/net/core/netdev_max_backlog set to 0, tbench
+> can run at full speed even with some 'losses' on loopback. No more
+> tcp stalls...
+>=20
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> ---
+>  drivers/net/loopback.c    |   24 +++++++++---
+>  include/linux/netdevice.h |    1
+>  net/core/dev.c            |   68 +++++++++++++++++++++++------------=
+-
+>  3 files changed, 62 insertions(+), 31 deletions(-)
+>=20
+> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+> index b7d438a..101a3bc 100644
+> --- a/drivers/net/loopback.c
+> +++ b/drivers/net/loopback.c
+> @@ -62,6 +62,7 @@
+>  struct pcpu_lstats {
+>  	unsigned long packets;
+>  	unsigned long bytes;
+> +	unsigned long drops;
+>  };
+> =20
+>  /*
+> @@ -71,20 +72,25 @@ struct pcpu_lstats {
+>  static int loopback_xmit(struct sk_buff *skb, struct net_device *dev=
+)
+>  {
+>  	struct pcpu_lstats *pcpu_lstats, *lb_stats;
+> +	int len;
+> =20
+>  	skb_orphan(skb);
+> =20
+> -	skb->protocol =3D eth_type_trans(skb,dev);
+> +	skb->protocol =3D eth_type_trans(skb, dev);
+> =20
+>  	/* it's OK to use per_cpu_ptr() because BHs are off */
+>  	pcpu_lstats =3D dev->ml_priv;
+>  	lb_stats =3D per_cpu_ptr(pcpu_lstats, smp_processor_id());
+> -	lb_stats->bytes +=3D skb->len;
+> -	lb_stats->packets++;
+> =20
+> -	netif_rx(skb);
+> +	len =3D skb->len;
+> +	if (likely(__netif_rx(skb) =3D=3D NET_RX_SUCCESS)) {
+> +		lb_stats->bytes +=3D len;
+> +		lb_stats->packets++;
+> +		return NETDEV_TX_OK;
+> +	}
+> +	lb_stats->drops++;
+> =20
+> -	return 0;
+> +	return NETDEV_TX_BUSY;
+>  }
 
-> > > > +
-> > > > +void synchronize_rcu_fgp(void)
-> > > > +{
-> > > > +	mutex_lock(&rcu_fgp_mutex);
-> > > > +	
-> > > > +	/* CPUs must see earlier change before parity flip. */
-> > > > +	smp_call_function(rcu_fgp_do_mb, NULL, 1);
-> > > 
-> > > /*
-> > >  * Call a function on all other processors
-> > >  */
-> > > int smp_call_function(void(*func)(void *info), void *info, int wait);
-> > > 
-> > > I guess you meant on_each_cpu ? That should include "self", given we
-> > > also need the smp_mb().
-> > 
-> > Hmmm...  Why do we need "self"?  Because synchronize_rcu_fgp() blocks,
-> > it had jolly well better not be within a read-side critical section.
-> > 
-> > So, what am I missing here?
-> 
-> I mean that I think we also need some smp_mb()s on the writer side,
-> don't we ? If we want the changes done by the writer (assign pointer) to
-> be shown to the readers before the writer starts flipping the parity, a
-> smp_mb() is needed at the beginning of synchronize_rcu_fgp() (actually
-> at the same location where you call the rcu_fgp_do_mb ipis), same at the
-> end (so we order parity flipping with the next assign pointer).
-> 
-> Or maybe it's getting late and I am missing the obvious.
-
-The smp_call_function() itself must have barriers in order to ensure
-that the other CPUs see the updates to its parameter block.
-
-But see my upcoming response to Dave and Peter.
-
-							Thanx, Paul
-
-> Mathieu
-> 
-> > > > +
-> > > > +	/*
-> > > > +	 * We must flip twice to correctly handle tasks that stall
-> > > > +	 * in rcu_read_lock_fgp() between the time that they fetch
-> > > > +	 * rcu_fgp_ctr and the time that the store to their CPU's
-> > > > +	 * rcu_fgp_active_readers.  No matter when they resume
-> > > > +	 * execution, we will wait for them to get to the corresponding
-> > > > +	 * rcu_read_unlock_fgp().
-> > > > +	 */
-> > > > +	ACCESS_ONCE(rcu_fgp_ctr) ^= RCU_FGP_PARITY;  /* flip parity 0 -> 1 */
-> > > > +	rcu_fgp_wait_for_quiescent_state();	     /* wait for old readers */
-> > > > +	ACCESS_ONCE(rcu_fgp_ctr) ^= RCU_FGP_PARITY;  /* flip parity 1 -> 0 */
-> > > > +	rcu_fgp_wait_for_quiescent_state();	     /* wait for old readers */
-> > > > +
-> > > > +	/* Prevent CPUs from reordering out of prior RCU critical sections. */
-> > > > +	smp_call_function(rcu_fgp_do_mb, NULL, 1);
-> > > > +
-> > > 
-> > > Same as above.
-> > 
-> > Same as above.  ;-)
-> > 
-> > > Mathieu, who can still recognise his original userspace implementation
-> > > :-)
-> > 
-> > Yeah, I never was all that good at disguising code anyway.  But I did
-> > keep a couple of changes.  ;-)
-> > 
-> > Updated patch below.
-> > 
-> > 							Thanx, Paul
-> > 
-> > ------------------------------------------------------------------------
-> > 
-> > And here is a crude second cut.  Untested, probably does not even compile.
-> > 
-> > Straight conversion of Mathieu Desnoyers's user-space RCU implementation
-> > at git://lttng.org/userspace-rcu.git to the kernel (and yes, I did help
-> > a little, but he must bear the bulk of the guilt).  Pick on srcu.h
-> > and srcu.c out of sheer laziness.  User-space testing gives deep
-> > sub-microsecond grace-period latencies, so should be fast enough, at
-> > least if you don't mind two smp_call_function() invocations per grace
-> > period and spinning on each instance of a per-CPU variable.
-> > 
-> > Again, I believe per-CPU locking should work fine for the netfilter
-> > counters, but I guess "friends don't let friends use hashed locks".
-> > (I would not know for sure, never having used them myself, except of
-> > course to protect hash tables.)
-> > 
-> > Most definitely -not- for inclusion at this point.  Next step is to hack
-> > up the relevant rcutorture code and watch it explode on contact.  ;-)
-> > 
-> > Changes since v1:
-> > 
-> > o	Applied Mathieu's feedback.
-> > 
-> > o	Added docbook headers and other comments.
-> > 
-> > o	Added the rcu_fgp_batches_completed API required by rcutorture.
-> > 
-> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > ---
-> > 
-> >  include/linux/srcu.h |   42 ++++++++++++++++++++++++
-> >  kernel/srcu.c        |   89 +++++++++++++++++++++++++++++++++++++++++++++++++++
-> >  2 files changed, 131 insertions(+)
-> > 
-> 
-> -- 
-> Mathieu Desnoyers
-> OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+If you return NETDEV_TX_BUSY, then the xmit logic will retry
+so it is not really a drop but a stall. I think it is confusing
+to call this a packet loss.
