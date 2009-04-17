@@ -1,65 +1,52 @@
-From: Art -kwaak- van Breemen <ard@telegraafnet.nl>
-Subject: Re: gretap+vlan+bridge==Oops (2.6.29)
-Date: Fri, 17 Apr 2009 18:51:59 +0200
-Message-ID: <20090417165159.GA5098@telegraafnet.nl>
-References: <20090417143732.GA8564@telegraafnet.nl> <49E89725.3090305@trash.net>
+From: Saikiran Madugula <hummerbliss@gmail.com>
+Subject: Re: [PATCH] Allow fragmentation of VLAN packets traversing a bridge.
+Date: Fri, 17 Apr 2009 18:07:08 +0100
+Message-ID: <49E8B73C.7080004@gmail.com>
+References: <49E89E0D.5080000@gmail.com> <49E8A6DF.3040905@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49E89725.3090305@trash.net>
-Sender: linux-net-owner@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49E8A6DF.3040905@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Patrick McHardy wrote:
+> Saikiran Madugula wrote:
+>> br_nf_dev_queue_xmit only checks for ETH_P_IP packets for fragmenting
+>> but not
+>> VLAN packets. This results in dropping of large VLAN packets. This can be
+>> observed when connection tracking is enabled. Connection tracking
+>> re-assembles
+>> fragmented packets, and these have to be re-fragmented when
+>> transmitting out.
+>>
+>> Signed-off-by: Saikiran Madugula <hummerbliss@gmail.com>
+>> ---
+>>  net/bridge/br_netfilter.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+>> index 3953ac4..941f702 100644
+>> --- a/net/bridge/br_netfilter.c
+>> +++ b/net/bridge/br_netfilter.c
+>> @@ -790,7 +790,7 @@ static unsigned int br_nf_local_out(unsigned int
+>> hook, struct sk_buff *skb,
+>>  
+>>  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+>>  {
+>> -    if (skb->protocol == htons(ETH_P_IP) &&
+>> +    if ((skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb)) &&
+>>          skb->len > skb->dev->mtu &&
+>>          !skb_is_gso(skb))
+>>          return ip_fragment(skb, br_dev_queue_push_xmit);
+> 
+> Please add an additional check for skb->nfct != NULL to make sure
+> that this only refragments packets defragmented by conntrack.
 
-On Fri, Apr 17, 2009 at 04:50:13PM +0200, Patrick McHardy wrote:
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 70d3ef4..748d567 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -387,7 +387,8 @@ static int macvlan_ethtool_get_settings(struct net_device *dev,
->  	const struct macvlan_dev *vlan = netdev_priv(dev);
->  	struct net_device *lowerdev = vlan->lowerdev;
->  
-> -	if (!lowerdev->ethtool_ops->get_settings)
-> +	if (!lowerdev->ethtool_ops ||
-> +	    !lowerdev->ethtool_ops->get_settings)
->  		return -EOPNOTSUPP;
->  
->  	return lowerdev->ethtool_ops->get_settings(lowerdev, cmd);
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 1b34135..6b09213 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -668,7 +668,8 @@ static int vlan_ethtool_get_settings(struct net_device *dev,
->  	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
->  	struct net_device *real_dev = vlan->real_dev;
->  
-> -	if (!real_dev->ethtool_ops->get_settings)
-> +	if (!real_dev->ethtool_ops ||
-> +	    !real_dev->ethtool_ops->get_settings)
->  		return -EOPNOTSUPP;
->  
->  	return real_dev->ethtool_ops->get_settings(real_dev, cmd);
-
-Too lazy to save the patch, so I just typed it :-).
-Anyway: it works now as suspected.
-
-On a side note: I was just trying to test gretap since it seems
-not fragment packets and somebody else noticed that when adding
-.1Q it suddenly fragmented ;-).
-
-On to the next test.
-
-Regards,
-Ard
-
--- 
-A: Because it messes up the order in which people normally read text.
-Q: Why is top-posting such a bad thing?
-A: Top-posting.
-Q: What is the most annoying thing in email?
+Thanks for the feedback, skb->nfct is present only if CONFIG_NF_CONNTRACK or
+CONFIG_NF_CONNTRACK_MODULE is defined. Was wondering if the entire check before
+ip_fragment is necessary if NF_CONNTRACK is not defined. If not, I will post
+updated patch as per your suggestion.
