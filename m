@@ -1,62 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] ax25: proc uid file misses header
-Date: Fri, 17 Apr 2009 15:19:36 +0100
-Message-ID: <20090417141928.15105.59684.stgit@t61.ukuu.org.uk>
+From: Ed Swierk <eswierk@aristanetworks.com>
+Subject: Re: e1000 watchdog timer fails to start after ethool settings change
+Date: Fri, 17 Apr 2009 06:21:35 -0700
+Message-ID: <9ae48b020904170621p113400c2hc3d7984469128325@mail.gmail.com>
+References: <1239857869.31663.29.camel@localhost.localdomain>
+	 <alpine.WNT.2.00.0904160921570.732@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net, david.graham@intel.com
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:37307 "EHLO
-	t61.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756821AbZDQNTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 09:19:54 -0400
+Received: from mail-gx0-f160.google.com ([209.85.217.160]:63156 "EHLO
+	mail-gx0-f160.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754847AbZDQNVi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 09:21:38 -0400
+Received: by gxk4 with SMTP id 4so1889857gxk.13
+        for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 06:21:36 -0700 (PDT)
+In-Reply-To: <alpine.WNT.2.00.0904160921570.732@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This has been broken for a while. I happened to catch it testing because one
-app "knew" that the top line of the calls data was the policy line and got
-confused.
+On Thu, Apr 16, 2009 at 9:43 AM, Brandeburg, Jesse
+<jesse.brandeburg@intel.com> wrote:
+> I've got to think some on how to fix this and I hope to have a patch =
+in
+> the next few days. =A0Would you agree not very high priority?
 
-Put the header back.
+I've worked around the problem, and it seems unlikely to affect many
+other people.
 
-Signed-off-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
----
+> Why it doesn't occur on real physical hardware will be interesting to=
+ find
+> out as well.
 
- net/ax25/ax25_uid.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+Have you verified this on real hardware?
 
-
-diff --git a/net/ax25/ax25_uid.c b/net/ax25/ax25_uid.c
-index 57aeba7..d5cfbcf 100644
---- a/net/ax25/ax25_uid.c
-+++ b/net/ax25/ax25_uid.c
-@@ -148,9 +148,13 @@ static void *ax25_uid_seq_start(struct seq_file *seq, loff_t *pos)
- {
- 	struct ax25_uid_assoc *pt;
- 	struct hlist_node *node;
--	int i = 0;
-+	int i = 1;
- 
- 	read_lock(&ax25_uid_lock);
-+	
-+	if (*pos == 0)
-+		return SEQ_START_TOKEN;
-+
- 	ax25_uid_for_each(pt, node, &ax25_uid_list) {
- 		if (i == *pos)
- 			return pt;
-@@ -162,8 +166,10 @@ static void *ax25_uid_seq_start(struct seq_file *seq, loff_t *pos)
- static void *ax25_uid_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	++*pos;
--
--	return hlist_entry(((ax25_uid_assoc *)v)->uid_node.next,
-+	if (v == SEQ_START_TOKEN)
-+		return ax25_uid_list.first;
-+	else
-+		return hlist_entry(((ax25_uid_assoc *)v)->uid_node.next,
- 			   ax25_uid_assoc, uid_node);
- }
- 
-
+--Ed
