@@ -1,92 +1,73 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: vlan/macvlan: fix NULL pointer dereferences in ethtool handlers
-Date: Fri, 17 Apr 2009 18:05:32 +0200
-Message-ID: <49E8A8CC.8060305@trash.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060507000306080402030401"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Subject: netfilter 01/02: ctnetlink: report error if event message allocation fails
+Date: Fri, 17 Apr 2009 18:09:14 +0200 (MEST)
+Message-ID: <20090417160914.32484.5655.sendpatchset@x2.localnet>
+References: <20090417160913.32484.93063.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56859 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:56947 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757747AbZDQQFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 12:05:36 -0400
+	with ESMTP id S1758611AbZDQQJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 12:09:16 -0400
+In-Reply-To: <20090417160913.32484.93063.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060507000306080402030401
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+commit 150ace0db360373d2016a2497d252138a59c5ba8
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Fri Apr 17 17:47:31 2009 +0200
 
-
---------------060507000306080402030401
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-commit c9bfff86b3c8e39df7ddd34e1eac238edc5bf810
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Apr 17 18:04:43 2009 +0200
-
-    vlan/macvlan: fix NULL pointer dereferences in ethtool handlers
+    netfilter: ctnetlink: report error if event message allocation fails
     
-    Check whether the underlying device provides a set of ethtool ops before
-    checking for individual handlers to avoid NULL pointer dereferences.
+    This patch fixes an inconsistency that results in no error reports
+    to user-space listeners if we fail to allocate the event message.
     
-    Reported-by: Art van Breemen <ard@telegraafnet.nl>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 70d3ef4..214a8cf 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -376,7 +376,8 @@ static u32 macvlan_ethtool_get_rx_csum(struct net_device *dev)
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct net_device *lowerdev = vlan->lowerdev;
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index c6439c7..0ea36e0 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -512,7 +512,7 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
  
--	if (lowerdev->ethtool_ops->get_rx_csum == NULL)
-+	if (lowerdev->ethtool_ops == NULL ||
-+	    lowerdev->ethtool_ops->get_rx_csum == NULL)
- 		return 0;
- 	return lowerdev->ethtool_ops->get_rx_csum(lowerdev);
+ 	skb = ctnetlink_alloc_skb(tuple(ct, IP_CT_DIR_ORIGINAL), GFP_ATOMIC);
+ 	if (!skb)
+-		return NOTIFY_DONE;
++		goto errout;
+ 
+ 	b = skb->tail;
+ 
+@@ -591,8 +591,9 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
+ nla_put_failure:
+ 	rcu_read_unlock();
+ nlmsg_failure:
+-	nfnetlink_set_err(0, group, -ENOBUFS);
+ 	kfree_skb(skb);
++errout:
++	nfnetlink_set_err(0, group, -ENOBUFS);
+ 	return NOTIFY_DONE;
  }
-@@ -387,7 +388,8 @@ static int macvlan_ethtool_get_settings(struct net_device *dev,
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct net_device *lowerdev = vlan->lowerdev;
+ #endif /* CONFIG_NF_CONNTRACK_EVENTS */
+@@ -1564,7 +1565,7 @@ static int ctnetlink_expect_event(struct notifier_block *this,
  
--	if (!lowerdev->ethtool_ops->get_settings)
-+	if (!lowerdev->ethtool_ops ||
-+	    !lowerdev->ethtool_ops->get_settings)
- 		return -EOPNOTSUPP;
+ 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_ATOMIC);
+ 	if (!skb)
+-		return NOTIFY_DONE;
++		goto errout;
  
- 	return lowerdev->ethtool_ops->get_settings(lowerdev, cmd);
-@@ -398,7 +400,8 @@ static u32 macvlan_ethtool_get_flags(struct net_device *dev)
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct net_device *lowerdev = vlan->lowerdev;
+ 	b = skb->tail;
  
--	if (!lowerdev->ethtool_ops->get_flags)
-+	if (!lowerdev->ethtool_ops ||
-+	    !lowerdev->ethtool_ops->get_flags)
- 		return 0;
- 	return lowerdev->ethtool_ops->get_flags(lowerdev);
+@@ -1589,8 +1590,9 @@ static int ctnetlink_expect_event(struct notifier_block *this,
+ nla_put_failure:
+ 	rcu_read_unlock();
+ nlmsg_failure:
+-	nfnetlink_set_err(0, 0, -ENOBUFS);
+ 	kfree_skb(skb);
++errout:
++	nfnetlink_set_err(0, 0, -ENOBUFS);
+ 	return NOTIFY_DONE;
  }
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 1b34135..6b09213 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -668,7 +668,8 @@ static int vlan_ethtool_get_settings(struct net_device *dev,
- 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
- 	struct net_device *real_dev = vlan->real_dev;
- 
--	if (!real_dev->ethtool_ops->get_settings)
-+	if (!real_dev->ethtool_ops ||
-+	    !real_dev->ethtool_ops->get_settings)
- 		return -EOPNOTSUPP;
- 
- 	return real_dev->ethtool_ops->get_settings(real_dev, cmd);
-
---------------060507000306080402030401--
+ #endif
