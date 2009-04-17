@@ -1,65 +1,83 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net: remove superfluous call to synchronize_net()
-Date: Fri, 17 Apr 2009 12:25:51 -0700
-Message-ID: <20090417192551.GA15538@linux.vnet.ibm.com>
-References: <49E5FF5E.50409@cosmosbay.com> <20090415215454.GU6766@linux.vnet.ibm.com> <49E6C4C7.3050105@cosmosbay.com> <20090417.045631.159492677.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Brownell <david-b@pacbell.net>
+Subject: Fwd: [PATCH 01/22] usb gadget: fix ethernet link reports to ethtool
+Date: Fri, 17 Apr 2009 12:45:14 -0700
+Message-ID: <200904171245.14785.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Network development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:59432 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751005AbZDQTZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Apr 2009 15:25:54 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e9.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3HJFbR8019289
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:15:37 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3HJPpCV185726
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:25:53 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3HJPoNx003171
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:25:51 -0400
+Received: from smtp128.sbc.mail.sp1.yahoo.com ([69.147.65.187]:26618 "HELO
+	smtp128.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752470AbZDQTwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 15:52:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20090417.045631.159492677.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 17, 2009 at 04:56:31AM -0700, David Miller wrote:
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Thu, 16 Apr 2009 07:40:23 +0200
-> 
-> > [PATCH] net: remove superfluous call to synchronize_net()
-> > 
-> > inet_register_protosw() function is responsible for adding a new
-> > inet protocol into a global table (inetsw[]) that is used with RCU rules.
-> > 
-> > As soon as the store of the pointer is done, other cpus might see
-> > this new protocol in inetsw[], so we have to make sure new protocol
-> > is ready for use. All pending memory updates should thus be committed
-> > to memory before setting the pointer.
-> > This is correctly done using rcu_assign_pointer()
-> > 
-> > synchronize_net() is typically used at unregister time, after
-> > unsetting the pointer, to make sure no other cpu is still using
-> > the object we want to dismantle. Using it at register time
-> > is only adding an artificial delay that could hide a real bug,
-> > and this bug could popup if/when synchronize_rcu() can proceed
-> > faster than now.
-> > 
-> > This saves about 13 ms on boot time on a HZ=1000 8 cpus machine  ;) 
-> > (4 calls to inet_register_protosw(), and about 3200 us per call)
-> > 
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
-> I think this change is fine, so I'm adding it to net-next-2.6
-> 
-> If you guys want to continue discussing the merits of putting
-> comments in every spot where we lack a RCU sync call, that's
-> your call. :-)
+Hmm, I should probably try to cc netdev on some of these
+patches.  They're fairly infrequent any more, but...
 
-Your Honor, I plead guilty to charges as read.  ;-)
+Likewise, it'd be good to get cc'd from netdev on patches
+that affect drivers/usb/gadget ... I was very recently
+surprised to see a "phonet" driver just appear.
 
-							Thanx, Paul
+- Dave
+
+
+----------  Forwarded Message  ----------
+
+Subject: [PATCH 01/22] usb gadget: fix ethernet link reports to ethtool
+Date: Friday 17 April 2009
+From: "Greg Kroah-Hartman" <gregkh@suse.de>
+To: linux-usb@vger.kernel.org
+
+From: Jonathan McDowell <noodles@earth.li>
+
+The g_ether USB gadget driver currently decides whether or not there's a
+link to report back for eth_get_link based on if the USB link speed is
+set. The USB gadget speed is however often set even before the device is
+enumerated. It seems more sensible to only report a "link" if we're
+actually connected to a host that wants to talk to us. The patch below
+does this for me - tested with the PXA27x UDC driver.
+
+Signed-off-by: Jonathan McDowell <noodles@earth.li>
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+Cc: stable <stable@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/usb/gadget/u_ether.c |    8 +-------
+ 1 files changed, 1 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
+index 96d65ca..4007770 100644
+--- a/drivers/usb/gadget/u_ether.c
++++ b/drivers/usb/gadget/u_ether.c
+@@ -175,12 +175,6 @@ static void eth_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *p)
+ 	strlcpy(p->bus_info, dev_name(&dev->gadget->dev), sizeof p->bus_info);
+ }
+ 
+-static u32 eth_get_link(struct net_device *net)
+-{
+-	struct eth_dev	*dev = netdev_priv(net);
+-	return dev->gadget->speed != USB_SPEED_UNKNOWN;
+-}
+-
+ /* REVISIT can also support:
+  *   - WOL (by tracking suspends and issuing remote wakeup)
+  *   - msglevel (implies updated messaging)
+@@ -189,7 +183,7 @@ static u32 eth_get_link(struct net_device *net)
+ 
+ static struct ethtool_ops ops = {
+ 	.get_drvinfo = eth_get_drvinfo,
+-	.get_link = eth_get_link
++	.get_link = ethtool_op_get_link,
+ };
+ 
+ static void defer_kevent(struct eth_dev *dev, int flag)
+-- 
+1.6.2
+
+
+-------------------------------------------------------
