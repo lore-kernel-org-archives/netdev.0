@@ -1,46 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: htb parallelism on multi-core platforms
-Date: Sat, 18 Apr 2009 00:41:38 +0200
-Message-ID: <49E905A2.7040402@gmail.com>
-References: <1239964844.21569.57.camel@blade.ines.ro>
+From: Saikiran Madugula <hummerbliss@gmail.com>
+Subject: [PATCH] Allow fragmentation of VLAN packets traversing a bridge.
+Date: Fri, 17 Apr 2009 23:51:14 +0100
+Message-ID: <49E907E2.3020304@gmail.com>
+References: <49E89E0D.5080000@gmail.com> <49E8A6DF.3040905@trash.net> <49E8B73C.7080004@gmail.com> <49E8BA68.50605@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Radu Rendec <radu.rendec@ines.ro>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.186]:20371 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051AbZDQWuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 18:50:00 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so497465fkq.5
-        for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:49:58 -0700 (PDT)
-In-Reply-To: <1239964844.21569.57.camel@blade.ines.ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Saikiran Madugula <hummerbliss@gmail.com>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49E8BA68.50605@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Radu Rendec wrote, On 04/17/2009 12:40 PM:
+br_nf_dev_queue_xmit only checks for ETH_P_IP packets for fragmenting but not
+VLAN packets. This results in dropping of large VLAN packets. This can be
+observed when connection tracking is enabled. Connection tracking re-assembles
+fragmented packets, and these have to re-fragmented when transmitting out. Also,
+make sure only refragmented packets are defragmented as per suggestion from
+Patrick McHardy.
 
-> Hi,
+Signed-off-by: Saikiran Madugula <hummerbliss@gmail.com>
+---
+ net/bridge/br_netfilter.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
-Hi Radu,
-
-> 
-> I'm using htb on a dedicated shaping machine. Under heavy traffic (high
-> packet rate) all htb work is done on a single cpu - only one ksoftirqd
-> is consuming cpu power.
-> 
-> I have limited network stack knowledge, but I guess all htb work for a
-> particular interface is done on the same softirq context. Of course this
-> does not scale with multiple cpus, since only one of them would be used.
-> 
-> Is there any (simple) approach to distribute htb work (for one
-> interface) on multiple cpus?
-
-I don't know about anything (simple) for this, but I wonder if you
-tried already any htb tweaking like htb_hysteresis module param or
-burst/cburst class parameters to limit some maybe useless resolution/
-overhead?
-
-Regards,
-Jarek P.
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 3953ac4..e4a418f 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -788,15 +788,23 @@ static unsigned int br_nf_local_out(unsigned int hook, struct sk_buff *skb,
+ 	return NF_STOLEN;
+ }
+ 
++#if defined(CONFIG_NF_CONNTRACK_IPV4) || defined(CONFIG_NF_CONNTRACK_IPV4_MODULE)
+ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ {
+-	if (skb->protocol == htons(ETH_P_IP) &&
++	if (skb->nfct != NULL &&
++	    (skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb)) &&
+ 	    skb->len > skb->dev->mtu &&
+ 	    !skb_is_gso(skb))
+ 		return ip_fragment(skb, br_dev_queue_push_xmit);
+ 	else
+ 		return br_dev_queue_push_xmit(skb);
+ }
++#else
++static int br_nf_dev_queue_xmit(struct sk_buff *skb)
++{
++        return br_dev_queue_push_xmit(skb);
++}
++#endif
+ 
+ /* PF_BRIDGE/POST_ROUTING ********************************************/
+ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
+-- 
+1.5.6.3
