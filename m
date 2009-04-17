@@ -1,296 +1,269 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] loopback: better handling of packet drops
-Date: Fri, 17 Apr 2009 12:06:28 +0200
-Message-ID: <49E854A4.1010204@cosmosbay.com>
-References: <49E78DE5.10104@hartkopp.net>	<20090417.013853.04495551.davem@davemloft.net>	<49E84459.1060507@cosmosbay.com> <20090417.015914.09817926.davem@davemloft.net> <49E84B99.1080502@cosmosbay.com>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 11/12] FEC Buffer rework
+Date: Fri, 17 Apr 2009 20:07:26 +1000
+Message-ID: <49E854DE.2050302@snapgear.com>
+References: <1239795145-27558-1-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-2-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-3-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-4-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-10-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-11-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:54760 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755676AbZDQKGc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:06:32 -0400
-In-Reply-To: <49E84B99.1080502@cosmosbay.com>
+Received: from rex.securecomputing.com ([203.24.151.4]:41472 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758879AbZDQKHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:07:31 -0400
+In-Reply-To: <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> David Miller a =E9crit :
->> From: Eric Dumazet <dada1@cosmosbay.com>
->> Date: Fri, 17 Apr 2009 10:56:57 +0200
->>
->>> We can in some situations drop packets in netif_rx()
->>>
->>> loopback driver does not report these (unlikely) drops to its stats=
-,
->>> and incorrectly change packets/bytes counts.
->>>
->>> After this patch applied, "ifconfig lo" can reports these drops as =
-in :
->>>
->>> # ifconfig lo
->>> lo        Link encap:Local Loopback
->>>           inet addr:127.0.0.1  Mask:255.0.0.0
->>>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
->>>           RX packets:692562900 errors:0 dropped:0 overruns:0 frame:=
-0
->>>           TX packets:692562900 errors:3228 dropped:3228 overruns:0 =
-carrier:0
->>>           collisions:0 txqueuelen:0
->>>           RX bytes:2865674174 (2.6 GiB)  TX bytes:2865674174 (2.6 G=
-iB)
->>>
->>> I chose to reflect those errors only in tx_dropped/tx_errors, and n=
-ot mirror
->>> these errors in rx_dropped/rx_errors.
->>>
->>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->> Well, logically the receive is what failed, not the transmit.
->>
->> I think it's therefore misleading to count it as a TX drop.
->>
->> Do you feel strongly about this?
->=20
-> Not at all, but my plan was to go a litle bit further, ie being able =
-to=20
-> return from loopback_xmit() with a non null value.
->=20
 
-Something like this :
+Hi Sascha,
 
-[PATCH] loopback: better handling of packet drops
+Sascha Hauer wrote:
+> Allocate buffers in fec_open and free them again in fec_close. This makes
+> it possible to use this driver as a module.
+> 
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
 
-We can in some situations drop packets in netif_rx()
+This is the only one that doesn't work for ColdFire. There is no
+dma_map_single() or dma_unmap_single() currently. I will fix that,
+so I am fine with this anyways.
 
-loopback driver does not report these (unlikely) drops to its stats,
-and incorrectly change packets/bytes counts. Also upper layers are
-not warned of these transmit failures.
+With all the other patches applied it still basically works on ColdFire
+(at least on initial testing on a 5208). I have seen a few spurious
+interrupts though with these changes applied, that didn't happen
+before. I will investigate further when get a few minutes.
 
-After this patch applied, "ifconfig lo" can reports these drops as in :
+Regards
+Greg
 
-# ifconfig lo
-lo        Link encap:Local Loopback
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:692562900 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:692562900 errors:3228 dropped:3228 overruns:0 carr=
-ier:0
-          collisions:0 txqueuelen:0
-          RX bytes:2865674174 (2.6 GiB)  TX bytes:2865674174 (2.6 GiB)
 
-More over, loopback_xmit() can now return to its caller the indication =
-that
-packet was not transmitted for better queue management and error handli=
-ng.
 
-I chose to reflect those errors only in tx_dropped/tx_errors, and not m=
-irror
-them in rx_dropped/rx_errors.
+> ---
+>  drivers/net/fec.c |  139 +++++++++++++++++++++++++++++++++-------------------
+>  1 files changed, 88 insertions(+), 51 deletions(-)
+> 
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index f4afbe9..0e1d268 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -172,6 +172,7 @@ struct fec_enet_private {
+>  	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+>  	unsigned char *tx_bounce[TX_RING_SIZE];
+>  	struct	sk_buff* tx_skbuff[TX_RING_SIZE];
+> +	struct	sk_buff* rx_skbuff[RX_RING_SIZE];
+>  	ushort	skb_cur;
+>  	ushort	skb_dirty;
+>  
+> @@ -335,8 +336,8 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	/* Push the data cache so the CPM does not get stale memory
+>  	 * data.
+>  	 */
+> -	dma_sync_single(NULL, bdp->cbd_bufaddr,
+> -			bdp->cbd_datlen, DMA_TO_DEVICE);
+> +	bdp->cbd_bufaddr = dma_map_single(&dev->dev, skb->data,
+> +			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
+>  
+>  	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
+>  	 * it's the last BD of the frame, and to put the CRC on the end.
+> @@ -429,7 +430,11 @@ fec_enet_tx(struct net_device *dev)
+>  	bdp = fep->dirty_tx;
+>  
+>  	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
+> -		if (bdp == fep->cur_tx && fep->tx_full == 0) break;
+> +		if (bdp == fep->cur_tx && fep->tx_full == 0)
+> +			break;
+> +
+> +		dma_unmap_single(&dev->dev, bdp->cbd_bufaddr, FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
+> +		bdp->cbd_bufaddr = 0;
+>  
+>  		skb = fep->tx_skbuff[fep->skb_dirty];
+>  		/* Check for errors. */
+> @@ -553,8 +558,8 @@ fec_enet_rx(struct net_device *dev)
+>  		dev->stats.rx_bytes += pkt_len;
+>  		data = (__u8*)__va(bdp->cbd_bufaddr);
+>  
+> -		dma_sync_single(NULL, (unsigned long)__pa(data),
+> -			pkt_len - 4, DMA_FROM_DEVICE);
+> +	        dma_unmap_single(NULL, bdp->cbd_bufaddr, bdp->cbd_datlen,
+> +        			DMA_FROM_DEVICE);
+>  
+>  		/* This does 16 byte alignment, exactly what we need.
+>  		 * The packet length includes FCS, but we don't want to
+> @@ -574,6 +579,9 @@ fec_enet_rx(struct net_device *dev)
+>  			skb->protocol = eth_type_trans(skb, dev);
+>  			netif_rx(skb);
+>  		}
+> +
+> +        	bdp->cbd_bufaddr = dma_map_single(NULL, data, bdp->cbd_datlen,
+> +			DMA_FROM_DEVICE);
+>  rx_processing_done:
+>  		/* Clear the status flags for this buffer */
+>  		status &= ~BD_ENET_RX_STATS;
+> @@ -1399,15 +1407,86 @@ mii_link_interrupt(int irq, void * dev_id)
+>  }
+>  #endif
+>  
+> +static void fec_enet_free_buffers(struct net_device *dev)
+> +{
+> +	struct fec_enet_private *fep = netdev_priv(dev);
+> +	int i;
+> +	struct sk_buff *skb;
+> +	struct bufdesc	*bdp;
+> +
+> +	bdp = fep->rx_bd_base;
+> +	for (i = 0; i < RX_RING_SIZE; i++) {
+> +		skb = fep->rx_skbuff[i];
+> +
+> +		if (bdp->cbd_bufaddr)
+> +			dma_unmap_single(&dev->dev, bdp->cbd_bufaddr,
+> +					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+> +		if (skb)
+> +			dev_kfree_skb(skb);
+> +		bdp++;
+> +	}
+> +
+> +	bdp = fep->tx_bd_base;
+> +	for (i = 0; i < TX_RING_SIZE; i++)
+> +		kfree(fep->tx_bounce[i]);
+> +}
+> +
+> +static int fec_enet_alloc_buffers(struct net_device *dev)
+> +{
+> +	struct fec_enet_private *fep = netdev_priv(dev);
+> +	int i;
+> +	struct sk_buff *skb;
+> +	struct bufdesc	*bdp;
+> +
+> +	bdp = fep->rx_bd_base;
+> +	for (i = 0; i < RX_RING_SIZE; i++) {
+> +		skb = dev_alloc_skb(FEC_ENET_RX_FRSIZE);
+> +		if (!skb) {
+> +			fec_enet_free_buffers(dev);
+> +			return -ENOMEM;
+> +		}
+> +		fep->rx_skbuff[i] = skb;
+> +
+> +		bdp->cbd_bufaddr = dma_map_single(&dev->dev, skb->data,
+> +				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+> +		bdp->cbd_sc = BD_ENET_RX_EMPTY;
+> +		bdp++;
+> +	}
+> +
+> +	/* Set the last buffer to wrap. */
+> +	bdp--;
+> +	bdp->cbd_sc |= BD_SC_WRAP;
+> +
+> +	bdp = fep->tx_bd_base;
+> +	for (i = 0; i < TX_RING_SIZE; i++) {
+> +		fep->tx_bounce[i] = kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
+> +
+> +		bdp->cbd_sc = 0;
+> +		bdp->cbd_bufaddr = 0;
+> +		bdp++;
+> +	}
+> +
+> +	/* Set the last buffer to wrap. */
+> +	bdp--;
+> +	bdp->cbd_sc |= BD_SC_WRAP;
+> +
+> +	return 0;
+> +}
+> +
+>  static int
+>  fec_enet_open(struct net_device *dev)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(dev);
+> +	int ret;
+>  
+>  	/* I should reset the ring buffers here, but I don't yet know
+>  	 * a simple way to do that.
+>  	 */
+>  
+> +	ret = fec_enet_alloc_buffers(dev);
+> +	if (ret)
+> +		return ret;
+> +
+>  	fep->sequence_done = 0;
+>  	fep->link = 0;
+>  
+> @@ -1454,6 +1533,8 @@ fec_enet_close(struct net_device *dev)
+>  	netif_stop_queue(dev);
+>  	fec_stop(dev);
+>  
+> +        fec_enet_free_buffers(dev);
+> +
+>  	return 0;
+>  }
+>  
+> @@ -1576,9 +1657,8 @@ static const struct net_device_ops fec_netdev_ops = {
+>  int __init fec_enet_init(struct net_device *dev, int index)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(dev);
+> -	unsigned long	mem_addr;
+> -	struct bufdesc *bdp, *cbd_base;
+> -	int 		i, j;
+> +	struct bufdesc *cbd_base;
+> +	int i;
+>  
+>  	/* Allocate memory for buffer descriptors. */
+>  	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
+> @@ -1616,49 +1696,6 @@ int __init fec_enet_init(struct net_device *dev, int index)
+>  	fep->rx_bd_base = cbd_base;
+>  	fep->tx_bd_base = cbd_base + RX_RING_SIZE;
+>  
+> -	/* Initialize the receive buffer descriptors. */
+> -	bdp = fep->rx_bd_base;
+> -	for (i=0; i<FEC_ENET_RX_PAGES; i++) {
+> -
+> -		/* Allocate a page */
+> -		mem_addr = __get_free_page(GFP_KERNEL);
+> -		/* XXX: missing check for allocation failure */
+> -
+> -		/* Initialize the BD for every fragment in the page */
+> -		for (j=0; j<FEC_ENET_RX_FRPPG; j++) {
+> -			bdp->cbd_sc = BD_ENET_RX_EMPTY;
+> -			bdp->cbd_bufaddr = __pa(mem_addr);
+> -			mem_addr += FEC_ENET_RX_FRSIZE;
+> -			bdp++;
+> -		}
+> -	}
+> -
+> -	/* Set the last buffer to wrap */
+> -	bdp--;
+> -	bdp->cbd_sc |= BD_SC_WRAP;
+> -
+> -	/* ...and the same for transmit */
+> -	bdp = fep->tx_bd_base;
+> -	for (i=0, j=FEC_ENET_TX_FRPPG; i<TX_RING_SIZE; i++) {
+> -		if (j >= FEC_ENET_TX_FRPPG) {
+> -			mem_addr = __get_free_page(GFP_KERNEL);
+> -			j = 1;
+> -		} else {
+> -			mem_addr += FEC_ENET_TX_FRSIZE;
+> -			j++;
+> -		}
+> -		fep->tx_bounce[i] = (unsigned char *) mem_addr;
+> -
+> -		/* Initialize the BD for every fragment in the page */
+> -		bdp->cbd_sc = 0;
+> -		bdp->cbd_bufaddr = 0;
+> -		bdp++;
+> -	}
+> -
+> -	/* Set the last buffer to wrap */
+> -	bdp--;
+> -	bdp->cbd_sc |= BD_SC_WRAP;
+> -
+>  #ifdef HAVE_mii_link_interrupt
+>  	fec_request_mii_intr(dev);
+>  #endif
 
-Splitting netif_rx() with a helper function boosts tbench performance b=
-y 1%,
-because we can avoid two tests (about netpoll and timestamping)
 
-Tested with /proc/sys/net/core/netdev_max_backlog set to 0, tbench
-can run at full speed even with some 'losses' on loopback. No more
-tcp stalls...
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- drivers/net/loopback.c    |   24 +++++++++---
- include/linux/netdevice.h |    1
- net/core/dev.c            |   68 +++++++++++++++++++++++-------------
- 3 files changed, 62 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index b7d438a..a1308fd 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -62,6 +62,7 @@
- struct pcpu_lstats {
- 	unsigned long packets;
- 	unsigned long bytes;
-+	unsigned long drops;
- };
-=20
- /*
-@@ -71,20 +72,25 @@ struct pcpu_lstats {
- static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct pcpu_lstats *pcpu_lstats, *lb_stats;
-+	int len;
-=20
- 	skb_orphan(skb);
-=20
--	skb->protocol =3D eth_type_trans(skb,dev);
-+	skb->protocol =3D eth_type_trans(skb, dev);
-=20
- 	/* it's OK to use per_cpu_ptr() because BHs are off */
- 	pcpu_lstats =3D dev->ml_priv;
- 	lb_stats =3D per_cpu_ptr(pcpu_lstats, smp_processor_id());
--	lb_stats->bytes +=3D skb->len;
--	lb_stats->packets++;
-=20
--	netif_rx(skb);
-+	len =3D skb->len;
-+	if (likely(__netif_rx(skb) =3D=3D NET_RX_SUCCESS)) {
-+		lb_stats->bytes +=3D len;
-+		lb_stats->packets++;
-+		return 0;
-+	}
-+	lb_stats->drops++;
-=20
--	return 0;
-+	return 1;
- }
-=20
- static struct net_device_stats *loopback_get_stats(struct net_device *=
-dev)
-@@ -93,6 +99,7 @@ static struct net_device_stats *loopback_get_stats(st=
-ruct net_device *dev)
- 	struct net_device_stats *stats =3D &dev->stats;
- 	unsigned long bytes =3D 0;
- 	unsigned long packets =3D 0;
-+	unsigned long drops =3D 0;
- 	int i;
-=20
- 	pcpu_lstats =3D dev->ml_priv;
-@@ -102,11 +109,14 @@ static struct net_device_stats *loopback_get_stat=
-s(struct net_device *dev)
- 		lb_stats =3D per_cpu_ptr(pcpu_lstats, i);
- 		bytes   +=3D lb_stats->bytes;
- 		packets +=3D lb_stats->packets;
-+		drops   +=3D lb_stats->drops;
- 	}
- 	stats->rx_packets =3D packets;
- 	stats->tx_packets =3D packets;
--	stats->rx_bytes =3D bytes;
--	stats->tx_bytes =3D bytes;
-+	stats->tx_dropped =3D drops;
-+	stats->tx_errors  =3D drops;
-+	stats->rx_bytes   =3D bytes;
-+	stats->tx_bytes   =3D bytes;
- 	return stats;
- }
-=20
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2e7783f..c60e250 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1430,6 +1430,7 @@ extern void dev_kfree_skb_irq(struct sk_buff *skb=
-);
- extern void dev_kfree_skb_any(struct sk_buff *skb);
-=20
- #define HAVE_NETIF_RX 1
-+extern int		__netif_rx(struct sk_buff *skb);
- extern int		netif_rx(struct sk_buff *skb);
- extern int		netif_rx_ni(struct sk_buff *skb);
- #define HAVE_NETIF_RECEIVE_SKB 1
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 343883f..8ae3f19 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1909,6 +1909,44 @@ int weight_p __read_mostly =3D 64;            /*=
- old backlog weight */
- DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) =3D { 0, };
-=20
-=20
-+/*
-+ * helper function called from netif_rx() or loopback_xmit()
-+ */
-+int __netif_rx(struct sk_buff *skb)
-+{
-+	struct softnet_data *queue;
-+	unsigned long flags;
-+
-+	/*
-+	 * The code is rearranged so that the path is the most
-+	 * short when CPU is congested, but is still operating.
-+	 */
-+	local_irq_save(flags);
-+	queue =3D &__get_cpu_var(softnet_data);
-+
-+	__get_cpu_var(netdev_rx_stat).total++;
-+	if (queue->input_pkt_queue.qlen <=3D netdev_max_backlog) {
-+		if (queue->input_pkt_queue.qlen) {
-+enqueue:
-+			__skb_queue_tail(&queue->input_pkt_queue, skb);
-+			local_irq_restore(flags);
-+			return NET_RX_SUCCESS;
-+		}
-+
-+		napi_schedule(&queue->backlog);
-+		goto enqueue;
-+	}
-+
-+	__get_cpu_var(netdev_rx_stat).dropped++;
-+	local_irq_restore(flags);
-+	/*
-+	 * Dont free skb here.
-+	 * netif_rx() will call kfree_skb(skb)
-+	 * loopback_xmit() will not free it but return an error to its caller
-+	 */
-+	return NET_RX_DROP;
-+}
-+
- /**
-  *	netif_rx	-	post buffer to the network code
-  *	@skb: buffer to post
-@@ -1928,6 +1966,7 @@ int netif_rx(struct sk_buff *skb)
- {
- 	struct softnet_data *queue;
- 	unsigned long flags;
-+	int ret;
-=20
- 	/* if netpoll wants it, pretend we never saw it */
- 	if (netpoll_rx(skb))
-@@ -1936,32 +1975,14 @@ int netif_rx(struct sk_buff *skb)
- 	if (!skb->tstamp.tv64)
- 		net_timestamp(skb);
-=20
--	/*
--	 * The code is rearranged so that the path is the most
--	 * short when CPU is congested, but is still operating.
--	 */
--	local_irq_save(flags);
--	queue =3D &__get_cpu_var(softnet_data);
--
--	__get_cpu_var(netdev_rx_stat).total++;
--	if (queue->input_pkt_queue.qlen <=3D netdev_max_backlog) {
--		if (queue->input_pkt_queue.qlen) {
--enqueue:
--			__skb_queue_tail(&queue->input_pkt_queue, skb);
--			local_irq_restore(flags);
--			return NET_RX_SUCCESS;
--		}
--
--		napi_schedule(&queue->backlog);
--		goto enqueue;
--	}
-+	ret =3D __netif_rx(skb);
-=20
--	__get_cpu_var(netdev_rx_stat).dropped++;
--	local_irq_restore(flags);
-+	if (unlikely(ret =3D=3D NET_RX_DROP))
-+		kfree_skb(skb);
-=20
--	kfree_skb(skb);
--	return NET_RX_DROP;
-+	return ret;
- }
-+EXPORT_SYMBOL(netif_rx);
-=20
- int netif_rx_ni(struct sk_buff *skb)
- {
-@@ -5307,7 +5328,6 @@ EXPORT_SYMBOL(netdev_boot_setup_check);
- EXPORT_SYMBOL(netdev_set_master);
- EXPORT_SYMBOL(netdev_state_change);
- EXPORT_SYMBOL(netif_receive_skb);
--EXPORT_SYMBOL(netif_rx);
- EXPORT_SYMBOL(register_gifconf);
- EXPORT_SYMBOL(register_netdevice);
- EXPORT_SYMBOL(register_netdevice_notifier);
-
+-- 
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
