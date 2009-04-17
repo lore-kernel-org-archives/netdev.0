@@ -1,102 +1,65 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13129] New: Kernel panic after adding tap
- interface to bridge
-Date: Fri, 17 Apr 2009 11:48:00 -0700
-Message-ID: <20090417114800.e7fbeb08.akpm@linux-foundation.org>
-References: <bug-13129-10286@http.bugzilla.kernel.org/>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: remove superfluous call to synchronize_net()
+Date: Fri, 17 Apr 2009 12:25:51 -0700
+Message-ID: <20090417192551.GA15538@linux.vnet.ibm.com>
+References: <49E5FF5E.50409@cosmosbay.com> <20090415215454.GU6766@linux.vnet.ibm.com> <49E6C4C7.3050105@cosmosbay.com> <20090417.045631.159492677.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Max Krasnyansky <maxk@qualcomm.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:59814 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756818AbZDQSvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 14:51:14 -0400
-In-Reply-To: <bug-13129-10286@http.bugzilla.kernel.org/>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:59432 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751005AbZDQTZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Apr 2009 15:25:54 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e9.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3HJFbR8019289
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:15:37 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3HJPpCV185726
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:25:53 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3HJPoNx003171
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 15:25:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20090417.045631.159492677.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 17, 2009 at 04:56:31AM -0700, David Miller wrote:
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Thu, 16 Apr 2009 07:40:23 +0200
+> 
+> > [PATCH] net: remove superfluous call to synchronize_net()
+> > 
+> > inet_register_protosw() function is responsible for adding a new
+> > inet protocol into a global table (inetsw[]) that is used with RCU rules.
+> > 
+> > As soon as the store of the pointer is done, other cpus might see
+> > this new protocol in inetsw[], so we have to make sure new protocol
+> > is ready for use. All pending memory updates should thus be committed
+> > to memory before setting the pointer.
+> > This is correctly done using rcu_assign_pointer()
+> > 
+> > synchronize_net() is typically used at unregister time, after
+> > unsetting the pointer, to make sure no other cpu is still using
+> > the object we want to dismantle. Using it at register time
+> > is only adding an artificial delay that could hide a real bug,
+> > and this bug could popup if/when synchronize_rcu() can proceed
+> > faster than now.
+> > 
+> > This saves about 13 ms on boot time on a HZ=1000 8 cpus machine  ;) 
+> > (4 calls to inet_register_protosw(), and about 3200 us per call)
+> > 
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> 
+> I think this change is fine, so I'm adding it to net-next-2.6
+> 
+> If you guys want to continue discussing the merits of putting
+> comments in every spot where we lack a RCU sync call, that's
+> your call. :-)
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Your Honor, I plead guilty to charges as read.  ;-)
 
-On Fri, 17 Apr 2009 13:51:06 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=13129
-
-There's some additional info at the bugzillal ink.
-
->            Summary: Kernel panic after adding tap interface to bridge
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.27.21
->           Platform: All
->         OS/Version: Linux
->               Tree: Fedora
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: aatrof@gmail.com
->         Regression: No
-> 
-> 
-> Created an attachment (id=21029)
->  --> (http://bugzilla.kernel.org/attachment.cgi?id=21029)
-> serial output after kernel panic
-> 
-> Box has a 1 active truncated Ethernet link with dozens VLANs. During system
-> startup virtual interfaces are created to separate each VLAN data from the
-> others'. Several brigdes sit on the top of them, one for each VLAN. Everything
-> works fine until I try to add kvm linux guest to whichever VLAN brigde. Then
-> kernel freezes in a few seconds.
-> 
-> Steps to reproduce:
-> 
-> 1) configure network interfaces accordingly to what has been described above
-> (standard RedHat/Fedora config files in /etc/sysconfig/network-scripts
-> suffice).
-> 2) create TAP device using tunctl
-> 3) change the state of the device to up 
-> 4) add it to one of the bridges
-> 5) run guest machine with one interface paired with previously created TAP
-> device
-> 
-> Steps 2-4 can be handled automatically by qemu-kvm running script like this
-> one:
-> 
-> #!/bin/sh
-> # prep_script.sh
-> set -x
-> 
-> switch=br100
-> 
-> if [ -n "$1" ];then
->         /usr/sbin/tunctl -p -t $1
->         /sbin/ip link set $1 up
->         sleep 0.5s
->         /usr/sbin/brctl addif $switch $1
->         exit 0
-> else
->         echo "Error: no interface specified"
->         exit 1
-> fi
-> 
-> Then guest can be fired up using the following command:
-> 
-> qemu-kvm -m 1024 -net nic,model=e1000 -net tap,script=/path/to/prep_script.sh
-> /path/to/disk.img
-> 
-> Additional info:
-> 
-> Host: Fedora 10 (see kernel ring buffer output file and kernel config file)
-> Guest: CentOS 5.3
-> 
-
+							Thanx, Paul
