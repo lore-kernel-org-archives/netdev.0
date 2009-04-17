@@ -1,177 +1,108 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors
-	are	closed
-Date: Fri, 17 Apr 2009 08:09:23 +0800
-Message-ID: <20090417000923.GE29988@gondor.apana.org.au>
-References: <20090416195745.GA5826@dhcp-1-124.tlv.redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive spinlock  (v6)
+Date: Thu, 16 Apr 2009 17:13:04 -0700
+Message-ID: <20090417001304.GA21657@linux.vnet.ibm.com>
+References: <20090415.164811.19905145.davem@davemloft.net> <20090415170111.6e1ca264@nehalam> <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <20090415174551.529d241c@nehalam> <49E6BBA9.2030701@cosmosbay.com> <49E7384B.5020707@trash.net> <20090416144748.GB6924@linux.vnet.ibm.com> <49E75876.10509@cosmosbay.com> <20090416175850.GH6924@linux.vnet.ibm.com> <49E77BF6.1080206@cosmosbay.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
-	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: "Michael S. Tsirkin" <m.s.tsirkin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
+	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090416195745.GA5826-462rkM2+8agLcDHsvH30SxcY2uh10dtjAL8bYrjMMd8@public.gmane.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+In-Reply-To: <49E77BF6.1080206@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 16, 2009 at 10:57:45PM +0300, Michael S. Tsirkin wrote:
->
-> This last bit seems to make a simple test using a non-persistent tap device
-> deadlock for me: we don't drop a reference acquired with __tun_get sock
-> unregister_netdevice blocks printing unregister_netdevice: waiting for tap0 to
-> become free. Usage count = 1.
+On Thu, Apr 16, 2009 at 08:41:58PM +0200, Eric Dumazet wrote:
+>=20
+>=20
+> Paul E. McKenney a =E9crit :
+> >=20
+> > But if some other CPU holds the lock, this code would fail to wait =
+for
+> > that other CPU to release the lock, right?  It also might corrupt t=
+he
+> > rl->count field due to two CPUs accessing it concurrently non-atomi=
+cally.
+>=20
+> If another cpu holds the lock, this cpu will spin on its own lock.
+>=20
+> Remember other cpus dont touch rl->count. This is a private field, on=
+ly touched
+> by the cpu on its own per_cpu data. There is no possible 'corruption'
 
-Ah yes, I'd overlooked the fact that the original code didn't
-require the tfile refcount to hit zero.  Now we do.  Here's an
-updated version of the first patch.  The second patch should still
-work as is.
+Ah!!!  I must confess that I didn't make it that far into the code...
 
-tun: Only free a netdev when all tun descriptors are closed
+> So the owner of the per_cpu data does :
+>=20
+> /*
+>  * disable preemption, get rl =3D &__get_cpu_var(arp_tables_lock);
+>  * then :
+>  */
+> lock_time :
+> if (++rl->count =3D=3D 0)
+> 	spin_lock(&rl->lock);
+>=20
+> unlock_time:
+> if (likely(--rl->count =3D=3D 0))
+> 	spin_unlock(&rl->lock);
+>=20
+>=20
+> while other cpus only do :
+>=20
+> spin_lock(&rl->lock);
+> /* work on data */
+> spin_unlock(&rl->lock);
+>=20
+> So they cannot corrupt 'count' stuff.
 
-The commit c70f182940f988448f3c12a209d18b1edc276e33 ("tun: Fix
-races between tun_net_close and free_netdev") fixed a race where
-an asynchronous deletion of a tun device can hose a poll(2) on
-a tun fd attached to that device.
+OK, that does function.  Hurts my head, though.  ;-)
 
-However, this came at the cost of moving the tun wait queue into
-the tun file data structure.  The problem with this is that it
-imposes restrictions on when and where the tun device can access
-the wait queue since the tun file may change at any time due to
-detaching and reattaching.
+> > I suggest the following, preferably in a function or macro or somet=
+hing:
+> >=20
+> > 	cur_cpu =3D smp_processor_id();
+> > 	if (likely(rl->owner !=3D cur_cpu) {
+> > 		spin_lock(&rl->lock);
+> > 		rl->owner =3D smp_processor_id();
+> > 		rl->count =3D 1;
+> > 	} else {
+> > 		rl->count++;
+> > 	}
+> >=20
+> > And the inverse for unlock.
+> >=20
+> > Or am I missing something subtle?
+>=20
+> Apparently Linus missed it too, and reacted badly to my mail.
+> I dont know why we discuss of this stuff on lkml either...
 
-In particular, now that we need to use the wait queue on the
-receive path it becomes difficult to properly synchronise this
-with the detachment of the tun device.
+Encapsulating them so that they appear in the same place might (or migh=
+t
+not) have gotten the fact that you were not doing a recursive lock
+through my head.  Even so, the name "rec_lock" might have overwhelmed
+the code structure in my mind.  ;-)
 
-This patch solves the original race in a different way.  Since
-the race is only because the underlying memory gets freed, we
-can prevent it simply by ensuring that we don't do that until
-all tun descriptors ever attached to the device (even if they
-have since be detached because they may still be sitting in poll)
-have been closed.
+> I stop working on this subject and consider drinking dome hard stuf a=
+nd
+> watching tv :)
 
-This is done by using reference counting the attached tun file
-descriptors.  The refcount in tun->sk has been reappropriated
-for this purpose since it was already being used for that, albeit
-from the opposite angle.
+That -is- extreme!  ;-)
 
-Note that we no longer zero tfile->tun since tun_get will return
-NULL anyway after the refcount on tfile hits zero.  Instead it
-represents whether this device has ever been attached to a device.
+							Thanx, Paul
 
-Signed-off-by: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a1b0697..32ef0b2 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -156,6 +156,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	tfile->tun = tun;
- 	tun->tfile = tfile;
- 	dev_hold(tun->dev);
-+	sock_hold(tun->sk);
- 	atomic_inc(&tfile->count);
- 
- out:
-@@ -165,11 +166,8 @@ out:
- 
- static void __tun_detach(struct tun_struct *tun)
- {
--	struct tun_file *tfile = tun->tfile;
--
- 	/* Detach from net device */
- 	netif_tx_lock_bh(tun->dev);
--	tfile->tun = NULL;
- 	tun->tfile = NULL;
- 	netif_tx_unlock_bh(tun->dev);
- 
-@@ -339,6 +337,13 @@ static void tun_net_uninit(struct net_device *dev)
- 	}
- }
- 
-+static void tun_free_netdev(struct net_device *dev)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	sock_put(tun->sk);
-+}
-+
- /* Net device open. */
- static int tun_net_open(struct net_device *dev)
- {
-@@ -810,7 +815,7 @@ static void tun_setup(struct net_device *dev)
- 	tun->group = -1;
- 
- 	dev->ethtool_ops = &tun_ethtool_ops;
--	dev->destructor = free_netdev;
-+	dev->destructor = tun_free_netdev;
- }
- 
- /* Trivial set of netlink ops to allow deleting tun or tap
-@@ -847,7 +852,7 @@ static void tun_sock_write_space(struct sock *sk)
- 
- static void tun_sock_destruct(struct sock *sk)
- {
--	dev_put(container_of(sk, struct tun_sock, sk)->tun->dev);
-+	free_netdev(container_of(sk, struct tun_sock, sk)->tun->dev);
- }
- 
- static struct proto tun_proto = {
-@@ -919,8 +924,6 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (!sk)
- 			goto err_free_dev;
- 
--		/* This ref count is for tun->sk. */
--		dev_hold(dev);
- 		sock_init_data(&tun->socket, sk);
- 		sk->sk_write_space = tun_sock_write_space;
- 		sk->sk_destruct = tun_sock_destruct;
-@@ -1275,20 +1278,17 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun = __tun_get(tfile);
- 
--
- 	if (tun) {
--		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
--
--		rtnl_lock();
--		__tun_detach(tun);
--
- 		/* If desireable, unregister the netdevice. */
--		if (!(tun->flags & TUN_PERSIST)) {
--			sock_put(tun->sk);
--			unregister_netdevice(tun->dev);
--		}
-+		if (!(tun->flags & TUN_PERSIST))
-+			unregister_netdev(tun->dev);
-+		tun_put(tun);
-+	} else
-+		tun = tfile->tun;
- 
--		rtnl_unlock();
-+	if (tun) {
-+		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
-+		sock_put(tun->sk);
- 	}
- 
- 	put_net(tfile->net);
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> See you
+>=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
