@@ -1,48 +1,35 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 11/12] FEC Buffer rework
-Date: Fri, 17 Apr 2009 12:12:09 +0200
-Message-ID: <20090417101209.GN21747@pengutronix.de>
-References: <1239795145-27558-4-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-5-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-6-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-7-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-8-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-9-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-10-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-11-git-send-email-s.hauer@pengutronix.de> <1239795145-27558-12-git-send-email-s.hauer@pengutronix.de> <49E854DE.2050302@snapgear.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [IPV6]: ROUTE:read ifname in rt6_info_route()
+Date: Fri, 17 Apr 2009 12:24:42 +0200
+Message-ID: <m2ljpzwpat.fsf@igel.home>
+References: <49E710E1.3060209@miraclelinux.com>
+	<20090416.043800.171462037.davem@davemloft.net>
+	<20090416083031.1cc24489@nehalam> <m2y6u07dh3.fsf@igel.home>
+	<20090416102731.459f9558@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Greg Ungerer <gerg@snapgear.com>
+Cc: David Miller <davem@davemloft.net>, ysugiura@miraclelinux.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:52167 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759562AbZDQKMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:12:10 -0400
-Content-Disposition: inline
-In-Reply-To: <49E854DE.2050302@snapgear.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:39707 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754872AbZDQKYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 06:24:47 -0400
+In-Reply-To: <20090416102731.459f9558@nehalam> (Stephen Hemminger's message of
+	"Thu, 16 Apr 2009 10:27:31 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 17, 2009 at 08:07:26PM +1000, Greg Ungerer wrote:
->
-> Hi Sascha,
->
-> Sascha Hauer wrote:
->> Allocate buffers in fec_open and free them again in fec_close. This makes
->> it possible to use this driver as a module.
->>
->> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
->
-> This is the only one that doesn't work for ColdFire. There is no
-> dma_map_single() or dma_unmap_single() currently. I will fix that,
-> so I am fine with this anyways.
->
-> With all the other patches applied it still basically works on ColdFire
-> (at least on initial testing on a 5208). I have seen a few spurious
-> interrupts though with these changes applied, that didn't happen
-> before. I will investigate further when get a few minutes.
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-Ok, thanks for testing
+> The issue is what happens if name is not null terminated.
 
-Regards,
-  Sascha
+That cannot happen.  And a field width would not help anyway.
+
+Andreas.
 
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
