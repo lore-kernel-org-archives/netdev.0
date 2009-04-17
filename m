@@ -1,64 +1,62 @@
-From: "Oliver Hartkopp" <oliver@hartkopp.net>
-Subject: dropwatch for network drop monitor
-Date: Fri, 17 Apr 2009 14:57:24 +0200 (MEST)
-Message-ID: <200904171257.n3HCvOba029938@post.webmailer.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] ax25: proc uid file misses header
+Date: Fri, 17 Apr 2009 15:19:36 +0100
+Message-ID: <20090417141928.15105.59684.stgit@t61.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from em-p00-ob.rzone.de ([81.169.146.225]:32550 "EHLO
-	em-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbZDQM7S convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 08:59:18 -0400
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:37307 "EHLO
+	t61.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756821AbZDQNTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 09:19:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Neal,
+This has been broken for a while. I happened to catch it testing because one
+app "knew" that the top line of the calls data was the policy line and got
+confused.
 
-i tried the dropwatch app from your git.
+Put the header back.
 
-Compiling the source produces:
+Signed-off-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
+---
 
-hartko@vwagwolkf320:~/dropwatch/src$ make
-gcc -c -g main.c
-gcc -c -g lookup.c
-gcc -c -g lookup_bfd.c
-gcc -c -g lookup_kas.c
-lookup_kas.c: In function =91lookup_kas_cache=92:
-lookup_kas.c:56: warning: cast from pointer to integer of different siz=
-e
-lookup_kas.c: In function =91lookup_kas_proc=92:
-lookup_kas.c:100: warning: cast from pointer to integer of different si=
-ze
-lookup_kas.c:103: warning: cast from pointer to integer of different si=
-ze
-gcc -g -o dropwatch main.o lookup.o lookup_bfd.o lookup_kas.o -lbfd -lr=
-eadline -lnl=20
+ net/ax25/ax25_uid.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
-You cast a 'pc' variable to __u64 - is your code depending on 64 bit ??
 
-Starting the stuff brings:
-
-vwagwolkf320:/home/hartko/dropwatch/src# ./dropwatch=20
-Initalizing kallsyms db
-dropwatch> start
-Enabling monitoring...
-Waiting for activation ack....
-Waiting for activation ack....
-Waiting for activation ack....
-Waiting for activation ack....
-Waiting for activation ack....
-Waiting for activation ack....
-=46ailed activation request, error: Operation now in progress
-Shutting down ...
-vwagwolkf320:/home/hartko/dropwatch/src#=20
-
-And in my kernel log i get at the same time:
-[ 7070.568482] netlink: 60 bytes leftover after parsing attributes.
-
-Any ideas?
-
-Oliver
+diff --git a/net/ax25/ax25_uid.c b/net/ax25/ax25_uid.c
+index 57aeba7..d5cfbcf 100644
+--- a/net/ax25/ax25_uid.c
++++ b/net/ax25/ax25_uid.c
+@@ -148,9 +148,13 @@ static void *ax25_uid_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	struct ax25_uid_assoc *pt;
+ 	struct hlist_node *node;
+-	int i = 0;
++	int i = 1;
+ 
+ 	read_lock(&ax25_uid_lock);
++	
++	if (*pos == 0)
++		return SEQ_START_TOKEN;
++
+ 	ax25_uid_for_each(pt, node, &ax25_uid_list) {
+ 		if (i == *pos)
+ 			return pt;
+@@ -162,8 +166,10 @@ static void *ax25_uid_seq_start(struct seq_file *seq, loff_t *pos)
+ static void *ax25_uid_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	++*pos;
+-
+-	return hlist_entry(((ax25_uid_assoc *)v)->uid_node.next,
++	if (v == SEQ_START_TOKEN)
++		return ax25_uid_list.first;
++	else
++		return hlist_entry(((ax25_uid_assoc *)v)->uid_node.next,
+ 			   ax25_uid_assoc, uid_node);
+ }
+ 
 
