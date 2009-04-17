@@ -1,51 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: An inconsistency/bug in ingress netem timestamps
-Date: Fri, 17 Apr 2009 05:04:22 -0700 (PDT)
-Message-ID: <20090417.050422.134655407.davem@davemloft.net>
-References: <20090416.031034.41207844.davem@davemloft.net>
-	<20090416214846.GA9375@ami.dom.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] loopback: better handling of packet drops
+Date: Fri, 17 Apr 2009 14:22:30 +0200
+Message-ID: <49E87486.7090901@cosmosbay.com>
+References: <49E84B99.1080502@cosmosbay.com>	<49E854A4.1010204@cosmosbay.com>	<49E85AFD.6080407@cosmosbay.com> <20090417.035112.171173490.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexandre.sidorenko@hp.com, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753463AbZDQMEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 08:04:30 -0400
-In-Reply-To: <20090416214846.GA9375@ami.dom.local>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57478 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753384AbZDQMWi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 08:22:38 -0400
+In-Reply-To: <20090417.035112.171173490.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 16 Apr 2009 23:48:46 +0200
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Fri, 17 Apr 2009 12:33:33 +0200
+>=20
+>> Splitting netif_rx() with a helper function boosts tbench
+>> performance by 1%, because we can avoid two tests (about netpoll and
+>> timestamping)
+>=20
+> Loopback is not a special device no matter how much you wish
+> it might be :-)
+>=20
+> This is why I haven't really pursued any further those patches I
+> showed you that treat local TCP connections specially, it just had th=
+e
+> realy possibility to break clever things people might be doing over
+> loopback using the packet scheduler classifier and packet scheduler
+> actions.
 
-> David Miller wrote, On 04/16/2009 12:10 PM:
-> 
->> Since IFB completely bypasses netif_rx() and netif_receive_skb() I
->> think it should unconditionally set skb->tstamp.tv64 to zero and
->> invoke net_timestamp()
-> 
-> IFB calls netif_rx() and I don't understand why do we need to update
-> tstamp again except for this netem case.
-> 
->> This would match the behavior of loopback and tunnels, and in my
->> opinion this is reasonable.  There will be virtually no overhead
->> added unless timestamping is enabled via ping or similar, and in
->> return we get what I think is correctness :-)
-> 
-> I think we need some consistency in counting or not counting packet
-> scheduling delays into timestamps. Anyway we should avoid unnecessary
-> updates like now, so I'm proposing something different (for testing).
+Point taken.
 
-Ok, now I understand this situation even more clearly, thanks
-Jarek.
+>=20
+> I also think it is valid to use netpoll over loopback, especially for
+> testing.
 
-I think your patch is the most palatable solution I've seen
-so far, but I want to consider it some more.
+Oh I didnt knew it was possible/useful, sorry about that.
 
-Meanwhile, Alexandre can you test Jarek's patch for your case?
+>=20
+> So please undo this part of the patch.  You always try to combine
+> multiple distinct changes, and I would have taken just your TX drop
+> change if you hadn't added this __netif_rx() stuff to it :-(
 
-Thanks!
+I followed on this patch to show what I had in mind, and why
+I thought it was a transmit error more than a receive one.
+
+1) Do you reject idea of splitting netif_rx() to be able to
+   not freeing skb in case of congestion ?
+2) If not, do you want me to send two separate patches ?
+3) Should I update rx_errors or tx_errors or both ?
+
+
+Thank you
+
