@@ -1,37 +1,50 @@
 From: Christoph Lameter <cl@linux.com>
-Subject: Re: Network latency regressions from 2.6.22 to 2.6.29
-Date: Fri, 17 Apr 2009 09:47:42 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904170947301.11877@qirst.com>
-References: <alpine.DEB.1.10.0904161151330.13531@qirst.com> <49E78A79.6050604@cosmosbay.com> <alpine.DEB.1.10.0904161553160.23632@qirst.com> <1239919037.12883.15.camel@HP1>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Fri, 17 Apr 2009 09:56:04 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904170952050.11877@qirst.com>
+References: <alpine.DEB.1.10.0904161136220.15629@qirst.com> <20090416174422.GB28978@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904161508520.15835@qirst.com> <20090416.151641.220683663.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	vladislav.yasevich@hp.com, dlstevens@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:53342 "EHLO
+Received: from smtp.ultrahosting.com ([74.213.174.254]:60012 "EHLO
 	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758355AbZDQNy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 09:54:58 -0400
+	with ESMTP id S1756454AbZDQODY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 10:03:24 -0400
 Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 1383C82C16E
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:04:57 -0400 (EDT)
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 4F64582C381
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:13:22 -0400 (EDT)
 Received: from smtp.ultrahosting.com ([74.213.174.254])
 	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 7BX2hJfj3RjA for <netdev@vger.kernel.org>;
-	Fri, 17 Apr 2009 10:04:57 -0400 (EDT)
+	with ESMTP id uKbpbdbZ0Kis for <netdev@vger.kernel.org>;
+	Fri, 17 Apr 2009 10:13:22 -0400 (EDT)
 Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 5A1BC82C383
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:04:52 -0400 (EDT)
-In-Reply-To: <1239919037.12883.15.camel@HP1>
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 2F83A82C386
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:13:16 -0400 (EDT)
+In-Reply-To: <20090416.151641.220683663.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Apr 2009, Michael Chan wrote:
+On Thu, 16 Apr 2009, David Miller wrote:
 
-> It will not matter if you use the same out-of-tree driver when switching
-> kernels.  If you use in-tree driver, the firmware may have changed
-> between kernel versions.
+> No Christoph, do this right.
+>
+	> Linux by default will behave the way it has for 15+ years.  And if an
+> application wants new behavior, you have to ask for it.
+>
+> End of story.
 
-The in tree driver was used.
+This is not right. All other OSes filter multicast traffic according to
+the multicast groups subscribed too (and that includes the evil one).
+There is no requirement of asking for "new" behavior. Why should multicast
+applications have to add special code to request something that comes by
+default on other platforms?
+
+The old behavior does not seem to be usable anyways and its certainly
+looks buggy if multicast packets are duplicated by the kernel and sent to
+applications that never have asked for it. And OS should do the sane thing
+by default and not only if someone asks for it.
+
 
