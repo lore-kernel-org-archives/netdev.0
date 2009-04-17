@@ -1,48 +1,47 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
-Date: Fri, 17 Apr 2009 12:02:19 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904171158220.13734@qirst.com>
-References: <alpine.DEB.1.10.0904161136220.15629@qirst.com> <20090416174422.GB28978@hmsreliant.think-freely.org> <alpine.DEB.1.10.0904161508520.15835@qirst.com> <20090416.151641.220683663.davem@davemloft.net> <alpine.DEB.1.10.0904170952050.11877@qirst.com>
- <49E8A240.8050404@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org, vladislav.yasevich@hp.com,
-	dlstevens@us.ibm.com
-To: Nivedita Singhvi <niv@us.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 02/02: nfnetlink: return ENOMEM if we fail to create netlink socket
+Date: Fri, 17 Apr 2009 18:09:16 +0200 (MEST)
+Message-ID: <20090417160915.32484.84220.sendpatchset@x2.localnet>
+References: <20090417160913.32484.93063.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:49129 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757093AbZDQQJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 12:09:37 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 637DE82C3AA
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 12:19:36 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id g0Zpl1ao3hr4 for <netdev@vger.kernel.org>;
-	Fri, 17 Apr 2009 12:19:36 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id AC90182C3B3
-	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 12:19:31 -0400 (EDT)
-In-Reply-To: <49E8A240.8050404@us.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:56950 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757093AbZDQQJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 12:09:17 -0400
+In-Reply-To: <20090417160913.32484.93063.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Apr 2009, Nivedita Singhvi wrote:
+commit a0142733a7ef2f3476e63938b330026a08c53f37
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Fri Apr 17 17:48:44 2009 +0200
 
-> I need the current behaviour to not change, as it would
-> break some people I support.  DaveM is making the right
-> decision here, and I fully support this.
+    netfilter: nfnetlink: return ENOMEM if we fail to create netlink socket
+    
+    With this patch, nfnetlink returns -ENOMEM instead of -EPERM if we
+    fail to create the nfnetlink netlink socket during the module
+    loading. This is exactly what rtnetlink does in this case.
+    
+    Ideally, it would be better if we propagate the error that has
+    happened in netlink_kernel_create(), however, this function still
+    does not implement this yet.
+    
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-People or applications? There are applications that only run on Linux and
-fail on other OS? How does this work? Special casing depending on the OS
-running?
-
-> Ideally, you could tweak OS environment configuration
-> setting, if you don't want per socket. But it cannot
-> be the default.
-
-Would you support an additional OS config variable that would set the
-default for socket operations? Then we could have a per socket option that
-would allow overriding the OS config variable?
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 2785d66..b8ab37a 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -203,7 +203,7 @@ static int __init nfnetlink_init(void)
+ 				     nfnetlink_rcv, NULL, THIS_MODULE);
+ 	if (!nfnl) {
+ 		printk(KERN_ERR "cannot initialize nfnetlink!\n");
+-		return -1;
++		return -ENOMEM;
+ 	}
+ 
+ 	return 0;
