@@ -1,87 +1,40 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: dropwatch for network drop monitor
-Date: Fri, 17 Apr 2009 09:28:48 -0400
-Message-ID: <20090417132848.GA2723@hmsreliant.think-freely.org>
-References: <200904171257.n3HCvOba029938@post.webmailer.de>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29
+Date: Fri, 17 Apr 2009 09:46:11 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904170943300.11877@qirst.com>
+References: <alpine.DEB.1.10.0904161504090.15835@qirst.com> <49E786FE.6090304@cosmosbay.com> <alpine.DEB.1.10.0904161532350.22449@qirst.com> <20090416.154701.21872281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: dada1@cosmosbay.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49373 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777AbZDQN25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 09:28:57 -0400
-Content-Disposition: inline
-In-Reply-To: <200904171257.n3HCvOba029938@post.webmailer.de>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:57651 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932118AbZDQNx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 09:53:29 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 3BD0782C386
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:03:28 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id kKUueXDrXGY9 for <netdev@vger.kernel.org>;
+	Fri, 17 Apr 2009 10:03:28 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id D15F982C388
+	for <netdev@vger.kernel.org>; Fri, 17 Apr 2009 10:03:21 -0400 (EDT)
+In-Reply-To: <20090416.154701.21872281.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 17, 2009 at 02:57:24PM +0200, Oliver Hartkopp wrote:
-> Hi Neal,
->=20
-> i tried the dropwatch app from your git.
->=20
-> Compiling the source produces:
->=20
-> hartko@vwagwolkf320:~/dropwatch/src$ make
-> gcc -c -g main.c
-> gcc -c -g lookup.c
-> gcc -c -g lookup_bfd.c
-> gcc -c -g lookup_kas.c
-> lookup_kas.c: In function =91lookup_kas_cache=92:
-> lookup_kas.c:56: warning: cast from pointer to integer of different s=
-ize
-> lookup_kas.c: In function =91lookup_kas_proc=92:
-> lookup_kas.c:100: warning: cast from pointer to integer of different =
-size
-> lookup_kas.c:103: warning: cast from pointer to integer of different =
-size
-> gcc -g -o dropwatch main.o lookup.o lookup_bfd.o lookup_kas.o -lbfd -=
-lreadline -lnl=20
->=20
-Strange, I don't get this, are you building on 32 bit or 64 bit?  Altho=
-ugh,
-that shouldn't cause you any problems at the moment, since that code is=
- still
-not actually used.
+On Thu, 16 Apr 2009, David Miller wrote:
 
-> You cast a 'pc' variable to __u64 - is your code depending on 64 bit =
-??
->=20
-Not depending on, but I wanted to provide room in that data field to ho=
-ld a void
-pointer, so I cas't it to a __u64
+> More seriously, it's going to be hard to isolate anything
+> unless you concern yourself with changes to one thing
+> on one system at a time.
 
-> Starting the stuff brings:
->=20
-> vwagwolkf320:/home/hartko/dropwatch/src# ./dropwatch=20
-> Initalizing kallsyms db
-> dropwatch> start
-> Enabling monitoring...
-> Waiting for activation ack....
-> Waiting for activation ack....
-> Waiting for activation ack....
-> Waiting for activation ack....
-> Waiting for activation ack....
-> Waiting for activation ack....
-> Failed activation request, error: Operation now in progress
-> Shutting down ...
-> vwagwolkf320:/home/hartko/dropwatch/src#=20
->=20
-> And in my kernel log i get at the same time:
-> [ 7070.568482] netlink: 60 bytes leftover after parsing attributes.
->=20
-> Any ideas?
->=20
-> Oliver
->=20
->=20
-Not off the top of my head, I've run this on 64 bit and 32 bit and not =
-seen
-these errors.  I'll bring it back up on my 32 bit system and see what c=
-omes of
-it.  Do me a favor and open a bug at the trac page for this.  Thanks!
-Neil
+Only the kernel version was changed on both systems. Changing only a
+single system would have meant considering complex interactions between
+the network layers of varying versions which would make
+the problem even more difficult to track down.
 
+I changed one thing: The kernel version.
