@@ -1,26 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-04-17
-Date: Fri, 17 Apr 2009 15:55:38 -0700 (PDT)
-Message-ID: <20090417.155538.246001651.davem@davemloft.net>
-References: <20090417195407.GC3291@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: vlan/macvlan: fix NULL pointer dereferences in ethtool handlers
+Date: Fri, 17 Apr 2009 15:59:43 -0700 (PDT)
+Message-ID: <20090417.155943.174603790.davem@davemloft.net>
+References: <49E8A8CC.8060305@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090417195407.GC3291-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47049
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752815AbZDQW7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 18:59:51 -0400
+In-Reply-To: <49E8A8CC.8060305@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 17 Apr 2009 15:54:07 -0400
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 17 Apr 2009 18:05:32 +0200
 
-> git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+>     vlan/macvlan: fix NULL pointer dereferences in ethtool handlers
+>     
+>     Check whether the underlying device provides a set of ethtool ops before
+>     checking for individual handlers to avoid NULL pointer dereferences.
+>     
+>     Reported-by: Art van Breemen <ard@telegraafnet.nl>
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Looks good, pulled, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Patrick.
+
+These things beg for helper functions in my opinion.
