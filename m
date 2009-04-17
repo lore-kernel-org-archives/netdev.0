@@ -1,52 +1,52 @@
-From: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Zhang Rui <rui.zhang@intel.com>
 Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Fri, 17 Apr 2009 09:28:54 +0800
-Message-ID: <b6a2187b0904161828h33ad84d4y8074c993a43dd146@mail.gmail.com>
+Date: Fri, 17 Apr 2009 09:30:13 +0800
+Message-ID: <1239931813.7661.394.camel@rzhang-dt>
 References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759399AbZDQBaV@vger.kernel.org>
 In-Reply-To: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 17, 2009 at 5:42 AM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+On Fri, 2009-04-17 at 05:42 +0800, Rafael J. Wysocki wrote:
+> 
+> 
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13095
+> Subject         : thinkpad-acpi: cannot control brightness with hotkeys
+> Submitter       : Niel Lambrechts <niel.lambrechts@gmail.com>
+> Date            : 2009-04-11 23:07 (6 days old)
+> References      : http://lkml.org/lkml/2009/4/11/160
+> Handled-By      : Matthew Garrett <mjg59@srcf.ucam.org>
+> Patch           : http://lkml.org/lkml/2009/4/15/339
+> 
+> 
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13048
+> Subject         : /sys/class/backlight/acpi_video0/* is gone on vaio laptop with Intel GM45.
+> Submitter       : Rodrigo L. Batista <rodrigo@gus-mg.org>
+> Date            : 2009-04-09 04:57 (8 days old)
+> Handled-By      : yakui_zhao <yakui.zhao@intel.com>
+> Patch           : http://bugzilla.kernel.org/attachment.cgi?id=20967
+>                   http://bugzilla.kernel.org/attachment.cgi?id=20959
+> 
+> 
+bug 13095 is a duplicate of bug 13048.
+patches from Matthew and Yakui are for the same issue.
 
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-13118
-> Subject =A0 =A0 =A0 =A0 : iptables very slow after commit 784544739a2=
-5c30637397ace5489eeb6e15d7d49
-> Submitter =A0 =A0 =A0 : Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2009-04-10 16:05 (7 days old)
-> References =A0 =A0 =A0: http://lkml.org/lkml/2009/4/10/111
-> Handled-By =A0 =A0 =A0: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Yakui, could you verify which patch should be taken please?
 
-Several iterations of patches in progress. See
-[PATCH] netfilter: per-cpu spin-lock with recursion (v0.8)
-
-
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-13066
-> Subject =A0 =A0 =A0 =A0 : Intel HD Audio oops
-> Submitter =A0 =A0 =A0 : Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2009-04-01 8:28 (16 days old)
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D123857=
-454625829&w=3D4
-
-=46ixed as of April 09 2009 git pull.
-
-
-Thanks,
-Jeff
+thanks,
+rui
