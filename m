@@ -1,42 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] macb: process the RX ring regardless of interrupt
- status
-Date: Fri, 17 Apr 2009 01:31:07 -0700 (PDT)
-Message-ID: <20090417.013107.41038229.davem@davemloft.net>
-References: <1239874331-9431-1-git-send-email-haavard.skinnemoen@atmel.com>
-	<1239874331-9431-2-git-send-email-haavard.skinnemoen@atmel.com>
+From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Subject: Re: [PATCH] macb: Kconfig net device compat fixup
+Date: Fri, 17 Apr 2009 10:33:17 +0200
+Message-ID: <20090417103317.568f5e85@hskinnemoen-d830>
+References: <1239953045.2837.58.camel@linux-51e8.site>
+	<20090417094602.51ec1b21@hskinnemoen-d830>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com,
-	erik.waling@konftel.com
-To: haavard.skinnemoen@atmel.com
+Cc: "Ferre, Nicolas" <Nicolas.FERRE@atmel.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Ben Nizette <bn@niasdigital.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53245
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753626AbZDQIbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 04:31:15 -0400
-In-Reply-To: <1239874331-9431-2-git-send-email-haavard.skinnemoen@atmel.com>
+Received: from relay.atmel.no ([80.232.32.139]:51902 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753831AbZDQIdo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Apr 2009 04:33:44 -0400
+In-Reply-To: <20090417094602.51ec1b21@hskinnemoen-d830>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Date: Thu, 16 Apr 2009 11:32:11 +0200
+Haavard Skinnemoen wrote:
+> > Of course really macb should be updated but in the mean time, this at
+> > least avoid randconfig problems.  
+> 
+> It doesn't look all that difficult. Could you try the below instead?
 
-> Suppose that we receive lots of frames, start processing them, but
-> exhaust our budget so that we return before we had a chance to look
-> at all of them.
-> 
-> Then, when the network layer calls us again, we will only continue
-> processing the buffers if the REC bit was set in the mean time, which it
-> might not be if there was a brief pause in the flow of packets. If this
-> happens, we'll simply display a warning and call netif_rx_complete()
-> with potentially lots of unprocessed packets in the RX ring...
-> 
-> Fix this by scanning the ring no matter what flags are set in the
-> interrupt status register.
-> 
-> Signed-off-by: Erik Waling <erik.waling@konftel.com>
-> Signed-off-by: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Better yet, try this one:
 
-Applied.
+http://patchwork.ozlabs.org/patch/25861/
+
+which is the one that has been applied to -next.
+
+Haavard
