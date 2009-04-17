@@ -1,48 +1,45 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Thu, 16 Apr 2009 17:40:53 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904161738030.4042@localhost.localdomain>
+Date: Thu, 16 Apr 2009 17:46:15 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904161742140.4042@localhost.localdomain>
 References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
-        Linux SCSI List <linux-scsi@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Natalie Protasevich <protasnb@gmail.com>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        Linux PM List <linux-pm@lists.linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
 
-I think you put this in the wrong regression pile:
+On Thu, 16 Apr 2009, Rafael J. Wysocki wrote:
+> 
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13098
+> Subject		: 2.6.29-git12 breaks vga=0x0f07 on MSI/Intel GPU
+> Submitter	: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+> Date		: 2009-04-06 01:14 (11 days old)
+> References	: http://lkml.org/lkml/2009/4/5/200
+> Handled-By	: H. Peter Anvin <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>
 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13112
-> Subject		: Oops in drain_array
-> Submitter	: Bart <mmx@riz.pl>
-> Date		: 2009-04-14 10:21 (3 days old)
-> References	: http://marc.info/?l=linux-kernel&m=123970493224628&w=4
+I think this got fixed already. The VGA moresettign was reverted back to 
+the old order.
 
-Hmm. This one seems like it should be in the "since 2.6.28" camp, since if 
-I read that one right, it happens with 2.6.29.1.
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13044
+> Subject		: 2.6.30-rc1 can't find the root fs
+> Submitter	: Heinz Diehl <htd-HjJ2MNWy62to6+H+lsi3Gti2O/JbrIOy@public.gmane.org>
+> Date		: 2009-04-08 13:35 (9 days old)
 
-(I mean sure, it might be new since 2.6.29, but it sounds more likely that 
-it's already in 2.6.29)
+This was one of the async things that got fixed by just waiting for module 
+async work to finish.
 
 		Linus
