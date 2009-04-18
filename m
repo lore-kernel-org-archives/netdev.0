@@ -1,54 +1,103 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Network latency regressions from 2.6.22 to 2.6.29 (results with
- IRQ affinity)
-Date: Sat, 18 Apr 2009 10:20:28 +0200
-Message-ID: <49E98D4C.8020406@cosmosbay.com>
-References: <49E78A79.6050604@cosmosbay.com> <49E78C1E.9060405@cosmosbay.com> <alpine.DEB.1.10.0904161555040.23632@qirst.com> <20090416.160002.09845606.davem@davemloft.net> <alpine.DEB.1.10.0904171238550.20049@qirst.com> <49E98CCE.2000701@cosmosbay.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: rfkill rewrite bug
+Date: Sat, 18 Apr 2009 10:28:02 +0200
+Message-ID: <1240043283.5792.0.camel@johannes.local>
+References: <49DCA88E.6060400@tuffmail.co.uk>
+	 (sfid-20090408_153722_059382_FB44D658) <1239204090.16477.1.camel@johannes.local>
+	 <49DCDD2E.80705@tuffmail.co.uk>  <49E38BBC.5010708@tuffmail.co.uk>
+	 (sfid-20090413_205524_915082_56358705) <1239741968.4205.1.camel@johannes.local>
+	 <49E98C86.2040308@tuffmail.co.uk> (sfid-20090418_101208_980691_83127E2F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-odTrq7N4eqbbbmDizktk"
+Cc: netdev@vger.kernel.org
+To: Alan Jenkins <alan-jenkins@tuffmail.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39029 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754366AbZDRIVM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 04:21:12 -0400
-In-Reply-To: <49E98CCE.2000701@cosmosbay.com>
+Received: from xc.sipsolutions.net ([83.246.72.84]:57587 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053AbZDRI2H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 04:28:07 -0400
+In-Reply-To: <49E98C86.2040308@tuffmail.co.uk> (sfid-20090418_101208_980691_83127E2F)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Christoph Lameter a =E9crit :
->> On Thu, 16 Apr 2009, David Miller wrote:
->>
->>> We really need to find a good way to fix that IRQ affinity issue.
->> Here are the results with setting interrupt affinity. We are still l=
-oosing
->> 5 usecs from .22 to .30-rc2. We will investigate more in depth time
->> permitting.
->>
->> 	UDP ping pong 40 bytes
->>
->> Kernel		Test 1	Test 2	Test 3	Test 4	Avg
->> 2.6.22		83.1125	83.4	83.03	82.95	83.07
->> 2.6.23		83.33	83.51	83.18	83.42	83.21
->> 2.6.24		82.7775	82.8	82.77	82.77	82.77
->> 2.6.25		85.875	85.94	85.75	86.06	85.75
->> 2.6.26		87.4025	87.53	87.25	87.3	87.53
->> 2.6.27		87.81	87.81	87.77	87.82	87.84
->> 2.6.28		87.4275	87.77	87.24	87.28	87.42
->> 2.6.29		88.4325	88.48	88.42	88.44	88.39
->> 2.6.30-rc2	88.4925	88.49	88.44	88.56	88.48
->=20
->=20
-> You are using UDP, and UDP got memory accounting. This=20
 
-This could explain a slowdown, but not 2.5 us per packet
-(I take half your 5us, since you are measuring the two ways latencies)
+--=-odTrq7N4eqbbbmDizktk
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
+On Sat, 2009-04-18 at 09:17 +0100, Alan Jenkins wrote:
+
+> When I looked at the code earlier, I saw no obvious replacement for=20
+> rfkill_set_default().  So I tried disabling the wireless and rebooting=20
+> to see what happened.  It didn't like that :-).
+
+Ok that wasn't too hard -- try this on top if you get a chance:
+
+--- wireless-testing.orig/net/rfkill/core.c	2009-04-18 10:16:53.000000000 +=
+0200
++++ wireless-testing/net/rfkill/core.c	2009-04-18 10:18:17.000000000 +0200
+@@ -401,6 +401,9 @@ bool rfkill_set_hw_state(struct rfkill *
+=20
+ 	ret =3D __rfkill_set_hw_state(rfkill, blocked, &change);
+=20
++	if (!rfkill->registered)
++		return ret;
++
+ 	if (change)
+ 		schedule_work(&rfkill->uevent_work);
+=20
+@@ -422,13 +425,17 @@ bool rfkill_set_sw_state(struct rfkill *
+ 					    &rfkill->blocked);
+=20
+ 	hwblock =3D !!test_bit(RFKILL_BLOCK_HW_BIT, &rfkill->blocked);
++	blocked =3D blocked || hwblock;
++
++	if (!rfkill->registered)
++		return blocked;
+=20
+ 	if (prev !=3D blocked && !hwblock)
+ 		schedule_work(&rfkill->uevent_work);
+=20
+ 	rfkill_led_trigger_event(rfkill);
+=20
+-	return blocked || hwblock;
++	return blocked;
+ }
+ EXPORT_SYMBOL(rfkill_set_sw_state);
+=20
+@@ -452,6 +459,9 @@ void rfkill_set_states(struct rfkill *rf
+ 		hwprev =3D !!test_and_clear_bit(RFKILL_BLOCK_HW_BIT,
+ 					      &rfkill->blocked);
+=20
++	if (!rfkill->registered)
++		return;
++
+ 	if (swprev !=3D sw || hwprev !=3D hw)
+ 		schedule_work(&rfkill->uevent_work);
+=20
+
+
+--=-odTrq7N4eqbbbmDizktk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJ6Y8PAAoJEKVg1VMiehFY0bkQAIjAXCceh9eTjlia3CuFp6C/
+J5TTeOnlScE3akfy9BVkCoUGkYpvJNAdb7925gv/+x3mIRnqVXu7R3DeEcjbyIUi
+M9St0ewuFzInPYW5WzOxWgaG6Qi624yoctmHbz9hqZ6GamwgJ2Q16C9Mi9qS6Avn
+EbHA6xM4SchZateYRKgpufpQMZGLBpexrSPY75sfWuaXDsrdJkDbe+VbjdWT3gWs
+q1+1oiL0+zhJP062uk3gXAqfW9WTZp4vyrwdoP6IWndM4q5QkzSZ190+P2CPL2Nn
+Wt3M4B0Je4+BWHUSLiUryO7TDh39vHcZm81xhyz9NWzPz2GFI54kVrfil7NgT2WY
+0q73wPB4e8N/G1+pqgbCz9HZPdKGF71zgSkBzBKub8sgyeRtYTCTjzfjvFEPJrYy
+LtY5a/ncYGNonAzDihOABfcRrkkHibM6TmGFJbYFiyP1jJwQiQC2nSVpzhZr7RYj
+vQqNDF7PSDQEIdT7VMGk847O68TPC7/w+RXE5NtIy/N85kdwNeD+Yz4/wn+IIIPd
+YoeKZMtbsyvwSBD7DRODsiDE3soz7bbHnIepDLvM5rnO62FCYISmTaSHaJj+wfRO
+jNy8Sgu69evzlf5ItCA8nqD7nm03BbzPNb2MXGy/5pFxs3jg/R45tlxFzDuI1eRS
+/afbWLWehGV31nboLGsM
+=UDTE
+-----END PGP SIGNATURE-----
+
+--=-odTrq7N4eqbbbmDizktk--
 
