@@ -1,33 +1,63 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: What is lock_sock() before skb_free_datagram() for?
-Date: Sat, 18 Apr 2009 21:23:35 +0900
-Message-ID: <200904182123.HFF13509.MVSJtQHFLFOFOO@I-love.SAKURA.ne.jp>
-References: <200904181704.FDC21361.FQLOFHOOSVFtMJ@I-love.SAKURA.ne.jp>
-	<20090418.013538.126788034.davem@davemloft.net>
-	<200904181804.AHC13042.VHFFOOJOFLSQMt@I-love.SAKURA.ne.jp>
-	<20090418.020837.106276006.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
+Date: Sat, 18 Apr 2009 14:29:57 +0200
+Message-ID: <200904181429.58406.rjw@sisk.pl>
+References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <200904172336.12414.rjw@sisk.pl> <200904180156.24366.laurent.pinchart@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:64708 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751875AbZDRMXj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Apr 2009 08:23:39 -0400
-In-Reply-To: <20090418.020837.106276006.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+To: Laurent Pinchart <laurent.pinchart-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200904180156.24366.laurent.pinchart-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> > If it is harmful to call lock_sock() for protocols which don't
-> > support global socket memory accounting, I need to make
-> > lock_sock(sk);/release_ sock(sk); calls conditional.
+On Saturday 18 April 2009, Laurent Pinchart wrote:
+> Hi,
 > 
-> Great, more complexity in the kernel for the sake of TOMOYO
-> :-(
+> On Friday 17 April 2009 23:36:11 Rafael J. Wysocki wrote:
+> > On Friday 17 April 2009, Ming Lei wrote:
+> > > 2009/4/17 Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>:
+> > > > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13125
+> > > > Subject         : active uvcvideo breaks over suspend
+> > > > Submitter       : Alan Jenkins <alan-jenkins-cCz0Lq7MMjm9FHfhHBbuYA@public.gmane.org>
+> > > > Date            : 2009-04-15 10:12 (2 days old)
+> > > > References      :
+> > > > http://marc.info/?l=linux-kernel&m=123979009508840&w=4
+> > >
+> > > It is a bug in resume path of uvcvideo driver, and I have sent a patch
+> > > to laurent.pinchart-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
+> > > mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org  and video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org to fix it, but
+> > > still no echo from them.
+> > >
+> > > The patch title is V4L/DVB:usbvideo:fix uvc resume failed.
+> > >
+> > > Rafael J.
+> > >         If you would like to apply it ,I can resend to you.  Thanks!
+> >
+> > Please resend.
 > 
-You meant that I should leave lock_sock(sk);/release_sock(sk); calls
-unconditional?
-This error path is not frequently called. If there are no problems but
-performance, I'll leave them unconditional.
+> I'm reviewing the patch and I'll push it through my tree during the weekend. 
+
+Great, thanks a lot!
+
+> Sorry for the delay, I'm currently traveling.
+
+No problem at all. :-)
+
+Thanks,
+Rafael
