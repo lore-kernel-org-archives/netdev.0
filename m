@@ -1,128 +1,87 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH net-next] myri10ge: allow per-board firmware overriding
-Date: Sat, 18 Apr 2009 20:36:28 +0200
-Message-ID: <49EA1DAC.1000602@myri.com>
-References: <49E7239B.4000309@myri.com> <20090417095038.49b745bf@dhcp-lab-109.englab.brq.redhat.com>
+From: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
+Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors are
+	closed
+Date: Sat, 18 Apr 2009 22:09:39 +0300
+Message-ID: <20090418190937.GA7799@dhcp-1-124.tlv.redhat.com>
+References: <20090416195745.GA5826@dhcp-1-124.tlv.redhat.com> <20090417000923.GE29988@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Matias Zabaljauregui <zabaljauregui@gmail.com>, odie@cs.aau.dk,
+	Rusty Russell <rusty@rustcorp.com.au>, lguest@ozlabs.org,
+	virtualization@lists.osdl.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1940 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753784AbZDRSgj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Apr 2009 14:36:39 -0400
-In-Reply-To: <20090417095038.49b745bf@dhcp-lab-109.englab.brq.redhat.com>
+Received: from fg-out-1718.google.com ([72.14.220.158]:11677 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753947AbZDRTKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 15:10:49 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so68976fge.17
+        for <netdev@vger.kernel.org>; Sat, 18 Apr 2009 12:10:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090417000923.GE29988@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stanislaw Gruszka wrote:
-> On Thu, 16 Apr 2009 14:24:59 +0200
-> Brice Goglin <brice@myri.com> wrote:
->
->   
->> --- linux-tmp.old/drivers/net/myri10ge/myri10ge.c	2009-04-08 06:56:50.000000000 +0200
->> +++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2009-04-09 14:00:16.000000000 +0200
->> @@ -255,6 +255,7 @@
->>  	u32 read_write_dma;
->>  	u32 link_changes;
->>  	u32 msg_enable;
->> +	unsigned int board_number;
->>  };
->>  
->>  static char *myri10ge_fw_unaligned = "myri10ge_ethp_z8e.dat";
->> @@ -266,6 +267,13 @@
->>  module_param(myri10ge_fw_name, charp, S_IRUGO | S_IWUSR);
->>  MODULE_PARM_DESC(myri10ge_fw_name, "Firmware image name");
->>  
->> +#define MYRI10GE_MAX_BOARDS 8
->> +static char *myri10ge_fw_names[MYRI10GE_MAX_BOARDS] =
->> +    {[0...(MYRI10GE_MAX_BOARDS - 1)] = NULL };
->> +module_param_array_named(myri10ge_fw_names, myri10ge_fw_names, charp, NULL,
->> +			 0444);
->> +MODULE_PARM_DESC(myri10ge_fw_name, "Firmware image names per board");
->> +
->>  static int myri10ge_ecrc_enable = 1;
->>  module_param(myri10ge_ecrc_enable, int, S_IRUGO);
->>  MODULE_PARM_DESC(myri10ge_ecrc_enable, "Enable Extended CRC on PCI-E");
->> @@ -3258,6 +3266,8 @@
->>  
->>  static void myri10ge_select_firmware(struct myri10ge_priv *mgp)
->>  {
->> +	int overridden = 0;
->> +
->>  	if (myri10ge_force_firmware == 0) {
->>  		int link_width, exp_cap;
->>  		u16 lnk;
->> @@ -3291,10 +3301,18 @@
->>  		}
->>  	}
->>  	if (myri10ge_fw_name != NULL) {
->> -		dev_info(&mgp->pdev->dev, "overriding firmware to %s\n",
->> -			 myri10ge_fw_name);
->> +		overridden = 1;
->>  		mgp->fw_name = myri10ge_fw_name;
->>  	}
->> +	if (mgp->board_number < MYRI10GE_MAX_BOARDS &&
->> +	    myri10ge_fw_names[mgp->board_number] != NULL &&
->> +	    strlen(myri10ge_fw_names[mgp->board_number])) {
->> +		mgp->fw_name = myri10ge_fw_names[mgp->board_number];
->> +		overridden = 1;
->> +	}
->> +	if (overridden)
->> +		dev_info(&mgp->pdev->dev, "overriding firmware to %s\n",
->> +			 mgp->fw_name);
->>  }
->>  
->>  #ifdef CONFIG_PM
->> @@ -3759,6 +3777,7 @@
->>  	int status = -ENXIO;
->>  	int dac_enabled;
->>  	unsigned hdr_offset, ss_offset;
->> +	static int board_number;
->>  
->>  	netdev = alloc_etherdev_mq(sizeof(*mgp), MYRI10GE_MAX_SLICES);
->>  	if (netdev == NULL) {
->> @@ -3775,6 +3794,7 @@
->>  	mgp->pause = myri10ge_flow_control;
->>  	mgp->intr_coal_delay = myri10ge_intr_coal_delay;
->>  	mgp->msg_enable = netif_msg_init(myri10ge_debug, MYRI10GE_MSG_DEFAULT);
->> +	mgp->board_number = board_number;
->>  	init_waitqueue_head(&mgp->down_wq);
->>  
->>  	if (pci_enable_device(pdev)) {
->> @@ -3925,6 +3945,7 @@
->>  			 netdev->irq, mgp->tx_boundary, mgp->fw_name,
->>  			 (mgp->wc_enabled ? "Enabled" : "Disabled"));
->>  
->> +	board_number++;
->>  	return 0;
->>  
->>  abort_with_state:
->>     
->
-> Code assumes boards are always initialized in the same order. I suppose
-> this is always true and is nothing wrong here. However perhaps linux could
-> provide some form of modules/boot parameters that are used with
-> an identification number like MAC address. Example:
->
-> module my_parms="id1:param1;id2:param2;" 
->
-> char *get_module_param_id(const char *param, const char *id)
->
-> This would help in situation like this - admin will not have to thinking
-> about boards initialization ordering. Besides some other drivers (like MTD
-> cmd partitions) use own parsing for similar things, I think would be
-> nice to unify things. What You think?
->   
+On Fri, Apr 17, 2009 at 08:09:23AM +0800, Herbert Xu wrote:
+> On Thu, Apr 16, 2009 at 10:57:45PM +0300, Michael S. Tsirkin wrote:
+> >
+> > This last bit seems to make a simple test using a non-persistent tap device
+> > deadlock for me: we don't drop a reference acquired with __tun_get sock
+> > unregister_netdevice blocks printing unregister_netdevice: waiting for tap0 to
+> > become free. Usage count = 1.
+> 
+> Ah yes, I'd overlooked the fact that the original code didn't
+> require the tfile refcount to hit zero.  Now we do.  Here's an
+> updated version of the first patch.  The second patch should still
+> work as is.
+> 
+> tun: Only free a netdev when all tun descriptors are closed
 
-We actually thought about supporting "eth2:fwname1,eth0:fwname2". But it
-might be hard to implement in this case due to udev possible renaming
-interfaces and this firmware names being needed *before* the renaming.
-So yes, an automatic way to handle such parameter strings might be good,
-but maybe not in this exact case.
+...
 
-Brice
+> @@ -1275,20 +1278,17 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+>  	struct tun_file *tfile = file->private_data;
+>  	struct tun_struct *tun = __tun_get(tfile);
+>  
+> -
+>  	if (tun) {
+> -		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
+> -
+> -		rtnl_lock();
+> -		__tun_detach(tun);
+> -
+>  		/* If desireable, unregister the netdevice. */
+> -		if (!(tun->flags & TUN_PERSIST)) {
+> -			sock_put(tun->sk);
+> -			unregister_netdevice(tun->dev);
+> -		}
+> +		if (!(tun->flags & TUN_PERSIST))
+> +			unregister_netdev(tun->dev);
+> +		tun_put(tun);
+> +	} else
+> +		tun = tfile->tun;
+>  
+> -		rtnl_unlock();
+> +	if (tun) {
+> +		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
+> +		sock_put(tun->sk);
+>  	}
+>  
+>  	put_net(tfile->net);
 
+Does this work with TUN_PERSIST off?
+I haven't tested this, but won't unregister_netdev block forever
+waiting for device reference to become 0? Maybe you want
+
++		tun_put(tun);
++		if (!(tun->flags & TUN_PERSIST))
++			unregister_netdev(tun->dev);
+
+or is there a race here?
+
+-- 
+MST
