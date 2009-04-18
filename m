@@ -1,34 +1,55 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: htb parallelism on multi-core platforms
-Date: Sat, 18 Apr 2009 03:21:50 +0300
-Message-ID: <200904180321.50281.denys@visp.net.lb>
-References: <1239964844.21569.57.camel@blade.ines.ro> <49E905A2.7040402@gmail.com>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
+	questions)
+Date: Fri, 17 Apr 2009 20:32:42 -0400
+Message-ID: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Radu Rendec <radu.rendec@ines.ro>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:38347 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753225AbZDRATK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 20:19:10 -0400
-In-Reply-To: <49E905A2.7040402@gmail.com>
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.251]:61747 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753422AbZDRAco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2009 20:32:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 18 April 2009 01:41:38 Jarek Poplawski wrote:
-> Radu Rendec wrote, On 04/17/2009 12:40 PM:
-> > Hi,
->
-> Hi Radu,
+Hello,
 
-> I don't know about anything (simple) for this, but I wonder if you
-> tried already any htb tweaking like htb_hysteresis module param or
-> burst/cburst class parameters to limit some maybe useless resolution/
-> overhead?
-Like adding HZ=1000 as environment variable in scripts :-)
-For me it helps....
-Also worth to try HFSC.
+I'm currently fiddling with a custom embedded prototype board using
+the ibm_newemac driver with some currently-unsupported PHYs.  Those
+PHYs *are* supported by phylib, but the emac driver seems to have its
+own PHY layer cribbed from the sungem driver.  I'm curious if there's
+some particular reason it hasn't been ported (aside from "nobody has
+bothered yet").
+
+I've temporarily hacked a PHY driver together for the moment, but it
+would be much easier for us to maintain and update our board if the
+PHY drivers were integrated.  As a result I'm also interested in how
+complicated it might be to port the driver (and possibly sungem as
+well) over to phylib, if that is indeed feasible.  Also, if I end up
+going that route, are there others available with other hardware
+variants who would be willing to test my patches on their boards?
+
+As an aside, would there be any interest in adding an ethtool option
+to enable the features of many PHYs which allow them to transmit data
+even if their receive port has no link (specifically fiber cards, but
+a few copper cards can do something similar).  From a cursory glance,
+a third "duplex" configuration option would seem to make the most
+sense from an end-user point of view.  Specifically, the existing
+options are "full" (simultaneous transmit/receive), "half"
+(time-multiplexed transmit/receive).  Perhaps a "tx" or "tx-only"
+option would be sensible?  Now, the receiving card probably doesn't
+need an "rx-only" mode as "full" should do that just fine; though
+perhaps some cards with unidirectional-link-detection would use
+"rx-only" to intentionally disable that support.  Once an extra couple
+constants are added to linux/ethtool.h and the appropriate config
+options added to ethtool, it should just be up to the drivers to
+detect and handle those config options, no?
+
+Comments and suggestions much appreciated.
+
+Cheers,
+Kyle Moffett
