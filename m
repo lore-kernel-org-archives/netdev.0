@@ -1,278 +1,136 @@
-From: "Peter Holik" <peter@holik.at>
-Subject: Re: [Resend][PATCH] usb driver for intellon int51x1 based PLC like
-     devolo dlan duo
-Date: Sat, 18 Apr 2009 16:43:44 +0200 (CEST)
-Message-ID: <fa78241556f71cafd6f0c553a1f8ff25.squirrel@webmail.it-technology.at>
+From: Tzungder Lin <tzungder@gmail.com>
+Subject: Re: Probably a flaw in Linux rtl8139 driver FYI
+Date: Sat, 18 Apr 2009 23:28:13 +0800
+Message-ID: <528f811a0904180828i6b414a10p2dda1a7cbb79db87@mail.gmail.com>
+References: <528f811a0904170008q34b5cde1l810fb22f78eefaf7@mail.gmail.com>
+	 <528f811a0904170010w2b2c8b34j698b255331f78765@mail.gmail.com>
+	 <528f811a0904180540t15489826n99cf8143fe105463@mail.gmail.com>
+	 <49E9CF3C.2090308@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "LKML" <linux-kernel@vger.kernel.org>,
-	"Netdev" <netdev@vger.kernel.org>, linux-usb@vger.kernel.org
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758905AbZDROoJ@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.224]:52039 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753408AbZDRP2O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 11:28:14 -0400
+Received: by rv-out-0506.google.com with SMTP id b25so689521rvf.5
+        for <netdev@vger.kernel.org>; Sat, 18 Apr 2009 08:28:13 -0700 (PDT)
+In-Reply-To: <49E9CF3C.2090308@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-some fixes to my last mail:
+Dear Eric,
 
+I agree with you at first.
+But after I checked the driver code, I think tp->cur_rx has been set
+to zero in rtl8139_init_ring() which has been executed before
+rtl8139_hw_start().
+So, it should be safe already.
+Thanks for your advice still.
+=46YR
 
->> This is a usb driver for the intellon int51x1 based PLC
->> (Powerline Communications) like devolo dlan duo.
+Regards
+  jonathan
+
+On Sat, Apr 18, 2009 at 9:01 PM, Eric Dumazet <dada1@cosmosbay.com> wro=
+te:
+> Tzungder Lin a =E9crit :
+>> Dear Sirs,
 >>
->> Signed-off-by: Peter Holik <peter@holik.at>
->> ---
->>  drivers/net/usb/Kconfig   |    8 ++
->>  drivers/net/usb/Makefile  |    1 +
->>  drivers/net/usb/int51x1.c |  268 +++++++++++++++++++++++++++++++++++++++++++++
->> 3 files changed, 277 insertions(+), 0 deletions(-)
->>  create mode 100644 drivers/net/usb/int51x1.c
+>> Hello, I am jon from Taiwan.
+>> First I want to thank you for your great contributions of open sourc=
+e.
+>> Thank you for your 8139 driver to make our world better.
 >>
->> diff --git a/drivers/net/usb/int51x1.c b/drivers/net/usb/int51x1.c new file mode 100644
->> index 0000000..44a8a09
->> --- /dev/null
->> +++ b/drivers/net/usb/int51x1.c
->> @@ -0,0 +1,268 @@
+>> Here is what happens:
+>> While I am debugging our Embedded Linux SoC I found a flaw in Linux
+>> 8139 driver (8139too.c) ,probably.
+>> If I attack (interval < 10ms) the driver with broadcast packets
+>> (mac.destaddr =3D=3D ff:ff:ff:ff:ff:ff) when network interface up (i=
+fconfig
+>> eth0 up) at the first time, the kernel space memory will be corrupte=
+d
+>> (overwrited with packet content) start from 0xc03e8800.
+>> Then kernel panics.
+>>
+>> Here is what I discovered:
+>> While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c)=
+=2E
+>> In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX befor=
+e
+>> setting up the DMA buffer
+>> address.
+>> Therefore in this interval where RX was enabled and DMA buffer addre=
+ss
+>> is not yet set up, any incoming broadcast packet would be send to a =
+strange
+>> physical address: 0x003e8800 which is the default value of DMA buffe=
+r address.
+>> Unfortunately, this address is in Linux kernel used by kmem_cache fu=
+nctions.
+>> So, kernel panics. I have tried to fix the driver by setting up DMA
+>> buffer address
+>> before RX enabled and everything is fine.
+>>
+>> I have checked 8139too.c in both 2.4.x kernel and 2.6.x kernel, they
+>> both have the same initial flow.
+>> Here is a simple patch to show you what I found.
+>>
+>> --- 8139too.c =A0 2007-12-13 15:54:26.000000000 +0800
+>> +++ 8139too_patch.c =A0 =A0 2009-04-17 14:56:27.000000000 +0800
+>> @@ -1382,6 +1382,10 @@
+>> =A0 =A0 =A0 =A0RTL_W32_F (MAC0 + 0, cpu_to_le32 (*(u32 *) (dev->dev_=
+addr + 0)));
+>> =A0 =A0 =A0 =A0RTL_W32_F (MAC0 + 4, cpu_to_le32 (*(u32 *) (dev->dev_=
+addr + 4)));
+>>
+>> + =A0 =A0 =A0 /* init Rx ring buffer DMA address */
+>> + =A0 =A0 =A0 /* init before Rx enabled to avoid broadcast packet at=
+tack in
+>> this interval */
+>> + =A0 =A0 =A0 RTL_W32_F (RxBuf, tp->rx_ring_dma);
+>> +
+>> =A0 =A0 =A0 =A0/* Must enable Tx/Rx before setting transfer threshol=
+ds! */
+>> =A0 =A0 =A0 =A0RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
+>>
+>> @@ -1405,8 +1409,6 @@
+>> =A0 =A0 =A0 =A0/* Lock Config[01234] and BMCR register writes */
+>> =A0 =A0 =A0 =A0RTL_W8 (Cfg9346, Cfg9346_Lock);
+>>
+>> - =A0 =A0 =A0 /* init Rx ring buffer DMA address */
+>> - =A0 =A0 =A0 RTL_W32_F (RxBuf, tp->rx_ring_dma);
+>>
+>> =A0 =A0 =A0 =A0/* init Tx buffer DMA addresses */
+>> =A0 =A0 =A0 =A0for (i =3D 0; i < NUM_TX_DESC; i++)
+>>
+>> Hope this can make the driver more robust.
+>> FYR
+>> Thanks a lot!
+>>
+>> Regards
+>> =A0Jonathan Lin @Taiwan
+>> =A02009.4.18
 >
->> +static int int51x1_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->> +{
->> +	int len;
->> +
->> +	if (unlikely(skb->len < INT51X1_HEADER_SIZE)) {
+> Hello Jonathan
 >
-> pskb_may_pull(...)
-
-ok, done:
-
-static int int51x1_rx_fixup(struct usbnet *dev, struct sk_buff *skb) {
-        int len;
-
-        if (!(pskb_may_pull(skb, INT51X1_HEADER_SIZE))) {
-                deverr(dev, "unexpected tiny rx frame");
-                return 0;
-        }
-
-        len = le16_to_cpu(*(__le16 *)&skb->data[skb->len - 2]);
-
-        skb_trim(skb, len);
-
-        return 1;
-}
-
->> +		deverr(dev, "unexpected tiny rx frame");
->> +		return 0;
->> +	}
->> +
->> +	len = le16_to_cpu(*(__le16 *)&skb->data[skb->len - 2]);
->> +
->> +	skb_trim(skb, len);
->> +
->> +	return 1;
->> +}
->> +
->> +static struct sk_buff *int51x1_tx_fixup(struct usbnet *dev,
->> +		struct sk_buff *skb, gfp_t flags)
->> +{
->> +	int pack_len = skb->len;
->> +	int headroom = skb_headroom(skb);
->> +	int tailroom = skb_tailroom(skb);
->> +	int need_tail = 0;
->> +	__le16 *len;
->> +
->> +	/*
->> +	 * usbnet would send a ZLP if packetlength mod urbsize == 0 for us,
->> +	 * but we need to know ourself, because this would add to the length
->> +	 * we send down to the device...
->> +	 */
->> +	if (!((pack_len + INT51X1_HEADER_SIZE) % dev->maxpacket))
->> +		need_tail = 1;
->> +
->> +	/* if packet and our header is smaler than 64 pad to 64 (+ ZLP) */
->> +	if ((pack_len + INT51X1_HEADER_SIZE + need_tail) < dev->maxpacket + 1)
->> +		need_tail = dev->maxpacket + 1 - pack_len - INT51X1_HEADER_SIZE;
+> This seems a nice catch !
 >
-> This is totally crazy code fragment, first need_tail is used like a boolean?
-> But on the same some +1 scalar trick is being done?
-> Is there some reason why DIV_ROUND_UP (linux/kernel.h)
-> won't do what you want here and then you can trivally find diff = new - old ?
+> What about also initializing tp->cur_rx =3D 0 *before* enabling RX to=
+o ?
 >
-
-
-sorry i can't follow, can you convert this code to DIV_ROUND_UP
-
-
->> +	if (!skb_cloned(skb) &&
->> +			(headroom + tailroom >= need_tail + INT51X1_HEADER_SIZE)) {
->> +		if (headroom < INT51X1_HEADER_SIZE || tailroom < need_tail) {
->> +			skb->data = memmove(skb->head + INT51X1_HEADER_SIZE,
->> +					skb->data, skb->len);
->> +			skb_set_tail_pointer(skb, skb->len);
->> +		}
->> +	} else {
->> +		struct sk_buff *skb2;
->> +
->> +		skb2 = skb_copy_expand(skb,
->> +				INT51X1_HEADER_SIZE,
->> +				need_tail,
->> +				flags);
->> +		dev_kfree_skb_any(skb);
->> +		if (!skb2)
->> +			return NULL;
->> +		skb = skb2;
->> +	}
->> +
->> +	pack_len += need_tail;
->> +	pack_len &= 0x07ff;
->> +
->> +	len = (__le16 *) __skb_push(skb, INT51X1_HEADER_SIZE);
->> +	*len = cpu_to_le16(pack_len);
->> +
->> +	if(need_tail)
->> +		memset(__skb_put(skb, need_tail), 0, need_tail);
->> +
->> +	return skb;
->> +}
->> +
->> +static void int51x1_async_cmd_callback(struct urb *urb)
->> +{
->> +	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
->> +	int status = urb->status;
->> +
->> +	if (status < 0)
->> +		dev_warn(&urb->dev->dev, "async callback failed with %d\n", status);
->> +
->> +	kfree(req);
->> +	usb_free_urb(urb);
->> +}
->> +
->> +static void int51x1_set_multicast(struct net_device *netdev)
->> +{
->> +	struct usb_ctrlrequest *req;
->> +	int status;
->> +	struct urb *urb;
->> +	struct usbnet *dev = netdev_priv(netdev);
->> +	u16 filter = PACKET_TYPE_DIRECTED |
->> +		     PACKET_TYPE_BROADCAST;
+> So after patch we should have :
 >
-> Won't this fit on a single line?
+> =A0 =A0 =A0 =A0tp->cur_rx =3D 0;
+> =A0 =A0 =A0 =A0RTL_W32_F (RxBuf, tp->rx_ring_dma);
+> =A0 =A0 =A0 =A0/* Must enable Tx/Rx before setting transfer threshold=
+s! */
+> =A0 =A0 =A0 =A0RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
 >
-
-ok, done
-
->> +
->> +	if (netdev->flags & IFF_PROMISC) {
->> +		/* do not expect to see traffic of other PLCs */
->> +		filter |= PACKET_TYPE_PROMISCUOUS;
->> +		devinfo(dev, "promiscuous mode enabled");
->> +	} else if (netdev->mc_count ||
->> +		  (netdev->flags & IFF_ALLMULTI)) {
->> +		filter |= PACKET_TYPE_ALL_MULTICAST;
->> +		devdbg(dev, "receive all multicast enabled");
->> +	} else {
->> +		/* ~PROMISCUOUS, ~MULTICAST */
->> +		devdbg(dev, "receive own packets only");
->> +	}
->> +
->> +	urb = usb_alloc_urb(0, GFP_ATOMIC);
->> +	if (!urb) {
->> +		devwarn(dev, "Error allocating URB");
->> +		return;
->> +	}
->> +
->> +	req = kmalloc(sizeof *req, GFP_ATOMIC);
+> Everything should be setup before enable RX interrupts coming...
 >
-> sizeof(*req)
 >
-
-ok, done
-
->> +	if (!req) {
->> +		devwarn(dev, "Error allocating control msg");
->> +		usb_free_urb(urb);
->> +		return;
 >
-> I'd use gotos instead for error handling since you need similar call in the later
-> error handling block too. Gotos make it somewhat harder to miss some necessary
-> rollback actions in one of the error blocks (not that this case is buggy atm).
->
-
-ok, done like you suggested - see at the end
-
->> +	}
->> +
->> +	req->bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
->> +	req->bRequest = SET_ETHERNET_PACKET_FILTER;
->> +	req->wValue = cpu_to_le16(filter);
->> +	req->wIndex = 0;
->> +	req->wLength = 0;
->> +
->> +	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
->> +		(void *)req, NULL, 0,
->> +		int51x1_async_cmd_callback,
->> +		(void *)req);
->> +
->> +	status = usb_submit_urb(urb, GFP_ATOMIC);
->> +	if (status < 0) {
->> +		devwarn(dev, "Error submitting control msg, sts=%d", status);
->> +		kfree(req);
->> +		usb_free_urb(urb);
->
-> Ditto.
-
-static void int51x1_set_multicast(struct net_device *netdev)
-{
-        struct usb_ctrlrequest *req;
-        int status;
-        struct urb *urb;
-        struct usbnet *dev = netdev_priv(netdev);
-        u16 filter = PACKET_TYPE_DIRECTED | PACKET_TYPE_BROADCAST;
-
-        if (netdev->flags & IFF_PROMISC) {
-                /* do not expect to see traffic of other PLCs */
-                filter |= PACKET_TYPE_PROMISCUOUS;
-                devinfo(dev, "promiscuous mode enabled");
-        } else if (netdev->mc_count ||
-                  (netdev->flags & IFF_ALLMULTI)) {
-                filter |= PACKET_TYPE_ALL_MULTICAST;
-                devdbg(dev, "receive all multicast enabled");
-        } else {
-                /* ~PROMISCUOUS, ~MULTICAST */
-                devdbg(dev, "receive own packets only");
-        }
-
-        urb = usb_alloc_urb(0, GFP_ATOMIC);
-        if (!urb) {
-                devwarn(dev, "Error allocating URB");
-                return;
-        }
-
-        req = kmalloc(sizeof(*req), GFP_ATOMIC);
-        if (!req) {
-                devwarn(dev, "Error allocating control msg");
-                goto out;
-        }
-
-        req->bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
-        req->bRequest = SET_ETHERNET_PACKET_FILTER;
-        req->wValue = cpu_to_le16(filter);
-        req->wIndex = 0;
-        req->wLength = 0;
-
-        usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
-                (void *)req, NULL, 0,
-                int51x1_async_cmd_callback,
-                (void *)req);
-
-        status = usb_submit_urb(urb, GFP_ATOMIC);
-        if (status < 0) {
-                devwarn(dev, "Error submitting control msg, sts=%d", status);
-                goto out1;
-        }
-        return;
-out1:
-        kfree(req);
-out:
-        usb_free_urb(urb);
-}
-
-
-cu Peter
