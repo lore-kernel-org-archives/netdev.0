@@ -1,77 +1,106 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 5/5] e1000: init link state correctly
-Date: Fri, 17 Apr 2009 23:44:36 -0700
-Message-ID: <20090418064435.4328.94028.stgit@localhost.localdomain>
-References: <20090418064427.4328.45811.stgit@localhost.localdomain>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH 1/3] net: introduce a list of device addresses
+	dev_addr_list (v3)
+Date: Sat, 18 Apr 2009 09:01:52 +0200
+Message-ID: <20090418070151.GA3370@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090415081720.GA21342@psychotron.englab.brq.redhat.com> <20090415081819.GB21342@psychotron.englab.brq.redhat.com> <20090415180215.GA22540@psychotron.englab.brq.redhat.com> <20090417115723.GE9556@psychotron.englab.brq.redhat.com> <20090417083315.2f089755@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, davem@davemloft.net,
+	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, kaber@trash.net,
+	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:38715 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752857AbZDRGoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 02:44:37 -0400
-In-Reply-To: <20090418064427.4328.45811.stgit@localhost.localdomain>
+Received: from mx2.redhat.com ([66.187.237.31]:42332 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753095AbZDRHDW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Apr 2009 03:03:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20090417083315.2f089755@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Fri, Apr 17, 2009 at 05:33:15PM CEST, shemminger@vyatta.com wrote:
 
-As reported by Andrew Lutomirski <amluto@gmail.com>
+<snip>
 
-All the intel wired ethernet drivers were calling netif_carrier_off
-and netif_stop_queue (or variants) before calling register_netdevice
+>> +struct netdev_hw_addr {
+>> +	struct list_head	list;
+>> +	unsigned char		addr[MAX_ADDR_LEN];
+>> +	int			refcount;
+>> +	struct rcu_head		rcu_head;
+>> +};
+>
+>Minor nit, the ordering of elements cause holes that might not be
+>needed.
 
-This is incorrect behavior as was pointed out by davem, and causes
-ifconfig and friends to report a strange state before first link
-after the driver was loaded.
+Agree that ordering might be done better. Will do.
+>
+>Space saving? is rcu_head needed or would using synchronize_net
+>make code cleaner and save space. 
+>
 
-This apparently confused *some* versions of networkmanager.
+Well I originaly had this done by synchronize_rcu(). Eric argued that it might
+cause especially __hw_addr_del_multiple_ii() to run long and suggested to use
+call_rcu() instead. I plan to switch this to kfree_rcu() (or whatever it's
+called) once it hits the tree.
 
-Andy tested this for e1000e and confirmed it was working for him.
+<snip>
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Reported-by: Andrew Lutomirski <amluto@gmail.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+>> +	ha = kzalloc(max(sizeof(*ha), L1_CACHE_BYTES), GFP_ATOMIC);
+>> +	if (!ha)
+>> +		return -ENOMEM;
+>Since you are initializing all fields, kzalloc isn't really needed
 
- drivers/net/e1000/e1000_main.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+Noted.
+>
+>> +	memcpy(ha->addr, addr, addr_len);
+>> +	ha->refcount = 1;
+>> +	list_add_tail_rcu(&ha->list, list);
+>> +	return 0;
+>> +}
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index ef12931..9bdcf4d 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1234,15 +1234,14 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	    !e1000_check_mng_mode(hw))
- 		e1000_get_hw_control(adapter);
- 
--	/* tell the stack to leave us alone until e1000_open() is called */
--	netif_carrier_off(netdev);
--	netif_stop_queue(netdev);
--
- 	strcpy(netdev->name, "eth%d");
- 	err = register_netdev(netdev);
- 	if (err)
- 		goto err_register;
- 
-+	/* carrier off reporting is important to ethtool even BEFORE open */
-+	netif_carrier_off(netdev);
-+
- 	DPRINTK(PROBE, INFO, "Intel(R) PRO/1000 Network Connection\n");
- 
- 	cards_found++;
-@@ -1441,6 +1440,8 @@ static int e1000_open(struct net_device *netdev)
- 	if (test_bit(__E1000_TESTING, &adapter->flags))
- 		return -EBUSY;
- 
-+	netif_carrier_off(netdev);
-+
- 	/* allocate transmit descriptors */
- 	err = e1000_setup_all_tx_resources(adapter);
- 	if (err)
+<snip>
+
+>> +static void dev_addr_flush(struct net_device *dev)
+>> +{
+>> +	ASSERT_RTNL();
+>> +
+>Since this is local you should be able to audit all
+>the callers and remove this ASSERT.
+
+Okay. I will at least put a comment instead of this.
+>
+>> +	__hw_addr_flush(&dev->dev_addr_list);
+>> +	dev->dev_addr = NULL;
+>> +}
+>> +
+>> +static int dev_addr_init(struct net_device *dev)
+>> +{
+>> +	unsigned char addr[MAX_ADDR_LEN];
+>> +	struct netdev_hw_addr *ha;
+>> +	int err;
+>> +
+>> +	ASSERT_RTNL();
+>Ditto, ASSERT_RTNL makes sense for exposed kernel API and
+>initial testing.
+>
+>> +	INIT_LIST_HEAD(&dev->dev_addr_list);
+>> +	memset(addr, 0, sizeof(*addr));
+>> +	err = __hw_addr_add(&dev->dev_addr_list, addr, sizeof(*addr));
+>> +	if (!err) {
+>> +		/*
+>> +		 * Get the first (previously created) address from the list
+>> +		 * and set dev_addr pointer to this location.
+>> +		 */
+>> +		ha = list_first_entry(&dev->dev_addr_list,
+>> +				      struct netdev_hw_addr, list);
+>> +		dev->dev_addr = ha->addr;
+>> +	}
+>> +	return err;
+>> +}
+
+<snip>
 
