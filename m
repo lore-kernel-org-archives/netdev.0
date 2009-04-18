@@ -1,76 +1,43 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH 1/3] net: introduce a list of device addresses
-	dev_addr_list (v3)
-Date: Sat, 18 Apr 2009 09:44:28 +0200
-Message-ID: <20090418074427.GB3370@psychotron.englab.brq.redhat.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090415081720.GA21342@psychotron.englab.brq.redhat.com> <20090415081819.GB21342@psychotron.englab.brq.redhat.com> <20090415180215.GA22540@psychotron.englab.brq.redhat.com> <20090417115723.GE9556@psychotron.englab.brq.redhat.com> <20090417083315.2f089755@nehalam> <20090418070151.GA3370@psychotron.englab.brq.redhat.com> <49E982C4.8020407@cosmosbay.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Sat, 18 Apr 2009 09:56:38 +0200
+Message-ID: <20090418075637.GA2738@ami.dom.local>
+References: <1239964844.21569.57.camel@blade.ines.ro> <49E905A2.7040402@gmail.com> <200904180321.50281.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, kaber@trash.net,
-	mschmidt@redhat.com, ivecera@redhat.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Radu Rendec <radu.rendec@ines.ro>, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58991 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751646AbZDRHpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Apr 2009 03:45:20 -0400
+Received: from mail-bw0-f211.google.com ([209.85.218.211]:37285 "EHLO
+	mail-bw0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752263AbZDRH5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 03:57:04 -0400
+Received: by bwz7 with SMTP id 7so440449bwz.37
+        for <netdev@vger.kernel.org>; Sat, 18 Apr 2009 00:57:01 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <49E982C4.8020407@cosmosbay.com>
+In-Reply-To: <200904180321.50281.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Apr 18, 2009 at 09:35:32AM CEST, dada1@cosmosbay.com wrote:
->Jiri Pirko a =E9crit :
->> Fri, Apr 17, 2009 at 05:33:15PM CEST, shemminger@vyatta.com wrote:
->>=20
->> <snip>
->>=20
->>>> +struct netdev_hw_addr {
->>>> +	struct list_head	list;
->>>> +	unsigned char		addr[MAX_ADDR_LEN];
->>>> +	int			refcount;
->>>> +	struct rcu_head		rcu_head;
->>>> +};
->>> Minor nit, the ordering of elements cause holes that might not be
->>> needed.
->>=20
->> Agree that ordering might be done better. Will do.
->>> Space saving? is rcu_head needed or would using synchronize_net
->>> make code cleaner and save space.=20
->>>
->>=20
->> Well I originaly had this done by synchronize_rcu(). Eric argued tha=
-t it might
->> cause especially __hw_addr_del_multiple_ii() to run long and suggest=
-ed to use
->> call_rcu() instead. I plan to switch this to kfree_rcu() (or whateve=
-r it's
->> called) once it hits the tree.
->>=20
->
->Yes, and dont forget we wont save space, as we allocate a full
->cache line to hold a 'struct netdev_hw_addr', since we dont want this
->critical and read_mostly object polluted by a hot spot elsewhere in ke=
-rnel...
->
->Considering this, letting 'rcu_head' at the end of structure, even if =
-we
->have an eventual hole on 64 bit arches is not really a problem, and IM=
-HO
->the best thing to do, as rcu_head is only used at dismantle time.
+On Sat, Apr 18, 2009 at 03:21:50AM +0300, Denys Fedoryschenko wrote:
+> On Saturday 18 April 2009 01:41:38 Jarek Poplawski wrote:
+> > Radu Rendec wrote, On 04/17/2009 12:40 PM:
+> > > Hi,
+> >
+> > Hi Radu,
+> 
+> > I don't know about anything (simple) for this, but I wonder if you
+> > tried already any htb tweaking like htb_hysteresis module param or
+> > burst/cburst class parameters to limit some maybe useless resolution/
+> > overhead?
+> Like adding HZ=1000 as environment variable in scripts :-)
+> For me it helps....
 
-I will order the struct better, there are archs with small cache line s=
-ize where
-it makes sense.
+Right, if you're using high resolution; there is a bug in tc, found by
+Denys, which causes wrong (too low) defaults for burst/cburst.
 
->
->And yes, maybe kfree_rcu() will makes its way in kernel, eventually :)
->
->Thank you
->
->
+> Also worth to try HFSC.
+
+Yes, it seems to be especially interesting for 64 bit boxes.
+
+Jarek P.
