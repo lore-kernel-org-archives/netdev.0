@@ -1,63 +1,94 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
 Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Sat, 18 Apr 2009 14:29:57 +0200
-Message-ID: <200904181429.58406.rjw@sisk.pl>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <200904172336.12414.rjw@sisk.pl> <200904180156.24366.laurent.pinchart@skynet.be>
+Date: Sat, 18 Apr 2009 14:33:09 +0200
+Message-ID: <200904181433.11950.rjw@sisk.pl>
+References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <alpine.LFD.2.00.0904171952260.4042@localhost.localdomain> <20090418125111.6646e997@linux-lm>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: Laurent Pinchart <laurent.pinchart-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200904180156.24366.laurent.pinchart-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	video4linux-list@redhat.com, laurent.pinchart@skynet.be,
+	mchehab@infradead.org
+To: leiming <tom.leiming@gmail.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <20090418125111.6646e997@linux-lm>
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 18 April 2009, Laurent Pinchart wrote:
-> Hi,
+On Saturday 18 April 2009, leiming wrote:
+> On Fri, 17 Apr 2009 19:55:29 -0700 (PDT)
+> Linus Torvalds <torvalds@linux-foundation.org> wrote:
 > 
-> On Friday 17 April 2009 23:36:11 Rafael J. Wysocki wrote:
-> > On Friday 17 April 2009, Ming Lei wrote:
-> > > 2009/4/17 Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>:
-> > > > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13125
-> > > > Subject         : active uvcvideo breaks over suspend
-> > > > Submitter       : Alan Jenkins <alan-jenkins-cCz0Lq7MMjm9FHfhHBbuYA@public.gmane.org>
-> > > > Date            : 2009-04-15 10:12 (2 days old)
-> > > > References      :
-> > > > http://marc.info/?l=linux-kernel&m=123979009508840&w=4
-> > >
-> > > It is a bug in resume path of uvcvideo driver, and I have sent a patch
-> > > to laurent.pinchart-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org,
-> > > mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org  and video4linux-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org to fix it, but
-> > > still no echo from them.
-> > >
-> > > The patch title is V4L/DVB:usbvideo:fix uvc resume failed.
-> > >
-> > > Rafael J.
-> > >         If you would like to apply it ,I can resend to you.  Thanks!
-> >
-> > Please resend.
+> > > @@ -742,7 +742,7 @@ static int uvc_alloc_urb_buffers(struct
+> > > uvc_video_device *video, 
+> > >  	/* Buffers are already allocated, bail out. */
+> > >  	if (video->urb_size)
+> > > -		return 0;
+> > > +		return DIV_ROUND_UP(video->urb_size, psize);
+> > 
+> > I don't think this is right. It should round _down_.
+> > 
+> > It's supposed to return 'npackets', but if you pass it a different
+> > packet size than it was passed originally, it can now return a
+> > potentially bigger number than the already allocated buffer, no?
+> > 
+> > So I think it should round down (ie use a regular divide). No?
 > 
-> I'm reviewing the patch and I'll push it through my tree during the weekend. 
+> Yes,you are correct, please ignore my last reply, and following is
+> the fixed patch.
+> 
+> Thanks.
 
-Great, thanks a lot!
+Thanks for the patch, I've updated the bug entry to point to it.
 
-> Sorry for the delay, I'm currently traveling.
-
-No problem at all. :-)
-
-Thanks,
+Best,
 Rafael
+
+
+> From a3b3d72cdd57a0699fb643b41b78eb7beb211ff5 Mon Sep 17 00:00:00 2001
+> From: Ming Lei <tom.leiming@gmail.com>
+> Date: Wed, 15 Apr 2009 22:32:51 +0800
+> Subject: [PATCH] V4L/DVB:usbvideo:fix uvc resume failed(v2)
+> 
+> Now urb buffers is not freed before suspend, so uvc_alloc_urb_buffers
+> should return packet counts allocated originally during uvc resume
+> , instead of zero.
+> 
+> This version uses round down to return packet counts on Linus's
+> suggestions, or else may lead to buffer destructed if packet size
+> is changed before calling uvc_alloc_urb_buffers() in this kind of
+> case.
+> 
+> This patch is against v2.6.30-rc2.
+> 
+> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+> ---
+>  drivers/media/video/uvc/uvc_video.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/media/video/uvc/uvc_video.c b/drivers/media/video/uvc/uvc_video.c
+> index a95e173..6ce974d 100644
+> --- a/drivers/media/video/uvc/uvc_video.c
+> +++ b/drivers/media/video/uvc/uvc_video.c
+> @@ -742,7 +742,7 @@ static int uvc_alloc_urb_buffers(struct uvc_video_device *video,
+>  
+>  	/* Buffers are already allocated, bail out. */
+>  	if (video->urb_size)
+> -		return 0;
+> +		return video->urb_size / psize;
+>  
+>  	/* Compute the number of packets. Bulk endpoints might transfer UVC
+>  	 * payloads accross multiple URBs.
+> -- 
+> 1.6.0.GIT
