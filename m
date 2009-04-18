@@ -1,53 +1,35 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] tcp: fix mid-wq adjustment helper
-Date: Sat, 18 Apr 2009 18:48:48 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0904181828200.3691@wrl-59.cs.helsinki.fi>
+From: "Peter Holik" <peter-xHLhtm3VSFg@public.gmane.org>
+Subject: [PATCH 0/2] usb driver for intellon int51x1 based PLC like devolo
+     dlan duo
+Date: Sat, 18 Apr 2009 18:42:59 +0200 (CEST)
+Message-ID: <5c52681c17a9cd66ec59e9d9cad3ee46.squirrel@webmail.it-technology.at>
+References: <cb6d2886e87af66d945f1052e6eb8a85.squirrel@webmail.it-technology.at>
+    <Pine.LNX.4.64.0904181311470.3600@wrl-59.cs.helsinki.fi>
+    <0681089db5bdc5acc805ed52130dc9a5.squirrel@webmail.it-technology.at>
+    <Pine.LNX.4.64.0904181834210.3691@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1204050140-1240068815=:3691"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47753 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752395AbZDRPst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 11:48:49 -0400
-Content-ID: <Pine.LNX.4.64.0904181845330.3691@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "LKML" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.0904181834210.3691-x/A8LOkYjdVsRR2hCrRKtT03IgOmwywn@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi,
 
----696208474-1204050140-1240068815=:3691
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0904181845331.3691@wrl-59.cs.helsinki.fi>
+I am submitting a series of 2 patches for inclusion in 2.6.30.
+Here is a brief description of the patch series:
+- because of using the same function get_ethernet_addr as cdc_ether.c
+  i export usbnet_get_ethernet_addr from usbnet and fixed cdc_ether
+  (suggested by Oliver Neukum).
+- usb driver for intellon int51x1 based PLC like devolo dlan duo
+  with improvements suggested by the guys of the mailinglist
 
+cu Peter
 
-Just noticed while doing some new work that the recent
-mid-wq adjustment logic will misbehave when FACK is not
-in use (happens either due sysctl'ed off or auto-detected
-reordering) because I forgot the relevant TCPCB tagbit.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-
----
- net/ipv4/tcp_output.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 2ce3cdd..5e4977c 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -761,7 +761,7 @@ static void tcp_adjust_pcount(struct sock *sk, struct sk_buff *skb, int decr)
- 
- 	if (tp->lost_skb_hint &&
- 	    before(TCP_SKB_CB(skb)->seq, TCP_SKB_CB(tp->lost_skb_hint)->seq) &&
--	    (tcp_is_fack(tp) || TCP_SKB_CB(skb)->sacked))
-+	    (tcp_is_fack(tp) || (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)))
- 		tp->lost_cnt_hint -= decr;
- 
- 	tcp_verify_left_out(tp);
--- 
-tg: (adf84a1..) fix/adjust (depends on: rbtree/killfackets)
----696208474-1204050140-1240068815=:3691--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
