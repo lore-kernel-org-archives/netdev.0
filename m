@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/5] ixgb: fix link down initial state
-Date: Fri, 17 Apr 2009 23:44:29 -0700
-Message-ID: <20090418064429.4328.12425.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/5] igb: fix link down inital state
+Date: Fri, 17 Apr 2009 23:44:32 -0700
+Message-ID: <20090418064431.4328.77058.stgit@localhost.localdomain>
 References: <20090418064427.4328.45811.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:47113
-	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751949AbZDRGob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 02:44:31 -0400
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:49572 "EHLO
+	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753561AbZDRGoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 02:44:34 -0400
 In-Reply-To: <20090418064427.4328.45811.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -34,49 +34,44 @@ sent out telling link state.
 
 This apparently confused *some* versions of networkmanager.
 
-in addition this driver appeared to need a netif_start_queue at
-the end of open.
-
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Reported-by: Andrew Lutomirski <amluto@gmail.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgb/ixgb_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/igb/igb_main.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 4a0826b..ff741ca 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -471,10 +471,8 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 08c8014..ceaa585 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1442,15 +1442,14 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	 * driver. */
+ 	igb_get_hw_control(adapter);
+ 
+-	/* tell the stack to leave us alone until igb_open() is called */
+-	netif_carrier_off(netdev);
+-	netif_tx_stop_all_queues(netdev);
+-
+ 	strcpy(netdev->name, "eth%d");
+ 	err = register_netdev(netdev);
  	if (err)
  		goto err_register;
  
--	/* we're going to reset, so assume we have no link for now */
--
 +	/* carrier off reporting is important to ethtool even BEFORE open */
- 	netif_carrier_off(netdev);
--	netif_stop_queue(netdev);
- 
- 	DPRINTK(PROBE, INFO, "Intel(R) PRO/10GbE Network Connection\n");
- 	ixgb_check_options(adapter);
-@@ -592,6 +590,8 @@ ixgb_open(struct net_device *netdev)
- 	if (err)
- 		goto err_setup_tx;
++	netif_carrier_off(netdev);
++
+ #ifdef CONFIG_IGB_DCA
+ 	if (dca_add_requester(&pdev->dev) == 0) {
+ 		adapter->flags |= IGB_FLAG_DCA_ENABLED;
+@@ -1699,6 +1698,8 @@ static int igb_open(struct net_device *netdev)
+ 	if (test_bit(__IGB_TESTING, &adapter->state))
+ 		return -EBUSY;
  
 +	netif_carrier_off(netdev);
 +
- 	/* allocate receive descriptors */
- 
- 	err = ixgb_setup_rx_resources(adapter);
-@@ -602,6 +602,8 @@ ixgb_open(struct net_device *netdev)
+ 	/* allocate transmit descriptors */
+ 	err = igb_setup_all_tx_resources(adapter);
  	if (err)
- 		goto err_up;
- 
-+	netif_start_queue(netdev);
-+
- 	return 0;
- 
- err_up:
 
