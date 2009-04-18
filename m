@@ -1,50 +1,49 @@
-From: Johann Baudy <johann.baudy@gnu-log.net>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Sat, 18 Apr 2009 23:38:48 +0200
-Message-ID: <7e0dd21a0904181438j251f4f8cnc210c6dee8ce5212@mail.gmail.com>
-References: <20090412103212.GA28397@ioremap.net>
-	 <20090412142451.GA2694@ioremap.net>
-	 <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com>
-	 <20090412195203.GA11899@ioremap.net>
-	 <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com>
-	 <20090412205334.GA14345@ioremap.net>
-	 <7e0dd21a0904121631u3fc7c676r12eb7e71fe87e02b@mail.gmail.com>
-	 <20090415071023.GA26986@ioremap.net>
-	 <7e0dd21a0904150614y301a01e4rdec1fe4f9a14c13f@mail.gmail.com>
-	 <20090416111616.GB28509@ioremap.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: [BUG] 2.6.30-rc broke ixp4xx_eth, firmware breakage?
+Date: Sat, 18 Apr 2009 23:53:25 +0200 (MEST)
+Message-ID: <200904182153.n3ILrP6j027453@pilspetsen.it.uu.se>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: khc@pm.waw.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:63655 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757487AbZDRViu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 17:38:50 -0400
-Received: by fxm2 with SMTP id 2so1381856fxm.37
-        for <netdev@vger.kernel.org>; Sat, 18 Apr 2009 14:38:49 -0700 (PDT)
-In-Reply-To: <20090416111616.GB28509@ioremap.net>
+Received: from aun.it.uu.se ([130.238.12.36]:36801 "EHLO aun.it.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752470AbZDRVxg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Apr 2009 17:53:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I think it should only be called when shared area is about to be freed
-> and not when attached skb is freed.
-During skb_linearize(). shared info is memcopied and freed in
-pskb_expand_head() if not enough memory is available in current head.
-Then, Do you expect this new destructor to be called twice? (during
-skb_linearize() and kfree_skb())
+The ixp4xx_eth driver for my IXP420 XScale box (Synology DS101)
+worked fine in kernel 2.6.29. Now trying to boot 2.6.30-rc2 I'm
+greeted with the following failure during init:
 
->Thus you can put your pages into
-> fraglist and reuse them after the last reference to the shared area is
-> gone.
+Bringing up interface eth0:  RTNETLINK answers: No such file or directory
+Failed to bring up eth0.
+[FAILED]
 
-If my understanding is correct, skb can be linearized without calling
-skb_release_data() (if enough space is available in head). Hence, In
-this case, I will not have access to original frags[] from
-skb_shared_info destructor.
+There's a fairly long (at least 10 seconds) delay between the 'Bringing up'
+message and the RTNETLINK error.
 
-Thanks again,
-Johann
+A diff between the 2.6.29 and 2.6.30-rc2 boot logs indicates that
+the firmware doesn't get loaded:
+
+--- dmesg-2.6.29	2009-04-18 23:26:30.000000000 +0200
++++ dmesg-2.6.30-rc2	2009-04-18 23:24:03.000000000 +0200
+@@ -221,11 +222,9 @@
+ kjournald starting.  Commit interval 5 seconds
+ EXT3 FS on sda8, internal journal
+ EXT3-fs: mounted filesystem with ordered data mode.
+-net eth0: firmware: requesting NPE-C
+-NPE-C: firmware functionality 0x0, revision 0x2:1
+-NET: Registered protocol family 17
+-eth0: link up, speed 100 Mb/s, full duplex
+ Adding 2000336k swap on /dev/sda5.  Priority:-1 extents:1 across:2000336k 
++NET: Registered protocol family 17
++net eth0: firmware: requesting NPE-C
+ RPC: Registered udp transport module.
+ RPC: Registered tcp transport module.
+ warning: `dbus-daemon' uses 32-bit capabilities (legacy support in use)
+
+I'll try to debug this tomorrow, but I may not have time for a proper
+debug session until next weekend.
+
+/Mikael
