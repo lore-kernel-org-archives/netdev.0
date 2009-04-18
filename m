@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/5] igb: fix link down inital state
-Date: Fri, 17 Apr 2009 23:44:32 -0700
-Message-ID: <20090418064431.4328.77058.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 4/5] e1000e: indicate link down at load
+Date: Fri, 17 Apr 2009 23:44:34 -0700
+Message-ID: <20090418064433.4328.58288.stgit@localhost.localdomain>
 References: <20090418064427.4328.45811.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:49572 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753561AbZDRGoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 02:44:34 -0400
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:60884 "EHLO
+	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753935AbZDRGog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 02:44:36 -0400
 In-Reply-To: <20090418064427.4328.45811.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -34,23 +34,36 @@ sent out telling link state.
 
 This apparently confused *some* versions of networkmanager.
 
+Andy tested this for e1000e and confirmed it was working for him.
+
+see thread: http://marc.info/?l=linux-netdev&m=123946479705636&w=2
+
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Reported-by: Andrew Lutomirski <amluto@gmail.com>
+Tested-by: Andy Lutomirski <amluto@gmail.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |    9 +++++----
+ drivers/net/e1000e/netdev.c |    9 +++++----
  1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 08c8014..ceaa585 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1442,15 +1442,14 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	 * driver. */
- 	igb_get_hw_control(adapter);
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 1693ed1..c0ff550 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3072,6 +3072,8 @@ static int e1000_open(struct net_device *netdev)
+ 	if (test_bit(__E1000_TESTING, &adapter->state))
+ 		return -EBUSY;
  
--	/* tell the stack to leave us alone until igb_open() is called */
++	netif_carrier_off(netdev);
++
+ 	/* allocate transmit descriptors */
+ 	err = e1000e_setup_tx_resources(adapter);
+ 	if (err)
+@@ -5037,15 +5039,14 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	if (!(adapter->flags & FLAG_HAS_AMT))
+ 		e1000_get_hw_control(adapter);
+ 
+-	/* tell the stack to leave us alone until e1000_open() is called */
 -	netif_carrier_off(netdev);
 -	netif_tx_stop_all_queues(netdev);
 -
@@ -62,16 +75,7 @@ index 08c8014..ceaa585 100644
 +	/* carrier off reporting is important to ethtool even BEFORE open */
 +	netif_carrier_off(netdev);
 +
- #ifdef CONFIG_IGB_DCA
- 	if (dca_add_requester(&pdev->dev) == 0) {
- 		adapter->flags |= IGB_FLAG_DCA_ENABLED;
-@@ -1699,6 +1698,8 @@ static int igb_open(struct net_device *netdev)
- 	if (test_bit(__IGB_TESTING, &adapter->state))
- 		return -EBUSY;
+ 	e1000_print_device_info(adapter);
  
-+	netif_carrier_off(netdev);
-+
- 	/* allocate transmit descriptors */
- 	err = igb_setup_all_tx_resources(adapter);
- 	if (err)
+ 	return 0;
 
