@@ -1,97 +1,193 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH] pcnet_cs: add cis(firmware) of the Allied Telesis LA-PCM
-Date: Sun, 19 Apr 2009 08:44:44 +0900
-Message-ID: <20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors
+	are	closed
+Date: Sun, 19 Apr 2009 08:15:52 +0800
+Message-ID: <20090419001552.GA15667@gondor.apana.org.au>
+References: <20090416195745.GA5826@dhcp-1-124.tlv.redhat.com>
+	<20090417000923.GE29988@gondor.apana.org.au>
+	<20090418190937.GA7799@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg502.nifty.com ([202.248.238.82]:35987 "EHLO
-	userg502.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367AbZDRXp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Apr 2009 19:45:27 -0400
-Received: from localhost.localdomain (eaoska169086.adsl.ppp.infoweb.ne.jp [219.116.18.86])by userg502.nifty.com with SMTP id n3INj7Zo003724
-	for <netdev@vger.kernel.org>; Sun, 19 Apr 2009 08:45:08 +0900
-In-Reply-To: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
+	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: "Michael S. Tsirkin" <m.s.tsirkin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090418190937.GA7799-462rkM2+8agLcDHsvH30SxcY2uh10dtjAL8bYrjMMd8@public.gmane.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
+	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
+	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Apr 18, 2009 at 10:09:39PM +0300, Michael S. Tsirkin wrote:
+> 
+> Does this work with TUN_PERSIST off?
+> I haven't tested this, but won't unregister_netdev block forever
+> waiting for device reference to become 0? Maybe you want
+> 
+> +		tun_put(tun);
+> +		if (!(tun->flags & TUN_PERSIST))
+> +			unregister_netdev(tun->dev);
+> 
+> or is there a race here?
 
-pcnet_cs: add cis(firmware) of the Allied Telesis LA-PCM
+Good point.  I should've just left the old code alone as it wasn't
+broken.  So here is yet another update.
 
+I also fixed a bug on the allocation error handling path.
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+tun: Only free a netdev when all tun descriptors are closed
 
----
+The commit c70f182940f988448f3c12a209d18b1edc276e33 ("tun: Fix
+races between tun_net_close and free_netdev") fixed a race where
+an asynchronous deletion of a tun device can hose a poll(2) on
+a tun fd attached to that device.
 
-diff -uprN linux-2.6.30-rc2.orig/drivers/net/pcmcia/pcnet_cs.c linux-2.6.30-rc2/drivers/net/pcmcia/pcnet_cs.c
---- linux-2.6.30-rc2.orig/drivers/net/pcmcia/pcnet_cs.c	2009-04-12 20:42:39.000000000 +0900
-+++ linux-2.6.30-rc2/drivers/net/pcmcia/pcnet_cs.c	2009-04-12 20:29:09.000000000 +0900
-@@ -1758,7 +1758,7 @@ static struct pcmcia_device_id pcnet_ids
- 	PCMCIA_MFC_DEVICE_CIS_PROD_ID12(0, "DAYNA COMMUNICATIONS", "LAN AND MODEM MULTIFUNCTION", 0x8fdf8f89, 0xdd5ed9e8, "DP83903.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_PROD_ID4(0, "NSC MF LAN/Modem", 0x58fc6056, "DP83903.cis"),
- 	PCMCIA_MFC_DEVICE_CIS_MANF_CARD(0, 0x0175, 0x0000, "DP83903.cis"),
--	PCMCIA_DEVICE_CIS_MANF_CARD(0xc00f, 0x0002, "LA-PCM.cis"),
-+	PCMCIA_DEVICE_CIS_MANF_CARD(0xc00f, 0x0002, "cis/LA-PCM.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("KTI", "PE520 PLUS", 0xad180345, 0x9d58d392, "PE520.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "NE2K.cis"),
- 	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "PE-200.cis"),
-diff -uprN linux-2.6.30-rc2.orig/firmware/cis/LA-PCM.cis.ihex linux-2.6.30-rc2/firmware/cis/LA-PCM.cis.ihex
---- linux-2.6.30-rc2.orig/firmware/cis/LA-PCM.cis.ihex	1970-01-01 09:00:00.000000000 +0900
-+++ linux-2.6.30-rc2/firmware/cis/LA-PCM.cis.ihex	2009-04-12 20:23:44.000000000 +0900
-@@ -0,0 +1,20 @@
-+:100000000105D4F953E9FF17035338FF20040FC04B
-+:1000100002002102060315390401416C6C69656414
-+:100020002054656C657369732C4B2E4B00457468C6
-+:1000300065726E6574204C414E20436172640043CA
-+:10004000656E747265434F4D004C412D50434D0019
-+:10005000FF1A0602100000020B1B08810108E06075
-+:1000600000021F1B08820108E06020021F1B08839A
-+:100070000108E06040021F1B08840108E060600284
-+:100080001F1B08850108E06080021F1B088601080D
-+:10009000E060A0021F1B08870108E060C0021F1B70
-+:1000A00008880108E060E0021F1B08890108E06081
-+:1000B00000031F1B088A0108E06020031F1B088B38
-+:1000C0000108E06040031F1B088C0108E06060032A
-+:1000D0001F1B088D0108E06080031F1B088E0108AC
-+:1000E000E060A0031F1B088F0108E060C0031F1B16
-+:0D00F00008900108E060E0031F1400FF000D
-+:00000001FF
-+#
-+# Replacement CIS for Allied Telesis LA-PCM
-+#
+However, this came at the cost of moving the tun wait queue into
+the tun file data structure.  The problem with this is that it
+imposes restrictions on when and where the tun device can access
+the wait queue since the tun file may change at any time due to
+detaching and reattaching.
 
-diff -uprN linux-2.6.30-rc2.orig/firmware/Makefile linux-2.6.30-rc2/firmware/Makefile
---- linux-2.6.30-rc2.orig/firmware/Makefile	2009-04-18 08:52:15.000000000 +0900
-+++ linux-2.6.30-rc2/firmware/Makefile	2009-04-18 09:39:49.000000000 +0900
-@@ -46,6 +46,7 @@ fw-shipped-$(CONFIG_DVB_TTUSB_BUDGET) +=
- fw-shipped-$(CONFIG_E100) += e100/d101m_ucode.bin e100/d101s_ucode.bin \
- 			     e100/d102e_ucode.bin
- fw-shipped-$(CONFIG_MYRI_SBUS) += myricom/lanai.bin
-+fw-shipped-$(CONFIG_PCMCIA_PCNET) += cis/LA-PCM.cis
- fw-shipped-$(CONFIG_PCMCIA_SMC91C92) += ositech/Xilinx7OD.bin
- fw-shipped-$(CONFIG_SCSI_ADVANSYS) += advansys/mcode.bin advansys/38C1600.bin \
- 				      advansys/3550.bin advansys/38C0800.bin
-diff -uprN linux-2.6.30-rc2.orig/firmware/WHENCE linux-2.6.30-rc2/firmware/WHENCE
---- linux-2.6.30-rc2.orig/firmware/WHENCE	2009-04-18 08:52:15.000000000 +0900
-+++ linux-2.6.30-rc2/firmware/WHENCE	2009-04-18 09:39:12.000000000 +0900
-@@ -576,6 +576,16 @@ Found in hex form in kernel source.
+In particular, now that we need to use the wait queue on the
+receive path it becomes difficult to properly synchronise this
+with the detachment of the tun device.
+
+This patch solves the original race in a different way.  Since
+the race is only because the underlying memory gets freed, we
+can prevent it simply by ensuring that we don't do that until
+all tun descriptors ever attached to the device (even if they
+have since be detached because they may still be sitting in poll)
+have been closed.
+
+This is done by using reference counting the attached tun file
+descriptors.  The refcount in tun->sk has been reappropriated
+for this purpose since it was already being used for that, albeit
+from the opposite angle.
+
+Note that we no longer zero tfile->tun since tun_get will return
+NULL anyway after the refcount on tfile hits zero.  Instead it
+represents whether this device has ever been attached to a device.
+
+Signed-off-by: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 16716ae..95ae40a 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -156,6 +156,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 	tfile->tun = tun;
+ 	tun->tfile = tfile;
+ 	dev_hold(tun->dev);
++	sock_hold(tun->sk);
+ 	atomic_inc(&tfile->count);
  
- --------------------------------------------------------------------------
+ out:
+@@ -165,11 +166,8 @@ out:
  
-+Driver: PCMCIA_PCNET - NE2000 compatible PCMCIA adapter
-+
-+File: cis/LA-PCM.cis
-+
-+Licence: GPL
-+
-+Originally developed by the pcmcia-cs project
-+
-+--------------------------------------------------------------------------
-+
- Driver: PCMCIA_SMC91C92 - SMC 91Cxx PCMCIA
+ static void __tun_detach(struct tun_struct *tun)
+ {
+-	struct tun_file *tfile = tun->tfile;
+-
+ 	/* Detach from net device */
+ 	netif_tx_lock_bh(tun->dev);
+-	tfile->tun = NULL;
+ 	tun->tfile = NULL;
+ 	netif_tx_unlock_bh(tun->dev);
  
- File: ositech/Xilinx7OD.bin
-
+@@ -339,6 +337,13 @@ static void tun_net_uninit(struct net_device *dev)
+ 	}
+ }
+ 
++static void tun_free_netdev(struct net_device *dev)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++
++	sock_put(tun->sk);
++}
++
+ /* Net device open. */
+ static int tun_net_open(struct net_device *dev)
+ {
+@@ -811,7 +816,7 @@ static void tun_setup(struct net_device *dev)
+ 	tun->group = -1;
+ 
+ 	dev->ethtool_ops = &tun_ethtool_ops;
+-	dev->destructor = free_netdev;
++	dev->destructor = tun_free_netdev;
+ }
+ 
+ /* Trivial set of netlink ops to allow deleting tun or tap
+@@ -848,7 +853,7 @@ static void tun_sock_write_space(struct sock *sk)
+ 
+ static void tun_sock_destruct(struct sock *sk)
+ {
+-	dev_put(container_of(sk, struct tun_sock, sk)->tun->dev);
++	free_netdev(container_of(sk, struct tun_sock, sk)->tun->dev);
+ }
+ 
+ static struct proto tun_proto = {
+@@ -920,11 +925,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		if (!sk)
+ 			goto err_free_dev;
+ 
+-		/* This ref count is for tun->sk. */
+-		dev_hold(dev);
+ 		sock_init_data(&tun->socket, sk);
+ 		sk->sk_write_space = tun_sock_write_space;
+-		sk->sk_destruct = tun_sock_destruct;
+ 		sk->sk_sndbuf = INT_MAX;
+ 		sk->sk_sleep = &tfile->read_wait;
+ 
+@@ -942,11 +944,13 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		err = -EINVAL;
+ 		err = register_netdevice(tun->dev);
+ 		if (err < 0)
+-			goto err_free_dev;
++			goto err_free_sk;
++
++		sk->sk_destruct = tun_sock_destruct;
+ 
+ 		err = tun_attach(tun, file);
+ 		if (err < 0)
+-			goto err_free_dev;
++			goto failed;
+ 	}
+ 
+ 	DBG(KERN_INFO "%s: tun_set_iff\n", tun->dev->name);
+@@ -1284,14 +1288,16 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+ 		__tun_detach(tun);
+ 
+ 		/* If desireable, unregister the netdevice. */
+-		if (!(tun->flags & TUN_PERSIST)) {
+-			sock_put(tun->sk);
++		if (!(tun->flags & TUN_PERSIST))
+ 			unregister_netdevice(tun->dev);
+-		}
+ 
+ 		rtnl_unlock();
+ 	}
+ 
++	tun = tfile->tun;
++	if (tun)
++		sock_put(tun->sk);
++
+ 	put_net(tfile->net);
+ 	kfree(tfile);
+ 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
