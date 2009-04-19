@@ -1,102 +1,171 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Sun, 19 Apr 2009 13:22:10 +0200
-Message-ID: <49EB0962.2060309@cosmosbay.com>
-References: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: Re: [RFC][PATCH v3 6/6] fix wrong get_user_pages usage in iovlock.c
+Date: Sun, 19 Apr 2009 21:37:35 +0900 (JST)
+Message-ID: <20090419202447.FFC2.A69D9226@jp.fujitsu.com>
+References: <20090415174658.AC4F.A69D9226@jp.fujitsu.com> <129600E5E5FB004392DDC3FB599660D792A39DCE@irsmsx504.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: Tzungder Lin <tzungder@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47681 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755939AbZDSLWS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Apr 2009 07:22:18 -0400
-In-Reply-To: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: kosaki.motohiro@jp.fujitsu.com, Nick Piggin <nickpiggin@yahoo.com.au>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
+        Andrea Arcangeli <aarcange@redhat.com>, Jeff Moyer <jmoyer@redhat.com>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Leech, Christopher" <christopher.leech@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <129600E5E5FB004392DDC3FB599660D792A39DCE@irsmsx504.ger.corp.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Tzungder Lin a =E9crit :
-> From: Jonathan Lin <jon.lin@vatics.com, tzungder@gmail.com>
->=20
-> While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
-> In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before
-> setting up the DMA buffer address. In this interval where RX was
-> enabled and DMA buffer address is not yet set up, any incoming
-> broadcast packet would be send to a strange physical address:
-> 0x003e8800 which is the default value of DMA buffer address.
-> Unfortunately, this address is used by Linux kernel. So kernel panics=
-=2E
-> This patch fix it by setting up DMA buffer address before RX enabled
-> and everything is fine even under broadcast packets attack.
->=20
-> Signed-off-by: Jonathan Lin <jon.lin@vatics.com, tzungder@gmail.com>
->=20
-> ---
->=20
-> --- linux-2.6.29.1/drivers/net/8139too.c.orig	2009-04-19
-> 17:50:38.000000000 +0800
-> +++ linux-2.6.29.1/drivers/net/8139too.c	2009-04-19 17:52:51.00000000=
-0 +0800
-> @@ -1382,6 +1382,10 @@ static void rtl8139_hw_start (struct net
->  	RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)))=
-;
->  	RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)))=
-;
->=20
-> +	tp->cur_rx =3D 0;
-> +	/* init Rx ring buffer DMA address BEFORE Rx enabled*/
-> +	RTL_W32_F (RxBuf, tp->rx_ring_dma);
-> +=09
->  	/* Must enable Tx/Rx before setting transfer thresholds! */
->  	RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
->=20
-> @@ -1389,8 +1393,6 @@ static void rtl8139_hw_start (struct net
->  	RTL_W32 (RxConfig, tp->rx_config);
->  	RTL_W32 (TxConfig, rtl8139_tx_config);
->=20
-> -	tp->cur_rx =3D 0;
-> -
->  	rtl_check_media (dev, 1);
->=20
->  	if (tp->chipset >=3D CH_8139B) {
-> @@ -1405,9 +1407,6 @@ static void rtl8139_hw_start (struct net
->  	/* Lock Config[01234] and BMCR register writes */
->  	RTL_W8 (Cfg9346, Cfg9346_Lock);
->=20
-> -	/* init Rx ring buffer DMA address */
-> -	RTL_W32_F (RxBuf, tp->rx_ring_dma);
-> -
->  	/* init Tx buffer DMA addresses */
->  	for (i =3D 0; i < NUM_TX_DESC; i++)
->  		RTL_W32_F (TxAddr0 + (i * 4), tp->tx_bufs_dma + (tp->tx_buf[i] -
-> tp->tx_bufs));
-> --
+> KOSAKI Motohiro wrote:
+> >>> I would perhaps not fold gup_fast conversions into the same patch as
+> >>> the fix.
+> >> 
+> >> OK. I'll fix.
+> > 
+> > Done.
+> > 
+> > 
+> > 
+> > ===================================
+> > Subject: [Untested][RFC][PATCH] fix wrong get_user_pages usage in iovlock.c
+> > 
+> > 	down_read(mmap_sem)
+> > 	get_user_pages()
+> > 	up_read(mmap_sem)
+> > 
+> > is fork unsafe.
+> > fix it.
+> > 
+> > Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+> > Cc: Maciej Sosnowski <maciej.sosnowski@intel.com>
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Cc: Chris Leech <christopher.leech@intel.com>
+> > Cc: netdev@vger.kernel.org
+> > ---
+> >  drivers/dma/iovlock.c |    4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > Index: b/drivers/dma/iovlock.c
+> > ===================================================================
+> > --- a/drivers/dma/iovlock.c	2009-04-13 22:58:36.000000000 +0900
+> > +++ b/drivers/dma/iovlock.c	2009-04-14 20:27:16.000000000 +0900
+> > @@ -104,8 +104,6 @@ struct dma_pinned_list *dma_pin_iovec_pa
+> >  			0,	/* force */
+> >  			page_list->pages,
+> >  			NULL);
+> > -		up_read(&current->mm->mmap_sem);
+> > -
+> >  		if (ret != page_list->nr_pages)
+> >  			goto unpin;
+> > 
+> > @@ -127,6 +125,8 @@ void dma_unpin_iovec_pages(struct dma_pi
+> >  	if (!pinned_list)
+> >  		return;
+> > 
+> > +	up_read(&current->mm->mmap_sem);
+> > +
+> >  	for (i = 0; i < pinned_list->nr_iovecs; i++) {
+> >  		struct dma_page_list *page_list = &pinned_list->page_list[i];
+> >  		for (j = 0; j < page_list->nr_pages; j++) {
+> 
+> I have tried it with net_dma and here is what I've got.
 
-Hi Jonathan
+Thanks.
+Instead, How about this?
 
-There are at least two small problems on this patch submission.
 
-1) Please chose one of email address for Signoff line, not two :)
+============================================
+Subject: [Untested][RFC][PATCH v3] fix wrong get_user_pages usage in iovlock.c
 
-=46or example : Signed-off-by: Jonathan Lin <tzungder@gmail.com>
+	down_read(mmap_sem)
+	get_user_pages()
+	up_read(mmap_sem)
 
-You'll be soon flooded by spams, so dont ease spamers life :)
+is fork unsafe.
+mmap_sem should't be released until dma_unpin_iovec_pages() is called.
 
-2) Try to find out why your email got two lines wrapped
-    You can read Documentation/email-clients.txt if you want extensive =
-documentation.
-    You can also test this by sending your 'patch' to yourself and chec=
-k if
-    no lines were wrapped before sending the 'official patch'
 
-I dont want to bother you Jonathan, as it is pretty hard for a newcomer=
- to learn
-this things, but I feel that you might find other bugs in linux kernel,=
- so this
-learning is likely a good investment, both for you and others.
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Chris Leech <christopher.leech@intel.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/dma/iovlock.c |    5 ++---
+ net/ipv4/tcp.c        |    9 +++++++++
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
-Thanks
+Index: b/drivers/dma/iovlock.c
+===================================================================
+--- a/drivers/dma/iovlock.c	2009-04-19 17:27:25.000000000 +0900
++++ b/drivers/dma/iovlock.c	2009-04-19 17:29:42.000000000 +0900
+@@ -45,6 +45,8 @@ static int num_pages_spanned(struct iove
+  * We are allocating a single chunk of memory, and then carving it up into
+  * 3 sections, the latter 2 whose size depends on the number of iovecs and the
+  * total number of pages, respectively.
++ *
++ * Caller must hold mm->mmap_sem
+  */
+ struct dma_pinned_list *dma_pin_iovec_pages(struct iovec *iov, size_t len)
+ {
+@@ -94,7 +96,6 @@ struct dma_pinned_list *dma_pin_iovec_pa
+ 		pages += page_list->nr_pages;
+ 
+ 		/* pin pages down */
+-		down_read(&current->mm->mmap_sem);
+ 		ret = get_user_pages(
+ 			current,
+ 			current->mm,
+@@ -104,8 +105,6 @@ struct dma_pinned_list *dma_pin_iovec_pa
+ 			0,	/* force */
+ 			page_list->pages,
+ 			NULL);
+-		up_read(&current->mm->mmap_sem);
+-
+ 		if (ret != page_list->nr_pages)
+ 			goto unpin;
+ 
+Index: b/net/ipv4/tcp.c
+===================================================================
+--- a/net/ipv4/tcp.c	2009-04-19 17:27:25.000000000 +0900
++++ b/net/ipv4/tcp.c	2009-04-19 18:09:42.000000000 +0900
+@@ -1322,6 +1322,9 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ 	int copied_early = 0;
+ 	struct sk_buff *skb;
+ 
++#ifdef CONFIG_NET_DMA
++	down_read(&current->mm->mmap_sem);
++#endif
+ 	lock_sock(sk);
+ 
+ 	TCP_CHECK_TIMER(sk);
+@@ -1688,11 +1691,17 @@ skip_copy:
+ 
+ 	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
++#ifdef CONFIG_NET_DMA
++	up_read(&current->mm->mmap_sem);
++#endif
+ 	return copied;
+ 
+ out:
+ 	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
++#ifdef CONFIG_NET_DMA
++	up_read(&current->mm->mmap_sem);
++#endif
+ 	return err;
+ 
+ recv_urg:
 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
