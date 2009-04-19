@@ -1,104 +1,69 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: What is lock_sock() before skb_free_datagram() for?
-Date: Sun, 19 Apr 2009 14:12:15 +0900
-Message-ID: <200904191412.GIF95380.SVFJOHOFOQtLMF@I-love.SAKURA.ne.jp>
-References: <200904181804.AHC13042.VHFFOOJOFLSQMt@I-love.SAKURA.ne.jp>
-	<20090418.020837.106276006.davem@davemloft.net>
-	<200904182123.HFF13509.MVSJtQHFLFOFOO@I-love.SAKURA.ne.jp>
-	<20090418.212842.163717535.davem@davemloft.net>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: [PATCH net-next] myri10ge: allow per-board firmware overriding
+Date: Sun, 19 Apr 2009 01:25:38 -0400
+Message-ID: <f73f7ab80904182225n4c48f891g796324bea71f535a@mail.gmail.com>
+References: <49E7239B.4000309@myri.com>
+	 <20090417095038.49b745bf@dhcp-lab-109.englab.brq.redhat.com>
+	 <49EA1DAC.1000602@myri.com>
+	 <1240102617.5342.6.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Brice Goglin <brice@myri.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: David Dillow <dave@thedillows.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:63844 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750893AbZDSFMR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Apr 2009 01:12:17 -0400
-In-Reply-To: <20090418.212842.163717535.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.233]:14798 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752480AbZDSFZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Apr 2009 01:25:39 -0400
+In-Reply-To: <1240102617.5342.6.camel@obelisk.thedillows.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> We worked so hard to split out this common code, it is simply
-> a non-starter for anyone to start putting protocol specific test
-> into here, or even worse to move this code back to being locally
-> copied into every protocol implementation.
-You don't want LSM modules to perform protocol specific test inside
-__skb_recv_datagram(). I see.
+On Sat, Apr 18, 2009 at 8:56 PM, David Dillow <dave@thedillows.org> wrote:
+> On Sat, 2009-04-18 at 20:36 +0200, Brice Goglin wrote:
+>> Stanislaw Gruszka wrote:
+>>
+>> > This would help in situation like this - admin will not have to thinking
+>> > about boards initialization ordering. Besides some other drivers (like MTD
+>> > cmd partitions) use own parsing for similar things, I think would be
+>> > nice to unify things. What You think?
+>> >
+>>
+>> We actually thought about supporting "eth2:fwname1,eth0:fwname2". But it
+>> might be hard to implement in this case due to udev possible renaming
+>> interfaces and this firmware names being needed *before* the renaming.
+>> So yes, an automatic way to handle such parameter strings might be good,
+>> but maybe not in this exact case.
+>
+> It seems like this could be done in user space, using the PCI bus ID as
+> a key to select the firmware. The uevent identifies which device is
+> requesting the firmware, so some modification to /lib/udev/firmware.sh
+> should do it.
+>
+> Not that I really want to encourage relying on the bus ID being part of
+> the path to the firmware files, as if no one uses it, it makes it easier
+> to cache firmware files for multiple devices, but that's work for
+> another day and the ABI is already set anyway...
 
-> You may want to think about how you can achieve your goals by putting
-> these unpleasant hooks into some other location.
-May I insert security_socket_post_recv_datagram() into the caller of
-skb_recv_datagram() (as shown below)?
+The company I work for (eXMeritus) actually had an internal patch to
+do something like this on a much older version of the driver (and I
+believe we may have been the original motivation for this new patch).
+We were fiddling with the firmware path to first look up (for example)
+"myri10ge_eth_z8e_${PCI_BUS_ADDR}.dat", followed by
+"myri10ge_eth_z8e.dat" if that failed.  Unfortunately on the RHEL5
+kernel we were using at the time, the firmware filenames seemed to get
+truncated at 29 characters or something, because we got requests for
+"/lib/firmware/myri10ge_eth_z8e_0000:08:0a.0" and
+"/lib/firmware/myri10ge_ethp_z8e_0000:08:0a."
 
- include/linux/security.h |   39 +++++++++++++++++++++++++++++++++++++++
- net/ipv4/raw.c           |    5 +++++
- net/ipv4/udp.c           |    7 +++++++
- net/ipv6/raw.c           |    5 +++++
- net/ipv6/udp.c           |    7 +++++++
- net/socket.c             |    5 +++++
- security/capability.c    |   13 +++++++++++++
- security/security.c      |   11 +++++++++++
- 8 files changed, 92 insertions(+)
+As David notes, RHEL5 uses its own binary helper that would need some
+extra help (which was why we wrote our original patch), but we would
+be perfectly fine with doing normal udev rule fiddling on any other
+Linux distro.
 
---- security-testing-2.6.git.orig/net/ipv4/raw.c
-+++ security-testing-2.6.git/net/ipv4/raw.c
-@@ -666,6 +666,11 @@ static int raw_recvmsg(struct kiocb *ioc
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recv_datagram(sk, skb, flags);
-+	if (err) {
-+		skb_kill_datagram(sk, skb, flags);
-+		goto out;
-+	}
- 
- 	copied = skb->len;
- 	if (len < copied) {
---- security-testing-2.6.git.orig/net/ipv4/udp.c
-+++ security-testing-2.6.git/net/ipv4/udp.c
-@@ -901,6 +901,13 @@ try_again:
- 				  &peeked, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recv_datagram(sk, skb, flags);
-+	if (err) {
-+		lock_sock(sk);
-+		skb_kill_datagram(sk, skb, flags);
-+		release_sock(sk);
-+		goto out;
-+	}
- 
- 	ulen = skb->len - sizeof(struct udphdr);
- 	copied = len;
---- security-testing-2.6.git.orig/net/ipv6/raw.c
-+++ security-testing-2.6.git/net/ipv6/raw.c
-@@ -465,6 +465,11 @@ static int rawv6_recvmsg(struct kiocb *i
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recv_datagram(sk, skb, flags);
-+	if (err) {
-+		skb_kill_datagram(sk, skb, flags);
-+		goto out;
-+	}
- 
- 	copied = skb->len;
- 	if (copied > len) {
---- security-testing-2.6.git.orig/net/ipv6/udp.c
-+++ security-testing-2.6.git/net/ipv6/udp.c
-@@ -208,6 +208,13 @@ try_again:
- 				  &peeked, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recv_datagram(sk, skb, flags);
-+	if (err) {
-+		lock_sock(sk);
-+		skb_kill_datagram(sk, skb, flags);
-+		release_sock(sk);
-+		goto out;
-+	}
- 
- 	ulen = skb->len - sizeof(struct udphdr);
- 	copied = len;
+Cheers,
+Kyle Moffett
