@@ -1,34 +1,309 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: What is lock_sock() before skb_free_datagram() for?
-Date: Sun, 19 Apr 2009 00:44:24 -0700 (PDT)
-Message-ID: <20090419.004424.141669610.davem@davemloft.net>
-References: <200904182123.HFF13509.MVSJtQHFLFOFOO@I-love.SAKURA.ne.jp>
-	<20090418.212842.163717535.davem@davemloft.net>
-	<200904191412.GIF95380.SVFJOHOFOQtLMF@I-love.SAKURA.ne.jp>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH v2] LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
+Date: Sun, 19 Apr 2009 17:03:22 +0900
+Message-ID: <200904191703.CED13547.SMJQFHOVLtFOOF@I-love.SAKURA.ne.jp>
+References: <200904141944.JFE64074.FHtOMOFQLFJOVS@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: penguin-kernel@I-love.SAKURA.ne.jp
+Content-Type: text/plain; charset=us-ascii
+Cc: paul.moore@hp.com, davem@davemloft.net
+To: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200904191412.GIF95380.SVFJOHOFOQtLMF@I-love.SAKURA.ne.jp>
+In-Reply-To: <200904141944.JFE64074.FHtOMOFQLFJOVS@I-love.SAKURA.ne.jp>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Sun, 19 Apr 2009 14:12:15 +0900
-
-> David Miller wrote:
->> We worked so hard to split out this common code, it is simply
->> a non-starter for anyone to start putting protocol specific test
->> into here, or even worse to move this code back to being locally
->> copied into every protocol implementation.
-> You don't want LSM modules to perform protocol specific test inside
-> __skb_recv_datagram(). I see.
+David Miller wrote:
+> >> We worked so hard to split out this common code, it is simply
+> >> a non-starter for anyone to start putting protocol specific test
+> >> into here, or even worse to move this code back to being locally
+> >> copied into every protocol implementation.
+> > You don't want LSM modules to perform protocol specific test inside
+> > __skb_recv_datagram(). I see.
+> > 
+> >> You may want to think about how you can achieve your goals by putting
+> >> these unpleasant hooks into some other location.
+> > May I insert security_socket_post_recv_datagram() into the caller of
+> > skb_recv_datagram() (as shown below)?
 > 
->> You may want to think about how you can achieve your goals by putting
->> these unpleasant hooks into some other location.
-> May I insert security_socket_post_recv_datagram() into the caller of
-> skb_recv_datagram() (as shown below)?
+> This definitely looks better, yes.
+> 
+I see. Thank you very much.
 
-This definitely looks better, yes.
+Now, I'd like to repost an updated patch.
+Do you have questions/problems with this patch? > netdev and lsm folks
+----------------------------------------
+Subject: LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
+
+This patch allows LSM modules to filter incoming connections/datagrams based on
+the process's security context who is attempting to pick up.
+
+There are already hooks for filtering incoming connections/datagrams based on
+the socket's security context, but these hooks are not applicable when someone
+wants to do TCP Wrapper-like filtering (e.g. App1 is permitted to accept TCP
+connections from 192.168.0.0/16) because nobody can tell who picks them up
+before the moment of sock->ops->accept()/sock->ops->recvmsg() call.
+
+Precautions: These hooks have a side effect if improperly used.
+
+If a socket is shared by multiple processes with different policy, the process
+who should be able to accept this connection will not be able to accept this
+connection because socket_post_accept() aborts this connection.
+This is needed because the process who must not be able to accept this
+connection will repeat accept() request (and consume CPU resource) forever
+if socket_post_accept() doesn't abort this connection.
+
+Similarly, if a socket is shared by multiple processes with different policy,
+the process who should be able to pick up this datagram will not be able to
+pick up this datagram because socket_post_recv_datagram() discards this
+datagram.
+This is needed because the process who must not be able to pick up this
+datagram will repeat recvmsg() request (and consume CPU resource) forever
+if socket_post_recv_datagram() doesn't discard this datagram.
+
+Therefore, don't give different policy between processes who share one socket.
+Otherwise, some connections/datagrams cannot be delivered to intended process.
+
+Signed-off-by: Kentaro Takeda <takedakn@nttdata.co.jp>
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Signed-off-by: Toshiharu Harada <haradats@nttdata.co.jp>
+
+ include/linux/security.h |   39 +++++++++++++++++++++++++++++++++++++++
+ net/ipv4/raw.c           |    5 +++++
+ net/ipv4/udp.c           |    7 +++++++
+ net/ipv6/raw.c           |    5 +++++
+ net/ipv6/udp.c           |    7 +++++++
+ net/socket.c             |    4 ++++
+ security/capability.c    |   13 +++++++++++++
+ security/security.c      |   11 +++++++++++
+ 8 files changed, 91 insertions(+)
+
+---
+
+--- security-testing-2.6.git.orig/include/linux/security.h
++++ security-testing-2.6.git/include/linux/security.h
+@@ -880,6 +880,17 @@ static inline void security_free_mnt_opt
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
+  *	Return 0 if permission is granted.
++ * @socket_post_accept:
++ *	This hook allows a security module to filter connections from unwanted
++ *	peers based on the process accepting this connection.
++ *	The connection will be aborted if this hook returns nonzero.
++ *	This hook is not designed for updating security attributes of
++ *	an accept()ed socket, for the accept()ed socket has already sent
++ *	several packets (e.g. TCP's SYN/ACK packet and some ACK packets for
++ *	incoming data) before this hook is called.
++ *	@sock contains the listening socket structure.
++ *	@newsock contains the newly created server socket for connection.
++ *	Return 0 if permission is granted.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -893,6 +904,15 @@ static inline void security_free_mnt_opt
+  *	@size contains the size of message structure.
+  *	@flags contains the operational flags.
+  *	Return 0 if permission is granted.
++ * @socket_post_recv_datagram:
++ *	Check permission after receiving a datagram.
++ *	This hook allows a security module to filter packets
++ *	from unwanted peers based on the process receiving this datagram.
++ *	The packet will be discarded if this hook returns nonzero.
++ *	@sk contains the socket.
++ *	@skb contains the socket buffer.
++ *	@flags contains the operational flags.
++ *	Return 0 if permission is granted.
+  * @socket_getsockname:
+  *	Check permission before the local address (name) of the socket object
+  *	@sock is retrieved.
+@@ -1549,10 +1569,13 @@ struct security_operations {
+ 			       struct sockaddr *address, int addrlen);
+ 	int (*socket_listen) (struct socket *sock, int backlog);
+ 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
++	int (*socket_post_accept) (struct socket *sock, struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size, int flags);
++	int (*socket_post_recv_datagram) (struct sock *sk, struct sk_buff *skb,
++					  unsigned int flags);
+ 	int (*socket_getsockname) (struct socket *sock);
+ 	int (*socket_getpeername) (struct socket *sock);
+ 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
+@@ -2530,9 +2553,12 @@ int security_socket_bind(struct socket *
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
++int security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
++int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++				       unsigned int flags);
+ int security_socket_getsockname(struct socket *sock);
+ int security_socket_getpeername(struct socket *sock);
+ int security_socket_getsockopt(struct socket *sock, int level, int optname);
+@@ -2608,6 +2634,12 @@ static inline int security_socket_accept
+ 	return 0;
+ }
+ 
++static inline int security_socket_post_accept(struct socket *sock,
++					      struct socket *newsock)
++{
++	return 0;
++}
++
+ static inline int security_socket_sendmsg(struct socket *sock,
+ 					  struct msghdr *msg, int size)
+ {
+@@ -2621,6 +2653,13 @@ static inline int security_socket_recvms
+ 	return 0;
+ }
+ 
++static inline int security_socket_post_recv_datagram(struct sock *sk,
++						     struct sk_buff *skb,
++						     unsigned int flags)
++{
++	return 0;
++}
++
+ static inline int security_socket_getsockname(struct socket *sock)
+ {
+ 	return 0;
+--- security-testing-2.6.git.orig/net/ipv4/raw.c
++++ security-testing-2.6.git/net/ipv4/raw.c
+@@ -666,6 +666,11 @@ static int raw_recvmsg(struct kiocb *ioc
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		skb_kill_datagram(sk, skb, flags);
++		goto out;
++	}
+ 
+ 	copied = skb->len;
+ 	if (len < copied) {
+--- security-testing-2.6.git.orig/net/ipv4/udp.c
++++ security-testing-2.6.git/net/ipv4/udp.c
+@@ -901,6 +901,13 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		lock_sock(sk);
++		skb_kill_datagram(sk, skb, flags);
++		release_sock(sk);
++		goto out;
++	}
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	copied = len;
+--- security-testing-2.6.git.orig/net/ipv6/raw.c
++++ security-testing-2.6.git/net/ipv6/raw.c
+@@ -465,6 +465,11 @@ static int rawv6_recvmsg(struct kiocb *i
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		skb_kill_datagram(sk, skb, flags);
++		goto out;
++	}
+ 
+ 	copied = skb->len;
+ 	if (copied > len) {
+--- security-testing-2.6.git.orig/net/ipv6/udp.c
++++ security-testing-2.6.git/net/ipv6/udp.c
+@@ -208,6 +208,13 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		lock_sock(sk);
++		skb_kill_datagram(sk, skb, flags);
++		release_sock(sk);
++		goto out;
++	}
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	copied = len;
+--- security-testing-2.6.git.orig/net/socket.c
++++ security-testing-2.6.git/net/socket.c
+@@ -1519,6 +1519,10 @@ SYSCALL_DEFINE4(accept4, int, fd, struct
+ 	if (err < 0)
+ 		goto out_fd;
+ 
++	err = security_socket_post_accept(sock, newsock);
++	if (err)
++		goto out_fd;
++
+ 	if (upeer_sockaddr) {
+ 		if (newsock->ops->getname(newsock, (struct sockaddr *)&address,
+ 					  &len, 2) < 0) {
+--- security-testing-2.6.git.orig/security/capability.c
++++ security-testing-2.6.git/security/capability.c
+@@ -620,6 +620,11 @@ static int cap_socket_accept(struct sock
+ 	return 0;
+ }
+ 
++static int cap_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++	return 0;
++}
++
+ static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return 0;
+@@ -631,6 +636,12 @@ static int cap_socket_recvmsg(struct soc
+ 	return 0;
+ }
+ 
++static int cap_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++					 unsigned int flags)
++{
++	return 0;
++}
++
+ static int cap_socket_getsockname(struct socket *sock)
+ {
+ 	return 0;
+@@ -1010,8 +1021,10 @@ void security_fixup_ops(struct security_
+ 	set_to_cap_if_null(ops, socket_connect);
+ 	set_to_cap_if_null(ops, socket_listen);
+ 	set_to_cap_if_null(ops, socket_accept);
++	set_to_cap_if_null(ops, socket_post_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
++	set_to_cap_if_null(ops, socket_post_recv_datagram);
+ 	set_to_cap_if_null(ops, socket_getsockname);
+ 	set_to_cap_if_null(ops, socket_getpeername);
+ 	set_to_cap_if_null(ops, socket_setsockopt);
+--- security-testing-2.6.git.orig/security/security.c
++++ security-testing-2.6.git/security/security.c
+@@ -1007,6 +1007,11 @@ int security_socket_accept(struct socket
+ 	return security_ops->socket_accept(sock, newsock);
+ }
+ 
++int security_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++	return security_ops->socket_post_accept(sock, newsock);
++}
++
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return security_ops->socket_sendmsg(sock, msg, size);
+@@ -1018,6 +1023,12 @@ int security_socket_recvmsg(struct socke
+ 	return security_ops->socket_recvmsg(sock, msg, size, flags);
+ }
+ 
++int security_socket_post_recv_datagram(struct sock *sk, struct sk_buff *skb,
++				       unsigned int flags)
++{
++	return security_ops->socket_post_recv_datagram(sk, skb, flags);
++}
++
+ int security_socket_getsockname(struct socket *sock)
+ {
+ 	return security_ops->socket_getsockname(sock);
