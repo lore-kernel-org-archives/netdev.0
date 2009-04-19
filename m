@@ -1,64 +1,67 @@
-From: Tzungder Lin <tzungder@gmail.com>
-Subject: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Sun, 19 Apr 2009 18:16:13 +0800
-Message-ID: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] irda: convert pxaficp device to net_device_ops
+Date: Sun, 19 Apr 2009 12:25:41 +0200
+Message-ID: <20090419102540.GA3373@psychotron.englab.brq.redhat.com>
+References: <1240062266-4339-1-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758137AbZDSKQc@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:39205 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753240AbZDSKcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Apr 2009 06:32:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1240062266-4339-1-git-send-email-dbaryshkov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jonathan Lin <jon.lin@vatics.com, tzungder@gmail.com>
+Sat, Apr 18, 2009 at 03:44:26PM CEST, dbaryshkov@gmail.com wrote:
+>Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+>---
+> drivers/net/irda/pxaficp_ir.c |   13 +++++++++----
+> 1 files changed, 9 insertions(+), 4 deletions(-)
+>
+>diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+>index e775338..743952d 100644
+>--- a/drivers/net/irda/pxaficp_ir.c
+>+++ b/drivers/net/irda/pxaficp_ir.c
+>@@ -797,6 +797,14 @@ static int pxa_irda_init_iobuf(iobuff_t *io, int size)
+> 	return io->head ? 0 : -ENOMEM;
+> }
+> 
+>+static const struct net_device_ops pxa_irda_ops = {
+>+	.ndo_start_xmit = pxa_irda_hard_xmit,
+>+	.ndo_open	= pxa_irda_start,
+>+	.ndo_stop	= pxa_irda_stop,
+>+	.ndo_do_ioctl	= pxa_irda_ioctl,
+>+};
+>+
+>+
 
-While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
-In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before
-setting up the DMA buffer address. In this interval where RX was
-enabled and DMA buffer address is not yet set up, any incoming
-broadcast packet would be send to a strange physical address:
-0x003e8800 which is the default value of DMA buffer address.
-Unfortunately, this address is used by Linux kernel. So kernel panics.
-This patch fix it by setting up DMA buffer address before RX enabled
-and everything is fine even under broadcast packets attack.
+Patch looks, only little nitpick - why two blank lines here ^ ?
 
-Signed-off-by: Jonathan Lin <jon.lin@vatics.com, tzungder@gmail.com>
-
----
-
---- linux-2.6.29.1/drivers/net/8139too.c.orig	2009-04-19
-17:50:38.000000000 +0800
-+++ linux-2.6.29.1/drivers/net/8139too.c	2009-04-19 17:52:51.000000000 +0800
-@@ -1382,6 +1382,10 @@ static void rtl8139_hw_start (struct net
- 	RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
- 	RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)));
-
-+	tp->cur_rx = 0;
-+	/* init Rx ring buffer DMA address BEFORE Rx enabled*/
-+	RTL_W32_F (RxBuf, tp->rx_ring_dma);
-+	
- 	/* Must enable Tx/Rx before setting transfer thresholds! */
- 	RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
-
-@@ -1389,8 +1393,6 @@ static void rtl8139_hw_start (struct net
- 	RTL_W32 (RxConfig, tp->rx_config);
- 	RTL_W32 (TxConfig, rtl8139_tx_config);
-
--	tp->cur_rx = 0;
--
- 	rtl_check_media (dev, 1);
-
- 	if (tp->chipset >= CH_8139B) {
-@@ -1405,9 +1407,6 @@ static void rtl8139_hw_start (struct net
- 	/* Lock Config[01234] and BMCR register writes */
- 	RTL_W8 (Cfg9346, Cfg9346_Lock);
-
--	/* init Rx ring buffer DMA address */
--	RTL_W32_F (RxBuf, tp->rx_ring_dma);
--
- 	/* init Tx buffer DMA addresses */
- 	for (i = 0; i < NUM_TX_DESC; i++)
- 		RTL_W32_F (TxAddr0 + (i * 4), tp->tx_bufs_dma + (tp->tx_buf[i] -
-tp->tx_bufs));
+> static int pxa_irda_probe(struct platform_device *pdev)
+> {
+> 	struct net_device *dev;
+>@@ -845,10 +853,7 @@ static int pxa_irda_probe(struct platform_device *pdev)
+> 	if (err)
+> 		goto err_startup;
+> 
+>-	dev->hard_start_xmit	= pxa_irda_hard_xmit;
+>-	dev->open		= pxa_irda_start;
+>-	dev->stop		= pxa_irda_stop;
+>-	dev->do_ioctl		= pxa_irda_ioctl;
+>+	dev->netdev_ops = &pxa_irda_ops;
+> 
+> 	irda_init_max_qos_capabilies(&si->qos);
+> 
+>-- 
+>1.6.2.1
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
