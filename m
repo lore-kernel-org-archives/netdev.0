@@ -1,55 +1,64 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: Re: [BUG] 2.6.30-rc broke ixp4xx_eth, firmware breakage?
-Date: Sun, 19 Apr 2009 11:32:12 +0200
-Message-ID: <18922.61340.630534.74677@pilspetsen.it.uu.se>
-References: <200904182153.n3ILrP6j027453@pilspetsen.it.uu.se>
-	<20090418.211820.197285479.davem@davemloft.net>
+From: Tzungder Lin <tzungder@gmail.com>
+Subject: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
+Date: Sun, 19 Apr 2009 18:16:13 +0800
+Message-ID: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mikpe@it.uu.se, khc@pm.waw.pl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759295AbZDSJcs@vger.kernel.org>
-In-Reply-To: <20090418.211820.197285479.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758137AbZDSKQc@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller writes:
- > From: Mikael Pettersson <mikpe@it.uu.se>
- > Date: Sat, 18 Apr 2009 23:53:25 +0200 (MEST)
- > 
- > > The ixp4xx_eth driver for my IXP420 XScale box (Synology DS101)
- > > worked fine in kernel 2.6.29. Now trying to boot 2.6.30-rc2 I'm
- > > greeted with the following failure during init:
- > > 
- > > Bringing up interface eth0:  RTNETLINK answers: No such file or directory
- > > Failed to bring up eth0.
- > > [FAILED]
- > > 
- > > There's a fairly long (at least 10 seconds) delay between the 'Bringing up'
- > > message and the RTNETLINK error.
- > > 
- > > A diff between the 2.6.29 and 2.6.30-rc2 boot logs indicates that
- > > the firmware doesn't get loaded:
- > 
- > Please make sure CONFIG_FIRMWARE_IN_KERNEL is set in your
- > configuration if this driver is being built statically
- > into your kernel.
+From: Jonathan Lin <jon.lin@vatics.com, tzungder@gmail.com>
 
-ixp4xx_eth is built as a module and I have CONFIG_FIRMWARE_IN_KERNEL unset.
+While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
+In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before
+setting up the DMA buffer address. In this interval where RX was
+enabled and DMA buffer address is not yet set up, any incoming
+broadcast packet would be send to a strange physical address:
+0x003e8800 which is the default value of DMA buffer address.
+Unfortunately, this address is used by Linux kernel. So kernel panics.
+This patch fix it by setting up DMA buffer address before RX enabled
+and everything is fine even under broadcast packets attack.
 
- > Otherwise, if modular, make sure the firmware files get installed into
- > the correct location and are available in the filesystem when the
- > driver loads.
+Signed-off-by: Jonathan Lin <jon.lin@vatics.com, tzungder@gmail.com>
 
-The firmware isn't shipped with the kernel but is something users have to
-download from Intel, build, and install themselves; once installed they work
-across kernel versions. The files reside in /lib/firmware/'s top-level
-directory, and they are available since firmware loading (triggered by init's
-attempt to up eth0) occurs after / has been mounted. My userspace uses oldish
-firmware-aware hotplug since udev's too heavy-weight.
+---
 
-This all works with 2.6.29 and older 2.6.2x kernels.
+--- linux-2.6.29.1/drivers/net/8139too.c.orig	2009-04-19
+17:50:38.000000000 +0800
++++ linux-2.6.29.1/drivers/net/8139too.c	2009-04-19 17:52:51.000000000 +0800
+@@ -1382,6 +1382,10 @@ static void rtl8139_hw_start (struct net
+ 	RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
+ 	RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)));
 
-I'll do a bisect.
++	tp->cur_rx = 0;
++	/* init Rx ring buffer DMA address BEFORE Rx enabled*/
++	RTL_W32_F (RxBuf, tp->rx_ring_dma);
++	
+ 	/* Must enable Tx/Rx before setting transfer thresholds! */
+ 	RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
+
+@@ -1389,8 +1393,6 @@ static void rtl8139_hw_start (struct net
+ 	RTL_W32 (RxConfig, tp->rx_config);
+ 	RTL_W32 (TxConfig, rtl8139_tx_config);
+
+-	tp->cur_rx = 0;
+-
+ 	rtl_check_media (dev, 1);
+
+ 	if (tp->chipset >= CH_8139B) {
+@@ -1405,9 +1407,6 @@ static void rtl8139_hw_start (struct net
+ 	/* Lock Config[01234] and BMCR register writes */
+ 	RTL_W8 (Cfg9346, Cfg9346_Lock);
+
+-	/* init Rx ring buffer DMA address */
+-	RTL_W32_F (RxBuf, tp->rx_ring_dma);
+-
+ 	/* init Tx buffer DMA addresses */
+ 	for (i = 0; i < NUM_TX_DESC; i++)
+ 		RTL_W32_F (TxAddr0 + (i * 4), tp->tx_bufs_dma + (tp->tx_buf[i] -
+tp->tx_bufs));
