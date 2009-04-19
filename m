@@ -1,24 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: TCP: Peer messages
-Date: Sat, 18 Apr 2009 18:03:03 -0700
-Message-ID: <20090418180303.18963ff0@nehalam>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH net-next] myri10ge: allow per-board firmware overriding
+Date: Sat, 18 Apr 2009 20:56:57 -0400
+Message-ID: <1240102617.5342.6.camel@obelisk.thedillows.org>
+References: <49E7239B.4000309@myri.com>
+	 <20090417095038.49b745bf@dhcp-lab-109.englab.brq.redhat.com>
+	 <49EA1DAC.1000602@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42368 "EHLO mail.vyatta.com"
+Received: from smtp.knology.net ([24.214.63.101]:56467 "EHLO smtp.knology.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753280AbZDSBDL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Apr 2009 21:03:11 -0400
+	id S1753667AbZDSBDk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Apr 2009 21:03:40 -0400
+In-Reply-To: <49EA1DAC.1000602@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Running some log-term tests of (using bittorrent of latest Ubuntu releases).
-I see no problems with firewall rules (or sky2 driver), but I do several of these:
+On Sat, 2009-04-18 at 20:36 +0200, Brice Goglin wrote:
+> Stanislaw Gruszka wrote:
+>
+> > This would help in situation like this - admin will not have to thinking
+> > about boards initialization ordering. Besides some other drivers (like MTD
+> > cmd partitions) use own parsing for similar things, I think would be
+> > nice to unify things. What You think?
+> >   
+> 
+> We actually thought about supporting "eth2:fwname1,eth0:fwname2". But it
+> might be hard to implement in this case due to udev possible renaming
+> interfaces and this firmware names being needed *before* the renaming.
+> So yes, an automatic way to handle such parameter strings might be good,
+> but maybe not in this exact case.
 
+It seems like this could be done in user space, using the PCI bus ID as
+a key to select the firmware. The uevent identifies which device is
+requesting the firmware, so some modification to /lib/udev/firmware.sh
+should do it.
 
-[28286.893945] TCP: Peer <ip scrubbed>:63659/51413 unexpectedly shrunk window 414881290:414894358 (repaired)
-[47312.851937] TCP: Peer <ip scrubbed>:43793/51413 unexpectedly shrunk window 888816585:888823785 (repaired)
+Not that I really want to encourage relying on the bus ID being part of
+the path to the firmware files, as if no one uses it, it makes it easier
+to cache firmware files for multiple devices, but that's work for
+another day and the ABI is already set anyway...
+
+Dave
+
