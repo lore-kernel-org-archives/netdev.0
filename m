@@ -1,67 +1,44 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] irda: convert pxaficp device to net_device_ops
-Date: Sun, 19 Apr 2009 12:25:41 +0200
-Message-ID: <20090419102540.GA3373@psychotron.englab.brq.redhat.com>
-References: <1240062266-4339-1-git-send-email-dbaryshkov@gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP: Peer messages
+Date: Sun, 19 Apr 2009 14:19:36 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0904191408090.21005@wrl-59.cs.helsinki.fi>
+References: <20090418180303.18963ff0@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:39205 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753240AbZDSKcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Apr 2009 06:32:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1240062266-4339-1-git-send-email-dbaryshkov@gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40766 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756164AbZDSLTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Apr 2009 07:19:39 -0400
+In-Reply-To: <20090418180303.18963ff0@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Apr 18, 2009 at 03:44:26PM CEST, dbaryshkov@gmail.com wrote:
->Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
->---
-> drivers/net/irda/pxaficp_ir.c |   13 +++++++++----
-> 1 files changed, 9 insertions(+), 4 deletions(-)
->
->diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
->index e775338..743952d 100644
->--- a/drivers/net/irda/pxaficp_ir.c
->+++ b/drivers/net/irda/pxaficp_ir.c
->@@ -797,6 +797,14 @@ static int pxa_irda_init_iobuf(iobuff_t *io, int size)
-> 	return io->head ? 0 : -ENOMEM;
-> }
-> 
->+static const struct net_device_ops pxa_irda_ops = {
->+	.ndo_start_xmit = pxa_irda_hard_xmit,
->+	.ndo_open	= pxa_irda_start,
->+	.ndo_stop	= pxa_irda_stop,
->+	.ndo_do_ioctl	= pxa_irda_ioctl,
->+};
->+
->+
+On Sat, 18 Apr 2009, Stephen Hemminger wrote:
 
-Patch looks, only little nitpick - why two blank lines here ^ ?
+> Running some log-term tests of (using bittorrent of latest Ubuntu releases).
+> I see no problems with firewall rules (or sky2 driver), but I do several 
+> of these: 
+> 
+> 
+> [28286.893945] TCP: Peer <ip scrubbed>:63659/51413 unexpectedly shrunk window 414881290:414894358 (repaired)
+> [47312.851937] TCP: Peer <ip scrubbed>:43793/51413 unexpectedly shrunk window 888816585:888823785 (repaired)
 
-> static int pxa_irda_probe(struct platform_device *pdev)
-> {
-> 	struct net_device *dev;
->@@ -845,10 +853,7 @@ static int pxa_irda_probe(struct platform_device *pdev)
-> 	if (err)
-> 		goto err_startup;
-> 
->-	dev->hard_start_xmit	= pxa_irda_hard_xmit;
->-	dev->open		= pxa_irda_start;
->-	dev->stop		= pxa_irda_stop;
->-	dev->do_ioctl		= pxa_irda_ioctl;
->+	dev->netdev_ops = &pxa_irda_ops;
-> 
-> 	irda_init_max_qos_capabilies(&si->qos);
-> 
->-- 
->1.6.2.1
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is what was earlier the Treason uncloacked message until somebody 
+was scared to death because of it and we had to change the wording.
+
+And it's what the old kernels do for us (and there are plenty of such 
+kernels around), and possibly broken middleboxes too. Unless you have a 
+tcpdump of a specific case or can clearly say that its frequency is much 
+larger than it used to be in some between kernel versions consistent test 
+setup, I'm not going to waste my time on debugging obsolete remote ends.
+
+But, now that I think it a bit more, we could possibly but a WARN_ON 
+somewhere if we ever sent past advertized window to make a distinction 
+between our and their bugs.
+
+-- 
+ i.
