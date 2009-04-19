@@ -1,44 +1,104 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH net-next] myri10ge: allow per-board firmware overriding
-Date: Sun, 19 Apr 2009 00:41:39 -0400
-Message-ID: <1240116099.5342.18.camel@obelisk.thedillows.org>
-References: <20090417095038.49b745bf@dhcp-lab-109.englab.brq.redhat.com>
-	 <49EA1DAC.1000602@myri.com>
-	 <1240102617.5342.6.camel@obelisk.thedillows.org>
-	 <20090418.210927.229687293.davem@davemloft.net>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: What is lock_sock() before skb_free_datagram() for?
+Date: Sun, 19 Apr 2009 14:12:15 +0900
+Message-ID: <200904191412.GIF95380.SVFJOHOFOQtLMF@I-love.SAKURA.ne.jp>
+References: <200904181804.AHC13042.VHFFOOJOFLSQMt@I-love.SAKURA.ne.jp>
+	<20090418.020837.106276006.davem@davemloft.net>
+	<200904182123.HFF13509.MVSJtQHFLFOFOO@I-love.SAKURA.ne.jp>
+	<20090418.212842.163717535.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: brice@myri.com, sgruszka@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:48353 "EHLO smtp.knology.net"
+Received: from wine.ocn.ne.jp ([122.1.235.145]:63844 "EHLO smtp.wine.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751015AbZDSEll (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Apr 2009 00:41:41 -0400
-In-Reply-To: <20090418.210927.229687293.davem@davemloft.net>
+	id S1750893AbZDSFMR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Apr 2009 01:12:17 -0400
+In-Reply-To: <20090418.212842.163717535.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-04-18 at 21:09 -0700, David Miller wrote:
-> From: David Dillow <dave@thedillows.org>
-> Date: Sat, 18 Apr 2009 20:56:57 -0400
-> 
-> > It seems like this could be done in user space, using the PCI bus ID as
-> > a key to select the firmware.
-> 
-> PCI BUS ID's are not in any way unique, you would need to include the
-> PCI Domain as well.
+David Miller wrote:
+> We worked so hard to split out this common code, it is simply
+> a non-starter for anyone to start putting protocol specific test
+> into here, or even worse to move this code back to being locally
+> copied into every protocol implementation.
+You don't want LSM modules to perform protocol specific test inside
+__skb_recv_datagram(). I see.
 
-I had that in mind, but I wasn't precise in my wording. I think that
-info is there as well. IIRC, and brief glance at the code suggests, that
-the uevent for the firmware requests gets the environment variable
-DEVPATH that would contains that info:
+> You may want to think about how you can achieve your goals by putting
+> these unpleasant hooks into some other location.
+May I insert security_socket_post_recv_datagram() into the caller of
+skb_recv_datagram() (as shown below)?
 
-DEVPATH=/devices/pci0000:00/0000:00:1e.0/0000:09:01.0
+ include/linux/security.h |   39 +++++++++++++++++++++++++++++++++++++++
+ net/ipv4/raw.c           |    5 +++++
+ net/ipv4/udp.c           |    7 +++++++
+ net/ipv6/raw.c           |    5 +++++
+ net/ipv6/udp.c           |    7 +++++++
+ net/socket.c             |    5 +++++
+ security/capability.c    |   13 +++++++++++++
+ security/security.c      |   11 +++++++++++
+ 8 files changed, 92 insertions(+)
 
-Now I'm curious, so I'll probably re-verify that with udevmonitor, a
-recent kernel and the typhoon driver, since it is the only thing I have
-that requests firmware. But sometime after I sleep...
-
+--- security-testing-2.6.git.orig/net/ipv4/raw.c
++++ security-testing-2.6.git/net/ipv4/raw.c
+@@ -666,6 +666,11 @@ static int raw_recvmsg(struct kiocb *ioc
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		skb_kill_datagram(sk, skb, flags);
++		goto out;
++	}
+ 
+ 	copied = skb->len;
+ 	if (len < copied) {
+--- security-testing-2.6.git.orig/net/ipv4/udp.c
++++ security-testing-2.6.git/net/ipv4/udp.c
+@@ -901,6 +901,13 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		lock_sock(sk);
++		skb_kill_datagram(sk, skb, flags);
++		release_sock(sk);
++		goto out;
++	}
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	copied = len;
+--- security-testing-2.6.git.orig/net/ipv6/raw.c
++++ security-testing-2.6.git/net/ipv6/raw.c
+@@ -465,6 +465,11 @@ static int rawv6_recvmsg(struct kiocb *i
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		skb_kill_datagram(sk, skb, flags);
++		goto out;
++	}
+ 
+ 	copied = skb->len;
+ 	if (copied > len) {
+--- security-testing-2.6.git.orig/net/ipv6/udp.c
++++ security-testing-2.6.git/net/ipv6/udp.c
+@@ -208,6 +208,13 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recv_datagram(sk, skb, flags);
++	if (err) {
++		lock_sock(sk);
++		skb_kill_datagram(sk, skb, flags);
++		release_sock(sk);
++		goto out;
++	}
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	copied = len;
