@@ -1,44 +1,62 @@
-From: Amos Kong <jianjun@zeuux.org>
-Subject: Re: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Mon, 20 Apr 2009 21:28:00 +0800
-Message-ID: <20090420132800.GA9119@ubuntu>
-References: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC]: add tracepoint to net_rx_action to note polling
+	operations
+Date: Mon, 20 Apr 2009 10:00:35 -0400
+Message-ID: <20090420140035.GF32254@hmsreliant.think-freely.org>
+References: <20090420211729.2218e5e2.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jon.lin@vatics.com
+Cc: netdev@vger.kernel.org
+To: Mark Smith
+	<nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.zeuux.org ([210.51.160.52]:58212 "EHLO z.billxu.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754211AbZDTN2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2009 09:28:22 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40674 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755054AbZDTOAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 10:00:43 -0400
 Content-Disposition: inline
-In-Reply-To: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
+In-Reply-To: <20090420211729.2218e5e2.nanog@85d5b20a518b8f6864949bd940457dc124746ddc.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 20, 2009 at 08:58:01PM +0800, jon.lin@vatics.com wrote:
->From: Jonathan Lin <jon.lin@vatics.com>
->
->While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
->In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before setting up the DMA buffer address. In this interval where RX was enabled and DMA buffer address is not yet set up, any incoming broadcast packet would be send to a strange physical address:
->0x003e8800 which is the default value of DMA buffer address.
->Unfortunately, this address is used by Linux kernel. So kernel panics.
->This patch fix it by setting up DMA buffer address before RX enabled and everything is fine even under broadcast packets attack.
->
->Signed-off-by: Jonathan Lin <jon.lin@vatics.com>
+On Mon, Apr 20, 2009 at 09:17:29PM +0930, Mark Smith wrote:
+> Hi,
+> 
+> (not on list, please CC me)
+> 
+> "I was thinking about adding an additional tracepoint to
+> net_rx_action, right before the call to dev->poll().  One of the things
+> thats missing from my dropwatch utility is the ability to detect
+> hardware drops, and I was thinking I could implement that by noting
+> when devices were being polled by napi, and at that time querying the
+> devices stats.
+> 
+> 	I know however, that adding tracepoints isn't always
+> desireable, so I thought I would solicit opinions here to see if anyone
+> else would find such a tracepoint usefull, or in the event they had
+> strong objectsions to such a point."
+> 
+> Would that be indicating that the host isn't keeping up with the
+> incoming packet rate? If so, I'd think that would be quite useful, as
+> it'd be a very obvious indicator that the host needs a performance
+> upgrade, should the traffic be valid e.g. not a DoS attack.
+> 
+Its hard to apply context to it without knowning more.  It could mean that the
+napi weight needs to be increased, or the NIC's irq coalescing needs to be
+dialed back to reduce latency, or it could simply mean lots of wire errors.  The
+only thing we can say for certain is that packets are being dropped, and thats
+what dropwatch does.
 
-Reviewed-by: Amos Kong <jianjun@zeuux.org>
+Of course, theres a downside to this too.  Adding a tracepoint provides the
+opportunity for others to hook into that point in the receive path, and
+depending on how and what they hook, they can really mess things up, which is a
+debugging nightmare.  And so tracepoints in this area are treated suspiciously.
 
->--- linux-2.6.29.1/drivers/net/8139too.c.orig   2009-04-19 17:50:38.000000000 +0800
->+++ linux-2.6.29.1/drivers/net/8139too.c        2009-04-19 17:52:51.000000000 +0800
->@@ -1382,6 +1382,10 @@ static void rtl8139_hw_start (struct net
->        RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
->        RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)));
->
->+       tp->cur_rx = 0;
->+       /* init Rx ring buffer DMA address BEFORE Rx enabled*/
->+       RTL_W32_F (RxBuf, tp->rx_ring_dma);
->+
-...
+I'm soliciting for opinions as to weather the benefit outweighs the risk/cost.
+
+Neil
+
+> Regards,
+> Mark.
+> 
+> 
