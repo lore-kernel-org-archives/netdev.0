@@ -1,29 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: convert pxaficp device to net_device_ops
-Date: Mon, 20 Apr 2009 03:06:53 -0700 (PDT)
-Message-ID: <20090420.030653.135452363.davem@davemloft.net>
-References: <1240062266-4339-1-git-send-email-dbaryshkov@gmail.com>
-	<20090419102540.GA3373@psychotron.englab.brq.redhat.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] syncookies: remove last_synq_overflow from struct tcp_sock
+Date: Mon, 20 Apr 2009 12:13:49 +0200
+Message-ID: <87iqkzpr8i.fsf@basil.nowhere.org>
+References: <1240170228-26241-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dbaryshkov@gmail.com, samuel@sortiz.org, netdev@vger.kernel.org
-To: jpirko@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54785
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754267AbZDTKHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 06:07:03 -0400
-In-Reply-To: <20090419102540.GA3373@psychotron.englab.brq.redhat.com>
+Received: from one.firstfloor.org ([213.235.205.2]:55467 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347AbZDTKNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 06:13:51 -0400
+In-Reply-To: <1240170228-26241-1-git-send-email-fw@strlen.de> (Florian Westphal's message of "Sun, 19 Apr 2009 21:43:48 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Sun, 19 Apr 2009 12:25:41 +0200
+Florian Westphal <fw@strlen.de> writes:
+>
+> We can (ab)use rx_opt.ts_recent_stamp to store the same information;
+> it is not used otherwise as long as a socket is in listen state.
 
-> Sat, Apr 18, 2009 at 03:44:26PM CEST, dbaryshkov@gmail.com wrote:
->>Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
- ...
-> Patch looks, only little nitpick - why two blank lines here ^ ?
+You should add a comment to the declaration of the structure for this.
+Or better use a union to make it clear.
 
-Also, net-next-2.6 already has this driver converted.
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
