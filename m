@@ -1,51 +1,63 @@
-From: <jon.lin@vatics.com>
-Subject: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Mon, 20 Apr 2009 20:58:01 +0800
-Message-ID: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
+From: Marcin Juszkiewicz <marcin@juszkiewicz.com.pl>
+Subject: dm9601 as ethX or usbX?
+Date: Mon, 20 Apr 2009 14:57:36 +0200
+Message-ID: <200904201457.37704.marcin@juszkiewicz.com.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="big5"
-Content-Transfer-Encoding: base64
-Cc: <dada1@cosmosbay.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jon.lin@vatics.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755562AbZDTNDw@vger.kernel.org>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Peter Korsgaard <jacmet@sunsite.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host4.kei.pl ([195.149.226.213]:60798 "EHLO smtp.host4.kei.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755316AbZDTNEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 09:04:22 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSm9uYXRoYW4gTGluIDxqb24ubGluQHZhdGljcy5jb20+DQoNCldoaWxlIGlmY29uZmln
-IGV0aDAgdXAga2VybmVsIGNhbGxzIG9wZW4oKSBvZiA4MTM5IGRyaXZlcig4MTM5dG9vLmMpLg0K
-SW4gcnRsODEzOV9od19zdGFydCgpIG9mIHJ0bDgxMzlfb3BlbigpLCA4MTM5IGRyaXZlciBlbmFi
-bGUgUlggYmVmb3JlIHNldHRpbmcgdXAgdGhlIERNQSBidWZmZXIgYWRkcmVzcy4gSW4gdGhpcyBp
-bnRlcnZhbCB3aGVyZSBSWCB3YXMgZW5hYmxlZCBhbmQgRE1BIGJ1ZmZlciBhZGRyZXNzIGlzIG5v
-dCB5ZXQgc2V0IHVwLCBhbnkgaW5jb21pbmcgYnJvYWRjYXN0IHBhY2tldCB3b3VsZCBiZSBzZW5k
-IHRvIGEgc3RyYW5nZSBwaHlzaWNhbCBhZGRyZXNzOg0KMHgwMDNlODgwMCB3aGljaCBpcyB0aGUg
-ZGVmYXVsdCB2YWx1ZSBvZiBETUEgYnVmZmVyIGFkZHJlc3MuDQpVbmZvcnR1bmF0ZWx5LCB0aGlz
-IGFkZHJlc3MgaXMgdXNlZCBieSBMaW51eCBrZXJuZWwuIFNvIGtlcm5lbCBwYW5pY3MuDQpUaGlz
-IHBhdGNoIGZpeCBpdCBieSBzZXR0aW5nIHVwIERNQSBidWZmZXIgYWRkcmVzcyBiZWZvcmUgUlgg
-ZW5hYmxlZCBhbmQgZXZlcnl0aGluZyBpcyBmaW5lIGV2ZW4gdW5kZXIgYnJvYWRjYXN0IHBhY2tl
-dHMgYXR0YWNrLg0KDQpTaWduZWQtb2ZmLWJ5OiBKb25hdGhhbiBMaW4gPGpvbi5saW5AdmF0aWNz
-LmNvbT4NCg0KLS0tIGxpbnV4LTIuNi4yOS4xL2RyaXZlcnMvbmV0LzgxMzl0b28uYy5vcmlnICAg
-MjAwOS0wNC0xOSAxNzo1MDozOC4wMDAwMDAwMDAgKzA4MDANCisrKyBsaW51eC0yLjYuMjkuMS9k
-cml2ZXJzL25ldC84MTM5dG9vLmMgICAgICAgIDIwMDktMDQtMTkgMTc6NTI6NTEuMDAwMDAwMDAw
-ICswODAwDQpAQCAtMTM4Miw2ICsxMzgyLDEwIEBAIHN0YXRpYyB2b2lkIHJ0bDgxMzlfaHdfc3Rh
-cnQgKHN0cnVjdCBuZXQNCiAgICAgICAgUlRMX1czMl9GIChNQUMwICsgMCwgbGUzMl90b19jcHUg
-KCooX19sZTMyICopIChkZXYtPmRldl9hZGRyICsgMCkpKTsNCiAgICAgICAgUlRMX1czMl9GIChN
-QUMwICsgNCwgbGUxNl90b19jcHUgKCooX19sZTE2ICopIChkZXYtPmRldl9hZGRyICsgNCkpKTsN
-Cg0KKyAgICAgICB0cC0+Y3VyX3J4ID0gMDsNCisgICAgICAgLyogaW5pdCBSeCByaW5nIGJ1ZmZl
-ciBETUEgYWRkcmVzcyBCRUZPUkUgUnggZW5hYmxlZCovDQorICAgICAgIFJUTF9XMzJfRiAoUnhC
-dWYsIHRwLT5yeF9yaW5nX2RtYSk7DQorDQogICAgICAgIC8qIE11c3QgZW5hYmxlIFR4L1J4IGJl
-Zm9yZSBzZXR0aW5nIHRyYW5zZmVyIHRocmVzaG9sZHMhICovDQogICAgICAgIFJUTF9XOCAoQ2hp
-cENtZCwgQ21kUnhFbmIgfCBDbWRUeEVuYik7DQoNCkBAIC0xMzg5LDggKzEzOTMsNiBAQCBzdGF0
-aWMgdm9pZCBydGw4MTM5X2h3X3N0YXJ0IChzdHJ1Y3QgbmV0DQogICAgICAgIFJUTF9XMzIgKFJ4
-Q29uZmlnLCB0cC0+cnhfY29uZmlnKTsNCiAgICAgICAgUlRMX1czMiAoVHhDb25maWcsIHJ0bDgx
-MzlfdHhfY29uZmlnKTsNCg0KLSAgICAgICB0cC0+Y3VyX3J4ID0gMDsNCi0NCiAgICAgICAgcnRs
-X2NoZWNrX21lZGlhIChkZXYsIDEpOw0KDQogICAgICAgIGlmICh0cC0+Y2hpcHNldCA+PSBDSF84
-MTM5Qikgew0KQEAgLTE0MDUsOSArMTQwNyw2IEBAIHN0YXRpYyB2b2lkIHJ0bDgxMzlfaHdfc3Rh
-cnQgKHN0cnVjdCBuZXQNCiAgICAgICAgLyogTG9jayBDb25maWdbMDEyMzRdIGFuZCBCTUNSIHJl
-Z2lzdGVyIHdyaXRlcyAqLw0KICAgICAgICBSVExfVzggKENmZzkzNDYsIENmZzkzNDZfTG9jayk7
-DQoNCi0gICAgICAgLyogaW5pdCBSeCByaW5nIGJ1ZmZlciBETUEgYWRkcmVzcyAqLw0KLSAgICAg
-ICBSVExfVzMyX0YgKFJ4QnVmLCB0cC0+cnhfcmluZ19kbWEpOw0KLQ0KICAgICAgICAvKiBpbml0
-IFR4IGJ1ZmZlciBETUEgYWRkcmVzc2VzICovDQogICAgICAgIGZvciAoaSA9IDA7IGkgPCBOVU1f
-VFhfREVTQzsgaSsrKQ0KICAgICAgICAgICAgICAgIFJUTF9XMzJfRiAoVHhBZGRyMCArIChpICog
-NCksIHRwLT50eF9idWZzX2RtYSArICh0cC0+dHhfYnVmW2ldIC0gdHAtPnR4X2J1ZnMpKTsNCg==
+Hi
+
+I have two dm9601 based adapters. First one is recognized as 'ethX':
+
+[269425.698235] usb 1-5.4.1: new full speed USB device using ehci_hcd and address 16
+[269425.788125] usb 1-5.4.1: configuration #1 chosen from 1 choice
+[269425.793478] eth1: register 'dm9601' at usb-0000:00:1a.7-5.4.1, Davicom DM9601 USB Ethernet, 00:60:6e:7f:0c:20
+
+But second is 'usbX':
+
+[269530.937166] usb 1-5.3: new full speed USB device using ehci_hcd and address 19
+[269531.048917] usb 1-5.3: configuration #1 chosen from 1 choice
+[269531.050188] dm9601: No valid MAC address in EEPROM, using 52:9f:f0:e8:44:36
+[269531.054054] usb0: register 'dm9601' at usb-0000:00:1a.7-5.3, Davicom DM9601 USB Ethernet, 52:9f:f0:e8:44:36
+
+Both has same vendor/product id:
+
+Bus 001 Device 019: ID 0a46:9601 Davicom Semiconductor, Inc. DM9601 To Fast Ethernet Adapter
+Bus 001 Device 018: ID 0a46:9601 Davicom Semiconductor, Inc. DM9601 To Fast Ethernet Adapter
+
+but they differ in details - eth1 one has iManufacturer, iProduct, iSerial 
+fields filled, usb0 one has them empty:
+
+  iManufacturer           1 DM9601 USB NNC                                                  
+  iProduct                2 Davicom CO., LTD                                                
+  iSerial                 3 9601      
+
+Is this normal behaviour of those adapters that ones with empty eeprom
+ends as usbX?
+
+I would prefer to have both as ethX as I use them in devices where usbX
+as usually usb-gadget (g_ether) and as such usb0 is configured in total 
+different scheme. 
+
+I know that one of options would be using udev and renaming of interface 
+but then I would have to remember to always copy that rule to each device.
+
+Regards, 
+-- 
+JID:      hrw@jabber.org
+Website:  http://marcin.juszkiewicz.com.pl/
+LinkedIn: http://www.linkedin.com/in/marcinjuszkiewicz
+
+
