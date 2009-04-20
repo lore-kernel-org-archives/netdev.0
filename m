@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] loopback: packet drops accounting
-Date: Mon, 20 Apr 2009 02:26:00 -0700 (PDT)
-Message-ID: <20090420.022600.104857404.davem@davemloft.net>
-References: <20090417.015914.09817926.davem@davemloft.net>
-	<49E84B99.1080502@cosmosbay.com>
-	<49E9893E.90300@cosmosbay.com>
+Subject: Re: [PATCH] syncookies: remove last_synq_overflow from struct
+ tcp_sock
+Date: Mon, 20 Apr 2009 02:26:13 -0700 (PDT)
+Message-ID: <20090420.022613.84087091.davem@davemloft.net>
+References: <1240170228-26241-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33606
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33610
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753506AbZDTJ0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 05:26:09 -0400
-In-Reply-To: <49E9893E.90300@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1754412AbZDTJ0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 05:26:21 -0400
+In-Reply-To: <1240170228-26241-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sat, 18 Apr 2009 10:03:10 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Sun, 19 Apr 2009 21:43:48 +0200
 
-> You were right :)
+> last_synq_overflow eats 4 or 8 bytes in struct tcp_sock, even
+> though it is only used when a listening sockets syn queue
+> is full.
+> 
+> We can (ab)use rx_opt.ts_recent_stamp to store the same information;
+> it is not used otherwise as long as a socket is in listen state.
+> 
+> Move linger2 around to avoid splitting struct mtu_probe
+> across cacheline boundary on 32 bit arches.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-There is a first time for everything :)
-
-> [PATCH] loopback: packet drops accounting
-
-Applied, thanks Eric!
+This looks good, applied, thanks.
