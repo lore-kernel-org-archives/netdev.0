@@ -1,33 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: skb_segment() questions
-Date: Mon, 20 Apr 2009 04:57:01 -0700 (PDT)
-Message-ID: <20090420.045701.260863433.davem@davemloft.net>
-References: <1238403045.854.39.camel@blaa>
-	<20090330.135748.264670066.davem@davemloft.net>
-	<1240225930.23407.49.camel@blaa>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH net-next] myri10ge: allow per-board firmware overriding
+Date: Mon, 20 Apr 2009 13:53:42 +0200
+Message-ID: <20090420135342.417f3ebd@dhcp-lab-109.englab.brq.redhat.com>
+References: <49E7239B.4000309@myri.com>
+	<20090417095038.49b745bf@dhcp-lab-109.englab.brq.redhat.com>
+	<49EA1DAC.1000602@myri.com>
+	<1240102617.5342.6.camel@obelisk.thedillows.org>
+	<1240108599.5342.11.camel@obelisk.thedillows.org>
+	<20090420114041.37c7fa7b@dhcp-lab-109.englab.brq.redhat.com>
+	<49EC4683.3060605@myri.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jamesclhuang@gmail.com,
-	netdev@vger.kernel.org
-To: markmc@redhat.com
+Cc: David Dillow <dave@thedillows.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48761
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754767AbZDTL5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 07:57:09 -0400
-In-Reply-To: <1240225930.23407.49.camel@blaa>
+Received: from mx2.redhat.com ([66.187.237.31]:48580 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755088AbZDTL75 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 07:59:57 -0400
+In-Reply-To: <49EC4683.3060605@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark McLoughlin <markmc@redhat.com>
-Date: Mon, 20 Apr 2009 12:12:10 +0100
+On Mon, 20 Apr 2009 11:55:15 +0200
+Brice Goglin <brice@myri.com> wrote:
 
-> On Mon, 2009-03-30 at 13:57 -0700, David Miller wrote:
->> I know, I'll queue it up.
+> Stanislaw Gruszka wrote:
+> > Providing module_param_id would address this issues, but I have some concerns
+> > before doing it:
+> >
+> > - device have to access ID (like serial no) before initialization (at least
+> >   before driver will need parameter)
+> > - why nobody already done it - perhaps such thing would be totally useless
+> >   
 > 
-> This hasn't made it yet? Just had another report on kvm list about it.
+> Per-nic module parameters are used in some Intel NIC drivers but it's
+> not considered a very good solution in the general case:
+>
+> http://kerneltrap.org/index.php?q=mailarchive/linux-netdev/2008/10/24/3801824/thread
 > 
-> (Can't seem to find anywhere to check whether it's queued)
+> But again, when talking about changing the NIC firmware, ethtool and
+> friends are not that easy.
 
-Sorry, it's in my backlog, I'll take care of it tomorr.w
+I agree that device parameters, which are not needed during initialization
+or can be changed at runtime shall not be module parameters. I agree also
+that some parameters are needed during startup when driver loads and are
+driver specific. For these modules parameters shall be used. Firmware is one
+example, I think we have others.
+
+Cheers
+Stanislaw
