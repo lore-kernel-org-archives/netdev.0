@@ -1,56 +1,47 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: bond interface arp, vlan and trunk / network question
-Date: Mon, 20 Apr 2009 20:16:16 +0200
-Message-ID: <49ECBBF0.80202@cosmosbay.com>
-References: <1ef444010904201050g72651387se3feca3fbd68ce30@mail.gmail.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Mon, 20 Apr 2009 14:10:12 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904201337020.3361@qirst.com>
+References: <alpine.DEB.1.10.0904170952050.11877@qirst.com> <49E8A240.8050404@us.ibm.com> <alpine.DEB.1.10.0904171158220.13734@qirst.com> <20090417.152412.96128121.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: stefan novak <lms.brubaker@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: niv@us.ibm.com, nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	vladislav.yasevich@hp.com, dlstevens@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45047 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbZDTSQX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 14:16:23 -0400
-In-Reply-To: <1ef444010904201050g72651387se3feca3fbd68ce30@mail.gmail.com>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:32824 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423AbZDTSSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 14:18:10 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 4BE5E82C423
+	for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 14:28:27 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id SiqsuueMx2tA for <netdev@vger.kernel.org>;
+	Mon, 20 Apr 2009 14:28:27 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 82AFE82C44C
+	for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 14:28:22 -0400 (EDT)
+In-Reply-To: <20090417.152412.96128121.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-stefan novak a =E9crit :
-> Hello list,
->=20
-> I've got a Problem with my bladecenter and bond interfaces.
-> My Server has 2 interface, each on a seperate switch. Each
-> serverinterface is connected via a trunk to one of the switches.
-> Each switch has a trunk to stacked-backbone switch.
->=20
-> nic1 --trunk--> bladesw1 --trunk--> backbone switch
-> nic2 --trunk--> bladesw2 --trunk--> backbone switch
->=20
-> So far vlan and trunking works as expected. But if one trunk
-> connection from a bladeswitch to the backbone switch is down the
-> mii-tool cant recognize this.
+On Fri, 17 Apr 2009, David Miller wrote:
 
-What is the exact problem on this one ?
+> And the fact is, WE DID MEAN to do things this way.
 
-> I tried to use an arp target on the backbone switch to check the
-> connection state.
->=20
-> Now i'm running into problems. :(
-> My bladesw1 is configured with a trunk and a private vlan id of 600.
-> On the backbone switch is a server in the vlan 600 connected, but i
-> can't get an arp request.
->=20
-> What can be the problem, or is it possible to add a vlan tag on the a=
-rp check?
->=20
+I fully agree. We meant to do this.
 
-What driver is in use on your NIC interface ?
+> As David Stevens explained, the original creator of multicasting, the
+> original BSD code, and the RFCs, INTENDED this behavior from the very
+> beginning.
+>
+> You want to ignore all of this, as if none of it matters and that what
+> you want to achieve is so much more important.
 
-Could you post your bonding settings ?
-
-cat /proc/net/bonding/bond0
+I am not ignoring it. It seems just that other OSes have moved from this
+and we are one of the last holdouts. Its not only Solaris but also BSD and
+Windoze. Best to have a solution that is consistent across multiple OSes.
 
 
