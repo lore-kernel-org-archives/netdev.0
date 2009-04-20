@@ -1,58 +1,59 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH]8390p: Get rid of init_module/cleanup_module
-Date: Mon, 20 Apr 2009 17:46:19 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.0904201744380.13028@wotan.suse.de>
-References: <667b0cb60904110555k442f3959k9140d355b00980cd@mail.gmail.com>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: dm9601 as ethX or usbX?
+Date: Mon, 20 Apr 2009 18:07:58 +0200
+Message-ID: <873ac3wboh.fsf@macbook.be.48ers.dk>
+References: <200904201457.37704.marcin@juszkiewicz.com.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	p_gortmaker@yahoo.com, trivial@kernel.org, netdev@vger.kernel.org
-To: Mateusz Mandera <ormi.linux@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Marcin Juszkiewicz <marcin@juszkiewicz.com.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:37151 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755834AbZDTPqV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2009 11:46:21 -0400
-In-Reply-To: <667b0cb60904110555k442f3959k9140d355b00980cd@mail.gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:14608 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755917AbZDTQIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 12:08:02 -0400
+Received: by ey-out-2122.google.com with SMTP id 9so142004eyd.37
+        for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 09:08:00 -0700 (PDT)
+In-Reply-To: <200904201457.37704.marcin@juszkiewicz.com.pl> (Marcin Juszkiewicz's message of "Mon\, 20 Apr 2009 14\:57\:36 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 11 Apr 2009, Mateusz Mandera wrote:
+>>>>> "Marcin" == Marcin Juszkiewicz <marcin@juszkiewicz.com.pl> writes:
 
-> This trivial patch just "gets rid of" init_module and cleanup_module
-> from drivers/net/8390p.c
-> 
-> Signed-off-by: Mateusz Mandera <ormi.linux@gmail.com>
-> ---
-> diff --git a/drivers/net/8390p.c b/drivers/net/8390p.c
-> index da863c9..ec9e3ca 100644
-> --- a/drivers/net/8390p.c
-> +++ b/drivers/net/8390p.c
-> @@ -97,16 +97,15 @@ void NS8390p_init(struct net_device *dev, int startp)
->  }
->  EXPORT_SYMBOL(NS8390p_init);
-> 
-> -#if defined(MODULE)
-> -
-> -int init_module(void)
-> +static int __init 8390p_init_module(void)
->  {
->  	return 0;
->  }
-> 
-> -void cleanup_module(void)
-> +static void __exit 8390p_cleanup_module(void)
->  {
->  }
-> 
-> -#endif /* MODULE */
-> +module_init(8390p_init_module);
-> +module_exit(8390p_cleanup_module);
->  MODULE_LICENSE("GPL");
+Hi,
 
-I'd rather have this merged through subsystem tree than trivial tree, 
-adding netdev to CC.
+ Marcin> Is this normal behaviour of those adapters that ones with empty eeprom
+ Marcin> ends as usbX?
+
+Yes. The code in question is located in
+drivers/net/usb/usbnet.c:usbnet_probe():
+
+        strcpy (net->name, "usb%d");
+...
+                // heuristic:  "usb%d" for links we know are two-host,
+                // else "eth%d" when there's reasonable doubt.  userspace
+                // can rename the link if it knows better.
+                if ((dev->driver_info->flags & FLAG_ETHER) != 0
+                                && (net->dev_addr [0] & 0x02) == 0)
+                        strcpy (net->name, "eth%d");
+
+
+Bit 1 of the most significant byte of the MAC address specifies that
+it's a locally generated (E.G. random) MAC address, which is what
+dm9601.c will use if there's nothing specified in the EEPROM (or there
+isn't any EEPROM connected).
+
+ Marcin> I would prefer to have both as ethX as I use them in devices
+ Marcin> where usbX as usually usb-gadget (g_ether) and as such usb0
+ Marcin> is configured in total different scheme.
+
+ Marcin> I know that one of options would be using udev and renaming
+ Marcin> of interface but then I would have to remember to always copy
+ Marcin> that rule to each device.
+
+Sorry, other than that I don't know any other options (you could
+ofcourse try to convince the usbnet maintainer to change the usbnet
+logic, but it seems pretty sensible to me).
 
 -- 
-Jiri Kosina
-SUSE Labs
+Bye, Peter Korsgaard
