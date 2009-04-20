@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 1/3] net: skb_copy_datagram_const_iovec()
-Date: Mon, 20 Apr 2009 14:25:46 +0300
-Message-ID: <20090420112546.GA6712@dhcp-1-124.tlv.redhat.com>
+Subject: [PATCH 2/3] tun: fix tun_chr_aio_read so that aio works
+Date: Mon, 20 Apr 2009 14:25:59 +0300
+Message-ID: <20090420112559.GA6715@dhcp-1-124.tlv.redhat.com>
 References: <cover.1240125603.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,204 +9,75 @@ To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:60295 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:60301 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754418AbZDTL04 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2009 07:26:56 -0400
+	id S1754739AbZDTL1I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 07:27:08 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1240125603.git.mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's an skb_copy_datagram_iovec() to copy out of a paged skb,
-but it modifies the iovec, and does not support starting
-at an offset in the destination. We want both in tun.c, so let's
-add the function.
+aio_read gets const struct iovec * but tun_chr_aio_read casts this to struct
+iovec * and modifies the iovec. As a result, attempts to use io_submit
+to get packets from a tun device fail with weird errors such as EINVAL.
 
-It's a carbon copy of skb_copy_datagram_iovec() with enough changes to
-be annoying.
+Fix by using the new skb_copy_datagram_const_iovec.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/linux/skbuff.h |    5 +++
- include/linux/socket.h |    2 +
- net/core/datagram.c    |   92 ++++++++++++++++++++++++++++++++++++++++++++++++
- net/core/iovec.c       |   26 +++++++++++++
- 4 files changed, 125 insertions(+), 0 deletions(-)
+ drivers/net/tun.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5fd3891..af2b21b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1717,6 +1717,11 @@ extern int	       skb_copy_datagram_from_iovec(struct sk_buff *skb,
- 						    int offset,
- 						    struct iovec *from,
- 						    int len);
-+extern int	       skb_copy_datagram_const_iovec(const struct sk_buff *from,
-+						     int offset,
-+						     const struct iovec *to,
-+						     int to_offset,
-+						     int size);
- extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
- extern int	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
- 					 unsigned int flags);
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 421afb4..171b08d 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -318,6 +318,8 @@ extern int csum_partial_copy_fromiovecend(unsigned char *kdata,
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 16716ae..24c19c2 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -679,7 +679,7 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ /* Put packet to the user space buffer */
+ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 				       struct sk_buff *skb,
+-				       struct iovec *iv, int len)
++				       const struct iovec *iv, int len)
+ {
+ 	struct tun_pi pi = { 0, skb->protocol };
+ 	ssize_t total = 0;
+@@ -693,7 +693,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 			pi.flags |= TUN_PKT_STRIP;
+ 		}
  
- extern int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address, int mode);
- extern int memcpy_toiovec(struct iovec *v, unsigned char *kdata, int len);
-+extern int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
-+			     int offset, int len);
- extern int move_addr_to_user(struct sockaddr *kaddr, int klen, void __user *uaddr, int __user *ulen);
- extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr *kaddr);
- extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index d0de644..4dbb05c 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -339,6 +339,98 @@ fault:
- }
+-		if (memcpy_toiovec(iv, (void *) &pi, sizeof(pi)))
++		if (memcpy_toiovecend(iv, (void *) &pi, 0, sizeof(pi)))
+ 			return -EFAULT;
+ 		total += sizeof(pi);
+ 	}
+@@ -726,14 +726,15 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 			gso.csum_offset = skb->csum_offset;
+ 		} /* else everything is zero */
  
- /**
-+ *	skb_copy_datagram_const_iovec - Copy a datagram to an iovec.
-+ *	@skb: buffer to copy
-+ *	@offset: offset in the buffer to start copying from
-+ *	@to: io vector to copy to
-+ *	@to_offset: offset in the io vector to start copying to
-+ *	@len: amount of data to copy from buffer to iovec
-+ *
-+ *	Returns 0 or -EFAULT.
-+ *	Note: the iovec is not modified during the copy.
-+ */
-+int skb_copy_datagram_const_iovec(const struct sk_buff *skb, int offset,
-+				  const struct iovec *to, int to_offset,
-+				  int len)
-+{
-+	int start = skb_headlen(skb);
-+	int i, copy = start - offset;
-+
-+	/* Copy header. */
-+	if (copy > 0) {
-+		if (copy > len)
-+			copy = len;
-+		if (memcpy_toiovecend(to, skb->data + offset, to_offset, copy))
-+			goto fault;
-+		if ((len -= copy) == 0)
-+			return 0;
-+		offset += copy;
-+		to_offset += copy;
-+	}
-+
-+	/* Copy paged appendix. Hmm... why does this look so complicated? */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		int end;
-+
-+		WARN_ON(start > offset + len);
-+
-+		end = start + skb_shinfo(skb)->frags[i].size;
-+		if ((copy = end - offset) > 0) {
-+			int err;
-+			u8  *vaddr;
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			struct page *page = frag->page;
-+
-+			if (copy > len)
-+				copy = len;
-+			vaddr = kmap(page);
-+			err = memcpy_toiovecend(to, vaddr + frag->page_offset +
-+						offset - start, to_offset, copy);
-+			kunmap(page);
-+			if (err)
-+				goto fault;
-+			if (!(len -= copy))
-+				return 0;
-+			offset += copy;
-+			to_offset += copy;
-+		}
-+		start = end;
-+	}
-+
-+	if (skb_shinfo(skb)->frag_list) {
-+		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+
-+		for (; list; list = list->next) {
-+			int end;
-+
-+			WARN_ON(start > offset + len);
-+
-+			end = start + list->len;
-+			if ((copy = end - offset) > 0) {
-+				if (copy > len)
-+					copy = len;
-+				if (skb_copy_datagram_const_iovec(list,
-+							    offset - start,
-+							    to, to_offset,
-+							    copy))
-+					goto fault;
-+				if ((len -= copy) == 0)
-+					return 0;
-+				offset += copy;
-+				to_offset += copy;
-+			}
-+			start = end;
-+		}
-+	}
-+	if (!len)
-+		return 0;
-+
-+fault:
-+	return -EFAULT;
-+}
-+EXPORT_SYMBOL(skb_copy_datagram_const_iovec);
-+
-+/**
-  *	skb_copy_datagram_from_iovec - Copy a datagram from an iovec.
-  *	@skb: buffer to copy
-  *	@offset: offset in the buffer to start copying to
-diff --git a/net/core/iovec.c b/net/core/iovec.c
-index 4c9c012..a215545 100644
---- a/net/core/iovec.c
-+++ b/net/core/iovec.c
-@@ -98,6 +98,31 @@ int memcpy_toiovec(struct iovec *iov, unsigned char *kdata, int len)
- }
+-		if (unlikely(memcpy_toiovec(iv, (void *)&gso, sizeof(gso))))
++		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
++					       sizeof(gso))))
+ 			return -EFAULT;
+ 		total += sizeof(gso);
+ 	}
  
- /*
-+ *	Copy kernel to iovec. Returns -EFAULT on error.
-+ */
-+
-+int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
-+		      int offset, int len)
-+{
-+	int copy;
-+	for (; len > 0; ++iov) {
-+		/* Skip over the finished iovecs */
-+		if (unlikely(offset >= iov->iov_len)) {
-+			offset -= iov->iov_len;
-+			continue;
-+		}
-+		copy = min_t(unsigned int, iov->iov_len - offset, len);
-+		offset = 0;
-+		if (copy_to_user(iov->iov_base, kdata, copy))
-+			return -EFAULT;
-+		kdata += copy;
-+		len -= copy;
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-  *	Copy iovec to kernel. Returns -EFAULT on error.
-  *
-  *	Note: this modifies the original iovec.
-@@ -236,3 +261,4 @@ EXPORT_SYMBOL(csum_partial_copy_fromiovecend);
- EXPORT_SYMBOL(memcpy_fromiovec);
- EXPORT_SYMBOL(memcpy_fromiovecend);
- EXPORT_SYMBOL(memcpy_toiovec);
-+EXPORT_SYMBOL(memcpy_toiovecend);
+ 	len = min_t(int, skb->len, len);
+ 
+-	skb_copy_datagram_iovec(skb, 0, iv, len);
++	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
+ 	total += len;
+ 
+ 	tun->dev->stats.tx_packets++;
+@@ -788,7 +789,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 		}
+ 		netif_wake_queue(tun->dev);
+ 
+-		ret = tun_put_user(tun, skb, (struct iovec *) iv, len);
++		ret = tun_put_user(tun, skb, iv, len);
+ 		kfree_skb(skb);
+ 		break;
+ 	}
 -- 
 1.6.0.6
 
