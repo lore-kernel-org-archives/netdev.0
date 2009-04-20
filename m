@@ -1,131 +1,83 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v10)
-Date: Mon, 20 Apr 2009 20:25:14 +0200
-Message-ID: <49ECBE0A.7010303@cosmosbay.com>
-References: <20090415170111.6e1ca264@nehalam>	<alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>	<49E72E83.50702@trash.net>	<20090416.153354.170676392.davem@davemloft.net>	<20090416234955.GL6924@linux.vnet.ibm.com>	<20090417012812.GA25534@linux.vnet.ibm.com>	<20090418094001.GA2369@ioremap.net>	<20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: bond interface arp, vlan and trunk / network question
+Date: Mon, 20 Apr 2009 11:37:31 -0700
+Message-ID: <30257.1240252651@death.nxdomain.ibm.com>
+References: <1ef444010904201050g72651387se3feca3fbd68ce30@mail.gmail.com> <49ECBBF0.80202@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
-	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090420103414.1b4c490f@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stefan novak <lms.brubaker@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:48727 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752655AbZDTSh1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 14:37:27 -0400
+In-reply-to: <49ECBBF0.80202@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> This version of x_tables (ip/ip6/arp) locking uses a per-cpu
-> recursive lock that can be nested. It is sort of like existing kernel=
-_lock,
-> rwlock_t and even old 2.4 brlock.
->=20
-> "Reader" is ip/arp/ip6 tables rule processing which runs per-cpu.
-> It needs to ensure that the rules are not being changed while packet
-> is being processed.
->=20
-> "Writer" is used in two cases: first is replacing rules in which case
-> all packets in flight have to be processed before rules are swapped,
-> then counters are read from the old (stale) info. Second case is wher=
+Eric Dumazet <dada1@cosmosbay.com> wrote:
+
+>stefan novak a =C3=A9crit :
+>> Hello list,
+>>=20
+>> I've got a Problem with my bladecenter and bond interfaces.
+>> My Server has 2 interface, each on a seperate switch. Each
+>> serverinterface is connected via a trunk to one of the switches.
+>> Each switch has a trunk to stacked-backbone switch.
+>>=20
+>> nic1 --trunk--> bladesw1 --trunk--> backbone switch
+>> nic2 --trunk--> bladesw2 --trunk--> backbone switch
+>>=20
+>> So far vlan and trunking works as expected. But if one trunk
+>> connection from a bladeswitch to the backbone switch is down the
+>> mii-tool cant recognize this.
+>
+>What is the exact problem on this one ?
+
+	This is the expected behavior, the external switch to
+bladecenter switch (ESM) link status does not affect the ESM to blade
+link status.
+
+	Unless... your ESM supports "trunk failover."  I believe the
+Cisco ESMs do, I'm not sure about others.  With trunk failover enabled,
+loss of link on an external switch port will in turn drop link on the
+corresponding internal switch ports.  There is a long-ish delay for
+this, on the order of 750 ms, as I recall.
+
+>> I tried to use an arp target on the backbone switch to check the
+>> connection state.
+>>=20
+>> Now i'm running into problems. :(
+>> My bladesw1 is configured with a trunk and a private vlan id of 600.
+>> On the backbone switch is a server in the vlan 600 connected, but i
+>> can't get an arp request.
+>>=20
+>> What can be the problem, or is it possible to add a vlan tag on the =
+arp check?
+>>=20
+>
+>What driver is in use on your NIC interface ?
+>
+>Could you post your bonding settings ?
+>
+>cat /proc/net/bonding/bond0
+
+	Sufficiently recent versions of bonding should VLAN tag the ARP
+probes, provided you are using a VLAN device configured above the bond.
+My recollection is that VLAN tagging of ARP probes was added about thre=
 e
-> counters need to be read on the fly, in this case all CPU's are block=
-ed
-> from further rule processing until values are aggregated.
->=20
-> The idea for this came from an earlier version done by Eric Dumazet.
-> Locking is done per-cpu, the fast path locks on the current cpu
-> and updates counters.  This reduces the contention of a
-> single reader lock (in 2.6.29) without the delay of synchronize_net()
-> (in 2.6.30-rc2).=20
->=20
-> The mutex that was added for 2.6.30 in xt_table is unnecessary since
-> there already is a mutex for xt[af].mutex that is held.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com
->=20
-> ---
-> Changes from earlier patches.
->   - function name changes
->   - disable bottom half in info_rdlock
+years ago.
 
-OK, but we still have a problem on machines with >=3D 250 cpus,
-because calling 250 times spin_lock() is going to overflow preempt_coun=
-t,
-as each spin_lock() increases preempt_count by one.
+	If the switch port is configured as native to a VLAN, then it
+should tag everything coming in.
 
-PREEMPT_MASK: 0x000000ff
+	As Eric asks, what are you running?
 
-add_preempt_count() should warn us about this overflow if CONFIG_DEBUG_=
-PREEMPT is set
+	-J
 
-#ifdef CONFIG_DEBUG_PREEMPT
-        /*
-         * Spinlock count overflowing soon?
-         */
-        DEBUG_LOCKS_WARN_ON((preempt_count() & PREEMPT_MASK) >=3D
-                                PREEMPT_MASK - 10);
-#endif
-
-
-My suggestion (in a previous mail) was to call preempt_disable() after =
-each spin_lock(),
-and of course doing the reverse on unlock path.
-
-
-> +/**
-> + * xt_info_wrlock_bh - lock xt table info for update
-> + *
-> + * Locks out all readers, and blocks bottom half
-> + */
-> +void xt_info_wrlock_bh(void)
-> +{
-> +	int i;
-> +
-> +	local_bh_disable();
-=20
-/* at this point , preemption is disabled... */
-
-
-> +	for_each_possible_cpu(i) {
-> +		struct xt_info_lock *lock =3D &per_cpu(xt_info_locks, i);
-> +		spin_lock(&lock->lock);
-=09
-		preempt_enable(); /* avoid preempt count overflow */
-	=09
-> +		BUG_ON(lock->depth !=3D -1);
-> +	}
-> +}
-> +EXPORT_SYMBOL_GPL(xt_info_wrlock_bh);
-> +
-> +/**
-> + * xt_info_wrunlock_bh - lock xt table info for update
-> + *
-> + * Unlocks all readers, and unblocks bottom half
-> + */
-> +void xt_info_wrunlock_bh(void) __releases(&lock->lock)
-> +{
-> +	int i;
-> +
-> +	for_each_possible_cpu(i) {
-> +		struct xt_info_lock *lock =3D &per_cpu(xt_info_locks, i);
-> +		BUG_ON(lock->depth !=3D -1);
-
-		preempt_disable() /* restore preempt count lowered in xt_info_wrlock_=
-bh */
-
-> +		spin_unlock(&lock->lock);
-> +	}
-> +	local_bh_enable();
-> +}
-> +EXPORT_SYMBOL_GPL(xt_info_wrunlock_bh);
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
