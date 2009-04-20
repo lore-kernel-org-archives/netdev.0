@@ -1,67 +1,131 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: Network latency regressions from 2.6.22 to 2.6.29 (results with
- IRQ affinity)
-Date: Mon, 20 Apr 2009 14:13:23 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904201410430.3361@qirst.com>
-References: <49E78A79.6050604@cosmosbay.com> <49E78C1E.9060405@cosmosbay.com> <alpine.DEB.1.10.0904161555040.23632@qirst.com> <20090416.160002.09845606.davem@davemloft.net> <alpine.DEB.1.10.0904171238550.20049@qirst.com> <49EA2D7F.3080405@cosmosbay.com>
- <alpine.DEB.1.10.0904201305360.1585@qirst.com> <49ECB775.6030202@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v10)
+Date: Mon, 20 Apr 2009 20:25:14 +0200
+Message-ID: <49ECBE0A.7010303@cosmosbay.com>
+References: <20090415170111.6e1ca264@nehalam>	<alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>	<49E72E83.50702@trash.net>	<20090416.153354.170676392.davem@davemloft.net>	<20090416234955.GL6924@linux.vnet.ibm.com>	<20090417012812.GA25534@linux.vnet.ibm.com>	<20090418094001.GA2369@ioremap.net>	<20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:56485 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814AbZDTSVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 14:21:13 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 41B0D82C61D
-	for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 14:31:31 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id CCnlf25u7tul for <netdev@vger.kernel.org>;
-	Mon, 20 Apr 2009 14:31:31 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 7E60F82C620
-	for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 14:31:26 -0400 (EDT)
-In-Reply-To: <49ECB775.6030202@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
+	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090420103414.1b4c490f@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Apr 2009, Eric Dumazet wrote:
+Stephen Hemminger a =E9crit :
+> This version of x_tables (ip/ip6/arp) locking uses a per-cpu
+> recursive lock that can be nested. It is sort of like existing kernel=
+_lock,
+> rwlock_t and even old 2.4 brlock.
+>=20
+> "Reader" is ip/arp/ip6 tables rule processing which runs per-cpu.
+> It needs to ensure that the rules are not being changed while packet
+> is being processed.
+>=20
+> "Writer" is used in two cases: first is replacing rules in which case
+> all packets in flight have to be processed before rules are swapped,
+> then counters are read from the old (stale) info. Second case is wher=
+e
+> counters need to be read on the fly, in this case all CPU's are block=
+ed
+> from further rule processing until values are aggregated.
+>=20
+> The idea for this came from an earlier version done by Eric Dumazet.
+> Locking is done per-cpu, the fast path locks on the current cpu
+> and updates counters.  This reduces the contention of a
+> single reader lock (in 2.6.29) without the delay of synchronize_net()
+> (in 2.6.30-rc2).=20
+>=20
+> The mutex that was added for 2.6.30 in xt_table is unnecessary since
+> there already is a mutex for xt[af].mutex that is held.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com
+>=20
+> ---
+> Changes from earlier patches.
+>   - function name changes
+>   - disable bottom half in info_rdlock
 
-> > Sounds very good. If I just knew what you are measuring.
->
-> Rephrasing my email, I was measuring latencies on the receiving machine,
-> by using tcpdump and doing substraction of 'answer_time' and 'request_time'
-> Thing is that timestamps dont care about hardware delays.
-> (we note time when RX interrupt delivers the packet, and time right before giving frame to hardware)
->
->
-> 21:04:23.780421 IP 192.168.20.112.9001 > 192.168.20.110.9000: UDP, length 300   (request)
-> 21:04:23.780428 IP 192.168.20.110.9000 > 192.168.20.112.9001: UDP, length 300   (answer)
->
-> Here, [21:04:23.780428 - 21:04:23.780421] = 7 us
->
-> So my results are extensively published :)
+OK, but we still have a problem on machines with >=3D 250 cpus,
+because calling 250 times spin_lock() is going to overflow preempt_coun=
+t,
+as each spin_lock() increases preempt_count by one.
 
-But they are not comparable with my results. There could be other effects
-in the system call API etc that have caused this regression. Plus tcpdump
-causes additional copies of the packet to be delivered to user space.
+PREEMPT_MASK: 0x000000ff
 
-> > CONFIG_HPET_TIMER=y
-> > CONFIG_HPET_EMULATE_RTC=y
-> > CONFIG_NR_CPUS=32
-> > CONFIG_SCHED_SMT=y
->
-> OK, I had "# CONFIG_SCHED_SMT is not set"
-> I'll try with this option set
+add_preempt_count() should warn us about this overflow if CONFIG_DEBUG_=
+PREEMPT is set
 
-Should not be relevant since the processor has no hyperthreading.
+#ifdef CONFIG_DEBUG_PREEMPT
+        /*
+         * Spinlock count overflowing soon?
+         */
+        DEBUG_LOCKS_WARN_ON((preempt_count() & PREEMPT_MASK) >=3D
+                                PREEMPT_MASK - 10);
+#endif
 
-> Are you running a 32 or 64 bits kernel ?
 
-Test was done using a 64 bit kernel.
+My suggestion (in a previous mail) was to call preempt_disable() after =
+each spin_lock(),
+and of course doing the reverse on unlock path.
+
+
+> +/**
+> + * xt_info_wrlock_bh - lock xt table info for update
+> + *
+> + * Locks out all readers, and blocks bottom half
+> + */
+> +void xt_info_wrlock_bh(void)
+> +{
+> +	int i;
+> +
+> +	local_bh_disable();
+=20
+/* at this point , preemption is disabled... */
+
+
+> +	for_each_possible_cpu(i) {
+> +		struct xt_info_lock *lock =3D &per_cpu(xt_info_locks, i);
+> +		spin_lock(&lock->lock);
+=09
+		preempt_enable(); /* avoid preempt count overflow */
+	=09
+> +		BUG_ON(lock->depth !=3D -1);
+> +	}
+> +}
+> +EXPORT_SYMBOL_GPL(xt_info_wrlock_bh);
+> +
+> +/**
+> + * xt_info_wrunlock_bh - lock xt table info for update
+> + *
+> + * Unlocks all readers, and unblocks bottom half
+> + */
+> +void xt_info_wrunlock_bh(void) __releases(&lock->lock)
+> +{
+> +	int i;
+> +
+> +	for_each_possible_cpu(i) {
+> +		struct xt_info_lock *lock =3D &per_cpu(xt_info_locks, i);
+> +		BUG_ON(lock->depth !=3D -1);
+
+		preempt_disable() /* restore preempt count lowered in xt_info_wrlock_=
+bh */
+
+> +		spin_unlock(&lock->lock);
+> +	}
+> +	local_bh_enable();
+> +}
+> +EXPORT_SYMBOL_GPL(xt_info_wrunlock_bh);
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
