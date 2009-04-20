@@ -1,90 +1,94 @@
-From: stefan novak <lms.brubaker@gmail.com>
-Subject: Re: bond interface arp, vlan and trunk / network question
-Date: Mon, 20 Apr 2009 23:03:07 +0200
-Message-ID: <1ef444010904201403s5d583750i1ce3a5da6c6f4059@mail.gmail.com>
-References: <1ef444010904201050g72651387se3feca3fbd68ce30@mail.gmail.com>
-	 <49ECBBF0.80202@cosmosbay.com>
-	 <30257.1240252651@death.nxdomain.ibm.com>
-	 <1ef444010904201300r43268672sb74277f4a0242236@mail.gmail.com>
-	 <7609.1240259780@death.nxdomain.ibm.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v10)
+Date: Mon, 20 Apr 2009 14:05:49 -0700
+Message-ID: <20090420210549.GJ6822@linux.vnet.ibm.com>
+References: <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain> <49E72E83.50702@trash.net> <20090416.153354.170676392.davem@davemloft.net> <20090416234955.GL6924@linux.vnet.ibm.com> <20090417012812.GA25534@linux.vnet.ibm.com> <20090418094001.GA2369@ioremap.net> <20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <20090420134249.43ab1f6f@nehalam>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:48410 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755357AbZDTVDJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 17:03:09 -0400
-In-Reply-To: <7609.1240259780@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
+	paulus@samba.org, mingo@elte.hu, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090420134249.43ab1f6f@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->
-> =A0 =A0 =A0 =A0I believe you're seeing the expected behavior from arp=
-ing here,
-> and it does not automatically indicate that anything is wrong.
->
-> =A0 =A0 =A0 =A0It's very possible that your network topology is such =
-that
-> arping -I bond0 won't work while arping -I bond0.600 does. =A0If the
-> target you specify is reachable only on the VLAN, it's expected behav=
-ior
-> that arping -I bond0 of that target won't work (because the interface
-> bond0 is not attached to the VLAN, only bond0.600 is). =A0That doesn'=
-t
-> mean that the ARPs generated internally by bonding are untagged /
-> failing, as bonding itself adds VLAN tags to its own ARP probes as
-> needed.
+On Mon, Apr 20, 2009 at 01:42:49PM -0700, Stephen Hemminger wrote:
+> On Mon, 20 Apr 2009 20:25:14 +0200
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+>=20
+> > Stephen Hemminger a =E9crit :
+> > > This version of x_tables (ip/ip6/arp) locking uses a per-cpu
+> > > recursive lock that can be nested. It is sort of like existing ke=
+rnel_lock,
+> > > rwlock_t and even old 2.4 brlock.
+> > >=20
+> > > "Reader" is ip/arp/ip6 tables rule processing which runs per-cpu.
+> > > It needs to ensure that the rules are not being changed while pac=
+ket
+> > > is being processed.
+> > >=20
+> > > "Writer" is used in two cases: first is replacing rules in which =
+case
+> > > all packets in flight have to be processed before rules are swapp=
+ed,
+> > > then counters are read from the old (stale) info. Second case is =
+where
+> > > counters need to be read on the fly, in this case all CPU's are b=
+locked
+> > > from further rule processing until values are aggregated.
+> > >=20
+> > > The idea for this came from an earlier version done by Eric Dumaz=
+et.
+> > > Locking is done per-cpu, the fast path locks on the current cpu
+> > > and updates counters.  This reduces the contention of a
+> > > single reader lock (in 2.6.29) without the delay of synchronize_n=
+et()
+> > > (in 2.6.30-rc2).=20
+> > >=20
+> > > The mutex that was added for 2.6.30 in xt_table is unnecessary si=
+nce
+> > > there already is a mutex for xt[af].mutex that is held.
+> > >=20
+> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com
+> > >=20
+> > > ---
+> > > Changes from earlier patches.
+> > >   - function name changes
+> > >   - disable bottom half in info_rdlock
+> >=20
+> > OK, but we still have a problem on machines with >=3D 250 cpus,
+> > because calling 250 times spin_lock() is going to overflow preempt_=
+count,
+> > as each spin_lock() increases preempt_count by one.
+> >=20
+> > PREEMPT_MASK: 0x000000ff
+> >=20
+> > add_preempt_count() should warn us about this overflow if CONFIG_DE=
+BUG_PREEMPT is set
+>=20
+> Wouldn't 256 or higher CPU system be faster without preempt?  If ther=
+e
+> are that many CPU's, it is faster to do the work on other cpu and avo=
+id
+> the overhead of a hotly updated preempt count.
 
-Ok. I've checked the tcpdump's on the machines and I think something is=
- working.
+The preempt count is maintained per-CPU, so has low overhead.  The
+problem is that for CONFIG_PREEMPT builds, the preempt disabing is
+built into spin_lock().
 
-tcpdump  -v -i eth0 arp
-tcpdump: WARNING: eth0: no IPv4 address assigned
-tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 9=
-6 bytes
-22:56:38.817599 arp who-has 172.21.0.254 tell 172.21.0.1
-22:56:38.847597 arp who-has 172.21.0.254 tell 172.21.0.1
-22:56:38.877598 arp who-has 172.21.0.254 tell 172.21.0.1
-22:56:38.907596 arp who-has 172.21.0.254 tell 172.21.0.1
-
-tcpdump  -v -i bond0.600 arp
-tcpdump: listening on bond0.600, link-type EN10MB (Ethernet), capture
-size 96 bytes
-22:56:49.167157 arp reply 172.21.0.254 is-at 00:1d:70:d1:ad:83 (oui Unk=
-nown)
-22:56:49.197162 arp reply 172.21.0.254 is-at 00:1d:70:d1:ad:83 (oui Unk=
-nown)
-22:56:49.227130 arp reply 172.21.0.254 is-at 00:1d:70:d1:ad:83 (oui Unk=
-nown)
-22:56:49.257144 arp reply 172.21.0.254 is-at 00:1d:70:d1:ad:83 (oui Unk=
-nown)
-
-the arp's are sent out on eth0 and recieved via bond0.600. When they
-are sent on eth0 then the switch must tag the vlan600 (private vlan).
-Then they come in at the right interface. Is it normal that so many
-arp's are sent?
-Is there a way to check if the arp check is working right in the proc
-fs oder something like that?
-
-> =A0 =A0 =A0 =A0Also, are you running multiple blades with bonding beh=
-ind the
-> same set of switches?
-
-Yes, 14 blades with 2 seperate(not connected) switches.
-
-> =A0If you are, you probably want to set the
-> arp_validate option to either "active" or "all", as the default setti=
-ng
-> (none) relies only on the existance of traffic on the slaves, and
-> doesn't check the source of that traffic. =A0The end result of that i=
-s the
-> probes from multiple bonding instances fool one another into thinking
-> the path is up, when it is not. =A0With arp_validate enabled, it'll c=
-heck
-> that the slaves are actually receiving their own ARP traffic.
-
-Ok, sounds right for me. I've set the arp_validate option to "all".
+							Thanx, Paul
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
