@@ -1,96 +1,200 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 5/5] mlx4_en: Move to SW counters for total bytes and packets
-Date: Mon, 20 Apr 2009 17:34:38 +0300
-Message-ID: <49EC87FE.4010000@mellanox.co.il>
-References: <49EC859C.700@mellanox.co.il> <49EC87AB.1070009@mellanox.co.il>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: vlan/macvlan: fix NULL pointer dereferences in ethtool handlers
+Date: Mon, 20 Apr 2009 16:49:28 +0200
+Message-ID: <49EC8B78.1020704@trash.net>
+References: <49E8A8CC.8060305@trash.net> <20090417.155943.174603790.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+Content-Type: multipart/mixed;
+ boundary="------------090000040201070008050305"
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:39930 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755816AbZDTOfl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2009 10:35:41 -0400
-In-Reply-To: <49EC87AB.1070009@mellanox.co.il>
+Received: from stinky.trash.net ([213.144.137.162]:33893 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755901AbZDTOtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 10:49:32 -0400
+In-Reply-To: <20090417.155943.174603790.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The per ring counters are implemented in SW. Now moving to have the total
-counters as the sum of all rings. This way the numbers will always be consistent
-and we no longer depend on HW buffer size limitations for those counters
-that can be insufficient in some cases.
+This is a multi-part message in MIME format.
+--------------090000040201070008050305
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/en_port.c |   45 ++++++++++++-------------------------------
- 1 files changed, 13 insertions(+), 32 deletions(-)
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Fri, 17 Apr 2009 18:05:32 +0200
+> 
+>>     vlan/macvlan: fix NULL pointer dereferences in ethtool handlers
+>>     
+>>     Check whether the underlying device provides a set of ethtool ops before
+>>     checking for individual handlers to avoid NULL pointer dereferences.
+>>     
+>>     Reported-by: Art van Breemen <ard@telegraafnet.nl>
+>>     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Applied, thanks Patrick.
+> 
+> These things beg for helper functions in my opinion.
 
-diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
-index c5a4c03..a29abe8 100644
---- a/drivers/net/mlx4/en_port.c
-+++ b/drivers/net/mlx4/en_port.c
-@@ -151,6 +151,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	struct mlx4_cmd_mailbox *mailbox;
- 	u64 in_mod = reset << 8 | port;
- 	int err;
-+	int i;
+Something like this?
 
- 	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
- 	if (IS_ERR(mailbox))
-@@ -165,38 +166,18 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
 
- 	spin_lock_bh(&priv->stats_lock);
 
--	stats->rx_packets = be32_to_cpu(mlx4_en_stats->RTOTFRMS) -
--			    be32_to_cpu(mlx4_en_stats->RDROP);
--	stats->tx_packets = be64_to_cpu(mlx4_en_stats->TTOT_prio_0) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_1) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_2) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_3) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_4) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_5) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_6) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_prio_7) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_novlan) +
--			    be64_to_cpu(mlx4_en_stats->TTOT_loopbk);
--	stats->rx_bytes = be64_to_cpu(mlx4_en_stats->ROCT_prio_0) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_1) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_2) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_3) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_4) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_5) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_6) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_prio_7) +
--			  be64_to_cpu(mlx4_en_stats->ROCT_novlan);
+--------------090000040201070008050305
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit ff0b17b20d79b5aecc86fff587d957fe11c638fb
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Apr 20 16:46:48 2009 +0200
+
+    net: factor out ethtool invocation of vlan/macvlan drivers
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 214a8cf..329cd50 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -374,36 +374,20 @@ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+ static u32 macvlan_ethtool_get_rx_csum(struct net_device *dev)
+ {
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct net_device *lowerdev = vlan->lowerdev;
 -
--	stats->tx_bytes = be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_0) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_1) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_2) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_3) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_4) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_5) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_6) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_prio_7) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_novlan) +
--			  be64_to_cpu(mlx4_en_stats->TTTLOCT_loopbk);
-+	stats->rx_packets = 0;
-+	stats->rx_bytes = 0;
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		stats->rx_packets += priv->rx_ring[i].packets;
-+		stats->rx_bytes += priv->rx_ring[i].bytes;
-+	}
-+	stats->tx_packets = 0;
-+	stats->tx_bytes = 0;
-+	for (i = 0; i <= priv->tx_ring_num; i++) {
-+		stats->tx_packets += priv->tx_ring[i].packets;
-+		stats->tx_bytes += priv->tx_ring[i].bytes;
-+	}
+-	if (lowerdev->ethtool_ops == NULL ||
+-	    lowerdev->ethtool_ops->get_rx_csum == NULL)
+-		return 0;
+-	return lowerdev->ethtool_ops->get_rx_csum(lowerdev);
++	return dev_ethtool_get_rx_csum(vlan->lowerdev);
+ }
+ 
+ static int macvlan_ethtool_get_settings(struct net_device *dev,
+ 					struct ethtool_cmd *cmd)
+ {
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct net_device *lowerdev = vlan->lowerdev;
+-
+-	if (!lowerdev->ethtool_ops ||
+-	    !lowerdev->ethtool_ops->get_settings)
+-		return -EOPNOTSUPP;
+-
+-	return lowerdev->ethtool_ops->get_settings(lowerdev, cmd);
++	return dev_ethtool_get_settings(vlan->lowerdev, cmd);
+ }
+ 
+ static u32 macvlan_ethtool_get_flags(struct net_device *dev)
+ {
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct net_device *lowerdev = vlan->lowerdev;
+-
+-	if (!lowerdev->ethtool_ops ||
+-	    !lowerdev->ethtool_ops->get_flags)
+-		return 0;
+-	return lowerdev->ethtool_ops->get_flags(lowerdev);
++	return dev_ethtool_get_flags(vlan->lowerdev);
+ }
+ 
+ static const struct ethtool_ops macvlan_ethtool_ops = {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2e7783f..04679ca 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -42,6 +42,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/workqueue.h>
+ 
++#include <linux/ethtool.h>
+ #include <net/net_namespace.h>
+ #include <net/dsa.h>
+ #ifdef CONFIG_DCB
+@@ -49,7 +50,6 @@
+ #endif
+ 
+ struct vlan_group;
+-struct ethtool_ops;
+ struct netpoll_info;
+ /* 802.11 specific */
+ struct wireless_dev;
+@@ -1908,6 +1908,28 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
+ }
+ 
+ extern struct pernet_operations __net_initdata loopback_net_ops;
++
++static inline int dev_ethtool_get_settings(struct net_device *dev,
++					   struct ethtool_cmd *cmd)
++{
++	if (!dev->ethtool_ops || !dev->ethtool_ops->get_settings)
++		return -EOPNOTSUPP;
++	return dev->ethtool_ops->get_settings(dev, cmd);
++}
++
++static inline u32 dev_ethtool_get_rx_csum(struct net_device *dev)
++{
++	if (!dev->ethtool_ops || !dev->ethtool_ops->get_rx_csum)
++		return 0;
++	return dev->ethtool_ops->get_rx_csum(dev);
++}
++
++static inline u32 dev_ethtool_get_flags(struct net_device *dev)
++{
++	if (!dev->ethtool_ops || !dev->ethtool_ops->get_flags)
++		return 0;
++	return dev->ethtool_ops->get_flags(dev);
++}
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* _LINUX_DEV_H */
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 6b09213..04dc8c8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -666,13 +666,7 @@ static int vlan_ethtool_get_settings(struct net_device *dev,
+ 				     struct ethtool_cmd *cmd)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+-	struct net_device *real_dev = vlan->real_dev;
+-
+-	if (!real_dev->ethtool_ops ||
+-	    !real_dev->ethtool_ops->get_settings)
+-		return -EOPNOTSUPP;
+-
+-	return real_dev->ethtool_ops->get_settings(real_dev, cmd);
++	return dev_ethtool_get_settings(vlan->real_dev, cmd);
+ }
+ 
+ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
+@@ -686,24 +680,13 @@ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
+ static u32 vlan_ethtool_get_rx_csum(struct net_device *dev)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+-	struct net_device *real_dev = vlan->real_dev;
+-
+-	if (real_dev->ethtool_ops == NULL ||
+-	    real_dev->ethtool_ops->get_rx_csum == NULL)
+-		return 0;
+-	return real_dev->ethtool_ops->get_rx_csum(real_dev);
++	return dev_ethtool_get_rx_csum(vlan->real_dev);
+ }
+ 
+ static u32 vlan_ethtool_get_flags(struct net_device *dev)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+-	struct net_device *real_dev = vlan->real_dev;
+-
+-	if (!(real_dev->features & NETIF_F_HW_VLAN_RX) ||
+-	    real_dev->ethtool_ops == NULL ||
+-	    real_dev->ethtool_ops->get_flags == NULL)
+-		return 0;
+-	return real_dev->ethtool_ops->get_flags(real_dev);
++	return dev_ethtool_get_flags(vlan->real_dev);
+ }
+ 
+ static const struct ethtool_ops vlan_ethtool_ops = {
 
- 	stats->rx_errors = be64_to_cpu(mlx4_en_stats->PCS) +
- 			   be32_to_cpu(mlx4_en_stats->RdropLength) +
--- 
-1.5.4
-
-
+--------------090000040201070008050305--
