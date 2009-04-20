@@ -1,41 +1,29 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: What makes a good fake MAC address?
-Date: Wed, 22 Apr 2009 16:35:52 -0700
-Message-ID: <200904221635.52875.inaky@linux.intel.com>
-References: <20090423070442.1e643b5b.ipng@69706e6720323030352d30312d31340a.nosense.org> <200904221538.10964.inaky@linux.intel.com> <20090422155909.0d2fdffd@s6510>
+From: Mrs Helen Anderson <rosgsc@singnet.com.sg>
+Subject: **Lucky Winner**
+Date: Tue, 21 Apr 2009 07:08:14 +0800 (SGT)
+Message-ID: <1240268894.49ed005e459f6@discus.singnet.com.sg>
+Reply-To: pinket.griphin22@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: info@winner.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:2650 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750755AbZDVXfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 19:35:52 -0400
-In-Reply-To: <20090422155909.0d2fdffd@s6510>
-Content-Disposition: inline
+Received: from comsmtp2.singnet.com.sg ([165.21.101.75]:53345 "EHLO
+	comsmtp2.singnet.com.sg" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755AbZDVXnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 19:43:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 22 April 2009, Stephen Hemminger wrote:
-> On Wed, 22 Apr 2009 15:38:10 -0700
->
-> > > You need a from address for the bridge to be able to populate its
-> > > forwarding table. If remote end is always same, just get some random
-> > > address at start of tunnel and reuse it.
-> >
-> > Nope, the remote end will change as you move around from base station
-> > to base station :(
->
-> Then don't bridge.
-
-heh :) I'll give a try to just try an address from random_ether_addr(), 
-it might work
-
-Thanks!
-
--- 
-Inaky
+Your E-I.D won the sum of =A3500,000 pounds on=20
+our Annual UK draw Promo,file your claims=20
+via emai(pinket.griphin22@btinternet.com)and=20
+provide us the below informations:
+=46ull Name...
+Address...
+Country...
+Phone No...
+Occupation...
+Age...   =20
+Sex...
+Once Again Congratulations
