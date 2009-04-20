@@ -1,69 +1,59 @@
-From: Tzungder Lin <tzungder@gmail.com>
-Subject: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Mon, 20 Apr 2009 09:54:10 +0800
-Message-ID: <528f811a0904191854o3a354e8fif6a8d65f8da94965@mail.gmail.com>
-References: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: TCP: Peer messages
+Date: Sun, 19 Apr 2009 20:11:00 -0700
+Message-ID: <20090419201100.55bfb6bb@nehalam>
+References: <20090418180303.18963ff0@nehalam>
+	<Pine.LNX.4.64.0904191408090.21005@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:53730 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbZDTByL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Apr 2009 21:54:11 -0400
-In-Reply-To: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:46473 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752490AbZDTDLI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Apr 2009 23:11:08 -0400
+In-Reply-To: <Pine.LNX.4.64.0904191408090.21005@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jonathan Lin <tzungder@gmail.com>
+On Sun, 19 Apr 2009 14:19:36 +0300 (EEST)
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
-In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before
-setting up the DMA buffer address. In this interval where RX was
-enabled and DMA buffer address is not yet set up, any incoming
-broadcast packet would be send to a strange physical address:
-0x003e8800 which is the default value of DMA buffer address.
-Unfortunately, this address is used by Linux kernel. So kernel panics.
-This patch fix it by setting up DMA buffer address before RX enabled
-and everything is fine even under broadcast packets attack.
+> On Sat, 18 Apr 2009, Stephen Hemminger wrote:
+>=20
+> > Running some log-term tests of (using bittorrent of latest Ubuntu r=
+eleases).
+> > I see no problems with firewall rules (or sky2 driver), but I do se=
+veral=20
+> > of these:=20
+> >=20
+> >=20
+> > [28286.893945] TCP: Peer <ip scrubbed>:63659/51413 unexpectedly shr=
+unk window 414881290:414894358 (repaired)
+> > [47312.851937] TCP: Peer <ip scrubbed>:43793/51413 unexpectedly shr=
+unk window 888816585:888823785 (repaired)
+>=20
+> This is what was earlier the Treason uncloacked message until somebod=
+y=20
+> was scared to death because of it and we had to change the wording.
+>=20
+> And it's what the old kernels do for us (and there are plenty of such=
+=20
+> kernels around), and possibly broken middleboxes too. Unless you have=
+ a=20
+> tcpdump of a specific case or can clearly say that its frequency is m=
+uch=20
+> larger than it used to be in some between kernel versions consistent =
+test=20
+> setup, I'm not going to waste my time on debugging obsolete remote en=
+ds.
+>=20
+> But, now that I think it a bit more, we could possibly but a WARN_ON=20
+> somewhere if we ever sent past advertized window to make a distinctio=
+n=20
+> between our and their bugs.
+>=20
 
-Signed-off-by: Jonathan Lin <tzungder@gmail.com>
-
---- linux-2.6.29.1/drivers/net/8139too.c.orig   2009-04-19
-17:50:38.000000000 +0800
-+++ linux-2.6.29.1/drivers/net/8139too.c        2009-04-19
-17:52:51.000000000 +0800
-@@ -1382,6 +1382,10 @@ static void rtl8139_hw_start (struct net
-       RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
-       RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)));
-
-+       tp->cur_rx = 0;
-+       /* init Rx ring buffer DMA address BEFORE Rx enabled*/
-+       RTL_W32_F (RxBuf, tp->rx_ring_dma);
-+
-       /* Must enable Tx/Rx before setting transfer thresholds! */
-       RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
-
-@@ -1389,8 +1393,6 @@ static void rtl8139_hw_start (struct net
-       RTL_W32 (RxConfig, tp->rx_config);
-       RTL_W32 (TxConfig, rtl8139_tx_config);
-
--       tp->cur_rx = 0;
--
-       rtl_check_media (dev, 1);
-
-       if (tp->chipset >= CH_8139B) {
-@@ -1405,9 +1407,6 @@ static void rtl8139_hw_start (struct net
-       /* Lock Config[01234] and BMCR register writes */
-       RTL_W8 (Cfg9346, Cfg9346_Lock);
-
--       /* init Rx ring buffer DMA address */
--       RTL_W32_F (RxBuf, tp->rx_ring_dma);
--
-       /* init Tx buffer DMA addresses */
-       for (i = 0; i < NUM_TX_DESC; i++)
-               RTL_W32_F (TxAddr0 + (i * 4), tp->tx_bufs_dma + (tp->tx_buf[i] -
-tp->tx_bufs));
+12 over 3 days is not enough to worry about.
