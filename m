@@ -1,36 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Mon, 20 Apr 2009 03:46:28 -0700 (PDT)
-Message-ID: <20090420.034628.224469114.davem@davemloft.net>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
-	<87eivnpqde.fsf@basil.nowhere.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
+From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+Subject: [PATCH] macb: Add support of the netpoll API
+Date: Mon, 20 Apr 2009 12:57:07 +0200
+Message-ID: <1240225027-14721-1-git-send-email-haavard.skinnemoen@atmel.com>
+References: <20090417.043945.67766586.davem@davemloft.net>
+Cc: thomas.petazzoni@free-electrons.com, michael@free-electrons.com,
+	netdev@vger.kernel.org,
+	Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60351
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755016AbZDTKqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 06:46:36 -0400
-In-Reply-To: <87eivnpqde.fsf@basil.nowhere.org>
+Received: from relay.atmel.no ([80.232.32.139]:58190 "EHLO relay.atmel.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752075AbZDTK5U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 06:57:20 -0400
+In-Reply-To: <20090417.043945.67766586.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon, 20 Apr 2009 12:32:29 +0200
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-> Tom Herbert <therbert@google.com> writes:
-> 
->> +got_hash:
->> +	hash %= cpus_weight_nr(mask);
-> 
-> That looks rather heavyweight even on modern CPUs. I bet it's 40-50+ cycles
-> alone forth the hweight and the division. Surely that can be done better?
+With this patch in place, I'm successfully able to use the netconsole
+mechanism with the Calao USB-A9263 board, which uses the AT91SAM9263
+CPU, which in terms of Ethernet controller is supported by the macb
+driver.
 
-The standard way to do this is to compute a 32-bit jenkins
-hash, and do a 64-bit multiply of this value with a suitable
-reciprocol.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+[haavard.skinnemoen@atmel.com: disable_irq() -> local_irq_save()]
+Signed-off-by: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+---
+ drivers/net/macb.c |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
 
-This is what skb_tx_hash() is doing in net/core/dev.c
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index f505010..dd7a1c3 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -615,6 +615,21 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling receive - used by netconsole and other diagnostic tools
++ * to allow network i/o with interrupts disabled.
++ */
++static void macb_poll_controller(struct net_device *dev)
++{
++	unsigned long flags;
++
++	local_irq_save(flags);
++	macb_interrupt(dev->irq, dev);
++	local_irq_restore(flags);
++}
++#endif
++
+ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct macb *bp = netdev_priv(dev);
+@@ -1183,6 +1198,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	dev->do_ioctl = macb_ioctl;
+ 	netif_napi_add(dev, &bp->napi, macb_poll, 64);
+ 	dev->ethtool_ops = &macb_ethtool_ops;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = macb_poll_controller;
++#endif
+ 
+ 	dev->base_addr = regs->start;
+ 
+-- 
+1.6.0.4
+
