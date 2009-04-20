@@ -1,71 +1,65 @@
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Subject: [PATCH] macb: Add support of the netpoll API
-Date: Mon, 20 Apr 2009 12:57:07 +0200
-Message-ID: <1240225027-14721-1-git-send-email-haavard.skinnemoen@atmel.com>
-References: <20090417.043945.67766586.davem@davemloft.net>
-Cc: thomas.petazzoni@free-electrons.com, michael@free-electrons.com,
-	netdev@vger.kernel.org,
-	Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: skb_segment() questions
+Date: Mon, 20 Apr 2009 12:12:10 +0100
+Message-ID: <1240225930.23407.49.camel@blaa>
+References: <20090329020701.GA9983@gondor.apana.org.au>
+	 <20090328.233929.160905643.davem@davemloft.net>
+	 <1238403045.854.39.camel@blaa>
+	 <20090330.135748.264670066.davem@davemloft.net>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, jamesclhuang@gmail.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.atmel.no ([80.232.32.139]:58190 "EHLO relay.atmel.no"
+Received: from mx2.redhat.com ([66.187.237.31]:60107 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752075AbZDTK5U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2009 06:57:20 -0400
-In-Reply-To: <20090417.043945.67766586.davem@davemloft.net>
+	id S1751690AbZDTLMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 07:12:23 -0400
+In-Reply-To: <20090330.135748.264670066.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+On Mon, 2009-03-30 at 13:57 -0700, David Miller wrote:
+> From: Mark McLoughlin <markmc@redhat.com>
+> Date: Mon, 30 Mar 2009 09:50:45 +0100
+> 
+> > On Sat, 2009-03-28 at 23:39 -0700, David Miller wrote:
+> > > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > > Date: Sun, 29 Mar 2009 10:07:01 +0800
+> > > 
+> > > > gso: Fix support for linear packets
+> > > > 
+> > > > When GRO/frag_list support was added to GSO, I made an error
+> > > > which broke the support for segmenting linear GSO packets (GSO
+> > > > packets are normally non-linear in the payload).
+> > > > 
+> > > > These days most of these packets are constructed by the tun
+> > > > driver, which prefers to allocate linear memory if possible.
+> > > > This is fixed in the latest kernel, but for 2.6.29 and earlier
+> > > > it is still the norm.
+> > > > 
+> > > > Therefore this bug causes failures with GSO when used with tun
+> > > > in 2.6.29.
+> > > > 
+> > > > Reported-by: James Huang <jamesclhuang@gmail.com>
+> > > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > > 
+> > > Applied, thanks.
+> > 
+> > This is needed in -stable too, fwiw. Fixes e.g. virtio guest->remote
+> > with 2.6.29 host:
+> > 
+> >   https://bugzilla.redhat.com/490266
+> 
+> I know, I'll queue it up.
 
-With this patch in place, I'm successfully able to use the netconsole
-mechanism with the Calao USB-A9263 board, which uses the AT91SAM9263
-CPU, which in terms of Ethernet controller is supported by the macb
-driver.
+This hasn't made it yet? Just had another report on kvm list about it.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-[haavard.skinnemoen@atmel.com: disable_irq() -> local_irq_save()]
-Signed-off-by: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
----
- drivers/net/macb.c |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+(Can't seem to find anywhere to check whether it's queued)
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index f505010..dd7a1c3 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -615,6 +615,21 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/*
-+ * Polling receive - used by netconsole and other diagnostic tools
-+ * to allow network i/o with interrupts disabled.
-+ */
-+static void macb_poll_controller(struct net_device *dev)
-+{
-+	unsigned long flags;
-+
-+	local_irq_save(flags);
-+	macb_interrupt(dev->irq, dev);
-+	local_irq_restore(flags);
-+}
-+#endif
-+
- static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct macb *bp = netdev_priv(dev);
-@@ -1183,6 +1198,9 @@ static int __init macb_probe(struct platform_device *pdev)
- 	dev->do_ioctl = macb_ioctl;
- 	netif_napi_add(dev, &bp->napi, macb_poll, 64);
- 	dev->ethtool_ops = &macb_ethtool_ops;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = macb_poll_controller;
-+#endif
- 
- 	dev->base_addr = regs->start;
- 
--- 
-1.6.0.4
+Cheers,
+Mark.
 
