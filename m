@@ -1,89 +1,89 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-Subject: [PATCH] e100: do not go D3 in shutdown unless system is powering off
-Date: Mon, 20 Apr 2009 11:27:01 -0300
-Message-ID: <1240237621-11415-1-git-send-email-cascardo@holoscopio.com>
-Cc: rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
-	Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756378AbZDTO1Z@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 3/5] mlx4_en: Assign dummy event handler for TX queue
+Date: Mon, 20 Apr 2009 17:30:03 +0300
+Message-ID: <49EC86EB.1000004@mellanox.co.il>
+References: <49EC859C.700@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:49480 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755479AbZDTObG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 10:31:06 -0400
+In-Reply-To: <49EC859C.700@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After experimenting with kexec with the last merges after 2.6.29, I've
-had some problems when probing e100. It would not read the eeprom. After
-some bisects, I realized this has been like that since forever (at least
-2.6.18). The problem is that shutdown is doing the same thing that
-suspend does and puts the device in D3 state. I couldn't find a way to
-get the device back to a sane state in the probe function. So, based on
-some similar patches from Rafael J. Wysocki for e1000, e1000e and ixgbe,
-I wrote this one for e100.
+The low level driver always assumes this handler exists.
+The lack of it could cause kernel panic
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/e100.c |   27 +++++++++++++++++++++------
- 1 files changed, 21 insertions(+), 6 deletions(-)
+ drivers/net/mlx4/en_resources.c |    6 ++++++
+ drivers/net/mlx4/en_rx.c        |    6 ------
+ drivers/net/mlx4/en_tx.c        |    1 +
+ drivers/net/mlx4/mlx4_en.h      |    1 +
+ 4 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index c0f8443..3db7b29 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2728,7 +2728,7 @@ static void __devexit e100_remove(struct pci_dev *pdev)
- #define E100_82552_SMARTSPEED   0x14   /* SmartSpeed Ctrl register */
- #define E100_82552_REV_ANEG     0x0200 /* Reverse auto-negotiation */
- #define E100_82552_ANEG_NOW     0x0400 /* Auto-negotiate now */
--static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct nic *nic = netdev_priv(netdev);
-@@ -2749,19 +2749,31 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
- 			           E100_82552_SMARTSPEED, smartspeed |
- 			           E100_82552_REV_ANEG | E100_82552_ANEG_NOW);
- 		}
--		if (pci_enable_wake(pdev, PCI_D3cold, true))
--			pci_enable_wake(pdev, PCI_D3hot, true);
-+		*enable_wake = true;
- 	} else {
--		pci_enable_wake(pdev, PCI_D3hot, false);
-+		*enable_wake = false;
+diff --git a/drivers/net/mlx4/en_resources.c b/drivers/net/mlx4/en_resources.c
+index a054520..65ca706 100644
+--- a/drivers/net/mlx4/en_resources.c
++++ b/drivers/net/mlx4/en_resources.c
+@@ -94,3 +94,9 @@ void mlx4_en_unmap_buffer(struct mlx4_buf *buf)
+
+ 	vunmap(buf->direct.buf);
+ }
++
++void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event)
++{
++    return;
++}
++
+diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+index 8673008..0cbb78c 100644
+--- a/drivers/net/mlx4/en_rx.c
++++ b/drivers/net/mlx4/en_rx.c
+@@ -928,12 +928,6 @@ void mlx4_en_set_default_rss_map(struct mlx4_en_priv *priv,
  	}
- 
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, PCI_D3hot);
- 
+ }
+
+-static void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event)
+-{
+-    return;
+-}
+-
+-
+ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv,
+ 				 int qpn, int srqn, int cqn,
+ 				 enum mlx4_qp_state *state,
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
+index 4afd599..ac6fc49 100644
+--- a/drivers/net/mlx4/en_tx.c
++++ b/drivers/net/mlx4/en_tx.c
+@@ -112,6 +112,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 		mlx4_err(mdev, "Failed allocating qp %d\n", ring->qpn);
+ 		goto err_reserve;
+ 	}
++	ring->qp.event = mlx4_en_sqp_event;
+
  	return 0;
- }
- 
-+static void __e100_power_off(struct pci_dev *pdev, bool wake)
-+{
-+	pci_enable_wake(pdev, PCI_D3hot, wake);
-+	pci_set_power_state(pdev, PCI_D3hot);
-+}
-+
- #ifdef CONFIG_PM
-+static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	bool wake;
-+	int retval = __e100_shutdown(pdev, &wake);
-+	__e100_power_off(pdev, wake);
-+	return retval;
-+}
-+
- static int e100_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -2792,7 +2804,10 @@ static int e100_resume(struct pci_dev *pdev)
- 
- static void e100_shutdown(struct pci_dev *pdev)
- {
--	e100_suspend(pdev, PMSG_SUSPEND);
-+	bool wake;
-+	__e100_shutdown(pdev, &wake);
-+	if (system_state == SYSTEM_POWER_OFF)
-+		__e100_power_off(pdev, wake);
- }
- 
- /* ------------------ PCI Error Recovery infrastructure  -------------- */
+
+diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
+index e9af32d..ef840ab 100644
+--- a/drivers/net/mlx4/mlx4_en.h
++++ b/drivers/net/mlx4/mlx4_en.h
+@@ -538,6 +538,7 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
+ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 			     int is_tx, int rss, int qpn, int cqn, int srqn,
+ 			     struct mlx4_qp_context *context);
++void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event);
+ int mlx4_en_map_buffer(struct mlx4_buf *buf);
+ void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
+
 -- 
-1.6.2.2
+1.5.4
+
+
