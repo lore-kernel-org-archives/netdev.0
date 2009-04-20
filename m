@@ -1,47 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Mon, 20 Apr 2009 03:14:39 -0700 (PDT)
-Message-ID: <20090420.031439.55595103.davem@davemloft.net>
-References: <528f811a0904190316v22621684o3047e37bf8e78bda@mail.gmail.com>
-	<528f811a0904191854o3a354e8fif6a8d65f8da94965@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Mon, 20 Apr 2009 12:32:29 +0200
+Message-ID: <87eivnpqde.fsf@basil.nowhere.org>
+References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tzungder@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51794
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752721AbZDTKOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 06:14:50 -0400
-In-Reply-To: <528f811a0904191854o3a354e8fif6a8d65f8da94965@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:51659 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753504AbZDTKce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 06:32:34 -0400
+In-Reply-To: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com> (Tom Herbert's message of "Wed, 8 Apr 2009 15:48:12 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tzungder Lin <tzungder@gmail.com>
-Date: Mon, 20 Apr 2009 09:54:10 +0800
+Tom Herbert <therbert@google.com> writes:
 
-> From: Jonathan Lin <tzungder@gmail.com>
-> 
-> While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
-> In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before
-> setting up the DMA buffer address. In this interval where RX was
-> enabled and DMA buffer address is not yet set up, any incoming
-> broadcast packet would be send to a strange physical address:
-> 0x003e8800 which is the default value of DMA buffer address.
-> Unfortunately, this address is used by Linux kernel. So kernel panics.
-> This patch fix it by setting up DMA buffer address before RX enabled
-> and everything is fine even under broadcast packets attack.
-> 
-> Signed-off-by: Jonathan Lin <tzungder@gmail.com>
+> +static int netif_cpu_for_rps(struct net_device *dev, struct sk_buff *skb)
+> +{
+> +	cpumask_t mask;
+> +	unsigned int hash;
+> +	int cpu, count = 0;
+> +
+> +	cpus_and(mask, dev->soft_rps_cpus, cpu_online_map);
+> +	if (cpus_empty(mask))
+> +		return smp_processor_id();
 
-Your email client corrupted this patch, breaking up long lines
-and substituting tabs with space characters among other things.
+There's a race here with CPU hotunplug I think. When a CPU is hotunplugged
+in parallel you can still push packets to it even though they are not
+drained. You probably need some kind of drain callback in a CPU hotunplug
+notifier that eats all packets left over.
 
-Please fix this up and resubmit.
+> +got_hash:
+> +	hash %= cpus_weight_nr(mask);
 
-I would suggest trying to send the patch to yourself and then trying
-to apply what arrives in your inbox, just as I would.
+That looks rather heavyweight even on modern CPUs. I bet it's 40-50+ cycles
+alone forth the hweight and the division. Surely that can be done better?
 
-Thanks.
+Also I suspect some kind of runtime switch for this would be useful.
+
+Also the manual set up of the receive mask seems really clumpsy. Couldn't
+you set that up dynamically based on where processes executing recvmsg()
+are running?
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
