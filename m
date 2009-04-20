@@ -1,158 +1,79 @@
-From: stefan novak <lms.brubaker@gmail.com>
-Subject: Re: bond interface arp, vlan and trunk / network question
-Date: Mon, 20 Apr 2009 22:00:49 +0200
-Message-ID: <1ef444010904201300r43268672sb74277f4a0242236@mail.gmail.com>
-References: <1ef444010904201050g72651387se3feca3fbd68ce30@mail.gmail.com>
-	 <49ECBBF0.80202@cosmosbay.com>
-	 <30257.1240252651@death.nxdomain.ibm.com>
+From: Laurent Pinchart <laurent.pinchart@skynet.be>
+Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
+Date: Mon, 20 Apr 2009 22:08:22 +0200
+Message-ID: <200904202208.23899.laurent.pinchart@skynet.be>
+References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <alpine.LFD.2.00.0904171952260.4042@localhost.localdomain> <20090418125111.6646e997@linux-lm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:46786 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752156AbZDTUAv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 16:00:51 -0400
-In-Reply-To: <30257.1240252651@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	video4linux-list@redhat.com, mchehab@infradead.org
+To: leiming <tom.leiming@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756448AbZDTUGR@vger.kernel.org>
+In-Reply-To: <20090418125111.6646e997@linux-lm>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> nic1 --trunk--> bladesw1 --trunk--> backbone switch
->> nic2 --trunk--> bladesw2 --trunk--> backbone switch
->>
->> So far vlan and trunking works as expected. But if one trunk
->> connection from a bladeswitch to the backbone switch is down the
->> mii-tool cant recognize this.
+On Saturday 18 April 2009 06:51:11 leiming wrote:
+> On Fri, 17 Apr 2009 19:55:29 -0700 (PDT)
 >
-> What is the exact problem on this one ?
+> Linus Torvalds <torvalds@linux-foundation.org> wrote:
+> > > @@ -742,7 +742,7 @@ static int uvc_alloc_urb_buffers(struct
+> > > uvc_video_device *video,
+> > >  	/* Buffers are already allocated, bail out. */
+> > >  	if (video->urb_size)
+> > > -		return 0;
+> > > +		return DIV_ROUND_UP(video->urb_size, psize);
+> >
+> > I don't think this is right. It should round _down_.
+> >
+> > It's supposed to return 'npackets', but if you pass it a different
+> > packet size than it was passed originally, it can now return a
+> > potentially bigger number than the already allocated buffer, no?
+> >
+> > So I think it should round down (ie use a regular divide). No?
+>
+> Yes,you are correct, please ignore my last reply, and following is
+> the fixed patch.
 
-The exact problem is that the bonding driver don't switch the
-interface because the mii-tool don't recognize that the connection
-between the two switches is now broken.
+psize and video->urb_size shouldn't have changed before and after resume, 
+otherwise we'll get into trouble anyway. A regular divide and a round-up 
+divide should then return the same result. I'll take the regular divide, as it 
+will be more efficient.
 
-nic1 --trunk--> bladesw1 --trunk--> backbone switch (passive if)
-nic2 --trunk--> bladesw2 --xxx--broken-trunk-xx-> backbone switch (acti=
-ve if)
+> Thanks.
+>
+> From a3b3d72cdd57a0699fb643b41b78eb7beb211ff5 Mon Sep 17 00:00:00 2001
+> From: Ming Lei <tom.leiming@gmail.com>
+> Date: Wed, 15 Apr 2009 22:32:51 +0800
+> Subject: [PATCH] V4L/DVB:usbvideo:fix uvc resume failed(v2)
+>
+> Now urb buffers is not freed before suspend, so uvc_alloc_urb_buffers
+> should return packet counts allocated originally during uvc resume
+> , instead of zero.
+>
+> This version uses round down to return packet counts on Linus's
+> suggestions, or else may lead to buffer destructed if packet size
+> is changed before calling uvc_alloc_urb_buffers() in this kind of
+> case.
 
->   Sufficiently recent versions of bonding should VLAN tag the ARP
->probes, provided you are using a VLAN device configured above the bond=
-=2E
->My recollection is that VLAN tagging of ARP probes was added about thr=
-ee
->years ago.
->
->       If the switch port is configured as native to a VLAN, then it
->should tag everything coming in.
->
->      As Eric asks, what are you running?
+The comment is misleading. If the packet size changes we need to reallocate 
+the buffers anyway. Have you checked if the packet size (which depends on the 
+endpoint being selected) can be changed between suspend and resume, either by 
+the uvcvideo driver (I don't think it can) or the USB core ?
 
-I've got a bonding interface over eth0 and eth1 and on that bonding
-interface several vlans. The arp probe is in vlan 600 and i can ping
-it from the bash.
-Also a arpping with -I bond0.600 is working. Arpping with -I bond0 is
-not working.
-So the arp check is not working for me :(
+Best regards,
 
-the nic driver is:
-alias eth0 igb
-alias eth1 igb
-
-the bond setiings:
-cat /proc/net/bonding/bond0
-Ethernet Channel Bonding Driver: v3.2.4 (January 28, 2008)
-
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: None
-Currently Active Slave: eth0
-MII Status: up
-MII Polling Interval (ms): 0
-Up Delay (ms): 0
-Down Delay (ms): 0
-ARP Polling Interval (ms): 30
-ARP IP target/s (n.n.n.n form): 172.21.0.254
-
-Slave Interface: eth0
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:30:48:94:7d:1a
-
-Slave Interface: eth1
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:30:48:94:7d:1b
-
-
-On Mon, Apr 20, 2009 at 8:37 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
->
->>stefan novak a =E9crit :
->>> Hello list,
->>>
->>> I've got a Problem with my bladecenter and bond interfaces.
->>> My Server has 2 interface, each on a seperate switch. Each
->>> serverinterface is connected via a trunk to one of the switches.
->>> Each switch has a trunk to stacked-backbone switch.
->>>
->>> nic1 --trunk--> bladesw1 --trunk--> backbone switch
->>> nic2 --trunk--> bladesw2 --trunk--> backbone switch
->>>
->>> So far vlan and trunking works as expected. But if one trunk
->>> connection from a bladeswitch to the backbone switch is down the
->>> mii-tool cant recognize this.
->>
->>What is the exact problem on this one ?
->
-> =A0 =A0 =A0 =A0This is the expected behavior, the external switch to
-> bladecenter switch (ESM) link status does not affect the ESM to blade
-> link status.
->
-> =A0 =A0 =A0 =A0Unless... your ESM supports "trunk failover." =A0I bel=
-ieve the
-> Cisco ESMs do, I'm not sure about others. =A0With trunk failover enab=
-led,
-> loss of link on an external switch port will in turn drop link on the
-> corresponding internal switch ports. =A0There is a long-ish delay for
-> this, on the order of 750 ms, as I recall.
->
->>> I tried to use an arp target on the backbone switch to check the
->>> connection state.
->>>
->>> Now i'm running into problems. :(
->>> My bladesw1 is configured with a trunk and a private vlan id of 600=
-=2E
->>> On the backbone switch is a server in the vlan 600 connected, but i
->>> can't get an arp request.
->>>
->>> What can be the problem, or is it possible to add a vlan tag on the=
- arp check?
->>>
->>
->>What driver is in use on your NIC interface ?
->>
->>Could you post your bonding settings ?
->>
->>cat /proc/net/bonding/bond0
->
-> =A0 =A0 =A0 =A0Sufficiently recent versions of bonding should VLAN ta=
-g the ARP
-> probes, provided you are using a VLAN device configured above the bon=
-d.
-> My recollection is that VLAN tagging of ARP probes was added about th=
-ree
-> years ago.
->
-> =A0 =A0 =A0 =A0If the switch port is configured as native to a VLAN, =
-then it
-> should tag everything coming in.
->
-> =A0 =A0 =A0 =A0As Eric asks, what are you running?
->
-> =A0 =A0 =A0 =A0-J
->
-> ---
-> =A0 =A0 =A0 =A0-Jay Vosburgh, IBM Linux Technology Center, fubar@us.i=
-bm.com
->
+Laurent Pinchart
