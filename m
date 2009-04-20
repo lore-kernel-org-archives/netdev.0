@@ -1,83 +1,60 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bond interface arp, vlan and trunk / network question
-Date: Mon, 20 Apr 2009 11:37:31 -0700
-Message-ID: <30257.1240252651@death.nxdomain.ibm.com>
-References: <1ef444010904201050g72651387se3feca3fbd68ce30@mail.gmail.com> <49ECBBF0.80202@cosmosbay.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: PATCH: Multicast: Filter multicast traffic per socket mc_list
+Date: Mon, 20 Apr 2009 11:46:29 -0700
+Message-ID: <OF579850AE.5836C3EC-ON8825759E.0064AEE9-8825759E.006720F6@us.ibm.com>
+References: <alpine.DEB.1.10.0904201242270.1585@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stefan novak <lms.brubaker@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, nhorman@tuxdriver.com,
+	vladislav.yasevich@hp.com
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:48727 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752655AbZDTSh1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 14:37:27 -0400
-In-reply-to: <49ECBBF0.80202@cosmosbay.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:51808 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085AbZDTSqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 14:46:32 -0400
+In-Reply-To: <alpine.DEB.1.10.0904201242270.1585@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+Christoph Lameter <cl@linux.com> wrote on 04/20/2009 09:43:45 AM:
 
->stefan novak a =C3=A9crit :
->> Hello list,
->>=20
->> I've got a Problem with my bladecenter and bond interfaces.
->> My Server has 2 interface, each on a seperate switch. Each
->> serverinterface is connected via a trunk to one of the switches.
->> Each switch has a trunk to stacked-backbone switch.
->>=20
->> nic1 --trunk--> bladesw1 --trunk--> backbone switch
->> nic2 --trunk--> bladesw2 --trunk--> backbone switch
->>=20
->> So far vlan and trunking works as expected. But if one trunk
->> connection from a bladeswitch to the backbone switch is down the
->> mii-tool cant recognize this.
->
->What is the exact problem on this one ?
+> On Fri, 17 Apr 2009, David Stevens wrote:
+> 
+> >         Linux is not Solaris. I think Solaris is wrong to change the
+> > behavior from the original BSD behavior, but it should be no surprise
+> > that there are other differences in the API's, too. It's not difficult
+> > to write code that works as intended on both, and the case Solaris is
+> > trying to avoid is not really avoided since you can still receive
+> > unicast traffic, or totally unrelated multicast traffic on the shared
+> > port and multicast address space. If the app doesn't use the port to
+> 
+> By that you mean unrelated multicast traffic destined to the same
+> multicast address and port?
 
-	This is the expected behavior, the external switch to
-bladecenter switch (ESM) link status does not affect the ESM to blade
-link status.
+        Yes. If neither the port nor the multicast address are
+registered than anyone on your network can use them for anything. 
+Even if they are registered, someone may still use it; sending
+requires no special privilege, and neither does joing groups or
+binding to ports above 1024. Anyone on your network, or within
+your multicast routing domain, may reuse both (even if they
+intend it for a different machine) and your app will receive
+them.
 
-	Unless... your ESM supports "trunk failover."  I believe the
-Cisco ESMs do, I'm not sure about others.  With trunk failover enabled,
-loss of link on an external switch port will in turn drop link on the
-corresponding internal switch ports.  There is a long-ish delay for
-this, on the order of 750 ms, as I recall.
+        I think generally the best approach is to bind to the
+particular multicast address and use SO_BINDTODEVICE if it
+matters to the app. But the app still has to handle receiving
+data from a different source or totally unrelated data;
+it certainly can receive those, because anyone can send those.
 
->> I tried to use an arp target on the backbone switch to check the
->> connection state.
->>=20
->> Now i'm running into problems. :(
->> My bladesw1 is configured with a trunk and a private vlan id of 600.
->> On the backbone switch is a server in the vlan 600 connected, but i
->> can't get an arp request.
->>=20
->> What can be the problem, or is it possible to add a vlan tag on the =
-arp check?
->>=20
->
->What driver is in use on your NIC interface ?
->
->Could you post your bonding settings ?
->
->cat /proc/net/bonding/bond0
+        I can see the value of a per-socket, default-off option
+in the case where you want multiple groups on a single socket,
+and I encourage you to submit that as a patch. It reduces the
+work the receiver has to do, but doesn't eliminate it. The
+way I'd do that is to use multiple sockets, one bound to each
+group, but ok. As long as it doesn't change the existing
+behavior out from under existing, unknown apps.
 
-	Sufficiently recent versions of bonding should VLAN tag the ARP
-probes, provided you are using a VLAN device configured above the bond.
-My recollection is that VLAN tagging of ARP probes was added about thre=
-e
-years ago.
+                                                                +-DLS
 
-	If the switch port is configured as native to a VLAN, then it
-should tag everything coming in.
-
-	As Eric asks, what are you running?
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
