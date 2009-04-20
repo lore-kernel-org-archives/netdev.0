@@ -1,65 +1,46 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: skb_segment() questions
-Date: Mon, 20 Apr 2009 12:12:10 +0100
-Message-ID: <1240225930.23407.49.camel@blaa>
-References: <20090329020701.GA9983@gondor.apana.org.au>
-	 <20090328.233929.160905643.davem@davemloft.net>
-	 <1238403045.854.39.camel@blaa>
-	 <20090330.135748.264670066.davem@davemloft.net>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 0/3] tun: fix aio
+Date: Mon, 20 Apr 2009 14:25:27 +0300
+Message-ID: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jamesclhuang@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:60107 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:60282 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751690AbZDTLMX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2009 07:12:23 -0400
-In-Reply-To: <20090330.135748.264670066.davem@davemloft.net>
+	id S1753266AbZDTL0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 07:26:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-03-30 at 13:57 -0700, David Miller wrote:
-> From: Mark McLoughlin <markmc@redhat.com>
-> Date: Mon, 30 Mar 2009 09:50:45 +0100
-> 
-> > On Sat, 2009-03-28 at 23:39 -0700, David Miller wrote:
-> > > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > > Date: Sun, 29 Mar 2009 10:07:01 +0800
-> > > 
-> > > > gso: Fix support for linear packets
-> > > > 
-> > > > When GRO/frag_list support was added to GSO, I made an error
-> > > > which broke the support for segmenting linear GSO packets (GSO
-> > > > packets are normally non-linear in the payload).
-> > > > 
-> > > > These days most of these packets are constructed by the tun
-> > > > driver, which prefers to allocate linear memory if possible.
-> > > > This is fixed in the latest kernel, but for 2.6.29 and earlier
-> > > > it is still the norm.
-> > > > 
-> > > > Therefore this bug causes failures with GSO when used with tun
-> > > > in 2.6.29.
-> > > > 
-> > > > Reported-by: James Huang <jamesclhuang@gmail.com>
-> > > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> > > 
-> > > Applied, thanks.
-> > 
-> > This is needed in -stable too, fwiw. Fixes e.g. virtio guest->remote
-> > with 2.6.29 host:
-> > 
-> >   https://bugzilla.redhat.com/490266
-> 
-> I know, I'll queue it up.
+tun device currently fills in aio_read/aio_write, however the implementation
+corrupts the input iovec through const struct iovec *. As a side effect,
+attempts to use io_submit/io_getevents on a tun/tap device result in EINVAL
+(after actually sending/consuming a packet).
 
-This hasn't made it yet? Just had another report on kvm list about it.
+The following patches make tun_chr_aio_read and tun_chr_aio_write not modify
+the iovec so that io_submit/io_getevents succeed, becoming functionally
+equivalent to write/read on the device.  I am working on another patch set
+supporting zero-copy transmit over tun, which will rely on this functionality,
+but I think the patches might be already useful by themself. What do you think?
+Please review.
 
-(Can't seem to find anywhere to check whether it's queued)
+Note: I started out just allocating and copying the iovec rather than adding
+yet another skb-iterating routine, but this turned out to add small but
+measurable overhead on data path: tx time per packet jumped from 6500 to 6700 ns
+(let me know if you want to see that version of the patch).
 
-Cheers,
-Mark.
+Michael S. Tsirkin (3):
+  net: skb_copy_datagram_const_iovec()
+  tun: fix tun_chr_aio_read so that aio works
+  tun: fix tun_chr_aio_write so that aio works
 
+ drivers/net/tun.c      |   24 ++++++----
+ include/linux/skbuff.h |    8 +++-
+ include/linux/socket.h |    6 ++-
+ net/core/datagram.c    |  112 +++++++++++++++++++++++++++++++++++++++++++++---
+ net/core/iovec.c       |   33 +++++++++++++-
+ 5 files changed, 161 insertions(+), 22 deletions(-)
