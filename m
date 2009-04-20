@@ -1,51 +1,51 @@
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
-	questions)
-Date: Mon, 20 Apr 2009 08:29:24 -0400
-Message-ID: <625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
-References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
+From: <jon.lin@vatics.com>
+Subject: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
+Date: Mon, 20 Apr 2009 20:58:01 +0800
+Message-ID: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linuxppc-dev@ozlabs.org, netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: Kyle Moffett <kyle@moffetthome.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset="big5"
+Content-Transfer-Encoding: base64
+Cc: <dada1@cosmosbay.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jon.lin@vatics.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755562AbZDTNDw@vger.kernel.org>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 17, 2009 at 8:32 PM, Kyle Moffett <kyle@moffetthome.net> wrote:
-> Hello,
->
-> I'm currently fiddling with a custom embedded prototype board using
-> the ibm_newemac driver with some currently-unsupported PHYs. =A0Those
-> PHYs *are* supported by phylib, but the emac driver seems to have its
-> own PHY layer cribbed from the sungem driver. =A0I'm curious if there's
-> some particular reason it hasn't been ported (aside from "nobody has
-> bothered yet").
-
-IIRC, Ben had some issues with how phylib and the EMAC would need to
-interact.  Not sure if he has those written down somewhere or not.
-(CC'd).
-
-> I've temporarily hacked a PHY driver together for the moment, but it
-> would be much easier for us to maintain and update our board if the
-> PHY drivers were integrated. =A0As a result I'm also interested in how
-> complicated it might be to port the driver (and possibly sungem as
-> well) over to phylib, if that is indeed feasible. =A0Also, if I end up
-> going that route, are there others available with other hardware
-> variants who would be willing to test my patches on their boards?
-
-I have a large variety of boards that I can test with since the entire
-4xx line relies on this driver for on-board network.
-
-josh
+RnJvbTogSm9uYXRoYW4gTGluIDxqb24ubGluQHZhdGljcy5jb20+DQoNCldoaWxlIGlmY29uZmln
+IGV0aDAgdXAga2VybmVsIGNhbGxzIG9wZW4oKSBvZiA4MTM5IGRyaXZlcig4MTM5dG9vLmMpLg0K
+SW4gcnRsODEzOV9od19zdGFydCgpIG9mIHJ0bDgxMzlfb3BlbigpLCA4MTM5IGRyaXZlciBlbmFi
+bGUgUlggYmVmb3JlIHNldHRpbmcgdXAgdGhlIERNQSBidWZmZXIgYWRkcmVzcy4gSW4gdGhpcyBp
+bnRlcnZhbCB3aGVyZSBSWCB3YXMgZW5hYmxlZCBhbmQgRE1BIGJ1ZmZlciBhZGRyZXNzIGlzIG5v
+dCB5ZXQgc2V0IHVwLCBhbnkgaW5jb21pbmcgYnJvYWRjYXN0IHBhY2tldCB3b3VsZCBiZSBzZW5k
+IHRvIGEgc3RyYW5nZSBwaHlzaWNhbCBhZGRyZXNzOg0KMHgwMDNlODgwMCB3aGljaCBpcyB0aGUg
+ZGVmYXVsdCB2YWx1ZSBvZiBETUEgYnVmZmVyIGFkZHJlc3MuDQpVbmZvcnR1bmF0ZWx5LCB0aGlz
+IGFkZHJlc3MgaXMgdXNlZCBieSBMaW51eCBrZXJuZWwuIFNvIGtlcm5lbCBwYW5pY3MuDQpUaGlz
+IHBhdGNoIGZpeCBpdCBieSBzZXR0aW5nIHVwIERNQSBidWZmZXIgYWRkcmVzcyBiZWZvcmUgUlgg
+ZW5hYmxlZCBhbmQgZXZlcnl0aGluZyBpcyBmaW5lIGV2ZW4gdW5kZXIgYnJvYWRjYXN0IHBhY2tl
+dHMgYXR0YWNrLg0KDQpTaWduZWQtb2ZmLWJ5OiBKb25hdGhhbiBMaW4gPGpvbi5saW5AdmF0aWNz
+LmNvbT4NCg0KLS0tIGxpbnV4LTIuNi4yOS4xL2RyaXZlcnMvbmV0LzgxMzl0b28uYy5vcmlnICAg
+MjAwOS0wNC0xOSAxNzo1MDozOC4wMDAwMDAwMDAgKzA4MDANCisrKyBsaW51eC0yLjYuMjkuMS9k
+cml2ZXJzL25ldC84MTM5dG9vLmMgICAgICAgIDIwMDktMDQtMTkgMTc6NTI6NTEuMDAwMDAwMDAw
+ICswODAwDQpAQCAtMTM4Miw2ICsxMzgyLDEwIEBAIHN0YXRpYyB2b2lkIHJ0bDgxMzlfaHdfc3Rh
+cnQgKHN0cnVjdCBuZXQNCiAgICAgICAgUlRMX1czMl9GIChNQUMwICsgMCwgbGUzMl90b19jcHUg
+KCooX19sZTMyICopIChkZXYtPmRldl9hZGRyICsgMCkpKTsNCiAgICAgICAgUlRMX1czMl9GIChN
+QUMwICsgNCwgbGUxNl90b19jcHUgKCooX19sZTE2ICopIChkZXYtPmRldl9hZGRyICsgNCkpKTsN
+Cg0KKyAgICAgICB0cC0+Y3VyX3J4ID0gMDsNCisgICAgICAgLyogaW5pdCBSeCByaW5nIGJ1ZmZl
+ciBETUEgYWRkcmVzcyBCRUZPUkUgUnggZW5hYmxlZCovDQorICAgICAgIFJUTF9XMzJfRiAoUnhC
+dWYsIHRwLT5yeF9yaW5nX2RtYSk7DQorDQogICAgICAgIC8qIE11c3QgZW5hYmxlIFR4L1J4IGJl
+Zm9yZSBzZXR0aW5nIHRyYW5zZmVyIHRocmVzaG9sZHMhICovDQogICAgICAgIFJUTF9XOCAoQ2hp
+cENtZCwgQ21kUnhFbmIgfCBDbWRUeEVuYik7DQoNCkBAIC0xMzg5LDggKzEzOTMsNiBAQCBzdGF0
+aWMgdm9pZCBydGw4MTM5X2h3X3N0YXJ0IChzdHJ1Y3QgbmV0DQogICAgICAgIFJUTF9XMzIgKFJ4
+Q29uZmlnLCB0cC0+cnhfY29uZmlnKTsNCiAgICAgICAgUlRMX1czMiAoVHhDb25maWcsIHJ0bDgx
+MzlfdHhfY29uZmlnKTsNCg0KLSAgICAgICB0cC0+Y3VyX3J4ID0gMDsNCi0NCiAgICAgICAgcnRs
+X2NoZWNrX21lZGlhIChkZXYsIDEpOw0KDQogICAgICAgIGlmICh0cC0+Y2hpcHNldCA+PSBDSF84
+MTM5Qikgew0KQEAgLTE0MDUsOSArMTQwNyw2IEBAIHN0YXRpYyB2b2lkIHJ0bDgxMzlfaHdfc3Rh
+cnQgKHN0cnVjdCBuZXQNCiAgICAgICAgLyogTG9jayBDb25maWdbMDEyMzRdIGFuZCBCTUNSIHJl
+Z2lzdGVyIHdyaXRlcyAqLw0KICAgICAgICBSVExfVzggKENmZzkzNDYsIENmZzkzNDZfTG9jayk7
+DQoNCi0gICAgICAgLyogaW5pdCBSeCByaW5nIGJ1ZmZlciBETUEgYWRkcmVzcyAqLw0KLSAgICAg
+ICBSVExfVzMyX0YgKFJ4QnVmLCB0cC0+cnhfcmluZ19kbWEpOw0KLQ0KICAgICAgICAvKiBpbml0
+IFR4IGJ1ZmZlciBETUEgYWRkcmVzc2VzICovDQogICAgICAgIGZvciAoaSA9IDA7IGkgPCBOVU1f
+VFhfREVTQzsgaSsrKQ0KICAgICAgICAgICAgICAgIFJUTF9XMzJfRiAoVHhBZGRyMCArIChpICog
+NCksIHRwLT50eF9idWZzX2RtYSArICh0cC0+dHhfYnVmW2ldIC0gdHAtPnR4X2J1ZnMpKTsNCg==
