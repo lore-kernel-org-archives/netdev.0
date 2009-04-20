@@ -1,31 +1,33 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [RFC]: add tracepoint to net_rx_action to note polling operations
-Date: Mon, 20 Apr 2009 07:27:31 -0400
-Message-ID: <20090420112731.GD32254@hmsreliant.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: skb_segment() questions
+Date: Mon, 20 Apr 2009 04:57:01 -0700 (PDT)
+Message-ID: <20090420.045701.260863433.davem@davemloft.net>
+References: <1238403045.854.39.camel@blaa>
+	<20090330.135748.264670066.davem@davemloft.net>
+	<1240225930.23407.49.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, jamesclhuang@gmail.com,
+	netdev@vger.kernel.org
+To: markmc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46537 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754863AbZDTL1k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 07:27:40 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48761
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754767AbZDTL5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 07:57:09 -0400
+In-Reply-To: <1240225930.23407.49.camel@blaa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey all-
-	I was thinking about adding an additional tracepoint to net_rx_action,
-right before the call to dev->poll().  One of the things thats missing from my
-dropwatch utility is the ability to detect hardware drops, and I was thinking I
-could implement that by noting when devices were being polled by napi, and at
-that time querying the devices stats.
+From: Mark McLoughlin <markmc@redhat.com>
+Date: Mon, 20 Apr 2009 12:12:10 +0100
 
-	I know however, that adding tracepoints isn't always desireable, so I
-thought I would solicit opinions here to see if anyone else would find such a
-tracepoint usefull, or in the event they had strong objectsions to such a point.
+> On Mon, 2009-03-30 at 13:57 -0700, David Miller wrote:
+>> I know, I'll queue it up.
+> 
+> This hasn't made it yet? Just had another report on kvm list about it.
+> 
+> (Can't seem to find anywhere to check whether it's queued)
 
-Thanks!
-Neil
-
+Sorry, it's in my backlog, I'll take care of it tomorr.w
