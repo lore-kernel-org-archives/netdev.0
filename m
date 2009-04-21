@@ -1,46 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and
- security_socket_post_recv_datagram().
-Date: Tue, 21 Apr 2009 05:37:01 -0700 (PDT)
-Message-ID: <20090421.053701.234331700.davem@davemloft.net>
-References: <200904212039.JID59468.LOFOtMQOFJFSVH@I-love.SAKURA.ne.jp>
-	<20090421.044053.155783771.davem@davemloft.net>
-	<200904212126.AJD95821.HFMOFtQJOVFLOS@I-love.SAKURA.ne.jp>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [ofa-general] NetEffect, iw_nes and kernel warning
+Date: Tue, 21 Apr 2009 20:49:19 +0800
+Message-ID: <20090421124919.GA18444@gondor.apana.org.au>
+References: <20090130065721.GA4886@gondor.apana.org.au> <adaiqnwr91j.fsf@cisco.com> <20090130.135107.116108989.davem@davemloft.net> <ada3af0qgez.fsf@cisco.com> <20090421090918.GA6034@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: penguin-kernel@I-love.SAKURA.ne.jp
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <rdreier@cisco.com>,
+	David Miller <davem@davemloft.net>, aluno3@poczta.onet.pl,
+	general@lists.openfabrics.org, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41103
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751383AbZDUMhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 08:37:13 -0400
-In-Reply-To: <200904212126.AJD95821.HFMOFtQJOVFLOS@I-love.SAKURA.ne.jp>
+Received: from rhun.apana.org.au ([64.62.148.172]:47900 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751274AbZDUMtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 08:49:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20090421090918.GA6034@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Tue, 21 Apr 2009 21:26:36 +0900
+On Tue, Apr 21, 2009 at 11:09:18AM +0200, Lennert Buytenhek wrote:
+> On Fri, Jan 30, 2009 at 07:54:12PM -0800, Roland Dreier wrote:
+> 
+> > > > I don't believe this is accurate.  Calling skb_linearize() (on a kernel
+> > > > with CONFIG_HIGHMEM set) can end up calling local_bh_enable() in
+> > > > kunmap_skb_frag(), which can obviously cause problems if the initial
+> > > > context relies on having BHs disabled (as hard_start_xmit does).
+> > >
+> > > local_bh_{enable,disable}() nests, so this is not a problem
+> > 
+> > Duh.  OK, then the only bugs seem to be that iw_nes does skb_linearize
+> > with irqs off (due to being an LLTX driver), and mv643xx_eth leaks an
+> > skb on its error path if skb_linearize fails.
+> 
+> (Found this when deleting old netdev@ mail...)  mv643xx_eth returns
+> NETDEV_TX_BUSY if skb_linearize fails, so the qdisc will requeue the
+> skb, and we shouldn't free it.  Am I missing something?
 
-> It is too late to modify because we have already accepted the
-> packet.
+I don't think the issue here is the leak.  Calling skb_linearize is
+simply illegal if you support netpoll because netpoll will call the
+xmit routine with IRQs off.
 
-Then queue it up somewhere, and deliver your verdict and continue
-packet processing later.
-
-In fact, I do not like killing accept()'s like this at all.
-
-If we tell the application, via poll() or similar, that connections
-are available and no other thread can get in there to steal the
-connection, we must deliver a connection to the listening socket when
-it calls accept() except in very unusual circumstances (out of file
-descriptors, memory allocation failure, etc.)!
-
-I believe this idea is conceptually very broken, sorry.  The semantics
-are absolutely horrible.
-
-Put this stuff in userspace, where you say it already is.  The kernel
-isn't the place to dump every cool feature you want to bring in from
-userspace.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
