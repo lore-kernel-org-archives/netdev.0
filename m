@@ -1,82 +1,96 @@
-From: Amos Kong <jianjun@zeuux.org>
-Subject: Re: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Tue, 21 Apr 2009 17:48:25 +0800
-Message-ID: <20090421094825.GA6752@ubuntu>
-References: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw> <20090421.015235.23457775.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Tue, 21 Apr 2009 11:48:43 +0200
+Message-ID: <49ED967B.4070105@cosmosbay.com>
+References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>	 <87eivnpqde.fsf@basil.nowhere.org> <65634d660904202026r7d73f810s700bacb8756e0967@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jon.lin@vatics.com, dada1@cosmosbay.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757123AbZDUJtG@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090421.015235.23457775.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38025 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756978AbZDUJsy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 05:48:54 -0400
+In-Reply-To: <65634d660904202026r7d73f810s700bacb8756e0967@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-...
->> Unfortunately, this address is used by Linux kernel. So kernel panics.
->> This patch fix it by setting up DMA buffer address before RX enabled and everything is fine even under broadcast packets attack.
->> 
->> Signed-off-by: Jonathan Lin <jon.lin@vatics.com>
->
->This patch does not apply, it was corrupted by your email client.
->
->I even think it has MS-DOS style newlines in it :-(
+Tom Herbert a =E9crit :
+> On Mon, Apr 20, 2009 at 3:32 AM, Andi Kleen <andi@firstfloor.org> wro=
+te:
+>> Tom Herbert <therbert@google.com> writes:
+>>
+>>> +static int netif_cpu_for_rps(struct net_device *dev, struct sk_buf=
+f *skb)
+>>> +{
+>>> +     cpumask_t mask;
+>>> +     unsigned int hash;
+>>> +     int cpu, count =3D 0;
+>>> +
+>>> +     cpus_and(mask, dev->soft_rps_cpus, cpu_online_map);
+>>> +     if (cpus_empty(mask))
+>>> +             return smp_processor_id();
+>> There's a race here with CPU hotunplug I think. When a CPU is hotunp=
+lugged
+>> in parallel you can still push packets to it even though they are no=
+t
+>> drained. You probably need some kind of drain callback in a CPU hotu=
+nplug
+>> notifier that eats all packets left over.
+>>
+> We will look at that, the hotplug support may very well be lacking in=
+ the patch.
+>=20
+>>> +got_hash:
+>>> +     hash %=3D cpus_weight_nr(mask);
+>> That looks rather heavyweight even on modern CPUs. I bet it's 40-50+=
+ cycles
+>> alone forth the hweight and the division. Surely that can be done be=
+tter?
+>>
+> Agreed, I will try to pull in the RX hash from Dave Miller's remote
+> softirq patch.
+>=20
+>> Also I suspect some kind of runtime switch for this would be useful.
+>>
+>> Also the manual set up of the receive mask seems really clumpsy. Cou=
+ldn't
+>> you set that up dynamically based on where processes executing recvm=
+sg()
+>> are running?
+>>
+> We have done exactly that.  It works very well in many cases
+> (application + platform combinations), but I haven't found it to be
+> better than doing the hash in all cases.  I could provide the patch,
+> but it might be more of a follow patch to this base one.
 
-Another new patch :)
+Hello Tom
+
+I was thinking about your patch (and David's one), and thought it could=
+ be
+possible to spread packets to other cpus only if current one is under s=
+tress.
+
+A posssible metric would be to test if softirq is handled by ksoftirqd
+(stress situation) or not.
+
+Under moderate load, we could have one active cpu (and fewer cache line
+transferts), keeping good latencies.
+
+I tried alternative approach to solve the Multicast problem raised some=
+ time ago,
+but still have one cpu handling one device. Only wakeups were defered t=
+o a
+workqueue (and possibly another cpu) if running from ksoftirq only.
+Patch not yet ready for review, but based on a previous patch that was =
+more
+intrusive (touching kernel/softirq.c)
+
+Under stress, your idea permits to use more cpus for a fast NIC and get=
+ better
+throughput. Its more generic.
 
 
- While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
- In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before setting up the DMA
- buffer address. In this interval where RX was enabled and DMA buffer address is not yet set
- up, any incoming broadcast packet would be send to a strange physical address:
- 0x003e8800 which is the default value of DMA buffer address.
- Unfortunately, this address is used by Linux kernel. So kernel panics.
- This patch fix it by setting up DMA buffer address before RX enabled and everything is fine
- even under broadcast packets attack.
-
-Signed-off-by: Jonathan Lin <jon.lin@vatics.com>
-Signed-off-by: Amos Kong <jianjun@zeuux.org>
-
----
- drivers/net/8139too.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index 29df398..1fc4543 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -1383,6 +1383,11 @@ static void rtl8139_hw_start (struct net_device *dev)
- 	RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
- 	RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)));
- 
-+	tp->cur_rx = 0;
-+
-+	/* init Rx ring buffer DMA address */
-+	RTL_W32_F (RxBuf, tp->rx_ring_dma);
-+
- 	/* Must enable Tx/Rx before setting transfer thresholds! */
- 	RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
- 
-@@ -1390,8 +1395,6 @@ static void rtl8139_hw_start (struct net_device *dev)
- 	RTL_W32 (RxConfig, tp->rx_config);
- 	RTL_W32 (TxConfig, rtl8139_tx_config);
- 
--	tp->cur_rx = 0;
--
- 	rtl_check_media (dev, 1);
- 
- 	if (tp->chipset >= CH_8139B) {
-@@ -1406,9 +1409,6 @@ static void rtl8139_hw_start (struct net_device *dev)
- 	/* Lock Config[01234] and BMCR register writes */
- 	RTL_W8 (Cfg9346, Cfg9346_Lock);
- 
--	/* init Rx ring buffer DMA address */
--	RTL_W32_F (RxBuf, tp->rx_ring_dma);
--
- 	/* init Tx buffer DMA addresses */
- 	for (i = 0; i < NUM_TX_DESC; i++)
- 		RTL_W32_F (TxAddr0 + (i * 4), tp->tx_bufs_dma + (tp->tx_buf[i] - tp->tx_bufs));
--- 
-1.5.6.3
