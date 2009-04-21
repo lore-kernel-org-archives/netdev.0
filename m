@@ -1,138 +1,47 @@
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
-Date: Tue, 21 Apr 2009 17:34:36 +0800
-Message-ID: <49ED932C.4070709@cn.fujitsu.com>
-References: <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <49ED406F.2040401@cn.fujitsu.com> <49ED4407.8010200@cosmosbay.com> <49ED5813.1000803@cn.fujitsu.com> <20090420224540.30d7b0ed@nehalam> <49ED6D2E.5060808@cn.fujitsu.com> <20090421081649.GA16782@ioremap.net> <49ED8A1F.7090506@cosmosbay.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Tue, 21 Apr 2009 13:41:49 +0400
+Message-ID: <20090421094149.GA22907@ioremap.net>
+References: <20090412142451.GA2694@ioremap.net> <7e0dd21a0904121227n3b03f2c7v8bf30c45667603a1@mail.gmail.com> <20090412195203.GA11899@ioremap.net> <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com> <20090412205334.GA14345@ioremap.net> <7e0dd21a0904121631u3fc7c676r12eb7e71fe87e02b@mail.gmail.com> <20090415071023.GA26986@ioremap.net> <7e0dd21a0904150614y301a01e4rdec1fe4f9a14c13f@mail.gmail.com> <20090416111616.GB28509@ioremap.net> <7e0dd21a0904181438j251f4f8cnc210c6dee8ce5212@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
-	mingo@elte.hu, jengelh@medozas.de, r000n@r000n.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49ED8A1F.7090506@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
+To: Johann Baudy <johann.baudy@gnu-log.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from corega.com.ru ([195.178.208.66]:34099 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753155AbZDUJlv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Apr 2009 05:41:51 -0400
+Content-Disposition: inline
+In-Reply-To: <7e0dd21a0904181438j251f4f8cnc210c6dee8ce5212@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Evgeniy Polyakov a =C3=A9crit :
->> Hi.
->>
->> On Tue, Apr 21, 2009 at 02:52:30PM +0800, Lai Jiangshan (laijs@cn.fu=
-jitsu.com) wrote:
->>>> +void xt_info_rdlock_bh(void)
->>>>> +{
->>>>> +	struct xt_info_lock *lock;
->>>>> +
->>>>> +	preempt_disable();
->>>>> +	lock =3D &__get_cpu_var(xt_info_locks);
->>>>> +	if (likely(++lock->depth =3D=3D 0))
->>> So what happen when xt_info_rdlock_bh() called recursively here?
->>>
->>>>> +		spin_lock_bh(&lock->lock);
->>>>> +	preempt_enable_no_resched();
->>>>> +}
->>>>> +EXPORT_SYMBOL_GPL(xt_info_rdlock_bh);
->>>>> +
->>> ----------
->>> Is this OK? (Now I suppose we can enter the read-side critical regi=
-on
->>> in irq context)
->>>
->>> void xt_info_rdlock_bh(void)
->>> {
->>> 	unsigned long flags;
->>> 	struct xt_info_lock *lock;
->>>
->>> 	local_irq_save(flags);
->>> 	lock =3D &__get_cpu_var(xt_info_locks);
->>> 	if (likely(++lock->depth =3D=3D 0))
->>> 		spin_lock_bh(&lock->lock);
->>> 	local_irq_restore(flags);
->>> }
->> Netfilter as long as other generic network pathes are never accessed
->> from interrupt context, but your analysis looks right for the softir=
-q
->> case.
->>
->> Stephen, should preempt_disable() be replaced with local_bh_disable(=
-) to
->> prevent softirq to race on the same cpu for the lock's depth field? =
-Or
->> can it be made atomic?
->>
->=20
->=20
-> Maybe just dont care about calling several time local_bh_disable()
-> (since we were doing this in previous kernels anyway, we used to call=
- read_lock_bh())
->=20
-> This shortens fastpath, is faster than local_irq_save()/local_irq_res=
-tore(),
-> and looks better.
->=20
-> void xt_info_rdlock_bh(void)
-> {
-> 	struct xt_info_lock *lock;
->=20
-> 	local_bh_disable();
->  	lock =3D &__get_cpu_var(xt_info_locks);
->  	if (likely(++lock->depth =3D=3D 0))
->  		spin_lock(&lock->lock);
-> }
+Hi Johann.
 
-This two functions is OK. But...
+On Sat, Apr 18, 2009 at 11:38:48PM +0200, Johann Baudy (johann.baudy@gnu-log.net) wrote:
+> > I think it should only be called when shared area is about to be freed
+> > and not when attached skb is freed.
+> During skb_linearize(). shared info is memcopied and freed in
+> pskb_expand_head() if not enough memory is available in current head.
+> Then, Do you expect this new destructor to be called twice? (during
+> skb_linearize() and kfree_skb())
 
->=20
-> void xt_info_rdunlock_bh(void)
-> {
-> 	struct xt_info_lock *lock =3D &__get_cpu_var(xt_info_locks);
->=20
-> 	BUG_ON(lock->depth < 0);
-> 	if (likely(--lock->depth < 0))
-> 		 spin_unlock(&lock->lock);
-> 	local_bh_enable();
-> }
->=20
->=20
+It cals skb_release_data() which should invoke shared area destructor
+before being freed.
 
+> >Thus you can put your pages into
+> > fraglist and reuse them after the last reference to the shared area is
+> > gone.
+> 
+> If my understanding is correct, skb can be linearized without calling
+> skb_release_data() (if enough space is available in head). Hence, In
+> this case, I will not have access to original frags[] from
+> skb_shared_info destructor.
 
-David said:
-Netfilter itself, is nesting.
+Yes, that's right.
 
-When using bridging netfilter, iptables can be entered twice
-in the same call chain.
-
-And Stephen said:
-In this version, I was trying to use/preserve the optimizations that
-are done in spin_unlock_bh().
-
-So:
-
-void xt_info_rdlock_bh(void)
-{
-	struct xt_info_lock *lock;
-
-	preempt_disable();
- 	lock =3D &__get_cpu_var(xt_info_locks);
- 	if (likely(lock->depth < 0))
- 		spin_lock_bh(&lock->lock);
-	/* softirq is disabled now */
-	++lock->depth;
-	preempt_enable_no_resched();
-}
-
-xt_info_rdunlock_bh() is the same as v11.
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+	Evgeniy Polyakov
