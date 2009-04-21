@@ -1,58 +1,42 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH] [net, 83xx] ucc_geth.c: Fix upsmr setting in RMII mode
-Date: Tue, 21 Apr 2009 18:51:11 +0800
-Message-ID: <2a27d3730904210351s870f015gb896a4b874b3024b@mail.gmail.com>
-References: <49ED859B.30904@denx.de>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
+Date: Tue, 21 Apr 2009 19:54:06 +0900
+Message-ID: <200904211954.GGC13036.FFJLtOMHOVSOQF@I-love.SAKURA.ne.jp>
+References: <200904141944.JFE64074.FHtOMOFQLFJOVS@I-love.SAKURA.ne.jp>
+	<200904161423.04414.paul.moore@hp.com>
+	<200904181734.ACB09871.QtVSOHMFJOLFOF@I-love.SAKURA.ne.jp>
+	<200904201822.29529.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shlomi Gridish <gridish@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: hs@denx.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.248]:29288 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562AbZDUKvM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 06:51:12 -0400
-Received: by an-out-0708.google.com with SMTP id d40so1164158and.1
-        for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 03:51:11 -0700 (PDT)
-In-Reply-To: <49ED859B.30904@denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: paul.moore@hp.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200904201822.29529.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 21, 2009 at 4:36 PM, Heiko Schocher <hs@denx.de> wrote:
-> If using the UCC on a MPC8360 in RMII mode, don;t set
-> UCC_GETH_UPSMR_RPM bit in the upsmr register.
->
-> Signed-off-by: Heiko Schocher <hs@denx.de>
+Paul Moore wrote:
+> > The security_socket_post_accept() hook is used for not only
+> > aborting TCP connections from unwanted peers but also associating client's
+> > information with a process who handles that TCP connection. The task's state
+> > variable definitely requires a LSM hook which is called after sock->ops->
+> > accept() call.
+> 
+> I don't have a problem with using a socket_post_accept() hook to assign/modify 
+> state, however, I still not like the idea of using the socket_post_accept()
+> hook to abort connections.
 
-Acked-by: Li Yang <leoli@freescale.com>
+What do you think that assigning/modifying state at socket_post_accept() could
+fail?
 
-> ---
-> =C2=A0drivers/net/ucc_geth.c | =C2=A0 =C2=A03 ++-
-> =C2=A01 files changed, 2 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> index d3f39e8..44f8392 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -1394,7 +1394,8 @@ static int adjust_enet_interface(struct ucc_get=
-h_private *ugeth)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0(ugeth->phy_interface =3D=3D=
- PHY_INTERFACE_MODE_RGMII_RXID) ||
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0(ugeth->phy_interface =3D=3D=
- PHY_INTERFACE_MODE_RGMII_TXID) ||
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0(ugeth->phy_interface =3D=3D=
- PHY_INTERFACE_MODE_RTBI)) {
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 upsmr |=3D UCC_GET=
-H_UPSMR_RPM;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (ugeth->phy_int=
-erface !=3D PHY_INTERFACE_MODE_RMII)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 upsmr |=3D UCC_GETH_UPSMR_RPM;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0switch (ugeth-=
->max_speed) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0case SPEED_10:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0upsmr |=3D UCC_GETH_UPSMR_R10M;
+TOMOYO 1.x never fails since task's state variable is directly attached to
+"struct task_struct" but TOMOYO 2.x can fail since task's state variable will
+be indirectly attached via current->cred->security and memory allocation
+failure for new credential could occur. Though it unlikely fails, I have to
+abort connections by returning an error at socket_post_accept() hook if failed.
+
+I think the socket_post_accept() hook anyway need to be able to abort
+connections. (Or prepare new credential at socket_accept() and add a hook for
+discarding prepared credential when sock->ops->accept() returned an error?)
+
+Regards.
