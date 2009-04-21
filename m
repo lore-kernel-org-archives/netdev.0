@@ -1,41 +1,39 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Tue, 21 Apr 2009 17:56:27 +0400
-Message-ID: <20090421135627.GA1945@ioremap.net>
-References: <20090412195203.GA11899@ioremap.net> <7e0dd21a0904121330p3fe9b27bx1cd16a6c8fb9b574@mail.gmail.com> <20090412205334.GA14345@ioremap.net> <7e0dd21a0904121631u3fc7c676r12eb7e71fe87e02b@mail.gmail.com> <20090415071023.GA26986@ioremap.net> <7e0dd21a0904150614y301a01e4rdec1fe4f9a14c13f@mail.gmail.com> <20090416111616.GB28509@ioremap.net> <7e0dd21a0904181438j251f4f8cnc210c6dee8ce5212@mail.gmail.com> <20090421094149.GA22907@ioremap.net> <7e0dd21a0904210616o7bdbebc2p8ed29b47ac573e34@mail.gmail.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29 (results with
+ IRQ affinity)
+Date: Tue, 21 Apr 2009 10:00:15 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904210959510.19969@qirst.com>
+References: <49E78A79.6050604@cosmosbay.com> <49E78C1E.9060405@cosmosbay.com> <alpine.DEB.1.10.0904161555040.23632@qirst.com> <20090416.160002.09845606.davem@davemloft.net> <alpine.DEB.1.10.0904171238550.20049@qirst.com> <49EA2D7F.3080405@cosmosbay.com>
+ <alpine.DEB.1.10.0904201305360.1585@qirst.com> <49ECB775.6030202@cosmosbay.com> <alpine.DEB.1.10.0904201410430.3361@qirst.com> <49ECC30A.9040501@cosmosbay.com> <alpine.DEB.1.10.0904201510410.17816@qirst.com> <49ECD5E4.60100@cosmosbay.com>
+ <alpine.DEB.1.10.0904201712140.27942@qirst.com> <49ECEE9E.7050307@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
-To: Johann Baudy <johann.baudy@gnu-log.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.ru ([195.178.208.66]:60772 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751771AbZDUN4g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2009 09:56:36 -0400
-Content-Disposition: inline
-In-Reply-To: <7e0dd21a0904210616o7bdbebc2p8ed29b47ac573e34@mail.gmail.com>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:42260 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbZDUOIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 10:08:35 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id BC36182C6E6
+	for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 10:18:53 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id naPX64AKgUBt for <netdev@vger.kernel.org>;
+	Tue, 21 Apr 2009 10:18:47 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 9437C82C6E5
+	for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 10:18:35 -0400 (EDT)
+In-Reply-To: <49ECEE9E.7050307@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 21, 2009 at 03:16:49PM +0200, Johann Baudy (johann.baudy@gnu-log.net) wrote:
-> Yes but in this case, it will be called twice, as shared info (that
-> contains destructor) is memcopied to new expanded head.
-> shared info destructor will be excuted two times on "same" data
-> (during skb_expand_head() and during kfree_skb())
-> Actually, I want to know if this behavior is intended with a new
-> shared info destructor.
+On Mon, 20 Apr 2009, Eric Dumazet wrote:
 
-It depends on your task... You can always store a pointer in the
-tree/hash and check it in the destructor, you can play some games in the
-expand helper not to call destructor: like messing with the reference
-counter and reusing the old area, or silently freeing old area without
-destruction invocation (presumably with some new helper).
+> Not on 32bits afaik, with glibc I use at least, strace told me.
 
-Moreover you can allocate skb so that no matter what but it could not be
-reused by the underlying layers, so it could be fully copied. In this
-case usual destructor is enough.
-
--- 
-	Evgeniy Polyakov
+Right the vsyscall optimizations are not for 32 bit.
