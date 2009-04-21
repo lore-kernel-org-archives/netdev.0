@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_en: Fix cleanup if workqueue create in
- mlx4_en_add() fails
-Date: Tue, 21 Apr 2009 01:50:18 -0700 (PDT)
-Message-ID: <20090421.015018.163997666.davem@davemloft.net>
-References: <49EC859C.700@mellanox.co.il>
-	<49EC85FD.2080009@mellanox.co.il>
-	<adavdoywrsn.fsf_-_@cisco.com>
+Subject: Re: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
+Date: Tue, 21 Apr 2009 01:52:35 -0700 (PDT)
+Message-ID: <20090421.015235.23457775.davem@davemloft.net>
+References: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org,
-	tziporet@mellanox.co.il
-To: rdreier@cisco.com
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jon.lin@vatics.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43182
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44205
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756142AbZDUIu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 04:50:26 -0400
-In-Reply-To: <adavdoywrsn.fsf_-_@cisco.com>
+	by vger.kernel.org with ESMTP id S1755745AbZDUIwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 04:52:43 -0400
+In-Reply-To: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 20 Apr 2009 21:32:08 -0700
+From: <jon.lin@vatics.com>
+Date: Mon, 20 Apr 2009 20:58:01 +0800
 
-> If creating a workqueue fails, don't jump to the error path where that
-> same workqueue is destroyed, since destroy_workqueue() can't handle a
-> NULL pointer.
+> While ifconfig eth0 up kernel calls open() of 8139 driver(8139too.c).
+> In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before setting up the DMA buffer address. In this interval where RX was enabled and DMA buffer address is not yet set up, any incoming broadcast packet would be send to a strange physical address:
+> 0x003e8800 which is the default value of DMA buffer address.
+> Unfortunately, this address is used by Linux kernel. So kernel panics.
+> This patch fix it by setting up DMA buffer address before RX enabled and everything is fine even under broadcast packets attack.
 > 
-> This was spotted by the Coverity checker (CID 2617).
-> 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> Signed-off-by: Jonathan Lin <jon.lin@vatics.com>
 
-Applied.
+This patch does not apply, it was corrupted by your email client.
+
+I even think it has MS-DOS style newlines in it :-(
