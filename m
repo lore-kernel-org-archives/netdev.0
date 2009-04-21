@@ -1,157 +1,95 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
-Date: Tue, 21 Apr 2009 09:43:50 -0700
-Message-ID: <20090421094350.1e00207a@nehalam>
-References: <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>
-	<49E72E83.50702@trash.net>
-	<20090416.153354.170676392.davem@davemloft.net>
-	<20090416234955.GL6924@linux.vnet.ibm.com>
-	<20090417012812.GA25534@linux.vnet.ibm.com>
-	<20090418094001.GA2369@ioremap.net>
-	<20090418141455.GA7082@linux.vnet.ibm.com>
-	<20090420103414.1b4c490f@nehalam>
-	<49ECBE0A.7010303@cosmosbay.com>
-	<18924.59347.375292.102385@cargo.ozlabs.ibm.com>
-	<20090420215827.GK6822@linux.vnet.ibm.com>
-	<18924.64032.103954.171918@cargo.ozlabs.ibm.com>
-	<20090420160121.268a8226@nehalam>
-	<alpine.LFD.2.00.0904210831560.2199@localhost.localdomain>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH] v3 RCU implementation with fast grace periods
+Date: Tue, 21 Apr 2009 09:51:51 -0700
+Message-ID: <20090421165151.GJ6642@linux.vnet.ibm.com>
+References: <20090421045931.GA9953@linux.vnet.ibm.com> <20090421151034.GA3792@Krystal>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, mingo@elte.hu, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	torvalds@linux-foundation.org, shemminger@vyatta.com,
+	dada1@cosmosbay.com, jeff.chua.linux@gmail.com, paulus@samba.org,
+	mingo@elte.hu, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:60717 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756263AbZDUQv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Apr 2009 12:51:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20090421151034.GA3792@Krystal>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Apr 2009 09:13:52 -0700 (PDT)
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
+On Tue, Apr 21, 2009 at 11:10:35AM -0400, Mathieu Desnoyers wrote:
+> * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
 
+[ . . . ]
+
+> > +void synchronize_rcu_fgp(void)
+> > +{
+> > +	mutex_lock(&rcu_fgp_mutex);
+> > +	
+> > +	/* CPUs must see earlier change before parity flip. */
+> > +	smp_call_function(rcu_fgp_do_mb, NULL, 1);
+> > +
 > 
-> Ok, so others already pointed out how dangerous/buggy this looks, but I'd 
-> like to strengthen that a bit more:
+> Hrm, my original comment about missing smp_mb() here still applies, I
+> don't think we have come to an agreement yet.
+
+My argument is that smp_call_function() must necessarily contain a
+full memory barrier, otherwise it cannot function properly.  ;-)
+
+> > +	/*
+> > +	 * We must flip twice to correctly handle tasks that stall
+> > +	 * in rcu_read_lock_fgp() between the time that they fetch
+> > +	 * rcu_fgp_ctr and the time that the store to their CPU's
+> > +	 * rcu_fgp_active_readers.  No matter when they resume
+> > +	 * execution, we will wait for them to get to the corresponding
+> > +	 * rcu_read_unlock_fgp().
+> > +	 */
+> > +	ACCESS_ONCE(rcu_fgp_ctr) ^= RCU_FGP_PARITY;  /* flip parity 0 -> 1 */
+> > +	rcu_fgp_wait_for_quiescent_state();	     /* wait for old readers */
+> > +	ACCESS_ONCE(rcu_fgp_ctr) ^= RCU_FGP_PARITY;  /* flip parity 1 -> 0 */
+> > +	rcu_fgp_wait_for_quiescent_state();	     /* wait for old readers */
+> > +
+> > +	/* Prevent CPUs from reordering out of prior RCU critical sections. */
+> > +	smp_call_function(rcu_fgp_do_mb, NULL, 1);
+> > +
 > 
-> On Mon, 20 Apr 2009, Stephen Hemminger wrote:
+> Same here.
+> 
+> So we would need to either add a smp_mb() at both of these locations, or
+> use on_each_cpu() rather than smp_call_function. Note that this is to
+> ensure that the "updater" thread executes these memory barriers.
+
+Or rely on the barriers that must be part of smp_call_function.  ;-)
+
+						Thanx, Paul
+
+> Mathieu
+> 
+> 
+> > +	rcu_fgp_completed++;
+> > +	mutex_unlock(&rcu_fgp_mutex);
+> > +}
+> > +EXPORT_SYMBOL_GPL(synchronize_rcu_fgp);
 > > +
 > > +/**
-> > + * xt_table_info_rdlock_bh - recursive read lock for xt table info
+> > + * rcu_fgp_batches_completed - return batches completed.
+> > + * @sp: srcu_struct on which to report batch completion.
 > > + *
-> > + * Table processing calls this to hold off any changes to table
-> > + * (on current CPU). Always leaves with bottom half disabled.
-> > + * If called recursively, then assumes bh/preempt already disabled.
+> > + * Report the number of batches, correlated with, but not necessarily
+> > + * precisely the same as, the number of grace periods that have elapsed.
 > > + */
-> > +void xt_info_rdlock_bh(void)
+> > +long rcu_fgp_batches_completed(void)
 > > +{
-> > +	struct xt_info_lock *lock;
-> > +
-> > +	preempt_disable();
-> > +	lock = &__get_cpu_var(xt_info_locks);
-> > +	if (likely(++lock->depth == 0))
-> > +		spin_lock_bh(&lock->lock);
-> > +	preempt_enable_no_resched();
+> > +	return rcu_fgp_completed;
 > > +}
-> > +EXPORT_SYMBOL_GPL(xt_info_rdlock_bh);
+> > +EXPORT_SYMBOL_GPL(rcu_fgp_batches_completed);
 > 
-> This function is FUCKED UP.
-> 
-> It's total crap for several reasons"
-> 
->  - the already-mentioned race with bottom half locking.
-> 
->    If bottom halfs aren't already disabled, then if a bottom half comes in 
->    after the "++lock->depth" and before the spin_lock_bh(), then you will 
->    have no locking AT ALL for the processing of that bottom half - it will 
->    just increment the lock depth again, and nobody will have locked 
->    anything at all.
-> 
->    And if for some reason, you can prove that bottom half processing is 
->    already disabled, then ALL THAT OTHER CRAP is just that - CRAP. The 
->    whole preemption disabling, the whole "_bh()" thing, everything.
-> 
->    So either it's horribly buggy, or it's horribly broken and pointless. 
->    Take your pick.
-> 
->  - the total lack of comments. Why does that "count" protect anything? 
->    It's not a recursive lock, since there is no ownership (two 
->    independent accessors could call this and both "get" the lock), so you 
->    had damn well better create some big-ass comments about why it's ok in 
->    this case, and what the rules are that make it ok.
-> 
->    So DON'T GO AROUND CALLING IT A RECURSIVE LOCK! Don't write comments 
->    that are TOTAL AND UTTER SH*T! Just DON'T!
-> 
->    It's a "reader lock". It's not "recursive".  It never was recursive, it 
->    never will be, and calling it that is just a sign that whoever wrote 
->    the function is a moron and doesn't know what he is doing. STOP DOING THIS!
-> 
->  - that _idiotic_ "preempt_enable_no_resched()". F*ck me, but the comment 
->    already says that preemption is disabled when exiting, so why does it 
->    even bother to enable it? Why play those mindless games with preemption 
->    counts, knowing that they are bogus?
-> 
->    Do it readably. Disable preemption first, and just re-enable it at 
->    UNLOCK time. No odd pseudo-reenables anywhere.
-> 
-> Oh, I know very well that the spli-locking will disable preemption, so 
-> it's "correct" to play those games, but the point is, it's just damn 
-> stupid and annoying. It just makes the source code actively _misleading_ 
-> to see crap like that - it looks like you enabled preemption, when in fact 
-> the code very much on purpose does _not_ enable preemption at all. 
-> 
-> In other words, I really REALLY hate that patch. I think it looks slightly 
-> better than Eric Dumazet's original patch (at least the locking subtlety 
-> is now in a function of its own and _could_ be commented upon sanely and 
-> if it wasn't broken it might be acceptable), but quite frankly, I'd still 
-> horribly disgusted with the crap.
-> 
-> Why are you doing this insane thing? If you want a read-lock, just use the 
-> damned read-write locks already! Ad far as I can tell, this lock is in 
-> _no_ way better than just using those counting reader-writer locks, except 
-> it is open-coded and looks buggy.
-> 
-> There is basically _never_ a good reason to re-implement locking 
-> primitives: you'll just introduce bugs. As proven very ably by the amount 
-> of crap above in what is supposed to be a very simple function.
-> 
-> If you want a counting read-lock (in _order_ to allow recursion, but not 
-> because the lock itself is somehow recursive!), then that function should 
-> look like this:
-> 
-> 	void xt_info_rdlock_bh(void)
-> 	{
-> 		struct xt_info_lock *lock
-> 
-> 		local_bh_disable();
-> 		lock = &__get_cpu_var(xt_info_locks);
-> 		read_lock(&lock->lock);
-> 	}
-> 
-> And then the "unlock" should be the reverse. No games, no crap, and 
-> hopefully then no bugs. And if you do it that way, you don't even need the 
-> comments, although quite frankly, it probably makes a lot of sense to talk 
-> about the interaction between "local_bh_disable()" and the preempt count, 
-> and why you're not using "read_lock_bh()".
-> 
-> And if you don't want a read-lock, then fine - don't use a read-lock, do 
-> something else. But then don't just re-implement it (badly) either and 
-> call it something else!
-> 
-> 			Linus
-> 
-> PS: Ingo, why do the *_bh() functions in kernel/spinlock.c do _both_ a 
-> "local_bh_disable()" and a "preempt_disable()"? BH disable should disable 
-> preemption too, no? Or am I confused? In which case we need that in 
-> the above rdlock_bh too.
-
-Ah a nice day, with Linus giving constructive feedback. Too bad he has
-to channel it out of the dark side.
-
+> -- 
+> Mathieu Desnoyers
+> OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
