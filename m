@@ -1,282 +1,45 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH v3 07/17] ioq: add vbus helpers
-Date: Tue, 21 Apr 2009 14:34:54 -0400
-Message-ID: <20090421183454.12548.84002.stgit@dev.haskins.net>
-References: <20090421183341.12548.33393.stgit@dev.haskins.net>
+From: "Gerhard Pircher" <gerhard_pircher@gmx.net>
+Subject: Re: 3c59x: shared interrupt problem
+Date: Tue, 21 Apr 2009 20:36:14 +0200
+Message-ID: <20090421183614.97600@gmx.net>
+References: <20090309224253.135220@gmx.net>
+ <20090327075937.GA17119@bayes.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, alext@novell.com, anthony@codemonkey.ws,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org, avi@redhat.com,
-	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
-	chrisw@sous-sol.org, shemminger@vyatta.com, alex.williamson@hp.com
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:56992 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758012AbZDUSgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 14:36:14 -0400
-In-Reply-To: <20090421183341.12548.33393.stgit@dev.haskins.net>
+Received: from mail.gmx.net ([213.165.64.20]:50452 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1758047AbZDUSgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Apr 2009 14:36:20 -0400
+In-Reply-To: <20090327075937.GA17119@bayes.mathematik.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be common to map an IOQ over the VBUS shared-memory interfaces,
-so lets generalize their setup so we can reuse the pattern.
 
-Signed-off-by: Gregory Haskins <ghaskins@novell.com>
----
+-------- Original-Nachricht --------
+> Datum: Fri, 27 Mar 2009 08:59:37 +0100
+> Von: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+> An: Gerhard Pircher <gerhard_pircher@gmx.net>
+> CC: netdev@vger.kernel.org
+> Betreff: Re: 3c59x: shared interrupt problem
 
- include/linux/vbus_device.h |    7 +++
- include/linux/vbus_driver.h |    7 +++
- kernel/vbus/Kconfig         |    2 +
- kernel/vbus/Makefile        |    1 
- kernel/vbus/proxy.c         |   64 +++++++++++++++++++++++++++++++
- kernel/vbus/shm-ioq.c       |   89 +++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 170 insertions(+), 0 deletions(-)
- create mode 100644 kernel/vbus/shm-ioq.c
+> Do you see these messages always when your network hangs and does the
+> network recover after such a hang? Could you please send the output o=
+f
+> 'tc -s qdisc show' after a network hang?
+Sorry for the delay! Here's the output of tc after a network hang.
 
-diff --git a/include/linux/vbus_device.h b/include/linux/vbus_device.h
-index f73cd86..c91bce4 100644
---- a/include/linux/vbus_device.h
-+++ b/include/linux/vbus_device.h
-@@ -102,6 +102,7 @@
- #include <linux/configfs.h>
- #include <linux/rbtree.h>
- #include <linux/shm_signal.h>
-+#include <linux/ioq.h>
- #include <linux/vbus.h>
- #include <asm/atomic.h>
- 
-@@ -414,4 +415,10 @@ static inline void vbus_connection_put(struct vbus_connection *conn)
- 		conn->ops->release(conn);
- }
- 
-+/*
-+ * device-side IOQ helper - dereferences device-shm as an IOQ
-+ */
-+int vbus_shm_ioq_attach(struct vbus_shm *shm, struct shm_signal *signal,
-+			int maxcount, struct ioq **ioq);
-+
- #endif /* _LINUX_VBUS_DEVICE_H */
-diff --git a/include/linux/vbus_driver.h b/include/linux/vbus_driver.h
-index c53e13f..9cfbf60 100644
---- a/include/linux/vbus_driver.h
-+++ b/include/linux/vbus_driver.h
-@@ -26,6 +26,7 @@
- 
- #include <linux/device.h>
- #include <linux/shm_signal.h>
-+#include <linux/ioq.h>
- 
- struct vbus_device_proxy;
- struct vbus_driver;
-@@ -70,4 +71,10 @@ struct vbus_driver {
- int vbus_driver_register(struct vbus_driver *drv);
- void vbus_driver_unregister(struct vbus_driver *drv);
- 
-+/*
-+ * driver-side IOQ helper - allocates device-shm and maps an IOQ on it
-+ */
-+int vbus_driver_ioq_alloc(struct vbus_device_proxy *dev, int id, int prio,
-+			  size_t ringsize, struct ioq **ioq);
-+
- #endif /* _LINUX_VBUS_DRIVER_H */
-diff --git a/kernel/vbus/Kconfig b/kernel/vbus/Kconfig
-index 3aaa085..71acd6f 100644
---- a/kernel/vbus/Kconfig
-+++ b/kernel/vbus/Kconfig
-@@ -6,6 +6,7 @@ config VBUS
-        bool "Virtual Bus"
-        select CONFIGFS_FS
-        select SHM_SIGNAL
-+       select IOQ
-        default n
-        help
-         Provides a mechansism for declaring virtual-bus objects and binding
-@@ -15,6 +16,7 @@ config VBUS
- 
- config VBUS_DRIVERS
-        tristate "VBUS Driver support"
-+       select IOQ
-        default n
-        help
-         Adds support for a virtual bus model for proxying drivers.
-diff --git a/kernel/vbus/Makefile b/kernel/vbus/Makefile
-index d028ece..45f6503 100644
---- a/kernel/vbus/Makefile
-+++ b/kernel/vbus/Makefile
-@@ -1,4 +1,5 @@
- obj-$(CONFIG_VBUS) += core.o devclass.o config.o attribute.o map.o client.o
-+obj-$(CONFIG_VBUS) += shm-ioq.o
- 
- vbus-proxy-objs += proxy.o
- obj-$(CONFIG_VBUS_DRIVERS) += vbus-proxy.o
-diff --git a/kernel/vbus/proxy.c b/kernel/vbus/proxy.c
-index 3177f9f..88cd904 100644
---- a/kernel/vbus/proxy.c
-+++ b/kernel/vbus/proxy.c
-@@ -150,3 +150,67 @@ void vbus_driver_unregister(struct vbus_driver *drv)
- }
- EXPORT_SYMBOL_GPL(vbus_driver_unregister);
- 
-+/*
-+ *---------------------------------
-+ * driver-side IOQ helper
-+ *---------------------------------
-+ */
-+static void
-+vbus_driver_ioq_release(struct ioq *ioq)
-+{
-+	kfree(ioq->head_desc);
-+	kfree(ioq);
-+}
-+
-+static struct ioq_ops vbus_driver_ioq_ops = {
-+	.release = vbus_driver_ioq_release,
-+};
-+
-+
-+int vbus_driver_ioq_alloc(struct vbus_device_proxy *dev, int id, int prio,
-+			  size_t count, struct ioq **ioq)
-+{
-+	struct ioq           *_ioq;
-+	struct ioq_ring_head *head = NULL;
-+	struct shm_signal    *signal = NULL;
-+	size_t                len = IOQ_HEAD_DESC_SIZE(count);
-+	int                   ret = -ENOMEM;
-+
-+	_ioq = kzalloc(sizeof(*_ioq), GFP_KERNEL);
-+	if (!_ioq)
-+		goto error;
-+
-+	head = kzalloc(len, GFP_KERNEL | GFP_DMA);
-+	if (!head)
-+		goto error;
-+
-+	head->magic     = IOQ_RING_MAGIC;
-+	head->ver	= IOQ_RING_VER;
-+	head->count     = count;
-+
-+	ret = dev->ops->shm(dev, id, prio, head, len,
-+			    &head->signal, &signal, 0);
-+	if (ret < 0)
-+		goto error;
-+
-+	ioq_init(_ioq,
-+		 &vbus_driver_ioq_ops,
-+		 ioq_locality_north,
-+		 head,
-+		 signal,
-+		 count);
-+
-+	*ioq = _ioq;
-+
-+	return 0;
-+
-+ error:
-+	kfree(_ioq);
-+	kfree(head);
-+
-+	if (signal)
-+		shm_signal_put(signal);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(vbus_driver_ioq_alloc);
-diff --git a/kernel/vbus/shm-ioq.c b/kernel/vbus/shm-ioq.c
-new file mode 100644
-index 0000000..a627337
---- /dev/null
-+++ b/kernel/vbus/shm-ioq.c
-@@ -0,0 +1,89 @@
-+/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * IOQ helper for devices - This module implements an IOQ which has
-+ * been shared with a device via a vbus_shm segment.
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
-+
-+#include <linux/ioq.h>
-+#include <linux/vbus_device.h>
-+
-+struct _ioq {
-+	struct vbus_shm *shm;
-+	struct ioq ioq;
-+};
-+
-+static void
-+_shm_ioq_release(struct ioq *ioq)
-+{
-+	struct _ioq *_ioq = container_of(ioq, struct _ioq, ioq);
-+
-+	/* the signal is released by the IOQ infrastructure */
-+	vbus_shm_put(_ioq->shm);
-+	kfree(_ioq);
-+}
-+
-+static struct ioq_ops _shm_ioq_ops = {
-+	.release = _shm_ioq_release,
-+};
-+
-+int vbus_shm_ioq_attach(struct vbus_shm *shm, struct shm_signal *signal,
-+			int maxcount, struct ioq **ioq)
-+{
-+	struct _ioq *_ioq;
-+	struct ioq_ring_head *head = NULL;
-+	size_t ringcount;
-+
-+	if (!signal)
-+		return -EINVAL;
-+
-+	_ioq = kzalloc(sizeof(*_ioq), GFP_KERNEL);
-+	if (!_ioq)
-+		return -ENOMEM;
-+
-+	head = (struct ioq_ring_head *)shm->ptr;
-+
-+	if (head->magic != IOQ_RING_MAGIC)
-+		return -EINVAL;
-+
-+	if (head->ver != IOQ_RING_VER)
-+		return -EINVAL;
-+
-+	ringcount = head->count;
-+
-+	if ((maxcount != -1) && (ringcount > maxcount))
-+		return -EINVAL;
-+
-+	/*
-+	 * Sanity check the ringcount against the actual length of the segment
-+	 */
-+	if (IOQ_HEAD_DESC_SIZE(ringcount) != shm->len)
-+		return -EINVAL;
-+
-+	_ioq->shm = shm;
-+
-+	ioq_init(&_ioq->ioq, &_shm_ioq_ops, ioq_locality_south, head,
-+		 signal, ringcount);
-+
-+	*ioq = &_ioq->ioq;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(vbus_shm_ioq_attach);
-+
+qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
+1 1 1 1 1 1
+ Sent 4633909 bytes 64766 pkt (dropped 0, overlimits 0 requeues 0)=20
+ rate 0bit 0pps backlog 0b 0p requeues 0=20
 
+regards,
+
+Gerhard
+--=20
+Psssst! Schon vom neuen GMX MultiMessenger geh=F6rt? Der kann`s mit all=
+en: http://www.gmx.net/de/go/multimessenger01
