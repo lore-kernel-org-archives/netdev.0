@@ -1,159 +1,131 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
-Date: Tue, 21 Apr 2009 19:03:58 -0400
-Message-ID: <20090421230358.GA13660@hmsreliant.think-freely.org>
-References: <20090421193937.GC9577@hmsreliant.think-freely.org> <49EE257B.6090600@cosmosbay.com> <20090421200958.GD9577@hmsreliant.think-freely.org> <49EE307D.7050409@cosmosbay.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH] v3 RCU implementation with fast grace periods
+Date: Tue, 21 Apr 2009 16:07:59 -0700
+Message-ID: <20090421230759.GO6642@linux.vnet.ibm.com>
+References: <20090421045931.GA9953@linux.vnet.ibm.com> <20090421151034.GA3792@Krystal> <20090421165151.GJ6642@linux.vnet.ibm.com> <20090421211158.GD15045@Krystal>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60359 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751644AbZDUXEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 19:04:04 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	torvalds@linux-foundation.org, shemminger@vyatta.com,
+	dada1@cosmosbay.com, jeff.chua.linux@gmail.com, paulus@samba.org,
+	mingo@elte.hu, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49EE307D.7050409@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090421211158.GD15045@Krystal>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 21, 2009 at 10:45:49PM +0200, Eric Dumazet wrote:
-> Neil Horman a =E9crit :
-> > On Tue, Apr 21, 2009 at 09:58:51PM +0200, Eric Dumazet wrote:
-> >> Neil Horman a =E9crit :
-> >>> The IP MIB (RFC 4293) defines stats for InOctets, OutOctets, InMc=
-astOctets and
-> >>> OutMcastOctets:
-> >>> http://tools.ietf.org/html/rfc4293
-> >>> But it seems we don't track those in any way that easy to separat=
-e from other
-> >>> protocols.  This patch adds those missing counters to the stats f=
-ile.  Tested
-> >>> successfully by me
-> >>>
-> >>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >>>
-> >>>
-> >>>  include/linux/snmp.h  |    4 ++++
-> >>>  net/ipv4/ip_input.c   |    4 ++++
-> >>>  net/ipv4/ip_output.c  |    3 +++
-> >>>  net/ipv4/proc.c       |    4 ++++
-> >>>  net/ipv6/ip6_input.c  |    4 ++++
-> >>>  net/ipv6/ip6_output.c |    8 ++++++++
-> >>>  net/ipv6/mcast.c      |    9 +++++++++
-> >>>  net/ipv6/ndisc.c      |    3 +++
-> >>>  net/ipv6/proc.c       |    4 ++++
-> >>>  net/ipv6/raw.c        |    6 ++++++
-> >>>  10 files changed, 49 insertions(+)
-> >>>
-> >>> diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-> >>> index aee3f1e..95c17f6 100644
-> >>> --- a/include/linux/snmp.h
-> >>> +++ b/include/linux/snmp.h
-> >>> @@ -19,6 +19,8 @@ enum
-> >>>  {
-> >>>  	IPSTATS_MIB_NUM =3D 0,
-> >>>  	IPSTATS_MIB_INRECEIVES,			/* InReceives */
-> >>> +	IPSTATS_MIB_INOCTETS,			/* InOctets */
-> >>> +	IPSTATS_MIB_INMCASTOCTETS,		/* InMcastOctets */
-> >>>  	IPSTATS_MIB_INHDRERRORS,		/* InHdrErrors */
-> >>>  	IPSTATS_MIB_INTOOBIGERRORS,		/* InTooBigErrors */
-> >>>  	IPSTATS_MIB_INNOROUTES,			/* InNoRoutes */
-> >>> @@ -29,6 +31,8 @@ enum
-> >>>  	IPSTATS_MIB_INDELIVERS,			/* InDelivers */
-> >>>  	IPSTATS_MIB_OUTFORWDATAGRAMS,		/* OutForwDatagrams */
-> >>>  	IPSTATS_MIB_OUTREQUESTS,		/* OutRequests */
-> >>> +	IPSTATS_MIB_OUTOCTETS,			/* OutOctets */
-> >>> +	IPSTATS_MIB_OUTMCASTOCTETS,		/* OutMcastOctets */
-> >>>  	IPSTATS_MIB_OUTDISCARDS,		/* OutDiscards */
-> >>>  	IPSTATS_MIB_OUTNOROUTES,		/* OutNoRoutes */
-> >>>  	IPSTATS_MIB_REASMTIMEOUT,		/* ReasmTimeout */
-> >>> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-> >>> index 1a58a6f..bc9169b 100644
-> >>> --- a/net/ipv4/ip_input.c
-> >>> +++ b/net/ipv4/ip_input.c
-> >>> @@ -385,6 +385,7 @@ int ip_rcv(struct sk_buff *skb, struct net_de=
-vice *dev, struct packet_type *pt,
-> >>>  		goto drop;
-> >>> =20
-> >>>  	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INRECEIVES);
-> >>> +	IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_INOCTETS, skb->len);
-> >>> =20
-> >>>  	if ((skb =3D skb_share_check(skb, GFP_ATOMIC)) =3D=3D NULL) {
-> >>>  		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
-> >>> @@ -396,6 +397,9 @@ int ip_rcv(struct sk_buff *skb, struct net_de=
-vice *dev, struct packet_type *pt,
-> >>> =20
-> >>>  	iph =3D ip_hdr(skb);
-> >>> =20
-> >>> +	if (ipv4_is_multicast(iph->daddr))
-> >>> +		IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_INMCASTOCTETS, skb->=
-len);
-> >>> +
-> >>>  	/*
-> >>>  	 *	RFC1122: 3.2.1.2 MUST silently discard any IP frame that fai=
-ls the checksum.
-> >>>  	 *
-> >>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> >>> index 3e7e910..8a68dc2 100644
-> >>> --- a/net/ipv4/ip_output.c
-> >>> +++ b/net/ipv4/ip_output.c
-> >>> @@ -245,6 +245,8 @@ int ip_mc_output(struct sk_buff *skb)
-> >>>  	 *	If the indicated interface is up and running, send the packe=
-t.
-> >>>  	 */
-> >>>  	IP_INC_STATS(dev_net(dev), IPSTATS_MIB_OUTREQUESTS);
-> >>> +	IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_OUTOCTETS, skb->len);
-> >>> +	IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_OUTMCASTOCTETS, skb->=
-len);
-> >> So you use the _BH variant right after IP_INC_STATS() ?
-> >> Which one is right (or which one is false ?)
-> >>
-> >=20
-> > Both are correct (right now), at least as far as I can tell.  I'm n=
-ot 100% sure why ADD
-> > was named ADD_BH, except for the fact that it doesn't toggle the us=
-e of the mib
-> > array passed in.  I think the right solution would be to simply ren=
-ame
-> > IP_ADD_STATS_BH to IP_ADD_STATS, and modify its implementation to a=
-ccess
-> > mib[!in_softirq()] rather than just mib[0].  I had planned to do th=
-is in a
-> > followup cleanup patch.  Alternatively, I could add a new IP_ADD_ST=
-ATS to be
-> > complete, but I don't really see the advantage (asside from not che=
-cking
-> > in_softirq quite as often).
-> >=20
->=20
-> Both usages in the same function cannot be correct.
->=20
-> Either you use _BH variant because you know you are in softirq
-> (and non preemptable) context.
->=20
-> Either you use non_BH variant because you are in possibly preemptable=
- context.
->=20
-> Mixing both just proves there is a problem.
->=20
-> And we use _BH variant because it is currently faster (this might cha=
-nge in 2.6.31
-> thanks to per_cpu infra changes)
->=20
->=20
->=20
-Yeah, Self-NAK.  I'm sorry, you're right. I had myself convinced it did=
-n't
-really matter in the use-cases, but looking back over it, I'm not sure =
-what I
-was thinking.  I need to implement IP_ADD_STATS (currently it doesn't e=
-xist),
-and replace all the use cases in this patch.  Simple enough.  I'll repo=
-st in the
-AM.=20
+On Tue, Apr 21, 2009 at 05:11:58PM -0400, Mathieu Desnoyers wrote:
+> * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
+> > On Tue, Apr 21, 2009 at 11:10:35AM -0400, Mathieu Desnoyers wrote:
+> > > * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
+> > 
+> > [ . . . ]
+> > 
+> > > > +void synchronize_rcu_fgp(void)
+> > > > +{
+> > > > +	mutex_lock(&rcu_fgp_mutex);
+> > > > +	
+> > > > +	/* CPUs must see earlier change before parity flip. */
+> > > > +	smp_call_function(rcu_fgp_do_mb, NULL, 1);
+> > > > +
+> > > 
+> > > Hrm, my original comment about missing smp_mb() here still applies, I
+> > > don't think we have come to an agreement yet.
+> > 
+> > My argument is that smp_call_function() must necessarily contain a
+> > full memory barrier, otherwise it cannot function properly.  ;-)
+> > 
+> 
+> Looking at :
+> 
+> kernel/smp.c
+> 
+> smp_call_function_many() indeed has a smp_mb(). It is called by
+> smp_call_function(). I wonder if it could eventually be turned into a
+> smp_wmb() instead ? If this is even a remote possibility, then the fact
+> that
+> 
+> - The rcu_fgp code does not document that it expects smp_call_function()
+>   to have a smp_mb().
+> - The fact that smp_call_function_many() comments do not state that this
+>   function provides the guarantee to run a smp_mb().
+> 
+> are both asking for an eventual bug to creep into the kernel.
 
-Thanks for the whack with the clue stick :)
-Neil
+Many bugs -- I believe that a number of users of smp_call_function()
+assume that it maintains ordering between the calling code and all
+invocations of the function passed to smp_call_function().
 
+> So your assumption seems OK, but I think it needs to be explicitly
+> documented.
+
+That might well be a good thing.
+
+							Thanx, Paul
+
+> Mathieu
+> 
+> > > > +	/*
+> > > > +	 * We must flip twice to correctly handle tasks that stall
+> > > > +	 * in rcu_read_lock_fgp() between the time that they fetch
+> > > > +	 * rcu_fgp_ctr and the time that the store to their CPU's
+> > > > +	 * rcu_fgp_active_readers.  No matter when they resume
+> > > > +	 * execution, we will wait for them to get to the corresponding
+> > > > +	 * rcu_read_unlock_fgp().
+> > > > +	 */
+> > > > +	ACCESS_ONCE(rcu_fgp_ctr) ^= RCU_FGP_PARITY;  /* flip parity 0 -> 1 */
+> > > > +	rcu_fgp_wait_for_quiescent_state();	     /* wait for old readers */
+> > > > +	ACCESS_ONCE(rcu_fgp_ctr) ^= RCU_FGP_PARITY;  /* flip parity 1 -> 0 */
+> > > > +	rcu_fgp_wait_for_quiescent_state();	     /* wait for old readers */
+> > > > +
+> > > > +	/* Prevent CPUs from reordering out of prior RCU critical sections. */
+> > > > +	smp_call_function(rcu_fgp_do_mb, NULL, 1);
+> > > > +
+> > > 
+> > > Same here.
+> > > 
+> > > So we would need to either add a smp_mb() at both of these locations, or
+> > > use on_each_cpu() rather than smp_call_function. Note that this is to
+> > > ensure that the "updater" thread executes these memory barriers.
+> > 
+> > Or rely on the barriers that must be part of smp_call_function.  ;-)
+> > 
+> > 						Thanx, Paul
+> > 
+> > > Mathieu
+> > > 
+> > > 
+> > > > +	rcu_fgp_completed++;
+> > > > +	mutex_unlock(&rcu_fgp_mutex);
+> > > > +}
+> > > > +EXPORT_SYMBOL_GPL(synchronize_rcu_fgp);
+> > > > +
+> > > > +/**
+> > > > + * rcu_fgp_batches_completed - return batches completed.
+> > > > + * @sp: srcu_struct on which to report batch completion.
+> > > > + *
+> > > > + * Report the number of batches, correlated with, but not necessarily
+> > > > + * precisely the same as, the number of grace periods that have elapsed.
+> > > > + */
+> > > > +long rcu_fgp_batches_completed(void)
+> > > > +{
+> > > > +	return rcu_fgp_completed;
+> > > > +}
+> > > > +EXPORT_SYMBOL_GPL(rcu_fgp_batches_completed);
+> > > 
+> > > -- 
+> > > Mathieu Desnoyers
+> > > OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+> 
+> -- 
+> Mathieu Desnoyers
+> OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
