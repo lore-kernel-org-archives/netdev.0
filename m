@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
-Date: Tue, 21 Apr 2009 01:49:23 -0700 (PDT)
-Message-ID: <20090421.014923.169153421.davem@davemloft.net>
-References: <49ED6D2E.5060808@cn.fujitsu.com>
-	<20090421081649.GA16782@ioremap.net>
-	<49ED8700.3010603@cn.fujitsu.com>
+Subject: Re: [PATCH 3/5] mlx4_en: Assign dummy event handler for TX queue
+Date: Tue, 21 Apr 2009 01:50:02 -0700 (PDT)
+Message-ID: <20090421.015002.210656049.davem@davemloft.net>
+References: <49EC859C.700@mellanox.co.il>
+	<49EC86EB.1000004@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, shemminger@vyatta.com, dada1@cosmosbay.com,
-	paulus@samba.org, paulmck@linux.vnet.ibm.com, kaber@trash.net,
-	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
-	mingo@elte.hu, jengelh@medozas.de, r000n@r000n.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: laijs@cn.fujitsu.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755886AbZDUIts@vger.kernel.org>
-In-Reply-To: <49ED8700.3010603@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43173
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755400AbZDUIuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 04:50:10 -0400
+In-Reply-To: <49EC86EB.1000004@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Date: Tue, 21 Apr 2009 16:42:40 +0800
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Mon, 20 Apr 2009 17:30:03 +0300
 
-> softirq is always not nesting. Why we need recursive lock?
+> The low level driver always assumes this handler exists.
+> The lack of it could cause kernel panic
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Netfilter itself, is nesting.
-
-When using bridging netfilter, iptables can be entered twice
-in the same call chain.
+Applied.
