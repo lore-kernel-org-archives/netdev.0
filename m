@@ -1,60 +1,152 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: Network latency regressions from 2.6.22 to 2.6.29 (MSI off)
-Date: Tue, 21 Apr 2009 15:36:32 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904211526580.5597@qirst.com>
-References: <49E78A79.6050604@cosmosbay.com> <49E78C1E.9060405@cosmosbay.com> <alpine.DEB.1.10.0904161555040.23632@qirst.com> <20090416.160002.09845606.davem@davemloft.net> <alpine.DEB.1.10.0904171238550.20049@qirst.com> <49EA2D7F.3080405@cosmosbay.com>
- <alpine.DEB.1.10.0904201305360.1585@qirst.com> <49ECB775.6030202@cosmosbay.com> <alpine.DEB.1.10.0904201410430.3361@qirst.com> <49ECC30A.9040501@cosmosbay.com> <alpine.DEB.1.10.0904201510410.17816@qirst.com> <49ECD5E4.60100@cosmosbay.com>
- <alpine.DEB.1.10.0904201712140.27942@qirst.com> <49ECEE9E.7050307@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
+Date: Tue, 21 Apr 2009 21:46:27 +0200
+Message-ID: <49EE2293.4090201@cosmosbay.com>
+References: <20090418094001.GA2369@ioremap.net> <20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam> <20090421191007.GA15485@elte.hu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:37976 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753229AbZDUToj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 15:44:39 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id E6AAC82C6F4
-	for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 15:55:00 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.174.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 8PnxHYoAMq0H for <netdev@vger.kernel.org>;
-	Tue, 21 Apr 2009 15:55:00 -0400 (EDT)
-Received: from qirst.com (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 84D5882C6F5
-	for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 15:54:58 -0400 (EDT)
-In-Reply-To: <49ECEE9E.7050307@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090421191007.GA15485@elte.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Ingo Molnar a =E9crit :
+>=20
+> Why not use the obvious solution: a _single_ wrlock for global=20
+> access and read_can_lock() plus per cpu locks in the fastpath?
+
+Obvious is not the qualifier I would use :)
+
+Brilliant yes :)
+
+>=20
+> That way there's no global cacheline bouncing (just the _reading_ of=20
+> a global cacheline - which will be nicely localized - on NUMA too) -=20
+> and we will hold at most 1-2 locks at once!
+>=20
+> Something like:
+>=20
+> 	__cacheline_aligned DEFINE_RWLOCK(global_wrlock);
+>=20
+> 	DEFINE_PER_CPU(rwlock_t local_lock);
+>=20
+>=20
+> 	void local_read_lock(void)
+> 	{
+> 	again:
+> 		read_lock(&per_cpu(local_lock, this_cpu));
+
+Hmm... here we can see global_wrlock locked by on writer, while
+this cpu already called local_read_lock(), and calls again this
+function -> Deadlock, because we hold our local_lock locked.
+
+>=20
+> 		if (unlikely(!read_can_lock(&global_wrlock))) {
+> 			read_unlock(&per_cpu(local_lock, this_cpu));
+> 			/*
+> 			 * Just wait for any global write activity:
+> 			 */
+> 			read_unlock_wait(&global_wrlock);
+> 			goto again;
+> 		}
+> 	}
+>=20
+> 	void global_write_lock(void)
+> 	{
+> 		write_lock(&global_wrlock);
+>=20
+> 		for_each_possible_cpu(i)
+> 			write_unlock_wait(&per_cpu(local_lock, i));
+> 	}
+>=20
+> Note how nesting friendly this construct is: we dont actually _hold_=20
+> NR_CPUS locks all at once, we simply cycle through all CPUs and make=20
+> sure they have our attention.
+>=20
+> No preempt overflow. No lockdep explosion. A very fast and scalable=20
+> read path.
+>=20
+> Okay - we need to implement read_unlock_wait() and=20
+> write_unlock_wait() which is similar to spin_unlock_wait(). The=20
+> trivial first-approximation is:
+>=20
+> 	read_unlock_wait(x)
+> 	{
+> 		read_lock(x);
+> 		read_unlock(x);
+> 	}
+>=20
+> 	write_unlock_wait(x)
+> 	{
+> 		write_lock(x);
+> 		write_unlock(x);
+> 	}
+>=20
+
+Very interesting and could be changed to use spinlock + depth per cpu.
+
+-> we can detect recursion and avoid the deadlock, and we only use one
+atomic operation per lock/unlock pair in fastpath (this was the reason =
+we
+tried hard to use a percpu spinlock during this thread)
 
 
-Switching off MSI increases the latency another step:
+__cacheline_aligned DEFINE_RWLOCK(global_wrlock);
+
+struct ingo_local_lock {
+	spinlock_t lock;
+	int depth;
+};
+DEFINE_PER_CPU(struct ingo_local_lock local_lock);
 
 
-MSI off
-UDP ping pong 40 bytes	Test 1	Test 2	Test 3	Test 4
-2.6.27		91.1725	91.31	91.17	91.12	91.09
-2.6.28		91.5625	91.71	91.45	91.67	91.42
-2.6.29		91.7	91.71	91.67	91.72	91.7
-2.6.30-rc2	91.835	91.83	91.78	91.82	91.91
+void local_read_lock(void)
+{
+	struct ingo_local_lock *lck;
 
-MSI on
+	local_bh_and_preempt_disable();
+	lck =3D &get_cpu_var(local_lock);
+	if (++lck->depth > 0) /* already locked */
+		return;
+again:
+	spin_lock(&lck->lock);
 
-UDP ping pong 40 bytes	Test 1	Test 2	Test 3	Test 4
-2.6.22		83.1125	83.4	83.03	82.95	83.07
-2.6.23		83.33	83.51	83.18	83.42	83.21
-2.6.24		82.7775	82.8	82.77	82.77	82.77
-2.6.25		85.875	85.94	85.75	86.06	85.75
-2.6.26		87.4025	87.53	87.25	87.3	87.53
-2.6.27		87.81	87.81	87.77	87.82	87.84
-2.6.28		87.4275	87.77	87.24	87.28	87.42
-2.6.29		88.4325	88.48	88.42	88.44	88.39
-2.6.30-rc2	88.4925	88.49	88.44	88.56	88.48
+	if (unlikely(!read_can_lock(&global_wrlock))) {
+		spin_unlock(&lck->lock);
+		/*
+		 * Just wait for any global write activity:
+		 */
+		read_unlock_wait(&global_wrlock);
+		goto again;
+	}
+}
 
-Next test series will have always the same kernel on one side etc.
+void global_write_lock(void)
+{
+	write_lock(&global_wrlock);
+
+	for_each_possible_cpu(i)
+		spin_unlock_wait(&per_cpu(local_lock, i));
+}
 
 
+
+Hmm ?
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
