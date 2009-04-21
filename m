@@ -1,39 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atmel: fix netdev ops conversion
-Date: Tue, 21 Apr 2009 02:09:04 -0700 (PDT)
-Message-ID: <20090421.020904.15963653.davem@davemloft.net>
-References: <1240304720.17388.13.camel@johannes.local>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 01/22] usb gadget: fix ethernet link reports to ethtool
+Date: Tue, 21 Apr 2009 02:15:21 -0700
+Message-ID: <200904210215.21534.david-b@pacbell.net>
+References: <200904171245.14785.david-b@pacbell.net> <20090421.015736.84503557.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37601
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753172AbZDUJJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 05:09:12 -0400
-In-Reply-To: <1240304720.17388.13.camel@johannes.local>
+Received: from n10.bullet.mail.mud.yahoo.com ([209.191.125.208]:33342 "HELO
+	n10.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756256AbZDUJPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 05:15:24 -0400
+In-Reply-To: <20090421.015736.84503557.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 21 Apr 2009 11:05:20 +0200
+On Tuesday 21 April 2009, David Miller wrote:
+> From: David Brownell <david-b@pacbell.net>
+> Date: Fri, 17 Apr 2009 12:45:14 -0700
+> 
+> > Hmm, I should probably try to cc netdev on some of these
+> > patches.  They're fairly infrequent any more, but...
+> > 
+> > Likewise, it'd be good to get cc'd from netdev on patches
+> > that affect drivers/usb/gadget ... I was very recently
+> > surprised to see a "phonet" driver just appear.
+> 
+> David, want me to add this patch to net-2.6?
 
-> sparse says:
-> 
-> drivers/net/wireless/atmel.c:1501:3: warning: Initializer entry defined twice
-> drivers/net/wireless/atmel.c:1505:3:   also defined here
-> 
-> and it's correct; atmel has its own ndo_change_mtu and
-> shouldn't use eth_change_mtu.
-> 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> ---
-> It looks like you (davem) took the initial conversion, do you want this
-> one as well?
-
-Yep, I've got it, applied, thanks Johannes!
+No, it's already gone to Linus and merged.  This was just a FYI.
 
