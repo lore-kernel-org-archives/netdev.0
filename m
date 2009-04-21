@@ -1,45 +1,81 @@
-From: "Gerhard Pircher" <gerhard_pircher@gmx.net>
-Subject: Re: 3c59x: shared interrupt problem
-Date: Tue, 21 Apr 2009 20:36:14 +0200
-Message-ID: <20090421183614.97600@gmx.net>
-References: <20090309224253.135220@gmx.net>
- <20090327075937.GA17119@bayes.mathematik.tu-chemnitz.de>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: [RFC PATCH v3 08/17] venet: add the ABI definitions for an 802.x
+	packet interface
+Date: Tue, 21 Apr 2009 14:35:00 -0400
+Message-ID: <20090421183459.12548.58059.stgit@dev.haskins.net>
+References: <20090421183341.12548.33393.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:50452 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1758047AbZDUSgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2009 14:36:20 -0400
-In-Reply-To: <20090327075937.GA17119@bayes.mathematik.tu-chemnitz.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, alext@novell.com, anthony@codemonkey.ws,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, avi@redhat.com,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	chrisw@sous-sol.org, shemminger@vyatta.com, alex.williamson@hp.com
+To: linux-kernel@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090421183341.12548.33393.stgit@dev.haskins.net>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+---
 
--------- Original-Nachricht --------
-> Datum: Fri, 27 Mar 2009 08:59:37 +0100
-> Von: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-> An: Gerhard Pircher <gerhard_pircher@gmx.net>
-> CC: netdev@vger.kernel.org
-> Betreff: Re: 3c59x: shared interrupt problem
+ include/linux/venet.h |   47 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 47 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/venet.h
 
-> Do you see these messages always when your network hangs and does the
-> network recover after such a hang? Could you please send the output o=
-f
-> 'tc -s qdisc show' after a network hang?
-Sorry for the delay! Here's the output of tc after a network hang.
+diff --git a/include/linux/venet.h b/include/linux/venet.h
+new file mode 100644
+index 0000000..ef6b199
+--- /dev/null
++++ b/include/linux/venet.h
+@@ -0,0 +1,47 @@
++/*
++ * Copyright 2008 Novell.  All Rights Reserved.
++ *
++ * Virtual-Ethernet adapter
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#ifndef _LINUX_VENET_H
++#define _LINUX_VENET_H
++
++#define VENET_VERSION 1
++
++#define VENET_TYPE "virtual-ethernet"
++
++#define VENET_QUEUE_RX 0
++#define VENET_QUEUE_TX 1
++
++struct venet_capabilities {
++	__u32 gid;
++	__u32 bits;
++};
++
++/* CAPABILITIES-GROUP 0 */
++/* #define VENET_CAP_FOO    0   (No capabilities defined yet, for now) */
++
++#define VENET_FUNC_LINKUP   0
++#define VENET_FUNC_LINKDOWN 1
++#define VENET_FUNC_MACQUERY 2
++#define VENET_FUNC_NEGCAP   3 /* negotiate capabilities */
++#define VENET_FUNC_FLUSHRX  4
++
++#endif /* _LINUX_VENET_H */
 
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 =
-1 1 1 1 1 1
- Sent 4633909 bytes 64766 pkt (dropped 0, overlimits 0 requeues 0)=20
- rate 0bit 0pps backlog 0b 0p requeues 0=20
-
-regards,
-
-Gerhard
---=20
-Psssst! Schon vom neuen GMX MultiMessenger geh=F6rt? Der kann`s mit all=
-en: http://www.gmx.net/de/go/multimessenger01
