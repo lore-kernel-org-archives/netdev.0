@@ -1,43 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [ofa-general] NetEffect, iw_nes and kernel warning
-Date: Tue, 21 Apr 2009 20:50:08 +0800
-Message-ID: <20090421125008.GA18493@gondor.apana.org.au>
-References: <20090130065721.GA4886@gondor.apana.org.au>
-	<adaiqnwr91j.fsf@cisco.com>
-	<20090130.135107.116108989.davem@davemloft.net>
-	<ada3af0qgez.fsf@cisco.com>
-	<20090421090918.GA6034@mail.wantstofly.org>
-	<20090421124919.GA18444@gondor.apana.org.au>
+From: "Michael S. Tsirkin" <m.s.tsirkin@gmail.com>
+Subject: Re: [PATCH 0/3] tun: fix aio
+Date: Tue, 21 Apr 2009 15:50:21 +0300
+Message-ID: <20090421125020.GA9740@dhcp-1-124.tlv.redhat.com>
+References: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	aluno3@poczta.onet.pl, David Miller <davem@davemloft.net>,
-	general@lists.openfabrics.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <general-bounces@lists.openfabrics.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:43608 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208AbZDUMvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 08:51:24 -0400
+Received: by ewy24 with SMTP id 24so1570666ewy.37
+        for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 05:51:22 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090421124919.GA18444@gondor.apana.org.au>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 21, 2009 at 08:49:19PM +0800, Herbert Xu wrote:
-> 
-> I don't think the issue here is the leak.  Calling skb_linearize is
-> simply illegal if you support netpoll because netpoll will call the
-> xmit routine with IRQs off.
+On Mon, Apr 20, 2009 at 02:25:27PM +0300, Michael S. Tsirkin wrote:
+> The following patches make tun_chr_aio_read and tun_chr_aio_write not modify
+> the iovec so that io_submit/io_getevents succeed, becoming functionally
+> equivalent to write/read on the device.
 
-On the other hand if netpoll never generates a packet that requires
-linearisation, maybe it will work :)
+What are the thoughts on these patches?
+Is this a reasonable thing to do?
+
+Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+MST
