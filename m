@@ -1,78 +1,57 @@
-From: <jon.lin@vatics.com>
-Subject: RE: [PATCH 2.6.29.1 1/1] 8139too: fix HW initial flow
-Date: Tue, 21 Apr 2009 18:09:46 +0800
-Message-ID: <0E04AEADD178614A86F3017CC5FA693B4959924D17@MS.vivotek.tw>
-References: <0E04AEADD178614A86F3017CC5FA693B4959924809@MS.vivotek.tw>
- <20090421.015235.23457775.davem@davemloft.net> <20090421094825.GA6752@ubuntu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="big5"
-Content-Transfer-Encoding: base64
-Cc: <dada1@cosmosbay.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <jianjun@zeuux.org>, <davem@davemloft.net>
+From: tzungder@cobra.ee.ntu.edu.tw (User Tzungder)
+Subject: [PATCH 2.6.29.1 1/1]8139too:fix HW initial flow
+Date: Tue, 21 Apr 2009 18:13:41 +0800 (CST)
+Message-ID: <20090421101341.3ECFD1380B4@cobra.ee.ntu.edu.tw>
+Cc: dada1@cosmosbay.com, jon.lin@vatics.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	tzungder@cobra.ee.ntu.edu.tw
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dns.vivotek.com ([211.21.25.250]:32651 "EHLO edge.vivotek.tw"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755231AbZDUKJw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2009 06:09:52 -0400
-In-Reply-To: <20090421094825.GA6752@ubuntu>
-Content-Language: zh-TW
+Received: from cobra.ee.ntu.edu.tw ([140.112.42.65]:50144 "EHLO
+	cobra.ee.ntu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752759AbZDUKZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 06:25:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGVhciBTaXJzLA0KDQpJIGFtIHNvIHNvcnJ5IGZvciBteSBjbHVtc2luZXNzIQ0KSXQgaXMgc28g
-ZW1iYXJyYXNzZWQgdGhhdCBJIGNhbid0IHN1Ym1pdCBhIHZhbGlkIHBhdGNoLi4uDQpUaGFuayB5
-b3UgYWxsIGZvciB5b3VyIGluY3JlZGlibGUgcGF0aWVuY2UuDQpJIHdpbGwgdHJ5IHRvIHVzZSBt
-YWlsIGNvbW1hbmQgaW4gbXkgTGludXggYm94IHRvIHN1Ym1pdCBpdCBhZ2Fpbi4NClNvcnJ5IGZv
-ciB0aGVzZSBzdHVwaWQgZmFpbHVyZXMuDQoNClJlZ2FyZHMNCiAgSm9uYXRoYW4NCg0KDQotLS0t
-LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogQW1vcyBLb25nIFttYWlsdG86amlhbmp1bkB6
-ZXV1eC5vcmddDQpTZW50OiBUdWVzZGF5LCBBcHJpbCAyMSwgMjAwOSA1OjQ4IFBNDQpUbzogRGF2
-aWQgTWlsbGVyDQpDYzogSm9uLkxpbiiqTKl2vHcpOyBkYWRhMUBjb3Ntb3NiYXkuY29tOyBuZXRk
-ZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0
-OiBSZTogW1BBVENIIDIuNi4yOS4xIDEvMV0gODEzOXRvbzogZml4IEhXIGluaXRpYWwgZmxvdw0K
-DQouLi4NCj4+IFVuZm9ydHVuYXRlbHksIHRoaXMgYWRkcmVzcyBpcyB1c2VkIGJ5IExpbnV4IGtl
-cm5lbC4gU28ga2VybmVsIHBhbmljcy4NCj4+IFRoaXMgcGF0Y2ggZml4IGl0IGJ5IHNldHRpbmcg
-dXAgRE1BIGJ1ZmZlciBhZGRyZXNzIGJlZm9yZSBSWCBlbmFibGVkIGFuZCBldmVyeXRoaW5nIGlz
-IGZpbmUgZXZlbiB1bmRlciBicm9hZGNhc3QgcGFja2V0cyBhdHRhY2suDQo+Pg0KPj4gU2lnbmVk
-LW9mZi1ieTogSm9uYXRoYW4gTGluIDxqb24ubGluQHZhdGljcy5jb20+DQo+DQo+VGhpcyBwYXRj
-aCBkb2VzIG5vdCBhcHBseSwgaXQgd2FzIGNvcnJ1cHRlZCBieSB5b3VyIGVtYWlsIGNsaWVudC4N
-Cj4NCj5JIGV2ZW4gdGhpbmsgaXQgaGFzIE1TLURPUyBzdHlsZSBuZXdsaW5lcyBpbiBpdCA6LSgN
-Cg0KQW5vdGhlciBuZXcgcGF0Y2ggOikNCg0KDQogV2hpbGUgaWZjb25maWcgZXRoMCB1cCBrZXJu
-ZWwgY2FsbHMgb3BlbigpIG9mIDgxMzkgZHJpdmVyKDgxMzl0b28uYykuDQogSW4gcnRsODEzOV9o
-d19zdGFydCgpIG9mIHJ0bDgxMzlfb3BlbigpLCA4MTM5IGRyaXZlciBlbmFibGUgUlggYmVmb3Jl
-IHNldHRpbmcgdXAgdGhlIERNQQ0KIGJ1ZmZlciBhZGRyZXNzLiBJbiB0aGlzIGludGVydmFsIHdo
-ZXJlIFJYIHdhcyBlbmFibGVkIGFuZCBETUEgYnVmZmVyIGFkZHJlc3MgaXMgbm90IHlldCBzZXQN
-CiB1cCwgYW55IGluY29taW5nIGJyb2FkY2FzdCBwYWNrZXQgd291bGQgYmUgc2VuZCB0byBhIHN0
-cmFuZ2UgcGh5c2ljYWwgYWRkcmVzczoNCiAweDAwM2U4ODAwIHdoaWNoIGlzIHRoZSBkZWZhdWx0
-IHZhbHVlIG9mIERNQSBidWZmZXIgYWRkcmVzcy4NCiBVbmZvcnR1bmF0ZWx5LCB0aGlzIGFkZHJl
-c3MgaXMgdXNlZCBieSBMaW51eCBrZXJuZWwuIFNvIGtlcm5lbCBwYW5pY3MuDQogVGhpcyBwYXRj
-aCBmaXggaXQgYnkgc2V0dGluZyB1cCBETUEgYnVmZmVyIGFkZHJlc3MgYmVmb3JlIFJYIGVuYWJs
-ZWQgYW5kIGV2ZXJ5dGhpbmcgaXMgZmluZQ0KIGV2ZW4gdW5kZXIgYnJvYWRjYXN0IHBhY2tldHMg
-YXR0YWNrLg0KDQpTaWduZWQtb2ZmLWJ5OiBKb25hdGhhbiBMaW4gPGpvbi5saW5AdmF0aWNzLmNv
-bT4NClNpZ25lZC1vZmYtYnk6IEFtb3MgS29uZyA8amlhbmp1bkB6ZXV1eC5vcmc+DQoNCi0tLQ0K
-IGRyaXZlcnMvbmV0LzgxMzl0b28uYyB8ICAgMTAgKysrKystLS0tLQ0KIDEgZmlsZXMgY2hhbmdl
-ZCwgNSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvODEzOXRvby5jIGIvZHJpdmVycy9uZXQvODEzOXRvby5jDQppbmRleCAyOWRmMzk4Li4x
-ZmM0NTQzIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvODEzOXRvby5jDQorKysgYi9kcml2ZXJz
-L25ldC84MTM5dG9vLmMNCkBAIC0xMzgzLDYgKzEzODMsMTEgQEAgc3RhdGljIHZvaWQgcnRsODEz
-OV9od19zdGFydCAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCiAgICAgICAgUlRMX1czMl9GIChN
-QUMwICsgMCwgbGUzMl90b19jcHUgKCooX19sZTMyICopIChkZXYtPmRldl9hZGRyICsgMCkpKTsN
-CiAgICAgICAgUlRMX1czMl9GIChNQUMwICsgNCwgbGUxNl90b19jcHUgKCooX19sZTE2ICopIChk
-ZXYtPmRldl9hZGRyICsgNCkpKTsNCg0KKyAgICAgICB0cC0+Y3VyX3J4ID0gMDsNCisNCisgICAg
-ICAgLyogaW5pdCBSeCByaW5nIGJ1ZmZlciBETUEgYWRkcmVzcyAqLw0KKyAgICAgICBSVExfVzMy
-X0YgKFJ4QnVmLCB0cC0+cnhfcmluZ19kbWEpOw0KKw0KICAgICAgICAvKiBNdXN0IGVuYWJsZSBU
-eC9SeCBiZWZvcmUgc2V0dGluZyB0cmFuc2ZlciB0aHJlc2hvbGRzISAqLw0KICAgICAgICBSVExf
-VzggKENoaXBDbWQsIENtZFJ4RW5iIHwgQ21kVHhFbmIpOw0KDQpAQCAtMTM5MCw4ICsxMzk1LDYg
-QEAgc3RhdGljIHZvaWQgcnRsODEzOV9od19zdGFydCAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikN
-CiAgICAgICAgUlRMX1czMiAoUnhDb25maWcsIHRwLT5yeF9jb25maWcpOw0KICAgICAgICBSVExf
-VzMyIChUeENvbmZpZywgcnRsODEzOV90eF9jb25maWcpOw0KDQotICAgICAgIHRwLT5jdXJfcngg
-PSAwOw0KLQ0KICAgICAgICBydGxfY2hlY2tfbWVkaWEgKGRldiwgMSk7DQoNCiAgICAgICAgaWYg
-KHRwLT5jaGlwc2V0ID49IENIXzgxMzlCKSB7DQpAQCAtMTQwNiw5ICsxNDA5LDYgQEAgc3RhdGlj
-IHZvaWQgcnRsODEzOV9od19zdGFydCAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCiAgICAgICAg
-LyogTG9jayBDb25maWdbMDEyMzRdIGFuZCBCTUNSIHJlZ2lzdGVyIHdyaXRlcyAqLw0KICAgICAg
-ICBSVExfVzggKENmZzkzNDYsIENmZzkzNDZfTG9jayk7DQoNCi0gICAgICAgLyogaW5pdCBSeCBy
-aW5nIGJ1ZmZlciBETUEgYWRkcmVzcyAqLw0KLSAgICAgICBSVExfVzMyX0YgKFJ4QnVmLCB0cC0+
-cnhfcmluZ19kbWEpOw0KLQ0KICAgICAgICAvKiBpbml0IFR4IGJ1ZmZlciBETUEgYWRkcmVzc2Vz
-ICovDQogICAgICAgIGZvciAoaSA9IDA7IGkgPCBOVU1fVFhfREVTQzsgaSsrKQ0KICAgICAgICAg
-ICAgICAgIFJUTF9XMzJfRiAoVHhBZGRyMCArIChpICogNCksIHRwLT50eF9idWZzX2RtYSArICh0
-cC0+dHhfYnVmW2ldIC0gdHAtPnR4X2J1ZnMpKTsNCi0tDQoxLjUuNi4zDQoNCg0K
+From:Jonathan Lin <jon.lin@vatics.com>
+
+While ifconfig eth0 up kernel call open() of 8139 driver(8139too.c).
+In rtl8139_hw_start() of rtl8139_open(), 8139 driver enable RX before setting up the DMA buffer address. In this interval where RX was enabled and DMA buffer address is not yet set up, any incoming broadcast packet would be send to a strange physical address: 0x003e8800 which is the default value of DMA buffer address.
+Unfortunately, this address is used by Linux kernel. So kernel panics.
+This patch fix it by setting up DMA buffer address before RX enabled and everything is fine even under broadcast packets attack.
+
+Signed-off-by:Jonathan Lin <jon.lin@vatics.com>
+
+--- linux-2.6.29.1/drivers/net/8139too.c.orig	2009-04-20 20:46:21.000000000 +0800
++++ linux-2.6.29.1/drivers/net/8139too.c	2009-04-20 20:58:39.000000000 +0800
+@@ -1382,6 +1382,10 @@ static void rtl8139_hw_start (struct net
+ 	RTL_W32_F (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
+ 	RTL_W32_F (MAC0 + 4, le16_to_cpu (*(__le16 *) (dev->dev_addr + 4)));
+ 
++	tp->cur_rx = 0;
++	/* init Rx ring buffer DMA address BEFORE Rx enabled*/
++	RTL_W32_F (RxBuf, tp->rx_ring_dma);
++	
+ 	/* Must enable Tx/Rx before setting transfer thresholds! */
+ 	RTL_W8 (ChipCmd, CmdRxEnb | CmdTxEnb);
+ 
+@@ -1389,8 +1393,6 @@ static void rtl8139_hw_start (struct net
+ 	RTL_W32 (RxConfig, tp->rx_config);
+ 	RTL_W32 (TxConfig, rtl8139_tx_config);
+ 
+-	tp->cur_rx = 0;
+-
+ 	rtl_check_media (dev, 1);
+ 
+ 	if (tp->chipset >= CH_8139B) {
+@@ -1405,9 +1407,6 @@ static void rtl8139_hw_start (struct net
+ 	/* Lock Config[01234] and BMCR register writes */
+ 	RTL_W8 (Cfg9346, Cfg9346_Lock);
+ 
+-	/* init Rx ring buffer DMA address */
+-	RTL_W32_F (RxBuf, tp->rx_ring_dma);
+-
+ 	/* init Tx buffer DMA addresses */
+ 	for (i = 0; i < NUM_TX_DESC; i++)
+ 		RTL_W32_F (TxAddr0 + (i * 4), tp->tx_bufs_dma + (tp->tx_buf[i] - tp->tx_bufs));
