@@ -1,56 +1,60 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
-Date: Tue, 21 Apr 2009 21:39:24 +0200
-Message-ID: <20090421193924.GA24404@elte.hu>
-References: <20090418094001.GA2369@ioremap.net> <20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Network latency regressions from 2.6.22 to 2.6.29 (MSI off)
+Date: Tue, 21 Apr 2009 15:36:32 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904211526580.5597@qirst.com>
+References: <49E78A79.6050604@cosmosbay.com> <49E78C1E.9060405@cosmosbay.com> <alpine.DEB.1.10.0904161555040.23632@qirst.com> <20090416.160002.09845606.davem@davemloft.net> <alpine.DEB.1.10.0904171238550.20049@qirst.com> <49EA2D7F.3080405@cosmosbay.com>
+ <alpine.DEB.1.10.0904201305360.1585@qirst.com> <49ECB775.6030202@cosmosbay.com> <alpine.DEB.1.10.0904201410430.3361@qirst.com> <49ECC30A.9040501@cosmosbay.com> <alpine.DEB.1.10.0904201510410.17816@qirst.com> <49ECD5E4.60100@cosmosbay.com>
+ <alpine.DEB.1.10.0904201712140.27942@qirst.com> <49ECEE9E.7050307@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090421111541.228e977a@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:37976 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753229AbZDUToj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 15:44:39 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id E6AAC82C6F4
+	for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 15:55:00 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 8PnxHYoAMq0H for <netdev@vger.kernel.org>;
+	Tue, 21 Apr 2009 15:55:00 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 84D5882C6F5
+	for <netdev@vger.kernel.org>; Tue, 21 Apr 2009 15:54:58 -0400 (EDT)
+In-Reply-To: <49ECEE9E.7050307@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-* Stephen Hemminger <shemminger@vyatta.com> wrote:
+Switching off MSI increases the latency another step:
 
-> +void xt_info_wrunlock_bh(void)
-> +	__releases(xt_info_lock)
-> +{
-> +	unsigned int i;
-> +
-> +	for_each_possible_cpu(i) {
-> +#if NR_CPUS > (PREEMPT_MASK - 1)
-> +		/*
-> +		 * Spin_unlock calls preempt_enable, but since we had
-> +		 * to adjust the count in xt_info_wrlock_bh, do it again
-> +		 */
-> +		preempt_disable();
-> +#endif
-> +		write_unlock(&per_cpu(xt_info_locks, i));
-> +	}
-> +	local_bh_enable();
-> +}
 
-In the global/local lock scheme i proposed this would become:
+MSI off
+UDP ping pong 40 bytes	Test 1	Test 2	Test 3	Test 4
+2.6.27		91.1725	91.31	91.17	91.12	91.09
+2.6.28		91.5625	91.71	91.45	91.67	91.42
+2.6.29		91.7	91.71	91.67	91.72	91.7
+2.6.30-rc2	91.835	91.83	91.78	91.82	91.91
 
-	global_write_unlock(void)
-	{
-		write_unlock(&global_lock);
-	}
+MSI on
 
-As we dont hold the local locks during the write-locked critical 
-section. No loop needed over CPUs, no preempt nesting complications, 
-no lockdep complications, etc.
+UDP ping pong 40 bytes	Test 1	Test 2	Test 3	Test 4
+2.6.22		83.1125	83.4	83.03	82.95	83.07
+2.6.23		83.33	83.51	83.18	83.42	83.21
+2.6.24		82.7775	82.8	82.77	82.77	82.77
+2.6.25		85.875	85.94	85.75	86.06	85.75
+2.6.26		87.4025	87.53	87.25	87.3	87.53
+2.6.27		87.81	87.81	87.77	87.82	87.84
+2.6.28		87.4275	87.77	87.24	87.28	87.42
+2.6.29		88.4325	88.48	88.42	88.44	88.39
+2.6.30-rc2	88.4925	88.49	88.44	88.56	88.48
 
-	Ingo
+Next test series will have always the same kernel on one side etc.
+
+
