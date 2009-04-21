@@ -1,68 +1,30 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
-Date: Tue, 21 Apr 2009 12:16:49 +0400
-Message-ID: <20090421081649.GA16782@ioremap.net>
-References: <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <49ED406F.2040401@cn.fujitsu.com> <49ED4407.8010200@cosmosbay.com> <49ED5813.1000803@cn.fujitsu.com> <20090420224540.30d7b0ed@nehalam> <49ED6D2E.5060808@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/8] tg3: Handle NVRAM absent cases
+Date: Tue, 21 Apr 2009 01:41:51 -0700 (PDT)
+Message-ID: <20090421.014151.239447870.davem@davemloft.net>
+References: <1240247956.7015@xw6200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
-	mingo@elte.hu, jengelh@medozas.de, r000n@r000n.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49ED6D2E.5060808@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mchan@broadcom.com, benli@broadcom.com,
+	andy@greyhouse.net
+To: mcarlson@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54721
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752011AbZDUIl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 04:41:59 -0400
+In-Reply-To: <1240247956.7015@xw6200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi.
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Mon, 20 Apr 2009 09:57:14 -0700
 
-On Tue, Apr 21, 2009 at 02:52:30PM +0800, Lai Jiangshan (laijs@cn.fujitsu.com) wrote:
-> > +void xt_info_rdlock_bh(void)
-> > > +{
-> > > +	struct xt_info_lock *lock;
-> > > +
-> > > +	preempt_disable();
-> > > +	lock = &__get_cpu_var(xt_info_locks);
-> > > +	if (likely(++lock->depth == 0))
+> Some 57780 ASIC revision parts do not have NVRAM.  Code the driver so
+> that it is tolerant of this configuration.
 > 
-> So what happen when xt_info_rdlock_bh() called recursively here?
-> 
-> > > +		spin_lock_bh(&lock->lock);
-> > > +	preempt_enable_no_resched();
-> > > +}
-> > > +EXPORT_SYMBOL_GPL(xt_info_rdlock_bh);
-> > > +
-> 
-> ----------
-> Is this OK? (Now I suppose we can enter the read-side critical region
-> in irq context)
-> 
-> void xt_info_rdlock_bh(void)
-> {
-> 	unsigned long flags;
-> 	struct xt_info_lock *lock;
-> 
-> 	local_irq_save(flags);
-> 	lock = &__get_cpu_var(xt_info_locks);
-> 	if (likely(++lock->depth == 0))
-> 		spin_lock_bh(&lock->lock);
-> 	local_irq_restore(flags);
-> }
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Netfilter as long as other generic network pathes are never accessed
-from interrupt context, but your analysis looks right for the softirq
-case.
-
-Stephen, should preempt_disable() be replaced with local_bh_disable() to
-prevent softirq to race on the same cpu for the lock's depth field? Or
-can it be made atomic?
-
--- 
-	Evgeniy Polyakov
+Applied.
