@@ -1,90 +1,791 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
-Date: Tue, 21 Apr 2009 11:34:29 -0700
-Message-ID: <20090421183429.GL6642@linux.vnet.ibm.com>
-References: <20090417012812.GA25534@linux.vnet.ibm.com> <20090418094001.GA2369@ioremap.net> <20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: [RFC PATCH v3 06/17] ioq: Add basic definitions for a shared-memory,
+	lockless queue
+Date: Tue, 21 Apr 2009 14:34:49 -0400
+Message-ID: <20090421183449.12548.90490.stgit@dev.haskins.net>
+References: <20090421183341.12548.33393.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, mingo@elte.hu, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:46362 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755109AbZDUSeg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2009 14:34:36 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, alext@novell.com, anthony@codemonkey.ws,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org, avi@redhat.com,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	chrisw@sous-sol.org, shemminger@vyatta.com, alex.williamson@hp.com
+To: linux-kernel@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090421183341.12548.33393.stgit@dev.haskins.net>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 21, 2009 at 09:13:52AM -0700, Linus Torvalds wrote:
-> 
-> Ok, so others already pointed out how dangerous/buggy this looks, but I'd 
-> like to strengthen that a bit more:
+We can map these over VBUS shared memory (or really any shared-memory
+architecture if it supports shm-signals) to allow asynchronous
+communication between two end-points.  Memory is synchronized using
+pure barriers (i.e. lockless), so IOQs are friendly in many contexts,
+even if the memory is remote.
 
-I believe that at least some of this is naming...
+Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+---
 
-> On Mon, 20 Apr 2009, Stephen Hemminger wrote:
+ include/linux/ioq.h |  410 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/Kconfig         |   12 +
+ lib/Makefile        |    1 
+ lib/ioq.c           |  298 +++++++++++++++++++++++++++++++++++++
+ 4 files changed, 721 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/ioq.h
+ create mode 100644 lib/ioq.c
 
-[ . . . ]
+diff --git a/include/linux/ioq.h b/include/linux/ioq.h
+new file mode 100644
+index 0000000..d450d9a
+--- /dev/null
++++ b/include/linux/ioq.h
+@@ -0,0 +1,410 @@
++/*
++ * Copyright 2009 Novell.  All Rights Reserved.
++ *
++ * IOQ is a generic shared-memory, lockless queue mechanism. It can be used
++ * in a variety of ways, though its intended purpose is to become the
++ * asynchronous communication path for virtual-bus drivers.
++ *
++ * The following are a list of key design points:
++ *
++ * #) All shared-memory is always allocated on explicitly one side of the
++ *    link.  This typically would be the guest side in a VM/VMM scenario.
++ * #) Each IOQ has the concept of "north" and "south" locales, where
++ *    north denotes the memory-owner side (e.g. guest).
++ * #) An IOQ is manipulated using an iterator idiom.
++ * #) Provides a bi-directional signaling/notification infrastructure on
++ *    a per-queue basis, which includes an event mitigation strategy
++ *    to reduce boundary switching.
++ * #) The signaling path is abstracted so that various technologies and
++ *    topologies can define their own specific implementation while sharing
++ *    the basic structures and code.
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#ifndef _LINUX_IOQ_H
++#define _LINUX_IOQ_H
++
++#include <asm/types.h>
++#include <linux/shm_signal.h>
++
++/*
++ *---------
++ * The following structures represent data that is shared across boundaries
++ * which may be quite disparate from one another (e.g. Windows vs Linux,
++ * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
++ * present data in a manner that is independent of the environment.
++ *-----------
++ */
++struct ioq_ring_desc {
++	__u64                 cookie; /* for arbitrary use by north-side */
++	__u64                 ptr;
++	__u64                 len;
++	__u8                  valid;
++	__u8                  sown; /* South owned = 1, North owned = 0 */
++};
++
++#define IOQ_RING_MAGIC 0x47fa2fe4
++#define IOQ_RING_VER   4
++
++struct ioq_ring_idx {
++	__u32                 head;    /* 0 based index to head of ptr array */
++	__u32                 tail;    /* 0 based index to tail of ptr array */
++	__u8                  full;
++};
++
++enum ioq_locality {
++	ioq_locality_north,
++	ioq_locality_south,
++};
++
++struct ioq_ring_head {
++	__u32                  magic;
++	__u32                  ver;
++	struct shm_signal_desc signal;
++	struct ioq_ring_idx    idx[2];
++	__u32                  count;
++	struct ioq_ring_desc   ring[1]; /* "count" elements will be allocated */
++};
++
++#define IOQ_HEAD_DESC_SIZE(count) \
++    (sizeof(struct ioq_ring_head) + sizeof(struct ioq_ring_desc) * (count - 1))
++
++/* --- END SHARED STRUCTURES --- */
++
++#ifdef __KERNEL__
++
++#include <linux/sched.h>
++#include <linux/wait.h>
++#include <linux/interrupt.h>
++#include <linux/shm_signal.h>
++#include <asm/atomic.h>
++
++enum ioq_idx_type {
++	ioq_idxtype_valid,
++	ioq_idxtype_inuse,
++	ioq_idxtype_both,
++	ioq_idxtype_invalid,
++};
++
++enum ioq_seek_type {
++	ioq_seek_tail,
++	ioq_seek_next,
++	ioq_seek_head,
++	ioq_seek_set
++};
++
++struct ioq_iterator {
++	struct ioq            *ioq;
++	struct ioq_ring_idx   *idx;
++	u32                    pos;
++	struct ioq_ring_desc  *desc;
++	int                    update:1;
++	int                    dualidx:1;
++	int                    flipowner:1;
++};
++
++struct ioq_notifier {
++	void (*signal)(struct ioq_notifier *);
++};
++
++struct ioq_ops {
++	void     (*release)(struct ioq *ioq);
++};
++
++struct ioq {
++	struct ioq_ops *ops;
++
++	atomic_t               refs;
++	enum ioq_locality      locale;
++	struct ioq_ring_head  *head_desc;
++	struct ioq_ring_desc  *ring;
++	struct shm_signal     *signal;
++	wait_queue_head_t      wq;
++	struct ioq_notifier   *notifier;
++	size_t                 count;
++	struct shm_signal_notifier shm_notifier;
++};
++
++#define IOQ_ITER_AUTOUPDATE  (1 << 0)
++#define IOQ_ITER_NOFLIPOWNER (1 << 1)
++
++/**
++ * ioq_init() - initialize an IOQ
++ * @ioq:        IOQ context
++ *
++ * Initializes IOQ context before first use
++ *
++ **/
++void ioq_init(struct ioq *ioq,
++	      struct ioq_ops *ops,
++	      enum ioq_locality locale,
++	      struct ioq_ring_head *head,
++	      struct shm_signal *signal,
++	      size_t count);
++
++/**
++ * ioq_get() - acquire an IOQ context reference
++ * @ioq:        IOQ context
++ *
++ **/
++static inline struct ioq *ioq_get(struct ioq *ioq)
++{
++	atomic_inc(&ioq->refs);
++
++	return ioq;
++}
++
++/**
++ * ioq_put() - release an IOQ context reference
++ * @ioq:        IOQ context
++ *
++ **/
++static inline void ioq_put(struct ioq *ioq)
++{
++	if (atomic_dec_and_test(&ioq->refs)) {
++		shm_signal_put(ioq->signal);
++		ioq->ops->release(ioq);
++	}
++}
++
++/**
++ * ioq_notify_enable() - enables local notifications on an IOQ
++ * @ioq:        IOQ context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Enables/unmasks the registered ioq_notifier (if applicable) and waitq to
++ * receive wakeups whenever the remote side performs an ioq_signal() operation.
++ * A notification will be dispatched immediately if any pending signals have
++ * already been issued prior to invoking this call.
++ *
++ * This is synonymous with unmasking an interrupt.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++static inline int ioq_notify_enable(struct ioq *ioq, int flags)
++{
++	return shm_signal_enable(ioq->signal, 0);
++}
++
++/**
++ * ioq_notify_disable() - disable local notifications on an IOQ
++ * @ioq:        IOQ context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Disables/masks the registered ioq_notifier (if applicable) and waitq
++ * from receiving any further notifications.  Any subsequent calls to
++ * ioq_signal() by the remote side will update the ring as dirty, but
++ * will not traverse the locale boundary and will not invoke the notifier
++ * callback or wakeup the waitq.  Signals delivered while masked will
++ * be deferred until ioq_notify_enable() is invoked
++ *
++ * This is synonymous with masking an interrupt
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++static inline int ioq_notify_disable(struct ioq *ioq, int flags)
++{
++	return shm_signal_disable(ioq->signal, 0);
++}
++
++/**
++ * ioq_signal() - notify the remote side about ring changes
++ * @ioq:        IOQ context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Marks the ring state as "dirty" and, if enabled, will traverse
++ * a locale boundary to invoke a remote notification.  The remote
++ * side controls whether the notification should be delivered via
++ * the ioq_notify_enable/disable() interface.
++ *
++ * The specifics of how to traverse a locale boundary are abstracted
++ * by the ioq_ops->signal() interface and provided by a particular
++ * implementation.  However, typically going north to south would be
++ * something like a syscall/hypercall, and going south to north would be
++ * something like a posix-signal/guest-interrupt.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++static inline int ioq_signal(struct ioq *ioq, int flags)
++{
++	return shm_signal_inject(ioq->signal, 0);
++}
++
++/**
++ * ioq_count() - counts the number of outstanding descriptors in an index
++ * @ioq:        IOQ context
++ * @type:	Specifies the index type
++ *                 (*) valid: the descriptor is valid.  This is usually
++ *                     used to keep track of descriptors that may not
++ *                     be carrying a useful payload, but still need to
++ *                     be tracked carefully.
++ *                 (*) inuse: Descriptors that carry useful payload
++ *
++ * Returns:
++ *  (*) >=0: # of descriptors outstanding in the index
++ *  (*) <0 = ERRNO
++ *
++ **/
++int ioq_count(struct ioq *ioq, enum ioq_idx_type type);
++
++/**
++ * ioq_remain() - counts the number of remaining descriptors in an index
++ * @ioq:        IOQ context
++ * @type:	Specifies the index type
++ *                 (*) valid: the descriptor is valid.  This is usually
++ *                     used to keep track of descriptors that may not
++ *                     be carrying a useful payload, but still need to
++ *                     be tracked carefully.
++ *                 (*) inuse: Descriptors that carry useful payload
++ *
++ * This is the converse of ioq_count().  This function returns the number
++ * of "free" descriptors left in a particular index
++ *
++ * Returns:
++ *  (*) >=0: # of descriptors remaining in the index
++ *  (*) <0 = ERRNO
++ *
++ **/
++int ioq_remain(struct ioq *ioq, enum ioq_idx_type type);
++
++/**
++ * ioq_size() - counts the maximum number of descriptors in an ring
++ * @ioq:        IOQ context
++ *
++ * This function returns the maximum number of descriptors supported in
++ * a ring, regardless of their current state (free or inuse).
++ *
++ * Returns:
++ *  (*) >=0: total # of descriptors in the ring
++ *  (*) <0 = ERRNO
++ *
++ **/
++int ioq_size(struct ioq *ioq);
++
++/**
++ * ioq_full() - determines if a specific index is "full"
++ * @ioq:        IOQ context
++ * @type:	Specifies the index type
++ *                 (*) valid: the descriptor is valid.  This is usually
++ *                     used to keep track of descriptors that may not
++ *                     be carrying a useful payload, but still need to
++ *                     be tracked carefully.
++ *                 (*) inuse: Descriptors that carry useful payload
++ *
++ * Returns:
++ *  (*) 0: index is not full
++ *  (*) 1: index is full
++ *  (*) <0 = ERRNO
++ *
++ **/
++int ioq_full(struct ioq *ioq, enum ioq_idx_type type);
++
++/**
++ * ioq_empty() - determines if a specific index is "empty"
++ * @ioq:        IOQ context
++ * @type:	Specifies the index type
++ *                 (*) valid: the descriptor is valid.  This is usually
++ *                     used to keep track of descriptors that may not
++ *                     be carrying a useful payload, but still need to
++ *                     be tracked carefully.
++ *                 (*) inuse: Descriptors that carry useful payload
++ *
++ * Returns:
++ *  (*) 0: index is not empty
++ *  (*) 1: index is empty
++ *  (*) <0 = ERRNO
++ *
++ **/
++static inline int ioq_empty(struct ioq *ioq, enum ioq_idx_type type)
++{
++    return !ioq_count(ioq, type);
++}
++
++/**
++ * ioq_iter_init() - initialize an iterator for IOQ descriptor traversal
++ * @ioq:        IOQ context to iterate on
++ * @iter:	Iterator context to init (usually from stack)
++ * @type:	Specifies the index type to iterate against
++ *                 (*) valid: iterate against the "valid" index
++ *                 (*) inuse: iterate against the "inuse" index
++ *                 (*) both: iterate against both indexes simultaneously
++ * @flags:      Bitfield with 0 or more bits set to alter behavior
++ *                 (*) autoupdate: automatically signal the remote side
++ *                     whenever the iterator pushes/pops to a new desc
++ *                 (*) noflipowner: do not flip the ownership bit during
++ *                     a push/pop operation
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
++		  enum ioq_idx_type type, int flags);
++
++/**
++ * ioq_iter_seek() - seek to a specific location in the IOQ ring
++ * @iter:	Iterator context (must be initialized with ioq_iter_init)
++ * @type:	Specifies the type of seek operation
++ *                 (*) tail: seek to the absolute tail, offset is ignored
++ *                 (*) next: seek to the relative next, offset is ignored
++ *                 (*) head: seek to the absolute head, offset is ignored
++ *                 (*) set: seek to the absolute offset
++ * @offset:     Offset for ioq_seek_set operations
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int  ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
++		   long offset, int flags);
++
++/**
++ * ioq_iter_push() - push the tail pointer forward
++ * @iter:	Iterator context (must be initialized with ioq_iter_init)
++ * @flags:      Reserved for future use, must be 0
++ *
++ * This function will simultaneously advance the tail ptr in the current
++ * index (valid/inuse, as specified in the ioq_iter_init) as well as
++ * perform a seek(next) operation.  This effectively "pushes" a new pointer
++ * onto the tail of the index.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int  ioq_iter_push(struct ioq_iterator *iter, int flags);
++
++/**
++ * ioq_iter_pop() - pop the head pointer from the ring
++ * @iter:	Iterator context (must be initialized with ioq_iter_init)
++ * @flags:      Reserved for future use, must be 0
++ *
++ * This function will simultaneously advance the head ptr in the current
++ * index (valid/inuse, as specified in the ioq_iter_init) as well as
++ * perform a seek(next) operation.  This effectively "pops" a pointer
++ * from the head of the index.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int  ioq_iter_pop(struct ioq_iterator *iter,  int flags);
++
++#endif /* __KERNEL__ */
++
++#endif /* _LINUX_IOQ_H */
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 1b249a3..8fb4939 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -200,4 +200,16 @@ config SHM_SIGNAL
+ 
+ 	 If unsure, say N
+ 
++config IOQ
++	boolean "IO-Queue library - Generic shared-memory queue"
++	select SHM_SIGNAL
++	default n
++	help
++	 IOQ is a generic shared-memory-queue mechanism that happens to be
++	 friendly to virtualization boundaries. It can be used in a variety
++	 of ways, though its intended purpose is to become the low-level
++	 communication path for paravirtualized drivers.
++
++	 If unsure, say N
++
+ endmenu
+diff --git a/lib/Makefile b/lib/Makefile
+index 1ef4156..68f2dc9 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -76,6 +76,7 @@ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
+ obj-$(CONFIG_SMP) += percpu_counter.o
+ obj-$(CONFIG_AUDIT_GENERIC) += audit.o
+ obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
++obj-$(CONFIG_IOQ) += ioq.o
+ 
+ obj-$(CONFIG_SWIOTLB) += swiotlb.o
+ obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
+diff --git a/lib/ioq.c b/lib/ioq.c
+new file mode 100644
+index 0000000..803b5d6
+--- /dev/null
++++ b/lib/ioq.c
+@@ -0,0 +1,298 @@
++/*
++ * Copyright 2008 Novell.  All Rights Reserved.
++ *
++ * See include/linux/ioq.h for documentation
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#include <linux/sched.h>
++#include <linux/ioq.h>
++#include <asm/bitops.h>
++#include <linux/module.h>
++
++#ifndef NULL
++#define NULL 0
++#endif
++
++static int ioq_iter_setpos(struct ioq_iterator *iter, u32 pos)
++{
++	struct ioq *ioq = iter->ioq;
++
++	BUG_ON(pos >= ioq->count);
++
++	iter->pos  = pos;
++	iter->desc = &ioq->ring[pos];
++
++	return 0;
++}
++
++static inline u32 modulo_inc(u32 val, u32 mod)
++{
++	BUG_ON(val >= mod);
++
++	if (val == (mod - 1))
++		return 0;
++
++	return val + 1;
++}
++
++static inline int idx_full(struct ioq_ring_idx *idx)
++{
++	return idx->full && (idx->head == idx->tail);
++}
++
++int ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
++		  long offset, int flags)
++{
++	struct ioq_ring_idx *idx = iter->idx;
++	u32 pos;
++
++	switch (type) {
++	case ioq_seek_next:
++		pos = modulo_inc(iter->pos, iter->ioq->count);
++		break;
++	case ioq_seek_tail:
++		pos = idx->tail;
++		break;
++	case ioq_seek_head:
++		pos = idx->head;
++		break;
++	case ioq_seek_set:
++		if (offset >= iter->ioq->count)
++			return -1;
++		pos = offset;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return ioq_iter_setpos(iter, pos);
++}
++EXPORT_SYMBOL_GPL(ioq_iter_seek);
++
++static int ioq_ring_count(struct ioq_ring_idx *idx, int count)
++{
++	if (idx->full && (idx->head == idx->tail))
++		return count;
++	else if (idx->tail >= idx->head)
++		return idx->tail - idx->head;
++	else
++		return (idx->tail + count) - idx->head;
++}
++
++static void idx_tail_push(struct ioq_ring_idx *idx, int count)
++{
++	u32 tail = modulo_inc(idx->tail, count);
++
++	if (idx->head == tail) {
++		rmb();
++
++		/*
++		 * Setting full here may look racy, but note that we havent
++		 * flipped the owner bit yet.  So it is impossible for the
++		 * remote locale to move head in such a way that this operation
++		 * becomes invalid
++		 */
++		idx->full = 1;
++		wmb();
++	}
++
++	idx->tail = tail;
++}
++
++int ioq_iter_push(struct ioq_iterator *iter, int flags)
++{
++	struct ioq_ring_head *head_desc = iter->ioq->head_desc;
++	struct ioq_ring_idx  *idx  = iter->idx;
++	int ret;
++
++	/*
++	 * Its only valid to push if we are currently pointed at the tail
++	 */
++	if (iter->pos != idx->tail || iter->desc->sown != iter->ioq->locale)
++		return -EINVAL;
++
++	idx_tail_push(idx, iter->ioq->count);
++	if (iter->dualidx) {
++		idx_tail_push(&head_desc->idx[ioq_idxtype_inuse],
++			      iter->ioq->count);
++		if (head_desc->idx[ioq_idxtype_inuse].tail !=
++		    head_desc->idx[ioq_idxtype_valid].tail) {
++			SHM_SIGNAL_FAULT(iter->ioq->signal,
++					 "Tails not synchronized");
++			return -EINVAL;
++		}
++	}
++
++	wmb(); /* the index must be visible before the sown, or signal */
++
++	if (iter->flipowner) {
++		iter->desc->sown = !iter->ioq->locale;
++		wmb(); /* sown must be visible before we signal */
++	}
++
++	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
++
++	if (iter->update)
++		ioq_signal(iter->ioq, 0);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(ioq_iter_push);
++
++int ioq_iter_pop(struct ioq_iterator *iter,  int flags)
++{
++	struct ioq_ring_idx *idx = iter->idx;
++	int full;
++	int ret;
++
++	/*
++	 * Its only valid to pop if we are currently pointed at the head
++	 */
++	if (iter->pos != idx->head || iter->desc->sown != iter->ioq->locale)
++		return -EINVAL;
++
++	full = idx_full(idx);
++	rmb();
++
++	idx->head = modulo_inc(idx->head, iter->ioq->count);
++	wmb(); /* head must be visible before full */
++
++	if (full) {
++		idx->full = 0;
++		wmb(); /* full must be visible before sown */
++	}
++
++	if (iter->flipowner) {
++		iter->desc->sown = !iter->ioq->locale;
++		wmb(); /* sown must be visible before we signal */
++	}
++
++	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
++
++	if (iter->update)
++		ioq_signal(iter->ioq, 0);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(ioq_iter_pop);
++
++static struct ioq_ring_idx *idxtype_to_idx(struct ioq *ioq,
++					   enum ioq_idx_type type)
++{
++	struct ioq_ring_idx *idx;
++
++	switch (type) {
++	case ioq_idxtype_valid:
++	case ioq_idxtype_inuse:
++		idx = &ioq->head_desc->idx[type];
++		break;
++	default:
++		panic("IOQ: illegal index type: %d", type);
++		break;
++	}
++
++	return idx;
++}
++
++int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
++		  enum ioq_idx_type type, int flags)
++{
++	iter->ioq        = ioq;
++	iter->update     = (flags & IOQ_ITER_AUTOUPDATE);
++	iter->flipowner  = !(flags & IOQ_ITER_NOFLIPOWNER);
++	iter->pos        = -1;
++	iter->desc       = NULL;
++	iter->dualidx    = 0;
++
++	if (type == ioq_idxtype_both) {
++		/*
++		 * "both" is a special case, so we set the dualidx flag.
++		 *
++		 * However, we also just want to use the valid-index
++		 * for normal processing, so override that here
++		 */
++		type = ioq_idxtype_valid;
++		iter->dualidx = 1;
++	}
++
++	iter->idx = idxtype_to_idx(ioq, type);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ioq_iter_init);
++
++int ioq_count(struct ioq *ioq, enum ioq_idx_type type)
++{
++	return ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
++}
++EXPORT_SYMBOL_GPL(ioq_count);
++
++int ioq_remain(struct ioq *ioq, enum ioq_idx_type type)
++{
++	int count = ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
++
++	return ioq->count - count;
++}
++EXPORT_SYMBOL_GPL(ioq_remain);
++
++int ioq_size(struct ioq *ioq)
++{
++	return ioq->count;
++}
++EXPORT_SYMBOL_GPL(ioq_size);
++
++int ioq_full(struct ioq *ioq, enum ioq_idx_type type)
++{
++	struct ioq_ring_idx *idx = idxtype_to_idx(ioq, type);
++
++	return idx_full(idx);
++}
++EXPORT_SYMBOL_GPL(ioq_full);
++
++static void ioq_shm_signal(struct shm_signal_notifier *notifier)
++{
++	struct ioq *ioq = container_of(notifier, struct ioq, shm_notifier);
++
++	wake_up(&ioq->wq);
++	if (ioq->notifier)
++		ioq->notifier->signal(ioq->notifier);
++}
++
++void ioq_init(struct ioq *ioq,
++	      struct ioq_ops *ops,
++	      enum ioq_locality locale,
++	      struct ioq_ring_head *head,
++	      struct shm_signal *signal,
++	      size_t count)
++{
++	memset(ioq, 0, sizeof(*ioq));
++	atomic_set(&ioq->refs, 1);
++	init_waitqueue_head(&ioq->wq);
++
++	ioq->ops         = ops;
++	ioq->locale      = locale;
++	ioq->head_desc   = head;
++	ioq->ring        = &head->ring[0];
++	ioq->count       = count;
++	ioq->signal      = signal;
++
++	ioq->shm_notifier.signal = &ioq_shm_signal;
++	signal->notifier         = &ioq->shm_notifier;
++}
++EXPORT_SYMBOL_GPL(ioq_init);
 
-> If you want a counting read-lock (in _order_ to allow recursion, but not 
-> because the lock itself is somehow recursive!), then that function should 
-> look like this:
-> 
-> 	void xt_info_rdlock_bh(void)
-> 	{
-> 		struct xt_info_lock *lock
-> 
-> 		local_bh_disable();
-> 		lock = &__get_cpu_var(xt_info_locks);
-> 		read_lock(&lock->lock);
-> 	}
-> 
-> And then the "unlock" should be the reverse. No games, no crap, and 
-> hopefully then no bugs. And if you do it that way, you don't even need the 
-> comments, although quite frankly, it probably makes a lot of sense to talk 
-> about the interaction between "local_bh_disable()" and the preempt count, 
-> and why you're not using "read_lock_bh()".
-> 
-> And if you don't want a read-lock, then fine - don't use a read-lock, do 
-> something else. But then don't just re-implement it (badly) either and 
-> call it something else!
-
-Sigh!!!
-
-Part of the problem is that back in 1971, Courtois, Heymans, and Parnas
-foolishly named their article "Concurrent Control with 'Readers' and
-'Writers'", which lead to the name "reader-writer lock".  This started
-really biting around 1991, when Hsieh and Weihl created a reader-optimized
-lock similar to brlock, but with each of the per-CPU locks being
-exclusive rather than each being an rwlock.
-
-The problem was that Hsieh's and Weihl's lock was more than just
-a reader-writer lock.  It could also be used (and -was- used) as a
-local/global lock, where for example you acquire your own lock to make
-local changes, and acquire all of the locks to obtain a consistent view
-of global state.  In which case, you would read-acquire the lock in
-order to write, and write-acquire the lock in order to read.  Blech.
-
-So, would it help if the function names names in this patch said something
-about "local" and "global" rather than "read" and "write"?
-
-							Thanx, Paul
-
-
-> 			Linus
-> 
-> PS: Ingo, why do the *_bh() functions in kernel/spinlock.c do _both_ a 
-> "local_bh_disable()" and a "preempt_disable()"? BH disable should disable 
-> preemption too, no? Or am I confused? In which case we need that in 
-> the above rdlock_bh too.
