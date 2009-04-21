@@ -1,8 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [RFC PATCH v3 06/17] ioq: Add basic definitions for a shared-memory,
-	lockless queue
-Date: Tue, 21 Apr 2009 14:34:49 -0400
-Message-ID: <20090421183449.12548.90490.stgit@dev.haskins.net>
+Subject: [RFC PATCH v3 01/17] shm-signal: shared-memory signals
+Date: Tue, 21 Apr 2009 14:34:22 -0400
+Message-ID: <20090421183422.12548.58427.stgit@dev.haskins.net>
 References: <20090421183341.12548.33393.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,54 +12,39 @@ Cc: kvm@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
 	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
 	chrisw@sous-sol.org, shemminger@vyatta.com, alex.williamson@hp.com
 To: linux-kernel@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758014AbZDUSgU@vger.kernel.org>
 In-Reply-To: <20090421183341.12548.33393.stgit@dev.haskins.net>
-Sender: kvm-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We can map these over VBUS shared memory (or really any shared-memory
-architecture if it supports shm-signals) to allow asynchronous
-communication between two end-points.  Memory is synchronized using
-pure barriers (i.e. lockless), so IOQs are friendly in many contexts,
-even if the memory is remote.
+This interface provides a bidirectional shared-memory based signaling
+mechanism.  It can be used by any entities which desire efficient
+communication via shared memory.  The implementation details of the
+signaling are abstracted so that they may transcend a wide variety
+of locale boundaries (e.g. userspace/kernel, guest/host, etc).
+
+The shm_signal mechanism supports event masking as well as spurious
+event delivery mitigation.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/ioq.h |  410 +++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/Kconfig         |   12 +
- lib/Makefile        |    1 
- lib/ioq.c           |  298 +++++++++++++++++++++++++++++++++++++
- 4 files changed, 721 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/ioq.h
- create mode 100644 lib/ioq.c
+ include/linux/shm_signal.h |  188 ++++++++++++++++++++++++++++++++++++++++++++
+ lib/Kconfig                |    9 ++
+ lib/Makefile               |    1 
+ lib/shm_signal.c           |  186 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 384 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/shm_signal.h
+ create mode 100644 lib/shm_signal.c
 
-diff --git a/include/linux/ioq.h b/include/linux/ioq.h
+diff --git a/include/linux/shm_signal.h b/include/linux/shm_signal.h
 new file mode 100644
-index 0000000..d450d9a
+index 0000000..a65e54e
 --- /dev/null
-+++ b/include/linux/ioq.h
-@@ -0,0 +1,410 @@
++++ b/include/linux/shm_signal.h
+@@ -0,0 +1,188 @@
 +/*
 + * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * IOQ is a generic shared-memory, lockless queue mechanism. It can be used
-+ * in a variety of ways, though its intended purpose is to become the
-+ * asynchronous communication path for virtual-bus drivers.
-+ *
-+ * The following are a list of key design points:
-+ *
-+ * #) All shared-memory is always allocated on explicitly one side of the
-+ *    link.  This typically would be the guest side in a VM/VMM scenario.
-+ * #) Each IOQ has the concept of "north" and "south" locales, where
-+ *    north denotes the memory-owner side (e.g. guest).
-+ * #) An IOQ is manipulated using an iterator idiom.
-+ * #) Provides a bi-directional signaling/notification infrastructure on
-+ *    a per-queue basis, which includes an event mitigation strategy
-+ *    to reduce boundary switching.
-+ * #) The signaling path is abstracted so that various technologies and
-+ *    topologies can define their own specific implementation while sharing
-+ *    the basic structures and code.
 + *
 + * Author:
 + *      Gregory Haskins <ghaskins@novell.com>
@@ -79,11 +63,10 @@ index 0000000..d450d9a
 + * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 + */
 +
-+#ifndef _LINUX_IOQ_H
-+#define _LINUX_IOQ_H
++#ifndef _LINUX_SHM_SIGNAL_H
++#define _LINUX_SHM_SIGNAL_H
 +
 +#include <asm/types.h>
-+#include <linux/shm_signal.h>
 +
 +/*
 + *---------
@@ -93,192 +76,149 @@ index 0000000..d450d9a
 + * present data in a manner that is independent of the environment.
 + *-----------
 + */
-+struct ioq_ring_desc {
-+	__u64                 cookie; /* for arbitrary use by north-side */
-+	__u64                 ptr;
-+	__u64                 len;
-+	__u8                  valid;
-+	__u8                  sown; /* South owned = 1, North owned = 0 */
++
++#define SHM_SIGNAL_MAGIC 0x58fa39df
++#define SHM_SIGNAL_VER   1
++
++struct shm_signal_irq {
++	__u8                  enabled;
++	__u8                  pending;
++	__u8                  dirty;
 +};
 +
-+#define IOQ_RING_MAGIC 0x47fa2fe4
-+#define IOQ_RING_VER   4
-+
-+struct ioq_ring_idx {
-+	__u32                 head;    /* 0 based index to head of ptr array */
-+	__u32                 tail;    /* 0 based index to tail of ptr array */
-+	__u8                  full;
++enum shm_signal_locality {
++	shm_locality_north,
++	shm_locality_south,
 +};
 +
-+enum ioq_locality {
-+	ioq_locality_north,
-+	ioq_locality_south,
++struct shm_signal_desc {
++	__u32                 magic;
++	__u32                 ver;
++	struct shm_signal_irq irq[2];
 +};
-+
-+struct ioq_ring_head {
-+	__u32                  magic;
-+	__u32                  ver;
-+	struct shm_signal_desc signal;
-+	struct ioq_ring_idx    idx[2];
-+	__u32                  count;
-+	struct ioq_ring_desc   ring[1]; /* "count" elements will be allocated */
-+};
-+
-+#define IOQ_HEAD_DESC_SIZE(count) \
-+    (sizeof(struct ioq_ring_head) + sizeof(struct ioq_ring_desc) * (count - 1))
 +
 +/* --- END SHARED STRUCTURES --- */
 +
 +#ifdef __KERNEL__
 +
-+#include <linux/sched.h>
-+#include <linux/wait.h>
 +#include <linux/interrupt.h>
-+#include <linux/shm_signal.h>
-+#include <asm/atomic.h>
 +
-+enum ioq_idx_type {
-+	ioq_idxtype_valid,
-+	ioq_idxtype_inuse,
-+	ioq_idxtype_both,
-+	ioq_idxtype_invalid,
++struct shm_signal_notifier {
++	void (*signal)(struct shm_signal_notifier *);
 +};
 +
-+enum ioq_seek_type {
-+	ioq_seek_tail,
-+	ioq_seek_next,
-+	ioq_seek_head,
-+	ioq_seek_set
++struct shm_signal;
++
++struct shm_signal_ops {
++	int      (*inject)(struct shm_signal *s);
++	void     (*fault)(struct shm_signal *s, const char *fmt, ...);
++	void     (*release)(struct shm_signal *s);
 +};
 +
-+struct ioq_iterator {
-+	struct ioq            *ioq;
-+	struct ioq_ring_idx   *idx;
-+	u32                    pos;
-+	struct ioq_ring_desc  *desc;
-+	int                    update:1;
-+	int                    dualidx:1;
-+	int                    flipowner:1;
++enum {
++	shm_signal_in_wakeup,
 +};
 +
-+struct ioq_notifier {
-+	void (*signal)(struct ioq_notifier *);
++struct shm_signal {
++	atomic_t                    refs;
++	spinlock_t                  lock;
++	enum shm_signal_locality    locale;
++	unsigned long               flags;
++	struct shm_signal_ops      *ops;
++	struct shm_signal_desc     *desc;
++	struct shm_signal_notifier *notifier;
++	struct tasklet_struct       deferred_notify;
 +};
 +
-+struct ioq_ops {
-+	void     (*release)(struct ioq *ioq);
-+};
++#define SHM_SIGNAL_FAULT(s, fmt, args...)  \
++  ((s)->ops->fault ? (s)->ops->fault((s), fmt, ## args) : panic(fmt, ## args))
 +
-+struct ioq {
-+	struct ioq_ops *ops;
-+
-+	atomic_t               refs;
-+	enum ioq_locality      locale;
-+	struct ioq_ring_head  *head_desc;
-+	struct ioq_ring_desc  *ring;
-+	struct shm_signal     *signal;
-+	wait_queue_head_t      wq;
-+	struct ioq_notifier   *notifier;
-+	size_t                 count;
-+	struct shm_signal_notifier shm_notifier;
-+};
-+
-+#define IOQ_ITER_AUTOUPDATE  (1 << 0)
-+#define IOQ_ITER_NOFLIPOWNER (1 << 1)
++ /*
++  * These functions should only be used internally
++  */
++void _shm_signal_release(struct shm_signal *s);
++void _shm_signal_wakeup(struct shm_signal *s);
 +
 +/**
-+ * ioq_init() - initialize an IOQ
-+ * @ioq:        IOQ context
++ * shm_signal_init() - initialize an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
 + *
-+ * Initializes IOQ context before first use
++ * Initializes SHM_SIGNAL context before first use
 + *
 + **/
-+void ioq_init(struct ioq *ioq,
-+	      struct ioq_ops *ops,
-+	      enum ioq_locality locale,
-+	      struct ioq_ring_head *head,
-+	      struct shm_signal *signal,
-+	      size_t count);
++void shm_signal_init(struct shm_signal *s);
 +
 +/**
-+ * ioq_get() - acquire an IOQ context reference
-+ * @ioq:        IOQ context
++ * shm_signal_get() - acquire an SHM_SIGNAL context reference
++ * @s:        SHM_SIGNAL context
 + *
 + **/
-+static inline struct ioq *ioq_get(struct ioq *ioq)
++static inline struct shm_signal *shm_signal_get(struct shm_signal *s)
 +{
-+	atomic_inc(&ioq->refs);
++	atomic_inc(&s->refs);
 +
-+	return ioq;
++	return s;
 +}
 +
 +/**
-+ * ioq_put() - release an IOQ context reference
-+ * @ioq:        IOQ context
++ * shm_signal_put() - release an SHM_SIGNAL context reference
++ * @s:        SHM_SIGNAL context
 + *
 + **/
-+static inline void ioq_put(struct ioq *ioq)
++static inline void shm_signal_put(struct shm_signal *s)
 +{
-+	if (atomic_dec_and_test(&ioq->refs)) {
-+		shm_signal_put(ioq->signal);
-+		ioq->ops->release(ioq);
-+	}
++	if (atomic_dec_and_test(&s->refs))
++		_shm_signal_release(s);
 +}
 +
 +/**
-+ * ioq_notify_enable() - enables local notifications on an IOQ
-+ * @ioq:        IOQ context
++ * shm_signal_enable() - enables local notifications on an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
 + * @flags:      Reserved for future use, must be 0
 + *
-+ * Enables/unmasks the registered ioq_notifier (if applicable) and waitq to
-+ * receive wakeups whenever the remote side performs an ioq_signal() operation.
-+ * A notification will be dispatched immediately if any pending signals have
-+ * already been issued prior to invoking this call.
++ * Enables/unmasks the registered notifier (if applicable) to receive wakeups
++ * whenever the remote side performs an shm_signal() operation. A notification
++ * will be dispatched immediately if any pending signals have already been
++ * issued prior to invoking this call.
 + *
 + * This is synonymous with unmasking an interrupt.
 + *
 + * Returns: success = 0, <0 = ERRNO
 + *
 + **/
-+static inline int ioq_notify_enable(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_enable(ioq->signal, 0);
-+}
++int shm_signal_enable(struct shm_signal *s, int flags);
 +
 +/**
-+ * ioq_notify_disable() - disable local notifications on an IOQ
-+ * @ioq:        IOQ context
++ * shm_signal_disable() - disable local notifications on an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
 + * @flags:      Reserved for future use, must be 0
 + *
-+ * Disables/masks the registered ioq_notifier (if applicable) and waitq
-+ * from receiving any further notifications.  Any subsequent calls to
-+ * ioq_signal() by the remote side will update the ring as dirty, but
-+ * will not traverse the locale boundary and will not invoke the notifier
-+ * callback or wakeup the waitq.  Signals delivered while masked will
-+ * be deferred until ioq_notify_enable() is invoked
++ * Disables/masks the registered shm_signal_notifier (if applicable) from
++ * receiving any further notifications.  Any subsequent calls to shm_signal()
++ * by the remote side will update the shm as dirty, but will not traverse the
++ * locale boundary and will not invoke the notifier callback.  Signals
++ * delivered while masked will be deferred until shm_signal_enable() is
++ * invoked.
 + *
 + * This is synonymous with masking an interrupt
 + *
 + * Returns: success = 0, <0 = ERRNO
 + *
 + **/
-+static inline int ioq_notify_disable(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_disable(ioq->signal, 0);
-+}
++int shm_signal_disable(struct shm_signal *s, int flags);
 +
 +/**
-+ * ioq_signal() - notify the remote side about ring changes
-+ * @ioq:        IOQ context
++ * shm_signal_inject() - notify the remote side about shm changes
++ * @s:        SHM_SIGNAL context
 + * @flags:      Reserved for future use, must be 0
 + *
-+ * Marks the ring state as "dirty" and, if enabled, will traverse
-+ * a locale boundary to invoke a remote notification.  The remote
++ * Marks the shm state as "dirty" and, if enabled, will traverse
++ * a locale boundary to inject a remote notification.  The remote
 + * side controls whether the notification should be delivered via
-+ * the ioq_notify_enable/disable() interface.
++ * the shm_signal_enable/disable() interface.
 + *
 + * The specifics of how to traverse a locale boundary are abstracted
-+ * by the ioq_ops->signal() interface and provided by a particular
++ * by the shm_signal_ops->signal() interface and provided by a particular
 + * implementation.  However, typically going north to south would be
 + * something like a syscall/hypercall, and going south to north would be
 + * something like a posix-signal/guest-interrupt.
@@ -286,214 +226,51 @@ index 0000000..d450d9a
 + * Returns: success = 0, <0 = ERRNO
 + *
 + **/
-+static inline int ioq_signal(struct ioq *ioq, int flags)
-+{
-+	return shm_signal_inject(ioq->signal, 0);
-+}
-+
-+/**
-+ * ioq_count() - counts the number of outstanding descriptors in an index
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) >=0: # of descriptors outstanding in the index
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_count(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_remain() - counts the number of remaining descriptors in an index
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * This is the converse of ioq_count().  This function returns the number
-+ * of "free" descriptors left in a particular index
-+ *
-+ * Returns:
-+ *  (*) >=0: # of descriptors remaining in the index
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_remain(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_size() - counts the maximum number of descriptors in an ring
-+ * @ioq:        IOQ context
-+ *
-+ * This function returns the maximum number of descriptors supported in
-+ * a ring, regardless of their current state (free or inuse).
-+ *
-+ * Returns:
-+ *  (*) >=0: total # of descriptors in the ring
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_size(struct ioq *ioq);
-+
-+/**
-+ * ioq_full() - determines if a specific index is "full"
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) 0: index is not full
-+ *  (*) 1: index is full
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+int ioq_full(struct ioq *ioq, enum ioq_idx_type type);
-+
-+/**
-+ * ioq_empty() - determines if a specific index is "empty"
-+ * @ioq:        IOQ context
-+ * @type:	Specifies the index type
-+ *                 (*) valid: the descriptor is valid.  This is usually
-+ *                     used to keep track of descriptors that may not
-+ *                     be carrying a useful payload, but still need to
-+ *                     be tracked carefully.
-+ *                 (*) inuse: Descriptors that carry useful payload
-+ *
-+ * Returns:
-+ *  (*) 0: index is not empty
-+ *  (*) 1: index is empty
-+ *  (*) <0 = ERRNO
-+ *
-+ **/
-+static inline int ioq_empty(struct ioq *ioq, enum ioq_idx_type type)
-+{
-+    return !ioq_count(ioq, type);
-+}
-+
-+/**
-+ * ioq_iter_init() - initialize an iterator for IOQ descriptor traversal
-+ * @ioq:        IOQ context to iterate on
-+ * @iter:	Iterator context to init (usually from stack)
-+ * @type:	Specifies the index type to iterate against
-+ *                 (*) valid: iterate against the "valid" index
-+ *                 (*) inuse: iterate against the "inuse" index
-+ *                 (*) both: iterate against both indexes simultaneously
-+ * @flags:      Bitfield with 0 or more bits set to alter behavior
-+ *                 (*) autoupdate: automatically signal the remote side
-+ *                     whenever the iterator pushes/pops to a new desc
-+ *                 (*) noflipowner: do not flip the ownership bit during
-+ *                     a push/pop operation
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
-+		  enum ioq_idx_type type, int flags);
-+
-+/**
-+ * ioq_iter_seek() - seek to a specific location in the IOQ ring
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @type:	Specifies the type of seek operation
-+ *                 (*) tail: seek to the absolute tail, offset is ignored
-+ *                 (*) next: seek to the relative next, offset is ignored
-+ *                 (*) head: seek to the absolute head, offset is ignored
-+ *                 (*) set: seek to the absolute offset
-+ * @offset:     Offset for ioq_seek_set operations
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
-+		   long offset, int flags);
-+
-+/**
-+ * ioq_iter_push() - push the tail pointer forward
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * This function will simultaneously advance the tail ptr in the current
-+ * index (valid/inuse, as specified in the ioq_iter_init) as well as
-+ * perform a seek(next) operation.  This effectively "pushes" a new pointer
-+ * onto the tail of the index.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_push(struct ioq_iterator *iter, int flags);
-+
-+/**
-+ * ioq_iter_pop() - pop the head pointer from the ring
-+ * @iter:	Iterator context (must be initialized with ioq_iter_init)
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * This function will simultaneously advance the head ptr in the current
-+ * index (valid/inuse, as specified in the ioq_iter_init) as well as
-+ * perform a seek(next) operation.  This effectively "pops" a pointer
-+ * from the head of the index.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int  ioq_iter_pop(struct ioq_iterator *iter,  int flags);
++int shm_signal_inject(struct shm_signal *s, int flags);
 +
 +#endif /* __KERNEL__ */
 +
-+#endif /* _LINUX_IOQ_H */
++#endif /* _LINUX_SHM_SIGNAL_H */
 diff --git a/lib/Kconfig b/lib/Kconfig
-index 1b249a3..8fb4939 100644
+index 8ade0a7..1b249a3 100644
 --- a/lib/Kconfig
 +++ b/lib/Kconfig
-@@ -200,4 +200,16 @@ config SHM_SIGNAL
+@@ -191,4 +191,13 @@ config DISABLE_OBSOLETE_CPUMASK_FUNCTIONS
+ config NLATTR
+ 	bool
  
- 	 If unsure, say N
- 
-+config IOQ
-+	boolean "IO-Queue library - Generic shared-memory queue"
-+	select SHM_SIGNAL
++config SHM_SIGNAL
++	boolean "SHM Signal - Generic shared-memory signaling mechanism"
 +	default n
 +	help
-+	 IOQ is a generic shared-memory-queue mechanism that happens to be
-+	 friendly to virtualization boundaries. It can be used in a variety
-+	 of ways, though its intended purpose is to become the low-level
-+	 communication path for paravirtualized drivers.
++	 Provides a shared-memory based signaling mechansim to indicate
++         memory-dirty notifications between two end-points.
 +
 +	 If unsure, say N
 +
  endmenu
 diff --git a/lib/Makefile b/lib/Makefile
-index 1ef4156..68f2dc9 100644
+index d6edd67..1ef4156 100644
 --- a/lib/Makefile
 +++ b/lib/Makefile
-@@ -76,6 +76,7 @@ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
+@@ -75,6 +75,7 @@ obj-$(CONFIG_TEXTSEARCH_BM) += ts_bm.o
+ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
  obj-$(CONFIG_SMP) += percpu_counter.o
  obj-$(CONFIG_AUDIT_GENERIC) += audit.o
- obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
-+obj-$(CONFIG_IOQ) += ioq.o
++obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
  
  obj-$(CONFIG_SWIOTLB) += swiotlb.o
  obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
-diff --git a/lib/ioq.c b/lib/ioq.c
+diff --git a/lib/shm_signal.c b/lib/shm_signal.c
 new file mode 100644
-index 0000000..803b5d6
+index 0000000..fa1770c
 --- /dev/null
-+++ b/lib/ioq.c
-@@ -0,0 +1,298 @@
++++ b/lib/shm_signal.c
+@@ -0,0 +1,186 @@
 +/*
-+ * Copyright 2008 Novell.  All Rights Reserved.
++ * Copyright 2009 Novell.  All Rights Reserved.
 + *
-+ * See include/linux/ioq.h for documentation
++ * See include/linux/shm_signal.h for documentation
 + *
 + * Author:
 + *      Gregory Haskins <ghaskins@novell.com>
@@ -512,280 +289,167 @@ index 0000000..803b5d6
 + * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 + */
 +
-+#include <linux/sched.h>
-+#include <linux/ioq.h>
-+#include <asm/bitops.h>
 +#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/shm_signal.h>
 +
-+#ifndef NULL
-+#define NULL 0
-+#endif
-+
-+static int ioq_iter_setpos(struct ioq_iterator *iter, u32 pos)
++int shm_signal_enable(struct shm_signal *s, int flags)
 +{
-+	struct ioq *ioq = iter->ioq;
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++	unsigned long iflags;
 +
-+	BUG_ON(pos >= ioq->count);
++	spin_lock_irqsave(&s->lock, iflags);
 +
-+	iter->pos  = pos;
-+	iter->desc = &ioq->ring[pos];
++	irq->enabled = 1;
++	wmb();
++
++	if ((irq->dirty || irq->pending)
++	    && !test_bit(shm_signal_in_wakeup, &s->flags)) {
++		rmb();
++		tasklet_schedule(&s->deferred_notify);
++	}
++
++	spin_unlock_irqrestore(&s->lock, iflags);
 +
 +	return 0;
 +}
++EXPORT_SYMBOL_GPL(shm_signal_enable);
 +
-+static inline u32 modulo_inc(u32 val, u32 mod)
++int shm_signal_disable(struct shm_signal *s, int flags)
 +{
-+	BUG_ON(val >= mod);
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
 +
-+	if (val == (mod - 1))
-+		return 0;
++	irq->enabled = 0;
++	wmb();
 +
-+	return val + 1;
++	return 0;
 +}
++EXPORT_SYMBOL_GPL(shm_signal_disable);
 +
-+static inline int idx_full(struct ioq_ring_idx *idx)
++/*
++ * signaling protocol:
++ *
++ * each side of the shm_signal has an "irq" structure with the following
++ * fields:
++ *
++ *    - enabled: controlled by shm_signal_enable/disable() to mask/unmask
++ *               the notification locally
++ *    - dirty:   indicates if the shared-memory is dirty or clean.  This
++ *               is updated regardless of the enabled/pending state so that
++ *               the state is always accurately tracked.
++ *    - pending: indicates if a signal is pending to the remote locale.
++ *               This allows us to determine if a remote-notification is
++ *               already in flight to optimize spurious notifications away.
++ */
++int shm_signal_inject(struct shm_signal *s, int flags)
 +{
-+	return idx->full && (idx->head == idx->tail);
-+}
++	/* Load the irq structure from the other locale */
++	struct shm_signal_irq *irq = &s->desc->irq[!s->locale];
 +
-+int ioq_iter_seek(struct ioq_iterator *iter, enum ioq_seek_type type,
-+		  long offset, int flags)
-+{
-+	struct ioq_ring_idx *idx = iter->idx;
-+	u32 pos;
++	/*
++	 * We always mark the remote side as dirty regardless of whether
++	 * they need to be notified.
++	 */
++	irq->dirty = 1;
++	wmb();   /* dirty must be visible before we test the pending state */
 +
-+	switch (type) {
-+	case ioq_seek_next:
-+		pos = modulo_inc(iter->pos, iter->ioq->count);
-+		break;
-+	case ioq_seek_tail:
-+		pos = idx->tail;
-+		break;
-+	case ioq_seek_head:
-+		pos = idx->head;
-+		break;
-+	case ioq_seek_set:
-+		if (offset >= iter->ioq->count)
-+			return -1;
-+		pos = offset;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return ioq_iter_setpos(iter, pos);
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_seek);
-+
-+static int ioq_ring_count(struct ioq_ring_idx *idx, int count)
-+{
-+	if (idx->full && (idx->head == idx->tail))
-+		return count;
-+	else if (idx->tail >= idx->head)
-+		return idx->tail - idx->head;
-+	else
-+		return (idx->tail + count) - idx->head;
-+}
-+
-+static void idx_tail_push(struct ioq_ring_idx *idx, int count)
-+{
-+	u32 tail = modulo_inc(idx->tail, count);
-+
-+	if (idx->head == tail) {
++	if (irq->enabled && !irq->pending) {
 +		rmb();
 +
 +		/*
-+		 * Setting full here may look racy, but note that we havent
-+		 * flipped the owner bit yet.  So it is impossible for the
-+		 * remote locale to move head in such a way that this operation
-+		 * becomes invalid
++		 * If the remote side has enabled notifications, and we do
++		 * not see a notification pending, we must inject a new one.
 +		 */
-+		idx->full = 1;
-+		wmb();
++		irq->pending = 1;
++		wmb(); /* make it visible before we do the injection */
++
++		s->ops->inject(s);
 +	}
-+
-+	idx->tail = tail;
-+}
-+
-+int ioq_iter_push(struct ioq_iterator *iter, int flags)
-+{
-+	struct ioq_ring_head *head_desc = iter->ioq->head_desc;
-+	struct ioq_ring_idx  *idx  = iter->idx;
-+	int ret;
-+
-+	/*
-+	 * Its only valid to push if we are currently pointed at the tail
-+	 */
-+	if (iter->pos != idx->tail || iter->desc->sown != iter->ioq->locale)
-+		return -EINVAL;
-+
-+	idx_tail_push(idx, iter->ioq->count);
-+	if (iter->dualidx) {
-+		idx_tail_push(&head_desc->idx[ioq_idxtype_inuse],
-+			      iter->ioq->count);
-+		if (head_desc->idx[ioq_idxtype_inuse].tail !=
-+		    head_desc->idx[ioq_idxtype_valid].tail) {
-+			SHM_SIGNAL_FAULT(iter->ioq->signal,
-+					 "Tails not synchronized");
-+			return -EINVAL;
-+		}
-+	}
-+
-+	wmb(); /* the index must be visible before the sown, or signal */
-+
-+	if (iter->flipowner) {
-+		iter->desc->sown = !iter->ioq->locale;
-+		wmb(); /* sown must be visible before we signal */
-+	}
-+
-+	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
-+
-+	if (iter->update)
-+		ioq_signal(iter->ioq, 0);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_push);
-+
-+int ioq_iter_pop(struct ioq_iterator *iter,  int flags)
-+{
-+	struct ioq_ring_idx *idx = iter->idx;
-+	int full;
-+	int ret;
-+
-+	/*
-+	 * Its only valid to pop if we are currently pointed at the head
-+	 */
-+	if (iter->pos != idx->head || iter->desc->sown != iter->ioq->locale)
-+		return -EINVAL;
-+
-+	full = idx_full(idx);
-+	rmb();
-+
-+	idx->head = modulo_inc(idx->head, iter->ioq->count);
-+	wmb(); /* head must be visible before full */
-+
-+	if (full) {
-+		idx->full = 0;
-+		wmb(); /* full must be visible before sown */
-+	}
-+
-+	if (iter->flipowner) {
-+		iter->desc->sown = !iter->ioq->locale;
-+		wmb(); /* sown must be visible before we signal */
-+	}
-+
-+	ret = ioq_iter_seek(iter, ioq_seek_next, 0, flags);
-+
-+	if (iter->update)
-+		ioq_signal(iter->ioq, 0);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(ioq_iter_pop);
-+
-+static struct ioq_ring_idx *idxtype_to_idx(struct ioq *ioq,
-+					   enum ioq_idx_type type)
-+{
-+	struct ioq_ring_idx *idx;
-+
-+	switch (type) {
-+	case ioq_idxtype_valid:
-+	case ioq_idxtype_inuse:
-+		idx = &ioq->head_desc->idx[type];
-+		break;
-+	default:
-+		panic("IOQ: illegal index type: %d", type);
-+		break;
-+	}
-+
-+	return idx;
-+}
-+
-+int ioq_iter_init(struct ioq *ioq, struct ioq_iterator *iter,
-+		  enum ioq_idx_type type, int flags)
-+{
-+	iter->ioq        = ioq;
-+	iter->update     = (flags & IOQ_ITER_AUTOUPDATE);
-+	iter->flipowner  = !(flags & IOQ_ITER_NOFLIPOWNER);
-+	iter->pos        = -1;
-+	iter->desc       = NULL;
-+	iter->dualidx    = 0;
-+
-+	if (type == ioq_idxtype_both) {
-+		/*
-+		 * "both" is a special case, so we set the dualidx flag.
-+		 *
-+		 * However, we also just want to use the valid-index
-+		 * for normal processing, so override that here
-+		 */
-+		type = ioq_idxtype_valid;
-+		iter->dualidx = 1;
-+	}
-+
-+	iter->idx = idxtype_to_idx(ioq, type);
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(ioq_iter_init);
++EXPORT_SYMBOL_GPL(shm_signal_inject);
 +
-+int ioq_count(struct ioq *ioq, enum ioq_idx_type type)
++void _shm_signal_wakeup(struct shm_signal *s)
 +{
-+	return ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
-+}
-+EXPORT_SYMBOL_GPL(ioq_count);
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++	int dirty;
++	unsigned long flags;
 +
-+int ioq_remain(struct ioq *ioq, enum ioq_idx_type type)
++	spin_lock_irqsave(&s->lock, flags);
++
++	__set_bit(shm_signal_in_wakeup, &s->flags);
++
++	/*
++	 * The outer loop protects against race conditions between
++	 * irq->dirty and irq->pending updates
++	 */
++	while (irq->enabled && (irq->dirty || irq->pending)) {
++
++		/*
++		 * Run until we completely exhaust irq->dirty (it may
++		 * be re-dirtied by the remote side while we are in the
++		 * callback).  We let "pending" remain untouched until we have
++		 * processed them all so that the remote side knows we do not
++		 * need a new notification (yet).
++		 */
++		do {
++			irq->dirty = 0;
++			/* the unlock is an implicit wmb() for dirty = 0 */
++			spin_unlock_irqrestore(&s->lock, flags);
++
++			if (s->notifier)
++				s->notifier->signal(s->notifier);
++
++			spin_lock_irqsave(&s->lock, flags);
++			dirty = irq->dirty;
++			rmb();
++
++		} while (irq->enabled && dirty);
++
++		barrier();
++
++		/*
++		 * We can finally acknowledge the notification by clearing
++		 * "pending" after all of the dirty memory has been processed
++		 * Races against this clearing are handled by the outer loop.
++		 * Subsequent iterations of this loop will execute with
++		 * pending=0 potentially leading to future spurious
++		 * notifications, but this is an acceptable tradeoff as this
++		 * will be rare and harmless.
++		 */
++		irq->pending = 0;
++		wmb();
++
++	}
++
++	__clear_bit(shm_signal_in_wakeup, &s->flags);
++	spin_unlock_irqrestore(&s->lock, flags);
++
++}
++EXPORT_SYMBOL_GPL(_shm_signal_wakeup);
++
++void _shm_signal_release(struct shm_signal *s)
 +{
-+	int count = ioq_ring_count(idxtype_to_idx(ioq, type), ioq->count);
-+
-+	return ioq->count - count;
++	s->ops->release(s);
 +}
-+EXPORT_SYMBOL_GPL(ioq_remain);
++EXPORT_SYMBOL_GPL(_shm_signal_release);
 +
-+int ioq_size(struct ioq *ioq)
++static void
++deferred_notify(unsigned long data)
 +{
-+	return ioq->count;
-+}
-+EXPORT_SYMBOL_GPL(ioq_size);
++	struct shm_signal *s = (struct shm_signal *)data;
 +
-+int ioq_full(struct ioq *ioq, enum ioq_idx_type type)
++	_shm_signal_wakeup(s);
++}
++
++void shm_signal_init(struct shm_signal *s)
 +{
-+	struct ioq_ring_idx *idx = idxtype_to_idx(ioq, type);
-+
-+	return idx_full(idx);
++	memset(s, 0, sizeof(*s));
++	atomic_set(&s->refs, 1);
++	spin_lock_init(&s->lock);
++	tasklet_init(&s->deferred_notify,
++		     deferred_notify,
++		     (unsigned long)s);
 +}
-+EXPORT_SYMBOL_GPL(ioq_full);
-+
-+static void ioq_shm_signal(struct shm_signal_notifier *notifier)
-+{
-+	struct ioq *ioq = container_of(notifier, struct ioq, shm_notifier);
-+
-+	wake_up(&ioq->wq);
-+	if (ioq->notifier)
-+		ioq->notifier->signal(ioq->notifier);
-+}
-+
-+void ioq_init(struct ioq *ioq,
-+	      struct ioq_ops *ops,
-+	      enum ioq_locality locale,
-+	      struct ioq_ring_head *head,
-+	      struct shm_signal *signal,
-+	      size_t count)
-+{
-+	memset(ioq, 0, sizeof(*ioq));
-+	atomic_set(&ioq->refs, 1);
-+	init_waitqueue_head(&ioq->wq);
-+
-+	ioq->ops         = ops;
-+	ioq->locale      = locale;
-+	ioq->head_desc   = head;
-+	ioq->ring        = &head->ring[0];
-+	ioq->count       = count;
-+	ioq->signal      = signal;
-+
-+	ioq->shm_notifier.signal = &ioq_shm_signal;
-+	signal->notifier         = &ioq->shm_notifier;
-+}
-+EXPORT_SYMBOL_GPL(ioq_init);
-
++EXPORT_SYMBOL_GPL(shm_signal_init);
