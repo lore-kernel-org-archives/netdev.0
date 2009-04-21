@@ -1,51 +1,25 @@
-From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 1/5] [PATCH] af_iucv: consider state IUCV_CLOSING when closing a socket
-Date: Tue, 21 Apr 2009 18:04:20 +0200
-Message-ID: <20090421161444.298976000@linux.vnet.ibm.com>
-References: <20090421160419.971500000@linux.vnet.ibm.com>
-Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
+From: CHARLES BIGNELL <bignellch@yahoo.co.uk>
+Subject: tranferring the $10,000,000.00
+Date: Wed, 22 Apr 2009 04:11:55 +1200
+Message-ID: <97dce90008211898e0590e3f40d8b854@ihug.co.nz>
+Reply-To: bignellch@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:52476 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516AbZDUQPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 12:15:35 -0400
-Content-Disposition: inline; filename=602-af_iucv-closing.diff
+Received: from mailfilter6.ihug.co.nz ([203.109.136.6]:29560 "EHLO
+	mailfilter6.ihug.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754197AbZDUQW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 12:22:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
 
-Make sure a second invocation of iucv_sock_close() guarantees proper
-freeing of an iucv path.
-
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
-
- net/iucv/af_iucv.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-Index: net-2.6-uschi/net/iucv/af_iucv.c
-===================================================================
---- net-2.6-uschi.orig/net/iucv/af_iucv.c
-+++ net-2.6-uschi/net/iucv/af_iucv.c
-@@ -172,6 +172,7 @@ static void iucv_sock_close(struct sock 
- 			err = iucv_sock_wait_state(sk, IUCV_CLOSED, 0, timeo);
- 		}
- 
-+	case IUCV_CLOSING:   /* fall through */
- 		sk->sk_state = IUCV_CLOSED;
- 		sk->sk_state_change(sk);
- 
-@@ -224,6 +225,8 @@ static struct sock *iucv_sock_alloc(stru
- 	spin_lock_init(&iucv_sk(sk)->message_q.lock);
- 	skb_queue_head_init(&iucv_sk(sk)->backlog_skb_q);
- 	iucv_sk(sk)->send_tag = 0;
-+	iucv_sk(sk)->path = NULL;
-+	memset(&iucv_sk(sk)->src_user_id , 0, 32);
- 
- 	sk->sk_destruct = iucv_sock_destruct;
- 	sk->sk_sndtimeo = IUCV_CONN_TIMEOUT;
+-- 
+Hello,
+I am Bignell Charles, I need a trust worthy partner to join me in
+tranferring the $10,000,000.00 left by our late client. You will gain 40%
+if you are willing to partner with me, I will tell you how to handle this.
+Bignell
 
