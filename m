@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/8] tg3: Restore LAA sooner in shutdown sequence
-Date: Tue, 21 Apr 2009 01:42:26 -0700 (PDT)
-Message-ID: <20090421.014226.231778774.davem@davemloft.net>
-References: <1240247960.7027@xw6200>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
+Date: Tue, 21 Apr 2009 16:42:40 +0800
+Message-ID: <49ED8700.3010603@cn.fujitsu.com>
+References: <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <49ED406F.2040401@cn.fujitsu.com> <49ED4407.8010200@cosmosbay.com> <49ED5813.1000803@cn.fujitsu.com> <20090420224540.30d7b0ed@nehalam> <49ED6D2E.5060808@cn.fujitsu.com> <20090421081649.GA16782@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, benli@broadcom.com,
-	andy@greyhouse.net
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54741
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753170AbZDUImf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 04:42:35 -0400
-In-Reply-To: <1240247960.7027@xw6200>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
+	mingo@elte.hu, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090421081649.GA16782@ioremap.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 20 Apr 2009 09:58:52 -0700
-
-> After a shutdown reset, the LAA needs to be restored before posting the
-> post-reset signature in shared memory.  If the LAA is not restored
-> before then, the bootcode will assume the factory default MAC address
-> and WOL will not work with the LAA.
+Evgeniy Polyakov wrote:
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Netfilter as long as other generic network pathes are never accessed
+> from interrupt context, but your analysis looks right for the softirq
+> case.
+> 
 
-Applied.
+A question:
+
+softirq is always not nesting. Why we need recursive lock?
+
+Lai.
+
