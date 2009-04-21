@@ -1,80 +1,66 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Mon, 20 Apr 2009 20:26:13 -0700
-Message-ID: <65634d660904202026r7d73f810s700bacb8756e0967@mail.gmail.com>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
-	 <87eivnpqde.fsf@basil.nowhere.org>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
+Date: Tue, 21 Apr 2009 11:41:35 +0800
+Message-ID: <49ED406F.2040401@cn.fujitsu.com>
+References: <alpine.LFD.2.00.0904151705120.4042@localhost.localdomain>	<49E72E83.50702@trash.net>	<20090416.153354.170676392.davem@davemloft.net>	<20090416234955.GL6924@linux.vnet.ibm.com>	<20090417012812.GA25534@linux.vnet.ibm.com>	<20090418094001.GA2369@ioremap.net>	<20090418141455.GA7082@linux.vnet.ibm.com>	<20090420103414.1b4c490f@nehalam>	<49ECBE0A.7010303@cosmosbay.com>	<18924.59347.375292.102385@cargo.ozlabs.ibm.com>	<20090420215827.GK6822@linux.vnet.ibm.com>	<18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	torvalds@linux-foundation.org, jeff.chua.linux@gmail.com,
+	mingo@elte.hu, jengelh@medozas.de, r000n@r000n.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:45938 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbZDUD0R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2009 23:26:17 -0400
-Received: from zps78.corp.google.com (zps78.corp.google.com [172.25.146.78])
-	by smtp-out.google.com with ESMTP id n3L3QFpA002166
-	for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 20:26:15 -0700
-Received: from qyk35 (qyk35.prod.google.com [10.241.83.163])
-	by zps78.corp.google.com with ESMTP id n3L3PKsT020437
-	for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 20:26:13 -0700
-Received: by qyk35 with SMTP id 35so1121582qyk.6
-        for <netdev@vger.kernel.org>; Mon, 20 Apr 2009 20:26:13 -0700 (PDT)
-In-Reply-To: <87eivnpqde.fsf@basil.nowhere.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:54911 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750966AbZDUDnK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2009 23:43:10 -0400
+In-Reply-To: <20090420160121.268a8226@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 20, 2009 at 3:32 AM, Andi Kleen <andi@firstfloor.org> wrote=
-:
->
-> Tom Herbert <therbert@google.com> writes:
->
-> > +static int netif_cpu_for_rps(struct net_device *dev, struct sk_buf=
-f *skb)
-> > +{
-> > + =A0 =A0 cpumask_t mask;
-> > + =A0 =A0 unsigned int hash;
-> > + =A0 =A0 int cpu, count =3D 0;
-> > +
-> > + =A0 =A0 cpus_and(mask, dev->soft_rps_cpus, cpu_online_map);
-> > + =A0 =A0 if (cpus_empty(mask))
-> > + =A0 =A0 =A0 =A0 =A0 =A0 return smp_processor_id();
->
-> There's a race here with CPU hotunplug I think. When a CPU is hotunpl=
-ugged
-> in parallel you can still push packets to it even though they are not
-> drained. You probably need some kind of drain callback in a CPU hotun=
-plug
-> notifier that eats all packets left over.
->
-We will look at that, the hotplug support may very well be lacking in t=
-he patch.
+Stephen Hemminger wrote:
+> +/**
+> + * xt_table_info_rdlock_bh - recursive read lock for xt table info
+> + *
+> + * Table processing calls this to hold off any changes to table
+> + * (on current CPU). Always leaves with bottom half disabled.
+> + * If called recursively, then assumes bh/preempt already disabled.
+> + */
+> +void xt_info_rdlock_bh(void)
+> +{
+> +	struct xt_info_lock *lock;
+> +
+> +	preempt_disable();
+> +	lock = &__get_cpu_var(xt_info_locks);
+> +	if (likely(++lock->depth == 0))
 
-> > +got_hash:
-> > + =A0 =A0 hash %=3D cpus_weight_nr(mask);
->
-> That looks rather heavyweight even on modern CPUs. I bet it's 40-50+ =
-cycles
-> alone forth the hweight and the division. Surely that can be done bet=
-ter?
->
-Agreed, I will try to pull in the RX hash from Dave Miller's remote
-softirq patch.
+Maybe I missed something. I think softirq may be still enabled here.
+So what happen when xt_info_rdlock_bh() called recursively here?
 
-> Also I suspect some kind of runtime switch for this would be useful.
->
-> Also the manual set up of the receive mask seems really clumpsy. Coul=
-dn't
-> you set that up dynamically based on where processes executing recvms=
-g()
-> are running?
->
-We have done exactly that.  It works very well in many cases
-(application + platform combinations), but I haven't found it to be
-better than doing the hash in all cases.  I could provide the patch,
-but it might be more of a follow patch to this base one.
+> +		spin_lock_bh(&lock->lock);
+> +	preempt_enable_no_resched();
+> +}
+> +EXPORT_SYMBOL_GPL(xt_info_rdlock_bh);
+> +
 
-Thanks,
-Tom
+Is this OK for you:
+
+void xt_info_rdlock_bh(void)
+{
+	struct xt_info_lock *lock;
+
+	local_bh_disable();
+	lock = &__get_cpu_var(xt_info_locks);
+	if (likely(++lock->depth == 0))
+		spin_lock(&lock->lock);
+}
+
+Lai.
+
