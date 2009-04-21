@@ -1,112 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Tue, 21 Apr 2009 08:46:36 -0700
-Message-ID: <20090421084636.198b181e@nehalam>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
-	<87eivnpqde.fsf@basil.nowhere.org>
-	<65634d660904202026r7d73f810s700bacb8756e0967@mail.gmail.com>
-	<49ED967B.4070105@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <dada1@cosmosbay.com>
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 3/5] [PATCH] af_iucv: Reject incoming msgs if RECV_SHUTDOWN is set
+Date: Tue, 21 Apr 2009 18:04:22 +0200
+Message-ID: <20090421161444.563541000@linux.vnet.ibm.com>
+References: <20090421160419.971500000@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	Hendrik Brueckner <brueckner@linux.vnet.ibm.com>,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55574 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752416AbZDUPqn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 11:46:43 -0400
-In-Reply-To: <49ED967B.4070105@cosmosbay.com>
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:58947 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547AbZDUQOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 12:14:50 -0400
+Content-Disposition: inline; filename=604-af_iucv-rej-msgs.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Apr 2009 11:48:43 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+From: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
 
-> Tom Herbert a =C3=A9crit :
-> > On Mon, Apr 20, 2009 at 3:32 AM, Andi Kleen <andi@firstfloor.org> w=
-rote:
-> >> Tom Herbert <therbert@google.com> writes:
-> >>
-> >>> +static int netif_cpu_for_rps(struct net_device *dev, struct sk_b=
-uff *skb)
-> >>> +{
-> >>> +     cpumask_t mask;
-> >>> +     unsigned int hash;
-> >>> +     int cpu, count =3D 0;
-> >>> +
-> >>> +     cpus_and(mask, dev->soft_rps_cpus, cpu_online_map);
-> >>> +     if (cpus_empty(mask))
-> >>> +             return smp_processor_id();
-> >> There's a race here with CPU hotunplug I think. When a CPU is hotu=
-nplugged
-> >> in parallel you can still push packets to it even though they are =
-not
-> >> drained. You probably need some kind of drain callback in a CPU ho=
-tunplug
-> >> notifier that eats all packets left over.
-> >>
-> > We will look at that, the hotplug support may very well be lacking =
-in the patch.
-> >=20
-> >>> +got_hash:
-> >>> +     hash %=3D cpus_weight_nr(mask);
-> >> That looks rather heavyweight even on modern CPUs. I bet it's 40-5=
-0+ cycles
-> >> alone forth the hweight and the division. Surely that can be done =
-better?
-> >>
-> > Agreed, I will try to pull in the RX hash from Dave Miller's remote
-> > softirq patch.
-> >=20
-> >> Also I suspect some kind of runtime switch for this would be usefu=
-l.
-> >>
-> >> Also the manual set up of the receive mask seems really clumpsy. C=
-ouldn't
-> >> you set that up dynamically based on where processes executing rec=
-vmsg()
-> >> are running?
-> >>
-> > We have done exactly that.  It works very well in many cases
-> > (application + platform combinations), but I haven't found it to be
-> > better than doing the hash in all cases.  I could provide the patch=
-,
-> > but it might be more of a follow patch to this base one.
->=20
-> Hello Tom
->=20
-> I was thinking about your patch (and David's one), and thought it cou=
-ld be
-> possible to spread packets to other cpus only if current one is under=
- stress.
->=20
-> A posssible metric would be to test if softirq is handled by ksoftirq=
-d
-> (stress situation) or not.
->=20
-> Under moderate load, we could have one active cpu (and fewer cache li=
-ne
-> transferts), keeping good latencies.
->=20
-> I tried alternative approach to solve the Multicast problem raised so=
-me time ago,
-> but still have one cpu handling one device. Only wakeups were defered=
- to a
-> workqueue (and possibly another cpu) if running from ksoftirq only.
-> Patch not yet ready for review, but based on a previous patch that wa=
-s more
-> intrusive (touching kernel/softirq.c)
->=20
-> Under stress, your idea permits to use more cpus for a fast NIC and g=
-et better
-> throughput. Its more generic.
+Reject incoming iucv messages if the receive direction has been shut down.
+It avoids that the queue of outstanding messages increases and exceeds the
+message limit of the iucv communication path.
 
-I would like to see some way to have multiple CPU's pulling packets and=
- adapting
-the number of CPU's being used based on load. Basically, turn all devic=
-e is into
-receive multiqueue. The mapping could be adjusted by user level (see ir=
-qbalancer).
+Signed-off-by: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
+
+ net/iucv/af_iucv.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+Index: net-2.6-uschi/net/iucv/af_iucv.c
+===================================================================
+--- net-2.6-uschi.orig/net/iucv/af_iucv.c
++++ net-2.6-uschi/net/iucv/af_iucv.c
+@@ -1116,8 +1116,10 @@ static void iucv_callback_rx(struct iucv
+ 	struct sock_msg_q *save_msg;
+ 	int len;
+ 
+-	if (sk->sk_shutdown & RCV_SHUTDOWN)
++	if (sk->sk_shutdown & RCV_SHUTDOWN) {
++		iucv_message_reject(path, msg);
+ 		return;
++	}
+ 
+ 	if (!list_empty(&iucv->message_q.list) ||
+ 	    !skb_queue_empty(&iucv->backlog_skb_q))
+
