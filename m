@@ -1,165 +1,42 @@
 From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 01/13] [PATCH] iucv: provide second per-cpu IUCV command parameter block
-Date: Tue, 21 Apr 2009 12:34:58 +0200
-Message-ID: <20090421103705.206983000@linux.vnet.ibm.com>
-References: <20090421103457.965299000@linux.vnet.ibm.com>
-Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 00/13] iucv / af_iucv patches for 2.6.30-rc1
+Date: Tue, 21 Apr 2009 12:34:57 +0200
+Message-ID: <20090421103457.965299000@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:36266 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752759AbZDUKhH (ORCPT
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:45202 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752707AbZDUKhH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 06:37:07 -0400
-Content-Disposition: inline; filename=600-iucv-2ndparm.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+Dave,
 
-Some of the IUCV commands can be invoked in interrupt context.
-Those commands need a different per-cpu IUCV command parameter block,
-otherwise they might overwrite an IUCV command parameter of a not yet
-finished IUCV command invocation in process context.
+here is the series of iucv / af_iucv patches for the current
+development cycle.
+The patches are based on top of the current net-2.6 kernel
+(2.6.30-rc1).
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
+Hendrik Brueckner (11):
+    af_iucv: fix oops in iucv_sock_recvmsg() for MSG_PEEK flag
+    af_iucv: Reject incoming msgs if RECV_SHUTDOWN is set
+    af_iucv: sync sk shutdown flag if iucv path is quiesced
+    af_iucv: Test additional sk states in iucv_sock_shutdown
+    af_iucv: add sockopt() to enable/disable use of IPRM_DATA msgs
+    af_iucv: Support data in IUCV msg parameter lists (IPRMDATA)
+    af_iucv: Modify iucv msg target class using control msghdr
+    af_iucv: Provide new socket type SOCK_SEQPACKET
+    af_iucv: cleanup and refactor recvmsg() EFAULT handling
+    af_iucv: New socket option for setting IUCV MSGLIMITs
+    af_iucv: Fix race when queuing incoming iucv messages
 
- net/iucv/iucv.c |   41 +++++++++++++++++++++++++++++++----------
- 1 file changed, 31 insertions(+), 10 deletions(-)
+Ursula Braun (2):
+    iucv: provide second per-cpu IUCV command parameter block
+    af_iucv: consider state IUCV_CLOSING when closing a socket
 
-diff -urpN linux-2.6/net/iucv/iucv.c linux-2.6-patched/net/iucv/iucv.c
---- linux-2.6/net/iucv/iucv.c	2009-03-04 15:58:05.000000000 +0100
-+++ linux-2.6-patched/net/iucv/iucv.c	2009-03-04 15:58:26.000000000 +0100
-@@ -280,6 +280,7 @@ union iucv_param {
-  * Anchor for per-cpu IUCV command parameter block.
-  */
- static union iucv_param *iucv_param[NR_CPUS];
-+static union iucv_param *iucv_param_irq[NR_CPUS];
- 
- /**
-  * iucv_call_b2f0
-@@ -358,7 +359,7 @@ static void iucv_allow_cpu(void *data)
- 	 *	0x10 - Flag to allow priority message completion interrupts
- 	 *	0x08 - Flag to allow IUCV control interrupts
- 	 */
--	parm = iucv_param[cpu];
-+	parm = iucv_param_irq[cpu];
- 	memset(parm, 0, sizeof(union iucv_param));
- 	parm->set_mask.ipmask = 0xf8;
- 	iucv_call_b2f0(IUCV_SETMASK, parm);
-@@ -379,7 +380,7 @@ static void iucv_block_cpu(void *data)
- 	union iucv_param *parm;
- 
- 	/* Disable all iucv interrupts. */
--	parm = iucv_param[cpu];
-+	parm = iucv_param_irq[cpu];
- 	memset(parm, 0, sizeof(union iucv_param));
- 	iucv_call_b2f0(IUCV_SETMASK, parm);
- 
-@@ -403,7 +404,7 @@ static void iucv_declare_cpu(void *data)
- 		return;
- 
- 	/* Declare interrupt buffer. */
--	parm = iucv_param[cpu];
-+	parm = iucv_param_irq[cpu];
- 	memset(parm, 0, sizeof(union iucv_param));
- 	parm->db.ipbfadr1 = virt_to_phys(iucv_irq_data[cpu]);
- 	rc = iucv_call_b2f0(IUCV_DECLARE_BUFFER, parm);
-@@ -460,7 +461,7 @@ static void iucv_retrieve_cpu(void *data
- 	iucv_block_cpu(NULL);
- 
- 	/* Retrieve interrupt buffer. */
--	parm = iucv_param[cpu];
-+	parm = iucv_param_irq[cpu];
- 	iucv_call_b2f0(IUCV_RETRIEVE_BUFFER, parm);
- 
- 	/* Clear indication that an iucv buffer exists for this cpu. */
-@@ -574,11 +575,22 @@ static int __cpuinit iucv_cpu_notify(str
- 			iucv_irq_data[cpu] = NULL;
- 			return NOTIFY_BAD;
- 		}
-+		iucv_param_irq[cpu] = kmalloc_node(sizeof(union iucv_param),
-+					GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
-+		if (!iucv_param_irq[cpu]) {
-+			kfree(iucv_param[cpu]);
-+			iucv_param[cpu] = NULL;
-+			kfree(iucv_irq_data[cpu]);
-+			iucv_irq_data[cpu] = NULL;
-+			return NOTIFY_BAD;
-+		}
- 		break;
- 	case CPU_UP_CANCELED:
- 	case CPU_UP_CANCELED_FROZEN:
- 	case CPU_DEAD:
- 	case CPU_DEAD_FROZEN:
-+		kfree(iucv_param_irq[cpu]);
-+		iucv_param_irq[cpu] = NULL;
- 		kfree(iucv_param[cpu]);
- 		iucv_param[cpu] = NULL;
- 		kfree(iucv_irq_data[cpu]);
-@@ -625,7 +637,7 @@ static int iucv_sever_pathid(u16 pathid,
- {
- 	union iucv_param *parm;
- 
--	parm = iucv_param[smp_processor_id()];
-+	parm = iucv_param_irq[smp_processor_id()];
- 	memset(parm, 0, sizeof(union iucv_param));
- 	if (userdata)
- 		memcpy(parm->ctrl.ipuser, userdata, sizeof(parm->ctrl.ipuser));
-@@ -918,10 +930,8 @@ int iucv_path_sever(struct iucv_path *pa
- 	if (iucv_active_cpu != smp_processor_id())
- 		spin_lock_bh(&iucv_table_lock);
- 	rc = iucv_sever_pathid(path->pathid, userdata);
--	if (!rc) {
--		iucv_path_table[path->pathid] = NULL;
--		list_del_init(&path->list);
--	}
-+	iucv_path_table[path->pathid] = NULL;
-+	list_del_init(&path->list);
- 	if (iucv_active_cpu != smp_processor_id())
- 		spin_unlock_bh(&iucv_table_lock);
- 	preempt_enable();
-@@ -1413,7 +1423,7 @@ static void iucv_path_severed(struct iuc
- 	else {
- 		iucv_sever_pathid(path->pathid, NULL);
- 		iucv_path_table[path->pathid] = NULL;
--		list_del_init(&path->list);
-+		list_del(&path->list);
- 		iucv_path_free(path);
- 	}
- }
-@@ -1717,6 +1727,13 @@ static int __init iucv_init(void)
- 			rc = -ENOMEM;
- 			goto out_free;
- 		}
-+		iucv_param_irq[cpu] = kmalloc_node(sizeof(union iucv_param),
-+				  GFP_KERNEL|GFP_DMA, cpu_to_node(cpu));
-+		if (!iucv_param_irq[cpu]) {
-+			rc = -ENOMEM;
-+			goto out_free;
-+		}
-+
- 	}
- 	rc = register_hotcpu_notifier(&iucv_cpu_notifier);
- 	if (rc)
-@@ -1734,6 +1751,8 @@ out_cpu:
- 	unregister_hotcpu_notifier(&iucv_cpu_notifier);
- out_free:
- 	for_each_possible_cpu(cpu) {
-+		kfree(iucv_param_irq[cpu]);
-+		iucv_param_irq[cpu] = NULL;
- 		kfree(iucv_param[cpu]);
- 		iucv_param[cpu] = NULL;
- 		kfree(iucv_irq_data[cpu]);
-@@ -1764,6 +1783,8 @@ static void __exit iucv_exit(void)
- 	spin_unlock_irq(&iucv_queue_lock);
- 	unregister_hotcpu_notifier(&iucv_cpu_notifier);
- 	for_each_possible_cpu(cpu) {
-+		kfree(iucv_param_irq[cpu]);
-+		iucv_param_irq[cpu] = NULL;
- 		kfree(iucv_param[cpu]);
- 		iucv_param[cpu] = NULL;
- 		kfree(iucv_irq_data[cpu]);
+Kind regards,
+Ursula Braun
 
