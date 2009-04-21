@@ -1,39 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macb: Add support of the netpoll API
-Date: Tue, 21 Apr 2009 01:54:14 -0700 (PDT)
-Message-ID: <20090421.015414.259541482.davem@davemloft.net>
-References: <20090417.043945.67766586.davem@davemloft.net>
-	<1240225027-14721-1-git-send-email-haavard.skinnemoen@atmel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2] usb driver for intellon int51x1 based PLC like
+ devolo dlan duo
+Date: Tue, 21 Apr 2009 01:57:08 -0700 (PDT)
+Message-ID: <20090421.015708.65867910.davem@davemloft.net>
+References: <0681089db5bdc5acc805ed52130dc9a5.squirrel@webmail.it-technology.at>
+	<Pine.LNX.4.64.0904181834210.3691@wrl-59.cs.helsinki.fi>
+	<5c52681c17a9cd66ec59e9d9cad3ee46.squirrel@webmail.it-technology.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, michael@free-electrons.com,
-	netdev@vger.kernel.org
-To: haavard.skinnemoen@atmel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44209
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751425AbZDUIyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 04:54:21 -0400
-In-Reply-To: <1240225027-14721-1-git-send-email-haavard.skinnemoen@atmel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: peter-xHLhtm3VSFg@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5c52681c17a9cd66ec59e9d9cad3ee46.squirrel-2RFepEojUI1IVnL2akGZhTp0pij5GnPV@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Date: Mon, 20 Apr 2009 12:57:07 +0200
+From: "Peter Holik" <peter-xHLhtm3VSFg@public.gmane.org>
+Date: Sat, 18 Apr 2009 18:42:59 +0200 (CEST)
 
-> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> 
-> With this patch in place, I'm successfully able to use the netconsole
-> mechanism with the Calao USB-A9263 board, which uses the AT91SAM9263
-> CPU, which in terms of Ethernet controller is supported by the macb
-> driver.
-> 
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> [haavard.skinnemoen@atmel.com: disable_irq() -> local_irq_save()]
-> Signed-off-by: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+> I am submitting a series of 2 patches for inclusion in 2.6.30.
+> Here is a brief description of the patch series:
+> - because of using the same function get_ethernet_addr as cdc_ether.c
+>   i export usbnet_get_ethernet_addr from usbnet and fixed cdc_ether
+>   (suggested by Oliver Neukum).
+> - usb driver for intellon int51x1 based PLC like devolo dlan duo
+>   with improvements suggested by the guys of the mailinglist
 
-This patch does not apply to the current tree.
-
-The macb driver has been converted over to netdev_ops, and therefore
-these accesses to ->poll_controller are not correct.
+I've applied the most recent version of this driver submission
+to net-next-2.6, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
