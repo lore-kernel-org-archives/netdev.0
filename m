@@ -1,45 +1,48 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 4/4] bnx2x: driver version 1.48.105-1
-Date: Wed, 22 Apr 2009 16:40:32 +0300
-Message-ID: <1240407632.18871.50.camel@lb-tlvb-eliezer>
+From: Radu Rendec <radu.rendec@ines.ro>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Wed, 22 Apr 2009 17:02:06 +0300
+Message-ID: <1240408926.6554.57.camel@blade.ines.ro>
+References: <1239964844.21569.57.camel@blade.ines.ro>
+	 <49E905A2.7040402@gmail.com> <200904180321.50281.denys@visp.net.lb>
+	 <20090418075637.GA2738@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vladz@broadcom.com,
-	"John Wright" <john.wright@hp.com>
-To: "David Miller" <davem@davemloft.net>
+Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3582 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753686AbZDVNni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Apr 2009 09:43:38 -0400
+Received: from NAT-172-Unkn.Local.iNES.RO ([80.86.100.172]:34901 "EHLO
+	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755169AbZDVOCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 10:02:13 -0400
+In-Reply-To: <20090418075637.GA2738@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Sat, 2009-04-18 at 09:56 +0200, Jarek Poplawski wrote:
+> Right, if you're using high resolution; there is a bug in tc, found by
+> Denys, which causes wrong (too low) defaults for burst/cburst.
+> 
+> > Also worth to try HFSC.
+> 
+> Yes, it seems to be especially interesting for 64 bit boxes.
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 0ed1ced..d976dd4 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -56,8 +56,8 @@
- #include "bnx2x_init_ops.h"
- #include "bnx2x_dump.h"
- 
--#define DRV_MODULE_VERSION	"1.48.105"
--#define DRV_MODULE_RELDATE	"2009/03/02"
-+#define DRV_MODULE_VERSION	"1.48.105-1"
-+#define DRV_MODULE_RELDATE	"2009/04/22"
- #define BNX2X_BC_VER		0x040200
- 
- #include <linux/firmware.h>
--- 
-1.6.1.3
+Hi Jarek,
 
+Thanks for the hints! As far as I understand, HFSC is also implemented
+as a queue discipline (like HTB), so I guess it suffers from the same
+design limitations (doesn't span across multiple CPUs). Is this
+assumption correct?
 
+As for htb_hysteresis I actually haven't tried it. Although it is
+definitely worth a try (especially if the average traffic grows), I
+don't think it can compensate multithreading / parallel execution. At
+least half of a packet processing time is consumed by classification
+(although I am using hashes). I guess htb_hysteresis only affects the
+actual shaping (which takes place after the packet is classified).
+
+Thanks,
+
+Radu Rendec
 
 
