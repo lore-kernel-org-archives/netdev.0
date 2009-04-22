@@ -1,130 +1,82 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
-Date: Wed, 22 Apr 2009 14:44:11 -0400
-Message-ID: <20090422184411.GE17947@hmsreliant.think-freely.org>
-References: <49EEA7E3.3080507@cosmosbay.com> <20090422.020837.58106317.davem@davemloft.net> <49EEE4F1.4020705@cosmosbay.com> <20090422.025003.92631170.davem@davemloft.net> <20090422165034.GC17947@hmsreliant.think-freely.org> <49EF566B.70203@cosmosbay.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Wed, 22 Apr 2009 11:49:50 -0700
+Message-ID: <49EF66CE.10800@hp.com>
+References: <49ED967B.4070105@cosmosbay.com> <20090421084636.198b181e@nehalam>	<65634d660904211152l6c17aa6dpf7e626474acfe499@mail.gmail.com> <20090422.022120.211323498.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, shemminger@vyatta.com, dada1@cosmosbay.com,
+	andi@firstfloor.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47722 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750743AbZDVSoV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 14:44:21 -0400
-Content-Disposition: inline
-In-Reply-To: <49EF566B.70203@cosmosbay.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:26871 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751212AbZDVStz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 14:49:55 -0400
+In-Reply-To: <20090422.022120.211323498.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2009 at 07:39:55PM +0200, Eric Dumazet wrote:
-> Neil Horman a =E9crit :
-> > On Wed, Apr 22, 2009 at 02:50:03AM -0700, David Miller wrote:
-> >> From: Eric Dumazet <dada1@cosmosbay.com>
-> >> Date: Wed, 22 Apr 2009 11:35:45 +0200
-> >>
-> >>> So RFC4293 tells corresponding Octets variables should be support=
-ed :
-> >>>
-> >>>  InOctets, InMcastOctets, OutMcastOctets, OutBcastOctets, OutOcte=
-ts
-> >>>
-> >>> And I dont see them in /proc/net/snmp or /proc/net/netstat
-> >>>
-> >>> Mitsuru added :
-> >>>
-> >>>        SNMP_MIB_ITEM("InNoRoutes", IPSTATS_MIB_INNOROUTES),
-> >>>        SNMP_MIB_ITEM("InTruncatedPkts", IPSTATS_MIB_INTRUNCATEDPK=
-TS),
-> >>>        SNMP_MIB_ITEM("InMcastPkts", IPSTATS_MIB_INMCASTPKTS),
-> >>>        SNMP_MIB_ITEM("OutMcastPkts", IPSTATS_MIB_OUTMCASTPKTS),
-> >>>        SNMP_MIB_ITEM("InBcastPkts", IPSTATS_MIB_INBCASTPKTS),
-> >>>        SNMP_MIB_ITEM("OutBcastPkts", IPSTATS_MIB_OUTBCASTPKTS),
-> >>>
-> >>> And Neil adds : InOctets, OutOctets, InMcastOctets and OutMcastOc=
-tets
-> >>>
-> >>> Neil, you forgot OutBcastOctets :)
-> >> Fair enough.  Neil I wait for an updated patch :-)
-> >>
-> >=20
-> > As promised, new patch, tested and ready to go.  This variant puts =
-all the stats
-> > at the end of the IpExt stats line in /proc/net/snmp, and at the en=
-d of
-> > /proc/net/dev_snmp6/<iface>, so it shouldn't break any readers of t=
-hose files.
-> >=20
-> > Also, Eric, I know you mentioned the need for OutBcastOctets, and i=
-ntuitively I
-> > thought it should be there as well, but looking at RFC 4293, [In|Ou=
-t]BcastOctets
-> > isn't defined.  I started to wonder if perhaps the RFC assumed that=
- McastOctets
-> > was assumed to include broadcast frames (i.e. all hosts multicast),=
- but I
-> > decided that the smartest thing to do was correlate McastPkts and M=
-castOctets.
-> > If someone wants to make an argument for including broadcast explic=
-itly in both
-> > counters, then we can deal with that in a subsequent patch.
->=20
-> Yes, I found it on page 7, on diagram.
->=20
-> OutBcastPkts (1) =20
->=20
-> Legend (1) is : (1) The HC counters and octet counters are also found=
- at these points
->        but have been left out for clarity.
->=20
-> So apparently RFC forgot OutBcastOctets/InBcastOctets somewhere, oh w=
-ell...
->=20
-> We actually have=20
->=20
-> IpExt: InNoRoutes InTruncatedPkts InMcastPkts OutMcastPkts InBcastPkt=
-s OutBcastPkts
->=20
-> It would make sense to add : InOctets OutOctets InMcastOctets OutMcas=
-tOctets InBcastOctets OutBcastOctets
-> Even if not fully tagged in RFC...
->=20
-I suppose, I'm just trying to avoid collecting data for stats that the =
-snmp
-agent doesn't recognize the oid for, but I suppose it couldn't hurt.
+David Miller wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Tue, 21 Apr 2009 11:52:07 -0700
+> 
+> 
+>>That is possible and don't think the design of our patch would
+>>preclude it, but I am worried that each time the mapping from a
+>>connection to a CPU changes this could cause of out of order
+>>packets.  I suppose this is similar problem to changing the RSS hash
+>>mappings in a device.
+> 
+> 
+> Yes, out of order packet processing is a serious issue.
+> 
+> There are some things I've been brainstorming about.
+> 
+> One thought I keep coming back to is the hack the block layer
+> is using right now.  It remembers which CPU a block I/O request
+> comes in on, and it makes sure the completion runs on that
+> cpu too.
+> 
+> We could remember the cpu that the last socket level operation
+> occurred upon, and use that as a target for packets.  This requires a
+> bit of work.
+> 
+> First we'd need some kind of pre-demux at netif_receive_skb()
+> time to look up the cpu target, and reference this blob from
+> the socket somehow, and keep it uptodate at various specific
+> locations (read/write/poll, whatever...).
 
->=20
-> You could actually use new macros, to update both packet count and by=
-tes count at once.
-> (less calls to get_cpu()/put_cpu(), and per_cpu_ptr(), thats pretty e=
-xpensive if CONFIG_PREEMPT
->=20
->=20
-> #define SNMP_ADD_PB_STATS(mib, bytesfield, bytes, packetsfield) 	\
-> 	do { 	__typeof__(mib) *ptr =3D per_cpu_ptr(mib[!in_softirq()], get_c=
-pu()); \
-> 		ptr->mibs[bytesfield] +=3D bytes; \
-> 		ptr->mibs[packetsfield]++; \
-> 		put_cpu(); \
-> 	} while (0)
->=20
-> #define SNMP_ADD_PB_STATS_BH(mib, bytesfield, bytes, packetsfield) 	\
-> 	do { 	__typeof__(mib) *ptr =3D per_cpu_ptr(mib[0], get_cpu()); \
-> 		ptr->mibs[bytesfield] +=3D bytes; \
-> 		ptr->mibs[packetsfield]++; \
-> 		put_cpu(); \
-> 	} while (0)
->=20
->=20
-> PB as Packet & Bytes, maybe name is wrong :)
->=20
-Yeah, that makes sense, and I like the way it looks a bit better.  I'll=
- update
-the patch later this evening
+Does poll on the socket touch all that many cachelines, or are you thinking of it 
+as being a predictor of where read/write will be called?
 
-Thanks!
-Neil
+> 
+> Or we could pre-demux the real socket.  That could be exciting.
+> 
+> But then we come back to the cpu number changing issue.  There is a
+> cool way to handle this, because it seems that we can just keep
+> queueing to the previous cpu and it can check the socket cpu cookie.
+> If that changes, the old target can push the rest of it's queue to
+> that cpu and then update the cpu target blob.
+> 
+> Anyways, just some ideas.
 
+For what it is worth, at the 5000 foot description level that is exactly what 
+HP-UX 11.X does and calls TOPS (Thread Optimized Packet Scheduling).  Where the 
+socket was last accessed is stashed away (in the socket/stream structure) and 
+that is looked-up when the driver hands the packet up the stack.  It was done 
+that way in HP-UX 11.X because we found that simply hashing the headers (what 
+HP-UX 10.20 called "Inbound Packet Scheduling" or IPS) while fine for discrete 
+netperf TCP_RR tests, wasn't really what one wanted when a single thread of 
+execution was servicing more than one connection/flow.
 
->=20
+The TOPS patches were added to HP-UX 11.0 ca 1998 and while there have been some 
+issues (as you surmise, and others thanks to Streams being involved :) it appears 
+to have worked rather well these last ten years.  So, at least in the abstract 
+what is proposed above has at least a little pre-validation.  TOPS can be 
+disabled/enabled via an ndd (ie sysctl) setting for those cases when the number 
+of NICs (back then they were all single-queue) or now queues is a reasonable 
+fraction of the number of cores and  the administrator can/wants to silo things.
+
+rick jones
