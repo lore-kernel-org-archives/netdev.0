@@ -1,45 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: INET_LRO as tristate and use from modules
-Date: Wed, 22 Apr 2009 02:12:18 -0700 (PDT)
-Message-ID: <20090422.021218.92737677.davem@davemloft.net>
-References: <1240339984.9110.141.camel@subratamodak.linux.ibm.com>
-	<20090421193319.GB20237@lixom.net>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Wed, 22 Apr 2009 02:21:20 -0700 (PDT)
+Message-ID: <20090422.022120.211323498.davem@davemloft.net>
+References: <49ED967B.4070105@cosmosbay.com>
+	<20090421084636.198b181e@nehalam>
+	<65634d660904211152l6c17aa6dpf7e626474acfe499@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: subrata@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	geoffrey.levand@am.sony.com, Linuxppc-dev@ozlabs.org,
-	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	sachinp@linux.vnet.ibm.com, linux-kernel@vger.kernel.org,
-	themann@de.ibm.com
-To: olof@lixom.net
+Cc: shemminger@vyatta.com, dada1@cosmosbay.com, andi@firstfloor.org,
+	netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52226
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42699
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754021AbZDVJM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 05:12:26 -0400
-In-Reply-To: <20090421193319.GB20237@lixom.net>
+	by vger.kernel.org with ESMTP id S1751947AbZDVJV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 05:21:28 -0400
+In-Reply-To: <65634d660904211152l6c17aa6dpf7e626474acfe499@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Olof Johansson <olof@lixom.net>
-Date: Tue, 21 Apr 2009 14:33:19 -0500
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 21 Apr 2009 11:52:07 -0700
 
-> On Wed, Apr 22, 2009 at 12:23:03AM +0530, Subrata Modak wrote:
->>   MODPOST 338 modules
->> ERROR: ".lro_receive_skb" [drivers/net/pasemi_mac_driver.ko] undefined!
->> ERROR: ".lro_flush_all" [drivers/net/pasemi_mac_driver.ko] undefined!
->> WARNING: modpost: Found 1 section mismatch(es).
->> To see full details build your kernel with:
->> 'make CONFIG_DEBUG_SECTION_MISMATCH=y'
->> make[1]: *** [__modpost] Error 1
->> make: *** [modules] Error 2
-> 
-> This seems to be a problem with all tristate-capable drivers that use
-> LRO (and uses select INET_LRO in their Kconfig): INET_LRO is a tristate
-> and can thus be a module. Looks like it needs to be a bool instead?
+> That is possible and don't think the design of our patch would
+> preclude it, but I am worried that each time the mapping from a
+> connection to a CPU changes this could cause of out of order
+> packets.  I suppose this is similar problem to changing the RSS hash
+> mappings in a device.
 
-Yes, making this a bool would be the easiest fix.
+Yes, out of order packet processing is a serious issue.
 
-By why don't we get the same problem for PHYLIB?  It's also
-tristate and "select"'d by a whole slew of networking drivers.
+There are some things I've been brainstorming about.
+
+One thought I keep coming back to is the hack the block layer
+is using right now.  It remembers which CPU a block I/O request
+comes in on, and it makes sure the completion runs on that
+cpu too.
+
+We could remember the cpu that the last socket level operation
+occurred upon, and use that as a target for packets.  This requires a
+bit of work.
+
+First we'd need some kind of pre-demux at netif_receive_skb()
+time to look up the cpu target, and reference this blob from
+the socket somehow, and keep it uptodate at various specific
+locations (read/write/poll, whatever...).
+
+Or we could pre-demux the real socket.  That could be exciting.
+
+But then we come back to the cpu number changing issue.  There is a
+cool way to handle this, because it seems that we can just keep
+queueing to the previous cpu and it can check the socket cpu cookie.
+If that changes, the old target can push the rest of it's queue to
+that cpu and then update the cpu target blob.
+
+Anyways, just some ideas.
