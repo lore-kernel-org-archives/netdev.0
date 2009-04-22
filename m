@@ -1,157 +1,44 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH v2] fs_enet: Remove dead code
-Date: Wed, 22 Apr 2009 16:35:48 -0500
-Message-ID: <1240436148-5456-1-git-send-email-galak@kernel.crashing.org>
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: ath5k irq warning message
+Date: Wed, 22 Apr 2009 14:56:06 -0700
+Message-ID: <49EF9276.1060109@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33359 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752741AbZDVVf6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Apr 2009 17:35:58 -0400
+Received: from mail.candelatech.com ([208.74.158.172]:47179 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300AbZDVV4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 17:56:08 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n3MLu6xd019487
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 22 Apr 2009 14:56:06 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CONFIG_DUET doesn't exist anymore, remove all the code that exists to
-support it.
+I'm working on debugging some sort of live-lock related to irqs
+in ath5k with lots of virtual stations.
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
----
-* Removed stale comment that went along w/DUET support
+I notice this code in the ath5k_intr method.
 
- drivers/net/fs_enet/fs_enet-main.c |   35 +----------------------------------
- drivers/net/fs_enet/fs_enet.h      |    5 -----
- drivers/net/fs_enet/mac-fec.c      |   34 ----------------------------------
- 3 files changed, 1 insertions(+), 73 deletions(-)
+Won't counter be -1 if you break out of this due to the 'counter-- > 0'
+clause?
 
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index a9cbc31..76cd206 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -938,30 +938,6 @@ extern void fs_mii_disconnect(struct net_device *dev);
- 
- /**************************************************************************************/
- 
--/* handy pointer to the immap */
--void __iomem *fs_enet_immap = NULL;
--
--static int setup_immap(void)
--{
--#ifdef CONFIG_CPM1
--	fs_enet_immap = ioremap(IMAP_ADDR, 0x4000);
--	WARN_ON(!fs_enet_immap);
--#elif defined(CONFIG_CPM2)
--	fs_enet_immap = cpm2_immr;
--#endif
--
--	return 0;
--}
--
--static void cleanup_immap(void)
--{
--#if defined(CONFIG_CPM1)
--	iounmap(fs_enet_immap);
--#endif
--}
--
--/**************************************************************************************/
--
- static int __devinit find_phy(struct device_node *np,
-                               struct fs_platform_info *fpi)
- {
-@@ -1191,25 +1167,16 @@ static struct of_platform_driver fs_enet_driver = {
- 
- static int __init fs_init(void)
- {
--	int r = setup_immap();
-+	int r = of_register_platform_driver(&fs_enet_driver);
- 	if (r != 0)
- 		return r;
- 
--	r = of_register_platform_driver(&fs_enet_driver);
--	if (r != 0)
--		goto out;
--
- 	return 0;
--
--out:
--	cleanup_immap();
--	return r;
- }
- 
- static void __exit fs_cleanup(void)
- {
- 	of_unregister_platform_driver(&fs_enet_driver);
--	cleanup_immap();
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/fs_enet/fs_enet.h b/drivers/net/fs_enet/fs_enet.h
-index 85a4bab..ef01e09 100644
---- a/drivers/net/fs_enet/fs_enet.h
-+++ b/drivers/net/fs_enet/fs_enet.h
-@@ -194,9 +194,4 @@ extern const struct fs_ops fs_scc_ops;
- 
- /*******************************************************************/
- 
--/* handy pointer to the immap */
--extern void __iomem *fs_enet_immap;
--
--/*******************************************************************/
--
- #endif
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index 14e5753..ca7bcb8 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -245,10 +245,6 @@ static void set_multicast_list(struct net_device *dev)
- 
- static void restart(struct net_device *dev)
- {
--#ifdef CONFIG_DUET
--	immap_t *immap = fs_enet_immap;
--	u32 cptr;
--#endif
- 	struct fs_enet_private *fep = netdev_priv(dev);
- 	fec_t __iomem *fecp = fep->fec.fecp;
- 	const struct fs_platform_info *fpi = fep->fpi;
-@@ -315,36 +311,6 @@ static void restart(struct net_device *dev)
- 	FW(fecp, ievent, 0xffc0);
- 	FW(fecp, ivec, (virq_to_hw(fep->interrupt) / 2) << 29);
- 
--	/*
--	 * adjust to speed (only for DUET & RMII)
--	 */
--#ifdef CONFIG_DUET
--	if (fpi->use_rmii) {
--		cptr = in_be32(&immap->im_cpm.cp_cptr);
--		switch (fs_get_fec_index(fpi->fs_no)) {
--		case 0:
--			cptr |= 0x100;
--			if (fep->speed == 10)
--				cptr |= 0x0000010;
--			else if (fep->speed == 100)
--				cptr &= ~0x0000010;
--			break;
--		case 1:
--			cptr |= 0x80;
--			if (fep->speed == 10)
--				cptr |= 0x0000008;
--			else if (fep->speed == 100)
--				cptr &= ~0x0000008;
--			break;
--		default:
--			BUG();	/* should never happen */
--			break;
--		}
--		out_be32(&immap->im_cpm.cp_cptr, cptr);
--	}
--#endif
--
--
- 	FW(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
- 	/*
- 	 * adjust to duplex mode
+If so, then that warning won't be printed regardless...
+
+	} while (ath5k_hw_is_intr_pending(ah) && counter-- > 0);
+
+	if (unlikely(!counter))
+		ATH5K_WARN(sc, "too many interrupts, giving up for now\n");
+
+
+Thanks,
+Ben
+
 -- 
-1.6.0.6
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
