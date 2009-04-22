@@ -1,134 +1,61 @@
-From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 8/8] [PATCH] af_iucv: New socket option for setting IUCV MSGLIMITs
-Date: Wed, 22 Apr 2009 11:26:27 +0200
-Message-ID: <20090422093430.723195000@linux.vnet.ibm.com>
-References: <20090422092619.451973000@linux.vnet.ibm.com>
-Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	Hendrik Brueckner <brueckner@linux.vnet.ibm.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
+From: Ivo Clarysse <ivo.clarysse@gmail.com>
+Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+Date: Wed, 22 Apr 2009 11:28:17 +0200
+Message-ID: <ba216b430904220228o369d0a5eg79c876733dcc7c8c@mail.gmail.com>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de>
+	 <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
+	Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:44127 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753562AbZDVJec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 05:34:32 -0400
-Content-Disposition: inline; filename=612-af_iucv-msglimit.diff
+Received: from yw-out-2324.google.com ([74.125.46.28]:34725 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753581AbZDVJed convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 05:34:33 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so1923021ywb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2009 02:34:31 -0700 (PDT)
+In-Reply-To: <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
+On Wed, Apr 22, 2009 at 9:59 AM, Sascha Hauer <s.hauer@pengutronix.de> =
+wrote:
 
-The SO_MSGLIMIT socket option modifies the message limit for new
-IUCV communication paths.
+> +#define CS8900A =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00x000=
+0
+> +#define REV_B =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A07
+> +#define REV_C =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A08
+> +#define REV_D =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A09
 
-The message limit specifies the maximum number of outstanding messages
-that are allowed for connections. This setting can be lowered by z/VM
-when an IUCV connection is established.
+These REV_B / REV_C / REV_D defines are not used, and in fact depend
+on the cs89x0x variant.
 
-Expects an integer value in the range of 1 to 65535.
-The default value is 65535.
+> + =A0 =A0 =A0 dev_info(&pdev->dev, "CS8900A rev %c detected\n",
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 'B' + REVISION(value) -=
+ REV_B);
 
-The message limit must be set before calling connect() or listen()
-for sockets.
+This will report incorrectly for CS8900 (not CS8900A),  and for CS8900A=
+ rev. F:
 
-If sockets are already connected or in state listen, changing the message
-limit is not supported.
-For reading the message limit value, unconnected sockets return the limit
-that has been set or the default limit. For connected sockets, the actual
-message limit is returned. The actual message limit is assigned by z/VM
-for each connection and it depends on IUCV MSGLIMIT authorizations
-specified for the z/VM guest virtual machine.
+According to the CS8900A and CS8920A datasheets, the product ID should
+be interpreted as:
 
-Signed-off-by: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
+0x0700  CS8900A rev. B
+0x0800  CS8900A rev. C
+0x0900  CS8900A rev. D
+0x0A00  CS8900A rev. F
+0x6100  CS8920 rev. B
+0x6200  CS8920 rev. C
+0x6300  CS8920 rev. D
+0x6400  CS8920A rev. A/B
+0x6500  CS8920A rev. C
 
- include/net/iucv/af_iucv.h |    2 ++
- net/iucv/af_iucv.c         |   27 +++++++++++++++++++++++++--
- 2 files changed, 27 insertions(+), 2 deletions(-)
+(I couldn't find the datasheet for the original CS8900; acoording to
+http://www.cirrus.com/en/products/eol/index.html, the CS8900A is the
+only CS89X0X variant which is not EOL)
 
-Index: net-next-2.6-uschi/include/net/iucv/af_iucv.h
-===================================================================
---- net-next-2.6-uschi.orig/include/net/iucv/af_iucv.h
-+++ net-next-2.6-uschi/include/net/iucv/af_iucv.h
-@@ -74,10 +74,12 @@ struct iucv_sock {
- 	struct sock_msg_q	message_q;
- 	unsigned int		send_tag;
- 	u8			flags;
-+	u16			msglimit;
- };
- 
- /* iucv socket options (SOL_IUCV) */
- #define SO_IPRMDATA_MSG	0x0080		/* send/recv IPRM_DATA msgs */
-+#define SO_MSGLIMIT	0x1000		/* get/set IUCV MSGLIMIT */
- 
- /* iucv related control messages (scm) */
- #define SCM_IUCV_TRGCLS	0x0001		/* target class control message */
-Index: net-next-2.6-uschi/net/iucv/af_iucv.c
-===================================================================
---- net-next-2.6-uschi.orig/net/iucv/af_iucv.c
-+++ net-next-2.6-uschi/net/iucv/af_iucv.c
-@@ -268,6 +268,7 @@ static struct sock *iucv_sock_alloc(stru
- 	skb_queue_head_init(&iucv_sk(sk)->backlog_skb_q);
- 	iucv_sk(sk)->send_tag = 0;
- 	iucv_sk(sk)->flags = 0;
-+	iucv_sk(sk)->msglimit = IUCV_QUEUELEN_DEFAULT;
- 
- 	sk->sk_destruct = iucv_sock_destruct;
- 	sk->sk_sndtimeo = IUCV_CONN_TIMEOUT;
-@@ -536,7 +537,7 @@ static int iucv_sock_connect(struct sock
- 
- 	iucv = iucv_sk(sk);
- 	/* Create path. */
--	iucv->path = iucv_path_alloc(IUCV_QUEUELEN_DEFAULT,
-+	iucv->path = iucv_path_alloc(iucv->msglimit,
- 				     IUCV_IPRMDATA, GFP_KERNEL);
- 	if (!iucv->path) {
- 		err = -ENOMEM;
-@@ -1219,6 +1220,20 @@ static int iucv_sock_setsockopt(struct s
- 		else
- 			iucv->flags &= ~IUCV_IPRMDATA;
- 		break;
-+	case SO_MSGLIMIT:
-+		switch (sk->sk_state) {
-+		case IUCV_OPEN:
-+		case IUCV_BOUND:
-+			if (val < 1 || val > (u16)(~0))
-+				rc = -EINVAL;
-+			else
-+				iucv->msglimit = val;
-+			break;
-+		default:
-+			rc = -EINVAL;
-+			break;
-+		}
-+		break;
- 	default:
- 		rc = -ENOPROTOOPT;
- 		break;
-@@ -1250,6 +1265,12 @@ static int iucv_sock_getsockopt(struct s
- 	case SO_IPRMDATA_MSG:
- 		val = (iucv->flags & IUCV_IPRMDATA) ? 1 : 0;
- 		break;
-+	case SO_MSGLIMIT:
-+		lock_sock(sk);
-+		val = (iucv->path != NULL) ? iucv->path->msglim	/* connected */
-+					   : iucv->msglimit;	/* default */
-+		release_sock(sk);
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-@@ -1339,7 +1360,9 @@ static int iucv_callback_connreq(struct 
- 	memcpy(nuser_data + 8, niucv->src_name, 8);
- 	ASCEBC(nuser_data + 8, 8);
- 
--	path->msglim = IUCV_QUEUELEN_DEFAULT;
-+	/* set message limit for path based on msglimit of accepting socket */
-+	niucv->msglimit = iucv->msglimit;
-+	path->msglim = iucv->msglimit;
- 	err = iucv_path_accept(path, &af_iucv_handler, nuser_data, nsk);
- 	if (err) {
- 		err = iucv_path_sever(path, user_data);
 
+Ivo.
