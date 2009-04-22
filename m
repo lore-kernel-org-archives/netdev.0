@@ -1,60 +1,71 @@
-From: "Chris Friesen" <cfriesen-ZIRUuHA3oDzQT0dZR+AlfA@public.gmane.org>
-Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
-Date: Wed, 22 Apr 2009 13:32:49 -0600
-Message-ID: <49EF70E1.9030904@nortel.com>
-References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain> <200904070035.00784.rjw@sisk.pl> <49E79E58.9000606@nortel.com> <alpine.LFD.2.00.0904161432000.4042@localhost.localdomain> <49ECE783.5050704@nortel.com> <Pine.LNX.4.64.0904202352520.2924@blonde.anvils>
+From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Subject: Re: [PATCH v2 fixed] e100: do not go D3 in shutdown unless system
+	is powering off
+Date: Wed, 22 Apr 2009 16:37:29 -0300
+Message-ID: <20090422193728.GI4691@vespa.holoscopio.com>
+References: <1240237621-11415-1-git-send-email-cascardo@holoscopio.com> <200904202114.01932.rjw@sisk.pl> <20090421215248.GF6147@vespa.holoscopio.com> <200904220017.19670.rjw@sisk.pl> <20090422043828.GB3979@vespa.holoscopio.com> <9929d2390904212246n4817b25r4db653cd7e6a24c1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Hugh Dickins <hugh-DTz5qymZ9yRBDgjK7y7TUQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.0904202352520.2924-XZxpfvf5U/bbmfIwyoSfiQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="B8ONY/mu/bqBak9m"
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from liberdade.minaslivre.org ([72.232.18.203]:35190 "EHLO
+	liberdade.minaslivre.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbZDVThg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 15:37:36 -0400
+Content-Disposition: inline
+In-Reply-To: <9929d2390904212246n4817b25r4db653cd7e6a24c1@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hugh Dickins wrote:
-> On Mon, 20 Apr 2009, Chris Friesen wrote:
 
->> For anonymous mappings, the older kernels put the starting address of the VMA
->> (from the point of view of the app) as the offset.  Until the recent change,
->> new kernels still did this for most VMAs, but the stack offset was a 64-bit
->> value with no obvious relation to the VMA start address.
-> 
-> No, what they put there was something that in most cases matched the
-> starting address of the VMA; but try moving that VMA with mremap (and
-> an old /proc/<pid>/maps!) and you'll see that the "offset" remained
-> unchanged even when the starting address of the VMA was changed.
-> 
-> (The offset remaining constant so that rmap can locate the VMA's pages
-> and unmap them, despite their being mapped at different virtual
-> addresses in parent and child after a move in one of them.)
-> 
-> ... so I think your app was indeed already broken, wasn't it?
-> 
-> It's also unclear why you'd want to use the offset field for the
-> starting address of the VMA, when /proc/<pid>/maps already shows
-> the starting address of the VMA.  I think you've more to tell us!
+--B8ONY/mu/bqBak9m
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yeah, given the above the app was broken.  We just didn't run into any 
-cases where the assumption caused any problems.
+On Tue, Apr 21, 2009 at 10:46:19PM -0700, Jeff Kirsher wrote:
+> On Tue, Apr 21, 2009 at 9:38 PM, Thadeu Lima de Souza Cascardo
+> <cascardo@holoscopio.com> wrote:
+> > After experimenting with kexec with the last merges after 2.6.29, I've
+> > had some problems when probing e100. It would not read the eeprom. After
+> > some bisects, I realized this has been like that since forever (at least
+> > 2.6.18). The problem is that shutdown is doing the same thing that
+> > suspend does and puts the device in D3 state. I couldn't find a way to
+> > get the device back to a sane state in the probe function. So, based on
+> > some similar patches from Rafael J. Wysocki for e1000, e1000e and ixgbe,
+> > I wrote this one for e100.
+> >
+> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+> > ---
+>=20
+> Thanks, I will add it to my queue of patches for e100.
+>=20
+> Also, just FYI, Auke is no longer a maintainer for
+> e100/e1000/e1000e/igb/ixgb/ixgbe devices, so I have removed him from
+> the thread.
+>=20
+> --=20
+> Cheers,
+> Jeff
 
-Also, it's not so much that we were relying on the offset value for 
-anything, so much as we were parsing the file and had made some 
-assumptions about valid offsets for anonymous memory.
+Perhaps, Rafael should be mentioned in a Reviewed-by? As well as you if
+you did review it? I guess a Tested-by and Reported-by me is overkill,
+right? :-)
 
-Anyways, we'll fix it going forward to simply ignore the offset for 
-anonymous memory.
+--B8ONY/mu/bqBak9m
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-Chris
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAknvcfgACgkQyTpryRcqtS3ANACfUvn/zTDz/Mk8MlleZZT1f948
+zDMAnRimUtGoQLo9ueLJxJZAb/IXF/uG
+=LUbo
+-----END PGP SIGNATURE-----
+
+--B8ONY/mu/bqBak9m--
