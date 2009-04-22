@@ -1,122 +1,52 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Wed, 22 Apr 2009 11:37:24 -0400
-Message-ID: <49EF39B4.1040607@myri.com>
-References: <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v13)
+Date: Wed, 22 Apr 2009 08:32:08 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904220821240.3101@localhost.localdomain>
+References: <20090418094001.GA2369@ioremap.net> <20090418141455.GA7082@linux.vnet.ibm.com> <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com>
+ <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam> <20090421193924.GA24404@elte.hu> <20090421143927.52d7d89d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, brice@myri.com,
-	sgruszka@redhat.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1979 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753342AbZDVPiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Apr 2009 11:38:19 -0400
-In-Reply-To: <20090422104811.GA30981@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Herbert Xu wrote:
-
- >
- > In the mean time, can you see if there is any disparity in the
- > number of aggregated segments and ACKs between GRO and LRO?
- > netstat -s should be sufficient to measure this (TCP segments
- > received and sent).
-
-I booted the sender into a kernel.org 2.6.18.2 so as to try to have 
-results as close to yours as possible (I was running 2.6.22 on the
-sender before).
-
-I ran 2 sets of experiments, with different CPU bindings.  First
-I bound the netserver and IRQ to the same CPU:
-
-LRO:
-2301987 segments received
-570331  segments send out
-
-Recv   Send    Send                          Utilization       Service 
-Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local 
-remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
-  87380  65536  65536    60.01      6637.79   10.07    49.99    0.249 
-1.234
-
-GRO:
-2035181 segments received
-493042  segments send out
-
-  87380  65536  65536    60.01      5768.21   8.60     49.98    0.244 
-1.420
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>, Paul Mackerras <paulus@samba.org>,
+	paulmck@linux.vnet.ibm.com, Eric Dumazet <dada1@cosmosbay.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090421143927.52d7d89d@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Then I bound them to different CPUs, so as to get close to line rate:
 
+On Tue, 21 Apr 2009, Stephen Hemminger wrote:
+>
+> This version of x_tables (ip/ip6/arp) locking uses a per-cpu
+> recursive lock that can be nested.
 
-LRO:
-3165013 segments received
-1763169 segments send out
-  87380  65536  65536    60.01      9473.27   15.75    49.58    0.272 
-0.858
+Ack on the code.
 
+But the comment is _still_ crap. Please update. It's not a recursive lock, 
+as clearly shown by the code itself. It's a per-cpu read-write lock, and 
+only the reader is "recursive" (but that's how read-write locks with in 
+Linux, and that has nothing to do with anything).
 
-GRO:
-3032484 segments received
-2265453 segments send out
-  87380  65536  65536    60.01      9472.69   15.64    48.73    0.270 
-0.843
+So make the explanations match the code and the intent. Write it something 
+like
 
+	This version of x_tables (ip/ip6/arp) locking uses a per-cpu
+	reader-writer lock lock where the readers can nest.
 
-Do you know what is broken with respect the CPU utilization in recent
-kernels?  If I bind the IRQ to CPU0, then watch mpstat I see
-zero load on that CPU:
+and don't confuse it with incorrect commit messages. The lock is very much 
+not recursive - on purpose - for half the people taking it.
 
-% mpstat -P 0 1
-Linux 2.6.30-rc1 (venice)       04/22/09
+[ That, btw, was always true, even in the original random open-coded 
+  version. Because you can't actually do a real recursive lock without 
+  having notion of "current ownership" either by making the count be 
+  <per-thread,per-lock> - like the BKL - or by saving the ownership 
+  information in the lock. A plain counter simply doesn't do it. ]
 
-11:25:25     CPU   %user   %nice %system %iowait    %irq   %soft   %idle 
-    intr/s
-11:25:26       0    0.00    0.00    0.00    0.00    0.00    0.00  100.00 
-  13248.00
-11:25:27       0    0.00    0.00    0.00    0.00    0.00    0.00  100.00 
-  13280.00
-
-Common sense tells me that is wrong, and oprofile verifies there is
-a lot happening on CPU0.  This makes it hard to use netperf's
-service demand to compare LRO and GRO.
-
-When I run a cpu-soaker in usermode bound to CPU0, I start to see
-irq, softirq, etc:
-
-11:28:02     CPU   %user   %nice %system %iowait    %irq   %soft   %idle 
-    intr/s
-11:28:03       0   45.10    0.00    0.00    0.00    1.96   52.94    0.00 
-  13019.61
-11:28:04       0   46.46    0.00    0.00    0.00    2.02   51.52    0.00 
-  13414.14
-
-
-If I use this as poor-man's way to measure CPU load on the CPU running
-the softirq, then its clear that GRO is using a bit more CPU than LRO.
-The above mpstat output is from LRO, and this is from GRO:
-
-11:29:16       0   39.60    0.00    0.00    0.00    2.97   57.43    0.00 
-  13146.53
-11:29:17       0   38.00    0.00    0.00    0.00    2.00   60.00    0.00 
-  13278.00
-11:29:18       0   39.00    0.00    0.00    0.00    4.00   57.00    0.00 
-  13273.00
-
-Once we have the checksum issue worked out, either GRO or my driver
-will be using even more CPU as it will need to verify the partial
-checksums.  Remember that my current patch is just setting
-CHECKSUM_UNNECESSARY to get around the checksum problem I was seeing.
-
-Drew
-
-
+		Linus
