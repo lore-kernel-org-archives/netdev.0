@@ -1,40 +1,46 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0/3] tun: fix aio
-Date: Mon, 27 Apr 2009 10:48:37 +0930
-Message-ID: <200904271048.38401.rusty@rustcorp.com.au>
-References: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com> <20090420120930.GA4941@gondor.apana.org.au> <20090420122137.GA6768@dhcp-1-124.tlv.redhat.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: Porting the ibm_newemac driver to use phylib (and other
+ PHY/MAC questions)
+Date: Wed, 22 Apr 2009 10:21:16 +0200
+Message-ID: <1240388476.17445.10.camel@pasglop>
+References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
+	 <625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
+	 <f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org
+To: Kyle Moffett <kyle@moffetthome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51811 "EHLO ozlabs.org"
+Received: from gate.crashing.org ([63.228.1.57]:37601 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753476AbZD0BSn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2009 21:18:43 -0400
-In-Reply-To: <20090420122137.GA6768@dhcp-1-124.tlv.redhat.com>
-Content-Disposition: inline
+	id S1751643AbZD0ALn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2009 20:11:43 -0400
+In-Reply-To: <f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Apr 2009 09:51:38 pm Michael S. Tsirkin wrote:
-> On Mon, Apr 20, 2009 at 08:09:30PM +0800, Herbert Xu wrote:
-> > Michael S. Tsirkin <mst@redhat.com> wrote:
-> > >
-> > > Note: I started out just allocating and copying the iovec rather than adding
-> > > yet another skb-iterating routine, but this turned out to add small but
-> > > measurable overhead on data path: tx time per packet jumped from 6500 to 6700 ns
-> > > (let me know if you want to see that version of the patch).
-> > 
-> > Can you please post the copying version as well so we can compare?
+On Mon, 2009-04-20 at 20:10 -0400, Kyle Moffett wrote:
+> > IIRC, Ben had some issues with how phylib and the EMAC would need to
+> > interact.  Not sure if he has those written down somewhere or not.
+> > (CC'd).
 > 
-> Sure. Here it is: much smaller, but slightly slower.
+> Hmm, yeah, I'd be interested to see those.  There's enough similar
+> between phylib and the EMAC and sungem drivers that I'm considering a
+> series of somewhat-mechanical patches to make EMAC and sungem use the
+> "struct phy_device" and "struct mii_bus" from phylib, possibly
+> abstracting out some helper functions along the way.
 
-Which could probably be fixed by using an on-stack version for a iovec
-of less than a certain size...
+Yup, emac and sungem predate phylib.
 
-Cheers,
-Rusty.
+I had a quick look at what it would take to port at least emac over, the
+main issue was that I want to be able to sleep (ie, take a mutex) in my
+mdio read/write functions, and back then, phylib wouldn't let me do that
+due to spinlock and timer/softirq usage.
+
+Ben.
+
+
