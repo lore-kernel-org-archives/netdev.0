@@ -1,24 +1,37 @@
-From: =?iso-8859-1?B?qQ==?= 2009 UK BOARD <canadianauto@bellnet.ca>
-Subject: **JACKPOT**JOY WINNER**
-Date: Wed, 22 Apr 2009 8:19:14 -0400
-Message-ID: <20090422121914.VSKD1658.simmts5-srv.bellnexxia.net__38454.4349778027$1240402883$gmane$org@simip9-ac.srvr.bell.ca>
-Reply-To: drpatrick.joseph01@live.com
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+Date: Wed, 22 Apr 2009 14:20:38 +0200
+Message-ID: <20090422122038.GJ21747@pengutronix.de>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de> <49EEE6A1.7070407@xenomai.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@winner.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
+	Ivo Clarysse <ivo.clarysse@gmail.com>
+To: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts5-qfe0.srvr.bell.ca ([206.47.199.163]:51988 "EHLO
-	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752239AbZDVMTT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Apr 2009 08:19:19 -0400
+Received: from fmmailgate01.web.de ([217.72.192.221]:48136 "EHLO
+	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751906AbZDVMUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 08:20:41 -0400
+Content-Disposition: inline
+In-Reply-To: <49EEE6A1.7070407@xenomai.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have won =A3750,000 GBP.
+On Wed, Apr 22, 2009 at 11:42:57AM +0200, Gilles Chanteperdrix wrote:
+> Sascha Hauer wrote:
+> > +MODULE_AUTHOR("Abraham van der Merwe <abraham@2d3d.co.za>");
+> 
+> The 2d3d.co.za domain does not seem to exist.
 
-contact with your name, age, country and address to,
+Ok, I'll just put myself as the module author and leave the credits to
+Abraham in the header, just removing his email address. I can't find
+any newer pointers to Abraham besides a facebook profile.
 
-Dr Joseph Patrick  Email agenttoffices@gmail.com
+Sascha
 
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
