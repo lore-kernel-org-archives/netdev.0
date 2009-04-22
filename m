@@ -1,81 +1,54 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH RFC v2] Documentation/isdn/INTERFACE.CAPI
-Date: Wed, 22 Apr 2009 13:48:28 +0200
-Message-ID: <49EF040C.6070401@imap.cc>
-References: <49E4E9CA.8000802@imap.cc>	<20090421091852.9C31C111815@xenon.ts.pxnet.com> <20090422.023142.222186658.davem@davemloft.net>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
+Date: Wed, 22 Apr 2009 14:18:21 +0200
+Message-ID: <20090422121821.GI21747@pengutronix.de>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de> <ba216b430904220228o369d0a5eg79c876733dcc7c8c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigA093350EB3E6D3AABE69A46A"
-Cc: isdn4linux@listserv.isdn4linux.de, isdn@linux-pingi.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754465AbZDVLsy@vger.kernel.org>
-In-Reply-To: <20090422.023142.222186658.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
+	Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+To: Ivo Clarysse <ivo.clarysse@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate03.web.de ([217.72.192.234]:45062 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbZDVMSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 08:18:23 -0400
+Content-Disposition: inline
+In-Reply-To: <ba216b430904220228o369d0a5eg79c876733dcc7c8c@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigA093350EB3E6D3AABE69A46A
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 22 Apr 2009 02:31:42 -0700 (PDT), David Miller wrote:
-> From: Tilman Schmidt <tilman@imap.cc>
-> Date: Tue, 21 Apr 2009 11:18:52 +0200 (CEST)
+On Wed, Apr 22, 2009 at 11:28:17AM +0200, Ivo Clarysse wrote:
+> On Wed, Apr 22, 2009 at 9:59 AM, Sascha Hauer <s.hauer@pengutronix.de=
+> wrote:
 >=20
->> @@ -8,6 +8,8 @@ INTERFACE
->>  	- description of isdn4linux Link Level and Hardware Level interfaces=
-=2E
->>  INTERFACE.fax
->>  	- description of the fax subinterface of isdn4linux.
->> +INTERFACE.CAPI
->> +	- description of kernel CAPI Link Level to Hardware Level interface.=
-
->>  README
->>  	- general info on what you need and what to do for Linux ISDN.
->>  README.FAQ
+> > +#define CS8900A =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00x0=
+000
+> > +#define REV_B =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A07
+> > +#define REV_C =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A08
+> > +#define REV_D =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A09
 >=20
-> There is no INTERFACE.fax entry in this file in the current
-> tree.
+> These REV_B / REV_C / REV_D defines are not used, and in fact depend
+> on the cs89x0x variant.
 >=20
-> I wanted to apply this, but aparently your patch is against
-> something other than Linus's tree or net-2.6
+> > + =A0 =A0 =A0 dev_info(&pdev->dev, "CS8900A rev %c detected\n",
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 'B' + REVISION(value)=
+ - REV_B);
+>=20
+> This will report incorrectly for CS8900 (not CS8900A),  and for CS890=
+0A rev. F:
 
-It applies on top of my mis-dated patch
+Ok, will fix.
 
-Subject: [PATCH v2] update Documentation/isdn/00-INDEX
-Date: Mon, 17 Nov 2008 14:01:32 +0100
-
-which I sent in fact on 7 Apr 2009. Somehow I thought you had
-already applied that.
-
-If it helps, I can re-send that one with the correct date, or
-alternatively merge both of these patches into one.
-
-Regards,
-Tilman
+Sascha
 
 --=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
-
-
---------------enigA093350EB3E6D3AABE69A46A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.4 (MingW32)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFJ7wQNQ3+did9BuFsRAr7AAJ9bsXYEUaoYEdqm8zh6NnhaK5nWfQCgib42
-2FCNELBzwjnTDR3MLPChrPU=
-=StOb
------END PGP SIGNATURE-----
-
---------------enigA093350EB3E6D3AABE69A46A--
+Pengutronix e.K.                           |                           =
+  |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
+  |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
+5 |
