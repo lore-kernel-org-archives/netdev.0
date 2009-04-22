@@ -1,27 +1,35 @@
-From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
-Subject: Re: [PATCH 1/2] Add an alternative cs89x0 driver
-Date: Wed, 22 Apr 2009 11:42:57 +0200
-Message-ID: <49EEE6A1.7070407@xenomai.org>
-References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
+Date: Wed, 22 Apr 2009 10:13:18 +0000
+Message-ID: <20090422101318.GA6630@ff.dom.local>
+References: <49EEDAF0.2010507@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
-	Ivo Clarysse <ivo.clarysse@gmail.com>
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 54.242.96-84.rev.gaoland.net ([84.96.242.54]:47748 "EHLO
-	xenomai.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752406AbZDVKEy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Apr 2009 06:04:54 -0400
-In-Reply-To: <1240387172-21818-2-git-send-email-s.hauer@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <49EEDAF0.2010507@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sascha Hauer wrote:
-> +MODULE_AUTHOR("Abraham van der Merwe <abraham@2d3d.co.za>");
+On 22-04-2009 10:53, Eric Dumazet wrote:
+...
+> If this could be done without recursion, I am pretty sure netfilter
+> and network guys would have done it. I found Linus reaction quite
+> shocking IMHO, considering hard work done by all people on this.
 
-The 2d3d.co.za domain does not seem to exist.
+Right, looks like 100% (Scandinavian?!) troll. I wonder where is the
+admin of this mess...
 
--- 
-                                                 Gilles.
+Jarek P.
