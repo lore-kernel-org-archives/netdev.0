@@ -1,95 +1,131 @@
-From: "Karsten Keil" <Karsten-Keil@t-online.de>
-Subject: [PATCH 3/3] Add reference to CAPI 2.0 standard
-Date: Wed, 22 Apr 2009 16:31:48 +0200
-Message-ID: <f094d823a0fc52e010f99aec720c9144d454c2fa.1240410708.git.keil@b1-systems.de>
-References: <cover.1240410708.git.keil@b1-systems.de>
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	David Miller <davem@davemloft.net>, tilman@imap.cc,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
+Date: Wed, 22 Apr 2009 18:57:25 +0200
+Message-ID: <49EF4C75.6060604@cosmosbay.com>
+References: <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam> <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam> <20090421191007.GA15485@elte.hu> <49EE2293.4090201@cosmosbay.com> <20090422073524.GA31835@elte.hu> <49EEDAF0.2010507@cosmosbay.com> <alpine.LFD.2.00.0904220806320.3101@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout01.t-online.de ([194.25.134.80]:52567 "EHLO
-	mailout01.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753904AbZDVQwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 12:52:53 -0400
-In-Reply-To: <cover.1240410708.git.keil@b1-systems.de>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:44110 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbZDVQ6z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 12:58:55 -0400
+In-Reply-To: <alpine.LFD.2.00.0904220806320.3101@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the entry about CAPI 2.0 to the beginning and add a URL.
-Incorporate changes suggested by Randy Dunlap, thanks for proofreading.
+Linus Torvalds a =E9crit :
+>=20
+> On Wed, 22 Apr 2009, Eric Dumazet wrote:
+>> If this could be done without recursion, I am pretty sure netfilter
+>> and network guys would have done it. I found Linus reaction quite
+>> shocking IMHO, considering hard work done by all people on this.
+>=20
+> You don't _understand_ do you?
+>=20
+> There is a huge difference between recursive code, and a recursive lo=
+ck.
+>=20
+> The netfilter code may need to occasionally re-enter itself. Nobody e=
+ver=20
+> contested _that_ part.
+>=20
+> What I have disagreed with the whole time is=20
+>=20
+>  (a) doing local ad-hoc locking primitives without any comments=20
+>      what-so-ever.
+>=20
+>  (b) Doing them _wrong_ in many cases
+>=20
+>  (c) Calling the _lock_ a "recursive" lock.
+>=20
+> The fact that a lock works with recursion doesn't make it "recursive"=
+=2E=20
+> That generally has a very special meaning for locking primitives, and=
+=20
+> means something else.
+>=20
+> In contrast, a read-write lock actually has known properties, and we =
+have=20
+> existing locking mechanisms for those. And we call them read-write lo=
+cks=20
+> DESPITE THE FACT that the reading part can be done recursively.=20
+>=20
+> If you call a read-write lock a "recursive" lock, then you're a moron=
+=2E=20
+> It simply is _not_ a recursive lock. And neither is the lock you actu=
+ally=20
+> implemented, even though you (and Stephen) continually call it that.=20
+>=20
+> SO STOP CALLING IT A RECURSIVE LOCK. Look at your very own code: you =
+can=20
+> actually only use that lock in a recursive context in a _very_ specif=
+ic=20
+> place. Notice how it's only "recursive" when taken in the per-CPU con=
+text,=20
+> but _not_ recursive when the filter-updating code ("writer") takes it=
+?
+>=20
+> Do you understand now? It really shouldn't be so hard for you.=20
+>=20
+> Naming is important. Locking is important. You did both things wrong.=
+ You=20
+> named your locks something incorrect and mis-leading that didn't actu=
+ally=20
+> describe them, and you did your own private locking code without then=
+=20
+> documenting what the rules for this special lock were.
+>=20
+> Maybe in your world that's ok. But no, in mine it's not. I've seen to=
+o=20
+> many damn _non-functioning_ locks to ever want to see stuff like that=
+=20
+> again.
+>=20
+>
 
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
----
- Documentation/isdn/INTERFACE.CAPI |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
+Linus,
 
-diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
-index 8947ffc..4d802ee 100644
---- a/Documentation/isdn/INTERFACE.CAPI
-+++ b/Documentation/isdn/INTERFACE.CAPI
-@@ -3,6 +3,11 @@ Kernel CAPI Interface to Hardware Drivers
- 
- 1. Overview
- 
-+From the CAPI 2.0 spezification:
-+COMMON-ISDN-API (CAPI) is an application programming interface standard used
-+to access ISDN equipment connected to basic rate interfaces (BRI) and primary
-+rate interfaces (PRI).
-+
- Kernel CAPI operates as a dispatching layer between CAPI applications and CAPI
- hardware drivers. Hardware drivers register ISDN devices (controllers, in CAPI
- lingo) with Kernel CAPI to indicate their readiness to provide their service
-@@ -12,6 +17,9 @@ application registration to an available device, forwarding it to the
- corresponding hardware driver. Kernel CAPI then forwards CAPI messages in both
- directions between the application and the hardware driver.
- 
-+Format and semantics of CAPI messages are specified in the CAPI 2.0 standard.
-+This standard is freely available from http://www.capi.org.
-+
- 
- 2. Driver and Device Registration
- 
-@@ -53,12 +61,10 @@ open() operation on regular files or character devices.
- After a successful return from register_appl(), CAPI messages from the
- application may be passed to the driver for the device via calls to the
- send_message() callback function. The CAPI message to send is stored in the
--data portion of a skb. Conversely, the driver may call Kernel CAPI's
-+data portion of an skb. Conversely, the driver may call Kernel CAPI's
- capi_ctr_handle_message() function to pass a received CAPI message to Kernel
- CAPI for forwarding to an application, specifying its ApplID.
- 
--Format and semantics of CAPI messages are specified in the CAPI 2.0 standard.
--
- Deregistration requests (CAPI operation CAPI_RELEASE) from applications are
- forwarded as calls to the release_appl() callback function, passing the same
- ApplID as with register_appl(). After return from release_appl(), no CAPI
-@@ -75,9 +81,9 @@ the following non-private fields, all to be set by the driver before calling
- register_capi_driver():
- 
- char name[32]
--	the name of the driver, as a zero terminated ASCII string
-+	the name of the driver, as a zero-terminated ASCII string
- char revision[32]
--	the revision number of the driver, as a zero terminated ASCII string
-+	the revision number of the driver, as a zero-terminated ASCII string
- int (*add_card)(struct capi_driver *driver, capicardparams *data)
- 	a callback function pointer (may be NULL)
- 
-@@ -100,10 +106,10 @@ void *driverdata
- 	an opaque pointer to driver specific data, not touched by Kernel CAPI
- 
- char name[32]
--	the name of the controller, as a zero terminated ASCII string
-+	the name of the controller, as a zero-terminated ASCII string
- 
- char *driver_name
--	the name of the driver, as a zero terminated ASCII string
-+	the name of the driver, as a zero-terminated ASCII string
- 
- int (*load_firmware)(struct capi_ctr *ctrlr, capiloaddata *ldata)
- 	(optional) pointer to a callback function for sending firmware and
--- 
-1.6.0.2
+I actually sent *one* buggy patch, and you already gave your feedback a=
+nd NACK.
+
+=46ine
+
+I even relayed this to Stephen suggesting him not calling this a recurs=
+ive lock.
+(Note how I use 'suggesting' here)
+
+So, what do you want from me ? Should I copy 100 times :
+
+"I should not call it a recursive lock. I shall not invent new locking =
+infra. I am a moron."=20
+"I should not call it a recursive lock. I shall not invent new locking =
+infra. I am a moron."=20
+"I should not call it a recursive lock. I shall not invent new locking =
+infra. I am a moron."=20
+"I should not call it a recursive lock. I shall not invent new locking =
+infra. I am a moron."=20
+"I should not call it a recursive lock. I shall not invent new locking =
+infra. I am a moron."=20
+"I should not call it a recursive lock. I shall not invent new locking =
+infra. I am a moron."=20
+=2E..
+
+OK done
+
+Can we now proceed and continue ?
+
+Thank you
 
