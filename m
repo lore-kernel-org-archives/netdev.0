@@ -1,83 +1,35 @@
-From: Etienne Basset <etienne.basset@numericable.fr>
-Subject: Re: [PATCH] netlabel: Always remove the correct address selector
-Date: Wed, 22 Apr 2009 07:55:05 +0200
-Message-ID: <49EEB139.2050309@numericable.fr>
-References: <20090421200422.10106.24767.stgit@flek.lan>
+From: Greg Lindahl <greg@blekko.com>
+Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and
+	security_socket_post_recv_datagram().
+Date: Tue, 21 Apr 2009 23:10:06 -0700
+Message-ID: <20090422061006.GB27688@bx9.net>
+References: <200904220055.n3M0tQ6T048840@www262.sakura.ne.jp> <20090421.181411.26595688.davem@davemloft.net> <20090422015228.GA13312@bx9.net> <20090421.212342.235921625.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20090421200422.10106.24767.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: penguin-kernel@i-love.sakura.ne.jp, paul.moore@hp.com,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rc.bx9.net ([64.13.160.15]:27086 "EHLO rc.bx9.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752469AbZDVGKI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2009 02:10:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20090421.212342.235921625.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Apr 21, 2009 at 09:23:42PM -0700, David Miller wrote:
 
-Paul Moore wrote:
-> The NetLabel address selector mechanism has a problem where it can get
-> mistakenly remove the wrong selector when similar addresses are used.  The
-> problem is caused when multiple addresses are configured that have different
-> netmasks but the same address, e.g. 127.0.0.0/8 and 127.0.0.0/24.  This patch
-> fixes the problem.
+> I said explicitly that hard errors are allows (out of file
+> descriptors, memory allocation failure)
 
-thanks Paul!
+I have no idea what you meant by a "hard" error. Note that I also
+discussed EAGAIN, which appears to happen commonly historically and
+today, and appears to be what the security module folks would want to
+have happen and you're rejecting. Do you consider that to be a hard
+error? I'm betting not.
 
-Tested-by: Etienne Basset <etienne.basset@numericable.fr>
+-- greg
 
-> 
-> Reported-by: Etienne Basset <etienne.basset@numericable.fr>
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
-> ---
-> 
->  net/netlabel/netlabel_addrlist.c |   26 ++++++++++----------------
->  1 files changed, 10 insertions(+), 16 deletions(-)
-> 
-> diff --git a/net/netlabel/netlabel_addrlist.c b/net/netlabel/netlabel_addrlist.c
-> index 834c6eb..c051913 100644
-> --- a/net/netlabel/netlabel_addrlist.c
-> +++ b/net/netlabel/netlabel_addrlist.c
-> @@ -256,13 +256,11 @@ struct netlbl_af4list *netlbl_af4list_remove(__be32 addr, __be32 mask,
->  {
->  	struct netlbl_af4list *entry;
->  
-> -	entry = netlbl_af4list_search(addr, head);
-> -	if (entry != NULL && entry->addr == addr && entry->mask == mask) {
-> -		netlbl_af4list_remove_entry(entry);
-> -		return entry;
-> -	}
-> -
-> -	return NULL;
-> +	entry = netlbl_af4list_search_exact(addr, mask, head);
-> +	if (entry == NULL)
-> +		return NULL;
-> +	netlbl_af4list_remove_entry(entry);
-> +	return entry;
->  }
->  
->  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> @@ -299,15 +297,11 @@ struct netlbl_af6list *netlbl_af6list_remove(const struct in6_addr *addr,
->  {
->  	struct netlbl_af6list *entry;
->  
-> -	entry = netlbl_af6list_search(addr, head);
-> -	if (entry != NULL &&
-> -	    ipv6_addr_equal(&entry->addr, addr) &&
-> -	    ipv6_addr_equal(&entry->mask, mask)) {
-> -		netlbl_af6list_remove_entry(entry);
-> -		return entry;
-> -	}
-> -
-> -	return NULL;
-> +	entry = netlbl_af6list_search_exact(addr, mask, head);
-> +	if (entry == NULL)
-> +		return NULL;
-> +	netlbl_af6list_remove_entry(entry);
-> +	return entry;
->  }
->  #endif /* IPv6 */
->  
-> 
-> 
 
