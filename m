@@ -1,62 +1,71 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: What makes a good fake MAC address?
-Date: Wed, 22 Apr 2009 14:28:03 -0700
-Message-ID: <200904221428.03539.inaky@linux.intel.com>
-References: <200904221348.27357.inaky@linux.intel.com> <49EF8891.9010306@cosmosbay.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Wed, 22 Apr 2009 23:29:32 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0904222313080.22266@ask.diku.dk>
+References: <1239964844.21569.57.camel@blade.ines.ro>  <49E905A2.7040402@gmail.com>
+ <200904180321.50281.denys@visp.net.lb>  <20090418075637.GA2738@ami.dom.local>
+ <1240408926.6554.57.camel@blade.ines.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Radu Rendec <radu.rendec@ines.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:46176 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754291AbZDVV2H convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 17:28:07 -0400
-In-Reply-To: <49EF8891.9010306@cosmosbay.com>
-Content-Disposition: inline
+Received: from mgw1.diku.dk ([130.225.96.91]:57766 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753706AbZDVV3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2009 17:29:38 -0400
+In-Reply-To: <1240408926.6554.57.camel@blade.ines.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 22 April 2009, Eric Dumazet wrote:
-> Inaky Perez-Gonzalez a =E9crit :
-> > Hi All
-> >
-> > The Intel i2400m WiMAX driver behaves as an ethernet device, and
-> > currently when sending packets to the netdev stack, it fakes an eth=
-ernet
-> > header, sets the "from" mac address to zeroes and the "to" to it's =
-own
-> > MAC address.
-> >
-> > The WiMAX network can be considered to be a point-to-point (up to t=
-he
-> > gateway) connection, all IP based, so there are not MAC addresses f=
-rom
-> > our gateway (not to mention that it can change behind us).
-> >
-> > The problem with using a zero mac address is that it confuses the
-> > bridging software (and maybe others). I was wondering, what would b=
-e a
-> > fake mac address we could put in there that is legal for this kind =
-of
-> > "faking"? [or the closest thing to legal?]
-> >
-> > Thanks!
->
-> We have random_ether_addr(), it should be self explained :)
+On Wed, 22 Apr 2009, Radu Rendec wrote:
 
-(Also in reply to Stephen's comment) the device has its own local addre=
-ss;=20
-what we are faking is the address the packet comes from.
+> Thanks for the hints! As far as I understand, HFSC is also implemented
+> as a queue discipline (like HTB), so I guess it suffers from the same
+> design limitations (doesn't span across multiple CPUs). Is this
+> assumption correct?
 
-According to random_ether_addr(), it sets the local bits; will this wor=
-k to=20
-fake the "other end of the connection"? (for which there is an IP addre=
-ss but=20
-no MAC address, it being a pure IP link).
+Yes.
 
-Thanks,
+> As for htb_hysteresis I actually haven't tried it. Although it is
+> definitely worth a try (especially if the average traffic grows), I
+> don't think it can compensate multithreading / parallel execution.
 
---=20
-Inaky
+Its runtime adjustable, so its easy to try out.
+
+  via /sys/module/sch_htb/parameters/htb_hysteresis
+
+
+> At least half of a packet processing time is consumed by classification 
+> (although I am using hashes).
+
+The HTB classify hash has a scalability issue in kernels below 2.6.26. 
+Patrick McHardy fixes that up in 2.6.26.  What kernel version are you 
+using?
+
+Could you explain how you do classification? And perhaps outline where you 
+possible scalability issue is located?
+
+If you are interested how I do scalable classification, see my 
+presentation from Netfilter Workshop 2008:
+
+  http://nfws.inl.fr/en/?p=115
+  http://www.netoptimizer.dk/presentations/nfsw2008/Jesper-Brouer_Large-iptables-rulesets.pdf
+
+
+> I guess htb_hysteresis only affects the actual shaping (which takes 
+> place after the packet is classified).
+
+Yes, htb_hysteresis basically is a hack to allow extra bursts... we 
+actually considered removing it completely...
+
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
