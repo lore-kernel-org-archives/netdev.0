@@ -1,125 +1,173 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-Subject: [PATCH v2 fixed] e100: do not go D3 in shutdown unless system is
-	powering off
-Date: Wed, 22 Apr 2009 01:38:28 -0300
-Message-ID: <20090422043828.GB3979@vespa.holoscopio.com>
-References: <1240237621-11415-1-git-send-email-cascardo@holoscopio.com> <200904202114.01932.rjw@sisk.pl> <20090421215248.GF6147@vespa.holoscopio.com> <200904220017.19670.rjw@sisk.pl>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] e1000/e1000e/igb/ixgb: do not use
+	netif_wake_queue un-necessarily
+Date: Tue, 21 Apr 2009 21:42:05 -0700
+Message-ID: <20090422044153.22980.31231.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="hHWLQfXTYDoKhP50"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from liberdade.minaslivre.org ([72.232.18.203]:37982 "EHLO
-	liberdade.minaslivre.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbZDVEif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 00:38:35 -0400
-Content-Disposition: inline
-In-Reply-To: <200904220017.19670.rjw@sisk.pl>
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:52980 "EHLO
+	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751543AbZDVEmX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 00:42:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
---hHWLQfXTYDoKhP50
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+It was pointed out that the Intel wired ethernet drivers do not need to
+wake the tx queue since netif_carrier_on/off will take care of the qdisc
+management in order to guarantee the correct handling of the transmit
+routine enable state.
 
-After experimenting with kexec with the last merges after 2.6.29, I've
-had some problems when probing e100. It would not read the eeprom. After
-some bisects, I realized this has been like that since forever (at least
-2.6.18). The problem is that shutdown is doing the same thing that
-suspend does and puts the device in D3 state. I couldn't find a way to
-get the device back to a sane state in the probe function. So, based on
-some similar patches from Rafael J. Wysocki for e1000, e1000e and ixgbe,
-I wrote this one for e100.
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e100.c |   30 +++++++++++++++++++++++-------
- 1 files changed, 23 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index c0f8443..68e3b79 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2728,7 +2728,7 @@ static void __devexit e100_remove(struct pci_dev *pde=
-v)
- #define E100_82552_SMARTSPEED   0x14   /* SmartSpeed Ctrl register */
- #define E100_82552_REV_ANEG     0x0200 /* Reverse auto-negotiation */
- #define E100_82552_ANEG_NOW     0x0400 /* Auto-negotiate now */
--static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-+static void __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
- {
- 	struct net_device *netdev =3D pci_get_drvdata(pdev);
- 	struct nic *nic =3D netdev_priv(netdev);
-@@ -2749,19 +2749,32 @@ static int e100_suspend(struct pci_dev *pdev, pm_me=
-ssage_t state)
- 			           E100_82552_SMARTSPEED, smartspeed |
- 			           E100_82552_REV_ANEG | E100_82552_ANEG_NOW);
- 		}
--		if (pci_enable_wake(pdev, PCI_D3cold, true))
--			pci_enable_wake(pdev, PCI_D3hot, true);
-+		*enable_wake =3D true;
- 	} else {
--		pci_enable_wake(pdev, PCI_D3hot, false);
-+		*enable_wake =3D false;
- 	}
-=20
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, PCI_D3hot);
-+}
-=20
--	return 0;
-+static int __e100_power_off(struct pci_dev *pdev, bool wake)
-+{
-+	if (wake) {
-+		return pci_prepare_to_sleep(pdev);
-+	} else {
-+		pci_wake_from_d3(pdev, false);
-+		return pci_set_power_state(pdev, PCI_D3hot);
-+	}
- }
-=20
- #ifdef CONFIG_PM
-+static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	bool wake;
-+	__e100_shutdown(pdev, &wake);
-+	return __e100_power_off(pdev, wake);
-+}
+ drivers/net/e1000/e1000_main.c |    4 ++--
+ drivers/net/e1000e/netdev.c    |    8 ++++----
+ drivers/net/igb/igb_main.c     |    4 ++--
+ drivers/net/ixgb/ixgb_main.c   |    5 ++---
+ 4 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 112e6b0..71d4fe1 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -498,6 +498,8 @@ int e1000_up(struct e1000_adapter *adapter)
+ 
+ 	e1000_irq_enable(adapter);
+ 
++	netif_wake_queue(adapter->netdev);
 +
- static int e100_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev =3D pci_get_drvdata(pdev);
-@@ -2792,7 +2805,10 @@ static int e100_resume(struct pci_dev *pdev)
-=20
- static void e100_shutdown(struct pci_dev *pdev)
- {
--	e100_suspend(pdev, PMSG_SUSPEND);
-+	bool wake;
-+	__e100_shutdown(pdev, &wake);
-+	if (system_state =3D=3D SYSTEM_POWER_OFF)
-+		__e100_power_off(pdev, wake);
- }
-=20
- /* ------------------ PCI Error Recovery infrastructure  -------------- */
---=20
-1.6.2.3
+ 	/* fire a link change interrupt to start the watchdog */
+ 	ew32(ICS, E1000_ICS_LSC);
+ 	return 0;
+@@ -2591,7 +2593,6 @@ static void e1000_watchdog(unsigned long data)
+ 			ew32(TCTL, tctl);
+ 
+ 			netif_carrier_on(netdev);
+-			netif_wake_queue(netdev);
+ 			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+ 			adapter->smartspeed = 0;
+ 		} else {
+@@ -2608,7 +2609,6 @@ static void e1000_watchdog(unsigned long data)
+ 			printk(KERN_INFO "e1000: %s NIC Link is Down\n",
+ 			       netdev->name);
+ 			netif_carrier_off(netdev);
+-			netif_stop_queue(netdev);
+ 			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+ 
+ 			/* 80003ES2LAN workaround--
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 9048f8e..da6b37e 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2826,6 +2826,8 @@ int e1000e_up(struct e1000_adapter *adapter)
+ 		e1000_configure_msix(adapter);
+ 	e1000_irq_enable(adapter);
+ 
++	netif_wake_queue(adapter->netdev);
++
+ 	/* fire a link change interrupt to start the watchdog */
+ 	ew32(ICS, E1000_ICS_LSC);
+ 	return 0;
+@@ -2848,7 +2850,7 @@ void e1000e_down(struct e1000_adapter *adapter)
+ 	ew32(RCTL, rctl & ~E1000_RCTL_EN);
+ 	/* flush and sleep below */
+ 
+-	netif_tx_stop_all_queues(netdev);
++	netif_stop_queue(netdev);
+ 
+ 	/* disable transmits in the hardware */
+ 	tctl = er32(TCTL);
+@@ -3130,7 +3132,7 @@ static int e1000_open(struct net_device *netdev)
+ 
+ 	e1000_irq_enable(adapter);
+ 
+-	netif_tx_start_all_queues(netdev);
++	netif_start_queue(netdev);
+ 
+ 	/* fire a link status change interrupt to start the watchdog */
+ 	ew32(ICS, E1000_ICS_LSC);
+@@ -3600,7 +3602,6 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 				phy->ops.cfg_on_link_up(hw);
+ 
+ 			netif_carrier_on(netdev);
+-			netif_tx_wake_all_queues(netdev);
+ 
+ 			if (!test_bit(__E1000_DOWN, &adapter->state))
+ 				mod_timer(&adapter->phy_info_timer,
+@@ -3614,7 +3615,6 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 			printk(KERN_INFO "e1000e: %s NIC Link is Down\n",
+ 			       adapter->netdev->name);
+ 			netif_carrier_off(netdev);
+-			netif_tx_stop_all_queues(netdev);
+ 			if (!test_bit(__E1000_DOWN, &adapter->state))
+ 				mod_timer(&adapter->phy_info_timer,
+ 					  round_jiffies(jiffies + 2 * HZ));
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index ceaa585..183235d 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -942,6 +942,8 @@ int igb_up(struct igb_adapter *adapter)
+ 	rd32(E1000_ICR);
+ 	igb_irq_enable(adapter);
+ 
++	netif_tx_start_all_queues(adapter->netdev);
++
+ 	/* Fire a link change interrupt to start the watchdog. */
+ 	wr32(E1000_ICS, E1000_ICS_LSC);
+ 	return 0;
+@@ -2664,7 +2666,6 @@ static void igb_watchdog_task(struct work_struct *work)
+ 			}
+ 
+ 			netif_carrier_on(netdev);
+-			netif_tx_wake_all_queues(netdev);
+ 
+ 			igb_ping_all_vfs(adapter);
+ 
+@@ -2681,7 +2682,6 @@ static void igb_watchdog_task(struct work_struct *work)
+ 			printk(KERN_INFO "igb: %s NIC Link is Down\n",
+ 			       netdev->name);
+ 			netif_carrier_off(netdev);
+-			netif_tx_stop_all_queues(netdev);
+ 
+ 			igb_ping_all_vfs(adapter);
+ 
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index ff741ca..cb9ecc4 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -266,6 +266,8 @@ ixgb_up(struct ixgb_adapter *adapter)
+ 	napi_enable(&adapter->napi);
+ 	ixgb_irq_enable(adapter);
+ 
++	netif_wake_queue(netdev);
++
+ 	mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+ 	return 0;
+@@ -1118,7 +1120,6 @@ ixgb_watchdog(unsigned long data)
+ 			adapter->link_speed = 10000;
+ 			adapter->link_duplex = FULL_DUPLEX;
+ 			netif_carrier_on(netdev);
+-			netif_wake_queue(netdev);
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(netdev)) {
+@@ -1127,8 +1128,6 @@ ixgb_watchdog(unsigned long data)
+ 			printk(KERN_INFO "ixgb: %s NIC Link is Down\n",
+ 			       netdev->name);
+ 			netif_carrier_off(netdev);
+-			netif_stop_queue(netdev);
+-
+ 		}
+ 	}
+ 
 
-
---hHWLQfXTYDoKhP50
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAknun0QACgkQyTpryRcqtS1zjgCfXjDpOFWGopfZQPnQkZKWQcb7
-pukAnjPGozUIYuBUF3uSuBRHSZ8QmRjo
-=lUIw
------END PGP SIGNATURE-----
-
---hHWLQfXTYDoKhP50--
