@@ -1,44 +1,66 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
-Subject: Re: Oops in tun: bisected to  Limit amount of queued packets per device
-Date: Wed, 22 Apr 2009 22:34:32 +0200
-Message-ID: <m2ws9c2zs7.fsf@igel.home>
-References: <200904090952.01175.borntraeger@de.ibm.com>
-	<20090409093817.GA5760@gondor.apana.org.au>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH] Software receive packet steering
+Date: Wed, 22 Apr 2009 22:44:41 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0904222156300.21763@ask.diku.dk>
+References: <49ED967B.4070105@cosmosbay.com> <20090421084636.198b181e@nehalam>
+ <65634d660904211152l6c17aa6dpf7e626474acfe499@mail.gmail.com>
+ <20090422.022120.211323498.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-629505641-1240433081=:21854"
+Cc: therbert@google.com, shemminger@vyatta.com,
+	Eric Dumazet <dada1@cosmosbay.com>, andi@firstfloor.org,
+	netdev <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Jens Laas <jens.laas@ITS.UU.SE>, hawk@comx.dk,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:50596 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756626AbZDVUel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 16:34:41 -0400
-In-Reply-To: <20090409093817.GA5760@gondor.apana.org.au> (Herbert Xu's message
-	of "Thu, 9 Apr 2009 17:38:17 +0800")
+Received: from mgw2.diku.dk ([130.225.96.92]:59362 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751173AbZDVUor (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2009 16:44:47 -0400
+In-Reply-To: <20090422.022120.211323498.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> writes:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Thu, Apr 09, 2009 at 09:52:01AM +0200, Christian Borntraeger wrote:
->> 
->> with my kvm test scenario on s390 I get the following oops:
->> Unable to handle kernel pointer dereference at virtual kernel address 0000000400000000
->> Oops: 003b [#1] SMP
->> Modules linked in: kvm dm_multipath sunrpc qeth_l2 dm_mod qeth ccwgroup
->> CPU: 0 Not tainted 2.6.29-kvm-06607-ga317a1e-dirty #8
->> Process kuli (pid: 14827, task: 00000000b3df8138, ksp: 00000000b4703a98)
->> Krnl PSW : 0404e00180000000 0000000000171278 (__lock_acquire+0x3d4/0x191c)
->
-> This is weird.  It looks like it's dying on the wake_up_interruptible_sync
-> in tun_sock_write_space.  However, I can't see how that can cause this.
+---511516320-629505641-1240433081=:21854
+Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-Any news on this?  It is still badly broken in 2.6.30-rc3.
+On Wed, 22 Apr 2009, David Miller wrote:
 
-Andreas.
+> One thought I keep coming back to is the hack the block layer
+> is using right now.  It remembers which CPU a block I/O request
+> comes in on, and it makes sure the completion runs on that
+> cpu too.
 
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+This is also very important for routing performance.
+
+Experiences from practical 10GbE routing tests (done by Roberts team and 
+my self), reveals that we can only achieve (close to) 10Gbit/s routing 
+performance when carefully making sure that the rx-queue and tx-queue runs 
+on the same CPU. (Not doing so really kills performance).
+
+Currently I'm using some patches by Jens Låås, that allows userspace to 
+setup the rx-queue to tx-queues mapping, plus manual smp_affinity tuning. 
+The problem with this approach is that it requires way too much manual 
+tuning from userspace to achieve good performance.
+
+I would like to see an approach with less manual tuning, as we basically 
+"just" need to make sure that TX completion is done on the same CPU as RX. 
+I would like to see some effort in this area and is willing to partisipate 
+actively.
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
+---511516320-629505641-1240433081=:21854--
