@@ -1,40 +1,84 @@
-From: Martin Josefsson <gandalf@mjufs.se>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Wed, 22 Apr 2009 16:33:17 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0904221628330.10428@wlug.westbo.se>
-References: <65634d660904081548g7ea3e3bfn858f2336db9a671f@mail.gmail.com>
- <87eivnpqde.fsf@basil.nowhere.org> <65634d660904202026r7d73f810s700bacb8756e0967@mail.gmail.com>
- <49ED967B.4070105@cosmosbay.com> <20090421084636.198b181e@nehalam>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Tom Herbert <therbert@google.com>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: [PATCH] smsc911x: add fifo byteswap support
+Date: Wed, 22 Apr 2009 23:55:53 +0900
+Message-ID: <20090422145553.25073.99410.sendpatchset@rx1.opensource.se>
+Cc: steve.glendinning@smsc.com, Magnus Damm <magnus.damm@gmail.com>,
+	lethal@linux-sh.org, davem@davemloft.net, iwamatsu@nigauri.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host91-201.netintact.se ([194.153.91.201]:52003 "EHLO
-	wlug.westbo.se" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751563AbZDVOdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 10:33:11 -0400
-In-Reply-To: <20090421084636.198b181e@nehalam>
+Received: from wa-out-1112.google.com ([209.85.146.178]:33336 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754739AbZDVO6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 10:58:39 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so2395wah.21
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2009 07:58:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Apr 2009, Stephen Hemminger wrote:
+From: Magnus Damm <damm@igel.co.jp>
 
-> I would like to see some way to have multiple CPU's pulling packets and adapting
-> the number of CPU's being used based on load. Basically, turn all device is into
-> receive multiqueue. The mapping could be adjusted by user level (see irqbalancer).
+This patch adds fifo byteswap support to the smsc911x driver.
 
-I've been toying with the irqbalancer idea as well.
-Set the number of software "queues" high and have a mapping table of 
-queue->cpu and then let irqbalanced which has knowledge of cpu cache 
-hirarchy etc balance the load by changing the mapping table as it sees 
-fit.
+The smsc911x hardware supports both big and little and endian
+hardware configurations, and the linux smsc911x driver currently
+detects word order.
 
-This would make it fairly fine grained so that it could work reasonably 
-well even if you have very few but very performance demanding clients.
-Having "collisions" in the queues in that situation isn't very good.
+For correct operation on big endian platforms lacking swapped
+byte lanes the following patch is needed. Only fifo data is
+swapped, register data does not require any swapping. 
 
-/Martin
+Signed-off-by: Magnus Damm <damm@igel.co.jp>
+---
+
+ Platform data for the rsk7203 board will be posted separately
+ to the linux-sh in the near future.
+
+ drivers/net/smsc911x.c   |   13 +++++++++++++
+ include/linux/smsc911x.h |    1 +
+ 2 files changed, 14 insertions(+)
+
+--- 0001/drivers/net/smsc911x.c
++++ work/drivers/net/smsc911x.c	2009-04-21 20:06:35.000000000 +0900
+@@ -47,6 +47,7 @@
+ #include <linux/bitops.h>
+ #include <linux/irq.h>
+ #include <linux/io.h>
++#include <linux/swab.h>
+ #include <linux/phy.h>
+ #include <linux/smsc911x.h>
+ #include "smsc911x.h"
+@@ -175,6 +176,12 @@ static inline void
+ smsc911x_tx_writefifo(struct smsc911x_data *pdata, unsigned int *buf,
+ 		      unsigned int wordcount)
+ {
++	if (pdata->config.flags & SMSC911X_SWAP_FIFO) {
++		while (wordcount--)
++			smsc911x_reg_write(pdata, TX_DATA_FIFO, swab32(*buf++));
++		return;
++	}
++
+ 	if (pdata->config.flags & SMSC911X_USE_32BIT) {
+ 		writesl(pdata->ioaddr + TX_DATA_FIFO, buf, wordcount);
+ 		return;
+@@ -194,6 +201,12 @@ static inline void
+ smsc911x_rx_readfifo(struct smsc911x_data *pdata, unsigned int *buf,
+ 		     unsigned int wordcount)
+ {
++	if (pdata->config.flags & SMSC911X_SWAP_FIFO) {
++		while (wordcount--)
++			*buf++ = swab32(smsc911x_reg_read(pdata, RX_DATA_FIFO));
++		return;
++	}
++
+ 	if (pdata->config.flags & SMSC911X_USE_32BIT) {
+ 		readsl(pdata->ioaddr + RX_DATA_FIFO, buf, wordcount);
+ 		return;
+--- 0001/include/linux/smsc911x.h
++++ work/include/linux/smsc911x.h	2009-04-21 20:07:57.000000000 +0900
+@@ -46,5 +46,6 @@ struct smsc911x_platform_config {
+ #define SMSC911X_FORCE_INTERNAL_PHY		(BIT(2))
+ #define SMSC911X_FORCE_EXTERNAL_PHY 		(BIT(3))
+ #define SMSC911X_SAVE_MAC_ADDRESS		(BIT(4))
++#define SMSC911X_SWAP_FIFO			(BIT(5))
+ 
+ #endif /* __LINUX_SMSC911X_H__ */
