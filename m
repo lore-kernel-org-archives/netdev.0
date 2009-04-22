@@ -1,123 +1,27 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-Subject: [PATCH v2] e100: do not go D3 in shutdown unless system is
-	powering off
-Date: Tue, 21 Apr 2009 22:38:41 -0300
-Message-ID: <20090422013841.GA3979@vespa.holoscopio.com>
-References: <1240237621-11415-1-git-send-email-cascardo@holoscopio.com> <200904202114.01932.rjw@sisk.pl> <20090421215248.GF6147@vespa.holoscopio.com> <200904220017.19670.rjw@sisk.pl>
+From: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
+Date: Wed, 22 Apr 2009 10:49:42 +0900
+Message-ID: <200904220149.n3M1ngLa059958@www262.sakura.ne.jp>
+References: <200904212152.FHH51019.MHOFVtOFSJFQOL@I-love.SAKURA.ne.jp> <20090421.060404.146628527.davem@davemloft.net> <200904220055.n3M0tQ6T048840@www262.sakura.ne.jp> <20090421.181411.26595688.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MGYHOYXEY6WxJCY8"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from liberdade.minaslivre.org ([72.232.18.203]:59486 "EHLO
-	liberdade.minaslivre.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbZDVBis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2009 21:38:48 -0400
-Content-Disposition: inline
-In-Reply-To: <200904220017.19670.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: paul.moore@hp.com, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090421.181411.26595688.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+David Miller wrote:
+> We had a similar situation with read()'s on UDP sockets.
+> 
+> When poll() says something, it has to stick.
+To adhere what poll() said (i.e. "connections are ready" or "datagrams are
+ready"), security_socket_accept() and security_socket_recvmsg() hooks must be
+removed. Otherwise, LSM users cannot adhere what poll() said.
 
---MGYHOYXEY6WxJCY8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-After experimenting with kexec with the last merges after 2.6.29, I've
-had some problems when probing e100. It would not read the eeprom. After
-some bisects, I realized this has been like that since forever (at least
-2.6.18). The problem is that shutdown is doing the same thing that
-suspend does and puts the device in D3 state. I couldn't find a way to
-get the device back to a sane state in the probe function. So, based on
-some similar patches from Rafael J. Wysocki for e1000, e1000e and ixgbe,
-I wrote this one for e100.
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
----
- drivers/net/e100.c |   27 +++++++++++++++++++++------
- 1 files changed, 21 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index c0f8443..3db7b29 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2728,7 +2728,7 @@ static void __devexit e100_remove(struct pci_dev *pde=
-v)
- #define E100_82552_SMARTSPEED   0x14   /* SmartSpeed Ctrl register */
- #define E100_82552_REV_ANEG     0x0200 /* Reverse auto-negotiation */
- #define E100_82552_ANEG_NOW     0x0400 /* Auto-negotiate now */
--static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int __e100_shutdown(struct pci_dev *pdev, bool *enable_wake)
- {
- 	struct net_device *netdev =3D pci_get_drvdata(pdev);
- 	struct nic *nic =3D netdev_priv(netdev);
-@@ -2749,19 +2749,31 @@ static int e100_suspend(struct pci_dev *pdev, pm_me=
-ssage_t state)
- 			           E100_82552_SMARTSPEED, smartspeed |
- 			           E100_82552_REV_ANEG | E100_82552_ANEG_NOW);
- 		}
--		if (pci_enable_wake(pdev, PCI_D3cold, true))
--			pci_enable_wake(pdev, PCI_D3hot, true);
-+		*enable_wake =3D true;
- 	} else {
--		pci_enable_wake(pdev, PCI_D3hot, false);
-+		*enable_wake =3D false;
- 	}
-=20
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, PCI_D3hot);
-=20
- 	return 0;
- }
-=20
-+static void __e100_power_off(struct pci_dev *pdev, bool wake)
-+{
-+	pci_enable_wake(pdev, PCI_D3hot, wake);
-+	pci_set_power_state(pdev, PCI_D3hot);
-+}
-+
- #ifdef CONFIG_PM
-+static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	bool wake;
-+	int retval =3D __e100_shutdown(pdev, &wake);
-+	__e100_power_off(pdev, wake);
-+	return retval;
-+}
-+
- static int e100_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev =3D pci_get_drvdata(pdev);
-@@ -2792,7 +2804,10 @@ static int e100_resume(struct pci_dev *pdev)
-=20
- static void e100_shutdown(struct pci_dev *pdev)
- {
--	e100_suspend(pdev, PMSG_SUSPEND);
-+	bool wake;
-+	__e100_shutdown(pdev, &wake);
-+	if (system_state =3D=3D SYSTEM_POWER_OFF)
-+		__e100_power_off(pdev, wake);
- }
-=20
- /* ------------------ PCI Error Recovery infrastructure  -------------- */
---=20
-1.6.2.3
-
-
---MGYHOYXEY6WxJCY8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAknudSAACgkQyTpryRcqtS0TigCdFy5/m8fbib9/FbT7LOlJWIFw
-JHQAmwRSmwAmNm9k7xmE741rkWW5fGsZ
-=YScK
------END PGP SIGNATURE-----
-
---MGYHOYXEY6WxJCY8--
+However, security_socket_accept() and security_socket_recvmsg() hooks remain
+there. LSM users are already using semantics which may not adhere what poll()
+said.
