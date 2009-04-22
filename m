@@ -1,107 +1,99 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: Re: [BUILD FAILURE 02/12] Next April 21 : PPC64 randconfig
-	[drivers/net/ni65.c]
-Date: Wed, 22 Apr 2009 19:20:45 +0200
-Message-ID: <20090422172045.GA10958@rhlx01.hs-esslingen.de>
-References: <1240339794.9110.131.camel@subratamodak.linux.ibm.com> <1240416947.26824.9.camel@subratamodak.linux.ibm.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] netfilter: use per-cpu recursive lock (v11)
+Date: Wed, 22 Apr 2009 10:18:50 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904221001270.3101@localhost.localdomain>
+References: <20090420103414.1b4c490f@nehalam> <49ECBE0A.7010303@cosmosbay.com> <18924.59347.375292.102385@cargo.ozlabs.ibm.com> <20090420215827.GK6822@linux.vnet.ibm.com> <18924.64032.103954.171918@cargo.ozlabs.ibm.com> <20090420160121.268a8226@nehalam>
+ <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam> <20090421191007.GA15485@elte.hu> <49EE2293.4090201@cosmosbay.com> <20090422073524.GA31835@elte.hu> <49EEDAF0.2010507@cosmosbay.com> <alpine.LFD.2.00.0904220806320.3101@localhost.localdomain>
+ <49EF4C75.6060604@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-net <linux-net@vger.kernel.org>,
-	Jan-Pascal van Best <janpascal@vanbest.org>,
-	Andreas Mohr <andi@lisas.de>, netdev@vger.kernel.org,
-	Michael Hipp <hippm@informatik.uni-tuebingen.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	sachinp <sachinp@linux.vnet.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Alexander Beregalov <a.beregalov@gmail.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>
-To: Subrata Modak <subrata@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754776AbZDVRVA@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1240416947.26824.9.camel@subratamodak.linux.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi,
-
-On Wed, Apr 22, 2009 at 09:45:47PM +0530, Subrata Modak wrote:
-> On Wed, 2009-04-22 at 00:20 +0530, Subrata Modak wrote:=20
-> > I am observing this for the first time:
-> >=20
-> > CC      drivers/net/ni65.o
-> > drivers/net/ni65.c: In function =E2=80=98ni65_init_lance=E2=80=99:
-> > drivers/net/ni65.c:585: error: implicit declaration of function
-> > =E2=80=98isa_virt_to_bus=E2=80=99
-> > drivers/net/ni65.c: In function =E2=80=98ni65_stop_start=E2=80=99:
-> > drivers/net/ni65.c:757: error: implicit declaration of function
-> > =E2=80=98isa_bus_to_virt=E2=80=99
-> > make[2]: *** [drivers/net/ni65.o] Error 1
-> > make[1]: *** [drivers/net] Error 2
-> > make: *** [drivers] Error 2
-> > ---
->=20
-> Is there any specific dependency of whether this should be built only
-> with certain archs ? As the case may be, i found the functions
-> prototypes defined inside the arch specific headers, which definitely
-> will not compile on PPC64:
->=20
-> # find . -type f | xargs grep -in isa_virt_to_bus
-> ./arch/alpha/include/asm/io.h:119:#define isa_virt_to_bus virt_to_bus
-> ./arch/arm/include/asm/io.h:33:#define isa_virt_to_bus virt_to_phys
-> ./arch/mips/include/asm/io.h:142:static inline unsigned long
-> isa_virt_to_bus(volatile void * address)
-> ./arch/parisc/include/asm/io.h:17:static inline unsigned long
-> isa_virt_to_bus(void *addr) {
-> ./arch/x86/include/asm/floppy.h:182:
-> isa_virt_to_bus(addr) >=3D 0x1000000 ||
-> ./arch/x86/include/asm/floppy.h:218:    set_dma_addr(FLOPPY_DMA,
-> isa_virt_to_bus(addr));
-> ./arch/x86/include/asm/io.h:130:static inline unsigned int
-> isa_virt_to_bus(volatile void *address)
-
-But NI65 is properly guarded against ISA bus non-support already:
-config NI65
-        tristate "NI6510 support"
-        depends on NET_VENDOR_RACAL && ISA && ISA_DMA_API
-        help
-          If you have a network (Ethernet) card of this type, say Y and=
- read
-          the Ethernet-HOWTO, available from
-          <http://www.tldp.org/docs.html#howto>.
-
-          To compile this driver as a module, choose M here. The module
-          will be called ni65.
-
-And powerpc _does_ offer ISA bus support:
-=2E/arch/powerpc/Kconfig:config ISA
-=2E/arch/powerpc/Kconfig:	bool "Support for ISA-bus hardware"
-=2E/arch/powerpc/Kconfig:	  Find out whether you have ISA slots on your=
- motherboard.  ISA is the
-
-Of course I'm 167% sure that nobody has ever tried those cards on ppc ;=
--),
-but still that would be a _possibility_ that shouldn't be denied straig=
-ht away.
-
-> Then there should be some solution to the problem inside
-> drivers/net/Kconfig
-
-Indeed, which (given my above comments) should probably be to provide
-some isa_virt_to_bus() functionality on powerpc or conditionally disabl=
-e (yuck!)
-use of these mechanisms in the drivers.
-
-Anyway, it's certainly not a mistake per se to try to build those drive=
-rs on
-an ISA-support-enabled powerpc platform.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54377 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753424AbZDVRaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 13:30:13 -0400
+In-Reply-To: <49EF4C75.6060604@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Of course I'm not certain as to current status of e.g. ni5010, but OTOH=
- I still
-have some of those cards... (after all I'm the driver co-author)
 
-Thanks for the heads-up,
+On Wed, 22 Apr 2009, Eric Dumazet wrote:
+> 
+> I actually sent *one* buggy patch, and you already gave your feedback 
+> and NACK.
 
-Andreas Mohr
+Actually, the thing is, I don't even think your original patch was even 
+buggy. The bug crept in later. I NAK'ed it not because it was buggy, but 
+because of the ad-hoc'ness and the naming. Really.
+
+And I actually even said so in my original rant:
+
+ 'The fact that code "happens to work by mistake" (and I'm not saying that
+  your does - but it might just because of the per-cpu'ness of it [..]'
+
+because your original patch still had the
+
+	rcu_read_lock_bh();
+
+in place before the whole
+
+	rl = &__get_cpu_var(arp_tables_lock);
+	if (likely(rl->count++ == 0))
+		spin_lock(&rl->lock);
+
+and that should have protected against both BH callers and preemption.
+
+So I actually believe that your original patch probably worked fine (but 
+as I said in my reaction to it, I thought it was almost by mistake and I 
+wasn't going to review it)
+
+So the actual _bug_ crept in later, when the RCU lock was removed, and the 
+lock was cleaned up and separated into a function of its own.
+
+And in fact, that is kind of my point: "uncommented locking with ad-hoc 
+semantics is very fragile". Even _correct_ code ends up not being correct 
+in the long run, because people don't realize all the subtle issues.
+
+> I even relayed this to Stephen suggesting him not calling this a recursive lock.
+> (Note how I use 'suggesting' here)
+> 
+> So, what do you want from me ? Should I copy 100 times :
+
+So I consider this thread ended from a technical standpoint.
+
+[ That said, I will not be at all shocked to hear if people decide later 
+  that the RCU method was better after all, and that even the per-cpu
+  rwlock or spinlock is just too expensive. ]
+
+My problem today (apart from the relatively minor issue of also wanting to 
+get the commit log fixed up) is just that I see emails from you finding my 
+reaction shocking and from Jarek Poplawski that seem to still think that 
+I'm a troll.
+
+Just because I pointed out real technical problems? Is that shocking or 
+trolling?
+
+Really - please go back to my _original_ email. No, it was not polite. But 
+here's another quote from it:
+
+  "Because even if it works today, it's just a bug waiting to happen."
+
+and dammit, I sent that out _before_ the very next version of the patch 
+that actually _did_ introduce that exact bug.
+
+So dammit - what part of my email was "shocking" or "trolling"? The part 
+where I was right? Or what?
+
+			Linus
