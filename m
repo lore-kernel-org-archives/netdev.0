@@ -1,7 +1,7 @@
 From: Ursula Braun <ursula.braun@de.ibm.com>
-Subject: [patch 4/8] [PATCH] af_iucv: Support data in IUCV msg parameter lists (IPRMDATA)
-Date: Wed, 22 Apr 2009 11:26:23 +0200
-Message-ID: <20090422093430.201184000@linux.vnet.ibm.com>
+Subject: [patch 3/8] [PATCH] af_iucv: add sockopt() to enable/disable use of IPRM_DATA msgs
+Date: Wed, 22 Apr 2009 11:26:22 +0200
+Message-ID: <20090422093430.070816000@linux.vnet.ibm.com>
 References: <20090422092619.451973000@linux.vnet.ibm.com>
 Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
 	Hendrik Brueckner <brueckner@linux.vnet.ibm.com>,
@@ -9,289 +9,167 @@ Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:52466 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbZDVJed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 05:34:33 -0400
-Content-Disposition: inline; filename=608-af_iucv-iprmdata.diff
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:60403 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752464AbZDVJec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 05:34:32 -0400
+Content-Disposition: inline; filename=607-af_iucv-iprm-sockopt.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
 
-The patch allows to send and receive data in the parameter list of an
-iucv message.
-The parameter list is an arry of 8 bytes that are used by af_iucv as
-follows:
-	0..6  7 bytes for socket data and
-	   7  1 byte to store the data length.
-
-Instead of storing the data length directly, the difference
-between 0xFF and the data length is used.
-This convention does not interfere with the existing use of PRM
-messages for shutting down the send direction of an AF_IUCV socket
-(shutdown() operation).  Data lenghts greater than 7 (or PRM message
-byte 8 is less than 0xF8) denotes to special messages.
-Currently, the special SEND_SHUTDOWN message is supported only.
-
-To use IPRM messages, both communicators must set the IUCV_IPRMDATA
-flag during path negotiation, i.e. in iucv_connect() and
-path_pending().
-
-To be compatible to older af_iucv implementations, sending PRM
-messages is controlled by the socket option SO_IPRMDATA_MSG.
-Receiving PRM messages does not depend on the socket option (but
-requires the IUCV_IPRMDATA path flag to be set).
-
-Sending/Receiving data in the parameter list improves performance for
-small amounts of data by reducing message_completion() interrupts and
-memory copy operations.
+Provide the socket operations getsocktopt() and setsockopt() to enable/disable
+sending of data in the parameter list of IUCV messages.
+The patch sets respective flag only.
 
 Signed-off-by: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 ---
 
- net/iucv/af_iucv.c |  121 ++++++++++++++++++++++++++++++++++++++++++++---------
- net/iucv/iucv.c    |    2 
- 2 files changed, 103 insertions(+), 20 deletions(-)
+ include/linux/socket.h     |    1 
+ include/net/iucv/af_iucv.h |    4 ++
+ net/iucv/af_iucv.c         |   79 +++++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 81 insertions(+), 3 deletions(-)
 
+Index: net-next-2.6-uschi/include/linux/socket.h
+===================================================================
+--- net-next-2.6-uschi.orig/include/linux/socket.h
++++ net-next-2.6-uschi/include/linux/socket.h
+@@ -303,6 +303,7 @@ struct ucred {
+ #define SOL_BLUETOOTH	274
+ #define SOL_PNPIPE	275
+ #define SOL_RDS		276
++#define SOL_IUCV	277
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
+Index: net-next-2.6-uschi/include/net/iucv/af_iucv.h
+===================================================================
+--- net-next-2.6-uschi.orig/include/net/iucv/af_iucv.h
++++ net-next-2.6-uschi/include/net/iucv/af_iucv.h
+@@ -73,8 +73,12 @@ struct iucv_sock {
+ 	struct sk_buff_head	backlog_skb_q;
+ 	struct sock_msg_q	message_q;
+ 	unsigned int		send_tag;
++	u8			flags;
+ };
+ 
++/* iucv socket options (SOL_IUCV) */
++#define SO_IPRMDATA_MSG	0x0080		/* send/recv IPRM_DATA msgs */
++
+ struct iucv_sock_list {
+ 	struct hlist_head head;
+ 	rwlock_t	  lock;
 Index: net-next-2.6-uschi/net/iucv/af_iucv.c
 ===================================================================
 --- net-next-2.6-uschi.orig/net/iucv/af_iucv.c
 +++ net-next-2.6-uschi/net/iucv/af_iucv.c
-@@ -29,9 +29,6 @@
- #include <net/iucv/iucv.h>
- #include <net/iucv/af_iucv.h>
+@@ -32,7 +32,7 @@
+ #define CONFIG_IUCV_SOCK_DEBUG 1
  
--#define CONFIG_IUCV_SOCK_DEBUG 1
--
--#define IPRMDATA 0x80
- #define VERSION "1.1"
+ #define IPRMDATA 0x80
+-#define VERSION "1.0"
++#define VERSION "1.1"
  
  static char iucv_userid[80];
-@@ -44,6 +41,10 @@ static struct proto iucv_proto = {
- 	.obj_size	= sizeof(struct iucv_sock),
+ 
+@@ -226,6 +226,7 @@ static struct sock *iucv_sock_alloc(stru
+ 	spin_lock_init(&iucv_sk(sk)->message_q.lock);
+ 	skb_queue_head_init(&iucv_sk(sk)->backlog_skb_q);
+ 	iucv_sk(sk)->send_tag = 0;
++	iucv_sk(sk)->flags = 0;
+ 
+ 	sk->sk_destruct = iucv_sock_destruct;
+ 	sk->sk_sndtimeo = IUCV_CONN_TIMEOUT;
+@@ -1003,6 +1004,78 @@ static int iucv_sock_release(struct sock
+ 	return err;
+ }
+ 
++/* getsockopt and setsockopt */
++static int iucv_sock_setsockopt(struct socket *sock, int level, int optname,
++				char __user *optval, int optlen)
++{
++	struct sock *sk = sock->sk;
++	struct iucv_sock *iucv = iucv_sk(sk);
++	int val;
++	int rc;
++
++	if (level != SOL_IUCV)
++		return -ENOPROTOOPT;
++
++	if (optlen < sizeof(int))
++		return -EINVAL;
++
++	if (get_user(val, (int __user *) optval))
++		return -EFAULT;
++
++	rc = 0;
++
++	lock_sock(sk);
++	switch (optname) {
++	case SO_IPRMDATA_MSG:
++		if (val)
++			iucv->flags |= IUCV_IPRMDATA;
++		else
++			iucv->flags &= ~IUCV_IPRMDATA;
++		break;
++	default:
++		rc = -ENOPROTOOPT;
++		break;
++	}
++	release_sock(sk);
++
++	return rc;
++}
++
++static int iucv_sock_getsockopt(struct socket *sock, int level, int optname,
++				char __user *optval, int __user *optlen)
++{
++	struct sock *sk = sock->sk;
++	struct iucv_sock *iucv = iucv_sk(sk);
++	int val, len;
++
++	if (level != SOL_IUCV)
++		return -ENOPROTOOPT;
++
++	if (get_user(len, optlen))
++		return -EFAULT;
++
++	if (len < 0)
++		return -EINVAL;
++
++	len = min_t(unsigned int, len, sizeof(int));
++
++	switch (optname) {
++	case SO_IPRMDATA_MSG:
++		val = (iucv->flags & IUCV_IPRMDATA) ? 1 : 0;
++		break;
++	default:
++		return -ENOPROTOOPT;
++	}
++
++	if (put_user(len, optlen))
++		return -EFAULT;
++	if (copy_to_user(optval, &val, len))
++		return -EFAULT;
++
++	return 0;
++}
++
++
+ /* Callback wrappers - called from iucv base support */
+ static int iucv_callback_connreq(struct iucv_path *path,
+ 				 u8 ipvmid[8], u8 ipuser[16])
+@@ -1229,8 +1302,8 @@ static struct proto_ops iucv_sock_ops = 
+ 	.mmap		= sock_no_mmap,
+ 	.socketpair	= sock_no_socketpair,
+ 	.shutdown	= iucv_sock_shutdown,
+-	.setsockopt	= sock_no_setsockopt,
+-	.getsockopt	= sock_no_getsockopt
++	.setsockopt	= iucv_sock_setsockopt,
++	.getsockopt	= iucv_sock_getsockopt,
  };
  
-+/* special AF_IUCV IPRM messages */
-+static const u8 iprm_shutdown[8] =
-+	{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-+
- static void iucv_sock_kill(struct sock *sk);
- static void iucv_sock_close(struct sock *sk);
- 
-@@ -80,6 +81,37 @@ static inline void low_nmcpy(unsigned ch
-        memcpy(&dst[8], src, 8);
- }
- 
-+/**
-+ * iucv_msg_length() - Returns the length of an iucv message.
-+ * @msg:	Pointer to struct iucv_message, MUST NOT be NULL
-+ *
-+ * The function returns the length of the specified iucv message @msg of data
-+ * stored in a buffer and of data stored in the parameter list (PRMDATA).
-+ *
-+ * For IUCV_IPRMDATA, AF_IUCV uses the following convention to transport socket
-+ * data:
-+ *	PRMDATA[0..6]	socket data (max 7 bytes);
-+ *	PRMDATA[7]	socket data length value (len is 0xff - PRMDATA[7])
-+ *
-+ * The socket data length is computed by substracting the socket data length
-+ * value from 0xFF.
-+ * If the socket data len is greater 7, then PRMDATA can be used for special
-+ * notifications (see iucv_sock_shutdown); and further,
-+ * if the socket data len is > 7, the function returns 8.
-+ *
-+ * Use this function to allocate socket buffers to store iucv message data.
-+ */
-+static inline size_t iucv_msg_length(struct iucv_message *msg)
-+{
-+	size_t datalen;
-+
-+	if (msg->flags & IUCV_IPRMDATA) {
-+		datalen = 0xff - msg->rmmsg[7];
-+		return (datalen < 8) ? datalen : 8;
-+	}
-+	return msg->length;
-+}
-+
- /* Timers */
- static void iucv_sock_timeout(unsigned long arg)
- {
-@@ -487,7 +519,7 @@ static int iucv_sock_connect(struct sock
- 	iucv = iucv_sk(sk);
- 	/* Create path. */
- 	iucv->path = iucv_path_alloc(IUCV_QUEUELEN_DEFAULT,
--				     IPRMDATA, GFP_KERNEL);
-+				     IUCV_IPRMDATA, GFP_KERNEL);
- 	if (!iucv->path) {
- 		err = -ENOMEM;
- 		goto done;
-@@ -521,8 +553,7 @@ static int iucv_sock_connect(struct sock
- 	}
- 
- 	if (sk->sk_state == IUCV_DISCONN) {
--		release_sock(sk);
--		return -ECONNREFUSED;
-+		err = -ECONNREFUSED;
- 	}
- 
- 	if (err) {
-@@ -636,6 +667,30 @@ static int iucv_sock_getname(struct sock
- 	return 0;
- }
- 
-+/**
-+ * iucv_send_iprm() - Send socket data in parameter list of an iucv message.
-+ * @path:	IUCV path
-+ * @msg:	Pointer to a struct iucv_message
-+ * @skb:	The socket data to send, skb->len MUST BE <= 7
-+ *
-+ * Send the socket data in the parameter list in the iucv message
-+ * (IUCV_IPRMDATA). The socket data is stored at index 0 to 6 in the parameter
-+ * list and the socket data len at index 7 (last byte).
-+ * See also iucv_msg_length().
-+ *
-+ * Returns the error code from the iucv_message_send() call.
-+ */
-+static int iucv_send_iprm(struct iucv_path *path, struct iucv_message *msg,
-+			  struct sk_buff *skb)
-+{
-+	u8 prmdata[8];
-+
-+	memcpy(prmdata, (void *) skb->data, skb->len);
-+	prmdata[7] = 0xff - (u8) skb->len;
-+	return iucv_message_send(path, msg, IUCV_IPRMDATA, 0,
-+				 (void *) prmdata, 8);
-+}
-+
- static int iucv_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			     struct msghdr *msg, size_t len)
- {
-@@ -677,8 +732,29 @@ static int iucv_sock_sendmsg(struct kioc
- 		txmsg.tag = iucv->send_tag++;
- 		memcpy(skb->cb, &txmsg.tag, 4);
- 		skb_queue_tail(&iucv->send_skb_q, skb);
--		err = iucv_message_send(iucv->path, &txmsg, 0, 0,
--					(void *) skb->data, skb->len);
-+
-+		if (((iucv->path->flags & IUCV_IPRMDATA) & iucv->flags)
-+		    && skb->len <= 7) {
-+			err = iucv_send_iprm(iucv->path, &txmsg, skb);
-+
-+			/* on success: there is no message_complete callback
-+			 * for an IPRMDATA msg; remove skb from send queue */
-+			if (err == 0) {
-+				skb_unlink(skb, &iucv->send_skb_q);
-+				kfree_skb(skb);
-+			}
-+
-+			/* this error should never happen since the
-+			 * IUCV_IPRMDATA path flag is set... sever path */
-+			if (err == 0x15) {
-+				iucv_path_sever(iucv->path, NULL);
-+				skb_unlink(skb, &iucv->send_skb_q);
-+				err = -EPIPE;
-+				goto fail;
-+			}
-+		} else
-+			err = iucv_message_send(iucv->path, &txmsg, 0, 0,
-+						(void *) skb->data, skb->len);
- 		if (err) {
- 			if (err == 3) {
- 				user_id[8] = 0;
-@@ -744,19 +820,25 @@ static void iucv_process_message(struct 
- 				 struct iucv_message *msg)
- {
- 	int rc;
-+	unsigned int len;
- 
--	if (msg->flags & IPRMDATA) {
--		skb->data = NULL;
--		skb->len = 0;
-+	len = iucv_msg_length(msg);
-+
-+	/* check for special IPRM messages (e.g. iucv_sock_shutdown) */
-+	if ((msg->flags & IUCV_IPRMDATA) && len > 7) {
-+		if (memcmp(msg->rmmsg, iprm_shutdown, 8) == 0) {
-+			skb->data = NULL;
-+			skb->len = 0;
-+		}
- 	} else {
--		rc = iucv_message_receive(path, msg, 0, skb->data,
--					  msg->length, NULL);
-+		rc = iucv_message_receive(path, msg, msg->flags & IUCV_IPRMDATA,
-+					  skb->data, len, NULL);
- 		if (rc) {
- 			kfree_skb(skb);
- 			return;
- 		}
- 		if (skb->truesize >= sk->sk_rcvbuf / 4) {
--			rc = iucv_fragment_skb(sk, skb, msg->length);
-+			rc = iucv_fragment_skb(sk, skb, len);
- 			kfree_skb(skb);
- 			skb = NULL;
- 			if (rc) {
-@@ -767,7 +849,7 @@ static void iucv_process_message(struct 
- 		} else {
- 			skb_reset_transport_header(skb);
- 			skb_reset_network_header(skb);
--			skb->len = msg->length;
-+			skb->len = len;
- 		}
- 	}
- 
-@@ -782,7 +864,7 @@ static void iucv_process_message_q(struc
- 	struct sock_msg_q *p, *n;
- 
- 	list_for_each_entry_safe(p, n, &iucv->message_q.list, list) {
--		skb = alloc_skb(p->msg.length, GFP_ATOMIC | GFP_DMA);
-+		skb = alloc_skb(iucv_msg_length(&p->msg), GFP_ATOMIC | GFP_DMA);
- 		if (!skb)
- 			break;
- 		iucv_process_message(sk, skb, p->path, &p->msg);
-@@ -928,7 +1010,6 @@ static int iucv_sock_shutdown(struct soc
- 	struct iucv_sock *iucv = iucv_sk(sk);
- 	struct iucv_message txmsg;
- 	int err = 0;
--	u8 prmmsg[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
- 
- 	how++;
- 
-@@ -950,7 +1031,7 @@ static int iucv_sock_shutdown(struct soc
- 		txmsg.class = 0;
- 		txmsg.tag = 0;
- 		err = iucv_message_send(iucv->path, &txmsg, IUCV_IPRMDATA, 0,
--					(void *) prmmsg, 8);
-+					(void *) iprm_shutdown, 8);
- 		if (err) {
- 			switch (err) {
- 			case 1:
-@@ -1196,11 +1277,11 @@ static void iucv_callback_rx(struct iucv
- 		goto save_message;
- 
- 	len = atomic_read(&sk->sk_rmem_alloc);
--	len += msg->length + sizeof(struct sk_buff);
-+	len += iucv_msg_length(msg) + sizeof(struct sk_buff);
- 	if (len > sk->sk_rcvbuf)
- 		goto save_message;
- 
--	skb = alloc_skb(msg->length, GFP_ATOMIC | GFP_DMA);
-+	skb = alloc_skb(iucv_msg_length(msg), GFP_ATOMIC | GFP_DMA);
- 	if (!skb)
- 		goto save_message;
- 
-Index: net-next-2.6-uschi/net/iucv/iucv.c
-===================================================================
---- net-next-2.6-uschi.orig/net/iucv/iucv.c
-+++ net-next-2.6-uschi/net/iucv/iucv.c
-@@ -1388,6 +1388,8 @@ static void iucv_path_complete(struct iu
- 	struct iucv_path_complete *ipc = (void *) data;
- 	struct iucv_path *path = iucv_path_table[ipc->ippathid];
- 
-+	if (path)
-+		path->flags = ipc->ipflags1;
- 	if (path && path->handler && path->handler->path_complete)
- 		path->handler->path_complete(path, ipc->ipuser);
- }
+ static struct net_proto_family iucv_sock_family_ops = {
 
