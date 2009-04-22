@@ -1,74 +1,116 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH v2 fixed] e100: do not go D3 in shutdown
-	unless system is powering off
-Date: Wed, 22 Apr 2009 22:55:54 +0200
-Message-ID: <200904222255.55508.rjw@sisk.pl>
-References: <1240237621-11415-1-git-send-email-cascardo@holoscopio.com>
-	<20090422193728.GI4691@vespa.holoscopio.com>
-	<9929d2390904221322v1c00b0c8see98efb4354cb173@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: udp ping pong measurements from 2.6.22 to .30 with various cpu
+ affinities
+Date: Wed, 22 Apr 2009 23:02:27 +0200
+Message-ID: <49EF85E3.8060703@cosmosbay.com>
+References: <alpine.DEB.1.10.0904221604480.18138@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <9929d2390904221322v1c00b0c8see98efb4354cb173@mail.gmail.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47932 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752275AbZDVVDS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 17:03:18 -0400
+In-Reply-To: <alpine.DEB.1.10.0904221604480.18138@qirst.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 22 April 2009, Jeff Kirsher wrote:
-> On Wed, Apr 22, 2009 at 12:37 PM, Thadeu Lima de Souza Cascardo
-> <cascardo@holoscopio.com> wrote:
-> > On Tue, Apr 21, 2009 at 10:46:19PM -0700, Jeff Kirsher wrote:
-> >> On Tue, Apr 21, 2009 at 9:38 PM, Thadeu Lima de Souza Cascardo
-> >> <cascardo@holoscopio.com> wrote:
-> >> > After experimenting with kexec with the last merges after 2.6.29, I've
-> >> > had some problems when probing e100. It would not read the eeprom. After
-> >> > some bisects, I realized this has been like that since forever (at least
-> >> > 2.6.18). The problem is that shutdown is doing the same thing that
-> >> > suspend does and puts the device in D3 state. I couldn't find a way to
-> >> > get the device back to a sane state in the probe function. So, based on
-> >> > some similar patches from Rafael J. Wysocki for e1000, e1000e and ixgbe,
-> >> > I wrote this one for e100.
-> >> >
-> >> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-> >> > ---
-> >>
-> >> Thanks, I will add it to my queue of patches for e100.
-> >>
-> >> Also, just FYI, Auke is no longer a maintainer for
-> >> e100/e1000/e1000e/igb/ixgb/ixgbe devices, so I have removed him from
-> >> the thread.
-> >>
-> >> --
-> >> Cheers,
-> >> Jeff
-> >
-> > Perhaps, Rafael should be mentioned in a Reviewed-by? As well as you if
-> > you did review it? I guess a Tested-by and Reported-by me is overkill,
-> > right? :-)
-> >
-> 
-> Correct, that would be overkill.  If Rafael wants his Ack or
-> Reviewed-by added, he will let us know.
+Christoph Lameter a =E9crit :
+> Here are the results of udp ping pong tests. Tests were done with bet=
+ween
+> two machines. The first box was running a 2.6.22 kernel with the nic =
+IRQ
+> and udpping pinned to processor 4.
+>=20
+> The second box ran the various kernel versions. NIC irq pinned to cpu=
+ 4.
+> Then the pinning of udpping (see gentwo.org/ll) was varied
+>=20
+> 1. Pinned to the same processor (cpu4)
+> 2. Pinned to a processor that shares the L2 cache (cpu5)
+> 3. Pinned to a processor not sharing L2 (cpu6)
 
-Please add my ACK to the patch.
+Here on my dev machine, cpu0, cpu2, cpu4, cpu6 are on physical CPU 0
+and cpu1, cpu3, cpu5, cpu7 on physical CPU 1
 
-Best,
-Rafael
+egrep "processor|core id|physical" /proc/cpuinfo
+processor       : 0
+physical id     : 0
+core id         : 0
 
-------------------------------------------------------------------------------
-Stay on top of everything new and different, both inside and 
-around Java (TM) technology - register by April 22, and save
-$200 on the JavaOne (SM) conference, June 2-5, 2009, San Francisco.
-300 plus technical and hands-on sessions. Register today. 
-Use priority code J9JMT32. http://p.sf.net/sfu/p
+processor       : 1
+physical id     : 1
+core id         : 0
+
+processor       : 2
+physical id     : 0
+core id         : 2
+
+processor       : 3
+physical id     : 1
+core id         : 2
+
+processor       : 4
+physical id     : 0
+core id         : 1
+
+processor       : 5
+physical id     : 1
+core id         : 1
+
+processor       : 6
+physical id     : 0
+core id         : 3
+
+processor       : 7
+physical id     : 1
+core id         : 3
+
+Check /proc/cpuinfo, and check it doesnt change between kernel version.
+
+
+>=20
+> Results follow (a nice diagram is available from
+> http://gentwo.org/results/udpping-tests-2.pdf
+
+Nice graphs, but lack of documentation of test conditions.
+
+>=20
+> Observations:
+> - Pinning to the same cpu yields almost 8 usecs vs. another cpu shari=
+ng
+>   the same L2.
+> - Strangely the cpu not sharing the l2 is better than a cpu with the =
+same
+>   L2.
+
+When I see strange results like that, I ask to myself :=20
+Is the problem located at the looked-at system, or at the observer ?
+
+> - Regression with cpu on the same cpu as the interrupt is about 1.5 u=
+secs
+> - Improvement with cpu on the same l2 cache is improved.
+> - Regression of 1 usec if cpu is not sharing l2.
+>=20
+> Hmmm... This could all be a scheduling problem. If the processes are =
+not
+> placed where the IRQ occurs then there will be a significant disadvan=
+tage.
+>=20
+
+We already pointed it was probably scheduling. Since ICMP pings dont us=
+e
+processes and no regression here. Patching kernel to implement udpping
+at softirq level should be quite easy if you really want to check UDP s=
+tack.
+
+Last network improvements focused on scalability more than latencies.
+(multi-flows, not single flow !)
+
+
