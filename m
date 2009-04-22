@@ -1,158 +1,40 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
-Date: Wed, 22 Apr 2009 07:17:53 +0200
-Message-ID: <49EEA881.4040001@cosmosbay.com>
-References: <20090421193937.GC9577@hmsreliant.think-freely.org> <49EE257B.6090600@cosmosbay.com> <20090421200958.GD9577@hmsreliant.think-freely.org> <49EE307D.7050409@cosmosbay.com> <20090421230358.GA13660@hmsreliant.think-freely.org>
+From: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
+Date: Wed, 22 Apr 2009 14:38:04 +0900
+Message-ID: <200904220538.n3M5c4QI010548@www262.sakura.ne.jp>
+References: <200904220149.n3M1ngLa059958@www262.sakura.ne.jp> <20090421.212259.213941533.davem@davemloft.net> <200904220502.n3M52GQj001957@www262.sakura.ne.jp> <20090421.220735.118831531.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48126 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750751AbZDVFSA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 01:18:00 -0400
-In-Reply-To: <20090421230358.GA13660@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: paul.moore@hp.com, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090421.220735.118831531.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman a =E9crit :
-> On Tue, Apr 21, 2009 at 10:45:49PM +0200, Eric Dumazet wrote:
->> Neil Horman a =E9crit :
->>> On Tue, Apr 21, 2009 at 09:58:51PM +0200, Eric Dumazet wrote:
->>>> Neil Horman a =E9crit :
->>>>> The IP MIB (RFC 4293) defines stats for InOctets, OutOctets, InMc=
-astOctets and
->>>>> OutMcastOctets:
->>>>> http://tools.ietf.org/html/rfc4293
->>>>> But it seems we don't track those in any way that easy to separat=
-e from other
->>>>> protocols.  This patch adds those missing counters to the stats f=
-ile.  Tested
->>>>> successfully by me
->>>>>
->>>>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->>>>>
->>>>>
->>>>>  include/linux/snmp.h  |    4 ++++
->>>>>  net/ipv4/ip_input.c   |    4 ++++
->>>>>  net/ipv4/ip_output.c  |    3 +++
->>>>>  net/ipv4/proc.c       |    4 ++++
->>>>>  net/ipv6/ip6_input.c  |    4 ++++
->>>>>  net/ipv6/ip6_output.c |    8 ++++++++
->>>>>  net/ipv6/mcast.c      |    9 +++++++++
->>>>>  net/ipv6/ndisc.c      |    3 +++
->>>>>  net/ipv6/proc.c       |    4 ++++
->>>>>  net/ipv6/raw.c        |    6 ++++++
->>>>>  10 files changed, 49 insertions(+)
->>>>>
->>>>> diff --git a/include/linux/snmp.h b/include/linux/snmp.h
->>>>> index aee3f1e..95c17f6 100644
->>>>> --- a/include/linux/snmp.h
->>>>> +++ b/include/linux/snmp.h
->>>>> @@ -19,6 +19,8 @@ enum
->>>>>  {
->>>>>  	IPSTATS_MIB_NUM =3D 0,
->>>>>  	IPSTATS_MIB_INRECEIVES,			/* InReceives */
->>>>> +	IPSTATS_MIB_INOCTETS,			/* InOctets */
->>>>> +	IPSTATS_MIB_INMCASTOCTETS,		/* InMcastOctets */
->>>>>  	IPSTATS_MIB_INHDRERRORS,		/* InHdrErrors */
->>>>>  	IPSTATS_MIB_INTOOBIGERRORS,		/* InTooBigErrors */
->>>>>  	IPSTATS_MIB_INNOROUTES,			/* InNoRoutes */
->>>>> @@ -29,6 +31,8 @@ enum
->>>>>  	IPSTATS_MIB_INDELIVERS,			/* InDelivers */
->>>>>  	IPSTATS_MIB_OUTFORWDATAGRAMS,		/* OutForwDatagrams */
->>>>>  	IPSTATS_MIB_OUTREQUESTS,		/* OutRequests */
->>>>> +	IPSTATS_MIB_OUTOCTETS,			/* OutOctets */
->>>>> +	IPSTATS_MIB_OUTMCASTOCTETS,		/* OutMcastOctets */
->>>>>  	IPSTATS_MIB_OUTDISCARDS,		/* OutDiscards */
->>>>>  	IPSTATS_MIB_OUTNOROUTES,		/* OutNoRoutes */
->>>>>  	IPSTATS_MIB_REASMTIMEOUT,		/* ReasmTimeout */
->>>>> diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
->>>>> index 1a58a6f..bc9169b 100644
->>>>> --- a/net/ipv4/ip_input.c
->>>>> +++ b/net/ipv4/ip_input.c
->>>>> @@ -385,6 +385,7 @@ int ip_rcv(struct sk_buff *skb, struct net_de=
-vice *dev, struct packet_type *pt,
->>>>>  		goto drop;
->>>>> =20
->>>>>  	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INRECEIVES);
->>>>> +	IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_INOCTETS, skb->len);
->>>>> =20
->>>>>  	if ((skb =3D skb_share_check(skb, GFP_ATOMIC)) =3D=3D NULL) {
->>>>>  		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
->>>>> @@ -396,6 +397,9 @@ int ip_rcv(struct sk_buff *skb, struct net_de=
-vice *dev, struct packet_type *pt,
->>>>> =20
->>>>>  	iph =3D ip_hdr(skb);
->>>>> =20
->>>>> +	if (ipv4_is_multicast(iph->daddr))
->>>>> +		IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_INMCASTOCTETS, skb->=
-len);
->>>>> +
->>>>>  	/*
->>>>>  	 *	RFC1122: 3.2.1.2 MUST silently discard any IP frame that fai=
-ls the checksum.
->>>>>  	 *
->>>>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
->>>>> index 3e7e910..8a68dc2 100644
->>>>> --- a/net/ipv4/ip_output.c
->>>>> +++ b/net/ipv4/ip_output.c
->>>>> @@ -245,6 +245,8 @@ int ip_mc_output(struct sk_buff *skb)
->>>>>  	 *	If the indicated interface is up and running, send the packe=
-t.
->>>>>  	 */
->>>>>  	IP_INC_STATS(dev_net(dev), IPSTATS_MIB_OUTREQUESTS);
->>>>> +	IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_OUTOCTETS, skb->len);
->>>>> +	IP_ADD_STATS_BH(dev_net(dev), IPSTATS_MIB_OUTMCASTOCTETS, skb->=
-len);
->>>> So you use the _BH variant right after IP_INC_STATS() ?
->>>> Which one is right (or which one is false ?)
->>>>
->>> Both are correct (right now), at least as far as I can tell.  I'm n=
-ot 100% sure why ADD
->>> was named ADD_BH, except for the fact that it doesn't toggle the us=
-e of the mib
->>> array passed in.  I think the right solution would be to simply ren=
-ame
->>> IP_ADD_STATS_BH to IP_ADD_STATS, and modify its implementation to a=
-ccess
->>> mib[!in_softirq()] rather than just mib[0].  I had planned to do th=
-is in a
->>> followup cleanup patch.  Alternatively, I could add a new IP_ADD_ST=
-ATS to be
->>> complete, but I don't really see the advantage (asside from not che=
-cking
->>> in_softirq quite as often).
->>>
->> Both usages in the same function cannot be correct.
->>
->> Either you use _BH variant because you know you are in softirq
->> (and non preemptable) context.
->>
->> Either you use non_BH variant because you are in possibly preemptabl=
-e context.
->>
->> Mixing both just proves there is a problem.
->>
->> And we use _BH variant because it is currently faster (this might ch=
-ange in 2.6.31
->> thanks to per_cpu infra changes)
->>
->>
->>
-> Yeah, Self-NAK.  I'm sorry, you're right. I had myself convinced it d=
-idn't
-> really matter in the use-cases, but looking back over it, I'm not sur=
-e what I
-> was thinking.  I need to implement IP_ADD_STATS (currently it doesn't=
- exist),
-> and replace all the use cases in this patch.  Simple enough.  I'll re=
-post in the
-> AM.=20
->=20
-> Thanks for the whack with the clue stick :)
+David Miller wrote:
+> Do me a favor.  We have mechanisms by which you can queue up packets
+> (even into userspace) to make policy decisions.
+I know.
+> 
+> You can make your decision there, and if appropriate, reinject the
+> packet back into the kernel input processing.
+No I can't.
+> 
+> This is how netfilter ip_queue allows people to implement policies
+> in userspace, and you could use it in the kernel and then need
+> none of these ugly hooks.
+I was suggested to use that approach in the past discussion.
 
-You are welcome.
+I want to make policy decisions based on the "task_struct" who picks up
+the connection/datagram.
 
+The netfilter can't predict which "task_struct" will pick up the
+connection/datagram. Nobody can predict it. Even security_socket_accept()
+and security_socket_recvmsg() can't predict it.
+
+If TOMOYO is allowed to make policy decisions based on the "task_struct" who
+picks up the connection/datagram, the only possible approach is to introduce
+security_socket_post_accept() and security_socket_post_recv_datagram().
