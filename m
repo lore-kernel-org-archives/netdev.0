@@ -1,37 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and
- security_socket_post_recv_datagram().
-Date: Tue, 21 Apr 2009 22:07:35 -0700 (PDT)
-Message-ID: <20090421.220735.118831531.davem@davemloft.net>
-References: <200904220149.n3M1ngLa059958@www262.sakura.ne.jp>
-	<20090421.212259.213941533.davem@davemloft.net>
-	<200904220502.n3M52GQj001957@www262.sakura.ne.jp>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
+Date: Wed, 22 Apr 2009 07:15:15 +0200
+Message-ID: <49EEA7E3.3080507@cosmosbay.com>
+References: <20090421193937.GC9577@hmsreliant.think-freely.org> <49EE257B.6090600@cosmosbay.com> <20090421200958.GD9577@hmsreliant.think-freely.org> <49EE307D.7050409@cosmosbay.com> <20090421230358.GA13660@hmsreliant.think-freely.org> <20090422011214.GA18856@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org
-To: penguin-kernel@i-love.sakura.ne.jp
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33120
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751382AbZDVFHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 01:07:43 -0400
-In-Reply-To: <200904220502.n3M52GQj001957@www262.sakura.ne.jp>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48120 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbZDVFP3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 01:15:29 -0400
+In-Reply-To: <20090422011214.GA18856@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-Date: Wed, 22 Apr 2009 14:02:16 +0900
+Neil Horman a =E9crit :
+> Hey all-
+> 	New patch, taking Erics commentary pointing out my prior stupidity i=
+nto
+> account :).
+>=20
+>=20
+> The IP MIB (RFC 4293) defines stats for InOctets, OutOctets, InMcastO=
+ctets and
+> OutMcastOctets:
+> http://tools.ietf.org/html/rfc4293
+> But it seems we don't track those in any way that easy to separate fr=
+om other
+> protocols.  This patch adds those missing counters to the stats file.=
+  Tested
+> successfully by me
 
-> Did I miss something?
+Well, looking now at the patch again, I think you cannot add new fields
+without breaking existing apps. My previous review stoped at this _BH t=
+hing
+wihthout looking further :)
 
-Do me a favor.  We have mechanisms by which you can queue up packets
-(even into userspace) to make policy decisions.
+Also, it seems some RFC4293 items are already handled, since commit d83=
+1666e
+from Mitsuru Chinen. Check net/ipv4/proc.c, line 114
 
-You can make your decision there, and if appropriate, reinject the
-packet back into the kernel input processing.
+/* Following RFC4293 items are displayed in /proc/net/netstat */
+static const struct snmp_mib snmp4_ipextstats_list[] =3D {
+        SNMP_MIB_ITEM("InNoRoutes", IPSTATS_MIB_INNOROUTES),
+        SNMP_MIB_ITEM("InTruncatedPkts", IPSTATS_MIB_INTRUNCATEDPKTS),
+        SNMP_MIB_ITEM("InMcastPkts", IPSTATS_MIB_INMCASTPKTS),
+        SNMP_MIB_ITEM("OutMcastPkts", IPSTATS_MIB_OUTMCASTPKTS),
+        SNMP_MIB_ITEM("InBcastPkts", IPSTATS_MIB_INBCASTPKTS),
+        SNMP_MIB_ITEM("OutBcastPkts", IPSTATS_MIB_OUTBCASTPKTS),
+        SNMP_MIB_SENTINEL
+};
 
-This is how netfilter ip_queue allows people to implement policies
-in userspace, and you could use it in the kernel and then need
-none of these ugly hooks.
+
+# grep IpExt /proc/net/netstat
+IpExt: InNoRoutes InTruncatedPkts InMcastPkts OutMcastPkts InBcastPkts =
+OutBcastPkts
+IpExt: 0 0 0 0 5089 0
+
+So you might add items after existing ones, in IpExt preferably, in ord=
+er not
+breaking old applications.
+
+
+Thanks
+
+
