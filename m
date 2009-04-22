@@ -1,82 +1,60 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Wed, 22 Apr 2009 11:49:50 -0700
-Message-ID: <49EF66CE.10800@hp.com>
-References: <49ED967B.4070105@cosmosbay.com> <20090421084636.198b181e@nehalam>	<65634d660904211152l6c17aa6dpf7e626474acfe499@mail.gmail.com> <20090422.022120.211323498.davem@davemloft.net>
+From: "Chris Friesen" <cfriesen-ZIRUuHA3oDzQT0dZR+AlfA@public.gmane.org>
+Subject: Re: 2.6.29-git13: Reported regressions from 2.6.28
+Date: Wed, 22 Apr 2009 13:32:49 -0600
+Message-ID: <49EF70E1.9030904@nortel.com>
+References: <n4io5wq70ZO.A.gzG.rFn2JB@chimera> <alpine.LFD.2.00.0904061443000.7443@localhost.localdomain> <200904070035.00784.rjw@sisk.pl> <49E79E58.9000606@nortel.com> <alpine.LFD.2.00.0904161432000.4042@localhost.localdomain> <49ECE783.5050704@nortel.com> <Pine.LNX.4.64.0904202352520.2924@blonde.anvils>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, shemminger@vyatta.com, dada1@cosmosbay.com,
-	andi@firstfloor.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:26871 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212AbZDVStz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 14:49:55 -0400
-In-Reply-To: <20090422.022120.211323498.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Trenton Adams <trenton.d.adams-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Hugh Dickins <hugh-DTz5qymZ9yRBDgjK7y7TUQ@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.0904202352520.2924-XZxpfvf5U/bbmfIwyoSfiQ@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Tue, 21 Apr 2009 11:52:07 -0700
-> 
-> 
->>That is possible and don't think the design of our patch would
->>preclude it, but I am worried that each time the mapping from a
->>connection to a CPU changes this could cause of out of order
->>packets.  I suppose this is similar problem to changing the RSS hash
->>mappings in a device.
-> 
-> 
-> Yes, out of order packet processing is a serious issue.
-> 
-> There are some things I've been brainstorming about.
-> 
-> One thought I keep coming back to is the hack the block layer
-> is using right now.  It remembers which CPU a block I/O request
-> comes in on, and it makes sure the completion runs on that
-> cpu too.
-> 
-> We could remember the cpu that the last socket level operation
-> occurred upon, and use that as a target for packets.  This requires a
-> bit of work.
-> 
-> First we'd need some kind of pre-demux at netif_receive_skb()
-> time to look up the cpu target, and reference this blob from
-> the socket somehow, and keep it uptodate at various specific
-> locations (read/write/poll, whatever...).
+Hugh Dickins wrote:
+> On Mon, 20 Apr 2009, Chris Friesen wrote:
 
-Does poll on the socket touch all that many cachelines, or are you thinking of it 
-as being a predictor of where read/write will be called?
-
+>> For anonymous mappings, the older kernels put the starting address of the VMA
+>> (from the point of view of the app) as the offset.  Until the recent change,
+>> new kernels still did this for most VMAs, but the stack offset was a 64-bit
+>> value with no obvious relation to the VMA start address.
 > 
-> Or we could pre-demux the real socket.  That could be exciting.
+> No, what they put there was something that in most cases matched the
+> starting address of the VMA; but try moving that VMA with mremap (and
+> an old /proc/<pid>/maps!) and you'll see that the "offset" remained
+> unchanged even when the starting address of the VMA was changed.
 > 
-> But then we come back to the cpu number changing issue.  There is a
-> cool way to handle this, because it seems that we can just keep
-> queueing to the previous cpu and it can check the socket cpu cookie.
-> If that changes, the old target can push the rest of it's queue to
-> that cpu and then update the cpu target blob.
+> (The offset remaining constant so that rmap can locate the VMA's pages
+> and unmap them, despite their being mapped at different virtual
+> addresses in parent and child after a move in one of them.)
 > 
-> Anyways, just some ideas.
+> ... so I think your app was indeed already broken, wasn't it?
+> 
+> It's also unclear why you'd want to use the offset field for the
+> starting address of the VMA, when /proc/<pid>/maps already shows
+> the starting address of the VMA.  I think you've more to tell us!
 
-For what it is worth, at the 5000 foot description level that is exactly what 
-HP-UX 11.X does and calls TOPS (Thread Optimized Packet Scheduling).  Where the 
-socket was last accessed is stashed away (in the socket/stream structure) and 
-that is looked-up when the driver hands the packet up the stack.  It was done 
-that way in HP-UX 11.X because we found that simply hashing the headers (what 
-HP-UX 10.20 called "Inbound Packet Scheduling" or IPS) while fine for discrete 
-netperf TCP_RR tests, wasn't really what one wanted when a single thread of 
-execution was servicing more than one connection/flow.
+Yeah, given the above the app was broken.  We just didn't run into any 
+cases where the assumption caused any problems.
 
-The TOPS patches were added to HP-UX 11.0 ca 1998 and while there have been some 
-issues (as you surmise, and others thanks to Streams being involved :) it appears 
-to have worked rather well these last ten years.  So, at least in the abstract 
-what is proposed above has at least a little pre-validation.  TOPS can be 
-disabled/enabled via an ndd (ie sysctl) setting for those cases when the number 
-of NICs (back then they were all single-queue) or now queues is a reasonable 
-fraction of the number of cores and  the administrator can/wants to silo things.
+Also, it's not so much that we were relying on the offset value for 
+anything, so much as we were parsing the file and had made some 
+assumptions about valid offsets for anonymous memory.
 
-rick jones
+Anyways, we'll fix it going forward to simply ignore the offset for 
+anonymous memory.
+
+Chris
