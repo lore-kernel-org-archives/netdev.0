@@ -1,44 +1,62 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: ath5k irq warning message
-Date: Wed, 22 Apr 2009 14:56:06 -0700
-Message-ID: <49EF9276.1060109@candelatech.com>
+From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+Subject: What makes a good fake MAC address?
+Date: Thu, 23 Apr 2009 07:04:42 +0930
+Message-ID: <20090423070442.1e643b5b.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:47179 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753300AbZDVV4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 17:56:08 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n3MLu6xd019487
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 22 Apr 2009 14:56:06 -0700
+Received: from smtp2.mail.adnap.net.au ([203.6.132.66]:52700 "EHLO
+	smtp2.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753675AbZDVWDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 18:03:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm working on debugging some sort of live-lock related to irqs
-in ath5k with lots of virtual stations.
+Hi Inaky,
 
-I notice this code in the ath5k_intr method.
+(please CC me, I'm not on the list)
 
-Won't counter be -1 if you break out of this due to the 'counter-- > 0'
-clause?
+"The problem with using a zero mac address is that it confuses the
+bridging software (and maybe others). I was wondering, what would be a
+fake mac address we could put in there that is legal for this kind of
+"faking"? [or the closest thing to legal?]"
 
-If so, then that warning won't be printed regardless...
+Since you're from an organisation with an OUI allocation or two, I
+think a real Intel one would be best. It then wouldn't be fake, and no
+matter where it was exposed (host only, local network, or globally
+e.g. in IPv6 node addresses), it would be guaranteed not to collide
+with any other addresses (unless Intel make error an error in their own
+OUI administration.) 
 
-	} while (ath5k_hw_is_intr_pending(ah) && counter-- > 0);
+The other alternative would be locally assigned addresses i.e. those
+out of the "0x02" range. There is a function in the kernel
+(random_ether_addr()) to generate random ones which should minimise the
+chances of collision with any others. If you don't have an OUI, then I
+think they're a reasonable compromise. However, I don't think the
+"global" linux kernel automatically assigning local addresses
+completely fits with the idea of those addresses are only locally
+significant and administered.
 
-	if (unlikely(!counter))
-		ATH5K_WARN(sc, "too many interrupts, giving up for now\n");
+Don't do what Microsoft have done, and "globally" use a 0x02 address.
+They've "stolen" some static 0x02 addresses for use with their high
+availability software for Windows (0x02:01:01:01:01 is one of them
+IIRC). I happened to discover it by assigning those addresses in a test
+environment (i.e. *locally assigning* them), and then found Wireshark
+displayed them as "belonging" to Microsoft. Fortunately I didn't happen
+to have a MS HA environment, so I didn't break anything. If anybody has
+ever had to troubleshoot duplicate MAC addresses, I'm sure they'd agree
+that in the least MS should have randomised the addresses. Or
+better yet, spent probably less than a millisecond's worth of their
+revenue and got themselves an OUI, ensuring global uniqueness.
 
+(Any chance Intel want to donate an OUI to the Linux kernel to used
+instead of locally assigned addresses for things like dummy, tap and
+etc. interfaces? From memory they're only US $1250 :-) )
 
-Thanks,
-Ben
+Regards,
+Mark.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
 
