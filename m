@@ -1,81 +1,94 @@
-From: Salatiel Filho <salatiel.filho@gmail.com>
-Subject: Re: IMQ bug: kernel reboot immediately
-Date: Thu, 23 Apr 2009 20:32:06 -0300
-Message-ID: <beb91d720904231632m2a66768dy95f1df1491d97f5b@mail.gmail.com>
-References: <20090423084323.GA5696@ff.dom.local> <49F040E8.80402@trash.net>
-	<alpine.LSU.2.00.0904231223050.18687@fbirervta.pbzchgretzou.qr>
-	<49F042E7.7060900@trash.net> <beb91d720904230412j4dea4034o61f2d0682ff76d1a@mail.gmail.com>
-	<49F04F6B.7010709@trash.net> <beb91d720904230537s7f61c441g5af4a3acc1a0c2aa@mail.gmail.com>
-	<49F061F2.9000005@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	"Y. D." <duyuyang@gmail.com>, netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49F061F2.9000005@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: zero features for a vlan over bond / vlan features
+Date: Thu, 23 Apr 2009 16:47:41 -0700
+Message-ID: <24949.1240530461@death.nxdomain.ibm.com>
+References: <Pine.LNX.4.64.0904061556140.32757@zuben.voltaire.com> <6223.1239113811@death.nxdomain.ibm.com> <49E73C94.5030009@Voltaire.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@voltaire.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:48370 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbZDWXrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 19:47:37 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3NNg8qW003734
+	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 17:42:08 -0600
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3NNlbxj071986
+	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 17:47:37 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3NNlah8013405
+	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 17:47:37 -0600
+In-reply-to: <49E73C94.5030009@Voltaire.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2009 at 09:41, Patrick McHardy <kaber@trash.net> wrote:
-> Salatiel Filho wrote:
->>
->> On Thu, Apr 23, 2009 at 08:22, Patrick McHardy <kaber@trash.net> wro=
-te:
->>>
->>> Salatiel Filho wrote:
->>>>
->>>> Using imq i can shape upload on ppp0 [postrouting] while still hav=
-ing
->>>> the internal private ips from the hosts, and i can shape download =
-in
->>>> ppp0 [prerouting] after get the correct nat'ed addresses.
->>>>
->>>> Is there a way to achieve this in IFB ? in a simple way ... :)
->>>
->>> Currently not, the conntrack association is done at a later point.
->>> We could add a classifier or TC action that performs the lookup
->>> during ingress classification.
->>>
->>> Alternatively classifiers using conntrack information (like cls_flo=
-w)
->>> could perform the lookup directly, but that would probably get a bi=
-t
->>> ugly since some validation needs to be performed previously and it
->>> would add a module dependency on conntrack.
->>>
->>>
->> Using this actions would make =A0sfq hashing by dest ip or source ip
->> work just like it works in imq ?
+Or Gerlitz <ogerlitz@voltaire.com> wrote:
+
+>Jay Vosburgh wrote:
+>> The features system now has a dev->vlan_features that lists the
+>> features that will work through a vlan; bond_compute_features isn't
+>> using netdev_increment/fix_features to additionally compute the vlan_features, 
+>> so that's ending up always empty even if the underlying device supports vlan passthrough.
+>> I'm working on a patch; I'll see what I can come up with.  
 >
-> Not with the SFQ default hash since it classifies based on the
-> addresses in the IP header. But you could use the flow classifier,
-> which can use the addresses from the conntrack entry. This would
-> behave similar to IMQ+SFQ.
-Ok , i was tying to keepthe discussion to the mainline kernel :)
-By sfq i mean esfq [though i read somewhere sfq will implement a way
-to hash by src / dest ip] , or wrr :)
-Actually i was never able to find out why wrr is not in mainline
-kernel. In my opinion it is the best round robin qdisc i have ever
-used.
+>Great, I will be happy to test the patch once you have it...
+
+	Ok, here's a patch, but I'm not sure it's the right patch.
+
+	I'm not entirely sure if the vlan_features should be amassed as
+the regular features are, or if it should be a strict subset
+(slave0->vlan_features & slave1->vlan_features, etc).  This patch does
+the former, collecting the vlan_features in a manner analagous to the
+regular features.
+
+	This is strictly a test patch, it's still got printks and such
+in it.
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 99610f3..967c5b6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1341,6 +1341,7 @@ static int bond_compute_features(struct bonding *bond)
+ 	struct slave *slave;
+ 	struct net_device *bond_dev = bond->dev;
+ 	unsigned long features = bond_dev->features;
++	unsigned long vlan_features = 0;
+ 	unsigned short max_hard_header_len = max((u16)ETH_HLEN,
+ 						bond_dev->hard_header_len);
+ 	int i;
+@@ -1352,11 +1353,18 @@ static int bond_compute_features(struct bonding *bond)
+ 		goto done;
+ 
+ 	features &= ~NETIF_F_ONE_FOR_ALL;
+-
++	vlan_features = bond->first_slave->dev->vlan_features;
++	printk("vf %lx\n", vlan_features);
+ 	bond_for_each_slave(bond, slave, i) {
+ 		features = netdev_increment_features(features,
+ 						     slave->dev->features,
+ 						     NETIF_F_ONE_FOR_ALL);
++		vlan_features = netdev_increment_features(vlan_features,
++						  slave->dev->vlan_features,
++							  NETIF_F_ONE_FOR_ALL);
++		printk("slave %s (f %lx vf %lx) new f %lx vf %lx\n",
++		       slave->dev->name, slave->dev->features,
++		       slave->dev->vlan_features, features, vlan_features);
+ 		if (slave->dev->hard_header_len > max_hard_header_len)
+ 			max_hard_header_len = slave->dev->hard_header_len;
+ 	}
+@@ -1364,6 +1372,8 @@ static int bond_compute_features(struct bonding *bond)
+ done:
+ 	features |= (bond_dev->features & BOND_VLAN_FEATURES);
+ 	bond_dev->features = netdev_fix_features(features, NULL);
++	bond_dev->vlan_features = netdev_fix_features(vlan_features, NULL);
++	printk("bd->vf %lx\n", bond_dev->vlan_features);
+ 	bond_dev->hard_header_len = max_hard_header_len;
+ 
+ 	return 0;
 
 
->
->
+	-J
 
-
-
---=20
-[]'s
-Salatiel
-
-"O maior prazer do inteligente =E9 bancar o  idiota
-   diante de um  idiota que banca o inteligente".
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
