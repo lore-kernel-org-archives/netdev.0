@@ -1,149 +1,171 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: more findings/questions on vlans/bonds
-Date: Thu, 23 Apr 2009 14:04:50 -0700
-Message-ID: <13724.1240520690@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com>
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Or Gerlitz <ogerlitz@voltaire.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: Fix WoL functionality for 82599 KX4 devices
+Date: Thu, 23 Apr 2009 14:15:18 -0700
+Message-ID: <20090423211514.29345.14658.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:38651 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753015AbZDWVEq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2009 17:04:46 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e9.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3NKsDE3014796
-	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 16:54:13 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3NL4jpI168760
-	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 17:04:45 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3NL4ikg014068
-	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 17:04:45 -0400
-In-reply-to: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com>
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:39906 "EHLO
+	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754952AbZDWVPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 17:15:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com>
 
-[ Added VLAN maintainer to cc, patch enclosed ]
+The current code writes the PME enabled bit in PCI config space which is
+wrong.  This was needed for pre-release hardware, and was not removed from
+the driver.  Also, we need to clear the WUS (wake up status) after we
+resume.  Otherwise we can't wake for the same event again since it's still
+asserted in the hardware.  Plus, the multicast lists were being written
+improperly, causing multicast WoL to fail.
 
-Or Gerlitz <ogerlitz@voltaire.com> wrote:
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
->I hope that you can help clarify what's the correct/supported method
->to work with vlans and bonds, with 2.6.29 I see that one can either
->
->	- vlan a bond (bond0.4001 over bond0 over eth0/1.4001)
->	- bond vlans (e.g bond0 over eth0/1.4001)
->
->I played a bit with bonding vlans (2.6.29 active-backup mode) and it
->doesn't seem to work - specifically, I noted that bonding doesn't issue
->fail-over after I changed the current slave link status to down ("ifconfig
->eth0.4001 down"). I suspect that the carrier based link monitoring scheme
->is broken wrt to vlan devices - e.g I found that at least from sysfs
->perspective the vlan device carrier isn't available:
->
->$ cat /sys/class/net/eth0.4001/carrier
->cat: /sys/class/net/eth0.4001/carrier: Invalid argument
+ drivers/net/ixgbe/ixgbe_common.c |   51 +-------------------------------------
+ drivers/net/ixgbe/ixgbe_main.c   |   10 +++----
+ 2 files changed, 6 insertions(+), 55 deletions(-)
 
-	Ok, I just got a minute to fool with this, and it appears to
-sort of work for me on a relatively recent cut of net-2.6 (approximately
-2.6.30-rc1).  I didn't try 2.6.29 exactly, but the only issues I had
-with the version I used are as described below.
-
-	I suspect the "carrier: Invalid argument" response you describe
-above is a result of the show_carrier function in net-sysfs.c, which
-returns EINVAL if the device is not netif_running.  If the device (vlan
-or not) is running, the carrier is returned.
-
-	Anyway, configuring a bond over two VLAN devices (bond0 ->
-eth{0,1}.600 -> eth0{0,1}), it configures and comes up fine.
-
-	If I pull the cable for eth0 or eth1, the vlan device's carrier
-state updates correctly, and bonding fails over.
-
-	However, if I set eth0.VLAN or eth0 itself administratively
-down, no failover takes place.  This is apparently because the VLAN
-device doesn't adjust its carrier state for UP or DOWN events from the
-underlying real device or for open/close of the VLAN device itself.  It
-does update the carrier state for CHANGE events (from linkwatch, for
-example).
-
-	So, here's a patch with a description.  This resolves the
-bonding problem for me; it might have other undesirable side effects,
-though.  It's debatable whether it's really necessary, but it does make
-the VLAN device behave more like a real network device in this case:
-
-[PATCH] vlan: update vlan carrier state for admin up/down
-
-	Currently, the VLAN event handler does not adjust the VLAN
-device's carrier state when the real device or the VLAN device is set
-administratively up or down.
-
-	The following patch adds a transfer of operating state from the
-real device to the VLAN device when the real device is administratively
-set up or down, and sets the carrier state up or down during init, open
-and close of the VLAN device.
-
-	This permits observers above the VLAN device that care about the
-carrier state (bonding's link monitor, for example) to receive updates
-for administrative changes by more closely mimicing the behavior of real
-devices.
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 2b7390e..d1e1054 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -492,6 +492,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 				continue;
+diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
+index 5567519..186a650 100644
+--- a/drivers/net/ixgbe/ixgbe_common.c
++++ b/drivers/net/ixgbe/ixgbe_common.c
+@@ -50,7 +50,6 @@ static u16 ixgbe_calc_eeprom_checksum(struct ixgbe_hw *hw);
+ static void ixgbe_enable_rar(struct ixgbe_hw *hw, u32 index);
+ static void ixgbe_disable_rar(struct ixgbe_hw *hw, u32 index);
+ static s32 ixgbe_mta_vector(struct ixgbe_hw *hw, u8 *mc_addr);
+-static void ixgbe_add_mc_addr(struct ixgbe_hw *hw, u8 *mc_addr);
+ static void ixgbe_add_uc_addr(struct ixgbe_hw *hw, u8 *addr, u32 vmdq);
  
- 			dev_change_flags(vlandev, flgs & ~IFF_UP);
-+			vlan_transfer_operstate(dev, vlandev);
- 		}
- 		break;
+ /**
+@@ -1377,8 +1376,7 @@ s32 ixgbe_update_uc_addr_list_generic(struct ixgbe_hw *hw, u8 *addr_list,
+ 	 * Clear accounting of old secondary address list,
+ 	 * don't count RAR[0]
+ 	 */
+-	uc_addr_in_use = hw->addr_ctrl.rar_used_count -
+-	                 hw->addr_ctrl.mc_addr_in_rar_count - 1;
++	uc_addr_in_use = hw->addr_ctrl.rar_used_count - 1;
+ 	hw->addr_ctrl.rar_used_count -= uc_addr_in_use;
+ 	hw->addr_ctrl.overflow_promisc = 0;
  
-@@ -507,6 +508,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 				continue;
- 
- 			dev_change_flags(vlandev, flgs | IFF_UP);
-+			vlan_transfer_operstate(dev, vlandev);
- 		}
- 		break;
- 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 1b34135..2ce6658 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -462,6 +462,7 @@ static int vlan_dev_open(struct net_device *dev)
- 	if (vlan->flags & VLAN_FLAG_GVRP)
- 		vlan_gvrp_request_join(dev);
- 
-+	netif_carrier_on(dev);
- 	return 0;
- 
- clear_allmulti:
-@@ -471,6 +472,7 @@ del_unicast:
- 	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
- 		dev_unicast_delete(real_dev, dev->dev_addr, ETH_ALEN);
- out:
-+	netif_carrier_off(dev);
- 	return err;
+@@ -1493,40 +1491,6 @@ static void ixgbe_set_mta(struct ixgbe_hw *hw, u8 *mc_addr)
  }
  
-@@ -492,6 +494,7 @@ static int vlan_dev_stop(struct net_device *dev)
- 	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
- 		dev_unicast_delete(real_dev, dev->dev_addr, dev->addr_len);
+ /**
+- *  ixgbe_add_mc_addr - Adds a multicast address.
+- *  @hw: pointer to hardware structure
+- *  @mc_addr: new multicast address
+- *
+- *  Adds it to unused receive address register or to the multicast table.
+- **/
+-static void ixgbe_add_mc_addr(struct ixgbe_hw *hw, u8 *mc_addr)
+-{
+-	u32 rar_entries = hw->mac.num_rar_entries;
+-	u32 rar;
+-
+-	hw_dbg(hw, " MC Addr =%.2X %.2X %.2X %.2X %.2X %.2X\n",
+-	       mc_addr[0], mc_addr[1], mc_addr[2],
+-	       mc_addr[3], mc_addr[4], mc_addr[5]);
+-
+-	/*
+-	 * Place this multicast address in the RAR if there is room,
+-	 * else put it in the MTA
+-	 */
+-	if (hw->addr_ctrl.rar_used_count < rar_entries) {
+-		/* use RAR from the end up for multicast */
+-		rar = rar_entries - hw->addr_ctrl.mc_addr_in_rar_count - 1;
+-		hw->mac.ops.set_rar(hw, rar, mc_addr, 0, IXGBE_RAH_AV);
+-		hw_dbg(hw, "Added a multicast address to RAR[%d]\n", rar);
+-		hw->addr_ctrl.rar_used_count++;
+-		hw->addr_ctrl.mc_addr_in_rar_count++;
+-	} else {
+-		ixgbe_set_mta(hw, mc_addr);
+-	}
+-
+-	hw_dbg(hw, "ixgbe_add_mc_addr Complete\n");
+-}
+-
+-/**
+  *  ixgbe_update_mc_addr_list_generic - Updates MAC list of multicast addresses
+  *  @hw: pointer to hardware structure
+  *  @mc_addr_list: the list of new multicast addresses
+@@ -1542,7 +1506,6 @@ s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw, u8 *mc_addr_list,
+                                       u32 mc_addr_count, ixgbe_mc_addr_itr next)
+ {
+ 	u32 i;
+-	u32 rar_entries = hw->mac.num_rar_entries;
+ 	u32 vmdq;
  
-+	netif_carrier_off(dev);
- 	return 0;
- }
+ 	/*
+@@ -1550,18 +1513,8 @@ s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw, u8 *mc_addr_list,
+ 	 * use.
+ 	 */
+ 	hw->addr_ctrl.num_mc_addrs = mc_addr_count;
+-	hw->addr_ctrl.rar_used_count -= hw->addr_ctrl.mc_addr_in_rar_count;
+-	hw->addr_ctrl.mc_addr_in_rar_count = 0;
+ 	hw->addr_ctrl.mta_in_use = 0;
  
-@@ -612,6 +615,8 @@ static int vlan_dev_init(struct net_device *dev)
- 	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
- 	int subclass = 0;
+-	/* Zero out the other receive addresses. */
+-	hw_dbg(hw, "Clearing RAR[%d-%d]\n", hw->addr_ctrl.rar_used_count,
+-	          rar_entries - 1);
+-	for (i = hw->addr_ctrl.rar_used_count; i < rar_entries; i++) {
+-		IXGBE_WRITE_REG(hw, IXGBE_RAL(i), 0);
+-		IXGBE_WRITE_REG(hw, IXGBE_RAH(i), 0);
+-	}
+-
+ 	/* Clear the MTA */
+ 	hw_dbg(hw, " Clearing MTA\n");
+ 	for (i = 0; i < hw->mac.mcft_size; i++)
+@@ -1570,7 +1523,7 @@ s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw, u8 *mc_addr_list,
+ 	/* Add the new addresses */
+ 	for (i = 0; i < mc_addr_count; i++) {
+ 		hw_dbg(hw, " Adding the multicast addresses:\n");
+-		ixgbe_add_mc_addr(hw, next(hw, &mc_addr_list, &vmdq));
++		ixgbe_set_mta(hw, next(hw, &mc_addr_list, &vmdq));
+ 	}
  
-+	netif_carrier_off(dev);
+ 	/* Enable mta */
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 0188425..07e778d 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3646,6 +3646,8 @@ static int ixgbe_resume(struct pci_dev *pdev)
+ 
+ 	ixgbe_reset(adapter);
+ 
++	IXGBE_WRITE_REG(&adapter->hw, IXGBE_WUS, ~0);
 +
- 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
- 	dev->flags  = real_dev->flags & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI);
- 	dev->iflink = real_dev->ifindex;
+ 	if (netif_running(netdev)) {
+ 		err = ixgbe_open(adapter->netdev);
+ 		if (err)
+@@ -4575,7 +4577,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
+ 	static int cards_found;
+ 	int i, err, pci_using_dac;
+-	u16 pm_value = 0;
+ 	u32 part_num, eec;
+ 
+ 	err = pci_enable_device(pdev);
+@@ -4763,11 +4764,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ 	switch (pdev->device) {
+ 	case IXGBE_DEV_ID_82599_KX4:
+-#define IXGBE_PCIE_PMCSR 0x44
+-		adapter->wol = IXGBE_WUFC_MAG;
+-		pci_read_config_word(pdev, IXGBE_PCIE_PMCSR, &pm_value);
+-		pci_write_config_word(pdev, IXGBE_PCIE_PMCSR,
+-		                      (pm_value | (1 << 8)));
++		adapter->wol = (IXGBE_WUFC_MAG | IXGBE_WUFC_EX |
++		                IXGBE_WUFC_MC | IXGBE_WUFC_BC);
+ 		break;
+ 	default:
+ 		adapter->wol = 0;
+
