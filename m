@@ -1,99 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
-Date: Thu, 23 Apr 2009 12:56:20 -0400
-Message-ID: <20090423165620.GB30405@hmsreliant.think-freely.org>
-References: <49EEA7E3.3080507@cosmosbay.com> <20090422.020837.58106317.davem@davemloft.net> <49EEE4F1.4020705@cosmosbay.com> <20090422.025003.92631170.davem@davemloft.net> <20090422165034.GC17947@hmsreliant.think-freely.org> <49EF566B.70203@cosmosbay.com> <20090423152823.GA30405@hmsreliant.think-freely.org> <49F09933.2010200@cosmosbay.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: tun: add IFF_TUN_EXCL flag to avoid opening a persistent device.
+Date: Thu, 23 Apr 2009 18:04:18 +0100
+Message-ID: <1240506258.15245.11.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39481 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511AbZDWQ4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 12:56:24 -0400
-Content-Disposition: inline
-In-Reply-To: <49F09933.2010200@cosmosbay.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:60488 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395AbZDWRE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 13:04:26 -0400
+Received: from [158.43.2.102] (helo=[10.250.128.20])
+	by bombadil.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
+	id 1Lx2LU-0003w7-Uu
+	for netdev@vger.kernel.org; Thu, 23 Apr 2009 17:04:21 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2009 at 06:37:07PM +0200, Eric Dumazet wrote:
-> Neil Horman a =E9crit :
-> > On Wed, Apr 22, 2009 at 07:39:55PM +0200, Eric Dumazet wrote:
-> >> <previous contents snipped>
-> >>
-> >=20
-> >=20
-> > ok, new patch, functionally equivalent, with the following enhancem=
-ents:
-> >=20
-> > 1) Replaces INRECEIVES/OUTREQUESTS with INPKTS/OUTPKTS.  I did this
-> >    so that I could use the dual count update in (2) for INPKTS/INOC=
-TETS
-> >    and OUTPKTS/OUTOCTETS
-> > 2) Added dual stat update routines for IP/IP6, named *_UPD_PO_STATS=
-[_BH]
-> >    which updates a pair of stats, a P(acket) count, and an (O)ctet =
-count
-> > 3) Added BCASTPKS/BCASTOCTETS for completeness
-> >=20
-> >=20
-> >=20
-> > The IP MIB (RFC 4293) defines stats for InOctets, OutOctets, InMcas=
-tOctets and
-> > OutMcastOctets:
-> > http://tools.ietf.org/html/rfc4293
-> > But it seems we don't track those in any way that easy to separate =
-from other
-> > protocols.  This patch adds those missing counters to the stats fil=
-e. Tested
-> > successfully by me
-> >=20
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >=20
->=20
->=20
->=20
-> > +#define SNMP_UPD_PO_STATS(mib, basefield, addend)	\
-> > +	do { \
-> > +		int __cpu =3D get_cpu(); \
-> > +		per_cpu_ptr(mib[!in_softirq()], __cpu)->mibs[basefield##PKTS]++;=
- \
-> > +		per_cpu_ptr(mib[!in_softirq()], __cpu)->mibs[basefield##OCTETS] =
-+=3D addend;\
-> > +		put_cpu(); \
-> > +	} while (0)
->=20
-> Following should be faster, because per_cpu_ptr() and !in_softirq() f=
-actorization.
->=20
-> > +#define SNMP_UPD_PO_STATS(mib, basefield, addend)	\
-> > +	do { \
-> > +		__typeof__(mib[0]) ptr =3D per_cpu_ptr(mib[!in_softirq()], get_c=
-pu()); \
-> > +		ptr->mibs[basefield##PKTS]++; \
-> > +		ptr->mibs[basefield##OCTETS] +=3D addend;\
-> > +		put_cpu(); \
-> > +	} while (0)
->=20
-> BTW, we miss HC (64bits) values on 32bit arches, and some RFC (not 42=
-93, but in 4113) mention they
->  should be provided if counters can be updated more than 1 million ti=
-mes per second.
->=20
-> And for Octets counters, this is definitly the case with 100 Mbit net=
-works... Oh well
-Yeah, I was wondering about this.  Think it would be worthwhile to expo=
-rt all of
-these counters as 64 bit, rather than 32 bit?  Userspace can then have =
-the HC
-counters, and downcast to the standard 32 bit flavors.  I'd like this p=
-atch to
-stand as it is, but I think that might be a good subsequent change to m=
-ake
+When creating a certain types of VPN, NetworkManager will first attempt
+to find an available tun device by iterating through 'vpn%d' until it
+finds one that isn't already busy. Then it'll set that to be persistent
+and owned by the otherwise unprivileged user that the VPN d=C3=A6mon it=
+self
+runs as.
 
-Neil
+There's a race condition here -- during the period where the vpn%d
+device is created and we're waiting for the VPN d=C3=A6mon to actually
+connect and use it, if we try to create _another_ device we could end u=
+p
+re-using the same one -- because trying to open it again doesn't get
+-EBUSY as it would while it's _actually_ busy.
 
->=20
->=20
+So solve this, we add an IFF_TUN_EXCL flag which causes tun_set_iff() t=
+o
+fail if it would be opening an existing persistent tundevice -- so that
+we can make sure we're getting an entirely _new_ device.
+
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 16716ae..0488380 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -867,6 +867,8 @@ static int tun_set_iff(struct net *net, struct file=
+ *file, struct ifreq *ifr)
+=20
+ 	dev =3D __dev_get_by_name(net, ifr->ifr_name);
+ 	if (dev) {
++		if (ifr->ifr_flags & IFF_TUN_EXCL)
++			return -EBUSY;
+ 		if ((ifr->ifr_flags & IFF_TUN) && dev->netdev_ops =3D=3D &tun_netdev=
+_ops)
+ 			tun =3D netdev_priv(dev);
+ 		else if ((ifr->ifr_flags & IFF_TAP) && dev->netdev_ops =3D=3D &tap_n=
+etdev_ops)
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 049d6c9..915ba57 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -55,6 +55,7 @@
+ #define IFF_NO_PI	0x1000
+ #define IFF_ONE_QUEUE	0x2000
+ #define IFF_VNET_HDR	0x4000
++#define IFF_TUN_EXCL	0x8000
+=20
+ /* Features for GSO (TUNSETOFFLOAD). */
+ #define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
+
+--=20
+David Woodhouse                            Open Source Technology Centr=
+e
+David.Woodhouse@intel.com                              Intel Corporatio=
+n
+
