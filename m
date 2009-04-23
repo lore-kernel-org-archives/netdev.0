@@ -1,36 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
-Date: Thu, 23 Apr 2009 19:32:49 +0200
-Message-ID: <49F0A641.90303@cosmosbay.com>
-References: <49EEA7E3.3080507@cosmosbay.com> <20090422.020837.58106317.davem@davemloft.net> <49EEE4F1.4020705@cosmosbay.com> <20090422.025003.92631170.davem@davemloft.net> <20090422165034.GC17947@hmsreliant.think-freely.org> <49EF566B.70203@cosmosbay.com> <20090423152823.GA30405@hmsreliant.think-freely.org> <49F09933.2010200@cosmosbay.com> <20090423165620.GB30405@hmsreliant.think-freely.org> <49F0A1C8.5080601@cosmosbay.com> <20090423172524.GC30405@hmsreliant.think-freely.org>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] pasemi_mac: mac_to_intf() error not noticed
+Date: Thu, 23 Apr 2009 19:44:09 +0200
+Message-ID: <49F0A8E9.2010702@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Transfer-Encoding: 7bit
+To: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43544 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753793AbZDWRc7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 13:32:59 -0400
-In-Reply-To: <20090423172524.GC30405@hmsreliant.think-freely.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:46717 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005AbZDWRoK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 13:44:10 -0400
+Received: by ewy24 with SMTP id 24so670875ewy.37
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 10:44:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman a =E9crit :
+mac_to_intf() can return -1 when no device or function was found, but when
+mac->dma_if is unsigned. The error wasn't noticed.
 
-> Perhaps we could define the size of each counter at compile time, so =
-that at
-> least 64 bit systems can have sane counters?
-
-Well, mibs are "unsigned long", so are 64 bits on these systems.
-
->=20
-> Btw, I will repost one more time to take in the above enhancement you=
- suggested
-> regarding the limited use of per_cpu_ptr and in_softirq (my last post=
- made it
-> sound like I wouldnt)
-
-OK, thanks
-
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index 5eeb5a8..1857974 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -1798,12 +1798,13 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 	memcpy(dev->dev_addr, mac->mac_addr, sizeof(mac->mac_addr));
+ 
+-	mac->dma_if = mac_to_intf(mac);
+-	if (mac->dma_if < 0) {
++	err = mac_to_intf(mac);
++	if (err < 0) {
+ 		dev_err(&mac->pdev->dev, "Can't map DMA interface\n");
+ 		err = -ENODEV;
+ 		goto out;
+ 	}
++	mac->dma_if = err;
+ 
+ 	switch (pdev->device) {
+ 	case 0xa005:
