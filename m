@@ -1,32 +1,36 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: ath5k irq warning message
-Date: Thu, 23 Apr 2009 08:06:38 -0400
-Message-ID: <20090423120638.GA3168@hash.localnet>
-References: <49EF9276.1060109@candelatech.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: IMQ bug: kernel reboot immediately
+Date: Thu, 23 Apr 2009 12:11:04 +0000
+Message-ID: <20090423121104.GC6809@ff.dom.local>
+References: <20090423084323.GA5696@ff.dom.local> <49F040E8.80402@trash.net> <alpine.LSU.2.00.0904231223050.18687@fbirervta.pbzchgretzou.qr> <49F042E7.7060900@trash.net> <beb91d720904230412j4dea4034o61f2d0682ff76d1a@mail.gmail.com> <49F04F6B.7010709@trash.net> <20090423114019.GB6809@ff.dom.local> <49F05502.7050504@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.deathmatch.net ([72.66.92.28]:1274 "EHLO
-	mail.deathmatch.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506AbZDWMG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 08:06:59 -0400
+Cc: Salatiel Filho <salatiel.filho@gmail.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	"Y. D." <duyuyang@gmail.com>, netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49EF9276.1060109@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <49F05502.7050504@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 22, 2009 at 02:56:06PM -0700, Ben Greear wrote:
-> I notice this code in the ath5k_intr method.
+On Thu, Apr 23, 2009 at 01:46:10PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> On Thu, Apr 23, 2009 at 01:22:19PM +0200, Patrick McHardy wrote:
+>> ...
+>>> Currently not, the conntrack association is done at a later point.
+>>> We could add a classifier or TC action that performs the lookup
+>>> during ingress classification.
+>>
+>> BTW, some time ago I started to wonder how safe are those various
+>> ingress activities wrt. invalid packets, dropped later in ip_rcv().
 >
-> Won't counter be -1 if you break out of this due to the 'counter-- > 0'
-> clause?
->
-> 	} while (ath5k_hw_is_intr_pending(ah) && counter-- > 0);
+> Leaving aside the ipt action, I'm not aware of any problems caused
+> by ingress classification. Could you be more specific?
 
-Good catch, I guess it should be --counter...
+There is nothing specific yet. I hope these other classifiers and
+actions aren't mislead too much to go astray.
 
--- 
-Bob Copeland %% www.bobcopeland.com
-
+Jarek P.
