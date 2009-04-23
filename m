@@ -1,44 +1,67 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC] v1 expedited "big hammer" RCU grace periods
-Date: Thu, 23 Apr 2009 11:29:28 -0700
-Message-ID: <20090423182928.GF6877@linux.vnet.ibm.com>
-References: <20090423052520.GA13036@linux.vnet.ibm.com> <20090423075436.GB22606@elte.hu> <20090423153402.GC6877@linux.vnet.ibm.com> <alpine.LFD.2.00.0904230842571.3101@localhost.localdomain>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	akpm@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.0904230842571.3101@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: bond interface arp, vlan and trunk / network question
+Date: Thu, 23 Apr 2009 11:34:20 -0700
+Message-ID: <3302.1240511660@death.nxdomain.ibm.com>
+References: <1ef444010904201300r43268672sb74277f4a0242236@mail.gmail.com> <7609.1240259780@death.nxdomain.ibm.com> <1ef444010904201403s5d583750i1ce3a5da6c6f4059@mail.gmail.com> <13606.1240262581@death.nxdomain.ibm.com> <1ef444010904201439i60f9e918j760d94eeca428ece@mail.gmail.com> <22462.1240272112@death.nxdomain.ibm.com> <1ef444010904220129l24a74f07q8f32edfabe603436@mail.gmail.com> <32563.1240449149@death.nxdomain.ibm.com> <20090423074803.GB29268@psychotron.englab.brq.redhat.com> <12644.1240498781@death.nxdomain.ibm.com> <20090423152005.GI29268@psychotron.englab.brq.redhat.com>
+Cc: stefan novak <lms.brubaker@gmail.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:49960 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757303AbZDWSeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 14:34:15 -0400
+In-reply-to: <20090423152005.GI29268@psychotron.englab.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2009 at 08:47:02AM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Thu, 23 Apr 2009, Paul E. McKenney wrote:
-> > 
-> > Hmmm...  I need to ask Jeff Chua what HZ he was running with.  Because if
-> > there was some read-side critical section soaking up 30 milliseconds,
-> > all that hammering will do is slow things down...
-> 
-> The original bug report comes from simply bootup:
-> 
->   "I'm loading all the firewall rules during boot-up and this 6 secs 
->    slowness is really not very nice to wait for."
-> 
-> IOW, the problematic case likely effectively has _nothing_ else going on. 
-> Sure, there might be some parallelism (the bootup scripts are getting 
-> better for that), but hopefully not 6 seconds worth, and not likely any 
-> complex critical sections.
+Jiri Pirko <jpirko@redhat.com> wrote:
+>Thu, Apr 23, 2009 at 04:59:41PM CEST, fubar@us.ibm.com wrote:
+>>Jiri Pirko <jpirko@redhat.com> wrote:
+[...]
+>>>>+{
+>>>>+	struct net_device *dev = skb->dev;
+>>>>+	struct net_device *master = dev->master;
+>>>>+
+>>>>+	if (master)
+>>>>+		return bond_handle_frame_hook(skb);
+>>>
+>>>Maybe this hook can be called from netif_receive_skb() directly. You would safe
+>>>at least 2 dereferences, 1 if check. You would also need to add
+>>>"skb->dev->master &&" to if in __vlan_hwaccel_rx() and vlan_gro_common().
+>>
+>>	This won't work, because the VLAN code reassigns skb->dev to the
+>>VLAN device before calling netif_receive_skb.
+>
+>Sure, but bond_should_drop is called before it actually reassigns that. So the
+>check in bond_should_drop tests "original_dev->master".
+>
+>I had on mind something like following:
+>
+>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>
+>diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+>index c67fe6f..87a7334 100644
+>--- a/net/8021q/vlan_core.c
+>+++ b/net/8021q/vlan_core.c
+>@@ -11,7 +11,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+> 	if (netpoll_rx(skb))
+> 		return NET_RX_DROP;
+>
+>-	if (skb_bond_should_drop(skb))
+>+	if (skb->dev->master && bond_handle_frame_hook(skb))
+[...]
 
-Sounds good to me!  ;-)
+	Yah, ok, I see what you mean.  The same could be accomplished by
+turning skb_bond_should_drop back into an inline in the header file, and
+hiding the fiddly bits from the calling context.
 
-							Thanx, Paul
+	It's pretty grotty no matter how it's done; I'd prefer to avoid
+the whole hook business, but I haven't thought of a less bad way.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
