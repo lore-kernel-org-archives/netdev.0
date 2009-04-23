@@ -1,29 +1,36 @@
-From: Mrs Helen Anderson <rosgsc@singnet.com.sg>
-Subject: **Lucky Winner**
-Date: Tue, 21 Apr 2009 07:08:14 +0800 (SGT)
-Message-ID: <1240268894.49ed005e459f6@discus.singnet.com.sg>
-Reply-To: pinket.griphin22@btinternet.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Oops in tun: bisected to  Limit amount of queued packets per
+	device
+Date: Thu, 23 Apr 2009 08:17:56 +0800
+Message-ID: <20090423001756.GA8556@gondor.apana.org.au>
+References: <200904090952.01175.borntraeger@de.ibm.com> <20090409093817.GA5760@gondor.apana.org.au> <m2ws9c2zs7.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: info@winner.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comsmtp2.singnet.com.sg ([165.21.101.75]:53345 "EHLO
-	comsmtp2.singnet.com.sg" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750755AbZDVXnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 19:43:01 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:54210 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751075AbZDWASS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 20:18:18 -0400
+Content-Disposition: inline
+In-Reply-To: <m2ws9c2zs7.fsf@igel.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your E-I.D won the sum of =A3500,000 pounds on=20
-our Annual UK draw Promo,file your claims=20
-via emai(pinket.griphin22@btinternet.com)and=20
-provide us the below informations:
-=46ull Name...
-Address...
-Country...
-Phone No...
-Occupation...
-Age...   =20
-Sex...
-Once Again Congratulations
+On Wed, Apr 22, 2009 at 10:34:32PM +0200, Andreas Schwab wrote:
+>
+> > This is weird.  It looks like it's dying on the wake_up_interruptible_sync
+> > in tun_sock_write_space.  However, I can't see how that can cause this.
+> 
+> Any news on this?  It is still badly broken in 2.6.30-rc3.
+
+I think the fixes are in Dave's tree, waiting to be pushed.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
