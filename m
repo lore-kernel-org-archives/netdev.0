@@ -1,37 +1,693 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: What is lock_sock() before skb_free_datagram() for?
-Date: Fri, 24 Apr 2009 06:56:52 +0900
-Message-ID: <200904240656.JIC90182.HQOtLVJOFOMFFS@I-love.SAKURA.ne.jp>
-References: <20090418.020837.106276006.davem@davemloft.net>
-	<200904182123.HFF13509.MVSJtQHFLFOFOO@I-love.SAKURA.ne.jp>
-	<20090418.212842.163717535.davem@davemloft.net>
-	<200904191412.GIF95380.SVFJOHOFOQtLMF@I-love.SAKURA.ne.jp>
-	<m2ab67to2w.fsf@ssh.synack.fr>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: about latencies
+Date: Fri, 24 Apr 2009 00:02:33 +0200
+Message-ID: <49F0E579.5030200@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: sam@synack.fr
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Christoph Lameter <cl@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:60264 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449AbZDWV4z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2009 17:56:55 -0400
-In-Reply-To: <m2ab67to2w.fsf@ssh.synack.fr>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43931 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759716AbZDWWDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 18:03:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Samir Bellabes wrote:
-> what is the purpose of having such hooks ?
-Same as security_socket_post_accept() (i.e. to drop datagrams from unwanted
-peers).
+Hmmm
 
-I need to understand the meaning of "poll()" returning "ready" to understand
-why security_socket_accept() and security_socket_recvmsg() are permitted to
-return an error (though these hooks don't remove from the queue).
+I think I might found something about these latencies...
 
-My understanding is that "poll()" returning "ready" does not guarantee that
-accept()/recvmsg() shall return a valid file descriptor/datagram;
-"poll()" returning "ready" guarantees merely accept()/recvmsg() does not
-need to wait for connection/datagram. (Otherwise, security_socket_accept()
-and security_socket_recvmsg() have to be gone.)
+An UDP frame is sent, queued to device (bnx2 for example)
+Application calls recvfrom() to get next request and sleeps.
+
+
+Some time later, NIC tells us TX was completed.
+We free skb().
+ 1) dst_release()   (might dirty one cache line, that was increased by application cpu)
+
+ 2) and more important... since UDP is now doing memory accounting...
+
+sock_wfree()
+  -> sock_def_write_space()
+     -> _read_lock()
+     -> __wake_up_sync_key()
+  and lot of functions calls to wakeup the task, for nothing since it
+will just schedule again. Lot of cache lines dirtied...
+
+
+We could improve this.
+
+1) dst_release at xmit time, should save a cache line ping-pong on general case
+2) sock_wfree() in advance, done at transmit time (generally the thread/cpu doing the send)
+3) changing bnx2_poll_work() to first call bnx2_rx_int(), then bnx2_tx_int() to consume tx.
+
+
+What do you think ?
+
+function ftrace of one "tx completion, extra wakeup, incoming udp, outgoing udp"
+
+CPU0 : handles NIC interrupts
+CPU1 : udpping process/application
+
+          <idle>-0     [000]  1647.998423: do_IRQ <-common_interrupt
+          <idle>-0     [000]  1647.998423: irq_enter <-do_IRQ
+          <idle>-0     [000]  1647.998423: rcu_irq_enter <-irq_enter
+          <idle>-0     [000]  1647.998423: idle_cpu <-irq_enter
+          <idle>-0     [000]  1647.998423: tick_check_idle <-irq_enter
+          <idle>-0     [000]  1647.998424: tick_check_oneshot_broadcast <-tick_check_idle
+          <idle>-0     [000]  1647.998424: tick_nohz_stop_idle <-tick_check_idle
+          <idle>-0     [000]  1647.998424: ktime_get <-tick_nohz_stop_idle
+          <idle>-0     [000]  1647.998424: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998424: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998425: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998425: ktime_get <-sched_clock_tick
+          <idle>-0     [000]  1647.998425: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998425: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998426: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998426: touch_softlockup_watchdog <-sched_clock_idle_wakeup_event
+          <idle>-0     [000]  1647.998426: handle_irq <-do_IRQ
+          <idle>-0     [000]  1647.998426: irq_to_desc <-handle_irq
+          <idle>-0     [000]  1647.998427: handle_edge_irq <-handle_irq
+          <idle>-0     [000]  1647.998427: _spin_lock <-handle_edge_irq
+          <idle>-0     [000]  1647.998427: ack_apic_edge <-handle_edge_irq
+          <idle>-0     [000]  1647.998427: irq_to_desc <-ack_apic_edge
+          <idle>-0     [000]  1647.998427: irq_complete_move <-ack_apic_edge
+          <idle>-0     [000]  1647.998428: move_native_irq <-ack_apic_edge
+          <idle>-0     [000]  1647.998428: irq_to_desc <-move_native_irq
+          <idle>-0     [000]  1647.998428: native_apic_mem_write <-ack_apic_edge
+          <idle>-0     [000]  1647.998428: handle_IRQ_event <-handle_edge_irq
+          <idle>-0     [000]  1647.998428: bnx2_msi <-handle_IRQ_event
+          <idle>-0     [000]  1647.998429: __napi_schedule <-bnx2_msi
+          <idle>-0     [000]  1647.998429: note_interrupt <-handle_edge_irq
+          <idle>-0     [000]  1647.998429: _spin_lock <-handle_edge_irq
+          <idle>-0     [000]  1647.998429: irq_exit <-do_IRQ
+          <idle>-0     [000]  1647.998429: do_softirq <-irq_exit
+          <idle>-0     [000]  1647.998430: __do_softirq <-do_softirq
+          <idle>-0     [000]  1647.998430: net_rx_action <-__do_softirq
+          <idle>-0     [000]  1647.998430: bnx2_poll <-net_rx_action
+          <idle>-0     [000]  1647.998430: bnx2_poll_work <-bnx2_poll
+          <idle>-0     [000]  1647.998431: skb_dma_unmap <-bnx2_poll_work
+          <idle>-0     [000]  1647.998431: consume_skb <-bnx2_poll_work
+          <idle>-0     [000]  1647.998431: __kfree_skb <-consume_skb
+          <idle>-0     [000]  1647.998432: skb_release_head_state <-__kfree_skb
+          <idle>-0     [000]  1647.998432: dst_release <-skb_release_head_state
+          <idle>-0     [000]  1647.998432: sock_wfree <-skb_release_head_state
+          <idle>-0     [000]  1647.998433: sock_def_write_space <-sock_wfree
+          <idle>-0     [000]  1647.998433: _read_lock <-sock_def_write_space
+          <idle>-0     [000]  1647.998433: __wake_up_sync_key <-sock_def_write_space
+          <idle>-0     [000]  1647.998433: _spin_lock_irqsave <-__wake_up_sync_key
+          <idle>-0     [000]  1647.998434: __wake_up_common <-__wake_up_sync_key
+          <idle>-0     [000]  1647.998434: autoremove_wake_function <-__wake_up_common
+          <idle>-0     [000]  1647.998434: default_wake_function <-autoremove_wake_function
+          <idle>-0     [000]  1647.998434: try_to_wake_up <-default_wake_function
+          <idle>-0     [000]  1647.998435: task_rq_lock <-try_to_wake_up
+          <idle>-0     [000]  1647.998435: _spin_lock <-task_rq_lock
+          <idle>-0     [000]  1647.998436: select_task_rq_fair <-try_to_wake_up
+          <idle>-0     [000]  1647.998436: activate_task <-try_to_wake_up
+          <idle>-0     [000]  1647.998436: enqueue_task <-activate_task
+          <idle>-0     [000]  1647.998437: enqueue_task_fair <-enqueue_task
+          <idle>-0     [000]  1647.998437: update_curr <-enqueue_task_fair
+          <idle>-0     [000]  1647.998437: place_entity <-enqueue_task_fair
+          <idle>-0     [000]  1647.998437: __enqueue_entity <-enqueue_task_fair
+          <idle>-0     [000]  1647.998438: hrtick_update <-enqueue_task_fair
+          <idle>-0     [000]  1647.998438: check_preempt_curr_idle <-try_to_wake_up
+          <idle>-0     [000]  1647.998438: resched_task <-check_preempt_curr_idle
+          <idle>-0     [000]  1647.998439: _spin_unlock_irqrestore <-try_to_wake_up
+          <idle>-0     [001]  1647.998439: tick_nohz_restart_sched_tick <-cpu_idle
+          <idle>-0     [001]  1647.998439: tick_nohz_stop_idle <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998439: _spin_unlock_irqrestore <-__wake_up_sync_key
+          <idle>-0     [001]  1647.998439: ktime_get <-tick_nohz_stop_idle
+          <idle>-0     [001]  1647.998439: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998439: smp_apic_timer_interrupt <-apic_timer_interrupt
+          <idle>-0     [000]  1647.998440: native_apic_mem_write <-smp_apic_timer_interrupt
+          <idle>-0     [001]  1647.998440: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998440: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998440: irq_enter <-smp_apic_timer_interrupt
+          <idle>-0     [001]  1647.998440: ktime_get <-sched_clock_tick
+          <idle>-0     [001]  1647.998440: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998440: rcu_irq_enter <-irq_enter
+          <idle>-0     [001]  1647.998441: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998441: idle_cpu <-irq_enter
+          <idle>-0     [001]  1647.998441: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998441: hrtimer_interrupt <-smp_apic_timer_interrupt
+          <idle>-0     [000]  1647.998441: ktime_get <-hrtimer_interrupt
+          <idle>-0     [000]  1647.998441: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998441: touch_softlockup_watchdog <-sched_clock_idle_wakeup_event
+          <idle>-0     [000]  1647.998441: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998441: rcu_exit_nohz <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998442: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998442: select_nohz_load_balancer <-tick_nohz_restart_sched_tick
+          <idle>-0     [001]  1647.998442: ktime_get <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998442: _spin_lock <-hrtimer_interrupt
+          <idle>-0     [001]  1647.998442: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998442: _spin_lock <-hrtimer_interrupt
+          <idle>-0     [001]  1647.998442: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998442: __run_hrtimer <-hrtimer_interrupt
+          <idle>-0     [001]  1647.998443: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998443: __remove_hrtimer <-__run_hrtimer
+          <idle>-0     [001]  1647.998443: tick_do_update_jiffies64 <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998443: timer_stats_update_stats <-__run_hrtimer
+          <idle>-0     [001]  1647.998443: _spin_lock <-tick_do_update_jiffies64
+          <idle>-0     [000]  1647.998443: tick_sched_timer <-__run_hrtimer
+          <idle>-0     [000]  1647.998443: ktime_get <-tick_sched_timer
+          <idle>-0     [001]  1647.998443: do_timer <-tick_do_update_jiffies64
+          <idle>-0     [000]  1647.998443: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998444: update_wall_time <-do_timer
+          <idle>-0     [001]  1647.998444: clocksource_get_next <-update_wall_time
+          <idle>-0     [001]  1647.998444: _spin_lock_irqsave <-clocksource_get_next
+          <idle>-0     [001]  1647.998445: _spin_unlock_irqrestore <-clocksource_get_next
+          <idle>-0     [000]  1647.998445: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998445: account_idle_ticks <-tick_nohz_restart_sched_tick
+          <idle>-0     [001]  1647.998446: account_idle_time <-account_idle_ticks
+          <idle>-0     [000]  1647.998446: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998446: touch_softlockup_watchdog <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998446: update_process_times <-tick_sched_timer
+          <idle>-0     [001]  1647.998446: hrtimer_cancel <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998446: account_process_tick <-update_process_times
+          <idle>-0     [001]  1647.998446: hrtimer_try_to_cancel <-hrtimer_cancel
+          <idle>-0     [000]  1647.998446: account_idle_time <-account_process_tick
+          <idle>-0     [001]  1647.998447: lock_hrtimer_base <-hrtimer_try_to_cancel
+          <idle>-0     [000]  1647.998447: run_local_timers <-update_process_times
+          <idle>-0     [001]  1647.998447: _spin_lock_irqsave <-lock_hrtimer_base
+          <idle>-0     [000]  1647.998447: hrtimer_run_queues <-run_local_timers
+          <idle>-0     [001]  1647.998447: __remove_hrtimer <-hrtimer_try_to_cancel
+          <idle>-0     [000]  1647.998447: raise_softirq <-run_local_timers
+          <idle>-0     [001]  1647.998447: hrtimer_force_reprogram <-__remove_hrtimer
+          <idle>-0     [000]  1647.998447: softlockup_tick <-run_local_timers
+          <idle>-0     [001]  1647.998447: tick_program_event <-hrtimer_force_reprogram
+          <idle>-0     [000]  1647.998447: __touch_softlockup_watchdog <-softlockup_tick
+          <idle>-0     [001]  1647.998448: tick_dev_program_event <-tick_program_event
+          <idle>-0     [001]  1647.998448: ktime_get <-tick_dev_program_event
+          <idle>-0     [000]  1647.998448: rcu_pending <-update_process_times
+          <idle>-0     [001]  1647.998448: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998448: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998448: printk_tick <-update_process_times
+          <idle>-0     [000]  1647.998448: scheduler_tick <-update_process_times
+          <idle>-0     [001]  1647.998448: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998449: ktime_get <-sched_clock_tick
+          <idle>-0     [001]  1647.998449: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [000]  1647.998449: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998449: lapic_next_event <-clockevents_program_event
+          <idle>-0     [000]  1647.998449: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998449: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [000]  1647.998449: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998449: _spin_unlock_irqrestore <-hrtimer_try_to_cancel
+          <idle>-0     [000]  1647.998449: _spin_lock <-scheduler_tick
+          <idle>-0     [001]  1647.998450: hrtimer_forward <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998450: task_tick_idle <-scheduler_tick
+          <idle>-0     [001]  1647.998450: hrtimer_start_range_ns <-tick_nohz_restart_sched_tick
+          <idle>-0     [001]  1647.998450: __hrtimer_start_range_ns <-hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998450: run_posix_cpu_timers <-update_process_times
+          <idle>-0     [001]  1647.998450: lock_hrtimer_base <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998450: profile_tick <-tick_sched_timer
+          <idle>-0     [001]  1647.998450: _spin_lock_irqsave <-lock_hrtimer_base
+          <idle>-0     [001]  1647.998451: ktime_add_safe <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998451: hrtimer_forward <-tick_sched_timer
+          <idle>-0     [001]  1647.998451: enqueue_hrtimer <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998451: ktime_add_safe <-hrtimer_forward
+          <idle>-0     [000]  1647.998451: ktime_add_safe <-hrtimer_forward
+          <idle>-0     [001]  1647.998451: tick_program_event <-__hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998451: tick_dev_program_event <-tick_program_event
+          <idle>-0     [000]  1647.998451: _spin_lock <-__run_hrtimer
+          <idle>-0     [001]  1647.998452: ktime_get <-tick_dev_program_event
+          <idle>-0     [000]  1647.998452: enqueue_hrtimer <-__run_hrtimer
+          <idle>-0     [001]  1647.998452: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998452: tick_program_event <-hrtimer_interrupt
+          <idle>-0     [001]  1647.998452: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998452: tick_dev_program_event <-tick_program_event
+          <idle>-0     [001]  1647.998452: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998452: ktime_get <-tick_dev_program_event
+          <idle>-0     [001]  1647.998452: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [000]  1647.998452: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998453: lapic_next_event <-clockevents_program_event
+          <idle>-0     [000]  1647.998453: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998453: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [000]  1647.998453: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998453: _spin_unlock_irqrestore <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998453: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [001]  1647.998453: schedule <-cpu_idle
+          <idle>-0     [001]  1647.998453: __schedule <-schedule
+          <idle>-0     [000]  1647.998454: lapic_next_event <-clockevents_program_event
+          <idle>-0     [001]  1647.998454: rcu_qsctr_inc <-__schedule
+          <idle>-0     [000]  1647.998454: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [000]  1647.998454: irq_exit <-smp_apic_timer_interrupt
+          <idle>-0     [001]  1647.998454: _spin_lock_irq <-__schedule
+          <idle>-0     [000]  1647.998454: rcu_irq_exit <-irq_exit
+          <idle>-0     [000]  1647.998454: idle_cpu <-irq_exit
+          <idle>-0     [001]  1647.998455: put_prev_task_idle <-__schedule
+          <idle>-0     [001]  1647.998455: pick_next_task_fair <-__schedule
+          <idle>-0     [000]  1647.998455: skb_release_data <-__kfree_skb
+          <idle>-0     [001]  1647.998455: __dequeue_entity <-pick_next_task_fair
+          <idle>-0     [000]  1647.998455: kfree <-skb_release_data
+          <idle>-0     [000]  1647.998456: __slab_free <-kfree
+         udpping-4847  [001]  1647.998456: finish_task_switch <-__schedule
+          <idle>-0     [000]  1647.998456: kmem_cache_free <-__kfree_skb
+          <idle>-0     [000]  1647.998456: __slab_free <-kmem_cache_free
+         udpping-4847  [001]  1647.998456: finish_wait <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998457: _spin_lock_irqsave <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998457: _spin_unlock_irqrestore <-__skb_recv_datagram
+          <idle>-0     [000]  1647.998457: __netdev_alloc_skb <-bnx2_poll_work
+          <idle>-0     [000]  1647.998457: __alloc_skb <-__netdev_alloc_skb
+         udpping-4847  [001]  1647.998457: prepare_to_wait_exclusive <-__skb_recv_datagram
+          <idle>-0     [000]  1647.998457: kmem_cache_alloc <-__alloc_skb
+         udpping-4847  [001]  1647.998457: _spin_lock_irqsave <-prepare_to_wait_exclusive
+          <idle>-0     [000]  1647.998458: __kmalloc_track_caller <-__alloc_skb
+         udpping-4847  [001]  1647.998458: _spin_unlock_irqrestore <-prepare_to_wait_exclusive
+          <idle>-0     [000]  1647.998458: get_slab <-__kmalloc_track_caller
+          <idle>-0     [000]  1647.998458: __slab_alloc <-__kmalloc_track_caller
+         udpping-4847  [001]  1647.998458: schedule_timeout <-__skb_recv_datagram
+          <idle>-0     [000]  1647.998458: deactivate_slab <-__slab_alloc
+         udpping-4847  [001]  1647.998458: schedule <-schedule_timeout
+          <idle>-0     [000]  1647.998459: _spin_lock <-__slab_alloc
+         udpping-4847  [001]  1647.998459: __schedule <-schedule
+         udpping-4847  [001]  1647.998459: rcu_qsctr_inc <-__schedule
+         udpping-4847  [001]  1647.998459: _spin_lock_irq <-__schedule
+          <idle>-0     [000]  1647.998459: nommu_map_page <-bnx2_poll_work
+         udpping-4847  [001]  1647.998459: deactivate_task <-__schedule
+         udpping-4847  [001]  1647.998460: dequeue_task <-deactivate_task
+          <idle>-0     [000]  1647.998460: skb_put <-bnx2_poll_work
+         udpping-4847  [001]  1647.998460: dequeue_task_fair <-dequeue_task
+          <idle>-0     [000]  1647.998460: eth_type_trans <-bnx2_poll_work
+         udpping-4847  [001]  1647.998460: update_curr <-dequeue_task_fair
+          <idle>-0     [000]  1647.998460: skb_pull <-eth_type_trans
+         udpping-4847  [001]  1647.998461: hrtick_update <-dequeue_task_fair
+          <idle>-0     [000]  1647.998461: __vlan_hwaccel_rx <-bnx2_poll_work
+         udpping-4847  [001]  1647.998461: msecs_to_jiffies <-__schedule
+          <idle>-0     [000]  1647.998461: netif_receive_skb <-__vlan_hwaccel_rx
+         udpping-4847  [001]  1647.998461: msecs_to_jiffies <-__schedule
+          <idle>-0     [000]  1647.998461: vlan_hwaccel_do_receive <-netif_receive_skb
+         udpping-4847  [001]  1647.998461: put_prev_task_fair <-__schedule
+          <idle>-0     [000]  1647.998461: netif_nit_deliver <-vlan_hwaccel_do_receive
+         udpping-4847  [001]  1647.998461: pick_next_task_fair <-__schedule
+         udpping-4847  [001]  1647.998462: pick_next_task_rt <-__schedule
+          <idle>-0     [000]  1647.998462: ip_rcv <-netif_receive_skb
+         udpping-4847  [001]  1647.998462: pick_next_task_fair <-__schedule
+          <idle>-0     [000]  1647.998462: nf_hook_slow <-ip_rcv
+         udpping-4847  [001]  1647.998462: pick_next_task_idle <-__schedule
+          <idle>-0     [000]  1647.998462: nf_iterate <-nf_hook_slow
+          <idle>-0     [000]  1647.998462: ip_rcv_finish <-ip_rcv
+          <idle>-0     [001]  1647.998462: finish_task_switch <-__schedule
+          <idle>-0     [000]  1647.998463: ip_route_input <-ip_rcv_finish
+          <idle>-0     [001]  1647.998463: tick_nohz_stop_sched_tick <-cpu_idle
+          <idle>-0     [001]  1647.998463: ktime_get <-tick_nohz_stop_sched_tick
+          <idle>-0     [000]  1647.998463: ip_local_deliver <-ip_rcv_finish
+          <idle>-0     [001]  1647.998463: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998463: nf_hook_slow <-ip_local_deliver
+          <idle>-0     [001]  1647.998463: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998463: nf_iterate <-nf_hook_slow
+          <idle>-0     [001]  1647.998464: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998464: ipt_local_in_hook <-nf_iterate
+          <idle>-0     [001]  1647.998464: get_next_timer_interrupt <-tick_nohz_stop_sched_tick
+          <idle>-0     [000]  1647.998464: ipt_do_table <-ipt_local_in_hook
+          <idle>-0     [001]  1647.998464: _spin_lock <-get_next_timer_interrupt
+          <idle>-0     [000]  1647.998464: local_bh_disable <-ipt_do_table
+          <idle>-0     [000]  1647.998464: _read_lock <-ipt_do_table
+          <idle>-0     [000]  1647.998465: _read_unlock_bh <-ipt_do_table
+          <idle>-0     [000]  1647.998465: local_bh_enable_ip <-_read_unlock_bh
+          <idle>-0     [001]  1647.998465: hrtimer_get_next_event <-get_next_timer_interrupt
+          <idle>-0     [001]  1647.998465: _spin_lock_irqsave <-hrtimer_get_next_event
+          <idle>-0     [000]  1647.998465: ip_local_deliver_finish <-ip_local_deliver
+          <idle>-0     [001]  1647.998465: _spin_unlock_irqrestore <-hrtimer_get_next_event
+          <idle>-0     [000]  1647.998465: raw_local_deliver <-ip_local_deliver_finish
+          <idle>-0     [001]  1647.998466: rcu_needs_cpu <-tick_nohz_stop_sched_tick
+          <idle>-0     [000]  1647.998466: udp_rcv <-ip_local_deliver_finish
+          <idle>-0     [001]  1647.998466: printk_needs_cpu <-tick_nohz_stop_sched_tick
+          <idle>-0     [000]  1647.998466: __udp4_lib_rcv <-udp_rcv
+          <idle>-0     [001]  1647.998466: select_nohz_load_balancer <-tick_nohz_stop_sched_tick
+          <idle>-0     [000]  1647.998466: __udp4_lib_lookup <-__udp4_lib_rcv
+          <idle>-0     [000]  1647.998466: udp_queue_rcv_skb <-__udp4_lib_rcv
+          <idle>-0     [001]  1647.998466: rcu_enter_nohz <-tick_nohz_stop_sched_tick
+          <idle>-0     [001]  1647.998467: hrtimer_start <-tick_nohz_stop_sched_tick
+          <idle>-0     [000]  1647.998467: _spin_lock <-udp_queue_rcv_skb
+          <idle>-0     [001]  1647.998467: __hrtimer_start_range_ns <-hrtimer_start
+          <idle>-0     [000]  1647.998467: __udp_queue_rcv_skb <-udp_queue_rcv_skb
+          <idle>-0     [001]  1647.998467: lock_hrtimer_base <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998467: sock_queue_rcv_skb <-__udp_queue_rcv_skb
+          <idle>-0     [001]  1647.998467: _spin_lock_irqsave <-lock_hrtimer_base
+          <idle>-0     [000]  1647.998467: sk_filter <-sock_queue_rcv_skb
+          <idle>-0     [001]  1647.998467: __remove_hrtimer <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998467: local_bh_disable <-sk_filter
+          <idle>-0     [001]  1647.998468: hrtimer_force_reprogram <-__remove_hrtimer
+          <idle>-0     [000]  1647.998468: local_bh_enable <-sk_filter
+          <idle>-0     [001]  1647.998468: tick_program_event <-hrtimer_force_reprogram
+          <idle>-0     [001]  1647.998468: tick_dev_program_event <-tick_program_event
+          <idle>-0     [000]  1647.998468: skb_queue_tail <-sock_queue_rcv_skb
+          <idle>-0     [001]  1647.998468: ktime_get <-tick_dev_program_event
+          <idle>-0     [000]  1647.998468: _spin_lock_irqsave <-skb_queue_tail
+          <idle>-0     [001]  1647.998468: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998469: _spin_unlock_irqrestore <-skb_queue_tail
+          <idle>-0     [001]  1647.998469: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998469: sock_def_readable <-sock_queue_rcv_skb
+          <idle>-0     [001]  1647.998469: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998469: _read_lock <-sock_def_readable
+          <idle>-0     [001]  1647.998469: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [001]  1647.998469: lapic_next_event <-clockevents_program_event
+          <idle>-0     [000]  1647.998469: __wake_up_sync_key <-sock_def_readable
+          <idle>-0     [001]  1647.998469: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [000]  1647.998470: _spin_lock_irqsave <-__wake_up_sync_key
+          <idle>-0     [001]  1647.998470: ktime_add_safe <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998470: __wake_up_common <-__wake_up_sync_key
+          <idle>-0     [001]  1647.998470: enqueue_hrtimer <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998470: autoremove_wake_function <-__wake_up_common
+          <idle>-0     [001]  1647.998470: tick_program_event <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998470: default_wake_function <-autoremove_wake_function
+          <idle>-0     [001]  1647.998470: tick_dev_program_event <-tick_program_event
+          <idle>-0     [000]  1647.998471: try_to_wake_up <-default_wake_function
+          <idle>-0     [001]  1647.998471: ktime_get <-tick_dev_program_event
+          <idle>-0     [000]  1647.998471: task_rq_lock <-try_to_wake_up
+          <idle>-0     [001]  1647.998471: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998471: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998471: _spin_lock <-task_rq_lock
+          <idle>-0     [001]  1647.998471: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998472: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [001]  1647.998472: lapic_next_event <-clockevents_program_event
+          <idle>-0     [001]  1647.998472: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [000]  1647.998472: select_task_rq_fair <-try_to_wake_up
+          <idle>-0     [001]  1647.998472: _spin_unlock_irqrestore <-__hrtimer_start_range_ns
+          <idle>-0     [000]  1647.998472: activate_task <-try_to_wake_up
+          <idle>-0     [000]  1647.998473: enqueue_task <-activate_task
+          <idle>-0     [001]  1647.998473: mwait_idle <-cpu_idle
+          <idle>-0     [000]  1647.998473: enqueue_task_fair <-enqueue_task
+          <idle>-0     [000]  1647.998473: update_curr <-enqueue_task_fair
+          <idle>-0     [000]  1647.998473: place_entity <-enqueue_task_fair
+          <idle>-0     [000]  1647.998474: __enqueue_entity <-enqueue_task_fair
+          <idle>-0     [000]  1647.998474: hrtick_update <-enqueue_task_fair
+          <idle>-0     [000]  1647.998474: check_preempt_curr_idle <-try_to_wake_up
+          <idle>-0     [000]  1647.998474: resched_task <-check_preempt_curr_idle
+          <idle>-0     [000]  1647.998475: _spin_unlock_irqrestore <-try_to_wake_up
+          <idle>-0     [001]  1647.998475: tick_nohz_restart_sched_tick <-cpu_idle
+          <idle>-0     [001]  1647.998475: tick_nohz_stop_idle <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998475: _spin_unlock_irqrestore <-__wake_up_sync_key
+          <idle>-0     [001]  1647.998475: ktime_get <-tick_nohz_stop_idle
+          <idle>-0     [001]  1647.998476: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998476: napi_complete <-bnx2_poll
+          <idle>-0     [001]  1647.998476: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998476: napi_gro_flush <-napi_complete
+          <idle>-0     [001]  1647.998476: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998476: __napi_complete <-napi_complete
+          <idle>-0     [001]  1647.998476: ktime_get <-sched_clock_tick
+          <idle>-0     [001]  1647.998476: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998476: rcu_bh_qsctr_inc <-__do_softirq
+          <idle>-0     [001]  1647.998477: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998477: run_timer_softirq <-__do_softirq
+          <idle>-0     [001]  1647.998477: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998477: hrtimer_run_pending <-run_timer_softirq
+          <idle>-0     [000]  1647.998477: _spin_lock_irq <-run_timer_softirq
+          <idle>-0     [001]  1647.998477: touch_softlockup_watchdog <-sched_clock_idle_wakeup_event
+          <idle>-0     [000]  1647.998477: rcu_bh_qsctr_inc <-__do_softirq
+          <idle>-0     [000]  1647.998478: _local_bh_enable <-__do_softirq
+          <idle>-0     [001]  1647.998478: rcu_exit_nohz <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998478: rcu_irq_exit <-irq_exit
+          <idle>-0     [001]  1647.998478: select_nohz_load_balancer <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998478: idle_cpu <-irq_exit
+          <idle>-0     [000]  1647.998478: tick_nohz_stop_sched_tick <-irq_exit
+          <idle>-0     [001]  1647.998478: ktime_get <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998478: ktime_get <-tick_nohz_stop_sched_tick
+          <idle>-0     [001]  1647.998479: ktime_get_ts <-ktime_get
+          <idle>-0     [000]  1647.998479: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998479: getnstimeofday <-ktime_get_ts
+          <idle>-0     [000]  1647.998479: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998479: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998479: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998479: tick_do_update_jiffies64 <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998479: get_next_timer_interrupt <-tick_nohz_stop_sched_tick
+          <idle>-0     [001]  1647.998480: touch_softlockup_watchdog <-tick_nohz_restart_sched_tick
+          <idle>-0     [000]  1647.998480: _spin_lock <-get_next_timer_interrupt
+          <idle>-0     [001]  1647.998480: hrtimer_cancel <-tick_nohz_restart_sched_tick
+          <idle>-0     [001]  1647.998480: hrtimer_try_to_cancel <-hrtimer_cancel
+          <idle>-0     [000]  1647.998480: hrtimer_get_next_event <-get_next_timer_interrupt
+          <idle>-0     [001]  1647.998480: lock_hrtimer_base <-hrtimer_try_to_cancel
+          <idle>-0     [000]  1647.998480: _spin_lock_irqsave <-hrtimer_get_next_event
+          <idle>-0     [001]  1647.998480: _spin_lock_irqsave <-lock_hrtimer_base
+          <idle>-0     [000]  1647.998480: _spin_unlock_irqrestore <-hrtimer_get_next_event
+          <idle>-0     [001]  1647.998481: __remove_hrtimer <-hrtimer_try_to_cancel
+          <idle>-0     [000]  1647.998481: rcu_needs_cpu <-tick_nohz_stop_sched_tick
+          <idle>-0     [001]  1647.998481: hrtimer_force_reprogram <-__remove_hrtimer
+          <idle>-0     [001]  1647.998481: tick_program_event <-hrtimer_force_reprogram
+          <idle>-0     [000]  1647.998481: printk_needs_cpu <-tick_nohz_stop_sched_tick
+          <idle>-0     [001]  1647.998481: tick_dev_program_event <-tick_program_event
+          <idle>-0     [001]  1647.998481: ktime_get <-tick_dev_program_event
+          <idle>-0     [000]  1647.998481: select_nohz_load_balancer <-tick_nohz_stop_sched_tick
+          <idle>-0     [001]  1647.998482: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998482: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998482: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [000]  1647.998482: mwait_idle <-cpu_idle
+          <idle>-0     [001]  1647.998482: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [001]  1647.998483: lapic_next_event <-clockevents_program_event
+          <idle>-0     [001]  1647.998483: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [001]  1647.998483: _spin_unlock_irqrestore <-hrtimer_try_to_cancel
+          <idle>-0     [001]  1647.998483: hrtimer_forward <-tick_nohz_restart_sched_tick
+          <idle>-0     [001]  1647.998484: hrtimer_start_range_ns <-tick_nohz_restart_sched_tick
+          <idle>-0     [001]  1647.998484: __hrtimer_start_range_ns <-hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998484: lock_hrtimer_base <-__hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998484: _spin_lock_irqsave <-lock_hrtimer_base
+          <idle>-0     [001]  1647.998485: ktime_add_safe <-__hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998485: enqueue_hrtimer <-__hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998485: tick_program_event <-__hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998485: tick_dev_program_event <-tick_program_event
+          <idle>-0     [001]  1647.998486: ktime_get <-tick_dev_program_event
+          <idle>-0     [001]  1647.998486: ktime_get_ts <-ktime_get
+          <idle>-0     [001]  1647.998486: getnstimeofday <-ktime_get_ts
+          <idle>-0     [001]  1647.998486: set_normalized_timespec <-ktime_get_ts
+          <idle>-0     [001]  1647.998487: clockevents_program_event <-tick_dev_program_event
+          <idle>-0     [001]  1647.998487: lapic_next_event <-clockevents_program_event
+          <idle>-0     [001]  1647.998487: native_apic_mem_write <-lapic_next_event
+          <idle>-0     [001]  1647.998487: _spin_unlock_irqrestore <-__hrtimer_start_range_ns
+          <idle>-0     [001]  1647.998488: schedule <-cpu_idle
+          <idle>-0     [001]  1647.998488: __schedule <-schedule
+          <idle>-0     [001]  1647.998488: rcu_qsctr_inc <-__schedule
+          <idle>-0     [001]  1647.998488: _spin_lock_irq <-__schedule
+          <idle>-0     [001]  1647.998489: put_prev_task_idle <-__schedule
+          <idle>-0     [001]  1647.998489: pick_next_task_fair <-__schedule
+          <idle>-0     [001]  1647.998490: __dequeue_entity <-pick_next_task_fair
+         udpping-4847  [001]  1647.998490: finish_task_switch <-__schedule
+         udpping-4847  [001]  1647.998491: finish_wait <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998491: _spin_lock_irqsave <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998492: _spin_unlock_irqrestore <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998492: skb_copy_datagram_iovec <-udp_recvmsg
+         udpping-4847  [001]  1647.998493: memcpy_toiovec <-skb_copy_datagram_iovec
+         udpping-4847  [001]  1647.998493: copy_to_user <-memcpy_toiovec
+         udpping-4847  [001]  1647.998494: lock_sock_nested <-udp_recvmsg
+         udpping-4847  [001]  1647.998494: _spin_lock_bh <-lock_sock_nested
+         udpping-4847  [001]  1647.998494: local_bh_disable <-_spin_lock_bh
+         udpping-4847  [001]  1647.998494: local_bh_enable <-lock_sock_nested
+         udpping-4847  [001]  1647.998495: skb_free_datagram <-udp_recvmsg
+         udpping-4847  [001]  1647.998495: consume_skb <-skb_free_datagram
+         udpping-4847  [001]  1647.998495: __kfree_skb <-consume_skb
+         udpping-4847  [001]  1647.998495: skb_release_head_state <-__kfree_skb
+         udpping-4847  [001]  1647.998496: dst_release <-skb_release_head_state
+         udpping-4847  [001]  1647.998496: sock_rfree <-skb_release_head_state
+         udpping-4847  [001]  1647.998496: skb_release_data <-__kfree_skb
+         udpping-4847  [001]  1647.998497: kfree <-skb_release_data
+         udpping-4847  [001]  1647.998497: __slab_free <-kfree
+         udpping-4847  [001]  1647.998497: kmem_cache_free <-__kfree_skb
+         udpping-4847  [001]  1647.998498: __slab_free <-kmem_cache_free
+         udpping-4847  [001]  1647.998498: release_sock <-udp_recvmsg
+         udpping-4847  [001]  1647.998498: _spin_lock_bh <-release_sock
+         udpping-4847  [001]  1647.998498: local_bh_disable <-_spin_lock_bh
+         udpping-4847  [001]  1647.998499: _spin_unlock_bh <-release_sock
+         udpping-4847  [001]  1647.998499: local_bh_enable_ip <-_spin_unlock_bh
+         udpping-4847  [001]  1647.998499: move_addr_to_user <-sys_recvfrom
+         udpping-4847  [001]  1647.998499: smp_apic_timer_interrupt <-apic_timer_interrupt
+         udpping-4847  [001]  1647.998500: native_apic_mem_write <-smp_apic_timer_interrupt
+         udpping-4847  [001]  1647.998500: irq_enter <-smp_apic_timer_interrupt
+         udpping-4847  [001]  1647.998500: rcu_irq_enter <-irq_enter
+         udpping-4847  [001]  1647.998500: idle_cpu <-irq_enter
+         udpping-4847  [001]  1647.998501: hrtimer_interrupt <-smp_apic_timer_interrupt
+         udpping-4847  [001]  1647.998501: ktime_get <-hrtimer_interrupt
+         udpping-4847  [001]  1647.998501: ktime_get_ts <-ktime_get
+         udpping-4847  [001]  1647.998501: getnstimeofday <-ktime_get_ts
+         udpping-4847  [001]  1647.998502: set_normalized_timespec <-ktime_get_ts
+         udpping-4847  [001]  1647.998502: _spin_lock <-hrtimer_interrupt
+         udpping-4847  [001]  1647.998502: _spin_lock <-hrtimer_interrupt
+         udpping-4847  [001]  1647.998502: __run_hrtimer <-hrtimer_interrupt
+         udpping-4847  [001]  1647.998503: __remove_hrtimer <-__run_hrtimer
+         udpping-4847  [001]  1647.998503: timer_stats_update_stats <-__run_hrtimer
+         udpping-4847  [001]  1647.998503: tick_sched_timer <-__run_hrtimer
+         udpping-4847  [001]  1647.998503: ktime_get <-tick_sched_timer
+         udpping-4847  [001]  1647.998503: ktime_get_ts <-ktime_get
+         udpping-4847  [001]  1647.998504: getnstimeofday <-ktime_get_ts
+         udpping-4847  [001]  1647.998504: set_normalized_timespec <-ktime_get_ts
+         udpping-4847  [001]  1647.998504: update_process_times <-tick_sched_timer
+         udpping-4847  [001]  1647.998504: account_process_tick <-update_process_times
+         udpping-4847  [001]  1647.998505: account_system_time <-account_process_tick
+         udpping-4847  [001]  1647.998505: run_local_timers <-update_process_times
+         udpping-4847  [001]  1647.998505: hrtimer_run_queues <-run_local_timers
+         udpping-4847  [001]  1647.998505: raise_softirq <-run_local_timers
+         udpping-4847  [001]  1647.998505: softlockup_tick <-run_local_timers
+         udpping-4847  [001]  1647.998506: __touch_softlockup_watchdog <-softlockup_tick
+         udpping-4847  [001]  1647.998506: rcu_pending <-update_process_times
+         udpping-4847  [001]  1647.998506: rcu_check_callbacks <-update_process_times
+         udpping-4847  [001]  1647.998506: idle_cpu <-rcu_check_callbacks
+         udpping-4847  [001]  1647.998507: raise_softirq <-rcu_check_callbacks
+         udpping-4847  [001]  1647.998507: printk_tick <-update_process_times
+         udpping-4847  [001]  1647.998507: scheduler_tick <-update_process_times
+         udpping-4847  [001]  1647.998507: ktime_get <-sched_clock_tick
+         udpping-4847  [001]  1647.998508: ktime_get_ts <-ktime_get
+         udpping-4847  [001]  1647.998508: getnstimeofday <-ktime_get_ts
+         udpping-4847  [001]  1647.998508: set_normalized_timespec <-ktime_get_ts
+         udpping-4847  [001]  1647.998508: _spin_lock <-scheduler_tick
+         udpping-4847  [001]  1647.998509: task_tick_fair <-scheduler_tick
+         udpping-4847  [001]  1647.998509: update_curr <-task_tick_fair
+         udpping-4847  [001]  1647.998509: run_posix_cpu_timers <-update_process_times
+         udpping-4847  [001]  1647.998510: profile_tick <-tick_sched_timer
+         udpping-4847  [001]  1647.998510: hrtimer_forward <-tick_sched_timer
+         udpping-4847  [001]  1647.998510: ktime_add_safe <-hrtimer_forward
+         udpping-4847  [001]  1647.998510: ktime_add_safe <-hrtimer_forward
+         udpping-4847  [001]  1647.998511: _spin_lock <-__run_hrtimer
+         udpping-4847  [001]  1647.998511: enqueue_hrtimer <-__run_hrtimer
+         udpping-4847  [001]  1647.998511: tick_program_event <-hrtimer_interrupt
+         udpping-4847  [001]  1647.998511: tick_dev_program_event <-tick_program_event
+         udpping-4847  [001]  1647.998512: ktime_get <-tick_dev_program_event
+         udpping-4847  [001]  1647.998512: ktime_get_ts <-ktime_get
+         udpping-4847  [001]  1647.998512: getnstimeofday <-ktime_get_ts
+         udpping-4847  [001]  1647.998512: set_normalized_timespec <-ktime_get_ts
+         udpping-4847  [001]  1647.998513: clockevents_program_event <-tick_dev_program_event
+         udpping-4847  [001]  1647.998513: lapic_next_event <-clockevents_program_event
+         udpping-4847  [001]  1647.998513: native_apic_mem_write <-lapic_next_event
+         udpping-4847  [001]  1647.998513: irq_exit <-smp_apic_timer_interrupt
+         udpping-4847  [001]  1647.998514: do_softirq <-irq_exit
+         udpping-4847  [001]  1647.998514: __do_softirq <-do_softirq
+         udpping-4847  [001]  1647.998514: run_timer_softirq <-__do_softirq
+         udpping-4847  [001]  1647.998514: hrtimer_run_pending <-run_timer_softirq
+         udpping-4847  [001]  1647.998515: _spin_lock_irq <-run_timer_softirq
+         udpping-4847  [001]  1647.998515: rcu_bh_qsctr_inc <-__do_softirq
+         udpping-4847  [001]  1647.998515: rcu_process_callbacks <-__do_softirq
+         udpping-4847  [001]  1647.998516: __rcu_process_callbacks <-rcu_process_callbacks
+         udpping-4847  [001]  1647.998516: cpu_quiet <-__rcu_process_callbacks
+         udpping-4847  [001]  1647.998516: _spin_lock_irqsave <-cpu_quiet
+         udpping-4847  [001]  1647.998517: cpu_quiet_msk <-cpu_quiet
+         udpping-4847  [001]  1647.998517: _spin_unlock_irqrestore <-cpu_quiet_msk
+         udpping-4847  [001]  1647.998517: __rcu_process_callbacks <-rcu_process_callbacks
+         udpping-4847  [001]  1647.998517: force_quiescent_state <-__rcu_process_callbacks
+         udpping-4847  [001]  1647.998518: cpu_quiet <-__rcu_process_callbacks
+         udpping-4847  [001]  1647.998518: _spin_lock_irqsave <-cpu_quiet
+         udpping-4847  [001]  1647.998518: _spin_unlock_irqrestore <-cpu_quiet
+         udpping-4847  [001]  1647.998518: rcu_bh_qsctr_inc <-__do_softirq
+         udpping-4847  [001]  1647.998519: _local_bh_enable <-__do_softirq
+         udpping-4847  [001]  1647.998519: rcu_irq_exit <-irq_exit
+         udpping-4847  [001]  1647.998519: idle_cpu <-irq_exit
+         udpping-4847  [001]  1647.998520: copy_to_user <-move_addr_to_user
+         udpping-4847  [001]  1647.998520: sys_socketcall <-sysenter_do_call
+         udpping-4847  [001]  1647.998520: copy_from_user <-sys_socketcall
+         udpping-4847  [001]  1647.998521: sys_sendto <-sys_socketcall
+         udpping-4847  [001]  1647.998521: sockfd_lookup_light <-sys_sendto
+         udpping-4847  [001]  1647.998521: fget_light <-sockfd_lookup_light
+         udpping-4847  [001]  1647.998521: move_addr_to_kernel <-sys_sendto
+         udpping-4847  [001]  1647.998522: copy_from_user <-move_addr_to_kernel
+         udpping-4847  [001]  1647.998522: sock_sendmsg <-sys_sendto
+         udpping-4847  [001]  1647.998522: inet_sendmsg <-sock_sendmsg
+         udpping-4847  [001]  1647.998522: udp_sendmsg <-inet_sendmsg
+         udpping-4847  [001]  1647.998523: sock_tx_timestamp <-udp_sendmsg
+         udpping-4847  [001]  1647.998523: ip_route_output_flow <-udp_sendmsg
+         udpping-4847  [001]  1647.998523: __ip_route_output_key <-ip_route_output_flow
+         udpping-4847  [001]  1647.998523: local_bh_disable <-__ip_route_output_key
+         udpping-4847  [001]  1647.998524: local_bh_enable <-__ip_route_output_key
+         udpping-4847  [001]  1647.998524: __xfrm_lookup <-ip_route_output_flow
+         udpping-4847  [001]  1647.998525: lock_sock_nested <-udp_sendmsg
+         udpping-4847  [001]  1647.998525: _spin_lock_bh <-lock_sock_nested
+         udpping-4847  [001]  1647.998525: local_bh_disable <-_spin_lock_bh
+         udpping-4847  [001]  1647.998526: local_bh_enable <-lock_sock_nested
+         udpping-4847  [001]  1647.998526: ip_append_data <-udp_sendmsg
+         udpping-4847  [001]  1647.998526: sock_alloc_send_skb <-ip_append_data
+         udpping-4847  [001]  1647.998527: sock_alloc_send_pskb <-sock_alloc_send_skb
+         udpping-4847  [001]  1647.998527: __alloc_skb <-sock_alloc_send_pskb
+         udpping-4847  [001]  1647.998527: kmem_cache_alloc <-__alloc_skb
+         udpping-4847  [001]  1647.998527: __kmalloc_track_caller <-__alloc_skb
+         udpping-4847  [001]  1647.998528: get_slab <-__kmalloc_track_caller
+         udpping-4847  [001]  1647.998528: skb_put <-ip_append_data
+         udpping-4847  [001]  1647.998528: ip_generic_getfrag <-ip_append_data
+         udpping-4847  [001]  1647.998529: csum_partial_copy_fromiovecend <-ip_generic_getfrag
+         udpping-4847  [001]  1647.998529: udp_push_pending_frames <-udp_sendmsg
+         udpping-4847  [001]  1647.998529: ip_push_pending_frames <-udp_push_pending_frames
+         udpping-4847  [001]  1647.998530: ip_local_out <-ip_push_pending_frames
+         udpping-4847  [001]  1647.998530: __ip_local_out <-ip_local_out
+         udpping-4847  [001]  1647.998530: nf_hook_slow <-__ip_local_out
+         udpping-4847  [001]  1647.998530: nf_iterate <-nf_hook_slow
+         udpping-4847  [001]  1647.998531: ipt_local_out_hook <-nf_iterate
+         udpping-4847  [001]  1647.998531: ipt_do_table <-ipt_local_out_hook
+         udpping-4847  [001]  1647.998531: local_bh_disable <-ipt_do_table
+         udpping-4847  [001]  1647.998531: _read_lock <-ipt_do_table
+         udpping-4847  [001]  1647.998532: _read_unlock_bh <-ipt_do_table
+         udpping-4847  [001]  1647.998532: local_bh_enable_ip <-_read_unlock_bh
+         udpping-4847  [001]  1647.998532: ip_output <-ip_local_out
+         udpping-4847  [001]  1647.998533: nf_hook_slow <-ip_output
+         udpping-4847  [001]  1647.998533: nf_iterate <-nf_hook_slow
+         udpping-4847  [001]  1647.998533: ip_finish_output <-ip_output
+         udpping-4847  [001]  1647.998533: skb_push <-ip_finish_output
+         udpping-4847  [001]  1647.998534: dev_queue_xmit <-ip_finish_output
+         udpping-4847  [001]  1647.998534: local_bh_disable <-dev_queue_xmit
+         udpping-4847  [001]  1647.998534: _spin_lock <-dev_queue_xmit
+         udpping-4847  [001]  1647.998534: pfifo_fast_enqueue <-dev_queue_xmit
+         udpping-4847  [001]  1647.998534: __qdisc_run <-dev_queue_xmit
+         udpping-4847  [001]  1647.998535: pfifo_fast_dequeue <-__qdisc_run
+         udpping-4847  [001]  1647.998535: _spin_lock <-__qdisc_run
+         udpping-4847  [001]  1647.998535: dev_hard_start_xmit <-__qdisc_run
+         udpping-4847  [001]  1647.998535: vlan_dev_hwaccel_hard_start_xmit <-dev_hard_start_xmit
+         udpping-4847  [001]  1647.998536: dev_queue_xmit <-vlan_dev_hwaccel_hard_start_xmit
+         udpping-4847  [001]  1647.998536: local_bh_disable <-dev_queue_xmit
+         udpping-4847  [001]  1647.998536: dev_hard_start_xmit <-dev_queue_xmit
+         udpping-4847  [001]  1647.998536: bond_start_xmit <-dev_hard_start_xmit
+         udpping-4847  [001]  1647.998537: _read_lock <-bond_start_xmit
+         udpping-4847  [001]  1647.998537: _read_lock <-bond_start_xmit
+         udpping-4847  [001]  1647.998537: bond_dev_queue_xmit <-bond_start_xmit
+         udpping-4847  [001]  1647.998537: dev_queue_xmit <-bond_dev_queue_xmit
+         udpping-4847  [001]  1647.998537: local_bh_disable <-dev_queue_xmit
+         udpping-4847  [001]  1647.998538: _spin_lock <-dev_queue_xmit
+         udpping-4847  [001]  1647.998538: pfifo_fast_enqueue <-dev_queue_xmit
+         udpping-4847  [001]  1647.998538: __qdisc_run <-dev_queue_xmit
+         udpping-4847  [001]  1647.998539: pfifo_fast_dequeue <-__qdisc_run
+         udpping-4847  [001]  1647.998539: _spin_lock <-__qdisc_run
+         udpping-4847  [001]  1647.998539: dev_hard_start_xmit <-__qdisc_run
+         udpping-4847  [001]  1647.998539: bnx2_start_xmit <-dev_hard_start_xmit
+         udpping-4847  [001]  1647.998540: skb_dma_map <-bnx2_start_xmit
+         udpping-4847  [001]  1647.998540: nommu_map_page <-skb_dma_map
+         udpping-4847  [001]  1647.998541: _spin_lock <-__qdisc_run
+         udpping-4847  [001]  1647.998541: local_bh_enable <-dev_queue_xmit
+         udpping-4847  [001]  1647.998541: local_bh_enable <-dev_queue_xmit
+         udpping-4847  [001]  1647.998542: _spin_lock <-__qdisc_run
+         udpping-4847  [001]  1647.998542: local_bh_enable <-dev_queue_xmit
+         udpping-4847  [001]  1647.998542: ip_cork_release <-ip_push_pending_frames
+         udpping-4847  [001]  1647.998542: kfree <-ip_cork_release
+         udpping-4847  [001]  1647.998543: dst_release <-ip_cork_release
+         udpping-4847  [001]  1647.998543: release_sock <-udp_sendmsg
+         udpping-4847  [001]  1647.998543: _spin_lock_bh <-release_sock
+         udpping-4847  [001]  1647.998543: local_bh_disable <-_spin_lock_bh
+         udpping-4847  [001]  1647.998543: _spin_unlock_bh <-release_sock
+         udpping-4847  [001]  1647.998544: local_bh_enable_ip <-_spin_unlock_bh
+         udpping-4847  [001]  1647.998544: sys_socketcall <-sysenter_do_call
+         udpping-4847  [001]  1647.998544: copy_from_user <-sys_socketcall
+         udpping-4847  [001]  1647.998545: sys_recvfrom <-sys_socketcall
+         udpping-4847  [001]  1647.998545: sockfd_lookup_light <-sys_recvfrom
+         udpping-4847  [001]  1647.998545: fget_light <-sockfd_lookup_light
+         udpping-4847  [001]  1647.998545: sock_recvmsg <-sys_recvfrom
+         udpping-4847  [001]  1647.998545: sock_common_recvmsg <-sock_recvmsg
+         udpping-4847  [001]  1647.998546: udp_recvmsg <-sock_common_recvmsg
+         udpping-4847  [001]  1647.998546: __skb_recv_datagram <-udp_recvmsg
+         udpping-4847  [001]  1647.998546: _spin_lock_irqsave <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998546: _spin_unlock_irqrestore <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998547: prepare_to_wait_exclusive <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998547: _spin_lock_irqsave <-prepare_to_wait_exclusive
+         udpping-4847  [001]  1647.998547: _spin_unlock_irqrestore <-prepare_to_wait_exclusive
+         udpping-4847  [001]  1647.998547: schedule_timeout <-__skb_recv_datagram
+         udpping-4847  [001]  1647.998547: schedule <-schedule_timeout
+         udpping-4847  [001]  1647.998548: __schedule <-schedule
+         udpping-4847  [001]  1647.998548: rcu_qsctr_inc <-__schedule
+         udpping-4847  [001]  1647.998548: _spin_lock_irq <-__schedule
+         udpping-4847  [001]  1647.998548: deactivate_task <-__schedule
+         udpping-4847  [001]  1647.998549: dequeue_task <-deactivate_task
+         udpping-4847  [001]  1647.998549: dequeue_task_fair <-dequeue_task
+         udpping-4847  [001]  1647.998549: update_curr <-dequeue_task_fair
+         udpping-4847  [001]  1647.998550: hrtick_update <-dequeue_task_fair
+         udpping-4847  [001]  1647.998550: msecs_to_jiffies <-__schedule
+         udpping-4847  [001]  1647.998550: msecs_to_jiffies <-__schedule
+         udpping-4847  [001]  1647.998550: put_prev_task_fair <-__schedule
+         udpping-4847  [001]  1647.998550: pick_next_task_fair <-__schedule
+         udpping-4847  [001]  1647.998551: pick_next_task_rt <-__schedule
+         udpping-4847  [001]  1647.998551: pick_next_task_fair <-__schedule
+         udpping-4847  [001]  1647.998551: pick_next_task_idle <-__schedule
