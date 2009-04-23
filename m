@@ -1,465 +1,69 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH 1/3] net: introduce a list of device
-	addresses	dev_addr_list (v4)
-Date: Thu, 23 Apr 2009 10:09:55 +0200
-Message-ID: <20090423080954.GC29268@psychotron.englab.brq.redhat.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
-	<20090415081720.GA21342@psychotron.englab.brq.redhat.com>
-	<20090415081819.GB21342@psychotron.englab.brq.redhat.com>
-	<20090415180215.GA22540@psychotron.englab.brq.redhat.com>
-	<20090417115723.GE9556@psychotron.englab.brq.redhat.com>
-	<20090418085848.GC3370@psychotron.englab.brq.redhat.com>
-	<20090420161156.GC24584@psychotron.englab.brq.redhat.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Thu, 23 Apr 2009 08:20:52 +0000
+Message-ID: <20090423082052.GA4243@ff.dom.local>
+References: <Pine.LNX.4.64.0904222313080.22266@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ivecera@redhat.com, fubar@us.ibm.com, netdev@vger.kernel.org,
-        bridge@lists.linux-foundation.org, mschmidt@redhat.com,
-        bonding-devel@lists.sourceforge.net, jgarzik@pobox.com,
-        dada1@cosmosbay.com, davem@davemloft.net
-To: linux-kernel@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Radu Rendec <radu.rendec@ines.ro>,
+	Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.172]:45437 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754047AbZDWIVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 04:21:03 -0400
+Received: by wf-out-1314.google.com with SMTP id 26so364422wfd.4
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 01:21:02 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090420161156.GC24584@psychotron.englab.brq.redhat.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0904222313080.22266@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Apr 20, 2009 at 06:11:56PM CEST, jpirko@redhat.com wrote:
->How about this (and another 2 patches in patchset)? What's your opinion guys?
+On 22-04-2009 23:29, Jesper Dangaard Brouer wrote:
+> On Wed, 22 Apr 2009, Radu Rendec wrote:
+> 
+>> Thanks for the hints! As far as I understand, HFSC is also implemented
+>> as a queue discipline (like HTB), so I guess it suffers from the same
+>> design limitations (doesn't span across multiple CPUs). Is this
+>> assumption correct?
+> 
+> Yes.
 
-Eric, Stephen, Patrick? Can you please look at this? Any objections?
->
->Thanks,
->
->Jirka
->
->Sat, Apr 18, 2009 at 10:58:49AM CEST, jpirko@redhat.com wrote:
->>v3 -> v4 (current):
->>-changed kzalloc to kmalloc in __hw_addr_add_ii()
->>-ASSERT_RTNL() avoided in dev_addr_flush() and dev_addr_init()
->>
->>v2 -> v3:
->>-removed unnecessary rcu read locking
->>-moved dev_addr_flush() calling to ensure no null dereference of dev_addr
->>
->>v1 -> v2:
->>-added forgotten ASSERT_RTNL to dev_addr_init and dev_addr_flush
->>-removed unnecessary rcu_read locking in dev_addr_init
->>-use compare_ether_addr_64bits instead of compare_ether_addr
->>-use L1_CACHE_BYTES as size for allocating struct netdev_hw_addr
->>-use call_rcu instead of rcu_synchronize
->>-moved is_etherdev_addr into __KERNEL__ ifdef
->>
->>This patch introduces a new list in struct net_device and brings a set of
->>functions to handle the work with device address list. The list is a replacement
->>for the original dev_addr field and because in some situations there is need to
->>carry several device addresses with the net device. To be backward compatible,
->>dev_addr is made to point to the first member of the list so original drivers
->>sees no difference.
->>
->>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>---
->> include/linux/etherdevice.h |   27 +++++
->> include/linux/netdevice.h   |   32 +++++-
->> net/core/dev.c              |  261 +++++++++++++++++++++++++++++++++++++++++++
->> 3 files changed, 318 insertions(+), 2 deletions(-)
->>
->>diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
->>index a1f17ab..3d7a668 100644
->>--- a/include/linux/etherdevice.h
->>+++ b/include/linux/etherdevice.h
->>@@ -182,6 +182,33 @@ static inline unsigned compare_ether_addr_64bits(const u8 addr1[6+2],
->> 	return compare_ether_addr(addr1, addr2);
->> #endif
->> }
->>+
->>+/**
->>+ * is_etherdev_addr - Tell if given Ethernet address belongs to the device.
->>+ * @dev: Pointer to a device structure
->>+ * @addr: Pointer to a six-byte array containing the Ethernet address
->>+ *
->>+ * Compare passed address with all addresses of the device. Return true if the
->>+ * address if one of the device addresses.
->>+ *
->>+ * Note that this function calls compare_ether_addr_64bits() so take care of
->>+ * the right padding.
->>+ */
->>+static inline bool is_etherdev_addr(const struct net_device *dev,
->>+				    const u8 addr[6 + 2])
->>+{
->>+	struct netdev_hw_addr *ha;
->>+	int res = 1;
->>+
->>+	rcu_read_lock();
->>+	for_each_dev_addr(dev, ha) {
->>+		res = compare_ether_addr_64bits(addr, ha->addr);
->>+		if (!res)
->>+			break;
->>+	}
->>+	rcu_read_unlock();
->>+	return !res;
->>+}
->> #endif	/* __KERNEL__ */
->> 
->> /**
->>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>index 2e7783f..89ad6d2 100644
->>--- a/include/linux/netdevice.h
->>+++ b/include/linux/netdevice.h
->>@@ -210,6 +210,13 @@ struct dev_addr_list
->> #define dmi_users	da_users
->> #define dmi_gusers	da_gusers
->> 
->>+struct netdev_hw_addr {
->>+	struct list_head	list;
->>+	unsigned char		addr[MAX_ADDR_LEN];
->>+	int			refcount;
->>+	struct rcu_head		rcu_head;
->>+};
->>+
->> struct hh_cache
->> {
->> 	struct hh_cache *hh_next;	/* Next entry			     */
->>@@ -776,8 +783,11 @@ struct net_device
->>  */
->> 	unsigned long		last_rx;	/* Time of last Rx	*/
->> 	/* Interface address info used in eth_type_trans() */
->>-	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast
->>-							   because most packets are unicast) */
->>+	unsigned char		*dev_addr;	/* hw address, (before bcast
->>+						   because most packets are
->>+						   unicast) */
->>+
->>+	struct list_head	dev_addr_list; /* list of device hw addresses */
->> 
->> 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
->> 
->>@@ -1778,6 +1788,13 @@ static inline void netif_addr_unlock_bh(struct net_device *dev)
->> 	spin_unlock_bh(&dev->addr_list_lock);
->> }
->> 
->>+/*
->>+ * dev_addr_list walker. Should be used only for read access. Call with
->>+ * rcu_read_lock held.
->>+ */
->>+#define for_each_dev_addr(dev, ha) \
->>+		list_for_each_entry_rcu(ha, &dev->dev_addr_list, list)
->>+
->> /* These functions live elsewhere (drivers/net/net_init.c, but related) */
->> 
->> extern void		ether_setup(struct net_device *dev);
->>@@ -1790,6 +1807,17 @@ extern struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
->> 	alloc_netdev_mq(sizeof_priv, name, setup, 1)
->> extern int		register_netdev(struct net_device *dev);
->> extern void		unregister_netdev(struct net_device *dev);
->>+
->>+/* Functions used for device addresses handling */
->>+extern int		dev_addr_add(struct net_device *dev,
->>+				     unsigned char *addr);
->>+extern int		dev_addr_del(struct net_device *dev,
->>+				     unsigned char *addr);
->>+extern int		dev_addr_add_multiple(struct net_device *to_dev,
->>+					      struct net_device *from_dev);
->>+extern int		dev_addr_del_multiple(struct net_device *to_dev,
->>+					      struct net_device *from_dev);
->>+
->> /* Functions used for secondary unicast and multicast support */
->> extern void		dev_set_rx_mode(struct net_device *dev);
->> extern void		__dev_set_rx_mode(struct net_device *dev);
->>diff --git a/net/core/dev.c b/net/core/dev.c
->>index 343883f..2274294 100644
->>--- a/net/core/dev.c
->>+++ b/net/core/dev.c
->>@@ -3438,6 +3438,263 @@ void dev_set_rx_mode(struct net_device *dev)
->> 	netif_addr_unlock_bh(dev);
->> }
->> 
->>+/* hw addresses list handling functions */
->>+
->>+static int __hw_addr_add_ii(struct list_head *list, unsigned char *addr,
->>+			    int addr_len, int ignore_index)
->>+{
->>+	struct netdev_hw_addr *ha;
->>+	int i = 0;
->>+
->>+	if (addr_len > MAX_ADDR_LEN)
->>+		return -EINVAL;
->>+
->>+	list_for_each_entry(ha, list, list) {
->>+		if (i++ != ignore_index &&
->>+		    !memcmp(ha->addr, addr, addr_len)) {
->>+			ha->refcount++;
->>+			return 0;
->>+		}
->>+	}
->>+
->>+	ha = kmalloc(max(sizeof(*ha), L1_CACHE_BYTES), GFP_ATOMIC);
->>+	if (!ha)
->>+		return -ENOMEM;
->>+	memcpy(ha->addr, addr, addr_len);
->>+	ha->refcount = 1;
->>+	list_add_tail_rcu(&ha->list, list);
->>+	return 0;
->>+}
->>+
->>+static int __hw_addr_add(struct list_head *list, unsigned char *addr,
->>+			 int addr_len)
->>+{
->>+	return __hw_addr_add_ii(list, addr, addr_len, -1);
->>+}
->>+
->>+static void ha_rcu_free(struct rcu_head *head)
->>+{
->>+	struct netdev_hw_addr *ha;
->>+
->>+	ha = container_of(head, struct netdev_hw_addr, rcu_head);
->>+	kfree(ha);
->>+}
->>+
->>+static int __hw_addr_del_ii(struct list_head *list, unsigned char *addr,
->>+			    int addr_len, int ignore_index)
->>+{
->>+	struct netdev_hw_addr *ha;
->>+	int i = 0;
->>+
->>+	list_for_each_entry(ha, list, list) {
->>+		if (i++ != ignore_index &&
->>+		    !memcmp(ha->addr, addr, addr_len)) {
->>+			if (--ha->refcount)
->>+				return 0;
->>+			list_del_rcu(&ha->list);
->>+			call_rcu(&ha->rcu_head, ha_rcu_free);
->>+			return 0;
->>+		}
->>+	}
->>+	return -ENOENT;
->>+}
->>+
->>+static int __hw_addr_del(struct list_head *list, unsigned char *addr,
->>+			 int addr_len)
->>+{
->>+	return __hw_addr_del_ii(list, addr, addr_len, -1);
->>+}
->>+
->>+static int __hw_addr_add_multiple_ii(struct list_head *to_list,
->>+				     struct list_head *from_list,
->>+				     int addr_len, int ignore_index)
->>+{
->>+	int err;
->>+	struct netdev_hw_addr *ha, *ha2;
->>+
->>+	list_for_each_entry(ha, from_list, list) {
->>+		err = __hw_addr_add_ii(to_list, ha->addr, addr_len, 0);
->>+		if (err)
->>+			goto unroll;
->>+	}
->>+	return 0;
->>+
->>+unroll:
->>+	list_for_each_entry(ha2, from_list, list) {
->>+		if (ha2 == ha)
->>+			break;
->>+		__hw_addr_del_ii(to_list, ha2->addr, addr_len, 0);
->>+	}
->>+	return err;
->>+}
->>+
->>+static int __hw_addr_add_multiple(struct list_head *to_list,
->>+					 struct list_head *from_list,
->>+					 int addr_len)
->>+{
->>+	return __hw_addr_add_multiple_ii(to_list, from_list, addr_len, -1);
->>+}
->>+
->>+static void __hw_addr_del_multiple_ii(struct list_head *to_list,
->>+				      struct list_head *from_list,
->>+				      int addr_len, int ignore_index)
->>+{
->>+	struct netdev_hw_addr *ha;
->>+
->>+	list_for_each_entry(ha, from_list, list) {
->>+		__hw_addr_del_ii(to_list, ha->addr, addr_len, 0);
->>+	}
->>+}
->>+
->>+static void __hw_addr_del_multiple(struct list_head *to_list,
->>+					 struct list_head *from_list,
->>+					 int addr_len)
->>+{
->>+	__hw_addr_del_multiple_ii(to_list, from_list, addr_len, -1);
->>+}
->>+
->>+static void __hw_addr_flush(struct list_head *list)
->>+{
->>+	struct netdev_hw_addr *ha, *tmp;
->>+
->>+	list_for_each_entry_safe(ha, tmp, list, list) {
->>+		list_del_rcu(&ha->list);
->>+		call_rcu(&ha->rcu_head, ha_rcu_free);
->>+	}
->>+}
->>+
->>+/* Device addresses handling functions */
->>+
->>+static void dev_addr_flush(struct net_device *dev)
->>+{
->>+	/* rtnl_mutex must be held here */
->>+
->>+	__hw_addr_flush(&dev->dev_addr_list);
->>+	dev->dev_addr = NULL;
->>+}
->>+
->>+static int dev_addr_init(struct net_device *dev)
->>+{
->>+	unsigned char addr[MAX_ADDR_LEN];
->>+	struct netdev_hw_addr *ha;
->>+	int err;
->>+
->>+	/* rtnl_mutex must be held here */
->>+
->>+	INIT_LIST_HEAD(&dev->dev_addr_list);
->>+	memset(addr, 0, sizeof(*addr));
->>+	err = __hw_addr_add(&dev->dev_addr_list, addr, sizeof(*addr));
->>+	if (!err) {
->>+		/*
->>+		 * Get the first (previously created) address from the list
->>+		 * and set dev_addr pointer to this location.
->>+		 */
->>+		ha = list_first_entry(&dev->dev_addr_list,
->>+				      struct netdev_hw_addr, list);
->>+		dev->dev_addr = ha->addr;
->>+	}
->>+	return err;
->>+}
->>+
->>+/**
->>+ *	dev_addr_add	- Add a device address
->>+ *	@dev: device
->>+ *	@addr: address to add
->>+ *
->>+ *	Add a device address to the device or increase the reference count if
->>+ *	it already exists.
->>+ *
->>+ *	The caller must hold the rtnl_mutex.
->>+ */
->>+int dev_addr_add(struct net_device *dev, unsigned char *addr)
->>+{
->>+	int err;
->>+
->>+	ASSERT_RTNL();
->>+
->>+	err = __hw_addr_add_ii(&dev->dev_addr_list, addr, dev->addr_len, 0);
->>+	if (!err)
->>+		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
->>+	return err;
->>+}
->>+EXPORT_SYMBOL(dev_addr_add);
->>+
->>+/**
->>+ *	dev_addr_del	- Release a device address.
->>+ *	@dev: device
->>+ *	@addr: address to delete
->>+ *
->>+ *	Release reference to a device address and remove it from the device
->>+ *	if the reference count drops to zero.
->>+ *
->>+ *	The caller must hold the rtnl_mutex.
->>+ */
->>+int dev_addr_del(struct net_device *dev, unsigned char *addr)
->>+{
->>+	int err;
->>+
->>+	ASSERT_RTNL();
->>+
->>+	err = __hw_addr_del_ii(&dev->dev_addr_list, addr, dev->addr_len, 0);
->>+	if (!err)
->>+		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
->>+	return err;
->>+}
->>+EXPORT_SYMBOL(dev_addr_del);
->>+
->>+/**
->>+ *	dev_addr_add_multiple	- Add device addresses from another device
->>+ *	@to_dev: device to which addresses will be added
->>+ *	@from_dev: device from which addresses will be added
->>+ *
->>+ *	Add device addresses of the one device to another.
->>+ *
->>+ *	The caller must hold the rtnl_mutex.
->>+ */
->>+int dev_addr_add_multiple(struct net_device *to_dev,
->>+			  struct net_device *from_dev)
->>+{
->>+	int err;
->>+
->>+	ASSERT_RTNL();
->>+
->>+	if (from_dev->addr_len != to_dev->addr_len)
->>+		return -EINVAL;
->>+	err = __hw_addr_add_multiple_ii(&to_dev->dev_addr_list,
->>+					&from_dev->dev_addr_list,
->>+					to_dev->addr_len, 0);
->>+	if (!err)
->>+		call_netdevice_notifiers(NETDEV_CHANGEADDR, to_dev);
->>+	return err;
->>+}
->>+EXPORT_SYMBOL(dev_addr_add_multiple);
->>+
->>+/**
->>+ *	dev_addr_del_multiple	- Delete device addresses by another device
->>+ *	@to_dev: device where the addresses will be deleted
->>+ *	@from_dev: device by which addresses the addresses will be deleted
->>+ *
->>+ *	Deletes addresses in to device by the list of addresses in from device.
->>+ *
->>+ *	The caller must hold the rtnl_mutex.
->>+ */
->>+int dev_addr_del_multiple(struct net_device *to_dev,
->>+			  struct net_device *from_dev)
->>+{
->>+	ASSERT_RTNL();
->>+
->>+	if (from_dev->addr_len != to_dev->addr_len)
->>+		return -EINVAL;
->>+	__hw_addr_add_multiple_ii(&to_dev->dev_addr_list,
->>+				  &from_dev->dev_addr_list,
->>+				  to_dev->addr_len, 0);
->>+	call_netdevice_notifiers(NETDEV_CHANGEADDR, to_dev);
->>+	return 0;
->>+}
->>+EXPORT_SYMBOL(dev_addr_del_multiple);
->>+
->>+/* unicast and multicast addresses handling functions */
->>+
->> int __dev_addr_delete(struct dev_addr_list **list, int *count,
->> 		      void *addr, int alen, int glbl)
->> {
->>@@ -4780,6 +5037,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
->> 
->> 	dev->gso_max_size = GSO_MAX_SIZE;
->> 
->>+	dev_addr_init(dev);
->> 	netdev_init_queues(dev);
->> 
->> 	INIT_LIST_HEAD(&dev->napi_list);
->>@@ -4805,6 +5063,9 @@ void free_netdev(struct net_device *dev)
->> 
->> 	kfree(dev->_tx);
->> 
->>+	/* Flush device addresses */
->>+	dev_addr_flush(dev);
->>+
->> 	list_for_each_entry_safe(p, n, &dev->napi_list, dev_list)
->> 		netif_napi_del(p);
->> 
->>-- 
->>1.6.0.6
->>
+Within a common tree of classes it would a need finer locking to
+separate some jobs but considering cache problems I doubt there would
+be much gain from such redesigning for smp. On the other hand, a
+common tree is necessary if these classes really have to share every
+byte, which I doubt. Then we could think of config and maybe tiny
+hardware "redesign" (to more qdiscs/roots). So, e.g. using additional
+(cheap) NICs and even switch, if possible, looks quite natural way of
+spanning. Similar thing (multiple htb qdiscs) should be possible in
+the future with one multiqueue NIC too.
+
+There is also an interesting thread "Software receive packet steering"
+nearby, but using this for shaping only looks like "less simple":
+http://lwn.net/Articles/328339/
+
+> 
+>> As for htb_hysteresis I actually haven't tried it. Although it is
+>> definitely worth a try (especially if the average traffic grows), I
+>> don't think it can compensate multithreading / parallel execution.
+> 
+> Its runtime adjustable, so its easy to try out.
+> 
+>   via /sys/module/sch_htb/parameters/htb_hysteresis
+> 
+> 
+>> At least half of a packet processing time is consumed by classification 
+>> (although I am using hashes).
+> 
+> The HTB classify hash has a scalability issue in kernels below 2.6.26. 
+> Patrick McHardy fixes that up in 2.6.26.  What kernel version are you 
+> using?
+> 
+> Could you explain how you do classification? And perhaps outline where you 
+> possible scalability issue is located?
+
+BTW, I hope you add filters after classes they point to.
+
+Jarek P.
