@@ -1,64 +1,53 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] pasemi_mac: mac_to_intf() error not noticed
-Date: Thu, 23 Apr 2009 20:53:20 +0200
-Message-ID: <49F0B920.1050704@gmail.com>
-References: <49F0A8E9.2010702@gmail.com> <20090423175648.GA4406@lixom.net>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Thu, 23 Apr 2009 21:06:59 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0904232103390.13488@ask.diku.dk>
+References: <20090423184319.GB2756@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: Olof Johansson <olof@lixom.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Radu Rendec <radu.rendec@ines.ro>,
+	Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:55696 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753524AbZDWSxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 14:53:20 -0400
-Received: by ewy24 with SMTP id 24so702097ewy.37
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 11:53:18 -0700 (PDT)
-In-Reply-To: <20090423175648.GA4406@lixom.net>
+Received: from mgw1.diku.dk ([130.225.96.91]:48070 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752038AbZDWTHH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Apr 2009 15:07:07 -0400
+In-Reply-To: <20090423184319.GB2756@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Olof Johansson wrote:
-> On Thu, Apr 23, 2009 at 07:44:09PM +0200, Roel Kluin wrote:
-> This can in practice never happen which is likely why it went
-> unnoticed.
+On Thu, 23 Apr 2009, Jarek Poplawski wrote:
 
-> define a new variable with an appropriate name, please.
+> Radu Rendec wrote, On 04/23/2009 02:31 PM:
+>
+>> On Wed, 2009-04-22 at 23:29 +0200, Jesper Dangaard Brouer wrote:
+> ...
+>>> The HTB classify hash has a scalability issue in kernels below 2.6.26.
+>>> Patrick McHardy fixes that up in 2.6.26.  What kernel version are you
+>>> using?
+>>
+>> I'm using 2.6.26, so I guess the fix is already there :(
+>
+> If Jesper meant the change of hash I can see it in 2.6.27 yet.
 
-Ok, how's this?
---------------------------->8-------------8<------------------------------
-mac_to_intf() can return -1 when no device or function is found, but when
-mac->dma_if is unsigned. The error wasn't noticed.
+I'm referring to:
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
-index 5eeb5a8..1e8f396 100644
---- a/drivers/net/pasemi_mac.c
-+++ b/drivers/net/pasemi_mac.c
-@@ -1740,7 +1740,7 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
- 	struct net_device *dev;
- 	struct pasemi_mac *mac;
--	int err;
-+	int err, ret;
- 
- 	err = pci_enable_device(pdev);
- 	if (err)
-@@ -1798,12 +1798,13 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 	memcpy(dev->dev_addr, mac->mac_addr, sizeof(mac->mac_addr));
- 
--	mac->dma_if = mac_to_intf(mac);
--	if (mac->dma_if < 0) {
-+	ret = mac_to_intf(mac);
-+	if (ret < 0) {
- 		dev_err(&mac->pdev->dev, "Can't map DMA interface\n");
- 		err = -ENODEV;
- 		goto out;
- 	}
-+	mac->dma_if = ret;
- 
- 	switch (pdev->device) {
- 	case 0xa005:
+  commit f4c1f3e0c59be0e6566d9c00b1d8b204ffb861a2
+  Author: Patrick McHardy <kaber@trash.net>
+  Date:   Sat Jul 5 23:22:35 2008 -0700
+
+     net-sched: sch_htb: use dynamic class hash helpers
+
+Is there any easy git way to figure out which release this commit got 
+into?
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
