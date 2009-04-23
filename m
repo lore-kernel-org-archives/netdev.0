@@ -1,41 +1,53 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
-Subject: Re: Oops in tun: bisected to  Limit amount of queued packets per device
-Date: Thu, 23 Apr 2009 12:08:58 +0200
-Message-ID: <m2tz4fptqd.fsf@igel.home>
-References: <200904090952.01175.borntraeger@de.ibm.com>
-	<20090409093817.GA5760@gondor.apana.org.au> <m2ws9c2zs7.fsf@igel.home>
-	<20090423001756.GA8556@gondor.apana.org.au>
+From: Karsten Keil <karsten-keil@t-online.de>
+Subject: Re: [PATCH 3/3] Add reference to CAPI 2.0 standard
+Date: Thu, 23 Apr 2009 12:14:14 +0200
+Message-ID: <200904231214.16260.karsten-keil@t-online.de>
+References: <cover.1240410708.git.keil@b1-systems.de> <f094d823a0fc52e010f99aec720c9144d454c2fa.1240410708.git.keil@b1-systems.de> <20090422173232.ad2b3f49.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	tilman@imap.cc, isdn4linux@listserv.isdn4linux.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:50948 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755872AbZDWKJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 06:09:04 -0400
-In-Reply-To: <20090423001756.GA8556@gondor.apana.org.au> (Herbert Xu's message
-	of "Thu, 23 Apr 2009 08:17:56 +0800")
+Received: from mailout11.t-online.de ([194.25.134.85]:41142 "EHLO
+	mailout11.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752996AbZDWKPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 06:15:07 -0400
+In-Reply-To: <20090422173232.ad2b3f49.rdunlap@xenotime.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> writes:
-
-> On Wed, Apr 22, 2009 at 10:34:32PM +0200, Andreas Schwab wrote:
->>
->> > This is weird.  It looks like it's dying on the wake_up_interruptible_sync
->> > in tun_sock_write_space.  However, I can't see how that can cause this.
->> 
->> Any news on this?  It is still badly broken in 2.6.30-rc3.
+On Donnerstag, 23. April 2009 02:32:32 Randy Dunlap wrote:
+> On Wed, 22 Apr 2009 16:31:48 +0200 Karsten Keil wrote:
+> > Move the entry about CAPI 2.0 to the beginning and add a URL.
+> > Incorporate changes suggested by Randy Dunlap, thanks for proofreading.
+> >
+> > Signed-off-by: Karsten Keil <keil@b1-systems.de>
+> > ---
+> >  Documentation/isdn/INTERFACE.CAPI |   20 +++++++++++++-------
+> >  1 files changed, 13 insertions(+), 7 deletions(-)
+> >
+> > diff --git a/Documentation/isdn/INTERFACE.CAPI
+> > b/Documentation/isdn/INTERFACE.CAPI index 8947ffc..4d802ee 100644
+> > --- a/Documentation/isdn/INTERFACE.CAPI
+> > +++ b/Documentation/isdn/INTERFACE.CAPI
+> > @@ -3,6 +3,11 @@ Kernel CAPI Interface to Hardware Drivers
+> >
+> >  1. Overview
+> >
+> > +From the CAPI 2.0 spezification:
 >
-> I think the fixes are in Dave's tree, waiting to be pushed.
+>                      ~~~~~~~~~~~~~
+>
+> typo or language?    specification:
 
-Thanks, I've found them.
+Ouch :-(, never add a single line without spell checking.
+Will send out a new set, also fix the wrong From: line in the patches from 
+Tilman.
 
-Andreas.
+...
 
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
