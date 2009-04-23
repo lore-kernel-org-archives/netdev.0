@@ -1,56 +1,48 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH RFC] v1 expedited "big hammer" RCU grace periods
-Date: Thu, 23 Apr 2009 09:54:36 +0200
-Message-ID: <20090423075436.GB22606@elte.hu>
-References: <20090423052520.GA13036@linux.vnet.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
+Date: Thu, 23 Apr 2009 16:00:21 +0800
+Message-ID: <20090423080021.GA11712@gondor.apana.org.au>
+References: <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, brice@myri.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Andrew Gallatin <gallatin@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:40375 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760647AbZDWIAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 04:00:30 -0400
 Content-Disposition: inline
-In-Reply-To: <20090423052520.GA13036@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <49EE1C32.1060202@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 21, 2009 at 03:19:14PM -0400, Andrew Gallatin wrote:
+>
+> -	if (mgp->csum_flag) {
+> -		if ((skb->protocol == htons(ETH_P_IP)) ||
+> -		    (skb->protocol == htons(ETH_P_IPV6))) {
+> -			skb->csum = csum;
+> -			skb->ip_summed = CHECKSUM_COMPLETE;
+> -		} else
+> -			myri10ge_vlan_ip_csum(skb, csum);
+> -	}
+> -	netif_receive_skb(skb);
+> +	rx_frags[0].page_offset += MXGEFW_PAD;
+> +	rx_frags[0].size -= MXGEFW_PAD;
+> +	len -= MXGEFW_PAD;
+> +	skb_shinfo(skb)->nr_frags = i;
+> +	skb->len = len;
+> +	skb->data_len = len;
+> +	skb->truesize += len;
+> +	/*      skb->ip_summed = CHECKSUM_COMPLETE; */
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+You need to set skb->csum, just as you did for the non-LRO case.
 
-> First cut of "big hammer" expedited RCU grace periods, but only 
-> for rcu_bh.  This creates another softirq vector, so that entering 
-> this softirq vector will have forced an rcu_bh quiescent state (as 
-> noted by Dave Miller).  Use smp_call_function() to invoke 
-> raise_softirq() on all CPUs in order to cause this to happen.  
-> Track the CPUs that have passed through a quiescent state (or gone 
-> offline) with a cpumask.
-> 
-> Does nothing to expedite callbacks already registered with 
-> call_rcu_bh(), but there is no need to.
-> 
-> Shortcomings:
-> 
-> o	Untested, probably does not compile, not for inclusion.
-> 
-> o	Does not handle rcu, only rcu_bh.
-> 
-> Thoughts?
-
-I'm wondering, why not just do a two-liner, along the lines of:
-
-	for_each_online_cpu(cpu)
-		smp_send_reschedule(cpu);
-
-That should trigger a quiescent state on all online cpus. It wont 
-perturb the scheduler state (which is reschedule-IPI invariant).
-(And this is a big-hammer approach anyway so even if it did we 
-wouldnt care.)
-
-Am i missing something embarrasingly obvious perhaps?
-
-	Ingo
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
