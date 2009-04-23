@@ -1,79 +1,192 @@
-From: Salatiel Filho <salatiel.filho@gmail.com>
-Subject: Re: IMQ bug: kernel reboot immediately
-Date: Thu, 23 Apr 2009 09:37:03 -0300
-Message-ID: <beb91d720904230537s7f61c441g5af4a3acc1a0c2aa@mail.gmail.com>
-References: <20090423084323.GA5696@ff.dom.local> <49F040E8.80402@trash.net>
-	<alpine.LSU.2.00.0904231223050.18687@fbirervta.pbzchgretzou.qr>
-	<49F042E7.7060900@trash.net> <beb91d720904230412j4dea4034o61f2d0682ff76d1a@mail.gmail.com>
-	<49F04F6B.7010709@trash.net>
+From: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Subject: [PATCH] ioatdma: fix "ioatdma frees DMA memory with wrong function"
+Date: Thu, 23 Apr 2009 14:31:51 +0200
+Message-ID: <20090423123128.31427.20238.stgit@linux.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	"Y. D." <duyuyang@gmail.com>, netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49F04F6B.7010709@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: a.beregalov@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dan.j.williams@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:32301 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755035AbZDWMjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Apr 2009 08:39:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2009 at 08:22, Patrick McHardy <kaber@trash.net> wrote:
-> Salatiel Filho wrote:
->>
->> On Thu, Apr 23, 2009 at 07:28, Patrick McHardy <kaber@trash.net> wro=
-te:
->>>
->>> I'm aware of those claims, but not of the details. If this is true,
->>> people should raise those issues and help resolve them. I wouldn't
->>> hold my breath waiting for IMQ to get fixed.
->>>
->>
->> I would love to see a way to change where IFB hooks [if "hook" is th=
-e
->> right term ], till now i dont think i am able to hook it after nat i=
-n
->> prerouting and before nat in postrouting. Is there a way to do this =
-?
->> What i basically do with IMQ is:
->>
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 eth0 [192.168.0.0/24=
-]
->> ppp0 =A0 <----> =A0 =A0 =A0 eth1 [192.168.1.0/24]
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 eth2 [192.168.2.0/24=
-]
->>
->> Using imq i can shape upload on ppp0 [postrouting] while still havin=
-g
->> the internal private ips from the hosts, and i can shape download in
->> ppp0 [prerouting] after get the correct nat'ed addresses.
->>
->> Is there a way to achieve this in IFB ? in a simple way ... :)
->
-> Currently not, the conntrack association is done at a later point.
-> We could add a classifier or TC action that performs the lookup
-> during ingress classification.
->
-> Alternatively classifiers using conntrack information (like cls_flow)
-> could perform the lookup directly, but that would probably get a bit
-> ugly since some validation needs to be performed previously and it
-> would add a module dependency on conntrack.
->
->
-Using this actions would make  sfq hashing by dest ip or source ip
-work just like it works in imq ?
+as reported by Alexander Beregalov <a.beregalov@gmail.com>
 
+ioatdma 0000:00:08.0: DMA-API: device driver frees DMA memory with
+wrong function [device address=0x000000007f76f800] [size=2000 bytes]
+[map
+ped as single] [unmapped as page]
 
---=20
-[]'s
-Salatiel
+The ioatdma driver was unmapping all regions
+(either allocated as page or single) using unmap_page.
+This patch lets dma driver recognize if unmap_single or unmap_page should be used.
+It introduces two new dma control flags:
+DMA_COMPL_SRC_UNMAP_SINGLE and DMA_COMPL_DEST_UNMAP_SINGLE.
+They should be set to indicate dma driver to do dma-unmapping as single
+(first one for the source, tha latter for the destination).
+If respective flag is not set, the driver assumes dma-unmapping as page.
 
-"O maior prazer do inteligente =E9 bancar o  idiota
-   diante de um  idiota que banca o inteligente".
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Acked-by: Dan Williams <dan.j.williams@intel.com>
+Reported-by: Alexander Beregalov <a.beregalov@gmail.com>
+Tested-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+
+ drivers/dma/dmaengine.c   |   17 +++++++++++------
+ drivers/dma/ioat_dma.c    |   45 ++++++++++++++++++++++++++++-----------------
+ include/linux/dmaengine.h |    6 ++++++
+ 3 files changed, 45 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index 92438e9..5a87384 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -804,11 +804,14 @@ dma_async_memcpy_buf_to_buf(struct dma_c
+ 	dma_addr_t dma_dest, dma_src;
+ 	dma_cookie_t cookie;
+ 	int cpu;
++	unsigned long flags;
+ 
+ 	dma_src = dma_map_single(dev->dev, src, len, DMA_TO_DEVICE);
+ 	dma_dest = dma_map_single(dev->dev, dest, len, DMA_FROM_DEVICE);
+-	tx = dev->device_prep_dma_memcpy(chan, dma_dest, dma_src, len,
+-					 DMA_CTRL_ACK);
++	flags = DMA_CTRL_ACK |
++		DMA_COMPL_SRC_UNMAP_SINGLE |
++		DMA_COMPL_DEST_UNMAP_SINGLE;
++	tx = dev->device_prep_dma_memcpy(chan, dma_dest, dma_src, len, flags);
+ 
+ 	if (!tx) {
+ 		dma_unmap_single(dev->dev, dma_src, len, DMA_TO_DEVICE);
+@@ -850,11 +853,12 @@ dma_async_memcpy_buf_to_pg(struct dma_ch
+ 	dma_addr_t dma_dest, dma_src;
+ 	dma_cookie_t cookie;
+ 	int cpu;
++	unsigned long flags;
+ 
+ 	dma_src = dma_map_single(dev->dev, kdata, len, DMA_TO_DEVICE);
+ 	dma_dest = dma_map_page(dev->dev, page, offset, len, DMA_FROM_DEVICE);
+-	tx = dev->device_prep_dma_memcpy(chan, dma_dest, dma_src, len,
+-					 DMA_CTRL_ACK);
++	flags = DMA_CTRL_ACK | DMA_COMPL_SRC_UNMAP_SINGLE;
++	tx = dev->device_prep_dma_memcpy(chan, dma_dest, dma_src, len, flags);
+ 
+ 	if (!tx) {
+ 		dma_unmap_single(dev->dev, dma_src, len, DMA_TO_DEVICE);
+@@ -898,12 +902,13 @@ dma_async_memcpy_pg_to_pg(struct dma_cha
+ 	dma_addr_t dma_dest, dma_src;
+ 	dma_cookie_t cookie;
+ 	int cpu;
++	unsigned long flags;
+ 
+ 	dma_src = dma_map_page(dev->dev, src_pg, src_off, len, DMA_TO_DEVICE);
+ 	dma_dest = dma_map_page(dev->dev, dest_pg, dest_off, len,
+ 				DMA_FROM_DEVICE);
+-	tx = dev->device_prep_dma_memcpy(chan, dma_dest, dma_src, len,
+-					 DMA_CTRL_ACK);
++	flags = DMA_CTRL_ACK;
++	tx = dev->device_prep_dma_memcpy(chan, dma_dest, dma_src, len, flags);
+ 
+ 	if (!tx) {
+ 		dma_unmap_page(dev->dev, dma_src, len, DMA_TO_DEVICE);
+diff --git a/drivers/dma/ioat_dma.c b/drivers/dma/ioat_dma.c
+index e4fc33c..1955ee8 100644
+--- a/drivers/dma/ioat_dma.c
++++ b/drivers/dma/ioat_dma.c
+@@ -1063,22 +1063,31 @@ static void ioat_dma_cleanup_tasklet(uns
+ static void
+ ioat_dma_unmap(struct ioat_dma_chan *ioat_chan, struct ioat_desc_sw *desc)
+ {
+-	/*
+-	 * yes we are unmapping both _page and _single
+-	 * alloc'd regions with unmap_page. Is this
+-	 * *really* that bad?
+-	 */
+-	if (!(desc->async_tx.flags & DMA_COMPL_SKIP_DEST_UNMAP))
+-		pci_unmap_page(ioat_chan->device->pdev,
+-				pci_unmap_addr(desc, dst),
+-				pci_unmap_len(desc, len),
+-				PCI_DMA_FROMDEVICE);
+-
+-	if (!(desc->async_tx.flags & DMA_COMPL_SKIP_SRC_UNMAP))
+-		pci_unmap_page(ioat_chan->device->pdev,
+-				pci_unmap_addr(desc, src),
+-				pci_unmap_len(desc, len),
+-				PCI_DMA_TODEVICE);
++	if (!(desc->async_tx.flags & DMA_COMPL_SKIP_DEST_UNMAP)) {
++		if (desc->async_tx.flags & DMA_COMPL_DEST_UNMAP_SINGLE)
++			pci_unmap_single(ioat_chan->device->pdev,
++					 pci_unmap_addr(desc, dst),
++					 pci_unmap_len(desc, len),
++					 PCI_DMA_FROMDEVICE);
++		else
++			pci_unmap_page(ioat_chan->device->pdev,
++				       pci_unmap_addr(desc, dst),
++				       pci_unmap_len(desc, len),
++				       PCI_DMA_FROMDEVICE);
++	}
++
++	if (!(desc->async_tx.flags & DMA_COMPL_SKIP_SRC_UNMAP)) {
++		if (desc->async_tx.flags & DMA_COMPL_SRC_UNMAP_SINGLE)
++			pci_unmap_single(ioat_chan->device->pdev,
++					 pci_unmap_addr(desc, src),
++					 pci_unmap_len(desc, len),
++					 PCI_DMA_TODEVICE);
++		else
++			pci_unmap_page(ioat_chan->device->pdev,
++				       pci_unmap_addr(desc, src),
++				       pci_unmap_len(desc, len),
++				       PCI_DMA_TODEVICE);
++	}
+ }
+ 
+ /**
+@@ -1363,6 +1372,7 @@ static int ioat_dma_self_test(struct ioa
+ 	int err = 0;
+ 	struct completion cmp;
+ 	unsigned long tmo;
++	unsigned long flags;
+ 
+ 	src = kzalloc(sizeof(u8) * IOAT_TEST_SIZE, GFP_KERNEL);
+ 	if (!src)
+@@ -1392,8 +1402,9 @@ static int ioat_dma_self_test(struct ioa
+ 				 DMA_TO_DEVICE);
+ 	dma_dest = dma_map_single(dma_chan->device->dev, dest, IOAT_TEST_SIZE,
+ 				  DMA_FROM_DEVICE);
++	flags = DMA_COMPL_SRC_UNMAP_SINGLE | DMA_COMPL_DEST_UNMAP_SINGLE;
+ 	tx = device->common.device_prep_dma_memcpy(dma_chan, dma_dest, dma_src,
+-						   IOAT_TEST_SIZE, 0);
++						   IOAT_TEST_SIZE, flags);
+ 	if (!tx) {
+ 		dev_err(&device->pdev->dev,
+ 			"Self-test prep failed, disabling\n");
+diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
+index 2e2aa3d..ffefba8 100644
+--- a/include/linux/dmaengine.h
++++ b/include/linux/dmaengine.h
+@@ -78,12 +78,18 @@ #define DMA_TX_TYPE_END (DMA_SLAVE + 1)
+  * 	dependency chains
+  * @DMA_COMPL_SKIP_SRC_UNMAP - set to disable dma-unmapping the source buffer(s)
+  * @DMA_COMPL_SKIP_DEST_UNMAP - set to disable dma-unmapping the destination(s)
++ * @DMA_COMPL_SRC_UNMAP_SINGLE - set to do the source dma-unmapping as single
++ * 	(if not set, do the source dma-unmapping as page)
++ * @DMA_COMPL_DEST_UNMAP_SINGLE - set to do the destination dma-unmapping as single
++ * 	(if not set, do the destination dma-unmapping as page)
+  */
+ enum dma_ctrl_flags {
+ 	DMA_PREP_INTERRUPT = (1 << 0),
+ 	DMA_CTRL_ACK = (1 << 1),
+ 	DMA_COMPL_SKIP_SRC_UNMAP = (1 << 2),
+ 	DMA_COMPL_SKIP_DEST_UNMAP = (1 << 3),
++	DMA_COMPL_SRC_UNMAP_SINGLE = (1 << 4),
++	DMA_COMPL_DEST_UNMAP_SINGLE = (1 << 5),
+ };
+ 
+ /**
+
