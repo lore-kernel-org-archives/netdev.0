@@ -1,39 +1,54 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: e1000e NVM mutex contention warnings
-Date: Thu, 23 Apr 2009 15:15:02 -0700
-Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A29F7BE99@orsmsx507.amr.corp.intel.com>
-References: <1240147024.3384.20.camel@deadeye.i.decadent.org.uk>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: about latencies
+Date: Thu, 23 Apr 2009 18:06:43 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904231803550.28139@qirst.com>
+References: <49F0E579.5030200@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"524699@bugs.debian.org" <524699@bugs.debian.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	"Graham, David" <david.graham@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36226 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753390AbZDWWPF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 18:15:05 -0400
-In-Reply-To: <1240147024.3384.20.camel@deadeye.i.decadent.org.uk>
-Content-Language: en-US
+Received: from smtp.ultrahosting.com ([74.213.174.254]:48406 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759878AbZDWWPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 18:15:23 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 9AE6A82C23F
+	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 18:25:55 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.174.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 42Lwn2Szak6w for <netdev@vger.kernel.org>;
+	Thu, 23 Apr 2009 18:25:55 -0400 (EDT)
+Received: from qirst.com (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 776ED82C251
+	for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 18:25:49 -0400 (EDT)
+In-Reply-To: <49F0E579.5030200@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> What's your plan for collecting information about NVM mutex contention
-> and when do you intend to remove the warnings?  I have to say I find
-> this way of testing very user-unfriendly and would like to see it gone
-> as soon as possible.
+On Fri, 24 Apr 2009, Eric Dumazet wrote:
 
-Hi Ben,
+> sock_wfree()
+>   -> sock_def_write_space()
+>      -> _read_lock()
+>      -> __wake_up_sync_key()
+>   and lot of functions calls to wakeup the task, for nothing since it
+> will just schedule again. Lot of cache lines dirtied...
 
-checking linus' tree and davem's current net-2.6 tree shows that the
-code was removed as of commit: 0a834a36ac92375cd82d9e4fe4f571e257997d6a
+Right.
 
-it was put in 2/14/2009, and was included in 2.6.30-rc1 by linus.
+> We could improve this.
+>
+> 1) dst_release at xmit time, should save a cache line ping-pong on general case
+> 2) sock_wfree() in advance, done at transmit time (generally the thread/cpu doing the send)
+> 3) changing bnx2_poll_work() to first call bnx2_rx_int(), then bnx2_tx_int() to consume tx.
 
-are you suggesting that we maybe try to push to -stable too?
+Good idea that would get rid of the IRQ delay if the process is asking for
+data. We'd only be batching if no one is asking for data?
 
-Jesse
+> What do you think ?
+
+Sounds good.
