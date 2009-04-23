@@ -1,52 +1,74 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] gianfar: irq_of_parse_and_map() error unnoticed
-Date: Thu, 23 Apr 2009 14:52:44 +0200
-Message-ID: <49F0649C.8030908@gmail.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: Re: [patch 0/8] iucv / af_iucv patches for net-next-2.6.30-rc1
+Date: Thu, 23 Apr 2009 15:07:03 +0200
+Message-ID: <1240492023.11770.5.camel@braunu-laptop>
+References: <1240400356.13951.11.camel@braunu-laptop>
+	 <20090423.044343.133646582.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	ursula.braun@de.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:34256 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755315AbZDWMwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 08:52:47 -0400
-Received: by ewy24 with SMTP id 24so484656ewy.37
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 05:52:44 -0700 (PDT)
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:61661 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005AbZDWNHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 09:07:54 -0400
+In-Reply-To: <20090423.044343.133646582.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not sure which irq_of_parse_and_map() is used, but I found definitions here:
+On Thu, 2009-04-23 at 04:43 -0700, David Miller wrote:
+> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> Date: Wed, 22 Apr 2009 13:39:16 +0200
+> 
+> > the af_iucv-patches sent today apply to net-next-2.6 without pulling
+> > yesterday's patches for net-2.6.
+> > 
+> > If you prefer to pull net-2.6 first (in order to avoid potential future
+> > merge conflicts), I can rebuild and resend today's net-next-2.6 patches
+> > based on yesterday's af_iucv patches for net-2.6.
+> 
+> I applied them all, then pulled net-2.6 into net-next-2.6 to
+> resolve the conflicts.
+> 
+> Please make sure I did the right thing :-)
 
-vi arch/microblaze/kernel/irq.c +23
-vi arch/powerpc/kernel/irq.c +727
-vi arch/sparc/kernel/of_device_32.c +33
-vi arch/sparc/kernel/of_device_64.c +59
+Dave,
 
-They either return 0 or NO_IRQ - either defined 0, -1, 255 or INT_MAX.
------------------------------->8-------------8<---------------------------------
-priv->interruptTransmit, -Receive and -Error are unsigned, so the error path
-wasn't taken when irq_of_parse_and_map() returned an incorrect irq.
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com> 
+net/iucv/af_iucv.c in net-next-2.6 is almost correct. 4 lines should
+still be deleted. These are the remaining changes:
 ---
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index b2c4967..e30d158 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -203,9 +203,12 @@ static int gfar_of_init(struct net_device *dev)
+ net/iucv/af_iucv.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+Index: net-next-2.6-uschi/net/iucv/af_iucv.c
+===================================================================
+--- net-next-2.6-uschi.orig/net/iucv/af_iucv.c
++++ net-next-2.6-uschi/net/iucv/af_iucv.c
+@@ -982,8 +982,6 @@ static int iucv_sock_recvmsg(struct kioc
+ 	if (flags & (MSG_OOB))
+ 		return -EOPNOTSUPP;
  
- 		priv->interruptError = irq_of_parse_and_map(np, 2);
+-	target = sock_rcvlowat(sk, flags & MSG_WAITALL, len);
+-
+ 	/* receive/dequeue next skb:
+ 	 * the function understands MSG_PEEK and, thus, does not dequeue skb
+*/
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+@@ -1429,8 +1427,6 @@ static void iucv_callback_rx(struct iucv
+ 	iucv_process_message(sk, skb, path, msg);
+ 	goto out_unlock;
  
--		if (priv->interruptTransmit < 0 ||
--				priv->interruptReceive < 0 ||
--				priv->interruptError < 0) {
-+		if (priv->interruptTransmit == 0 ||
-+				priv->interruptTransmit > 254 ||
-+				priv->interruptReceive == 0 ||
-+				priv->interruptReceive > 254 ||
-+				priv->interruptError == 0 ||
-+				priv->interruptReceive > 254) {
- 			err = -EINVAL;
- 			goto err_out;
- 		}
+-	return;
+-
+ save_message:
+ 	save_msg = kzalloc(sizeof(struct sock_msg_q), GFP_ATOMIC | GFP_DMA);
+ 	if (!save_msg)
+
+Thanks a lot for your effort.
+
+Regards, Ursula Braun
+
