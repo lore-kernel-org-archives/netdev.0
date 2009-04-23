@@ -1,63 +1,84 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Bonding-devel] [PATCH 1/3] net: introduce a list of device
- addresses	dev_addr_list (v4)
-Date: Thu, 23 Apr 2009 08:58:55 -0700
-Message-ID: <20090423085855.526220c3@s6510>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com>
-	<20090415081720.GA21342@psychotron.englab.brq.redhat.com>
-	<20090415081819.GB21342@psychotron.englab.brq.redhat.com>
-	<20090415180215.GA22540@psychotron.englab.brq.redhat.com>
-	<20090417115723.GE9556@psychotron.englab.brq.redhat.com>
-	<20090418085848.GC3370@psychotron.englab.brq.redhat.com>
+From: Christophe Saout <christophe@saout.de>
+Subject: [RFC][PATCH] Fixing up TCP/UDP checksum for UDP encap. ESP4
+ packets in transport mode
+Date: Thu, 23 Apr 2009 18:04:56 +0200
+Message-ID: <1240502696.18438.0.camel@leto.intern.saout.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ivecera@redhat.com, fubar@us.ibm.com, kaber@trash.net,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	mschmidt@redhat.com, bonding-devel@lists.sourceforge.net,
-	jgarzik@pobox.com, dada1@cosmosbay.com, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45242 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752119AbZDWP66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2009 11:58:58 -0400
-In-Reply-To: <20090418085848.GC3370@psychotron.englab.brq.redhat.com>
+Received: from websrv.werbeagentur-aufwind.de ([88.198.253.206]:57398 "EHLO
+	websrv.werbeagentur-aufwind.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753085AbZDWQLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 12:11:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 18 Apr 2009 10:58:49 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+Hi,
 
-> v3 -> v4 (current):
-> -changed kzalloc to kmalloc in __hw_addr_add_ii()
-> -ASSERT_RTNL() avoided in dev_addr_flush() and dev_addr_init()
-> 
-> v2 -> v3:
-> -removed unnecessary rcu read locking
-> -moved dev_addr_flush() calling to ensure no null dereference of dev_addr
-> 
-> v1 -> v2:
-> -added forgotten ASSERT_RTNL to dev_addr_init and dev_addr_flush
-> -removed unnecessary rcu_read locking in dev_addr_init
-> -use compare_ether_addr_64bits instead of compare_ether_addr
-> -use L1_CACHE_BYTES as size for allocating struct netdev_hw_addr
-> -use call_rcu instead of rcu_synchronize
-> -moved is_etherdev_addr into __KERNEL__ ifdef
-> 
-> This patch introduces a new list in struct net_device and brings a set of
-> functions to handle the work with device address list. The list is a replacement
-> for the original dev_addr field and because in some situations there is need to
-> carry several device addresses with the net device. To be backward compatible,
-> dev_addr is made to point to the first member of the list so original drivers
-> sees no difference.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+[resent from linux-net, as it turns out was the wrong mailing list]
 
-I am still unsure why this added complexity to the network device model is needed.
+I was happily running an transport-mode IPSEC connection where I was
+running NAT at one endpoint.  This means that decrypted packets can be
+forwarded to another machine, as opposed to being delivered to a local
+application.
 
-How does this interact with neighbor table (ARP)?
-Isn't this what macvlan already does.
+Later I was forced to encapsulate the IPSEC traffic into UDP because I
+had no choice but pass through a NAT device.  Then, unfortunately,
+things started to break.  The machine that would receive the answer to a
+TCP/SYN packet from the gateway box (that decrypts the packed and then
+forwards it) discarded the packets because of a wrong TCP checksum.
 
+I checked the kernel code - esp4.c is just setting CHECKSUM_UNNECESSARY
+on these packets, so that they are accepted by local applications.
+However, when the packages leaves the machine via a NIC, the packet
+still carries the broken checksum.  I checked the RFC on the issue and
+one of the suggestions is to recompute the checksum for carried TCP/UDP
+packets.
+
+I have a working (but possibly inelegant version), which I am proposing.
+I know there are obvious things that can be improved, but I'm just
+posting it here for discussion.  Also, I'm not sure my skb handling is
+fully correct.
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 18bb383..b0eba8f 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -295,6 +295,33 @@ static int esp_input_done2(struct sk_buff *skb, int err)
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	}
+ 
++	if (x->encap && x->props.mode == XFRM_MODE_TRANSPORT &&
++	    (nexthdr[1] == IPPROTO_TCP || nexthdr[1] == IPPROTO_UDP)) {
++		int datalen, thlen;
++		unsigned char *th;
++
++		if (nexthdr[1] == IPPROTO_TCP) {
++			thlen = sizeof(struct tcphdr);
++			skb->csum_offset = offsetof(struct tcphdr, check);
++		} else {
++			thlen = sizeof(struct udphdr);
++			skb->csum_offset = offsetof(struct udphdr, check);
++		}
++
++		datalen = skb->len - alen - padlen - 2 - hlen;
++		if (datalen < 0 || !pskb_may_pull(skb, hlen + thlen))
++			goto out;
++
++		iph = ip_hdr(skb);
++		th = skb_transport_header(skb) + hlen;
++
++		skb->ip_summed = CHECKSUM_PARTIAL;
++		skb->csum_start = th - skb->head;
++		*(__u16 *)(th + skb->csum_offset) =
++				~csum_tcpudp_magic(iph->saddr, iph->daddr,
++				                   datalen, nexthdr[1], 0);
++	}
++
+ 	pskb_trim(skb, skb->len - alen - padlen - 2);
+ 	__skb_pull(skb, hlen);
+ 	skb_set_transport_header(skb, -ihl);
 
 
