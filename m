@@ -1,84 +1,51 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] snmp: add missing counters for RFC 4293
-Date: Thu, 23 Apr 2009 18:37:07 +0200
-Message-ID: <49F09933.2010200@cosmosbay.com>
-References: <49EEA7E3.3080507@cosmosbay.com> <20090422.020837.58106317.davem@davemloft.net> <49EEE4F1.4020705@cosmosbay.com> <20090422.025003.92631170.davem@davemloft.net> <20090422165034.GC17947@hmsreliant.think-freely.org> <49EF566B.70203@cosmosbay.com> <20090423152823.GA30405@hmsreliant.think-freely.org>
+From: Michael Di Domenico <mdidomenico4@gmail.com>
+Subject: sis900 tx timeouts
+Date: Thu, 23 Apr 2009 12:53:49 -0400
+Message-ID: <e75d22a90904230953gf855de5j18fb8ee1aa6d5a85@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47709 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422AbZDWQhU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 12:37:20 -0400
-In-Reply-To: <20090423152823.GA30405@hmsreliant.think-freely.org>
+Received: from mail-bw0-f163.google.com ([209.85.218.163]:38618 "EHLO
+	mail-bw0-f163.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419AbZDWQxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 12:53:51 -0400
+Received: by bwz7 with SMTP id 7so653126bwz.37
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 09:53:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman a =E9crit :
-> On Wed, Apr 22, 2009 at 07:39:55PM +0200, Eric Dumazet wrote:
->> <previous contents snipped>
->>
->=20
->=20
-> ok, new patch, functionally equivalent, with the following enhancemen=
-ts:
->=20
-> 1) Replaces INRECEIVES/OUTREQUESTS with INPKTS/OUTPKTS.  I did this
->    so that I could use the dual count update in (2) for INPKTS/INOCTE=
-TS
->    and OUTPKTS/OUTOCTETS
-> 2) Added dual stat update routines for IP/IP6, named *_UPD_PO_STATS[_=
-BH]
->    which updates a pair of stats, a P(acket) count, and an (O)ctet co=
-unt
-> 3) Added BCASTPKS/BCASTOCTETS for completeness
->=20
->=20
->=20
-> The IP MIB (RFC 4293) defines stats for InOctets, OutOctets, InMcastO=
-ctets and
-> OutMcastOctets:
-> http://tools.ietf.org/html/rfc4293
-> But it seems we don't track those in any way that easy to separate fr=
-om other
-> protocols.  This patch adds those missing counters to the stats file.=
- Tested
-> successfully by me
->=20
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->=20
+I have an Intel motherboard with an sis900 nic chipset down on the
+board.  When i put the NIC under heavy send traffic i start to see
+Transmit error's in dmesg and the nic stops sending data.  if i do an
+ifdown eth0; ifup eth0 the nic starts responding again just fine and
+will run for a while, but eventually the transmit errors return.  Can
+anyone lend advice on how i might fix or help track down this error?
 
+thanks
 
+--- lspci -vvv
+00:04.0 Ethernet controller: Silicon Integrated Systems [SiS] SiS900
+PCI Fast Ethernet (rev 91)
+	Subsystem: Intel Corporation Unknown device d61f
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+	Latency: 32 (13000ns min, 2750ns max)
+	Interrupt: pin A routed to IRQ 225
+	Region 0: I/O ports at 2000 [size=256]
+	Region 1: Memory at 4a100000 (32-bit, non-prefetchable) [size=4K]
+	Expansion ROM at 4a120000 [disabled] [size=128K]
+	Capabilities: [40] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
 
-> +#define SNMP_UPD_PO_STATS(mib, basefield, addend)	\
-> +	do { \
-> +		int __cpu =3D get_cpu(); \
-> +		per_cpu_ptr(mib[!in_softirq()], __cpu)->mibs[basefield##PKTS]++; \
-> +		per_cpu_ptr(mib[!in_softirq()], __cpu)->mibs[basefield##OCTETS] +=3D=
- addend;\
-> +		put_cpu(); \
-> +	} while (0)
+--- dmesg
+eth0: Transmit error, Tx status 060005ea.
+eth0: Transmit error, Tx status 060005ea.
 
-=46ollowing should be faster, because per_cpu_ptr() and !in_softirq() f=
-actorization.
-
-> +#define SNMP_UPD_PO_STATS(mib, basefield, addend)	\
-> +	do { \
-> +		__typeof__(mib[0]) ptr =3D per_cpu_ptr(mib[!in_softirq()], get_cpu=
-()); \
-> +		ptr->mibs[basefield##PKTS]++; \
-> +		ptr->mibs[basefield##OCTETS] +=3D addend;\
-> +		put_cpu(); \
-> +	} while (0)
-
-BTW, we miss HC (64bits) values on 32bit arches, and some RFC (not 4293=
-, but in 4113) mention they
- should be provided if counters can be updated more than 1 million time=
-s per second.
-
-And for Octets counters, this is definitly the case with 100 Mbit netwo=
-rks... Oh well
-
+--- uname -a
+Linux node5.home 2.6.18-92.1.17.el5_lustre.1.6.7.1smp #1 SMP Mon Apr
+13 18:23:52 MDT 2009 i686 i686 i386 GNU/Linux
