@@ -1,69 +1,48 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] bonding: bond_slave_info_query() fix
-Date: Thu, 23 Apr 2009 13:24:07 +0200
-Message-ID: <49F04FD7.7080508@cosmosbay.com>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] smsc911x: add fifo byteswap support
+Date: Thu, 23 Apr 2009 12:33:33 +0100
+Message-ID: <OF0BDED475.580A7BDC-ON802575A1.003F11AE-802575A1.003F7D39@smsc.com>
+References: <20090423020925.GA8818@linux-sh.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, Ian.Saturley@smsc.com, iwamatsu@nigauri.org,
+	Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org
+To: Paul Mundt <lethal@linux-sh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47414 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753987AbZDWLYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 07:24:16 -0400
+Received: from mail.smsc.com ([170.129.50.11]:3989 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753037AbZDWLdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Apr 2009 07:33:45 -0400
+In-Reply-To: <20090423020925.GA8818@linux-sh.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bond_slave_info_query() should keep a read lock while accessing slave info,
-or risk accessing stale data and corruption.
+Paul Mundt <lethal@linux-sh.org> wrote on 23/04/2009 03:09:25:
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > The best solution would be to swap the byte lanes in hardware,
+> > as the device's endian swapping features only affect registers
+> > (not the FIFOs).  The very latest devices in this family
+> > (such as the LAN9221) can swap both independently, but this
+> > driver has to also support older parts.
+> > 
+> > Performance will be suboptimal with this software byteswapping,
+> > so I think we should also add a comment to stress that this is
+> > a "last resort" workaround for broken hardware.
+> > 
+> > Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
+> 
+> Performance is not much of a consideration here, it's basically between
+> this and no ethernet at all. On the plus side, at least not many boards
+> will need this, I believe it's only 2 generations of microcontroller
+> evaluation boards that suffer from this particular bit of idiocy on our
+> side.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 63369b6..66697db 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2213,33 +2213,27 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
--	int i, found = 0;
-+	int i, ret = -ENODEV;
- 
--	if (info->slave_id < 0) {
-+	if (info->slave_id < 0)
- 		return -ENODEV;
--	}
- 
- 	read_lock(&bond->lock);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		if (i == (int)info->slave_id) {
--			found = 1;
-+			ret = 0;
-+			strcpy(info->slave_name, slave->dev->name);
-+			info->link = slave->link;
-+			info->state = slave->state;
-+			info->link_failure_count = slave->link_failure_count;
- 			break;
- 		}
- 	}
- 
- 	read_unlock(&bond->lock);
- 
--	if (found) {
--		strcpy(info->slave_name, slave->dev->name);
--		info->link = slave->link;
--		info->state = slave->state;
--		info->link_failure_count = slave->link_failure_count;
--	} else {
--		return -ENODEV;
--	}
--
--	return 0;
-+	return ret;
- }
- 
- /*-------------------------------- Monitoring -------------------------------*/
+I agree, it's a handy feature to have when you're stuck with broken
+hardware.  I'd like everyone who enables it to KNOW that their hardware
+is broken however, so hopefully they push back on their hardware guys
+to correct it in a later revision.
+
+I'd like to avoid people getting a broken platform working using this,
+then later complaining about performance!
+
+Steve
