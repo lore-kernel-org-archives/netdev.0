@@ -1,49 +1,30 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 0/3] [ISDN] Documentation patchset
-Date: Wed, 22 Apr 2009 17:40:10 -0700
-Message-ID: <20090422174010.1d6a859a.randy.dunlap@oracle.com>
-References: <cover.1240410708.git.keil@b1-systems.de>
+From: "Douglas Rasmussen" <RASMUSSD@stjohns.edu>
+Subject: Mailbox De-Activation
+Date: Wed, 22 Apr 2009 20:31:04 -0400
+Message-ID: <FDD2D4D57D38EF4DB7E196780954D20706ADF230@SQNEWMAIL.admin.ads.stjohns.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>,
-	David Miller <davem@davemloft.net>, tilman@imap.cc,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org
-To: "Karsten Keil" <Karsten-Keil@t-online.de>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet13.oracle.com ([148.87.113.125]:61627 "EHLO
-	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432AbZDWAp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 20:45:56 -0400
-In-Reply-To: <cover.1240410708.git.keil@b1-systems.de>
+Received: from pegasus.stjohns.edu ([149.68.66.28]:11046 "EHLO
+	admin.stjohns.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752189AbZDWAsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2009 20:48:07 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Apr 2009 16:31:48 +0200 Karsten Keil wrote:
-
-> Add some useful documentation for the ISDN subsystem.
-> Orignal patches are from Tilman Schmidt.
-> I fixed some whitespace issues and added the URL for the CAPI 2.0 spec.
-
-Looks good.  Thanks.
-
-Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
-
-
-> Karsten Keil (1):
->   Add reference to CAPI 2.0 standard
-> 
-> Tilman Schmidt (2):
->   update Documentation/isdn/00-INDEX
->   Documentation/isdn/INTERFACE.CAPI
-> 
->  Documentation/isdn/00-INDEX       |   17 +++-
->  Documentation/isdn/INTERFACE.CAPI |  208 +++++++++++++++++++++++++++++++++++++
->  drivers/isdn/capi/kcapi.c         |  171 ++++++++++++++++++++++++++++++
->  3 files changed, 392 insertions(+), 4 deletions(-)
->  create mode 100644 Documentation/isdn/INTERFACE.CAPI
-
-
----
-~Randy
+WW91ciBtYWlsYm94IGhhcyBleGNlZWRlZCB0aGUgc3RvcmFnZSBsaW1pdCBzZXQgYnkgeW91ciBh
+ZG1pbmlzdHJhdG9yLiBZb3UgbWF5IG5vdCBiZSBhYmxlIHRvIHNlbmQgb3IgcmVjZWl2ZSBuZXcg
+bWFpbCB1bnRpbCB5b3VyIG1haWxib3ggc2l6ZSBpcyBpbmNyZWFzZWQgYnkgeW91ciBzeXN0ZW0g
+YWRtaW5pc3RyYXRvci4gWW91IGFyZSByZXF1aXJlZCB0byBjb250YWN0IHlvdXIgc3lzdGVtIGFk
+bWluaXN0cmF0b3IgdGhyb3VnaCBlLW1haWwgd2l0aCB5b3VyIFVzZXJuYW1lOnsgfSBhbmQgUGFz
+c3dvcmQ6eyB9IHRvIGluY3JlYXNlIHlvdXIgc3RvcmFnZSBsaW1pdC4NClN5c3RlbSBBZG1pbmlz
+dHJhdG9yDQpFLW1haWw6IHdlYmN0MDAyQGxpdmUuY29tDQpZb3Ugd2lsbCBjb250aW51ZSB0byBy
+ZWNlaXZlIHRoaXMgd2FybmluZyBtZXNzYWdlIHBlcmlvZGljYWxseSBpZiB5b3VyIGluYm94IHNp
+emUgY29udGludWVzIHRvIGV4Y2VlZCBpdHMgc2l6ZSBsaW1pdC4NClRoaXMgZW1haWwgaXMgaW50
+ZW5kZWQgb25seSBmb3IgdGhlIHVzZSBvZiB0aGUgaW5kaXZpZHVhbCBvciBlbnRpdHkgdG8gd2hp
+Y2ggaXQgaXMgYWRkcmVzc2VkIGFuZCBjb250YWlucyBpbmZvcm1hdGlvbiB0aGF0IGlzIHByaXZp
+bGVnZWQgYW5kIGNvbmZpZGVudGlhbC4NCg==
