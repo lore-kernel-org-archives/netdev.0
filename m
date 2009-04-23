@@ -1,71 +1,60 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: [PATCH] Software receive packet steering
-Date: Thu, 23 Apr 2009 08:58:30 +0200
-Message-ID: <20090423065830.GN4593@kernel.dk>
-References: <49ED967B.4070105@cosmosbay.com> <20090421084636.198b181e@nehalam> <65634d660904211152l6c17aa6dpf7e626474acfe499@mail.gmail.com> <20090422.022120.211323498.davem@davemloft.net> <Pine.LNX.4.64.0904222156300.21763@ask.diku.dk>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] Add new cs89x0 driver
+Date: Thu, 23 Apr 2009 09:03:19 +0200
+Message-ID: <20090423070319.GN21747@pengutronix.de>
+References: <1240387172-21818-1-git-send-email-s.hauer@pengutronix.de> <20090422225328.GA14729@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	shemminger@vyatta.com, Eric Dumazet <dada1@cosmosbay.com>,
-	andi@firstfloor.org, netdev <netdev@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	Jens Laas <jens.laas@ITS.UU.SE>, hawk@comx.dk
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <kernel@wantstofly.org>,
+	Ivo Clarysse <ivo.clarysse@gmail.com>,
+	Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([93.163.65.50]:33569 "EHLO kernel.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751631AbZDWG6c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2009 02:58:32 -0400
+Received: from fmmailgate01.web.de ([217.72.192.221]:48818 "EHLO
+	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbZDWHDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 03:03:22 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0904222156300.21763@ask.diku.dk>
+In-Reply-To: <20090422225328.GA14729@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22 2009, Jesper Dangaard Brouer wrote:
-> On Wed, 22 Apr 2009, David Miller wrote:
->
->> One thought I keep coming back to is the hack the block layer
->> is using right now.  It remembers which CPU a block I/O request
->> comes in on, and it makes sure the completion runs on that
->> cpu too.
+On Thu, Apr 23, 2009 at 12:53:28AM +0200, Lennert Buytenhek wrote:
+> On Wed, Apr 22, 2009 at 09:59:30AM +0200, Sascha Hauer wrote:
+> 
+> > While this is a very old chip it is still in use on some embedded
+> > boards.  I see myself unable to fix the in Kernel driver to bring
+> > it to driver model support, so this patch adds a new driver designed
+> > to replace the old one, at least for non-ISA hardware.
+> 
+> I had the same thought initially when I started working on mv643xx_eth,
+> but I decided to try and beat the existing driver into shape anyway.  The
+> mv643xx_eth driver now is not too different from how I would have written
+> it had I rewritten it from scratch, and refactoring it took about a
+> hundred commits and probably a bunch more effort than just rewriting it
+> would have taken, but in the end I probably _saved_ myself time by being
+> able to (have users) bisect problems instead of having to spend time
+> trying to figure out why driver A works but B doesn't or vice versa, not
+> having to chase people to switch their platforms over to the new driver,
+> etc.
+> 
+> (I'm not saying that there's absolutely no other way for you to go than
+> to do the same thing -- it's just a thought.)
 
-Hack?! :-)
+I've gone that way with the fec.c driver recently, now I'm trying the
+other way ;)
 
-It's actually nicely integrated to our existing IO completion path,
-where we raise a softirq to complete the IO out of path. The only
-difference now being that if you enable rq_affinity, it'll raise the
-softirq potentially on a remote CPU except of always using the local
-one.
+The problem with the cs89x0 driver is that it is an ISA driver. I think
+it will be hard to find testers owning an ISA card with a cs89x0 chip.
+(If you, dear reader, are one of those, please speak up)
+For the embedded users it's simple. There are some Freescale i.MX Board
+which I own myself or stay in contact with people who have one and some
+IXP boards.
 
-> This is also very important for routing performance.
->
-> Experiences from practical 10GbE routing tests (done by Roberts team =
-and
-> my self), reveals that we can only achieve (close to) 10Gbit/s routin=
-g
-> performance when carefully making sure that the rx-queue and tx-queue=
- runs
-> on the same CPU. (Not doing so really kills performance).
->
-> Currently I'm using some patches by Jens L=E5=E5s, that allows usersp=
-ace to
-> setup the rx-queue to tx-queues mapping, plus manual smp_affinity tun=
-ing.
-> The problem with this approach is that it requires way too much manua=
-l
-> tuning from userspace to achieve good performance.
->
-> I would like to see an approach with less manual tuning, as we basica=
-lly
-> "just" need to make sure that TX completion is done on the same CPU a=
-s RX.
-> I would like to see some effort in this area and is willing to partis=
-ipate
-> actively.
+Sascha
 
-I saw very nice benefits on the IO side as well!
-
---=20
-Jens Axboe
-
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
