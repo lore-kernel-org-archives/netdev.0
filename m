@@ -1,53 +1,33 @@
-From: Karsten Keil <karsten-keil@t-online.de>
-Subject: Re: [PATCH 3/3] Add reference to CAPI 2.0 standard
-Date: Thu, 23 Apr 2009 12:14:14 +0200
-Message-ID: <200904231214.16260.karsten-keil@t-online.de>
-References: <cover.1240410708.git.keil@b1-systems.de> <f094d823a0fc52e010f99aec720c9144d454c2fa.1240410708.git.keil@b1-systems.de> <20090422173232.ad2b3f49.rdunlap@xenotime.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IMQ bug: kernel reboot immediately
+Date: Thu, 23 Apr 2009 12:20:24 +0200
+Message-ID: <49F040E8.80402@trash.net>
+References: <20090423084323.GA5696@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	tilman@imap.cc, isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout11.t-online.de ([194.25.134.85]:41142 "EHLO
-	mailout11.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996AbZDWKPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 06:15:07 -0400
-In-Reply-To: <20090422173232.ad2b3f49.rdunlap@xenotime.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Y. D." <duyuyang@gmail.com>, netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090423084323.GA5696@ff.dom.local>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Donnerstag, 23. April 2009 02:32:32 Randy Dunlap wrote:
-> On Wed, 22 Apr 2009 16:31:48 +0200 Karsten Keil wrote:
-> > Move the entry about CAPI 2.0 to the beginning and add a URL.
-> > Incorporate changes suggested by Randy Dunlap, thanks for proofreading.
-> >
-> > Signed-off-by: Karsten Keil <keil@b1-systems.de>
-> > ---
-> >  Documentation/isdn/INTERFACE.CAPI |   20 +++++++++++++-------
-> >  1 files changed, 13 insertions(+), 7 deletions(-)
-> >
-> > diff --git a/Documentation/isdn/INTERFACE.CAPI
-> > b/Documentation/isdn/INTERFACE.CAPI index 8947ffc..4d802ee 100644
-> > --- a/Documentation/isdn/INTERFACE.CAPI
-> > +++ b/Documentation/isdn/INTERFACE.CAPI
-> > @@ -3,6 +3,11 @@ Kernel CAPI Interface to Hardware Drivers
-> >
-> >  1. Overview
-> >
-> > +From the CAPI 2.0 spezification:
->
->                      ~~~~~~~~~~~~~
->
-> typo or language?    specification:
+Jarek Poplawski wrote:
+> On 22-04-2009 17:27, Y. D. wrote:
+>> Hi,
+>>
+>> Is IMQ still maintained? I am using IMQ to shape ingress traffic.
+>> But the application is a streaming server (VLC). However, the kernel
+>> reboots immediately as quick as can hardly been seen what is
+>> wrong with it.
+>>
+>> Any help with this kinda problem?
+> 
+> IMQ isn't a part of kernel/netfilter, so you should try at its own
+> site/mailing list.
 
-Ouch :-(, never add a single line without spell checking.
-Will send out a new set, also fix the wrong From: line in the patches from 
-Tilman.
-
-...
-
+I'd rather suggest to get rid of it and use ifb, AFAIK there hasn't
+been a single version in all those years that didn't cause this kind
+of problems.
