@@ -1,96 +1,82 @@
-From: Radu Rendec <radu.rendec@ines.ro>
-Subject: Re: htb parallelism on multi-core platforms
-Date: Thu, 23 Apr 2009 16:56:42 +0300
-Message-ID: <1240495002.6554.155.camel@blade.ines.ro>
-References: <20090423082052.GA4243@ff.dom.local>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and security_socket_post_recv_datagram().
+Date: Thu, 23 Apr 2009 23:00:09 +0900
+Message-ID: <200904232300.IIB39542.SHJFLOtFVQFOMO@I-love.SAKURA.ne.jp>
+References: <200904220502.n3M52GQj001957@www262.sakura.ne.jp>
+	<20090421.220735.118831531.davem@davemloft.net>
+	<200904220538.n3M5c4QI010548@www262.sakura.ne.jp>
+	<20090421.225202.218457438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from NAT-172-Unkn.Local.iNES.RO ([80.86.100.172]:36315 "EHLO
-	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751565AbZDWN4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 09:56:50 -0400
-In-Reply-To: <20090423082052.GA4243@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paul.moore@hp.com, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090421.225202.218457438.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-04-23 at 08:20 +0000, Jarek Poplawski wrote:
-> Within a common tree of classes it would a need finer locking to
-> separate some jobs but considering cache problems I doubt there would
-> be much gain from such redesigning for smp. On the other hand, a
-> common tree is necessary if these classes really have to share every
-> byte, which I doubt. Then we could think of config and maybe tiny
-> hardware "redesign" (to more qdiscs/roots). So, e.g. using additional
-> (cheap) NICs and even switch, if possible, looks quite natural way of
-> spanning. Similar thing (multiple htb qdiscs) should be possible in
-> the future with one multiqueue NIC too.
+David Miller wrote:
+> FWIW I do not agree with TOMOYO conceptually.
+That will be my fault. I haven't explained you the background of this proposal.
+Would you please be patient and read below explanation?
 
-Since htb has a tree structure by default, I think it's pretty difficult
-to distribute shaping across different htb-enabled queues. Actually we
-had thought of using completely separate machines, but soon we realized
-there are some issues. Consider the following example:
+Thanks.
+----------
+TOMOYO is a security module which focuses on behavior of a system. A process is
+created to achieve something. TOMOYO lets each process declare behaviors and
+resources needed to achieve its purpose (like an immigration officer) and
+permits only declared behaviors and resources (like an operation watchdog).
 
-Customer A and customer B share 2 Mbit of bandwith. Each of them is
-guaranteed to reach 1 Mbit and in addition is able to "borrow" up to 1
-Mbit from the other's bandwith (depending on the other's traffic).
+TOMOYO has an unprecedented concept called "process invocation history" (in
+short, PIH). TOMOYO utilizes the PIH for categorizing the purpose of a process.
+The PIH is stored into current->cred->security and is defined as concatenation
+of program's pathnames ever executed. For example, /sbin/init invoked from the
+kernel is defined as "<kernel> /sbin/init", /etc/rc.d/rc.sysinit invoked from
+/sbin/init invoked from the kernel is defined as
+"<kernel> /sbin/init /etc/rc.d/rc.sysinit". (There are some exceptions, but I
+omit explanation because exceptions have no linkage with this proposal.)
 
-This is done like this:
+**TOMOYO's policy is PIH-driven.** For example,
 
-* bucket C -> rate 2 Mbit, ceil 2 Mbit
-* bucket A -> rate 1 Mbit, ceil 2 Mbit, parent C
-* bucket B -> rate 1 Mbit, ceil 2 Mbit, parent C
+  <kernel> /sbin/init
+  allow_read /etc/inittab
 
-IP filters for customer A classify packets to bucket A, and similar for
-customer B to bucket B.
+means that any process with PIH "<kernel> /sbin/init" is allowed to open a file
+named /etc/inittab for reading.
 
-It's obvious that buckets A, B and C must be in the same htb tree,
-otherwise customers A and B would not be able to borrow from each
-other's bandwidth. One simple rule would be to allocate all buckets
-(with all their child buckets) that have rate = ceil to the same tree /
-queue / whatever. I don't know if this is enough.
+  <kernel> /usr/sbin/sshd
+  allow_create /var/run/sshd.pid
 
-> There is also an interesting thread "Software receive packet steering"
-> nearby, but using this for shaping only looks like "less simple":
-> http://lwn.net/Articles/328339/
+means that any process with PIH "<kernel> /usr/sbin/sshd" is allowed to create
+a file named /var/run/sshd.pid .
 
-I am aware of the thread and even tried out the author's patch (despite
-the fact that David Miller suggested it was not sane). Under heavy
-(simulated) traffic nothing was changed: only one ksoftirqd using 100%
-CPU, one CPU in 100%, others idle. This only confirms what I've already
-been told: htb is single threaded by design. It also proves that most of
-the packet processing work is actually in htb.
+  <kernel> /usr/sbin/sshd /bin/bash /usr/bin/curl
+  allow_network TCP connect 192.168.1.1 80
+  allow_network UDP connect 192.168.1.2 53
 
-> BTW, I hope you add filters after classes they point to.
+means that any process with PIH
+"<kernel> /usr/sbin/sshd /bin/bash /usr/bin/curl" is allowed to send TCP
+connect() requests to 192.168.1.1 port 80 and is allowed to send UDP datagrams
+to 192.168.1.2 port 53.
 
-Do you mean the actual order I use for the "tc filter add" and "tc class
-add" commands? Does it make any difference?
+TOMOYO wants to allow writing policy for incoming connections/datagrams in the
+same manner. For example,
 
-Anyway, speaking of htb redesign or improvement (to use multiple
-threads / CPUs) I think classification rules can be cloned on a
-per-thread basis (to avoid synchronization issues). This means
-sacrificing memory for the benefit of performance but probably it is
-better to do it this way.
+  <kernel> /usr/sbin/sshd
+  allow_network TCP accept 10.0.0.0-10.255.255.255 1024-65535
 
-However, shaping data structures must be shared between all threads as
-long as it's not sure that all packets corresponding to a certain IP
-address are processed in the same thread (they most probably would not,
-if a round-robin alhorithm is used).
+means that any process with PIH "<kernel> /usr/sbin/sshd" is allowed to pick up
+TCP connections from 10.0.0.0/8 port 1024-65535.
 
-While searching the Internet for what has already been accomplished in
-this area, I ran several time across the per-CPU cache issue. The
-commonly accepted opinion seems to be that CPU parallelism in packet
-processing implies synchronization issues which in turn imply cache
-misses, which ultimately result in performance loss. However, with only
-one core in 100% and other 7 cores idle, I doubt that CPU-cache is
-really worth (it's just a guess and it definitely needs real tests as
-evidence).
+To be able to write in the same manner, TOMOYO needs to know the PIH of a
+process who is about to pick up the incoming connection/datagram.
+The PIH (i.e. current->cred->security) is different from the security context
+of a socket which is going to enqueue the incoming connection/datagram
+(i.e. "struct sock"->sk_security). And LSM has no hooks which allow TOMOYO to
+use current->cred->security for incoming connections/datagrams.
 
-Thanks,
-
-Radu Rendec
-
-
+There could be some programs which get confused by accept()/recvmsg() returning
+an error when poll() said "connections are ready" or "datagrams are ready".
+If we find such programs, we can tell TOMOYO to disable filtering for such
+programs.
