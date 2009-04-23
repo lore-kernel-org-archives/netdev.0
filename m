@@ -1,243 +1,96 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCH RFC] v1 expedited "big hammer" RCU grace periods
-Date: Thu, 23 Apr 2009 09:45:39 -0400
-Message-ID: <20090423134539.GC11261@Krystal>
-References: <20090423052520.GA13036@linux.vnet.ibm.com>
+From: Radu Rendec <radu.rendec@ines.ro>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Thu, 23 Apr 2009 16:56:42 +0300
+Message-ID: <1240495002.6554.155.camel@blade.ines.ro>
+References: <20090423082052.GA4243@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, mingo@elte.hu,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
-	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts13-srv.bellnexxia.net ([209.226.175.34]:44918 "EHLO
-	tomts13-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754241AbZDWNpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 09:45:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20090423052520.GA13036@linux.vnet.ibm.com>
+Received: from NAT-172-Unkn.Local.iNES.RO ([80.86.100.172]:36315 "EHLO
+	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751565AbZDWN4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 09:56:50 -0400
+In-Reply-To: <20090423082052.GA4243@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> First cut of "big hammer" expedited RCU grace periods, but only for
-> rcu_bh.  This creates another softirq vector, so that entering this
-> softirq vector will have forced an rcu_bh quiescent state (as noted by
-> Dave Miller).  Use smp_call_function() to invoke raise_softirq() on all
-> CPUs in order to cause this to happen.  Track the CPUs that have passed
-> through a quiescent state (or gone offline) with a cpumask.
-> 
-> Does nothing to expedite callbacks already registered with call_rcu_bh(),
-> but there is no need to.
-> 
-> Shortcomings:
-> 
-> o	Untested, probably does not compile, not for inclusion.
-> 
-> o	Does not handle rcu, only rcu_bh.
-> 
-> Thoughts?
-> 
-> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> ---
-> 
->  include/linux/interrupt.h |    1 
->  include/linux/rcupdate.h  |    1 
->  kernel/rcupdate.c         |  106 ++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 108 insertions(+)
-> 
-> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-> index 91bb76f..b7b58cc 100644
-> --- a/include/linux/interrupt.h
-> +++ b/include/linux/interrupt.h
-> @@ -338,6 +338,7 @@ enum
->  	TASKLET_SOFTIRQ,
->  	SCHED_SOFTIRQ,
->  	HRTIMER_SOFTIRQ,
-> +	RCU_EXPEDITED_SOFTIRQ,
->  	RCU_SOFTIRQ,	/* Preferable RCU should always be the last softirq */
->  
->  	NR_SOFTIRQS
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index 15fbb3c..d4af557 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -264,6 +264,7 @@ extern void synchronize_rcu(void);
->  extern void rcu_barrier(void);
->  extern void rcu_barrier_bh(void);
->  extern void rcu_barrier_sched(void);
-> +extern void synchronize_rcu_bh_expedited(void);
->  
->  /* Internal to kernel */
->  extern void rcu_init(void);
-> diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
-> index a967c9f..bfa98dd 100644
-> --- a/kernel/rcupdate.c
-> +++ b/kernel/rcupdate.c
-> @@ -217,10 +217,116 @@ static int __cpuinit rcu_barrier_cpu_hotplug(struct notifier_block *self,
->  	return NOTIFY_OK;
->  }
->  
-> +static DEFINE_MUTEX(synchronize_rcu_bh_mutex);
-> +static long synchronize_rcu_bh_completed; /* Expedited-grace-period count. */
+On Thu, 2009-04-23 at 08:20 +0000, Jarek Poplawski wrote:
+> Within a common tree of classes it would a need finer locking to
+> separate some jobs but considering cache problems I doubt there would
+> be much gain from such redesigning for smp. On the other hand, a
+> common tree is necessary if these classes really have to share every
+> byte, which I doubt. Then we could think of config and maybe tiny
+> hardware "redesign" (to more qdiscs/roots). So, e.g. using additional
+> (cheap) NICs and even switch, if possible, looks quite natural way of
+> spanning. Similar thing (multiple htb qdiscs) should be possible in
+> the future with one multiqueue NIC too.
 
-Given you access this variable through a mutex, you might want to
-consider using a u64 (unsigned long long) to make sure it counts a full
-64-bits on 32-bits architectures. This would make overflows less likely
-to happen. Note that the reads should be done through a mutex then.
-Another alternative is to protect it using a seqlock. Note that the two
-previous "non-atomic" read solutions should never be used in NMI
-context. :-/
+Since htb has a tree structure by default, I think it's pretty difficult
+to distribute shaping across different htb-enabled queues. Actually we
+had thought of using completely separate machines, but soon we realized
+there are some issues. Consider the following example:
 
-> +
-> +#ifndef CONFIG_SMP
-> +
-> +static void __init synchronize_rcu_expedited_init(void)
-> +{
-> +}
-> +
-> +void synchronize_rcu_bh_expedited(void)
-> +{
-> +	mutex_lock(&synchronize_rcu_bh_mutex);
-> +	synchronize_rcu_bh_completed++;
-> +	mutex_unlock(&synchronize_rcu_bh_mutex);
-> +}
-> +
-> +#else /* #ifndef CONFIG_SMP */
-> +
-> +static DEFINE_PER_CPU(int, rcu_bh_need_qs);
-> +static cpumask_var_t rcu_bh_waiting_map;
-> +
-> +static void synchronize_rcu_bh_expedited_help(struct softirq_action *unused)
-> +{
-> +	if (__get_cpu_var(rcu_bh_need_qs)) {
+Customer A and customer B share 2 Mbit of bandwith. Each of them is
+guaranteed to reach 1 Mbit and in addition is able to "borrow" up to 1
+Mbit from the other's bandwith (depending on the other's traffic).
 
-Is this test useful at all ? The value can only be 0 or 1, so if it is
-already 0, then we set it to 0 again. I doubt you care that much about
-cache-line bouncing ?
+This is done like this:
 
-> +		smp_mb();
-> +		__get_cpu_var(rcu_bh_need_qs) = 0;
-> +		smp_mb();
+* bucket C -> rate 2 Mbit, ceil 2 Mbit
+* bucket A -> rate 1 Mbit, ceil 2 Mbit, parent C
+* bucket B -> rate 1 Mbit, ceil 2 Mbit, parent C
 
-Is this second mb required ? We want to make sure no memory access
-coming from code executed before the flag write goes into the next qs
-period, this is fine (and explains the first mb()), but do we care
-about interleaving writes done after the flag write ? In the worse case,
-they will be put in the previous qs period, and that seems fine.
+IP filters for customer A classify packets to bucket A, and similar for
+customer B to bucket B.
 
-> +	}
-> +}
-> +
-> +static void rcu_bh_fast_qs(void *unused)
-> +{
-> +	raise_softirq(RCU_EXPEDITED_SOFTIRQ);
-> +}
-> +
-> +static void __init synchronize_rcu_expedited_init(void)
-> +{
-> +	open_softirq(RCU_EXPEDITED_SOFTIRQ, synchronize_rcu_bh_expedited_help);
-> +	alloc_bootmem_cpumask_var(&rcu_bh_waiting_map);
-> +}
-> +
-> +void synchronize_rcu_bh_expedited(void)
-> +{
-> +	int cpu;
-> +	int done;
-> +	int times = 0;
-> +
-> +	mutex_lock(&synchronize_rcu_bh_mutex);
-> +
-> +	/* Take snapshot of online CPUs, blocking CPU hotplug. */
-> +	preempt_disable();
+It's obvious that buckets A, B and C must be in the same htb tree,
+otherwise customers A and B would not be able to borrow from each
+other's bandwidth. One simple rule would be to allocate all buckets
+(with all their child buckets) that have rate = ceil to the same tree /
+queue / whatever. I don't know if this is enough.
 
-Hrm, how about simply 
+> There is also an interesting thread "Software receive packet steering"
+> nearby, but using this for shaping only looks like "less simple":
+> http://lwn.net/Articles/328339/
 
-get_online_cpus();
+I am aware of the thread and even tried out the author's patch (despite
+the fact that David Miller suggested it was not sane). Under heavy
+(simulated) traffic nothing was changed: only one ksoftirqd using 100%
+CPU, one CPU in 100%, others idle. This only confirms what I've already
+been told: htb is single threaded by design. It also proves that most of
+the packet processing work is actually in htb.
 
-put_online_cpus();
+> BTW, I hope you add filters after classes they point to.
 
-just once at the beginning/end of this function to stop cpu hotplug ?
+Do you mean the actual order I use for the "tc filter add" and "tc class
+add" commands? Does it make any difference?
 
-All these preempt_enable/disable seems a bit too much. But I see that
-you might not want to disabling cpu hotplug for too long, so you
-probably have a good reason to do it this way.
+Anyway, speaking of htb redesign or improvement (to use multiple
+threads / CPUs) I think classification rules can be cloned on a
+per-thread basis (to avoid synchronization issues). This means
+sacrificing memory for the benefit of performance but probably it is
+better to do it this way.
 
-> +	cpumask_copy(rcu_bh_waiting_map, &cpu_online_map);
-> +	preempt_enable();
-> +
-> +	/* Mark each online CPU as needing a quiescent state. */
-> +	for_each_cpu(cpu, rcu_bh_waiting_map)
-> +		per_cpu(rcu_bh_need_qs, cpu) = 1;
-> +
-> +	/* Call for a quiescent state on each online CPU. */
-> +	preempt_disable();
-> +	cpumask_clear_cpu(smp_processor_id(), rcu_bh_waiting_map);
+However, shaping data structures must be shared between all threads as
+long as it's not sure that all packets corresponding to a certain IP
+address are processed in the same thread (they most probably would not,
+if a round-robin alhorithm is used).
 
-Commenting that smp_call_function has a smp_mb(), which makes sure
-per_cpu(rcu_bh_need_qs, cpu) writes happened before calling the remote
-functions would not hurt.
+While searching the Internet for what has already been accomplished in
+this area, I ran several time across the per-CPU cache issue. The
+commonly accepted opinion seems to be that CPU parallelism in packet
+processing implies synchronization issues which in turn imply cache
+misses, which ultimately result in performance loss. However, with only
+one core in 100% and other 7 cores idle, I doubt that CPU-cache is
+really worth (it's just a guess and it definitely needs real tests as
+evidence).
 
-Mathieu
+Thanks,
 
-> +	smp_call_function(rcu_bh_fast_qs, NULL, 1);
-> +	preempt_enable();
-> +
-> +	/*
-> +	 * Loop waiting for each CPU to either pass through a quiescent
-> +	 * state or to go offline.  We don't care which.
-> +	 */
-> +	for (;;) {
-> +		
-> +		/* Ignore CPUs that have gone offline, blocking CPU hotplug. */
-> +		preempt_disable();
-> +		cpumask_and(rcu_bh_waiting_map, rcu_bh_waiting_map,
-> +			    &cpu_online_map);
-> +		cpumask_clear_cpu(smp_processor_id(), rcu_bh_waiting_map);
-> +		preempt_enable();
-> +
-> +		/* Check if any CPUs still need a quiescent state. */
-> +		done = 1;
-> +		for_each_cpu(cpu, rcu_bh_waiting_map) {
-> +			if (per_cpu(rcu_bh_need_qs, cpu)) {
-> +				done = 0;
-> +				break;
-> +			}
-> +			cpumask_clear_cpu(cpu, rcu_bh_waiting_map);
-> +		}
-> +		if (done)
-> +			break;
-> +
-> +		/*
-> +		 * Wait a bit.  If we have already waited a fair
-> +		 * amount of time, sleep.
-> +		 */
-> +		if (++times < 10)
-> +			udelay(10 * times);
-> +		else
-> +			schedule_timeout_uninterruptible(1);
-> +	}
-> +
-> +	synchronize_rcu_bh_completed++;
+Radu Rendec
 
-> +	mutex_unlock(&synchronize_rcu_bh_mutex);
-> +}
-> +
-> +#endif /* #else #ifndef CONFIG_SMP */
-> +
->  void __init rcu_init(void)
->  {
->  	__rcu_init();
->  	hotcpu_notifier(rcu_barrier_cpu_hotplug, 0);
-> +	synchronize_rcu_expedited_init();
->  }
->  
->  void rcu_scheduler_starting(void)
 
--- 
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
