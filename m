@@ -1,39 +1,81 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: 2.6.29.1: unregister_netdevice problem
-Date: Thu, 23 Apr 2009 16:30:57 -0700
-Message-ID: <m1hc0fuevi.fsf@fess.ebiederm.org>
-References: <20090422055735.GA4334@night.netis.ru>
+From: Salatiel Filho <salatiel.filho@gmail.com>
+Subject: Re: IMQ bug: kernel reboot immediately
+Date: Thu, 23 Apr 2009 20:32:06 -0300
+Message-ID: <beb91d720904231632m2a66768dy95f1df1491d97f5b@mail.gmail.com>
+References: <20090423084323.GA5696@ff.dom.local> <49F040E8.80402@trash.net>
+	<alpine.LSU.2.00.0904231223050.18687@fbirervta.pbzchgretzou.qr>
+	<49F042E7.7060900@trash.net> <beb91d720904230412j4dea4034o61f2d0682ff76d1a@mail.gmail.com>
+	<49F04F6B.7010709@trash.net> <beb91d720904230537s7f61c441g5af4a3acc1a0c2aa@mail.gmail.com>
+	<49F061F2.9000005@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, <netdev@vger.kernel.org>
-To: "Alexander V. Lukyanov" <lav@netis.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:37150 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377AbZDWXbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 19:31:06 -0400
-In-Reply-To: <20090422055735.GA4334@night.netis.ru> (Alexander V. Lukyanov's message of "Wed\, 22 Apr 2009 09\:57\:35 +0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	"Y. D." <duyuyang@gmail.com>, netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49F061F2.9000005@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"Alexander V. Lukyanov" <lav@netis.ru> writes:
-
-> Eventually I have an increased load average without apparent reason.
-> When I reboot the server in such a case, I get infinitely repeating
-> messages on the console:
+On Thu, Apr 23, 2009 at 09:41, Patrick McHardy <kaber@trash.net> wrote:
+> Salatiel Filho wrote:
+>>
+>> On Thu, Apr 23, 2009 at 08:22, Patrick McHardy <kaber@trash.net> wro=
+te:
+>>>
+>>> Salatiel Filho wrote:
+>>>>
+>>>> Using imq i can shape upload on ppp0 [postrouting] while still hav=
+ing
+>>>> the internal private ips from the hosts, and i can shape download =
+in
+>>>> ppp0 [prerouting] after get the correct nat'ed addresses.
+>>>>
+>>>> Is there a way to achieve this in IFB ? in a simple way ... :)
+>>>
+>>> Currently not, the conntrack association is done at a later point.
+>>> We could add a classifier or TC action that performs the lookup
+>>> during ingress classification.
+>>>
+>>> Alternatively classifiers using conntrack information (like cls_flo=
+w)
+>>> could perform the lookup directly, but that would probably get a bi=
+t
+>>> ugly since some validation needs to be performed previously and it
+>>> would add a module dependency on conntrack.
+>>>
+>>>
+>> Using this actions would make =A0sfq hashing by dest ip or source ip
+>> work just like it works in imq ?
 >
-> unregister_netdevice: waiting for eth0.2 to become free. Usage count = 4
+> Not with the SFQ default hash since it classifies based on the
+> addresses in the IP header. But you could use the flow classifier,
+> which can use the addresses from the conntrack entry. This would
+> behave similar to IMQ+SFQ.
+Ok , i was tying to keepthe discussion to the mainline kernel :)
+By sfq i mean esfq [though i read somewhere sfq will implement a way
+to hash by src / dest ip] , or wrr :)
+Actually i was never able to find out why wrr is not in mainline
+kernel. In my opinion it is the best round robin qdisc i have ever
+used.
+
+
 >
-> eth0.2 is a vlan interface, eth0 is 02:00.0 Ethernet controller: Realtek
-> Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet
-> controller (rev 01)
+>
 
-CC: netdev where someone might have a better clue.
 
-Infinitely repeating unregister_netdevice messages means something
-isn't releasing it's reference count to your network device.
 
-There really isn't enough information in your email to figure out
-what you were doing that, or what piece of code triggered this.
+--=20
+[]'s
+Salatiel
 
-Eric
+"O maior prazer do inteligente =E9 bancar o  idiota
+   diante de um  idiota que banca o inteligente".
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
