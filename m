@@ -1,7 +1,7 @@
 From: Karsten Keil <karsten-keil@t-online.de>
-Subject: [PATCH v2 3/3] Add reference to CAPI 2.0 standard
+Subject: [PATCH v2 1/3] update Documentation/isdn/00-INDEX
 Date: Thu, 23 Apr 2009 14:24:21 +0200
-Message-ID: <4704a993f270295cf4c364aac908996356c39224.1240489461.git.keil@b1-systems.de>
+Message-ID: <992698ead1b2fe18791b0a25609310c89fa0adc9.1240489461.git.keil@b1-systems.de>
 References: <cover.1240489461.git.keil@b1-systems.de>
 Cc: Randy Dunlap <rdunlap@xenotime.net>,
 	David Miller <davem@davemloft.net>, tilman@imap.cc,
@@ -9,88 +9,64 @@ Cc: Randy Dunlap <rdunlap@xenotime.net>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout04.t-online.de ([194.25.134.18]:47340 "EHLO
-	mailout04.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758046AbZDWMls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 08:41:48 -0400
+Received: from mailout05.t-online.de ([194.25.134.82]:36886 "EHLO
+	mailout05.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758255AbZDWMlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 08:41:50 -0400
 In-Reply-To: <cover.1240489461.git.keil@b1-systems.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <keil@b1-systems.de>
-Move the entry about CAPI 2.0 to the beginning and add a URL.
-Incorporate changes suggested by Randy Dunlap, thanks for proofreading.
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Tue, 7 Apr 2009 17:51:32 +0200
+After the merging of mISDN, state which files refer only to the
+old isdn4linux subsystem.  Also add a few missing files.
 
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 Signed-off-by: Karsten Keil <keil@b1-systems.de>
 ---
- Documentation/isdn/INTERFACE.CAPI |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
+ Documentation/isdn/00-INDEX |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
-index 8947ffc..786d619 100644
---- a/Documentation/isdn/INTERFACE.CAPI
-+++ b/Documentation/isdn/INTERFACE.CAPI
-@@ -3,6 +3,11 @@ Kernel CAPI Interface to Hardware Drivers
- 
- 1. Overview
- 
-+From the CAPI 2.0 specification:
-+COMMON-ISDN-API (CAPI) is an application programming interface standard used
-+to access ISDN equipment connected to basic rate interfaces (BRI) and primary
-+rate interfaces (PRI).
-+
- Kernel CAPI operates as a dispatching layer between CAPI applications and CAPI
- hardware drivers. Hardware drivers register ISDN devices (controllers, in CAPI
- lingo) with Kernel CAPI to indicate their readiness to provide their service
-@@ -12,6 +17,9 @@ application registration to an available device, forwarding it to the
- corresponding hardware driver. Kernel CAPI then forwards CAPI messages in both
- directions between the application and the hardware driver.
- 
-+Format and semantics of CAPI messages are specified in the CAPI 2.0 standard.
-+This standard is freely available from http://www.capi.org.
-+
- 
- 2. Driver and Device Registration
- 
-@@ -53,12 +61,10 @@ open() operation on regular files or character devices.
- After a successful return from register_appl(), CAPI messages from the
- application may be passed to the driver for the device via calls to the
- send_message() callback function. The CAPI message to send is stored in the
--data portion of a skb. Conversely, the driver may call Kernel CAPI's
-+data portion of an skb. Conversely, the driver may call Kernel CAPI's
- capi_ctr_handle_message() function to pass a received CAPI message to Kernel
- CAPI for forwarding to an application, specifying its ApplID.
- 
--Format and semantics of CAPI messages are specified in the CAPI 2.0 standard.
--
- Deregistration requests (CAPI operation CAPI_RELEASE) from applications are
- forwarded as calls to the release_appl() callback function, passing the same
- ApplID as with register_appl(). After return from release_appl(), no CAPI
-@@ -75,9 +81,9 @@ the following non-private fields, all to be set by the driver before calling
- register_capi_driver():
- 
- char name[32]
--	the name of the driver, as a zero terminated ASCII string
-+	the name of the driver, as a zero-terminated ASCII string
- char revision[32]
--	the revision number of the driver, as a zero terminated ASCII string
-+	the revision number of the driver, as a zero-terminated ASCII string
- int (*add_card)(struct capi_driver *driver, capicardparams *data)
- 	a callback function pointer (may be NULL)
- 
-@@ -100,10 +106,10 @@ void *driverdata
- 	an opaque pointer to driver specific data, not touched by Kernel CAPI
- 
- char name[32]
--	the name of the controller, as a zero terminated ASCII string
-+	the name of the controller, as a zero-terminated ASCII string
- 
- char *driver_name
--	the name of the driver, as a zero terminated ASCII string
-+	the name of the driver, as a zero-terminated ASCII string
- 
- int (*load_firmware)(struct capi_ctr *ctrlr, capiloaddata *ldata)
- 	(optional) pointer to a callback function for sending firmware and
+diff --git a/Documentation/isdn/00-INDEX b/Documentation/isdn/00-INDEX
+index 9fee5f2..d9660ee 100644
+--- a/Documentation/isdn/00-INDEX
++++ b/Documentation/isdn/00-INDEX
+@@ -2,8 +2,12 @@
+ 	- this file (info on ISDN implementation for Linux)
+ CREDITS
+ 	- list of the kind folks that brought you this stuff.
++HiSax.cert
++	- information about the ITU approval certification of the HiSax driver.
+ INTERFACE
+-	- description of Linklevel and Hardwarelevel ISDN interface.
++	- description of isdn4linux Link Level and Hardware Level interfaces.
++INTERFACE.fax
++	- description of the fax subinterface of isdn4linux.
+ README
+ 	- general info on what you need and what to do for Linux ISDN.
+ README.FAQ
+@@ -12,6 +16,8 @@ README.audio
+ 	- info for running audio over ISDN.
+ README.fax
+ 	- info for using Fax over ISDN.
++README.gigaset
++	- info on the drivers for Siemens Gigaset ISDN adapters.
+ README.icn
+ 	- info on the ICN-ISDN-card and its driver.
+ README.HiSax
+@@ -37,7 +43,8 @@ README.diversion
+ README.sc
+ 	- info on driver for Spellcaster cards.
+ README.x25
+-    _ info for running X.25 over ISDN.
++	- info for running X.25 over ISDN.
+ README.hysdn
+-        - info on driver for Hypercope active HYSDN cards
+- 
++	- info on driver for Hypercope active HYSDN cards
++README.mISDN
++	- info on the Modular ISDN subsystem (mISDN).
 -- 
 1.6.0.2
 
