@@ -1,150 +1,52 @@
-From: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-Subject: RE: [RFC][PATCH v3 6/6] fix wrong get_user_pages usage in iovlock.c
-Date: Thu, 23 Apr 2009 13:48:50 +0100
-Message-ID: <129600E5E5FB004392DDC3FB599660D79A253143@irsmsx504.ger.corp.intel.com>
-References: <20090415174658.AC4F.A69D9226@jp.fujitsu.com>
- <129600E5E5FB004392DDC3FB599660D792A39DCE@irsmsx504.ger.corp.intel.com>
- <20090419202447.FFC2.A69D9226@jp.fujitsu.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] gianfar: irq_of_parse_and_map() error unnoticed
+Date: Thu, 23 Apr 2009 14:52:44 +0200
+Message-ID: <49F0649C.8030908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, LKML
-	<linux-kernel@vger.kernel.org>, Linus Torvalds <torvalds@osdl.org>, Andrew
- Morton <akpm@osdl.org>, Andrea Arcangeli <aarcange@redhat.com>, Jeff Moyer
-	<jmoyer@redhat.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>, "David S.
- Miller" <davem@davemloft.net>, "Leech, Christopher"
-	<christopher.leech@intel.com>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090419202447.FFC2.A69D9226@jp.fujitsu.com>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:34256 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755315AbZDWMwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 08:52:47 -0400
+Received: by ewy24 with SMTP id 24so484656ewy.37
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 05:52:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-KOSAKI Motohiro wrote:
->> KOSAKI Motohiro wrote:
->>>>> I would perhaps not fold gup_fast conversions into the same patch as
->>>>> the fix.
->>>>=20
->>>> OK. I'll fix.
->>>=20
->>> Done.
->>>=20
->>>=20
->>>=20
->>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>> Subject: [Untested][RFC][PATCH] fix wrong get_user_pages usage in iovlo=
-ck.c
->>>=20
->>> 	down_read(mmap_sem)
->>> 	get_user_pages()
->>> 	up_read(mmap_sem)
->>>=20
->>> is fork unsafe.
->>> fix it.
->>>=20
->>> Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
->>> Cc: Maciej Sosnowski <maciej.sosnowski@intel.com>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Cc: Chris Leech <christopher.leech@intel.com>
->>> Cc: netdev@vger.kernel.org
->>> ---
->>>  drivers/dma/iovlock.c |    4 ++--
->>>  1 file changed, 2 insertions(+), 2 deletions(-)
->>>=20
->>> Index: b/drivers/dma/iovlock.c
->>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>> --- a/drivers/dma/iovlock.c	2009-04-13 22:58:36.000000000 +0900
->>> +++ b/drivers/dma/iovlock.c	2009-04-14 20:27:16.000000000 +0900
->>> @@ -104,8 +104,6 @@ struct dma_pinned_list *dma_pin_iovec_pa  			0,	/* =
-force */
->>>  			page_list->pages,
->>>  			NULL);
->>> -		up_read(&current->mm->mmap_sem);
->>> -
->>>  		if (ret !=3D page_list->nr_pages)
->>>  			goto unpin;
->>>=20
->>> @@ -127,6 +125,8 @@ void dma_unpin_iovec_pages(struct dma_pi  	if (!pin=
-ned_list)
->>>  		return;
->>>=20
->>> +	up_read(&current->mm->mmap_sem);
->>> +
->>>  	for (i =3D 0; i < pinned_list->nr_iovecs; i++) {
->>>  		struct dma_page_list *page_list =3D &pinned_list->page_list[i];
->>>  		for (j =3D 0; j < page_list->nr_pages; j++) {
->>=20
->> I have tried it with net_dma and here is what I've got.
->=20
-> Thanks.
-> Instead, How about this?
->=20
+Not sure which irq_of_parse_and_map() is used, but I found definitions here:
 
-Unfortuantelly still does not look good.
+vi arch/microblaze/kernel/irq.c +23
+vi arch/powerpc/kernel/irq.c +727
+vi arch/sparc/kernel/of_device_32.c +33
+vi arch/sparc/kernel/of_device_64.c +59
 
-Regards,
-Maciej
+They either return 0 or NO_IRQ - either defined 0, -1, 255 or INT_MAX.
+------------------------------>8-------------8<---------------------------------
+priv->interruptTransmit, -Receive and -Error are unsigned, so the error path
+wasn't taken when irq_of_parse_and_map() returned an incorrect irq.
 
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
- [ INFO: possible recursive locking detected ]
- 2.6.30-rc2 #14
- ---------------------------------------------
- iperf/9932 is trying to acquire lock:
-  (&mm->mmap_sem){++++++}, at: [<ffffffff804e3d5e>] do_page_fault+0x170/0
-
-=20
- but task is already holding lock:
-  (&mm->mmap_sem){++++++}, at: [<ffffffff80488722>] tcp_recvmsg+0x3a/0xa7
-
-=20
- other info that might help us debug this:
- 2 locks held by iperf/9932:
-  #0:  (&mm->mmap_sem){++++++}, at: [<ffffffff80488722>] tcp_recvmsg+0x3a
-
-  #1:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff80450965>] sk_wait_data+0
-
-=20
- stack backtrace:
- Pid: 9932, comm: iperf Tainted: G        W  2.6.30-rc2 #14
- Call Trace:
-  [<ffffffff8025b861>] ? validate_chain+0x55a/0xc7c
-  [<ffffffff8025c6e6>] ? __lock_acquire+0x763/0x7ec
-  [<ffffffff8025c835>] ? lock_acquire+0xc6/0xea
-  [<ffffffff804e3d5e>] ? do_page_fault+0x170/0x29d
-  [<ffffffff804e0693>] ? down_read+0x46/0x77
-  [<ffffffff804e3d5e>] ? do_page_fault+0x170/0x29d
-  [<ffffffff804e3d5e>] ? do_page_fault+0x170/0x29d
-  [<ffffffff804e1ebf>] ? page_fault+0x1f/0x30
-  [<ffffffff803580ed>] ? copy_user_generic_string+0x2d/0x40
-  [<ffffffff804562cc>] ? memcpy_toiovec+0x36/0x66
-  [<ffffffff804569eb>] ? skb_copy_datagram_iovec+0x133/0x1f0
-  [<ffffffff80490199>] ? tcp_rcv_established+0x297/0x71a
-  [<ffffffff804953f8>] ? tcp_v4_do_rcv+0x2c/0x1d5
-  [<ffffffff8024ebb3>] ? autoremove_wake_function+0x0/0x2e
-  [<ffffffff80486239>] ? tcp_prequeue_process+0x6b/0x7e
-  [<ffffffff80488b31>] ? tcp_recvmsg+0x449/0xa70
-  [<ffffffff8025c704>] ? __lock_acquire+0x781/0x7ec
-  [<ffffffff8044f5d5>] ? sock_common_recvmsg+0x30/0x45
-  [<ffffffff8044d81b>] ? sock_recvmsg+0xf0/0x10f
-  [<ffffffff80259c3c>] ? trace_hardirqs_on_caller+0x11d/0x148
-  [<ffffffff8024ebb3>] ? autoremove_wake_function+0x0/0x2e
-  [<ffffffff8020c43c>] ? restore_args+0x0/0x30
-  [<ffffffff802b553c>] ? fget_light+0xd5/0xdf
-  [<ffffffff802b54b0>] ? fget_light+0x49/0xdf
-  [<ffffffff8044e8ef>] ? sys_recvfrom+0xbc/0x119
-  [<ffffffff802331cd>] ? try_to_wake_up+0x2ae/0x2c0
-  [<ffffffff802718f7>] ? audit_syscall_entry+0x192/0x1bd
-  [<ffffffff8020b96b>] ? system_call_fastpath+0x16/0x1b
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com> 
+---
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b2c4967..e30d158 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -203,9 +203,12 @@ static int gfar_of_init(struct net_device *dev)
+ 
+ 		priv->interruptError = irq_of_parse_and_map(np, 2);
+ 
+-		if (priv->interruptTransmit < 0 ||
+-				priv->interruptReceive < 0 ||
+-				priv->interruptError < 0) {
++		if (priv->interruptTransmit == 0 ||
++				priv->interruptTransmit > 254 ||
++				priv->interruptReceive == 0 ||
++				priv->interruptReceive > 254 ||
++				priv->interruptError == 0 ||
++				priv->interruptReceive > 254) {
+ 			err = -EINVAL;
+ 			goto err_out;
+ 		}
