@@ -1,45 +1,55 @@
-From: Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors
-	are closed
-Date: Fri, 24 Apr 2009 14:40:35 +0200
-Message-ID: <200904241440.36319.borntraeger@de.ibm.com>
-References: <20090415083610.GA8579@gondor.apana.org.au>
-	<200904241055.49794.borntraeger@de.ibm.com>
-	<20090424121156.GA28039@gondor.apana.org.au>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
+Date: Fri, 24 Apr 2009 08:45:28 -0400
+Message-ID: <49F1B468.7020605@myri.com>
+References: <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au> <49EF39B4.1040607@myri.com> <20090424054557.GA24575@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, virtualization-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
-	Matias Zabaljauregui <zabaljauregui-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-In-Reply-To: <20090424121156.GA28039-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/lguest>,
-	<mailto:lguest-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, brice@myri.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1887 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753525AbZDXMq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Apr 2009 08:46:27 -0400
+In-Reply-To: <20090424054557.GA24575@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Friday 24 April 2009 14:11:56 schrieb Herbert Xu:
-> The patch you qouted has been superceded by many versions :)
+Herbert Xu wrote:
+> On Wed, Apr 22, 2009 at 11:37:24AM -0400, Andrew Gallatin wrote:
+>> I booted the sender into a kernel.org 2.6.18.2 so as to try to have  
+>> results as close to yours as possible (I was running 2.6.22 on the
+>> sender before).
+> 
+> OK I've got my hands on a myricom card.  I've tested it using the
+> same 2.6.18 sender that I used against the eariler cxgb3 test.
+> I wasn't able to discern any significant deviations between LRO
+> and GRO.
+> 
+> Unfortunately it seems that this machine is a little too fast
+> so even with the IRQ bound to a single CPU it's way overspeced
+> for 10GbE:
+> 
+>     Idle at 10Gb IRQ rate	soaker IRQ rate soaker throuput
+> GRO 43-45	 14700		13300		7933
+> LRO 43-45	 14700		13300		7943
+> 
+> But even with the soaker running they seem to be neck and neck.
 
-Yes, I got lost in this mail thread...
+This is strange.  I wonder if it might be a cache footprint issue?
+My intentionally weak receiver is an athlon64 x2 "Toledo", and
+has only 512KB L2 cache.  I can re-test with a core-2 based Xeon.
 
-> Can you please test the latest that's in davem's tree?
+But can you describe your setup in more detail?  What CPU does the
+receiver have? You say the sender is running 2.6.18.  Is this
+a RHEL5 kernel, or a kernel.org kernel?
 
-Done. With 
-http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet-2.6.git;a=commitdiff_plain;h=9c3fea6ab04a7bd9298e635bf29b4a5379f6c476
-http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet-2.6.git;a=commitdiff_plain;h=c40af84a6726f63e35740d26f841992e8f31f92c
+> Here's the patch I used BTW.  I got the checksums to work by
+> just setting skb->csum.
 
-Everything works fine. Thank you and sorry for the noise.
+Yes, sorry about that stupidity.
 
-Christian
+Drew
