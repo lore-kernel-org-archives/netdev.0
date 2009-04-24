@@ -1,69 +1,54 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors are closed
-Date: Fri, 24 Apr 2009 10:55:49 +0200
-Message-ID: <200904241055.49794.borntraeger@de.ibm.com>
-References: <20090415083610.GA8579@gondor.apana.org.au> <20090415143834.GA12384@gondor.apana.org.au> <20090416110818.GA20950@gondor.apana.org.au>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH next] 8390p: fix build breakage
+Date: Fri, 24 Apr 2009 13:25:50 +0400
+Message-ID: <20090424092550.GA10833@orion>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Matias Zabaljauregui <zabaljauregui@gmail.com>, odie@cs.aau.dk,
-	Rusty Russell <rusty@rustcorp.com.au>, lguest@ozlabs.org,
-	virtualization@lists.osdl.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Carsten Otte <cotte@de.ibm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+To: ormi.linux@gmail.com, David Miller <davem@davemloft.net>,
+	linux-next@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:38475 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753061AbZDXIzz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 04:55:55 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate4.de.ibm.com (8.14.3/8.13.8) with ESMTP id n3O8tpQ6119140
-	for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 08:55:52 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3O8tpx83477574
-	for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 10:55:51 +0200
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3O8todN028142
-	for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 10:55:51 +0200
-In-Reply-To: <20090416110818.GA20950@gondor.apana.org.au>
+Received: from qw-out-2122.google.com ([74.125.92.26]:58258 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756181AbZDXJZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 05:25:59 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Thursday 16 April 2009 13:08:18 schrieb Herbert Xu:
-> On Wed, Apr 15, 2009 at 10:38:34PM +0800, Herbert Xu wrote:
-> > 
-> > So how about this? We replace the dev destructor with our own that
-> > doesn't immediately call free_netdev.  We only call free_netdev once
-> > all tun fd's attached to the device have been closed.
-> 
-> Here's the patch.  I'd appreciate if everyone can review it
-> and see if they can recreate the original race by
-> 
-> 1) Starting a process using tun and polls on it;
-> 2) Doing ip tun del tunXXX while the process is polling.
-> 
-> tun: Only free a netdev when all tun descriptors are closed
-> 
-> The commit c70f182940f988448f3c12a209d18b1edc276e33 ("tun: Fix
-> races between tun_net_close and free_netdev") fixed a race where
-> an asynchronous deletion of a tun device can hose a poll(2) on
-> a tun fd attached to that device.
+Fix this build error caused by 362b76edb789
+"8390p: Get rid of init_module/cleanup_module"
 
-Sorry for the late reply, but this patch creates another regression:
-Now TUNSETIFF returns EBUSY on a persistent tap device:
+drivers/net/8390p.c:94:19: error: invalid suffix "p_init_module" on integer constant
+drivers/net/8390p.c:94: error: expected identifier or '(' before numeric constant
+drivers/net/8390p.c:99:20: error: invalid suffix "p_cleanup_module" on integer constant
 
-open("/dev/net/tun", O_RDWR) = 11
-ioctl(11, 0x400454ca, 0x3ffff8e2270) = -1 EBUSY (Device or resource busy)
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
 
-Some debugging (thanks to Carsten Otte) showed that
+ drivers/net/8390p.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-tun_set_iff calls tun_attach (the first call inside the if(dev)). tun_attach
-now checks for tun->tfile but this is already set.
-Looks like we need another fix on top :-(
-
-Christian
+diff --git a/drivers/net/8390p.c b/drivers/net/8390p.c
+index cacdd86..d225c29 100644
+--- a/drivers/net/8390p.c
++++ b/drivers/net/8390p.c
+@@ -91,15 +91,15 @@ void NS8390p_init(struct net_device *dev, int startp)
+ }
+ EXPORT_SYMBOL(NS8390p_init);
+ 
+-static int __init 8390p_init_module(void)
++static int __init NS8390p_init_module(void)
+ {
+ 	return 0;
+ }
+ 
+-static void __exit 8390p_cleanup_module(void)
++static void __exit NS8390p_cleanup_module(void)
+ {
+ }
+ 
+-module_init(8390p_init_module);
+-module_exit(8390p_cleanup_module);
++module_init(NS8390p_init_module);
++module_exit(NS8390p_cleanup_module);
+ MODULE_LICENSE("GPL");
