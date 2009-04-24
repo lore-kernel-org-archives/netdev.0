@@ -1,48 +1,48 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: Re: [PATCH] smsc911x: add fifo byteswap support
-Date: Fri, 24 Apr 2009 10:15:03 +0900
-Message-ID: <aec7e5c30904231815x79d6f4e8g2e53de1fdeb7a73b@mail.gmail.com>
-References: <20090422145553.25073.99410.sendpatchset@rx1.opensource.se>
-	 <OFC89C8D8B.9962FD9A-ON802575A0.005335A8-802575A0.00545CBF@smsc.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, iwamatsu@nigauri.org, lethal@linux-sh.org,
-	netdev@vger.kernel.org, Ian.Saturley@smsc.com
-To: Steve.Glendinning@smsc.com
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] vxge: fix possible NULL dereference in vxge-traffic.c
+Date: Fri, 24 Apr 2009 05:31:38 +0400
+Message-ID: <1240536698-10821-1-git-send-email-a.beregalov@gmail.com>
+Cc: Alexander Beregalov <a.beregalov@gmail.com>
+To: ram.vepa@neterion.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f166.google.com ([209.85.217.166]:44533 "EHLO
-	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756335AbZDXBPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 21:15:05 -0400
-Received: by gxk10 with SMTP id 10so1817678gxk.13
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 18:15:03 -0700 (PDT)
-In-Reply-To: <OFC89C8D8B.9962FD9A-ON802575A0.005335A8-802575A0.00545CBF@smsc.com>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:40434 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbZDXBbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2009 21:31:43 -0400
+Received: by fxm2 with SMTP id 2so862653fxm.37
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2009 18:31:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2009 at 12:21 AM,  <Steve.Glendinning@smsc.com> wrote:
-> Magnus Damm <magnus.damm@gmail.com> wrote on 22/04/2009 15:55:53:
->> This patch adds fifo byteswap support to the smsc911x driver.
+If vpath is NULL then hldev is NULL also.
 
-> Performance will be suboptimal with this software byteswapping,
-> so I think we should also add a comment to stress that this is
-> a "last resort" workaround for broken hardware.
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+ drivers/net/vxge/vxge-traffic.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Good idea. How about adding the following to the header file right
-before the SMSC911X_SWAP_FIFO definition:
+diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/vxge/vxge-traffic.c
+index 7be0ae1..506625b 100644
+--- a/drivers/net/vxge/vxge-traffic.c
++++ b/drivers/net/vxge/vxge-traffic.c
+@@ -1923,7 +1923,7 @@ enum vxge_hw_status __vxge_hw_vpath_alarm_process(
+ 	if (vpath == NULL) {
+ 		alarm_event = VXGE_HW_SET_LEVEL(VXGE_HW_EVENT_UNKNOWN,
+ 			alarm_event);
+-		goto out;
++		goto out2;
+ 	}
+ 
+ 	hldev = vpath->hldev;
+@@ -2161,7 +2161,7 @@ enum vxge_hw_status __vxge_hw_vpath_alarm_process(
+ 	}
+ out:
+ 	hldev->stats.sw_dev_err_stats.vpath_alarms++;
+-
++out2:
+ 	if ((alarm_event == VXGE_HW_EVENT_ALARM_CLEARED) ||
+ 		(alarm_event == VXGE_HW_EVENT_UNKNOWN))
+ 		return VXGE_HW_OK;
+-- 
+1.6.2.3
 
-/*
- * SMSC911X_SWAP_FIFO:
- * Enables software byte swap for fifo data. Should only be used as a
- * "last resort" in the case of big endian mode on boards with incorrectly
- * routed data bus to older devices such as LAN9118. Newer devices such as
- * LAN9221 handle this in hardware.
- */
-
-Let me know if you want to improve the comment somehow, otherwise I'll
-just update the patch and repost a V2.
-
-Cheers,
-
-/ magnus
