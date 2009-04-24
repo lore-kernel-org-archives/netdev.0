@@ -1,135 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] netdev: storage address support
-Date: Fri, 24 Apr 2009 01:03:50 -0700
-Message-ID: <20090424080349.30460.73770.stgit@localhost.localdomain>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Subject: Re: [1/2] tun: Only free a netdev when all tun descriptors are closed
+Date: Fri, 24 Apr 2009 10:55:49 +0200
+Message-ID: <200904241055.49794.borntraeger@de.ibm.com>
+References: <20090415083610.GA8579@gondor.apana.org.au> <20090415143834.GA12384@gondor.apana.org.au> <20090416110818.GA20950@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	linux-scsi@vger.kernel.org,
-	Chris Leech <christopher.leech@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Matias Zabaljauregui <zabaljauregui@gmail.com>, odie@cs.aau.dk,
+	Rusty Russell <rusty@rustcorp.com.au>, lguest@ozlabs.org,
+	virtualization@lists.osdl.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Carsten Otte <cotte@de.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:52965
-	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751312AbZDXIEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 04:04:13 -0400
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:38475 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753061AbZDXIzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 04:55:55 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.14.3/8.13.8) with ESMTP id n3O8tpQ6119140
+	for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 08:55:52 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3O8tpx83477574
+	for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 10:55:51 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3O8todN028142
+	for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 10:55:51 +0200
+In-Reply-To: <20090416110818.GA20950@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Leech <christopher.leech@intel.com>
+Am Thursday 16 April 2009 13:08:18 schrieb Herbert Xu:
+> On Wed, Apr 15, 2009 at 10:38:34PM +0800, Herbert Xu wrote:
+> > 
+> > So how about this? We replace the dev destructor with our own that
+> > doesn't immediately call free_netdev.  We only call free_netdev once
+> > all tun fd's attached to the device have been closed.
+> 
+> Here's the patch.  I'd appreciate if everyone can review it
+> and see if they can recreate the original race by
+> 
+> 1) Starting a process using tun and polls on it;
+> 2) Doing ip tun del tunXXX while the process is polling.
+> 
+> tun: Only free a netdev when all tun descriptors are closed
+> 
+> The commit c70f182940f988448f3c12a209d18b1edc276e33 ("tun: Fix
+> races between tun_net_close and free_netdev") fixed a race where
+> an asynchronous deletion of a tun device can hose a poll(2) on
+> a tun fd attached to that device.
 
-Fibre Channel over Ethernet (FCoE) uses a second MAC address dedicated to FCoE
-traffic on an Ethernet link.  There are two supported addressing modes,
-negotiated at fabric discovery time with the gateway switch or Fibre Channel
-Forwarder (FCF).
+Sorry for the late reply, but this patch creates another regression:
+Now TUNSETIFF returns EBUSY on a persistent tap device:
 
-1) Fabric Provided MAC Address (FPMA)
-The MAC address is dynamically generated from the assigned FC ID.  The FCoE
-stack supports this today and adds the address to the device with the
-dev_unicast_add() API.
+open("/dev/net/tun", O_RDWR) = 11
+ioctl(11, 0x400454ca, 0x3ffff8e2270) = -1 EBUSY (Device or resource busy)
 
-2) Server Provided MAC Address (SPMA)
-The server indicates to the FCF the address it would like to use for FCoE
-traffic.  It's expected that SPMA capable interfaces will have a storage
-dedicated MAC address programed into EPROM, flash, or other non-volatile
-storage which the driver will be able to provide to the FCoE stack.
+Some debugging (thanks to Carsten Otte) showed that
 
-This adds a net_device_ops function to query a driver for a dedicated storage
-address.
+tun_set_iff calls tun_attach (the first call inside the if(dev)). tun_attach
+now checks for tun->tfile but this is already set.
+Looks like we need another fix on top :-(
 
-If ndo_get_storage_address is implemented, then the address will also be
-exposed as a sysfs attribute.  In order to do that, a new optional attrs group
-is added to the net_device, with the visibility of each attribute protected by
-a call to netdev_show_optional_attr().
-
-Signed-off-by: Chris Leech <christopher.leech@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- include/linux/netdevice.h |    3 ++-
- net/core/net-sysfs.c      |   41 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 43 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3116745..3964ca6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -602,6 +602,7 @@ struct net_device_ops {
- 	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
- 						     u16 xid);
- #endif
-+	void *			(*ndo_get_storage_address)(struct net_device *dev);
- };
- 
- /*
-@@ -846,7 +847,7 @@ struct net_device
- 	/* class/net/name entry */
- 	struct device		dev;
- 	/* space for optional statistics and wireless sysfs groups */
--	struct attribute_group  *sysfs_groups[3];
-+	struct attribute_group  *sysfs_groups[4];
- 
- 	/* rtnetlink link ops */
- 	const struct rtnl_link_ops *rtnl_link_ops;
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 2da59a0..da68ae6 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -266,6 +266,46 @@ static struct device_attribute net_class_attributes[] = {
- 	{}
- };
- 
-+static ssize_t show_storage_address(struct device *dev,
-+				    struct device_attribute *attr, char *buf)
-+{
-+	struct net_device *net = to_net_dev(dev);
-+	const struct net_device_ops *ops = net->netdev_ops;
-+	u8 addr[MAX_ADDR_LEN];
-+
-+	if (!ops->ndo_get_storage_address)
-+		return -EINVAL;
-+	if (dev_isalive(net)) {
-+		memcpy(addr, ops->ndo_get_storage_address(net), net->addr_len);
-+		return sysfs_format_mac(buf, addr, net->addr_len);
-+	}
-+	return -EINVAL;
-+}
-+
-+DEVICE_ATTR(storage_address, S_IRUGO, show_storage_address, NULL);
-+
-+static struct attribute *optional_attrs[] = {
-+	&dev_attr_storage_address.attr,
-+	NULL
-+};
-+
-+static mode_t netdev_show_optional_attr(struct kobject *kobj,
-+					struct attribute *attr, int i)
-+{
-+	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct net_device *net = to_net_dev(dev);
-+	const struct net_device_ops *ops = net->netdev_ops;
-+
-+	if (attr == &dev_attr_storage_address.attr)
-+		return ops->ndo_get_storage_address ? S_IRUGO : 0;
-+	return 0;
-+}
-+
-+static struct attribute_group optional_group = {
-+	.is_visible = netdev_show_optional_attr,
-+	.attrs = optional_attrs,
-+};
-+
- /* Show a given an attribute in the statistics group */
- static ssize_t netstat_show(const struct device *d,
- 			    struct device_attribute *attr, char *buf,
-@@ -502,6 +542,7 @@ int netdev_register_kobject(struct net_device *net)
- 
- #ifdef CONFIG_SYSFS
- 	*groups++ = &netstat_group;
-+	*groups++ = &optional_group;
- 
- #ifdef CONFIG_WIRELESS_EXT_SYSFS
- 	if (net->wireless_handlers && net->wireless_handlers->get_wireless_stats)
-
+Christian
