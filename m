@@ -1,153 +1,135 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC, PATCH 2.6.29.1] Ethernet V2.0 Configuration Testing Protocol
-Date: Fri, 24 Apr 2009 09:36:14 +0200
-Message-ID: <49F16BEE.2040902@cosmosbay.com>
-References: <20090423221015.48b79b04.ipng@69706e6720323030352d30312d31340a.nosense.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] netdev: storage address support
+Date: Fri, 24 Apr 2009 01:03:50 -0700
+Message-ID: <20090424080349.30460.73770.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>
-To: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	linux-scsi@vger.kernel.org,
+	Chris Leech <christopher.leech@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37592 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752137AbZDXHgZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 03:36:25 -0400
-In-Reply-To: <20090423221015.48b79b04.ipng@69706e6720323030352d30312d31340a.nosense.org>
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:52965
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751312AbZDXIEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 04:04:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark Smith a =E9crit :
-> Hi,
->=20
-> I'm hoping my attached implementation of the Ethernet V2.0 Configurat=
-ion
-> Testing Protocol could be reviewed, with eventual goal of inclusion i=
-n
-> the kernel.
->=20
-> Ethernet V2.0 Configuration Testing Protocol (ECTP) is an old Etherne=
-t
-> testing protocol, specified in section 8 of the original Ethernet V2.=
-0
-> specification. It provides request/reply "ping" style testing at
-> the Ethernet layer, testing of a path via a list of devices (i.e. a
-> strict source route), and identification of ECTP capable devices via
-> broadcast or multicast ECTP requests.
->=20
-> I've had a go at implementing it for a number of reasons:
->=20
-> o  My day job involves running networks, and eventually you start to
-> wonder what is going on inside the devices you use. I think having a =
-go
-> at implementing something is a good way to learn.
->=20
-> o  It's a very simple protocol (a single frame format), so it could b=
-e
-> a good starting point for people who'd like to understand more about
-> how networking works in the Linux kernel. I've tried to make the
-> implementation easy for people to follow what it is doing.
->=20
-> o  It's actually quite useful - every now and then people in networki=
-ng
-> say, "wouldn't it be great if there was an Ethernet ping which didn't
-> require IP to work". Recent Ethernet OAM standards provide that, but
-> they're a lot more complicated to implement than ECTP, and I needed
-> something simple to start with :-)
->=20
-> o  It might finally make Linux completely compliant with the Ethernet
-> V2.0 specification which says that the protocol is required!
->=20
-> I've also put together a testing utility. I need to put a bit more
-> polish on it, and find somewhere to host it, which I'll do in the nex=
-t
-> few days. Here are a couple of examples of it's use:
->=20
-> o  a unicast ECTP "ping"
->=20
-> [root@opy ectpping]# ./ectpping -i tap0 52:54:00:12:34:56
-> ECTPPING 52:54:00:12:34:56 (qa64-eth0) using tap0
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D0 time=3D0.0=
-00346 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D1 time=3D0.0=
-00209 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D2 time=3D0.0=
-00203 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D3 time=3D0.0=
-00187 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D4 time=3D0.0=
-00210 sec
-> ^C
-> ---- 52:54:00:12:34:56 (qa64-eth0) ECTPPING Statistics ----
-> 5 packets transmitted, 5 packets received, 0.000000% packet loss
-> round-trip (sec)  min/avg/max/total =3D 0.000187/0.000231/0.000346/0.=
-001155
->=20
->=20
-> o  a multicast ECTP "ping"
->=20
-> [root@opy ectpping]# ./ectpping -i tap0
-> ECTPPING cf:00:00:00:00:00 (loopback-assist) using tap0
-> 106 bytes from 52:54:00:12:34:57 (qa64-eth1): ectp_seq=3D0 time=3D0.0=
-18630 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D0 time=3D0.0=
-56334 sec
-> 106 bytes from 52:54:00:12:34:58 (qa64-eth2): ectp_seq=3D0 time=3D0.0=
-56656 sec
-> 106 bytes from 52:54:00:12:34:58 (qa64-eth2): ectp_seq=3D1 time=3D0.0=
-20351 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D1 time=3D0.0=
-24241 sec
-> 106 bytes from 52:54:00:12:34:57 (qa64-eth1): ectp_seq=3D1 time=3D0.0=
-31350 sec
-> 106 bytes from 52:54:00:12:34:58 (qa64-eth2): ectp_seq=3D2 time=3D0.0=
-49382 sec
-> 106 bytes from 52:54:00:12:34:57 (qa64-eth1): ectp_seq=3D2 time=3D0.0=
-67358 sec
-> 106 bytes from 52:54:00:12:34:56 (qa64-eth0): ectp_seq=3D2 time=3D0.0=
-74230 sec
-> ^C
-> ---- cf:00:00:00:00:00 (loopback-assist) ECTPPING Statistics ----
-> 3 packets transmitted, 9 packets received, 3.00 times packet increase
-> round-trip (sec)  min/avg/max/total =3D 0.018630/0.044281/0.074230/0.=
-398532
->=20
-> While I'm finishing off the utility, I thought I'd post the kernel
-> source to get it out there for people to have a look at. I'd really
-> appreciate any suggestions for improvement, or any pointers to where
-> I've done the wrong thing or had any miss understandings. The patch i=
-s
-> against 2.6.29.1.
->=20
-> Thanks very much,
-> Mark.
->=20
-> (please CC me, as I'm not on the mailing list)
->=20
+From: Chris Leech <christopher.leech@intel.com>
 
-Hello Mark
+Fibre Channel over Ethernet (FCoE) uses a second MAC address dedicated to FCoE
+traffic on an Ethernet link.  There are two supported addressing modes,
+negotiated at fabric discovery time with the gateway switch or Fibre Channel
+Forwarder (FCF).
 
-I am trying to find how ETCP could be useful :)
+1) Fabric Provided MAC Address (FPMA)
+The MAC address is dynamically generated from the assigned FC ID.  The FCoE
+stack supports this today and adds the address to the device with the
+dev_unicast_add() API.
 
-Could bonding use ETCP as a third way to validate a slave is operationa=
-l ?
+2) Server Provided MAC Address (SPMA)
+The server indicates to the FCF the address it would like to use for FCoE
+traffic.  It's expected that SPMA capable interfaces will have a storage
+dedicated MAC address programed into EPROM, flash, or other non-volatile
+storage which the driver will be able to provide to the FCoE stack.
 
-=46irst way is mii-mon (link presence to next hop)
-  -> Very lazy since we can be connected to a switch that lost all conn=
-ectivity to other equipments.
+This adds a net_device_ops function to query a driver for a dedicated storage
+address.
 
-Second way is arp_ping (list of 1 to 16 IP addresses)
-  -> broadcast messages.
-   If many hosts are on [V]LAN, and small arp_interval, this can genera=
-te extra trafic.
+If ndo_get_storage_address is implemented, then the address will also be
+exposed as a sysfs attribute.  In order to do that, a new optional attrs group
+is added to the net_device, with the visibility of each attribute protected by
+a call to netdev_show_optional_attr().
 
-Third way : ETCP messages sent to given MAC address ?
-  (Unicast messages, and no VLAN troubles...)
- I presume most routers support ETCP?
+Signed-off-by: Chris Leech <christopher.leech@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Is ectpping needing your kernel patches, or can it work with current ke=
-rnel ?
-If not too large, you could post its source on this list.
+ include/linux/netdevice.h |    3 ++-
+ net/core/net-sysfs.c      |   41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 1 deletions(-)
 
-Thank you
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3116745..3964ca6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -602,6 +602,7 @@ struct net_device_ops {
+ 	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
+ 						     u16 xid);
+ #endif
++	void *			(*ndo_get_storage_address)(struct net_device *dev);
+ };
+ 
+ /*
+@@ -846,7 +847,7 @@ struct net_device
+ 	/* class/net/name entry */
+ 	struct device		dev;
+ 	/* space for optional statistics and wireless sysfs groups */
+-	struct attribute_group  *sysfs_groups[3];
++	struct attribute_group  *sysfs_groups[4];
+ 
+ 	/* rtnetlink link ops */
+ 	const struct rtnl_link_ops *rtnl_link_ops;
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 2da59a0..da68ae6 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -266,6 +266,46 @@ static struct device_attribute net_class_attributes[] = {
+ 	{}
+ };
+ 
++static ssize_t show_storage_address(struct device *dev,
++				    struct device_attribute *attr, char *buf)
++{
++	struct net_device *net = to_net_dev(dev);
++	const struct net_device_ops *ops = net->netdev_ops;
++	u8 addr[MAX_ADDR_LEN];
++
++	if (!ops->ndo_get_storage_address)
++		return -EINVAL;
++	if (dev_isalive(net)) {
++		memcpy(addr, ops->ndo_get_storage_address(net), net->addr_len);
++		return sysfs_format_mac(buf, addr, net->addr_len);
++	}
++	return -EINVAL;
++}
++
++DEVICE_ATTR(storage_address, S_IRUGO, show_storage_address, NULL);
++
++static struct attribute *optional_attrs[] = {
++	&dev_attr_storage_address.attr,
++	NULL
++};
++
++static mode_t netdev_show_optional_attr(struct kobject *kobj,
++					struct attribute *attr, int i)
++{
++	struct device *dev = container_of(kobj, struct device, kobj);
++	struct net_device *net = to_net_dev(dev);
++	const struct net_device_ops *ops = net->netdev_ops;
++
++	if (attr == &dev_attr_storage_address.attr)
++		return ops->ndo_get_storage_address ? S_IRUGO : 0;
++	return 0;
++}
++
++static struct attribute_group optional_group = {
++	.is_visible = netdev_show_optional_attr,
++	.attrs = optional_attrs,
++};
++
+ /* Show a given an attribute in the statistics group */
+ static ssize_t netstat_show(const struct device *d,
+ 			    struct device_attribute *attr, char *buf,
+@@ -502,6 +542,7 @@ int netdev_register_kobject(struct net_device *net)
+ 
+ #ifdef CONFIG_SYSFS
+ 	*groups++ = &netstat_group;
++	*groups++ = &optional_group;
+ 
+ #ifdef CONFIG_WIRELESS_EXT_SYSFS
+ 	if (net->wireless_handlers && net->wireless_handlers->get_wireless_stats)
 
