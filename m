@@ -1,67 +1,74 @@
-From: Kalle Valo <kalle.valo@nokia.com>
-Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Fri, 24 Apr 2009 16:44:22 +0300
-Message-ID: <87ljpqqi89.fsf@nokia.com>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] bonding: ignore updelay param when there is no active slave
+Date: Fri, 24 Apr 2009 15:57:29 +0200
+Message-ID: <20090424135728.GA12304@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: "ext Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> (ext Rafael J. Wysocki's message of "Thu\, 16 Apr 2009 23\:42\:31 +0200")
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:35212 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757570AbZDXN5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Apr 2009 09:57:33 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Rafael J. Wysocki" <rjw@sisk.pl> writes:
+Pointed out by Sean E. Millichamp.
 
-> This message contains a list of some regressions from 2.6.29, for
-> which there are no fixes in the mainline I know of. If any of them
-> have been fixed already, please let me know.
->
-> If you know of any other unresolved regressions from 2.6.29, please
-> let me know either and I'll add them to the list. Also, please let
-> me know if any of the entries below are invalid.
->
-> Each entry from the list will be sent additionally in an automatic reply to
-> this message with CCs to the people involved in reporting and handling the
-> issue.
->
+Quote from Documentation/networking/bonding.txt:
+"Note that when a bonding interface has no active links, the
+driver will immediately reuse the first link that goes up, even if the
+updelay parameter has been specified (the updelay is ignored in this
+case).  If there are slave interfaces waiting for the updelay timeout
+to expire, the interface that first went into that state will be
+immediately reused.  This reduces down time of the network if the
+value of updelay has been overestimated, and since this occurs only in
+cases with no connectivity, there is no additional penalty for
+ignoring the updelay."
 
-[...]
+This patch actually changes the behaviour in this way.
 
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13067
-> Subject         : iwl3945: wlan0: beacon loss from AP - sending probe request
-> Submitter       : Maciej Rutecki <maciej.rutecki@gmail.com>
-> Date            : 2009-04-05 9:11 (12 days old)
-> References      : http://marc.info/?l=linux-kernel&m=123892272218266&w=4
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-The regression here is that I added a printk() to inform about beacon
-loss. The issue has been there a long time, the printk() just exposed
-it.
+ drivers/net/bonding/bond_main.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-Michael wrote a patch which silences the printk:
-
-http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commit;h=16eaea5faa37d552b14e246ca56a436e55ca67b3
-
-I fixed the beacon loss detection here:
-
-http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commit;h=3b6dc5a431e4fef35717cba53544a95209f49b68
-
-John, I think Michael's patch should be sent to 2.6.30. Any chances
-for that?
-
-Rafael, is it possible to send your regression mails to
-linux-wireless@vger.kernel.org as well? Very few wireless developers
-have time to follow netdev or lkml.
-
--- 
-Kalle Valo
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 63369b6..da6106b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2249,6 +2249,9 @@ static int bond_miimon_inspect(struct bonding *bond)
+ {
+ 	struct slave *slave;
+ 	int i, link_state, commit = 0;
++	bool ignore_updelay;
++
++	ignore_updelay = !bond->curr_active_slave ? true : false;
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+ 		slave->new_link = BOND_LINK_NOCHANGE;
+@@ -2313,6 +2316,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 				       ": %s: link status up for "
+ 				       "interface %s, enabling it in %d ms.\n",
+ 				       bond->dev->name, slave->dev->name,
++				       ignore_updelay ? 0 :
+ 				       bond->params.updelay *
+ 				       bond->params.miimon);
+ 			}
+@@ -2331,9 +2335,13 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 				continue;
+ 			}
+ 
++			if (ignore_updelay)
++				slave->delay = 0;
++
+ 			if (slave->delay <= 0) {
+ 				slave->new_link = BOND_LINK_UP;
+ 				commit++;
++				ignore_updelay = false;
+ 				continue;
+ 			}
+ 
