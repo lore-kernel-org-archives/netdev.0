@@ -1,55 +1,72 @@
-From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
-Subject: Re: 2.6.29.1: unregister_netdevice problem
-Date: Fri, 24 Apr 2009 23:16:33 +0200
-Message-ID: <20090424231633.2dc051aa@neptune.home>
-References: <20090422055735.GA4334@night.netis.ru>
-	<m1hc0fuevi.fsf@fess.ebiederm.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Bonding-devel] [PATCH 1/3] net: introduce a list of device
+	addresses dev_addr_list (v4)
+Date: Fri, 24 Apr 2009 23:26:47 +0200
+Message-ID: <20090424212646.GB3403@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090415081720.GA21342@psychotron.englab.brq.redhat.com> <20090415081819.GB21342@psychotron.englab.brq.redhat.com> <20090415180215.GA22540@psychotron.englab.brq.redhat.com> <20090417115723.GE9556@psychotron.englab.brq.redhat.com> <20090418085848.GC3370@psychotron.englab.brq.redhat.com> <20090423085855.526220c3@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Alexander V. Lukyanov" <lav@netis.ru>,
-	linux-kernel@vger.kernel.org, <netdev@vger.kernel.org>
-To: ebiederm@xmission.com (Eric W. Biederman)
+Content-Type: text/plain; charset=us-ascii
+Cc: ivecera@redhat.com, fubar@us.ibm.com, kaber@trash.net,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	mschmidt@redhat.com, bonding-devel@lists.sourceforge.net,
+	jgarzik@pobox.com, dada1@cosmosbay.com, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppp-110-77.adsl.restena.lu ([158.64.110.77]:54076 "EHLO
-	bonbons.gotdns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752302AbZDXVWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 17:22:53 -0400
-In-Reply-To: <m1hc0fuevi.fsf@fess.ebiederm.org>
+Received: from mx2.redhat.com ([66.187.237.31]:51020 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754511AbZDXV2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Apr 2009 17:28:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20090423085855.526220c3@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 April 2009 ebiederm@xmission.com (Eric W. Biederman) wrote:
-> "Alexander V. Lukyanov" <lav@netis.ru> writes:
-> 
-> > Eventually I have an increased load average without apparent reason.
-> > When I reboot the server in such a case, I get infinitely repeating
-> > messages on the console:
-> >
-> > unregister_netdevice: waiting for eth0.2 to become free. Usage
-> > count = 4
-> >
-> > eth0.2 is a vlan interface, eth0 is 02:00.0 Ethernet controller:
-> > Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit
-> > Ethernet controller (rev 01)
-> 
-> CC: netdev where someone might have a better clue.
-> 
-> Infinitely repeating unregister_netdevice messages means something
-> isn't releasing it's reference count to your network device.
-> 
-> There really isn't enough information in your email to figure out
-> what you were doing that, or what piece of code triggered this.
+Thu, Apr 23, 2009 at 05:58:55PM CEST, shemminger@vyatta.com wrote:
+>On Sat, 18 Apr 2009 10:58:49 +0200
+>Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>> v3 -> v4 (current):
+>> -changed kzalloc to kmalloc in __hw_addr_add_ii()
+>> -ASSERT_RTNL() avoided in dev_addr_flush() and dev_addr_init()
+>> 
+>> v2 -> v3:
+>> -removed unnecessary rcu read locking
+>> -moved dev_addr_flush() calling to ensure no null dereference of dev_addr
+>> 
+>> v1 -> v2:
+>> -added forgotten ASSERT_RTNL to dev_addr_init and dev_addr_flush
+>> -removed unnecessary rcu_read locking in dev_addr_init
+>> -use compare_ether_addr_64bits instead of compare_ether_addr
+>> -use L1_CACHE_BYTES as size for allocating struct netdev_hw_addr
+>> -use call_rcu instead of rcu_synchronize
+>> -moved is_etherdev_addr into __KERNEL__ ifdef
+>> 
+>> This patch introduces a new list in struct net_device and brings a set of
+>> functions to handle the work with device address list. The list is a replacement
+>> for the original dev_addr field and because in some situations there is need to
+>> carry several device addresses with the net device. To be backward compatible,
+>> dev_addr is made to point to the first member of the list so original drivers
+>> sees no difference.
+>> 
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>
+>I am still unsure why this added complexity to the network device model is needed.
 
+I've found no other way how to support devices with multiple macs i.e. as a port
+in the bridge (without horrible hooks).
+>
+>How does this interact with neighbor table (ARP)?
 
-A few I similar cases I have encountered are related to:
-  vlan, netconsole
+It doesn't interact ARP. ARP uses only the first device (dev_addr ptr). I'm not
+sure this is the right behaviour, but I think that this is not crucial now.
 
-If you attempt to rmmod the driver of a network interface for which
-you have a vlan or netconsole setup on top of you end up with this
-kind of lock.
+>Isn't this what macvlan already does.
 
-At least the two above do not react of removal attempt notifications
-and thus keep the network device referenced.
+Hmm I'm looking at this and I'm not sure it would help (I've found no
+documentation). Can you please show an example how this solves "bonding
+interface in atb mode as a port in the bridge" problem?
 
-Bruno
+Thanks
+>
+>
+>
