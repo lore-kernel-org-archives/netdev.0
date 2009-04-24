@@ -1,65 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Fri, 24 Apr 2009 20:51:28 +0800
-Message-ID: <20090424125128.GA28528@gondor.apana.org.au>
-References: <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au> <49EF39B4.1040607@myri.com> <20090424054557.GA24575@gondor.apana.org.au> <49F1B468.7020605@myri.com>
+From: "Jiri Klimes" <klimes@centrum.cz>
+Subject: Re: 'ip' command should allow creation of an IPsec SA with 'proto any' and specified sport and dport as selectors
+Date: Fri, 24 Apr 2009 15:15:18 +0200
+Message-ID: <200904241515.6341@centrum.cz>
+References: <200904241309.13171@centrum.cz> <200904241311.14474@centrum.cz> <20090424.044938.57356604.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, brice@myri.com,
-	sgruszka@redhat.com, netdev@vger.kernel.org
-To: Andrew Gallatin <gallatin@myri.com>
+Content-Type: multipart/mixed; boundary="-------=_383B1C78.419929E6"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57659 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755447AbZDXMvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 08:51:37 -0400
-Content-Disposition: inline
-In-Reply-To: <49F1B468.7020605@myri.com>
+Received: from mail1010.centrum.cz ([90.183.38.140]:33155 "EHLO
+	mail1010.centrum.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754866AbZDXNfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 09:35:23 -0400
+Received: by mail1010.centrum.cz id S1074311216AbZDXNPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 15:15:18 +0200
+In-Reply-To: <20090424.044938.57356604.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 24, 2009 at 08:45:28AM -0400, Andrew Gallatin wrote:
+This is a multi-part message in MIME format
+
+---------=_383B1C78.419929E6
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+
+______________________________________________________________
+> Od: davem@davemloft.net
+> Komu: klimes@centrum.cz
+> CC: netdev@vger.kernel.org
+> Datum: 24.04.2009 13:49
+> Předmět: Re: 'ip' command should allow creation of an IPsec SA with 'proto any' and specified sport and dport as selectors
 >
-> This is strange.  I wonder if it might be a cache footprint issue?
-> My intentionally weak receiver is an athlon64 x2 "Toledo", and
-> has only 512KB L2 cache.  I can re-test with a core-2 based Xeon.
+>From: "Jiri Klimes" <klimes@centrum.cz>
+>Date: Fri, 24 Apr 2009 13:11:34 +0200
 >
-> But can you describe your setup in more detail?  What CPU does the
-> receiver have? You say the sender is running 2.6.18.  Is this
-> a RHEL5 kernel, or a kernel.org kernel?
+>> please find a patch in the attachment.
+>
+>There is no attachment.
+>
 
-processor       : 7
-vendor_id       : GenuineIntel
-cpu family      : 6
-model           : 23
-model name      : Intel(R) Xeon(R) CPU           E5440  @ 2.83GHz
-stepping        : 6
-cpu MHz         : 2833.155
-cache size      : 6144 KB
-physical id     : 1
-siblings        : 1
-core id         : 3
-cpu cores       : 4
-apicid          : 7
-initial apicid  : 7
-fpu             : yes
-fpu_exception   : yes
-cpuid level     : 10
-wp              : yes
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx lm constant_tsc arch_perfmon pebs bts rep_good pni dtes64 monitor ds_cpl vmx est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi flexpriority
-bogomips        : 5665.85
-clflush size    : 64
-cache_alignment : 64
-address sizes   : 38 bits physical, 48 bits virtual
-power management:
+oops, sorry.
+Forgot the most important.
 
-It's a RHEL-5 kernel, -128 to be exact.  But I rebooted into
-2.6.30-rc1 and it made no difference.  The previous observed
-problem with 30-rc1 seems to only affect cxgb3.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+---------=_383B1C78.419929E6
+Content-Type: text/x-patch; name="ip_sa.patch"
+Content-Transfer-Encoding: base64
+
+LS0tIGEvaXAvaXB4ZnJtLmMKKysrIGIvaXAvaXB4ZnJtLmMKQEAgLTExNTYsNiArMTE1Niw3
+IEBAIHN0YXRpYyBpbnQgeGZybV9zZWxlY3Rvcl91cHNwZWNfcGFyc2Uoc3RydWN0IHhmcm1f
+c2VsZWN0b3IgKnNlbCwKICAgICAgICAgICAgICAgIGNhc2UgSVBQUk9UT19VRFA6CiAgICAg
+ICAgICAgICAgICBjYXNlIElQUFJPVE9fU0NUUDoKICAgICAgICAgICAgICAgIGNhc2UgSVBQ
+Uk9UT19EQ0NQOgorICAgICAgICAgICAgICAgY2FzZSBJUFBST1RPX0lQOiAgLyogdG8gYWxs
+b3cgc2hhcmVkIFNBIGZvciBkaWZmZXJlbnQgcHJvdG9jb2xzICovCiAgICAgICAgICAgICAg
+ICAgICAgICAgIGJyZWFrOwogICAgICAgICAgICAgICAgZGVmYXVsdDoKICAgICAgICAgICAg
+ICAgICAgICAgICAgZnByaW50ZihzdGRlcnIsICJcInNwb3J0XCIgYW5kIFwiZHBvcnRcIiBh
+cmUgaW52YWxpZCB3aXRoIHByb3RvPSVzXG4iLCBzdHJ4Zl9wcm90byhzZWwtPnByb3RvKSk7
+Cg==
+
+---------=_383B1C78.419929E6--
