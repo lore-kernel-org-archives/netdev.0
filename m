@@ -1,62 +1,50 @@
-From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
-Subject: [PATCH] xfrm: wrong hash value for temporary SA
-Date: Fri, 24 Apr 2009 11:55:38 +0200
-Message-ID: <49F18C9A.40207@dev.6wind.com>
-Reply-To: nicolas.dichtel@dev.6wind.com
+From: "Jiri Klimes" <klimes@centrum.cz>
+Subject: 'ip' command should allow creation of an IPsec SA with 'proto any' and specified sport and dport as selectors
+Date: Fri, 24 Apr 2009 13:11:34 +0200
+Message-ID: <200904241311.14474@centrum.cz>
+References: <200904241303.8959@centrum.cz> <200904241304.13486@centrum.cz> <200904241305.11036@centrum.cz> <200904241306.11421@centrum.cz> <200904241307.10948@centrum.cz> <200904241308.31592@centrum.cz> <200904241309.13171@centrum.cz> <200904241310.10823@centrum.cz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010507090109080806020309"
-To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:52867 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752116AbZDXJzt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Apr 2009 05:55:49 -0400
+Received: from mail1012.centrum.cz ([90.183.38.142]:47426 "EHLO
+	mail1012.centrum.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbZDXLLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 07:11:39 -0400
+Received: by mail1012.centrum.cz id S302051365AbZDXLLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 13:11:34 +0200
+In-Reply-To: <200904241310.10823@centrum.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010507090109080806020309
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Hello,
 
-When kernel inserts a temporary SA for IKE, it uses the wrong hash value for dst
-list. Two hash values were calcultated before: one with source address and one
-with a wildcard source address.
+please find a patch in the attachment.
+I propose the patch to allow creation of an IPsec SA shareble by more protocols (TCP, UDP, ...)
 
-Bug hinted by Junwei Zhang <junwei.zhang@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Description:
 
---------------010507090109080806020309
-Content-Type: text/x-diff;
- name="x.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x.diff"
+When creating an IPsec SA that sets 'proto any' (IPPROTO_IP) and specifies
+'sport' and 'dport' at the same time in selector, the following error is issued:
+"sport" and "dport" are invalid with proto=ip
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 62a5425..6ccc3cd 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -794,7 +794,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- {
- 	static xfrm_address_t saddr_wildcard = { };
- 	struct net *net = xp_net(pol);
--	unsigned int h;
-+	unsigned int h, h_wildcard;
- 	struct hlist_node *entry;
- 	struct xfrm_state *x, *x0, *to_put;
- 	int acquire_in_progress = 0;
-@@ -819,8 +819,8 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
- 	if (best)
- 		goto found;
- 
--	h = xfrm_dst_hash(net, daddr, &saddr_wildcard, tmpl->reqid, family);
--	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h, bydst) {
-+	h_wildcard = xfrm_dst_hash(net, daddr, &saddr_wildcard, tmpl->reqid, family);
-+	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h_wildcard, bydst) {
- 		if (x->props.family == family &&
- 		    x->props.reqid == tmpl->reqid &&
- 		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
+However using IPPROTO_IP with ports is completely legal and necessary when one
+wants to share the SA on both TCP and UDP.
+One of the applications requiring sharing SAs is 3GPP IMS AKA authentication.
 
---------------010507090109080806020309--
+testcase:
+ip x s add src 10.0.0.10 dst 10.0.0.20 proto esp spi 0x3113 enc cipher_null ""
+auth md5 0xbde359723576fdea08e56cbe876e24ad mode transport sel proto any sport
+1234 dport 4321
+
+Note: XFRM allows this programatically.
+
+Could you please review the patch and apply it.
+
+Cheers,
+Jiri Klimes
+
+PS: a bug report on this is filed in redhat's bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=497355
+
+
