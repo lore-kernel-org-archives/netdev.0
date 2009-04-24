@@ -1,50 +1,151 @@
-From: "Jiri Klimes" <klimes@centrum.cz>
-Subject: 'ip' command should allow creation of an IPsec SA with 'proto any' and specified sport and dport as selectors
-Date: Fri, 24 Apr 2009 13:11:34 +0200
-Message-ID: <200904241311.14474@centrum.cz>
-References: <200904241303.8959@centrum.cz> <200904241304.13486@centrum.cz> <200904241305.11036@centrum.cz> <200904241306.11421@centrum.cz> <200904241307.10948@centrum.cz> <200904241308.31592@centrum.cz> <200904241309.13171@centrum.cz> <200904241310.10823@centrum.cz>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Fri, 24 Apr 2009 11:19:40 +0000
+Message-ID: <20090424111940.GA6450@ff.dom.local>
+References: <1239964844.21569.57.camel@blade.ines.ro> <49E905A2.7040402@gmail.com> <200904180321.50281.denys@visp.net.lb> <20090418075637.GA2738@ami.dom.local> <1240408926.6554.57.camel@blade.ines.ro> <Pine.LNX.4.64.0904222313080.22266@ask.diku.dk> <1240489907.6554.110.camel@blade.ines.ro> <1039493214.20090424135024@gemenii.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Radu Rendec <radu.rendec@ines.ro>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Calin Velea <vcalinus@gemenii.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1012.centrum.cz ([90.183.38.142]:47426 "EHLO
-	mail1012.centrum.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbZDXLLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 07:11:39 -0400
-Received: by mail1012.centrum.cz id S302051365AbZDXLLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 13:11:34 +0200
-In-Reply-To: <200904241310.10823@centrum.cz>
+Received: from rv-out-0506.google.com ([209.85.198.239]:46830 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725AbZDXLTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 07:19:53 -0400
+Received: by rv-out-0506.google.com with SMTP id f6so501366rvb.5
+        for <netdev@vger.kernel.org>; Fri, 24 Apr 2009 04:19:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1039493214.20090424135024@gemenii.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, Apr 24, 2009 at 01:50:24PM +0300, Calin Velea wrote:
+> Hi,
+Hi,
 
-please find a patch in the attachment.
-I propose the patch to allow creation of an IPsec SA shareble by more protocols (TCP, UDP, ...)
+Very interesting message, but try to use plain format next time.
+I guess your mime/html original wasn't accepted by netdev@.
 
-Description:
+Jarek P.
 
-When creating an IPsec SA that sets 'proto any' (IPPROTO_IP) and specifies
-'sport' and 'dport' at the same time in selector, the following error is issued:
-"sport" and "dport" are invalid with proto=ip
-
-However using IPPROTO_IP with ports is completely legal and necessary when one
-wants to share the SA on both TCP and UDP.
-One of the applications requiring sharing SAs is 3GPP IMS AKA authentication.
-
-testcase:
-ip x s add src 10.0.0.10 dst 10.0.0.20 proto esp spi 0x3113 enc cipher_null ""
-auth md5 0xbde359723576fdea08e56cbe876e24ad mode transport sel proto any sport
-1234 dport 4321
-
-Note: XFRM allows this programatically.
-
-Could you please review the patch and apply it.
-
-Cheers,
-Jiri Klimes
-
-PS: a bug report on this is filed in redhat's bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=497355
-
-
+> 
+>   Maybe some actual results I got some time ago could help you and others who had the same problems:
+> 
+> Hardware: quad-core Xeon X3210 (2.13GHz, 8M  L2 cache), 2 Intel PCI Express Gigabit NICs
+> Kernel: 2.6.20
+> 
+>   I did some udp flood tests in the following configurations - the machine was configured as a
+> traffic shaping bridge, about 10k htb rules loaded, using hashing (see below):
+> 
+> A) napi on,  irqs for each card statically allocated to 2 CPU cores
+> 
+> when flooding, the same CPU went 100% softirq always (seems logical,
+> since it is statically bound to the irq)
+> 
+> B) napi on, CONFIG_IRQBALANCE=y
+> 
+> when flooding, a random CPU went 100% softirq always. (here,
+> at high interrupt rates, NAPI kicks in and starts using polling
+> rather than irqs, so no more balancing takes place since there are 
+> no more interrupts - checked this with /proc/interrupts - at high packet 
+> rates the irq counters for the network cards stalled)
+> 
+> C) napi off, CONFIG_IRQBALANCE=y
+> 
+> this is the setup I used in the end since all CPU cores were used. All of them
+> went to 100%, and the pps rate I could pass through was higher than in 
+> case A or B.
+> 
+> 
+>   Also, your worst case hashing setup could be improved - I suggest you take a look at 
+> http://vcalinus.gemenii.ro/?p=9 (see the generated filters example). The hashing method 
+> described there will take a constant CPU time (4 checks) for each packet, regardless of how many 
+> filter rules you have (provided you only filter by IP address). A tree of hashtables
+> is constructed which matches each of the four bytes from the IP address in succesion.
+> 
+>   Using this hashing method, the hardware above, 2.6.20 with napi off and irq balancing on, I got 
+> troughputs of 1.3Gbps / 250.000 pps  aggregated in+out in normal usage. CPU utilization 
+> averages varied between 25 - 50 % for every core, so there was still room to grow. 
+>   I expect much higher pps rates with better hardware (higher freq/larger cache Xeons).
+> 
+> 
+> 
+> Thursday, April 23, 2009, 3:31:47 PM, you wrote:
+> 
+> > On Wed, 2009-04-22 at 23:29 +0200, Jesper Dangaard Brouer wrote:
+> >> Its runtime adjustable, so its easy to try out.
+> 
+> >>   via /sys/module/sch_htb/parameters/htb_hysteresis
+> 
+> > Thanks for the tip! This means I can play around with various values
+> > while the machine is in production and see how it reacts.
+> 
+> >> The HTB classify hash has a scalability issue in kernels below 2.6.26. 
+> >> Patrick McHardy fixes that up in 2.6.26.  What kernel version are you 
+> >> using?
+> 
+> > I'm using 2.6.26, so I guess the fix is already there :(
+> 
+> >> Could you explain how you do classification? And perhaps outline where you 
+> >> possible scalability issue is located?
+> 
+> >> If you are interested how I do scalable classification, see my 
+> >> presentation from Netfilter Workshop 2008:
+> 
+> >>   http://nfws.inl.fr/en/?p=115
+> >>   http://www.netoptimizer.dk/presentations/nfsw2008/Jesper-Brouer_Large-iptables-rulesets.pdf
+> 
+> > I had a look at your presentation and it seems to be focused in dividing
+> > a single iptables rule chain into multiple chains, so that rule lookup
+> > complexity decreases from linear to logarithmic.
+> 
+> > Since I only need to do shaping, I don't use iptables at all. Address
+> > matching is all done in on the egress side, using u32. Rule schema is
+> > this:
+> 
+> > 1. We have two /19 networks that differ pretty much in the first bits:
+> > 80.x.y.z and 83.a.b.c; customer address spaces range from /22 nets to
+> > individual /32 addresses.
+> 
+> > 2. The default ip hash (0x800) is size 1 (only one bucket) and has two
+> > rules that select between two subsequent hash tables (say 0x100 and
+> > 0x101) based on the most significant bits in the address.
+> 
+> > 3. Level 2 hash tables (0x100 and 0x101) are size 256 (256 buckets);
+> > bucket selection is done by bits b10 - b17 (with b0 being the least
+> > significant).
+> 
+> > 4. Each bucket contains complete cidr match rules (corresponding to real
+> > customer addresses). Since bits b11 - b31 are already checked in upper
+> > levels, this results in a maximum of 2 ^ 10 = 1024 rules, which is the
+> > worst case, if all customer addresses that "fall" into that bucket
+> > are /32 (fortunately this is not the real case).
+> 
+> > In conclusion each packet would be matched against at most 1026 rules
+> > (worst case). The real case is actually much better: only one bucket
+> > with 400 rules, all other less than 70 rules and most of them less than
+> > 10 rules.
+> 
+> >> > I guess htb_hysteresis only affects the actual shaping (which takes 
+> >> > place after the packet is classified).
+> 
+> >> Yes, htb_hysteresis basically is a hack to allow extra bursts... we 
+> >> actually considered removing it completely...
+> 
+> > It's definitely worth a try at least. Thanks for the tips!
+> 
+> > Radu Rendec
+> 
+> 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> 
+> -- 
+> Best regards,
+>  Calin                            mailto:calin.velea@gemenii.ro
