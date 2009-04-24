@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LSM: Add security_socket_post_accept() and
- security_socket_post_recv_datagram().
-Date: Fri, 24 Apr 2009 04:40:12 -0700 (PDT)
-Message-ID: <20090424.044012.173997575.davem@davemloft.net>
-References: <200904240207.n3O27Sb0096107@www262.sakura.ne.jp>
-	<20090423.213542.03667490.davem@davemloft.net>
-	<200904240526.n3O5QO01039109@www262.sakura.ne.jp>
+Subject: Re: [PATCH next] 8390p: fix build breakage
+Date: Fri, 24 Apr 2009 04:46:12 -0700 (PDT)
+Message-ID: <20090424.044612.162386250.davem@davemloft.net>
+References: <20090424092550.GA10833@orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org, greg@blekko.com
-To: penguin-kernel@i-love.sakura.ne.jp
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200904240526.n3O5QO01039109@www262.sakura.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: ormi.linux@gmail.com, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org
+To: a.beregalov@gmail.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090424092550.GA10833@orion>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-Date: Fri, 24 Apr 2009 14:26:24 +0900
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Date: Fri, 24 Apr 2009 13:25:50 +0400
 
-> OK. I understood that security_socket_post_recv_datagram() must not return
-> -EAGAIN if a process calls recvmsg() after poll() said "ready".
-> That will be also true for security_socket_recvmsg().
+> Fix this build error caused by 362b76edb789
+> "8390p: Get rid of init_module/cleanup_module"
 > 
+> drivers/net/8390p.c:94:19: error: invalid suffix "p_init_module" on integer constant
+> drivers/net/8390p.c:94: error: expected identifier or '(' before numeric constant
+> drivers/net/8390p.c:99:20: error: invalid suffix "p_cleanup_module" on integer constant
 > 
-> Is it OK for security_socket_recvmsg()/security_socket_accept() to return
-> an error other than -EAGAIN?
-> (In other words, security_socket_recvmsg()/security_socket_accept() errors are
-> one of "hard" errors?)
+> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 
-I think you really need to wrap your head around the fact that you
-can't decide after you've accepted a packet, that it's no longer
-acceptable.  Once it's in the socket's queue, and you tell the
-application it's there at poll() time, you simply cannot reneg.
+This is why I usually don't apply patches that the submitter
+can't even send to the correct place to begin with. :-/
 
-You just can't.
-
-Otherwise you're breaking the whole premise upon which these UNIX
-system calls are based.  This is how people use these things.
-
-Are you beginning to understand the fundamental problems I have with
-your work?
+Applied, thanks Alexander.
