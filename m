@@ -1,28 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 'ip' command should allow creation of an IPsec SA with 'proto
- any' and specified sport and dport as selectors
-Date: Fri, 24 Apr 2009 04:49:38 -0700 (PDT)
-Message-ID: <20090424.044938.57356604.davem@davemloft.net>
-References: <200904241309.13171@centrum.cz>
-	<200904241310.10823@centrum.cz>
-	<200904241311.14474@centrum.cz>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] bonding: use ethtool for link checking first
+Date: Fri, 24 Apr 2009 13:58:23 +0200
+Message-ID: <20090424115823.GD16703@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: klimes@centrum.cz
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751188AbZDXLtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 07:49:45 -0400
-In-Reply-To: <200904241311.14474@centrum.cz>
+Received: from mx2.redhat.com ([66.187.237.31]:44118 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753204AbZDXL60 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Apr 2009 07:58:26 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jiri Klimes" <klimes@centrum.cz>
-Date: Fri, 24 Apr 2009 13:11:34 +0200
+This patch only changes the order of interfaces to use for checking slave link
+status in bond_check_dev_link() to priorize ethtool interface. Should safe some
+troubles as ethtool seems to be more supported.
 
-> please find a patch in the attachment.
+Jirka
 
-There is no attachment.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+ drivers/net/bonding/bond_main.c |   26 ++++++++++++--------------
+ 1 files changed, 12 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 63369b6..e4166ee 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -695,6 +695,18 @@ static int bond_check_dev_link(struct bonding *bond, struct net_device *slave_de
+ 	if (bond->params.use_carrier)
+ 		return netif_carrier_ok(slave_dev) ? BMSR_LSTATUS : 0;
+ 
++	/* Try to get link status using Ethtool first. */
++	if (slave_dev->ethtool_ops) {
++		if (slave_dev->ethtool_ops->get_link) {
++			u32 link;
++
++			link = slave_dev->ethtool_ops->get_link(slave_dev);
++
++			return link ? BMSR_LSTATUS : 0;
++		}
++	}
++
++	/* Ethtool can't be used, fallback to MII ioclts. */
+ 	ioctl = slave_ops->ndo_do_ioctl;
+ 	if (ioctl) {
+ 		/* TODO: set pointer to correct ioctl on a per team member */
+@@ -721,20 +733,6 @@ static int bond_check_dev_link(struct bonding *bond, struct net_device *slave_de
+ 	}
+ 
+ 	/*
+-	 * Some drivers cache ETHTOOL_GLINK for a period of time so we only
+-	 * attempt to get link status from it if the above MII ioctls fail.
+-	 */
+-	if (slave_dev->ethtool_ops) {
+-		if (slave_dev->ethtool_ops->get_link) {
+-			u32 link;
+-
+-			link = slave_dev->ethtool_ops->get_link(slave_dev);
+-
+-			return link ? BMSR_LSTATUS : 0;
+-		}
+-	}
+-
+-	/*
+ 	 * If reporting, report that either there's no dev->do_ioctl,
+ 	 * or both SIOCGMIIREG and get_link failed (meaning that we
+ 	 * cannot report link status).  If not reporting, pretend
