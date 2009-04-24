@@ -1,112 +1,180 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: vlan: update vlan carrier state for admin up/down
-Date: Fri, 24 Apr 2009 17:44:47 +0200
-Message-ID: <49F1DE6F.1030606@trash.net>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
+Date: Fri, 24 Apr 2009 12:16:08 -0400
+Message-ID: <49F1E5C8.7010303@myri.com>
+References: <20090415.030213.249634462.davem@davemloft.net> <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au> <49EF39B4.1040607@myri.com> <20090424054557.GA24575@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090905010505030603010402"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, brice@myri.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48006 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbZDXPox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2009 11:44:53 -0400
+Received: from mailbox2.myri.com ([64.172.73.26]:1957 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755368AbZDXQRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Apr 2009 12:17:04 -0400
+In-Reply-To: <20090424054557.GA24575@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090905010505030603010402
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Herbert Xu wrote:
+> On Wed, Apr 22, 2009 at 11:37:24AM -0400, Andrew Gallatin wrote:
+>> I booted the sender into a kernel.org 2.6.18.2 so as to try to have  
+>> results as close to yours as possible (I was running 2.6.22 on the
+>> sender before).
+> 
+> OK I've got my hands on a myricom card.  I've tested it using the
+> same 2.6.18 sender that I used against the eariler cxgb3 test.
+> I wasn't able to discern any significant deviations between LRO
+> and GRO.
+> 
+> Unfortunately it seems that this machine is a little too fast
+> so even with the IRQ bound to a single CPU it's way overspeced
+> for 10GbE:
+> 
+>     Idle at 10Gb IRQ rate	soaker IRQ rate soaker throuput
+> GRO 43-45	 14700		13300		7933
+> LRO 43-45	 14700		13300		7943
+> 
+> But even with the soaker running they seem to be neck and neck.
+
+ From what I can tell,  CPU utilization is only broken when a CPU is
+otherwise idle, so it should be accurate when you bind the IRQ and the
+netserver to the same CPU.   Here are results from an older, slower
+core-2 Xeon with a 4MB L2 cache:
+
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 15
+model name      : Intel(R) Xeon(R) CPU            5150  @ 2.66GHz
+stepping        : 6
+cpu MHz         : 2659.916
+cache size      : 4096 KB
+physical id     : 0
+siblings        : 1
+core id         : 0
+cpu cores       : 2
+apicid          : 0
+initial apicid  : 0
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 10
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge 
+mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe 
+syscall nx lm constant_tsc arch_perfmon pebs bts rep_good pni dtes64 
+monitor ds_cpl vmx est tm2 ssse3 cx16 xtpr pdcm dca lahf_lm tpr_shadow
+bogomips        : 5319.83
+clflush size    : 64
+cache_alignment : 64
+address sizes   : 36 bits physical, 48 bits virtual
+power management:
+
+The Xeon was running net-next, had DCA enabled, ioatdma disabled for
+TCP (CONFIG_NET_DMA is not set).  The sender was the weak athlon64,
+running 2.6.22.
+
+LRO, no soaker: (13,200 intrs/sec)
+Recv   Send    Send                          Utilization       Service 
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local 
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+  87380  65536  65536    60.02      9469.74   17.44    13.31    0.302 
+0.461
+
+LRO, soaker: (6,500 intrs/sec)
+
+  87380  65536  65536    60.06      3955.74   7.11     25.02    0.294 
+2.072
+
+GRO, no soaker, (13,200 intrs/sec)
+  87380  65536  65536    60.02      9467.90   16.76    14.16    0.290 
+0.490
+
+GRO, soaker: (6,500 intrs/sec)
+  87380  65536  65536    60.02      3774.88   6.20     25.01    0.269 
+2.171
 
 
---------------090905010505030603010402
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
+These results are indeed quite close, so the performance problem seems
+isolated to AMD CPUS, and perhaps due to the smaller caches.
+Do you have any AMD you can use as a receiver?
 
-commit fcfdf9ecbaf759b658a9722af2862e595f2dec6b
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Fri Apr 24 17:22:08 2009 +0200
+Note that the GRO results were still obtained by (bogusly) setting
+CHECKSUM_UNNECESSARY.  I tried to use your patch, and I see
+terrible performance. Netperf shows between 1Gb/s to 2Gb/s (compared
+to 5Gb/s with GRO disabled).  I don't see bad checksums in netstat
+on the receiver, but it *feels* like something like that.
 
-    vlan: update vlan carrier state for admin up/down
-    
-    	Currently, the VLAN event handler does not adjust the VLAN
-    device's carrier state when the real device or the VLAN device is set
-    administratively up or down.
-    
-    	The following patch adds a transfer of operating state from the
-    real device to the VLAN device when the real device is administratively
-    set up or down, and sets the carrier state up or down during init, open
-    and close of the VLAN device.
-    
-    	This permits observers above the VLAN device that care about the
-    carrier state (bonding's link monitor, for example) to receive updates
-    for administrative changes by more closely mimicing the behavior of real
-    devices.
-    
-    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Here's a diff of netstat -st taken on the sender before and after
+a 5 second netperf:
+2c2
+<     157 active connections openings
+---
+ >     159 active connections openings
+7,9c7,9
+<     31465934 segments received
+<     72887021 segments send out
+<     679 segments retransmited
+---
+ >     32184827 segments received
+ >     73473546 segments send out
+ >     698 segments retransmited
+16c16
+<     4596 packets directly queued to recvmsg prequeue.
+---
+ >     4603 packets directly queued to recvmsg prequeue.
+18,21c18,21
+<     15928 packets header predicted
+<     18100148 acknowledgments not containing data received
+<     13351873 predicted acknowledgments
+<     343 times recovered from packet loss due to SACK data
+---
+ >     15930 packets header predicted
+ >     18464095 acknowledgments not containing data received
+ >     13706813 predicted acknowledgments
+ >     365 times recovered from packet loss due to SACK data
+23,25c23,25
+<     53 congestion windows fully recovered
+<     221 congestion windows partially recovered using Hoe heuristic
+<     TCPDSACKUndo: 268
+---
+ >     60 congestion windows fully recovered
+ >     228 congestion windows partially recovered using Hoe heuristic
+ >     TCPDSACKUndo: 281
+27,28c27,28
+<     584 fast retransmits
+<     93 forward retransmits
+---
+ >     597 fast retransmits
+ >     99 forward retransmits
+30c30
+<     674 DSACKs received
+---
+ >     693 DSACKs received
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 2b7390e..d1e1054 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -492,6 +492,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 				continue;
- 
- 			dev_change_flags(vlandev, flgs & ~IFF_UP);
-+			vlan_transfer_operstate(dev, vlandev);
- 		}
- 		break;
- 
-@@ -507,6 +508,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 				continue;
- 
- 			dev_change_flags(vlandev, flgs | IFF_UP);
-+			vlan_transfer_operstate(dev, vlandev);
- 		}
- 		break;
- 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 1b34135..2ce6658 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -462,6 +462,7 @@ static int vlan_dev_open(struct net_device *dev)
- 	if (vlan->flags & VLAN_FLAG_GVRP)
- 		vlan_gvrp_request_join(dev);
- 
-+	netif_carrier_on(dev);
- 	return 0;
- 
- clear_allmulti:
-@@ -471,6 +472,7 @@ del_unicast:
- 	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
- 		dev_unicast_delete(real_dev, dev->dev_addr, ETH_ALEN);
- out:
-+	netif_carrier_off(dev);
- 	return err;
- }
- 
-@@ -492,6 +494,7 @@ static int vlan_dev_stop(struct net_device *dev)
- 	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
- 		dev_unicast_delete(real_dev, dev->dev_addr, dev->addr_len);
- 
-+	netif_carrier_off(dev);
- 	return 0;
- }
- 
-@@ -612,6 +615,8 @@ static int vlan_dev_init(struct net_device *dev)
- 	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
- 	int subclass = 0;
- 
-+	netif_carrier_off(dev);
-+
- 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
- 	dev->flags  = real_dev->flags & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI);
- 	dev->iflink = real_dev->ifindex;
+And on the receiver (whose netstat is confused, and cannot read ext 
+stats in a net-next kernel):
+diff /tmp/a /tmp/b
+3c3
+<     12 passive connection openings
+---
+ >     14 passive connection openings
+7,8c7,8
+<     3776478 segments received
+<     3775846 segments send out
+---
+ >     4495385 segments received
+ >     4494747 segments send out
 
---------------090905010505030603010402--
+
+
+This was using a net-next pulled 1/2 hour ago.  The only patch was your 
+GRO patch applied to myri10ge.  Do you have some other local patch
+which might be helping you?
+
+Drew
