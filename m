@@ -1,25 +1,26 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH v3 09/13] net: Rework ucc_geth driver to use of_mdio
+Subject: [PATCH v3 08/13] net: Rework pasemi_mac driver to use of_mdio
 	infrastructure
-Date: Sat, 25 Apr 2009 16:53:23 -0600
-Message-ID: <20090425225323.32392.1254.stgit@localhost.localdomain>
+Date: Sat, 25 Apr 2009 16:53:17 -0600
+Message-ID: <20090425225317.32392.93743.stgit@localhost.localdomain>
 References: <20090425224458.32392.31296.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Olof Johansson <olof@lixom.net>,
 	Andy Fleming <afleming@freescale.com>
 To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	Andy Fleming <afleming@freescale.com>,
 	David Miller <davem@davemloft.net>,
 	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:58506 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.225]:62952 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754107AbZDYWxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2009 18:53:25 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so1420826rvb.1
-        for <netdev@vger.kernel.org>; Sat, 25 Apr 2009 15:53:25 -0700 (PDT)
+	with ESMTP id S1753720AbZDYWxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2009 18:53:21 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so1420774rvb.1
+        for <netdev@vger.kernel.org>; Sat, 25 Apr 2009 15:53:21 -0700 (PDT)
 In-Reply-To: <20090425224458.32392.31296.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -29,122 +30,170 @@ From: Grant Likely <grant.likely@secretlab.ca>
 This patch simplifies the driver by making use of more common code.
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+Tested-by: Olof Johansson <olof@lixom.net>
+Acked-by: Olof Johansson <olof@lixom.net>
 Acked-by: Andy Fleming <afleming@freescale.com>
 ---
 
- drivers/net/ucc_geth.c |   47 ++++++++++++-----------------------------------
- drivers/net/ucc_geth.h |    2 +-
- 2 files changed, 13 insertions(+), 36 deletions(-)
+ arch/powerpc/platforms/pasemi/gpio_mdio.c |   32 +++++------------------------
+ drivers/net/pasemi_mac.c                  |   28 ++++---------------------
+ drivers/net/pasemi_mac.h                  |    1 -
+ 3 files changed, 9 insertions(+), 52 deletions(-)
 
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index d3f39e8..195b490 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -27,6 +27,7 @@
- #include <linux/mii.h>
+diff --git a/arch/powerpc/platforms/pasemi/gpio_mdio.c b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+index 75cc165..3bf5467 100644
+--- a/arch/powerpc/platforms/pasemi/gpio_mdio.c
++++ b/arch/powerpc/platforms/pasemi/gpio_mdio.c
+@@ -29,7 +29,7 @@
+ #include <linux/ioport.h>
+ #include <linux/interrupt.h>
  #include <linux/phy.h>
- #include <linux/workqueue.h>
+-#include <linux/platform_device.h>
 +#include <linux/of_mdio.h>
  #include <linux/of_platform.h>
  
- #include <asm/uaccess.h>
-@@ -1542,12 +1543,14 @@ static int init_phy(struct net_device *dev)
- 	priv->oldspeed = 0;
- 	priv->oldduplex = -1;
+ #define DELAY 1
+@@ -39,6 +39,7 @@ static void __iomem *gpio_regs;
+ struct gpio_priv {
+ 	int mdc_pin;
+ 	int mdio_pin;
++	int mdio_irqs[PHY_MAX_ADDR];
+ };
  
--	phydev = phy_connect(dev, ug_info->phy_bus_id, &adjust_link, 0,
--			     priv->phy_interface);
-+	if (!ug_info->phy_node)
-+		return 0;
- 
--	if (IS_ERR(phydev)) {
-+	phydev = of_phy_connect(dev, ug_info->phy_node, &adjust_link, 0,
-+				priv->phy_interface);
-+	if (!phydev) {
- 		printk("%s: Could not attach to PHY\n", dev->name);
--		return PTR_ERR(phydev);
-+		return -ENODEV;
- 	}
- 
- 	phydev->supported &= (ADVERTISED_10baseT_Half |
-@@ -3519,14 +3522,12 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ #define MDC_PIN(bus)	(((struct gpio_priv *)bus->priv)->mdc_pin)
+@@ -218,12 +219,11 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 				     const struct of_device_id *match)
  {
- 	struct device *device = &ofdev->dev;
- 	struct device_node *np = ofdev->node;
--	struct device_node *mdio;
- 	struct net_device *dev = NULL;
- 	struct ucc_geth_private *ugeth = NULL;
- 	struct ucc_geth_info *ug_info;
- 	struct resource res;
- 	struct device_node *phy;
- 	int err, ucc_num, max_speed = 0;
--	const phandle *ph;
- 	const u32 *fixed_link;
+ 	struct device *dev = &ofdev->dev;
+-	struct device_node *phy_dn, *np = ofdev->node;
++	struct device_node *np = ofdev->node;
+ 	struct mii_bus *new_bus;
+ 	struct gpio_priv *priv;
  	const unsigned int *prop;
- 	const char *sprop;
-@@ -3626,45 +3627,21 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	ug_info->uf_info.irq = irq_of_parse_and_map(np, 0);
- 	fixed_link = of_get_property(np, "fixed-link", NULL);
- 	if (fixed_link) {
--		snprintf(ug_info->phy_bus_id, sizeof(ug_info->phy_bus_id),
--			 PHY_ID_FMT, "0", fixed_link[0]);
- 		phy = NULL;
- 	} else {
--		char bus_name[MII_BUS_ID_SIZE];
--
--		ph = of_get_property(np, "phy-handle", NULL);
--		phy = of_find_node_by_phandle(*ph);
--
-+		phy = of_parse_phandle(np, "phy-handle", 0);
- 		if (phy == NULL)
- 			return -ENODEV;
--
--		/* set the PHY address */
--		prop = of_get_property(phy, "reg", NULL);
--		if (prop == NULL)
--			return -1;
--
--		/* Set the bus id */
--		mdio = of_get_parent(phy);
--
--		if (mdio == NULL)
--			return -ENODEV;
--
--		err = of_address_to_resource(mdio, 0, &res);
--
--		if (err) {
--			of_node_put(mdio);
--			return err;
--		}
--		fsl_pq_mdio_bus_name(bus_name, mdio);
--		of_node_put(mdio);
--		snprintf(ug_info->phy_bus_id, sizeof(ug_info->phy_bus_id),
--			"%s:%02x", bus_name, *prop);
- 	}
-+	ug_info->phy_node = phy;
+ 	int err;
+-	int i;
  
- 	/* get the phy interface type, or default to MII */
- 	prop = of_get_property(np, "phy-connection-type", NULL);
- 	if (!prop) {
- 		/* handle interface property present in old trees */
-+		if (!phy)
-+			return -ENODEV;
-+
- 		prop = of_get_property(phy, "interface", NULL);
- 		if (prop != NULL) {
- 			phy_interface = enet_to_phy_interface[*prop];
-diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
-index 2f8ee7c..bc31975 100644
---- a/drivers/net/ucc_geth.h
-+++ b/drivers/net/ucc_geth.h
-@@ -1100,7 +1100,7 @@ struct ucc_geth_info {
- 	u32 eventRegMask;
- 	u16 pausePeriod;
- 	u16 extensionField;
--	char phy_bus_id[BUS_ID_SIZE];
-+	struct device_node *phy_node;
- 	u8 weightfactor[NUM_TX_QUEUES];
- 	u8 interruptcoalescingmaxvalue[NUM_RX_QUEUES];
- 	u8 l2qt[UCC_GETH_VLAN_PRIORITY_MAX];
+ 	err = -ENOMEM;
+ 	priv = kzalloc(sizeof(struct gpio_priv), GFP_KERNEL);
+@@ -244,27 +244,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", *prop);
+ 	new_bus->priv = priv;
+ 
+-	new_bus->phy_mask = 0;
+-
+-	new_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
+-
+-	if (!new_bus->irq)
+-		goto out_free_bus;
+-
+-	for (i = 0; i < PHY_MAX_ADDR; i++)
+-		new_bus->irq[i] = NO_IRQ;
+-
+-	for (phy_dn = of_get_next_child(np, NULL);
+-	     phy_dn != NULL;
+-	     phy_dn = of_get_next_child(np, phy_dn)) {
+-		const unsigned int *ip, *regp;
+-
+-		ip = of_get_property(phy_dn, "interrupts", NULL);
+-		regp = of_get_property(phy_dn, "reg", NULL);
+-		if (!ip || !regp || *regp >= PHY_MAX_ADDR)
+-			continue;
+-		new_bus->irq[*regp] = irq_create_mapping(NULL, *ip);
+-	}
++	new_bus->irq = priv->mdio_irqs;
+ 
+ 	prop = of_get_property(np, "mdc-pin", NULL);
+ 	priv->mdc_pin = *prop;
+@@ -275,7 +255,7 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	new_bus->parent = dev;
+ 	dev_set_drvdata(dev, new_bus);
+ 
+-	err = mdiobus_register(new_bus);
++	err = of_mdiobus_register(new_bus, np);
+ 
+ 	if (err != 0) {
+ 		printk(KERN_ERR "%s: Cannot register as MDIO bus, err %d\n",
+@@ -286,8 +266,6 @@ static int __devinit gpio_mdio_probe(struct of_device *ofdev,
+ 	return 0;
+ 
+ out_free_irq:
+-	kfree(new_bus->irq);
+-out_free_bus:
+ 	kfree(new_bus);
+ out_free_priv:
+ 	kfree(priv);
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
+index 5eeb5a8..2edbba3 100644
+--- a/drivers/net/pasemi_mac.c
++++ b/drivers/net/pasemi_mac.c
+@@ -24,6 +24,7 @@
+ #include <linux/dmaengine.h>
+ #include <linux/delay.h>
+ #include <linux/netdevice.h>
++#include <linux/of_mdio.h>
+ #include <linux/etherdevice.h>
+ #include <asm/dma-mapping.h>
+ #include <linux/in.h>
+@@ -1086,34 +1087,17 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	struct device_node *dn, *phy_dn;
+ 	struct phy_device *phydev;
+-	unsigned int phy_id;
+-	const phandle *ph;
+-	const unsigned int *prop;
+-	struct resource r;
+-	int ret;
+ 
+ 	dn = pci_device_to_OF_node(mac->pdev);
+-	ph = of_get_property(dn, "phy-handle", NULL);
+-	if (!ph)
+-		return -ENODEV;
+-	phy_dn = of_find_node_by_phandle(*ph);
+-
+-	prop = of_get_property(phy_dn, "reg", NULL);
+-	ret = of_address_to_resource(phy_dn->parent, 0, &r);
+-	if (ret)
+-		goto err;
+-
+-	phy_id = *prop;
+-	snprintf(mac->phy_id, sizeof(mac->phy_id), "%x:%02x",
+-		 (int)r.start, phy_id);
+-
++	phy_dn = of_parse_phandle(dn, "phy-handle", 0);
+ 	of_node_put(phy_dn);
+ 
+ 	mac->link = 0;
+ 	mac->speed = 0;
+ 	mac->duplex = -1;
+ 
+-	phydev = phy_connect(dev, mac->phy_id, &pasemi_adjust_link, 0, PHY_INTERFACE_MODE_SGMII);
++	phydev = of_phy_connect(dev, phy_dn, &pasemi_adjust_link, 0,
++				PHY_INTERFACE_MODE_SGMII);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		printk(KERN_ERR "%s: Could not attach to phy\n", dev->name);
+@@ -1123,10 +1107,6 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 	mac->phydev = phydev;
+ 
+ 	return 0;
+-
+-err:
+-	of_node_put(phy_dn);
+-	return -ENODEV;
+ }
+ 
+ 
+diff --git a/drivers/net/pasemi_mac.h b/drivers/net/pasemi_mac.h
+index 1a115ec..e2f4efa 100644
+--- a/drivers/net/pasemi_mac.h
++++ b/drivers/net/pasemi_mac.h
+@@ -100,7 +100,6 @@ struct pasemi_mac {
+ 	int	duplex;
+ 
+ 	unsigned int	msg_enable;
+-	char	phy_id[BUS_ID_SIZE];
+ };
+ 
+ /* Software status descriptor (ring_info) */
 
