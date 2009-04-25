@@ -1,8 +1,7 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH v3 01/13] of: add of_parse_phandle() helper for parsing
-	phandle properties
-Date: Sat, 25 Apr 2009 16:52:40 -0600
-Message-ID: <20090425225240.32392.62829.stgit@localhost.localdomain>
+Subject: [PATCH v3 02/13] phylib: rework to prepare for OF registration of PHYs
+Date: Sat, 25 Apr 2009 16:52:46 -0600
+Message-ID: <20090425225245.32392.82740.stgit@localhost.localdomain>
 References: <20090425224458.32392.31296.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,77 +13,185 @@ To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
 	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:31813 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753061AbZDYWwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2009 18:52:43 -0400
-Received: by wf-out-1314.google.com with SMTP id 26so1420116wfd.4
-        for <netdev@vger.kernel.org>; Sat, 25 Apr 2009 15:52:43 -0700 (PDT)
+Received: from rv-out-0506.google.com ([209.85.198.225]:62952 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753171AbZDYWws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2009 18:52:48 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so1420774rvb.1
+        for <netdev@vger.kernel.org>; Sat, 25 Apr 2009 15:52:48 -0700 (PDT)
 In-Reply-To: <20090425224458.32392.31296.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Grant Likely <grant.likely@secretlab.ca>
 
-of_parse_phandle() is a helper function to read and parse a phandle
-property and return a pointer to the resulting device_node.
+This patch makes changes in preparation for supporting open firmware
+device tree descriptions of MDIO busses.  Changes include:
+- Cleanup handling of phy_map[] entries; they are already NULLed when
+  registering and so don't need to be re-cleared, and it is good practice
+  to clear them out when unregistering.
+- Split phy_device registration out into a new function so that the
+  OF helpers can do two stage registration (separate allocation and
+  registration steps).
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 Acked-by: Andy Fleming <afleming@freescale.com>
 ---
 
- drivers/of/base.c  |   24 ++++++++++++++++++++++++
- include/linux/of.h |    3 +++
- 2 files changed, 27 insertions(+), 0 deletions(-)
+ drivers/net/phy/mdio_bus.c   |   29 +++------------------------
+ drivers/net/phy/phy_device.c |   45 ++++++++++++++++++++++++++++++++++++++----
+ include/linux/phy.h          |    1 +
+ 3 files changed, 45 insertions(+), 30 deletions(-)
 
 
-diff --git a/drivers/of/base.c b/drivers/of/base.c
-index 41c5dfd..ddf224d 100644
---- a/drivers/of/base.c
-+++ b/drivers/of/base.c
-@@ -495,6 +495,30 @@ int of_modalias_node(struct device_node *node, char *modalias, int len)
- EXPORT_SYMBOL_GPL(of_modalias_node);
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index b754020..bd4e8d7 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -113,7 +113,6 @@ int mdiobus_register(struct mii_bus *bus)
+ 		bus->reset(bus);
  
- /**
-+ * of_parse_phandle - Resolve a phandle property to a device_node pointer
-+ * @np: Pointer to device node holding phandle property
-+ * @phandle_name: Name of property holding a phandle value
-+ * @index: For properties holding a table of phandles, this is the index into
-+ *         the table
-+ *
-+ * Returns the device_node pointer with refcount incremented.  Use
-+ * of_node_put() on it when done.
-+ */
-+struct device_node *
-+of_parse_phandle(struct device_node *np, const char *phandle_name, int index)
-+{
-+	const phandle *phandle;
-+	int size;
-+
-+	phandle = of_get_property(np, phandle_name, &size);
-+	if ((!phandle) || (size < sizeof(*phandle) * (index + 1)))
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		bus->phy_map[i] = NULL;
+ 		if ((bus->phy_mask & (1 << i)) == 0) {
+ 			struct phy_device *phydev;
+ 
+@@ -150,6 +149,7 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+ 		if (bus->phy_map[i])
+ 			device_unregister(&bus->phy_map[i]->dev);
++		bus->phy_map[i] = NULL;
+ 	}
+ }
+ EXPORT_SYMBOL(mdiobus_unregister);
+@@ -188,35 +188,12 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
+ 	if (IS_ERR(phydev) || phydev == NULL)
+ 		return phydev;
+ 
+-	/* There's a PHY at this address
+-	 * We need to set:
+-	 * 1) IRQ
+-	 * 2) bus_id
+-	 * 3) parent
+-	 * 4) bus
+-	 * 5) mii_bus
+-	 * And, we need to register it */
+-
+-	phydev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
+-
+-	phydev->dev.parent = bus->parent;
+-	phydev->dev.bus = &mdio_bus_type;
+-	dev_set_name(&phydev->dev, PHY_ID_FMT, bus->id, addr);
+-
+-	phydev->bus = bus;
+-
+-	/* Run all of the fixups for this PHY */
+-	phy_scan_fixups(phydev);
+-
+-	err = device_register(&phydev->dev);
++	err = phy_device_register(phydev);
+ 	if (err) {
+-		printk(KERN_ERR "phy %d failed to register\n", addr);
+ 		phy_device_free(phydev);
+-		phydev = NULL;
 +		return NULL;
+ 	}
+ 
+-	bus->phy_map[addr] = phydev;
+-
+ 	return phydev;
+ }
+ EXPORT_SYMBOL(mdiobus_scan);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 0a06e4f..9352ca8 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -39,20 +39,21 @@ MODULE_DESCRIPTION("PHY library");
+ MODULE_AUTHOR("Andy Fleming");
+ MODULE_LICENSE("GPL");
+ 
+-static struct phy_driver genphy_driver;
+-extern int mdio_bus_init(void);
+-extern void mdio_bus_exit(void);
+-
+ void phy_device_free(struct phy_device *phydev)
+ {
+ 	kfree(phydev);
+ }
++EXPORT_SYMBOL(phy_device_free);
+ 
+ static void phy_device_release(struct device *dev)
+ {
+ 	phy_device_free(to_phy_device(dev));
+ }
+ 
++static struct phy_driver genphy_driver;
++extern int mdio_bus_init(void);
++extern void mdio_bus_exit(void);
 +
-+	return of_find_node_by_phandle(phandle[index]);
-+}
-+EXPORT_SYMBOL(of_parse_phandle);
+ static LIST_HEAD(phy_fixup_list);
+ static DEFINE_MUTEX(phy_fixup_lock);
+ 
+@@ -166,6 +167,10 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	dev->addr = addr;
+ 	dev->phy_id = phy_id;
+ 	dev->bus = bus;
++	dev->dev.parent = bus->parent;
++	dev->dev.bus = &mdio_bus_type;
++	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
++	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
+ 
+ 	dev->state = PHY_DOWN;
+ 
+@@ -235,6 +240,38 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
+ 
+ 	return dev;
+ }
++EXPORT_SYMBOL(get_phy_device);
 +
 +/**
-  * of_parse_phandles_with_args - Find a node pointed by phandle in a list
-  * @np:		pointer to a device tree node containing a list
-  * @list_name:	property name that contains a list
-diff --git a/include/linux/of.h b/include/linux/of.h
-index 6a7efa2..7be2d10 100644
---- a/include/linux/of.h
-+++ b/include/linux/of.h
-@@ -77,6 +77,9 @@ extern int of_n_size_cells(struct device_node *np);
- extern const struct of_device_id *of_match_node(
- 	const struct of_device_id *matches, const struct device_node *node);
- extern int of_modalias_node(struct device_node *node, char *modalias, int len);
-+extern struct device_node *of_parse_phandle(struct device_node *np,
-+					    const char *phandle_name,
-+					    int index);
- extern int of_parse_phandles_with_args(struct device_node *np,
- 	const char *list_name, const char *cells_name, int index,
- 	struct device_node **out_node, const void **out_args);
++ * phy_device_register - Register the phy device on the MDIO bus
++ * @phy_device: phy_device structure to be added to the MDIO bus
++ */
++int phy_device_register(struct phy_device *phydev)
++{
++	int err;
++
++	/* Don't register a phy if one is already registered at this
++	 * address */
++	if (phydev->bus->phy_map[phydev->addr])
++		return -EINVAL;
++	phydev->bus->phy_map[phydev->addr] = phydev;
++
++	/* Run all of the fixups for this PHY */
++	phy_scan_fixups(phydev);
++
++	err = device_register(&phydev->dev);
++	if (err) {
++		pr_err("phy %d failed to register\n", phydev->addr);
++		goto out;
++	}
++
++	return 0;
++
++ out:
++	phydev->bus->phy_map[phydev->addr] = NULL;
++	return err;
++}
++EXPORT_SYMBOL(phy_device_register);
+ 
+ /**
+  * phy_prepare_link - prepares the PHY layer to monitor link status
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 32cf14a..c0cf354 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -438,6 +438,7 @@ static inline int phy_write(struct phy_device *phydev, u16 regnum, u16 val)
+ 
+ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id);
+ struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
++int phy_device_register(struct phy_device *phy);
+ int phy_clear_interrupt(struct phy_device *phydev);
+ int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
+ struct phy_device * phy_attach(struct net_device *dev,
 
