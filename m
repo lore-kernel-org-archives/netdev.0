@@ -1,121 +1,73 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: Avoid extra wakeups of threads blocked in wait_for_packet()
-Date: Sat, 25 Apr 2009 17:47:23 +0200
-Message-ID: <49F3308B.1030507@cosmosbay.com>
-References: <alpine.DEB.1.10.0904241554100.29995@qirst.com>
+From: Sergio Luis <eeeesti@gmail.com>
+Subject: Re: Query regarding IPv6 stack modification
+Date: Sat, 25 Apr 2009 15:05:58 -0300
+Message-ID: <ce0170d90904251105pe6ecc68o72359c4dc6e06a2d@mail.gmail.com>
+References: <23232689.post@talk.nabble.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <cl@linux.com>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
-	Davide Libenzi <davidel@xmailserver.org>
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: nbj <niraj.b.jain@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58066 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753075AbZDYPtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2009 11:49:36 -0400
-In-Reply-To: <alpine.DEB.1.10.0904241554100.29995@qirst.com>
+Received: from qw-out-2122.google.com ([74.125.92.25]:10654 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501AbZDYSLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2009 14:11:31 -0400
+In-Reply-To: <23232689.post@talk.nabble.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Apr 25, 2009 at 11:27 AM, nbj <niraj.b.jain@gmail.com> wrote:
+>
+> I am facing a strange problem when adding a module in the ipv6 stack. (This
+> is a part of my project on IPv4 to IPv6 Gateway)
+> Here is the description:
+>
+> Whenever the IPv6 machine intends to communicate with an IPv4 machine, an
+> extension header is being added(which contains the IPv4 address) and the
+> destination address in the packet is replaced by the address of the gateway.
+> This is done by modifying the address in the sk_buff structure.
+> On receiving a packet from this gateway, I check for the presence of the
+> extension header. If present, the IPv4 address is extracted from it and the
+> source address (that of the gateway) replaced by the mapped address of the
+> v4 machine.
+>
+> Changes have been made in the following functions for the purpose:
+>
+> ip6_xmit & ip6_push_pending_frames: These functions are called in the
+> transmit path of the packet. These functions are used by TCP and UDP/ICMP
+> respectively to serve similar purpose.
+> --I am adding my own extension header (called SHIM header) in the packet at
+> this point. This is done by making changes in the "ipv6_txoptions" structure
+> to add another field for my custom extension header. I am adding the IP
+> address of the IPv4 host in the extension header (this will be used by the
+> translator).
+> --After adding this extension header, I am replacing the destination address
+> in sk_buff with the translator's address.
+>
+> ip6_input_finish:- This function is called in the receive path of the
+> packet. It calls the protocol handler for all the extension headers and the
+> higher layer protocol.
+> --I have written a handler for our custom header (SHIM) which gets called
+> here whenever the packet contains one. This handler replaces the source
+> address (which would be that of the translator) with the mapped address of
+> the IPv4 host as extracted from the SHIM header.
+>
+> Using the above, I have tested TCP, UDP and ICMP applications. For UDP and
+> ICMP (ping) applications, everything works as expected. i.e., the
+> applications uses mapped addresses for the IPv4 hosts and the actual
+> communication happens with the translator's address.
+> For TCP however it failed in the following scenario:
+> I have apache server running on the IPv6 host and IPv4 host trying to access
+> a web page (using mozilla). Initially the IPv4 host is able to access data
+> from the web server. But when a FIN-ACK is sent from the TCP server and a
+> FIN-ACK is obtained from the client, the IPv6 machine hangs.
+> (I also tried testing this using some simple client-server socket program.
+> In that case, everything works fine)
+>
+> --
+> View this message in context: http://www.nabble.com/Query-regarding-IPv6-stack-modification-tp23232689p23232689.html
+> Sent from the linux-kernel mailing list archive at Nabble.com.
+>
 
-In 2.6.25 we added UDP mem accounting.
-
-This unfortunatly added a penalty when a frame is transmitted, since
-we have at TX completion time to call sock_wfree() to perform necessary
-memory accounting. This calls sock_def_write_space() and utimately
-scheduler if any thread is waiting on the socket.
-Thread(s) waiting for an incoming frame was scheduled, then had to sleep
-again as event was meaningless.
-
-(All threads waiting on a socket are using same sk_sleep anchor)
-
-This adds lot of extra wakeups and increases latencies, as noted
-by Christoph Lameter, and slows down softirq handler.
-
-Reference : http://marc.info/?l=linux-netdev&m=124060437012283&w=2 
-
-Fortunatly, Davide Libenzi recently added concept of keyed wakeups
-into kernel, and particularly for sockets (see commit
-37e5540b3c9d838eb20f2ca8ea2eb8072271e403 
-epoll keyed wakeups: make sockets use keyed wakeups)
-
-Davide goal was to optimize epoll, but this new wakeup infrastructure
-can help non epoll users as well, if they care to setup an appropriate
-handler.
-
-This patch introduces new DEFINE_WAIT_FUNC() helper and uses it
-in wait_for_packet(), so that only relevant event can wakeup a thread
-blocked in this function.
-
-Trace of function calls from bnx2 TX completion bnx2_poll_work() is :
-__kfree_skb()
- skb_release_head_state()
-  sock_wfree()
-   sock_def_write_space()
-    __wake_up_sync_key()
-     __wake_up_common()
-      receiver_wake_function() : Stops here since thread is waiting for an INPUT
-
-
-Reported-by: Christoph Lameter <cl@linux.com>
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- include/linux/wait.h |    6 ++++--
- net/core/datagram.c  |   14 +++++++++++++-
- 2 files changed, 17 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/wait.h b/include/linux/wait.h
-index 5d631c1..bc02463 100644
---- a/include/linux/wait.h
-+++ b/include/linux/wait.h
-@@ -440,13 +440,15 @@ void abort_exclusive_wait(wait_queue_head_t *q, wait_queue_t *wait,
- int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
- int wake_bit_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
- 
--#define DEFINE_WAIT(name)						\
-+#define DEFINE_WAIT_FUNC(name, function)				\
- 	wait_queue_t name = {						\
- 		.private	= current,				\
--		.func		= autoremove_wake_function,		\
-+		.func		= function,				\
- 		.task_list	= LIST_HEAD_INIT((name).task_list),	\
- 	}
- 
-+#define DEFINE_WAIT(name) DEFINE_WAIT_FUNC(name, autoremove_wake_function)
-+
- #define DEFINE_WAIT_BIT(name, word, bit)				\
- 	struct wait_bit_queue name = {					\
- 		.key = __WAIT_BIT_KEY_INITIALIZER(word, bit),		\
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index d0de644..b7960a3 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -64,13 +64,25 @@ static inline int connection_based(struct sock *sk)
- 	return sk->sk_type == SOCK_SEQPACKET || sk->sk_type == SOCK_STREAM;
- }
- 
-+static int receiver_wake_function(wait_queue_t *wait, unsigned mode, int sync,
-+				  void *key)
-+{
-+	unsigned long bits = (unsigned long)key;
-+
-+	/*
-+	 * Avoid a wakeup if event not interesting for us
-+	 */
-+	if (bits && !(bits & (POLLIN | POLLERR)))
-+		return 0;
-+	return autoremove_wake_function(wait, mode, sync, key);
-+}
- /*
-  * Wait for a packet..
-  */
- static int wait_for_packet(struct sock *sk, int *err, long *timeo_p)
- {
- 	int error;
--	DEFINE_WAIT(wait);
-+	DEFINE_WAIT_FUNC(wait, receiver_wake_function);
- 
- 	prepare_to_wait_exclusive(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
- 
+CC'ing netdev.
