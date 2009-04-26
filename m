@@ -1,37 +1,40 @@
-From: Ed Tomlinson <edt@aei.ca>
-Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Sun, 26 Apr 2009 09:35:55 -0400
-Message-ID: <200904260935.56655.edt@aei.ca>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <200904170752.48078.edt@aei.ca> <200904171648.38172.rjw@sisk.pl>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] poll: Avoid extra wakeups
+Date: Sun, 26 Apr 2009 15:33:28 +0200
+Message-ID: <49F462A8.5060008@gmail.com>
+References: <alpine.DEB.1.10.0904241554100.29995@qirst.com>	<49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@sisk.pl>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754840AbZDZNgW@vger.kernel.org>
-In-Reply-To: <200904171648.38172.rjw@sisk.pl>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, cl@linux.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f163.google.com ([209.85.218.163]:41013 "EHLO
+	mail-bw0-f163.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191AbZDZNeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2009 09:34:05 -0400
+Received: by bwz7 with SMTP id 7so1828114bwz.37
+        for <netdev@vger.kernel.org>; Sun, 26 Apr 2009 06:34:02 -0700 (PDT)
+In-Reply-To: <49F43B8F.2050907@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 17 April 2009 10:48:38 you wrote:
-> On Friday 17 April 2009, Ed Tomlinson wrote:
-> > On Thursday 16 April 2009 17:42:31 you wrote:
-> > > If you know of any other unresolved regressions from 2.6.29, please let me know
-> > > either and I'll add them to the list.  Also, please let me know if any of the
-> > > entries below are invalid.
-> > 
-> > Rafael,
-> > 
-> > Do you want a bug raised?  The stall reported in thread "2.6.30-rc1 A few issues and a stall"
-> > is still a problem with rc2.  The other issues mentioned in the thread are fixed.
-> 
-> If there's only one issue remaining unfixed, please file a bug in the Bugzilla
-> and put my address in the CC list of the bug entry.
+Eric Dumazet wrote, On 04/26/2009 12:46 PM:
 
-There is not need for me to raise a bug.  The problem is fixed with rc3 + Dave Miller's latest
-network tree for Linus.
+...
+> [PATCH] poll: Avoid extra wakeups in select/pol
 
-Thanks
-Ed
+...
+
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> ---
+>  fs/select.c          |   28 +++++++++++++++++++++++++---
+>  include/linux/poll.h |    3 +++
+>  2 files changed, 28 insertions(+), 3 deletions(-)
+
+
+Eric, I wonder why you've forgotten about linux-kernel@ folks...
+
+Jarek P.
