@@ -1,122 +1,115 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] netfilter: use per-CPU recursive lock {XV}
-Date: Sun, 26 Apr 2009 22:55:49 +0200
-Message-ID: <49F4CA55.8020705@cosmosbay.com>
-References: <20090421111541.228e977a@nehalam> <20090421193924.GA24404@elte.hu> <20090421143927.52d7d89d@nehalam> <alpine.LFD.2.00.0904220821240.3101@localhost.localdomain> <20090423210938.1501507b@nehalam> <49F146FF.5050200@cosmosbay.com> <20090424091839.6e13ebec@nehalam> <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam> <49F4A6E3.7080102@cosmosbay.com> <20090426193135.GA30851@Krystal>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
+Date: Sun, 26 Apr 2009 13:54:39 -0700
+Message-ID: <20090426205439.GB6945@linux.vnet.ibm.com>
+References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, Paul Mackerras <paulus@samba.org>,
-	paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <zbr@ioremap.net>,
-	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090426193135.GA30851@Krystal>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca, tglx@linutronix.de,
+	rostedt@goodmis.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756403AbZDZUyz@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090426112717.GE10391@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mathieu Desnoyers a =E9crit :
-> * Eric Dumazet (dada1@cosmosbay.com) wrote:
->> From: Stephen Hemminger <shemminger@vyatta.com>
->>
->>> Epilogue due to master Jarek. Lockdep carest not about the locking
->>> doth bestowed. Therefore no keys are needed.
->>>
->>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->> So far, so good, should be ready for inclusion now, nobody complaine=
-d :)
->>
->> I include the final patch, merge of your last two patches.
->>
->> David, could you please review it once again and apply it if it's OK=
- ?
->>
-> [...]
->> +/*
->> + * Per-CPU read/write lock associated with per-cpu table entries.
->> + * This is not a general solution but makes reader locking fast sin=
-ce
->> + * there is no shared variable to cause cache ping-pong; but adds a=
-n
->> + * additional write-side penalty since update must lock all
->> + * possible CPU's.
->> + *
->> + * Read lock is used by ip/arp/ip6 tables rule processing which run=
-s per-cpu.
->> + * It needs to ensure that the rules are not being changed while pa=
-cket
->> + * is being processed. In some cases, the read lock will be acquire=
-d
->> + * twice on the same CPU; this is okay because read locks handle ne=
-sting.
->> + *
->> + * Write lock is used in two cases:
->> + *    1. reading counter values
->> + *       all readers need to be stopped and the per-CPU values are =
-summed.
->> + *
->> + *    2. replacing tables
->> + *       any readers that are using the old tables have to complete
->> + *       before freeing the old table. This is handled by reading
->> + *	  as a side effect of reading counters
->> + */
->> +DECLARE_PER_CPU(rwlock_t, xt_info_locks);
->> +
->> +static inline void xt_info_rdlock_bh(void)
->> +{
->> +	/*
->> +	 * Note: can not use read_lock_bh(&__get_cpu_var(xt_info_locks))
->> +	 * because need to ensure that preemption is disable before
->> +	 * acquiring per-cpu-variable, so do it as a two step process
->> +	 */
->> +	local_bh_disable();
->=20
-> Why do you need to disable bottom halves on the read-side ? You could
-> probably just disable preemption, given this lock is nestable on the
-> read-side anyway. Or I'm missing something obvious ?
+On Sun, Apr 26, 2009 at 01:27:17PM +0200, Ingo Molnar wrote:
+> 
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> > Second cut of "big hammer" expedited RCU grace periods, but only 
+> > for rcu_bh.  This creates another softirq vector, so that entering 
+> > this softirq vector will have forced an rcu_bh quiescent state (as 
+> > noted by Dave Miller).  Use smp_call_function() to invoke 
+> > raise_softirq() on all CPUs in order to cause this to happen.  
+> > Track the CPUs that have passed through a quiescent state (or gone 
+> > offline) with a cpumask.
+> 
+> hm, i'm still asking whether doing this would be simpler via a 
+> reschedule vector - which not only is an existing facility but also 
+> forces all RCU domains through a quiescent state - not just bh-RCU 
+> participants.
+> 
+> Triggering a new softirq is in no way simpler that doing an SMP 
+> cross-call - in fact softirqs are a finite resource so using some 
+> other facility would be preferred.
+> 
+> Am i missing something?
 
-It may not be obvious, but subject already raised on this list, so I'll
-try to be as precise as possible (But may be wrong on some points, I'll
-let Patrick correct me if necessary)
+Well, it is entirely possible that I am the one missing something.
 
-ipt_do_table() is not a readonly function returning a verdict.
+So, here is the line of reasoning that lead me to the bh-RCU approach:
 
-1) It handles a stack (check how is used next->comefrom) that seems to
-be stored on rules themselves. (This is how I understand this code)
-This is safe as each cpu has its own copy of rules/counters, and BH pro=
-tected.
+o	The two flavors of RCU that can support an off-to-the-side
+	expedited implementation are RCU-bh and RCU-sched.  Preemptable
+	RCU requires a more intrusive approach for normal RCU, due to
+	the fact that RCU readers can be preempted and can block on locks.
+	Therefore, forcing a reschedule on each CPU does not force a
+	grace period for preemptable RCU.
 
-2) It also updates two 64 bit counters (bytes/packets) on each matched =
-rule.
+	Of course, there is an easy workaround -- for preemptable
+	RCU, make the expedited primitive just directly invoke
+	synchronize_rcu().  Although this would not provide any speedup,
+	it would at least guarantee correct operation.	But I believe
+	that we need to have a way to expedite grace periods on -rt
+	kernels with preemptable RCU as well as on non-real-time kernels.
 
-3) Some netfilter matches/targets probably rely on the fact their handl=
-ers
-are run with BH disabled by their caller (ipt_do_table()/arp/ip6...)
+o	As you say, an RCU-sched grace period implies an RCU-bh grace
+	period on non-realtime kernels.  Unfortunately, for -rt kernels,
+	softirq handlers can be preempted and can block while waiting
+	for locks, so forcing a reschedule on each CPU does not force
+	a grace period for RCU-bh in a -rt kernel.
 
-These must be BH protected (and preempt disabled too), or else :
+	Again, there is an easy workaround: in CONFIG_PREEMPT_RT
+	kernels, make the RCU-bh variant of the expedited primitive
+	invoke a new synchronize_rcu_bh() primitive.
 
-1) A softirq could interrupt a process in the middle of ipt_do_table()
-and corrupt its "stack".
+	Of course, allowing an RCU-sched grace period to imply an RCU-bh
+	grace period loses the DoS-resistance advantages of RCU-bh.
+	However, very few of the RCU updates in the kernel take
+	advantage of DoS resistance.  Furthermore, Steve's patch did
+	not use RCU-bh, so one could argue that we should forget about
+	DoS-resistance for the time being.  Thoughts?
 
-2) A softirq could interrupt a process in ipt_do_table() in the middle
- of the ADD_COUNTER(). Some counters could be corrupted.
+o	The approach in the previous patch works across all kernel
+	builds, because of the fact that it forces a new softirq handler
+	to run, thus guaranteeing that all prior softirq handlers and
+	RCU-bh read-side critical sections for the CPU in question
+	have completed.
 
-3) Some netfiler extensions would break.
+o	I used a new softirq vector out of laziness.  I could instead
+	raise RCU_SOFTIRQ, and then add code to each of the
+	rcu_process_callbacks() functions to ack the expedited
+	raise_softirq().
 
-Previous linux versions already used a read_lock_bh() here, on a single
-and shared rwlock, there is nothing new on this BH locking AFAIK.
+	Easy for me to change, though.  I guess I don't have to be
+	-that- lazy.  ;-)
 
-Thank you
+o	So, why RCU-bh rather than RCU-sched?
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Again, laziness.  The RCU-sched approach requires greater
+	intrusiveness into the existing RCU implementations.  Nothing
+	wrong with that, given that this is in fact another RCU API
+	member, but given the choice, I would rather do the intruding
+	after dropping Classic RCU.
+
+	The easiest way I could see to minimize intrusion for RCU-sched
+	is to create a new per-CPU counter that is incremented by each
+	implementation of rcu_qsctr_inc().  But even easier to avoid
+	the rcu_qsctr_inc() code path entirely.
+
+Once we have dropped Classic RCU and I have merged Preemptable RCU into
+Hierarchical RCU, it becomes much more attractive to merge the expediting
+into the main RCU state machine.
+
+Thoughts?
+
+							Thanx, Paul
