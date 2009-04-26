@@ -1,42 +1,45 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] poll: Avoid extra wakeups
-Date: Sun, 26 Apr 2009 16:27:32 +0200
-Message-ID: <49F46F54.2060309@cosmosbay.com>
-References: <alpine.DEB.1.10.0904241554100.29995@qirst.com>	<49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <49F462A8.5060008@gmail.com>
+From: Or Gerlitz <ogerlitz@Voltaire.com>
+Subject: Re: more findings/questions on vlans/bonds
+Date: Sun, 26 Apr 2009 17:14:15 +0300
+Message-ID: <49F46C37.2050001@Voltaire.com>
+References: <13724.1240520690@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, cl@linux.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:43865 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753013AbZDZO2g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2009 10:28:36 -0400
-In-Reply-To: <49F462A8.5060008@gmail.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:53440 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755112AbZDZOOb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2009 10:14:31 -0400
+In-Reply-To: <13724.1240520690@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
-> Eric Dumazet wrote, On 04/26/2009 12:46 PM:
->=20
-> ...
->> [PATCH] poll: Avoid extra wakeups in select/pol
->=20
-> ...
->=20
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->> ---
->>  fs/select.c          |   28 +++++++++++++++++++++++++---
->>  include/linux/poll.h |    3 +++
->>  2 files changed, 28 insertions(+), 3 deletions(-)
->=20
->=20
-> Eric, I wonder why you've forgotten about linux-kernel@ folks...
->=20
+Jay Vosburgh wrote:
+>         So, here's a patch with a description.  This resolves the
+> bonding problem for me; it might have other undesirable side effects,
+> though.  It's debatable whether it's really necessary, but it does make
+> the VLAN device behave more like a real network device in this case:
+> 
+> [PATCH] vlan: update vlan carrier state for admin up/down
 
-Ah yes, I forgot, I only did a 'reply all' on David's mail.
-I'll resubmit it anyway, since it was only a followup.
+Jay, I just can't apply the patch on 2.6.30-rc2 it all fails, which
+is quite weird since the code (e.g net/8021q/vlan.c) hasn't gone through
+many changes recently - any idea what I do wrong?
+
+Or.
+
+> # patch --dry-run -p 1 < /tmp/vlans_bonds.patch
+> patching file net/8021q/vlan.c
+> Hunk #1 FAILED at 492.
+> Hunk #2 FAILED at 508.
+> 2 out of 2 hunks FAILED -- saving rejects to file net/8021q/vlan.c.rej
+> patching file net/8021q/vlan_dev.c
+> Hunk #1 FAILED at 462.
+> Hunk #2 FAILED at 472.
+> Hunk #3 FAILED at 494.
+> Hunk #4 FAILED at 615.
+> 4 out of 4 hunks FAILED -- saving rejects to file net/8021q/vlan_dev.c.rej
 
