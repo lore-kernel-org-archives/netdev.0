@@ -1,45 +1,37 @@
-From: Or Gerlitz <ogerlitz@Voltaire.com>
-Subject: Re: more findings/questions on vlans/bonds
-Date: Sun, 26 Apr 2009 17:14:15 +0300
-Message-ID: <49F46C37.2050001@Voltaire.com>
-References: <13724.1240520690@death.nxdomain.ibm.com>
+From: Ed Tomlinson <edt@aei.ca>
+Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
+Date: Sun, 26 Apr 2009 09:35:55 -0400
+Message-ID: <200904260935.56655.edt@aei.ca>
+References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera> <200904170752.48078.edt@aei.ca> <200904171648.38172.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:53440 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755112AbZDZOOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2009 10:14:31 -0400
-In-Reply-To: <13724.1240520690@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754840AbZDZNgW@vger.kernel.org>
+In-Reply-To: <200904171648.38172.rjw@sisk.pl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
->         So, here's a patch with a description.  This resolves the
-> bonding problem for me; it might have other undesirable side effects,
-> though.  It's debatable whether it's really necessary, but it does make
-> the VLAN device behave more like a real network device in this case:
+On Friday 17 April 2009 10:48:38 you wrote:
+> On Friday 17 April 2009, Ed Tomlinson wrote:
+> > On Thursday 16 April 2009 17:42:31 you wrote:
+> > > If you know of any other unresolved regressions from 2.6.29, please let me know
+> > > either and I'll add them to the list.  Also, please let me know if any of the
+> > > entries below are invalid.
+> > 
+> > Rafael,
+> > 
+> > Do you want a bug raised?  The stall reported in thread "2.6.30-rc1 A few issues and a stall"
+> > is still a problem with rc2.  The other issues mentioned in the thread are fixed.
 > 
-> [PATCH] vlan: update vlan carrier state for admin up/down
+> If there's only one issue remaining unfixed, please file a bug in the Bugzilla
+> and put my address in the CC list of the bug entry.
 
-Jay, I just can't apply the patch on 2.6.30-rc2 it all fails, which
-is quite weird since the code (e.g net/8021q/vlan.c) hasn't gone through
-many changes recently - any idea what I do wrong?
+There is not need for me to raise a bug.  The problem is fixed with rc3 + Dave Miller's latest
+network tree for Linus.
 
-Or.
-
-> # patch --dry-run -p 1 < /tmp/vlans_bonds.patch
-> patching file net/8021q/vlan.c
-> Hunk #1 FAILED at 492.
-> Hunk #2 FAILED at 508.
-> 2 out of 2 hunks FAILED -- saving rejects to file net/8021q/vlan.c.rej
-> patching file net/8021q/vlan_dev.c
-> Hunk #1 FAILED at 462.
-> Hunk #2 FAILED at 472.
-> Hunk #3 FAILED at 494.
-> Hunk #4 FAILED at 615.
-> 4 out of 4 hunks FAILED -- saving rejects to file net/8021q/vlan_dev.c.rej
-
+Thanks
+Ed
