@@ -1,36 +1,58 @@
-From: Or Gerlitz <ogerlitz@Voltaire.com>
-Subject: Re: more findings/questions on vlans/bonds
-Date: Sun, 26 Apr 2009 11:21:22 +0300
-Message-ID: <49F41982.4050608@Voltaire.com>
-References: <Pine.LNX.4.64.0904071202110.14639@zuben.voltaire.com> <13724.1240520690@death.nxdomain.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] netfilter: iptables no lockdep is needed..
+Date: Sun, 26 Apr 2009 10:18:25 +0200
+Message-ID: <20090426081825.GA2755@ami.dom.local>
+References: <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam> <20090421193924.GA24404@elte.hu> <20090421143927.52d7d89d@nehalam> <alpine.LFD.2.00.0904220821240.3101@localhost.localdomain> <20090423210938.1501507b@nehalam> <49F146FF.5050200@cosmosbay.com> <20090424091839.6e13ebec@nehalam> <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:29763 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753618AbZDZIVg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2009 04:21:36 -0400
-In-Reply-To: <13724.1240520690@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>, Paul Mackerras <paulus@samba.org>,
+	paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <zbr@ioremap.net>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754736AbZDZITd@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090425133052.4cb711f5@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
->> $ cat /sys/class/net/eth0.4001/carrier
->> cat: /sys/class/net/eth0.4001/carrier: Invalid argument
+On Sat, Apr 25, 2009 at 01:30:52PM -0700, Stephen Hemminger wrote:
+> Epilogue due to master Jarek. Lockdep carest not about the locking
+> doth bestowed. Therefore no keys are needed.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
->         I suspect the "carrier: Invalid argument" response you describe
-> above is a result of the show_carrier function in net-sysfs.c, which
-> returns EINVAL if the device is not netif_running.  If the device (vlan
-> or not) is running, the carrier is returned.
+Very nice! I guess this Shakespeare guy Will sign off this all too. ;-)
 
-Yes, I see now that this is indeed the case with the sysfs code.
+Thanks,
+Jarek P.
 
-> So, here's a patch with a description.  This resolves the
-> bonding problem for me
-
-many thanks for doing this patch
-
-Or.
+> 
+> ---
+>  net/netfilter/x_tables.c |    9 ++-------
+>  1 file changed, 2 insertions(+), 7 deletions(-)
+> 
+> --- a/net/netfilter/x_tables.c	2009-04-25 13:25:48.115026283 -0700
+> +++ b/net/netfilter/x_tables.c	2009-04-25 13:26:15.646215635 -0700
+> @@ -1145,14 +1145,9 @@ static int __init xt_init(void)
+>  {
+>  	unsigned int i;
+>  	int rv;
+> -	static struct lock_class_key xt_lock_key[NR_CPUS];
+>  
+> -	for_each_possible_cpu(i) {
+> -		rwlock_t *lock = &per_cpu(xt_info_locks, i);
+> -
+> -		rwlock_init(lock);
+> -		lockdep_set_class(lock, xt_lock_key+i);
+> -	}
+> +	for_each_possible_cpu(i)
+> +		rwlock_init(&per_cpu(xt_info_locks, i));
+>  
+>  	xt = kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL);
+>  	if (!xt)
