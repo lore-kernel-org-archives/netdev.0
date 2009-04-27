@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: Fix WoL functionality for 82599 KX4
- devices
-Date: Mon, 27 Apr 2009 03:14:57 -0700 (PDT)
-Message-ID: <20090427.031457.254091404.davem@davemloft.net>
-References: <20090423211514.29345.14658.stgit@localhost.localdomain>
+Subject: Re: [net-next-2.6 PATCH] igb: always use adapter->itr as EITR value
+Date: Mon, 27 Apr 2009 03:16:01 -0700 (PDT)
+Message-ID: <20090427.031601.232191146.davem@davemloft.net>
+References: <20090423212029.29591.16562.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	peter.p.waskiewicz.jr@intel.com
+	alexander.h.duyck@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39868
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39872
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752895AbZD0KPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 06:15:04 -0400
-In-Reply-To: <20090423211514.29345.14658.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753023AbZD0KQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 06:16:10 -0400
+In-Reply-To: <20090423212029.29591.16562.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 23 Apr 2009 14:15:18 -0700
+Date: Thu, 23 Apr 2009 14:20:29 -0700
 
-> The current code writes the PME enabled bit in PCI config space which is
-> wrong.  This was needed for pre-release hardware, and was not removed from
-> the driver.  Also, we need to clear the WUS (wake up status) after we
-> resume.  Otherwise we can't wake for the same event again since it's still
-> asserted in the hardware.  Plus, the multicast lists were being written
-> improperly, causing multicast WoL to fail.
+> The igb driver was switching between adapter->itr containing the EITR value
+> and the number of interrupts per second.  This resulted in high latencies
+> being seen after brining the interface down and then back up.  To resolve
+> the issue the itr value will now only contain the value that should be
+> programmed into EITR.
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
