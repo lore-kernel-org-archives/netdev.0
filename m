@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] [ISDN] Documentation patchset
-Date: Mon, 27 Apr 2009 03:13:23 -0700 (PDT)
-Message-ID: <20090427.031323.64748515.davem@davemloft.net>
-References: <cover.1240489461.git.keil@b1-systems.de>
+Subject: Re: [net-2.6 PATCH] ixgbe: Fix WoL functionality for 82599 KX4
+ devices
+Date: Mon, 27 Apr 2009 03:14:57 -0700 (PDT)
+Message-ID: <20090427.031457.254091404.davem@davemloft.net>
+References: <20090423211514.29345.14658.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, rdunlap@xenotime.net, tilman@imap.cc,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org
-To: karsten-keil@t-online.de
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39862
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39868
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750898AbZD0KNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 06:13:30 -0400
-In-Reply-To: <cover.1240489461.git.keil@b1-systems.de>
+	by vger.kernel.org with ESMTP id S1752895AbZD0KPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 06:15:04 -0400
+In-Reply-To: <20090423211514.29345.14658.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <karsten-keil@t-online.de>
-Date: Thu, 23 Apr 2009 14:24:21 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 23 Apr 2009 14:15:18 -0700
 
-> Fixed one more typo and wrong From: lines.
+> The current code writes the PME enabled bit in PCI config space which is
+> wrong.  This was needed for pre-release hardware, and was not removed from
+> the driver.  Also, we need to clear the WUS (wake up status) after we
+> resume.  Otherwise we can't wake for the same event again since it's still
+> asserted in the hardware.  Plus, the multicast lists were being written
+> improperly, causing multicast WoL to fail.
 > 
-> Add some useful documentation for the ISDN subsystem.
-> Orignal patches are from Tilman Schmidt.
-> I fixed some whitespace issues and added the URL for the CAPI 2.0 spec.
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-This patch set does not apply at all to net-2.6
+Applied.
