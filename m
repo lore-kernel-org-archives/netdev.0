@@ -1,49 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] OF device tree handling of PHY drivers
-Date: Mon, 27 Apr 2009 02:54:36 -0700 (PDT)
-Message-ID: <20090427.025436.68188155.davem@davemloft.net>
-References: <20090425224458.32392.31296.stgit@localhost.localdomain>
+Subject: Re: [RFC] macvlan: proper multicast support
+Date: Mon, 27 Apr 2009 02:56:34 -0700 (PDT)
+Message-ID: <20090427.025634.54725702.davem@davemloft.net>
+References: <20090423091425.73ed544c@s6510>
+	<49F1D5EF.3020306@trash.net>
+	<20090424094808.74d401d8@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com, netdev@vger.kernel.org
-To: grant.likely@secretlab.ca
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090425224458.32392.31296.stgit@localhost.localdomain>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46670
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757595AbZD0J4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:56:41 -0400
+In-Reply-To: <20090424094808.74d401d8@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Sat, 25 Apr 2009 16:52:34 -0600
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 24 Apr 2009 09:48:08 -0700
 
-> This series adds common code for reading PHY connection data out of
-> the OpenFirmware device tree.  This simplifies the network drivers
-> which use the device tree and which currently implement their own
-> solutions for reading the PHY data out of the device tree directly.
+> When using macvlan's multicast packets don't get properly passed between
+> macvlan's which should be logically sharing the network.  Any multicast
+> packet sent on a macvlan should show up lower device and all other macvlan's.
+> Likewise a multicast packet sent on lower device should be received
+> by all macvlan's.
 > 
-> I would like to see this series, or at least the core changes (1-4)
-> plus the tested drivers (5-8 & 12, but #12 is a new driver and it
-> may need more review), go into -next for 2.6.31.
+> The following is one way to do it; build tested only.
 > 
-> Due to dependencies, I think it is easiest if all of them go in via the
-> same tree.  David, are you willing to merge them via yours?  Four of the
-> patches are outside of drivers/net (patches 1 and 4 touch drivers/of/,
-> and patches 9 & 10 touch arch/powerpc), but I personally have no issues
-> if those changes go through you.  I just need to double check with BenH.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I've applied all of these patches to net-next-2.6, thanks.
-
->   git://git.secretlab.ca/git/linux-2.6 next-net
-
-You know, if you had actually based this tree on net-next-2.6
-I could have pulled from it.  I actually tried, and I got a
-lot of upstream stuff I wasn't ready to get in that tree just
-yet :-/
+I definitely want to see what Patrick thinks of this.
