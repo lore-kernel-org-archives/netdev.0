@@ -1,128 +1,50 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
-Date: Mon, 27 Apr 2009 15:43:02 +0200
-Message-ID: <20090427134302.GA19137@elte.hu>
-References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com> <20090427032639.GA10087@elte.hu> <20090427132153.GI6945@linux.vnet.ibm.com>
+From: =?utf-8?Q?Rog=C3=A9rio?= Brito <rbrito@ime.usp.br>
+Subject: Re: [PATCH] powerpc: convert mace to netdev_ops
+Date: Mon, 27 Apr 2009 11:20:25 -0300
+Message-ID: <20090427142024.GC29608@ime.usp.br>
+References: <20090426155708.GA23159@ime.usp.br>
+	<20090426.230648.254087966.davem@davemloft.net>
+	<20090427121633.GA29608@ime.usp.br>
+	<20090427.054258.16622932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:57842 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752759AbZD0Nn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2009 09:43:59 -0400
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
-In-Reply-To: <20090427132153.GI6945@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090427.054258.16622932.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-
-> On Mon, Apr 27, 2009 at 05:26:39AM +0200, Ingo Molnar wrote:
-> > 
-> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > 
-> > > On Sun, Apr 26, 2009 at 10:22:55PM +0200, Ingo Molnar wrote:
-> > > > 
-> > > > * Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
-> > > > 
-> > > > > * Ingo Molnar (mingo@elte.hu) wrote:
-> > > > > > 
-> > > > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > > > > 
-> > > > > > > Second cut of "big hammer" expedited RCU grace periods, but only 
-> > > > > > > for rcu_bh.  This creates another softirq vector, so that entering 
-> > > > > > > this softirq vector will have forced an rcu_bh quiescent state (as 
-> > > > > > > noted by Dave Miller).  Use smp_call_function() to invoke 
-> > > > > > > raise_softirq() on all CPUs in order to cause this to happen.  
-> > > > > > > Track the CPUs that have passed through a quiescent state (or gone 
-> > > > > > > offline) with a cpumask.
-> > > > > > 
-> > > > > > hm, i'm still asking whether doing this would be simpler via a 
-> > > > > > reschedule vector - which not only is an existing facility but also 
-> > > > > > forces all RCU domains through a quiescent state - not just bh-RCU 
-> > > > > > participants.
-> > > > > > 
-> > > > > > Triggering a new softirq is in no way simpler that doing an SMP 
-> > > > > > cross-call - in fact softirqs are a finite resource so using some 
-> > > > > > other facility would be preferred.
-> > > > > > 
-> > > > > > Am i missing something?
-> > > > > > 
-> > > > > 
-> > > > > I think the reason for this whole thread is that waiting for rcu 
-> > > > > quiescent state, when called many times e.g. in multiple iptables 
-> > > > > invokations, takes too longs (5 seconds to load the netfilter 
-> > > > > rules at boot). [...]
-> > > > 
-> > > > I'm aware of the problem space.
-> > > > 
-> > > > I was suggesting that to trigger the quiescent state and to wait for 
-> > > > it to propagate it would be enough to reuse the reschedule 
-> > > > mechanism.
-> > > > 
-> > > > It would be relatively straightforward: first a send-reschedule then 
-> > > > do a wait_task_context_switch() on rq->curr - both are existing 
-> > > > primitives. (a task reference has to be taken but that's pretty much 
-> > > > all)
-> > > 
-> > > Well, one reason I didn't take this approach was that I didn't 
-> > > happen to think of it.  ;-)
-> > > 
-> > > Also that I hadn't heard of wait_task_context_switch().
-> > > 
-> > > Hmmm...  Looking for wait_task_context_switch().  OK, found it.
-> > > 
-> > > It looks to me that this primitive won't return until the 
-> > > scheduler actually decides to run something else.  We instead need 
-> > > to have something that stops waiting once the CPU enters the 
-> > > scheduler, hence the previous thought of making rcu_qsctr_inc() do 
-> > > a bit of extra work.
-> > > 
-> > > This would be a way of making an expedited RCU-sched across all 
-> > > RCU implementations.  As noted in the earlier email, it would not 
-> > > handle RCU or RCU-bh in a -rt kernel.
-> > > 
-> > > > By the time wait_task_context_switch() returns from the last CPU 
-> > > > we know that the quiescent state has passed.
-> > > 
-> > > We would want to wait for all of the CPUs in parallel, though, 
-> > > wouldn't we?  Seems that we would not want to wait for the last 
-> > > CPU to do another trip through the scheduler if it had already 
-> > > passed through the scheduler while we were waiting on the earlier 
-> > > CPUs.
-> > > 
-> > > So it seems like we would still want a two-pass approach -- one 
-> > > pass to capture the current state, the second pass to wait for the 
-> > > state to change.
-> > 
-> > I think waiting in parallel is still possible (first kick all tasks, 
-> > then make sure all tasks have left the CPU at least once).
-> > 
-> > The busy-waiting in wait_task_context_switch() is indeed a 
-> > problem - but perhaps that could be refactored to be a 
-> > migration-thread driven wait_for_completion() + complete() 
-> > cycle? It could be driven by preempt notifiers perhaps - and 
-> > become zero-cost.
-> 
-> Hmmm...  It would need to be informed of the quiescent state even 
-> if that quiescent state did not result in a preemption.
-> 
-> But you are right -- I do need to expedite RCU, not just RCU-bh, 
-> especially given that the boot-speed guys are starting to see 
-> grace periods as a measureable fraction of the boot time.  I will 
-> take another pass at this.
-
-The precise method of signalling is a detail i suspect - so by all 
-means use a new softirq if that is the cleanest. I'd also agree that 
-covering not just bh-rcu would definitely be a good idea.
-
-	Ingo
+SGksIERhdmUuCgpPbiBBcHIgMjcgMjAwOSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IFlvdSBjYW4g
+Zml4IHRoZSBtYWNlX3NldF90aW1lb3V0KCkgZnVuY3Rpb24gYXJndW1lbnRzIGJ5IGhhdmluZyBh
+Cj4gaGVscGVyIGZ1bmN0aW9uIHRoYXQgc2ltcGx5IHdyYXBzIGFyb3VuZCBpdCBhbmQgcHJvdmlk
+ZXMgdGhlIHNlY29uZAo+IGV4cGVjdGlvbiBvZiBhcmd1bWVudCB0eXBlcy4KCkh1bW1tLCB0aGlz
+IG1lYW5zIHRoYXQgSSdtIG5vdCB0aGF0IGJhZC4uLiBUaGUgd3JhcHBlciBmdW5jdGlvbiB3YXMg
+dGhlCmZpcnN0IHRoaW5nIHRoYXQgY2FtZSB0byBteSBtaW5kLCBidXQgSSBqdXN0IHdhbnRlZCB0
+byBiZSBhcyBsZWFzdApkaXNydXB0aXZlIGFzIHBvc3NpYmxlLgoKPiBZb3VyIHBhdGNoIGlzIGFs
+c28gd3JvbmcsIGl0J3MgbWlzc2luZyBhIGxvdCBvZiBuZXRkZXZfb3BzCj4gZW50cmllcyB0aGF0
+IGFyZSBpbXBsaWNpdGx5IG9idGFpbmVkIHZpYSBhbGxvY19ldGhlcmRldigpLAo+IG5hbWVseToK
+ClRoYW5rcyBmb3IgcG9pbnRpbmcgdGhvc2Ugb3V0LiBJIGRpZG4ndCBmaW5kIHRoZSBkb2N1bWVu
+dGF0aW9uIGFib3V0Cm5ldGRldl9vcHMgdW5kZXIgRG9jdW1lbnRhdGlvbiAoYSBzaW1wbGUgZ3Jl
+cCBkaWRuJ3QgdHVybiBhbnkgcmVzdWx0cykuCgo+IAkubmRvX2NoYW5nZV9tdHUJCT0gZXRoX2No
+YW5nZV9tdHUsCj4gCS5uZG9fc2V0X21hY19hZGRyZXNzIAk9IGV0aF9tYWNfYWRkciwKPiAJLm5k
+b192YWxpZGF0ZV9hZGRyCT0gZXRoX3ZhbGlkYXRlX2FkZHIsCgpOaWNlLiBJIHdpbGwgaW5jb3Jw
+b3JhdGUgc3VjaCB0aGluZ3MuCgoKVGhhbmtzLCBSb2fDqXJpbyBCcml0by4KCi0tIApSb2fDqXJp
+byBCcml0byA6IHJicml0b0B7bWFja2VuemllLGltZS51c3B9LmJyIDogR1BHIGtleSAxMDI0RC83
+QzJDQUVCOApodHRwOi8vd3d3LmltZS51c3AuYnIvfnJicml0byA6IGh0dHA6Ly9tZXVzaXRlLm1h
+Y2tlbnppZS5jb20uYnIvcmJyaXRvClByb2plY3RzOiBhbGdvcml0aG1zLmJlcmxpb3MuZGUgOiBs
+YW1lLnNmLm5ldCA6IHZybXMuYWxpb3RoLmRlYmlhbi5vcmcKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51
+eHBwYy1kZXZAb3psYWJzLm9yZwpodHRwczovL296bGFicy5vcmcvbWFpbG1hbi9saXN0aW5mby9s
+aW51eHBwYy1kZXY=
