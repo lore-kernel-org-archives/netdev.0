@@ -1,30 +1,29 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
-Date: Mon, 27 Apr 2009 09:16:29 -0700
-Message-ID: <20090427161629.GC7226@linux.vnet.ibm.com>
-References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com> <20090427032639.GA10087@elte.hu> <20090427132153.GI6945@linux.vnet.ibm.com> <20090427155424.GA27041@Krystal>
+Date: Mon, 27 Apr 2009 09:17:04 -0700
+Message-ID: <20090427161704.GD7226@linux.vnet.ibm.com>
+References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com> <20090427032639.GA10087@elte.hu> <20090427132153.GI6945@linux.vnet.ibm.com> <20090427134302.GA19137@elte.hu>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
-	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org
-To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:46072 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752654AbZD0QQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2009 12:16:33 -0400
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090427155424.GA27041@Krystal>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090427134302.GA19137@elte.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 27, 2009 at 11:54:24AM -0400, Mathieu Desnoyers wrote:
-> * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
+On Mon, Apr 27, 2009 at 03:43:02PM +0200, Ingo Molnar wrote:
+> 
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
 > > On Mon, Apr 27, 2009 at 05:26:39AM +0200, Ingo Molnar wrote:
 > > > 
 > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
@@ -106,40 +105,24 @@ On Mon, Apr 27, 2009 at 11:54:24AM -0400, Mathieu Desnoyers wrote:
 > > > I think waiting in parallel is still possible (first kick all tasks, 
 > > > then make sure all tasks have left the CPU at least once).
 > > > 
-> > > The busy-waiting in wait_task_context_switch() is indeed a problem - 
-> > > but perhaps that could be refactored to be a migration-thread driven 
-> > > wait_for_completion() + complete() cycle? It could be driven by 
-> > > preempt notifiers perhaps - and become zero-cost.
+> > > The busy-waiting in wait_task_context_switch() is indeed a 
+> > > problem - but perhaps that could be refactored to be a 
+> > > migration-thread driven wait_for_completion() + complete() 
+> > > cycle? It could be driven by preempt notifiers perhaps - and 
+> > > become zero-cost.
 > > 
-> > Hmmm...  It would need to be informed of the quiescent state even if
-> > that quiescent state did not result in a preemption.
+> > Hmmm...  It would need to be informed of the quiescent state even 
+> > if that quiescent state did not result in a preemption.
 > > 
-> > But you are right -- I do need to expedite RCU, not just RCU-bh,
-> > especially given that the boot-speed guys are starting to see grace
-> > periods as a measureable fraction of the boot time.  I will take another
-> > pass at this.
+> > But you are right -- I do need to expedite RCU, not just RCU-bh, 
+> > especially given that the boot-speed guys are starting to see 
+> > grace periods as a measureable fraction of the boot time.  I will 
+> > take another pass at this.
 > 
-> It might sound a bit simplistic, but... scheduling a high-priority
-> workqueue on every CPUs would give you the guarantees you seem to need
-> here. Or is the delay of letting the scheduler schedule a high-priority
-> task a delay you are trying to avoid ?
-> 
-> Some kind of priority boosting done by synchronize_rcu() could probably
-> work, and you could support rcu callbacks priority boosting by assigning
-> a priority to each callback registered (same priority as the thread
-> which invoked call_rcu). The rcu callbacks could then be sorted by
-> priority in a RB tree, and only the callbacks associated with priority
-> >= than the next priority task would be executed.
+> The precise method of signalling is a detail i suspect - so by all 
+> means use a new softirq if that is the cleanest. I'd also agree that 
+> covering not just bh-rcu would definitely be a good idea.
 
-I did something similar for the implementation of synchronize_sched()
-in preemptable RCU.  The interactions with CPU hotplug are a bit ugly.
-It will be easier to hook into rcu_qsctr_inc().  ;-)
-
-But this discussion has been quite useful -- my thoughts for the design
-of the long-term solution were a bit lacking, as they would have allowed
-a heavy callback load to delay an expedited grace period.  So this will
-be a bit of a hack until I get all the RCU implementations converged,
-but there is a nice long-term solution to be had by integrating the
-expediting into the hierarchical-RCU data structures.
+Fair enough!  ;-)
 
 							Thanx, Paul
