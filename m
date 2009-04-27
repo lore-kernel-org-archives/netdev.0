@@ -1,150 +1,111 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] Proposed PARCH PCIE legacy I/O port free intel 10Gb NIC
-	driver
-Date: Mon, 27 Apr 2009 10:56:35 -0700
-Message-ID: <9929d2390904271056x8d3ca98o9307bcb55efb9fd6@mail.gmail.com>
-References: <AB661B51A8B54AF0A4D28FEF67718445@WINAK2QSSPDVFH>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth: add clock gating feature
+Date: Mon, 27 Apr 2009 08:31:35 -0400
+Message-ID: <49F5A5A7.4050609@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: gouji-new <gouji.masayuki@jp.fujitsu.com>
+Content-Type: multipart/mixed;
+ boundary="------------020507060600070003080502"
+To: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:56839 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758244AbZD0R4h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 13:56:37 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so36159ywb.1
-        for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 10:56:36 -0700 (PDT)
-In-Reply-To: <AB661B51A8B54AF0A4D28FEF67718445@WINAK2QSSPDVFH>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:10274 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758966AbZD0SH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 14:07:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 27, 2009 at 12:42 AM, gouji-new
-<gouji.masayuki@jp.fujitsu.com> wrote:
-> Hi all
->
-> Traditionally Intel based NIC drivers request I/O port even though it
-> doesn't need that really.
->
-> Intel PCIE 10Gb driver (ixgbe) also requests I/O port but it doesn't =
-need it
-> either.
->
-> This is a little inconvenient situation because sometimes we have to =
-handle
-> those cards
-> on the slots where any I/O space is not attached.
->
->
->
->
-> So we made pach which makes ixgbe driver legacy I/O port free.
->
-> Signed-off-by: Masayuki Gouji <gouji.masayuki@jp.fujitsu.com>
->
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index 0188425..c816cf1 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -3626,7 +3626,8 @@ static int ixgbe_resume(struct pci_dev *pdev)
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_set_power_state(pdev, PCI_D0);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_restore_state(pdev);
-> - =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device(pdev);
-> +
-> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device_mem(pdev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0printk(KERN_ER=
-R "ixgbe: Cannot enable PCI device from "
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0"suspend\n");
-> @@ -4578,7 +4579,7 @@ static int __devinit ixgbe_probe(struct pci_dev=
- *pdev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 pm_value =3D 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 part_num, eec;
->
-> - =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device(pdev);
-> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device_mem(pdev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return err;
->
-> @@ -4598,9 +4599,12 @@ static int __devinit ixgbe_probe(struct pci_de=
-v
-> *pdev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_using_dac =
-=3D 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> - =C2=A0 =C2=A0 =C2=A0 err =3D pci_request_regions(pdev, ixgbe_driver=
-_name);
-> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_request_selected_regions(pdev,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-pci_select_bars(pdev,
-> IORESOURCE_MEM),
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-ixgbe_driver_name);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err) {
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dev_err(&pdev->dev=
-, "pci_request_regions failed 0x%x\n",
-> err);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dev_err(&pdev->dev=
-,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 "pci_request_selected_regions failed 0x%x\n", err);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_pci_r=
-eg;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> @@ -4845,7 +4849,8 @@ err_eeprom:
-> =C2=A0err_ioremap:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0free_netdev(netdev);
-> =C2=A0err_alloc_etherdev:
-> - =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
-> + =C2=A0 =C2=A0 =C2=A0 pci_release_selected_regions(pdev,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_select_bars=
-(pdev, IORESOURCE_MEM));
-> =C2=A0err_pci_reg:
-> =C2=A0err_dma:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(pdev);
-> @@ -4897,7 +4902,8 @@ static void __devexit ixgbe_remove(struct pci_d=
-ev
-> *pdev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0ixgbe_release_hw_control(adapter);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0iounmap(adapter->hw.hw_addr);
-> - =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
-> + =C2=A0 =C2=A0 =C2=A0 pci_release_selected_regions(pdev,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_select_bars=
-(pdev, IORESOURCE_MEM));
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0DPRINTK(PROBE, INFO, "complete\n");
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0kfree(adapter->tx_ring);
-> @@ -4950,7 +4956,7 @@ static pci_ers_result_t ixgbe_io_slot_reset(str=
-uct
-> pci_dev *pdev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_ers_result_t result;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
->
-> - =C2=A0 =C2=A0 =C2=A0 if (pci_enable_device(pdev)) {
-> + =C2=A0 =C2=A0 =C2=A0 if (pci_enable_device_mem(pdev)) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0DPRINTK(PROBE,=
- ERR,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0"Cannot re-enable PCI device after reset.\n");
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0result =3D PCI=
-_ERS_RESULT_DISCONNECT;
->
->
+This is a multi-part message in MIME format.
+--------------020507060600070003080502
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks for the patch.  I will add it to my tree along with my other
-ixgbe patches and push it to Dave.
+This patch adds support for clock gating the tx/rx engines which is 
+available on certain chipsets.
 
---=20
-Cheers,
-Jeff
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+
+
+--------------020507060600070003080502
+Content-Type: text/plain;
+ name="patch-forcedeth-gate-clocks"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-gate-clocks"
+
+--- old/drivers/net/forcedeth.c	2009-04-25 18:33:15.000000000 -0400
++++ new/drivers/net/forcedeth.c	2009-04-25 18:39:51.000000000 -0400
+@@ -343,6 +343,7 @@
+ #define NVREG_POWERSTATE2_POWERUP_MASK		0x0F15
+ #define NVREG_POWERSTATE2_POWERUP_REV_A3	0x0001
+ #define NVREG_POWERSTATE2_PHY_RESET		0x0004
++#define NVREG_POWERSTATE2_GATE_CLOCKS		0x0F00
+ };
+ 
+ /* Big endian: should work, but is untested */
+@@ -1017,6 +1018,23 @@
+ 		return 1;
+ }
+ 
++static void nv_txrx_gate(struct net_device *dev, bool gate)
++{
++	struct fe_priv *np = get_nvpriv(dev);
++	u8 __iomem *base = get_hwbase(dev);
++	u32 powerstate;
++
++	if (!np->mac_in_use &&
++	    (np->driver_data & DEV_HAS_POWER_CNTRL)) {
++		powerstate = readl(base + NvRegPowerState2);
++		if (gate)
++			powerstate |= NVREG_POWERSTATE2_GATE_CLOCKS;
++		else
++			powerstate &= ~NVREG_POWERSTATE2_GATE_CLOCKS;
++		writel(powerstate,base + NvRegPowerState2);
++	}
++}
++
+ static void nv_enable_irq(struct net_device *dev)
+ {
+ 	struct fe_priv *np = get_nvpriv(dev);
+@@ -3394,12 +3412,14 @@
+ 		if (!netif_carrier_ok(dev)) {
+ 			netif_carrier_on(dev);
+ 			printk(KERN_INFO "%s: link up.\n", dev->name);
++			nv_txrx_gate(dev, false);
+ 			nv_start_rx(dev);
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(dev)) {
+ 			netif_carrier_off(dev);
+ 			printk(KERN_INFO "%s: link down.\n", dev->name);
++			nv_txrx_gate(dev, true);
+ 			nv_stop_rx(dev);
+ 		}
+ 	}
+@@ -5327,6 +5347,7 @@
+ 	mii_rw(dev, np->phyaddr, MII_BMCR,
+ 	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
+ 
++	nv_txrx_gate(dev, false);
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5514,12 +5535,14 @@
+ 	nv_drain_rxtx(dev);
+ 
+ 	if (np->wolenabled) {
++		nv_txrx_gate(dev, false);
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
+ 	} else {
+ 		/* power down phy */
+ 		mii_rw(dev, np->phyaddr, MII_BMCR,
+ 		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
++		nv_txrx_gate(dev, true);
+ 	}
+ 
+ 	/* FIXME: power down nic */
+
+--------------020507060600070003080502--
