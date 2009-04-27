@@ -1,65 +1,150 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] net: Fix ucc_geth.c handling of phy 'interface' property.
-Date: Mon, 27 Apr 2009 11:50:20 -0600
-Message-ID: <fa686aa40904271050kb3159cbw52c0c1dba3076f3e@mail.gmail.com>
-References: <20090427153612.5108.10877.stgit@localhost.localdomain>
-	<20090427173606.GA10292@ld0162-tx32.am.freescale.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] Proposed PARCH PCIE legacy I/O port free intel 10Gb NIC
+	driver
+Date: Mon, 27 Apr 2009 10:56:35 -0700
+Message-ID: <9929d2390904271056x8d3ca98o9307bcb55efb9fd6@mail.gmail.com>
+References: <AB661B51A8B54AF0A4D28FEF67718445@WINAK2QSSPDVFH>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>, linuxppc-dev@ozlabs.org,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090427173606.GA10292@ld0162-tx32.am.freescale.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: gouji-new <gouji.masayuki@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.28]:56839 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758244AbZD0R4h convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 13:56:37 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so36159ywb.1
+        for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 10:56:36 -0700 (PDT)
+In-Reply-To: <AB661B51A8B54AF0A4D28FEF67718445@WINAK2QSSPDVFH>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 27, 2009 at 11:36 AM, Scott Wood <scottwood@freescale.com> wrot=
-e:
-> On Mon, Apr 27, 2009 at 09:36:13AM -0600, Grant Likely wrote:
->> From: Grant Likely <grant.likely@secretlab.ca>
->>
->> Previous rework to ucc_geth.c to add of_mdio support (net: Rework
->> ucc_geth driver to use of_mdio infrastructure) added a block of
->> code which broke older openfirmware device trees which use an
->> 'interface' property in the phy node to describe the connection
->> between the MAC and the PHY. =A0This patch removes the offending blurb.
-> [snip]
->> =A0 =A0 =A0 prop =3D of_get_property(np, "phy-connection-type", NULL);
->> =A0 =A0 =A0 if (!prop) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* handle interface property present in old =
-trees */
->> - =A0 =A0 =A0 =A0 =A0 =A0 if (!phy)
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
->> -
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 prop =3D of_get_property(phy, "interface", N=
-ULL);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (prop !=3D NULL) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_interface =3D enet_to_ph=
-y_interface[*prop];
+On Mon, Apr 27, 2009 at 12:42 AM, gouji-new
+<gouji.masayuki@jp.fujitsu.com> wrote:
+> Hi all
 >
-> The above test only makes a difference when there is no phy node -- so I
-> don't see how it was breaking device trees that had a phy node (with or
-> without an "interface" property). =A0I can see it breaking fixed link
-> device trees, though.
+> Traditionally Intel based NIC drivers request I/O port even though it
+> doesn't need that really.
+>
+> Intel PCIE 10Gb driver (ixgbe) also requests I/O port but it doesn't =
+need it
+> either.
+>
+> This is a little inconvenient situation because sometimes we have to =
+handle
+> those cards
+> on the slots where any I/O space is not attached.
+>
+>
+>
+>
+> So we made pach which makes ixgbe driver legacy I/O port free.
+>
+> Signed-off-by: Masayuki Gouji <gouji.masayuki@jp.fujitsu.com>
+>
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
+_main.c
+> index 0188425..c816cf1 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -3626,7 +3626,8 @@ static int ixgbe_resume(struct pci_dev *pdev)
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_set_power_state(pdev, PCI_D0);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_restore_state(pdev);
+> - =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device(pdev);
+> +
+> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device_mem(pdev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0printk(KERN_ER=
+R "ixgbe: Cannot enable PCI device from "
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0"suspend\n");
+> @@ -4578,7 +4579,7 @@ static int __devinit ixgbe_probe(struct pci_dev=
+ *pdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 pm_value =3D 0;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 part_num, eec;
+>
+> - =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device(pdev);
+> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_enable_device_mem(pdev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return err;
+>
+> @@ -4598,9 +4599,12 @@ static int __devinit ixgbe_probe(struct pci_de=
+v
+> *pdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_using_dac =
+=3D 0;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> - =C2=A0 =C2=A0 =C2=A0 err =3D pci_request_regions(pdev, ixgbe_driver=
+_name);
+> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_request_selected_regions(pdev,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+pci_select_bars(pdev,
+> IORESOURCE_MEM),
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+ixgbe_driver_name);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err) {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dev_err(&pdev->dev=
+, "pci_request_regions failed 0x%x\n",
+> err);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dev_err(&pdev->dev=
+,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 "pci_request_selected_regions failed 0x%x\n", err);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_pci_r=
+eg;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> @@ -4845,7 +4849,8 @@ err_eeprom:
+> =C2=A0err_ioremap:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0free_netdev(netdev);
+> =C2=A0err_alloc_etherdev:
+> - =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
+> + =C2=A0 =C2=A0 =C2=A0 pci_release_selected_regions(pdev,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_select_bars=
+(pdev, IORESOURCE_MEM));
+> =C2=A0err_pci_reg:
+> =C2=A0err_dma:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(pdev);
+> @@ -4897,7 +4902,8 @@ static void __devexit ixgbe_remove(struct pci_d=
+ev
+> *pdev)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0ixgbe_release_hw_control(adapter);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0iounmap(adapter->hw.hw_addr);
+> - =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
+> + =C2=A0 =C2=A0 =C2=A0 pci_release_selected_regions(pdev,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_select_bars=
+(pdev, IORESOURCE_MEM));
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0DPRINTK(PROBE, INFO, "complete\n");
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0kfree(adapter->tx_ring);
+> @@ -4950,7 +4956,7 @@ static pci_ers_result_t ixgbe_io_slot_reset(str=
+uct
+> pci_dev *pdev)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_ers_result_t result;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
+>
+> - =C2=A0 =C2=A0 =C2=A0 if (pci_enable_device(pdev)) {
+> + =C2=A0 =C2=A0 =C2=A0 if (pci_enable_device_mem(pdev)) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0DPRINTK(PROBE,=
+ ERR,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0"Cannot re-enable PCI device after reset.\n");
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0result =3D PCI=
+_ERS_RESULT_DISCONNECT;
+>
+>
 
-Sorry, you're right.  I got myself confused when I was writing the
-description.  This patch fixes breakage when using a fixed-link and
-there is no phy-connection-type property.
+Thanks for the patch.  I will add it to my tree along with my other
+ixgbe patches and push it to Dave.
 
-g.
-
--- =
-
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+--=20
+Cheers,
+Jeff
