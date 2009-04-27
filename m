@@ -1,132 +1,78 @@
-From: "gouji-new" <gouji.masayuki@jp.fujitsu.com>
-Subject: [PATCH] Proposed PARCH PCIE legacy I/O port free intel 10Gb NIC driver
-Date: Mon, 27 Apr 2009 16:42:07 +0900
-Message-ID: <AB661B51A8B54AF0A4D28FEF67718445@WINAK2QSSPDVFH>
+From: Dor Laor <dlaor@redhat.com>
+Subject: Re: [PATCH 2/3] virtio: indirect ring
+	entries	(VIRTIO_RING_F_INDIRECT_DESC)
+Date: Mon, 27 Apr 2009 10:43:53 +0300
+Message-ID: <49F56239.9010509@redhat.com>
+References: <1229620222-22216-1-git-send-email-markmc@redhat.com>	<1229620222-22216-2-git-send-email-markmc@redhat.com>	<1229620222-22216-3-git-send-email-markmc@redhat.com>
+	<1240318745.443.42.camel@blaa>
+Reply-To: dlaor@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:53011 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751524AbZD0Hme (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 03:42:34 -0400
-Received: from mt1.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id n3R7gSfZ027152
-	for <netdev@vger.kernel.org> (envelope-from gouji.masayuki@jp.fujitsu.com);
-	Mon, 27 Apr 2009 16:42:28 +0900
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 56D6D45DE50
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 16:42:28 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 17B0F45DE53
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 16:42:28 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 92BFEE08006
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 16:42:27 +0900 (JST)
-Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 2D3D9E08004
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 16:42:24 +0900 (JST)
-Received: from m105.css.fujitsu.com (m105 [127.0.0.1])
-	by m105.s.css.fujitsu.com (Postfix) with ESMTP id 01D5D5D8001
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 16:42:24 +0900 (JST)
-Received: from WINAK2QSSPDVFH (unknown [10.124.100.244])
-	by m105.s.css.fujitsu.com (Postfix) with ESMTP id 8EAED5D8002
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 16:42:23 +0900 (JST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Dor Laor <dor@redhat.com>,
+        Avi Kivity <avi@redhat.com>, virtualization@lists.linux-foundation.org
+To: Mark McLoughlin <markmc@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1240318745.443.42.camel@blaa>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi all
+Mark McLoughlin wrote:
+> Hi Rusty,
+>
+> On Thu, 2008-12-18 at 17:10 +0000, Mark McLoughlin wrote:
+>   
+>> Add a new feature flag for indirect ring entries. These are ring
+>> entries which point to a table of buffer descriptors.
+>>
+>> The idea here is to increase the ring capacity by allowing a larger
+>> effective ring size whereby the ring size dictates the number of
+>> requests that may be outstanding, rather than the size of those
+>> requests.
+>>
+>> This should be most effective in the case of block I/O where we can
+>> potentially benefit by concurrently dispatching a large number of
+>> large requests. Even in the simple case of single segment block
+>> requests, this results in a threefold increase in ring capacity.
+>>     
+>
+> Apparently, this would also be useful for the windows virtio-net
+> drivers.
+>
+> Dor can explain further, but apparently Windows has been observed
+> passing the driver a packet with >256 fragments when using TSO.
+>
+> With a ring size of 256, the guest can either drop the packet or copy it
+> into a single buffer. We'd much rather if we could use an indirect ring
+> entry to pass this number of fragments without copying.
+>   
+Correct. This is what we do in Windows today.
+The problem arises when using sending lots of small packets
+from the win guest and TSO. Windows prepare very big scatter gather
+list, bigger than the ring size (270 fragments).
+Having indirect ring entries is good both for this and also for block 
+io, as described
+above.
 
-Traditionally Intel based NIC drivers request I/O port even though it
-doesn't need that really.
-
-Intel PCIE 10Gb driver (ixgbe) also requests I/O port but it doesn't need it
-either.
-
-This is a little inconvenient situation because sometimes we have to handle
-those cards
-on the slots where any I/O space is not attached.
- 
-
-
-
-So we made pach which makes ixgbe driver legacy I/O port free.
-
-Signed-off-by: Masayuki Gouji <gouji.masayuki@jp.fujitsu.com> 
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 0188425..c816cf1 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3626,7 +3626,8 @@ static int ixgbe_resume(struct pci_dev *pdev)
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
--	err = pci_enable_device(pdev);
-+
-+	err = pci_enable_device_mem(pdev);
- 	if (err) {
- 		printk(KERN_ERR "ixgbe: Cannot enable PCI device from "
- 				"suspend\n");
-@@ -4578,7 +4579,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	u16 pm_value = 0;
- 	u32 part_num, eec;
- 
--	err = pci_enable_device(pdev);
-+	err = pci_enable_device_mem(pdev);
- 	if (err)
- 		return err;
- 
-@@ -4598,9 +4599,12 @@ static int __devinit ixgbe_probe(struct pci_dev
-*pdev,
- 		pci_using_dac = 0;
- 	}
- 
--	err = pci_request_regions(pdev, ixgbe_driver_name);
-+	err = pci_request_selected_regions(pdev,
-+					  pci_select_bars(pdev,
-IORESOURCE_MEM),
-+					  ixgbe_driver_name);
- 	if (err) {
--		dev_err(&pdev->dev, "pci_request_regions failed 0x%x\n",
-err);
-+		dev_err(&pdev->dev,
-+			"pci_request_selected_regions failed 0x%x\n", err);
- 		goto err_pci_reg;
- 	}
- 
-@@ -4845,7 +4849,8 @@ err_eeprom:
- err_ioremap:
- 	free_netdev(netdev);
- err_alloc_etherdev:
--	pci_release_regions(pdev);
-+	pci_release_selected_regions(pdev,
-+				     pci_select_bars(pdev, IORESOURCE_MEM));
- err_pci_reg:
- err_dma:
- 	pci_disable_device(pdev);
-@@ -4897,7 +4902,8 @@ static void __devexit ixgbe_remove(struct pci_dev
-*pdev)
- 	ixgbe_release_hw_control(adapter);
- 
- 	iounmap(adapter->hw.hw_addr);
--	pci_release_regions(pdev);
-+	pci_release_selected_regions(pdev,
-+				     pci_select_bars(pdev, IORESOURCE_MEM));
- 
- 	DPRINTK(PROBE, INFO, "complete\n");
- 	kfree(adapter->tx_ring);
-@@ -4950,7 +4956,7 @@ static pci_ers_result_t ixgbe_io_slot_reset(struct
-pci_dev *pdev)
- 	pci_ers_result_t result;
- 	int err;
- 
--	if (pci_enable_device(pdev)) {
-+	if (pci_enable_device_mem(pdev)) {
- 		DPRINTK(PROBE, ERR,
- 		        "Cannot re-enable PCI device after reset.\n");
- 		result = PCI_ERS_RESULT_DISCONNECT;
-
-
+Cheers,
+Dor
+> For reference the original patch was here:
+>
+>   http://lkml.org/lkml/2008/12/18/212
+>
+> Cheers,
+> Mark.
+>
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linux-foundation.org/mailman/listinfo/virtualization
+>   
