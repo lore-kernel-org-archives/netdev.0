@@ -1,30 +1,62 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: [PATCH] Limit size of route cache hash table
-Date: Mon, 27 Apr 2009 21:44:54 +1000
-Message-ID: <20090427114454.GB15891@kryten>
-References: <49F53FF6.2040603@cosmosbay.com> <20090427054702.GA15891@kryten> <49F54CC5.7020600@cosmosbay.com> <20090426.233638.83897914.davem@davemloft.net> <49F5550A.1050805@cosmosbay.com>
+From: Karsten Keil <karsten-keil@t-online.de>
+Subject: Re: [PATCH v2 0/3] [ISDN] Documentation patchset
+Date: Mon, 27 Apr 2009 13:45:34 +0200
+Message-ID: <200904271345.35345.karsten-keil@t-online.de>
+References: <cover.1240489461.git.keil@b1-systems.de> <20090427.031323.64748515.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:57338 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752175AbZD0LqL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2009 07:46:11 -0400
+Received: from mailout08.t-online.de ([194.25.134.20]:37586 "EHLO
+	mailout08.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754508AbZD0Lpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 07:45:52 -0400
+In-Reply-To: <20090427.031323.64748515.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <49F5550A.1050805@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
-> Yes, as setups needing more than 512.000 slots (and 2 million entries with an
-> average of 4 entries per slot) are certainly able to boot with an override.
-> 
-> Anton, please resubmit with this 512 k limit, and my :
-> 
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+On Montag, 27. April 2009 12:13:23 David Miller wrote:
+> From: Karsten Keil <karsten-keil@t-online.de>
+> Date: Thu, 23 Apr 2009 14:24:21 +0200
+>
+> > Fixed one more typo and wrong From: lines.
+> >
+> > Add some useful documentation for the ISDN subsystem.
+> > Orignal patches are from Tilman Schmidt.
+> > I fixed some whitespace issues and added the URL for the CAPI 2.0 spec.
+>
+> This patch set does not apply at all to net-2.6
 
-Thanks Eric, I'll respin with the limit set at 512k.
+I do not understand this, the patches were created against Linus tree, but now 
+I checked out the net-2.6 tree and tried to apply them and it was successful, 
+no warnings, and indeed the affected files in Linus tree and in net-2.6 are 
+the same versions. To be sure that no MTA problem hit us, I used the mails
+which were sent back from the list.
+net-2.6 git tree was updated 15 minutes ago.
 
-Anton
+Here what I did:
+
+kkeil@pingi:/w_pingi/git/net-2.6> git status
+# On branch master
+nothing to commit (working directory clean)
+kkeil@pingi:/w_pingi/git/net-2.6> git describe
+v2.6.29-10830-g1c41e23
+kkeil@pingi:/w_pingi/git/net-2.6> git am  /tmp/\[PATCH\ v2\ 1_3\]\ update\ 
+Documentation_isdn_00-INDEX.mbox
+Applying: update Documentation/isdn/00-INDEX
+kkeil@pingi:/w_pingi/git/net-2.6> git am  /tmp/\[PATCH\ v2\ 2_3\]\ 
+Documentation_isdn_INTERFACE.mbox
+Applying: Documentation/isdn/INTERFACE.CAPI
+kkeil@pingi:/w_pingi/git/net-2.6> git am  /tmp/\[PATCH\ v2\ 3_3\]\ Add\ 
+reference\ to\ CAPI\ 2.mbox
+Applying: Add reference to CAPI 2.0 standard
+
+
+Karsten
+
