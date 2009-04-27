@@ -1,47 +1,38 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-2.6] ipv4: remove unused member in fib_table.
-Date: Mon, 27 Apr 2009 12:22:35 +0300
-Message-ID: <eb3ff54b0904270222q72d9c108v73bc6e52b8dbba6e@mail.gmail.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] fix LL_MAX_HEADER for CONFIG_TR_MODULE
+Date: Mon, 27 Apr 2009 12:32:07 +0300
+Message-ID: <20090427093207.GB9259@localhost.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174c347e07e6d7046885e30a
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:46726 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752006AbZD0JWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:22:37 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so530092eyd.37
-        for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 02:22:35 -0700 (PDT)
+Received: from smtp5.welho.com ([213.243.153.39]:38490 "EHLO smtp5.welho.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751763AbZD0Jbk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Apr 2009 05:31:40 -0400
+Received: from localhost.pp.htv.fi (cs181212059.pp.htv.fi [82.181.212.59])
+	by smtp5.welho.com (Postfix) with ESMTP id 737EC5BC017
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 12:31:39 +0300 (EEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174c347e07e6d7046885e30a
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Unless I miss anything this should fix a bug.
 
-Hi,
-This patch removes an unused parameter (tb_stamp) from fib_table structure in
- include/net/ip_fib.h.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Regards,
-Rami Rosen
+---
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2e7783f..453be9a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -104,7 +104,7 @@ struct wireless_dev;
+ # else
+ #  define LL_MAX_HEADER 96
+ # endif
+-#elif defined(CONFIG_TR)
++#elif defined(CONFIG_TR) || defined(CONFIG_TR_MODULE)
+ # define LL_MAX_HEADER 48
+ #else
+ # define LL_MAX_HEADER 32
 
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---0015174c347e07e6d7046885e30a
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fu0ynbn30
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwX2ZpYi5oIGIvaW5jbHVkZS9uZXQvaXBfZmliLmgK
-aW5kZXggOGIxMjY2Ny4uMzQ4NTVlZSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvaXBfZmliLmgK
-KysrIGIvaW5jbHVkZS9uZXQvaXBfZmliLmgKQEAgLTE0NSw3ICsxNDUsNiBAQCBzdHJ1Y3QgZmli
-X3Jlc3VsdF9ubCB7CiBzdHJ1Y3QgZmliX3RhYmxlIHsKIAlzdHJ1Y3QgaGxpc3Rfbm9kZSB0Yl9o
-bGlzdDsKIAl1MzIJCXRiX2lkOwotCXVuc2lnbmVkCXRiX3N0YW1wOwogCWludAkJdGJfZGVmYXVs
-dDsKIAlpbnQJCSgqdGJfbG9va3VwKShzdHJ1Y3QgZmliX3RhYmxlICp0YiwgY29uc3Qgc3RydWN0
-IGZsb3dpICpmbHAsIHN0cnVjdCBmaWJfcmVzdWx0ICpyZXMpOwogCWludAkJKCp0Yl9pbnNlcnQp
-KHN0cnVjdCBmaWJfdGFibGUgKiwgc3RydWN0IGZpYl9jb25maWcgKik7Cg==
---0015174c347e07e6d7046885e30a--
