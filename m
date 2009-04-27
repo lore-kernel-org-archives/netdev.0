@@ -1,107 +1,57 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
-Date: Mon, 27 Apr 2009 05:26:39 +0200
-Message-ID: <20090427032639.GA10087@elte.hu>
-References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] Limit size of route cache hash table
+Date: Mon, 27 Apr 2009 13:04:33 +1000
+Message-ID: <20090427030433.GA17454@kryten>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755573AbZD0D1j@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:42780 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752522AbZD0DEj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2009 23:04:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20090426214451.GC6945@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+Right now we have no upper limit on the size of the route cache hash table.
+On a 128GB POWER6 box it ends up as 32MB:
 
-> On Sun, Apr 26, 2009 at 10:22:55PM +0200, Ingo Molnar wrote:
-> > 
-> > * Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
-> > 
-> > > * Ingo Molnar (mingo@elte.hu) wrote:
-> > > > 
-> > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > > 
-> > > > > Second cut of "big hammer" expedited RCU grace periods, but only 
-> > > > > for rcu_bh.  This creates another softirq vector, so that entering 
-> > > > > this softirq vector will have forced an rcu_bh quiescent state (as 
-> > > > > noted by Dave Miller).  Use smp_call_function() to invoke 
-> > > > > raise_softirq() on all CPUs in order to cause this to happen.  
-> > > > > Track the CPUs that have passed through a quiescent state (or gone 
-> > > > > offline) with a cpumask.
-> > > > 
-> > > > hm, i'm still asking whether doing this would be simpler via a 
-> > > > reschedule vector - which not only is an existing facility but also 
-> > > > forces all RCU domains through a quiescent state - not just bh-RCU 
-> > > > participants.
-> > > > 
-> > > > Triggering a new softirq is in no way simpler that doing an SMP 
-> > > > cross-call - in fact softirqs are a finite resource so using some 
-> > > > other facility would be preferred.
-> > > > 
-> > > > Am i missing something?
-> > > > 
-> > > 
-> > > I think the reason for this whole thread is that waiting for rcu 
-> > > quiescent state, when called many times e.g. in multiple iptables 
-> > > invokations, takes too longs (5 seconds to load the netfilter 
-> > > rules at boot). [...]
-> > 
-> > I'm aware of the problem space.
-> > 
-> > I was suggesting that to trigger the quiescent state and to wait for 
-> > it to propagate it would be enough to reuse the reschedule 
-> > mechanism.
-> > 
-> > It would be relatively straightforward: first a send-reschedule then 
-> > do a wait_task_context_switch() on rq->curr - both are existing 
-> > primitives. (a task reference has to be taken but that's pretty much 
-> > all)
-> 
-> Well, one reason I didn't take this approach was that I didn't 
-> happen to think of it.  ;-)
-> 
-> Also that I hadn't heard of wait_task_context_switch().
-> 
-> Hmmm...  Looking for wait_task_context_switch().  OK, found it.
-> 
-> It looks to me that this primitive won't return until the 
-> scheduler actually decides to run something else.  We instead need 
-> to have something that stops waiting once the CPU enters the 
-> scheduler, hence the previous thought of making rcu_qsctr_inc() do 
-> a bit of extra work.
-> 
-> This would be a way of making an expedited RCU-sched across all 
-> RCU implementations.  As noted in the earlier email, it would not 
-> handle RCU or RCU-bh in a -rt kernel.
-> 
-> > By the time wait_task_context_switch() returns from the last CPU 
-> > we know that the quiescent state has passed.
-> 
-> We would want to wait for all of the CPUs in parallel, though, 
-> wouldn't we?  Seems that we would not want to wait for the last 
-> CPU to do another trip through the scheduler if it had already 
-> passed through the scheduler while we were waiting on the earlier 
-> CPUs.
-> 
-> So it seems like we would still want a two-pass approach -- one 
-> pass to capture the current state, the second pass to wait for the 
-> state to change.
+    IP route cache hash table entries: 4194304 (order: 9, 33554432 bytes)
 
-I think waiting in parallel is still possible (first kick all tasks, 
-then make sure all tasks have left the CPU at least once).
+It would be nice to cap this just for memory consumption reasons, but this
+massive hashtable also causes a significant spike when measuring OS
+jitter.
 
-The busy-waiting in wait_task_context_switch() is indeed a problem - 
-but perhaps that could be refactored to be a migration-thread driven 
-wait_for_completion() + complete() cycle? It could be driven by 
-preempt notifiers perhaps - and become zero-cost.
+With a 32MB hashtable and 4 million entries, rt_worker_func is taking
+5 ms to complete. On another system with more memory it's taking 14 ms.
+Even though rt_worker_func does call cond_sched() to limit its impact,
+in an HPC environment we want to keep all sources of OS jitter to a minimum.
 
-	Ingo
+With the patch applied we limit the number of entries to 64k which
+can still be overriden by using the rt_entries boot option:
+
+    IP route cache hash table entries: 65536 (order: 3, 524288 bytes)
+
+With this patch rt_worker_func takes 0.060 ms on the same system.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
+
+Is 64k a reasonable default for the limit?
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index c40debe..5064c26 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -3397,7 +3397,7 @@ int __init ip_rt_init(void)
+ 					0,
+ 					&rt_hash_log,
+ 					&rt_hash_mask,
+-					0);
++					rhash_entries ? 0 : 64 * 1024);
+ 	memset(rt_hash_table, 0, (rt_hash_mask + 1) * sizeof(struct rt_hash_bucket));
+ 	rt_hash_lock_init();
+ 
+
