@@ -1,62 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] [ISDN] Documentation patchset
-Date: Mon, 27 Apr 2009 05:39:02 -0700 (PDT)
-Message-ID: <20090427.053902.262806706.davem@davemloft.net>
-References: <cover.1240489461.git.keil@b1-systems.de>
-	<20090427.031323.64748515.davem@davemloft.net>
-	<200904271345.35345.karsten-keil@t-online.de>
+Subject: Re: [PATCH] Limit size of route cache hash table
+Date: Mon, 27 Apr 2009 05:40:24 -0700 (PDT)
+Message-ID: <20090427.054024.94955211.davem@davemloft.net>
+References: <20090426.233638.83897914.davem@davemloft.net>
+	<49F5550A.1050805@cosmosbay.com>
+	<20090427115007.GC15891@kryten>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: karsten-keil@t-online.de
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44019
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44021
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753741AbZD0MjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 08:39:09 -0400
-In-Reply-To: <200904271345.35345.karsten-keil@t-online.de>
+	by vger.kernel.org with ESMTP id S1755996AbZD0Mkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 08:40:31 -0400
+In-Reply-To: <20090427115007.GC15891@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <karsten-keil@t-online.de>
-Date: Mon, 27 Apr 2009 13:45:34 +0200
+From: Anton Blanchard <anton@samba.org>
+Date: Mon, 27 Apr 2009 21:50:07 +1000
 
-> Hi David,
+> Right now we have no upper limit on the size of the route cache hash table.
+> On a 128GB POWER6 box it ends up as 32MB:
 > 
-> On Montag, 27. April 2009 12:13:23 David Miller wrote:
->> From: Karsten Keil <karsten-keil@t-online.de>
->> Date: Thu, 23 Apr 2009 14:24:21 +0200
->>
->> > Fixed one more typo and wrong From: lines.
->> >
->> > Add some useful documentation for the ISDN subsystem.
->> > Orignal patches are from Tilman Schmidt.
->> > I fixed some whitespace issues and added the URL for the CAPI 2.0 spec.
->>
->> This patch set does not apply at all to net-2.6
+>     IP route cache hash table entries: 4194304 (order: 9, 33554432 bytes)
 > 
-> I do not understand this, the patches were created against Linus tree, but now 
-> I checked out the net-2.6 tree and tried to apply them and it was successful, 
-> no warnings, and indeed the affected files in Linus tree and in net-2.6 are 
-> the same versions. To be sure that no MTA problem hit us, I used the mails
-> which were sent back from the list.
-> net-2.6 git tree was updated 15 minutes ago.
+> It would be nice to cap this for memory consumption reasons, but a massive
+> hashtable also causes a significant spike when measuring OS jitter.
 > 
-> Here what I did:
+> With a 32MB hashtable and 4 million entries, rt_worker_func is taking
+> 5 ms to complete. On another system with more memory it's taking 14 ms.
+> Even though rt_worker_func does call cond_sched() to limit its impact,
+> in an HPC environment we want to keep all sources of OS jitter to a minimum.
+> 
+> With the patch applied we limit the number of entries to 512k which
+> can still be overriden by using the rt_entries boot option:
+> 
+>     IP route cache hash table entries: 524288 (order: 6, 4194304 bytes)
+> 
+> With this patch rt_worker_func now takes 0.460 ms on the same system.
+> 
+> Signed-off-by: Anton Blanchard <anton@samba.org>
+> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Here they are in patchwork, they don't apply:
-
-http://patchwork.ozlabs.org/patch/26362/
-http://patchwork.ozlabs.org/patch/26363/
-http://patchwork.ozlabs.org/patch/26361/
-
-Oh I see what happened.
-
-IT'S THOSE STUPID "Date:" fields you added to the body of 2 of those
-patches.  It caused patchwork to put them in the wrong order when I
-put them together into a bundle.
-
-Don't add extra email header fields like that, please! :-)
-
-I fixed it up and applied the patches.
+Applied, thanks!
