@@ -1,18 +1,40 @@
-From: Gabrielle.zakaria.gold.diamond.sales@email.cz
-Subject: =?us-ascii?Q?Gabrielle=2Ezakaria=2Egold=2Ediamond=2Esales=2Cbukinafaso=20west=20africa=2E=2E=2Einterested=20serious=20and=20genuie=20buyers=20including=20beening=20a=20distributor=20of=20GOLD=20and=20DIAMOND=20should=20send=20a=20letter=20of=20intent=20to=20us=2E?=
-Date: Mon, 27 Apr 2009 20:30:26 +0200 (CEST)
-Message-ID: <243.524-4412-1322708818-1240857025@email.cz>
-Reply-To: gabrielle.zakaria_g@yahoo.com
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
+Date: Tue, 28 Apr 2009 00:56:02 +0400
+Message-ID: <20090427205601.GA5716@ioremap.net>
+References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com> <20090427032639.GA10087@elte.hu> <20090427132153.GI6945@linux.vnet.ibm.com> <20090427155424.GA27041@Krystal>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Gabrielle.zakaria.gold.diamond.sales@email.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxl.seznam.cz ([77.75.72.44]:51400 "EHLO mxl.seznam.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760672AbZD0Usu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2009 16:48:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	davem@davemloft.net, dada1@cosmosbay.com,
+	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090427155424.GA27041@Krystal>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi.
+
+On Mon, Apr 27, 2009 at 11:54:24AM -0400, Mathieu Desnoyers (mathieu.desnoyers@polymtl.ca) wrote:
+> It might sound a bit simplistic, but... scheduling a high-priority
+> workqueue on every CPUs would give you the guarantees you seem to need
+> here. Or is the delay of letting the scheduler schedule a high-priority
+> task a delay you are trying to avoid ?
+
+I believe not the abstract (empty) task should be invoked, but a real
+task which does the work. Presumably if we want to schedule a way
+networking part to copy its counters, system should wake up the
+appropriate userspace thread blocked in a grace-period waking path, so
+effectively either RCU callback processing code or some registered
+thread should be awakened.
+
+Just a detail though.
+
+-- 
+	Evgeniy Polyakov
