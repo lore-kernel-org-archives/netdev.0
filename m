@@ -1,54 +1,128 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] net: Fix ucc_geth.c handling of phy 'interface' property.
-Date: Mon, 27 Apr 2009 12:36:06 -0500
-Message-ID: <20090427173606.GA10292@ld0162-tx32.am.freescale.net>
-References: <20090427153612.5108.10877.stgit@localhost.localdomain>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] netfilter: use per-CPU recursive lock {XV}
+Date: Mon, 27 Apr 2009 19:44:57 +0200
+Message-ID: <1240854297.7620.65.camel@twins>
+References: <20090421111541.228e977a@nehalam>
+	 <20090421193924.GA24404@elte.hu> <20090421143927.52d7d89d@nehalam>
+	 <alpine.LFD.2.00.0904220821240.3101@localhost.localdomain>
+	 <20090423210938.1501507b@nehalam> <49F146FF.5050200@cosmosbay.com>
+	 <20090424091839.6e13ebec@nehalam> <49F22465.80305@gmail.com>
+	 <20090425133052.4cb711f5@nehalam> <49F4A6E3.7080102@cosmosbay.com>
+	 <20090426185646.GB29238@Krystal>  <20090426145746.1184aeba@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	Andy Fleming <afleming@freescale.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:50037 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbZD0RgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 13:36:25 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n3RHa7al020046
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 10:36:18 -0700 (MST)
-Received: from ld0162-tx32.am.freescale.net (ld0162-tx32.am.freescale.net [10.82.19.112])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id n3RHa6pM001513
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 12:36:07 -0500 (CDT)
-Content-Disposition: inline
-In-Reply-To: <20090427153612.5108.10877.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>, Paul Mackerras <paulus@samba.org>,
+	paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <zbr@ioremap.net>,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090426145746.1184aeba@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 27, 2009 at 09:36:13AM -0600, Grant Likely wrote:
-> From: Grant Likely <grant.likely@secretlab.ca>
+On Sun, 2009-04-26 at 14:57 -0700, Stephen Hemminger wrote:
+> On Sun, 26 Apr 2009 14:56:46 -0400
+> Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
 > 
-> Previous rework to ucc_geth.c to add of_mdio support (net: Rework
-> ucc_geth driver to use of_mdio infrastructure) added a block of
-> code which broke older openfirmware device trees which use an
-> 'interface' property in the phy node to describe the connection
-> between the MAC and the PHY.  This patch removes the offending blurb.
-[snip]
->  	prop = of_get_property(np, "phy-connection-type", NULL);
->  	if (!prop) {
->  		/* handle interface property present in old trees */
-> -		if (!phy)
-> -			return -ENODEV;
-> -
->  		prop = of_get_property(phy, "interface", NULL);
->  		if (prop != NULL) {
->  			phy_interface = enet_to_phy_interface[*prop];
+> > * Eric Dumazet (dada1@cosmosbay.com) wrote:
+> > > From: Stephen Hemminger <shemminger@vyatta.com>
+> > > 
+> > > > Epilogue due to master Jarek. Lockdep carest not about the locking
+> > > > doth bestowed. Therefore no keys are needed.
+> > > > 
+> > > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > > 
+> > > So far, so good, should be ready for inclusion now, nobody complained :)
+> > > 
+> > > I include the final patch, merge of your last two patches.
+> > > 
+> > > David, could you please review it once again and apply it if it's OK ?
+> > 
+> > > Thanks to all for your help and patience
+> > > 
+> > > [PATCH] netfilter: use per-CPU recursive lock {XV}
+> > 
+> > Hi Eric, 
+> > 
+> > Suitable name would probably be :
+> > 
+> 
+> But Linus is trying to delude himself.
+> 
+> This usage is recursive even if he doesn't like the terminology.
+> The same CPU has to be able to reacquire the read lock without deadlocking.
+> If reader/writer locks were implemented in a pure writer gets priority
+> method, then this code would break!  So yes read locks can be used recursively
+> now in Linux, but if the were implemented differently then this code
+> would break.  For example, the -rt kernel turns all read/write locks into
+> mutexs, so the -rt kernel developers will have to address this.
 
-The above test only makes a difference when there is no phy node -- so I
-don't see how it was breaking device trees that had a phy node (with or
-without an "interface" property).  I can see it breaking fixed link
-device trees, though.
+A recursive lock has the property:
 
--Scott
+lock()
+{
+  if (lock->owner == current) {
+    lock->depth++;
+    return;
+  }
+
+  /* regular lock stuff */
+}
+
+unlock()
+{
+  if (!--lock->depth)
+    /* regular unlock */
+}
+
+non of the linux kernel locking primitives have this -- with the
+possible exception of the cpu-hotplug lock.
+
+What rwlock_t has, is reader bias to the point where you can utterly
+starve writers, with the side effect that you can obtain multiple read
+ownerships without causing a deadlock.
+
+This is not what is called a recursive lock. A recursive lock would have
+each owner only once, this rwlock_t thing is simply so unfair that it
+can have unlimited owners, including multiple copies of the same one.
+
+rwsem has fifo fairness, and therefore can deadlock in this scenario,
+suppose thread A does a read, thread B tries a write and blocks, then
+thread A recurses and tries to obtain another read ownership --
+deadlock, as the FIFO fairness will demand the second read ownership
+will wait on the pending writer, which will wait on the outstanding read
+owner.
+
+Now if rwsem were a fifo-fair recursive lock, the above would not
+deadlock, since it would detect that the task already had (read)
+ownership and simply increment the depth, instead of trying to acquire a
+second ownership.
+
+This is all common and well understood terminology, not something Linus
+invented just to harras you with.
+
+Generally speaking we do not condone recursive locking strategies -- and
+afaik reiserfs (as per the BKL) and the network code (as per abusing
+rwlock_t unfairness) are the only offenders.
+
+Like Linus stated, recursive locking is generally poor taste and
+indicates you basically gave up on trying to find a proper locking
+scheme. We should very much work towards getting rid of these
+abberations instead of adding new ones.
+
+Linus is very much right on what he said, and you calling him delusional
+only high-lights your ignorance on the issue.
+
+[ PS. -rt implements rwlock_t as a proper recursive lock (either a mutex
+  or a full multi-owner reader-writer lock with PI fairness) so if
+  anybody abuses rwlock_t unfairness in a way that is not strict owner
+  recursive we have a problem. ]
