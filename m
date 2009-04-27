@@ -1,95 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Mon, 27 Apr 2009 12:06:58 -0700
-Message-ID: <20090427120658.35a858bb@nehalam>
-References: <20090423210938.1501507b@nehalam>
-	<49F146FF.5050200@cosmosbay.com>
-	<20090424091839.6e13ebec@nehalam>
-	<49F22465.80305@gmail.com>
-	<20090425133052.4cb711f5@nehalam>
-	<49F4A6E3.7080102@cosmosbay.com>
-	<20090426185646.GB29238@Krystal>
-	<20090426145746.1184aeba@nehalam>
-	<1240854297.7620.65.camel@twins>
-	<20090427113010.5e3f1700@nehalam>
-	<20090427185423.GC23862@elte.hu>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/2] gianfar: irq_of_parse_and_map() error unnoticed
+Date: Mon, 27 Apr 2009 12:23:16 -0700
+Message-ID: <20090427122316.1a8fec91.akpm@linux-foundation.org>
+References: <49F0649C.8030908@gmail.com>
+	<20090427.031116.43598009.davem@davemloft.net>
+	<49F5917A.3060909@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	Evgeniy Polyakov <zbr@ioremap.net>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759790AbZD0THc@vger.kernel.org>
-In-Reply-To: <20090427185423.GC23862@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35684 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753563AbZD0TZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 15:25:06 -0400
+In-Reply-To: <49F5917A.3060909@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Apr 2009 20:54:23 +0200
-Ingo Molnar <mingo@elte.hu> wrote:
+On Mon, 27 Apr 2009 13:05:30 +0200
+Roel Kluin <roel.kluin@gmail.com> wrote:
 
+> priv->interruptTransmit, -Receive and -Error are unsigned, so the error path
+> wasn't taken when irq_of_parse_and_map() returned an incorrect irq.
 > 
-> * Stephen Hemminger <shemminger@vyatta.com> wrote:
-> 
-> > > non of the linux kernel locking primitives have this -- with the 
-> > > possible exception of the cpu-hotplug lock.
-> > > 
-> > > What rwlock_t has, is reader bias to the point where you can 
-> > > utterly starve writers, with the side effect that you can obtain 
-> > > multiple read ownerships without causing a deadlock.
-> > 
-> > But what happens when this side effect disappears?
-> 
-> Then well written code works, badly written code breaks.
-> 
-> > > [...]
-> > >
-> > > This is all common and well understood terminology, not 
-> > > something Linus invented just to harras you with.
-> > 
-> > In Documentation/ ?  online ?  Where is the definition? The only 
-> > reference I se is indirectly in DocBook/kernel-locking.tmpl.
-> 
-> Sure, see:
-> 
->     http://tinyurl.com/c6fakc
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com> 
+> ---
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index b2c4967..55c2ce8 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -203,9 +203,9 @@ static int gfar_of_init(struct net_device *dev)
+>  
+>  		priv->interruptError = irq_of_parse_and_map(np, 2);
+>  
+> -		if (priv->interruptTransmit < 0 ||
+> -				priv->interruptReceive < 0 ||
+> -				priv->interruptError < 0) {
+> +		if (priv->interruptTransmit == NO_IRQ ||
+> +				priv->interruptReceive == NO_IRQ ||
+> +				priv->interruptError == NO_IRQ) {
+>  			err = -EINVAL;
+>  			goto err_out;
+>  		}
 
-All those references support my argument that the lock is being
-used recursively in this case. It is being acquired multiple
-times by the same CPU. This is not new, it has always been
-acquired multiple times, so my change does not break anything.
+I guess that's OK, as gianfar.c appears to be a ppc-only thing, and ppc
+does implement NO_IRQ.
 
-If other implementations of reader locks to not nest the same
-way, then on those system iptables can deadlock. Nothing was
-changed by this.
+However what a lot (all) rtc drivers do is
 
-> > > Generally speaking we do not condone recursive locking 
-> > > strategies -- and afaik reiserfs (as per the BKL) and the 
-> > > network code (as per abusing rwlock_t unfairness) are the only 
-> > > offenders.
-> > > 
-> > > Like Linus stated, recursive locking is generally poor taste and 
-> > > indicates you basically gave up on trying to find a proper 
-> > > locking scheme. We should very much work towards getting rid of 
-> > > these abberations instead of adding new ones.
-> > 
-> > The people complaining about naming never seem to be the ones 
-> > providing workable suggestions or patches.
-> 
-> The thing is, while you now have named your locking primitive 
-> correctly, you are still abusing it by using it recursively.
-> 
-> So it's not 'just about naming'. You should not use read-locks as 
-> recursive locks. It's poor code.
+	if (irq <= 0)
 
-If you don't like the proposal please, think of a better alternative.
-Not just pseudo code that is broken with handwaving arguments.
+which (afaik) will dtrt in all cases: NO_IRQ==0, NO_IRQ<0,
+!defined(NO_IRQ).
+
+Then again, it will dtwt if the platform allows irq numbers of zero.
+
+argh, how did we get into this pickle?
