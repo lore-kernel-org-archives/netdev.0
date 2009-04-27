@@ -1,48 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Limit size of route cache hash table
-Date: Mon, 27 Apr 2009 05:40:24 -0700 (PDT)
-Message-ID: <20090427.054024.94955211.davem@davemloft.net>
-References: <20090426.233638.83897914.davem@davemloft.net>
-	<49F5550A.1050805@cosmosbay.com>
-	<20090427115007.GC15891@kryten>
+Subject: Re: [PATCH] powerpc: convert mace to netdev_ops
+Date: Mon, 27 Apr 2009 05:42:58 -0700 (PDT)
+Message-ID: <20090427.054258.16622932.davem@davemloft.net>
+References: <20090426155708.GA23159@ime.usp.br>
+	<20090426.230648.254087966.davem@davemloft.net>
+	<20090427121633.GA29608@ime.usp.br>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: anton@samba.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44021
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755996AbZD0Mkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 08:40:31 -0400
-In-Reply-To: <20090427115007.GC15891@kryten>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: rbrito@ime.usp.br
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090427121633.GA29608@ime.usp.br>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Anton Blanchard <anton@samba.org>
-Date: Mon, 27 Apr 2009 21:50:07 +1000
+From: Rog=E9rio Brito <rbrito@ime.usp.br>
+Date: Mon, 27 Apr 2009 09:16:33 -0300
 
-> Right now we have no upper limit on the size of the route cache hash table.
-> On a 128GB POWER6 box it ends up as 32MB:
-> 
->     IP route cache hash table entries: 4194304 (order: 9, 33554432 bytes)
-> 
-> It would be nice to cap this for memory consumption reasons, but a massive
-> hashtable also causes a significant spike when measuring OS jitter.
-> 
-> With a 32MB hashtable and 4 million entries, rt_worker_func is taking
-> 5 ms to complete. On another system with more memory it's taking 14 ms.
-> Even though rt_worker_func does call cond_sched() to limit its impact,
-> in an HPC environment we want to keep all sources of OS jitter to a minimum.
-> 
-> With the patch applied we limit the number of entries to 512k which
-> can still be overriden by using the rt_entries boot option:
-> 
->     IP route cache hash table entries: 524288 (order: 6, 4194304 bytes)
-> 
-> With this patch rt_worker_func now takes 0.460 ms on the same system.
-> 
-> Signed-off-by: Anton Blanchard <anton@samba.org>
-> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
+> Is this anything close to what needs to be done? It's not without
+> failures, because the function mace_set_timeout receives a pointer to a
+> struct net_device, but is marked inline and is used by mace_tx_timeout,
+> which receives an unsigned long (which calls mace_set_timeout).
+> =
 
-Applied, thanks!
+> Perhaps it would be a case of removing the inline hint to the compiler?
+> I guess that BenH or Paul could comment here better...
+> =
+
+> Signed-off-by: Rog=E9rio Brito <rbrito@ime.usp.br>
+
+You can fix the mace_set_timeout() function arguments by having
+a helper function that simply wraps around it and provides the
+second expection of argument types.
+
+Your patch is also wrong, it's missing a lot of netdev_ops
+entries that are implicitly obtained via alloc_etherdev(),
+namely:
+
+	.ndo_change_mtu		=3D eth_change_mtu,
+	.ndo_set_mac_address 	=3D eth_mac_addr,
+	.ndo_validate_addr	=3D eth_validate_addr,
