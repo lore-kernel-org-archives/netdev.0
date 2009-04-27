@@ -1,40 +1,42 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Mon, 27 Apr 2009 12:48:43 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904271248130.22156@localhost.localdomain>
-References: <20090423210938.1501507b@nehalam> <49F146FF.5050200@cosmosbay.com> <20090424091839.6e13ebec@nehalam> <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam> <49F4A6E3.7080102@cosmosbay.com> <20090426185646.GB29238@Krystal>
- <20090426145746.1184aeba@nehalam> <1240854297.7620.65.camel@twins> <20090427113010.5e3f1700@nehalam> <20090427185423.GC23862@elte.hu> <20090427120658.35a858bb@nehalam> <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Question about locks in qdisc_restart
+Date: Mon, 27 Apr 2009 22:20:29 +0200
+Message-ID: <49F6138D.6090007@cosmosbay.com>
+References: <65634d660904271248p133717aam55751fc435f9fd3e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	Evgeniy Polyakov <zbr@ioremap.net>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35353 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbZD0UUg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 16:20:36 -0400
+In-Reply-To: <65634d660904271248p133717aam55751fc435f9fd3e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Tom Herbert a =E9crit :
+> In qdisc_restart the qdisc lock is released before taking the
+> netif_tx_lock, and only acquired again after unlocking the
+> netif_tx_lock.  There's a comment with the function that
+> "qdisc_lock(q) and netif_tx_lock are mutually exclusive, if one is
+> grabbed, another must be free."  Can anyone tell me the motivation fo=
+r
+> this restriction?  We are seeing some performance improvements by
+> holding the lock through qdisc_restart, and I'm not sure why this
+> would be bad to do.
+>=20
 
+Well, motivation is to let other users (cpus) have a chance getting the=
+ lock :)
 
-On Mon, 27 Apr 2009, Linus Torvalds wrote:
-> 
-> Clue bat #1:
-> 
-> Clue bat #2:
-> 
-> Clue bat #3:
-> 
-> Clue bat #3:
+Do you see performance improvements too if using spin_is_contended()
+to break the __qdisc_run loop ?
 
-Note to self: learn to count beyond three one of these days.
+if (need_resched() || jiffies !=3D start_time || spin_is_contended(qdis=
+c_lock(q))
 
-		Linus
+(And removing the unlock/lock in qdisc_restart() as you did)
+
