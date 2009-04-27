@@ -1,45 +1,63 @@
-From: Mike Rapoport <mike@compulab.co.il>
-Subject: [PATCH] fix typo in net_device_ops description
-Date: Mon, 27 Apr 2009 13:54:59 +0300
-Message-ID: <49F58F03.8090400@compulab.co.il>
+From: =?utf-8?Q?Rog=C3=A9rio?= Brito <rbrito@ime.usp.br>
+Subject: [PATCH] powerpc: convert mace to netdev_ops (was: Re: [2.6.30-rc3]
+	powerpc: compilation error of mace module)
+Date: Mon, 27 Apr 2009 09:16:33 -0300
+Message-ID: <20090427121633.GA29608@ime.usp.br>
+References: <20090426155708.GA23159@ime.usp.br>
+	<20090426.230648.254087966.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cathcart.site5.com ([74.54.107.137]:51443 "EHLO
-	cathcart.site5.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740AbZD0LWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 07:22:03 -0400
-Received: from [192.114.83.142] (helo=mail.linux-boards.com)
-	by cathcart.site5.com with esmtpsa (TLSv1:DES-CBC3-SHA:168)
-	(Exim 4.69)
-	(envelope-from <mike@compulab.co.il>)
-	id 1LyOUK-0000m9-5x
-	for netdev@vger.kernel.org; Mon, 27 Apr 2009 05:55:05 -0500
-Received: from [10.1.1.95] (mike-pc.compulab.local [10.1.1.95])
-	by mail.linux-boards.com (8.12.5/8.12.8) with ESMTP id n3RAsxXI004458
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 13:54:59 +0300
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20090426.230648.254087966.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Mike Rapoport <mike@compulab.co.il>
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2e7783f..5991399 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -500,7 +500,7 @@ struct netdev_queue {
-  *
-  * int (*ndo_set_mac_address)(struct net_device *dev, void *addr);
-  *	This function  is called when the Media Access Control address
-- *	needs to be changed. If not this interface is not defined, the
-+ *	needs to be changed. If this interface is not defined, the
-  *	mac address can not be changed.
-  *
-  * int (*ndo_validate_addr)(struct net_device *dev);
-
--- 
-Sincerely yours,
-Mike.
-
+SGksIERhdmUuCgpPbiBBcHIgMjYgMjAwOSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IE9yLCBpZiB5
+b3UncmUgYm9yZWQsIGZlZWwgZnJlZSB0byBjb252ZXJ0IHRoZSBtYWNlIGRyaXZlciBvdmVyCj4g
+dG8gbmV0ZGV2X29wcyA6LSkKCklzIHRoaXMgYW55dGhpbmcgY2xvc2UgdG8gd2hhdCBuZWVkcyB0
+byBiZSBkb25lPyBJdCdzIG5vdCB3aXRob3V0CmZhaWx1cmVzLCBiZWNhdXNlIHRoZSBmdW5jdGlv
+biBtYWNlX3NldF90aW1lb3V0IHJlY2VpdmVzIGEgcG9pbnRlciB0byBhCnN0cnVjdCBuZXRfZGV2
+aWNlLCBidXQgaXMgbWFya2VkIGlubGluZSBhbmQgaXMgdXNlZCBieSBtYWNlX3R4X3RpbWVvdXQs
+CndoaWNoIHJlY2VpdmVzIGFuIHVuc2lnbmVkIGxvbmcgKHdoaWNoIGNhbGxzIG1hY2Vfc2V0X3Rp
+bWVvdXQpLgoKUGVyaGFwcyBpdCB3b3VsZCBiZSBhIGNhc2Ugb2YgcmVtb3ZpbmcgdGhlIGlubGlu
+ZSBoaW50IHRvIHRoZSBjb21waWxlcj8KSSBndWVzcyB0aGF0IEJlbkggb3IgUGF1bCBjb3VsZCBj
+b21tZW50IGhlcmUgYmV0dGVyLi4uCgoKU2lnbmVkLW9mZi1ieTogUm9nw6lyaW8gQnJpdG8gPHJi
+cml0b0BpbWUudXNwLmJyPgoKLS0tCi0tLSBhL2RyaXZlcnMvbmV0L21hY2UuYwkyMDA4LTEyLTI5
+IDE1OjI1OjE1LjAwMDAwMDAwMCAtMDIwMAorKysgYi9kcml2ZXJzL25ldC9tYWNlLmMJMjAwOS0w
+NC0yNyAwODo1NDoxNi4wMDAwMDAwMDAgLTAzMDAKQEAgLTg5LDYgKzg5LDE2IEBAIHN0YXRpYyBp
+bmxpbmUgdm9pZCBkYmRtYV9yZXNldCh2b2xhdGlsZSAKIHN0YXRpYyBpbmxpbmUgdm9pZCBtYWNl
+X2NsZWFuX3JpbmdzKHN0cnVjdCBtYWNlX2RhdGEgKm1wKTsKIHN0YXRpYyB2b2lkIF9fbWFjZV9z
+ZXRfYWRkcmVzcyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB2b2lkICphZGRyKTsKIAorLyogQ29u
+dmVyc2lvbiB0byBuZXRkZXZfb3BzLiAqLworc3RhdGljIGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNl
+X29wcyBtYWNlX25ldGRldl9vcHMgPSB7CisJLm5kb19vcGVuCQk9IG1hY2Vfb3BlbiwKKwkubmRv
+X3N0b3AJCT0gbWFjZV9jbG9zZSwKKwkubmRvX3N0YXJ0X3htaXQJCT0gbWFjZV94bWl0X3N0YXJ0
+LAorCS5uZG9fdHhfdGltZW91dAkJPSBtYWNlX3NldF90aW1lb3V0LAorCS5uZG9fc2V0X211bHRp
+Y2FzdF9saXN0CT0gbWFjZV9zZXRfbXVsdGljYXN0LAorCS5uZG9fc2V0X21hY19hZGRyZXNzCT0g
+bWFjZV9zZXRfYWRkcmVzcywKK307CisKIC8qCiAgKiBJZiB3ZSBjYW4ndCBnZXQgYSBza2J1ZmYg
+d2hlbiB3ZSBuZWVkIGl0LCB3ZSB1c2UgdGhpcyBhcmVhIGZvciBETUEuCiAgKi8KQEAgLTIwOCwx
+MSArMjE3LDcgQEAgc3RhdGljIGludCBfX2RldmluaXQgbWFjZV9wcm9iZShzdHJ1Y3QgbQogCQl9
+CiAJfQogCi0JZGV2LT5vcGVuID0gbWFjZV9vcGVuOwotCWRldi0+c3RvcCA9IG1hY2VfY2xvc2U7
+Ci0JZGV2LT5oYXJkX3N0YXJ0X3htaXQgPSBtYWNlX3htaXRfc3RhcnQ7Ci0JZGV2LT5zZXRfbXVs
+dGljYXN0X2xpc3QgPSBtYWNlX3NldF9tdWx0aWNhc3Q7Ci0JZGV2LT5zZXRfbWFjX2FkZHJlc3Mg
+PSBtYWNlX3NldF9hZGRyZXNzOworCWRldi0+bmV0ZGV2X29wcyA9ICZtYWNlX25ldGRldl9vcHM7
+CiAKIAkvKgogCSAqIE1vc3Qgb2Ygd2hhdCBpcyBiZWxvdyBjb3VsZCBiZSBtb3ZlZCB0byBtYWNl
+X29wZW4oKQoKLS0gClJvZ8OpcmlvIEJyaXRvIDogcmJyaXRvQHttYWNrZW56aWUsaW1lLnVzcH0u
+YnIgOiBHUEcga2V5IDEwMjRELzdDMkNBRUI4Cmh0dHA6Ly93d3cuaW1lLnVzcC5ici9+cmJyaXRv
+IDogaHR0cDovL21ldXNpdGUubWFja2VuemllLmNvbS5ici9yYnJpdG8KUHJvamVjdHM6IGFsZ29y
+aXRobXMuYmVybGlvcy5kZSA6IGxhbWUuc2YubmV0IDogdnJtcy5hbGlvdGguZGViaWFuLm9yZwpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1k
+ZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3JnCmh0dHBzOi8vb3psYWJzLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
