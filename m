@@ -1,191 +1,140 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v3 09/13] net: Rework ucc_geth driver to use of_mdio
-	infrastructure
-Date: Mon, 27 Apr 2009 09:36:07 -0600
-Message-ID: <fa686aa40904270836v352b7d24sb5798ca95d71ccd@mail.gmail.com>
-References: <20090425224458.32392.31296.stgit@localhost.localdomain>
-	<20090425225323.32392.1254.stgit@localhost.localdomain> <OFD90DF3E8.3B40B9BF-ONC12575A4.0030C830-C12575A4.00317AE2@transmode.se>
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
+Date: Mon, 27 Apr 2009 11:54:24 -0400
+Message-ID: <20090427155424.GA27041@Krystal>
+References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com> <20090427032639.GA10087@elte.hu> <20090427132153.GI6945@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Fleming <afleming@freescale.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	linuxppc-dev-bounces+joakim.tjernlund=transmode.se@ozlabs.org,
-	netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
+	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f166.google.com ([209.85.217.166]:39341 "EHLO
-	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754525AbZD0PgY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 11:36:24 -0400
-Received: by gxk10 with SMTP id 10so4872413gxk.13
-        for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 08:36:24 -0700 (PDT)
-In-Reply-To: <OFD90DF3E8.3B40B9BF-ONC12575A4.0030C830-C12575A4.00317AE2@transmode.se>
+Received: from tomts5.bellnexxia.net ([209.226.175.25]:52051 "EHLO
+	tomts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343AbZD0Py1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 11:54:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20090427132153.GI6945@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 26, 2009 at 3:00 AM, Joakim Tjernlund
-<Joakim.Tjernlund@transmode.se> wrote:
-> Change in fixed link case, see inline.
->
->>
->> From: Grant Likely <grant.likely@secretlab.ca>
->>
->> This patch simplifies the driver by making use of more common code.
->>
->> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
->> Acked-by: Andy Fleming <afleming@freescale.com>
->> ---
->>
->> =A0drivers/net/ucc_geth.c | =A0 47
-> ++++++++++++-----------------------------------
->> =A0drivers/net/ucc_geth.h | =A0 =A02 +-
->> =A02 files changed, 13 insertions(+), 36 deletions(-)
->>
->>
->> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
->> index d3f39e8..195b490 100644
->> --- a/drivers/net/ucc_geth.c
->> +++ b/drivers/net/ucc_geth.c
->> @@ -27,6 +27,7 @@
->> =A0#include <linux/mii.h>
->> =A0#include <linux/phy.h>
->> =A0#include <linux/workqueue.h>
->> +#include <linux/of_mdio.h>
->> =A0#include <linux/of_platform.h>
->>
->> =A0#include <asm/uaccess.h>
->> @@ -1542,12 +1543,14 @@ static int init_phy(struct net_device *dev)
->> =A0 =A0 priv->oldspeed =3D 0;
->> =A0 =A0 priv->oldduplex =3D -1;
->>
->> - =A0 phydev =3D phy_connect(dev, ug_info->phy_bus_id, &adjust_link,=
- 0,
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0priv->phy_interface);
->> + =A0 if (!ug_info->phy_node)
->> + =A0 =A0 =A0return 0;
->>
->> - =A0 if (IS_ERR(phydev)) {
->> + =A0 phydev =3D of_phy_connect(dev, ug_info->phy_node, &adjust_link=
-, 0,
->> + =A0 =A0 =A0 =A0 =A0 =A0priv->phy_interface);
->> + =A0 if (!phydev) {
->> =A0 =A0 =A0 =A0printk("%s: Could not attach to PHY\n", dev->name);
->> - =A0 =A0 =A0return PTR_ERR(phydev);
->> + =A0 =A0 =A0return -ENODEV;
->> =A0 =A0 }
->>
->> =A0 =A0 phydev->supported &=3D (ADVERTISED_10baseT_Half |
->> @@ -3519,14 +3522,12 @@ static int ucc_geth_probe(struct of_device*
-> ofdev, const struct of_device_id *ma
->> =A0{
->> =A0 =A0 struct device *device =3D &ofdev->dev;
->> =A0 =A0 struct device_node *np =3D ofdev->node;
->> - =A0 struct device_node *mdio;
->> =A0 =A0 struct net_device *dev =3D NULL;
->> =A0 =A0 struct ucc_geth_private *ugeth =3D NULL;
->> =A0 =A0 struct ucc_geth_info *ug_info;
->> =A0 =A0 struct resource res;
->> =A0 =A0 struct device_node *phy;
->> =A0 =A0 int err, ucc_num, max_speed =3D 0;
->> - =A0 const phandle *ph;
->> =A0 =A0 const u32 *fixed_link;
->> =A0 =A0 const unsigned int *prop;
->> =A0 =A0 const char *sprop;
->> @@ -3626,45 +3627,21 @@ static int ucc_geth_probe(struct of_device*
-> ofdev, const struct of_device_id *ma
->> =A0 =A0 ug_info->uf_info.irq =3D irq_of_parse_and_map(np, 0);
->> =A0 =A0 fixed_link =3D of_get_property(np, "fixed-link", NULL);
->> =A0 =A0 if (fixed_link) {
->> - =A0 =A0 =A0snprintf(ug_info->phy_bus_id, sizeof(ug_info->phy_bus_i=
-d),
->> - =A0 =A0 =A0 =A0 =A0PHY_ID_FMT, "0", fixed_link[0]);
->> =A0 =A0 =A0 =A0phy =3D NULL;
->
-> phy assigned to NULL ...
->
->> =A0 =A0 } else {
->> - =A0 =A0 =A0char bus_name[MII_BUS_ID_SIZE];
->> -
->> - =A0 =A0 =A0ph =3D of_get_property(np, "phy-handle", NULL);
->> - =A0 =A0 =A0phy =3D of_find_node_by_phandle(*ph);
->> -
->> + =A0 =A0 =A0phy =3D of_parse_phandle(np, "phy-handle", 0);
->> =A0 =A0 =A0 =A0if (phy =3D=3D NULL)
->> =A0 =A0 =A0 =A0 =A0 return -ENODEV;
->> -
->> - =A0 =A0 =A0/* set the PHY address */
->> - =A0 =A0 =A0prop =3D of_get_property(phy, "reg", NULL);
->> - =A0 =A0 =A0if (prop =3D=3D NULL)
->> - =A0 =A0 =A0 =A0 return -1;
->> -
->> - =A0 =A0 =A0/* Set the bus id */
->> - =A0 =A0 =A0mdio =3D of_get_parent(phy);
->> -
->> - =A0 =A0 =A0if (mdio =3D=3D NULL)
->> - =A0 =A0 =A0 =A0 return -ENODEV;
->> -
->> - =A0 =A0 =A0err =3D of_address_to_resource(mdio, 0, &res);
->> -
->> - =A0 =A0 =A0if (err) {
->> - =A0 =A0 =A0 =A0 of_node_put(mdio);
->> - =A0 =A0 =A0 =A0 return err;
->> - =A0 =A0 =A0}
->> - =A0 =A0 =A0fsl_pq_mdio_bus_name(bus_name, mdio);
->> - =A0 =A0 =A0of_node_put(mdio);
->> - =A0 =A0 =A0snprintf(ug_info->phy_bus_id, sizeof(ug_info->phy_bus_i=
-d),
->> - =A0 =A0 =A0 =A0 "%s:%02x", bus_name, *prop);
->> =A0 =A0 }
->> + =A0 ug_info->phy_node =3D phy;
->>
->> =A0 =A0 /* get the phy interface type, or default to MII */
->> =A0 =A0 prop =3D of_get_property(np, "phy-connection-type", NULL);
->> =A0 =A0 if (!prop) {
->> =A0 =A0 =A0 =A0/* handle interface property present in old trees */
->> + =A0 =A0 =A0if (!phy)
->> + =A0 =A0 =A0 =A0 return -ENODEV;
->
-> .. here an error is returned. Is this intentional?
+* Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
+> On Mon, Apr 27, 2009 at 05:26:39AM +0200, Ingo Molnar wrote:
+> > 
+> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > 
+> > > On Sun, Apr 26, 2009 at 10:22:55PM +0200, Ingo Molnar wrote:
+> > > > 
+> > > > * Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
+> > > > 
+> > > > > * Ingo Molnar (mingo@elte.hu) wrote:
+> > > > > > 
+> > > > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > > > > > 
+> > > > > > > Second cut of "big hammer" expedited RCU grace periods, but only 
+> > > > > > > for rcu_bh.  This creates another softirq vector, so that entering 
+> > > > > > > this softirq vector will have forced an rcu_bh quiescent state (as 
+> > > > > > > noted by Dave Miller).  Use smp_call_function() to invoke 
+> > > > > > > raise_softirq() on all CPUs in order to cause this to happen.  
+> > > > > > > Track the CPUs that have passed through a quiescent state (or gone 
+> > > > > > > offline) with a cpumask.
+> > > > > > 
+> > > > > > hm, i'm still asking whether doing this would be simpler via a 
+> > > > > > reschedule vector - which not only is an existing facility but also 
+> > > > > > forces all RCU domains through a quiescent state - not just bh-RCU 
+> > > > > > participants.
+> > > > > > 
+> > > > > > Triggering a new softirq is in no way simpler that doing an SMP 
+> > > > > > cross-call - in fact softirqs are a finite resource so using some 
+> > > > > > other facility would be preferred.
+> > > > > > 
+> > > > > > Am i missing something?
+> > > > > > 
+> > > > > 
+> > > > > I think the reason for this whole thread is that waiting for rcu 
+> > > > > quiescent state, when called many times e.g. in multiple iptables 
+> > > > > invokations, takes too longs (5 seconds to load the netfilter 
+> > > > > rules at boot). [...]
+> > > > 
+> > > > I'm aware of the problem space.
+> > > > 
+> > > > I was suggesting that to trigger the quiescent state and to wait for 
+> > > > it to propagate it would be enough to reuse the reschedule 
+> > > > mechanism.
+> > > > 
+> > > > It would be relatively straightforward: first a send-reschedule then 
+> > > > do a wait_task_context_switch() on rq->curr - both are existing 
+> > > > primitives. (a task reference has to be taken but that's pretty much 
+> > > > all)
+> > > 
+> > > Well, one reason I didn't take this approach was that I didn't 
+> > > happen to think of it.  ;-)
+> > > 
+> > > Also that I hadn't heard of wait_task_context_switch().
+> > > 
+> > > Hmmm...  Looking for wait_task_context_switch().  OK, found it.
+> > > 
+> > > It looks to me that this primitive won't return until the 
+> > > scheduler actually decides to run something else.  We instead need 
+> > > to have something that stops waiting once the CPU enters the 
+> > > scheduler, hence the previous thought of making rcu_qsctr_inc() do 
+> > > a bit of extra work.
+> > > 
+> > > This would be a way of making an expedited RCU-sched across all 
+> > > RCU implementations.  As noted in the earlier email, it would not 
+> > > handle RCU or RCU-bh in a -rt kernel.
+> > > 
+> > > > By the time wait_task_context_switch() returns from the last CPU 
+> > > > we know that the quiescent state has passed.
+> > > 
+> > > We would want to wait for all of the CPUs in parallel, though, 
+> > > wouldn't we?  Seems that we would not want to wait for the last 
+> > > CPU to do another trip through the scheduler if it had already 
+> > > passed through the scheduler while we were waiting on the earlier 
+> > > CPUs.
+> > > 
+> > > So it seems like we would still want a two-pass approach -- one 
+> > > pass to capture the current state, the second pass to wait for the 
+> > > state to change.
+> > 
+> > I think waiting in parallel is still possible (first kick all tasks, 
+> > then make sure all tasks have left the CPU at least once).
+> > 
+> > The busy-waiting in wait_task_context_switch() is indeed a problem - 
+> > but perhaps that could be refactored to be a migration-thread driven 
+> > wait_for_completion() + complete() cycle? It could be driven by 
+> > preempt notifiers perhaps - and become zero-cost.
+> 
+> Hmmm...  It would need to be informed of the quiescent state even if
+> that quiescent state did not result in a preemption.
+> 
+> But you are right -- I do need to expedite RCU, not just RCU-bh,
+> especially given that the boot-speed guys are starting to see grace
+> periods as a measureable fraction of the boot time.  I will take another
+> pass at this.
+> 
+> 							Thanx, Paul
 
-Yes, I did that intentionally because it looked like a bug to me
-because of_get_property() is passed the phy value.  However, I suppose
-that if phy is null then of_get_property will just return NULL, so I
-think I made a mistake.  I'll post a patch to remove these two lines.
+It might sound a bit simplistic, but... scheduling a high-priority
+workqueue on every CPUs would give you the guarantees you seem to need
+here. Or is the delay of letting the scheduler schedule a high-priority
+task a delay you are trying to avoid ?
 
-g.
+Some kind of priority boosting done by synchronize_rcu() could probably
+work, and you could support rcu callbacks priority boosting by assigning
+a priority to each callback registered (same priority as the thread
+which invoked call_rcu). The rcu callbacks could then be sorted by
+priority in a RB tree, and only the callbacks associated with priority
+>= than the next priority task would be executed.
 
->
->> +
->> =A0 =A0 =A0 =A0prop =3D of_get_property(phy, "interface", NULL);
->> =A0 =A0 =A0 =A0if (prop !=3D NULL) {
->> =A0 =A0 =A0 =A0 =A0 phy_interface =3D enet_to_phy_interface[*prop];
->> diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
->> index 2f8ee7c..bc31975 100644
->> --- a/drivers/net/ucc_geth.h
->> +++ b/drivers/net/ucc_geth.h
->> @@ -1100,7 +1100,7 @@ struct ucc_geth_info {
->> =A0 =A0 u32 eventRegMask;
->> =A0 =A0 u16 pausePeriod;
->> =A0 =A0 u16 extensionField;
->> - =A0 char phy_bus_id[BUS_ID_SIZE];
->> + =A0 struct device_node *phy_node;
->> =A0 =A0 u8 weightfactor[NUM_TX_QUEUES];
->> =A0 =A0 u8 interruptcoalescingmaxvalue[NUM_RX_QUEUES];
->> =A0 =A0 u8 l2qt[UCC_GETH_VLAN_PRIORITY_MAX];
->>
->> _______________________________________________
->> Linuxppc-dev mailing list
->> Linuxppc-dev@ozlabs.org
->> https://ozlabs.org/mailman/listinfo/linuxppc-dev
->>
->>
->
->
+Mathieu
 
 
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+-- 
+Mathieu Desnoyers
+OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
