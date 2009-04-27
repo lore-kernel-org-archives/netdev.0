@@ -1,38 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: forcedeth, 2.6.29.1: no link during initialization
-Date: Sun, 26 Apr 2009 18:16:04 -0700
-Message-ID: <20090426181604.7b38cab0.akpm@linux-foundation.org>
-References: <49F066D8.5060802@t-online.de>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] tun: fix aio
+Date: Mon, 27 Apr 2009 10:48:37 +0930
+Message-ID: <200904271048.38401.rusty@rustcorp.com.au>
+References: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com> <20090420120930.GA4941@gondor.apana.org.au> <20090420122137.GA6768@dhcp-1-124.tlv.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
-To: Harald Dunkel <harald.dunkel@t-online.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755456AbZD0BSx@vger.kernel.org>
-In-Reply-To: <49F066D8.5060802@t-online.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:51811 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753476AbZD0BSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2009 21:18:43 -0400
+In-Reply-To: <20090420122137.GA6768@dhcp-1-124.tlv.redhat.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(cc's added)
+On Mon, 20 Apr 2009 09:51:38 pm Michael S. Tsirkin wrote:
+> On Mon, Apr 20, 2009 at 08:09:30PM +0800, Herbert Xu wrote:
+> > Michael S. Tsirkin <mst@redhat.com> wrote:
+> > >
+> > > Note: I started out just allocating and copying the iovec rather than adding
+> > > yet another skb-iterating routine, but this turned out to add small but
+> > > measurable overhead on data path: tx time per packet jumped from 6500 to 6700 ns
+> > > (let me know if you want to see that version of the patch).
+> > 
+> > Can you please post the copying version as well so we can compare?
+> 
+> Sure. Here it is: much smaller, but slightly slower.
 
-On Thu, 23 Apr 2009 15:02:16 +0200 Harald Dunkel <harald.dunkel@t-online.de> wrote:
+Which could probably be fixed by using an on-stack version for a iovec
+of less than a certain size...
 
-> Hi folks,
-> 
-> I get these messages on every boot
-> 
-> [   37.413903] eth0: no link during initialization.
-> [   39.789316] eth0: link up.
-> [   39.794965] eth0: link down.
-> [   46.438599] eth0: link up.
-> [   48.407885] eth0: link down.
-> [   52.981754] eth0: link up.
-> [   52.986966] eth0: link down.
-> 
-> After that dhcpclient or network manager give up to try
-> again, i.e. the network is not set up.
-> 
-> 
-> I saw this mentioned several times on Google, but without
-> a solution. Maybe I could help to track this down?
+Cheers,
+Rusty.
