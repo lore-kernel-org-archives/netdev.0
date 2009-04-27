@@ -1,50 +1,51 @@
-From: =?utf-8?Q?Rog=C3=A9rio?= Brito <rbrito@ime.usp.br>
-Subject: Re: [PATCH] powerpc: convert mace to netdev_ops
-Date: Mon, 27 Apr 2009 11:20:25 -0300
-Message-ID: <20090427142024.GC29608@ime.usp.br>
-References: <20090426155708.GA23159@ime.usp.br>
-	<20090426.230648.254087966.davem@davemloft.net>
-	<20090427121633.GA29608@ime.usp.br>
-	<20090427.054258.16622932.davem@davemloft.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH] net: Fix ucc_geth.c handling of phy 'interface' property.
+Date: Mon, 27 Apr 2009 09:36:13 -0600
+Message-ID: <20090427153612.5108.10877.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxppc-dev@ozlabs.org, paulus@samba.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20090427.054258.16622932.davem@davemloft.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
+	Andy Fleming <afleming@freescale.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	David Miller <davem@davemloft.net>, linuxpp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.227]:63049 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752906AbZD0PgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 11:36:16 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so1856328rvb.1
+        for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 08:36:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGksIERhdmUuCgpPbiBBcHIgMjcgMjAwOSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IFlvdSBjYW4g
-Zml4IHRoZSBtYWNlX3NldF90aW1lb3V0KCkgZnVuY3Rpb24gYXJndW1lbnRzIGJ5IGhhdmluZyBh
-Cj4gaGVscGVyIGZ1bmN0aW9uIHRoYXQgc2ltcGx5IHdyYXBzIGFyb3VuZCBpdCBhbmQgcHJvdmlk
-ZXMgdGhlIHNlY29uZAo+IGV4cGVjdGlvbiBvZiBhcmd1bWVudCB0eXBlcy4KCkh1bW1tLCB0aGlz
-IG1lYW5zIHRoYXQgSSdtIG5vdCB0aGF0IGJhZC4uLiBUaGUgd3JhcHBlciBmdW5jdGlvbiB3YXMg
-dGhlCmZpcnN0IHRoaW5nIHRoYXQgY2FtZSB0byBteSBtaW5kLCBidXQgSSBqdXN0IHdhbnRlZCB0
-byBiZSBhcyBsZWFzdApkaXNydXB0aXZlIGFzIHBvc3NpYmxlLgoKPiBZb3VyIHBhdGNoIGlzIGFs
-c28gd3JvbmcsIGl0J3MgbWlzc2luZyBhIGxvdCBvZiBuZXRkZXZfb3BzCj4gZW50cmllcyB0aGF0
-IGFyZSBpbXBsaWNpdGx5IG9idGFpbmVkIHZpYSBhbGxvY19ldGhlcmRldigpLAo+IG5hbWVseToK
-ClRoYW5rcyBmb3IgcG9pbnRpbmcgdGhvc2Ugb3V0LiBJIGRpZG4ndCBmaW5kIHRoZSBkb2N1bWVu
-dGF0aW9uIGFib3V0Cm5ldGRldl9vcHMgdW5kZXIgRG9jdW1lbnRhdGlvbiAoYSBzaW1wbGUgZ3Jl
-cCBkaWRuJ3QgdHVybiBhbnkgcmVzdWx0cykuCgo+IAkubmRvX2NoYW5nZV9tdHUJCT0gZXRoX2No
-YW5nZV9tdHUsCj4gCS5uZG9fc2V0X21hY19hZGRyZXNzIAk9IGV0aF9tYWNfYWRkciwKPiAJLm5k
-b192YWxpZGF0ZV9hZGRyCT0gZXRoX3ZhbGlkYXRlX2FkZHIsCgpOaWNlLiBJIHdpbGwgaW5jb3Jw
-b3JhdGUgc3VjaCB0aGluZ3MuCgoKVGhhbmtzLCBSb2fDqXJpbyBCcml0by4KCi0tIApSb2fDqXJp
-byBCcml0byA6IHJicml0b0B7bWFja2VuemllLGltZS51c3B9LmJyIDogR1BHIGtleSAxMDI0RC83
-QzJDQUVCOApodHRwOi8vd3d3LmltZS51c3AuYnIvfnJicml0byA6IGh0dHA6Ly9tZXVzaXRlLm1h
-Y2tlbnppZS5jb20uYnIvcmJyaXRvClByb2plY3RzOiBhbGdvcml0aG1zLmJlcmxpb3MuZGUgOiBs
-YW1lLnNmLm5ldCA6IHZybXMuYWxpb3RoLmRlYmlhbi5vcmcKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51
-eHBwYy1kZXZAb3psYWJzLm9yZwpodHRwczovL296bGFicy5vcmcvbWFpbG1hbi9saXN0aW5mby9s
-aW51eHBwYy1kZXY=
+From: Grant Likely <grant.likely@secretlab.ca>
+
+Previous rework to ucc_geth.c to add of_mdio support (net: Rework
+ucc_geth driver to use of_mdio infrastructure) added a block of
+code which broke older openfirmware device trees which use an
+'interface' property in the phy node to describe the connection
+between the MAC and the PHY.  This patch removes the offending blurb.
+
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
+
+ drivers/net/ucc_geth.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
+
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 195b490..d805d60 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3639,9 +3639,6 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	prop = of_get_property(np, "phy-connection-type", NULL);
+ 	if (!prop) {
+ 		/* handle interface property present in old trees */
+-		if (!phy)
+-			return -ENODEV;
+-
+ 		prop = of_get_property(phy, "interface", NULL);
+ 		if (prop != NULL) {
+ 			phy_interface = enet_to_phy_interface[*prop];
+
