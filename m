@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] macvlan: proper multicast support
-Date: Mon, 27 Apr 2009 02:56:34 -0700 (PDT)
-Message-ID: <20090427.025634.54725702.davem@davemloft.net>
-References: <20090423091425.73ed544c@s6510>
-	<49F1D5EF.3020306@trash.net>
-	<20090424094808.74d401d8@nehalam>
+Subject: Re: [PATCH] bonding: ignore updelay param when there is no active
+ slave
+Date: Mon, 27 Apr 2009 02:58:03 -0700 (PDT)
+Message-ID: <20090427.025803.183811676.davem@davemloft.net>
+References: <20090424135728.GA12304@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46670
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46679
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757595AbZD0J4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:56:41 -0400
-In-Reply-To: <20090424094808.74d401d8@nehalam>
+	by vger.kernel.org with ESMTP id S1757898AbZD0J6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:58:10 -0400
+In-Reply-To: <20090424135728.GA12304@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 24 Apr 2009 09:48:08 -0700
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 24 Apr 2009 15:57:29 +0200
 
-> When using macvlan's multicast packets don't get properly passed between
-> macvlan's which should be logically sharing the network.  Any multicast
-> packet sent on a macvlan should show up lower device and all other macvlan's.
-> Likewise a multicast packet sent on lower device should be received
-> by all macvlan's.
+> Pointed out by Sean E. Millichamp.
 > 
-> The following is one way to do it; build tested only.
+> Quote from Documentation/networking/bonding.txt:
+> "Note that when a bonding interface has no active links, the
+> driver will immediately reuse the first link that goes up, even if the
+> updelay parameter has been specified (the updelay is ignored in this
+> case).  If there are slave interfaces waiting for the updelay timeout
+> to expire, the interface that first went into that state will be
+> immediately reused.  This reduces down time of the network if the
+> value of updelay has been overestimated, and since this occurs only in
+> cases with no connectivity, there is no additional penalty for
+> ignoring the updelay."
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> This patch actually changes the behaviour in this way.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-I definitely want to see what Patrick thinks of this.
+Applied to net-next-2.6
