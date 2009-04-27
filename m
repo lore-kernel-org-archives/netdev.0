@@ -1,140 +1,100 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
-Date: Mon, 27 Apr 2009 11:54:24 -0400
-Message-ID: <20090427155424.GA27041@Krystal>
-References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com> <20090427032639.GA10087@elte.hu> <20090427132153.GI6945@linux.vnet.ibm.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: [PATCH] virtio_net: Cleanup command queue scatterlist usage
+Date: Mon, 27 Apr 2009 09:50:03 -0600
+Message-ID: <20090427154925.4771.63651.stgit@debian.lart>
+References: <20090426.233014.216353908.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
-	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts5.bellnexxia.net ([209.226.175.25]:52051 "EHLO
-	tomts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752343AbZD0Py1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 11:54:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20090427132153.GI6945@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.williamson@hp.com, sfr@canb.auug.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: davem@davemloft.net, rusty@rustcorp.com.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090426.233014.216353908.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> On Mon, Apr 27, 2009 at 05:26:39AM +0200, Ingo Molnar wrote:
-> > 
-> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > 
-> > > On Sun, Apr 26, 2009 at 10:22:55PM +0200, Ingo Molnar wrote:
-> > > > 
-> > > > * Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
-> > > > 
-> > > > > * Ingo Molnar (mingo@elte.hu) wrote:
-> > > > > > 
-> > > > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > > > > 
-> > > > > > > Second cut of "big hammer" expedited RCU grace periods, but only 
-> > > > > > > for rcu_bh.  This creates another softirq vector, so that entering 
-> > > > > > > this softirq vector will have forced an rcu_bh quiescent state (as 
-> > > > > > > noted by Dave Miller).  Use smp_call_function() to invoke 
-> > > > > > > raise_softirq() on all CPUs in order to cause this to happen.  
-> > > > > > > Track the CPUs that have passed through a quiescent state (or gone 
-> > > > > > > offline) with a cpumask.
-> > > > > > 
-> > > > > > hm, i'm still asking whether doing this would be simpler via a 
-> > > > > > reschedule vector - which not only is an existing facility but also 
-> > > > > > forces all RCU domains through a quiescent state - not just bh-RCU 
-> > > > > > participants.
-> > > > > > 
-> > > > > > Triggering a new softirq is in no way simpler that doing an SMP 
-> > > > > > cross-call - in fact softirqs are a finite resource so using some 
-> > > > > > other facility would be preferred.
-> > > > > > 
-> > > > > > Am i missing something?
-> > > > > > 
-> > > > > 
-> > > > > I think the reason for this whole thread is that waiting for rcu 
-> > > > > quiescent state, when called many times e.g. in multiple iptables 
-> > > > > invokations, takes too longs (5 seconds to load the netfilter 
-> > > > > rules at boot). [...]
-> > > > 
-> > > > I'm aware of the problem space.
-> > > > 
-> > > > I was suggesting that to trigger the quiescent state and to wait for 
-> > > > it to propagate it would be enough to reuse the reschedule 
-> > > > mechanism.
-> > > > 
-> > > > It would be relatively straightforward: first a send-reschedule then 
-> > > > do a wait_task_context_switch() on rq->curr - both are existing 
-> > > > primitives. (a task reference has to be taken but that's pretty much 
-> > > > all)
-> > > 
-> > > Well, one reason I didn't take this approach was that I didn't 
-> > > happen to think of it.  ;-)
-> > > 
-> > > Also that I hadn't heard of wait_task_context_switch().
-> > > 
-> > > Hmmm...  Looking for wait_task_context_switch().  OK, found it.
-> > > 
-> > > It looks to me that this primitive won't return until the 
-> > > scheduler actually decides to run something else.  We instead need 
-> > > to have something that stops waiting once the CPU enters the 
-> > > scheduler, hence the previous thought of making rcu_qsctr_inc() do 
-> > > a bit of extra work.
-> > > 
-> > > This would be a way of making an expedited RCU-sched across all 
-> > > RCU implementations.  As noted in the earlier email, it would not 
-> > > handle RCU or RCU-bh in a -rt kernel.
-> > > 
-> > > > By the time wait_task_context_switch() returns from the last CPU 
-> > > > we know that the quiescent state has passed.
-> > > 
-> > > We would want to wait for all of the CPUs in parallel, though, 
-> > > wouldn't we?  Seems that we would not want to wait for the last 
-> > > CPU to do another trip through the scheduler if it had already 
-> > > passed through the scheduler while we were waiting on the earlier 
-> > > CPUs.
-> > > 
-> > > So it seems like we would still want a two-pass approach -- one 
-> > > pass to capture the current state, the second pass to wait for the 
-> > > state to change.
-> > 
-> > I think waiting in parallel is still possible (first kick all tasks, 
-> > then make sure all tasks have left the CPU at least once).
-> > 
-> > The busy-waiting in wait_task_context_switch() is indeed a problem - 
-> > but perhaps that could be refactored to be a migration-thread driven 
-> > wait_for_completion() + complete() cycle? It could be driven by 
-> > preempt notifiers perhaps - and become zero-cost.
-> 
-> Hmmm...  It would need to be informed of the quiescent state even if
-> that quiescent state did not result in a preemption.
-> 
-> But you are right -- I do need to expedite RCU, not just RCU-bh,
-> especially given that the boot-speed guys are starting to see grace
-> periods as a measureable fraction of the boot time.  I will take another
-> pass at this.
-> 
-> 							Thanx, Paul
+We were avoiding calling sg_init* on scatterlists passed
+into virtnet_send_command to prevent extraneous end markers.
+This caused build warnings for uninitialized variables.
+Cleanup the code to create proper scatterlists.
 
-It might sound a bit simplistic, but... scheduling a high-priority
-workqueue on every CPUs would give you the guarantees you seem to need
-here. Or is the delay of letting the scheduler schedule a high-priority
-task a delay you are trying to avoid ?
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+---
 
-Some kind of priority boosting done by synchronize_rcu() could probably
-work, and you could support rcu callbacks priority boosting by assigning
-a priority to each callback registered (same priority as the thread
-which invoked call_rcu). The rcu callbacks could then be sorted by
-priority in a RB tree, and only the callbacks associated with priority
->= than the next priority task would be executed.
+ drivers/net/virtio_net.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
 
-Mathieu
-
-
--- 
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 0718558..ed70df4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -616,10 +616,11 @@ static int virtnet_open(struct net_device *dev)
+ static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+ 				 struct scatterlist *data, int out, int in)
+ {
+-	struct scatterlist sg[VIRTNET_SEND_COMMAND_SG_MAX + 2];
++	struct scatterlist *s, sg[VIRTNET_SEND_COMMAND_SG_MAX + 2];
+ 	struct virtio_net_ctrl_hdr ctrl;
+ 	virtio_net_ctrl_ack status = ~0;
+ 	unsigned int tmp;
++	int i;
+ 
+ 	/* Caller should know better */
+ 	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ||
+@@ -634,7 +635,8 @@ static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+ 	sg_init_table(sg, out + in);
+ 
+ 	sg_set_buf(&sg[0], &ctrl, sizeof(ctrl));
+-	memcpy(&sg[1], data, sizeof(struct scatterlist) * (out + in - 2));
++	for_each_sg(data, s, out + in - 2, i)
++		sg_set_buf(&sg[i + 1], sg_virt(s), s->length);
+ 	sg_set_buf(&sg[out + in - 1], &status, sizeof(status));
+ 
+ 	BUG_ON(vi->cvq->vq_ops->add_buf(vi->cvq, sg, out, in, vi));
+@@ -688,7 +690,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	promisc = ((dev->flags & IFF_PROMISC) != 0);
+ 	allmulti = ((dev->flags & IFF_ALLMULTI) != 0);
+ 
+-	sg_set_buf(sg, &promisc, sizeof(promisc));
++	sg_init_one(sg, &promisc, sizeof(promisc));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+ 				  VIRTIO_NET_CTRL_RX_PROMISC,
+@@ -696,7 +698,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
+ 			 promisc ? "en" : "dis");
+ 
+-	sg_set_buf(sg, &allmulti, sizeof(allmulti));
++	sg_init_one(sg, &allmulti, sizeof(allmulti));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+ 				  VIRTIO_NET_CTRL_RX_ALLMULTI,
+@@ -712,6 +714,8 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 		return;
+ 	}
+ 
++	sg_init_table(sg, 2);
++
+ 	/* Store the unicast list and count in the front of the buffer */
+ 	mac_data->entries = dev->uc_count;
+ 	addr = dev->uc_list;
+@@ -745,7 +749,7 @@ static void virnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct scatterlist sg;
+ 
+-	sg_set_buf(&sg, &vid, sizeof(vid));
++	sg_init_one(&sg, &vid, sizeof(vid));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+ 				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1, 0))
+@@ -757,7 +761,7 @@ static void virnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct scatterlist sg;
+ 
+-	sg_set_buf(&sg, &vid, sizeof(vid));
++	sg_init_one(&sg, &vid, sizeof(vid));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+ 				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1, 0))
