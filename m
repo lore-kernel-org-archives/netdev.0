@@ -1,58 +1,107 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] netfilter: iptables no lockdep is needed..
-Date: Sun, 26 Apr 2009 10:18:25 +0200
-Message-ID: <20090426081825.GA2755@ami.dom.local>
-References: <alpine.LFD.2.00.0904210831560.2199@localhost.localdomain> <20090421111541.228e977a@nehalam> <20090421193924.GA24404@elte.hu> <20090421143927.52d7d89d@nehalam> <alpine.LFD.2.00.0904220821240.3101@localhost.localdomain> <20090423210938.1501507b@nehalam> <49F146FF.5050200@cosmosbay.com> <20090424091839.6e13ebec@nehalam> <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH RFC] v2 expedited "big hammer" RCU grace periods
+Date: Mon, 27 Apr 2009 05:26:39 +0200
+Message-ID: <20090427032639.GA10087@elte.hu>
+References: <20090426052340.GA24931@linux.vnet.ibm.com> <20090426112717.GE10391@elte.hu> <20090426191343.GC29238@Krystal> <20090426202255.GA5365@elte.hu> <20090426214451.GC6945@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, Paul Mackerras <paulus@samba.org>,
-	paulmck@linux.vnet.ibm.com, Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org, mathieu.desnoyers@polymtl.ca
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754736AbZDZITd@vger.kernel.org>
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755573AbZD0D1j@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090425133052.4cb711f5@nehalam>
+In-Reply-To: <20090426214451.GC6945@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 25, 2009 at 01:30:52PM -0700, Stephen Hemminger wrote:
-> Epilogue due to master Jarek. Lockdep carest not about the locking
-> doth bestowed. Therefore no keys are needed.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Very nice! I guess this Shakespeare guy Will sign off this all too. ;-)
+* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 
-Thanks,
-Jarek P.
+> On Sun, Apr 26, 2009 at 10:22:55PM +0200, Ingo Molnar wrote:
+> > 
+> > * Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
+> > 
+> > > * Ingo Molnar (mingo@elte.hu) wrote:
+> > > > 
+> > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > > > 
+> > > > > Second cut of "big hammer" expedited RCU grace periods, but only 
+> > > > > for rcu_bh.  This creates another softirq vector, so that entering 
+> > > > > this softirq vector will have forced an rcu_bh quiescent state (as 
+> > > > > noted by Dave Miller).  Use smp_call_function() to invoke 
+> > > > > raise_softirq() on all CPUs in order to cause this to happen.  
+> > > > > Track the CPUs that have passed through a quiescent state (or gone 
+> > > > > offline) with a cpumask.
+> > > > 
+> > > > hm, i'm still asking whether doing this would be simpler via a 
+> > > > reschedule vector - which not only is an existing facility but also 
+> > > > forces all RCU domains through a quiescent state - not just bh-RCU 
+> > > > participants.
+> > > > 
+> > > > Triggering a new softirq is in no way simpler that doing an SMP 
+> > > > cross-call - in fact softirqs are a finite resource so using some 
+> > > > other facility would be preferred.
+> > > > 
+> > > > Am i missing something?
+> > > > 
+> > > 
+> > > I think the reason for this whole thread is that waiting for rcu 
+> > > quiescent state, when called many times e.g. in multiple iptables 
+> > > invokations, takes too longs (5 seconds to load the netfilter 
+> > > rules at boot). [...]
+> > 
+> > I'm aware of the problem space.
+> > 
+> > I was suggesting that to trigger the quiescent state and to wait for 
+> > it to propagate it would be enough to reuse the reschedule 
+> > mechanism.
+> > 
+> > It would be relatively straightforward: first a send-reschedule then 
+> > do a wait_task_context_switch() on rq->curr - both are existing 
+> > primitives. (a task reference has to be taken but that's pretty much 
+> > all)
+> 
+> Well, one reason I didn't take this approach was that I didn't 
+> happen to think of it.  ;-)
+> 
+> Also that I hadn't heard of wait_task_context_switch().
+> 
+> Hmmm...  Looking for wait_task_context_switch().  OK, found it.
+> 
+> It looks to me that this primitive won't return until the 
+> scheduler actually decides to run something else.  We instead need 
+> to have something that stops waiting once the CPU enters the 
+> scheduler, hence the previous thought of making rcu_qsctr_inc() do 
+> a bit of extra work.
+> 
+> This would be a way of making an expedited RCU-sched across all 
+> RCU implementations.  As noted in the earlier email, it would not 
+> handle RCU or RCU-bh in a -rt kernel.
+> 
+> > By the time wait_task_context_switch() returns from the last CPU 
+> > we know that the quiescent state has passed.
+> 
+> We would want to wait for all of the CPUs in parallel, though, 
+> wouldn't we?  Seems that we would not want to wait for the last 
+> CPU to do another trip through the scheduler if it had already 
+> passed through the scheduler while we were waiting on the earlier 
+> CPUs.
+> 
+> So it seems like we would still want a two-pass approach -- one 
+> pass to capture the current state, the second pass to wait for the 
+> state to change.
 
-> 
-> ---
->  net/netfilter/x_tables.c |    9 ++-------
->  1 file changed, 2 insertions(+), 7 deletions(-)
-> 
-> --- a/net/netfilter/x_tables.c	2009-04-25 13:25:48.115026283 -0700
-> +++ b/net/netfilter/x_tables.c	2009-04-25 13:26:15.646215635 -0700
-> @@ -1145,14 +1145,9 @@ static int __init xt_init(void)
->  {
->  	unsigned int i;
->  	int rv;
-> -	static struct lock_class_key xt_lock_key[NR_CPUS];
->  
-> -	for_each_possible_cpu(i) {
-> -		rwlock_t *lock = &per_cpu(xt_info_locks, i);
-> -
-> -		rwlock_init(lock);
-> -		lockdep_set_class(lock, xt_lock_key+i);
-> -	}
-> +	for_each_possible_cpu(i)
-> +		rwlock_init(&per_cpu(xt_info_locks, i));
->  
->  	xt = kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL);
->  	if (!xt)
+I think waiting in parallel is still possible (first kick all tasks, 
+then make sure all tasks have left the CPU at least once).
+
+The busy-waiting in wait_task_context_switch() is indeed a problem - 
+but perhaps that could be refactored to be a migration-thread driven 
+wait_for_completion() + complete() cycle? It could be driven by 
+preempt notifiers perhaps - and become zero-cost.
+
+	Ingo
