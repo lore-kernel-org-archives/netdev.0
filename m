@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] ipv4: remove unused member in fib_table.
-Date: Mon, 27 Apr 2009 02:35:39 -0700 (PDT)
-Message-ID: <20090427.023539.182792249.davem@davemloft.net>
-References: <eb3ff54b0904270222q72d9c108v73bc6e52b8dbba6e@mail.gmail.com>
+Subject: Re: [2.6 patch] fix LL_MAX_HEADER for CONFIG_TR_MODULE
+Date: Mon, 27 Apr 2009 02:36:31 -0700 (PDT)
+Message-ID: <20090427.023631.164466930.davem@davemloft.net>
+References: <20090427093207.GB9259@localhost.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39641
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56253
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752136AbZD0Jfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:35:46 -0400
-In-Reply-To: <eb3ff54b0904270222q72d9c108v73bc6e52b8dbba6e@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1753686AbZD0Jgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:36:37 -0400
+In-Reply-To: <20090427093207.GB9259@localhost.pp.htv.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rami Rosen <ramirose@gmail.com>
-Date: Mon, 27 Apr 2009 12:22:35 +0300
+From: Adrian Bunk <bunk@kernel.org>
+Date: Mon, 27 Apr 2009 12:32:07 +0300
 
-> This patch removes an unused parameter (tb_stamp) from fib_table structure in
->  include/net/ip_fib.h.
+> Unless I miss anything this should fix a bug.
 > 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Applied, thanks.
+Good catch, applied, thanks Adrian.
