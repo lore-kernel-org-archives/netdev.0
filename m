@@ -1,67 +1,86 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] smsc911x: add fifo byteswap support
-Date: Mon, 27 Apr 2009 08:40:49 +0100
-Message-ID: <OF7ABB7A00.E22FC2BA-ON802575A2.005A9008-802575A5.002A2FDC@smsc.com>
-References: <aec7e5c30904231815x79d6f4e8g2e53de1fdeb7a73b@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
+Date: Mon, 27 Apr 2009 16:07:35 +0800
+Message-ID: <20090427080735.GA21493@gondor.apana.org.au>
+References: <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au> <49EF39B4.1040607@myri.com> <20090424054557.GA24575@gondor.apana.org.au> <49F1E5C8.7010303@myri.com> <20090427080501.GA21433@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, Ian.Saturley@smsc.com, iwamatsu@nigauri.org,
-	lethal@linux-sh.org, netdev@vger.kernel.org
-To: Magnus Damm <magnus.damm@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, brice@myri.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Andrew Gallatin <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:2525 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751897AbZD0HlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2009 03:41:06 -0400
-In-Reply-To: <aec7e5c30904231815x79d6f4e8g2e53de1fdeb7a73b@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:42941 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752373AbZD0IHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 04:07:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20090427080501.GA21433@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Magnus,
-
-Slight correction: the newer devices *can* handle this in hardware, there 
-are registers to control this swapping but the driver doesn't currently 
-use them.  If I see a suitably broken design with a newer device I'll 
-submit a patch to add this.
-
-Looks great otherwise, thanks for adding the "health warning" :-)
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
-
-
-Magnus Damm <magnus.damm@gmail.com> wrote on 24/04/2009 02:15:03:
-
-> On Thu, Apr 23, 2009 at 12:21 AM,  <Steve.Glendinning@smsc.com> wrote:
-> > Magnus Damm <magnus.damm@gmail.com> wrote on 22/04/2009 15:55:53:
-> >> This patch adds fifo byteswap support to the smsc911x driver.
+On Mon, Apr 27, 2009 at 04:05:01PM +0800, Herbert Xu wrote:
 > 
-> > Performance will be suboptimal with this software byteswapping,
-> > so I think we should also add a comment to stress that this is
-> > a "last resort" workaround for broken hardware.
+> OK, I'd created a silly bug with the skb_gro_* optimisation.
+> Here are two patches to fix them.
 > 
-> Good idea. How about adding the following to the header file right
-> before the SMSC911X_SWAP_FIFO definition:
-> 
-> /*
->  * SMSC911X_SWAP_FIFO:
->  * Enables software byte swap for fifo data. Should only be used as a
->  * "last resort" in the case of big endian mode on boards with 
-incorrectly
->  * routed data bus to older devices such as LAN9118. Newer devices such 
-as
->  * LAN9221 handle this in hardware.
->  */
-> 
-> Let me know if you want to improve the comment somehow, otherwise I'll
-> just update the patch and repost a V2.
-> 
-> Cheers,
-> 
-> / magnus
+> gro: Fix handling of headers that extend over the tail
 
+gro: Fix COMPLETE checksum handling
+
+On a brand new GRO skb, we cannot call ip_hdr since the header
+may lie in the non-linear area.  This patch adds the helper
+skb_gro_network_header to handle this.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0396447..287bec9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1150,6 +1150,13 @@ static inline void *skb_gro_mac_header(struct sk_buff *skb)
+ 	       skb_shinfo(skb)->frags[0].page_offset;
+ }
+ 
++static inline void *skb_gro_network_header(struct sk_buff *skb)
++{
++	return skb_headlen(skb) ? skb_network_header(skb) :
++	       page_address(skb_shinfo(skb)->frags[0].page) +
++	       skb_shinfo(skb)->frags[0].page_offset + skb_network_offset(skb);
++}
++
+ static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 				  unsigned short type,
+ 				  const void *daddr, const void *saddr,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 5d427f8..bda74e8 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2343,7 +2343,7 @@ void tcp4_proc_exit(void)
+ 
+ struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ {
+-	struct iphdr *iph = ip_hdr(skb);
++	struct iphdr *iph = skb_gro_network_header(skb);
+ 
+ 	switch (skb->ip_summed) {
+ 	case CHECKSUM_COMPLETE:
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 4b5aa18..d9dd94b 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -943,7 +943,7 @@ static int tcp_v6_gso_send_check(struct sk_buff *skb)
+ 
+ struct sk_buff **tcp6_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ {
+-	struct ipv6hdr *iph = ipv6_hdr(skb);
++	struct ipv6hdr *iph = skb_gro_network_header(skb);
+ 
+ 	switch (skb->ip_summed) {
+ 	case CHECKSUM_COMPLETE:
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
