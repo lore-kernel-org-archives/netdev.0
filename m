@@ -1,54 +1,75 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Mon, 27 Apr 2009 16:32:41 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904271619240.22156@localhost.localdomain>
-References: <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam> <49F4A6E3.7080102@cosmosbay.com> <20090426185646.GB29238@Krystal> <20090426145746.1184aeba@nehalam> <1240854297.7620.65.camel@twins> <20090427113010.5e3f1700@nehalam> <20090427185423.GC23862@elte.hu>
- <20090427120658.35a858bb@nehalam> <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain> <20090427203616.GB3836@ioremap.net> <alpine.LFD.2.00.0904271340400.22156@localhost.localdomain> <20090427144054.1fb9b7a6@nehalam> <alpine.LFD.2.00.0904271506530.22156@localhost.localdomain>
- <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Evgeniy Polyakov <zbr@ioremap.net>, Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: vlan: update vlan carrier state for admin up/down
+Date: Mon, 27 Apr 2009 16:55:58 -0700
+Message-ID: <13072.1240876558@death.nxdomain.ibm.com>
+References: <49F1DE6F.1030606@trash.net> <49F1EB2F.1050505@candelatech.com> <30658.1240619463@death.nxdomain.ibm.com> <49F4BCEB.6040507@candelatech.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41547 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752373AbZD0Xo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 19:44:59 -0400
-In-Reply-To: <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:41857 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752373AbZD0Xzy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 19:55:54 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e38.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n3RNrMXa016561
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 17:53:22 -0600
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n3RNtssL088484
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 17:55:54 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n3RNtrTu007024
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2009 17:55:53 -0600
+In-reply-to: <49F4BCEB.6040507@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ben Greear <greearb@candelatech.com> wrote:
 
+>Jay Vosburgh wrote:
+>>> If so, I think that is not a good idea and could possibly be considered
+>>> a security issue.  I think instead there should be a new flag for VLANs
+>>> that is 'preferred-admin-state'.  To be UP, both the underlying device
+>>> and the preferred state must be UP.  That should allow bouncing eth0
+>>> w/out affecting the eventual admin state of the VLANs on eth0 in
+>>> the example above.
+>>>     
+>>
+>> 	I dunno if it's a security issue, but I'd agree it's wrong.  I
+>> looked, and I suspect that a couple of judiciously placed "if
+>> (dev->flags & IFF_UP)" bits ought to sort things out by simply not
+>> copying the carrier state to the upper level VLAN device if that device
+>> is down.  Unless somebody works this up over the weekend, I'll work that
+>> out on Monday.
+>>   
+>That may be fine.  I suppose you'll also be ignoring admin state changes
+>for the
+>underlying devices in the VLAN code?  Ie, if eth0 goes admin down, you won't
+>change the eth0.5 vlan to be admin down?
 
-On Mon, 27 Apr 2009, Linus Torvalds wrote:
-> 
-> I left the commentary about "readers" and "writers", because in many
-> ways it's correct, and what the code actually does is very much to
-> emulate a reader-writer lock.  I put quotes around the uses in the
-> comments to high-light that it largely _acts_ as a reader-writer lock. 
+	Ok, I did a bit of testing on this, and I don't believe the
+"update vlan carrier state" patch I did changed anything in this regard.
 
-Btw, I think it was Paul who pointed out that technically it's probably 
-better to call them "local" and "global" lockers instead of "readers" and 
-"writers".
+	Without the patch, given a configuration of eth0 with eth0.600
+and eth0.700 stacked above, the sequence "ifconfig eth0.700 down;
+ifconfig eth0 down; ifconfig eth0 up" results in eth0.700 being up at
+the end, and both eth0.600 and eth0.700 being down when eth0 is down (up
+and down here referring to IFF_UP, not carrier state).  The VLAN event
+handler (vlan_device_event) deliberately sets all VLAN devices to match
+the real device when the real device goes up or down.
 
-That also probably clarifies the rules on when you use one over the other 
-(ie reading off all the statistics is a "global" operation, as is 
-obviously replacing the tables).
+	I still agree that this is a bit counterintuitive, but the patch
+doesn't change the VLAN behavior in this regard.
 
-Of course, "readers" and "writers" is something most Linux lock people are 
-more used to. Or "brlock" for the old-timers, but that involves a heavy 
-dose of bad taste. The new use is much nicer, especially since it never 
-takes the global lock on _all_ cpu's (which was really a killer in so 
-many ways).
+	With the patch, the same thing happens, but the carrier state
+also changes to match (without the patch, the VLAN interfaces remain
+carrier up the whole time).
 
-			Linus
+	I'm reluctant to mess with this behavior without knowing why it
+works this way; there may be a good reason for it that I'm not aware of.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
