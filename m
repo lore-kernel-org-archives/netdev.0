@@ -1,30 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Mon, 27 Apr 2009 19:01:36 +0800
-Message-ID: <20090427110136.GA22960@gondor.apana.org.au>
-References: <49F1E5C8.7010303@myri.com> <20090427080501.GA21433@gondor.apana.org.au> <20090427080735.GA21493@gondor.apana.org.au> <20090427.023241.171629284.davem@davemloft.net>
+From: Karsten Keil <karsten-keil@t-online.de>
+Subject: Re: [PATCH v2 0/3] [ISDN] Documentation patchset
+Date: Mon, 27 Apr 2009 13:04:39 +0200
+Message-ID: <200904271304.40027.karsten-keil@t-online.de>
+References: <cover.1240489461.git.keil@b1-systems.de> <20090427.031323.64748515.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gallatin@myri.com, brice@myri.com, sgruszka@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34609 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752297AbZD0LBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 07:01:43 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rdunlap@xenotime.net, tilman@imap.cc,
+	i4ldeveloper@listserv.isdn4linux.de
+To: isdn4linux@listserv.isdn4linux.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755059AbZD0LFa@vger.kernel.org>
+In-Reply-To: <20090427.031323.64748515.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20090427.023241.171629284.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 27, 2009 at 02:32:41AM -0700, David Miller wrote:
+On Montag, 27. April 2009 12:13:23 David Miller wrote:
+> From: Karsten Keil <karsten-keil@t-online.de>
+> Date: Thu, 23 Apr 2009 14:24:21 +0200
 >
-> These look good, want me to toss them into net-next-2.6?
+> > Fixed one more typo and wrong From: lines.
+> >
+> > Add some useful documentation for the ISDN subsystem.
+> > Orignal patches are from Tilman Schmidt.
+> > I fixed some whitespace issues and added the URL for the CAPI 2.0 spec.
+>
+> This patch set does not apply at all to net-2.6
 
-Yes please.  Thanks!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hmm I did it against a clean Linus tree, so I assume a part from some earlier
+patch is already in net-2.6, I will redo the patch against net-2.6 and send it 
+to netdev only.
+
+Karsten
