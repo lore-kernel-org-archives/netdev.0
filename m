@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pasemi_mac: mac_to_intf() error not noticed
-Date: Mon, 27 Apr 2009 03:21:10 -0700 (PDT)
-Message-ID: <20090427.032110.30525348.davem@davemloft.net>
-References: <20090423175648.GA4406@lixom.net>
-	<49F0B920.1050704@gmail.com>
-	<20090423195403.GA4785@lixom.net>
+Subject: Re: [PATCH] cxacru: Fix negative dB output
+Date: Mon, 27 Apr 2009 03:22:24 -0700 (PDT)
+Message-ID: <20090427.032224.88109207.davem@davemloft.net>
+References: <49F0A306.9010409@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: olof@lixom.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52879
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752064AbZD0KVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 06:21:17 -0400
-In-Reply-To: <20090423195403.GA4785@lixom.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: simon@fire.lp0.eu
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755167AbZD0KWp@vger.kernel.org>
+In-Reply-To: <49F0A306.9010409@simon.arlott.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Thu, 23 Apr 2009 14:54:03 -0500
+From: Simon Arlott <simon@fire.lp0.eu>
+Date: Thu, 23 Apr 2009 18:19:02 +0100
 
-> Anyway, that's all up to Dave, if you end up reposting feel free to add:
- ...
-> Acked-by: Olof Johansson <olof@lixom.net>
+> Values of dB between -0.99 and -0.01 will be output with the wrong
+> sign. This converts the negative value to positive and outputs it
+> with a "-" prefix.
+> 
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
-Patch applied to net-next-2.6
+Applied to net-next-2.6, thanks.
