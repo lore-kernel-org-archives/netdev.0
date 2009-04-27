@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Mon, 27 Apr 2009 02:32:41 -0700 (PDT)
-Message-ID: <20090427.023241.171629284.davem@davemloft.net>
-References: <49F1E5C8.7010303@myri.com>
-	<20090427080501.GA21433@gondor.apana.org.au>
-	<20090427080735.GA21493@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6] ipv4: remove unused member in fib_table.
+Date: Mon, 27 Apr 2009 02:35:39 -0700 (PDT)
+Message-ID: <20090427.023539.182792249.davem@davemloft.net>
+References: <eb3ff54b0904270222q72d9c108v73bc6e52b8dbba6e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gallatin@myri.com, brice@myri.com, sgruszka@redhat.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39633
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39641
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753147AbZD0Jcs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:32:48 -0400
-In-Reply-To: <20090427080735.GA21493@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752136AbZD0Jfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 05:35:46 -0400
+In-Reply-To: <eb3ff54b0904270222q72d9c108v73bc6e52b8dbba6e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 27 Apr 2009 16:07:35 +0800
+From: Rami Rosen <ramirose@gmail.com>
+Date: Mon, 27 Apr 2009 12:22:35 +0300
 
-> On Mon, Apr 27, 2009 at 04:05:01PM +0800, Herbert Xu wrote:
->> 
->> OK, I'd created a silly bug with the skb_gro_* optimisation.
->> Here are two patches to fix them.
->> 
->> gro: Fix handling of headers that extend over the tail
+> This patch removes an unused parameter (tb_stamp) from fib_table structure in
+>  include/net/ip_fib.h.
 > 
-> gro: Fix COMPLETE checksum handling
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-These look good, want me to toss them into net-next-2.6?
+Applied, thanks.
