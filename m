@@ -1,48 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Tue, 28 Apr 2009 04:53:42 -0700 (PDT)
-Message-ID: <20090428.045342.206106171.davem@davemloft.net>
-References: <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain>
-	<alpine.LFD.2.00.0904271602390.22156@localhost.localdomain>
-	<49F6A8FD.3010804@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 0/5] rapidio: adding memory mapping IO support and misc fixes
+Date: Tue, 28 Apr 2009 07:06:40 -0500
+Message-ID: <D2FE35F2-E8A4-4B65-A8CE-DA8CF202EE37@kernel.crashing.org>
+References: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, shemminger@vyatta.com,
-	zbr@ioremap.net, mingo@elte.hu, peterz@infradead.org,
-	mathieu.desnoyers@polymtl.ca, jarkao2@gmail.com, paulus@samba.org,
-	paulmck@linux.vnet.ibm.com, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: dada1@cosmosbay.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <49F6A8FD.3010804@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, David Miller <davem@davemloft.net>,
+	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Li Yang <leoli@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:45828 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751543AbZD1MJb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 08:09:31 -0400
+In-Reply-To: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 28 Apr 2009 08:58:05 +0200
 
-> I am not sure my day job will permit me to polish a patch mixing all
-> the bits and comments. But I am glad we eventually got back spinlocks
-> which are probably better than rwlocks for implementing this stuff.
-> 
-> Instead of submitting a full patch again, we could first submit a new
->  include file containg all comments and inline functions ?
-> 
-> This include file could be local to netfilter, with a big stick on
-> it to forbids its use on other areas (No changes in Documentation/ )
-> 
-> Then, as soon as we can go back to pure RCU solution, we can safely
-> delete this controversial-locking-nesting-per-cpu-thing ?
+On Apr 28, 2009, at 5:16 AM, Li Yang wrote:
 
-I say we merge Linus's locking idea into the XV patch, fixup the
-commit message wording, and move on with life.
+> The patch series add MMIO support to Linux rapidio and fix a few nits.
+> The patches cross rapidio, netdev, powerpc sub-systems.  It will be
+> good for them to go through one tree.  Probably Andrew?  As the
+> previous rapidio patches are mostly merged by you.
+>
+> - Leo
 
-For something that's going to get deleted as soon as the faster grace
-period RCU stuff is available, it has consumed an inordinate amount of
-our time :-)
+When you repost use the -n option in git-format-patch so we get a  
+sequence # for the patches.
 
-I might take a stab at this before hittng bed tonight, no promises :)
+Either Andrew or I can possible pick them up as long as we get the  
+right maintainer ACKs.
+
+- k
