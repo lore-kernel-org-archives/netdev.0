@@ -1,34 +1,50 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: inet_diag: Remove dup assignments
-Date: Tue, 28 Apr 2009 10:56:36 -0300
-Message-ID: <20090428135636.GF19908@ghostprotocols.net>
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 09:52:19 -0400
+Message-ID: <20090428135219.GA28513@Krystal>
+References: <49F6A8FD.3010804@cosmosbay.com> <20090428.045342.206106171.davem@davemloft.net> <20090428124033.GA1655@elte.hu> <20090428.064340.193569214.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Networking Development Mailing List <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, dada1@cosmosbay.com, torvalds@linux-foundation.org,
+	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
+	jarkao2@gmail.com, paulus@samba.org, paulmck@linux.vnet.ibm.com,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:46917 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751812AbZD1N4l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 09:56:41 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090428.064340.193569214.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These are later assigned to other values without being used meanwhile.
+* David Miller (davem@davemloft.net) wrote:
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Tue, 28 Apr 2009 14:40:33 +0200
+> 
+> > IMHO this locking construct should be considered for 
+> > linux/local_lock.h and kernel/local_lock.c. Even if the netfilter 
+> > code drops its use soon afterwards ;-)
+> 
+> If you can show me have to pass a per-cpu variable (the variable,
+> not a dereference of it) as an argument to an inline function,
+> I'll implement this :-)
+> 
+> It has to be dereferenced after local_bh_disable() for the
+> read side acquisition.
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+The local_bh_disable() could be outside of the locking construct. This
+would make it easier to adapt it to various users (irq disable, bh
+disable, preempt disable) depending on the contexts from which they much
+be protected.
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 588a779..b0b2735 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -198,8 +198,6 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
- 		tmo = 0;
- 
- 	r->idiag_family	      = tw->tw_family;
--	r->idiag_state	      = tw->tw_state;
--	r->idiag_timer	      = 0;
- 	r->idiag_retrans      = 0;
- 	r->id.idiag_if	      = tw->tw_bound_dev_if;
- 	r->id.idiag_cookie[0] = (u32)(unsigned long)tw;
+And if it still does not work for some reason, using a #define is
+discouraged, but could work.
+
+Mathieu
+
+-- 
+Mathieu Desnoyers
+OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
