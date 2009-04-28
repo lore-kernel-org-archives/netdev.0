@@ -1,38 +1,50 @@
-From: "Alexander V. Lukyanov" <lav@netis.ru>
-Subject: Re: 2.6.29.1: unregister_netdevice problem
-Date: Tue, 28 Apr 2009 16:57:55 +0400
-Message-ID: <20090428125755.GA5242@night.netis.ru>
-References: <20090422055735.GA4334@night.netis.ru> <20090427054103.GA27529@night.netis.ru>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] Add clause 45 ioctl
+Date: Tue, 28 Apr 2009 14:22:11 +0100
+Message-ID: <1240924931.3200.3.camel@achroite>
+References: <1240913334.8347.6.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	yanivr@broadcom.com
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from night.yars.free.net ([193.233.48.54]:50065 "EHLO
-	night.yars.free.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755967AbZD1M6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 08:58:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20090427054103.GA27529@night.netis.ru>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:39033 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753243AbZD1NWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 09:22:23 -0400
+In-Reply-To: <1240913334.8347.6.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 27, 2009 at 09:41:03AM +0400, Alexander V. Lukyanov wrote:
-> On Wed, Apr 22, 2009 at 09:57:35AM +0400, Alexander V. Lukyanov wrote:
-> > unregister_netdevice: waiting for eth0.2 to become free. Usage count = 4
-> > 
-> > eth0.2 is a vlan interface, eth0 is 02:00.0 Ethernet controller: Realtek
-> > Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet
-> > controller (rev 01)
+On Tue, 2009-04-28 at 13:08 +0300, Eilon Greenstein wrote:
+> Hi,
 > 
-> Ok, now I did manually 'vconfig rem eth0.2' and I get these repeated messages.
-> How do I find out what exactly holds the interface being used?
+> This patch adds clause 45 definitions to the mii.h. This will allow
+> enhancing the networking device drivers ioctl to handle clause 45
+> related operations just as it can handle clause 22 commands today. Since
+> clause 45 requires additional 16 bits for the bank address,
 
-BTW, it looks like all vlan interfaces (I have many of them) have similar
-problem, when it happens - every few days:
+No, DEVAD is only 5 bits.
 
-unregister_netdevice: waiting for eth0.907 to become free. Usage count = 20
+> the clause
+> 22 structure cannot be used. The motivation is to allow user space
+> applications to access PHY registers in clause 45.
+> 
+> I'm sending this as RFC - if anyone has alternative suggestions on how
+> user space application can access the PHY, I would appreciate it.
+[...]
 
-and when I run a `vconfig rem', I cannot run another one. It s(t)ucks.
+I was working on an alternate interface that would use the existing
+structure and ioctls.  There are at least two drivers (cxgb3 and sfc)
+that already do this, though they currently pack PRTAD and DEVAD
+differently in the phy_id field.
+
+Ben.
 
 -- 
-   Alexander..
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
