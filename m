@@ -1,56 +1,51 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: [PATCH] sfc: Make temperature warnings/alarms more explicit.
-Date: Tue, 28 Apr 2009 16:48:04 +0200
-Message-ID: <1240930084.10689.39.camel@localhost.localdomain>
-References: <1240911369.10689.20.camel@localhost.localdomain>
-	 <1240925799.3200.16.camel@achroite>
-	 <1240929844.10689.35.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 10:49:20 -0400
+Message-ID: <20090428144920.GA28942@Krystal>
+References: <20090428124033.GA1655@elte.hu> <20090428.064340.193569214.davem@davemloft.net> <20090428135219.GA28513@Krystal> <20090428.073759.78537345.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40682 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757452AbZD1OsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 10:48:07 -0400
-In-Reply-To: <1240929844.10689.35.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo@elte.hu, dada1@cosmosbay.com, torvalds@linux-foundation.org,
+	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
+	jarkao2@gmail.com, paulus@samba.org, paulmck@linux.vnet.ibm.com,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090428.073759.78537345.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+* David Miller (davem@davemloft.net) wrote:
+> From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+> Date: Tue, 28 Apr 2009 09:52:19 -0400
+> 
+> > The local_bh_disable() could be outside of the locking construct. This
+> > would make it easier to adapt it to various users (irq disable, bh
+> > disable, preempt disable) depending on the contexts from which they much
+> > be protected.
+> > 
+> > And if it still does not work for some reason, using a #define is
+> > discouraged, but could work.
+> 
+> That's what I was hoping to avoid, things like macros and having
+> the callers of this thing expand the two parts of the operation.
+> 
+> What's the point in making this generic if it ends up being ugly
+> as hell?
 
-The sfc driver can detect different hardware failures via the
-LM87 system.  One of the failures I have experienced is the
-temperature alarm, but the error message didn't reveal that this
-error was temperature related.  I had to read the code to
-discover that.
+.. and what's the point in making it generic if it can be replaced
+by a proper RCU implementation ? :-) I am not convinced of the added
+value we get in making it a generic header this soon. I would wait for
+other users to express similar needs, otherwise this could soon become
+an orphaned piece of locking code.
 
-I think that the temperature error should be more explicit, in
-order to warn people before the board is permanently damaged.
+Mathieu
 
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
-
- drivers/net/sfc/boards.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-
-diff --git a/drivers/net/sfc/boards.c b/drivers/net/sfc/boards.c
-index 4a4c74c..b1822fe 100644
---- a/drivers/net/sfc/boards.c
-+++ b/drivers/net/sfc/boards.c
-@@ -121,8 +121,10 @@ static int efx_check_lm87(struct efx_nic *efx, unsigned mask)
- 	if (alarms1 || alarms2) {
- 		EFX_ERR(efx,
- 			"LM87 detected a hardware failure (status %02x:%02x)"
--			"%s%s\n",
-+			"%s%s%s\n",
- 			alarms1, alarms2,
-+			(alarms1 & (LM87_ALARM_TEMP_INT|LM87_ALARM_TEMP_EXT1))
-+			 ? " high temperature" : "",
- 			(alarms1 & LM87_ALARM_TEMP_INT) ? " INTERNAL" : "",
- 			(alarms1 & LM87_ALARM_TEMP_EXT1) ? " EXTERNAL" : "");
- 		return -ERANGE;
-
+-- 
+Mathieu Desnoyers
+OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
