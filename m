@@ -1,42 +1,137 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Tue, 28 Apr 2009 14:12:25 +0800
-Message-ID: <20090428061225.GA1591@gondor.apana.org.au>
-References: <49E5DABB.9070806@myri.com> <49E64BE4.1050908@myri.com> <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au> <49EF39B4.1040607@myri.com> <20090424054557.GA24575@gondor.apana.org.au> <49F1E5C8.7010303@myri.com> <20090427080501.GA21433@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 08:58:05 +0200
+Message-ID: <49F6A8FD.3010804@cosmosbay.com>
+References: <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam> <49F4A6E3.7080102@cosmosbay.com> <20090426185646.GB29238@Krystal> <20090426145746.1184aeba@nehalam> <1240854297.7620.65.camel@twins> <20090427113010.5e3f1700@nehalam> <20090427185423.GC23862@elte.hu> <20090427120658.35a858bb@nehalam> <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain> <20090427203616.GB3836@ioremap.net> <alpine.LFD.2.00.0904271340400.22156@localhost.localdomain> <20090427144054.1fb9b7a6@nehalam> <alpine.LFD.2.00.0904271506530.22156@localhost.localdomain> <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain> <alpine.LFD.2.00.0904271602390.22156@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, brice@myri.com,
-	sgruszka@redhat.com, netdev@vger.kernel.org
-To: Andrew Gallatin <gallatin@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59316 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751288AbZD1GMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 02:12:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20090427080501.GA21433@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Ingo Molnar <mingo@elte.hu>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.0904271602390.22156@localhost.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 27, 2009 at 04:05:01PM +0800, Herbert Xu wrote:
-> On Fri, Apr 24, 2009 at 12:16:08PM -0400, Andrew Gallatin wrote:
-> >
-> > These results are indeed quite close, so the performance problem seems
-> > isolated to AMD CPUS, and perhaps due to the smaller caches.
-> > Do you have any AMD you can use as a receiver?
-> 
-> I now have an AMD with 512K cache to test this.  Unfortunately
-> I'd just locked it up before I got a chance to do any serious
-> testing.  So it might take a while.
+Linus Torvalds a =E9crit :
+>=20
+> On Mon, 27 Apr 2009, Linus Torvalds wrote:
+>> BTW: THIS IS TOTALLY UNTESTED.
+>=20
+> Gaah. I should have read through it one more time before sending.
+>=20
+>> static inline void xt_info_rdunlock_bh(void)
+>> {
+>> 	struct xt_info_lock *lock;
+>>
+>> 	lock =3D &__get_cpu_var(xt_info_locks);
+>> 	if (!--lock->readers)
+>> 		spin_unlock(&lock->lock);
+>> }
+>=20
+> This one was missing the "local_bh_enable()" at the end.
+>=20
+> There may be other bugs, but that's the one I noticed immediately whe=
+n=20
+> reading what I sent out. Oops.
 
-OK that's been fixed up.  Indeed the AMD can't do wire speed.
-But still the performance seems comparable.  Both of them sit
-between 6600Mb/s and 7100Mb/s.  The sender is running at about
-66% idle in either case.
+I am not sure my day job will permit me to polish a patch mixing all
+the bits and comments. But I am glad we eventually got back spinlocks
+which are probably better than rwlocks for implementing this stuff.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Instead of submitting a full patch again, we could first submit a new
+ include file containg all comments and inline functions ?
+
+This include file could be local to netfilter, with a big stick on
+it to forbids its use on other areas (No changes in Documentation/ )
+
+Then, as soon as we can go back to pure RCU solution, we can safely
+delete this controversial-locking-nesting-per-cpu-thing ?
+
+
+Instead of local/global name that Paul suggested, that was about
+'global' locking all locks at the same time. Not any more the good
+name IMHO
+
+Maybe something like local/remote or owner/foreigner ?
+
+xt_info_owner_lock_bh(), xt_info_owner_unlock_bh()
+xt_info_foreigner_lock(), xt_info_foreigner_unlock()
+
+One comment about this comment you wrote :
+
+/*
+ * The "writer" side needs to get exclusive access to the lock,
+ * regardless of readers.  This must be called with bottom half
+ * processing (and thus also preemption) disabled.=20
+ */
+static inline void xt_info_wrlock(unsigned int cpu)
+{
+	spin_lock(&per_cpu(xt_info_locks, cpu).lock);
+}
+
+static inline void xt_info_wrunlock(unsigned int cpu)
+{
+	spin_unlock(&per_cpu(xt_info_locks, cpu).lock);
+}
+
+Its true that BH should be disabled if caller runs
+on the cpu it wants to lock.=20
+=46or other ones (true foreigners), there is
+no requirement about BH (current cpu could be interrupted
+by a softirq and packets could fly)
+
+We could use following construct and not require disabling BH
+more than a short period of time.
+(But preemption disabled for the whole duration)
+
+preempt_disable(); // could be cpu_migration_disable();
+
+int curcpu =3D smp_processor_id();
+/*
+ * Gather stats for current cpu : must disable BH
+ * before trying to lock.
+ */
+local_bh_disable();
+xt_info_wrlock(curcpu);
+// copy stats of this cpu on my private data (not shown here)
+xt_info_wrunlock(curcpu);
+local_bh_enable();
+
+for_each_possible_cpu(cpu) {
+	if (cpu =3D=3D curcpu)
+		continue;
+	xt_info_wrlock(cpu);
+	// fold stats of "cpu" on my private data (not shown here)
+	xt_info_wrunlock((cpu);
+}
+preempt_enable(); // could be cpu_migration_enable();
+
+
+So your initial comment could be changed to :
+
+/*
+ * The "writer" side needs to get exclusive access to the lock,
+ * regardless of readers. If caller is about to lock its own lock,
+ * he must have disabled BH before. For other cpus, no special
+ * care but preemption disabled to guarantee no cpu migration.
+ */
+
+Back to work now :)
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
