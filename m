@@ -1,80 +1,30 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH] rio: warn_unused_result warnings fix
-Date: Tue, 28 Apr 2009 20:51:22 +1000
-Message-ID: <1240915882.15414.3.camel@localhost>
-References: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
-	 <1240913737-23773-1-git-send-email-leoli@freescale.com>
-	 <1240913737-23773-2-git-send-email-leoli@freescale.com>
-	 <1240913737-23773-3-git-send-email-leoli@freescale.com>
-	 <1240913737-23773-4-git-send-email-leoli@freescale.com>
-	 <1240913737-23773-5-git-send-email-leoli@freescale.com>
-Reply-To: michael@ellerman.id.au
+From: =?iso-8859-1?B?qUdsb2JhbA==?= <deborah.wende@bellnet.ca>
+Subject: Global Notification!!!
+Date: Tue, 28 Apr 2009 7:04:02 -0400
+Message-ID: <20090428110402.LCPA1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: winners.alert9@btinternet.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OdvJ9k/N8AGJspQ0lAI/"
-Cc: akpm@linux-foundation.org, galak@kernel.crashing.org,
-	davem@davemloft.net, mporter@kernel.crashing.org,
-	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Li Yang <leoli@freescale.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@winner.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bilbo.ozlabs.org ([203.10.76.25]:38001 "EHLO bilbo.ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbZD1KvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 06:51:24 -0400
-In-Reply-To: <1240913737-23773-5-git-send-email-leoli@freescale.com>
+Received: from simmts7-srv.bellnexxia.net ([206.47.199.165]:63444 "EHLO
+	simmts7-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753192AbZD1LED convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 07:04:03 -0400
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts7-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090428110402.LCPA1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 07:04:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The Global Award Programme.Therefore you have been approve for a lump s=
+um payout of (=A3950.000.00  GBP) by your email send your details
+Name,Address,Country,Occupation,Phone Number.
 
---=-OdvJ9k/N8AGJspQ0lAI/
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2009-04-28 at 18:15 +0800, Li Yang wrote:
-> warning: ignoring return value of 'device_add', declared with attribute w=
-arn_unused_result
-> warning: ignoring return value of 'sysfs_create_bin_file', declared with =
-attribute warn_unused_result
->=20
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> ---
->  drivers/rapidio/rio-scan.c  |    5 ++++-
->  drivers/rapidio/rio-sysfs.c |    6 ++++--
->  2 files changed, 8 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/rapidio/rio-scan.c b/drivers/rapidio/rio-scan.c
-> index 74d0bfa..9309e24 100644
-> --- a/drivers/rapidio/rio-scan.c
-> +++ b/drivers/rapidio/rio-scan.c
-> @@ -265,7 +265,10 @@ static void rio_route_set_ops(struct rio_dev *rdev)
->   */
->  static void __devinit rio_add_device(struct rio_dev *rdev)
->  {
-> -	device_add(&rdev->dev);
-> +	int err;
-> +
-> +	err =3D device_add(&rdev->dev);
-> +	WARN_ON(err);
-> =20
->  	spin_lock(&rio_global_list_lock);
->  	list_add_tail(&rdev->global_list, &rio_devices);
-
-Is that really useful? Why not return the error to rio_setup_device()
-which can tell it's caller.
-
-cheers
-
---=-OdvJ9k/N8AGJspQ0lAI/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkn236oACgkQdSjSd0sB4dLRVQCfZBsUfUFtOG4FjDmc8WfwpUYn
-LG8AoLdA+sjSxdDmbFUMcgPQ0Bp3mtMU
-=UsnV
------END PGP SIGNATURE-----
-
---=-OdvJ9k/N8AGJspQ0lAI/--
+Yours faithfully,
+Mrs Joan Thomas
 
