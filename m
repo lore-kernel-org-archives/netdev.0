@@ -1,75 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 3/3] ixgbe: Clear out stray tx work on link down
-Date: Tue, 28 Apr 2009 01:43:12 -0700
-Message-ID: <20090428084312.32710.49988.stgit@localhost.localdomain>
-References: <20090428084236.32710.14750.stgit@localhost.localdomain>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] forcedeth: add clock gating feature
+Date: Tue, 28 Apr 2009 10:48:14 +0200
+Message-ID: <200904281048.15663.florian@openwrt.org>
+References: <49F5A5A7.4050609@nvidia.com> <20090427122447.a006a21e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>, manfred@colorfullife.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:37245 "EHLO
-	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752948AbZD1In3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:43:29 -0400
-In-Reply-To: <20090428084236.32710.14750.stgit@localhost.localdomain>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:55330 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753080AbZD1IsU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:48:20 -0400
+Received: by ewy24 with SMTP id 24so406224ewy.37
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 01:48:18 -0700 (PDT)
+In-Reply-To: <20090427122447.a006a21e.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nelson, Shannon <shannon.nelson@intel.com>
+Hi,
 
-Ayyappan at VMware noticed that we're missing this check from ixgbe which
-is in our other drivers.  The difference with this implementation from our
-other drivers is that this checks all the tx queues rather than just tx[0].
+Le Monday 27 April 2009 21:24:47 Andrew Morton, vous avez =E9crit=A0:
+> On Mon, 27 Apr 2009 08:31:35 -0400
+>
+> Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> > This patch adds support for clock gating the tx/rx engines which is
+> > available on certain chipsets.
+>
+> What are the effects of this patch?  Improved power management?  Fixe=
+s
+> a user-visible bug?  Something else?
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Clock gating is a design technique which improves power consumption by =
+only=20
+clocking the necessary parts of the chip.
 
- drivers/net/ixgbe/ixgbe_main.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 60c3a21..35ff703 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4117,6 +4117,9 @@ static void ixgbe_watchdog_task(struct work_struct *work)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 link_speed = adapter->link_speed;
- 	bool link_up = adapter->link_up;
-+	int i;
-+	struct ixgbe_ring *tx_ring;
-+	int some_tx_pending = 0;
- 
- 	adapter->flags |= IXGBE_FLAG_IN_WATCHDOG_TASK;
- 
-@@ -4174,6 +4177,25 @@ static void ixgbe_watchdog_task(struct work_struct *work)
- 		}
- 	}
- 
-+	if (!netif_carrier_ok(netdev)) {
-+		for (i = 0; i < adapter->num_tx_queues; i++) {
-+			tx_ring = &adapter->tx_ring[i];
-+			if (tx_ring->next_to_use != tx_ring->next_to_clean) {
-+				some_tx_pending = 1;
-+				break;
-+			}
-+		}
-+
-+		if (some_tx_pending) {
-+			/* We've lost link, so the controller stops DMA,
-+			 * but we've got queued Tx work that's never going
-+			 * to get done, so reset controller to flush Tx.
-+			 * (Do the reset outside of interrupt context).
-+			 */
-+			 schedule_work(&adapter->reset_task);
-+		}
-+	}
-+
- 	ixgbe_update_stats(adapter);
- 	adapter->flags &= ~IXGBE_FLAG_IN_WATCHDOG_TASK;
- }
-
+Ayaz do you have any figures on how this patch reduces consumption ?
+--=20
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
