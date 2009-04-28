@@ -1,55 +1,55 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: [PATCH net-next-2.6] pcnet32: Remove pointless memory barriers
-Date: Tue, 28 Apr 2009 19:07:39 +0000
-Message-ID: <1240945659.8819.9.camel@Maple>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
+Date: Tue, 28 Apr 2009 22:05:08 +0200
+Message-ID: <49F76174.6060009@cosmosbay.com>
+References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <alpine.DEB.1.10.0904281501300.13862@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, Don Fry <pcnet32@verizon.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f128.google.com ([209.85.221.128]:33514 "EHLO
-	mail-qy0-f128.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753585AbZD1Tck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 15:32:40 -0400
-Received: by qyk34 with SMTP id 34so336714qyk.33
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 12:32:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux kernel <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
+	davidel@xmailserver.org, Ingo Molnar <mingo@elte.hu>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755398AbZD1UGg@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0904281501300.13862@qirst.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These two memory barriers in performance-critical paths are not needed
-on x86.  Even if some other architecture does buffer PCI I/O space
-writes, the existing memory-mapped I/O barriers are unlikely to be what
-is needed.
+Christoph Lameter a =E9crit :
+> For the udpping test load these patches have barely any effect:
+>=20
+> git2p1 is the first version of the patch
+> git2p2 is the second version (this one)
 
-Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
----
- drivers/net/pcnet32.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+But... udpping does *not* use poll() nor select(), unless I am mistaken=
+ ?
 
-diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-index e5e8c59..1c35e1d 100644
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -1405,7 +1405,7 @@ static int pcnet32_poll(struct napi_struct *napi, int budget)
- 
- 		/* Set interrupt enable. */
- 		lp->a.write_csr(ioaddr, CSR0, CSR0_INTEN);
--		mmiowb();
-+
- 		spin_unlock_irqrestore(&lp->lock, flags);
- 	}
- 	return work_done;
-@@ -2597,7 +2597,7 @@ pcnet32_interrupt(int irq, void *dev_id)
- 			val = lp->a.read_csr(ioaddr, CSR3);
- 			val |= 0x5f00;
- 			lp->a.write_csr(ioaddr, CSR3, val);
--			mmiowb();
-+
- 			__napi_schedule(&lp->napi);
- 			break;
- 		}
--- 
-1.5.4.3
+If you really want to test this patch with udpping, you might add a pol=
+l() call
+before recvfrom() :
 
+                while(1) {
++                       struct pollfd pfd =3D { .fd =3D sock, .events =3D=
+ POLLIN};
++                       poll(pfd, 1, -1);
+                        nbytes =3D recvfrom(sock, msg, min(inblocksize,=
+ sizeof(msg)),
+                                                                0, &ina=
+d, &inadlen);
+                        if (nbytes < 0) {
+                                perror("recvfrom");
+                                break;
+                        }
+                        if (sendto(sock, msg, nbytes, 0, &inad, inadlen=
+) < 0) {
+                                perror("sendto");
+                                break;
+                        }
+                }
 
+Part about recvfrom() wakeup avoidance is in David net-2.6 tree, and sa=
+ves 2 us on udpping here.
 
+Is it what you call git2p1 ?
