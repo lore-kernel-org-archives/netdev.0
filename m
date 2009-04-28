@@ -1,47 +1,55 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] poll: Avoid extra wakeups
-Date: Tue, 28 Apr 2009 16:21:38 +0200
-Message-ID: <87ab60rh8t.fsf@basil.nowhere.org>
-References: <alpine.DEB.1.10.0904241554100.29995@qirst.com>
-	<49F3308B.1030507@cosmosbay.com>
-	<20090426.020411.157511269.davem@davemloft.net>
-	<49F43B8F.2050907@cosmosbay.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 07:22:59 -0700
+Message-ID: <20090428142258.GA6730@linux.vnet.ibm.com>
+References: <20090427185423.GC23862@elte.hu> <20090427120658.35a858bb@nehalam> <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain> <20090427203616.GB3836@ioremap.net> <alpine.LFD.2.00.0904271340400.22156@localhost.localdomain> <20090427144054.1fb9b7a6@nehalam> <alpine.LFD.2.00.0904271506530.22156@localhost.localdomain> <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain> <alpine.LFD.2.00.0904271619240.22156@localhost.localdomain> <1240904468.7620.70.camel@twins>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, cl@linux.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Ingo Molnar <mingo@elte.hu>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Paul Mackerras <paulus@samba.org>, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:41225 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755319AbZD1OVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 10:21:43 -0400
-In-Reply-To: <49F43B8F.2050907@cosmosbay.com> (Eric Dumazet's message of "Sun, 26 Apr 2009 12:46:39 +0200")
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:41491 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757911AbZD1OXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 10:23:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1240904468.7620.70.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> writes:
->
-> When scheduled, thread does a full scan of all polled fds and
-> can sleep again, because nothing is really available. If number
-> of fds is large, this cause significant load.
+On Tue, Apr 28, 2009 at 09:41:08AM +0200, Peter Zijlstra wrote:
+> On Mon, 2009-04-27 at 16:32 -0700, Linus Torvalds wrote:
+> > 
+> > On Mon, 27 Apr 2009, Linus Torvalds wrote:
+> > > 
+> > > I left the commentary about "readers" and "writers", because in many
+> > > ways it's correct, and what the code actually does is very much to
+> > > emulate a reader-writer lock.  I put quotes around the uses in the
+> > > comments to high-light that it largely _acts_ as a reader-writer lock. 
+> > 
+> > Btw, I think it was Paul who pointed out that technically it's probably 
+> > better to call them "local" and "global" lockers instead of "readers" and 
+> > "writers".
+> 
+> exclusive vs non-exclusive is what the literature would call them in
+> most cases I think.
 
-I wonder if the key could be used for more state. For example if you
-two processes are in recvmsg() on a socket and there's only a single
-packet incoming we only need to wake up the first waiter.  Could that
-be done with keys too?
+I would argue that the non-exclusive category includes both reader-writer
+locking and local-global locking.  That said, we have an unusual variant
+of local-global in this case, as the global processing acquires only one
+of the locks at a time.
 
-> This patch makes select()/poll() aware of keyed wakeups and
-> useless wakeups are avoided. This reduces number of context
-> switches by about 50% on some setups, and work performed
-> by sofirq handlers.
-
-I'm late, but: very cool patch too.
-
-Acked-by: Andi Kleen <ak@linux.intel.com>
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+							Thanx, Paul
