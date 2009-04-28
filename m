@@ -1,93 +1,414 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: Driver SFC: Possible bug in LM87 temperature XFP detection code
-Date: Tue, 28 Apr 2009 14:44:04 +0000
-Message-ID: <1240929844.10689.35.camel@localhost.localdomain>
-References: <1240911369.10689.20.camel@localhost.localdomain>
-	 <1240925799.3200.16.camel@achroite>
+From: Omar Laazimani <omar.oberthur@gmail.com>
+Subject: Re: [PATCH] : CDC EEM driver patch to be applied to 2.6.30 kernel
+Date: Tue, 28 Apr 2009 16:47:34 +0200
+Message-ID: <3a98b4410904280747x55be4a51y8043f827b93d0a80@mail.gmail.com>
+References: <3a98b4410904270912g1838b534j2b53561b8caa1543@mail.gmail.com>
+	 <20090428.023149.111899398.davem@davemloft.net>
+	 <200904280255.19964.david-b@pacbell.net>
+	 <20090428.044419.246576457.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: david-b@pacbell.net, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:56827 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753505AbZD1OoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 10:44:06 -0400
-In-Reply-To: <1240925799.3200.16.camel@achroite>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:52832 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756016AbZD1Orh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 10:47:37 -0400
+Received: by fxm2 with SMTP id 2so592285fxm.37
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 07:47:35 -0700 (PDT)
+In-Reply-To: <20090428.044419.246576457.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-04-28 at 14:36 +0100, Ben Hutchings wrote:
-> On Tue, 2009-04-28 at 11:36 +0200, Jesper Dangaard Brouer wrote:
-> > Hi Ben,
-> > 
-> > I have borrowed some SMC10GPCIe-XFP NICs directly from SMC for
-> > evaluation.  The NICs uses a Solarflare Chip and the SFC driver.
-> > 
-> > If unpluging the fiber cable I start getting these errors:
-> > 
-> > +--------
-> >  sfc 0000:12:00.0: ERR: eth88 LM87 detected a hardware failure (status 30:00) INTERNAL EXTERNAL
-> >  sfc 0000:12:00.0: ERR: eth88 Board sensor reported fault; shutting down PHY
-> > 
-> >  sfc 0000:12:00.0: ERR: eth88 LM87 detected a hardware failure (status 30:00) INTERNAL EXTERNAL
-> >  sfc 0000:12:00.0: ERR: eth88 Board sensor reported fault; shutting down PHY
-> > 
-> >  sfc 0000:12:00.0: ERR: eth88 LM87 detected a hardware failure (status 10:00) INTERNAL
-> >  sfc 0000:12:00.0: ERR: eth88 Board sensor reported fault; shutting down PHY
-> > +---------
-> > 
-> > Reading through the driver code (drivers/net/sfc/boards.c), this problem
-> > is related to temperature.
-> 
-> Right.  And the sensors are not polled while the link is up, on the
-> assumption that a temperature or voltage fault will cause the link to go
-> down, and because bit-banged I2C will reduce throughput slightly.
+This is version 4 of the patch which introduces a CDC EEM kernel module
+(host side only) to supports USB EEM devices. This version fixes a
+small bug in "USB Packet with
+EEM bundle" case.
 
-In my situation the link does not go down due the temperature issue.
+Signed-off-by: Omar Laazimani <omar.oberthur <at> gmail.com>
 
+diff -ruN linux-source-2.6.30/drivers/net/usb/cdc_eem.c
+linux-source-2.6.30_new/drivers/net/usb/cdc_eem.c
+--- linux-source-2.6.30/drivers/net/usb/cdc_eem.c	1970-01-01
+01:00:00.000000000 +0100
++++ linux-source-2.6.30_new/drivers/net/usb/cdc_eem.c	2009-04-28
+16:29:12.000000000 +0200
+@@ -0,0 +1,312 @@
++/*
++ * USB CDC EEM based networking peripherals
++ * Copyright (C) 2009 Oberthur Technologies
++ * by Omar Laazimani, Olivier Condemine
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ctype.h>
++#include <linux/ethtool.h>
++#include <linux/workqueue.h>
++#include <linux/mii.h>
++#include <linux/usb.h>
++#include <linux/crc32.h>
++#include <linux/usb/cdc.h>
++#include <linux/usb/usbnet.h>
++
++/*
++ * This module encapsulates Ethernet frames for transport
++ * across the USB bus.
++ *
++ * This driver is a first implementation for CDC EEM specification.
++ * For more details, see www.usb.org/developers/devclass_docs/CDC_EEM10.pdf
++ *
++ * This version has been tested with GIGAntIC WuaoW SIM Smart Card on 2.6.24,
++ * 2.6.27 and 2.6.30rc2 kernel.
++ * It has also been validated on Openmoko Om 2008.12 (based on 2.6.24 kernel).
++ * build on 23-April-2009
++ */
++
++
++#define EEM_HEAD  2       /* 2 byte header */
++#define EEM_TAIL  4       /* 4 byte crc tail */
++
++#define EEM_MAX_PACKET	(ETH_FRAME_LEN + EEM_HEAD + EEM_TAIL)
++
++
++/*-------------------------------------------------------------------------*/
++
++static void eem_transmit_complete(struct urb *urb)
++{
++	kfree(urb->context);
++	usb_free_urb(urb);
++}
++
++static void eem_transmit(struct usbnet *dev, struct sk_buff *skb)
++{
++	struct urb		*urb;
++	int			status;
++	struct skb_data		*entry;
++	int			length;
++
++	urb = usb_alloc_urb(0, GFP_ATOMIC);
++	if (!urb)
++		return;
++
++	length = skb->len;
++
++	entry = (struct skb_data *) skb->cb;
++	entry->urb = urb;
++	entry->dev = dev;
++	entry->length = length;
++
++	usb_fill_bulk_urb(urb, dev->udev, dev->out,
++			skb->data, skb->len, eem_transmit_complete, skb);
++
++	status = usb_submit_urb(urb, GFP_ATOMIC);
++	if (status) {
++		usb_free_urb(urb);
++		return;
++	}
++}
++
++static int eem_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int status = 0;
++
++	status = usbnet_get_endpoints(dev, intf);
++	if (status < 0) {
++		usb_set_intfdata(intf, NULL);
++		usb_driver_release_interface(driver_of(intf), intf);
++		return status;
++	}
++
++	return 0;
++}
++
++void eem_unbind(struct usbnet *dev, struct usb_interface *intf)
++{
++	struct cdc_state	*info = (void *) &dev->data;
++	struct usb_driver	*driver = driver_of(intf);
++
++	if (intf == info->control && info->data) {
++		usb_set_intfdata(info->data, NULL);
++		usb_driver_release_interface(driver, info->data);
++		info->data = NULL;
++	} else if (intf == info->data && info->control) {
++		usb_set_intfdata(info->control, NULL);
++		usb_driver_release_interface(driver, info->control);
++		info->control = NULL;
++	}
++}
++
++
++static struct sk_buff *eem_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
++				       gfp_t flags)
++{
++	struct sk_buff	*skb2 = NULL;
++	u16		len = skb->len;
++	u32		crc = 0;
++
++	/* EEM packet header format:
++	 * b0..13:	length of ethernet frame
++	 * b14:		bmCRC
++	 * b15:		bmType
++	 */
++	if (!skb_cloned(skb)) {
++		int	headroom = skb_headroom(skb);
++		int	tailroom = skb_tailroom(skb);
++
++		if ((tailroom >= EEM_TAIL) && (headroom >= EEM_HEAD))
++			goto done;
++
++		if ((headroom + tailroom) > (EEM_TAIL + EEM_HEAD)) {
++			skb->data = memmove(skb->head +
++					EEM_HEAD,
++					skb->data,
++					skb->len);
++			skb_set_tail_pointer(skb, len);
++			goto done;
++		}
++	}
++
++	skb2 = skb_copy_expand(skb, EEM_HEAD, EEM_TAIL, flags);
++	if (!skb2)
++		return NULL;
++
++	dev_kfree_skb_any(skb);
++	skb = skb2;
++
++done:
++	crc = crc32_le(~0, skb->data, skb->len);
++	crc = ~crc;
++
++	put_unaligned_le32(crc, skb_put(skb, 4));
++
++	len = skb->len;
++	put_unaligned_le16(BIT(14) | len, skb_push(skb, 2));
++
++	return skb;
++}
++
++static int eem_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
++{
++	struct sk_buff	*skb2 = NULL;
++	u32 		crc;
++	u16		len, header;
++	u16 		bmEEMCmd;
++
++	do {
++		/*
++		 * EEM packet header format:
++		 * b0..14:	EEM type dependant (Data or Command)
++		 * b15:		bmType
++		 */
++		header = get_unaligned_le16(skb->data);
++		skb_pull(skb, EEM_HEAD);
++
++		/*
++		 * The bmType bit helps to denote when EEM
++		 * packet is data or command :
++		 *	bmType = 0	: EEM data payload
++		 *	bmType = 1	: EEM command
++		 */
++		if (header & BIT(15)) {
++			/*
++			 * EEM command packet:
++			 * b0..10:	bmEEMCmdParam
++			 * b11..13:	bmEEMCmd
++			 * b14:		bmReserved (0 by default)
++			 * b15:		1
++			 */
++
++			skb2 = skb_clone(skb, GFP_ATOMIC);
++			if (unlikely(!skb2))
++				goto Continue;
++
++			bmEEMCmd = (BIT(11) & header)
++				| (BIT(12) & header)
++				| (BIT(13) & header);
++
++			/*
++			 * Only answer to Echo command. Host may
++			 * choose to ignore other commands (see CDC EEM spec.)
++			 */
++			if (bmEEMCmd == 0) { /* Echo command */
++				len = header & 0x7FF;
++				skb_trim(skb2, len);
++				put_unaligned_le16(BIT(15) | BIT(11) | len
++						, skb_push(skb2, 2));
++				eem_transmit(dev, skb2);
++			} else
++				len = 0; /* length of other commands */
++
++		} else {
++			/*
++			 * EEM data packet header :
++			 * b0..13:	length of ethernet frame
++			 * b14:		bmCRC
++			 * b15:		0
++			 */
++			len = header & 0x3FFF;
++
++			skb2 = skb_clone(skb, GFP_ATOMIC);
++			if (unlikely(!skb2))
++				goto Continue;
++
++			crc = get_unaligned_le32(skb2->data + len - EEM_TAIL);
++			skb_trim(skb2, len - EEM_TAIL);
++
++			/*
++			 * The bmCRC helps to denote when the CRC
++			 * field contains a calculated CRC :
++			 *	bmCRC = 1	: CRC is calculated
++			 *	bmCRC = 0	: CRC = 0xDEADBEEF
++			 */
++			if (header & BIT(14)) {
++				u32 crc2;
++				crc2 = crc32_le(~0, skb2->data, len);
++				crc2 = ~crc2;
++				if (unlikely(crc != crc2)) {
++					dev->stats.rx_errors++;
++					goto Continue;
++				}
++			} else {
++				if (unlikely(crc != 0xdeadbeef)) {
++					dev->stats.rx_errors++;
++					goto Continue;
++				}
++			}
++
++			usbnet_skb_return(dev, skb2);
++		}
++Continue:
++		skb_pull(skb, len);
++	} while (skb->len);
++
++	return 1;
++}
++
++static const struct driver_info	eem_info = {
++	.description =	"EEM Device",
++	.flags =	FLAG_ETHER,
++	.bind =		eem_bind,
++	.unbind =	eem_unbind,
++	.rx_fixup = 	eem_rx_fixup,
++	.tx_fixup =	eem_tx_fixup,
++};
++
++/*-------------------------------------------------------------------------*/
++
++static const struct usb_device_id products[] = {
++{
++	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_EEM,
++			USB_CDC_PROTO_EEM),
++	.driver_info = (unsigned long) &eem_info,
++},
++	{ },
++};
++MODULE_DEVICE_TABLE(usb, products);
++
++static struct usb_driver eem_driver = {
++	.name =		"cdc_eem",
++	.id_table =	products,
++	.probe =	usbnet_probe,
++	.disconnect =	usbnet_disconnect,
++	.suspend =	usbnet_suspend,
++	.resume =	usbnet_resume,
++};
++
++
++static int __init eem_init(void)
++{
++	return usb_register(&eem_driver);
++}
++module_init(eem_init);
++
++static void __exit eem_exit(void)
++{
++	usb_deregister(&eem_driver);
++}
++module_exit(eem_exit);
++
++MODULE_AUTHOR("Omar Laazimani <omar.oberthur <at> gmail.com>");
++MODULE_DESCRIPTION("USB CDC EEM");
++MODULE_LICENSE("GPL");
+diff -ruN linux-source-2.6.30/drivers/net/usb/Kconfig
+linux-source-2.6.30_new/drivers/net/usb/Kconfig
+--- linux-source-2.6.30/drivers/net/usb/Kconfig	2009-03-24
+10:59:19.000000000 +0100
++++ linux-source-2.6.30_new/drivers/net/usb/Kconfig	2009-04-27
+17:51:10.000000000 +0200
+@@ -180,6 +180,20 @@
+ 	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
+ 	  name is used instead.
 
-> > The real issues is that I cannot get the device up and running again
-> > after lowering the temperature.  Only if I unload and load the sfc
-> > driver, then I can get the device running again.
-> > 
-> > I'm thinking perhaps there is missing a PHY power up again, after the
-> > temperature alarm has gone?
-> 
-> We considered it most important to shut down the board to prevent or
-> mitigate damage, and did not implement any recovery beyond that.
++config USB_NET_CDC_EEM
++	tristate "CDC EEM support"
++	depends on USB_USBNET && EXPERIMENTAL
++	help
++	  This option supports devices conforming to the Communication Device
++	  Class (CDC) Ethernet Emulation Model, a specification that's easy to
++	  implement in device firmware.  The CDC EEM specifications are available
++	  from <http://www.usb.org/>.
++
++	  This driver creates an interface named "ethX", where X depends on
++	  what other networking devices you have in use.  However, if the
++	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
++	  name is used instead.
++
+ config USB_NET_DM9601
+ 	tristate "Davicom DM9601 based USB 1.1 10/100 ethernet devices"
+ 	depends on USB_USBNET
+diff -ruN linux-source-2.6.30/drivers/net/usb/Makefile
+linux-source-2.6.30_new/drivers/net/usb/Makefile
+--- linux-source-2.6.30/drivers/net/usb/Makefile	2009-03-24
+10:59:19.000000000 +0100
++++ linux-source-2.6.30_new/drivers/net/usb/Makefile	2009-04-27
+17:48:27.000000000 +0200
+@@ -9,6 +9,7 @@
+ obj-$(CONFIG_USB_HSO)		+= hso.o
+ obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
+ obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
++obj-$(CONFIG_USB_NET_CDC_EEM)	+= cdc_eem.o
+ obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
+ obj-$(CONFIG_USB_NET_SMSC95XX)	+= smsc95xx.o
+ obj-$(CONFIG_USB_NET_GL620A)	+= gl620a.o
+diff -ruN linux-source-2.6.30/include/linux/usb/cdc.h
+linux-source-2.6.30_new/include/linux/usb/cdc.h
+--- linux-source-2.6.30/include/linux/usb/cdc.h	2009-04-15
+15:17:52.000000000 +0200
++++ linux-source-2.6.30_new/include/linux/usb/cdc.h	2009-04-17
+11:11:52.000000000 +0200
+@@ -17,6 +17,7 @@
+ #define USB_CDC_SUBCLASS_DMM			0x09
+ #define USB_CDC_SUBCLASS_MDLM			0x0a
+ #define USB_CDC_SUBCLASS_OBEX			0x0b
++#define USB_CDC_SUBCLASS_EEM			0x0c
 
-Im my case putting the PHY in PHY_MODE_LOW_POWER, does not help lowering
-the temperature.  The errors are continous, until I apply "manual"
-airflow ;-)
+ #define USB_CDC_PROTO_NONE			0
 
+@@ -28,6 +29,8 @@
+ #define USB_CDC_ACM_PROTO_AT_CDMA		6
+ #define USB_CDC_ACM_PROTO_VENDOR		0xff
 
-> > I'm using kernel 2.6.30-rc1-net-next-00664-gd93fe1a.
-> > 
-> > 
-> > To Ben; do you have anything you want me to try. Do you want to fix this
-> > you self, or can you give me some code hints or patches to try out?
-> 
-> I don't intend to fix this myself.  If you want to try implementing this
-> then you should start by looking at efx_monitor() in efx.c.  However, I
-> think your time might be better spent in fixing the air flow in the
-> computer before the board is permanently damaged.
++#define USB_CDC_PROTO_EEM			7
++
+ /*-------------------------------------------------------------------------*/
 
-I see you point, I don't want to damage the board... not sure I want to
-fix it then... Although in a production environment, I think the driver
-should support exchanging a failed XFP without rebooting the server.
-
-Then I also think that we should make the error message a bit more
-explicit, in order to warn people before the board is permanently
-damaged.  I'll post a patch proposal as reply to this message...
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+ /*
