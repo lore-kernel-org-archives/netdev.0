@@ -1,32 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/3] ixgbe: Clear out stray tx work on link
- down
-Date: Tue, 28 Apr 2009 01:55:53 -0700 (PDT)
-Message-ID: <20090428.015553.209249261.davem@davemloft.net>
-References: <20090428084236.32710.14750.stgit@localhost.localdomain>
-	<20090428084312.32710.49988.stgit@localhost.localdomain>
+From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Subject: Re: [PATCH] forcedeth: add clock gating feature
+Date: Tue, 28 Apr 2009 12:06:21 +0300
+Message-ID: <49F6C70D.5010105@teltonika.lt>
+References: <49F5A5A7.4050609@nvidia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, shannon.nelson@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37637
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756239AbZD1I4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:56:00 -0400
-In-Reply-To: <20090428084312.32710.49988.stgit@localhost.localdomain>
+Received: from 81-7-68-229.static.zebra.lt ([81.7.68.229]:38793 "EHLO
+	teltonika.lt" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752412AbZD1JG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 05:06:27 -0400
+In-Reply-To: <49F5A5A7.4050609@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 28 Apr 2009 01:43:12 -0700
-
-> Ayyappan at VMware noticed that we're missing this check from ixgbe which
-> is in our other drivers.  The difference with this implementation from our
-> other drivers is that this checks all the tx queues rather than just tx[0].
+Ayaz Abdulla wrote:
+> This patch adds support for clock gating the tx/rx engines which is
+> available on certain chipsets.
 > 
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
 
-Applied.
+Please inline patch. It is easier to write comments.
+
++		writel(powerstate,base + NvRegPowerState2);
+                                 ^
+                           put space here
