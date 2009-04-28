@@ -1,41 +1,47 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH] gianfar: Use memset instead of cacheable_memzero
-Date: Tue, 28 Apr 2009 09:14:01 -0500
-Message-ID: <1240928041-10905-1-git-send-email-galak@kernel.crashing.org>
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] poll: Avoid extra wakeups
+Date: Tue, 28 Apr 2009 16:21:38 +0200
+Message-ID: <87ab60rh8t.fsf@basil.nowhere.org>
+References: <alpine.DEB.1.10.0904241554100.29995@qirst.com>
+	<49F3308B.1030507@cosmosbay.com>
+	<20090426.020411.157511269.davem@davemloft.net>
+	<49F43B8F.2050907@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, cl@linux.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33669 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756209AbZD1OOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 10:14:11 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:41225 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755319AbZD1OVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 10:21:43 -0400
+In-Reply-To: <49F43B8F.2050907@cosmosbay.com> (Eric Dumazet's message of "Sun, 26 Apr 2009 12:46:39 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cacheable_memzero() is completely overkill for the clearing out the FCB
-block which is only 8-bytes.  The compiler should easily optimize this
-with memset.  Additionally, cacheable_memzero() only exists on ppc32 and
-thus breaks builds of gianfar on ppc64.
+Eric Dumazet <dada1@cosmosbay.com> writes:
+>
+> When scheduled, thread does a full scan of all polled fds and
+> can sleep again, because nothing is really available. If number
+> of fds is large, this cause significant load.
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
----
- drivers/net/gianfar.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+I wonder if the key could be used for more state. For example if you
+two processes are in recvmsg() on a socket and there's only a single
+packet incoming we only need to wake up the first waiter.  Could that
+be done with keys too?
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index dae1437..2bb038b 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1207,7 +1207,8 @@ static int gfar_enet_open(struct net_device *dev)
- static inline struct txfcb *gfar_add_fcb(struct sk_buff *skb)
- {
- 	struct txfcb *fcb = (struct txfcb *)skb_push(skb, GMAC_FCB_LEN);
--	cacheable_memzero(fcb, GMAC_FCB_LEN);
-+
-+	memset(fcb, 0, GMAC_FCB_LEN);
- 
- 	return fcb;
- }
+> This patch makes select()/poll() aware of keyed wakeups and
+> useless wakeups are avoided. This reduces number of context
+> switches by about 50% on some setups, and work performed
+> by sofirq handlers.
+
+I'm late, but: very cool patch too.
+
+Acked-by: Andi Kleen <ak@linux.intel.com>
+
+-Andi
+
 -- 
-1.6.0.6
-
+ak@linux.intel.com -- Speaking for myself only.
