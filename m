@@ -1,28 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] : CDC EEM driver patch to be applied to 2.6.30 kernel
-Date: Tue, 28 Apr 2009 04:44:19 -0700 (PDT)
-Message-ID: <20090428.044419.246576457.davem@davemloft.net>
-References: <3a98b4410904270912g1838b534j2b53561b8caa1543@mail.gmail.com>
-	<20090428.023149.111899398.davem@davemloft.net>
-	<200904280255.19964.david-b@pacbell.net>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 04:53:42 -0700 (PDT)
+Message-ID: <20090428.045342.206106171.davem@davemloft.net>
+References: <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain>
+	<alpine.LFD.2.00.0904271602390.22156@localhost.localdomain>
+	<49F6A8FD.3010804@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: omar.oberthur@gmail.com, netdev@vger.kernel.org
-To: david-b@pacbell.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49243
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752346AbZD1Lo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 07:44:26 -0400
-In-Reply-To: <200904280255.19964.david-b@pacbell.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, shemminger@vyatta.com,
+	zbr@ioremap.net, mingo@elte.hu, peterz@infradead.org,
+	mathieu.desnoyers@polymtl.ca, jarkao2@gmail.com, paulus@samba.org,
+	paulmck@linux.vnet.ibm.com, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: dada1@cosmosbay.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49F6A8FD.3010804@cosmosbay.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Brownell <david-b@pacbell.net>
-Date: Tue, 28 Apr 2009 02:55:19 -0700
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 28 Apr 2009 08:58:05 +0200
 
-> If it's OK by me, I'll either ack it or send you a
-> new patch with my s-o-by.  Hold off a couple days.
+> I am not sure my day job will permit me to polish a patch mixing all
+> the bits and comments. But I am glad we eventually got back spinlocks
+> which are probably better than rwlocks for implementing this stuff.
+> 
+> Instead of submitting a full patch again, we could first submit a new
+>  include file containg all comments and inline functions ?
+> 
+> This include file could be local to netfilter, with a big stick on
+> it to forbids its use on other areas (No changes in Documentation/ )
+> 
+> Then, as soon as we can go back to pure RCU solution, we can safely
+> delete this controversial-locking-nesting-per-cpu-thing ?
 
-Sounds great, thanks!
+I say we merge Linus's locking idea into the XV patch, fixup the
+commit message wording, and move on with life.
+
+For something that's going to get deleted as soon as the faster grace
+period RCU stuff is available, it has consumed an inordinate amount of
+our time :-)
+
+I might take a stab at this before hittng bed tonight, no promises :)
