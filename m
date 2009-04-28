@@ -1,56 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Pull request: bluetooth-2.6 2009-04-28
-Date: Tue, 28 Apr 2009 09:58:36 -0700
-Message-ID: <1240937916.997.55.camel@localhost.localdomain>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] netfilter: revised locking for x_tables
+Date: Tue, 28 Apr 2009 09:50:36 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.0904280931360.22156@localhost.localdomain>
+References: <20090428135219.GA28513@Krystal> <20090428.073759.78537345.davem@davemloft.net> <20090428144920.GA28942@Krystal> <20090428.080031.14741305.davem@davemloft.net> <20090428092411.5331c4a1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:46334 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754473AbZD1Q6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 12:58:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi Dave,
-
-these are three additional patches that should go into the 2.6.30 kernel
-release. The first one fixes a NULL pointer dereference when adding and
-removing sysfs devices for ACL connections. The other two are fixes for
-interoperability regression we introduced when adding full Simple
-Pairing support. A big thank you here goes to the Nokia guys and their
-QA team for testing the crap out of this. There is actually nothing
-simple about Simple Pairing :)
-
-Regards
-
-Marcel
-
-
-Please pull from
-
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
-
-This will update the following files:
-
- include/net/bluetooth/hci.h      |    1 +
- include/net/bluetooth/hci_core.h |    8 +++++---
- net/bluetooth/hci_conn.c         |   10 ++++------
- net/bluetooth/hci_event.c        |   36 +++++++++++++++++++++++++++++++++++-
- net/bluetooth/hci_sysfs.c        |   37 ++++++++++++++++---------------------
- 5 files changed, 61 insertions(+), 31 deletions(-)
-
-through these ChangeSets:
-
-Marcel Holtmann (2):
-    Bluetooth: Add different pairing timeout for Legacy Pairing
-    Bluetooth: Fix connection establishment with low security requirement
-
-Roger Quadros (1):
-    Bluetooth: Ensure that HCI sysfs add/del is preempt safe
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, mathieu.desnoyers@polymtl.ca,
+	mingo@elte.hu, dada1@cosmosbay.com, zbr@ioremap.net,
+	peterz@infradead.org, jarkao2@gmail.com, paulus@samba.org,
+	paulmck@linux.vnet.ibm.com, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090428092411.5331c4a1@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
+Ack. 
+
+It could do with the update from Eric about how non-current CPU writelocks 
+only require preemp-disable around get_counters() (and then the 
+local_bh_disable() only around the current-CPU case).
+
+I _think_ get_counters() is the only case that can use that optimization, 
+but it's quite possible that it's worth doing especially for machines with 
+lots of cores, if BH latency is an issue (and it might be).
+
+Of course, for the lots-and-lots of cores case, even the preemption 
+disable might be an issue. And then it really does get much more 
+complicated. At that point, you probably want the RCU thing.
+
+			Linus			
