@@ -1,96 +1,68 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: [PATCH] smsc911x: add fifo byteswap support V2
-Date: Tue, 28 Apr 2009 16:32:16 +0900
-Message-ID: <20090428073216.16015.15940.sendpatchset@rx1.opensource.se>
-Cc: iwamatsu@nigauri.org, lethal@linux-sh.org, Ian.Saturley@smsc.com,
-	steve.glendinning@smsc.com, Magnus Damm <magnus.damm@gmail.com>,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 09:41:08 +0200
+Message-ID: <1240904468.7620.70.camel@twins>
+References: <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam>
+	 <49F4A6E3.7080102@cosmosbay.com> <20090426185646.GB29238@Krystal>
+	 <20090426145746.1184aeba@nehalam> <1240854297.7620.65.camel@twins>
+	 <20090427113010.5e3f1700@nehalam> <20090427185423.GC23862@elte.hu>
+	 <20090427120658.35a858bb@nehalam>
+	 <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain>
+	 <20090427203616.GB3836@ioremap.net>
+	 <alpine.LFD.2.00.0904271340400.22156@localhost.localdomain>
+	 <20090427144054.1fb9b7a6@nehalam>
+	 <alpine.LFD.2.00.0904271506530.22156@localhost.localdomain>
+	 <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain>
+	 <alpine.LFD.2.00.0904271619240.22156@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Ingo Molnar <mingo@elte.hu>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:44722 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455AbZD1HfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 03:35:02 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so206232wah.21
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 00:35:02 -0700 (PDT)
+Received: from casper.infradead.org ([85.118.1.10]:42923 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752703AbZD1Hlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 03:41:50 -0400
+In-Reply-To: <alpine.LFD.2.00.0904271619240.22156@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Magnus Damm <damm@igel.co.jp>
+On Mon, 2009-04-27 at 16:32 -0700, Linus Torvalds wrote:
+> 
+> On Mon, 27 Apr 2009, Linus Torvalds wrote:
+> > 
+> > I left the commentary about "readers" and "writers", because in many
+> > ways it's correct, and what the code actually does is very much to
+> > emulate a reader-writer lock.  I put quotes around the uses in the
+> > comments to high-light that it largely _acts_ as a reader-writer lock. 
+> 
+> Btw, I think it was Paul who pointed out that technically it's probably 
+> better to call them "local" and "global" lockers instead of "readers" and 
+> "writers".
 
-This is V2 of the smsc911x fifo byteswap patch.
+exclusive vs non-exclusive is what the literature would call them in
+most cases I think.
 
-The smsc911x hardware supports both big and little and endian
-hardware configurations, and the linux smsc911x driver currently
-detects word order.
-
-For correct operation on big endian platforms lacking swapped
-byte lanes the following patch is needed. Only fifo data is
-swapped, register data does not require any swapping. 
-
-Signed-off-by: Magnus Damm <damm@igel.co.jp>
----
-
- Changes since V1:
- - Added SMSC911X_SWAP_FIFO comment to header file, thanks Steve!
-
- Platform data for the rsk7203 board will be posted separately
- to the linux-sh list in the near future.
-
- drivers/net/smsc911x.c   |   13 +++++++++++++
- include/linux/smsc911x.h |   10 ++++++++++
- 2 files changed, 23 insertions(+)
-
---- 0001/drivers/net/smsc911x.c
-+++ work/drivers/net/smsc911x.c	2009-04-28 15:34:56.000000000 +0900
-@@ -47,6 +47,7 @@
- #include <linux/bitops.h>
- #include <linux/irq.h>
- #include <linux/io.h>
-+#include <linux/swab.h>
- #include <linux/phy.h>
- #include <linux/smsc911x.h>
- #include "smsc911x.h"
-@@ -175,6 +176,12 @@ static inline void
- smsc911x_tx_writefifo(struct smsc911x_data *pdata, unsigned int *buf,
- 		      unsigned int wordcount)
- {
-+	if (pdata->config.flags & SMSC911X_SWAP_FIFO) {
-+		while (wordcount--)
-+			smsc911x_reg_write(pdata, TX_DATA_FIFO, swab32(*buf++));
-+		return;
-+	}
-+
- 	if (pdata->config.flags & SMSC911X_USE_32BIT) {
- 		writesl(pdata->ioaddr + TX_DATA_FIFO, buf, wordcount);
- 		return;
-@@ -194,6 +201,12 @@ static inline void
- smsc911x_rx_readfifo(struct smsc911x_data *pdata, unsigned int *buf,
- 		     unsigned int wordcount)
- {
-+	if (pdata->config.flags & SMSC911X_SWAP_FIFO) {
-+		while (wordcount--)
-+			*buf++ = swab32(smsc911x_reg_read(pdata, RX_DATA_FIFO));
-+		return;
-+	}
-+
- 	if (pdata->config.flags & SMSC911X_USE_32BIT) {
- 		readsl(pdata->ioaddr + RX_DATA_FIFO, buf, wordcount);
- 		return;
---- 0001/include/linux/smsc911x.h
-+++ work/include/linux/smsc911x.h	2009-04-28 15:31:07.000000000 +0900
-@@ -47,4 +47,14 @@ struct smsc911x_platform_config {
- #define SMSC911X_FORCE_EXTERNAL_PHY 		(BIT(3))
- #define SMSC911X_SAVE_MAC_ADDRESS		(BIT(4))
- 
-+/*
-+ * SMSC911X_SWAP_FIFO:
-+ * Enables software byte swap for fifo data. Should only be used as a
-+ * "last resort" in the case of big endian mode on boards with incorrectly
-+ * routed data bus to older devices such as LAN9118. Newer devices such as
-+ * LAN9221 can handle this in hardware, there are registers to control
-+ * this swapping but the driver doesn't currently use them.
-+ */
-+#define SMSC911X_SWAP_FIFO			(BIT(5))
-+
- #endif /* __LINUX_SMSC911X_H__ */
+> That also probably clarifies the rules on when you use one over the other 
+> (ie reading off all the statistics is a "global" operation, as is 
+> obviously replacing the tables).
+> 
+> Of course, "readers" and "writers" is something most Linux lock people are 
+> more used to. Or "brlock" for the old-timers, but that involves a heavy 
+> dose of bad taste. The new use is much nicer, especially since it never 
+> takes the global lock on _all_ cpu's (which was really a killer in so 
+> many ways).
+> 
+> 			Linus
