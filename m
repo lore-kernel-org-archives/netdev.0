@@ -1,39 +1,71 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 0/5] rapidio: adding memory mapping IO support and misc fixes
-Date: Tue, 28 Apr 2009 07:06:40 -0500
-Message-ID: <D2FE35F2-E8A4-4B65-A8CE-DA8CF202EE37@kernel.crashing.org>
-References: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, David Miller <davem@davemloft.net>,
-	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Li Yang <leoli@freescale.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 14:40:33 +0200
+Message-ID: <20090428124033.GA1655@elte.hu>
+References: <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain> <alpine.LFD.2.00.0904271602390.22156@localhost.localdomain> <49F6A8FD.3010804@cosmosbay.com> <20090428.045342.206106171.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, torvalds@linux-foundation.org,
+	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
+	mathieu.desnoyers@polymtl.ca, jarkao2@gmail.com, paulus@samba.org,
+	paulmck@linux.vnet.ibm.com, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45828 "EHLO gate.crashing.org"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:54660 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751543AbZD1MJb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 08:09:31 -0400
-In-Reply-To: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
+	id S1751720AbZD1Mlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 08:41:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20090428.045342.206106171.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Apr 28, 2009, at 5:16 AM, Li Yang wrote:
+* David Miller <davem@davemloft.net> wrote:
 
-> The patch series add MMIO support to Linux rapidio and fix a few nits.
-> The patches cross rapidio, netdev, powerpc sub-systems.  It will be
-> good for them to go through one tree.  Probably Andrew?  As the
-> previous rapidio patches are mostly merged by you.
->
-> - Leo
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Tue, 28 Apr 2009 08:58:05 +0200
+> 
+> > I am not sure my day job will permit me to polish a patch mixing all
+> > the bits and comments. But I am glad we eventually got back spinlocks
+> > which are probably better than rwlocks for implementing this stuff.
+> > 
+> > Instead of submitting a full patch again, we could first submit a new
+> >  include file containg all comments and inline functions ?
+> > 
+> > This include file could be local to netfilter, with a big stick on
+> > it to forbids its use on other areas (No changes in Documentation/ )
+> > 
+> > Then, as soon as we can go back to pure RCU solution, we can 
+> > safely delete this controversial-locking-nesting-per-cpu-thing ?
+> 
+> I say we merge Linus's locking idea into the XV patch, fixup the 
+> commit message wording, and move on with life.
+> 
+> For something that's going to get deleted as soon as the faster 
+> grace period RCU stuff is available, it has consumed an inordinate 
+> amount of our time :-)
 
-When you repost use the -n option in git-format-patch so we get a  
-sequence # for the patches.
+One more reason to factor out this code into general locking code.
 
-Either Andrew or I can possible pick them up as long as we get the  
-right maintainer ACKs.
+The latest code looks a bit similar to the old big-reader-locks hack 
+(which got dropped for good many eons ago and with which i deny any 
+involvement with, such as having authored it. [oh, did i say that 
+out loud? crap.]), implemented cleanly and properly.
 
-- k
+IMHO this locking construct should be considered for 
+linux/local_lock.h and kernel/local_lock.c. Even if the netfilter 
+code drops its use soon afterwards ;-)
+
+[ The _only_ thing i am worried about is the apparent fact that
+  there's so much confusion about recursion versus read-access.
+  Recursion might be hard to factor out of the netfilter code, and
+  maybe it's not even possible realistically (we fought years with
+  the BKL and are still fighting it) but if its harms are not even
+  _realized_ that difficult task turns into an impossible task ;-) ]
+
+	Ingo
