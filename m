@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] atl1c: disable L1/L0s when link detected
-Date: Tue, 28 Apr 2009 01:54:11 -0700 (PDT)
-Message-ID: <20090428.015411.167936727.davem@davemloft.net>
-References: <1240897323258-git-send-email-jie.yang@atheros.com>
+Subject: Re: [net-next PATCH 1/6] igb: reconfigure mailbox timeout logic
+Date: Tue, 28 Apr 2009 01:54:21 -0700 (PDT)
+Message-ID: <20090428.015421.48309135.davem@davemloft.net>
+References: <20090428083445.32417.77682.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bjoern.kiefer@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37598
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37602
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753080AbZD1IyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:54:17 -0400
-In-Reply-To: <1240897323258-git-send-email-jie.yang@atheros.com>
+	by vger.kernel.org with ESMTP id S1754756AbZD1Iy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:54:27 -0400
+In-Reply-To: <20090428083445.32417.77682.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <jie.yang@atheros.com>
-Date: Tue, 28 Apr 2009 13:42:03 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 28 Apr 2009 01:34:54 -0700
 
-> Disable L1/L0s when link detected. We enable L1/L0s when link connected
-> before, but there is some hareware error on some platform. So just diable
-> this feature when link connected. This feature is about power saving.
+> This change updates the timeout logic so that it is not possible to have a
+> sucessful check for message and still return an error if countdown = 0.
 > 
-> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Reported-by: Juha Leppanen <juha_motorsportscom@luukku.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
