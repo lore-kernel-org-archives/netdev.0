@@ -1,37 +1,56 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
-Date: Tue, 28 Apr 2009 16:49:36 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0904281629090.15947@qirst.com>
-References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com>
- <alpine.DEB.1.10.0904281501300.13862@qirst.com> <49F76174.6060009@cosmosbay.com> <alpine.DEB.1.10.0904281612560.13862@qirst.com> <49F767FD.2040205@cosmosbay.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC, PATCH 2.6.29.2] Ethernet V2.0 Configuration Testing
+ Protocol, revision 20090428
+Date: Tue, 28 Apr 2009 16:15:45 -0700
+Message-ID: <20090428161545.0612476d@nehalam>
+References: <20090428220143.31395c24.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux kernel <linux-kernel@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
-	davidel@xmailserver.org, Ingo Molnar <mingo@elte.hu>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Mark Smith
+	<lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ultrahosting.com ([74.213.174.254]:48158 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755970AbZD1U64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 16:58:56 -0400
-In-Reply-To: <49F767FD.2040205@cosmosbay.com>
+Received: from mail.vyatta.com ([76.74.103.46]:33029 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754825AbZD1XPv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 19:15:51 -0400
+In-Reply-To: <20090428220143.31395c24.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Apr 2009, Eric Dumazet wrote:
+On Tue, 28 Apr 2009 22:01:43 +0930
+Mark Smith  <lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org> wrote:
 
-> The one that did improved your udpping 'bench' :)
->
-> http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=bf368e4e70cd4e0f880923c44e95a4273d725ab4
+> Hi,
+> 
+> Following on from my initial ECTP post on the 23rd of April, here is an
+> updated revision.
+> 
+> Changes:
+> 
+> o  The ectpping utility is now available at http://ectpping.berlios.de.
+> Kconfig and Documentation/networking/ectp.txt updated to reflect it's
+> availability and location
+> 
+> o  absolutely avoid an unlikely unsigned int msgs_len wrap around in
+> ectp_linear_skb_ok() and ectp_nonlinear_skb_ok()
+> 
+> o  use skb_queue_is_first() instead of skb_peek() in
+> ectp_queue_delayed_tx_skb()
+> 
+> Patch below is against 2.6.29.2
+> 
+> Feedback from some networking and sys admin people I've told about it
+> has been positive - they all agree with the benefit of being able to
+> perform "ping" style testing on an Ethernet segment without requiring
+> IP to be configured.
+> 
+> Any suggestions for improvement would be most appreciated.
+> 
+> Thanks very much,
+> Mark.
+> 
 
-Well yes that is git2p1. The measurements that we took showed not much of
-an effect as you see.
-
-
-
-
-
-
+Why does this have to be in the kernel?  Why not all in user space
+with AF_PACKET?
