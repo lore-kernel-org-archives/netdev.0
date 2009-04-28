@@ -1,137 +1,96 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Tue, 28 Apr 2009 08:58:05 +0200
-Message-ID: <49F6A8FD.3010804@cosmosbay.com>
-References: <49F22465.80305@gmail.com> <20090425133052.4cb711f5@nehalam> <49F4A6E3.7080102@cosmosbay.com> <20090426185646.GB29238@Krystal> <20090426145746.1184aeba@nehalam> <1240854297.7620.65.camel@twins> <20090427113010.5e3f1700@nehalam> <20090427185423.GC23862@elte.hu> <20090427120658.35a858bb@nehalam> <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain> <20090427203616.GB3836@ioremap.net> <alpine.LFD.2.00.0904271340400.22156@localhost.localdomain> <20090427144054.1fb9b7a6@nehalam> <alpine.LFD.2.00.0904271506530.22156@localhost.localdomain> <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain> <alpine.LFD.2.00.0904271602390.22156@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Paul Mackerras <paulus@samba.org>, paulmck@linux.vnet.ibm.com,
-	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904271602390.22156@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: [PATCH] smsc911x: add fifo byteswap support V2
+Date: Tue, 28 Apr 2009 16:32:16 +0900
+Message-ID: <20090428073216.16015.15940.sendpatchset@rx1.opensource.se>
+Cc: iwamatsu@nigauri.org, lethal@linux-sh.org, Ian.Saturley@smsc.com,
+	steve.glendinning@smsc.com, Magnus Damm <magnus.damm@gmail.com>,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.178]:44722 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751455AbZD1HfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 03:35:02 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so206232wah.21
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 00:35:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds a =E9crit :
->=20
-> On Mon, 27 Apr 2009, Linus Torvalds wrote:
->> BTW: THIS IS TOTALLY UNTESTED.
->=20
-> Gaah. I should have read through it one more time before sending.
->=20
->> static inline void xt_info_rdunlock_bh(void)
->> {
->> 	struct xt_info_lock *lock;
->>
->> 	lock =3D &__get_cpu_var(xt_info_locks);
->> 	if (!--lock->readers)
->> 		spin_unlock(&lock->lock);
->> }
->=20
-> This one was missing the "local_bh_enable()" at the end.
->=20
-> There may be other bugs, but that's the one I noticed immediately whe=
-n=20
-> reading what I sent out. Oops.
+From: Magnus Damm <damm@igel.co.jp>
 
-I am not sure my day job will permit me to polish a patch mixing all
-the bits and comments. But I am glad we eventually got back spinlocks
-which are probably better than rwlocks for implementing this stuff.
+This is V2 of the smsc911x fifo byteswap patch.
 
-Instead of submitting a full patch again, we could first submit a new
- include file containg all comments and inline functions ?
+The smsc911x hardware supports both big and little and endian
+hardware configurations, and the linux smsc911x driver currently
+detects word order.
 
-This include file could be local to netfilter, with a big stick on
-it to forbids its use on other areas (No changes in Documentation/ )
+For correct operation on big endian platforms lacking swapped
+byte lanes the following patch is needed. Only fifo data is
+swapped, register data does not require any swapping. 
 
-Then, as soon as we can go back to pure RCU solution, we can safely
-delete this controversial-locking-nesting-per-cpu-thing ?
+Signed-off-by: Magnus Damm <damm@igel.co.jp>
+---
 
+ Changes since V1:
+ - Added SMSC911X_SWAP_FIFO comment to header file, thanks Steve!
 
-Instead of local/global name that Paul suggested, that was about
-'global' locking all locks at the same time. Not any more the good
-name IMHO
+ Platform data for the rsk7203 board will be posted separately
+ to the linux-sh list in the near future.
 
-Maybe something like local/remote or owner/foreigner ?
+ drivers/net/smsc911x.c   |   13 +++++++++++++
+ include/linux/smsc911x.h |   10 ++++++++++
+ 2 files changed, 23 insertions(+)
 
-xt_info_owner_lock_bh(), xt_info_owner_unlock_bh()
-xt_info_foreigner_lock(), xt_info_foreigner_unlock()
-
-One comment about this comment you wrote :
-
-/*
- * The "writer" side needs to get exclusive access to the lock,
- * regardless of readers.  This must be called with bottom half
- * processing (and thus also preemption) disabled.=20
- */
-static inline void xt_info_wrlock(unsigned int cpu)
-{
-	spin_lock(&per_cpu(xt_info_locks, cpu).lock);
-}
-
-static inline void xt_info_wrunlock(unsigned int cpu)
-{
-	spin_unlock(&per_cpu(xt_info_locks, cpu).lock);
-}
-
-Its true that BH should be disabled if caller runs
-on the cpu it wants to lock.=20
-=46or other ones (true foreigners), there is
-no requirement about BH (current cpu could be interrupted
-by a softirq and packets could fly)
-
-We could use following construct and not require disabling BH
-more than a short period of time.
-(But preemption disabled for the whole duration)
-
-preempt_disable(); // could be cpu_migration_disable();
-
-int curcpu =3D smp_processor_id();
-/*
- * Gather stats for current cpu : must disable BH
- * before trying to lock.
- */
-local_bh_disable();
-xt_info_wrlock(curcpu);
-// copy stats of this cpu on my private data (not shown here)
-xt_info_wrunlock(curcpu);
-local_bh_enable();
-
-for_each_possible_cpu(cpu) {
-	if (cpu =3D=3D curcpu)
-		continue;
-	xt_info_wrlock(cpu);
-	// fold stats of "cpu" on my private data (not shown here)
-	xt_info_wrunlock((cpu);
-}
-preempt_enable(); // could be cpu_migration_enable();
-
-
-So your initial comment could be changed to :
-
-/*
- * The "writer" side needs to get exclusive access to the lock,
- * regardless of readers. If caller is about to lock its own lock,
- * he must have disabled BH before. For other cpus, no special
- * care but preemption disabled to guarantee no cpu migration.
- */
-
-Back to work now :)
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- 0001/drivers/net/smsc911x.c
++++ work/drivers/net/smsc911x.c	2009-04-28 15:34:56.000000000 +0900
+@@ -47,6 +47,7 @@
+ #include <linux/bitops.h>
+ #include <linux/irq.h>
+ #include <linux/io.h>
++#include <linux/swab.h>
+ #include <linux/phy.h>
+ #include <linux/smsc911x.h>
+ #include "smsc911x.h"
+@@ -175,6 +176,12 @@ static inline void
+ smsc911x_tx_writefifo(struct smsc911x_data *pdata, unsigned int *buf,
+ 		      unsigned int wordcount)
+ {
++	if (pdata->config.flags & SMSC911X_SWAP_FIFO) {
++		while (wordcount--)
++			smsc911x_reg_write(pdata, TX_DATA_FIFO, swab32(*buf++));
++		return;
++	}
++
+ 	if (pdata->config.flags & SMSC911X_USE_32BIT) {
+ 		writesl(pdata->ioaddr + TX_DATA_FIFO, buf, wordcount);
+ 		return;
+@@ -194,6 +201,12 @@ static inline void
+ smsc911x_rx_readfifo(struct smsc911x_data *pdata, unsigned int *buf,
+ 		     unsigned int wordcount)
+ {
++	if (pdata->config.flags & SMSC911X_SWAP_FIFO) {
++		while (wordcount--)
++			*buf++ = swab32(smsc911x_reg_read(pdata, RX_DATA_FIFO));
++		return;
++	}
++
+ 	if (pdata->config.flags & SMSC911X_USE_32BIT) {
+ 		readsl(pdata->ioaddr + RX_DATA_FIFO, buf, wordcount);
+ 		return;
+--- 0001/include/linux/smsc911x.h
++++ work/include/linux/smsc911x.h	2009-04-28 15:31:07.000000000 +0900
+@@ -47,4 +47,14 @@ struct smsc911x_platform_config {
+ #define SMSC911X_FORCE_EXTERNAL_PHY 		(BIT(3))
+ #define SMSC911X_SAVE_MAC_ADDRESS		(BIT(4))
+ 
++/*
++ * SMSC911X_SWAP_FIFO:
++ * Enables software byte swap for fifo data. Should only be used as a
++ * "last resort" in the case of big endian mode on boards with incorrectly
++ * routed data bus to older devices such as LAN9118. Newer devices such as
++ * LAN9221 can handle this in hardware, there are registers to control
++ * this swapping but the driver doesn't currently use them.
++ */
++#define SMSC911X_SWAP_FIFO			(BIT(5))
++
+ #endif /* __LINUX_SMSC911X_H__ */
