@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rapidio: add common mapping APIs for RapidIO memory access
-Date: Tue, 28 Apr 2009 04:39:29 -0700 (PDT)
-Message-ID: <20090428.043929.171852977.davem@davemloft.net>
-References: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
-	<1240913737-23773-1-git-send-email-leoli@freescale.com>
+Subject: Re: [PATCH] net: netif_tx_queue_stopped too expensive
+Date: Tue, 28 Apr 2009 04:44:06 -0700 (PDT)
+Message-ID: <20090428.044406.95326734.davem@davemloft.net>
+References: <49F6CD24.5080000@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zw@zh-kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
-To: leoli@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1240913737-23773-1-git-send-email-leoli@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, therbert@google.com
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49239
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750733AbZD1LoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 07:44:15 -0400
+In-Reply-To: <49F6CD24.5080000@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 28 Apr 2009 11:32:20 +0200
 
-Please number your patches. :-/
+> netif_tx_queue_stopped(txq) is most of the time false.
+> 
+> Yet its cost is very expensive on SMP.
+ ...
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-There is no way for anyone to be able to tell in what order
-your changes should be applied.
-
-Since you're going to wait for feedback anyways, you can
-fix this up when you make your next submission of these
-changes.
+Fair enough, applied to net-next-2.6, thanks Eric.
