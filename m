@@ -1,50 +1,41 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Tue, 28 Apr 2009 09:52:19 -0400
-Message-ID: <20090428135219.GA28513@Krystal>
-References: <49F6A8FD.3010804@cosmosbay.com> <20090428.045342.206106171.davem@davemloft.net> <20090428124033.GA1655@elte.hu> <20090428.064340.193569214.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, dada1@cosmosbay.com, torvalds@linux-foundation.org,
-	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
-	jarkao2@gmail.com, paulus@samba.org, paulmck@linux.vnet.ibm.com,
-	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] gianfar: Use memset instead of cacheable_memzero
+Date: Tue, 28 Apr 2009 09:14:01 -0500
+Message-ID: <1240928041-10905-1-git-send-email-galak@kernel.crashing.org>
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090428.064340.193569214.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:33669 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756209AbZD1OOL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 10:14:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* David Miller (davem@davemloft.net) wrote:
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Tue, 28 Apr 2009 14:40:33 +0200
-> 
-> > IMHO this locking construct should be considered for 
-> > linux/local_lock.h and kernel/local_lock.c. Even if the netfilter 
-> > code drops its use soon afterwards ;-)
-> 
-> If you can show me have to pass a per-cpu variable (the variable,
-> not a dereference of it) as an argument to an inline function,
-> I'll implement this :-)
-> 
-> It has to be dereferenced after local_bh_disable() for the
-> read side acquisition.
+cacheable_memzero() is completely overkill for the clearing out the FCB
+block which is only 8-bytes.  The compiler should easily optimize this
+with memset.  Additionally, cacheable_memzero() only exists on ppc32 and
+thus breaks builds of gianfar on ppc64.
 
-The local_bh_disable() could be outside of the locking construct. This
-would make it easier to adapt it to various users (irq disable, bh
-disable, preempt disable) depending on the contexts from which they much
-be protected.
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+---
+ drivers/net/gianfar.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-And if it still does not work for some reason, using a #define is
-discouraged, but could work.
-
-Mathieu
-
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index dae1437..2bb038b 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1207,7 +1207,8 @@ static int gfar_enet_open(struct net_device *dev)
+ static inline struct txfcb *gfar_add_fcb(struct sk_buff *skb)
+ {
+ 	struct txfcb *fcb = (struct txfcb *)skb_push(skb, GMAC_FCB_LEN);
+-	cacheable_memzero(fcb, GMAC_FCB_LEN);
++
++	memset(fcb, 0, GMAC_FCB_LEN);
+ 
+ 	return fcb;
+ }
 -- 
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+1.6.0.6
+
