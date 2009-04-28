@@ -1,25 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio_net: Fix function name typo
-Date: Tue, 28 Apr 2009 02:31:02 -0700 (PDT)
-Message-ID: <20090428.023102.250970076.davem@davemloft.net>
-References: <20090427155507.7895.79747.stgit@debian.lart>
+Subject: Re: [PATCH] : CDC EEM driver patch to be applied to 2.6.30 kernel
+Date: Tue, 28 Apr 2009 02:31:49 -0700 (PDT)
+Message-ID: <20090428.023149.111899398.davem@davemloft.net>
+References: <3a98b4410904270912g1838b534j2b53561b8caa1543@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
-To: alex.williamson@hp.com
+Cc: netdev@vger.kernel.org, david-b@pacbell.net
+To: omar.oberthur@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56852
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58968
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756351AbZD1JbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 05:31:09 -0400
-In-Reply-To: <20090427155507.7895.79747.stgit@debian.lart>
+	by vger.kernel.org with ESMTP id S1755261AbZD1Jbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 05:31:55 -0400
+In-Reply-To: <3a98b4410904270912g1838b534j2b53561b8caa1543@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Mon, 27 Apr 2009 09:55:38 -0600
+From: Omar Laazimani <omar.oberthur@gmail.com>
+Date: Mon, 27 Apr 2009 18:12:03 +0200
 
-> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+> This is version 3 of the patch that introduces a CDC EEM kernel module
+> (host side only) to supports USB EEM devices.
+> 
+> Signed-off-by: Omar Laazimani <omar.oberthur@gmail.com>
 
-This also looks fine to me.  Rusty, you too?
+David, does it look good to you?  And, assuming it's OK, do you want
+to take this or would you like me too?
+
+Either way is fine with me.
+
