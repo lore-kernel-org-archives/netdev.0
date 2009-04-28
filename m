@@ -1,58 +1,28 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH] rio: warn_unused_result warnings fix
-Date: Tue, 28 Apr 2009 19:08:13 +0800
-Message-ID: <2a27d3730904280408j636d8e4tc1b6e1c827509379@mail.gmail.com>
-References: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
-	<1240913737-23773-1-git-send-email-leoli@freescale.com>
-	<1240913737-23773-2-git-send-email-leoli@freescale.com>
-	<1240913737-23773-3-git-send-email-leoli@freescale.com>
-	<1240913737-23773-4-git-send-email-leoli@freescale.com>
-	<1240913737-23773-5-git-send-email-leoli@freescale.com>
-	<1240915882.15414.3.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev: storage address support
+Date: Tue, 28 Apr 2009 04:25:32 -0700 (PDT)
+Message-ID: <20090428.042532.127201433.davem@davemloft.net>
+References: <20090428083048.GB27798@psychotron.englab.brq.redhat.com>
+	<20090428.021249.247190041.davem@davemloft.net>
+	<20090428101816.GC27798@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
-To: michael@ellerman.id.au
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1240915882.15414.3.camel@localhost>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: christopher.leech@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	linux-scsi@vger.kernel.org
+To: jpirko@redhat.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090428101816.GC27798@psychotron.englab.brq.redhat.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBBcHIgMjgsIDIwMDkgYXQgNjo1MSBQTSwgTWljaGFlbCBFbGxlcm1hbgo8bWljaGFl
-bEBlbGxlcm1hbi5pZC5hdT4gd3JvdGU6Cj4gT24gVHVlLCAyMDA5LTA0LTI4IGF0IDE4OjE1ICsw
-ODAwLCBMaSBZYW5nIHdyb3RlOgo+PiB3YXJuaW5nOiBpZ25vcmluZyByZXR1cm4gdmFsdWUgb2Yg
-J2RldmljZV9hZGQnLCBkZWNsYXJlZCB3aXRoIGF0dHJpYnV0ZSB3YXJuX3VudXNlZF9yZXN1bHQK
-Pj4gd2FybmluZzogaWdub3JpbmcgcmV0dXJuIHZhbHVlIG9mICdzeXNmc19jcmVhdGVfYmluX2Zp
-bGUnLCBkZWNsYXJlZCB3aXRoIGF0dHJpYnV0ZSB3YXJuX3VudXNlZF9yZXN1bHQKPj4KPj4gU2ln
-bmVkLW9mZi1ieTogTGkgWWFuZyA8bGVvbGlAZnJlZXNjYWxlLmNvbT4KPj4gLS0tCj4+IMKgZHJp
-dmVycy9yYXBpZGlvL3Jpby1zY2FuLmMgwqB8IMKgIMKgNSArKysrLQo+PiDCoGRyaXZlcnMvcmFw
-aWRpby9yaW8tc3lzZnMuYyB8IMKgIMKgNiArKysrLS0KPj4gwqAyIGZpbGVzIGNoYW5nZWQsIDgg
-aW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-cmFwaWRpby9yaW8tc2Nhbi5jIGIvZHJpdmVycy9yYXBpZGlvL3Jpby1zY2FuLmMKPj4gaW5kZXgg
-NzRkMGJmYS4uOTMwOWUyNCAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9yYXBpZGlvL3Jpby1zY2Fu
-LmMKPj4gKysrIGIvZHJpdmVycy9yYXBpZGlvL3Jpby1zY2FuLmMKPj4gQEAgLTI2NSw3ICsyNjUs
-MTAgQEAgc3RhdGljIHZvaWQgcmlvX3JvdXRlX3NldF9vcHMoc3RydWN0IHJpb19kZXYgKnJkZXYp
-Cj4+IMKgICovCj4+IMKgc3RhdGljIHZvaWQgX19kZXZpbml0IHJpb19hZGRfZGV2aWNlKHN0cnVj
-dCByaW9fZGV2ICpyZGV2KQo+PiDCoHsKPj4gLSDCoCDCoCBkZXZpY2VfYWRkKCZyZGV2LT5kZXYp
-Owo+PiArIMKgIMKgIGludCBlcnI7Cj4+ICsKPj4gKyDCoCDCoCBlcnIgPSBkZXZpY2VfYWRkKCZy
-ZGV2LT5kZXYpOwo+PiArIMKgIMKgIFdBUk5fT04oZXJyKTsKPj4KPj4gwqAgwqAgwqAgc3Bpbl9s
-b2NrKCZyaW9fZ2xvYmFsX2xpc3RfbG9jayk7Cj4+IMKgIMKgIMKgIGxpc3RfYWRkX3RhaWwoJnJk
-ZXYtPmdsb2JhbF9saXN0LCAmcmlvX2RldmljZXMpOwo+Cj4gSXMgdGhhdCByZWFsbHkgdXNlZnVs
-PyBXaHkgbm90IHJldHVybiB0aGUgZXJyb3IgdG8gcmlvX3NldHVwX2RldmljZSgpCj4gd2hpY2gg
-Y2FuIHRlbGwgaXQncyBjYWxsZXIuCgpJTUhPLCB3aGVuIGRldmljZV9hZGQoKSBmYWlscyB0aGUg
-c3lzdGVtIGlzIHF1aXRlIGJyb2tlbi4gIFNvIHRoZQp2YWx1ZSBpcyB2ZXJ5IGxpbWl0ZWQgZm9y
-IGl0IHRvIGZhaWwgY2xlYW5seSwgd2hpY2ggbmVlZCBzb21lIGVmZm9ydAp0byBpbXBsZW1lbnQu
-ICBJIGNhbiBhZGQgaXQgaWYgeW91IGluc2lzdC4KCi0gTGVvCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGlu
-dXhwcGMtZGV2QG96bGFicy5vcmcKaHR0cHM6Ly9vemxhYnMub3JnL21haWxtYW4vbGlzdGluZm8v
-bGludXhwcGMtZGV2
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Tue, 28 Apr 2009 12:18:17 +0200
+
+> Tue, Apr 28, 2009 at 11:12:49AM CEST, davem@davemloft.net wrote:
+>>Agreed, can you update your patch to provide such a 'type' tag?
+> 
+> Ok, I'll do that. What types do you have on the top of your head?
+
+Just start with SAN, LAN, and the ones you need for your work.
