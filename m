@@ -1,40 +1,39 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] netfilter: revised locking for x_tables
-Date: Tue, 28 Apr 2009 09:55:32 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.0904280954500.22156@localhost.localdomain>
-References: <20090428135219.GA28513@Krystal> <20090428.073759.78537345.davem@davemloft.net> <20090428144920.GA28942@Krystal> <20090428.080031.14741305.davem@davemloft.net> <20090428092411.5331c4a1@nehalam>
- <alpine.LFD.2.00.0904280931360.22156@localhost.localdomain>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
+Date: Tue, 28 Apr 2009 13:35:40 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0904281330390.13862@qirst.com>
+References: <49F6A8FD.3010804@cosmosbay.com> <20090428.045342.206106171.davem@davemloft.net> <20090428124033.GA1655@elte.hu> <20090428.064340.193569214.davem@davemloft.net> <20090428154213.GA10833@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, mathieu.desnoyers@polymtl.ca,
-	mingo@elte.hu, dada1@cosmosbay.com, zbr@ioremap.net,
-	peterz@infradead.org, jarkao2@gmail.com, paulus@samba.org,
-	paulmck@linux.vnet.ibm.com, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+Cc: David Miller <davem@davemloft.net>, mingo@elte.hu,
+	dada1@cosmosbay.com, torvalds@linux-foundation.org,
+	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
+	mathieu.desnoyers@polymtl.ca, jarkao2@gmail.com, paulus@samba.org,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
 	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	benh@kernel.crashing.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33169 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750857AbZD1RIE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 13:08:04 -0400
-In-Reply-To: <alpine.LFD.2.00.0904280931360.22156@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090428154213.GA10833@linux.vnet.ibm.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 28 Apr 2009, Paul E. McKenney wrote:
 
-
-On Tue, 28 Apr 2009, Linus Torvalds wrote:
+> > If you can show me have to pass a per-cpu variable (the variable,
+> > not a dereference of it) as an argument to an inline function,
+> > I'll implement this :-)
+> >
+> > It has to be dereferenced after local_bh_disable() for the
+> > read side acquisition.
 >
-> Ack. 
-> 
-> It could do with the update from Eric about how non-current CPU writelocks 
-> only require preemp-disable around get_counters() (and then the 
-> local_bh_disable() only around the current-CPU case).
+> The way I did this in treercu.c was to create an array of references
+> to the per-CPU data in question.  Not necessarily recommended, but
+> one way of doing it.  That said, one could argue that we should wait
+> until we have at least three users before creating a generic primitive.
 
-Btw, regardless, that's an incremental improvement, and does not negate 
-the "Ack" part.
+The new percpu allocator allows you to create a per cpu pointer and pass
+it to functions.
 
-			Linus
+per_cpu_ptr(pointer,cpu) is used to select an instance.
