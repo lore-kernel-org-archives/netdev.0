@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] [ISDN] Documentation patchset
-Date: Mon, 27 Apr 2009 18:14:19 -0700 (PDT)
-Message-ID: <20090427.181419.47244869.davem@davemloft.net>
-References: <200904271345.35345.karsten-keil@t-online.de>
-	<20090427.053902.262806706.davem@davemloft.net>
-	<200904271513.32728.karsten-keil@t-online.de>
+Subject: Re: vlan: update vlan carrier state for admin up/down
+Date: Mon, 27 Apr 2009 18:36:40 -0700 (PDT)
+Message-ID: <20090427.183640.182469000.davem@davemloft.net>
+References: <30658.1240619463@death.nxdomain.ibm.com>
+	<49F4BCEB.6040507@candelatech.com>
+	<13072.1240876558@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: karsten-keil@t-online.de
+Cc: greearb@candelatech.com, kaber@trash.net, netdev@vger.kernel.org
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43020
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39401
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757080AbZD1BO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 21:14:26 -0400
-In-Reply-To: <200904271513.32728.karsten-keil@t-online.de>
+	by vger.kernel.org with ESMTP id S1754695AbZD1Bgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 21:36:47 -0400
+In-Reply-To: <13072.1240876558@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <karsten-keil@t-online.de>
-Date: Mon, 27 Apr 2009 15:13:32 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Mon, 27 Apr 2009 16:55:58 -0700
 
-> I can leave out the date field, but if I resend  patch from a other developer 
-> (which I signed or acked as maintainer), I need to move the original From into 
-> the body, my uplink rewrites the From with my address. Would this be still OK 
-> or does the From in the body make also problems with patchwork ?
+> I'm reluctant to mess with this behavior without knowing why it
+> works this way; there may be a good reason for it that I'm not aware
+> of.
 
-Yes, it's perfectly fine to put the author's From: field in
-the body.  And as the patch submitter your should preserve
-your From: in the normal email headers.  That's how it's
-supposed to be :-)
+To be honest I think it's just that this is one huge dark
+corner of behavior for many virtual devices, rather than
+any of it being intentional.
