@@ -1,30 +1,58 @@
-From: =?iso-8859-1?B?qUdsb2JhbA==?= <deborah.wende@bellnet.ca>
-Subject: Global Notification!!!
-Date: Tue, 28 Apr 2009 7:04:02 -0400
-Message-ID: <20090428110402.LCPA1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: winners.alert9@btinternet.com
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH] rio: warn_unused_result warnings fix
+Date: Tue, 28 Apr 2009 19:08:13 +0800
+Message-ID: <2a27d3730904280408j636d8e4tc1b6e1c827509379@mail.gmail.com>
+References: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
+	<1240913737-23773-1-git-send-email-leoli@freescale.com>
+	<1240913737-23773-2-git-send-email-leoli@freescale.com>
+	<1240913737-23773-3-git-send-email-leoli@freescale.com>
+	<1240913737-23773-4-git-send-email-leoli@freescale.com>
+	<1240913737-23773-5-git-send-email-leoli@freescale.com>
+	<1240915882.15414.3.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@winner.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts7-srv.bellnexxia.net ([206.47.199.165]:63444 "EHLO
-	simmts7-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753192AbZD1LED convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 07:04:03 -0400
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts7-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090428110402.LCPA1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 07:04:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
+To: michael@ellerman.id.au
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <1240915882.15414.3.camel@localhost>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-The Global Award Programme.Therefore you have been approve for a lump s=
-um payout of (=A3950.000.00  GBP) by your email send your details
-Name,Address,Country,Occupation,Phone Number.
-
-Yours faithfully,
-Mrs Joan Thomas
-
+T24gVHVlLCBBcHIgMjgsIDIwMDkgYXQgNjo1MSBQTSwgTWljaGFlbCBFbGxlcm1hbgo8bWljaGFl
+bEBlbGxlcm1hbi5pZC5hdT4gd3JvdGU6Cj4gT24gVHVlLCAyMDA5LTA0LTI4IGF0IDE4OjE1ICsw
+ODAwLCBMaSBZYW5nIHdyb3RlOgo+PiB3YXJuaW5nOiBpZ25vcmluZyByZXR1cm4gdmFsdWUgb2Yg
+J2RldmljZV9hZGQnLCBkZWNsYXJlZCB3aXRoIGF0dHJpYnV0ZSB3YXJuX3VudXNlZF9yZXN1bHQK
+Pj4gd2FybmluZzogaWdub3JpbmcgcmV0dXJuIHZhbHVlIG9mICdzeXNmc19jcmVhdGVfYmluX2Zp
+bGUnLCBkZWNsYXJlZCB3aXRoIGF0dHJpYnV0ZSB3YXJuX3VudXNlZF9yZXN1bHQKPj4KPj4gU2ln
+bmVkLW9mZi1ieTogTGkgWWFuZyA8bGVvbGlAZnJlZXNjYWxlLmNvbT4KPj4gLS0tCj4+IMKgZHJp
+dmVycy9yYXBpZGlvL3Jpby1zY2FuLmMgwqB8IMKgIMKgNSArKysrLQo+PiDCoGRyaXZlcnMvcmFw
+aWRpby9yaW8tc3lzZnMuYyB8IMKgIMKgNiArKysrLS0KPj4gwqAyIGZpbGVzIGNoYW5nZWQsIDgg
+aW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+cmFwaWRpby9yaW8tc2Nhbi5jIGIvZHJpdmVycy9yYXBpZGlvL3Jpby1zY2FuLmMKPj4gaW5kZXgg
+NzRkMGJmYS4uOTMwOWUyNCAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9yYXBpZGlvL3Jpby1zY2Fu
+LmMKPj4gKysrIGIvZHJpdmVycy9yYXBpZGlvL3Jpby1zY2FuLmMKPj4gQEAgLTI2NSw3ICsyNjUs
+MTAgQEAgc3RhdGljIHZvaWQgcmlvX3JvdXRlX3NldF9vcHMoc3RydWN0IHJpb19kZXYgKnJkZXYp
+Cj4+IMKgICovCj4+IMKgc3RhdGljIHZvaWQgX19kZXZpbml0IHJpb19hZGRfZGV2aWNlKHN0cnVj
+dCByaW9fZGV2ICpyZGV2KQo+PiDCoHsKPj4gLSDCoCDCoCBkZXZpY2VfYWRkKCZyZGV2LT5kZXYp
+Owo+PiArIMKgIMKgIGludCBlcnI7Cj4+ICsKPj4gKyDCoCDCoCBlcnIgPSBkZXZpY2VfYWRkKCZy
+ZGV2LT5kZXYpOwo+PiArIMKgIMKgIFdBUk5fT04oZXJyKTsKPj4KPj4gwqAgwqAgwqAgc3Bpbl9s
+b2NrKCZyaW9fZ2xvYmFsX2xpc3RfbG9jayk7Cj4+IMKgIMKgIMKgIGxpc3RfYWRkX3RhaWwoJnJk
+ZXYtPmdsb2JhbF9saXN0LCAmcmlvX2RldmljZXMpOwo+Cj4gSXMgdGhhdCByZWFsbHkgdXNlZnVs
+PyBXaHkgbm90IHJldHVybiB0aGUgZXJyb3IgdG8gcmlvX3NldHVwX2RldmljZSgpCj4gd2hpY2gg
+Y2FuIHRlbGwgaXQncyBjYWxsZXIuCgpJTUhPLCB3aGVuIGRldmljZV9hZGQoKSBmYWlscyB0aGUg
+c3lzdGVtIGlzIHF1aXRlIGJyb2tlbi4gIFNvIHRoZQp2YWx1ZSBpcyB2ZXJ5IGxpbWl0ZWQgZm9y
+IGl0IHRvIGZhaWwgY2xlYW5seSwgd2hpY2ggbmVlZCBzb21lIGVmZm9ydAp0byBpbXBsZW1lbnQu
+ICBJIGNhbiBhZGQgaXQgaWYgeW91IGluc2lzdC4KCi0gTGVvCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGlu
+dXhwcGMtZGV2QG96bGFicy5vcmcKaHR0cHM6Ly9vemxhYnMub3JnL21haWxtYW4vbGlzdGluZm8v
+bGludXhwcGMtZGV2
