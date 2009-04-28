@@ -1,26 +1,49 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 0/5] rapidio: adding memory mapping IO support and misc fixes
-Date: Tue, 28 Apr 2009 18:16:11 +0800
-Message-ID: <2a27d3730904280316l7049bddbie914907b16ccfff6@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] netdev: storage address support
+Date: Tue, 28 Apr 2009 12:18:17 +0200
+Message-ID: <20090428101816.GC27798@psychotron.englab.brq.redhat.com>
+References: <20090427222800.GA14396@cleech-lnx.jf.intel.com> <20090427.184854.227522560.davem@davemloft.net> <20090428083048.GB27798@psychotron.englab.brq.redhat.com> <20090428.021249.247190041.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>
-To: akpm@linux-foundation.org, Kumar Gala <galak@kernel.crashing.org>,
-	David Miller <davem@davemloft.net>, mporter@kernel.crashing.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.227]:58226 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759007AbZD1KQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 06:16:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: christopher.leech@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	linux-scsi@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090428.021249.247190041.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The patch series add MMIO support to Linux rapidio and fix a few nits.
- The patches cross rapidio, netdev, powerpc sub-systems.  It will be
-good for them to go through one tree.  Probably Andrew?  As the
-previous rapidio patches are mostly merged by you.
+Tue, Apr 28, 2009 at 11:12:49AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jpirko@redhat.com>
+>Date: Tue, 28 Apr 2009 10:30:48 +0200
+>
+>> Tue, Apr 28, 2009 at 03:48:54AM CEST, davem@davemloft.net wrote:
+>>>From: Chris Leech <christopher.leech@intel.com>
+>>>Date: Mon, 27 Apr 2009 15:28:00 -0700
+>>>
+>>>> Ignoring the issue of intended use for the moment, if an ethernet driver
+>>>> wanted to advertise several MAC addresses to the system how should it go
+>>>> about that?
+>>>
+>>>Now that's a more interesting question.
+>>>
+>>>It seems better to formalize this.   It can be an ethtool
+>>>callback or whatever, but what it should do is return
+>>>an array of addresses, types, and perhaps even indexes
+>>>with types.
+>> 
+>> Well the list of device addresses from my patch can pretty much solve this.
+>> There can be additional field in struct netdev_hw_addr to store flags to
+>> identify the mac address type (like primary, lan, san, slave, etc).
+>> 
+>> I think it would be better to do this in general (in struct net_device) then
+>> inside each driver exported by ethtool or whatever.
+>
+>Agreed, can you update your patch to provide such a 'type' tag?
 
-- Leo
+Ok, I'll do that. What types do you have on the top of your head?
+
+>
+>Thanks!
