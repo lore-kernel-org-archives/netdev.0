@@ -1,17 +1,17 @@
 From: "Mrs Helen Anderson" <info@winner.com>
 Subject: Winner
-Date: Mon, 27 Apr 2009 16:57:45 -0700 (PDT)
-Message-ID: <3342.142.104.193.193.1240876665.squirrel@wm3.uvic.ca>
+Date: Mon, 27 Apr 2009 17:01:40 -0700 (PDT)
+Message-ID: <3419.142.104.193.193.1240876900.squirrel@wm3.uvic.ca>
 Reply-To: agtuk_ltd005@btinternet.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: info@winner.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.comp.uvic.ca ([142.104.5.97]:37542 "EHLO
+Received: from castle.comp.uvic.ca ([142.104.5.97]:42678 "EHLO
 	castle.comp.uvic.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667AbZD0X6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 19:58:48 -0400
+	with ESMTP id S1751696AbZD1ADH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 20:03:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
