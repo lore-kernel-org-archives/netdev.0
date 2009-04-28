@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: vlan: update vlan carrier state for admin up/down
-Date: Mon, 27 Apr 2009 18:36:40 -0700 (PDT)
-Message-ID: <20090427.183640.182469000.davem@davemloft.net>
-References: <30658.1240619463@death.nxdomain.ibm.com>
-	<49F4BCEB.6040507@candelatech.com>
-	<13072.1240876558@death.nxdomain.ibm.com>
+Subject: Re: [PATCH] netdev: storage address support
+Date: Mon, 27 Apr 2009 18:48:54 -0700 (PDT)
+Message-ID: <20090427.184854.227522560.davem@davemloft.net>
+References: <20090424080349.30460.73770.stgit@localhost.localdomain>
+	<20090427.030103.88777540.davem@davemloft.net>
+	<20090427222800.GA14396@cleech-lnx.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, kaber@trash.net, netdev@vger.kernel.org
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39401
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754695AbZD1Bgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2009 21:36:47 -0400
-In-Reply-To: <13072.1240876558@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, linux-scsi@vger.kernel.org
+To: christopher.leech@intel.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090427222800.GA14396@cleech-lnx.jf.intel.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Mon, 27 Apr 2009 16:55:58 -0700
+From: Chris Leech <christopher.leech@intel.com>
+Date: Mon, 27 Apr 2009 15:28:00 -0700
 
-> I'm reluctant to mess with this behavior without knowing why it
-> works this way; there may be a good reason for it that I'm not aware
-> of.
+> Ignoring the issue of intended use for the moment, if an ethernet driver
+> wanted to advertise several MAC addresses to the system how should it go
+> about that?
 
-To be honest I think it's just that this is one huge dark
-corner of behavior for many virtual devices, rather than
-any of it being intentional.
+Now that's a more interesting question.
+
+It seems better to formalize this.   It can be an ethtool
+callback or whatever, but what it should do is return
+an array of addresses, types, and perhaps even indexes
+with types.
+
+So you could return LAN1, LAN2, LAN3, and SAN1.
