@@ -1,46 +1,44 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] forcedeth: add clock gating feature
-Date: Tue, 28 Apr 2009 10:48:14 +0200
-Message-ID: <200904281048.15663.florian@openwrt.org>
-References: <49F5A5A7.4050609@nvidia.com> <20090427122447.a006a21e.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] smsc911x: add fifo byteswap support V2
+Date: Tue, 28 Apr 2009 01:53:57 -0700 (PDT)
+Message-ID: <20090428.015357.206101535.davem@davemloft.net>
+References: <20090428073216.16015.15940.sendpatchset@rx1.opensource.se>
+	<OFD0C1C563.A8F423C4-ON802575A6.002DDD59-802575A6.002DEC95@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>, manfred@colorfullife.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: magnus.damm@gmail.com, Ian.Saturley@smsc.com, iwamatsu@nigauri.org,
+	lethal@linux-sh.org, netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:55330 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753080AbZD1IsU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:48:20 -0400
-Received: by ewy24 with SMTP id 24so406224ewy.37
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 01:48:18 -0700 (PDT)
-In-Reply-To: <20090427122447.a006a21e.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37594
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752922AbZD1IyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 04:54:04 -0400
+In-Reply-To: <OFD0C1C563.A8F423C4-ON802575A6.002DDD59-802575A6.002DEC95@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Steve.Glendinning@smsc.com
+Date: Tue, 28 Apr 2009 09:21:42 +0100
 
-Le Monday 27 April 2009 21:24:47 Andrew Morton, vous avez =E9crit=A0:
-> On Mon, 27 Apr 2009 08:31:35 -0400
->
-> Ayaz Abdulla <aabdulla@nvidia.com> wrote:
-> > This patch adds support for clock gating the tx/rx engines which is
-> > available on certain chipsets.
->
-> What are the effects of this patch?  Improved power management?  Fixe=
-s
-> a user-visible bug?  Something else?
+> Magnus Damm <magnus.damm@gmail.com> wrote on 28/04/2009 08:32:16:
+> 
+>> From: Magnus Damm <damm@igel.co.jp>
+>> 
+>> This is V2 of the smsc911x fifo byteswap patch.
+>> 
+>> The smsc911x hardware supports both big and little and endian
+>> hardware configurations, and the linux smsc911x driver currently
+>> detects word order.
+>> 
+>> For correct operation on big endian platforms lacking swapped
+>> byte lanes the following patch is needed. Only fifo data is
+>> swapped, register data does not require any swapping. 
+>> 
+>> Signed-off-by: Magnus Damm <damm@igel.co.jp>
+>> ---
+> 
+> Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Clock gating is a design technique which improves power consumption by =
-only=20
-clocking the necessary parts of the chip.
-
-Ayaz do you have any figures on how this patch reduces consumption ?
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+Applied.
