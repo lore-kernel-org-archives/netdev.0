@@ -1,55 +1,39 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Tue, 28 Apr 2009 07:22:59 -0700
-Message-ID: <20090428142258.GA6730@linux.vnet.ibm.com>
-References: <20090427185423.GC23862@elte.hu> <20090427120658.35a858bb@nehalam> <alpine.LFD.2.00.0904271219570.22156@localhost.localdomain> <20090427203616.GB3836@ioremap.net> <alpine.LFD.2.00.0904271340400.22156@localhost.localdomain> <20090427144054.1fb9b7a6@nehalam> <alpine.LFD.2.00.0904271506530.22156@localhost.localdomain> <alpine.LFD.2.00.0904271525120.22156@localhost.localdomain> <alpine.LFD.2.00.0904271619240.22156@localhost.localdomain> <1240904468.7620.70.camel@twins>
-Reply-To: paulmck@linux.vnet.ibm.com
+Date: Tue, 28 Apr 2009 07:37:59 -0700 (PDT)
+Message-ID: <20090428.073759.78537345.davem@davemloft.net>
+References: <20090428124033.GA1655@elte.hu>
+	<20090428.064340.193569214.davem@davemloft.net>
+	<20090428135219.GA28513@Krystal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Ingo Molnar <mingo@elte.hu>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Paul Mackerras <paulus@samba.org>, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, dada1@cosmosbay.com, torvalds@linux-foundation.org,
+	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
+	jarkao2@gmail.com, paulus@samba.org, paulmck@linux.vnet.ibm.com,
+	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
 	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	benh@kernel.crashing.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:41491 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757911AbZD1OXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 10:23:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1240904468.7620.70.camel@twins>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: mathieu.desnoyers@polymtl.ca
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090428135219.GA28513@Krystal>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 28, 2009 at 09:41:08AM +0200, Peter Zijlstra wrote:
-> On Mon, 2009-04-27 at 16:32 -0700, Linus Torvalds wrote:
-> > 
-> > On Mon, 27 Apr 2009, Linus Torvalds wrote:
-> > > 
-> > > I left the commentary about "readers" and "writers", because in many
-> > > ways it's correct, and what the code actually does is very much to
-> > > emulate a reader-writer lock.  I put quotes around the uses in the
-> > > comments to high-light that it largely _acts_ as a reader-writer lock. 
-> > 
-> > Btw, I think it was Paul who pointed out that technically it's probably 
-> > better to call them "local" and "global" lockers instead of "readers" and 
-> > "writers".
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Date: Tue, 28 Apr 2009 09:52:19 -0400
+
+> The local_bh_disable() could be outside of the locking construct. This
+> would make it easier to adapt it to various users (irq disable, bh
+> disable, preempt disable) depending on the contexts from which they much
+> be protected.
 > 
-> exclusive vs non-exclusive is what the literature would call them in
-> most cases I think.
+> And if it still does not work for some reason, using a #define is
+> discouraged, but could work.
 
-I would argue that the non-exclusive category includes both reader-writer
-locking and local-global locking.  That said, we have an unusual variant
-of local-global in this case, as the global processing acquires only one
-of the locks at a time.
+That's what I was hoping to avoid, things like macros and having
+the callers of this thing expand the two parts of the operation.
 
-							Thanx, Paul
+What's the point in making this generic if it ends up being ugly
+as hell?
