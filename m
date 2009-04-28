@@ -1,45 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.29.1: unregister_netdevice problem
-Date: Tue, 28 Apr 2009 22:49:58 +0200
-Message-ID: <49F76BF6.4040709@gmail.com>
-References: <20090422055735.GA4334@night.netis.ru> <20090427054103.GA27529@night.netis.ru> <20090428125755.GA5242@night.netis.ru>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
+Date: Tue, 28 Apr 2009 23:04:44 +0200
+Message-ID: <49F76F6C.80005@cosmosbay.com>
+References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <alpine.DEB.1.10.0904281501300.13862@qirst.com> <49F76174.6060009@cosmosbay.com> <alpine.DEB.1.10.0904281612560.13862@qirst.com> <49F767FD.2040205@cosmosbay.com> <alpine.DEB.1.10.0904281629090.15947@qirst.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Alexander V. Lukyanov" <lav@netis.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f163.google.com ([209.85.218.163]:48659 "EHLO
-	mail-bw0-f163.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbZD1UvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 16:51:22 -0400
-In-Reply-To: <20090428125755.GA5242@night.netis.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux kernel <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
+	davidel@xmailserver.org, Ingo Molnar <mingo@elte.hu>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756480AbZD1VGW@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0904281629090.15947@qirst.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexander V. Lukyanov wrote, On 04/28/2009 02:57 PM:
+Christoph Lameter a =E9crit :
+> On Tue, 28 Apr 2009, Eric Dumazet wrote:
+>=20
+>> The one that did improved your udpping 'bench' :)
+>>
+>> http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dc=
+ommitdiff;h=3Dbf368e4e70cd4e0f880923c44e95a4273d725ab4
+>=20
+> Well yes that is git2p1. The measurements that we took showed not muc=
+h of
+> an effect as you see.
+>=20
 
-> On Mon, Apr 27, 2009 at 09:41:03AM +0400, Alexander V. Lukyanov wrote:
->> On Wed, Apr 22, 2009 at 09:57:35AM +0400, Alexander V. Lukyanov wrote:
->>> unregister_netdevice: waiting for eth0.2 to become free. Usage count = 4
->>>
->>> eth0.2 is a vlan interface, eth0 is 02:00.0 Ethernet controller: Realtek
->>> Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet
->>> controller (rev 01)
->> Ok, now I did manually 'vconfig rem eth0.2' and I get these repeated messages.
->> How do I find out what exactly holds the interface being used?
-> 
-> BTW, it looks like all vlan interfaces (I have many of them) have similar
-> problem, when it happens - every few days:
-> 
-> unregister_netdevice: waiting for eth0.907 to become free. Usage count = 20
-> 
-> and when I run a `vconfig rem', I cannot run another one. It s(t)ucks.
-> 
+It depends of coalescing parameters of NIC.
 
-
-Do you mean if you wait a bit longer (until the first one is really removed)
-before running another one, it doesn't s(t)uck? Is there a change e.g. wrt.
-2.6.28?
-
-Jarek P.
+BNX2 interrupts first handle TX completions, then RX events.
+So If by the
