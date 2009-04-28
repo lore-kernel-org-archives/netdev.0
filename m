@@ -1,41 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: use per-CPU r**ursive lock {XV}
-Date: Tue, 28 Apr 2009 06:43:40 -0700 (PDT)
-Message-ID: <20090428.064340.193569214.davem@davemloft.net>
-References: <49F6A8FD.3010804@cosmosbay.com>
-	<20090428.045342.206106171.davem@davemloft.net>
-	<20090428124033.GA1655@elte.hu>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: inet_diag: Remove dup assignments
+Date: Tue, 28 Apr 2009 10:56:36 -0300
+Message-ID: <20090428135636.GF19908@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, torvalds@linux-foundation.org,
-	shemminger@vyatta.com, zbr@ioremap.net, peterz@infradead.org,
-	mathieu.desnoyers@polymtl.ca, jarkao2@gmail.com, paulus@samba.org,
-	paulmck@linux.vnet.ibm.com, kaber@trash.net,
-	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: mingo@elte.hu
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Networking Development Mailing List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57264
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753544AbZD1Nnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 09:43:46 -0400
-In-Reply-To: <20090428124033.GA1655@elte.hu>
+Received: from mx2.redhat.com ([66.187.237.31]:46917 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751812AbZD1N4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 09:56:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 28 Apr 2009 14:40:33 +0200
+These are later assigned to other values without being used meanwhile.
 
-> IMHO this locking construct should be considered for 
-> linux/local_lock.h and kernel/local_lock.c. Even if the netfilter 
-> code drops its use soon afterwards ;-)
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-If you can show me have to pass a per-cpu variable (the variable,
-not a dereference of it) as an argument to an inline function,
-I'll implement this :-)
-
-It has to be dereferenced after local_bh_disable() for the
-read side acquisition.
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 588a779..b0b2735 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -198,8 +198,6 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
+ 		tmo = 0;
+ 
+ 	r->idiag_family	      = tw->tw_family;
+-	r->idiag_state	      = tw->tw_state;
+-	r->idiag_timer	      = 0;
+ 	r->idiag_retrans      = 0;
+ 	r->id.idiag_if	      = tw->tw_bound_dev_if;
+ 	r->id.idiag_cookie[0] = (u32)(unsigned long)tw;
