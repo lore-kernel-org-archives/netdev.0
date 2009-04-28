@@ -1,129 +1,906 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
-Date: Tue, 28 Apr 2009 11:44:52 -0400
-Message-ID: <49F72474.20506@myri.com>
-References: <20090415.164248.188350673.davem@davemloft.net> <20090416085022.GA19731@gondor.apana.org.au> <49EE1C32.1060202@myri.com> <20090422104811.GA30981@gondor.apana.org.au> <49EF39B4.1040607@myri.com> <20090424054557.GA24575@gondor.apana.org.au> <49F1E5C8.7010303@myri.com> <20090427080501.GA21433@gondor.apana.org.au> <20090428061225.GA1591@gondor.apana.org.au> <49F71A00.5090701@myri.com> <20090428152047.GB7549@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] netfilter: revised locking for x_tables
+Date: Tue, 28 Apr 2009 09:24:11 -0700
+Message-ID: <20090428092411.5331c4a1@nehalam>
+References: <20090428135219.GA28513@Krystal>
+	<20090428.073759.78537345.davem@davemloft.net>
+	<20090428144920.GA28942@Krystal>
+	<20090428.080031.14741305.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, brice@myri.com,
-	sgruszka@redhat.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: mathieu.desnoyers@polymtl.ca, mingo@elte.hu, dada1@cosmosbay.com,
+	torvalds@linux-foundation.org, zbr@ioremap.net,
+	peterz@infradead.org, jarkao2@gmail.com, paulus@samba.org,
+	paulmck@linux.vnet.ibm.com, kaber@trash.net,
+	jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
+	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1951 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760557AbZD1Ppo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 11:45:44 -0400
-In-Reply-To: <20090428152047.GB7549@gondor.apana.org.au>
+Received: from mail.vyatta.com ([76.74.103.46]:38123 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761935AbZD1QYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 12:24:19 -0400
+In-Reply-To: <20090428.080031.14741305.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
- > On Tue, Apr 28, 2009 at 11:00:16AM -0400, Andrew Gallatin wrote:
- >> Its strange, I still consistently see about 1Gb/s better performance
- >> from LRO than GRO on this weak machine (6.5Gb/s LRO, 5.5Gb/s GRO)
- >> when binding everything to the same CPU. Mpstat -P 0 shows roughly
- >> 10% more time spent in "soft" when using GRO vs LRO:
- >
- > Did you check the utilisation of the all the cores on the sender?
+The x_tables are organized with a table structure and a per-cpu copies
+of the counters and rules. On older kernels there was a reader/writer 
+lock per table which was a performance bottleneck. In 2.6.30-rc, this
+was converted to use RCU and the counters/rules which solved the performance
+problems for do_table but made replacing rules much slower because of
+the necessary RCU grace period.
 
-Yes.  It is about the same +/- 2%.  The utilization when sending
-to GRO is a bit lower, but its going slower.
+This version uses a per-cpu set of spinlocks and counters to allow to
+table processing to proceed without the cache thrashing of a global
+reader lock and keeps the same performance for table updates.
 
-Here is what might be more interesting.. I'm trying to isolate the
-softirq path in oprofile.  So in this test, I bound the IRQ to CPU1,
-and the netserver to CPU0.  In these tests, I see near line rate from
-both LRO and GRO.  Here is oprofile output separated by CPU, and
-sorted on CPU1.  (Sorry about binding to CPU1 and making the output
-more confusing; I could not get oprofile to emit samples when the irq
-was bound to CPU0).  I've included the top 20 entries:
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-GRO:
-0              0  1414     15.8485  myri10ge.ko              myri10ge 
-               myri10ge_poll
-0              0  932      10.4461  vmlinux                  vmlinux 
-               inet_gro_receive
-0              0  705       7.9018  vmlinux                  vmlinux 
-               tcp_gro_receive
-0              0  681       7.6328  vmlinux                  vmlinux 
-               skb_gro_receive
-0              0  652       7.3078  vmlinux                  vmlinux 
-               skb_gro_header
-0              0  517       5.7947  vmlinux                  vmlinux 
-               __napi_gro_receive
-0              0  316       3.5418  vmlinux                  vmlinux 
-               dev_gro_receive
-0              0  309       3.4633  myri10ge.ko              myri10ge 
-               myri10ge_alloc_rx_pages
-415       3.1243  251       2.8133  vmlinux                  vmlinux 
-               _raw_spin_lock
-0              0  233       2.6115  vmlinux                  vmlinux 
-               napi_frags_skb
-0              0  178       1.9951  vmlinux                  vmlinux 
-               tcp4_gro_receive
-306       2.3037  152       1.7037  vmlinux                  vmlinux 
-               rb_get_reader_page
-0              0  150       1.6812  vmlinux                  vmlinux 
-               napi_get_frags
-188       1.4153  131       1.4683  vmlinux                  vmlinux 
-               rb_buffer_peek
-195       1.4680  101       1.1320  vmlinux                  vmlinux 
-               ring_buffer_consume
-0              0  96        1.0760  vmlinux                  vmlinux 
-               ip_rcv_finish
-0              0  94        1.0536  vmlinux                  vmlinux 
-               napi_gro_frags
-0              0  92        1.0312  vmlinux                  vmlinux 
-               skb_copy_bits
-0              0  86        0.9639  vmlinux                  vmlinux 
-               napi_frags_finish
-225       1.6939  85        0.9527  oprofile.ko              oprofile 
-               op_cpu_buffer_read_entry
+---
+Probably same as dave/linus but with different comments.
 
-LRO:
-0              0  1937     15.1281  myri10ge.ko              myri10ge 
-               myri10ge_poll
-0              0  1876     14.6517  myri10ge.ko              myri10ge 
-               myri10ge_get_frag_header
-0              0  943       7.3649  vmlinux                  vmlinux 
-               __lro_proc_segment
-0              0  723       5.6467  myri10ge.ko              myri10ge 
-               myri10ge_alloc_rx_pages
-0              0  392       3.0615  vmlinux                  vmlinux 
-               lro_gen_skb
-0              0  369       2.8819  vmlinux                  vmlinux 
-               lro_tcp_ip_check
-353       2.7435  357       2.7882  vmlinux                  vmlinux 
-               _raw_spin_lock
-290       2.2538  328       2.5617  vmlinux                  vmlinux 
-               rb_get_reader_page
-4         0.0311  270       2.1087  vmlinux                  vmlinux 
-               csum_partial
-26        0.2021  214       1.6714  vmlinux                  vmlinux 
-               memset_c
-0              0  202       1.5776  vmlinux                  vmlinux 
-               lro_add_common
-8         0.0622  191       1.4917  vmlinux                  vmlinux 
-               __slab_alloc
-0              0  188       1.4683  vmlinux                  vmlinux 
-               ip_rcv_finish
-84        0.6528  183       1.4292  vmlinux                  vmlinux 
-               _raw_spin_unlock
-0              0  180       1.4058  vmlinux                  vmlinux 
-               lro_tcp_data_csum
-0              0  180       1.4058  vmlinux                  vmlinux 
-               lro_get_desc
-167       1.2979  178       1.3902  vmlinux                  vmlinux 
-               ring_buffer_consume
-0              0  167       1.3043  vmlinux                  vmlinux 
-               netif_receive_skb
-0              0  143       1.1168  vmlinux                  vmlinux 
-               ip_route_input
-0              0  125       0.9763  vmlinux                  vmlinux 
-               __inet_lookup_established
+ include/linux/netfilter/x_tables.h |   73 +++++++++++++++++++--
+ net/ipv4/netfilter/arp_tables.c    |  125 ++++++++++--------------------------
+ net/ipv4/netfilter/ip_tables.c     |  126 ++++++++++---------------------------
+ net/ipv6/netfilter/ip6_tables.c    |  123 ++++++++++--------------------------
+ net/netfilter/x_tables.c           |   53 ++++++++-------
+ 5 files changed, 204 insertions(+), 296 deletions(-)
 
-
-
-Does anything strike you as being inordinately expensive for GRO?
-
-Drew
+--- a/include/linux/netfilter/x_tables.h	2009-04-28 08:01:59.942151297 -0700
++++ b/include/linux/netfilter/x_tables.h	2009-04-28 09:15:09.240990339 -0700
+@@ -354,9 +354,6 @@ struct xt_table
+ 	/* What hooks you will enter on */
+ 	unsigned int valid_hooks;
+ 
+-	/* Lock for the curtain */
+-	struct mutex lock;
+-
+ 	/* Man behind the curtain... */
+ 	struct xt_table_info *private;
+ 
+@@ -434,8 +431,74 @@ extern void xt_proto_fini(struct net *ne
+ 
+ extern struct xt_table_info *xt_alloc_table_info(unsigned int size);
+ extern void xt_free_table_info(struct xt_table_info *info);
+-extern void xt_table_entry_swap_rcu(struct xt_table_info *old,
+-				    struct xt_table_info *new);
++
++/*
++ * Per-CPU spinlock associated with per-cpu table entries, and
++ * with a counter for the "reading" side that allows a recursive
++ * reader to avoid taking the lock and deadlocking.
++ *
++ * "reading" is used by ip/arp/ip6 tables rule processing which runs per-cpu.
++ * It needs to ensure that the rules are not being changed while the packet
++ * is being processed. In some cases, the read lock will be acquired
++ * twice on the same CPU; this is okay because of the count.
++ *
++ * "writing" is used when reading counters.
++ *  During replace any readers that are using the old tables have to complete
++ *  before freeing the old table. This is handled by the write locking
++ *  necessary for reading the counters.
++ */
++struct xt_info_lock {
++	spinlock_t lock;
++	unsigned char readers;
++};
++DECLARE_PER_CPU(struct xt_info_lock, xt_info_locks);
++
++/*
++ * Note: we need to ensure that preemption is disabled before acquiring
++ * the per-cpu-variable, so we do it as a two step process rather than
++ * using "spin_lock_bh()".
++ *
++ * We _also_ need to disable bottom half processing before updating our
++ * nesting count, to make sure that the only kind of re-entrancy is this
++ * code being called by itself: since the count+lock is not an atomic
++ * operation, we can allow no races.
++ *
++ * _Only_ that special combination of being per-cpu and never getting
++ * re-entered asynchronously means that the count is safe.
++ */
++static inline void xt_info_rdlock_bh(void)
++{
++	struct xt_info_lock *lock;
++
++	local_bh_disable();
++	lock = &__get_cpu_var(xt_info_locks);
++	if (!lock->readers++)
++		spin_lock(&lock->lock);
++}
++
++static inline void xt_info_rdunlock_bh(void)
++{
++	struct xt_info_lock *lock = &__get_cpu_var(xt_info_locks);
++
++	if (!--lock->readers)
++		spin_unlock(&lock->lock);
++	local_bh_enable();
++}
++
++/*
++ * The "writer" side needs to get exclusive access to the lock,
++ * regardless of readers.  This must be called with bottom half
++ * processing (and thus also preemption) disabled.
++ */
++static inline void xt_info_wrlock(unsigned int cpu)
++{
++	spin_lock(&per_cpu(xt_info_locks, cpu).lock);
++}
++
++static inline void xt_info_wrunlock(unsigned int cpu)
++{
++	spin_unlock(&per_cpu(xt_info_locks, cpu).lock);
++}
+ 
+ /*
+  * This helper is performance critical and must be inlined
+--- a/net/ipv4/netfilter/arp_tables.c	2009-04-28 08:01:59.925950000 -0700
++++ b/net/ipv4/netfilter/arp_tables.c	2009-04-28 08:02:15.211234592 -0700
+@@ -253,9 +253,9 @@ unsigned int arpt_do_table(struct sk_buf
+ 	indev = in ? in->name : nulldevname;
+ 	outdev = out ? out->name : nulldevname;
+ 
+-	rcu_read_lock_bh();
+-	private = rcu_dereference(table->private);
+-	table_base = rcu_dereference(private->entries[smp_processor_id()]);
++	xt_info_rdlock_bh();
++	private = table->private;
++	table_base = private->entries[smp_processor_id()];
+ 
+ 	e = get_entry(table_base, private->hook_entry[hook]);
+ 	back = get_entry(table_base, private->underflow[hook]);
+@@ -273,6 +273,7 @@ unsigned int arpt_do_table(struct sk_buf
+ 
+ 			hdr_len = sizeof(*arp) + (2 * sizeof(struct in_addr)) +
+ 				(2 * skb->dev->addr_len);
++
+ 			ADD_COUNTER(e->counters, hdr_len, 1);
+ 
+ 			t = arpt_get_target(e);
+@@ -328,8 +329,7 @@ unsigned int arpt_do_table(struct sk_buf
+ 			e = (void *)e + e->next_offset;
+ 		}
+ 	} while (!hotdrop);
+-
+-	rcu_read_unlock_bh();
++	xt_info_rdunlock_bh();
+ 
+ 	if (hotdrop)
+ 		return NF_DROP;
+@@ -711,9 +711,12 @@ static void get_counters(const struct xt
+ 	/* Instead of clearing (by a previous call to memset())
+ 	 * the counters and using adds, we set the counters
+ 	 * with data used by 'current' CPU
+-	 * We dont care about preemption here.
++	 *
++	 * Bottom half has to be disabled to prevent deadlock
++	 * if new softirq were to run and call ipt_do_table
+ 	 */
+-	curcpu = raw_smp_processor_id();
++	local_bh_disable();
++	curcpu = smp_processor_id();
+ 
+ 	i = 0;
+ 	ARPT_ENTRY_ITERATE(t->entries[curcpu],
+@@ -726,73 +729,22 @@ static void get_counters(const struct xt
+ 		if (cpu == curcpu)
+ 			continue;
+ 		i = 0;
++		xt_info_wrlock(cpu);
+ 		ARPT_ENTRY_ITERATE(t->entries[cpu],
+ 				   t->size,
+ 				   add_entry_to_counter,
+ 				   counters,
+ 				   &i);
++		xt_info_wrunlock(cpu);
+ 	}
+-}
+-
+-
+-/* We're lazy, and add to the first CPU; overflow works its fey magic
+- * and everything is OK. */
+-static int
+-add_counter_to_entry(struct arpt_entry *e,
+-		     const struct xt_counters addme[],
+-		     unsigned int *i)
+-{
+-	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
+-
+-	(*i)++;
+-	return 0;
+-}
+-
+-/* Take values from counters and add them back onto the current cpu */
+-static void put_counters(struct xt_table_info *t,
+-			 const struct xt_counters counters[])
+-{
+-	unsigned int i, cpu;
+-
+-	local_bh_disable();
+-	cpu = smp_processor_id();
+-	i = 0;
+-	ARPT_ENTRY_ITERATE(t->entries[cpu],
+-			  t->size,
+-			  add_counter_to_entry,
+-			  counters,
+-			  &i);
+ 	local_bh_enable();
+ }
+ 
+-static inline int
+-zero_entry_counter(struct arpt_entry *e, void *arg)
+-{
+-	e->counters.bcnt = 0;
+-	e->counters.pcnt = 0;
+-	return 0;
+-}
+-
+-static void
+-clone_counters(struct xt_table_info *newinfo, const struct xt_table_info *info)
+-{
+-	unsigned int cpu;
+-	const void *loc_cpu_entry = info->entries[raw_smp_processor_id()];
+-
+-	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+-	for_each_possible_cpu(cpu) {
+-		memcpy(newinfo->entries[cpu], loc_cpu_entry, info->size);
+-		ARPT_ENTRY_ITERATE(newinfo->entries[cpu], newinfo->size,
+-				  zero_entry_counter, NULL);
+-	}
+-}
+-
+ static struct xt_counters *alloc_counters(struct xt_table *table)
+ {
+ 	unsigned int countersize;
+ 	struct xt_counters *counters;
+ 	struct xt_table_info *private = table->private;
+-	struct xt_table_info *info;
+ 
+ 	/* We need atomic snapshot of counters: rest doesn't change
+ 	 * (other than comefrom, which userspace doesn't care
+@@ -802,30 +754,11 @@ static struct xt_counters *alloc_counter
+ 	counters = vmalloc_node(countersize, numa_node_id());
+ 
+ 	if (counters == NULL)
+-		goto nomem;
+-
+-	info = xt_alloc_table_info(private->size);
+-	if (!info)
+-		goto free_counters;
+-
+-	clone_counters(info, private);
++		return ERR_PTR(-ENOMEM);
+ 
+-	mutex_lock(&table->lock);
+-	xt_table_entry_swap_rcu(private, info);
+-	synchronize_net();	/* Wait until smoke has cleared */
+-
+-	get_counters(info, counters);
+-	put_counters(private, counters);
+-	mutex_unlock(&table->lock);
+-
+-	xt_free_table_info(info);
++	get_counters(private, counters);
+ 
+ 	return counters;
+-
+- free_counters:
+-	vfree(counters);
+- nomem:
+-	return ERR_PTR(-ENOMEM);
+ }
+ 
+ static int copy_entries_to_user(unsigned int total_size,
+@@ -1094,8 +1027,9 @@ static int __do_replace(struct net *net,
+ 	    (newinfo->number <= oldinfo->initial_entries))
+ 		module_put(t->me);
+ 
+-	/* Get the old counters. */
++	/* Get the old counters, and synchronize with replace */
+ 	get_counters(oldinfo, counters);
++
+ 	/* Decrease module usage counts and free resource */
+ 	loc_cpu_old_entry = oldinfo->entries[raw_smp_processor_id()];
+ 	ARPT_ENTRY_ITERATE(loc_cpu_old_entry, oldinfo->size, cleanup_entry,
+@@ -1165,10 +1099,23 @@ static int do_replace(struct net *net, v
+ 	return ret;
+ }
+ 
++/* We're lazy, and add to the first CPU; overflow works its fey magic
++ * and everything is OK. */
++static int
++add_counter_to_entry(struct arpt_entry *e,
++		     const struct xt_counters addme[],
++		     unsigned int *i)
++{
++	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
++
++	(*i)++;
++	return 0;
++}
++
+ static int do_add_counters(struct net *net, void __user *user, unsigned int len,
+ 			   int compat)
+ {
+-	unsigned int i;
++	unsigned int i, curcpu;
+ 	struct xt_counters_info tmp;
+ 	struct xt_counters *paddc;
+ 	unsigned int num_counters;
+@@ -1224,26 +1171,26 @@ static int do_add_counters(struct net *n
+ 		goto free;
+ 	}
+ 
+-	mutex_lock(&t->lock);
++	local_bh_disable();
+ 	private = t->private;
+ 	if (private->number != num_counters) {
+ 		ret = -EINVAL;
+ 		goto unlock_up_free;
+ 	}
+ 
+-	preempt_disable();
+ 	i = 0;
+ 	/* Choose the copy that is on our node */
+-	loc_cpu_entry = private->entries[smp_processor_id()];
++	curcpu = smp_processor_id();
++	loc_cpu_entry = private->entries[curcpu];
++	xt_info_wrlock(curcpu);
+ 	ARPT_ENTRY_ITERATE(loc_cpu_entry,
+ 			   private->size,
+ 			   add_counter_to_entry,
+ 			   paddc,
+ 			   &i);
+-	preempt_enable();
++	xt_info_wrunlock(curcpu);
+  unlock_up_free:
+-	mutex_unlock(&t->lock);
+-
++	local_bh_enable();
+ 	xt_table_unlock(t);
+ 	module_put(t->me);
+  free:
+--- a/net/ipv4/netfilter/ip_tables.c	2009-04-28 08:01:59.933149333 -0700
++++ b/net/ipv4/netfilter/ip_tables.c	2009-04-28 08:02:15.221802628 -0700
+@@ -338,10 +338,9 @@ ipt_do_table(struct sk_buff *skb,
+ 	tgpar.hooknum = hook;
+ 
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+-
+-	rcu_read_lock_bh();
+-	private = rcu_dereference(table->private);
+-	table_base = rcu_dereference(private->entries[smp_processor_id()]);
++	xt_info_rdlock_bh();
++	private = table->private;
++	table_base = private->entries[smp_processor_id()];
+ 
+ 	e = get_entry(table_base, private->hook_entry[hook]);
+ 
+@@ -436,8 +435,7 @@ ipt_do_table(struct sk_buff *skb,
+ 			e = (void *)e + e->next_offset;
+ 		}
+ 	} while (!hotdrop);
+-
+-	rcu_read_unlock_bh();
++	xt_info_rdunlock_bh();
+ 
+ #ifdef DEBUG_ALLOW_ALL
+ 	return NF_ACCEPT;
+@@ -896,10 +894,13 @@ get_counters(const struct xt_table_info 
+ 
+ 	/* Instead of clearing (by a previous call to memset())
+ 	 * the counters and using adds, we set the counters
+-	 * with data used by 'current' CPU
+-	 * We dont care about preemption here.
++	 * with data used by 'current' CPU.
++	 *
++	 * Bottom half has to be disabled to prevent deadlock
++	 * if new softirq were to run and call ipt_do_table
+ 	 */
+-	curcpu = raw_smp_processor_id();
++	local_bh_disable();
++	curcpu = smp_processor_id();
+ 
+ 	i = 0;
+ 	IPT_ENTRY_ITERATE(t->entries[curcpu],
+@@ -912,74 +913,22 @@ get_counters(const struct xt_table_info 
+ 		if (cpu == curcpu)
+ 			continue;
+ 		i = 0;
++		xt_info_wrlock(cpu);
+ 		IPT_ENTRY_ITERATE(t->entries[cpu],
+ 				  t->size,
+ 				  add_entry_to_counter,
+ 				  counters,
+ 				  &i);
++		xt_info_wrunlock(cpu);
+ 	}
+-
+-}
+-
+-/* We're lazy, and add to the first CPU; overflow works its fey magic
+- * and everything is OK. */
+-static int
+-add_counter_to_entry(struct ipt_entry *e,
+-		     const struct xt_counters addme[],
+-		     unsigned int *i)
+-{
+-	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
+-
+-	(*i)++;
+-	return 0;
+-}
+-
+-/* Take values from counters and add them back onto the current cpu */
+-static void put_counters(struct xt_table_info *t,
+-			 const struct xt_counters counters[])
+-{
+-	unsigned int i, cpu;
+-
+-	local_bh_disable();
+-	cpu = smp_processor_id();
+-	i = 0;
+-	IPT_ENTRY_ITERATE(t->entries[cpu],
+-			  t->size,
+-			  add_counter_to_entry,
+-			  counters,
+-			  &i);
+ 	local_bh_enable();
+ }
+ 
+-
+-static inline int
+-zero_entry_counter(struct ipt_entry *e, void *arg)
+-{
+-	e->counters.bcnt = 0;
+-	e->counters.pcnt = 0;
+-	return 0;
+-}
+-
+-static void
+-clone_counters(struct xt_table_info *newinfo, const struct xt_table_info *info)
+-{
+-	unsigned int cpu;
+-	const void *loc_cpu_entry = info->entries[raw_smp_processor_id()];
+-
+-	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+-	for_each_possible_cpu(cpu) {
+-		memcpy(newinfo->entries[cpu], loc_cpu_entry, info->size);
+-		IPT_ENTRY_ITERATE(newinfo->entries[cpu], newinfo->size,
+-				  zero_entry_counter, NULL);
+-	}
+-}
+-
+ static struct xt_counters * alloc_counters(struct xt_table *table)
+ {
+ 	unsigned int countersize;
+ 	struct xt_counters *counters;
+ 	struct xt_table_info *private = table->private;
+-	struct xt_table_info *info;
+ 
+ 	/* We need atomic snapshot of counters: rest doesn't change
+ 	   (other than comefrom, which userspace doesn't care
+@@ -988,30 +937,11 @@ static struct xt_counters * alloc_counte
+ 	counters = vmalloc_node(countersize, numa_node_id());
+ 
+ 	if (counters == NULL)
+-		goto nomem;
++		return ERR_PTR(-ENOMEM);
+ 
+-	info = xt_alloc_table_info(private->size);
+-	if (!info)
+-		goto free_counters;
+-
+-	clone_counters(info, private);
+-
+-	mutex_lock(&table->lock);
+-	xt_table_entry_swap_rcu(private, info);
+-	synchronize_net();	/* Wait until smoke has cleared */
+-
+-	get_counters(info, counters);
+-	put_counters(private, counters);
+-	mutex_unlock(&table->lock);
+-
+-	xt_free_table_info(info);
++	get_counters(private, counters);
+ 
+ 	return counters;
+-
+- free_counters:
+-	vfree(counters);
+- nomem:
+-	return ERR_PTR(-ENOMEM);
+ }
+ 
+ static int
+@@ -1306,8 +1236,9 @@ __do_replace(struct net *net, const char
+ 	    (newinfo->number <= oldinfo->initial_entries))
+ 		module_put(t->me);
+ 
+-	/* Get the old counters. */
++	/* Get the old counters, and synchronize with replace */
+ 	get_counters(oldinfo, counters);
++
+ 	/* Decrease module usage counts and free resource */
+ 	loc_cpu_old_entry = oldinfo->entries[raw_smp_processor_id()];
+ 	IPT_ENTRY_ITERATE(loc_cpu_old_entry, oldinfo->size, cleanup_entry,
+@@ -1377,11 +1308,23 @@ do_replace(struct net *net, void __user 
+ 	return ret;
+ }
+ 
++/* We're lazy, and add to the first CPU; overflow works its fey magic
++ * and everything is OK. */
++static int
++add_counter_to_entry(struct ipt_entry *e,
++		     const struct xt_counters addme[],
++		     unsigned int *i)
++{
++	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
++
++	(*i)++;
++	return 0;
++}
+ 
+ static int
+ do_add_counters(struct net *net, void __user *user, unsigned int len, int compat)
+ {
+-	unsigned int i;
++	unsigned int i, curcpu;
+ 	struct xt_counters_info tmp;
+ 	struct xt_counters *paddc;
+ 	unsigned int num_counters;
+@@ -1437,25 +1380,26 @@ do_add_counters(struct net *net, void __
+ 		goto free;
+ 	}
+ 
+-	mutex_lock(&t->lock);
++	local_bh_disable();
+ 	private = t->private;
+ 	if (private->number != num_counters) {
+ 		ret = -EINVAL;
+ 		goto unlock_up_free;
+ 	}
+ 
+-	preempt_disable();
+ 	i = 0;
+ 	/* Choose the copy that is on our node */
+-	loc_cpu_entry = private->entries[raw_smp_processor_id()];
++	curcpu = smp_processor_id();
++	loc_cpu_entry = private->entries[curcpu];
++	xt_info_wrlock(curcpu);
+ 	IPT_ENTRY_ITERATE(loc_cpu_entry,
+ 			  private->size,
+ 			  add_counter_to_entry,
+ 			  paddc,
+ 			  &i);
+-	preempt_enable();
++	xt_info_wrunlock(curcpu);
+  unlock_up_free:
+-	mutex_unlock(&t->lock);
++	local_bh_enable();
+ 	xt_table_unlock(t);
+ 	module_put(t->me);
+  free:
+--- a/net/ipv6/netfilter/ip6_tables.c	2009-04-28 08:01:59.920112241 -0700
++++ b/net/ipv6/netfilter/ip6_tables.c	2009-04-28 08:02:15.239235774 -0700
+@@ -365,9 +365,9 @@ ip6t_do_table(struct sk_buff *skb,
+ 
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+ 
+-	rcu_read_lock_bh();
+-	private = rcu_dereference(table->private);
+-	table_base = rcu_dereference(private->entries[smp_processor_id()]);
++	xt_info_rdlock_bh();
++	private = table->private;
++	table_base = private->entries[smp_processor_id()];
+ 
+ 	e = get_entry(table_base, private->hook_entry[hook]);
+ 
+@@ -466,7 +466,7 @@ ip6t_do_table(struct sk_buff *skb,
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	((struct ip6t_entry *)table_base)->comefrom = NETFILTER_LINK_POISON;
+ #endif
+-	rcu_read_unlock_bh();
++	xt_info_rdunlock_bh();
+ 
+ #ifdef DEBUG_ALLOW_ALL
+ 	return NF_ACCEPT;
+@@ -926,9 +926,12 @@ get_counters(const struct xt_table_info 
+ 	/* Instead of clearing (by a previous call to memset())
+ 	 * the counters and using adds, we set the counters
+ 	 * with data used by 'current' CPU
+-	 * We dont care about preemption here.
++	 *
++	 * Bottom half has to be disabled to prevent deadlock
++	 * if new softirq were to run and call ipt_do_table
+ 	 */
+-	curcpu = raw_smp_processor_id();
++	local_bh_disable();
++	curcpu = smp_processor_id();
+ 
+ 	i = 0;
+ 	IP6T_ENTRY_ITERATE(t->entries[curcpu],
+@@ -941,72 +944,22 @@ get_counters(const struct xt_table_info 
+ 		if (cpu == curcpu)
+ 			continue;
+ 		i = 0;
++		xt_info_wrlock(cpu);
+ 		IP6T_ENTRY_ITERATE(t->entries[cpu],
+ 				  t->size,
+ 				  add_entry_to_counter,
+ 				  counters,
+ 				  &i);
++		xt_info_wrunlock(cpu);
+ 	}
+-}
+-
+-/* We're lazy, and add to the first CPU; overflow works its fey magic
+- * and everything is OK. */
+-static int
+-add_counter_to_entry(struct ip6t_entry *e,
+-		     const struct xt_counters addme[],
+-		     unsigned int *i)
+-{
+-	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
+-
+-	(*i)++;
+-	return 0;
+-}
+-
+-/* Take values from counters and add them back onto the current cpu */
+-static void put_counters(struct xt_table_info *t,
+-			 const struct xt_counters counters[])
+-{
+-	unsigned int i, cpu;
+-
+-	local_bh_disable();
+-	cpu = smp_processor_id();
+-	i = 0;
+-	IP6T_ENTRY_ITERATE(t->entries[cpu],
+-			   t->size,
+-			   add_counter_to_entry,
+-			   counters,
+-			   &i);
+ 	local_bh_enable();
+ }
+ 
+-static inline int
+-zero_entry_counter(struct ip6t_entry *e, void *arg)
+-{
+-	e->counters.bcnt = 0;
+-	e->counters.pcnt = 0;
+-	return 0;
+-}
+-
+-static void
+-clone_counters(struct xt_table_info *newinfo, const struct xt_table_info *info)
+-{
+-	unsigned int cpu;
+-	const void *loc_cpu_entry = info->entries[raw_smp_processor_id()];
+-
+-	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+-	for_each_possible_cpu(cpu) {
+-		memcpy(newinfo->entries[cpu], loc_cpu_entry, info->size);
+-		IP6T_ENTRY_ITERATE(newinfo->entries[cpu], newinfo->size,
+-				   zero_entry_counter, NULL);
+-	}
+-}
+-
+ static struct xt_counters *alloc_counters(struct xt_table *table)
+ {
+ 	unsigned int countersize;
+ 	struct xt_counters *counters;
+ 	struct xt_table_info *private = table->private;
+-	struct xt_table_info *info;
+ 
+ 	/* We need atomic snapshot of counters: rest doesn't change
+ 	   (other than comefrom, which userspace doesn't care
+@@ -1015,30 +968,11 @@ static struct xt_counters *alloc_counter
+ 	counters = vmalloc_node(countersize, numa_node_id());
+ 
+ 	if (counters == NULL)
+-		goto nomem;
+-
+-	info = xt_alloc_table_info(private->size);
+-	if (!info)
+-		goto free_counters;
+-
+-	clone_counters(info, private);
+-
+-	mutex_lock(&table->lock);
+-	xt_table_entry_swap_rcu(private, info);
+-	synchronize_net();	/* Wait until smoke has cleared */
+-
+-	get_counters(info, counters);
+-	put_counters(private, counters);
+-	mutex_unlock(&table->lock);
++		return ERR_PTR(-ENOMEM);
+ 
+-	xt_free_table_info(info);
++	get_counters(private, counters);
+ 
+ 	return counters;
+-
+- free_counters:
+-	vfree(counters);
+- nomem:
+-	return ERR_PTR(-ENOMEM);
+ }
+ 
+ static int
+@@ -1334,8 +1268,9 @@ __do_replace(struct net *net, const char
+ 	    (newinfo->number <= oldinfo->initial_entries))
+ 		module_put(t->me);
+ 
+-	/* Get the old counters. */
++	/* Get the old counters, and synchronize with replace */
+ 	get_counters(oldinfo, counters);
++
+ 	/* Decrease module usage counts and free resource */
+ 	loc_cpu_old_entry = oldinfo->entries[raw_smp_processor_id()];
+ 	IP6T_ENTRY_ITERATE(loc_cpu_old_entry, oldinfo->size, cleanup_entry,
+@@ -1405,11 +1340,24 @@ do_replace(struct net *net, void __user 
+ 	return ret;
+ }
+ 
++/* We're lazy, and add to the first CPU; overflow works its fey magic
++ * and everything is OK. */
++static int
++add_counter_to_entry(struct ip6t_entry *e,
++		     const struct xt_counters addme[],
++		     unsigned int *i)
++{
++	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
++
++	(*i)++;
++	return 0;
++}
++
+ static int
+ do_add_counters(struct net *net, void __user *user, unsigned int len,
+ 		int compat)
+ {
+-	unsigned int i;
++	unsigned int i, curcpu;
+ 	struct xt_counters_info tmp;
+ 	struct xt_counters *paddc;
+ 	unsigned int num_counters;
+@@ -1465,25 +1413,28 @@ do_add_counters(struct net *net, void __
+ 		goto free;
+ 	}
+ 
+-	mutex_lock(&t->lock);
++
++	local_bh_disable();
+ 	private = t->private;
+ 	if (private->number != num_counters) {
+ 		ret = -EINVAL;
+ 		goto unlock_up_free;
+ 	}
+ 
+-	preempt_disable();
+ 	i = 0;
+ 	/* Choose the copy that is on our node */
+-	loc_cpu_entry = private->entries[raw_smp_processor_id()];
++	curcpu = smp_processor_id();
++	xt_info_wrlock(curcpu);
++	loc_cpu_entry = private->entries[curcpu];
+ 	IP6T_ENTRY_ITERATE(loc_cpu_entry,
+ 			  private->size,
+ 			  add_counter_to_entry,
+ 			  paddc,
+ 			  &i);
+-	preempt_enable();
++	xt_info_wrunlock(curcpu);
++
+  unlock_up_free:
+-	mutex_unlock(&t->lock);
++	local_bh_enable();
+ 	xt_table_unlock(t);
+ 	module_put(t->me);
+  free:
+--- a/net/netfilter/x_tables.c	2009-04-28 08:01:59.909139984 -0700
++++ b/net/netfilter/x_tables.c	2009-04-28 09:21:33.947865827 -0700
+@@ -625,20 +625,6 @@ void xt_free_table_info(struct xt_table_
+ }
+ EXPORT_SYMBOL(xt_free_table_info);
+ 
+-void xt_table_entry_swap_rcu(struct xt_table_info *oldinfo,
+-			     struct xt_table_info *newinfo)
+-{
+-	unsigned int cpu;
+-
+-	for_each_possible_cpu(cpu) {
+-		void *p = oldinfo->entries[cpu];
+-		rcu_assign_pointer(oldinfo->entries[cpu], newinfo->entries[cpu]);
+-		newinfo->entries[cpu] = p;
+-	}
+-
+-}
+-EXPORT_SYMBOL_GPL(xt_table_entry_swap_rcu);
+-
+ /* Find table by name, grabs mutex & ref.  Returns ERR_PTR() on error. */
+ struct xt_table *xt_find_table_lock(struct net *net, u_int8_t af,
+ 				    const char *name)
+@@ -676,32 +662,43 @@ void xt_compat_unlock(u_int8_t af)
+ EXPORT_SYMBOL_GPL(xt_compat_unlock);
+ #endif
+ 
++DEFINE_PER_CPU(struct xt_info_lock, xt_info_locks);
++EXPORT_PER_CPU_SYMBOL_GPL(xt_info_locks);
++
++
+ struct xt_table_info *
+ xt_replace_table(struct xt_table *table,
+ 	      unsigned int num_counters,
+ 	      struct xt_table_info *newinfo,
+ 	      int *error)
+ {
+-	struct xt_table_info *oldinfo, *private;
++	struct xt_table_info *private;
+ 
+ 	/* Do the substitution. */
+-	mutex_lock(&table->lock);
++	local_bh_disable();
+ 	private = table->private;
++
+ 	/* Check inside lock: is the old number correct? */
+ 	if (num_counters != private->number) {
+ 		duprintf("num_counters != table->private->number (%u/%u)\n",
+ 			 num_counters, private->number);
+-		mutex_unlock(&table->lock);
++		local_bh_enable();
+ 		*error = -EAGAIN;
+ 		return NULL;
+ 	}
+-	oldinfo = private;
+-	rcu_assign_pointer(table->private, newinfo);
+-	newinfo->initial_entries = oldinfo->initial_entries;
+-	mutex_unlock(&table->lock);
+ 
+-	synchronize_net();
+-	return oldinfo;
++	table->private = newinfo;
++	newinfo->initial_entries = private->initial_entries;
++
++	/*
++	 * Even though table entries have now been swapped, other CPU's
++	 * may still be using the old entries. This is okay, because
++	 * resynchronization happens because of the locking done
++	 * during the get_counters() routine.
++	 */
++	local_bh_enable();
++
++	return private;
+ }
+ EXPORT_SYMBOL_GPL(xt_replace_table);
+ 
+@@ -734,7 +731,6 @@ struct xt_table *xt_register_table(struc
+ 
+ 	/* Simplifies replace_table code. */
+ 	table->private = bootstrap;
+-	mutex_init(&table->lock);
+ 
+ 	if (!xt_replace_table(table, 0, newinfo, &ret))
+ 		goto unlock;
+@@ -1147,7 +1143,14 @@ static struct pernet_operations xt_net_o
+ 
+ static int __init xt_init(void)
+ {
+-	int i, rv;
++	unsigned int i;
++	int rv;
++
++	for_each_possible_cpu(i) {
++		struct xt_info_lock *lock = &per_cpu(xt_info_locks, i);
++		spin_lock_init(&lock->lock);
++		lock->readers = 0;
++	}
+ 
+ 	xt = kmalloc(sizeof(struct xt_af) * NFPROTO_NUMPROTO, GFP_KERNEL);
+ 	if (!xt)
