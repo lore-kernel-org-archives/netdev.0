@@ -1,52 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Driver SFC: Possible bug in LM87 temperature XFP detection code
-Date: Wed, 29 Apr 2009 13:47:40 +0100
-Message-ID: <1241009260.3246.11.camel@achroite>
-References: <1240911369.10689.20.camel@localhost.localdomain>
-	 <1240925799.3200.16.camel@achroite> <1240938258.3200.28.camel@achroite>
-	 <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
+Date: Wed, 29 Apr 2009 15:07:06 +0200
+Message-ID: <20090429130706.GA22449@elte.hu>
+References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <20090429091637.GA29874@elte.hu> <49F81FB9.50504@cosmosbay.com> <20090429102734.GC2373@elte.hu> <49F84833.5000908@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux kernel <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, cl@linux.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:59797 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752492AbZD2Mrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 08:47:45 -0400
-In-Reply-To: <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:44440 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759063AbZD2NHp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2009 09:07:45 -0400
+Content-Disposition: inline
+In-Reply-To: <49F84833.5000908@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-04-29 at 10:52 +0200, Jesper Dangaard Brouer wrote:
-[...]
-> > The "internal" temperature sensor (temp1_input) is in the LM87, which is
-> > placed at the corner of the board away from the bracket and the edge
-> > connector.
-> >
-> > The "external" temperature sensor (temp2_input) is in the SFC4000.
+
+* Eric Dumazet <dada1@cosmosbay.com> wrote:
+
+> > should be inline perhaps?
 > 
-> I though this was read from the XFP.
+> Well, I thought current practice was not using inline for such 
+> trivial functions, as gcc already inlines them anyway.
 
-No.
+ok.
 
-> I was hoping the NIC supported 
-> reading i2c stuff from the XFP.  Does it support that? (Robert Olsson 
-> wanted to play with this stuff)
+how about:
 
-That's connected to the PHY and not the controller.  According to the
-datasheet for the QT2022, you can read out the EEPROM from MDIO
-registers 1.32775-1.33030 (ignoring bits 8-15).  Use the MII ioctl
-interface and set phy_id to 0x441 (the formula is 0x400 | (prtad << 5) |
-devad).
+> > [ I'd still suggest to factor out the guts of do_select() as 
+> >   its nesting is excessive that hurts its reviewability quite a 
+> >   bit - but now your patch does not make the situation any 
+> >   worse. ]
 
-Ben.
+We tend to shop for drive-by cleanups in visibly ugly code whenever 
+someone wants to touch that code. Could go into a separate patch.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+	Ingo
