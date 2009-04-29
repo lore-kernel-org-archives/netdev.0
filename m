@@ -1,76 +1,87 @@
-From: Don Fry <pcnet32@verizon.net>
-Subject: Re: [PATCH net-next-2.6] pcnet32: Remove pointless memory barriers
-Date: Wed, 29 Apr 2009 10:10:57 -0700
-Message-ID: <1241025057.17018.7.camel@localhost.localdomain>
-References: <1240945659.8819.9.camel@Maple>
-	<20090428.221605.71993506.davem@davemloft.net>	<1241012897.7487.12.camel@Maple>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: [PATCH net-next] ixgbe: removing unnecesary
+	assignments
+Date: Wed, 29 Apr 2009 14:15:27 -0300
+Message-ID: <49F88B2F.4000802@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jeff@garzik.org
-To: John Dykstra <john.dykstra1@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173019pub.verizon.net ([206.46.173.19]:35496 "EHLO
-	vms173019pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753204AbZD2RLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 13:11:25 -0400
-Received: from [192.168.1.3] ([173.50.252.109]) by vms173019.mailsrvcs.net
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008; 32bit))
- with ESMTPA id <0KIV00NFFH2A2XIU@vms173019.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 29 Apr 2009 12:10:59 -0500 (CDT)
-In-reply-to: <1241012897.7487.12.camel@Maple>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-My original NAPI implementation did not have the mmiowb() but it was
-added because of some comments from Francois Romeiu (2006-06-29/30).  I
-do not know if they are required or not.  My feeling was/is that they
-are not as the writes are flushed with the unlocking primitives.
-However that is not based on knowledge, just "feeling".
+This patch removes some assignment that are not necessary. Since the ret
+variable is declared as false during its initialization, it makes no sense to
+reassign false to it again.
 
-How would this be tested on all architectures to find out?
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 
-Don
+---
+ drivers/net/ixgbe/ixgbe_main.c |   12 ------------
+ 1 files changed, 0 insertions(+), 12 deletions(-)
 
------Original Message-----
-From: John Dykstra <john.dykstra1@gmail.com>
-To: David Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org, pcnet32@verizon.net, jeff@garzik.org
-Subject: Re: [PATCH net-next-2.6] pcnet32: Remove pointless memory
-barriers
-Date: Wed, 29 Apr 2009 08:48:17 -0500
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 5020f11..c238677 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2775,8 +2775,6 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ 		adapter->num_tx_queues =
+ 		                      adapter->ring_feature[RING_F_DCB].indices;
+ 		ret = true;
+-	} else {
+-		ret = false;
+ 	}
+ 
+ 	return ret;
+@@ -2802,8 +2800,6 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+ 		adapter->num_tx_queues =
+ 		                      adapter->ring_feature[RING_F_RSS].indices;
+ 		ret = true;
+-	} else {
+-		ret = false;
+ 	}
+ 
+ 	return ret;
+@@ -2910,8 +2906,6 @@ static inline bool ixgbe_cache_ring_rss(struct ixgbe_adapter *adapter)
+ 		for (i = 0; i < adapter->num_tx_queues; i++)
+ 			adapter->tx_ring[i].reg_idx = i;
+ 		ret = true;
+-	} else {
+-		ret = false;
+ 	}
+ 
+ 	return ret;
+@@ -2986,14 +2980,8 @@ static inline bool ixgbe_cache_ring_dcb(struct ixgbe_adapter *adapter)
+ 					adapter->rx_ring[i].reg_idx = i << 5;
+ 
+ 				ret = true;
+-			} else {
+-				ret = false;
+ 			}
+-		} else {
+-			ret = false;
+ 		}
+-	} else {
+-		ret = false;
+ 	}
+ 
+ 	return ret;
+-- 
+1.6.0.2
 
-On Tue, 2009-04-28 at 22:16 -0700, David Miller wrote:
-> Any driver where these things are present usually has them
-> there for a reason.  Usually it's because the SGI guys really
-> did run into real problems without them on their huge
-> machines which can reorder PCI MMIO wrt. real memory operations.
 
-Is that relevant when the driver doesn't do any MMIO operations?  All
-pcnet32 register accesses are via PCI I/O space, as implied by the
-commit description.
-
-Descriptors and buffers are, of course, in consistent physical memory.
-This patch doesn't touch the barriers associated with those structures.
-
-> I don't feel good applying this at all, given that I see no
-> evidence that there has been any investigation into how these
-> barriers got there in the first place.
-
-Before sending out this patch, I determined that the MMIO barriers were
-added as part of NAPI support.  I CCed one of the authors of that patch,
-so he could NAK if appropriate.  I've added the other author on this
-reply.
-
-I knew there'd be questions about whether removing these two barriers
-was safe.  Submitting the patch seemed the best way to understand why
-they were needed, if they are.
-
-  --  John
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+------------------------------------------------------------------------------
+Register Now & Save for Velocity, the Web Performance & Operations 
+Conference from O'Reilly Media. Velocity features a full day of 
+expert-led, hands-on workshops and two days of sessions from industry 
+leaders in dedicated Performance & Operations tracks. Use code vel09scf 
+and Save an extra 15% before 5/3. http://p.sf.net/sfu/velocityconf
