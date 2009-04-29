@@ -1,641 +1,639 @@
-From: David VomLehn <dvomlehn@cisco.com>
-Subject: [Patch 1/1][RFC] NETDEV: Find network bugs by validating the
-	sk_buff state
-Date: Tue, 28 Apr 2009 21:05:01 -0700
-Message-ID: <20090429040501.GA32074@cuplxvomd02.corp.sa.net>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH RFC] v2 not-so-expedited "big hammer" RCU grace periods
+Date: Tue, 28 Apr 2009 21:53:10 -0700
+Message-ID: <20090429045310.GA11476@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:40134 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863AbZD2EFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 00:05:03 -0400
-Received: from sj-core-2.cisco.com (sj-core-2.cisco.com [171.71.177.254])
-	by sj-dkim-1.cisco.com (8.12.11/8.12.11) with ESMTP id n3T452p1002111
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2009 21:05:02 -0700
-Received: from cliff.cisco.com (cliff.cisco.com [171.69.11.141])
-	by sj-core-2.cisco.com (8.13.8/8.13.8) with ESMTP id n3T451FZ013385
-	for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 04:05:01 GMT
-Received: from cuplxvomd02.corp.sa.net ([64.101.20.155]) by cliff.cisco.com (8.6.12/8.6.5) with ESMTP id EAA07611 for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 04:05:01 GMT
+Cc: mingo@elte.hu, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It can be very difficult to find the cause of networking driver bugs due to
-doing the wrong thing with an sk_buff, such as freeing or queuing them
-twice. This can lead to varied errors that don't show up until much later and
-cause nasty things like memory corruption.  The delayed effects can make it
-very difficult to locate the cause of the errors. This patch adds code that
-checks the state of sk_buffs at a few critical points, a strategy which is
-lightweight and appears very effective.  It also records and prints information
-that should help track down who did what to the buffer, making it easier to
-determine exactly which code has a problem.
+Third cut of "big hammer" expedited RCU grace periods, this time including
+rcu rather than just rcu_bh.  This uses resched IPIs to force quiescent
+states on other CPUs.  This particular variant uses smp_call_function() to
+invoke set_need_resched() on all CPUs in order to cause this to happen.
+Track the CPUs that have passed through a quiescent state (or gone
+offline) with a cpumask.
 
-This code has low enough overhead to enable on production systems, which
-is how we deploy it. It is a kernel debugging tool, however, and the default
-is to leave it off.
+Does nothing to expedite callbacks already registered with call_rcu() or
+call_rcu_bh(), but there is no need to.  Just maps to synchronize_rcu()
+and a new synchronize_rcu_bh() on preemptable RCU, which has more complex
+grace-period detection -- this can be fixed later.
 
-Though already working, this is still a work in progress and I know of some
-changes I want to make. It has twice found problems within an hour that
-networking device driver developers had been trying to find for days/weeks, so
-it might help someone fighting such problems right now.
+Passes light rcutorture testing.  Grace periods take many milliseconds
+on a variety of machines with a number of different config option
+combinations -- in other words, this implementation just does not cut it.
+Not even close.
 
-Signed-off-by: David VomLehn <dvomlehn@cisco.com>
+I am posting it on the off-chance that I made some stupid mistake that
+someone might spot.  Absent that, I am taking a different approach, namely
+adapting the synchronize_sched() implementation from preemptable RCU.
+Evgeniy might have been suggesting something similar, and Mathieu seemed
+to be thinking along these lines as well.
+
+Shortcomings:
+
+o	Waaaaay too slow!!!  Again, thinking in terms of using
+	preemptable RCU's synchronize_sched() implementation.
+
+o	Does not address preemptable RCU.
+
+Changes since v2:
+
+o	Use reschedule IPIs rather than a softirq.
+
+Changes since v1:
+
+o	Added rcutorture support, and added exports required by
+	rcutorture.
+
+o	Added comment stating that smp_call_function() implies a
+	memory barrier, suggested by Mathieu.
+
+o	Added #include for delay.h.
+
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 ---
- include/linux/skbuff.h |  186 +++++++++++++++++++++++++++++++++++++++++++++++-
- lib/Kconfig.debug      |   12 +++
- net/core/skbuff.c      |  162 ++++++++++++++++++++++++++++++++++++++++--
- 3 files changed, 352 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5fd3891..ea2fd11 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -44,6 +44,15 @@
- #define SKB_MAX_HEAD(X)		(SKB_MAX_ORDER((X), 0))
- #define SKB_MAX_ALLOC		(SKB_MAX_ORDER(0, 2))
+ include/linux/rcupdate.h |    4 
+ kernel/rcuclassic.c      |    1 
+ kernel/rcupdate.c        |  179 +++++++++++++++++++++++++++++++++++++++++
+ kernel/rcutorture.c      |  205 +++++++++++++++++++++++++----------------------
+ kernel/rcutree.c         |    1 
+ 5 files changed, 298 insertions(+), 92 deletions(-)
+
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+index 15fbb3c..b630f14 100644
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -264,10 +264,14 @@ extern void synchronize_rcu(void);
+ extern void rcu_barrier(void);
+ extern void rcu_barrier_bh(void);
+ extern void rcu_barrier_sched(void);
++extern void synchronize_rcu_expedited(void);
++extern void synchronize_rcu_bh_expedited(void);
++extern long rcu_batches_completed_bh_expedited(void);
  
-+/*
-+ * Define the best-guess way to get the address of the caller.
+ /* Internal to kernel */
+ extern void rcu_init(void);
+ extern void rcu_scheduler_starting(void);
+ extern int rcu_needs_cpu(int cpu);
++extern void synchronize_rcu_expedited_qs(int cpu);
+ 
+ #endif /* __LINUX_RCUPDATE_H */
+diff --git a/kernel/rcuclassic.c b/kernel/rcuclassic.c
+index 0f2b0b3..d15bd62 100644
+--- a/kernel/rcuclassic.c
++++ b/kernel/rcuclassic.c
+@@ -87,6 +87,7 @@ void rcu_qsctr_inc(int cpu)
+ {
+ 	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
+ 	rdp->passed_quiesc = 1;
++	synchronize_rcu_expedited_qs(cpu);
+ }
+ 
+ void rcu_bh_qsctr_inc(int cpu)
+diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
+index a967c9f..20fd5da 100644
+--- a/kernel/rcupdate.c
++++ b/kernel/rcupdate.c
+@@ -45,6 +45,7 @@
+ #include <linux/mutex.h>
+ #include <linux/module.h>
+ #include <linux/kernel_stat.h>
++#include <linux/delay.h>
+ 
+ enum rcu_barrier {
+ 	RCU_BARRIER_STD,
+@@ -98,6 +99,30 @@ void synchronize_rcu(void)
+ }
+ EXPORT_SYMBOL_GPL(synchronize_rcu);
+ 
++/**
++ * synchronize_rcu_bh - wait until an rcu_bh grace period has elapsed.
++ *
++ * Control will return to the caller some time after a full rcu_bh grace
++ * period has elapsed, in other words after all currently executing rcu_bh
++ * read-side critical sections have completed.  RCU read-side critical
++ * sections are delimited by rcu_read_lock_bh() and rcu_read_unlock_bh(),
++ * and may be nested.
 + */
-+#ifdef	return_address
-+#define	skb_return_address()	return_address()
++void synchronize_rcu_bh(void)
++{
++	struct rcu_synchronize rcu;
++
++	if (rcu_blocking_is_gp())
++		return;
++
++	init_completion(&rcu.completion);
++	/* Will wake me after RCU finished. */
++	call_rcu_bh(&rcu.head, wakeme_after_rcu);
++	/* Wait for it. */
++	wait_for_completion(&rcu.completion);
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_bh);
++
+ static void rcu_barrier_callback(struct rcu_head *notused)
+ {
+ 	if (atomic_dec_and_test(&rcu_barrier_cpu_count))
+@@ -217,10 +242,164 @@ static int __cpuinit rcu_barrier_cpu_hotplug(struct notifier_block *self,
+ 	return NOTIFY_OK;
+ }
+ 
++static DEFINE_MUTEX(synchronize_rcu_bh_mutex);
++static long synchronize_rcu_bh_completed; /* Expedited-grace-period count. */
++
++long rcu_batches_completed_bh_expedited(void)
++{
++	return synchronize_rcu_bh_completed;
++}
++EXPORT_SYMBOL_GPL(rcu_batches_completed_bh_expedited);
++
++#if !defined(CONFIG_SMP)
++
++void synchronize_rcu_expedited_qs(int cpu)
++{
++}
++
++static void __init synchronize_rcu_expedited_init(void)
++{
++}
++
++void synchronize_rcu_expedited(void)
++{
++	mutex_lock(&synchronize_rcu_bh_mutex);
++	synchronize_rcu_bh_completed++;
++	mutex_unlock(&synchronize_rcu_bh_mutex);
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_expedited);
++
++void synchronize_rcu_bh_expedited(void)
++{
++	synchronize_rcu_expedited();
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_bh_expedited);
++
++#elif defined(CONFIG_PREEMPT_RCU)
++
++static void __init synchronize_rcu_expedited_init(void)
++{
++}
++
++void synchronize_rcu_expedited(void)
++{
++	synchronize_rcu();
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_expedited);
++
++void synchronize_rcu_bh_expedited(void)
++{
++	synchronize_rcu_bh();
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_bh_expedited);
++
 +#else
-+#define skb_return_address()	__builtin_return_address(0)
-+#endif
 +
- /* A. Checksumming of received packets by device.
-  *
-  *	NONE: device failed to checksum this packet.
-@@ -251,6 +260,29 @@ typedef unsigned int sk_buff_data_t;
- typedef unsigned char *sk_buff_data_t;
- #endif
- 
-+/* States for a struct sk_buff */
-+enum skb_check {
-+	SKB_CHECK_INVALID,	/* Zero is a common corruption value, so make
-+				 * an invalid value */
-+	SKB_CHECK_FREE,		/* sk_buff is not allocated */
-+	SKB_CHECK_ALLOCATED,	/* In used, but not queued */
-+	SKB_CHECK_QUEUED,	/* On a queue */
-+};
++static DEFINE_PER_CPU(int, rcu_expedited_need_qs);
++static cpumask_var_t rcu_bh_waiting_map;
 +
-+/*
-+ * Convert an skb_check to the corresponding mask
-+ * @state:	The skb_check value to convert
-+ * Returns the mask
-+ */
-+static inline unsigned skb_check2mask(enum skb_check state)
++void synchronize_rcu_expedited_qs(int cpu)
 +{
-+	return 1u << state;
++	smp_mb();
++	per_cpu(rcu_expedited_need_qs, cpu) = 0;
++	smp_mb();
 +}
 +
-+#define SKB_CHECK_FREE_MASK		skb_check2mask(SKB_CHECK_FREE)
-+#define SKB_CHECK_ALLOCATED_MASK	skb_check2mask(SKB_CHECK_ALLOCATED)
-+#define SKB_CHECK_QUEUED_MASK		skb_check2mask(SKB_CHECK_QUEUED)
-+
- /** 
-  *	struct sk_buff - socket buffer
-  *	@next: Next buffer in list
-@@ -308,6 +340,10 @@ typedef unsigned char *sk_buff_data_t;
-  *		done by skb DMA functions
-  *	@secmark: security marking
-  *	@vlan_tci: vlan tag control information
-+ *	@magic: Magic number for sk_buff, should be SKB_CHECK_MAGIC
-+ *	@check: State for consistency checking
-+ *	@last_alloc: Address of caller who last allocated this sk_buff
-+ *	@last_free: Address of caller who last freed this sk_buff
-  */
- 
- struct sk_buff {
-@@ -398,6 +434,13 @@ struct sk_buff {
- 	sk_buff_data_t		transport_header;
- 	sk_buff_data_t		network_header;
- 	sk_buff_data_t		mac_header;
-+#ifdef	CONFIG_SKB_VALIDATE_STATE
-+#define	SKB_CHECK_MAGIC		0xab1ec0de
-+	__u32			magic;
-+	enum skb_check		check;
-+	void			*last_alloc;
-+	void			*last_free;
-+#endif
- 	/* These elements must be at the end, see alloc_skb() for details.  */
- 	sk_buff_data_t		tail;
- 	sk_buff_data_t		end;
-@@ -423,6 +466,123 @@ extern void skb_dma_unmap(struct device *dev, struct sk_buff *skb,
- 			  enum dma_data_direction dir);
- #endif
- 
-+#ifdef	CONFIG_SKB_VALIDATE_STATE
-+
-+extern void skb_report_invalid(const struct sk_buff *skb);
-+
-+/**
-+* Verify that the state of the sk_buff is as expected
-+* @skb:	Pointer to the &struct sk_buff to validate
-+* @expected:	Mask of valid states
-+*/
-+static inline void skb_check(const struct sk_buff *skb,
-+	 unsigned expected)
++static void __init synchronize_rcu_expedited_init(void)
 +{
-+	if (unlikely(skb->magic != SKB_CHECK_MAGIC ||
-+		(skb_check2mask(skb->check) & expected) == 0))
-+		skb_report_invalid(skb);
++	alloc_bootmem_cpumask_var(&rcu_bh_waiting_map);
 +}
 +
-+/**
-+* Set the validate state of the &struct sk_buff to the given value
-+* @skb:	Pointer to the &struct sk_buff whose state is to be set
-+* @state:	Value to which the state should be set
-+* Note that this requires that the magic number be set before setting the
-+* state.
-+*/
-+static inline void skb_set_check(struct sk_buff *skb,
-+	enum skb_check state)
++static void rcu_set_need_resched(void *unused)
 +{
-+	if (unlikely(skb->magic != SKB_CHECK_MAGIC))
-+		skb_report_invalid(skb);
-+	skb->check = state;
++	set_need_resched();
 +}
 +
-+/**
-+* Validate the current sk_buff state and set to a new value
-+* @skb:	Pointer to the &sk_buff whose state is to be validated and set
-+* @expected:	Expected state of the &sk_buff
-+* @new:	New status of the &sk_buff
-+*/
-+static inline void skb_check_and_set(struct sk_buff *skb,
-+	unsigned expected, enum skb_check new)
++void synchronize_rcu_expedited(void)
 +{
-+	skb_check(skb, expected);
-+	skb_set_check(skb, new);
-+}
++	int cpu;
++	int done;
++	int times = 0;
 +
-+/**
-+* Set the last_free element of the sk_buff
-+* @skb:	Pointer to the &sk_buff whose last_free element is to be set
-+* @last_free:	Address in the function that wanted to free the &sk_buff
-+*/
-+static inline void skb_set_last_free(struct sk_buff *skb, void *last_free)
-+{
-+	skb->last_free = last_free;
-+}
++	mutex_lock(&synchronize_rcu_bh_mutex);
 +
-+/**
-+* Set the last_alloc element of the sk_buff
-+* @skb:	Pointer to the &sk_buff whose last_alloc element is to be set
-+* @last_alloc:	Address in the function that wanted to allocate an &sk_buff
-+*/
-+static inline void skb_set_last_alloc(struct sk_buff *skb, void *last_alloc)
-+{
-+	skb->last_alloc = last_alloc;
-+}
-+
-+/**
-+* Sets sk_buff up for state validation
-+* @skb:	Pointer to the &sk_buff to be set
-+*/
-+static inline void skb_check_setup(struct sk_buff *skb)
-+{
-+	skb->magic = SKB_CHECK_MAGIC;
-+	skb_set_check(skb, SKB_CHECK_ALLOCATED);
-+}
-+
-+/**
-+* Cleans state validation when the sk_buff is to be freed
-+* @skb:	Poitner to the &sk_buff being freed
-+*/
-+static inline void skb_check_done(struct sk_buff *skb)
-+{
-+	skb_set_check(skb, SKB_CHECK_FREE);
-+	skb->magic = 0;
-+}
-+#else
-+static inline void skb_check(const struct sk_buff *skb,
-+	unsigned expected)
-+{
-+}
-+
-+static inline void skb_set_check(struct sk_buff *skb,
-+	enum skb_check state)
-+{
-+}
-+
-+static inline void skb_check_and_set(struct sk_buff *skb,
-+	unsigned expected, enum skb_check new)
-+{
-+}
-+
-+static inline void skb_set_last_free(struct sk_buff *skb, void *last_free)
-+{
-+}
-+
-+static inline void skb_set_last_alloc(struct sk_buff *skb, void *last_alloc)
-+{
-+}
-+
-+static inline void skb_check_setup(struct sk_buff *skb)
-+{
-+}
-+
-+static inline void skb_check_done(struct sk_buff *skb)
-+{
-+}
-+#endif
-+
- extern void kfree_skb(struct sk_buff *skb);
- extern void consume_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
-@@ -431,13 +591,27 @@ extern struct sk_buff *__alloc_skb(unsigned int size,
- static inline struct sk_buff *alloc_skb(unsigned int size,
- 					gfp_t priority)
- {
--	return __alloc_skb(size, priority, 0, -1);
-+	struct sk_buff *res;
-+
-+	res = __alloc_skb(size, priority, 0, -1);
-+
-+	if (res)
-+		skb_set_last_alloc(res, skb_return_address());
-+
-+	return res;
- }
- 
- static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 					       gfp_t priority)
- {
--	return __alloc_skb(size, priority, 1, -1);
-+	struct sk_buff *res;
-+
-+	res = __alloc_skb(size, priority, 1, -1);
-+
-+	if (res)
-+		skb_set_last_alloc(res, skb_return_address());
-+
-+	return res;
- }
- 
- extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
-@@ -748,6 +922,8 @@ static inline struct sk_buff *skb_peek(struct sk_buff_head *list_)
- 	struct sk_buff *list = ((struct sk_buff *)list_)->next;
- 	if (list == (struct sk_buff *)list_)
- 		list = NULL;
-+	else
-+		skb_check(list, SKB_CHECK_QUEUED_MASK);
- 	return list;
- }
- 
-@@ -769,6 +945,8 @@ static inline struct sk_buff *skb_peek_tail(struct sk_buff_head *list_)
- 	struct sk_buff *list = ((struct sk_buff *)list_)->prev;
- 	if (list == (struct sk_buff *)list_)
- 		list = NULL;
-+	else
-+		skb_check(list, SKB_CHECK_QUEUED_MASK);
- 	return list;
- }
- 
-@@ -831,6 +1009,8 @@ static inline void __skb_insert(struct sk_buff *newsk,
- 				struct sk_buff *prev, struct sk_buff *next,
- 				struct sk_buff_head *list)
- {
-+	skb_check_and_set(newsk, SKB_CHECK_ALLOCATED_MASK,
-+		SKB_CHECK_QUEUED);
- 	newsk->next = next;
- 	newsk->prev = prev;
- 	next->prev  = prev->next = newsk;
-@@ -985,6 +1165,8 @@ static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
- {
- 	struct sk_buff *next, *prev;
- 
-+	skb_check_and_set(skb, SKB_CHECK_QUEUED_MASK,
-+		SKB_CHECK_ALLOCATED);
- 	list->qlen--;
- 	next	   = skb->next;
- 	prev	   = skb->prev;
-diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index c6e854f..cffc74a 100644
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -298,6 +298,18 @@ config DEBUG_OBJECTS_ENABLE_DEFAULT
-         help
-           Debug objects boot parameter default value
- 
-+config SKB_VALIDATE_STATE
-+	bool "Validate state of networking buffers (struct sk_buff)"
-+	depends on DEBUG_KERNEL && NET
-+	default n
-+	help
-+	  Simple and quick checks to validate that sk_buffs are in the right
-+	  state. Intended to catch errors, including, but not limited to,
-+	  the following:
-+	  - Double-freeing sk_buffs
-+	  - Freeing sk_buffs that are still on a queue
-+	  - Queuing sk_buffs that aren't allocated or that are already queued
-+
- config DEBUG_SLAB
- 	bool "Debug slab memory allocations"
- 	depends on DEBUG_KERNEL && SLAB
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ce6356c..28d4d99 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -56,6 +56,7 @@
- #include <linux/init.h>
- #include <linux/scatterlist.h>
- #include <linux/errqueue.h>
-+#include <linux/kallsyms.h>
- 
- #include <net/protocol.h>
- #include <net/dst.h>
-@@ -223,6 +224,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 		child->fclone = SKB_FCLONE_UNAVAILABLE;
- 	}
- out:
-+	skb_check_setup(skb);
- 	return skb;
- nodata:
- 	kmem_cache_free(cache, skb);
-@@ -252,6 +254,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 
- 	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
- 	if (likely(skb)) {
-+		skb_set_last_alloc(skb, skb_return_address());
- 		skb_reserve(skb, NET_SKB_PAD);
- 		skb->dev = dev;
- 	}
-@@ -353,6 +356,9 @@ static void kfree_skbmem(struct sk_buff *skb)
- 	struct sk_buff *other;
- 	atomic_t *fclone_ref;
- 
-+	skb_check(skb, SKB_CHECK_ALLOCATED_MASK);
-+	skb_check_done(skb);
-+
- 	switch (skb->fclone) {
- 	case SKB_FCLONE_UNAVAILABLE:
- 		kmem_cache_free(skbuff_head_cache, skb);
-@@ -412,19 +418,34 @@ static void skb_release_all(struct sk_buff *skb)
- 	skb_release_data(skb);
- }
- 
-+/*
-+ *	__kfree_skb_nomark - very private function
-+ *	@skb: buffer
-+ *	Free an sk_buff. Release anything attached to the buffer.
-+ *	Clean the state. This is an internal helper function. Users should
-+ *	always call kfree_skb, but they don't. Instead, lots of them call
-+ *	__kfree_skb, so this is a static function that they *can't* call.
-+ */
-+static void kfree_skb_markfree(struct sk_buff *skb, void *last_free)
-+{
-+	skb_release_all(skb);
-+	kfree_skbmem(skb);
-+	skb_set_last_free(skb, last_free);
-+}
-+
- /**
-  *	__kfree_skb - private function
-  *	@skb: buffer
-  *
-  *	Free an sk_buff. Release anything attached to the buffer.
-  *	Clean the state. This is an internal helper function. Users should
-- *	always call kfree_skb
-+ *	always call kfree_skb, but they don't. So this calls a static
-+ *	function that they can't call.
-  */
- 
- void __kfree_skb(struct sk_buff *skb)
- {
--	skb_release_all(skb);
--	kfree_skbmem(skb);
-+	kfree_skb_markfree(skb, skb_return_address());
- }
- EXPORT_SYMBOL(__kfree_skb);
- 
-@@ -464,7 +485,7 @@ void consume_skb(struct sk_buff *skb)
- 		smp_rmb();
- 	else if (likely(!atomic_dec_and_test(&skb->users)))
- 		return;
--	__kfree_skb(skb);
-+	kfree_skb_markfree(skb, skb_return_address());
- }
- EXPORT_SYMBOL(consume_skb);
- 
-@@ -494,6 +515,7 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	if (skb_shared(skb) || skb_cloned(skb))
- 		return 0;
- 
-+	skb_check(skb, SKB_CHECK_ALLOCATED_MASK);
- 	skb_release_head_state(skb);
- 	shinfo = skb_shinfo(skb);
- 	atomic_set(&shinfo->dataref, 1);
-@@ -507,6 +529,7 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	skb->data = skb->head + NET_SKB_PAD;
- 	skb_reset_tail_pointer(skb);
-+	skb_check_setup(skb);
- 
- 	return 1;
- }
-@@ -514,6 +537,9 @@ EXPORT_SYMBOL(skb_recycle_check);
- 
- static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- {
-+	skb_check(old, SKB_CHECK_ALLOCATED_MASK | SKB_CHECK_QUEUED_MASK);
-+	skb_check_setup(new);
-+
- 	new->tstamp		= old->tstamp;
- 	new->dev		= old->dev;
- 	new->transport_header	= old->transport_header;
-@@ -684,6 +710,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
- 	 *	Allocate the copy buffer
- 	 */
- 	struct sk_buff *n;
-+
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- 	n = alloc_skb(skb->end + skb->data_len, gfp_mask);
- #else
-@@ -724,6 +751,7 @@ struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
- 	 *	Allocate the copy buffer
- 	 */
- 	struct sk_buff *n;
-+
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- 	n = alloc_skb(skb->end, gfp_mask);
- #else
-@@ -785,6 +813,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- {
- 	int i;
- 	u8 *data;
-+
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- 	int size = nhead + skb->end + ntail;
- #else
-@@ -797,6 +826,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	if (skb_shared(skb))
- 		BUG();
- 
-+	skb_check(skb, SKB_CHECK_ALLOCATED_MASK | SKB_CHECK_QUEUED_MASK);
- 	size = SKB_DATA_ALIGN(size);
- 
- 	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
-@@ -1283,6 +1313,8 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len)
- 	int i, copy;
- 	int start = skb_headlen(skb);
- 
-+	skb_check(skb, SKB_CHECK_ALLOCATED_MASK | SKB_CHECK_QUEUED_MASK);
-+
- 	if (offset > (int)skb->len - len)
- 		goto fault;
- 
-@@ -1590,6 +1622,8 @@ int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len)
- 	int i, copy;
- 	int start = skb_headlen(skb);
- 
-+	skb_check(skb, SKB_CHECK_ALLOCATED_MASK | SKB_CHECK_QUEUED_MASK);
-+
- 	if (offset > (int)skb->len - len)
- 		goto fault;
- 
-@@ -2753,19 +2787,35 @@ done:
- }
- EXPORT_SYMBOL_GPL(skb_gro_receive);
- 
-+#ifdef	CONFIG_SKB_VALIDATE_STATE
-+/*
-+ * Initialize an sk_buff for state validation
-+ * @c:	Pointer to the associated kmem_cache structure
-+ * @p:	Pointer to the particular object in the cache to be initialized
-+ */
-+static void skbuff_kmem_cache_ctor(void *p)
-+{
-+	struct sk_buff *skb = p;
-+	skb->last_alloc = NULL;
-+	skb->last_free = NULL;
-+}
-+#else
-+#define	skbuff_kmem_cache_ctor	NULL
-+#endif
-+
- void __init skb_init(void)
- {
- 	skbuff_head_cache = kmem_cache_create("skbuff_head_cache",
- 					      sizeof(struct sk_buff),
- 					      0,
- 					      SLAB_HWCACHE_ALIGN|SLAB_PANIC,
--					      NULL);
-+					      skbuff_kmem_cache_ctor);
- 	skbuff_fclone_cache = kmem_cache_create("skbuff_fclone_cache",
- 						(2*sizeof(struct sk_buff)) +
- 						sizeof(atomic_t),
- 						0,
- 						SLAB_HWCACHE_ALIGN|SLAB_PANIC,
--						NULL);
-+						skbuff_kmem_cache_ctor);
- }
- 
- /**
-@@ -3035,3 +3085,103 @@ void __skb_warn_lro_forwarding(const struct sk_buff *skb)
- 			   " while LRO is enabled\n", skb->dev->name);
- }
- EXPORT_SYMBOL(__skb_warn_lro_forwarding);
-+
-+#ifdef	CONFIG_SKB_VALIDATE_STATE
-+static const char *skb_check_names[] = {
-+	[SKB_CHECK_INVALID] =	"Invalid",
-+	[SKB_CHECK_FREE] =	"Free",
-+	[SKB_CHECK_ALLOCATED] =	"Allocated",
-+	[SKB_CHECK_QUEUED] =	"Queued",
-+};
-+
-+/*
-+* Returns a string corresponding to the current sk_buff check state.
-+* @state:	State whose name is to be determined
-+* Returns a pointer to the corresponding string. If the state isn't
-+* valid, it will return a pointer to a string indicating an invalid
-+* state.
-+*/
-+static const char *skb_check_name(enum skb_check state)
-+{
-+	const char	*result;
-+
-+	if (state >= ARRAY_SIZE(skb_check_names))
-+		result = skb_check_names[SKB_CHECK_INVALID];
-+
-+	else {
-+		result = skb_check_names[state];
-+
-+		if (!result)
-+			result = skb_check_names[SKB_CHECK_INVALID];
-+	}
-+
-+	return result;
-+}
-+
-+/*
-+* Reports an invalid state
-+* @skb:	Pointer to the &struct sk_buff with an invalid state
-+*/
-+void skb_report_invalid(const struct sk_buff *skb)
-+{
-+#define	INDENT "     "
-+	unsigned	nbytes;
-+	enum skb_check	actual = skb->check;
-+
-+	pr_err("Invalid sk_buff at 0x%p: magic 0x%x state %d (%s)\n",
-+		skb, skb->magic, actual, skb_check_name(actual));
-+
-+	/* Print the last allocation and free. Two issues to be aware of:
-+	 * o	We use may have used __builtin_return_address to get the
-+	 *	caller's address, which might be not quite right due to things
-+	 *	like function inlining. For example, it may be the caller of
-+	 *	the caller to the sk_buff allocation or free function. You
-+	 *	may have to use some judgement to figure out where things were
-+	 *	actually called.
-+	 * o	If this sk_buff has never been freed, the value could be
-+	 *	anything at all. This is the price we pay for not initializing
-+	 *	sk_buffs as they are allocated by the sl*b allocator, but the
-+	 *	return we get is much better performance than if we turned on
-+	 *	the sl*b debugger.  */
-+	pr_err(INDENT "last allocation: ");
-+	print_ip_sym((unsigned long) skb->last_alloc);
-+	pr_err(INDENT "last free: ");
-+	print_ip_sym((unsigned long) skb->last_free);
-+
-+	/* If we seem to be in reasonable shape, try to dump a bit of the
-+	 * buffer so that we have more debugging information. Note that we
-+	 * only try this if the state of the buffer indicates that we should
-+	 * be able to trust the sk_buff buffer pointers */
-+	switch (skb->check) {
-+	case SKB_CHECK_ALLOCATED:
-+	case SKB_CHECK_QUEUED:
-+		/* Only try to do the dump if we don't have fragments because
-+		 * the system might be in too bad a shape to do the mapping
-+		 * into the kernel virtual address space. */
-+		if (skb_is_nonlinear(skb))
-+			pr_err("sk_buff is non-linear; skipping print\n");
-+
-+		else {
-+			nbytes = min(96u, (size_t) (skb->end - skb->head));
-+			pr_err("sk_buff contents (data offset from head: 0x%x "
-+				"bytes)\n", skb->data - skb->head);
-+			print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1,
-+				skb->head, nbytes, 0);
-+		}
-+		break;
-+	default:
-+		pr_err("sk_buff is neither allocated nor queued; "
-+			"skipping print\n");
-+		break;
-+	}
++	/* Take snapshot of online CPUs, blocking CPU hotplug. */
++	preempt_disable();
++	cpumask_copy(rcu_bh_waiting_map, &cpu_online_map);
++	cpumask_clear_cpu(smp_processor_id(), rcu_bh_waiting_map);
++	preempt_enable();
 +
 +	/*
-+	 * There is a good chance that the system is compromised when this is
-+	 * called, but it is possible the problem is limited to a single
-+	 * driver and may not recur very frequently. Since we are dealing with
-+	 * networking code, minor errors may be corrected, so we don't panic.
++	 * Mark each online CPU as needing a quiescent state and make
++	 * each do a set_need_resched().
 +	 */
-+	BUG();
-+#undef INDENT
++	smp_mb(); /* Ensure prior changes seen before setting flag below. */
++	for_each_cpu(cpu, rcu_bh_waiting_map) {
++		preempt_disable();
++		per_cpu(rcu_expedited_need_qs, cpu) = 1;
++		preempt_enable();
++	}
++	smp_call_function(rcu_set_need_resched, NULL, 1);
++	udelay(10); /* let IPIs actually get to their destinations. */
++
++	/*
++	 * Loop waiting for each CPU to either pass through a quiescent
++	 * state or to go offline.  We don't care which.
++	 */
++	for (;;) {
++		
++		/* Ignore CPUs that are now offline, w/CPU hotplug blocked. */
++		preempt_disable();
++		cpumask_and(rcu_bh_waiting_map, rcu_bh_waiting_map,
++			    &cpu_online_map);
++		cpumask_clear_cpu(smp_processor_id(), rcu_bh_waiting_map);
++		preempt_enable();
++
++		/* Check if any CPUs still need a quiescent state. */
++		done = 1;
++		for_each_cpu(cpu, rcu_bh_waiting_map) {
++			preempt_disable();
++			if (!cpumask_test_cpu(cpu, &cpu_online_map) ||
++			    !per_cpu(rcu_expedited_need_qs, cpu))
++				cpumask_clear_cpu(cpu, rcu_bh_waiting_map);
++			else {
++				done = 0;
++				smp_send_reschedule(cpu);
++			}
++			preempt_enable();
++		}
++		if (done)
++			break;
++
++		/*
++		 * Wait a bit.  If we have already waited a fair
++		 * amount of time, sleep.
++		 */
++		if (++times < 10)
++			udelay(10 * times);
++		else
++			schedule_timeout_uninterruptible(1);
++		/* FIXME: need to complain about holdout CPUs if too long. */
++	}
++
++	synchronize_rcu_bh_completed++;
++	mutex_unlock(&synchronize_rcu_bh_mutex);
 +}
-+#endif
++EXPORT_SYMBOL_GPL(synchronize_rcu_expedited);
++
++void synchronize_rcu_bh_expedited(void)
++{
++	synchronize_rcu_expedited();
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_bh_expedited);
++
++#endif /* #else #ifndef CONFIG_SMP */
++
+ void __init rcu_init(void)
+ {
+ 	__rcu_init();
+ 	hotcpu_notifier(rcu_barrier_cpu_hotplug, 0);
++	synchronize_rcu_expedited_init();
+ }
+ 
+ void rcu_scheduler_starting(void)
+diff --git a/kernel/rcutorture.c b/kernel/rcutorture.c
+index 9b4a975..8845936 100644
+--- a/kernel/rcutorture.c
++++ b/kernel/rcutorture.c
+@@ -257,14 +257,14 @@ struct rcu_torture_ops {
+ 	void (*init)(void);
+ 	void (*cleanup)(void);
+ 	int (*readlock)(void);
+-	void (*readdelay)(struct rcu_random_state *rrsp);
++	void (*read_delay)(struct rcu_random_state *rrsp);
+ 	void (*readunlock)(int idx);
+ 	int (*completed)(void);
+-	void (*deferredfree)(struct rcu_torture *p);
++	void (*deferred_free)(struct rcu_torture *p);
+ 	void (*sync)(void);
+ 	void (*cb_barrier)(void);
+ 	int (*stats)(char *page);
+-	int irqcapable;
++	int irq_capable;
+ 	char *name;
+ };
+ static struct rcu_torture_ops *cur_ops = NULL;
+@@ -320,7 +320,7 @@ rcu_torture_cb(struct rcu_head *p)
+ 		rp->rtort_mbtest = 0;
+ 		rcu_torture_free(rp);
+ 	} else
+-		cur_ops->deferredfree(rp);
++		cur_ops->deferred_free(rp);
+ }
+ 
+ static void rcu_torture_deferred_free(struct rcu_torture *p)
+@@ -329,18 +329,18 @@ static void rcu_torture_deferred_free(struct rcu_torture *p)
+ }
+ 
+ static struct rcu_torture_ops rcu_ops = {
+-	.init = NULL,
+-	.cleanup = NULL,
+-	.readlock = rcu_torture_read_lock,
+-	.readdelay = rcu_read_delay,
+-	.readunlock = rcu_torture_read_unlock,
+-	.completed = rcu_torture_completed,
+-	.deferredfree = rcu_torture_deferred_free,
+-	.sync = synchronize_rcu,
+-	.cb_barrier = rcu_barrier,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu"
++	.init		= NULL,
++	.cleanup	= NULL,
++	.readlock	= rcu_torture_read_lock,
++	.read_delay	= rcu_read_delay,
++	.readunlock	= rcu_torture_read_unlock,
++	.completed	= rcu_torture_completed,
++	.deferred_free	= rcu_torture_deferred_free,
++	.sync		= synchronize_rcu,
++	.cb_barrier	= rcu_barrier,
++	.stats		= NULL,
++	.irq_capable 	= 1,
++	.name 		= "rcu"
+ };
+ 
+ static void rcu_sync_torture_deferred_free(struct rcu_torture *p)
+@@ -370,18 +370,18 @@ static void rcu_sync_torture_init(void)
+ }
+ 
+ static struct rcu_torture_ops rcu_sync_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = rcu_torture_read_lock,
+-	.readdelay = rcu_read_delay,
+-	.readunlock = rcu_torture_read_unlock,
+-	.completed = rcu_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = synchronize_rcu,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_torture_read_lock,
++	.read_delay	= rcu_read_delay,
++	.readunlock	= rcu_torture_read_unlock,
++	.completed	= rcu_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= synchronize_rcu,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_sync"
+ };
+ 
+ /*
+@@ -432,33 +432,53 @@ static void rcu_bh_torture_synchronize(void)
+ }
+ 
+ static struct rcu_torture_ops rcu_bh_ops = {
+-	.init = NULL,
+-	.cleanup = NULL,
+-	.readlock = rcu_bh_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = rcu_bh_torture_read_unlock,
+-	.completed = rcu_bh_torture_completed,
+-	.deferredfree = rcu_bh_torture_deferred_free,
+-	.sync = rcu_bh_torture_synchronize,
+-	.cb_barrier = rcu_barrier_bh,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_bh"
++	.init		= NULL,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_torture_completed,
++	.deferred_free	= rcu_bh_torture_deferred_free,
++	.sync		= rcu_bh_torture_synchronize,
++	.cb_barrier	= rcu_barrier_bh,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh"
+ };
+ 
+ static struct rcu_torture_ops rcu_bh_sync_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = rcu_bh_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = rcu_bh_torture_read_unlock,
+-	.completed = rcu_bh_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = rcu_bh_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_bh_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= rcu_bh_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh_sync"
++};
++
++static int rcu_bh_expedited_torture_completed(void)
++{
++	return rcu_batches_completed_bh_expedited();
++}
++
++static struct rcu_torture_ops rcu_bh_expedited_ops = {
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_expedited_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= synchronize_rcu_bh_expedited,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh_expedited"
+ };
+ 
+ /*
+@@ -530,17 +550,17 @@ static int srcu_torture_stats(char *page)
+ }
+ 
+ static struct rcu_torture_ops srcu_ops = {
+-	.init = srcu_torture_init,
+-	.cleanup = srcu_torture_cleanup,
+-	.readlock = srcu_torture_read_lock,
+-	.readdelay = srcu_read_delay,
+-	.readunlock = srcu_torture_read_unlock,
+-	.completed = srcu_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = srcu_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = srcu_torture_stats,
+-	.name = "srcu"
++	.init		= srcu_torture_init,
++	.cleanup	= srcu_torture_cleanup,
++	.readlock	= srcu_torture_read_lock,
++	.read_delay	= srcu_read_delay,
++	.readunlock	= srcu_torture_read_unlock,
++	.completed	= srcu_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= srcu_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= srcu_torture_stats,
++	.name		= "srcu"
+ };
+ 
+ /*
+@@ -574,32 +594,32 @@ static void sched_torture_synchronize(void)
+ }
+ 
+ static struct rcu_torture_ops sched_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = sched_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = sched_torture_read_unlock,
+-	.completed = sched_torture_completed,
+-	.deferredfree = rcu_sched_torture_deferred_free,
+-	.sync = sched_torture_synchronize,
+-	.cb_barrier = rcu_barrier_sched,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "sched"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sched_torture_deferred_free,
++	.sync		= sched_torture_synchronize,
++	.cb_barrier	= rcu_barrier_sched,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "sched"
+ };
+ 
+ static struct rcu_torture_ops sched_ops_sync = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = sched_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = sched_torture_read_unlock,
+-	.completed = sched_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = sched_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.name = "sched_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= sched_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.name		= "sched_sync"
+ };
+ 
+ /*
+@@ -635,7 +655,7 @@ rcu_torture_writer(void *arg)
+ 				i = RCU_TORTURE_PIPE_LEN;
+ 			atomic_inc(&rcu_torture_wcount[i]);
+ 			old_rp->rtort_pipe_count++;
+-			cur_ops->deferredfree(old_rp);
++			cur_ops->deferred_free(old_rp);
+ 		}
+ 		rcu_torture_current_version++;
+ 		oldbatch = cur_ops->completed();
+@@ -700,7 +720,7 @@ static void rcu_torture_timer(unsigned long unused)
+ 	if (p->rtort_mbtest == 0)
+ 		atomic_inc(&n_rcu_torture_mberror);
+ 	spin_lock(&rand_lock);
+-	cur_ops->readdelay(&rand);
++	cur_ops->read_delay(&rand);
+ 	n_rcu_torture_timers++;
+ 	spin_unlock(&rand_lock);
+ 	preempt_disable();
+@@ -738,11 +758,11 @@ rcu_torture_reader(void *arg)
+ 
+ 	VERBOSE_PRINTK_STRING("rcu_torture_reader task started");
+ 	set_user_nice(current, 19);
+-	if (irqreader && cur_ops->irqcapable)
++	if (irqreader && cur_ops->irq_capable)
+ 		setup_timer_on_stack(&t, rcu_torture_timer, 0);
+ 
+ 	do {
+-		if (irqreader && cur_ops->irqcapable) {
++		if (irqreader && cur_ops->irq_capable) {
+ 			if (!timer_pending(&t))
+ 				mod_timer(&t, 1);
+ 		}
+@@ -757,7 +777,7 @@ rcu_torture_reader(void *arg)
+ 		}
+ 		if (p->rtort_mbtest == 0)
+ 			atomic_inc(&n_rcu_torture_mberror);
+-		cur_ops->readdelay(&rand);
++		cur_ops->read_delay(&rand);
+ 		preempt_disable();
+ 		pipe_count = p->rtort_pipe_count;
+ 		if (pipe_count > RCU_TORTURE_PIPE_LEN) {
+@@ -778,7 +798,7 @@ rcu_torture_reader(void *arg)
+ 	} while (!kthread_should_stop() && fullstop == FULLSTOP_DONTSTOP);
+ 	VERBOSE_PRINTK_STRING("rcu_torture_reader task stopping");
+ 	rcutorture_shutdown_absorb("rcu_torture_reader");
+-	if (irqreader && cur_ops->irqcapable)
++	if (irqreader && cur_ops->irq_capable)
+ 		del_timer_sync(&t);
+ 	while (!kthread_should_stop())
+ 		schedule_timeout_uninterruptible(1);
+@@ -1078,6 +1098,7 @@ rcu_torture_init(void)
+ 	int firsterr = 0;
+ 	static struct rcu_torture_ops *torture_ops[] =
+ 		{ &rcu_ops, &rcu_sync_ops, &rcu_bh_ops, &rcu_bh_sync_ops,
++		  &rcu_bh_expedited_ops,
+ 		  &srcu_ops, &sched_ops, &sched_ops_sync, };
+ 
+ 	mutex_lock(&fullstop_mutex);
+diff --git a/kernel/rcutree.c b/kernel/rcutree.c
+index d2a372f..bf2c21d 100644
+--- a/kernel/rcutree.c
++++ b/kernel/rcutree.c
+@@ -89,6 +89,7 @@ void rcu_qsctr_inc(int cpu)
+ 	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
+ 	rdp->passed_quiesc = 1;
+ 	rdp->passed_quiesc_completed = rdp->completed;
++	synchronize_rcu_expedited_qs(cpu);
+ }
+ 
+ void rcu_bh_qsctr_inc(int cpu)
