@@ -1,48 +1,37 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [net-next PATCH 1/3] ixgbe: enable HW RSC for 82599
-Date: Tue, 28 Apr 2009 17:12:10 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com>
-References: <20090428084236.32710.14750.stgit@localhost.localdomain> <20090428.015535.42660210.davem@davemloft.net>
+Date: Tue, 28 Apr 2009 17:54:46 -0700 (PDT)
+Message-ID: <20090428.175446.191949653.davem@davemloft.net>
+References: <20090428084236.32710.14750.stgit@localhost.localdomain>
+	<20090428.015535.42660210.davem@davemloft.net>
+	<alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, alexander.h.duyck@intel.com
+To: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:10168 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752346AbZD2AMM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2009 20:12:12 -0400
-In-Reply-To: <20090428.015535.42660210.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50869
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751294AbZD2Ayx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 20:54:53 -0400
+In-Reply-To: <alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Apr 2009, David Miller wrote:
-> > This patch enables hardware receive side coalescing for 82599 hardware.
-> > 82599 can merge multiple frames from the same TCP/IP flow into a single
-> > structure that can span one ore more descriptors.  The accumulated data is
-> > arranged similar to how jumbo frames are arranged with the exception that
-> > other packets can be interlaced inbetween.  To overcome this issue a next
-> > pointer is included in the written back descriptor which indicates the next
-> > descriptor in the writeback sequence.
-> > 
-> > This feature sets the NETIF_F_LRO flag and clearing it via the ethtool set
-> > flags operation will also disable hardware RSC.
-> > 
-> > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> 
-> Applied, but.........
-> 
-> Since IXGBE has been converted to GRO, all of this fiddling with
-> LRO is a complete NOP.  All of that code can be removed completely.
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Date: Tue, 28 Apr 2009 17:12:10 -0700 (Pacific Daylight Time)
 
-ah, you're right, but this features enables our new hardware that can do 
-LRO in hardware, and then GRO can work on top of it if necessary.  We 
-wanted some way to turn it off and overloaded the LRO flag to do so.
+> ah, you're right, but this features enables our new hardware that can do 
+> LRO in hardware, and then GRO can work on top of it if necessary.  We 
+> wanted some way to turn it off and overloaded the LRO flag to do so.
 
-FYI This is not a TOE, it just recognizes a flow and will pack data frames 
-together in a list of descriptors, which the driver then hands to the 
-stack as a large receive.
+That ugly.  And the kernel is going to turn this off on you
+when the user enables either forwarding or bridging.
+
+> FYI This is not a TOE, it just recognizes a flow and will pack data frames 
+> together in a list of descriptors, which the driver then hands to the 
+> stack as a large receive.
+
+I know what it is.
