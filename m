@@ -1,49 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.29.1: unregister_netdevice problem
-Date: Wed, 29 Apr 2009 11:08:09 +0200
-Message-ID: <20090429090809.GA2995@ami.dom.local>
-References: <20090422055735.GA4334@night.netis.ru> <20090427054103.GA27529@night.netis.ru> <20090428125755.GA5242@night.netis.ru> <49F76BF6.4040709@gmail.com> <20090429054510.GA8267@night.netis.ru>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
+Date: Wed, 29 Apr 2009 11:11:30 +0200
+Message-ID: <20090429091130.GA27857@elte.hu>
+References: <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <alpine.DEB.1.10.0904281501300.13862@qirst.com> <49F76174.6060009@cosmosbay.com> <alpine.DEB.1.10.0904281612560.13862@qirst.com> <49F767FD.2040205@cosmosbay.com> <alpine.DEB.1.10.0904281629090.15947@qirst.com> <49F76F6C.80005@cosmosbay.com> <49F77108.7060509@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Alexander V. Lukyanov" <lav@netis.ru>
+Cc: Christoph Lameter <cl@linux.com>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
+	davidel@xmailserver.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f163.google.com ([209.85.218.163]:50851 "EHLO
-	mail-bw0-f163.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759166AbZD2JKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 05:10:13 -0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:35457 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751873AbZD2JMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2009 05:12:30 -0400
 Content-Disposition: inline
-In-Reply-To: <20090429054510.GA8267@night.netis.ru>
+In-Reply-To: <49F77108.7060509@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 29, 2009 at 09:45:10AM +0400, Alexander V. Lukyanov wrote:
-> On Tue, Apr 28, 2009 at 10:49:58PM +0200, Jarek Poplawski wrote:
-> > Do you mean if you wait a bit longer (until the first one is really removed)
-> 
-> The problem is that it is never removed. I waited for at least 30 minutes.
-> 
-> > before running another one, it doesn't s(t)uck? Is there a change e.g. wrt.
-> > 2.6.28?
-> 
-> I mean, 'vconfig rem' on another interface stucks if the previous vconfig
-> has not finished, and it never finishes. So I cannot check if other vlan
-> interfaces have the same 'refcnt' problem. So far I tried 'vconfig rem' on
-> two vlan interfaces and I have a dozen.
-> 
-> Again, the problem only happens after I notice surprisingly high LA (30
-> instead of 2-6) and interactive slowness. When it happens, I check network
-> usage, disk usage, cpu usage, mem usage - they are normal or even lower than
-> usual.
-> 
-> The server is running transparent squid and named. The last kernel version
-> was 2.6.27.21 and it did not have this problem.
 
-So looks like a regression. Alas this thing could be hard to debug and
-still more data is needed. For the beginning maybe: .config, dmesg,
-and a few SysRq logs while this happens e.g. Alt-PrtScr with t, d, w, q
-(gzipped or as attachments to a bugzilla report). (If it's not a big
-problem trying 2.6.28.9 could be helpful too.)
+* Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-Thanks,
-Jarek P.
+> On uddpping, I had prior to the patch about 49000 wakeups per 
+> second, and after patch about 26000 wakeups per second (matches 
+> number of incoming udp messages per second)
+
+very nice. It might not show up as a real performance difference if 
+the CPUs are not fully saturated during the test - but it could show 
+up as a decrease in CPU utilization.
+
+Also, if you run the test via 'perf stat -a ./test.sh' you should 
+see a reduction in instructions executed:
+
+aldebaran:~/linux/linux> perf stat -a sleep 1
+
+ Performance counter stats for 'sleep':
+
+   16128.045994  task clock ticks     (msecs)
+          12876  context switches     (events)
+            219  CPU migrations       (events)
+         186144  pagefaults           (events)
+    20911802763  CPU cycles           (events)
+    19309416815  instructions         (events)
+      199608554  cache references     (events)
+       19990754  cache misses         (events)
+
+ Wall-clock time elapsed:  1008.882282 msecs
+
+With -a it's measured system-wide, from start of test to end of test 
+- the results will be a lot more stable (and relevant) statistically 
+than wall-clock time or CPU usage measurements. (both of which are 
+rather imprecise in general)
+
+	Ingo
