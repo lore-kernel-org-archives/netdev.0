@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: revised locking for x_tables
-Date: Tue, 28 Apr 2009 22:37:08 -0700 (PDT)
-Message-ID: <20090428.223708.168741998.davem@davemloft.net>
-References: <20090428092411.5331c4a1@nehalam>
-	<alpine.LFD.2.00.0904280931360.22156@localhost.localdomain>
-	<alpine.LFD.2.00.0904280954500.22156@localhost.localdomain>
+Subject: Re: Pull request: bluetooth-2.6 2009-04-28
+Date: Tue, 28 Apr 2009 22:41:44 -0700 (PDT)
+Message-ID: <20090428.224144.186877548.davem@davemloft.net>
+References: <1240937916.997.55.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mathieu.desnoyers@polymtl.ca, mingo@elte.hu,
-	dada1@cosmosbay.com, zbr@ioremap.net, peterz@infradead.org,
-	jarkao2@gmail.com, paulus@samba.org, paulmck@linux.vnet.ibm.com,
-	kaber@trash.net, jeff.chua.linux@gmail.com, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	benh@kernel.crashing.org
-To: torvalds@linux-foundation.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.0904280954500.22156@localhost.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37526
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751979AbZD2Flu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 01:41:50 -0400
+In-Reply-To: <1240937916.997.55.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 28 Apr 2009 09:55:32 -0700 (PDT)
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Tue, 28 Apr 2009 09:58:36 -0700
 
-> On Tue, 28 Apr 2009, Linus Torvalds wrote:
->>
->> Ack. 
->> 
->> It could do with the update from Eric about how non-current CPU writelocks 
->> only require preemp-disable around get_counters() (and then the 
->> local_bh_disable() only around the current-CPU case).
-> 
-> Btw, regardless, that's an incremental improvement, and does not negate 
-> the "Ack" part.
+> these are three additional patches that should go into the 2.6.30 kernel
+> release. The first one fixes a NULL pointer dereference when adding and
+> removing sysfs devices for ACL connections. The other two are fixes for
+> interoperability regression we introduced when adding full Simple
+> Pairing support. A big thank you here goes to the Nokia guys and their
+> QA team for testing the crap out of this. There is actually nothing
+> simple about Simple Pairing :)
 
-I've applied this, thanks everyone!
+Pulled, thanks.
