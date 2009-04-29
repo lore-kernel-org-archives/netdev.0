@@ -1,146 +1,112 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: Re: fec driver question
-Date: Wed, 29 Apr 2009 12:01:23 +0200
-Message-ID: <20090429100123.GA23541@frolo.macqel>
-References: <6078.83.100.215.137.1240989343.squirrel@webmail.plus.net> <20090429080002.GA10438@frolo.macqel> <12372.83.100.215.137.1240994917.squirrel@webmail.plus.net>
+From: Radu Rendec <radu.rendec@ines.ro>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Wed, 29 Apr 2009 13:21:34 +0300
+Message-ID: <1241000494.6554.307.camel@blade.ines.ro>
+References: <20090423082052.GA4243@ff.dom.local>
+	 <1240495002.6554.155.camel@blade.ines.ro>
+	 <20090423181936.GA2756@ami.dom.local>
+	 <Pine.LNX.4.64.0904232148120.13815@ask.diku.dk>
+	 <1240566136.6554.220.camel@blade.ines.ro>
+	 <Pine.LNX.4.64.0904281142270.21301@tyr.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, uclinux-dev@uclinux.org
-To: Matthew Lear <matt@bubblegen.co.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:64127 "EHLO
-	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751853AbZD2KB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 06:01:28 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.macqel.be (Postfix) with ESMTP id D06CF158FCF
-	for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 12:01:08 +0200 (CEST)
-Received: from mail.macqel.be ([127.0.0.1])
-	by localhost (mail.macqel.be [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id E3vtqwrXN3SR for <netdev@vger.kernel.org>;
-	Wed, 29 Apr 2009 12:01:06 +0200 (CEST)
-Received: from frolo.macqel.be (frolo.macqel [10.1.40.73])
-	by mail.macqel.be (Postfix) with ESMTP id 9CB54150AA6
-	for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 12:01:06 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <12372.83.100.215.137.1240994917.squirrel@webmail.plus.net>
+Received: from NAT-172-Unkn.Local.iNES.RO ([80.86.100.172]:38581 "EHLO
+	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751545AbZD2KVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 06:21:48 -0400
+In-Reply-To: <Pine.LNX.4.64.0904281142270.21301@tyr.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matthew,
+Thanks for the oprofile newbie guide - it saved much time and digging
+through man pages.
 
-[CCing uclinux-dev@uclinux.org and netdev@vger.kernel.org]
+Normal report looks like this:
+samples  %        image name               app name                 symbol name
+38424    30.7350  cls_u32.ko               cls_u32                  u32_classify
+5321      4.2562  e1000e.ko                e1000e                   e1000_clean_rx_irq
+4690      3.7515  vmlinux                  vmlinux                  ipt_do_table
+3825      3.0596  sch_htb.ko               sch_htb                  htb_dequeue
+3458      2.7660  vmlinux                  vmlinux                  __hash_conntrack
+2597      2.0773  vmlinux                  vmlinux                  nf_nat_setup_info
+2531      2.0245  vmlinux                  vmlinux                  kmem_cache_alloc
+2229      1.7830  vmlinux                  vmlinux                  ip_route_input
+1722      1.3774  vmlinux                  vmlinux                  nf_conntrack_in
+1547      1.2374  sch_htb.ko               sch_htb                  htb_enqueue
+1519      1.2150  vmlinux                  vmlinux                  kmem_cache_free
+1471      1.1766  vmlinux                  vmlinux                  __slab_free
+1435      1.1478  vmlinux                  vmlinux                  dev_queue_xmit
+1313      1.0503  vmlinux                  vmlinux                  __qdisc_run
+1277      1.0215  vmlinux                  vmlinux                  netif_receive_skb
 
-On Wed, Apr 29, 2009 at 09:48:37AM +0100, Matthew Lear wrote:
-> Hi Phillippe - Thanks very much for your reply. some comments below:
+All other symbols are below 1%.
+
+sch_htb.ko report is this:
+
+samples  %        image name               symbol name
+-------------------------------------------------------------------------------
+3825     49.0762  sch_htb.ko               htb_dequeue
+  3825     100.000  sch_htb.ko               htb_dequeue [self]
+-------------------------------------------------------------------------------
+1547     19.8486  sch_htb.ko               htb_enqueue
+  1547     100.000  sch_htb.ko               htb_enqueue [self]
+-------------------------------------------------------------------------------
+608       7.8009  sch_htb.ko               htb_lookup_leaf
+  608      100.000  sch_htb.ko               htb_lookup_leaf [self]
+-------------------------------------------------------------------------------
+459       5.8891  sch_htb.ko               htb_deactivate_prios
+  459      100.000  sch_htb.ko               htb_deactivate_prios [self]
+-------------------------------------------------------------------------------
+417       5.3503  sch_htb.ko               htb_add_to_wait_tree
+  417      100.000  sch_htb.ko               htb_add_to_wait_tree [self]
+-------------------------------------------------------------------------------
+372       4.7729  sch_htb.ko               htb_change_class_mode
+  372      100.000  sch_htb.ko               htb_change_class_mode [self]
+-------------------------------------------------------------------------------
+276       3.5412  sch_htb.ko               htb_activate_prios
+  276      100.000  sch_htb.ko               htb_activate_prios [self]
+-------------------------------------------------------------------------------
+189       2.4249  sch_htb.ko               htb_add_to_id_tree
+  189      100.000  sch_htb.ko               htb_add_to_id_tree [self]
+-------------------------------------------------------------------------------
+101       1.2959  sch_htb.ko               htb_safe_rb_erase
+  101      100.000  sch_htb.ko               htb_safe_rb_erase [self]
+-------------------------------------------------------------------------------
+
+Am I misinterpreting the results, or does it look like the real problem
+is actually packet classification?
+
+Thanks,
+
+Radu Rendec
+
+On Tue, 2009-04-28 at 12:15 +0200, Jesper Dangaard Brouer wrote:
+> Remember to keep/copy the file "vmlinux".
 > 
-> > Hi Matthew,
-> > On Wed, Apr 29, 2009 at 08:15:43AM +0100, Matthew Lear wrote:
-> >> Hello Philippe,
-> >>
-> >> I hope you don't mind me emailing you. Basically I have a dev board from
-> >> freescale for doing some coldfire development on the mfc54455 device.
-> >> I'm
-> >> using the fec driver in the kernel. Kernel version is 2.6.23. I'm havng
-> >> some problems and I was hoping you might be able to help me.
-> >>
-> >> It seems that running some quite heavy network throughput tests on the
-> >> platform result in the driver dropping packets and the userspace app
-> >> running on the dev board to run consume ~ 85% cpu. I'm using netcat as
-> >> the
-> >> app running on host and the target to do the tests.
-> >>
-> >> I can appreciate that this question  is somewhat 'open' in that there
-> >> could be several causes but I'm fairly certain that a) it's not ksoftirq
-> >> related and b) that it's not driver related (because it's mature and has
-> >> been used in all sorts of different application/platforms).
-> >>
-> >> Can you think of any possible causes for this? The fact that the driver
-> >> is
-> >> dropping packets is surely indicative of there not being enough buffers
-> >> to
-> >> place the incoming data and/or there are issues with the consumption
-> >> (and
-> >> subsequent freeing of these buffers) by something else.
-> >
-> > 1. You could make the same test after increasing the number of receive
-> > buffers
-> > in the driver.
-> >
-> > 2. Actually, each incoming packet generates one interrupt so it needs some
-> > processing time in the interrupt service routine.  Hence if your receive
-> > app itself consumes 85% CPU that's probably normal that at times all
-> > buffers
-> > are used and that the chip has to drop frames.  Check if you have idle
-> > time
-> > remaining.
-> >
-> > 3. It can also be a hardware bug/limitation in the chip itself.  I used
-> > mainly the FEC driver with mcf5272 chips at 10 Mbps, because 100 Mbps
-> > was not really supported in hardware, although it was possible to ask for
-> > it.
-> > There is an offical errata for that :)
+> Here is the steps I usually use:
 > 
-> I did try to increase the number of buffers and I was surprised at the
-> result because it seemed that the cpu utilisation of the user space app
-> increases. There are some comments at the top of fec.c regarding keeping
-> numbers associated to the buffers as powers of 2. I increased the number
-> of buffers to 32 but bizarrely it seemed to make things worse (netcat
-> consumed ~ 95% cpu). Not sure what's going on there!
-
-For me, it means that you loose/drop less packets.  I surmise that your
-CPU is mmu-less, so packets must be copied from kernel to userspace for
-each received packet.  That time passed by the kernel in copying the
-packet for the app is counted as app time, I presume.
-You could measure memcpy's speed and compute how much time is needed
-with your expected throughput.
-
+>   opcontrol --vmlinux=/boot/vmlinux-`uname -r`
 > 
-> When you say "check idle time remaining", do you mean in the driver itself
-> or use a profiling tool?
-
-I only meant looking for %id in 'top' header.
-
+>   opcontrol --stop
+>   opcontrol --reset
+>   opcontrol --start
 > 
-> I have seen the scenario of the cpu at ~85% and no packets dropped but
-> typically there are overruns and in this case /proc/net/dev indicates that
-> there are fifo issues within the driver somehow.
+>   <perform stuff that needs profiling>
 > 
-> Yes. One interrupt per packet is what I expected but I also have an SH4
-> dev board (though it uses a different ethernet driver). Running the same
-> kernel version and exactly the same test with netcat on that platform
-> shows seriously contrasting results in that cpu utilisation of netcat on
-> the sh4 target is minimal (as it should be).
-
-Could that be that sh4 has a mmu, and that its ethernet driver implement
-zero-copy mode ?  I'm not an expert in that area though.
-
+>   opcontrol --stop
 > 
-> I'm suspecting that it may be a mm or dma issue with how the buffers are
-> relayed to the upper layers. The driver is mature isn't it so I would have
-
-I'm not sure at all that dma is used here, but I could be wrong.
-
-> expected that any problem such as this would have been spotted long before
-> now? In this regard, I am of the opinion that it could possible be an
-> issue with the device as you say.
-
-It depends on what other people do with the ethernet device on their
-board.  Here it is only used for some lightweight communication.
-And, when I used it, the driver was already mature, but I still discovered
-real bugs in initialisation sequences and error recovery, e.g. when testing
-link connection/disconnection.
-
+> "Normal" report
+>   opreport --symbols --image-path=/lib/modules/`uname -r`/kernel/ | less
 > 
-> The coldfire part I have is specified as supporting 10 and 100 Mbps so I
-> assume that there are no issues with it. Interesting though that you
-> mention the errata...
+> Looking at specific module "sch_htb"
 > 
-> I think it's just a case of trying to find where the cpu is spending its
-> time. It is quite frustrating though... :-(
+>   opreport --symbols -cl sch_htb.ko --image-path=/lib/modules/`uname 
+> -r`/kernel/
 
-Yes, that's part of our job :)
 
-Best regards
-
-Philippe
