@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/8 V2] MX27ADS: Add CS89x0 support
-Date: Wed, 29 Apr 2009 00:21:41 -0700 (PDT)
-Message-ID: <20090429.002141.225265558.davem@davemloft.net>
-References: <20090428.231946.27173581.davem@davemloft.net>
-	<49F7FBC8.7090705@gmail.com>
-	<20090429071512.GJ3696@pengutronix.de>
+Subject: Re: [net-next PATCH] ixgbe: Use pci_wake_from_d3() instead of
+ multiple pci_enable_wake()
+Date: Wed, 29 Apr 2009 00:22:39 -0700 (PDT)
+Message-ID: <20090429.002239.150859712.davem@davemloft.net>
+References: <20090429071852.6130.6565.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vova.barinov@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: s.hauer@pengutronix.de
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	donald.c.skidmore@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36546
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36550
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752344AbZD2HVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 03:21:47 -0400
-In-Reply-To: <20090429071512.GJ3696@pengutronix.de>
+	by vger.kernel.org with ESMTP id S1752154AbZD2HWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 03:22:46 -0400
+In-Reply-To: <20090429071852.6130.6565.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Date: Wed, 29 Apr 2009 09:15:12 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 29 Apr 2009 00:18:52 -0700
 
-> The important information is that PATCH8/8 does not depend on the
-> previous seven patches and can be applied independently.
+> We were calling pci_enable_wake() twice in a row for both D3_hot
+> and D3_cold.  This replaces those calls with a call to pci_wake_from_d3()
+> to avoid issues with PCI PM vs ordering constraints.
 > 
-> You shouldn't have added it to this series but sent an extra patch to
-> David.
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-I'm glad someone is paying attention.
-
+Applied.
