@@ -1,144 +1,175 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 15/16] ethtool/mdio: Support backplane mode negotiation
-Date: Wed, 29 Apr 2009 19:25:57 +0100
-Message-ID: <1241029557.3246.71.camel@achroite>
+Subject: [PATCH 16/16] mii: Rewrite mii_ethtool_gset() to report
+	mdio_support and lp_advertising
+Date: Wed, 29 Apr 2009 19:34:44 +0100
+Message-ID: <1241030084.3246.81.camel@achroite>
 References: <1241028086.3246.30.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:60087 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755425AbZD2S0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:26:03 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:54489 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752450AbZD2Seq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:34:46 -0400
 In-Reply-To: <1241028086.3246.30.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Ignore link partner advertising flags while AN is not complete.
 
 Compile-tested only.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-This should be tested with some actual backplane-Ethernet hardware.  If
-no-one does that I can resubmit just the header changes for now.
+I can't seem to find any hardware whose driver uses the mii module now,
+so this is unfortunately untested.
+
+This might well be better split into 2 or more patches.
 
 Ben.
 
- drivers/net/mdio.c      |   30 +++++++++++++++++++++++++-----
- include/linux/ethtool.h |   10 ++++++++++
- include/linux/mdio.h    |    5 +++++
- 3 files changed, 40 insertions(+), 5 deletions(-)
+ drivers/net/mii.c |   91 +++++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 57 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
-index ee383c2..6648303 100644
---- a/drivers/net/mdio.c
-+++ b/drivers/net/mdio.c
-@@ -202,12 +202,29 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 		break;
- 
- 	case MDIO_PMA_CTRL2_10GBCX4:
-+		ecmd->port = PORT_OTHER;
-+		ecmd->supported = 0;
-+		ecmd->advertising = 0;
-+		break;
+diff --git a/drivers/net/mii.c b/drivers/net/mii.c
+index 9205605..d81a5d2 100644
+--- a/drivers/net/mii.c
++++ b/drivers/net/mii.c
+@@ -31,7 +31,27 @@
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/ethtool.h>
+-#include <linux/mii.h>
++#include <linux/mdio.h>
 +
- 	case MDIO_PMA_CTRL2_10GBKX4:
- 	case MDIO_PMA_CTRL2_10GBKR:
- 	case MDIO_PMA_CTRL2_1000BKX:
- 		ecmd->port = PORT_OTHER;
--		ecmd->supported = 0;
--		ecmd->advertising = 0;
-+		ecmd->supported = SUPPORTED_Backplane;
-+		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
-+				      MDIO_PMA_EXTABLE);
-+		if (reg & MDIO_PMA_EXTABLE_10GBKX4)
-+			ecmd->supported |= SUPPORTED_10000baseKX4_Full;
-+		if (reg & MDIO_PMA_EXTABLE_10GBKR)
-+			ecmd->supported |= SUPPORTED_10000baseKR_Full;
-+		if (reg & MDIO_PMA_EXTABLE_1000BKX)
-+			ecmd->supported |= SUPPORTED_1000baseKX_Full;
-+		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
-+				      MDIO_PMA_10GBR_FECABLE);
-+		if (reg & MDIO_PMA_10GBR_FECABLE_ABLE)
-+			ecmd->supported |= SUPPORTED_10000baseR_FEC;
-+		ecmd->advertising = ADVERTISED_Backplane;
- 		break;
++static u32 mii_get_an(struct mii_if_info *mii, u16 addr)
++{
++	u32 result = 0;
++	int advert;
++
++	advert = mii->mdio_read(mii->dev, mii->phy_id, addr);
++	if (advert & LPA_LPACK)
++		result |= ADVERTISED_Autoneg;
++	if (advert & ADVERTISE_10HALF)
++		result |= ADVERTISED_10baseT_Half;
++	if (advert & ADVERTISE_10FULL)
++		result |= ADVERTISED_10baseT_Full;
++	if (advert & ADVERTISE_100HALF)
++		result |= ADVERTISED_100baseT_Half;
++	if (advert & ADVERTISE_100FULL)
++		result |= ADVERTISED_100baseT_Full;
++
++	return result;
++}
  
- 	/* All the other defined modes are flavours of optical */
-@@ -252,13 +269,16 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 		if ((modes & ~ADVERTISED_Autoneg) == 0)
- 			modes = ecmd->advertising;
+ /**
+  * mii_ethtool_gset - get settings that are specified in @ecmd
+@@ -43,8 +63,8 @@
+ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ {
+ 	struct net_device *dev = mii->dev;
+-	u32 advert, bmcr, lpa, nego;
+-	u32 advert2 = 0, bmcr2 = 0, lpa2 = 0;
++	u16 bmcr, bmsr, ctrl1000 = 0, stat1000 = 0;
++	u32 nego;
  
--		if (modes & ADVERTISED_10000baseT_Full) {
-+		if (modes & (ADVERTISED_10000baseT_Full |
-+			     ADVERTISED_10000baseKX4_Full |
-+			     ADVERTISED_10000baseKR_Full)) {
- 			ecmd->speed = SPEED_10000;
- 			ecmd->duplex = DUPLEX_FULL;
- 		} else if (modes & (ADVERTISED_1000baseT_Full |
--				    ADVERTISED_1000baseT_Half)) {
-+				    ADVERTISED_1000baseT_Half |
-+				    ADVERTISED_1000baseKX_Full)) {
+ 	ecmd->supported =
+ 	    (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+@@ -62,50 +82,51 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 
+ 	/* this isn't fully supported at higher layers */
+ 	ecmd->phy_address = mii->phy_id;
++	ecmd->mdio_support = MDIO_SUPPORTS_C22;
+ 
+ 	ecmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
+-	advert = mii->mdio_read(dev, mii->phy_id, MII_ADVERTISE);
+-	if (mii->supports_gmii)
+-		advert2 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
+-
+-	if (advert & ADVERTISE_10HALF)
+-		ecmd->advertising |= ADVERTISED_10baseT_Half;
+-	if (advert & ADVERTISE_10FULL)
+-		ecmd->advertising |= ADVERTISED_10baseT_Full;
+-	if (advert & ADVERTISE_100HALF)
+-		ecmd->advertising |= ADVERTISED_100baseT_Half;
+-	if (advert & ADVERTISE_100FULL)
+-		ecmd->advertising |= ADVERTISED_100baseT_Full;
+-	if (advert2 & ADVERTISE_1000HALF)
+-		ecmd->advertising |= ADVERTISED_1000baseT_Half;
+-	if (advert2 & ADVERTISE_1000FULL)
+-		ecmd->advertising |= ADVERTISED_1000baseT_Full;
+ 
+ 	bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
+-	lpa = mii->mdio_read(dev, mii->phy_id, MII_LPA);
++	bmsr = mii->mdio_read(dev, mii->phy_id, MII_BMSR);
+ 	if (mii->supports_gmii) {
+-		bmcr2 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
+-		lpa2 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
++ 		ctrl1000 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
++		stat1000 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
+ 	}
+ 	if (bmcr & BMCR_ANENABLE) {
+ 		ecmd->advertising |= ADVERTISED_Autoneg;
+ 		ecmd->autoneg = AUTONEG_ENABLE;
+ 
+-		nego = mii_nway_result(advert & lpa);
+-		if ((bmcr2 & (ADVERTISE_1000HALF | ADVERTISE_1000FULL)) &
+-		    (lpa2 >> 2))
++		ecmd->advertising |= mii_get_an(mii, MII_ADVERTISE);
++		if (ctrl1000 & ADVERTISE_1000HALF)
++			ecmd->advertising |= ADVERTISED_1000baseT_Half;
++		if (ctrl1000 & ADVERTISE_1000FULL)
++			ecmd->advertising |= ADVERTISED_1000baseT_Full;
++
++		if (bmsr & BMSR_ANEGCOMPLETE) {
++			ecmd->lp_advertising = mii_get_an(mii, MII_LPA);
++			if (stat1000 & LPA_1000HALF)
++				ecmd->lp_advertising |=
++					ADVERTISED_1000baseT_Half;
++			if (stat1000 & LPA_1000FULL)
++				ecmd->lp_advertising |=
++					ADVERTISED_1000baseT_Full;
++		} else {
++			ecmd->lp_advertising = 0;
++		}
++
++		nego = ecmd->advertising & ecmd->lp_advertising;
++
++		if (nego & (ADVERTISED_1000baseT_Full |
++			    ADVERTISED_1000baseT_Half)) {
  			ecmd->speed = SPEED_1000;
--			ecmd->duplex = !!(modes & ADVERTISED_1000baseT_Full);
-+			ecmd->duplex = !(modes & ADVERTISED_1000baseT_Half);
- 		} else if (modes & (ADVERTISED_100baseT_Full |
- 				    ADVERTISED_100baseT_Half)) {
+-		else if (nego == LPA_100FULL || nego == LPA_100HALF)
++			ecmd->duplex = !!(nego & ADVERTISED_1000baseT_Full);
++		} else if (nego & (ADVERTISED_100baseT_Full |
++				   ADVERTISED_100baseT_Half)) {
  			ecmd->speed = SPEED_100;
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 14e6bc8..380b042 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -565,6 +565,11 @@ struct ethtool_ops {
- #define SUPPORTED_Pause			(1 << 13)
- #define SUPPORTED_Asym_Pause		(1 << 14)
- #define SUPPORTED_2500baseX_Full	(1 << 15)
-+#define SUPPORTED_Backplane		(1 << 16)
-+#define SUPPORTED_1000baseKX_Full	(1 << 17)
-+#define SUPPORTED_10000baseKX4_Full	(1 << 18)
-+#define SUPPORTED_10000baseKR_Full	(1 << 19)
-+#define SUPPORTED_10000baseR_FEC	(1 << 20)
+-		else
+-			ecmd->speed = SPEED_10;
+-		if ((lpa2 & LPA_1000FULL) || nego == LPA_100FULL ||
+-		    nego == LPA_10FULL) {
+-			ecmd->duplex = DUPLEX_FULL;
+-			mii->full_duplex = 1;
++			ecmd->duplex = !!(nego & ADVERTISED_100baseT_Full);
+ 		} else {
+-			ecmd->duplex = DUPLEX_HALF;
+-			mii->full_duplex = 0;
++			ecmd->speed = SPEED_10;
++			ecmd->duplex = !!(nego & ADVERTISED_10baseT_Full);
+ 		}
+ 	} else {
+ 		ecmd->autoneg = AUTONEG_DISABLE;
+@@ -116,6 +137,8 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 		ecmd->duplex = (bmcr & BMCR_FULLDPLX) ? DUPLEX_FULL : DUPLEX_HALF;
+ 	}
  
- /* Indicates what features are advertised by the interface. */
- #define ADVERTISED_10baseT_Half		(1 << 0)
-@@ -583,6 +588,11 @@ struct ethtool_ops {
- #define ADVERTISED_Pause		(1 << 13)
- #define ADVERTISED_Asym_Pause		(1 << 14)
- #define ADVERTISED_2500baseX_Full	(1 << 15)
-+#define ADVERTISED_Backplane		(1 << 16)
-+#define ADVERTISED_1000baseKX_Full	(1 << 17)
-+#define ADVERTISED_10000baseKX4_Full	(1 << 18)
-+#define ADVERTISED_10000baseKR_Full	(1 << 19)
-+#define ADVERTISED_10000baseR_FEC	(1 << 20)
- 
- /* The following are all involved in forcing a particular link
-  * mode for the device for setting things.  When getting the
-diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index 1bff2f2..26b4eb3 100644
---- a/include/linux/mdio.h
-+++ b/include/linux/mdio.h
-@@ -46,6 +46,7 @@
- 
- /* Media-dependent registers. */
- #define MDIO_PMA_10GBT_TXPWR	131	/* 10GBASE-T TX power control */
-+#define MDIO_PMA_10GBR_FECABLE	170	/* 10GBASE-R FEC ability */
- #define MDIO_PCS_10GBX_STAT1	24	/* 10GBASE-X PCS status 1 */
- #define MDIO_PCS_10GBRT_STAT1	32	/* 10GBASE-R/-T PCS status 1 */
- #define MDIO_PCS_10GBRT_STAT2	33	/* 10GBASE-R/-T PCS status 2 */
-@@ -187,6 +188,10 @@
- /* PMA 10GBASE-T TX power register. */
- #define MDIO_PMA_10GBT_TXPWR_SHORT	0x0001	/* Short-reach mode */
- 
-+/* PMA 10GBASE-R FEC ability register. */
-+#define MDIO_PMA_10GBR_FECABLE_ABLE	0x0001	/* FEC ability */
-+#define MDIO_PMA_10GBR_FECABLE_ERRABLE	0x0002	/* FEC error indic. ability */
++	mii->full_duplex = ecmd->duplex;
 +
- /* PCS 10GBASE-R/-T status register 1. */
- #define MDIO_PCS_10GBRT_STAT1_BLKLK	0x0001	/* Block lock attained */
+ 	/* ignore maxtxpkt, maxrxpkt for now */
  
+ 	return 0;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
