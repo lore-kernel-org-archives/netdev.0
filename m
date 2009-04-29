@@ -1,163 +1,116 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 13/16] sfc: Use generic MDIO flow control auto-negotiation
-	functions
-Date: Wed, 29 Apr 2009 19:20:37 +0100
-Message-ID: <1241029237.3246.64.camel@achroite>
+Subject: [PATCH 14/16] ethtool/mdio: Report MDIO mode support and link
+	partner advertising
+Date: Wed, 29 Apr 2009 19:21:53 +0100
+Message-ID: <1241029313.3246.67.camel@achroite>
 References: <1241028086.3246.30.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Jeff Garzik <jgarzik@pobox.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:56437 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757839AbZD2SUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:20:39 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:55766 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752035AbZD2SV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:21:57 -0400
 In-Reply-To: <1241028086.3246.30.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add mdio_support and lp_advertising fields to ethtool_cmd.  Set these
+in mdio45_ethtool_gset{,_npage}().
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/ethtool.c    |    3 ++-
- drivers/net/sfc/mdio_10g.c   |   22 +---------------------
- drivers/net/sfc/mdio_10g.h   |    3 ---
- drivers/net/sfc/net_driver.h |   26 ++++----------------------
- drivers/net/sfc/tenxpress.c  |    1 -
- 5 files changed, 7 insertions(+), 48 deletions(-)
+ drivers/net/mdio.c      |   19 ++++++++++++-------
+ include/linux/ethtool.h |    4 +++-
+ include/linux/mdio.h    |    5 +++--
+ 3 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-index 1c7b684..997ea2a 100644
---- a/drivers/net/sfc/ethtool.c
-+++ b/drivers/net/sfc/ethtool.c
-@@ -711,7 +711,8 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
- 	mutex_lock(&efx->mac_lock);
+diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
+index 2fb0d16..ee383c2 100644
+--- a/drivers/net/mdio.c
++++ b/drivers/net/mdio.c
+@@ -173,6 +173,8 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
  
- 	efx->wanted_fc = wanted_fc;
--	efx_mdio_set_pause(efx);
-+	if (efx->phy_op->mmds & MDIO_DEVS_AN)
-+		mdio45_ethtool_spauseparam_an(&efx->mdio, pause);
- 	__efx_reconfigure_port(efx);
+ 	ecmd->transceiver = XCVR_INTERNAL;
+ 	ecmd->phy_address = mdio->prtad;
++	ecmd->mdio_support =
++		mdio->mode_support & (MDIO_SUPPORTS_C45 | MDIO_SUPPORTS_C22);
  
- 	mutex_unlock(&efx->mac_lock);
-diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
-index 11c231a..6c33459 100644
---- a/drivers/net/sfc/mdio_10g.c
-+++ b/drivers/net/sfc/mdio_10g.c
-@@ -304,7 +304,7 @@ int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 		else if (ecmd->advertising & (ADVERTISED_1000baseT_Half |
- 					      ADVERTISED_1000baseT_Full))
- 			reg |= ADVERTISE_NPAGE;
--		reg |= efx_fc_advertise(efx->wanted_fc);
-+		reg |= mii_advertise_flowctrl(efx->wanted_fc);
- 		efx_mdio_write(efx, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
+ 	reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
+ 			      MDIO_CTRL2);
+@@ -235,16 +237,19 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
  
- 		/* Set up the (extended) next page if necessary */
-@@ -340,26 +340,6 @@ int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 	return 0;
- }
+ 	if (ecmd->autoneg) {
+ 		u32 modes = 0;
++		int an_stat = mdio->mdio_read(mdio->dev, mdio->prtad,
++					      MDIO_MMD_AN, MDIO_STAT1);
  
--void efx_mdio_set_pause(struct efx_nic *efx)
--{
--	int reg;
--
--	if (efx->phy_op->mmds & MDIO_DEVS_AN) {
--		/* Set pause capability advertising */
--		reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_AN_ADVERTISE);
--		reg &= ~(ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
--		reg |= efx_fc_advertise(efx->wanted_fc);
--		efx_mdio_write(efx, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
--
--		/* Restart auto-negotiation */
--		reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_CTRL1);
--		if (reg & MDIO_AN_CTRL1_ENABLE) {
--			reg |= MDIO_AN_CTRL1_RESTART;
--			efx_mdio_write(efx, MDIO_MMD_AN, MDIO_CTRL1, reg);
--		}
--	}
--}
--
- enum efx_fc_type efx_mdio_get_pause(struct efx_nic *efx)
- {
- 	int lpa;
-diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
-index ea4587d..6b14421 100644
---- a/drivers/net/sfc/mdio_10g.h
-+++ b/drivers/net/sfc/mdio_10g.h
-@@ -87,9 +87,6 @@ extern void efx_mdio_set_mmds_lpower(struct efx_nic *efx,
- /* Set (some of) the PHY settings over MDIO */
- extern int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd);
+ 		/* If AN is complete and successful, report best common
+ 		 * mode, otherwise report best advertised mode. */
+-		if (mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
+-				    MDIO_STAT1) &
+-		    MDIO_AN_STAT1_COMPLETE)
+-			modes = (ecmd->advertising &
+-				 (mdio45_get_an(mdio, MDIO_AN_LPA) |
+-				  npage_lpa));
+-		if (modes == 0)
++		if (an_stat & MDIO_AN_STAT1_COMPLETE) {
++			ecmd->lp_advertising =
++				mdio45_get_an(mdio, MDIO_AN_LPA) | npage_lpa;
++			if (an_stat & MDIO_AN_STAT1_LPABLE)
++				ecmd->lp_advertising |= ADVERTISED_Autoneg;
++			modes = ecmd->advertising & ecmd->lp_advertising;
++		}
++		if ((modes & ~ADVERTISED_Autoneg) == 0)
+ 			modes = ecmd->advertising;
  
--/* Set pause parameters to be advertised through AN (if available) */
--extern void efx_mdio_set_pause(struct efx_nic *efx);
--
- /* Get pause parameters from AN if available (otherwise return
-  * requested pause parameters)
-  */
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 457e2f1..5eabede 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -495,8 +495,8 @@ struct efx_nic;
- 
- /* Pseudo bit-mask flow control field */
- enum efx_fc_type {
--	EFX_FC_RX = 1,
--	EFX_FC_TX = 2,
-+	EFX_FC_RX = FLOW_CTRL_RX,
-+	EFX_FC_TX = FLOW_CTRL_TX,
- 	EFX_FC_AUTO = 4,
+ 		if (modes & ADVERTISED_10000baseT_Full) {
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 5ccb6bd..14e6bc8 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -26,11 +26,13 @@ struct ethtool_cmd {
+ 	__u8	phy_address;
+ 	__u8	transceiver;	/* Which transceiver to use */
+ 	__u8	autoneg;	/* Enable or disable autonegotiation */
++	__u8	mdio_support;
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+ 	__u16	speed_hi;
+ 	__u16	reserved2;
+-	__u32	reserved[3];
++	__u32	lp_advertising;	/* Features the link partner advertises */
++	__u32	reserved[2];
  };
  
-@@ -506,33 +506,15 @@ enum efx_mac_type {
- 	EFX_XMAC = 2,
- };
- 
--static inline unsigned int efx_fc_advertise(enum efx_fc_type wanted_fc)
--{
--	unsigned int adv = 0;
--	if (wanted_fc & EFX_FC_RX)
--		adv = ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
--	if (wanted_fc & EFX_FC_TX)
--		adv ^= ADVERTISE_PAUSE_ASYM;
--	return adv;
--}
--
- static inline enum efx_fc_type efx_fc_resolve(enum efx_fc_type wanted_fc,
- 					      unsigned int lpa)
- {
--	unsigned int adv = efx_fc_advertise(wanted_fc);
-+	BUILD_BUG_ON(EFX_FC_AUTO & (EFX_FC_RX | EFX_FC_TX));
- 
- 	if (!(wanted_fc & EFX_FC_AUTO))
- 		return wanted_fc;
- 
--	if (adv & lpa & ADVERTISE_PAUSE_CAP)
--		return EFX_FC_RX | EFX_FC_TX;
--	if (adv & lpa & ADVERTISE_PAUSE_ASYM) {
--		if (adv & ADVERTISE_PAUSE_CAP)
--			return EFX_FC_RX;
--		if (lpa & ADVERTISE_PAUSE_CAP)
--			return EFX_FC_TX;
--	}
--	return 0;
-+	return mii_resolve_flowctrl_fdx(mii_advertise_flowctrl(wanted_fc), lpa);
+ static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index 5645c0f..1bff2f2 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -234,6 +234,9 @@ static inline __u16 mdio_phy_id_devad(int phy_id)
+ 	return phy_id & MDIO_PHY_ID_DEVAD;
  }
+ 
++#define MDIO_SUPPORTS_C22		1
++#define MDIO_SUPPORTS_C45		2
++
+ #ifdef __KERNEL__ 
  
  /**
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index 403f7d7..0421190 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -343,7 +343,6 @@ static int tenxpress_phy_init(struct efx_nic *efx)
- 	rc = tenxpress_init(efx);
- 	if (rc < 0)
- 		goto fail;
--	efx_mdio_set_pause(efx);
+@@ -264,8 +267,6 @@ struct mdio_if_info {
  
- 	if (efx->phy_type == PHY_TYPE_SFT9001B) {
- 		rc = device_create_file(&efx->pci_dev->dev,
+ #define MDIO_PRTAD_NONE			(-1)
+ #define MDIO_DEVAD_NONE			(-1)
+-#define MDIO_SUPPORTS_C22		1
+-#define MDIO_SUPPORTS_C45		2
+ #define MDIO_EMULATE_C22		4
+ 
+ struct ethtool_cmd;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
