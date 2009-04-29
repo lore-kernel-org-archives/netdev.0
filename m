@@ -1,20 +1,21 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 06/16] cxgb3: Use generic MDIO definitions and
-	mdio_mii_ioctl()
-Date: Wed, 29 Apr 2009 19:07:20 +0100
-Message-ID: <1241028440.3246.43.camel@achroite>
+Subject: [PATCH 07/16] ixgbe: Use generic MDIO definitions and functions
+Date: Wed, 29 Apr 2009 19:08:58 +0100
+Message-ID: <1241028538.3246.46.camel@achroite>
 References: <1241028086.3246.30.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Divy Le Ray <divy@chelsio.com>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:55073 "EHLO
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:58595 "EHLO
 	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754410AbZD2SHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:07:22 -0400
+	by vger.kernel.org with ESMTP id S1751957AbZD2SJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:09:03 -0400
 In-Reply-To: <1241028086.3246.30.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,1079 +24,528 @@ Compile-tested only.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/Kconfig            |    1 +
- drivers/net/cxgb3/ael1002.c    |  146 +++++++++++++++++++++-------------------
- drivers/net/cxgb3/common.h     |   53 ++++++--------
- drivers/net/cxgb3/cxgb3_main.c |   71 ++++----------------
- drivers/net/cxgb3/t3_hw.c      |   78 ++++++++++++----------
- drivers/net/cxgb3/vsc8211.c    |   70 +++++++++++--------
- 6 files changed, 195 insertions(+), 224 deletions(-)
+ drivers/net/Kconfig             |    1 +
+ drivers/net/ixgbe/ixgbe_82598.c |   33 +++++++-------
+ drivers/net/ixgbe/ixgbe_82599.c |   17 +++----
+ drivers/net/ixgbe/ixgbe_main.c  |   42 +++++++++++++++++
+ drivers/net/ixgbe/ixgbe_phy.c   |   95 +++++++++++++--------------------------
+ drivers/net/ixgbe/ixgbe_type.h  |   33 +------------
+ 6 files changed, 102 insertions(+), 119 deletions(-)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 1ccd547..435bbc9 100644
+index 435bbc9..b8727d5 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -2483,6 +2483,7 @@ config CHELSIO_T3
- 	tristate "Chelsio Communications T3 10Gb Ethernet support"
- 	depends on CHELSIO_T3_DEPENDS
- 	select FW_LOADER
+@@ -2519,6 +2519,7 @@ config ENIC
+ config IXGBE
+ 	tristate "Intel(R) 10GbE PCI Express adapters support"
+ 	depends on PCI && INET
 +	select MDIO
- 	help
- 	  This driver supports Chelsio T3-based gigabit and 10Gb Ethernet
- 	  adapters.
-diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
-index e1b2249..bebc00d 100644
---- a/drivers/net/cxgb3/ael1002.c
-+++ b/drivers/net/cxgb3/ael1002.c
-@@ -33,14 +33,6 @@
- #include "regs.h"
+ 	---help---
+ 	  This driver supports Intel(R) 10GbE PCI Express family of
+ 	  adapters.  For more information on how to identify your adapter, go
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index 03eb54f..e051964 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -229,14 +229,13 @@ static s32 ixgbe_get_copper_link_capabilities_82598(struct ixgbe_hw *hw,
+ 	*speed = 0;
+ 	*autoneg = true;
  
- enum {
--	PMD_RSD     = 10,   /* PMA/PMD receive signal detect register */
--	PCS_STAT1_X = 24,   /* 10GBASE-X PCS status 1 register */
--	PCS_STAT1_R = 32,   /* 10GBASE-R PCS status 1 register */
--	XS_LN_STAT  = 24    /* XS lane status register */
--};
--
--enum {
--	AEL100X_TX_DISABLE = 9,
- 	AEL100X_TX_CONFIG1 = 0xc002,
- 	AEL1002_PWR_DOWN_HI = 0xc011,
- 	AEL1002_PWR_DOWN_LO = 0xc012,
-@@ -74,8 +66,8 @@ static int set_phy_regs(struct cphy *phy, const struct reg_val *rv)
+-	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_SPEED_ABILITY,
+-	                              IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++	status = hw->phy.ops.read_reg(hw, MDIO_SPEED, MDIO_MMD_PMAPMD,
+ 	                              &speed_ability);
  
- 	for (err = 0; rv->mmd_addr && !err; rv++) {
- 		if (rv->clear_bits == 0xffff)
--			err = mdio_write(phy, rv->mmd_addr, rv->reg_addr,
--					 rv->set_bits);
-+			err = t3_mdio_write(phy, rv->mmd_addr, rv->reg_addr,
-+					    rv->set_bits);
- 		else
- 			err = t3_mdio_change_bits(phy, rv->mmd_addr,
- 						  rv->reg_addr, rv->clear_bits,
-@@ -86,7 +78,8 @@ static int set_phy_regs(struct cphy *phy, const struct reg_val *rv)
- 
- static void ael100x_txon(struct cphy *phy)
- {
--	int tx_on_gpio = phy->addr == 0 ? F_GPIO7_OUT_VAL : F_GPIO2_OUT_VAL;
-+	int tx_on_gpio =
-+		phy->mdio.prtad == 0 ? F_GPIO7_OUT_VAL : F_GPIO2_OUT_VAL;
- 
- 	msleep(100);
- 	t3_set_reg_field(phy->adapter, A_T3DBG_GPIO_EN, 0, tx_on_gpio);
-@@ -97,10 +90,11 @@ static int ael1002_power_down(struct cphy *phy, int enable)
- {
- 	int err;
- 
--	err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL100X_TX_DISABLE, !!enable);
-+	err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, MDIO_PMA_TXDIS, !!enable);
- 	if (!err)
--		err = t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, MII_BMCR,
--					  BMCR_PDOWN, enable ? BMCR_PDOWN : 0);
-+		err = mdio_set_flag(&phy->mdio, phy->mdio.prtad,
-+				    MDIO_MMD_PMAPMD, MDIO_CTRL1,
-+				    MDIO_CTRL1_LPOWER, enable);
- 	return err;
- }
- 
-@@ -109,11 +103,11 @@ static int ael1002_reset(struct cphy *phy, int wait)
- 	int err;
- 
- 	if ((err = ael1002_power_down(phy, 0)) ||
--	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL100X_TX_CONFIG1, 1)) ||
--	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL1002_PWR_DOWN_HI, 0)) ||
--	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL1002_PWR_DOWN_LO, 0)) ||
--	    (err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL1002_XFI_EQL, 0x18)) ||
--	    (err = t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, AEL1002_LB_EN,
-+	    (err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL100X_TX_CONFIG1, 1)) ||
-+	    (err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL1002_PWR_DOWN_HI, 0)) ||
-+	    (err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL1002_PWR_DOWN_LO, 0)) ||
-+	    (err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL1002_XFI_EQL, 0x18)) ||
-+	    (err = t3_mdio_change_bits(phy, MDIO_MMD_PMAPMD, AEL1002_LB_EN,
- 				       0, 1 << 5)))
- 		return err;
- 	return 0;
-@@ -132,12 +126,15 @@ static int get_link_status_r(struct cphy *phy, int *link_ok, int *speed,
- {
- 	if (link_ok) {
- 		unsigned int stat0, stat1, stat2;
--		int err = mdio_read(phy, MDIO_DEV_PMA_PMD, PMD_RSD, &stat0);
-+		int err = t3_mdio_read(phy, MDIO_MMD_PMAPMD,
-+				       MDIO_PMA_RXDET, &stat0);
- 
- 		if (!err)
--			err = mdio_read(phy, MDIO_DEV_PCS, PCS_STAT1_R, &stat1);
-+			err = t3_mdio_read(phy, MDIO_MMD_PCS,
-+					   MDIO_PCS_10GBRT_STAT1, &stat1);
- 		if (!err)
--			err = mdio_read(phy, MDIO_DEV_XGXS, XS_LN_STAT, &stat2);
-+			err = t3_mdio_read(phy, MDIO_MMD_PHYXS,
-+					   MDIO_PHYXS_LNSTAT, &stat2);
- 		if (err)
- 			return err;
- 		*link_ok = (stat0 & stat1 & (stat2 >> 12)) & 1;
-@@ -157,6 +154,7 @@ static struct cphy_ops ael1002_ops = {
- 	.intr_handler = ael1002_intr_noop,
- 	.get_link_status = get_link_status_r,
- 	.power_down = ael1002_power_down,
-+	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
- };
- 
- int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
-@@ -171,13 +169,13 @@ int t3_ael1002_phy_prep(struct cphy *phy, struct adapter *adapter,
- 
- static int ael1006_reset(struct cphy *phy, int wait)
- {
--	return t3_phy_reset(phy, MDIO_DEV_PMA_PMD, wait);
-+	return t3_phy_reset(phy, MDIO_MMD_PMAPMD, wait);
- }
- 
- static int ael1006_power_down(struct cphy *phy, int enable)
- {
--	return t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, MII_BMCR,
--				   BMCR_PDOWN, enable ? BMCR_PDOWN : 0);
-+	return mdio_set_flag(&phy->mdio, phy->mdio.prtad, MDIO_MMD_PMAPMD,
-+			     MDIO_CTRL1, MDIO_CTRL1_LPOWER, enable);
- }
- 
- static struct cphy_ops ael1006_ops = {
-@@ -188,6 +186,7 @@ static struct cphy_ops ael1006_ops = {
- 	.intr_handler = t3_phy_lasi_intr_handler,
- 	.get_link_status = get_link_status_r,
- 	.power_down = ael1006_power_down,
-+	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
- };
- 
- int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
-@@ -203,9 +202,9 @@ int t3_ael1006_phy_prep(struct cphy *phy, struct adapter *adapter,
- static int ael2005_setup_sr_edc(struct cphy *phy)
- {
- 	static struct reg_val regs[] = {
--		{ MDIO_DEV_PMA_PMD, 0xc003, 0xffff, 0x181 },
--		{ MDIO_DEV_PMA_PMD, 0xc010, 0xffff, 0x448a },
--		{ MDIO_DEV_PMA_PMD, 0xc04a, 0xffff, 0x5200 },
-+		{ MDIO_MMD_PMAPMD, 0xc003, 0xffff, 0x181 },
-+		{ MDIO_MMD_PMAPMD, 0xc010, 0xffff, 0x448a },
-+		{ MDIO_MMD_PMAPMD, 0xc04a, 0xffff, 0x5200 },
- 		{ 0, 0, 0, 0 }
- 	};
- 	static u16 sr_edc[] = {
-@@ -490,8 +489,8 @@ static int ael2005_setup_sr_edc(struct cphy *phy)
- 	msleep(50);
- 
- 	for (i = 0; i < ARRAY_SIZE(sr_edc) && !err; i += 2)
--		err = mdio_write(phy, MDIO_DEV_PMA_PMD, sr_edc[i],
--				 sr_edc[i + 1]);
-+		err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, sr_edc[i],
-+				    sr_edc[i + 1]);
- 	if (!err)
- 		phy->priv = edc_sr;
- 	return err;
-@@ -500,12 +499,12 @@ static int ael2005_setup_sr_edc(struct cphy *phy)
- static int ael2005_setup_twinax_edc(struct cphy *phy, int modtype)
- {
- 	static struct reg_val regs[] = {
--		{ MDIO_DEV_PMA_PMD, 0xc04a, 0xffff, 0x5a00 },
-+		{ MDIO_MMD_PMAPMD, 0xc04a, 0xffff, 0x5a00 },
- 		{ 0, 0, 0, 0 }
- 	};
- 	static struct reg_val preemphasis[] = {
--		{ MDIO_DEV_PMA_PMD, 0xc014, 0xffff, 0xfe16 },
--		{ MDIO_DEV_PMA_PMD, 0xc015, 0xffff, 0xa000 },
-+		{ MDIO_MMD_PMAPMD, 0xc014, 0xffff, 0xfe16 },
-+		{ MDIO_MMD_PMAPMD, 0xc015, 0xffff, 0xa000 },
- 		{ 0, 0, 0, 0 }
- 	};
- 	static u16 twinax_edc[] = {
-@@ -887,8 +886,8 @@ static int ael2005_setup_twinax_edc(struct cphy *phy, int modtype)
- 	msleep(50);
- 
- 	for (i = 0; i < ARRAY_SIZE(twinax_edc) && !err; i += 2)
--		err = mdio_write(phy, MDIO_DEV_PMA_PMD, twinax_edc[i],
--				 twinax_edc[i + 1]);
-+		err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, twinax_edc[i],
-+				    twinax_edc[i + 1]);
- 	if (!err)
- 		phy->priv = edc_twinax;
- 	return err;
-@@ -899,26 +898,26 @@ static int ael2005_i2c_rd(struct cphy *phy, int dev_addr, int word_addr)
- 	int i, err;
- 	unsigned int stat, data;
- 
--	err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL_I2C_CTRL,
--			 (dev_addr << 8) | (1 << 8) | word_addr);
-+	err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL_I2C_CTRL,
-+			    (dev_addr << 8) | (1 << 8) | word_addr);
- 	if (err)
- 		return err;
- 
- 	for (i = 0; i < 5; i++) {
- 		msleep(1);
--		err = mdio_read(phy, MDIO_DEV_PMA_PMD, AEL_I2C_STAT, &stat);
-+		err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, AEL_I2C_STAT, &stat);
- 		if (err)
- 			return err;
- 		if ((stat & 3) == 1) {
--			err = mdio_read(phy, MDIO_DEV_PMA_PMD, AEL_I2C_DATA,
--					&data);
-+			err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, AEL_I2C_DATA,
-+					   &data);
- 			if (err)
- 				return err;
- 			return data >> 8;
- 		}
+ 	if (status == 0) {
+-		if (speed_ability & IXGBE_MDIO_PHY_SPEED_10G)
++		if (speed_ability & MDIO_SPEED_10G)
+ 		    *speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (speed_ability & IXGBE_MDIO_PHY_SPEED_1G)
++		if (speed_ability & MDIO_PMA_SPEED_1000)
+ 		    *speed |= IXGBE_LINK_SPEED_1GB_FULL;
  	}
- 	CH_WARN(phy->adapter, "PHY %u I2C read of addr %u timed out\n",
--		phy->addr, word_addr);
-+		phy->mdio.prtad, word_addr);
- 	return -ETIMEDOUT;
- }
  
-@@ -927,7 +926,7 @@ static int get_module_type(struct cphy *phy, int delay_ms)
- 	int v;
- 	unsigned int stat;
- 
--	v = mdio_read(phy, MDIO_DEV_PMA_PMD, AEL2005_GPIO_CTRL, &stat);
-+	v = t3_mdio_read(phy, MDIO_MMD_PMAPMD, AEL2005_GPIO_CTRL, &stat);
- 	if (v)
- 		return v;
- 
-@@ -971,48 +970,48 @@ unknown:
- 
- static int ael2005_intr_enable(struct cphy *phy)
- {
--	int err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL2005_GPIO_CTRL, 0x200);
-+	int err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL2005_GPIO_CTRL, 0x200);
- 	return err ? err : t3_phy_lasi_intr_enable(phy);
- }
- 
- static int ael2005_intr_disable(struct cphy *phy)
- {
--	int err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL2005_GPIO_CTRL, 0x100);
-+	int err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL2005_GPIO_CTRL, 0x100);
- 	return err ? err : t3_phy_lasi_intr_disable(phy);
- }
- 
- static int ael2005_intr_clear(struct cphy *phy)
- {
--	int err = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL2005_GPIO_CTRL, 0xd00);
-+	int err = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL2005_GPIO_CTRL, 0xd00);
- 	return err ? err : t3_phy_lasi_intr_clear(phy);
- }
- 
- static int ael2005_reset(struct cphy *phy, int wait)
- {
- 	static struct reg_val regs0[] = {
--		{ MDIO_DEV_PMA_PMD, 0xc001, 0, 1 << 5 },
--		{ MDIO_DEV_PMA_PMD, 0xc017, 0, 1 << 5 },
--		{ MDIO_DEV_PMA_PMD, 0xc013, 0xffff, 0xf341 },
--		{ MDIO_DEV_PMA_PMD, 0xc210, 0xffff, 0x8000 },
--		{ MDIO_DEV_PMA_PMD, 0xc210, 0xffff, 0x8100 },
--		{ MDIO_DEV_PMA_PMD, 0xc210, 0xffff, 0x8000 },
--		{ MDIO_DEV_PMA_PMD, 0xc210, 0xffff, 0 },
-+		{ MDIO_MMD_PMAPMD, 0xc001, 0, 1 << 5 },
-+		{ MDIO_MMD_PMAPMD, 0xc017, 0, 1 << 5 },
-+		{ MDIO_MMD_PMAPMD, 0xc013, 0xffff, 0xf341 },
-+		{ MDIO_MMD_PMAPMD, 0xc210, 0xffff, 0x8000 },
-+		{ MDIO_MMD_PMAPMD, 0xc210, 0xffff, 0x8100 },
-+		{ MDIO_MMD_PMAPMD, 0xc210, 0xffff, 0x8000 },
-+		{ MDIO_MMD_PMAPMD, 0xc210, 0xffff, 0 },
- 		{ 0, 0, 0, 0 }
- 	};
- 	static struct reg_val regs1[] = {
--		{ MDIO_DEV_PMA_PMD, 0xca00, 0xffff, 0x0080 },
--		{ MDIO_DEV_PMA_PMD, 0xca12, 0xffff, 0 },
-+		{ MDIO_MMD_PMAPMD, 0xca00, 0xffff, 0x0080 },
-+		{ MDIO_MMD_PMAPMD, 0xca12, 0xffff, 0 },
- 		{ 0, 0, 0, 0 }
- 	};
- 
- 	int err;
- 	unsigned int lasi_ctrl;
- 
--	err = mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, &lasi_ctrl);
-+	err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, LASI_CTRL, &lasi_ctrl);
- 	if (err)
- 		return err;
- 
--	err = t3_phy_reset(phy, MDIO_DEV_PMA_PMD, 0);
-+	err = t3_phy_reset(phy, MDIO_MMD_PMAPMD, 0);
- 	if (err)
- 		return err;
- 
-@@ -1051,13 +1050,13 @@ static int ael2005_intr_handler(struct cphy *phy)
- 	unsigned int stat;
- 	int ret, edc_needed, cause = 0;
- 
--	ret = mdio_read(phy, MDIO_DEV_PMA_PMD, AEL2005_GPIO_STAT, &stat);
-+	ret = t3_mdio_read(phy, MDIO_MMD_PMAPMD, AEL2005_GPIO_STAT, &stat);
- 	if (ret)
- 		return ret;
- 
- 	if (stat & AEL2005_MODDET_IRQ) {
--		ret = mdio_write(phy, MDIO_DEV_PMA_PMD, AEL2005_GPIO_CTRL,
--				 0xd00);
-+		ret = t3_mdio_write(phy, MDIO_MMD_PMAPMD, AEL2005_GPIO_CTRL,
-+				    0xd00);
- 		if (ret)
- 			return ret;
- 
-@@ -1098,6 +1097,7 @@ static struct cphy_ops ael2005_ops = {
- 	.intr_handler    = ael2005_intr_handler,
- 	.get_link_status = get_link_status_r,
- 	.power_down      = ael1002_power_down,
-+	.mmds            = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
- };
- 
- int t3_ael2005_phy_prep(struct cphy *phy, struct adapter *adapter,
-@@ -1107,7 +1107,7 @@ int t3_ael2005_phy_prep(struct cphy *phy, struct adapter *adapter,
- 		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_FIBRE |
- 		  SUPPORTED_IRQ, "10GBASE-R");
- 	msleep(125);
--	return t3_mdio_change_bits(phy, MDIO_DEV_PMA_PMD, AEL_OPT_SETTINGS, 0,
-+	return t3_mdio_change_bits(phy, MDIO_MMD_PMAPMD, AEL_OPT_SETTINGS, 0,
- 				   1 << 5);
- }
- 
-@@ -1119,12 +1119,15 @@ static int get_link_status_x(struct cphy *phy, int *link_ok, int *speed,
- {
- 	if (link_ok) {
- 		unsigned int stat0, stat1, stat2;
--		int err = mdio_read(phy, MDIO_DEV_PMA_PMD, PMD_RSD, &stat0);
-+		int err = t3_mdio_read(phy, MDIO_MMD_PMAPMD,
-+				       MDIO_PMA_RXDET, &stat0);
- 
- 		if (!err)
--			err = mdio_read(phy, MDIO_DEV_PCS, PCS_STAT1_X, &stat1);
-+			err = t3_mdio_read(phy, MDIO_MMD_PCS,
-+					   MDIO_PCS_10GBX_STAT1, &stat1);
- 		if (!err)
--			err = mdio_read(phy, MDIO_DEV_XGXS, XS_LN_STAT, &stat2);
-+			err = t3_mdio_read(phy, MDIO_MMD_PHYXS,
-+					   MDIO_PHYXS_LNSTAT, &stat2);
- 		if (err)
- 			return err;
- 		*link_ok = (stat0 & (stat1 >> 12) & (stat2 >> 12)) & 1;
-@@ -1144,6 +1147,7 @@ static struct cphy_ops qt2045_ops = {
- 	.intr_handler = t3_phy_lasi_intr_handler,
- 	.get_link_status = get_link_status_x,
- 	.power_down = ael1006_power_down,
-+	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
- };
- 
- int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
-@@ -1159,9 +1163,10 @@ int t3_qt2045_phy_prep(struct cphy *phy, struct adapter *adapter,
- 	 * Some cards where the PHY is supposed to be at address 0 actually
- 	 * have it at 1.
+@@ -526,9 +525,9 @@ static s32 ixgbe_check_mac_link_82598(struct ixgbe_hw *hw,
+ 	 * clear indicates active; set indicates inactive.
  	 */
--	if (!phy_addr && !mdio_read(phy, MDIO_DEV_PMA_PMD, MII_BMSR, &stat) &&
-+	if (!phy_addr &&
-+	    !t3_mdio_read(phy, MDIO_MMD_PMAPMD, MDIO_STAT1, &stat) &&
- 	    stat == 0xffff)
--		phy->addr = 1;
-+		phy->mdio.prtad = 1;
+ 	if (hw->phy.type == ixgbe_phy_nl) {
+-		hw->phy.ops.read_reg(hw, 0xC79F, IXGBE_TWINAX_DEV, &link_reg);
+-		hw->phy.ops.read_reg(hw, 0xC79F, IXGBE_TWINAX_DEV, &link_reg);
+-		hw->phy.ops.read_reg(hw, 0xC00C, IXGBE_TWINAX_DEV,
++		hw->phy.ops.read_reg(hw, 0xC79F, MDIO_MMD_PMAPMD, &link_reg);
++		hw->phy.ops.read_reg(hw, 0xC79F, MDIO_MMD_PMAPMD, &link_reg);
++		hw->phy.ops.read_reg(hw, 0xC00C, MDIO_MMD_PMAPMD,
+ 		                     &adapt_comp_reg);
+ 		if (link_up_wait_to_complete) {
+ 			for (i = 0; i < IXGBE_LINK_UP_TIME; i++) {
+@@ -541,10 +540,10 @@ static s32 ixgbe_check_mac_link_82598(struct ixgbe_hw *hw,
+ 				}
+ 				msleep(100);
+ 				hw->phy.ops.read_reg(hw, 0xC79F,
+-				                     IXGBE_TWINAX_DEV,
++				                     MDIO_MMD_PMAPMD,
+ 				                     &link_reg);
+ 				hw->phy.ops.read_reg(hw, 0xC00C,
+-				                     IXGBE_TWINAX_DEV,
++				                     MDIO_MMD_PMAPMD,
+ 				                     &adapt_comp_reg);
+ 			}
+ 		} else {
+@@ -990,14 +989,14 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
+ 		sfp_addr = (sfp_addr | IXGBE_I2C_EEPROM_READ_MASK);
+ 		hw->phy.ops.write_reg(hw,
+ 		                      IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
+-		                      IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++		                      MDIO_MMD_PMAPMD,
+ 		                      sfp_addr);
+ 
+ 		/* Poll status */
+ 		for (i = 0; i < 100; i++) {
+ 			hw->phy.ops.read_reg(hw,
+ 			                     IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT,
+-			                     IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++			                     MDIO_MMD_PMAPMD,
+ 			                     &sfp_stat);
+ 			sfp_stat = sfp_stat & IXGBE_I2C_EEPROM_STATUS_MASK;
+ 			if (sfp_stat != IXGBE_I2C_EEPROM_STATUS_IN_PROGRESS)
+@@ -1013,7 +1012,7 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
+ 
+ 		/* Read data */
+ 		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA,
+-		                     IXGBE_MDIO_PMA_PMD_DEV_TYPE, &sfp_data);
++		                     MDIO_MMD_PMAPMD, &sfp_data);
+ 
+ 		*eeprom_data = (u8)(sfp_data >> 8);
+ 	} else {
+@@ -1045,13 +1044,13 @@ static u32 ixgbe_get_supported_physical_layer_82598(struct ixgbe_hw *hw)
+ 	 * physical layer because 10GBase-T PHYs use LMS = KX4/KX */
+ 	if (hw->phy.type == ixgbe_phy_tn ||
+ 	    hw->phy.type == ixgbe_phy_cu_unknown) {
+-		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_EXT_ABILITY,
+-		IXGBE_MDIO_PMA_PMD_DEV_TYPE, &ext_ability);
+-		if (ext_ability & IXGBE_MDIO_PHY_10GBASET_ABILITY)
++		hw->phy.ops.read_reg(hw, MDIO_PMA_EXTABLE, MDIO_MMD_PMAPMD,
++				     &ext_ability);
++		if (ext_ability & MDIO_PMA_EXTABLE_10GBT)
+ 			physical_layer |= IXGBE_PHYSICAL_LAYER_10GBASE_T;
+-		if (ext_ability & IXGBE_MDIO_PHY_1000BASET_ABILITY)
++		if (ext_ability & MDIO_PMA_EXTABLE_1000BT)
+ 			physical_layer |= IXGBE_PHYSICAL_LAYER_1000BASE_T;
+-		if (ext_ability & IXGBE_MDIO_PHY_100BASETX_ABILITY)
++		if (ext_ability & MDIO_PMA_EXTABLE_100BTX)
+ 			physical_layer |= IXGBE_PHYSICAL_LAYER_100BASE_TX;
+ 		goto out;
+ 	}
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+index 9e824b4..6038ed1 100644
+--- a/drivers/net/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ixgbe/ixgbe_82599.c
+@@ -314,14 +314,13 @@ static s32 ixgbe_get_copper_link_capabilities_82599(struct ixgbe_hw *hw,
+ 	*speed = 0;
+ 	*autoneg = true;
+ 
+-	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_SPEED_ABILITY,
+-	                              IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++	status = hw->phy.ops.read_reg(hw, MDIO_SPEED, MDIO_MMD_PMAPMD,
+ 	                              &speed_ability);
+ 
+ 	if (status == 0) {
+-		if (speed_ability & IXGBE_MDIO_PHY_SPEED_10G)
++		if (speed_ability & MDIO_SPEED_10G)
+ 		    *speed |= IXGBE_LINK_SPEED_10GB_FULL;
+-		if (speed_ability & IXGBE_MDIO_PHY_SPEED_1G)
++		if (speed_ability & MDIO_PMA_SPEED_1000)
+ 		    *speed |= IXGBE_LINK_SPEED_1GB_FULL;
+ 	}
+ 
+@@ -1153,13 +1152,13 @@ u32 ixgbe_get_supported_physical_layer_82599(struct ixgbe_hw *hw)
+ 
+ 	if (hw->phy.type == ixgbe_phy_tn ||
+ 	    hw->phy.type == ixgbe_phy_cu_unknown) {
+-		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_EXT_ABILITY,
+-		IXGBE_MDIO_PMA_PMD_DEV_TYPE, &ext_ability);
+-		if (ext_ability & IXGBE_MDIO_PHY_10GBASET_ABILITY)
++		hw->phy.ops.read_reg(hw, MDIO_PMA_EXTABLE, MDIO_MMD_PMAPMD,
++				     &ext_ability);
++		if (ext_ability & MDIO_PMA_EXTABLE_10GBT)
+ 			physical_layer |= IXGBE_PHYSICAL_LAYER_10GBASE_T;
+-		if (ext_ability & IXGBE_MDIO_PHY_1000BASET_ABILITY)
++		if (ext_ability & MDIO_PMA_EXTABLE_1000BT)
+ 			physical_layer |= IXGBE_PHYSICAL_LAYER_1000BASE_T;
+-		if (ext_ability & IXGBE_MDIO_PHY_100BASETX_ABILITY)
++		if (ext_ability & MDIO_PMA_EXTABLE_100BTX)
+ 			physical_layer |= IXGBE_PHYSICAL_LAYER_100BASE_TX;
+ 		goto out;
+ 	}
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 5020f11..a84f980 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4646,6 +4646,40 @@ static int ixgbe_set_mac(struct net_device *netdev, void *p)
  	return 0;
  }
  
-@@ -1175,15 +1180,16 @@ static int xaui_direct_get_link_status(struct cphy *phy, int *link_ok,
- {
- 	if (link_ok) {
- 		unsigned int status;
-+		int prtad = phy->mdio.prtad;
- 
- 		status = t3_read_reg(phy->adapter,
--				     XGM_REG(A_XGM_SERDES_STAT0, phy->addr)) |
-+				     XGM_REG(A_XGM_SERDES_STAT0, prtad)) |
- 		    t3_read_reg(phy->adapter,
--				XGM_REG(A_XGM_SERDES_STAT1, phy->addr)) |
-+				    XGM_REG(A_XGM_SERDES_STAT1, prtad)) |
- 		    t3_read_reg(phy->adapter,
--				XGM_REG(A_XGM_SERDES_STAT2, phy->addr)) |
-+				XGM_REG(A_XGM_SERDES_STAT2, prtad)) |
- 		    t3_read_reg(phy->adapter,
--				XGM_REG(A_XGM_SERDES_STAT3, phy->addr));
-+				XGM_REG(A_XGM_SERDES_STAT3, prtad));
- 		*link_ok = !(status & F_LOWSIG0);
- 	}
- 	if (speed)
-@@ -1211,7 +1217,7 @@ static struct cphy_ops xaui_direct_ops = {
- int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
- 			    int phy_addr, const struct mdio_ops *mdio_ops)
- {
--	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops,
-+	cphy_init(phy, adapter, MDIO_PRTAD_NONE, &xaui_direct_ops, mdio_ops,
- 		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_TP,
- 		  "10GBASE-CX4");
- 	return 0;
-diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index e508dc3..3147789 100644
---- a/drivers/net/cxgb3/common.h
-+++ b/drivers/net/cxgb3/common.h
-@@ -39,7 +39,7 @@
- #include <linux/init.h>
- #include <linux/netdevice.h>
- #include <linux/ethtool.h>
--#include <linux/mii.h>
-+#include <linux/mdio.h>
- #include "version.h"
- 
- #define CH_ERR(adap, fmt, ...)   dev_err(&adap->pdev->dev, fmt, ## __VA_ARGS__)
-@@ -184,10 +184,11 @@ struct cphy;
- struct adapter;
- 
- struct mdio_ops {
--	int (*read)(struct adapter *adapter, int phy_addr, int mmd_addr,
--		    int reg_addr, unsigned int *val);
--	int (*write)(struct adapter *adapter, int phy_addr, int mmd_addr,
--		     int reg_addr, unsigned int val);
-+	int (*read)(struct net_device *dev, int phy_addr, int mmd_addr,
-+		    u16 reg_addr);
-+	int (*write)(struct net_device *dev, int phy_addr, int mmd_addr,
-+		     u16 reg_addr, u16 val);
-+	unsigned mode_support;
- };
- 
- struct adapter_info {
-@@ -520,17 +521,6 @@ enum {
- 	MAC_RXFIFO_SIZE = 32768
- };
- 
--/* IEEE 802.3 specified MDIO devices */
--enum {
--	MDIO_DEV_PMA_PMD = 1,
--	MDIO_DEV_WIS = 2,
--	MDIO_DEV_PCS = 3,
--	MDIO_DEV_XGXS = 4,
--	MDIO_DEV_ANEG = 7,
--	MDIO_DEV_VEND1 = 30,
--	MDIO_DEV_VEND2 = 31
--};
--
- /* LASI control and status registers */
- enum {
- 	RX_ALARM_CTRL = 0x9000,
-@@ -583,11 +573,12 @@ struct cphy_ops {
- 	int (*get_link_status)(struct cphy *phy, int *link_ok, int *speed,
- 			       int *duplex, int *fc);
- 	int (*power_down)(struct cphy *phy, int enable);
++static int
++ixgbe_mdio_read(struct net_device *netdev, int prtad, int devad, u16 addr)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u16 value;
++	int rc;
 +
-+	u32 mmds;
- };
++	if (prtad != hw->phy.mdio.prtad)
++		return -EINVAL;
++	rc = hw->phy.ops.read_reg(hw, addr, devad, &value);
++	if (!rc)
++		rc = value;
++	return rc;
++}
++
++static int ixgbe_mdio_write(struct net_device *netdev, int prtad, int devad,
++			    u16 addr, u16 value)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++
++	if (prtad != hw->phy.mdio.prtad)
++		return -EINVAL;
++	return hw->phy.ops.write_reg(hw, addr, devad, value);
++}
++
++static int ixgbe_ioctl(struct net_device *netdev, struct ifreq *req, int cmd)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	return mdio_mii_ioctl(&adapter->hw.phy.mdio, if_mii(req), cmd);
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ /*
+  * Polling 'interrupt' - used by things like netconsole to send skbs
+@@ -4679,6 +4713,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_vlan_rx_register	= ixgbe_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
++	.ndo_do_ioctl		= ixgbe_ioctl,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ixgbe_netpoll,
+ #endif
+@@ -4793,6 +4828,13 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	/* PHY */
+ 	memcpy(&hw->phy.ops, ii->phy_ops, sizeof(hw->phy.ops));
+ 	hw->phy.sfp_type = ixgbe_sfp_type_unknown;
++	/* ixgbe_identify_phy_generic will set prtad and mmds properly */
++	hw->phy.mdio.prtad = MDIO_PRTAD_NONE;
++	hw->phy.mdio.mmds = 0;
++	hw->phy.mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
++	hw->phy.mdio.dev = netdev;
++	hw->phy.mdio.mdio_read = ixgbe_mdio_read;
++	hw->phy.mdio.mdio_write = ixgbe_mdio_write;
  
- /* A PHY instance */
- struct cphy {
--	u8 addr;			/* PHY address */
- 	u8 modtype;			/* PHY module type */
- 	short priv;			/* scratch pad */
- 	unsigned int caps;		/* PHY capabilities */
-@@ -595,23 +586,23 @@ struct cphy {
- 	const char *desc;		/* PHY description */
- 	unsigned long fifo_errors;	/* FIFO over/under-flows */
- 	const struct cphy_ops *ops;	/* PHY operations */
--	int (*mdio_read)(struct adapter *adapter, int phy_addr, int mmd_addr,
--			 int reg_addr, unsigned int *val);
--	int (*mdio_write)(struct adapter *adapter, int phy_addr, int mmd_addr,
--			  int reg_addr, unsigned int val);
-+	struct mdio_if_info mdio;
- };
+ 	/* set up this timer and work struct before calling get_invariants
+ 	 * which might start the timer
+diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
+index 2543c32..6d385ea 100644
+--- a/drivers/net/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ixgbe/ixgbe_phy.c
+@@ -44,7 +44,6 @@ static void ixgbe_lower_i2c_clk(struct ixgbe_hw *hw, u32 *i2cctl);
+ static s32 ixgbe_set_i2c_data(struct ixgbe_hw *hw, u32 *i2cctl, bool data);
+ static bool ixgbe_get_i2c_data(u32 *i2cctl);
+ static void ixgbe_i2c_bus_clear(struct ixgbe_hw *hw);
+-static bool ixgbe_validate_phy_addr(struct ixgbe_hw *hw, u32 phy_addr);
+ static enum ixgbe_phy_type ixgbe_get_phy_type_from_id(u32 phy_id);
+ static s32 ixgbe_get_phy_id(struct ixgbe_hw *hw);
  
- /* Convenience MDIO read/write wrappers */
--static inline int mdio_read(struct cphy *phy, int mmd, int reg,
--			    unsigned int *valp)
-+static inline int t3_mdio_read(struct cphy *phy, int mmd, int reg,
-+			       unsigned int *valp)
- {
--	return phy->mdio_read(phy->adapter, phy->addr, mmd, reg, valp);
-+	int rc = phy->mdio.mdio_read(phy->mdio.dev, phy->mdio.prtad, mmd, reg);
-+	*valp = (rc >= 0) ? rc : -1;
-+	return (rc >= 0) ? 0 : rc;
+@@ -61,8 +60,7 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw)
+ 
+ 	if (hw->phy.type == ixgbe_phy_unknown) {
+ 		for (phy_addr = 0; phy_addr < IXGBE_MAX_PHY_ADDR; phy_addr++) {
+-			if (ixgbe_validate_phy_addr(hw, phy_addr)) {
+-				hw->phy.addr = phy_addr;
++			if (mdio45_probe(&hw->phy.mdio, phy_addr) == 0) {
+ 				ixgbe_get_phy_id(hw);
+ 				hw->phy.type =
+ 				        ixgbe_get_phy_type_from_id(hw->phy.id);
+@@ -78,26 +76,6 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw)
  }
  
--static inline int mdio_write(struct cphy *phy, int mmd, int reg,
--			     unsigned int val)
-+static inline int t3_mdio_write(struct cphy *phy, int mmd, int reg,
-+				unsigned int val)
- {
--	return phy->mdio_write(phy->adapter, phy->addr, mmd, reg, val);
-+	return phy->mdio.mdio_write(phy->mdio.dev, phy->mdio.prtad, mmd,
-+				    reg, val);
+ /**
+- *  ixgbe_validate_phy_addr - Determines phy address is valid
+- *  @hw: pointer to hardware structure
+- *
+- **/
+-static bool ixgbe_validate_phy_addr(struct ixgbe_hw *hw, u32 phy_addr)
+-{
+-	u16 phy_id = 0;
+-	bool valid = false;
+-
+-	hw->phy.addr = phy_addr;
+-	hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_ID_HIGH,
+-	                     IXGBE_MDIO_PMA_PMD_DEV_TYPE, &phy_id);
+-
+-	if (phy_id != 0xFFFF && phy_id != 0x0)
+-		valid = true;
+-
+-	return valid;
+-}
+-
+-/**
+  *  ixgbe_get_phy_id - Get the phy type
+  *  @hw: pointer to hardware structure
+  *
+@@ -108,14 +86,12 @@ static s32 ixgbe_get_phy_id(struct ixgbe_hw *hw)
+ 	u16 phy_id_high = 0;
+ 	u16 phy_id_low = 0;
+ 
+-	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_ID_HIGH,
+-	                              IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++	status = hw->phy.ops.read_reg(hw, MDIO_DEVID1, MDIO_MMD_PMAPMD,
+ 	                              &phy_id_high);
+ 
+ 	if (status == 0) {
+ 		hw->phy.id = (u32)(phy_id_high << 16);
+-		status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_ID_LOW,
+-		                              IXGBE_MDIO_PMA_PMD_DEV_TYPE,
++		status = hw->phy.ops.read_reg(hw, MDIO_DEVID2, MDIO_MMD_PMAPMD,
+ 		                              &phy_id_low);
+ 		hw->phy.id |= (u32)(phy_id_low & IXGBE_PHY_REVISION_MASK);
+ 		hw->phy.revision = (u32)(phy_id_low & ~IXGBE_PHY_REVISION_MASK);
+@@ -160,9 +136,8 @@ s32 ixgbe_reset_phy_generic(struct ixgbe_hw *hw)
+ 	 * Perform soft PHY reset to the PHY_XS.
+ 	 * This will cause a soft reset to the PHY
+ 	 */
+-	return hw->phy.ops.write_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
+-	                             IXGBE_MDIO_PHY_XS_DEV_TYPE,
+-	                             IXGBE_MDIO_PHY_XS_RESET);
++	return hw->phy.ops.write_reg(hw, MDIO_CTRL1, MDIO_MMD_PHYXS,
++				     MDIO_CTRL1_RESET);
  }
  
- /* Convenience initializer */
-@@ -620,14 +611,16 @@ static inline void cphy_init(struct cphy *phy, struct adapter *adapter,
- 			     const struct mdio_ops *mdio_ops,
- 			      unsigned int caps, const char *desc)
- {
--	phy->addr = phy_addr;
- 	phy->caps = caps;
- 	phy->adapter = adapter;
- 	phy->desc = desc;
- 	phy->ops = phy_ops;
- 	if (mdio_ops) {
--		phy->mdio_read = mdio_ops->read;
--		phy->mdio_write = mdio_ops->write;
-+		phy->mdio.prtad = phy_addr;
-+		phy->mdio.mmds = phy_ops->mmds;
-+		phy->mdio.mode_support = mdio_ops->mode_support;
-+		phy->mdio.mdio_read = mdio_ops->read;
-+		phy->mdio.mdio_write = mdio_ops->write;
+ /**
+@@ -192,7 +167,7 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ 		/* Setup and write the address cycle command */
+ 		command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+ 		           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-		           (hw->phy.addr << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++		           (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
+ 		           (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
+ 
+ 		IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+@@ -223,7 +198,8 @@ s32 ixgbe_read_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ 			 */
+ 			command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+ 			           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-			           (hw->phy.addr << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++			           (hw->phy.mdio.prtad <<
++				    IXGBE_MSCA_PHY_ADDR_SHIFT) |
+ 			           (IXGBE_MSCA_READ | IXGBE_MSCA_MDI_COMMAND));
+ 
+ 			IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+@@ -292,7 +268,7 @@ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ 		/* Setup and write the address cycle command */
+ 		command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+ 		           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-		           (hw->phy.addr << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++		           (hw->phy.mdio.prtad << IXGBE_MSCA_PHY_ADDR_SHIFT) |
+ 		           (IXGBE_MSCA_ADDR_CYCLE | IXGBE_MSCA_MDI_COMMAND));
+ 
+ 		IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+@@ -323,7 +299,8 @@ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ 			 */
+ 			command = ((reg_addr << IXGBE_MSCA_NP_ADDR_SHIFT)  |
+ 			           (device_type << IXGBE_MSCA_DEV_TYPE_SHIFT) |
+-			           (hw->phy.addr << IXGBE_MSCA_PHY_ADDR_SHIFT) |
++			           (hw->phy.mdio.prtad <<
++				    IXGBE_MSCA_PHY_ADDR_SHIFT) |
+ 			           (IXGBE_MSCA_WRITE | IXGBE_MSCA_MDI_COMMAND));
+ 
+ 			IXGBE_WRITE_REG(hw, IXGBE_MSCA, command);
+@@ -365,7 +342,7 @@ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw)
+ 	s32 status = IXGBE_NOT_IMPLEMENTED;
+ 	u32 time_out;
+ 	u32 max_time_out = 10;
+-	u16 autoneg_reg = IXGBE_MII_AUTONEG_REG;
++	u16 autoneg_reg;
+ 
+ 	/*
+ 	 * Set advertisement settings in PHY based on autoneg_advertised
+@@ -373,36 +350,31 @@ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw)
+ 	 * tnx devices cannot be "forced" to a autoneg 10G and fail.  But can
+ 	 * for a 1G.
+ 	 */
+-	hw->phy.ops.read_reg(hw, IXGBE_MII_SPEED_SELECTION_REG,
+-	                     IXGBE_MDIO_AUTO_NEG_DEV_TYPE, &autoneg_reg);
++	hw->phy.ops.read_reg(hw, MDIO_AN_ADVERTISE, MDIO_MMD_AN, &autoneg_reg);
+ 
+ 	if (hw->phy.autoneg_advertised == IXGBE_LINK_SPEED_1GB_FULL)
+-		autoneg_reg &= 0xEFFF; /* 0 in bit 12 is 1G operation */
++		autoneg_reg &= ~MDIO_AN_10GBT_CTRL_ADV10G;
+ 	else
+-		autoneg_reg |= 0x1000; /* 1 in bit 12 is 10G/1G operation */
++		autoneg_reg |= MDIO_AN_10GBT_CTRL_ADV10G;
+ 
+-	hw->phy.ops.write_reg(hw, IXGBE_MII_SPEED_SELECTION_REG,
+-	                      IXGBE_MDIO_AUTO_NEG_DEV_TYPE, autoneg_reg);
++	hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE, MDIO_MMD_AN, autoneg_reg);
+ 
+ 	/* Restart PHY autonegotiation and wait for completion */
+-	hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_CONTROL,
+-	                     IXGBE_MDIO_AUTO_NEG_DEV_TYPE, &autoneg_reg);
++	hw->phy.ops.read_reg(hw, MDIO_CTRL1, MDIO_MMD_AN, &autoneg_reg);
+ 
+-	autoneg_reg |= IXGBE_MII_RESTART;
++	autoneg_reg |= MDIO_AN_CTRL1_RESTART;
+ 
+-	hw->phy.ops.write_reg(hw, IXGBE_MDIO_AUTO_NEG_CONTROL,
+-	                      IXGBE_MDIO_AUTO_NEG_DEV_TYPE, autoneg_reg);
++	hw->phy.ops.write_reg(hw, MDIO_CTRL1, MDIO_MMD_AN, autoneg_reg);
+ 
+ 	/* Wait for autonegotiation to finish */
+ 	for (time_out = 0; time_out < max_time_out; time_out++) {
+ 		udelay(10);
+ 		/* Restart PHY autonegotiation and wait for completion */
+-		status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_STATUS,
+-		                              IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
++		status = hw->phy.ops.read_reg(hw, MDIO_STAT1, MDIO_MMD_AN,
+ 		                              &autoneg_reg);
+ 
+-		autoneg_reg &= IXGBE_MII_AUTONEG_COMPLETE;
+-		if (autoneg_reg == IXGBE_MII_AUTONEG_COMPLETE) {
++		autoneg_reg &= MDIO_AN_STAT1_COMPLETE;
++		if (autoneg_reg == MDIO_AN_STAT1_COMPLETE) {
+ 			status = 0;
+ 			break;
+ 		}
+@@ -457,23 +429,21 @@ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
+ 	s32 ret_val = 0;
+ 	u32 i;
+ 
+-	hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
+-	                     IXGBE_MDIO_PHY_XS_DEV_TYPE, &phy_data);
++	hw->phy.ops.read_reg(hw, MDIO_CTRL1, MDIO_MMD_PHYXS, &phy_data);
+ 
+ 	/* reset the PHY and poll for completion */
+-	hw->phy.ops.write_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
+-	                      IXGBE_MDIO_PHY_XS_DEV_TYPE,
+-	                      (phy_data | IXGBE_MDIO_PHY_XS_RESET));
++	hw->phy.ops.write_reg(hw, MDIO_CTRL1, MDIO_MMD_PHYXS,
++	                      (phy_data | MDIO_CTRL1_RESET));
+ 
+ 	for (i = 0; i < 100; i++) {
+-		hw->phy.ops.read_reg(hw, IXGBE_MDIO_PHY_XS_CONTROL,
+-		                     IXGBE_MDIO_PHY_XS_DEV_TYPE, &phy_data);
+-		if ((phy_data & IXGBE_MDIO_PHY_XS_RESET) == 0)
++		hw->phy.ops.read_reg(hw, MDIO_CTRL1, MDIO_MMD_PHYXS,
++		                     &phy_data);
++		if ((phy_data & MDIO_CTRL1_RESET) == 0)
+ 			break;
+ 		msleep(10);
  	}
- }
  
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 7ea4841..0b87fee 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -37,7 +37,7 @@
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/if_vlan.h>
--#include <linux/mii.h>
+-	if ((phy_data & IXGBE_MDIO_PHY_XS_RESET) != 0) {
++	if ((phy_data & MDIO_CTRL1_RESET) != 0) {
+ 		hw_dbg(hw, "PHY reset did not complete.\n");
+ 		ret_val = IXGBE_ERR_PHY;
+ 		goto out;
+@@ -509,7 +479,7 @@ s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw)
+ 			for (i = 0; i < edata; i++) {
+ 				hw->eeprom.ops.read(hw, data_offset, &eword);
+ 				hw->phy.ops.write_reg(hw, phy_offset,
+-				                      IXGBE_TWINAX_DEV, eword);
++				                      MDIO_MMD_PMAPMD, eword);
+ 				hw_dbg(hw, "Wrote %4.4x to %4.4x\n", eword,
+ 				       phy_offset);
+ 				data_offset++;
+@@ -1302,7 +1272,7 @@ s32 ixgbe_check_phy_link_tnx(struct ixgbe_hw *hw, ixgbe_link_speed *speed,
+ 		udelay(10);
+ 		status = hw->phy.ops.read_reg(hw,
+ 		                        IXGBE_MDIO_VENDOR_SPECIFIC_1_STATUS,
+-		                        IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
++					MDIO_MMD_VEND1,
+ 		                        &phy_data);
+ 		phy_link = phy_data &
+ 		           IXGBE_MDIO_VENDOR_SPECIFIC_1_LINK_STATUS;
+@@ -1330,8 +1300,7 @@ s32 ixgbe_get_phy_firmware_version_tnx(struct ixgbe_hw *hw,
+ {
+ 	s32 status = 0;
+ 
+-	status = hw->phy.ops.read_reg(hw, TNX_FW_REV,
+-	                              IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
++	status = hw->phy.ops.read_reg(hw, TNX_FW_REV, MDIO_MMD_VEND1,
+ 	                              firmware_version);
+ 
+ 	return status;
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index bdfdf3b..e49e8af 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -29,6 +29,7 @@
+ #define _IXGBE_TYPE_H_
+ 
+ #include <linux/types.h>
 +#include <linux/mdio.h>
- #include <linux/sockios.h>
- #include <linux/workqueue.h>
- #include <linux/proc_fs.h>
-@@ -1593,7 +1593,7 @@ static int get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	}
  
- 	cmd->port = (cmd->supported & SUPPORTED_TP) ? PORT_TP : PORT_FIBRE;
--	cmd->phy_address = p->phy.addr;
-+	cmd->phy_address = p->phy.mdio.prtad;
- 	cmd->transceiver = XCVR_EXTERNAL;
- 	cmd->autoneg = p->link_config.autoneg;
- 	cmd->maxtxpkt = 0;
-@@ -2308,70 +2308,25 @@ static int cxgb_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
- 	struct mii_ioctl_data *data = if_mii(req);
- 	struct port_info *pi = netdev_priv(dev);
- 	struct adapter *adapter = pi->adapter;
--	int ret, mmd;
+ /* Vendor ID */
+ #define IXGBE_INTEL_VENDOR_ID   0x8086
+@@ -848,13 +849,7 @@
+ /* Omer bit masks */
+ #define IXGBE_CORECTL_WRITE_CMD         0x00010000
  
- 	switch (cmd) {
--	case SIOCGMIIPHY:
--		data->phy_id = pi->phy.addr;
-+	case SIOCGMIIREG:
-+	case SIOCSMIIREG:
-+		/* Convert phy_id from older PRTAD/DEVAD format */
-+		if (is_10G(adapter) &&
-+		    !mdio_phy_id_is_c45(data->phy_id) &&
-+		    (data->phy_id & 0x1f00) &&
-+		    !(data->phy_id & 0xe0e0))
-+			data->phy_id = mdio_phy_id_c45(data->phy_id >> 8,
-+						       data->phy_id & 0x1f);
- 		/* FALLTHRU */
--	case SIOCGMIIREG:{
--		u32 val;
--		struct cphy *phy = &pi->phy;
+-/* Device Type definitions for new protocol MDIO commands */
+-#define IXGBE_MDIO_PMA_PMD_DEV_TYPE               0x1
+-#define IXGBE_MDIO_PCS_DEV_TYPE                   0x3
+-#define IXGBE_MDIO_PHY_XS_DEV_TYPE                0x4
+-#define IXGBE_MDIO_AUTO_NEG_DEV_TYPE              0x7
+-#define IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE     0x1E   /* Device 30 */
+-#define IXGBE_TWINAX_DEV                          1
++/* MDIO definitions */
+ 
+ #define IXGBE_MDIO_COMMAND_TIMEOUT     100 /* PHY Timeout for 1 GB mode */
+ 
+@@ -865,32 +860,10 @@
+ #define IXGBE_MDIO_VENDOR_SPECIFIC_1_10G_SPEED    0x0018
+ #define IXGBE_MDIO_VENDOR_SPECIFIC_1_1G_SPEED     0x0010
+ 
+-#define IXGBE_MDIO_AUTO_NEG_CONTROL    0x0 /* AUTO_NEG Control Reg */
+-#define IXGBE_MDIO_AUTO_NEG_STATUS     0x1 /* AUTO_NEG Status Reg */
+-#define IXGBE_MDIO_PHY_XS_CONTROL      0x0 /* PHY_XS Control Reg */
+-#define IXGBE_MDIO_PHY_XS_RESET        0x8000 /* PHY_XS Reset */
+-#define IXGBE_MDIO_PHY_ID_HIGH         0x2 /* PHY ID High Reg*/
+-#define IXGBE_MDIO_PHY_ID_LOW          0x3 /* PHY ID Low Reg*/
+-#define IXGBE_MDIO_PHY_SPEED_ABILITY   0x4 /* Speed Ability Reg */
+-#define IXGBE_MDIO_PHY_SPEED_10G       0x0001 /* 10G capable */
+-#define IXGBE_MDIO_PHY_SPEED_1G        0x0010 /* 1G capable */
+-#define IXGBE_MDIO_PHY_EXT_ABILITY        0xB /* Ext Ability Reg */
+-#define IXGBE_MDIO_PHY_10GBASET_ABILITY   0x0004 /* 10GBaseT capable */
+-#define IXGBE_MDIO_PHY_1000BASET_ABILITY  0x0020 /* 1000BaseT capable */
+-#define IXGBE_MDIO_PHY_100BASETX_ABILITY  0x0080 /* 100BaseTX capable */
 -
--		if (!phy->mdio_read)
--			return -EOPNOTSUPP;
--		if (is_10G(adapter)) {
--			mmd = data->phy_id >> 8;
--			if (!mmd)
--				mmd = MDIO_DEV_PCS;
--			else if (mmd > MDIO_DEV_VEND2)
--				return -EINVAL;
+ #define IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR     0xC30A /* PHY_XS SDA/SCL Addr Reg */
+ #define IXGBE_MDIO_PMA_PMD_SDA_SCL_DATA     0xC30B /* PHY_XS SDA/SCL Data Reg */
+ #define IXGBE_MDIO_PMA_PMD_SDA_SCL_STAT     0xC30C /* PHY_XS SDA/SCL Status Reg */
+ 
+-/* MII clause 22/28 definitions */
+-#define IXGBE_MDIO_PHY_LOW_POWER_MODE  0x0800
 -
--			ret =
--				phy->mdio_read(adapter, data->phy_id & 0x1f,
--						mmd, data->reg_num, &val);
--		} else
--			ret =
--				phy->mdio_read(adapter, data->phy_id & 0x1f,
--						0, data->reg_num & 0x1f,
--						&val);
--		if (!ret)
--			data->val_out = val;
--		break;
--	}
--	case SIOCSMIIREG:{
--		struct cphy *phy = &pi->phy;
+-#define IXGBE_MII_SPEED_SELECTION_REG  0x10
+-#define IXGBE_MII_RESTART              0x200
+-#define IXGBE_MII_AUTONEG_COMPLETE     0x20
+-#define IXGBE_MII_AUTONEG_REG          0x0
 -
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
--		if (!phy->mdio_write)
--			return -EOPNOTSUPP;
--		if (is_10G(adapter)) {
--			mmd = data->phy_id >> 8;
--			if (!mmd)
--				mmd = MDIO_DEV_PCS;
--			else if (mmd > MDIO_DEV_VEND2)
--				return -EINVAL;
--
--			ret =
--				phy->mdio_write(adapter,
--						data->phy_id & 0x1f, mmd,
--						data->reg_num,
--						data->val_in);
--		} else
--			ret =
--				phy->mdio_write(adapter,
--						data->phy_id & 0x1f, 0,
--						data->reg_num & 0x1f,
--						data->val_in);
--		break;
--	}
-+	case SIOCGMIIPHY:
-+		return mdio_mii_ioctl(&pi->phy.mdio, data, cmd);
- 	case SIOCCHIOCTL:
- 		return cxgb_extension_ioctl(dev, req->ifr_data);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
--	return ret;
- }
+ #define IXGBE_PHY_REVISION_MASK        0xFFFFFFF0
+ #define IXGBE_MAX_PHY_ADDR             32
  
- static int cxgb_change_mtu(struct net_device *dev, int new_mtu)
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index e1bd690..1dd1637 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -204,35 +204,33 @@ static void mi1_init(struct adapter *adap, const struct adapter_info *ai)
- /*
-  * MI1 read/write operations for clause 22 PHYs.
-  */
--static int t3_mi1_read(struct adapter *adapter, int phy_addr, int mmd_addr,
--		       int reg_addr, unsigned int *valp)
-+static int t3_mi1_read(struct net_device *dev, int phy_addr, int mmd_addr,
-+		       u16 reg_addr)
- {
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
- 	int ret;
- 	u32 addr = V_REGADDR(reg_addr) | V_PHYADDR(phy_addr);
+@@ -2214,8 +2187,8 @@ struct ixgbe_mac_info {
  
--	if (mmd_addr)
--		return -EINVAL;
--
- 	mutex_lock(&adapter->mdio_lock);
- 	t3_set_reg_field(adapter, A_MI1_CFG, V_ST(M_ST), V_ST(1));
- 	t3_write_reg(adapter, A_MI1_ADDR, addr);
- 	t3_write_reg(adapter, A_MI1_OP, V_MDI_OP(2));
- 	ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0, MDIO_ATTEMPTS, 10);
- 	if (!ret)
--		*valp = t3_read_reg(adapter, A_MI1_DATA);
-+		ret = t3_read_reg(adapter, A_MI1_DATA);
- 	mutex_unlock(&adapter->mdio_lock);
- 	return ret;
- }
- 
--static int t3_mi1_write(struct adapter *adapter, int phy_addr, int mmd_addr,
--		     int reg_addr, unsigned int val)
-+static int t3_mi1_write(struct net_device *dev, int phy_addr, int mmd_addr,
-+			u16 reg_addr, u16 val)
- {
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
- 	int ret;
- 	u32 addr = V_REGADDR(reg_addr) | V_PHYADDR(phy_addr);
- 
--	if (mmd_addr)
--		return -EINVAL;
--
- 	mutex_lock(&adapter->mdio_lock);
- 	t3_set_reg_field(adapter, A_MI1_CFG, V_ST(M_ST), V_ST(1));
- 	t3_write_reg(adapter, A_MI1_ADDR, addr);
-@@ -244,8 +242,9 @@ static int t3_mi1_write(struct adapter *adapter, int phy_addr, int mmd_addr,
- }
- 
- static const struct mdio_ops mi1_mdio_ops = {
--	t3_mi1_read,
--	t3_mi1_write
-+	.read = t3_mi1_read,
-+	.write = t3_mi1_write,
-+	.mode_support = MDIO_SUPPORTS_C22
- };
- 
- /*
-@@ -268,9 +267,11 @@ static int mi1_wr_addr(struct adapter *adapter, int phy_addr, int mmd_addr,
- /*
-  * MI1 read/write operations for indirect-addressed PHYs.
-  */
--static int mi1_ext_read(struct adapter *adapter, int phy_addr, int mmd_addr,
--			int reg_addr, unsigned int *valp)
-+static int mi1_ext_read(struct net_device *dev, int phy_addr, int mmd_addr,
-+			u16 reg_addr)
- {
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
- 	int ret;
- 
- 	mutex_lock(&adapter->mdio_lock);
-@@ -280,15 +281,17 @@ static int mi1_ext_read(struct adapter *adapter, int phy_addr, int mmd_addr,
- 		ret = t3_wait_op_done(adapter, A_MI1_OP, F_BUSY, 0,
- 				      MDIO_ATTEMPTS, 10);
- 		if (!ret)
--			*valp = t3_read_reg(adapter, A_MI1_DATA);
-+			ret = t3_read_reg(adapter, A_MI1_DATA);
- 	}
- 	mutex_unlock(&adapter->mdio_lock);
- 	return ret;
- }
- 
--static int mi1_ext_write(struct adapter *adapter, int phy_addr, int mmd_addr,
--			 int reg_addr, unsigned int val)
-+static int mi1_ext_write(struct net_device *dev, int phy_addr, int mmd_addr,
-+			 u16 reg_addr, u16 val)
- {
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
- 	int ret;
- 
- 	mutex_lock(&adapter->mdio_lock);
-@@ -304,8 +307,9 @@ static int mi1_ext_write(struct adapter *adapter, int phy_addr, int mmd_addr,
- }
- 
- static const struct mdio_ops mi1_mdio_ext_ops = {
--	mi1_ext_read,
--	mi1_ext_write
-+	.read = mi1_ext_read,
-+	.write = mi1_ext_write,
-+	.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22
- };
- 
- /**
-@@ -325,10 +329,10 @@ int t3_mdio_change_bits(struct cphy *phy, int mmd, int reg, unsigned int clear,
- 	int ret;
- 	unsigned int val;
- 
--	ret = mdio_read(phy, mmd, reg, &val);
-+	ret = t3_mdio_read(phy, mmd, reg, &val);
- 	if (!ret) {
- 		val &= ~clear;
--		ret = mdio_write(phy, mmd, reg, val | set);
-+		ret = t3_mdio_write(phy, mmd, reg, val | set);
- 	}
- 	return ret;
- }
-@@ -348,15 +352,16 @@ int t3_phy_reset(struct cphy *phy, int mmd, int wait)
- 	int err;
- 	unsigned int ctl;
- 
--	err = t3_mdio_change_bits(phy, mmd, MII_BMCR, BMCR_PDOWN, BMCR_RESET);
-+	err = t3_mdio_change_bits(phy, mmd, MDIO_CTRL1, MDIO_CTRL1_LPOWER,
-+				  MDIO_CTRL1_RESET);
- 	if (err || !wait)
- 		return err;
- 
- 	do {
--		err = mdio_read(phy, mmd, MII_BMCR, &ctl);
-+		err = t3_mdio_read(phy, mmd, MDIO_CTRL1, &ctl);
- 		if (err)
- 			return err;
--		ctl &= BMCR_RESET;
-+		ctl &= MDIO_CTRL1_RESET;
- 		if (ctl)
- 			msleep(1);
- 	} while (ctl && --wait);
-@@ -377,7 +382,7 @@ int t3_phy_advertise(struct cphy *phy, unsigned int advert)
- 	int err;
- 	unsigned int val = 0;
- 
--	err = mdio_read(phy, 0, MII_CTRL1000, &val);
-+	err = t3_mdio_read(phy, MDIO_DEVAD_NONE, MII_CTRL1000, &val);
- 	if (err)
- 		return err;
- 
-@@ -387,7 +392,7 @@ int t3_phy_advertise(struct cphy *phy, unsigned int advert)
- 	if (advert & ADVERTISED_1000baseT_Full)
- 		val |= ADVERTISE_1000FULL;
- 
--	err = mdio_write(phy, 0, MII_CTRL1000, val);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, MII_CTRL1000, val);
- 	if (err)
- 		return err;
- 
-@@ -404,7 +409,7 @@ int t3_phy_advertise(struct cphy *phy, unsigned int advert)
- 		val |= ADVERTISE_PAUSE_CAP;
- 	if (advert & ADVERTISED_Asym_Pause)
- 		val |= ADVERTISE_PAUSE_ASYM;
--	return mdio_write(phy, 0, MII_ADVERTISE, val);
-+	return t3_mdio_write(phy, MDIO_DEVAD_NONE, MII_ADVERTISE, val);
- }
- 
- /**
-@@ -427,7 +432,7 @@ int t3_phy_advertise_fiber(struct cphy *phy, unsigned int advert)
- 		val |= ADVERTISE_1000XPAUSE;
- 	if (advert & ADVERTISED_Asym_Pause)
- 		val |= ADVERTISE_1000XPSE_ASYM;
--	return mdio_write(phy, 0, MII_ADVERTISE, val);
-+	return t3_mdio_write(phy, MDIO_DEVAD_NONE, MII_ADVERTISE, val);
- }
- 
- /**
-@@ -444,7 +449,7 @@ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
- 	int err;
- 	unsigned int ctl;
- 
--	err = mdio_read(phy, 0, MII_BMCR, &ctl);
-+	err = t3_mdio_read(phy, MDIO_DEVAD_NONE, MII_BMCR, &ctl);
- 	if (err)
- 		return err;
- 
-@@ -462,30 +467,30 @@ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
- 	}
- 	if (ctl & BMCR_SPEED1000) /* auto-negotiation required for GigE */
- 		ctl |= BMCR_ANENABLE;
--	return mdio_write(phy, 0, MII_BMCR, ctl);
-+	return t3_mdio_write(phy, MDIO_DEVAD_NONE, MII_BMCR, ctl);
- }
- 
- int t3_phy_lasi_intr_enable(struct cphy *phy)
- {
--	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 1);
-+	return t3_mdio_write(phy, MDIO_MMD_PMAPMD, LASI_CTRL, 1);
- }
- 
- int t3_phy_lasi_intr_disable(struct cphy *phy)
- {
--	return mdio_write(phy, MDIO_DEV_PMA_PMD, LASI_CTRL, 0);
-+	return t3_mdio_write(phy, MDIO_MMD_PMAPMD, LASI_CTRL, 0);
- }
- 
- int t3_phy_lasi_intr_clear(struct cphy *phy)
- {
- 	u32 val;
- 
--	return mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &val);
-+	return t3_mdio_read(phy, MDIO_MMD_PMAPMD, LASI_STAT, &val);
- }
- 
- int t3_phy_lasi_intr_handler(struct cphy *phy)
- {
- 	unsigned int status;
--	int err = mdio_read(phy, MDIO_DEV_PMA_PMD, LASI_STAT, &status);
-+	int err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, LASI_STAT, &status);
- 
- 	if (err)
- 		return err;
-@@ -3863,6 +3868,7 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
- 				    ai->mdio_ops);
- 		if (ret)
- 			return ret;
-+		p->phy.mdio.dev = adapter->port[i];
- 		mac_prep(&p->mac, adapter, j);
- 
- 		/*
-@@ -3918,7 +3924,7 @@ int t3_replay_prep_adapter(struct adapter *adapter)
- 			;
- 
- 		pti = &port_types[adapter->params.vpd.port_type[j]];
--		ret = pti->phy_prep(&p->phy, adapter, p->phy.addr, NULL);
-+		ret = pti->phy_prep(&p->phy, adapter, p->phy.mdio.prtad, NULL);
- 		if (ret)
- 			return ret;
- 		p->phy.ops->power_down(&p->phy, 1);
-diff --git a/drivers/net/cxgb3/vsc8211.c b/drivers/net/cxgb3/vsc8211.c
-index d071309..4f9a1c2 100644
---- a/drivers/net/cxgb3/vsc8211.c
-+++ b/drivers/net/cxgb3/vsc8211.c
-@@ -91,17 +91,18 @@ enum {
-  */
- static int vsc8211_reset(struct cphy *cphy, int wait)
- {
--	return t3_phy_reset(cphy, 0, 0);
-+	return t3_phy_reset(cphy, MDIO_DEVAD_NONE, 0);
- }
- 
- static int vsc8211_intr_enable(struct cphy *cphy)
- {
--	return mdio_write(cphy, 0, VSC8211_INTR_ENABLE, INTR_MASK);
-+	return t3_mdio_write(cphy, MDIO_DEVAD_NONE, VSC8211_INTR_ENABLE,
-+			     INTR_MASK);
- }
- 
- static int vsc8211_intr_disable(struct cphy *cphy)
- {
--	return mdio_write(cphy, 0, VSC8211_INTR_ENABLE, 0);
-+	return t3_mdio_write(cphy, MDIO_DEVAD_NONE, VSC8211_INTR_ENABLE, 0);
- }
- 
- static int vsc8211_intr_clear(struct cphy *cphy)
-@@ -109,18 +110,20 @@ static int vsc8211_intr_clear(struct cphy *cphy)
- 	u32 val;
- 
- 	/* Clear PHY interrupts by reading the register. */
--	return mdio_read(cphy, 0, VSC8211_INTR_STATUS, &val);
-+	return t3_mdio_read(cphy, MDIO_DEVAD_NONE, VSC8211_INTR_STATUS, &val);
- }
- 
- static int vsc8211_autoneg_enable(struct cphy *cphy)
- {
--	return t3_mdio_change_bits(cphy, 0, MII_BMCR, BMCR_PDOWN | BMCR_ISOLATE,
-+	return t3_mdio_change_bits(cphy, MDIO_DEVAD_NONE, MII_BMCR,
-+				   BMCR_PDOWN | BMCR_ISOLATE,
- 				   BMCR_ANENABLE | BMCR_ANRESTART);
- }
- 
- static int vsc8211_autoneg_restart(struct cphy *cphy)
- {
--	return t3_mdio_change_bits(cphy, 0, MII_BMCR, BMCR_PDOWN | BMCR_ISOLATE,
-+	return t3_mdio_change_bits(cphy, MDIO_DEVAD_NONE, MII_BMCR,
-+				   BMCR_PDOWN | BMCR_ISOLATE,
- 				   BMCR_ANRESTART);
- }
- 
-@@ -130,9 +133,9 @@ static int vsc8211_get_link_status(struct cphy *cphy, int *link_ok,
- 	unsigned int bmcr, status, lpa, adv;
- 	int err, sp = -1, dplx = -1, pause = 0;
- 
--	err = mdio_read(cphy, 0, MII_BMCR, &bmcr);
-+	err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_BMCR, &bmcr);
- 	if (!err)
--		err = mdio_read(cphy, 0, MII_BMSR, &status);
-+		err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_BMSR, &status);
- 	if (err)
- 		return err;
- 
-@@ -142,7 +145,8 @@ static int vsc8211_get_link_status(struct cphy *cphy, int *link_ok,
- 		 * once more to get the current link state.
- 		 */
- 		if (!(status & BMSR_LSTATUS))
--			err = mdio_read(cphy, 0, MII_BMSR, &status);
-+			err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_BMSR,
-+					   &status);
- 		if (err)
- 			return err;
- 		*link_ok = (status & BMSR_LSTATUS) != 0;
-@@ -156,7 +160,8 @@ static int vsc8211_get_link_status(struct cphy *cphy, int *link_ok,
- 		else
- 			sp = SPEED_10;
- 	} else if (status & BMSR_ANEGCOMPLETE) {
--		err = mdio_read(cphy, 0, VSC8211_AUX_CTRL_STAT, &status);
-+		err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, VSC8211_AUX_CTRL_STAT,
-+				   &status);
- 		if (err)
- 			return err;
- 
-@@ -170,9 +175,11 @@ static int vsc8211_get_link_status(struct cphy *cphy, int *link_ok,
- 			sp = SPEED_1000;
- 
- 		if (fc && dplx == DUPLEX_FULL) {
--			err = mdio_read(cphy, 0, MII_LPA, &lpa);
-+			err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_LPA,
-+					   &lpa);
- 			if (!err)
--				err = mdio_read(cphy, 0, MII_ADVERTISE, &adv);
-+				err = t3_mdio_read(cphy, MDIO_DEVAD_NONE,
-+						   MII_ADVERTISE, &adv);
- 			if (err)
- 				return err;
- 
-@@ -202,9 +209,9 @@ static int vsc8211_get_link_status_fiber(struct cphy *cphy, int *link_ok,
- 	unsigned int bmcr, status, lpa, adv;
- 	int err, sp = -1, dplx = -1, pause = 0;
- 
--	err = mdio_read(cphy, 0, MII_BMCR, &bmcr);
-+	err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_BMCR, &bmcr);
- 	if (!err)
--		err = mdio_read(cphy, 0, MII_BMSR, &status);
-+		err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_BMSR, &status);
- 	if (err)
- 		return err;
- 
-@@ -214,7 +221,8 @@ static int vsc8211_get_link_status_fiber(struct cphy *cphy, int *link_ok,
- 		 * once more to get the current link state.
- 		 */
- 		if (!(status & BMSR_LSTATUS))
--			err = mdio_read(cphy, 0, MII_BMSR, &status);
-+			err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_BMSR,
-+					   &status);
- 		if (err)
- 			return err;
- 		*link_ok = (status & BMSR_LSTATUS) != 0;
-@@ -228,9 +236,10 @@ static int vsc8211_get_link_status_fiber(struct cphy *cphy, int *link_ok,
- 		else
- 			sp = SPEED_10;
- 	} else if (status & BMSR_ANEGCOMPLETE) {
--		err = mdio_read(cphy, 0, MII_LPA, &lpa);
-+		err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_LPA, &lpa);
- 		if (!err)
--			err = mdio_read(cphy, 0, MII_ADVERTISE, &adv);
-+			err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, MII_ADVERTISE,
-+					   &adv);
- 		if (err)
- 			return err;
- 
-@@ -270,23 +279,23 @@ static int vsc8211_set_automdi(struct cphy *phy, int enable)
- {
- 	int err;
- 
--	err = mdio_write(phy, 0, VSC8211_EXT_PAGE_AXS, 0x52b5);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_EXT_PAGE_AXS, 0x52b5);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, 18, 0x12);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, 18, 0x12);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, 17, enable ? 0x2803 : 0x3003);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, 17, enable ? 0x2803 : 0x3003);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, 16, 0x87fa);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, 16, 0x87fa);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, VSC8211_EXT_PAGE_AXS, 0);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_EXT_PAGE_AXS, 0);
- 	if (err)
- 		return err;
- 
-@@ -315,7 +324,7 @@ static int vsc8211_intr_handler(struct cphy *cphy)
- 	unsigned int cause;
- 	int err, cphy_cause = 0;
- 
--	err = mdio_read(cphy, 0, VSC8211_INTR_STATUS, &cause);
-+	err = t3_mdio_read(cphy, MDIO_DEVAD_NONE, VSC8211_INTR_STATUS, &cause);
- 	if (err)
- 		return err;
- 
-@@ -367,12 +376,13 @@ int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
- 		  SUPPORTED_TP | SUPPORTED_IRQ, "10/100/1000BASE-T");
- 	msleep(20);       /* PHY needs ~10ms to start responding to MDIO */
- 
--	err = mdio_read(phy, 0, VSC8211_EXT_CTRL, &val);
-+	err = t3_mdio_read(phy, MDIO_DEVAD_NONE, VSC8211_EXT_CTRL, &val);
- 	if (err)
- 		return err;
- 	if (val & VSC_CTRL_MEDIA_MODE_HI) {
- 		/* copper interface, just need to configure the LEDs */
--		return mdio_write(phy, 0, VSC8211_LED_CTRL, 0x100);
-+		return t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_LED_CTRL,
-+				     0x100);
- 	}
- 
- 	phy->caps = SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
-@@ -380,20 +390,20 @@ int t3_vsc8211_phy_prep(struct cphy *phy, struct adapter *adapter,
- 	phy->desc = "1000BASE-X";
- 	phy->ops = &vsc8211_fiber_ops;
- 
--	err = mdio_write(phy, 0, VSC8211_EXT_PAGE_AXS, 1);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_EXT_PAGE_AXS, 1);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, VSC8211_SIGDET_CTRL, 1);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_SIGDET_CTRL, 1);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, VSC8211_EXT_PAGE_AXS, 0);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_EXT_PAGE_AXS, 0);
- 	if (err)
- 		return err;
- 
--	err = mdio_write(phy, 0, VSC8211_EXT_CTRL,
--			 val | VSC_CTRL_CLAUSE37_VIEW);
-+	err = t3_mdio_write(phy, MDIO_DEVAD_NONE, VSC8211_EXT_CTRL,
-+			    val | VSC_CTRL_CLAUSE37_VIEW);
- 	if (err)
- 		return err;
- 
+ struct ixgbe_phy_info {
+ 	struct ixgbe_phy_operations     ops;
++	struct mdio_if_info		mdio;
+ 	enum ixgbe_phy_type             type;
+-	u32                             addr;
+ 	u32                             id;
+ 	enum ixgbe_sfp_type             sfp_type;
+ 	bool                            sfp_setup_needed;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
