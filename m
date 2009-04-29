@@ -1,46 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch 1/1][RFC] NETDEV: Find network bugs by validating the
- sk_buff state
-Date: Wed, 29 Apr 2009 14:53:38 -0700 (PDT)
-Message-ID: <20090429.145338.149717676.davem@davemloft.net>
-References: <20090429040501.GA32074@cuplxvomd02.corp.sa.net>
-	<20090428.223058.119960146.davem@davemloft.net>
-	<20090429151440.GA14266@cuplxvomd02.corp.sa.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH 1/2] mv643xx_eth: OOM handling fixes
+Date: Wed, 29 Apr 2009 23:57:34 +0200
+Message-ID: <20090429215734.GZ14729@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dvomlehn@cisco.com
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59686
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752399AbZD2Vxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:53:44 -0400
-In-Reply-To: <20090429151440.GA14266@cuplxvomd02.corp.sa.net>
+Received: from xi.wantstofly.org ([80.101.37.227]:43729 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755933AbZD2VyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:54:08 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David VomLehn <dvomlehn@cisco.com>
-Date: Wed, 29 Apr 2009 08:14:40 -0700
+Currently, when OOM occurs during rx ring refill, mv643xx_eth will get
+into an infinite loop, due to the refill function setting the OOM bit
+but not clearing the 'rx refill needed' bit for this queue, while the
+calling function (the NAPI poll handler) will call the refill function
+in a loop until the 'rx refill needed' bit goes off, without checking
+the OOM bit.
 
-> On Tue, Apr 28, 2009 at 10:30:58PM -0700, David Miller wrote:
->> 
->> Sorry, for this to be useful distributions are going to turn it on by
->> default, and adding 24 bytes to struct sk_buff on 64-bit when we're
->> trying everything in our power to make it smaller rather than larger
->> is not acceptable.
-> 
-> That's like saying that any of the kernel debugging options have to be on
-> by default.  I expect that most folks won't want this on unless they are
-> looking for a bug. 
+This patch fixes this by checking the OOM bit in the NAPI poll handler
+before attempting to do rx refill.  This means that once OOM occurs,
+we won't try to do any memory allocations again until the next invocation
+of the poll handler.
 
-We don't have networking buffer structure elements that implement
-debugging, and it's for a reason.
+While we're at it, change the OOM flag to be a single bit instead of
+one bit per receive queue since OOM is a system state rather than a
+per-queue state, and cancel the OOM timer on entry to the NAPI poll
+handler if it's running to prevent it from firing when we've already
+come out of OOM.
 
->> It's a useful change, something to keep in one's back pocket when
->> debugging something, but not for upstream, sorry.
-> 
-> Right. This is why it depends on KERNEL_DEBUG and why it is off by default.
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+Cc: stable@kernel.org
+---
+ drivers/net/mv643xx_eth.c |   22 +++++++++++++---------
+ 1 files changed, 13 insertions(+), 9 deletions(-)
 
-All of this is moot if distributions decide to start turning this
-on, and from my experience they will.
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index b3185bf..038beff 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -393,12 +393,12 @@ struct mv643xx_eth_private {
+ 	struct work_struct tx_timeout_task;
+ 
+ 	struct napi_struct napi;
++	u8 oom;
+ 	u8 work_link;
+ 	u8 work_tx;
+ 	u8 work_tx_end;
+ 	u8 work_rx;
+ 	u8 work_rx_refill;
+-	u8 work_rx_oom;
+ 
+ 	int skb_size;
+ 	struct sk_buff_head rx_recycle;
+@@ -661,7 +661,7 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
+ 					    dma_get_cache_alignment() - 1);
+ 
+ 		if (skb == NULL) {
+-			mp->work_rx_oom |= 1 << rxq->index;
++			mp->oom = 1;
+ 			goto oom;
+ 		}
+ 
+@@ -2167,8 +2167,10 @@ static int mv643xx_eth_poll(struct napi_struct *napi, int budget)
+ 
+ 	mp = container_of(napi, struct mv643xx_eth_private, napi);
+ 
+-	mp->work_rx_refill |= mp->work_rx_oom;
+-	mp->work_rx_oom = 0;
++	if (unlikely(mp->oom)) {
++		mp->oom = 0;
++		del_timer(&mp->rx_oom);
++	}
+ 
+ 	work_done = 0;
+ 	while (work_done < budget) {
+@@ -2182,8 +2184,10 @@ static int mv643xx_eth_poll(struct napi_struct *napi, int budget)
+ 			continue;
+ 		}
+ 
+-		queue_mask = mp->work_tx | mp->work_tx_end |
+-				mp->work_rx | mp->work_rx_refill;
++		queue_mask = mp->work_tx | mp->work_tx_end | mp->work_rx;
++		if (likely(!mp->oom))
++			queue_mask |= mp->work_rx_refill;
++
+ 		if (!queue_mask) {
+ 			if (mv643xx_eth_collect_events(mp))
+ 				continue;
+@@ -2204,7 +2208,7 @@ static int mv643xx_eth_poll(struct napi_struct *napi, int budget)
+ 			txq_maybe_wake(mp->txq + queue);
+ 		} else if (mp->work_rx & queue_mask) {
+ 			work_done += rxq_process(mp->rxq + queue, work_tbd);
+-		} else if (mp->work_rx_refill & queue_mask) {
++		} else if (!mp->oom && (mp->work_rx_refill & queue_mask)) {
+ 			work_done += rxq_refill(mp->rxq + queue, work_tbd);
+ 		} else {
+ 			BUG();
+@@ -2212,7 +2216,7 @@ static int mv643xx_eth_poll(struct napi_struct *napi, int budget)
+ 	}
+ 
+ 	if (work_done < budget) {
+-		if (mp->work_rx_oom)
++		if (mp->oom)
+ 			mod_timer(&mp->rx_oom, jiffies + (HZ / 10));
+ 		napi_complete(napi);
+ 		wrlp(mp, INT_MASK, INT_TX_END | INT_RX | INT_EXT);
+@@ -2372,7 +2376,7 @@ static int mv643xx_eth_open(struct net_device *dev)
+ 		rxq_refill(mp->rxq + i, INT_MAX);
+ 	}
+ 
+-	if (mp->work_rx_oom) {
++	if (mp->oom) {
+ 		mp->rx_oom.expires = jiffies + (HZ / 10);
+ 		add_timer(&mp->rx_oom);
+ 	}
+-- 
+1.5.6.4
