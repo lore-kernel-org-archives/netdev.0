@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC, PATCH 2.6.29.2] Ethernet V2.0 Configuration Testing
- Protocol, revision 20090428
-Date: Wed, 29 Apr 2009 14:35:34 -0700 (PDT)
-Message-ID: <20090429.143534.32129577.davem@davemloft.net>
-References: <20090429210436.a515465b.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-	<20090429115716.3e315812@nehalam>
-	<20090430065950.529359e3.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
+Subject: Re: [PATCH] netconsole: take care of NETDEV_UNREGISTER event
+Date: Wed, 29 Apr 2009 14:44:20 -0700 (PDT)
+Message-ID: <20090429.144420.262432582.davem@davemloft.net>
+References: <20090429223722.62da9dcd@neptune.home>
+	<20090429225625.75a016ff@neptune.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bonbons@linux-vserver.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43530
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56200
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751667AbZD2Vfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:35:40 -0400
-In-Reply-To: <20090430065950.529359e3.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
+	by vger.kernel.org with ESMTP id S1750799AbZD2Vo0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2009 17:44:26 -0400
+In-Reply-To: <20090429225625.75a016ff@neptune.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Smith <lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-Date: Thu, 30 Apr 2009 06:59:50 +0930
+=46rom: Bruno Pr=E9mont <bonbons@linux-vserver.org>
+Date: Wed, 29 Apr 2009 22:56:25 +0200
 
-> So should I submit patches that rip every protocol out of the kernel
-> that could be implemented in user space using AF_PACKET?
+> (fix netdev CC)
 
-Don't be rediculious.
+Please make a fresh submission with the correct netdev
+address so that your patch is properly tracked at:
 
-The deciding factor is actually one of performance.
+	http://patchwork.ozlabs.org/project/netdev/list/
 
-And I can't see how putting this into userspace makes it any less
-usable, performance wise.  Whereas for protocols that we do have in
-the kernel, performance does matter.
-
-Stephen is right, this protocol could very well be more appropriately
-implemented in userspace.
+Thank you.
