@@ -1,78 +1,60 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: Driver SFC: Possible bug in LM87 temperature XFP detection code
-Date: Wed, 29 Apr 2009 14:11:52 +0200
-Message-ID: <1241007112.8115.9.camel@localhost.localdomain>
-References: <1240911369.10689.20.camel@localhost.localdomain>
-	 <1240925799.3200.16.camel@achroite> <1240938258.3200.28.camel@achroite>
-	 <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: htb parallelism on multi-core platforms
+Date: Wed, 29 Apr 2009 14:23:12 +0200
+Message-ID: <20090429122312.GA2759@ami.dom.local>
+References: <20090423082052.GA4243@ff.dom.local> <1240495002.6554.155.camel@blade.ines.ro> <20090423181936.GA2756@ami.dom.local> <Pine.LNX.4.64.0904232148120.13815@ask.diku.dk> <1240566136.6554.220.camel@blade.ines.ro> <Pine.LNX.4.64.0904281142270.21301@tyr.diku.dk> <1241000494.6554.307.camel@blade.ines.ro> <Pine.LNX.4.64.0904291225010.23626@tyr.diku.dk> <1241003006.6554.322.camel@blade.ines.ro>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	netdev <netdev@vger.kernel.org>,
+	Calin Velea <calin.velea@gemenii.ro>
+To: Radu Rendec <radu.rendec@ines.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:49675 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758559AbZD2MLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 08:11:54 -0400
-In-Reply-To: <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
+Received: from mail-bw0-f163.google.com ([209.85.218.163]:44439 "EHLO
+	mail-bw0-f163.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751019AbZD2MXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 08:23:38 -0400
+Received: by bwz7 with SMTP id 7so1130260bwz.37
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 05:23:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1241003006.6554.322.camel@blade.ines.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-04-29 at 10:52 +0200, Jesper Dangaard Brouer wrote:
-> On Tue, 28 Apr 2009, Ben Hutchings wrote:
-
-> > It may also be worth checking that the sensors are actually reading
-> > correctly.  You can read them using the "sensors" command from the
-> > lm_sensors package or by running:
-> >
-> >    grep . /sys/class/net/eth88/device/i2c-adapter:*/*-002e/temp*_input
-> >
-> > Divide the numbers by 1000 to get temperatures in degrees celsius.
+On Wed, Apr 29, 2009 at 02:03:26PM +0300, Radu Rendec wrote:
+> On Wed, 2009-04-29 at 12:31 +0200, Jesper Dangaard Brouer wrote:
+...
+> > Yes, it looks like the problem is your u32 classification setup... Perhaps 
+> > its not doing what you think its doing...  didn't Jarek provide some hints 
+> > for you to follow?
 > 
-> /sys/class/net/eth88/device/i2c-adapter:i2c-1/1-002e/temp1_input:61000
-> /sys/class/net/eth88/device/i2c-adapter:i2c-1/1-002e/temp2_input:70000
+> I've just realized that I might be hitting the worst-case bucket with
+> the (ip) destinations I chose for the test traffic. I'll try 
 > 
-> Guess the temperature is fairly high... I can touch it with a finger 
-> without getting burned.  
+> I haven't tried tweaking htb_hysteresis yet (that was one of Jarek's
+> hints) - it's debatable that it would help since the real problem seems
+> to be in u32 (not htb), but I'll give it a try anyway.
 
-> I also have a 10GbE Sun Neptune (niu) in the 
-> machine, if I touch the heatsink on that I burn my finger, so that is even 
-> hotter...
+According to the author's(?) comment with hysteresis "The speed gain
+is about 1/6", so not very much here considering htb_dequeue time.
 
-I got my hands on a InfraRed Thermometer.
-The Sun NIC was 98 degrees celsius!!!
+> Another hint was to make sure that "tc class add" goes before
+> corresponding "tc filter add" - checked: it's ok.
+> 
+> Another interesting hint came from Calin Velea, whose tests suggest that
+> the overall performance is better with napi turned off, since (rx)
+> interrupt work is distributed to all cpus/cores. I'll try to replicate
+> this as soon as I make some small changes to my test setup so that I'm
+> able to measure overall htb throughput on the egress nic (bps and pps).
 
+Radu, since not only your worst case, but also the real case u32
+lookups are very big I think you should mainly have a look at Calin's
+u32 hash generator or at least his method, and only after optimizing
+it try these other tricks. Btw. I hope Calin made this nice program
+known to networking/admins lists too.
 
-> > The "internal" temperature sensor (temp1_input) is in the LM87, which is
-> > placed at the corner of the board away from the bracket and the edge
-> > connector.
+Btw. #2: I think you wrote you didn't use iptables...
 
-Measuring that point gives the correct measurement using the external
-infrared thermometer.
-
-> > The "external" temperature sensor (temp2_input) is in the SFC4000.
-
-It was harder to measure the temperature on the NIC CPU because of its
-blank surface.  I can get a reading of 66 Celcius where the sensor says
-68-69 Celcius.
-
-The XFP it self of "only" 55 Celcius.  Measured by quickly pulling it
-out and measuring (and taking care of measuring on a non blank surface
-point).
-
-> I though this was read from the XFP.  I was hoping the NIC supported 
-> reading i2c stuff from the XFP.  Does it support that? (Robert Olsson 
-> wanted to play with this stuff)
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+Cheers,
+Jarek P.
