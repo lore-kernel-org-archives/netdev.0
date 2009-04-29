@@ -1,37 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] ixgbe: enable HW RSC for 82599
-Date: Tue, 28 Apr 2009 17:54:46 -0700 (PDT)
-Message-ID: <20090428.175446.191949653.davem@davemloft.net>
-References: <20090428084236.32710.14750.stgit@localhost.localdomain>
-	<20090428.015535.42660210.davem@davemloft.net>
-	<alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, alexander.h.duyck@intel.com
-To: jesse.brandeburg@intel.com
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [patch next 1/3] netxen: fix link event handling
+Date: Tue, 28 Apr 2009 18:29:09 -0700
+Message-ID: <1240968551-13186-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50869
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751294AbZD2Ayx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2009 20:54:53 -0400
-In-Reply-To: <alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com>
+Received: from nxgate.netxen.com ([38.99.60.130]:33179 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753915AbZD2B3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2009 21:29:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Tue, 28 Apr 2009 17:12:10 -0700 (Pacific Daylight Time)
+Firmware starting 4.0.402 started supporting link events, disable
+it for older firmwares.
 
-> ah, you're right, but this features enables our new hardware that can do 
-> LRO in hardware, and then GRO can work on top of it if necessary.  We 
-> wanted some way to turn it off and overloaded the LRO flag to do so.
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_ethtool.c  |    1 +
+ drivers/net/netxen/netxen_nic_main.c     |    2 +-
+ drivers/net/netxen/netxen_nic_phan_reg.h |    2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
-That ugly.  And the kernel is going to turn this off on you
-when the user enables either forwarding or bridging.
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index a452b2f..e16ea46 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -247,6 +247,7 @@ skip:
+ 		case LINKEVENT_MODULE_TWINAX_UNSUPPORTED_CABLELEN:
+ 		case LINKEVENT_MODULE_TWINAX:
+ 			ecmd->port = PORT_TP;
++			break;
+ 		default:
+ 			ecmd->port = -1;
+ 		}
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index e877eef..8331580 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -797,7 +797,7 @@ netxen_nic_up(struct netxen_adapter *adapter, struct net_device *netdev)
+ 	if (adapter->max_sds_rings > 1)
+ 		netxen_config_rss(adapter, 1);
+ 
+-	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
++	if (adapter->capabilities & NX_FW_CAPABILITY_LINK_NOTIFICATION)
+ 		netxen_linkevent_request(adapter, 1);
+ 
+ 	return 0;
+diff --git a/drivers/net/netxen/netxen_nic_phan_reg.h b/drivers/net/netxen/netxen_nic_phan_reg.h
+index 845dcf4..b73a62c 100644
+--- a/drivers/net/netxen/netxen_nic_phan_reg.h
++++ b/drivers/net/netxen/netxen_nic_phan_reg.h
+@@ -126,6 +126,7 @@
+ #define CRB_SW_INT_MASK_2	   NETXEN_NIC_REG(0x1e4)
+ #define CRB_SW_INT_MASK_3	   NETXEN_NIC_REG(0x1e8)
+ 
++#define CRB_FW_CAPABILITIES_1      NETXEN_CAM_RAM(0x128)
+ #define CRB_MAC_BLOCK_START        NETXEN_CAM_RAM(0x1c0)
+ 
+ /*
+@@ -136,7 +137,6 @@
+ #define CRB_NIC_CAPABILITIES_FW	  	NETXEN_NIC_REG(0x1dc)
+ #define CRB_NIC_MSI_MODE_HOST		NETXEN_NIC_REG(0x270)
+ #define CRB_NIC_MSI_MODE_FW	  	NETXEN_NIC_REG(0x274)
+-#define CRB_FW_CAPABILITIES_1		NETXEN_NIC_REG(0x128)
+ 
+ #define INTR_SCHEME_PERPORT	      	0x1
+ #define MSI_MODE_MULTIFUNC	      	0x1
+-- 
+1.6.0.2
 
-> FYI This is not a TOE, it just recognizes a flow and will pack data frames 
-> together in a list of descriptors, which the driver then hands to the 
-> stack as a large receive.
-
-I know what it is.
