@@ -1,74 +1,56 @@
-From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
-Subject: Re: [PATCH] netconsole: take care of  NETDEV_UNREGISTER event
-Date: Wed, 29 Apr 2009 22:56:25 +0200
-Message-ID: <20090429225625.75a016ff@neptune.home>
-References: <20090429223722.62da9dcd@neptune.home>
+From: Hugh Dickins <hugh@veritas.com>
+Subject: [PATCH mmotm] mm: alloc_large_system_hash check order
+Date: Wed, 29 Apr 2009 22:09:48 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0904292151350.30874@blonde.anvils>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758823AbZD2U4j@vger.kernel.org>
-In-Reply-To: <20090429223722.62da9dcd@neptune.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Mel Gorman <mel@csn.ul.ie>, Andi Kleen <andi@firstfloor.org>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Received: from [172.20.23.235]([172.20.23.235]) (2029 bytes) by megami.veritas.com
+	via sendmail with P:esmtp/R:smart_host/T:smtp
+	(sender: <hugh@veritas.com>)
+	id <m1LzH2L-0000gjC@megami.veritas.com>
+	for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 14:09:49 -0700 (PDT)
+	(Smail-3.2.0.101 1997-Dec-17 #15 built 2001-Aug-30)
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-(fix netdev CC)
+On an x86_64 with 4GB ram, tcp_init()'s call to alloc_large_system_hash(),
+to allocate tcp_hashinfo.ehash, is now triggering an mmotm WARN_ON_ONCE on
+order >= MAX_ORDER - it's hoping for order 11.  alloc_large_system_hash()
+had better make its own check on the order.
 
-The printk line is slightly over 80 though I have no better idea
-for the line-wrapping while keeping it searchable with grep.
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+---
+Should probably follow
+page-allocator-do-not-sanity-check-order-in-the-fast-path-fix.patch
 
-Bruno
+Cc'ed DaveM and netdev, just in case they're surprised it was asking for
+so much, or disappointed it's not getting as much as it was asking for.
 
-On Wed, 29 April 2009 Bruno Pr=C3=A9mont <bonbons@linux-vserver.org> wr=
-ote:
-> When netconsole is loaded and a network interface fades away (e.g. on
-> rmmod $interface_driver_module) the rmmod remains stuck and some lock=
-s
-> are taken that prevent any additional module loading/unloading as wel=
-l
-> as interface up/down changes.
-> In addition kernel logs (and console) get flooded at 10s interval wit=
-h
->=20
-> [  122.464065] unregister_netdevice: waiting for eth0 to become free.
-> Usage count =3D 1 [  132.704059] unregister_netdevice: waiting for et=
-h0
-> to become free. Usage count =3D 1
->=20
-> This patch lets netconsole take NETDEV_UNREGISTER event into account
-> and release the affected interface if it was in use.
->=20
-> Signed-off-by: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
-> ---
-> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-> index eceadf7..bf4af52 100644
-> --- a/drivers/net/netconsole.c
-> +++ b/drivers/net/netconsole.c
-> @@ -664,7 +664,7 @@ static int netconsole_netdev_event(struct
-> notifier_block *this, struct netconsole_target *nt;
->  	struct net_device *dev =3D ptr;
-> =20
-> -	if (!(event =3D=3D NETDEV_CHANGENAME))
-> +	if (!(event =3D=3D NETDEV_CHANGENAME || event =3D=3D NETDEV_UNREGIS=
-TER))
->  		goto done;
-> =20
->  	spin_lock_irqsave(&target_list_lock, flags);
-> @@ -675,6 +675,15 @@ static int netconsole_netdev_event(struct
-> notifier_block *this, case NETDEV_CHANGENAME:
->  				strlcpy(nt->np.dev_name, dev->name,
-> IFNAMSIZ); break;
-> +			case NETDEV_UNREGISTER:
-> +				if (!nt->enabled)
-> +					break;
-> +				netpoll_cleanup(&nt->np);
-> +				nt->enabled =3D 0;
-> +				printk(KERN_INFO "netconsole: network logging stopped"
-> +					", interface %s unregistered\n",
-> +					dev->name);
-> +				break;
->  			}
->  		}
->  		netconsole_target_put(nt);
+ mm/page_alloc.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+--- 2.6.30-rc3-mm1/mm/page_alloc.c	2009-04-29 21:01:08.000000000 +0100
++++ mmotm/mm/page_alloc.c	2009-04-29 21:12:04.000000000 +0100
+@@ -4765,7 +4765,10 @@ void *__init alloc_large_system_hash(con
+ 			table = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
+ 		else {
+ 			unsigned long order = get_order(size);
+-			table = (void*) __get_free_pages(GFP_ATOMIC, order);
++
++			if (order < MAX_ORDER)
++				table = (void *)__get_free_pages(GFP_ATOMIC,
++								order);
+ 			/*
+ 			 * If bucketsize is not a power-of-two, we may free
+ 			 * some pages at the end of hash table.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
