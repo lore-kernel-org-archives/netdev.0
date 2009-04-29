@@ -1,219 +1,146 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
-Date: Wed, 29 Apr 2009 11:36:57 +0200
-Message-ID: <49F81FB9.50504@cosmosbay.com>
-References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <20090429091637.GA29874@elte.hu>
+From: Philippe De Muyter <phdm@macqel.be>
+Subject: Re: fec driver question
+Date: Wed, 29 Apr 2009 12:01:23 +0200
+Message-ID: <20090429100123.GA23541@frolo.macqel>
+References: <6078.83.100.215.137.1240989343.squirrel@webmail.plus.net> <20090429080002.GA10438@frolo.macqel> <12372.83.100.215.137.1240994917.squirrel@webmail.plus.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux kernel <linux-kernel@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, cl@linux.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753836AbZD2Jid@vger.kernel.org>
-In-Reply-To: <20090429091637.GA29874@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, uclinux-dev@uclinux.org
+To: Matthew Lear <matt@bubblegen.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:64127 "EHLO
+	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751853AbZD2KB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 06:01:28 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.macqel.be (Postfix) with ESMTP id D06CF158FCF
+	for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 12:01:08 +0200 (CEST)
+Received: from mail.macqel.be ([127.0.0.1])
+	by localhost (mail.macqel.be [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id E3vtqwrXN3SR for <netdev@vger.kernel.org>;
+	Wed, 29 Apr 2009 12:01:06 +0200 (CEST)
+Received: from frolo.macqel.be (frolo.macqel [10.1.40.73])
+	by mail.macqel.be (Postfix) with ESMTP id 9CB54150AA6
+	for <netdev@vger.kernel.org>; Wed, 29 Apr 2009 12:01:06 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <12372.83.100.215.137.1240994917.squirrel@webmail.plus.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar a =E9crit :
-> * Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
->> @@ -418,8 +429,16 @@ int do_select(int n, fd_set_bits *fds, struct t=
-imespec *end_time)
->>  				if (file) {
->>  					f_op =3D file->f_op;
->>  					mask =3D DEFAULT_POLLMASK;
->> -					if (f_op && f_op->poll)
->> +					if (f_op && f_op->poll) {
->> +						if (wait) {
->> +							wait->key =3D POLLEX_SET;
->> +							if (in & bit)
->> +								wait->key |=3D POLLIN_SET;
->> +							if (out & bit)
->> +								wait->key |=3D POLLOUT_SET;
->> +						}
->>  						mask =3D (*f_op->poll)(file, retval ? NULL : wait);
->> +					}
->>  					fput_light(file, fput_needed);
->>  					if ((mask & POLLIN_SET) && (in & bit)) {
->>  						res_in |=3D bit;
->=20
-> Please factor this whole 'if (file)' branch out into a helper.=20
-> Typical indentation levels go from 1 to 3 tabs - 4 should be avoided=20
-> if possible and 5 is pretty excessive already. This goes to eight.
->=20
+Hi Matthew,
 
-Thanks Ingo,
+[CCing uclinux-dev@uclinux.org and netdev@vger.kernel.org]
 
-Here is v3 of patch, with your Acked-by included :)
+On Wed, Apr 29, 2009 at 09:48:37AM +0100, Matthew Lear wrote:
+> Hi Phillippe - Thanks very much for your reply. some comments below:
+> 
+> > Hi Matthew,
+> > On Wed, Apr 29, 2009 at 08:15:43AM +0100, Matthew Lear wrote:
+> >> Hello Philippe,
+> >>
+> >> I hope you don't mind me emailing you. Basically I have a dev board from
+> >> freescale for doing some coldfire development on the mfc54455 device.
+> >> I'm
+> >> using the fec driver in the kernel. Kernel version is 2.6.23. I'm havng
+> >> some problems and I was hoping you might be able to help me.
+> >>
+> >> It seems that running some quite heavy network throughput tests on the
+> >> platform result in the driver dropping packets and the userspace app
+> >> running on the dev board to run consume ~ 85% cpu. I'm using netcat as
+> >> the
+> >> app running on host and the target to do the tests.
+> >>
+> >> I can appreciate that this question  is somewhat 'open' in that there
+> >> could be several causes but I'm fairly certain that a) it's not ksoftirq
+> >> related and b) that it's not driver related (because it's mature and has
+> >> been used in all sorts of different application/platforms).
+> >>
+> >> Can you think of any possible causes for this? The fact that the driver
+> >> is
+> >> dropping packets is surely indicative of there not being enough buffers
+> >> to
+> >> place the incoming data and/or there are issues with the consumption
+> >> (and
+> >> subsequent freeing of these buffers) by something else.
+> >
+> > 1. You could make the same test after increasing the number of receive
+> > buffers
+> > in the driver.
+> >
+> > 2. Actually, each incoming packet generates one interrupt so it needs some
+> > processing time in the interrupt service routine.  Hence if your receive
+> > app itself consumes 85% CPU that's probably normal that at times all
+> > buffers
+> > are used and that the chip has to drop frames.  Check if you have idle
+> > time
+> > remaining.
+> >
+> > 3. It can also be a hardware bug/limitation in the chip itself.  I used
+> > mainly the FEC driver with mcf5272 chips at 10 Mbps, because 100 Mbps
+> > was not really supported in hardware, although it was possible to ask for
+> > it.
+> > There is an offical errata for that :)
+> 
+> I did try to increase the number of buffers and I was surprised at the
+> result because it seemed that the cpu utilisation of the user space app
+> increases. There are some comments at the top of fec.c regarding keeping
+> numbers associated to the buffers as powers of 2. I increased the number
+> of buffers to 32 but bizarrely it seemed to make things worse (netcat
+> consumed ~ 95% cpu). Not sure what's going on there!
 
-This is IMHO clearer since helper immediatly follows POLLIN_SET / POLLO=
-UT_SET /
-POLLEX_SET defines.
+For me, it means that you loose/drop less packets.  I surmise that your
+CPU is mmu-less, so packets must be copied from kernel to userspace for
+each received packet.  That time passed by the kernel in copying the
+packet for the app is counted as app time, I presume.
+You could measure memcpy's speed and compute how much time is needed
+with your expected throughput.
 
-[PATCH] poll: Avoid extra wakeups in select/poll
+> 
+> When you say "check idle time remaining", do you mean in the driver itself
+> or use a profiling tool?
 
-After introduction of keyed wakeups Davide Libenzi did on epoll, we
-are able to avoid spurious wakeups in poll()/select() code too.
+I only meant looking for %id in 'top' header.
 
-=46or example, typical use of poll()/select() is to wait for incoming
-network frames on many sockets. But TX completion for UDP/TCP=20
-frames call sock_wfree() which in turn schedules thread.
+> 
+> I have seen the scenario of the cpu at ~85% and no packets dropped but
+> typically there are overruns and in this case /proc/net/dev indicates that
+> there are fifo issues within the driver somehow.
+> 
+> Yes. One interrupt per packet is what I expected but I also have an SH4
+> dev board (though it uses a different ethernet driver). Running the same
+> kernel version and exactly the same test with netcat on that platform
+> shows seriously contrasting results in that cpu utilisation of netcat on
+> the sh4 target is minimal (as it should be).
 
-When scheduled, thread does a full scan of all polled fds and
-can sleep again, because nothing is really available. If number
-of fds is large, this cause significant load.
+Could that be that sh4 has a mmu, and that its ethernet driver implement
+zero-copy mode ?  I'm not an expert in that area though.
 
-This patch makes select()/poll() aware of keyed wakeups and
-useless wakeups are avoided. This reduces number of context
-switches by about 50% on some setups, and work performed
-by sofirq handlers.
+> 
+> I'm suspecting that it may be a mm or dma issue with how the buffers are
+> relayed to the upper layers. The driver is mature isn't it so I would have
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Andi Kleen <ak@linux.intel.com>
-Acked-by: Ingo Molnar <mingo@elte.hu>
----
- fs/select.c          |   40 ++++++++++++++++++++++++++++++++++++----
- include/linux/poll.h |    3 +++
- 2 files changed, 39 insertions(+), 4 deletions(-)
+I'm not sure at all that dma is used here, but I could be wrong.
 
-diff --git a/fs/select.c b/fs/select.c
-index 0fe0e14..ba068ad 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -168,7 +168,7 @@ static struct poll_table_entry *poll_get_entry(stru=
-ct poll_wqueues *p)
- 	return table->entry++;
- }
-=20
--static int pollwake(wait_queue_t *wait, unsigned mode, int sync, void =
-*key)
-+static int __pollwake(wait_queue_t *wait, unsigned mode, int sync, voi=
-d *key)
- {
- 	struct poll_wqueues *pwq =3D wait->private;
- 	DECLARE_WAITQUEUE(dummy_wait, pwq->polling_task);
-@@ -194,6 +194,16 @@ static int pollwake(wait_queue_t *wait, unsigned m=
-ode, int sync, void *key)
- 	return default_wake_function(&dummy_wait, mode, sync, key);
- }
-=20
-+static int pollwake(wait_queue_t *wait, unsigned mode, int sync, void =
-*key)
-+{
-+	struct poll_table_entry *entry;
-+
-+	entry =3D container_of(wait, struct poll_table_entry, wait);
-+	if (key && !((unsigned long)key & entry->key))
-+		return 0;
-+	return __pollwake(wait, mode, sync, key);
-+}
-+
- /* Add a new entry */
- static void __pollwait(struct file *filp, wait_queue_head_t *wait_addr=
-ess,
- 				poll_table *p)
-@@ -205,6 +215,7 @@ static void __pollwait(struct file *filp, wait_queu=
-e_head_t *wait_address,
- 	get_file(filp);
- 	entry->filp =3D filp;
- 	entry->wait_address =3D wait_address;
-+	entry->key =3D p->key;
- 	init_waitqueue_func_entry(&entry->wait, pollwake);
- 	entry->wait.private =3D pwq;
- 	add_wait_queue(wait_address, &entry->wait);
-@@ -362,6 +373,18 @@ get_max:
- #define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
- #define POLLEX_SET (POLLPRI)
-=20
-+static void wait_key_set(poll_table *wait, unsigned long in,
-+			 unsigned long out, unsigned long bit)
-+{
-+	if (wait) {
-+		wait->key =3D POLLEX_SET;
-+		if (in & bit)
-+			wait->key |=3D POLLIN_SET;
-+		if (out & bit)
-+			wait->key |=3D POLLOUT_SET;
-+	}
-+}
-+
- int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- {
- 	ktime_t expire, *to =3D NULL;
-@@ -418,20 +441,25 @@ int do_select(int n, fd_set_bits *fds, struct tim=
-espec *end_time)
- 				if (file) {
- 					f_op =3D file->f_op;
- 					mask =3D DEFAULT_POLLMASK;
--					if (f_op && f_op->poll)
--						mask =3D (*f_op->poll)(file, retval ? NULL : wait);
-+					if (f_op && f_op->poll) {
-+						wait_key_set(wait, in, out, bit);
-+						mask =3D (*f_op->poll)(file, wait);
-+					}
- 					fput_light(file, fput_needed);
- 					if ((mask & POLLIN_SET) && (in & bit)) {
- 						res_in |=3D bit;
- 						retval++;
-+						wait =3D NULL;
- 					}
- 					if ((mask & POLLOUT_SET) && (out & bit)) {
- 						res_out |=3D bit;
- 						retval++;
-+						wait =3D NULL;
- 					}
- 					if ((mask & POLLEX_SET) && (ex & bit)) {
- 						res_ex |=3D bit;
- 						retval++;
-+						wait =3D NULL;
- 					}
- 				}
- 			}
-@@ -685,8 +713,12 @@ static inline unsigned int do_pollfd(struct pollfd=
- *pollfd, poll_table *pwait)
- 		mask =3D POLLNVAL;
- 		if (file !=3D NULL) {
- 			mask =3D DEFAULT_POLLMASK;
--			if (file->f_op && file->f_op->poll)
-+			if (file->f_op && file->f_op->poll) {
-+				if (pwait)
-+					pwait->key =3D pollfd->events |
-+							POLLERR | POLLHUP;
- 				mask =3D file->f_op->poll(file, pwait);
-+			}
- 			/* Mask out unneeded events. */
- 			mask &=3D pollfd->events | POLLERR | POLLHUP;
- 			fput_light(file, fput_needed);
-diff --git a/include/linux/poll.h b/include/linux/poll.h
-index 8c24ef8..3327389 100644
---- a/include/linux/poll.h
-+++ b/include/linux/poll.h
-@@ -32,6 +32,7 @@ typedef void (*poll_queue_proc)(struct file *, wait_q=
-ueue_head_t *, struct poll_
-=20
- typedef struct poll_table_struct {
- 	poll_queue_proc qproc;
-+	unsigned long key;
- } poll_table;
-=20
- static inline void poll_wait(struct file * filp, wait_queue_head_t * w=
-ait_address, poll_table *p)
-@@ -43,10 +44,12 @@ static inline void poll_wait(struct file * filp, wa=
-it_queue_head_t * wait_addres
- static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc q=
-proc)
- {
- 	pt->qproc =3D qproc;
-+	pt->key   =3D ~0UL; /* all events enabled */
- }
-=20
- struct poll_table_entry {
- 	struct file *filp;
-+	unsigned long key;
- 	wait_queue_t wait;
- 	wait_queue_head_t *wait_address;
- };
+> expected that any problem such as this would have been spotted long before
+> now? In this regard, I am of the opinion that it could possible be an
+> issue with the device as you say.
+
+It depends on what other people do with the ethernet device on their
+board.  Here it is only used for some lightweight communication.
+And, when I used it, the driver was already mature, but I still discovered
+real bugs in initialisation sequences and error recovery, e.g. when testing
+link connection/disconnection.
+
+> 
+> The coldfire part I have is specified as supporting 10 and 100 Mbps so I
+> assume that there are no issues with it. Interesting though that you
+> mention the errata...
+> 
+> I think it's just a case of trying to find where the cpu is spending its
+> time. It is quite frustrating though... :-(
+
+Yes, that's part of our job :)
+
+Best regards
+
+Philippe
