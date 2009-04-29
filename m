@@ -1,46 +1,45 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Wed, 29 Apr 2009 13:18:03 +0400
-Message-ID: <20090429091803.GA23463@ioremap.net>
-References: <1240751189.5771.19.camel@bender>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
+Date: Wed, 29 Apr 2009 11:22:40 +0200
+Message-ID: <20090429092240.GA30403@elte.hu>
+References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <20090429002049.4bbc8105.akpm@linux-foundation.org> <20090429073539.GR27382@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Christoph Lameter <cl@linux.com>
-To: Johann Baudy <johann.baudy@gnu-log.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, cl@linux.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	haoki@redhat.com, mchan@broadcom.com, davidel@xmailserver.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from corega.com.ru ([195.178.208.66]:45962 "EHLO tservice.net.ru"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:55946 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751580AbZD2JSF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Apr 2009 05:18:05 -0400
+	id S1751633AbZD2JXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2009 05:23:53 -0400
 Content-Disposition: inline
-In-Reply-To: <1240751189.5771.19.camel@bender>
+In-Reply-To: <20090429073539.GR27382@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 26, 2009 at 03:06:29PM +0200, Johann Baudy (johann.baudy@gnu-log.net) wrote:
-> +++ Transmission process
-> +Those defines are also used for transmission:
-> +
-> +     #define TP_STATUS_AVAILABLE        0 // Frame is available
-> +     #define TP_STATUS_SEND_REQUEST     1 // Frame will be sent on next send()
-> +     #define TP_STATUS_SENDING          2 // Frame is currently in transmission
-> +     #define TP_STATUS_WRONG_FORMAT     4 // Frame format is not correct
-> +
-> +First, the kernel initializes all frames to TP_STATUS_AVAILABLE. To send a
-> +packet, the user fills a data buffer of an available frame, sets tp_len to
-> +current data buffer size and sets its status field to TP_STATUS_SEND_REQUEST.
-> +This can be done on multiple frames. Once the user is ready to transmit, it
-> +calls send(). Then all buffers with status equal to TP_STATUS_AVAILABLE are
 
-I suppose kernel sends packets with the status field equal to
-TP_STATUS_SEND_REQUEST not TP_STATUS_AVAILABLE.
+* Andi Kleen <andi@firstfloor.org> wrote:
 
-Besides several codying style issues, like placing { on the new line
-from the same one, missing space near the operator like if(smth),
-switch(smth), things look good.
+> > Seems that this is a virtuous patch even though Christoph is struggling
+> > a bit to test it?
+> 
+> The main drawback is that the select/poll data structures will get 
+> larger. That could cause regression in theory. [...]
 
--- 
-	Evgeniy Polyakov
+Current size of struct poll_table_entry is 0x38 on 64-bit kernels. 
+Adding the key will make it 0x40 - which is not only a power of two 
+but also matches cache line size on most modern CPUs.
+
+So the size of this structure is ideal now and arithmetics on the 
+poll table have become simpler as well.
+
+So the patch has my ack:
+
+  Acked-by: Ingo Molnar <mingo@elte.hu>
+
+	Ingo
