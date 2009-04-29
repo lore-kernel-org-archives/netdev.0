@@ -1,56 +1,44 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
-Date: Wed, 29 Apr 2009 08:53:52 -0700 (PDT)
-Message-ID: <alpine.DEB.1.10.0904290850210.25124@makko.or.mcafeemobile.com>
-References: <alpine.DEB.1.10.0904241554100.29995@qirst.com> <49F3308B.1030507@cosmosbay.com> <20090426.020411.157511269.davem@davemloft.net> <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com>
- <20090429091637.GA29874@elte.hu> <49F81FB9.50504@cosmosbay.com> <20090429102734.GC2373@elte.hu> <49F84833.5000908@cosmosbay.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next PATCH 1/3] ixgbe: enable HW RSC for 82599
+Date: Wed, 29 Apr 2009 09:16:48 -0700
+Message-ID: <49F87D70.4060707@intel.com>
+References: <20090428084236.32710.14750.stgit@localhost.localdomain>	<20090428.015535.42660210.davem@davemloft.net>	<alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com> <20090428.175446.191949653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ingo Molnar <mingo@elte.hu>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, cl@linux.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	haoki@redhat.com, mchan@broadcom.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([64.71.152.41]:47457 "EHLO
-	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757426AbZD2P6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 11:58:03 -0400
-Received: from makko.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.26 ESMTP Server]
-	id <S2E4309> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Wed, 29 Apr 2009 11:57:12 -0400
-In-Reply-To: <49F84833.5000908@cosmosbay.com>
+Received: from mga11.intel.com ([192.55.52.93]:16961 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752254AbZD2QRB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2009 12:17:01 -0400
+In-Reply-To: <20090428.175446.191949653.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Apr 2009, Eric Dumazet wrote:
-
-> [PATCH] poll: Avoid extra wakeups in select/poll
+David Miller wrote:
+> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+> Date: Tue, 28 Apr 2009 17:12:10 -0700 (Pacific Daylight Time)
 > 
-> After introduction of keyed wakeups Davide Libenzi did on epoll, we
-> are able to avoid spurious wakeups in poll()/select() code too.
+>> ah, you're right, but this features enables our new hardware that can do 
+>> LRO in hardware, and then GRO can work on top of it if necessary.  We 
+>> wanted some way to turn it off and overloaded the LRO flag to do so.
 > 
-> For example, typical use of poll()/select() is to wait for incoming
-> network frames on many sockets. But TX completion for UDP/TCP 
-> frames call sock_wfree() which in turn schedules thread.
-> 
-> When scheduled, thread does a full scan of all polled fds and
-> can sleep again, because nothing is really available. If number
-> of fds is large, this cause significant load.
-> 
-> This patch makes select()/poll() aware of keyed wakeups and
-> useless wakeups are avoided. This reduces number of context
-> switches by about 50% on some setups, and work performed
-> by sofirq handlers.
+> That ugly.  And the kernel is going to turn this off on you
+> when the user enables either forwarding or bridging.
 
-Looks fine to me Eric ...
+That would likely be a desirable consequence.  If the interface is used 
+for forwarding or bridging we probably would want to turn the feature 
+off since it has many of the same limitations as software LRO.  Then we 
+can let software GRO take over and handle all of the coalescing.
 
-Acked-by: Davide Libenzi <davidel@xmailserver.org>
+Thanks,
 
+Alex
 
-- Davide
 
 
