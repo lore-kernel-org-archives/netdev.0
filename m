@@ -1,43 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/6] net/ucc_geth: update riscTx and riscRx in ucc_geth
-Date: Wed, 29 Apr 2009 14:51:45 -0700 (PDT)
-Message-ID: <20090429.145145.49692653.davem@davemloft.net>
-References: <12410288792524-git-send-email-Haiying.Wang@freescale.com>
-	<12410288811793-git-send-email-Haiying.Wang@freescale.com>
-	<F640C411-797C-4A4D-BD1B-9A20114C57C3@kernel.crashing.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH 0/2] mv643xx_eth fixes for 2.6.30
+Date: Wed, 29 Apr 2009 23:56:25 +0200
+Message-ID: <20090429215625.GY14729@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Haiying.Wang@freescale.com,
-	netdev@vger.kernel.org
-To: galak@kernel.crashing.org
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59681
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752072AbZD2Vvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:51:51 -0400
-In-Reply-To: <F640C411-797C-4A4D-BD1B-9A20114C57C3@kernel.crashing.org>
+Received: from xi.wantstofly.org ([80.101.37.227]:43725 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219AbZD2Vw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:52:59 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Gala <galak@kernel.crashing.org>
-Date: Wed, 29 Apr 2009 15:23:21 -0500
+Two more fixes for mv643xx_eth for 2.6.30:
+1. Fix OOM handling, mv643xx_eth will currently just get into an
+   infinite netdev_alloc_skb() loop on OOM due to a logic bug.
+2. Fix problem where hardware 64bit MIB counters are actually 32bit
+   (and reads from the upper and lower halves have the same effect),
+   which can cause the software stats counters to spuriously increment
+   by some multiple of 2^32 if a packet comes in at the right moment.
 
-> 
-> On Apr 29, 2009, at 1:14 PM, Haiying Wang wrote:
-> 
->> Change the definition of riscTx and riscRx to unsigned integer instead
->> of enum,
->> and change their values to support 4 risc allocation if the qe has 4
->> RISC
->> engines.
->>
->> Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
->> ---
-> 
-> Dave, if you can ack this it is probably easier if this goes via the
-> powerpc tree as it had some dependancies.
+Since these should also go into 2.6.29.X, I added "Cc: stable@kernel.org"
+on both.
 
-Fair enough:
-
-Acked-by: David S. Miller <davem@davemloft.net>
+Please apply, thanks!
