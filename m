@@ -1,28 +1,46 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 0/2] mv643xx_eth fixes for 2.6.30
-Date: Wed, 29 Apr 2009 23:56:25 +0200
-Message-ID: <20090429215625.GY14729@mail.wantstofly.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch 1/1][RFC] NETDEV: Find network bugs by validating the
+ sk_buff state
+Date: Wed, 29 Apr 2009 14:53:38 -0700 (PDT)
+Message-ID: <20090429.145338.149717676.davem@davemloft.net>
+References: <20090429040501.GA32074@cuplxvomd02.corp.sa.net>
+	<20090428.223058.119960146.davem@davemloft.net>
+	<20090429151440.GA14266@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dvomlehn@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:43725 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219AbZD2Vw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:52:59 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59686
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752399AbZD2Vxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 17:53:44 -0400
+In-Reply-To: <20090429151440.GA14266@cuplxvomd02.corp.sa.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Two more fixes for mv643xx_eth for 2.6.30:
-1. Fix OOM handling, mv643xx_eth will currently just get into an
-   infinite netdev_alloc_skb() loop on OOM due to a logic bug.
-2. Fix problem where hardware 64bit MIB counters are actually 32bit
-   (and reads from the upper and lower halves have the same effect),
-   which can cause the software stats counters to spuriously increment
-   by some multiple of 2^32 if a packet comes in at the right moment.
+From: David VomLehn <dvomlehn@cisco.com>
+Date: Wed, 29 Apr 2009 08:14:40 -0700
 
-Since these should also go into 2.6.29.X, I added "Cc: stable@kernel.org"
-on both.
+> On Tue, Apr 28, 2009 at 10:30:58PM -0700, David Miller wrote:
+>> 
+>> Sorry, for this to be useful distributions are going to turn it on by
+>> default, and adding 24 bytes to struct sk_buff on 64-bit when we're
+>> trying everything in our power to make it smaller rather than larger
+>> is not acceptable.
+> 
+> That's like saying that any of the kernel debugging options have to be on
+> by default.  I expect that most folks won't want this on unless they are
+> looking for a bug. 
 
-Please apply, thanks!
+We don't have networking buffer structure elements that implement
+debugging, and it's for a reason.
+
+>> It's a useful change, something to keep in one's back pocket when
+>> debugging something, but not for upstream, sorry.
+> 
+> Right. This is why it depends on KERNEL_DEBUG and why it is off by default.
+
+All of this is moot if distributions decide to start turning this
+on, and from my experience they will.
