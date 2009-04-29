@@ -1,104 +1,78 @@
-From: Mark Smith
-	<lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-Subject: Re: [RFC, PATCH 2.6.29.2] Ethernet V2.0 Configuration Testing
- Protocol, revision 20090428
-Date: Wed, 29 Apr 2009 21:04:36 +0930
-Message-ID: <20090429210436.a515465b.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-References: <20090428220143.31395c24.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-	<20090428161545.0612476d@nehalam>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: Driver SFC: Possible bug in LM87 temperature XFP detection code
+Date: Wed, 29 Apr 2009 14:11:52 +0200
+Message-ID: <1241007112.8115.9.camel@localhost.localdomain>
+References: <1240911369.10689.20.camel@localhost.localdomain>
+	 <1240925799.3200.16.camel@achroite> <1240938258.3200.28.camel@achroite>
+	 <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.adam.net.au ([202.136.110.253]:34170 "EHLO
-	smtp1.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019AbZD2Lek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 07:34:40 -0400
-In-Reply-To: <20090428161545.0612476d@nehalam>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:49675 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758559AbZD2MLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 08:11:54 -0400
+In-Reply-To: <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+On Wed, 2009-04-29 at 10:52 +0200, Jesper Dangaard Brouer wrote:
+> On Tue, 28 Apr 2009, Ben Hutchings wrote:
 
-Thanks for you time.
-
-On Tue, 28 Apr 2009 16:15:45 -0700
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-
-> On Tue, 28 Apr 2009 22:01:43 +0930
-> Mark Smith  <lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org> wrote:
+> > It may also be worth checking that the sensors are actually reading
+> > correctly.  You can read them using the "sensors" command from the
+> > lm_sensors package or by running:
+> >
+> >    grep . /sys/class/net/eth88/device/i2c-adapter:*/*-002e/temp*_input
+> >
+> > Divide the numbers by 1000 to get temperatures in degrees celsius.
 > 
-> > Hi,
-> > 
-> > Following on from my initial ECTP post on the 23rd of April, here is an
-> > updated revision.
-> > 
-> > Changes:
-> > 
-<snip>
-
-> > 
-> > Feedback from some networking and sys admin people I've told about it
-> > has been positive - they all agree with the benefit of being able to
-> > perform "ping" style testing on an Ethernet segment without requiring
-> > IP to be configured.
-> > 
-> > Any suggestions for improvement would be most appreciated.
-> > 
-> > Thanks very much,
-> > Mark.
-> > 
+> /sys/class/net/eth88/device/i2c-adapter:i2c-1/1-002e/temp1_input:61000
+> /sys/class/net/eth88/device/i2c-adapter:i2c-1/1-002e/temp2_input:70000
 > 
-> Why does this have to be in the kernel?  Why not all in user space
-> with AF_PACKET?
+> Guess the temperature is fairly high... I can touch it with a finger 
+> without getting burned.  
 
-It doesn't have to be, however I think the same question could be asked
-as to why the IPv4, IPv6 and 802.2/LLC echo reply functions are in the
-kernel, when they could be implemented in user space too.
+> I also have a 10GbE Sun Neptune (niu) in the 
+> machine, if I touch the heatsink on that I burn my finger, so that is even 
+> hotter...
 
-Here are the reasons why I think it should be in the kernel:
+I got my hands on a InfraRed Thermometer.
+The Sun NIC was 98 degrees celsius!!!
 
-o  As the Ethernet V2.0 protocol is implemented in the kernel, the
-offical Ethernet V2.0 testing function should also be implemented in
-the kernel. Making Ethernet layer testing rely on a user space
-process makes it less reliable and less universally available as a
-specific test of Ethernet link layer connectivity. IIRC, this is the
-justification for why IPv4 and IPv6 ICMP echo reply functions are in
-operating system kernels rather than as user space processes. 
 
-o  Compared to near equivalent link tesing using IPv4 ping, ECTP doesn't
-require any pre-configuration at all.
+> > The "internal" temperature sensor (temp1_input) is in the LM87, which is
+> > placed at the corner of the board away from the bracket and the edge
+> > connector.
 
-o  I think it can serve as a "hello world"-like example of basic packet
-processing in the kernel. Other protocols that exist in the kernel that
-can be used as examples are pretty complicated when compared to ECTP.
-To understand their implementations, you need to understand the protocol
-well before hand, which can be a fairly time consuming task. As ECTP is
-a very simple, single packet format protocol, that has pretty simple
-processing, the time investment in understanding it is fairly small -
-probably well and truly less than an hour. I think that, combined with
-what I hope is a very straight forward and easy to follow
-implementation, could help people come quickly up to speed with the
-basics of kernel packet processing. It's for this reason that I also 
-invested quite a bit of time in providing an overview of the protocol
-in the Documentation/networking/ectp.txt file. I think it also could be
-a simple to follow example of how to use SKB queues, and how to use the
-new high res timers subsystem.
+Measuring that point gives the correct measurement using the external
+infrared thermometer.
 
-o  It would be another method for testing network stack latency. The
-recent udpping testing that is being performed by Christoph Lameter is
-testing the Ethernet, IP and UDP layers of the kernel. Using ECTP for
-this type of testing isolates the IP and UDP implementations from
-influencing the results.
+> > The "external" temperature sensor (temp2_input) is in the SFC4000.
 
-o  It provides more link layer testing capabilities than the 802.2/LLC
-TEST function. ECTP supports querying of available ECTP nodes via
-broadcast and multicast requests, and testing of paths between
-a number of stations. The 802.2/LLC TEST function only supports
-request / reply testing between a pair of stations.
+It was harder to measure the temperature on the NIC CPU because of its
+blank surface.  I can get a reading of 66 Celcius where the sensor says
+68-69 Celcius.
 
-Best regards,
-Mark.
+The XFP it self of "only" 55 Celcius.  Measured by quickly pulling it
+out and measuring (and taking care of measuring on a non blank surface
+point).
+
+> I though this was read from the XFP.  I was hoping the NIC supported 
+> reading i2c stuff from the XFP.  Does it support that? (Robert Olsson 
+> wanted to play with this stuff)
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
