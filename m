@@ -1,45 +1,38 @@
-From: Radu Rendec <radu.rendec@ines.ro>
-Subject: Re: htb parallelism on multi-core platforms
-Date: Wed, 29 Apr 2009 19:21:11 +0300
-Message-ID: <1241022071.6554.375.camel@blade.ines.ro>
-References: <1240495002.6554.155.camel@blade.ines.ro>
-	 <20090423181936.GA2756@ami.dom.local>
-	 <Pine.LNX.4.64.0904232148120.13815@ask.diku.dk>
-	 <1240566136.6554.220.camel@blade.ines.ro>
-	 <Pine.LNX.4.64.0904281142270.21301@tyr.diku.dk>
-	 <1241000494.6554.307.camel@blade.ines.ro>
-	 <Pine.LNX.4.64.0904291225010.23626@tyr.diku.dk>
-	 <1241003006.6554.322.camel@blade.ines.ro>
-	 <20090429122312.GA2759@ami.dom.local>
-	 <1241010951.6554.355.camel@blade.ines.ro>
-	 <20090429133810.GB2759@ami.dom.local>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [net-next PATCH 1/3] ixgbe: enable HW RSC for 82599
+Date: Wed, 29 Apr 2009 09:40:41 -0700
+Message-ID: <aday6tj1khi.fsf@cisco.com>
+References: <20090428084236.32710.14750.stgit@localhost.localdomain>
+	<20090428.015535.42660210.davem@davemloft.net>
+	<alpine.WNT.2.00.0904281648300.5352@jbrandeb-desk1.amr.corp.intel.com>
+	<20090428.175446.191949653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>,
-	Calin Velea <calin.velea@gemenii.ro>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from NAT-172-Unkn.Local.iNES.RO ([80.86.100.172]:46886 "EHLO
-	blade.ines.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753142AbZD2QVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 12:21:46 -0400
-In-Reply-To: <20090429133810.GB2759@ami.dom.local>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:50011 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254AbZD2Qkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 12:40:42 -0400
+In-Reply-To: <20090428.175446.191949653.davem@davemloft.net> (David Miller's
+	message of "Tue, 28 Apr 2009 17:54:46 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I finally managed to disable NAPI on e1000e - apparently it can only be
-done on the "official" Intel driver (downloaded from their website), by
-compiling with "make CFLAGS_EXTRA=-DE1000E_NO_NAPI". This doesn't seem
-to be available in the (2.6.29) kernel driver.
+ > > ah, you're right, but this features enables our new hardware that can do 
+ > > LRO in hardware, and then GRO can work on top of it if necessary.  We 
+ > > wanted some way to turn it off and overloaded the LRO flag to do so.
 
-With NAPI disabled, 4 (of 8) cores go to 100% (instead of only one), but
-overall throughput *decreases* from ~110K pps (with NAPI) to ~80K pps.
-This makes sense, since h/w interrupt is much more time consuming than
-polling (that's the whole idea behind NAPI anyway).
+ > That ugly.  And the kernel is going to turn this off on you
+ > when the user enables either forwarding or bridging.
 
-Radu Rendec
+No comment on ugliness.  However it seems like a good feature if the
+kernel turns off hardware LRO when forwarding/bridging is turned on --
+after all, we don't want the hardware munging wire frames in that case,
+for exactly the same reasons that we don't want the kernel LRO munging
+frames.
 
-
+ - R.
