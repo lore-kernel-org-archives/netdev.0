@@ -1,118 +1,65 @@
-From: Robby Cai <robby.cai@gmail.com>
-Subject: Re: [PATCH 8/8 V2] MX27ADS: Add CS89x0 support
-Date: Wed, 29 Apr 2009 16:48:04 +0800
-Message-ID: <c8d1e6a0904290148h7521fa36peb9fd5b4a64b97ab@mail.gmail.com>
-References: <1240963177-23941-1-git-send-email-vbarinov@embeddedalley.com>
-	<1240963405-24007-1-git-send-email-vbarinov@embeddedalley.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: Driver SFC: Possible bug in LM87 temperature XFP detection code
+Date: Wed, 29 Apr 2009 10:52:51 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0904291028060.20858@tyr.diku.dk>
+References: <1240911369.10689.20.camel@localhost.localdomain>
+ <1240925799.3200.16.camel@achroite> <1240938258.3200.28.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Vladimir Barinov <vova.barinov@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-In-Reply-To: <1240963405-24007-1-git-send-email-vbarinov@embeddedalley.com>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:42393 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750858AbZD2Iw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2009 04:52:57 -0400
+In-Reply-To: <1240938258.3200.28.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Does it make sense if we add keep the new items in the alphabetic/numeric
- order?
-Nowadays, seems more and more people are paying attention on this.
-Regards,
-Robby
+On Tue, 28 Apr 2009, Ben Hutchings wrote:
 
-On Wed, Apr 29, 2009 at 8:03 AM, Vladimir Barinov <vova.barinov@gmail.com>wrote:
+> I wrote:
+>> However, I
+>> think your time might be better spent in fixing the air flow in the
+>> computer before the board is permanently damaged.
+>
+> It may also be worth checking that the sensors are actually reading
+> correctly.  You can read them using the "sensors" command from the
+> lm_sensors package or by running:
+>
+>    grep . /sys/class/net/eth88/device/i2c-adapter:*/*-002e/temp*_input
+>
+> Divide the numbers by 1000 to get temperatures in degrees celsius.
 
-> Add CS89x0 net chip support for MX27ADS board
+/sys/class/net/eth88/device/i2c-adapter:i2c-1/1-002e/temp1_input:61000
+/sys/class/net/eth88/device/i2c-adapter:i2c-1/1-002e/temp2_input:70000
+
+Guess the temperature is fairly high... I can touch it with a finger 
+without getting burned.  I also have a 10GbE Sun Neptune (niu) in the 
+machine, if I touch the heatsink on that I burn my finger, so that is even 
+hotter...
+
+
+> The "internal" temperature sensor (temp1_input) is in the LM87, which is
+> placed at the corner of the board away from the bracket and the edge
+> connector.
 >
-> Signed-off-by: Vladimir Barinov <vbarinov@embeddedalley.com>
-> ---
->  drivers/net/Kconfig  |    5 +++--
->  drivers/net/cs89x0.c |   10 ++++++++--
->  2 files changed, 11 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 214a92d..25fd824 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -1438,7 +1438,8 @@ config FORCEDETH_NAPI
->  config CS89x0
->        tristate "CS89x0 support"
->        depends on NET_ETHERNET && (ISA || EISA || MACH_IXDP2351 \
-> -               || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_MX31ADS)
-> +               || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_MX31ADS \
-> +               || MACH_MX27ADS)
->        ---help---
->          Support for CS89x0 chipset based Ethernet cards. If you have a
->          network (Ethernet) card of this type, say Y and read the
-> @@ -1452,7 +1453,7 @@ config CS89x0
->  config CS89x0_NONISA_IRQ
->        def_bool y
->        depends on CS89x0 != n
-> -       depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X ||
-> MACH_MX31ADS
-> +       depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X ||
-> MACH_MX31ADS || MACH_MX27ADS
->
->  config TC35815
->        tristate "TOSHIBA TC35815 Ethernet support"
-> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-> index 7433b88..558f630 100644
-> --- a/drivers/net/cs89x0.c
-> +++ b/drivers/net/cs89x0.c
-> @@ -195,6 +195,12 @@ static unsigned int netcard_portlist[] __used
-> __initdata = {
->        PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
->  };
->  static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
-> +#elif defined(CONFIG_MACH_MX27ADS)
-> +#include <mach/board-mx27ads.h>
-> +static unsigned int netcard_portlist[] __used __initdata = {
-> +       PBC_CS8900A_IOBASE_REG + 0x300 + 3, 0
-> +};
-> +static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
->  #else
->  static unsigned int netcard_portlist[] __used __initdata =
->    { 0x300, 0x320, 0x340, 0x360, 0x200, 0x220, 0x240, 0x260, 0x280, 0x2a0,
-> 0x2c0, 0x2e0, 0};
-> @@ -1034,7 +1040,7 @@ skip_this_frame:
->
->  static void __init reset_chip(struct net_device *dev)
->  {
-> -#if !defined(CONFIG_MACH_MX31ADS)
-> +#if !defined(CONFIG_MACH_MX31ADS) && !defined(CONFIG_MACH_MX27ADS)
->  #if !defined(CONFIG_MACH_IXDP2351) && !defined(CONFIG_ARCH_IXDP2X01)
->        struct net_local *lp = netdev_priv(dev);
->        int ioaddr = dev->base_addr;
-> @@ -1063,7 +1069,7 @@ static void __init reset_chip(struct net_device *dev)
->        reset_start_time = jiffies;
->        while( (readreg(dev, PP_SelfST) & INIT_DONE) == 0 && jiffies -
-> reset_start_time < 2)
->                ;
-> -#endif /* !CONFIG_MACH_MX31ADS */
-> +#endif /* !CONFIG_MACH_MX31ADS && !CONFIG_MACH_MX27ADS */
->  }
->
->
-> --
-> 1.5.6
->
->
-> -------------------------------------------------------------------
-> List admin:
-> http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-> FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-> Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
->
+> The "external" temperature sensor (temp2_input) is in the SFC4000.
+
+I though this was read from the XFP.  I was hoping the NIC supported 
+reading i2c stuff from the XFP.  Does it support that? (Robert Olsson 
+wanted to play with this stuff)
+
+
+Cheers,
+   Jesper Brouer
+
+--
 -------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
