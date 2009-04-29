@@ -1,79 +1,28 @@
-From: Calin Velea <calin.velea@gemenii.ro>
-Subject: Re: htb parallelism on multi-core platforms
-Date: Thu, 30 Apr 2009 01:49:46 +0300
-Message-ID: <395864833.20090430014946@gemenii.ro>
-References: <1240495002.6554.155.camel@blade.ines.ro> <20090423181936.GA2756@ami.dom.local> <Pine.LNX.4.64.0904232148120.13815@ask.diku.dk> <1240566136.6554.220.camel@blade.ines.ro> <Pine.LNX.4.64.0904281142270.21301@tyr.diku.dk> <1241000494.6554.307.camel@blade.ines.ro> <Pine.LNX.4.64.0904291225010.23626@tyr.diku.dk> <1241003006.6554.322.camel@blade.ines.ro> <20090429122312.GA2759@ami.dom.local> <1241010951.6554.355.camel@blade.ines.ro> <20090429133810.GB2759@ami.dom.local> <1241022071.6554.375.camel@blade.ines.ro>
-Reply-To: Calin Velea <vcalinus@gemenii.ro>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-04-29
+Date: Wed, 29 Apr 2009 15:54:31 -0700 (PDT)
+Message-ID: <20090429.155431.126804752.davem@davemloft.net>
+References: <20090429223111.GA17013@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev <netdev@vger.kernel.org>
-To: Radu Rendec <radu.rendec@ines.ro>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gemenii.ro ([195.28.184.8]:35751 "EHLO newmail.gemenii.ro"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752922AbZD2Wwk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Apr 2009 18:52:40 -0400
-In-Reply-To: <1241022071.6554.375.camel@blade.ines.ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090429223111.GA17013-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wednesday, April 29, 2009, 7:21:11 PM, you wrote:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 29 Apr 2009 18:31:12 -0400
 
-> I finally managed to disable NAPI on e1000e - apparently it can only be
-> done on the "official" Intel driver (downloaded from their website), by
-> compiling with "make CFLAGS_EXTRA=-DE1000E_NO_NAPI". This doesn't seem
-> to be available in the (2.6.29) kernel driver.
+> Another round intended for 2.6.30.  I think most of the fixes are
+> self-explanatory (at least with their changelogs) this time (for a
+> change)...please let me know if there are problems!
 
-> With NAPI disabled, 4 (of 8) cores go to 100% (instead of only one), but
-> overall throughput *decreases* from ~110K pps (with NAPI) to ~80K pps.
-> This makes sense, since h/w interrupt is much more time consuming than
-> polling (that's the whole idea behind NAPI anyway).
-
-> Radu Rendec
-
-   I tested with e1000 only, on a single quad-core CPU - the L2 cache was
-shared between the cores.
-
-  For 8 cores I suppose you have 2 quad-core CPUs. If the cores actually
-used belong to different physical CPUs, L2 cache sharing does not occur -
-maybe this could explain the performance drop in your case.
-  Or there may be other explanation...
-
-
-  Anyway - coming back to David Miller's words:
-
-"HTB acts upon global state, so anything that goes into a particular 
-device's HTB ruleset is going to be single threaded. 
-There really isn't any way around this. "
-
-  It could be the only way to get more power is to increase the number 
-of devices where you are shaping. You could split the IP space into 4 groups
-and direct the trafic to 4 IMQ devices with 4 iptables rules -
-
--d 0.0.0.0/2 -j IMQ --todev imq0,
--d 64.0.0.0/2 -j IMQ --todev imq1, etc...
-
-Or you can customize the split depeding on the traffic distribution.
-ipset nethash match can also be used.
-
-
- The 4 devices can have the same htb ruleset, only the right parts 
-of it will match.
-  You should test with 4 flows that use all the devices simultaneously and
-see what is the aggregate throughput.
-
-
-  The performance gained through parallelism might be a lot higher than the 
-added overhead of iptables and/or ipset nethash match. Anyway - this is more of
-a "hack" than a clean solution :)
-
-
-p.s.: latest IMQ at http://www.linuximq.net/ is for 2.6.26 so you will need to try with that
--- 
-Best regards,
- Calin                            mailto:calin.velea@gemenii.ro
-
+Pulled, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
