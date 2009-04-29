@@ -1,21 +1,21 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 08/16] ixgb: Use generic MDIO definitions
-Date: Wed, 29 Apr 2009 19:11:05 +0100
-Message-ID: <1241028665.3246.49.camel@achroite>
+Subject: [PATCH 09/16] s2io: Use generic MDIO definitions
+Date: Wed, 29 Apr 2009 19:13:29 +0100
+Message-ID: <1241028809.3246.52.camel@achroite>
 References: <1241028086.3246.30.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandenburg <jesse.brandeburg@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
+	Ramkrishna Vepa <ram.vepa@neterion.com>,
+	Santosh Rastapur <santosh.rastapur@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:59038 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759559AbZD2SLH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:11:07 -0400
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:35991 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756349AbZD2SNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:13:37 -0400
 In-Reply-To: <1241028086.3246.30.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,80 +24,91 @@ Compile-tested only.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ixgb/ixgb_hw.c |   20 ++++++++++----------
- drivers/net/ixgb/ixgb_hw.h |   14 ++------------
- 2 files changed, 12 insertions(+), 22 deletions(-)
+ drivers/net/s2io-regs.h |    5 -----
+ drivers/net/s2io.c      |   21 +++++++++++----------
+ 2 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
-index 11dcda0..ff67a84 100644
---- a/drivers/net/ixgb/ixgb_hw.c
-+++ b/drivers/net/ixgb/ixgb_hw.c
-@@ -192,7 +192,7 @@ ixgb_identify_xpak_vendor(struct ixgb_hw *hw)
- 		vendor_name[i] = ixgb_read_phy_reg(hw,
- 						   MDIO_PMA_PMD_XPAK_VENDOR_NAME
- 						   + i, IXGB_PHY_ADDRESS,
--						   MDIO_PMA_PMD_DID);
-+						   MDIO_MMD_PMAPMD);
- 	}
- 
- 	/* Determine the actual vendor */
-@@ -1225,15 +1225,15 @@ ixgb_optics_reset(struct ixgb_hw *hw)
- 		u16 mdio_reg;
- 
- 		ixgb_write_phy_reg(hw,
--					MDIO_PMA_PMD_CR1,
--					IXGB_PHY_ADDRESS,
--					MDIO_PMA_PMD_DID,
--					MDIO_PMA_PMD_CR1_RESET);
--
--		mdio_reg = ixgb_read_phy_reg( hw,
--						MDIO_PMA_PMD_CR1,
--						IXGB_PHY_ADDRESS,
--						MDIO_PMA_PMD_DID);
-+				   MDIO_CTRL1,
-+				   IXGB_PHY_ADDRESS,
-+				   MDIO_MMD_PMAPMD,
-+				   MDIO_CTRL1_RESET);
-+
-+		mdio_reg = ixgb_read_phy_reg(hw,
-+					     MDIO_CTRL1,
-+					     IXGB_PHY_ADDRESS,
-+					     MDIO_MMD_PMAPMD);
- 	}
- 
- 	return;
-diff --git a/drivers/net/ixgb/ixgb_hw.h b/drivers/net/ixgb/ixgb_hw.h
-index 831fe0c..af6ca3a 100644
---- a/drivers/net/ixgb/ixgb_hw.h
-+++ b/drivers/net/ixgb/ixgb_hw.h
-@@ -29,6 +29,8 @@
- #ifndef _IXGB_HW_H_
- #define _IXGB_HW_H_
- 
+diff --git a/drivers/net/s2io-regs.h b/drivers/net/s2io-regs.h
+index f8274f8..416669f 100644
+--- a/drivers/net/s2io-regs.h
++++ b/drivers/net/s2io-regs.h
+@@ -271,11 +271,6 @@ struct XENA_dev_config {
+ 	u64 mdio_control;
+ #define MDIO_MMD_INDX_ADDR(val)		vBIT(val, 0, 16)
+ #define MDIO_MMD_DEV_ADDR(val)		vBIT(val, 19, 5)
+-#define MDIO_MMD_PMA_DEV_ADDR		0x1
+-#define MDIO_MMD_PMD_DEV_ADDR		0x1
+-#define MDIO_MMD_WIS_DEV_ADDR		0x2
+-#define MDIO_MMD_PCS_DEV_ADDR		0x3
+-#define MDIO_MMD_PHYXS_DEV_ADDR		0x4
+ #define MDIO_MMS_PRT_ADDR(val)		vBIT(val, 27, 5)
+ #define MDIO_CTRL_START_TRANS(val)	vBIT(val, 56, 4)
+ #define MDIO_OP(val)			vBIT(val, 60, 2)
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 1a4979f..80562ea 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -63,6 +63,7 @@
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
 +#include <linux/mdio.h>
-+
- #include "ixgb_osdep.h"
+ #include <linux/skbuff.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+@@ -3328,9 +3329,9 @@ static void s2io_updt_xpak_counter(struct net_device *dev)
+ 	struct stat_block *stat_info = sp->mac_control.stats_info;
  
- /* Enums */
-@@ -507,18 +509,6 @@ typedef enum {
- /* Definitions for the optics devices on the MDIO bus. */
- #define IXGB_PHY_ADDRESS             0x0	/* Single PHY, multiple "Devices" */
+ 	/* Check the communication with the MDIO slave */
+-	addr = 0x0000;
++	addr = MDIO_CTRL1;
+ 	val64 = 0x0;
+-	val64 = s2io_mdio_read(MDIO_MMD_PMA_DEV_ADDR, addr, dev);
++	val64 = s2io_mdio_read(MDIO_MMD_PMAPMD, addr, dev);
+ 	if((val64 == 0xFFFF) || (val64 == 0x0000))
+ 	{
+ 		DBG_PRINT(ERR_DBG, "ERR: MDIO slave access failed - "
+@@ -3338,24 +3339,24 @@ static void s2io_updt_xpak_counter(struct net_device *dev)
+ 		return;
+ 	}
  
--/* Standard five-bit Device IDs.  See IEEE 802.3ae, clause 45 */
--#define MDIO_PMA_PMD_DID        0x01
--#define MDIO_WIS_DID            0x02
--#define MDIO_PCS_DID            0x03
--#define MDIO_XGXS_DID           0x04
--
--/* Standard PMA/PMD registers and bit definitions. */
--/* Note: This is a very limited set of definitions,      */
--/* only implemented features are defined.                */
--#define MDIO_PMA_PMD_CR1        0x0000
--#define MDIO_PMA_PMD_CR1_RESET  0x8000
--
- #define MDIO_PMA_PMD_XPAK_VENDOR_NAME       0x803A	/* XPAK/XENPAK devices only */
+-	/* Check for the expecte value of 2040 at PMA address 0x0000 */
+-	if(val64 != 0x2040)
++	/* Check for the expected value of control reg 1 */
++	if(val64 != MDIO_CTRL1_SPEED10G)
+ 	{
+ 		DBG_PRINT(ERR_DBG, "Incorrect value at PMA address 0x0000 - ");
+-		DBG_PRINT(ERR_DBG, "Returned: %llx- Expected: 0x2040\n",
+-			  (unsigned long long)val64);
++		DBG_PRINT(ERR_DBG, "Returned: %llx- Expected: 0x%x\n",
++			  (unsigned long long)val64, MDIO_CTRL1_SPEED10G);
+ 		return;
+ 	}
  
- /* Vendor-specific MDIO registers */
+ 	/* Loading the DOM register to MDIO register */
+ 	addr = 0xA100;
+-	s2io_mdio_write(MDIO_MMD_PMA_DEV_ADDR, addr, val16, dev);
+-	val64 = s2io_mdio_read(MDIO_MMD_PMA_DEV_ADDR, addr, dev);
++	s2io_mdio_write(MDIO_MMD_PMAPMD, addr, val16, dev);
++	val64 = s2io_mdio_read(MDIO_MMD_PMAPMD, addr, dev);
+ 
+ 	/* Reading the Alarm flags */
+ 	addr = 0xA070;
+ 	val64 = 0x0;
+-	val64 = s2io_mdio_read(MDIO_MMD_PMA_DEV_ADDR, addr, dev);
++	val64 = s2io_mdio_read(MDIO_MMD_PMAPMD, addr, dev);
+ 
+ 	flag = CHECKBIT(val64, 0x7);
+ 	type = 1;
+@@ -3387,7 +3388,7 @@ static void s2io_updt_xpak_counter(struct net_device *dev)
+ 	/* Reading the Warning flags */
+ 	addr = 0xA074;
+ 	val64 = 0x0;
+-	val64 = s2io_mdio_read(MDIO_MMD_PMA_DEV_ADDR, addr, dev);
++	val64 = s2io_mdio_read(MDIO_MMD_PMAPMD, addr, dev);
+ 
+ 	if(CHECKBIT(val64, 0x7))
+ 		stat_info->xpak_stat.warn_transceiver_temp_high++;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
