@@ -1,58 +1,76 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 8/8 V2] MX27ADS: Add CS89x0 support
-Date: Wed, 29 Apr 2009 09:15:12 +0200
-Message-ID: <20090429071512.GJ3696@pengutronix.de>
-References: <1240963177-23941-1-git-send-email-vbarinov@embeddedalley.com> <1240963405-24007-1-git-send-email-vbarinov@embeddedalley.com> <20090428.231946.27173581.davem@davemloft.net> <49F7FBC8.7090705@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH] ixgbe: Use pci_wake_from_d3() instead of multiple
+	pci_enable_wake()
+Date: Wed, 29 Apr 2009 00:18:52 -0700
+Message-ID: <20090429071852.6130.6565.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Vladimir Barinov <vova.barinov@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:44238 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750724AbZD2HPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 03:15:15 -0400
-Content-Disposition: inline
-In-Reply-To: <49F7FBC8.7090705@gmail.com>
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:47499
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751019AbZD2HTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 03:19:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 29, 2009 at 11:03:36AM +0400, Vladimir Barinov wrote:
-> Hello David,
->
-> David Miller wrote:
->> From: Vladimir Barinov <vova.barinov@gmail.com>
->> Date: Wed, 29 Apr 2009 04:03:25 +0400
->>
->>   
->>> Add CS89x0 net chip support for MX27ADS board
->>>
->>> Signed-off-by: Vladimir Barinov <vbarinov@embeddedalley.com>
->>>     
->>
->> So what's the story with the apparent 7 patches that preceed this
->> one and this one seems to depend upon?
->>
->> Context, please :)
->>
->>   
-> The patchset description is:
->
-> The following patch series makes transition to setup all pins at once in
-> platfrom code. Also it adds NAND, I2C, Framebuffer, SDHC, EXPIO(CPLD),
-> CS89x0 devices support for MX27ADS board.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The important information is that PATCH8/8 does not depend on the
-previous seven patches and can be applied independently.
+We were calling pci_enable_wake() twice in a row for both D3_hot
+and D3_cold.  This replaces those calls with a call to pci_wake_from_d3()
+to avoid issues with PCI PM vs ordering constraints.
 
-You shouldn't have added it to this series but sent an extra patch to
-David.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Sascha
+ drivers/net/ixgbe/ixgbe_main.c |   17 ++++++-----------
+ 1 files changed, 6 insertions(+), 11 deletions(-)
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 5020f11..01a8826 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3738,8 +3738,7 @@ static int ixgbe_resume(struct pci_dev *pdev)
+ 	}
+ 	pci_set_master(pdev);
+ 
+-	pci_enable_wake(pdev, PCI_D3hot, 0);
+-	pci_enable_wake(pdev, PCI_D3cold, 0);
++	pci_wake_from_d3(pdev, false);
+ 
+ 	err = ixgbe_init_interrupt_scheme(adapter);
+ 	if (err) {
+@@ -3813,13 +3812,10 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 		IXGBE_WRITE_REG(hw, IXGBE_WUFC, 0);
+ 	}
+ 
+-	if (wufc && hw->mac.type == ixgbe_mac_82599EB) {
+-		pci_enable_wake(pdev, PCI_D3hot, 1);
+-		pci_enable_wake(pdev, PCI_D3cold, 1);
+-	} else {
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
+-	}
++	if (wufc && hw->mac.type == ixgbe_mac_82599EB)
++		pci_wake_from_d3(pdev, true);
++	else
++		pci_wake_from_d3(pdev, false);
+ 
+ 	*enable_wake = !!wufc;
+ 
+@@ -5101,8 +5097,7 @@ static pci_ers_result_t ixgbe_io_slot_reset(struct pci_dev *pdev)
+ 		pci_set_master(pdev);
+ 		pci_restore_state(pdev);
+ 
+-		pci_enable_wake(pdev, PCI_D3hot, 0);
+-		pci_enable_wake(pdev, PCI_D3cold, 0);
++		pci_wake_from_d3(pdev, false);
+ 
+ 		ixgbe_reset(adapter);
+ 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_WUS, ~0);
+
