@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 14/16] ethtool/mdio: Report MDIO mode support and link
-	partner advertising
-Date: Wed, 29 Apr 2009 19:21:53 +0100
-Message-ID: <1241029313.3246.67.camel@achroite>
+Subject: [PATCH 15/16] ethtool/mdio: Support backplane mode negotiation
+Date: Wed, 29 Apr 2009 19:25:57 +0100
+Message-ID: <1241029557.3246.71.camel@achroite>
 References: <1241028086.3246.30.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,106 +10,135 @@ Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
 	Jeff Garzik <jgarzik@pobox.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:55766 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752035AbZD2SV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:21:57 -0400
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:60087 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755425AbZD2S0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 14:26:03 -0400
 In-Reply-To: <1241028086.3246.30.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add mdio_support and lp_advertising fields to ethtool_cmd.  Set these
-in mdio45_ethtool_gset{,_npage}().
+Compile-tested only.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/mdio.c      |   19 ++++++++++++-------
- include/linux/ethtool.h |    4 +++-
- include/linux/mdio.h    |    5 +++--
- 3 files changed, 18 insertions(+), 10 deletions(-)
+This should be tested with some actual backplane-Ethernet hardware.  If
+no-one does that I can resubmit just the header changes for now.
+
+Ben.
+
+ drivers/net/mdio.c      |   30 +++++++++++++++++++++++++-----
+ include/linux/ethtool.h |   10 ++++++++++
+ include/linux/mdio.h    |    5 +++++
+ 3 files changed, 40 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
-index 2fb0d16..ee383c2 100644
+index ee383c2..6648303 100644
 --- a/drivers/net/mdio.c
 +++ b/drivers/net/mdio.c
-@@ -173,6 +173,8 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+@@ -202,12 +202,29 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+ 		break;
  
- 	ecmd->transceiver = XCVR_INTERNAL;
- 	ecmd->phy_address = mdio->prtad;
-+	ecmd->mdio_support =
-+		mdio->mode_support & (MDIO_SUPPORTS_C45 | MDIO_SUPPORTS_C22);
+ 	case MDIO_PMA_CTRL2_10GBCX4:
++		ecmd->port = PORT_OTHER;
++		ecmd->supported = 0;
++		ecmd->advertising = 0;
++		break;
++
+ 	case MDIO_PMA_CTRL2_10GBKX4:
+ 	case MDIO_PMA_CTRL2_10GBKR:
+ 	case MDIO_PMA_CTRL2_1000BKX:
+ 		ecmd->port = PORT_OTHER;
+-		ecmd->supported = 0;
+-		ecmd->advertising = 0;
++		ecmd->supported = SUPPORTED_Backplane;
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++				      MDIO_PMA_EXTABLE);
++		if (reg & MDIO_PMA_EXTABLE_10GBKX4)
++			ecmd->supported |= SUPPORTED_10000baseKX4_Full;
++		if (reg & MDIO_PMA_EXTABLE_10GBKR)
++			ecmd->supported |= SUPPORTED_10000baseKR_Full;
++		if (reg & MDIO_PMA_EXTABLE_1000BKX)
++			ecmd->supported |= SUPPORTED_1000baseKX_Full;
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++				      MDIO_PMA_10GBR_FECABLE);
++		if (reg & MDIO_PMA_10GBR_FECABLE_ABLE)
++			ecmd->supported |= SUPPORTED_10000baseR_FEC;
++		ecmd->advertising = ADVERTISED_Backplane;
+ 		break;
  
- 	reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
- 			      MDIO_CTRL2);
-@@ -235,16 +237,19 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
- 
- 	if (ecmd->autoneg) {
- 		u32 modes = 0;
-+		int an_stat = mdio->mdio_read(mdio->dev, mdio->prtad,
-+					      MDIO_MMD_AN, MDIO_STAT1);
- 
- 		/* If AN is complete and successful, report best common
- 		 * mode, otherwise report best advertised mode. */
--		if (mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
--				    MDIO_STAT1) &
--		    MDIO_AN_STAT1_COMPLETE)
--			modes = (ecmd->advertising &
--				 (mdio45_get_an(mdio, MDIO_AN_LPA) |
--				  npage_lpa));
--		if (modes == 0)
-+		if (an_stat & MDIO_AN_STAT1_COMPLETE) {
-+			ecmd->lp_advertising =
-+				mdio45_get_an(mdio, MDIO_AN_LPA) | npage_lpa;
-+			if (an_stat & MDIO_AN_STAT1_LPABLE)
-+				ecmd->lp_advertising |= ADVERTISED_Autoneg;
-+			modes = ecmd->advertising & ecmd->lp_advertising;
-+		}
-+		if ((modes & ~ADVERTISED_Autoneg) == 0)
+ 	/* All the other defined modes are flavours of optical */
+@@ -252,13 +269,16 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+ 		if ((modes & ~ADVERTISED_Autoneg) == 0)
  			modes = ecmd->advertising;
  
- 		if (modes & ADVERTISED_10000baseT_Full) {
+-		if (modes & ADVERTISED_10000baseT_Full) {
++		if (modes & (ADVERTISED_10000baseT_Full |
++			     ADVERTISED_10000baseKX4_Full |
++			     ADVERTISED_10000baseKR_Full)) {
+ 			ecmd->speed = SPEED_10000;
+ 			ecmd->duplex = DUPLEX_FULL;
+ 		} else if (modes & (ADVERTISED_1000baseT_Full |
+-				    ADVERTISED_1000baseT_Half)) {
++				    ADVERTISED_1000baseT_Half |
++				    ADVERTISED_1000baseKX_Full)) {
+ 			ecmd->speed = SPEED_1000;
+-			ecmd->duplex = !!(modes & ADVERTISED_1000baseT_Full);
++			ecmd->duplex = !(modes & ADVERTISED_1000baseT_Half);
+ 		} else if (modes & (ADVERTISED_100baseT_Full |
+ 				    ADVERTISED_100baseT_Half)) {
+ 			ecmd->speed = SPEED_100;
 diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 5ccb6bd..14e6bc8 100644
+index 14e6bc8..380b042 100644
 --- a/include/linux/ethtool.h
 +++ b/include/linux/ethtool.h
-@@ -26,11 +26,13 @@ struct ethtool_cmd {
- 	__u8	phy_address;
- 	__u8	transceiver;	/* Which transceiver to use */
- 	__u8	autoneg;	/* Enable or disable autonegotiation */
-+	__u8	mdio_support;
- 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
- 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
- 	__u16	speed_hi;
- 	__u16	reserved2;
--	__u32	reserved[3];
-+	__u32	lp_advertising;	/* Features the link partner advertises */
-+	__u32	reserved[2];
- };
+@@ -565,6 +565,11 @@ struct ethtool_ops {
+ #define SUPPORTED_Pause			(1 << 13)
+ #define SUPPORTED_Asym_Pause		(1 << 14)
+ #define SUPPORTED_2500baseX_Full	(1 << 15)
++#define SUPPORTED_Backplane		(1 << 16)
++#define SUPPORTED_1000baseKX_Full	(1 << 17)
++#define SUPPORTED_10000baseKX4_Full	(1 << 18)
++#define SUPPORTED_10000baseKR_Full	(1 << 19)
++#define SUPPORTED_10000baseR_FEC	(1 << 20)
  
- static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+ /* Indicates what features are advertised by the interface. */
+ #define ADVERTISED_10baseT_Half		(1 << 0)
+@@ -583,6 +588,11 @@ struct ethtool_ops {
+ #define ADVERTISED_Pause		(1 << 13)
+ #define ADVERTISED_Asym_Pause		(1 << 14)
+ #define ADVERTISED_2500baseX_Full	(1 << 15)
++#define ADVERTISED_Backplane		(1 << 16)
++#define ADVERTISED_1000baseKX_Full	(1 << 17)
++#define ADVERTISED_10000baseKX4_Full	(1 << 18)
++#define ADVERTISED_10000baseKR_Full	(1 << 19)
++#define ADVERTISED_10000baseR_FEC	(1 << 20)
+ 
+ /* The following are all involved in forcing a particular link
+  * mode for the device for setting things.  When getting the
 diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index 5645c0f..1bff2f2 100644
+index 1bff2f2..26b4eb3 100644
 --- a/include/linux/mdio.h
 +++ b/include/linux/mdio.h
-@@ -234,6 +234,9 @@ static inline __u16 mdio_phy_id_devad(int phy_id)
- 	return phy_id & MDIO_PHY_ID_DEVAD;
- }
+@@ -46,6 +46,7 @@
  
-+#define MDIO_SUPPORTS_C22		1
-+#define MDIO_SUPPORTS_C45		2
+ /* Media-dependent registers. */
+ #define MDIO_PMA_10GBT_TXPWR	131	/* 10GBASE-T TX power control */
++#define MDIO_PMA_10GBR_FECABLE	170	/* 10GBASE-R FEC ability */
+ #define MDIO_PCS_10GBX_STAT1	24	/* 10GBASE-X PCS status 1 */
+ #define MDIO_PCS_10GBRT_STAT1	32	/* 10GBASE-R/-T PCS status 1 */
+ #define MDIO_PCS_10GBRT_STAT2	33	/* 10GBASE-R/-T PCS status 2 */
+@@ -187,6 +188,10 @@
+ /* PMA 10GBASE-T TX power register. */
+ #define MDIO_PMA_10GBT_TXPWR_SHORT	0x0001	/* Short-reach mode */
+ 
++/* PMA 10GBASE-R FEC ability register. */
++#define MDIO_PMA_10GBR_FECABLE_ABLE	0x0001	/* FEC ability */
++#define MDIO_PMA_10GBR_FECABLE_ERRABLE	0x0002	/* FEC error indic. ability */
 +
- #ifdef __KERNEL__ 
+ /* PCS 10GBASE-R/-T status register 1. */
+ #define MDIO_PCS_10GBRT_STAT1_BLKLK	0x0001	/* Block lock attained */
  
- /**
-@@ -264,8 +267,6 @@ struct mdio_if_info {
- 
- #define MDIO_PRTAD_NONE			(-1)
- #define MDIO_DEVAD_NONE			(-1)
--#define MDIO_SUPPORTS_C22		1
--#define MDIO_SUPPORTS_C45		2
- #define MDIO_EMULATE_C22		4
- 
- struct ethtool_cmd;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
