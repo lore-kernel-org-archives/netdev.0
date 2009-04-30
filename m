@@ -1,79 +1,216 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
-	questions)
-Date: Thu, 30 Apr 2009 18:21:18 -0400
-Message-ID: <f73f7ab80904301521x16effa0ar2d4756daceada122@mail.gmail.com>
-References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
-	<625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
-	<f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
-	<1240388476.17445.10.camel@pasglop>
-	<f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
-	<1241126291.29501.41.camel@pasglop>
+From: Greg Kroah-Hartman <gregkh@suse.de>
+Subject: [PATCH] net: remove driver_data direct access of struct device
+Date: Thu, 30 Apr 2009 15:19:31 -0700
+Message-ID: <20090430221931.GA18557@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	linuxppc-dev@ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1241126291.29501.41.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:55445 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752231AbZD3W3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2009 18:29:36 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBBcHIgMzAsIDIwMDkgYXQgNToxOCBQTSwgQmVuamFtaW4gSGVycmVuc2NobWlkdAo8
-YmVuaEBrZXJuZWwuY3Jhc2hpbmcub3JnPiB3cm90ZToKPiBXZWxsLi4uIEdQQ1MgaXMgaW5kZWVk
-IHNvbWUga2luZCBvZiBpbnRlcm5hbCBQSFkgaWYgeW91IGxpa2UgYnV0IGl0J3MKPiBub3QgTURJ
-TyBjb250cm9sbGVkIGFuZCBJIGRvbid0IHJlYWxseSBzZWUgYSBuZWVkIHRvIG1vdmUgaXQgdG8g
-dGhlCj4gcGh5bGliIGFzIGl0J3Mgc28gc3BlY2lmaWMgdG8gdGhlIE5JQyBpdHNlbGYuIEJ1dCBp
-ZiB5b3UgdGhpbmsgaXQgY2xlYW5zCj4gdGhlIGNvZGUgdXAgc2lnbmlmaWNhbnRseS4uLiBUaGVy
-ZSBhcmUgYWxzbyBzb21lIHN1YnRsZSBkaWZmZXJlbmNlcyBpbgo+IGhvdyB0aGUgTklDIGlzIHBy
-b2dyYW1tZWQgd2hlbiB1c2luZyBHUENTIHZzLiB4TUlJCgpPaywgdGhhbmtzLCB0aGF0J3MgaGVs
-cGZ1bCBpbmZvcm1hdGlvbi4gIE1haW5seSBJIHdhcyB0cnlpbmcgdG8gcHV6emxlCm91dCB3aHkg
-dGhlIGRyaXZlciBzb21ldGltZXMgcmVzZXRzIHRoZSBHUENTIGFuZCBvdGhlciB0aW1lcyByZXNl
-dHMKdGhlIHJlYWwgUEhZLiAgSXQgc2VlbXMgdG8gYmUgcmF0aGVyIGluY29uc2lzdGVudCB3aGVu
-IGl0IHJlc2V0cwpkaWZmZXJlbnQgZGV2aWNlcy4gIEZvciBpbnN0YW5jZSwgb25lIG9mIHRoZSBN
-YXJ2ZWxsIFBIWSdzIGluaXQoKQpoZWxwZXIgcmVzZXRzIHRoZSBQSFksIHdoaWNoIHdhcyBnZXR0
-aW5nIGluIHRoZSB3YXkgb2YgbWUgZW5zdXJpbmcKdGhhdCB0aGUgaW5pdCgpIGhlbHBlcnMgYXJl
-IGNhbGxlZCBhZnRlciBldmVyeSBQSFkgcmVzZXQgKGJlY2F1c2UgSQpuZWVkIHRvIHJlaW5pdGlh
-bGl6ZSB0aGUgc3RhdGUgdGhhdCBqdXN0IGdvdCBlcmFzZWQgYnkgdGhlIHJlc2V0KS4KClRoZSBj
-aGFsbGVuZ2UgaXMgd29ya2luZyBvdXQgd2hpY2ggb2YgdGhlIGltcGxpY2l0IG9yZGVyaW5nIGlz
-CnJlcXVpcmVkIGZvciBjb3JyZWN0IG9wZXJhdGlvbiBhbmQgd2hpY2ggaXMgc2ltcGx5IGFuIGFy
-dGlmYWN0IG9mIHRoZQpjdXJyZW50IGltcGxlbWVudGF0aW9uLgoKCj4+IEknbSBhbHNvIGN1cmlv
-dXMgYWJvdXQgdGhlIGludGVudCBvZiB0aGUgIm1kaW9faW5zdGFuY2UiIHBvaW50ZXIgKElFOgo+
-PiB0aGUgIm1kaW8tZGV2aWNlIiBwcm9wZXJ0eSkuIMKgSXMgdGhhdCB1c2VkIHdoZW4gYWxsIHRo
-ZSBQSFkgZGV2aWNlcwo+PiBhcmUgYXR0YWNoZWQgdG8gdGhlIE1ESU8gYnVzIG9mIG9ubHkgb25l
-IG9mIHRoZSAobXVsdGlwbGUpIGVtYWMKPj4gZGV2aWNlcz8KPgo+IEl0J3MgY29tbW9uIGVzcGVj
-aWFsbHkgb24gb2xkZXIgU29DcyB1c2luZyBFTUFDIHRvIGhhdmUgb25seSBvbmUgb2YKPiB0aGUg
-RU1BQyBpbnN0YW5jZSB3aXRoIGFuIE1ESU8gYnVzIGZvciBjb25maWd1cmluZyB0aGUgUEhZcy4g
-VGhpcyBpcyBvbmUKPiBvZiB0aGUgcmVhc29ucyB3aHkgSSBoYXZlIHRoZSBtdXRleCBpbiB0aGUg
-bG93IGxldmVsIE1ESU8gYWNjZXNzCj4gcm91dGluZXMgc2luY2UgMiBFTUFDcyBjYW4gdHJ5IHRv
-IHRhbGsgdG8gdGhlIHNhbWUgTURJTywgYW5kIHRoaXMgaXMgdGhlCj4gcHJvYmxlbSBJIGhhZCB3
-aXRoIHBoeWxpYiBiYWNrIHRoZW4gd2hpY2ggd2FzIGRvaW5nIGV2ZXJ5dGhpbmcgaW4gYXRvbWlj
-Cj4gY29udGV4dHMuCgpPaywgZ29vZCwgdGhlIGN1cnJlbnQgbWRpb2J1cyBjb2RlIHNlZW1zIHRv
-IG1ha2UgaGFuZGxpbmcgdGhpcyBhIGdvb2QKZGVhbCBlYXNpZXIuCgoKPj4gV2hhdCBrZWVwcyB0
-aGUgZW1hY19pbnN0YW5jZSBwb2ludGVkCj4+IHRvIGJ5IHRoZSAibWRpb19pbnN0YW5jZSIgZnJv
-bSBnb2luZyBhd2F5IHdoaWxlIHRoZSBvdGhlciBlbWFjIGNoaXBzZXQKPj4gaXMgdXNpbmcgaXQ/
-Cj4KPiBOb3RoaW5nIG90aGVyIHRoYW4gdGhvc2UgYXJlIGFsbCBpbiBhIFNvQyBhbmQgc28gZ2Vu
-ZXJhbGx5IGRvbid0IGRvCj4gaG90cGx1ZywgYnV0IEkgc3VwcG9zZSB0aGF0IHdpdGggdGhpbmdz
-IGxpa2Uga3ZtIHdoaWNoIGNvdWxkIHBvdGVudGlhbGx5Cj4gaG90cGx1ZyBkZXZpY2VzIGJldHdl
-ZW4gcGFydGl0aW9ucywgb25lIHdvdWxkIGhhdmUgdG8gZ2V0IGEgYml0IG1vcmUKPiBjYXJlZnVs
-LgoKWWVhaCwgSSB3YXMgZXhwZXJpbWVudGluZyB3aXRoIGZpZGRsaW5nIHdpdGggdGhlIGJpbmQv
-dW5iaW5kIGZpbGVzIGluCnN5c2ZzIGFuZCBkZXRlcm1pbmVkIHRoYXQgdGhlIGRldmljZS1yZW1v
-dmFsIGNvZGUgaXMgY29tcGxldGVseQpicm9rZW4uICBBcyBmYXIgYXMgSSBjYW4gdGVsbCwgYW55
-IGF0dGVtcHRzIHRvIHVucmVnaXN0ZXIgb25lIG9mIHRoZQplbWFjIGRldmljZXMgY2F1c2UgYW4g
-T09QUywgZXZlbiBpZiBpdCBpc24ndCB1c2VkIGJ5IGFub3RoZXIgZW1hYyBmb3IKTURJTy4gIEkg
-bWF5IGp1c3Qgc3RhcnQgYnkgbnVraW5nIHRoZSBicm9rZW4gZGV2aWNlLXJlbW92YWwgY29kZQpl
-bnRpcmVseSwgYW5kIHJlLWltcGxlbWVudCBpdCBwcm9wZXJseSBvbmNlIHRoZSByZXdvcmsgaXMg
-ZG9uZS4KClRoYW5rcyBmb3IgdGhlIGluZm8hCgpDaGVlcnMsCkt5bGUgTW9mZmV0dApfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFp
-bGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3JnCmh0dHBzOi8vb3psYWJzLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+From: Greg Kroah-Hartman <gregkh@suse.de>
+
+In the near future, the driver core is going to not allow direct access
+to the driver_data pointer in struct device.  Instead, the functions
+dev_get_drvdata() and dev_set_drvdata() should be used.  These functions
+have been around since the beginning, so are backwards compatible with
+all older kernel versions.
+
+
+Cc: netdev@vger.kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/net/3c509.c       |   12 ++++++------
+ drivers/net/depca.c       |    4 ++--
+ drivers/net/hp100.c       |    4 ++--
+ drivers/net/ne3210.c      |    4 ++--
+ drivers/net/smc-mca.c     |    4 ++--
+ drivers/net/tulip/de4x5.c |    6 +++---
+ drivers/net/usb/hso.c     |    4 ++--
+ 7 files changed, 19 insertions(+), 19 deletions(-)
+
+--- a/drivers/net/3c509.c
++++ b/drivers/net/3c509.c
+@@ -653,11 +653,11 @@ static int __init el3_mca_probe(struct d
+ 	netdev_boot_setup_check(dev);
+ 
+ 	el3_dev_fill(dev, phys_addr, ioaddr, irq, if_port, EL3_MCA);
+-	device->driver_data = dev;
++	dev_set_drvdata(device, dev);
+ 	err = el3_common_init(dev);
+ 
+ 	if (err) {
+-		device->driver_data = NULL;
++		dev_set_drvdata(device, NULL);
+ 		free_netdev(dev);
+ 		return -ENOMEM;
+ 	}
+@@ -721,12 +721,12 @@ static int __init el3_eisa_probe (struct
+ 
+ /* This remove works for all device types.
+  *
+- * The net dev must be stored in the driver_data field */
++ * The net dev must be stored in the driver data field */
+ static int __devexit el3_device_remove (struct device *device)
+ {
+ 	struct net_device *dev;
+ 
+-	dev  = device->driver_data;
++	dev = dev_get_drvdata(device);
+ 
+ 	el3_common_remove (dev);
+ 	return 0;
+@@ -1451,7 +1451,7 @@ el3_suspend(struct device *pdev, pm_mess
+ 	struct el3_private *lp;
+ 	int ioaddr;
+ 
+-	dev = pdev->driver_data;
++	dev = dev_get_drvdata(pdev);
+ 	lp = netdev_priv(dev);
+ 	ioaddr = dev->base_addr;
+ 
+@@ -1475,7 +1475,7 @@ el3_resume(struct device *pdev)
+ 	struct el3_private *lp;
+ 	int ioaddr;
+ 
+-	dev = pdev->driver_data;
++	dev = dev_get_drvdata(pdev);
+ 	lp = netdev_priv(dev);
+ 	ioaddr = dev->base_addr;
+ 
+--- a/drivers/net/depca.c
++++ b/drivers/net/depca.c
+@@ -810,7 +810,7 @@ static int __init depca_hw_init (struct 
+ 
+ 	dev->mem_start = 0;
+ 
+-	device->driver_data = dev;
++	dev_set_drvdata(device, dev);
+ 	SET_NETDEV_DEV (dev, device);
+ 
+ 	status = register_netdev(dev);
+@@ -1614,7 +1614,7 @@ static int __devexit depca_device_remove
+ 	struct depca_private *lp;
+ 	int bus;
+ 
+-	dev  = device->driver_data;
++	dev  = dev_get_drvdata(device);
+ 	lp   = netdev_priv(dev);
+ 
+ 	unregister_netdev (dev);
+--- a/drivers/net/hp100.c
++++ b/drivers/net/hp100.c
+@@ -2864,7 +2864,7 @@ static int __init hp100_eisa_probe (stru
+ 	printk("hp100: %s: EISA adapter found at 0x%x\n", dev->name,
+ 	       dev->base_addr);
+ #endif
+-	gendev->driver_data = dev;
++	dev_set_drvdata(gendev, dev);
+ 	return 0;
+  out1:
+ 	free_netdev(dev);
+@@ -2873,7 +2873,7 @@ static int __init hp100_eisa_probe (stru
+ 
+ static int __devexit hp100_eisa_remove (struct device *gendev)
+ {
+-	struct net_device *dev = gendev->driver_data;
++	struct net_device *dev = dev_get_drvdata(gendev);
+ 	cleanup_dev(dev);
+ 	return 0;
+ }
+--- a/drivers/net/ne3210.c
++++ b/drivers/net/ne3210.c
+@@ -104,7 +104,7 @@ static int __init ne3210_eisa_probe (str
+ 	}
+ 
+ 	SET_NETDEV_DEV(dev, device);
+-	device->driver_data = dev;
++	dev_set_drvdata(device, dev);
+ 	ioaddr = edev->base_addr;
+ 
+ 	if (!request_region(ioaddr, NE3210_IO_EXTENT, DRV_NAME)) {
+@@ -225,7 +225,7 @@ static int __init ne3210_eisa_probe (str
+ 
+ static int __devexit ne3210_eisa_remove (struct device *device)
+ {
+-	struct net_device  *dev    = device->driver_data;
++	struct net_device  *dev    = dev_get_drvdata(device);
+ 	unsigned long       ioaddr = to_eisa_device (device)->base_addr;
+ 
+ 	unregister_netdev (dev);
+--- a/drivers/net/smc-mca.c
++++ b/drivers/net/smc-mca.c
+@@ -370,7 +370,7 @@ static int __init ultramca_probe(struct 
+ 
+ 	outb(reg4, ioaddr + 4);
+ 
+-	gen_dev->driver_data = dev;
++	dev_set_drvdata(gen_dev, dev);
+ 
+ 	/* The 8390 isn't at the base address, so fake the offset
+ 	 */
+@@ -531,7 +531,7 @@ static int ultramca_close_card(struct ne
+ static int ultramca_remove(struct device *gen_dev)
+ {
+ 	struct mca_device *mca_dev = to_mca_device(gen_dev);
+-	struct net_device *dev = (struct net_device *)gen_dev->driver_data;
++	struct net_device *dev = dev_get_drvdata(gen_dev);
+ 
+ 	if (dev) {
+ 		/* NB: ultra_close_card() does free_irq */
+--- a/drivers/net/tulip/de4x5.c
++++ b/drivers/net/tulip/de4x5.c
+@@ -1099,7 +1099,7 @@ de4x5_hw_init(struct net_device *dev, u_
+     struct pci_dev *pdev = NULL;
+     int i, status=0;
+ 
+-    gendev->driver_data = dev;
++    dev_set_drvdata(gendev, dev);
+ 
+     /* Ensure we're not sleeping */
+     if (lp->bus == EISA) {
+@@ -2094,7 +2094,7 @@ static int __devexit de4x5_eisa_remove (
+ 	struct net_device *dev;
+ 	u_long iobase;
+ 
+-	dev = device->driver_data;
++	dev = dev_get_drvdata(device);
+ 	iobase = dev->base_addr;
+ 
+ 	unregister_netdev (dev);
+@@ -2338,7 +2338,7 @@ static void __devexit de4x5_pci_remove (
+ 	struct net_device *dev;
+ 	u_long iobase;
+ 
+-	dev = pdev->dev.driver_data;
++	dev = dev_get_drvdata(&pdev->dev);
+ 	iobase = dev->base_addr;
+ 
+ 	unregister_netdev (dev);
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -482,7 +482,7 @@ static ssize_t hso_sysfs_show_porttype(s
+ 				       struct device_attribute *attr,
+ 				       char *buf)
+ {
+-	struct hso_device *hso_dev = dev->driver_data;
++	struct hso_device *hso_dev = dev_get_drvdata(dev);
+ 	char *port_name;
+ 
+ 	if (!hso_dev)
+@@ -2313,7 +2313,7 @@ static int hso_serial_common_create(stru
+ 	serial->parent->dev = tty_register_device(tty_drv, minor,
+ 					&serial->parent->interface->dev);
+ 	dev = serial->parent->dev;
+-	dev->driver_data = serial->parent;
++	dev_set_drvdata(dev, serial->parent);
+ 	i = device_create_file(dev, &dev_attr_hsotype);
+ 
+ 	/* fill in specific data for later use */
