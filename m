@@ -1,57 +1,62 @@
-From: reinette chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: iwlwifi: remove EXPORT_SYMBOL for static symbol
-Date: Thu, 30 Apr 2009 10:21:59 -0700
-Message-ID: <1241112119.10498.11.camel@rc-desk>
-References: <m24ow6vah1.fsf@igel.home>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH] FlexRay: Allocate numbers for FlexRay communication
+Date: Thu, 30 Apr 2009 19:28:01 +0200
+Message-ID: <49F9DFA1.30100@hartkopp.net>
+References: <20090430163825.GX13310@m58s01.vlinux.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-MogPR669STc76Z2rM5mHXA@public.gmane.org" <netdev-MogPR669STc76Z2rM5mHXA@public.gmane.org>
-To: Andreas Schwab <schwab-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <m24ow6vah1.fsf-hBGjKatGTSWzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Michael Arndt <flexray4linux@scriptkiller.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:14557 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932809AbZD3R2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 13:28:09 -0400
+In-Reply-To: <20090430163825.GX13310@m58s01.vlinux.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-04-30 at 00:58 -0700, Andreas Schwab wrote:
-> It does not make sense to apply EXPORT_SYMBOL to a static symbol.  Fixes
-> this build error:
+Michael Arndt wrote:
+
+> This patch adds a protocol family, Ethernet protocol ID,
+> ARP protocol identifier and a line discipline for FlexRay
+> communication using Linux.
 > 
-> drivers/net/wireless/iwlwifi/iwl3945-base.c:1697: error: __ksymtab_iwl3945_rx_queue_reset causes a section type conflict
+> I do not know why ETH_P_CAN has been chosen to be 0x000C
+
+perhaps because of 'C'AN ?
+
 > 
-> Signed-off-by: Andreas Schwab <schwab-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-> ---
-> This obsoletes 6269b731560d69c5eaa929909891edec39496d71, which was
+> Further code including the FlexRay core, raw sockets and
+> examples will soon be posted on a yet-to-be-created project site.
 
->From which repo is this commit id? 
+Usually there's a project and some kind of community that worked, discussed
+and tested the stuff for some time to be mature for mainline.
 
-> misattributed as a compiler bug.
-> ---
->  drivers/net/wireless/iwlwifi/iwl3945-base.c |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> --- linux-2.6.30-rc4.orig/drivers/net/wireless/iwlwifi/iwl3945-base.c	2009-04-30 08:59:41.000000000 +0200
-> +++ linux-2.6.30-rc4/drivers/net/wireless/iwlwifi/iwl3945-base.c	2009-04-30 09:34:14.000000000 +0200
-> @@ -1745,7 +1745,6 @@ static void iwl3945_rx_queue_free(struct
->  	rxq->bd = NULL;
->  	rxq->rb_stts  = NULL;
->  }
-> -EXPORT_SYMBOL(iwl3945_rx_queue_free);
->  
-> 
->  /* Convert linear signal-to-noise ratio into dB */
-> 
+- What is the technical background?
+- Is there any documentation?
+- Do you need realtime?
+- What hardware is supported?
 
-Acked-by: Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> +++ b/include/linux/tty.h
+> @@ -23,7 +23,7 @@
+>   */
 
-Thank you
+>  /* line disciplines */
+>  #define N_TTY		0
+> @@ -46,6 +46,7 @@
+>  #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
+>  #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+>  #define N_PPS		18	/* Pulse per Second */
+> +#define N_SLFLEXRAY	19	/* Serial / USB serial FlexRay adapters */
 
-Reinette
+???
 
+I bet there's no Flexray hardware on the market that can be attached on a
+serial line like there are for low-cost CAN adaptors, right?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So why are you claiming a line discipline here?
+
+Regards,
+Oliver
