@@ -1,32 +1,37 @@
-From: Mohsin Mirza <mohsin.mirza@mbc.net>
-Subject: (unknown)
-Date: Thu, 30 Apr 2009 17:23:19 +0400
-Message-ID: <1241097799.17903.5.camel@mohsin-desktop>
+From: Andrew Dickinson <andrew@whydna.net>
+Subject: Re: tx queue hashing hot-spots and poor performance (multiq, ixgbe)
+Date: Thu, 30 Apr 2009 07:04:33 -0700
+Message-ID: <606676310904300704p5308e3b6le2c469d320cc669@mail.gmail.com>
+References: <606676310904291600u40e44187g4cfc104007b24fce@mail.gmail.com>
+	 <96ff3930904300207l4ecfe90byd6cce3f56ce4e113@mail.gmail.com>
+	 <20090430.022417.07019547.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: jelaas@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbcmail.mbc.ae ([213.132.48.107]:48801 "EHLO sms.mbcgroup.local"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1762811AbZD3NtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2009 09:49:21 -0400
-Received: from sms.mbcgroup.local (unknown [127.0.0.1])
-	by sms.mbcgroup.local (Symantec Mail Security) with ESMTP id 1E7E0A01A6
-	for <netdev@vger.kernel.org>; Thu, 30 Apr 2009 17:23:26 +0400 (GST)
-Received: from webmail.mbc.net (unknown [10.10.98.28])
-	by sms.mbcgroup.local (Symantec Mail Security) with ESMTP id 09714A015A
-	for <netdev@vger.kernel.org>; Thu, 30 Apr 2009 17:23:26 +0400 (GST)
-Subject: 
+Received: from rv-out-0506.google.com ([209.85.198.239]:53749 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763253AbZD3OEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 10:04:33 -0400
+Received: by rv-out-0506.google.com with SMTP id f6so2835905rvb.5
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2009 07:04:33 -0700 (PDT)
+In-Reply-To: <20090430.022417.07019547.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-subscribe netdev
+<snip>
 
+> If all the TX activity is happening on one TX queue then
+> there is a bug somewhere.
+>
+> Either the receiving device isn't invoking skb_record_rx_queue()
+> correctly, or there is some bug in how we compute the TX hash.
 
-________________________________________
-Disclaimer:
-This email and any attachments may contain confidential and/or privileged information. If you are not the intended recipient (or have received this e-mail in error) please notify the sender immediately by email and destroy this email. Any unauthorized copying, dissemination, disclosure or distribution of the material in this email is strictly forbidden.
-Unless expressly stated to the contrary, the sender of this email is not authorized by MBC to make any representations, negotiations or enter into any agreement on behalf of MBC. This e-mail message and any attached files have been scanned for the presence of computer viruses. However, it is the responsibility of the recipient to ensure that it is virus free; we accept no responsibility for any loss or damage arising in any way from its use.
-________________________________________
+ I'll do some debugging around skb_tx_hash() and see if I can make
+sense of it.  I'll let you know what I find.  My hypothesis is that
+skb_record_rx_queue() isn't being called, but I should dig into it
+before I start making claims. ;-P
 
+<snip>
