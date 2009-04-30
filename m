@@ -1,60 +1,86 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: oopses since "net: Optimize memory usage when splicing from sockets"
-Date: Thu, 30 Apr 2009 14:40:36 +0200
-Message-ID: <20090430124036.GN14729@mail.wantstofly.org>
-References: <20090430031626.GM14729@mail.wantstofly.org> <20090430084321.GA2753@ami.dom.local>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/5] ethtool: Remove support for RX hashing by port
+Date: Thu, 30 Apr 2009 13:36:49 +0100
+Message-ID: <1241095009.3185.7.camel@achroite>
+References: <1241094796.3185.2.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:45382 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761722AbZD3Mgw (ORCPT
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:40195 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761809AbZD3Mgw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:36:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20090430084321.GA2753@ami.dom.local>
+In-Reply-To: <1241094796.3185.2.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 30, 2009 at 10:43:21AM +0200, Jarek Poplawski wrote:
+The kernel-side support for this was removed by:
 
-> > Since 4fb669948116d928ae44262ab7743732c574630d ("net: Optimize memory
-> > usage when splicing from sockets.") I'm seeing this oops (e.g. in
-> > 2.6.30-rc3) when splicing from a TCP socket to /dev/null on a driver
-> > (mv643xx_eth) that uses LRO in the skb mode (lro_receive_skb) rather
-> > than the frag mode:
-> ...
-> > addr2line suggests skb->sk is NULL in linear_to_page():
-> > 
-> > 
-> > 	static inline struct page *linear_to_page(struct page *page, unsigned int *len,
-> > 						  unsigned int *offset,
-> > 						  struct sk_buff *skb)
-> > 	{
-> > 		struct sock *sk = skb->sk;
-> > 		struct page *p = sk->sk_sndmsg_page;		<========
-> > 		unsigned int off;
-> > 
-> > 		if (!p) {
-> > 
-> > 
-> > When we get here, skb->sk has apparently already been dropped, leading
-> > to a NULL pointer deref.  Backing out the offending commit makes the
-> > oops go away (as does converting the driver to lro frag rx, but that
-> > destroys routing performance).
-> > 
-> > Thoughts?  Should we just fall back to plain alloc_pages() if skb->sk
-> > is NULL, or should have still have the socket reference when we get here?
-> 
-> Hmm... I definitely need more time for this, but the first and maybe
-> wrong impression is this is an skb from the frag_list. There are
-> probably better ways of fixing it properly, but here is a quick hack
-> for the beginning (alas not even compile-tested at the moment).
+commit 59089d8d162ddcb5c434672e915331964d38a754
+Author: Santwona Behera <santwona.behera@sun.com>
+Date:   Fri Feb 20 00:58:13 2009 -0800
 
-With your patch, at least the oops is gone, and I guess it makes
-sense and looks correct, so:
+    ethtool: Add RX pkt classification interface
 
-	Tested-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ ethtool.8 |    3 ---
+ ethtool.c |    8 +-------
+ 2 files changed, 1 insertions(+), 10 deletions(-)
 
-Thanks!
+diff --git a/ethtool.8 b/ethtool.8
+index 178f6ea..7a6f52b 100644
+--- a/ethtool.8
++++ b/ethtool.8
+@@ -473,9 +473,6 @@ Configures the hash options for the specified network traffic type.
+ .RS
+ .PD 0
+ .TP 3
+-.B p
+-Hash on the device port number on which the packet was received.
+-.TP 3
+ .B m
+ Hash on the Layer 2 destination address of the rx packet.
+ .TP 3
+diff --git a/ethtool.c b/ethtool.c
+index 43ec2bf..5c45b2d 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -191,7 +191,7 @@ static struct option {
+     { "-N", "--config-nfc", MODE_SNFC, "Configure Rx network flow "
+ 		"classification options",
+ 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
+-		"tcp6|udp6|ah6|sctp6 p|m|v|t|s|d|f|n|r... ]\n" },
++		"tcp6|udp6|ah6|sctp6 m|v|t|s|d|f|n|r... ]\n" },
+     { "-h", "--help", MODE_HELP, "Show this help" },
+     {}
+ };
+@@ -1090,9 +1090,6 @@ static int parse_rxfhashopts(char *optstr, u32 *data)
+ 	*data = 0;
+ 	while (*optstr) {
+ 		switch (*optstr) {
+-			case 'p':
+-				*data |= RXH_DEV_PORT;
+-				break;
+ 			case 'm':
+ 				*data |= RXH_L2DA;
+ 				break;
+@@ -1132,9 +1129,6 @@ static char *unparse_rxfhashopts(u64 opts)
+ 	memset(buf, 0, sizeof(buf));
+ 
+ 	if (opts) {
+-		if (opts & RXH_DEV_PORT) {
+-			strcat(buf, "Dev port\n");
+-		}
+ 		if (opts & RXH_L2DA) {
+ 			strcat(buf, "L2DA\n");
+ 		}
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
