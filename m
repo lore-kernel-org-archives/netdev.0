@@ -1,70 +1,43 @@
-From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
-Subject: Re: [PATCH, resend] netconsole: take care of NETDEV_UNREGISTER
- event
-Date: Thu, 30 Apr 2009 08:45:17 +0200
-Message-ID: <20090430084517.6de15689@pluto.restena.lu>
-References: <20090429223722.62da9dcd@neptune.home>
-	<20090429225625.75a016ff@neptune.home>
-	<20090429.144420.262432582.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: vlan: update vlan carrier state for admin up/down
+Date: Thu, 30 Apr 2009 00:48:50 -0700
+Message-ID: <49F957E2.8040406@candelatech.com>
+References: <30658.1240619463@death.nxdomain.ibm.com>	<49F4BCEB.6040507@candelatech.com>	<13072.1240876558@death.nxdomain.ibm.com> <20090427.183640.182469000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, kaber@trash.net, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [158.64.110.167] ([158.64.110.167]:39992 "EHLO
-	bonbons.gotdns.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751206AbZD3Gz3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 02:55:29 -0400
-In-Reply-To: <20090429.144420.262432582.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:45559 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750887AbZD3HtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 03:49:05 -0400
+In-Reply-To: <20090427.183640.182469000.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When netconsole is loaded and a network interface fades away (e.g. on
-rmmod $interface_driver_module) the rmmod remains stuck and some locks
-are taken that prevent any additional module loading/unloading as well
-as interface up/down changes.
-In addition kernel logs (and console) get flooded at 10s interval with
+David Miller wrote:
+> From: Jay Vosburgh <fubar@us.ibm.com>
+> Date: Mon, 27 Apr 2009 16:55:58 -0700
+> 
+>> I'm reluctant to mess with this behavior without knowing why it
+>> works this way; there may be a good reason for it that I'm not aware
+>> of.
+> 
+> To be honest I think it's just that this is one huge dark
+> corner of behavior for many virtual devices, rather than
+> any of it being intentional.
 
-[  122.464065] unregister_netdevice: waiting for eth0 to become free. U=
-sage count =3D 1
-[  132.704059] unregister_netdevice: waiting for eth0 to become free. U=
-sage count =3D 1
+For what it's worth, I've been using a patch that disables the
+behaviour in vlan that brings up/down the interface based on
+the underlying device for several years w/out noticeable problems.
 
-This patch lets netconsole take NETDEV_UNREGISTER event into account
-and release the affected interface if it was in use.
+However, I may just be getting lucky.
 
-Signed-off-by: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
----
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index eceadf7..bf4af52 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -664,7 +664,7 @@ static int netconsole_netdev_event(struct notifier_=
-block *this,
- 	struct netconsole_target *nt;
- 	struct net_device *dev =3D ptr;
-=20
--	if (!(event =3D=3D NETDEV_CHANGENAME))
-+	if (!(event =3D=3D NETDEV_CHANGENAME || event =3D=3D NETDEV_UNREGISTE=
-R))
- 		goto done;
-=20
- 	spin_lock_irqsave(&target_list_lock, flags);
-@@ -675,6 +675,15 @@ static int netconsole_netdev_event(struct notifier=
-_block *this,
- 			case NETDEV_CHANGENAME:
- 				strlcpy(nt->np.dev_name, dev->name, IFNAMSIZ);
- 				break;
-+			case NETDEV_UNREGISTER:
-+				if (!nt->enabled)
-+					break;
-+				netpoll_cleanup(&nt->np);
-+				nt->enabled =3D 0;
-+				printk(KERN_INFO "netconsole: network logging stopped"
-+					", interface %s unregistered\n",
-+					dev->name);
-+				break;
- 			}
- 		}
- 		netconsole_target_put(nt);
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
