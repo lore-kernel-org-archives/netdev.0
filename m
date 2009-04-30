@@ -1,73 +1,142 @@
-From: Don Fry <pcnet32@verizon.net>
-Subject: Re: [PATCH net-next-2.6] pcnet32: Remove pointless memory barriers
-Date: Wed, 29 Apr 2009 17:09:48 -0700
-Message-ID: <1241050188.18295.13.camel@localhost.localdomain>
-References: <1240945659.8819.9.camel@Maple>
+From: David VomLehn <dvomlehn@cisco.com>
+Subject: [PATCH 4/5] NETDEV: Wait for autoconfigurable network devices to
+	become available
+Date: Wed, 29 Apr 2009 17:11:53 -0700
+Message-ID: <20090430001153.GA3751@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, romieu@fr.zoreil.com,
-	David Miller <davem@davemloft.net>
-To: John Dykstra <john.dykstra1@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173007pub.verizon.net ([206.46.173.7]:21083 "EHLO
-	vms173007pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760086AbZD3AKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:10:08 -0400
-Received: from [192.168.1.3] ([173.50.252.109]) by vms173007.mailsrvcs.net
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008; 32bit))
- with ESMTPA id <0KIW006IK0GCGA0K@vms173007.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 29 Apr 2009 19:09:49 -0500 (CDT)
-In-reply-to: <1240945659.8819.9.camel@Maple>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:43597 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752548AbZD3ALx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:11:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After going back to my original NAPI changes, email exchanges today with
-Francois and John, and looking through all the architecture
-implementation of mmiowb and locking; I agree that this mmiowb is
-unnecessary since a lock is always released which has all the memory
-barriers needed.  I no longer have access to all the equipment I had
-available at IBM, but it was tested a extensively on Intel and Power
-platforms without the mmiowb.
+Delay IP autoconfiguration until network boot devices have been initialized.
+This depends on the boot device discovery code and on the asynchronous
+function call infrastructure.
 
-Acked-by:  Don Fry <pcnet32@verizon.net>
-
------Original Message-----
-From: John Dykstra <john.dykstra1@gmail.com>
-To: netdev <netdev@vger.kernel.org>, Don Fry <pcnet32@verizon.net>
-Subject: [PATCH net-next-2.6] pcnet32: Remove pointless memory barriers
-Date: Tue, 28 Apr 2009 19:07:39 +0000
-
-These two memory barriers in performance-critical paths are not needed
-on x86.  Even if some other architecture does buffer PCI I/O space
-writes, the existing memory-mapped I/O barriers are unlikely to be what
-is needed.
-
-Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+Signed-off-by: David VomLehn <dvomlehn@cisco.com>
 ---
- drivers/net/pcnet32.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/core/dev.c      |    2 +
+ net/ipv4/ipconfig.c |   56 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 57 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-index e5e8c59..1c35e1d 100644
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -1405,7 +1405,7 @@ static int pcnet32_poll(struct napi_struct *napi, int budget)
- 
- 		/* Set interrupt enable. */
- 		lp->a.write_csr(ioaddr, CSR0, CSR0_INTEN);
--		mmiowb();
-+
- 		spin_unlock_irqrestore(&lp->lock, flags);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 308a7d0..73cb282 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -93,6 +93,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/notifier.h>
+ #include <linux/skbuff.h>
++#include <linux/device.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <linux/rtnetlink.h>
+@@ -4497,6 +4498,7 @@ int register_netdevice(struct net_device *dev)
+ 		dev->reg_state = NETREG_UNREGISTERED;
  	}
- 	return work_done;
-@@ -2597,7 +2597,7 @@ pcnet32_interrupt(int irq, void *dev_id)
- 			val = lp->a.read_csr(ioaddr, CSR3);
- 			val |= 0x5f00;
- 			lp->a.write_csr(ioaddr, CSR3, val);
--			mmiowb();
+ 
++	bootdev_registered(BOOTDEV_NETDEV);
+ out:
+ 	return ret;
+ 
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 90d22ae..65a7ecd 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -53,6 +53,7 @@
+ #include <linux/root_dev.h>
+ #include <linux/delay.h>
+ #include <linux/nfs_fs.h>
++#include <linux/async.h>
+ #include <net/net_namespace.h>
+ #include <net/arp.h>
+ #include <net/ip.h>
+@@ -182,12 +183,48 @@ struct ic_device {
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
+ 
++/*
++ * Wait for required network devices to come up
++ * If the networking device name was specified on the kernel command line
++ * and that device is now registered, we have the device we want to configure
++ * and we return true. Otherwise, we return false. So, if no device was
++ * specified on the command line, we wait for all possible network devices to
++ * be initialized.
++ */
++static bool have_all_netdevs(void)
++{
++	struct net_device *dev;
++	bool	result = false;
 +
- 			__napi_schedule(&lp->napi);
- 			break;
- 		}
-
++	rtnl_lock();
++
++	for_each_netdev(&init_net, dev) {
++		if (dev->flags & IFF_LOOPBACK)
++			continue;
++
++		/* If a specific device name was specified and that name is
++		 * registered, we have the device we need. */
++		if (user_dev_name[0] && !strcmp(dev->name, user_dev_name)) {
++			result = true;
++			break;
++		}
++	}
++
++	rtnl_unlock();
++
++	return result;
++
++}
++
+ static int __init ic_open_devs(void)
+ {
+ 	struct ic_device *d, **last;
+ 	struct net_device *dev;
+ 	unsigned short oflags;
+ 
++	/* Wait for networking devices */
++	bootdev_wait(BOOTDEV_NETDEV, have_all_netdevs);
++
+ 	last = &ic_first_dev;
+ 	rtnl_lock();
+ 
+@@ -1263,6 +1300,7 @@ __be32 __init root_nfs_parse_addr(char *name)
+ 
+ /*
+  *	IP Autoconfig dispatcher.
++ *	Return zero on success, negative one on failure
+  */
+ 
+ static int __init ip_auto_config(void)
+@@ -1397,7 +1435,23 @@ static int __init ip_auto_config(void)
+ 	return 0;
+ }
+ 
+-late_initcall(ip_auto_config);
++static void __init ip_auto_config_async(void *data, async_cookie_t cookie)
++{
++	ip_auto_config();
++}
++
++static async_cookie_t ic_cookie;
++/*
++ * Start a thread to do IP autoconfiguration
++ */
++static int __init ip_auto_configurator(void)
++{
++	ic_cookie = async_schedule(ip_auto_config_async, NULL);
++
++	return 0;
++}
++
++late_initcall(ip_auto_configurator);
+ 
+ 
+ /*
