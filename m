@@ -1,46 +1,53 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@mail.by>
-Subject: [PATCH]: fixing gcc 4.4 =?utf-8?Q?compiler?=
-	=?utf-8?Q?_warning=3A_suggest_parentheses_around_operand_of_=E2=80=98!?=
-	=?utf-8?B?4oCZ?=
-Date: Thu, 30 Apr 2009 09:06:16 +0300
-Message-ID: <20090430060616.GB6040@localhost>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [PATCH/RFC 0/2] HFSC & Stab documentation
+Date: Thu, 30 Apr 2009 23:04:36 +0300
+Message-ID: <200904302304.36693.denys@visp.net.lb>
+References: <cover.1235685021.git.soltys@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Michal Soltys <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [212.98.175.89] ([212.98.175.89]:50298 "EHLO
-	localhost.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750736AbZD3T3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 15:29:22 -0400
+Received: from hosting.visp.net.lb ([194.146.153.11]:43785 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797AbZD3UF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 16:05:27 -0400
+In-Reply-To: <cover.1235685021.git.soltys@ziu.info>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trivial: fixing gcc 4.4 compiler warning:
-drivers/net/cxgb3/t3_hw.c: In function =E2=80=98t3_prep_adapter=E2=80=99=
-:
-drivers/net/cxgb3/t3_hw.c:3782: warning: suggest parentheses around ope=
-rand of =E2=80=98!=E2=80=99 or change =E2=80=98|=E2=80=99 to =E2=80=98|=
-|=E2=80=99 or =E2=80=98!=E2=80=99 to =E2=80=98~=E2=80=99
+Is there any chances that this patches will go to mainstream?
 
-Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@mail.by>
+On Friday 27 February 2009 01:01:30 Michal Soltys wrote:
+> These patches add documentation for HFSC scheduler
+> and size tables. See patch covers for detailed info.
+>
+> Michal Soltys (2):
+>   HFSC (7) & (8) documentation + assorted changes
+>   Stab documentation + assorted changes
+>
+>  Makefile           |    2 +
+>  man/man7/tc-hfsc.7 |  525
+> ++++++++++++++++++++++++++++++++++++++++++++++++++++ man/man8/tc-hfsc.8 |  
+> 61 ++++++
+>  man/man8/tc-stab.8 |  156 ++++++++++++++++
+>  man/man8/tc.8      |    3 +
+>  tc/q_hfsc.c        |    6 +-
+>  tc/tc_core.c       |    4 +-
+>  tc/tc_stab.c       |    9 +-
+>  8 files changed, 759 insertions(+), 7 deletions(-)
+>  create mode 100644 man/man7/tc-hfsc.7
+>  create mode 100644 man/man8/tc-hfsc.8
+>  create mode 100644 man/man8/tc-stab.8
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
----
-
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index e1bd690..4f68aeb 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -3779,7 +3779,7 @@ int t3_prep_adapter(struct adapter *adapter, cons=
-t struct adapter_info *ai,
-=20
- 	adapter->params.info =3D ai;
- 	adapter->params.nports =3D ai->nports0 + ai->nports1;
--	adapter->params.chan_map =3D !!ai->nports0 | (!!ai->nports1 << 1);
-+	adapter->params.chan_map =3D (!!ai->nports0) | (!!ai->nports1 << 1);
- 	adapter->params.rev =3D t3_read_reg(adapter, A_PL_REV);
- 	/*
- 	 * We used to only run the "adapter check task" once a second if
 
