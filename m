@@ -1,64 +1,127 @@
-From: Mark Smith
-	<lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-Subject: Re: [RFC, PATCH 2.6.29.2] Ethernet V2.0 Configuration Testing
- Protocol, revision 20090428
-Date: Thu, 30 Apr 2009 20:09:26 +0930
-Message-ID: <20090430200926.f1ae5e60.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-References: <20090430065950.529359e3.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-	<20090429.143534.32129577.davem@davemloft.net>
-	<20090430190644.4d116984.lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-	<20090430.024259.228836764.davem@davemloft.net>
+From: Vladimir Barinov <vova.barinov@gmail.com>
+Subject: Re: [PATCH 8/8 V2] MX27ADS: Add CS89x0 support
+Date: Thu, 30 Apr 2009 14:48:06 +0400
+Message-ID: <49F981E6.4050602@gmail.com>
+References: <1240963177-23941-1-git-send-email-vbarinov@embeddedalley.com>	 <1240963405-24007-1-git-send-email-vbarinov@embeddedalley.com> <c8d1e6a0904290148h7521fa36peb9fd5b4a64b97ab@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Robby Cai <robby.cai@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.adam.net.au ([202.136.110.249]:44882 "EHLO
-	smtp3.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbZD3Kja (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 06:39:30 -0400
-In-Reply-To: <20090430.024259.228836764.davem@davemloft.net>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:61406 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbZD3KsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 06:48:23 -0400
+Received: by fxm2 with SMTP id 2so1729490fxm.37
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2009 03:48:21 -0700 (PDT)
+In-Reply-To: <c8d1e6a0904290148h7521fa36peb9fd5b4a64b97ab@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Apr 2009 02:42:59 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Hello Robby,
 
-> From: Mark Smith <lnx-netdev@95022607b6285f9c5d5ea31ea9d8a7ac.nosense.org>
-> Date: Thu, 30 Apr 2009 19:06:44 +0930
-> 
-> > In my opinion, the primary reason why these sorts of testing functions
-> > have been put in kernels rather than user space is to ensure ubiquity.
-> 
-> By this argument we should have a BGP routing daemon in the kernel
-> too.
-> 
+Robby Cai wrote:
+> Does it make sense if we add keep the new items in 
+> the alphabetic/numeric order?
+> Nowadays, seems more and more people are paying attention on this.
+>
+What actually do propose to line up in alphabetic/numeric order here?
+AFAIK the alphabetic order is suggested to use in Kconfig files for 
+variables.
+Not sure if this valid here. In this patch you can find only added 
+dependencies.
 
-BGP is not for testing basic connectivity. It's for carrying Internet
-scale routing information. I work with it daily. What benefit would
-there be in making it ubiquitous to all end nodes? I can't see one, and
-I've never argued that complex protocols that aren't performance
-critical, and that aren't useful on every device should be in the
-kernel. I've very specifically *only* argued that every Ethernet
-interface would benefit from having an Ethernet specific testing
-protocol always being available. The authors of the 1982 Ethernet V2.0
-spec thought was valuable so they mandated it, the implementers of
-Cisco IOS thought was valuable, as did the Berkely Unix 4.2 and Ultrix
-authors, and the IEEE think the functionality is valuable because
-they've gone and developed Ethernet OAM protocols. 
+> Regards,
+> Robby
+>
+> On Wed, Apr 29, 2009 at 8:03 AM, Vladimir Barinov 
+> <vova.barinov@gmail.com <mailto:vova.barinov@gmail.com>> wrote:
+>
+>     Add CS89x0 net chip support for MX27ADS board
+>
+>     Signed-off-by: Vladimir Barinov <vbarinov@embeddedalley.com
+>     <mailto:vbarinov@embeddedalley.com>>
+>     ---
+>      drivers/net/Kconfig  |    5 +++--
+>      drivers/net/cs89x0.c |   10 ++++++++--
+>      2 files changed, 11 insertions(+), 4 deletions(-)
+>
+>     diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>     index 214a92d..25fd824 100644
+>     --- a/drivers/net/Kconfig
+>     +++ b/drivers/net/Kconfig
+>     @@ -1438,7 +1438,8 @@ config FORCEDETH_NAPI
+>      config CS89x0
+>            tristate "CS89x0 support"
+>            depends on NET_ETHERNET && (ISA || EISA || MACH_IXDP2351 \
+>     -               || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_MX31ADS)
+>     +               || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_MX31ADS \
+>     +               || MACH_MX27ADS)
+>            ---help---
+>              Support for CS89x0 chipset based Ethernet cards. If you
+>     have a
+>              network (Ethernet) card of this type, say Y and read the
+>     @@ -1452,7 +1453,7 @@ config CS89x0
+>      config CS89x0_NONISA_IRQ
+>            def_bool y
+>            depends on CS89x0 != n
+>     -       depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X
+>     || MACH_MX31ADS
+>     +       depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X
+>     || MACH_MX31ADS || MACH_MX27ADS
+>
+>      config TC35815
+>            tristate "TOSHIBA TC35815 Ethernet support"
+>     diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+>     index 7433b88..558f630 100644
+>     --- a/drivers/net/cs89x0.c
+>     +++ b/drivers/net/cs89x0.c
+>     @@ -195,6 +195,12 @@ static unsigned int netcard_portlist[] __used
+>     __initdata = {
+>            PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
+>      };
+>      static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
+>     +#elif defined(CONFIG_MACH_MX27ADS)
+>     +#include <mach/board-mx27ads.h>
+>     +static unsigned int netcard_portlist[] __used __initdata = {
+>     +       PBC_CS8900A_IOBASE_REG + 0x300 + 3, 0
+>     +};
+>     +static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
+>      #else
+>      static unsigned int netcard_portlist[] __used __initdata =
+>        { 0x300, 0x320, 0x340, 0x360, 0x200, 0x220, 0x240, 0x260,
+>     0x280, 0x2a0, 0x2c0, 0x2e0, 0};
+>     @@ -1034,7 +1040,7 @@ skip_this_frame:
+>
+>      static void __init reset_chip(struct net_device *dev)
+>      {
+>     -#if !defined(CONFIG_MACH_MX31ADS)
+>     +#if !defined(CONFIG_MACH_MX31ADS) && !defined(CONFIG_MACH_MX27ADS)
+>      #if !defined(CONFIG_MACH_IXDP2351) && !defined(CONFIG_ARCH_IXDP2X01)
+>            struct net_local *lp = netdev_priv(dev);
+>            int ioaddr = dev->base_addr;
+>     @@ -1063,7 +1069,7 @@ static void __init reset_chip(struct
+>     net_device *dev)
+>            reset_start_time = jiffies;
+>            while( (readreg(dev, PP_SelfST) & INIT_DONE) == 0 &&
+>     jiffies - reset_start_time < 2)
+>                    ;
+>     -#endif /* !CONFIG_MACH_MX31ADS */
+>     +#endif /* !CONFIG_MACH_MX31ADS && !CONFIG_MACH_MX27ADS */
+>      }
+>
+>
+>     --
+>     1.5.6
+>
+>
+>     -------------------------------------------------------------------
+>     List admin:
+>     http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+>     FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+>     Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+>
+>
 
-Is there any chance you're going to answer what I thought were
-legitimate questions? I'd much rather find out why things are the way
-they are, or aren't the way they appear, but I also don't want to waste
-your's or my time.
-
-> But we don't.
-> 
-> BTW, your email address is rediculious.
-> 
-
-It works, so what's wrong with it? Nobody else has complained about me
-using these types of email addresses on public mailing lists. I can
-throw it away if I get too much spam, pointing the MX record of the
-subdomain to 127.0.0.1 or something similar.
