@@ -1,91 +1,85 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] poll: Avoid extra wakeups in select/poll
-Date: Thu, 30 Apr 2009 12:49:00 +0200
-Message-ID: <49F9821C.5010802@cosmosbay.com>
-References: <49F43B8F.2050907@cosmosbay.com> <87ab60rh8t.fsf@basil.nowhere.org> <49F71B63.8010503@cosmosbay.com> <alpine.DEB.1.10.0904281501300.13862@qirst.com> <49F76174.6060009@cosmosbay.com> <alpine.DEB.1.10.0904281612560.13862@qirst.com> <49F767FD.2040205@cosmosbay.com> <alpine.DEB.1.10.0904281629090.15947@qirst.com> <49F76F6C.80005@cosmosbay.com> <49F77108.7060509@cosmosbay.com> <20090429091130.GA27857@elte.hu>
+From: =?ISO-8859-1?B?SmVucyBM5eVz?= <jelaas@gmail.com>
+Subject: Re: tx queue hashing hot-spots and poor performance (multiq, ixgbe)
+Date: Thu, 30 Apr 2009 12:51:16 +0200
+Message-ID: <96ff3930904300351x60842bc1me0431c856f631773@mail.gmail.com>
+References: <606676310904291600u40e44187g4cfc104007b24fce@mail.gmail.com>
+	 <96ff3930904300207l4ecfe90byd6cce3f56ce4e113@mail.gmail.com>
+	 <20090430.022417.07019547.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
-	davidel@xmailserver.org
-To: Ingo Molnar <mingo@elte.hu>
+Cc: andrew@whydna.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35920 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbZD3Kt5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 06:49:57 -0400
-In-Reply-To: <20090429091130.GA27857@elte.hu>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:45545 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751306AbZD3KvS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 06:51:18 -0400
+Received: by ewy24 with SMTP id 24so1808807ewy.37
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2009 03:51:16 -0700 (PDT)
+In-Reply-To: <20090430.022417.07019547.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar a =E9crit :
-> * Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
->> On uddpping, I had prior to the patch about 49000 wakeups per=20
->> second, and after patch about 26000 wakeups per second (matches=20
->> number of incoming udp messages per second)
->=20
-> very nice. It might not show up as a real performance difference if=20
-> the CPUs are not fully saturated during the test - but it could show=20
-> up as a decrease in CPU utilization.
->=20
-> Also, if you run the test via 'perf stat -a ./test.sh' you should=20
-> see a reduction in instructions executed:
->=20
-> aldebaran:~/linux/linux> perf stat -a sleep 1
->=20
->  Performance counter stats for 'sleep':
->=20
->    16128.045994  task clock ticks     (msecs)
->           12876  context switches     (events)
->             219  CPU migrations       (events)
->          186144  pagefaults           (events)
->     20911802763  CPU cycles           (events)
->     19309416815  instructions         (events)
->       199608554  cache references     (events)
->        19990754  cache misses         (events)
->=20
->  Wall-clock time elapsed:  1008.882282 msecs
->=20
-> With -a it's measured system-wide, from start of test to end of test=20
-> - the results will be a lot more stable (and relevant) statistically=20
-> than wall-clock time or CPU usage measurements. (both of which are=20
-> rather imprecise in general)
+2009/4/30, David Miller <davem@davemloft.net>:
+> From: Jens L=E5=E5s <jelaas@gmail.com>
+>  Date: Thu, 30 Apr 2009 11:07:35 +0200
+>
+>
+>  > RX-side looks good. TX-side looks like what we also got with vanil=
+la linux.
+>  >
+>  > What we do is patch all drivers with a custom select_queue functio=
+n
+>  > that selects the same outgoing queue as the incoming queue. With a=
+ one
+>  > to one mapping of queues to CPUs you can also use the processor id=
+=2E
+>  >
+>  > This way we get performance.
+>
+>
+> I don't understand why this can even be necessary.
+>
+>  With the current code, the RX queue of a packet becomes
+>  the hash for the TX queue.
+>
+>  If all the TX activity is happening on one TX queue then
+>  there is a bug somewhere.
 
-I tried this perf stuff and got strange results on a cpu burning bench,=
-=20
-saturating my 8 cpus with a "while (1) ;" loop
+If I remember correctly we got use of several tx-queues and not one.
+The hashed distribution missed a few of the tx-queues though. And it
+also looked like some rx-queues got mapped on top of the same
+tx-queue.
 
+At the time we reasoned this behaviour was expected from the hashed ran=
+domizing.
+We may certainly have misunderstood this and a one to one mapping
+should be expected.
 
-# perf stat -a sleep 10
+Hopefully the case where we have several devices and want
+TX-completion to match rx-queue can also be solved. (The assumption
+that tx-completion needs to run on the same CPU may also be proved
+wrong. But we havent seen this in tests sofar.)
 
- Performance counter stats for 'sleep':
+The main problem though was that the mapping is randomized. We wanted
+to set smp_affinity correctly for tx to match rx. That was actually
+the main reason for our local hacks.
 
-   80334.709038  task clock ticks     (msecs)
-          80638  context switches     (events)
-              4  CPU migrations       (events)
-            468  pagefaults           (events)
-   160694681969  CPU cycles           (events)
-   160127154810  instructions         (events)
-         686393  cache references     (events)
-         230117  cache misses         (events)
+>
+>  Either the receiving device isn't invoking skb_record_rx_queue()
+>  correctly, or there is some bug in how we compute the TX hash.
+>
+>  Everyone adds their own hacks, but that absolutely should not be
+>  necessary, the kernel is essentially doing what you are adding
+>  hacks for.
+>
+>  The only possible problems are bugs in the code, and we should find
+>  those bugs instead of constantly talking about 'local select_queue
+>  hacks we add to our cool driver for performance' :-/
 
- Wall-clock time elapsed: 10041.531644 msecs
+We certainly dont consider the hacks cool in any way. They were only
+for a specific purpose and a specific kernel-version.
 
-So its about 16069468196 cycles per second for 8 cpus
-Divide by 8 to get 2008683524 cycles per second per cpu,
-which is not       3000000000  (E5450  @ 3.00GHz)
-
-It seems strange a "jmp myself" uses one unhalted cycle per instruction=
-=20
-and 0.5 halted cycle ...
-
-Also, after using "perf stat", tbench results are 1778 MB/S
-instead of 2610 MB/s. Even if no perf stat running.
-
-
-
+Cheers,
+Jens
