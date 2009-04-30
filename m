@@ -1,216 +1,156 @@
-From: Greg Kroah-Hartman <gregkh@suse.de>
-Subject: [PATCH] net: remove driver_data direct access of struct device
-Date: Thu, 30 Apr 2009 15:19:31 -0700
-Message-ID: <20090430221931.GA18557@kroah.com>
+From: Robby Cai <robby.cai@gmail.com>
+Subject: Re: [PATCH 8/8 V2] MX27ADS: Add CS89x0 support
+Date: Fri, 1 May 2009 07:10:18 +0800
+Message-ID: <c8d1e6a0904301610t352bbe99jcdc24e215a57598d@mail.gmail.com>
+References: <1240963177-23941-1-git-send-email-vbarinov@embeddedalley.com>
+	<1240963405-24007-1-git-send-email-vbarinov@embeddedalley.com>
+	<c8d1e6a0904290148h7521fa36peb9fd5b4a64b97ab@mail.gmail.com>
+	<49F981E6.4050602@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:55445 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752231AbZD3W3g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2009 18:29:36 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Vladimir Barinov <vova.barinov@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
+In-Reply-To: <49F981E6.4050602@gmail.com>
+List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
+List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
+List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
+List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
+List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+List-Id: netdev.vger.kernel.org
 
-From: Greg Kroah-Hartman <gregkh@suse.de>
+IIRC, someone in this list recommends to do like the following(for
+example), rather than always add new item at the end of the line.
 
-In the near future, the driver core is going to not allow direct access
-to the driver_data pointer in struct device.  Instead, the functions
-dev_get_drvdata() and dev_set_drvdata() should be used.  These functions
-have been around since the beginning, so are backwards compatible with
-all older kernel versions.
+  depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X ||
+MACH_MX27ADS || MACH_MX31ADS
 
+And next time if we would like to another new item, saying MACH_MX21ADS,
+then the result would be
 
-Cc: netdev@vger.kernel.org
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
----
- drivers/net/3c509.c       |   12 ++++++------
- drivers/net/depca.c       |    4 ++--
- drivers/net/hp100.c       |    4 ++--
- drivers/net/ne3210.c      |    4 ++--
- drivers/net/smc-mca.c     |    4 ++--
- drivers/net/tulip/de4x5.c |    6 +++---
- drivers/net/usb/hso.c     |    4 ++--
- 7 files changed, 19 insertions(+), 19 deletions(-)
+  depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X ||
+MACH_MX21ADS || MACH_MX27ADS || MACH_MX31ADS
 
---- a/drivers/net/3c509.c
-+++ b/drivers/net/3c509.c
-@@ -653,11 +653,11 @@ static int __init el3_mca_probe(struct d
- 	netdev_boot_setup_check(dev);
- 
- 	el3_dev_fill(dev, phys_addr, ioaddr, irq, if_port, EL3_MCA);
--	device->driver_data = dev;
-+	dev_set_drvdata(device, dev);
- 	err = el3_common_init(dev);
- 
- 	if (err) {
--		device->driver_data = NULL;
-+		dev_set_drvdata(device, NULL);
- 		free_netdev(dev);
- 		return -ENOMEM;
- 	}
-@@ -721,12 +721,12 @@ static int __init el3_eisa_probe (struct
- 
- /* This remove works for all device types.
-  *
-- * The net dev must be stored in the driver_data field */
-+ * The net dev must be stored in the driver data field */
- static int __devexit el3_device_remove (struct device *device)
- {
- 	struct net_device *dev;
- 
--	dev  = device->driver_data;
-+	dev = dev_get_drvdata(device);
- 
- 	el3_common_remove (dev);
- 	return 0;
-@@ -1451,7 +1451,7 @@ el3_suspend(struct device *pdev, pm_mess
- 	struct el3_private *lp;
- 	int ioaddr;
- 
--	dev = pdev->driver_data;
-+	dev = dev_get_drvdata(pdev);
- 	lp = netdev_priv(dev);
- 	ioaddr = dev->base_addr;
- 
-@@ -1475,7 +1475,7 @@ el3_resume(struct device *pdev)
- 	struct el3_private *lp;
- 	int ioaddr;
- 
--	dev = pdev->driver_data;
-+	dev = dev_get_drvdata(pdev);
- 	lp = netdev_priv(dev);
- 	ioaddr = dev->base_addr;
- 
---- a/drivers/net/depca.c
-+++ b/drivers/net/depca.c
-@@ -810,7 +810,7 @@ static int __init depca_hw_init (struct 
- 
- 	dev->mem_start = 0;
- 
--	device->driver_data = dev;
-+	dev_set_drvdata(device, dev);
- 	SET_NETDEV_DEV (dev, device);
- 
- 	status = register_netdev(dev);
-@@ -1614,7 +1614,7 @@ static int __devexit depca_device_remove
- 	struct depca_private *lp;
- 	int bus;
- 
--	dev  = device->driver_data;
-+	dev  = dev_get_drvdata(device);
- 	lp   = netdev_priv(dev);
- 
- 	unregister_netdev (dev);
---- a/drivers/net/hp100.c
-+++ b/drivers/net/hp100.c
-@@ -2864,7 +2864,7 @@ static int __init hp100_eisa_probe (stru
- 	printk("hp100: %s: EISA adapter found at 0x%x\n", dev->name,
- 	       dev->base_addr);
- #endif
--	gendev->driver_data = dev;
-+	dev_set_drvdata(gendev, dev);
- 	return 0;
-  out1:
- 	free_netdev(dev);
-@@ -2873,7 +2873,7 @@ static int __init hp100_eisa_probe (stru
- 
- static int __devexit hp100_eisa_remove (struct device *gendev)
- {
--	struct net_device *dev = gendev->driver_data;
-+	struct net_device *dev = dev_get_drvdata(gendev);
- 	cleanup_dev(dev);
- 	return 0;
- }
---- a/drivers/net/ne3210.c
-+++ b/drivers/net/ne3210.c
-@@ -104,7 +104,7 @@ static int __init ne3210_eisa_probe (str
- 	}
- 
- 	SET_NETDEV_DEV(dev, device);
--	device->driver_data = dev;
-+	dev_set_drvdata(device, dev);
- 	ioaddr = edev->base_addr;
- 
- 	if (!request_region(ioaddr, NE3210_IO_EXTENT, DRV_NAME)) {
-@@ -225,7 +225,7 @@ static int __init ne3210_eisa_probe (str
- 
- static int __devexit ne3210_eisa_remove (struct device *device)
- {
--	struct net_device  *dev    = device->driver_data;
-+	struct net_device  *dev    = dev_get_drvdata(device);
- 	unsigned long       ioaddr = to_eisa_device (device)->base_addr;
- 
- 	unregister_netdev (dev);
---- a/drivers/net/smc-mca.c
-+++ b/drivers/net/smc-mca.c
-@@ -370,7 +370,7 @@ static int __init ultramca_probe(struct 
- 
- 	outb(reg4, ioaddr + 4);
- 
--	gen_dev->driver_data = dev;
-+	dev_set_drvdata(gen_dev, dev);
- 
- 	/* The 8390 isn't at the base address, so fake the offset
- 	 */
-@@ -531,7 +531,7 @@ static int ultramca_close_card(struct ne
- static int ultramca_remove(struct device *gen_dev)
- {
- 	struct mca_device *mca_dev = to_mca_device(gen_dev);
--	struct net_device *dev = (struct net_device *)gen_dev->driver_data;
-+	struct net_device *dev = dev_get_drvdata(gen_dev);
- 
- 	if (dev) {
- 		/* NB: ultra_close_card() does free_irq */
---- a/drivers/net/tulip/de4x5.c
-+++ b/drivers/net/tulip/de4x5.c
-@@ -1099,7 +1099,7 @@ de4x5_hw_init(struct net_device *dev, u_
-     struct pci_dev *pdev = NULL;
-     int i, status=0;
- 
--    gendev->driver_data = dev;
-+    dev_set_drvdata(gendev, dev);
- 
-     /* Ensure we're not sleeping */
-     if (lp->bus == EISA) {
-@@ -2094,7 +2094,7 @@ static int __devexit de4x5_eisa_remove (
- 	struct net_device *dev;
- 	u_long iobase;
- 
--	dev = device->driver_data;
-+	dev = dev_get_drvdata(device);
- 	iobase = dev->base_addr;
- 
- 	unregister_netdev (dev);
-@@ -2338,7 +2338,7 @@ static void __devexit de4x5_pci_remove (
- 	struct net_device *dev;
- 	u_long iobase;
- 
--	dev = pdev->dev.driver_data;
-+	dev = dev_get_drvdata(&pdev->dev);
- 	iobase = dev->base_addr;
- 
- 	unregister_netdev (dev);
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -482,7 +482,7 @@ static ssize_t hso_sysfs_show_porttype(s
- 				       struct device_attribute *attr,
- 				       char *buf)
- {
--	struct hso_device *hso_dev = dev->driver_data;
-+	struct hso_device *hso_dev = dev_get_drvdata(dev);
- 	char *port_name;
- 
- 	if (!hso_dev)
-@@ -2313,7 +2313,7 @@ static int hso_serial_common_create(stru
- 	serial->parent->dev = tty_register_device(tty_drv, minor,
- 					&serial->parent->interface->dev);
- 	dev = serial->parent->dev;
--	dev->driver_data = serial->parent;
-+	dev_set_drvdata(dev, serial->parent);
- 	i = device_create_file(dev, &dev_attr_hsotype);
- 
- 	/* fill in specific data for later use */
+Regards,
+Robby
+
+On Thu, Apr 30, 2009 at 6:48 PM, Vladimir Barinov <vova.barinov@gmail.com>wrote:
+
+> Hello Robby,
+>
+> Robby Cai wrote:
+>
+>> Does it make sense if we add keep the new items in the alphabetic/numeric
+>> order?
+>> Nowadays, seems more and more people are paying attention on this.
+>>
+>>  What actually do propose to line up in alphabetic/numeric order here?
+> AFAIK the alphabetic order is suggested to use in Kconfig files for
+> variables.
+> Not sure if this valid here. In this patch you can find only added
+> dependencies.
+>
+>  Regards,
+>> Robby
+>>
+>> On Wed, Apr 29, 2009 at 8:03 AM, Vladimir Barinov <vova.barinov@gmail.com<mailto:
+>> vova.barinov@gmail.com>> wrote:
+>>
+>>    Add CS89x0 net chip support for MX27ADS board
+>>
+>>    Signed-off-by: Vladimir Barinov <vbarinov@embeddedalley.com
+>>    <mailto:vbarinov@embeddedalley.com>>
+>>
+>>    ---
+>>     drivers/net/Kconfig  |    5 +++--
+>>     drivers/net/cs89x0.c |   10 ++++++++--
+>>     2 files changed, 11 insertions(+), 4 deletions(-)
+>>
+>>    diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>>    index 214a92d..25fd824 100644
+>>    --- a/drivers/net/Kconfig
+>>    +++ b/drivers/net/Kconfig
+>>    @@ -1438,7 +1438,8 @@ config FORCEDETH_NAPI
+>>     config CS89x0
+>>           tristate "CS89x0 support"
+>>           depends on NET_ETHERNET && (ISA || EISA || MACH_IXDP2351 \
+>>    -               || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_MX31ADS)
+>>    +               || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_MX31ADS \
+>>    +               || MACH_MX27ADS)
+>>           ---help---
+>>             Support for CS89x0 chipset based Ethernet cards. If you
+>>    have a
+>>             network (Ethernet) card of this type, say Y and read the
+>>    @@ -1452,7 +1453,7 @@ config CS89x0
+>>     config CS89x0_NONISA_IRQ
+>>           def_bool y
+>>           depends on CS89x0 != n
+>>    -       depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X
+>>    || MACH_MX31ADS
+>>    +       depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X
+>>    || MACH_MX31ADS || MACH_MX27ADS
+>>
+>>     config TC35815
+>>           tristate "TOSHIBA TC35815 Ethernet support"
+>>    diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+>>    index 7433b88..558f630 100644
+>>    --- a/drivers/net/cs89x0.c
+>>    +++ b/drivers/net/cs89x0.c
+>>    @@ -195,6 +195,12 @@ static unsigned int netcard_portlist[] __used
+>>    __initdata = {
+>>           PBC_BASE_ADDRESS + PBC_CS8900A_IOBASE + 0x300, 0
+>>     };
+>>     static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
+>>    +#elif defined(CONFIG_MACH_MX27ADS)
+>>    +#include <mach/board-mx27ads.h>
+>>    +static unsigned int netcard_portlist[] __used __initdata = {
+>>    +       PBC_CS8900A_IOBASE_REG + 0x300 + 3, 0
+>>    +};
+>>    +static unsigned cs8900_irq_map[] = {EXPIO_INT_ENET_INT, 0, 0, 0};
+>>     #else
+>>     static unsigned int netcard_portlist[] __used __initdata =
+>>       { 0x300, 0x320, 0x340, 0x360, 0x200, 0x220, 0x240, 0x260,
+>>    0x280, 0x2a0, 0x2c0, 0x2e0, 0};
+>>    @@ -1034,7 +1040,7 @@ skip_this_frame:
+>>
+>>     static void __init reset_chip(struct net_device *dev)
+>>     {
+>>    -#if !defined(CONFIG_MACH_MX31ADS)
+>>    +#if !defined(CONFIG_MACH_MX31ADS) && !defined(CONFIG_MACH_MX27ADS)
+>>     #if !defined(CONFIG_MACH_IXDP2351) && !defined(CONFIG_ARCH_IXDP2X01)
+>>           struct net_local *lp = netdev_priv(dev);
+>>           int ioaddr = dev->base_addr;
+>>    @@ -1063,7 +1069,7 @@ static void __init reset_chip(struct
+>>    net_device *dev)
+>>           reset_start_time = jiffies;
+>>           while( (readreg(dev, PP_SelfST) & INIT_DONE) == 0 &&
+>>    jiffies - reset_start_time < 2)
+>>                   ;
+>>    -#endif /* !CONFIG_MACH_MX31ADS */
+>>    +#endif /* !CONFIG_MACH_MX31ADS && !CONFIG_MACH_MX27ADS */
+>>     }
+>>
+>>
+>>    --
+>>    1.5.6
+>>
+>>
+>>    -------------------------------------------------------------------
+>>    List admin:
+>>    http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+>>    FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+>>    Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+>>
+>>
+>>
+>
+-------------------------------------------------------------------
+List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
+FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
+Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
