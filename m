@@ -1,66 +1,45 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: iwlwifi: remove EXPORT_SYMBOL for static symbol
-Date: Thu, 30 Apr 2009 10:09:26 +0200
-Message-ID: <1241078967.25477.8.camel@johannes.local>
-References: <m24ow6vah1.fsf@igel.home>
-	 (sfid-20090430_095859_848503_CEFFB30C)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] myr10ge: again fix lro_gen_skb() alignment
+Date: Thu, 30 Apr 2009 16:10:51 +0800
+Message-ID: <20090430081051.GA28133@gondor.apana.org.au>
+References: <20090427080501.GA21433@gondor.apana.org.au> <20090428061225.GA1591@gondor.apana.org.au> <49F71A00.5090701@myri.com> <20090428152047.GB7549@gondor.apana.org.au> <49F77134.9030907@myri.com> <49F85945.7030900@myri.com> <49F85BF1.1020501@cosmosbay.com> <49F861BF.7060403@myri.com> <49F87188.9000904@cosmosbay.com> <49F88E5A.8070908@myri.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-g1aNS0cpVjs7sRVHcHlm"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-MogPR669STc76Z2rM5mHXA@public.gmane.org
-To: Andreas Schwab <schwab-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <m24ow6vah1.fsf-hBGjKatGTSWzQB+pC5nmwQ@public.gmane.org> (sfid-20090430_095859_848503_CEFFB30C)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>, brice@myri.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Andrew Gallatin <gallatin@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:50846 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751405AbZD3ILJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 04:11:09 -0400
+Content-Disposition: inline
+In-Reply-To: <49F88E5A.8070908@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi:
 
---=-g1aNS0cpVjs7sRVHcHlm
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Unfortunately the myricom card I was using is now refusing to work:
 
-On Thu, 2009-04-30 at 09:58 +0200, Andreas Schwab wrote:
-> It does not make sense to apply EXPORT_SYMBOL to a static symbol.  Fixes
-> this build error:
->=20
-> drivers/net/wireless/iwlwifi/iwl3945-base.c:1697: error:
-> __ksymtab_iwl3945_rx_queue_reset causes a section type conflict
->=20
-> Signed-off-by: Andreas Schwab <schwab-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-> ---
-> This obsoletes 6269b731560d69c5eaa929909891edec39496d71, which was
-> misattributed as a compiler bug.
+myri10ge: Version 1.4.4-1.412
+myri10ge 0000:04:00.0: PCI INT A -> GSI 33 (level, low) -> IRQ 33
+myri10ge 0000:04:00.0: setting latency timer to 64
+myri10ge 0000:04:00.0: PCIE x4 Link
+myri10ge 0000:04:00.0: firmware: requesting myri10ge_eth_z8e.dat
+myri10ge 0000:04:00.0: command 1 failed, result = 14
+myri10ge 0000:04:00.0: failed reset
+myri10ge 0000:04:00.0: failed reset
+myri10ge 0000:04:00.0: myri10ge_probe() failed: MAC=00:60:dd:47:80:7d, SN=312225
+myri10ge 0000:04:00.0: PCI INT A disabled
 
-At least in my tree the function isn't static...(yet I still got the
-compiler error)?
+So I won't be able to test this until I locate another myri10ge
+card or get this one back up and running again.
 
-johannes
-
---=-g1aNS0cpVjs7sRVHcHlm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJ+Vy0AAoJEKVg1VMiehFY2OAP/AomeAp34Xh0iYWBzC0noZ5M
-3K6miUr1ppUCKNuzCFeHKOw/NiX6IuAo4zDp93I/lyHQ+Yy6W43UAvOVSnMy5NfY
-RCSzqsZVgpCVVy+GJr+Te1DqDVpPFeTlXXNuqapX0ocKOHJkAf535KKx8qbBLNMe
-vRdXsSIEmgjobspmXxM8E/+tsWO1gR8XOQtZN+ppQITgcs4XxxEFU1/6mzLXmbvv
-en4hrLMyloSC58X/q8/g7M4U2qhqJHvxnCdwoliNuar0w3qi16CvZ9eLbSSzdMlg
-xWcTiW6CgYnuVyaxRojXMrZGfv0OeJCFwed8kZHxaZfF+3JZLhg5/k72po/67vMG
-RYD3eGgnVzeGw+w+G+vz8Zn2/oTMbgYW6wBhH6I+ZPEO4alHIVFujZR/rKEQM6s9
-m2scz4wWLZJ1fJAiJ2S9NAxQZUhfas4A7nj4slsVVI9QYLVod7tKIm0OGdfN2Uu4
-Gi0LyJbxj2dESI9WR8kwDgO6lK2Ho3TAbvHPbzrgGjtqzIvFSNi2UnPp0ClZgETI
-TZC2RAQc9oO1qtmfa5tK72JVVmdYYBbKa6oY08xp4rGi4hPGdet61iaWmBW3Mwt9
-NwAHVFWL0KU3+B7hpKTzDYDtZmegD4kBVw0idSSNYZFTpf6/BBbZWjOCgw08WaaQ
-Qtxer0ulkPABvwBiYtp8
-=pQh5
------END PGP SIGNATURE-----
-
---=-g1aNS0cpVjs7sRVHcHlm--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
