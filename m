@@ -1,61 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio: add missing include to virtio_net.h
-Date: Wed, 29 Apr 2009 17:49:43 -0700 (PDT)
-Message-ID: <20090429.174943.133929746.davem@davemloft.net>
-References: <20090428154654.19053.92829.stgit@localhost.localdomain>
+Subject: Re: [PATCH] sfc: Make temperature warnings/alarms more explicit.
+Date: Wed, 29 Apr 2009 17:50:06 -0700 (PDT)
+Message-ID: <20090429.175006.118660824.davem@davemloft.net>
+References: <1240925799.3200.16.camel@achroite>
+	<1240929844.10689.35.camel@localhost.localdomain>
+	<1240930084.10689.39.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: grant.likely@secretlab.ca
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48185
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48190
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751109AbZD3Att (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:49:49 -0400
-In-Reply-To: <20090428154654.19053.92829.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753488AbZD3AuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:50:12 -0400
+In-Reply-To: <1240930084.10689.39.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Tue, 28 Apr 2009 09:46:54 -0600
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Date: Tue, 28 Apr 2009 16:48:04 +0200
 
-[ Grant, please CC: netdev on networking patches, thanks. ]
+> 
+> The sfc driver can detect different hardware failures via the
+> LM87 system.  One of the failures I have experienced is the
+> temperature alarm, but the error message didn't reveal that this
+> error was temperature related.  I had to read the code to
+> discover that.
+> 
+> I think that the temperature error should be more explicit, in
+> order to warn people before the board is permanently damaged.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 
-> virtio_net.h uses the macro ETH_ALEN which is defined in linux/if_ether.h.
-> Discovered when hacking on virtio-over-pci patches.
-> 
-> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
-
-Rusty, ACK?
-
-I haven't been able to get responses from Rusty on virtio net
-patches, so if he doesn't start responding soon I'm going to
-integrates the fixes I've seen lately as they all look
-reasonable to me.
-
-> ---
-> 
->  include/linux/virtio_net.h |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> 
-> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> index 242348b..cec79ad 100644
-> --- a/include/linux/virtio_net.h
-> +++ b/include/linux/virtio_net.h
-> @@ -4,6 +4,7 @@
->   * compatible drivers/servers. */
->  #include <linux/types.h>
->  #include <linux/virtio_config.h>
-> +#include <linux/if_ether.h>
->  
->  /* The ID for virtio_net */
->  #define VIRTIO_ID_NET	1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Ben, ACK or something?
