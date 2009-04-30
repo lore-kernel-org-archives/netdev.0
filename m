@@ -1,83 +1,73 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Regression since 2.6.30-rc1 - Page allocation failures
-Date: Thu, 30 Apr 2009 01:39:02 +0200
-Message-ID: <1241048343.25477.7.camel@johannes.local>
-References: <49F8C03D.6040909@lwfinger.net>
-	 (sfid-20090429_230225_847074_E5413886)  <1241039372.4547.3.camel@johannes.local>
-	 (sfid-20090429_231009_993152_4FF82E4D) <1241040451.5067.0.camel@johannes.local>
-	 <49F8E145.1050708@lwfinger.net>
+From: Don Fry <pcnet32@verizon.net>
+Subject: Re: [PATCH net-next-2.6] pcnet32: Remove pointless memory barriers
+Date: Wed, 29 Apr 2009 17:09:48 -0700
+Message-ID: <1241050188.18295.13.camel@localhost.localdomain>
+References: <1240945659.8819.9.camel@Maple>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-kyK/pAUYx0XbStFT5uCy"
-Cc: wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, romieu@fr.zoreil.com,
+	David Miller <davem@davemloft.net>
+To: John Dykstra <john.dykstra1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:42179 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbZD2Xjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 19:39:32 -0400
-In-Reply-To: <49F8E145.1050708@lwfinger.net>
+Received: from vms173007pub.verizon.net ([206.46.173.7]:21083 "EHLO
+	vms173007pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760086AbZD3AKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:10:08 -0400
+Received: from [192.168.1.3] ([173.50.252.109]) by vms173007.mailsrvcs.net
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008; 32bit))
+ with ESMTPA id <0KIW006IK0GCGA0K@vms173007.mailsrvcs.net> for
+ netdev@vger.kernel.org; Wed, 29 Apr 2009 19:09:49 -0500 (CDT)
+In-reply-to: <1240945659.8819.9.camel@Maple>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+After going back to my original NAPI changes, email exchanges today with
+Francois and John, and looking through all the architecture
+implementation of mmiowb and locking; I agree that this mmiowb is
+unnecessary since a lock is always released which has all the memory
+barriers needed.  I no longer have access to all the equipment I had
+available at IBM, but it was tested a extensively on Intel and Power
+platforms without the mmiowb.
 
---=-kyK/pAUYx0XbStFT5uCy
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Acked-by:  Don Fry <pcnet32@verizon.net>
 
-(dropped lkml, added netdev)
+-----Original Message-----
+From: John Dykstra <john.dykstra1@gmail.com>
+To: netdev <netdev@vger.kernel.org>, Don Fry <pcnet32@verizon.net>
+Subject: [PATCH net-next-2.6] pcnet32: Remove pointless memory barriers
+Date: Tue, 28 Apr 2009 19:07:39 +0000
 
-> I get the "failed to reallocate TX buffer" message. Not all are related t=
-o the
-> page allocation failure. I am also getting "b43-phy0 debug: DMA RX:
-> setup_rx_descbuffer() failed" messages.
->=20
-> So far, the numbers printed by the revised printk are:
->=20
-> kernel: phy0: failed to reallocate TX buffer 0, 404, need 0, 0
-> kernel: protocol 0008 is buggy, dev eth1
->=20
-> kernel: phy0: failed to reallocate TX buffer 0, 1728, need 0, 18
->=20
-> Device eth1 is the b43 wireless device.
+These two memory barriers in performance-critical paths are not needed
+on x86.  Even if some other architecture does buffer PCI I/O space
+writes, the existing memory-mapped I/O barriers are unlikely to be what
+is needed.
 
-Thanks.
+Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+---
+ drivers/net/pcnet32.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-This is a little odd -- I don't see why
-	pskb_expand_head(skb, 0, 0)
-or
-	pskb_expand_head(skb, 0, 18)
-
-would try to do an order 1 allocation when skb->len is 404 or 1728. It
-looks like something is forcing larger alignments than should be
-necessary, but I have no idea what.
-
-(for netdev: http://mid.gmane.org/49F8C03D.6040909@lwfinger.net has more
-information)
-
-johannes
-
---=-kyK/pAUYx0XbStFT5uCy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJ+OUTAAoJEKVg1VMiehFY+ikP/2wAY9DzRMAxVjO6OvaAI4z9
-uoGlLITnQ4d+cgZh3C6cJ/fR2nQxpCO1EuvEaIySHBFIGQXo4zoiuDIroXjqPqtf
-NGfXDlRyEzGcCI7eSJmcEP+euc3II1whEOOaX71Ht8eFk2HG/Genyiv8YJJWT475
-Q2Ynjhhl7mWYxpa3AJCavtb9DDP7JT8wfF1ENCySHGKa75+VRF7ED9O/VfBYeLxr
-EBBcoapmXrfKs3vp2Z431XifMthbsf++HckMwTIK24ZWlxGxnF/bNtYP5264d2xT
-uMZUl8UpeksuvrdZ5f+Hs3+MK41Hxn1KbaWGovftd3yy6c5emt/bATE1CJBYTAeV
-wVmtW/mcyQQBz88w3ZmWGgBbfkc/OBWQdURcKzpnrBwONjuSasLf9Np7/EBSp24F
-BgDRiVcYQGcnOHCF9kYE9YlaHEiR3v6uiRJx7kDAyEq8V3RT0tVKX+jj5xx/r+7U
-7mE0F8sLwEJQNnyGPiVf4IyJjMO6c+bWeqWu3Ms3VSPvHxAetZRgcUWy8/L/L5J/
-KQeQz7vD1TYJXSJrwoLr8XluqL/e7uq/68ynZbEGwyTrEfAXQIHRQkk2VQZkmF/W
-YHBOaPxAocbNvgihhf+2TePFOr3FHzX/W0r62xuzULpc7I5XYWV624wKx8MmLSWc
-Dbn6pHP0GsfFFJnDom6f
-=1LYg
------END PGP SIGNATURE-----
-
---=-kyK/pAUYx0XbStFT5uCy--
+diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
+index e5e8c59..1c35e1d 100644
+--- a/drivers/net/pcnet32.c
++++ b/drivers/net/pcnet32.c
+@@ -1405,7 +1405,7 @@ static int pcnet32_poll(struct napi_struct *napi, int budget)
+ 
+ 		/* Set interrupt enable. */
+ 		lp->a.write_csr(ioaddr, CSR0, CSR0_INTEN);
+-		mmiowb();
++
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+ 	}
+ 	return work_done;
+@@ -2597,7 +2597,7 @@ pcnet32_interrupt(int irq, void *dev_id)
+ 			val = lp->a.read_csr(ioaddr, CSR3);
+ 			val |= 0x5f00;
+ 			lp->a.write_csr(ioaddr, CSR3, val);
+-			mmiowb();
++
+ 			__napi_schedule(&lp->napi);
+ 			break;
+ 		}
 
