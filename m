@@ -1,37 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sfc: Make temperature warnings/alarms more explicit.
-Date: Wed, 29 Apr 2009 17:50:06 -0700 (PDT)
-Message-ID: <20090429.175006.118660824.davem@davemloft.net>
-References: <1240925799.3200.16.camel@achroite>
-	<1240929844.10689.35.camel@localhost.localdomain>
-	<1240930084.10689.39.camel@localhost.localdomain>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] virtio: add missing include to virtio_net.h
+Date: Wed, 29 Apr 2009 19:20:38 -0600
+Message-ID: <fa686aa40904291820q9019708oaa737c6d8f65ca02@mail.gmail.com>
+References: <20090428154654.19053.92829.stgit@localhost.localdomain>
+	<20090429.174943.133929746.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: jdb@comx.dk
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48190
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753488AbZD3AuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:50:12 -0400
-In-Reply-To: <1240930084.10689.39.camel@localhost.localdomain>
+Received: from yw-out-2324.google.com ([74.125.46.31]:46640 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751524AbZD3BU6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 21:20:58 -0400
+In-Reply-To: <20090429.174943.133929746.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Tue, 28 Apr 2009 16:48:04 +0200
+On Wed, Apr 29, 2009 at 6:49 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Grant Likely <grant.likely@secretlab.ca>
+> Date: Tue, 28 Apr 2009 09:46:54 -0600
+>
+> [ Grant, please CC: netdev on networking patches, thanks. ]
 
-> 
-> The sfc driver can detect different hardware failures via the
-> LM87 system.  One of the failures I have experienced is the
-> temperature alarm, but the error message didn't reveal that this
-> error was temperature related.  I had to read the code to
-> discover that.
-> 
-> I think that the temperature error should be more explicit, in
-> order to warn people before the board is permanently damaged.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+Oops, sorry about that; I had in my head "virtio" and it didn't even
+occur to me that it was also netdev.  :-)
 
-Ben, ACK or something?
+g.
+
+>
+>> virtio_net.h uses the macro ETH_ALEN which is defined in linux/if_et=
+her.h.
+>> Discovered when hacking on virtio-over-pci patches.
+>>
+>> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+>
+> Rusty, ACK?
+>
+> I haven't been able to get responses from Rusty on virtio net
+> patches, so if he doesn't start responding soon I'm going to
+> integrates the fixes I've seen lately as they all look
+> reasonable to me.
+>
+>> ---
+>>
+>> =A0include/linux/virtio_net.h | =A0 =A01 +
+>> =A01 files changed, 1 insertions(+), 0 deletions(-)
+>>
+>>
+>> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+>> index 242348b..cec79ad 100644
+>> --- a/include/linux/virtio_net.h
+>> +++ b/include/linux/virtio_net.h
+>> @@ -4,6 +4,7 @@
+>> =A0 * compatible drivers/servers. */
+>> =A0#include <linux/types.h>
+>> =A0#include <linux/virtio_config.h>
+>> +#include <linux/if_ether.h>
+>>
+>> =A0/* The ID for virtio_net */
+>> =A0#define VIRTIO_ID_NET =A0 =A0 =A0 =A01
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kern=
+el" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
+
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
