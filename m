@@ -1,189 +1,228 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH net-2.6] Re: oopses since "net: Optimize memory usage when
-	splicing from sockets"
-Date: Thu, 30 Apr 2009 14:30:57 +0200
-Message-ID: <20090430123057.GB2753@ami.dom.local>
-References: <20090430031626.GM14729@mail.wantstofly.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/5] ethtool: Update ethtool-copy.h
+Date: Thu, 30 Apr 2009 13:33:16 +0100
+Message-ID: <1241094796.3185.2.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:62737 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757218AbZD3Mba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:31:30 -0400
-Received: by fxm2 with SMTP id 2so1781650fxm.37
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2009 05:31:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090430031626.GM14729@mail.wantstofly.org>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:45614 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758127AbZD3Md1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:33:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 30, 2009 at 05:16:26AM +0200, Lennert Buytenhek wrote:
-> Since 4fb669948116d928ae44262ab7743732c574630d ("net: Optimize memory
-> usage when splicing from sockets.") I'm seeing this oops (e.g. in
-> 2.6.30-rc3) when splicing from a TCP socket to /dev/null on a driver
-> (mv643xx_eth) that uses LRO in the skb mode (lro_receive_skb) rather
-> than the frag mode:
-...
-> addr2line suggests skb->sk is NULL in linear_to_page():
-> 
-> 
-> 	static inline struct page *linear_to_page(struct page *page, unsigned int *len,
-> 						  unsigned int *offset,
-> 						  struct sk_buff *skb)
-> 	{
-> 		struct sock *sk = skb->sk;
-> 		struct page *p = sk->sk_sndmsg_page;		<========
-> 		unsigned int off;
-> 
-> 		if (!p) {
-> 
-> 
-> When we get here, skb->sk has apparently already been dropped, leading
-> to a NULL pointer deref.  Backing out the offending commit makes the
-> oops go away (as does converting the driver to lro frag rx, but that
-> destroys routing performance).
-> 
-> Thoughts?  Should we just fall back to plain alloc_pages() if skb->sk
-> is NULL, or should have still have the socket reference when we get here?
-
-It seems my first impression could be quite right yet, so if there is
-no better idea I think it should go to the mainline with Lennert's
-"Tested-by", I hope.
-
-Thanks,
-Jarek P.
-------------------------->
-net: Fix oops when splicing skbs from a frag_list.
-
-Lennert Buytenhek wrote:
-> Since 4fb669948116d928ae44262ab7743732c574630d ("net: Optimize memory
-> usage when splicing from sockets.") I'm seeing this oops (e.g. in
-> 2.6.30-rc3) when splicing from a TCP socket to /dev/null on a driver
-> (mv643xx_eth) that uses LRO in the skb mode (lro_receive_skb) rather
-> than the frag mode:
-
-My patch incorrectly assumed skb->sk was always valid, but for
-"frag_listed" skbs we can only use skb->sk of their parent.
-
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
-Debugged-by: Lennert Buytenhek <buytenh@wantstofly.org>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
+This comes from net-next-2.6 as of today.
 
- net/core/skbuff.c |   27 ++++++++++++++-------------
- 1 files changed, 14 insertions(+), 13 deletions(-)
+Ben.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ce6356c..f091a5a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1365,9 +1365,8 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
- 
- static inline struct page *linear_to_page(struct page *page, unsigned int *len,
- 					  unsigned int *offset,
--					  struct sk_buff *skb)
-+					  struct sk_buff *skb, struct sock *sk)
- {
--	struct sock *sk = skb->sk;
- 	struct page *p = sk->sk_sndmsg_page;
- 	unsigned int off;
- 
-@@ -1405,13 +1404,14 @@ new_page:
+ ethtool-copy.h |  107 ++++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 100 insertions(+), 7 deletions(-)
+
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3ca4e2c..d9bb957 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -7,11 +7,14 @@
+  * Portions Copyright 2002 Intel (eli.kupermann@intel.com,
+  *                                christopher.leech@intel.com,
+  *                                scott.feldman@intel.com)
++ * Portions Copyright (C) Sun Microsystems 2008
   */
- static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
- 				unsigned int *len, unsigned int offset,
--				struct sk_buff *skb, int linear)
-+				struct sk_buff *skb, int linear,
-+				struct sock *sk)
+ 
+ #ifndef _LINUX_ETHTOOL_H
+ #define _LINUX_ETHTOOL_H
+ 
++#include <linux/types.h>
++
+ /* This should work for both 32 and 64 bit userland. */
+ struct ethtool_cmd {
+ 	__u32	cmd;
+@@ -23,14 +26,16 @@ struct ethtool_cmd {
+ 	__u8	phy_address;
+ 	__u8	transceiver;	/* Which transceiver to use */
+ 	__u8	autoneg;	/* Enable or disable autonegotiation */
++	__u8	mdio_support;
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+ 	__u16	speed_hi;
+ 	__u16	reserved2;
+-	__u32	reserved[3];
++	__u32	lp_advertising;	/* Features the link partner advertises */
++	__u32	reserved[2];
+ };
+ 
+-static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
++static __inline__ void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+ 						__u32 speed)
  {
- 	if (unlikely(spd->nr_pages == PIPE_BUFFERS))
- 		return 1;
  
- 	if (linear) {
--		page = linear_to_page(page, len, &offset, skb);
-+		page = linear_to_page(page, len, &offset, skb, sk);
- 		if (!page)
- 			return 1;
- 	} else
-@@ -1442,7 +1442,8 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
- static inline int __splice_segment(struct page *page, unsigned int poff,
- 				   unsigned int plen, unsigned int *off,
- 				   unsigned int *len, struct sk_buff *skb,
--				   struct splice_pipe_desc *spd, int linear)
-+				   struct splice_pipe_desc *spd, int linear,
-+				   struct sock *sk)
+@@ -38,7 +43,7 @@ static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+ 	ep->speed_hi = (__u16)(speed >> 16);
+ }
+ 
+-static inline __u32 ethtool_cmd_speed(struct ethtool_cmd *ep)
++static __inline__ __u32 ethtool_cmd_speed(struct ethtool_cmd *ep)
  {
- 	if (!*len)
- 		return 1;
-@@ -1465,7 +1466,7 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
- 		/* the linear region may spread across several pages  */
- 		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
+ 	return (ep->speed_hi << 16) | ep->speed;
+ }
+@@ -285,12 +290,78 @@ enum ethtool_flags {
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+ };
  
--		if (spd_fill_page(spd, page, &flen, poff, skb, linear))
-+		if (spd_fill_page(spd, page, &flen, poff, skb, linear, sk))
- 			return 1;
+-struct ethtool_rxnfc {
+-	__u32		cmd;
++/* The following structures are for supporting RX network flow
++ * classification configuration. Note, all multibyte fields, e.g.,
++ * ip4src, ip4dst, psrc, pdst, spi, etc. are expected to be in network
++ * byte order.
++ */
++struct ethtool_tcpip4_spec {
++	__be32	ip4src;
++	__be32	ip4dst;
++	__be16	psrc;
++	__be16	pdst;
++	__u8    tos;
++};
++
++struct ethtool_ah_espip4_spec {
++	__be32	ip4src;
++	__be32	ip4dst;
++	__be32	spi;
++	__u8    tos;
++};
++
++struct ethtool_rawip4_spec {
++	__be32	ip4src;
++	__be32	ip4dst;
++	__u8	hdata[64];
++};
++
++struct ethtool_ether_spec {
++	__be16	ether_type;
++	__u8	frame_size;
++	__u8	eframe[16];
++};
++
++#define	ETH_RX_NFC_IP4	1
++#define	ETH_RX_NFC_IP6	2
++
++struct ethtool_usrip4_spec {
++	__be32	ip4src;
++	__be32	ip4dst;
++	__be32	l4_4_bytes;
++	__u8    tos;
++	__u8    ip_ver;
++	__u8    proto;
++};
++
++struct ethtool_rx_flow_spec {
+ 	__u32		flow_type;
+-	__u64		data;
++	union {
++		struct ethtool_tcpip4_spec		tcp_ip4_spec;
++		struct ethtool_tcpip4_spec		udp_ip4_spec;
++		struct ethtool_tcpip4_spec		sctp_ip4_spec;
++		struct ethtool_ah_espip4_spec		ah_ip4_spec;
++		struct ethtool_ah_espip4_spec		esp_ip4_spec;
++		struct ethtool_rawip4_spec		raw_ip4_spec;
++		struct ethtool_ether_spec		ether_spec;
++		struct ethtool_usrip4_spec		usr_ip4_spec;
++		__u8					hdata[64];
++	} h_u, m_u; /* entry, mask */
++	__u64		ring_cookie;
++	__u32		location;
+ };
  
- 		__segment_seek(&page, &poff, &plen, flen);
-@@ -1481,8 +1482,8 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
-  * pipe is full or if we already spliced the requested length.
-  */
- static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
--		      unsigned int *len,
--		      struct splice_pipe_desc *spd)
-+			     unsigned int *len, struct splice_pipe_desc *spd,
-+			     struct sock *sk)
- {
- 	int seg;
++struct ethtool_rxnfc {
++	__u32				cmd;
++	__u32				flow_type;
++	/* The rx flow hash value or the rule DB size */
++	__u64				data;
++	struct ethtool_rx_flow_spec	fs;
++	__u32				rule_cnt;
++	__u32				rule_locs[0];
++};
++
++
+ /* CMDs currently supported */
+ #define ETHTOOL_GSET		0x00000001 /* Get settings. */
+ #define ETHTOOL_SSET		0x00000002 /* Set settings. */
+@@ -338,6 +409,12 @@ struct ethtool_rxnfc {
+ #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
+ #define ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
+ #define ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
++#define	ETHTOOL_GRXRINGS	0x0000002d /* Get RX rings available for LB */
++#define	ETHTOOL_GRXCLSRLCNT	0x0000002e /* Get RX class rule count */
++#define	ETHTOOL_GRXCLSRULE	0x0000002f /* Get RX classification rule */
++#define	ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
++#define	ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
++#define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
  
-@@ -1492,7 +1493,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- 	if (__splice_segment(virt_to_page(skb->data),
- 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
- 			     skb_headlen(skb),
--			     offset, len, skb, spd, 1))
-+			     offset, len, skb, spd, 1, sk))
- 		return 1;
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+@@ -360,6 +437,11 @@ struct ethtool_rxnfc {
+ #define SUPPORTED_Pause			(1 << 13)
+ #define SUPPORTED_Asym_Pause		(1 << 14)
+ #define SUPPORTED_2500baseX_Full	(1 << 15)
++#define SUPPORTED_Backplane		(1 << 16)
++#define SUPPORTED_1000baseKX_Full	(1 << 17)
++#define SUPPORTED_10000baseKX4_Full	(1 << 18)
++#define SUPPORTED_10000baseKR_Full	(1 << 19)
++#define SUPPORTED_10000baseR_FEC	(1 << 20)
  
- 	/*
-@@ -1502,7 +1503,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
- 		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+ /* Indicates what features are advertised by the interface. */
+ #define ADVERTISED_10baseT_Half		(1 << 0)
+@@ -378,6 +460,11 @@ struct ethtool_rxnfc {
+ #define ADVERTISED_Pause		(1 << 13)
+ #define ADVERTISED_Asym_Pause		(1 << 14)
+ #define ADVERTISED_2500baseX_Full	(1 << 15)
++#define ADVERTISED_Backplane		(1 << 16)
++#define ADVERTISED_1000baseKX_Full	(1 << 17)
++#define ADVERTISED_10000baseKX4_Full	(1 << 18)
++#define ADVERTISED_10000baseKR_Full	(1 << 19)
++#define ADVERTISED_10000baseR_FEC	(1 << 20)
  
- 		if (__splice_segment(f->page, f->page_offset, f->size,
--				     offset, len, skb, spd, 0))
-+				     offset, len, skb, spd, 0, sk))
- 			return 1;
- 	}
+ /* The following are all involved in forcing a particular link
+  * mode for the device for setting things.  When getting the
+@@ -402,6 +489,7 @@ struct ethtool_rxnfc {
+ #define PORT_MII		0x02
+ #define PORT_FIBRE		0x03
+ #define PORT_BNC		0x04
++#define PORT_OTHER		0xff
  
-@@ -1528,12 +1529,13 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		.ops = &sock_pipe_buf_ops,
- 		.spd_release = sock_spd_release,
- 	};
-+	struct sock *sk = skb->sk;
+ /* Which transceiver to use. */
+ #define XCVR_INTERNAL		0x00
+@@ -434,9 +522,13 @@ struct ethtool_rxnfc {
+ #define	UDP_V6_FLOW	0x06
+ #define	SCTP_V6_FLOW	0x07
+ #define	AH_ESP_V6_FLOW	0x08
++#define	AH_V4_FLOW	0x09
++#define	ESP_V4_FLOW	0x0a
++#define	AH_V6_FLOW	0x0b
++#define	ESP_V6_FLOW	0x0c
++#define	IP_USER_FLOW	0x0d
  
- 	/*
- 	 * __skb_splice_bits() only fails if the output has no room left,
- 	 * so no point in going over the frag_list for the error case.
- 	 */
--	if (__skb_splice_bits(skb, &offset, &tlen, &spd))
-+	if (__skb_splice_bits(skb, &offset, &tlen, &spd, sk))
- 		goto done;
- 	else if (!tlen)
- 		goto done;
-@@ -1545,14 +1547,13 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		struct sk_buff *list = skb_shinfo(skb)->frag_list;
+ /* L3-L4 network traffic flow hash options */
+-#define	RXH_DEV_PORT	(1 << 0)
+ #define	RXH_L2DA	(1 << 1)
+ #define	RXH_VLAN	(1 << 2)
+ #define	RXH_L3_PROTO	(1 << 3)
+@@ -446,5 +538,6 @@ struct ethtool_rxnfc {
+ #define	RXH_L4_B_2_3	(1 << 7) /* dst port in case of TCP/UDP/SCTP */
+ #define	RXH_DISCARD	(1 << 31)
  
- 		for (; list && tlen; list = list->next) {
--			if (__skb_splice_bits(list, &offset, &tlen, &spd))
-+			if (__skb_splice_bits(list, &offset, &tlen, &spd, sk))
- 				break;
- 		}
- 	}
++#define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL
  
- done:
- 	if (spd.nr_pages) {
--		struct sock *sk = skb->sk;
- 		int ret;
- 
- 		/*
+ #endif /* _LINUX_ETHTOOL_H */
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
