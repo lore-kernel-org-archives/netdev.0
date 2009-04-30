@@ -1,65 +1,39 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
-	questions)
-Date: Thu, 30 Apr 2009 11:33:31 -0400
-Message-ID: <f73f7ab80904300833w69025c2fjdefbe9f2eef323f1@mail.gmail.com>
-References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
-	<625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
-	<f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
-	<1240388476.17445.10.camel@pasglop>
-	<f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
-	<fa686aa40904300811u41e94972offfd75520636bb02@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxppc-dev@ozlabs.org,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <fa686aa40904300811u41e94972offfd75520636bb02@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Laszlo Attila Toth <panther@balabit.hu>
+Subject: [PATCH] xt_socket: checks for the state of nf_conntrack
+Date: Thu, 30 Apr 2009 17:35:55 +0200
+Message-ID: <1241105755-10017-1-git-send-email-panther@balabit.hu>
+Cc: mingo@elte.hu, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hidden@sch.bme.hu,
+	linux-kernel@vger.kernel.org,
+	Laszlo Attila Toth <panther@balabit.hu>
+To: davem@davemloft.net, kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from support.balabit.hu ([195.70.41.86]:35113 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932145AbZD3PgA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2009 11:36:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBBcHIgMzAsIDIwMDkgYXQgMTE6MTEgQU0sIEdyYW50IExpa2VseQo8Z3JhbnQubGlr
-ZWx5QHNlY3JldGxhYi5jYT4gd3JvdGU6Cj4gSnVzdCBhIGhlYWRzIHVwIEt5bGU7IHRoZXJlIGFy
-ZSBjaGFuZ2VzIHF1ZXVlZCBpbiB0aGUgbmV0ZGV2IHRyZWUKPiB3aGljaCBhZGQgT0YgaGVscGVy
-cyBmb3IgTURJTyBidXMgZHJpdmVycyBhbmQgTUFDIGRyaXZlcnMuIMKgU2VlIGhlcmU6Cj4KPiBo
-dHRwOi8vZ2l0Lmtlcm5lbC5vcmcvP3A9bGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtbmV4dC0y
-LjYuZ2l0O2E9Y29tbWl0O2g9OGJjNDg3ZDE1MGI5MzllNjk4MzBjMzkzMjJkZjRlZTQ4NmVmZTM4
-MQo+Cj4gYW5kIGhlcmUgaXMgYW4gZXhhbXBsZSBvZiBhIGRyaXZlciBjaGFuZ2U6Cj4KPiBodHRw
-Oi8vZ2l0Lmtlcm5lbC5vcmcvP3A9bGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtbmV4dC0yLjYu
-Z2l0O2E9Y29tbWl0O2g9MWRkMmQwNmMwNDU5YTJmMWJmZmM1Njc2NWUzY2M1NzQyNzgxODg2NwoK
-SG1tLCB2ZXJ5IGludGVyZXN0aW5nISAgVGhhbmtzISAgQWx0aG91Z2ggSSdtIG5vdCBzdXJlIHRo
-YXQgdGhvc2UgT0YKaGVscGVycyBhcmUgZW50aXJlbHkgdXNhYmxlIGZvciB0aGUgZW1hYyBkcml2
-ZXIgYXQgdGhlIG1vbWVudCwgYXMgdGhlCmRldmljZSB0cmVlcyBmb3IgdGhlIGV4aXN0aW5nIGJv
-YXJkcyBzaW1wbHkgZG9uJ3QgaGF2ZSBQSFlzIHByZXNlbnQgaW4KdGhlbS4gIE1vc3Qgb2YgdGhl
-IGlibV9uZXdlbWFjIGJvYXJkIGRldmljZS10cmVlcyBqdXN0IGhhdmUgb25lIG9mOgoicGh5LWFk
-ZHJlc3MgPSA8ND4iLCAicGh5LW1hc2sgPSA8MHhmZmZmMDAwMD4iLCBvciBub3RoaW5nIGF0IGFs
-bCAoZm9yCmF1dG9kZXRlY3Rpb24pLiAgSSB3aWxsIHByb2JhYmx5IG5lZWQgdG8gbGVhdmUgaW4g
-c3VwcG9ydCBmb3IgdGhlIG9sZApQSFkgbWFzayBwYXJzaW5nIHRvIHByZXNlcnZlIGJhY2t3YXJk
-cyBjb21wYXRpYmlsaXR5LgoKTXkgbWFpbiBjb25jZXJuIGF0IHRoZSBtb21lbnQgaXMgY2xlYW5p
-bmcgdXAgdGhlIGRyaXZlcidzIGdlbmVyYWwgUEhZCmhhbmRsaW5nLiAgSSBnb3Qgc3RhcnRlZCBv
-biB0aGlzIHdob2xlIG1lc3Mgd2hlbiBJIHdhcyB0cnlpbmcgdG8gd3JpdGUKc29tZSBoYWNraXNo
-IFBIWSBkcml2ZXJzIGZvciBhIHdlaXJkIGN1c3RvbSBib2FyZCBJJ3ZlIGdvdCBoZXJlLiAgSQpj
-b3VsZG4ndCBmaWd1cmUgb3V0IHdoeSB0aGUgaGVsbCBhbGwgbXkgUEhZIHJlZ2lzdGVyIGNoYW5n
-ZXMgaW4gdGhlCnBoeV9vcHMtPmluaXQgZnVuY3Rpb24ga2VwdCBnZXR0aW5nIGNsZWFyZWQsIHVu
-dGlsIEkgbm90aWNlZCAyIHRoaW5nczoKIFRoZSBlbWFjX3Jlc2V0X3BoeSgpIGZ1bmN0aW9uIGdl
-dHMgY2FsbGVkIG9jY2FzaW9uYWxseSBhbmQgZG9lcyBub3QKY2FsbCB0aGUgLT5pbml0KCkgZnVu
-Y3Rpb24gYWdhaW4gYWZ0ZXJ3YXJkcy4gIFRoZQpnZW5taWlfc2V0dXBfZm9yY2VkKCkgZnVuY3Rp
-b24gKGluIHRoZSBFTUFDIGRyaXZlcikgdW5jb25kaXRpb25hbGx5Ck9ScyB0aGUgQkNNUl9SRVNF
-VCBmbGFnIGludG8gdGhlIE1JSV9CQ01SIHJlZ2lzdGVyLiAgQm90aCBvZiB0aG9zZQptZWFudCB0
-aGF0IGFueSBlYXJseSBzZXR1cCBJIGRpZCBmb3IgbXkgUEhZIHdhcyBnZXR0aW5nIGNvbXBsZXRl
-bHkKY2xlYXJlZCBvbiBhIHJlZ3VsYXIgYmFzaXMsIHdpdGggbm8gZGVjZW50IHdheSBmb3IgbWUg
-dG8gcGF0Y2ggaXQgYmFjawp1cCBhZ2Fpbi4KCkNoZWVycywKS3lsZSBNb2ZmZXR0Cl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWls
-aW5nIGxpc3QKTGludXhwcGMtZGV2QG96bGFicy5vcmcKaHR0cHM6Ly9vemxhYnMub3JnL21haWxt
-YW4vbGlzdGluZm8vbGludXhwcGMtZGV2
+xt_socket can use connection tracking, and checks whether it is a module.
+
+Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+---
+ net/netfilter/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 881203c..cb3ad74 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -837,6 +837,7 @@ config NETFILTER_XT_MATCH_SOCKET
+ 	depends on NETFILTER_TPROXY
+ 	depends on NETFILTER_XTABLES
+ 	depends on NETFILTER_ADVANCED
++	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	select NF_DEFRAG_IPV4
+ 	help
+ 	  This option adds a `socket' match, which can be used to match
+-- 
+1.6.2.2.404.ge96f3
+
