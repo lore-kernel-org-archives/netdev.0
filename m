@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 1/5] ethtool: Remove support for RX hashing by port
-Date: Thu, 30 Apr 2009 13:36:49 +0100
-Message-ID: <1241095009.3185.7.camel@achroite>
+Subject: [PATCH 3/5] ethtool: Decode PORT_OTHER
+Date: Thu, 30 Apr 2009 13:37:14 +0100
+Message-ID: <1241095034.3185.8.camel@achroite>
 References: <1241094796.3185.2.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,75 +9,33 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:40195 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761809AbZD3Mgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:36:52 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:35070 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760880AbZD3MhQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:37:16 -0400
 In-Reply-To: <1241094796.3185.2.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The kernel-side support for this was removed by:
-
-commit 59089d8d162ddcb5c434672e915331964d38a754
-Author: Santwona Behera <santwona.behera@sun.com>
-Date:   Fri Feb 20 00:58:13 2009 -0800
-
-    ethtool: Add RX pkt classification interface
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- ethtool.8 |    3 ---
- ethtool.c |    8 +-------
- 2 files changed, 1 insertions(+), 10 deletions(-)
+ ethtool.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/ethtool.8 b/ethtool.8
-index 178f6ea..7a6f52b 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -473,9 +473,6 @@ Configures the hash options for the specified network traffic type.
- .RS
- .PD 0
- .TP 3
--.B p
--Hash on the device port number on which the packet was received.
--.TP 3
- .B m
- Hash on the Layer 2 destination address of the rx packet.
- .TP 3
 diff --git a/ethtool.c b/ethtool.c
-index 43ec2bf..5c45b2d 100644
+index 5c45b2d..08165eb 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -191,7 +191,7 @@ static struct option {
-     { "-N", "--config-nfc", MODE_SNFC, "Configure Rx network flow "
- 		"classification options",
- 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
--		"tcp6|udp6|ah6|sctp6 p|m|v|t|s|d|f|n|r... ]\n" },
-+		"tcp6|udp6|ah6|sctp6 m|v|t|s|d|f|n|r... ]\n" },
-     { "-h", "--help", MODE_HELP, "Show this help" },
-     {}
- };
-@@ -1090,9 +1090,6 @@ static int parse_rxfhashopts(char *optstr, u32 *data)
- 	*data = 0;
- 	while (*optstr) {
- 		switch (*optstr) {
--			case 'p':
--				*data |= RXH_DEV_PORT;
--				break;
- 			case 'm':
- 				*data |= RXH_L2DA;
- 				break;
-@@ -1132,9 +1129,6 @@ static char *unparse_rxfhashopts(u64 opts)
- 	memset(buf, 0, sizeof(buf));
- 
- 	if (opts) {
--		if (opts & RXH_DEV_PORT) {
--			strcat(buf, "Dev port\n");
--		}
- 		if (opts & RXH_L2DA) {
- 			strcat(buf, "L2DA\n");
- 		}
+@@ -941,6 +941,9 @@ static int dump_ecmd(struct ethtool_cmd *ep)
+ 	case PORT_FIBRE:
+ 		fprintf(stdout, "FIBRE\n");
+ 		break;
++	case PORT_OTHER:
++		fprintf(stdout, "Other\n");
++		break;
+ 	default:
+ 		fprintf(stdout, "Unknown! (%i)\n", ep->port);
+ 		break;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
