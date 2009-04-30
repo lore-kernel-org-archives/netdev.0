@@ -1,69 +1,46 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
-	questions)
-Date: Thu, 30 Apr 2009 11:04:22 -0400
-Message-ID: <f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
-References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
-	<625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
-	<f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
-	<1240388476.17445.10.camel@pasglop>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [RFC] Add clause 45 ioctl
+Date: Thu, 30 Apr 2009 18:05:59 +0300
+Message-ID: <1241103959.10391.3.camel@lb-tlvb-eliezer>
+References: <1240913334.8347.6.camel@lb-tlvb-eliezer>
+ <1240924931.3200.3.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	linuxppc-dev@ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1240388476.17445.10.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2244 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761813AbZD3PJB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2009 11:09:01 -0400
+In-Reply-To: <1240924931.3200.3.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBBcHIgMjIsIDIwMDkgYXQgNDoyMSBBTSwgQmVuamFtaW4gSGVycmVuc2NobWlkdAo8
-YmVuaEBrZXJuZWwuY3Jhc2hpbmcub3JnPiB3cm90ZToKPiBPbiBNb24sIDIwMDktMDQtMjAgYXQg
-MjA6MTAgLTA0MDAsIEt5bGUgTW9mZmV0dCB3cm90ZToKPj4gPiBJSVJDLCBCZW4gaGFkIHNvbWUg
-aXNzdWVzIHdpdGggaG93IHBoeWxpYiBhbmQgdGhlIEVNQUMgd291bGQgbmVlZCB0bwo+PiA+IGlu
-dGVyYWN0LiDCoE5vdCBzdXJlIGlmIGhlIGhhcyB0aG9zZSB3cml0dGVuIGRvd24gc29tZXdoZXJl
-IG9yIG5vdC4KPj4gPiAoQ0MnZCkuCj4+Cj4+IEhtbSwgeWVhaCwgSSdkIGJlIGludGVyZXN0ZWQg
-dG8gc2VlIHRob3NlLiDCoFRoZXJlJ3MgZW5vdWdoIHNpbWlsYXIKPj4gYmV0d2VlbiBwaHlsaWIg
-YW5kIHRoZSBFTUFDIGFuZCBzdW5nZW0gZHJpdmVycyB0aGF0IEknbSBjb25zaWRlcmluZyBhCj4+
-IHNlcmllcyBvZiBzb21ld2hhdC1tZWNoYW5pY2FsIHBhdGNoZXMgdG8gbWFrZSBFTUFDIGFuZCBz
-dW5nZW0gdXNlIHRoZQo+PiAic3RydWN0IHBoeV9kZXZpY2UiIGFuZCAic3RydWN0IG1paV9idXMi
-IGZyb20gcGh5bGliLCBwb3NzaWJseQo+PiBhYnN0cmFjdGluZyBvdXQgc29tZSBoZWxwZXIgZnVu
-Y3Rpb25zIGFsb25nIHRoZSB3YXkuCj4KPiBZdXAsIGVtYWMgYW5kIHN1bmdlbSBwcmVkYXRlIHBo
-eWxpYi4KPgo+IEkgaGFkIGEgcXVpY2sgbG9vayBhdCB3aGF0IGl0IHdvdWxkIHRha2UgdG8gcG9y
-dCBhdCBsZWFzdCBlbWFjIG92ZXIsIHRoZQo+IG1haW4gaXNzdWUgd2FzIHRoYXQgSSB3YW50IHRv
-IGJlIGFibGUgdG8gc2xlZXAgKGllLCB0YWtlIGEgbXV0ZXgpIGluIG15Cj4gbWRpbyByZWFkL3dy
-aXRlIGZ1bmN0aW9ucywgYW5kIGJhY2sgdGhlbiwgcGh5bGliIHdvdWxkbid0IGxldCBtZSBkbyB0
-aGF0Cj4gZHVlIHRvIHNwaW5sb2NrIGFuZCB0aW1lci9zb2Z0aXJxIHVzYWdlLgoKT2ssIEkndmUg
-bWFkZSBzb21lIHByb2dyZXNzIGluIHRoZSBwb3J0LCBidXQgcmlnaHQgbm93IEknbSB0cnlpbmcg
-dG8KcHV6emxlIG91dCB3aGF0IHRoZSAiZ3BjcyIgYml0cyBpbiB0aGUgY29kZSBhcmUuICBGcm9t
-IHRoZSBmZXcKcHVibGljbHkgYXZhaWxhYmxlIGRvY3MgYW5kIHNvbWUgbWFpbGluZyBsaXN0IHBv
-c3RzLCB0aGUgZ3BjcyBhZGRyZXNzCmFwcGVhcnMgdG8gYmUgc29tZSBraW5kIG9mIGludGVncmF0
-ZWQgdmlydHVhbCBQSFkgdXNlZCB3aGVuIDQ2MEdULWlzaApjaGlwcyBhcmUgY29tbXVuaWNhdGlu
-ZyB2aWEgYW4gU0dNSUkgYnVzLiAgTXkgY3VycmVudCBwbGFuIG9mIGFjdGlvbgppcyB0byBzZXBh
-cmF0ZSB0aGUgImdwY3MiIG91dCBpbnRvIGEgc2VwYXJhdGUgUEhZIGRldmljZSBjb250cm9sbGVk
-IGJ5CnRoZSBlbWFjIGNvZGUuCgpJJ20gYWxzbyBjdXJpb3VzIGFib3V0IHRoZSBpbnRlbnQgb2Yg
-dGhlICJtZGlvX2luc3RhbmNlIiBwb2ludGVyIChJRToKdGhlICJtZGlvLWRldmljZSIgcHJvcGVy
-dHkpLiAgSXMgdGhhdCB1c2VkIHdoZW4gYWxsIHRoZSBQSFkgZGV2aWNlcwphcmUgYXR0YWNoZWQg
-dG8gdGhlIE1ESU8gYnVzIG9mIG9ubHkgb25lIG9mIHRoZSAobXVsdGlwbGUpIGVtYWMKZGV2aWNl
-cz8gIE9yIGlzIHRoYXQgZm9yIHdoZW4gdHdvIGVtYWMgY2hpcHNldHMgYXJlIGNvbm5lY3RlZCB0
-byB0aGUKc2FtZSBNRElPIGJ1cyB3aXJlPyAgKG9yIGJvdGg/KSAgV2hhdCBrZWVwcyB0aGUgZW1h
-Y19pbnN0YW5jZSBwb2ludGVkCnRvIGJ5IHRoZSAibWRpb19pbnN0YW5jZSIgZnJvbSBnb2luZyBh
-d2F5IHdoaWxlIHRoZSBvdGhlciBlbWFjIGNoaXBzZXQKaXMgdXNpbmcgaXQ/CgpJbiBlaXRoZXIg
-Y2FzZSwgSSBwbGFuIHRvIGhhdmUgdGhlIGRldmljZSBhY3R1YWxseSBob2xkaW5nIHRoZSBNRElP
-CmJ1cyBydW4gdGhlIG1kaW9idXNfYWxsb2MoKSBhbmQgbWRpb2J1c19yZWdpc3RlcigpIGZ1bmN0
-aW9ucywgdGhlbiB0aGUKb3RoZXIgZW1hYyBpbnN0YW5jZSB3aWxsIHNpbXBseSB0YWtlIGEgcmVm
-ZXJlbmNlIHRvIHRoYXQgTURJTyBidXMKKHdoaWNoIHdvdWxkIGFsc28gcGluIGRvd24gdGhlIGVt
-YWMgaW5zdGFuY2UgdGhhdCBvd25zIGl0KS4KCkNoZWVycywKS3lsZSBNb2ZmZXR0Cl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWls
-aW5nIGxpc3QKTGludXhwcGMtZGV2QG96bGFicy5vcmcKaHR0cHM6Ly9vemxhYnMub3JnL21haWxt
-YW4vbGlzdGluZm8vbGludXhwcGMtZGV2
+On Tue, 2009-04-28 at 06:22 -0700, Ben Hutchings wrote:
+> > I'm sending this as RFC - if anyone has alternative suggestions on how
+> > user space application can access the PHY, I would appreciate it.
+> [...]
+> 
+> I was working on an alternate interface that would use the existing
+> structure and ioctls.  There are at least two drivers (cxgb3 and sfc)
+> that already do this, though they currently pack PRTAD and DEVAD
+> differently in the phy_id field.
+
+I can use the same approach and overload the CL22 definitions, but don't
+you think it is cleaner to add the CL45 definition? I think that the
+fact that two drivers are already overloading the CL22 for CL45 usage is
+showing that CL45 is needed, and the fact that they are doing that
+differently shows that there is a need for a clean definition. I'm just
+thinking about someone trying to write an application for all CL45
+supporting drivers - it is easier if there is a clean interface.
+
+What do you say?
+
+Thanks,
+Eilon
+
+
