@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 4/5] ethtool: Report link partner advertising
-Date: Thu, 30 Apr 2009 13:37:43 +0100
-Message-ID: <1241095063.3185.10.camel@achroite>
+Subject: [PATCH 5/5] ethtool: Report pause auto-negotiation flags
+Date: Thu, 30 Apr 2009 13:38:06 +0100
+Message-ID: <1241095086.3185.12.camel@achroite>
 References: <1241094796.3185.2.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,94 +9,43 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:36347 "EHLO
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:37304 "EHLO
 	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756703AbZD3Mhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:37:45 -0400
+	by vger.kernel.org with ESMTP id S1762243AbZD3MiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2009 08:38:07 -0400
 In-Reply-To: <1241094796.3185.2.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- ethtool.c |   20 +++++++++++---------
- 1 files changed, 11 insertions(+), 9 deletions(-)
+ ethtool.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
 
 diff --git a/ethtool.c b/ethtool.c
-index 08165eb..0d188af 100644
+index 0d188af..c40603c 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -839,12 +839,13 @@ static void dump_supported(struct ethtool_cmd *ep)
- 		fprintf(stdout, "No\n");
- }
- 
--static void dump_advertised(struct ethtool_cmd *ep)
-+static void dump_advertised(struct ethtool_cmd *ep,
-+			    const char *prefix, u_int32_t mask)
- {
--	u_int32_t mask = ep->advertising;
-+	int indent = strlen(prefix) + 14;
- 	int did1;
- 
--	fprintf(stdout, "	Advertised link modes:  ");
-+	fprintf(stdout, "	%s link modes:  ", prefix);
- 	did1 = 0;
- 	if (mask & ADVERTISED_10baseT_Half) {
- 		did1++; fprintf(stdout, "10baseT/Half ");
-@@ -854,7 +855,7 @@ static void dump_advertised(struct ethtool_cmd *ep)
- 	}
- 	if (did1 && (mask & (ADVERTISED_100baseT_Half|ADVERTISED_100baseT_Full))) {
- 		fprintf(stdout, "\n");
--		fprintf(stdout, "	                        ");
-+		fprintf(stdout, "	%*s", indent, "");
- 	}
- 	if (mask & ADVERTISED_100baseT_Half) {
- 		did1++; fprintf(stdout, "100baseT/Half ");
-@@ -864,7 +865,7 @@ static void dump_advertised(struct ethtool_cmd *ep)
- 	}
- 	if (did1 && (mask & (ADVERTISED_1000baseT_Half|ADVERTISED_1000baseT_Full))) {
- 		fprintf(stdout, "\n");
--		fprintf(stdout, "	                        ");
-+		fprintf(stdout, "	%*s", indent, "");
- 	}
- 	if (mask & ADVERTISED_1000baseT_Half) {
- 		did1++; fprintf(stdout, "1000baseT/Half ");
-@@ -874,14 +875,14 @@ static void dump_advertised(struct ethtool_cmd *ep)
- 	}
- 	if (did1 && (mask & ADVERTISED_2500baseX_Full)) {
- 		fprintf(stdout, "\n");
--		fprintf(stdout, "	                        ");
-+		fprintf(stdout, "	%*s", indent, "");
- 	}
- 	if (mask & ADVERTISED_2500baseX_Full) {
- 		did1++; fprintf(stdout, "2500baseX/Full ");
- 	}
- 	if (did1 && (mask & ADVERTISED_10000baseT_Full)) {
- 		fprintf(stdout, "\n");
--		fprintf(stdout, "	                        ");
-+		fprintf(stdout, "	%*s", indent, "");
- 	}
- 	if (mask & ADVERTISED_10000baseT_Full) {
- 		did1++; fprintf(stdout, "10000baseT/Full ");
-@@ -890,7 +891,7 @@ static void dump_advertised(struct ethtool_cmd *ep)
+@@ -891,6 +891,19 @@ static void dump_advertised(struct ethtool_cmd *ep,
  		 fprintf(stdout, "Not reported");
  	fprintf(stdout, "\n");
  
--	fprintf(stdout, "	Advertised auto-negotiation: ");
-+	fprintf(stdout, "	%s auto-negotiation: ", prefix);
++	fprintf(stdout, "	%s pause frame use: ", prefix);
++	if (mask & ADVERTISED_Pause) {
++		fprintf(stdout, "Symmetric");
++		if (mask & ADVERTISED_Asym_Pause)
++			fprintf(stdout, " Receive-only");
++		fprintf(stdout, "\n");
++	} else {
++		if (mask & ADVERTISED_Asym_Pause)
++			fprintf(stdout, "Transmit-only\n");
++		else
++			fprintf(stdout, "No\n");
++	}
++
+ 	fprintf(stdout, "	%s auto-negotiation: ", prefix);
  	if (mask & ADVERTISED_Autoneg)
  		fprintf(stdout, "Yes\n");
- 	else
-@@ -902,7 +903,8 @@ static int dump_ecmd(struct ethtool_cmd *ep)
- 	u32 speed;
- 
- 	dump_supported(ep);
--	dump_advertised(ep);
-+	dump_advertised(ep, "Advertised", ep->advertising);
-+	dump_advertised(ep, "Link partner advertised", ep->lp_advertising);
- 
- 	fprintf(stdout, "	Speed: ");
- 	speed = ethtool_cmd_speed(ep);
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
