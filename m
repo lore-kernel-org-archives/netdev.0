@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] mv643xx_eth fixes for 2.6.30
-Date: Wed, 29 Apr 2009 17:24:54 -0700 (PDT)
-Message-ID: <20090429.172454.88395298.davem@davemloft.net>
-References: <20090429215625.GY14729@mail.wantstofly.org>
+Subject: Re: [PATCH mmotm] mm: alloc_large_system_hash check order
+Date: Wed, 29 Apr 2009 17:25:31 -0700 (PDT)
+Message-ID: <20090429.172531.38936655.davem@davemloft.net>
+References: <Pine.LNX.4.64.0904292151350.30874@blonde.anvils>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: akpm@linux-foundation.org, mel@csn.ul.ie, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org
+To: hugh@veritas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45283
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45286
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751667AbZD3AZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:25:00 -0400
-In-Reply-To: <20090429215625.GY14729@mail.wantstofly.org>
+	by vger.kernel.org with ESMTP id S1753090AbZD3AZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2009 20:25:38 -0400
+In-Reply-To: <Pine.LNX.4.64.0904292151350.30874@blonde.anvils>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Wed, 29 Apr 2009 23:56:25 +0200
+From: Hugh Dickins <hugh@veritas.com>
+Date: Wed, 29 Apr 2009 22:09:48 +0100 (BST)
 
-> Two more fixes for mv643xx_eth for 2.6.30:
-> 1. Fix OOM handling, mv643xx_eth will currently just get into an
->    infinite netdev_alloc_skb() loop on OOM due to a logic bug.
-> 2. Fix problem where hardware 64bit MIB counters are actually 32bit
->    (and reads from the upper and lower halves have the same effect),
->    which can cause the software stats counters to spuriously increment
->    by some multiple of 2^32 if a packet comes in at the right moment.
-> 
-> Since these should also go into 2.6.29.X, I added "Cc: stable@kernel.org"
-> on both.
-> 
-> Please apply, thanks!
+> Cc'ed DaveM and netdev, just in case they're surprised it was asking for
+> so much, or disappointed it's not getting as much as it was asking for.
 
-Applied and queued up for -stable, thanks!
+This is basically what should be happening, thanks for the note.
