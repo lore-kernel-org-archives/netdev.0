@@ -1,58 +1,69 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Bug#526329: [PATCH] Bug#526329: iproute: Segfault on garbage lladdr
-Date: Thu, 30 Apr 2009 16:50:50 +0200
-Message-ID: <1241103050.19807.34.camel@amd64.fatal.se>
-References: <20090430133251.7015.21654.reportbug@bfg.majoroak.f2s.com>
-Reply-To: Andreas Henriksson <andreas@fatal.se>, 526329@bugs.debian.org
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
+	questions)
+Date: Thu, 30 Apr 2009 11:04:22 -0400
+Message-ID: <f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
+References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
+	<625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
+	<f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
+	<1240388476.17445.10.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Timothy Baldwin <T.E.Baldwin99@members.leeds.ac.uk>,  526329@bugs.debian.org, Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.526329.B526329.12411028147901@bugs.debian.org>
-In-Reply-To: <20090430133251.7015.21654.reportbug@bfg.majoroak.f2s.com>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <1240388476.17445.10.camel@pasglop>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On tor, 2009-04-30 at 14:32 +0100, Timothy Baldwin wrote:
-> Package: iproute
-> Version: 20090324-1
-> Severity: minor
-> 
-> 
-> $ ip link set eth0 address help
-> "help" is invalid lladdr.
-> Segmentation fault
-> 
-> Desipte the invalid command line arguments it shouldn't crash.
-> 
-
-Callers need to check return value from ll_addr_a2n(). Patch below.
-
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
-
-
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 237ea82..55558e3 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -200,11 +200,15 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 		} else if (matches(*argv, "address") == 0) {
- 			NEXT_ARG();
- 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+			if (len < 0)
-+				return -1;
- 			addattr_l(&req->n, sizeof(*req), IFLA_ADDRESS, abuf, len);
- 		} else if (matches(*argv, "broadcast") == 0 ||
- 				strcmp(*argv, "brd") == 0) {
- 			NEXT_ARG();
- 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+			if (len < 0)
-+				return -1;
- 			addattr_l(&req->n, sizeof(*req), IFLA_BROADCAST, abuf, len);
- 		} else if (matches(*argv, "txqueuelen") == 0 ||
- 				strcmp(*argv, "qlen") == 0 ||
+T24gV2VkLCBBcHIgMjIsIDIwMDkgYXQgNDoyMSBBTSwgQmVuamFtaW4gSGVycmVuc2NobWlkdAo8
+YmVuaEBrZXJuZWwuY3Jhc2hpbmcub3JnPiB3cm90ZToKPiBPbiBNb24sIDIwMDktMDQtMjAgYXQg
+MjA6MTAgLTA0MDAsIEt5bGUgTW9mZmV0dCB3cm90ZToKPj4gPiBJSVJDLCBCZW4gaGFkIHNvbWUg
+aXNzdWVzIHdpdGggaG93IHBoeWxpYiBhbmQgdGhlIEVNQUMgd291bGQgbmVlZCB0bwo+PiA+IGlu
+dGVyYWN0LiDCoE5vdCBzdXJlIGlmIGhlIGhhcyB0aG9zZSB3cml0dGVuIGRvd24gc29tZXdoZXJl
+IG9yIG5vdC4KPj4gPiAoQ0MnZCkuCj4+Cj4+IEhtbSwgeWVhaCwgSSdkIGJlIGludGVyZXN0ZWQg
+dG8gc2VlIHRob3NlLiDCoFRoZXJlJ3MgZW5vdWdoIHNpbWlsYXIKPj4gYmV0d2VlbiBwaHlsaWIg
+YW5kIHRoZSBFTUFDIGFuZCBzdW5nZW0gZHJpdmVycyB0aGF0IEknbSBjb25zaWRlcmluZyBhCj4+
+IHNlcmllcyBvZiBzb21ld2hhdC1tZWNoYW5pY2FsIHBhdGNoZXMgdG8gbWFrZSBFTUFDIGFuZCBz
+dW5nZW0gdXNlIHRoZQo+PiAic3RydWN0IHBoeV9kZXZpY2UiIGFuZCAic3RydWN0IG1paV9idXMi
+IGZyb20gcGh5bGliLCBwb3NzaWJseQo+PiBhYnN0cmFjdGluZyBvdXQgc29tZSBoZWxwZXIgZnVu
+Y3Rpb25zIGFsb25nIHRoZSB3YXkuCj4KPiBZdXAsIGVtYWMgYW5kIHN1bmdlbSBwcmVkYXRlIHBo
+eWxpYi4KPgo+IEkgaGFkIGEgcXVpY2sgbG9vayBhdCB3aGF0IGl0IHdvdWxkIHRha2UgdG8gcG9y
+dCBhdCBsZWFzdCBlbWFjIG92ZXIsIHRoZQo+IG1haW4gaXNzdWUgd2FzIHRoYXQgSSB3YW50IHRv
+IGJlIGFibGUgdG8gc2xlZXAgKGllLCB0YWtlIGEgbXV0ZXgpIGluIG15Cj4gbWRpbyByZWFkL3dy
+aXRlIGZ1bmN0aW9ucywgYW5kIGJhY2sgdGhlbiwgcGh5bGliIHdvdWxkbid0IGxldCBtZSBkbyB0
+aGF0Cj4gZHVlIHRvIHNwaW5sb2NrIGFuZCB0aW1lci9zb2Z0aXJxIHVzYWdlLgoKT2ssIEkndmUg
+bWFkZSBzb21lIHByb2dyZXNzIGluIHRoZSBwb3J0LCBidXQgcmlnaHQgbm93IEknbSB0cnlpbmcg
+dG8KcHV6emxlIG91dCB3aGF0IHRoZSAiZ3BjcyIgYml0cyBpbiB0aGUgY29kZSBhcmUuICBGcm9t
+IHRoZSBmZXcKcHVibGljbHkgYXZhaWxhYmxlIGRvY3MgYW5kIHNvbWUgbWFpbGluZyBsaXN0IHBv
+c3RzLCB0aGUgZ3BjcyBhZGRyZXNzCmFwcGVhcnMgdG8gYmUgc29tZSBraW5kIG9mIGludGVncmF0
+ZWQgdmlydHVhbCBQSFkgdXNlZCB3aGVuIDQ2MEdULWlzaApjaGlwcyBhcmUgY29tbXVuaWNhdGlu
+ZyB2aWEgYW4gU0dNSUkgYnVzLiAgTXkgY3VycmVudCBwbGFuIG9mIGFjdGlvbgppcyB0byBzZXBh
+cmF0ZSB0aGUgImdwY3MiIG91dCBpbnRvIGEgc2VwYXJhdGUgUEhZIGRldmljZSBjb250cm9sbGVk
+IGJ5CnRoZSBlbWFjIGNvZGUuCgpJJ20gYWxzbyBjdXJpb3VzIGFib3V0IHRoZSBpbnRlbnQgb2Yg
+dGhlICJtZGlvX2luc3RhbmNlIiBwb2ludGVyIChJRToKdGhlICJtZGlvLWRldmljZSIgcHJvcGVy
+dHkpLiAgSXMgdGhhdCB1c2VkIHdoZW4gYWxsIHRoZSBQSFkgZGV2aWNlcwphcmUgYXR0YWNoZWQg
+dG8gdGhlIE1ESU8gYnVzIG9mIG9ubHkgb25lIG9mIHRoZSAobXVsdGlwbGUpIGVtYWMKZGV2aWNl
+cz8gIE9yIGlzIHRoYXQgZm9yIHdoZW4gdHdvIGVtYWMgY2hpcHNldHMgYXJlIGNvbm5lY3RlZCB0
+byB0aGUKc2FtZSBNRElPIGJ1cyB3aXJlPyAgKG9yIGJvdGg/KSAgV2hhdCBrZWVwcyB0aGUgZW1h
+Y19pbnN0YW5jZSBwb2ludGVkCnRvIGJ5IHRoZSAibWRpb19pbnN0YW5jZSIgZnJvbSBnb2luZyBh
+d2F5IHdoaWxlIHRoZSBvdGhlciBlbWFjIGNoaXBzZXQKaXMgdXNpbmcgaXQ/CgpJbiBlaXRoZXIg
+Y2FzZSwgSSBwbGFuIHRvIGhhdmUgdGhlIGRldmljZSBhY3R1YWxseSBob2xkaW5nIHRoZSBNRElP
+CmJ1cyBydW4gdGhlIG1kaW9idXNfYWxsb2MoKSBhbmQgbWRpb2J1c19yZWdpc3RlcigpIGZ1bmN0
+aW9ucywgdGhlbiB0aGUKb3RoZXIgZW1hYyBpbnN0YW5jZSB3aWxsIHNpbXBseSB0YWtlIGEgcmVm
+ZXJlbmNlIHRvIHRoYXQgTURJTyBidXMKKHdoaWNoIHdvdWxkIGFsc28gcGluIGRvd24gdGhlIGVt
+YWMgaW5zdGFuY2UgdGhhdCBvd25zIGl0KS4KCkNoZWVycywKS3lsZSBNb2ZmZXR0Cl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWls
+aW5nIGxpc3QKTGludXhwcGMtZGV2QG96bGFicy5vcmcKaHR0cHM6Ly9vemxhYnMub3JnL21haWxt
+YW4vbGlzdGluZm8vbGludXhwcGMtZGV2
