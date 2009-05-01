@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: bond_slave_info_query() fix
-Date: Fri, 01 May 2009 15:17:19 -0700 (PDT)
-Message-ID: <20090501.151719.63842020.davem@davemloft.net>
-References: <20090423121121.GG29268@psychotron.englab.brq.redhat.com>
-	<49F06F78.4030601@cosmosbay.com>
-	<12275.1240498296@death.nxdomain.ibm.com>
+Subject: Re: [PATCH] net: remove driver_data direct access of struct device
+Date: Fri, 01 May 2009 15:22:19 -0700 (PDT)
+Message-ID: <20090501.152219.110421191.davem@davemloft.net>
+References: <20090430221931.GA18557@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, jpirko@redhat.com, netdev@vger.kernel.org
-To: fubar@us.ibm.com
+Cc: netdev@vger.kernel.org, greg@kroah.com
+To: gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55698
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55039
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753063AbZEAWRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:17:25 -0400
-In-Reply-To: <12275.1240498296@death.nxdomain.ibm.com>
+	by vger.kernel.org with ESMTP id S1753222AbZEAWWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:22:25 -0400
+In-Reply-To: <20090430221931.GA18557@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Thu, 23 Apr 2009 07:51:36 -0700
+From: Greg Kroah-Hartman <gregkh@suse.de>
+Date: Thu, 30 Apr 2009 15:19:31 -0700
 
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
+> In the near future, the driver core is going to not allow direct access
+> to the driver_data pointer in struct device.  Instead, the functions
+> dev_get_drvdata() and dev_set_drvdata() should be used.  These functions
+> have been around since the beginning, so are backwards compatible with
+> all older kernel versions.
 > 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> 
->>Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-Aha, I'll apply this updated version instead, ignore my
-other email.
+Applied to net-next-2.6, thanks.
