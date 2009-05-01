@@ -1,74 +1,49 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] netfilter: use likely()  in xt_info_rdlock_bh()
-Date: Fri, 01 May 2009 10:38:20 +0200
-Message-ID: <49FAB4FC.6040907@cosmosbay.com>
-References: <20090428092411.5331c4a1@nehalam>	<alpine.LFD.2.00.0904280931360.22156@localhost.localdomain>	<alpine.LFD.2.00.0904280954500.22156@localhost.localdomain> <20090428.223708.168741998.davem@davemloft.net>
+Subject: Re: [PATCH] net: skb_tx_hash() improvements
+Date: Fri, 01 May 2009 10:52:01 +0200
+Message-ID: <49FAB831.6020700@cosmosbay.com>
+References: <96ff3930904300207l4ecfe90byd6cce3f56ce4e113@mail.gmail.com>	 <20090430.022417.07019547.davem@davemloft.net>	 <606676310904300704p5308e3b6le2c469d320cc669@mail.gmail.com>	 <20090430.070811.260649067.davem@davemloft.net> <606676310904301653w28f3226fsc477dc92b6a7cdbc@mail.gmail.com> <49FA932B.4030405@cosmosbay.com> <49FAB2D5.60508@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, kaber@trash.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Andrew Dickinson <andrew@whydna.net>, jelaas@gmail.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090428.223708.168741998.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37956 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbZEAIwK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 04:52:10 -0400
+In-Reply-To: <49FAB2D5.60508@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Tue, 28 Apr 2009 09:55:32 -0700 (PDT)
+Eric Dumazet a =E9crit :
+> David, here is the followup I promised
 >=20
->> On Tue, 28 Apr 2009, Linus Torvalds wrote:
->>> Ack.=20
->>>
->>> It could do with the update from Eric about how non-current CPU wri=
-telocks=20
->>> only require preemp-disable around get_counters() (and then the=20
->>> local_bh_disable() only around the current-CPU case).
->> Btw, regardless, that's an incremental improvement, and does not neg=
-ate=20
->> the "Ack" part.
+> Thanks
 >=20
-> I've applied this, thanks everyone!
+> [PATCH] net: skb_tx_hash() improvements
+>=20
+> When skb_rx_queue_recorded() is true, we dont want to use jhash distr=
+ibution
+> as the device driver exactly told us which queue was selected at RX t=
+ime.
+> jhash makes a statistical shuffle, but this wont work with only 8 dif=
+ferent inputs.
+>=20
+> We also need to implement a true reciprocal division, to not disturb
+> symmetric setups (when number of tx queues matches number of rx queue=
+s)
+> and cpu affinities.
+>=20
+> This patch introduces a new helper, dev_real_num_tx_queues_set()
+> to set both real_num_tx_queues and its reciprocal value,
+> and makes all drivers use this helper.
 
-Small followup on this one, since the likely() were forgotten.
-(I trimmed down CCed list, which was insane)
+Oh well, this was wrong, I took divide result while we want a modulo !
 
-It makes a difference on my x86_32 machine, gcc-4.4.0
+Need to think a litle bit more :)
 
-Thank you
 
-[PATCH] netfilter: use likely() in xt_info_rdlock_bh()
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
-
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilt=
-er/x_tables.h
-index 1b2e435..c9efe03 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -472,7 +472,7 @@ static inline void xt_info_rdlock_bh(void)
-=20
- 	local_bh_disable();
- 	lock =3D &__get_cpu_var(xt_info_locks);
--	if (!lock->readers++)
-+	if (likely(!lock->readers++))
- 		spin_lock(&lock->lock);
- }
-=20
-@@ -480,7 +480,7 @@ static inline void xt_info_rdunlock_bh(void)
- {
- 	struct xt_info_lock *lock =3D &__get_cpu_var(xt_info_locks);
-=20
--	if (!--lock->readers)
-+	if (likely(!--lock->readers))
- 		spin_unlock(&lock->lock);
- 	local_bh_enable();
- }
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
