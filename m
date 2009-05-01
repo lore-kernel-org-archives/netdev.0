@@ -1,57 +1,140 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: tulip_rxtx_stop() on Cobalt Qube2
-Date: Fri, 1 May 2009 12:38:57 +0200
-Message-ID: <200905011238.59345.florian@openwrt.org>
+From: Hugh Dickins <hugh@veritas.com>
+Subject: Re: [PATCH mmotm] mm: alloc_large_system_hash check order
+Date: Fri, 1 May 2009 12:30:03 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0905011202530.8513@blonde.anvils>
+References: <Pine.LNX.4.64.0904292151350.30874@blonde.anvils>
+ <20090430132544.GB21997@csn.ul.ie>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, grundler@parisc-linux.org, kyle@mcmartin.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:34464 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754402AbZEAKjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 06:39:06 -0400
-Received: by ewy24 with SMTP id 24so2379171ewy.37
-        for <netdev@vger.kernel.org>; Fri, 01 May 2009 03:39:05 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        Andi Kleen <andi@firstfloor.org>, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mm@kvack.org
+To: Mel Gorman <mel@csn.ul.ie>
+Return-path: <owner-linux-mm@kvack.org>
+Received: from [172.20.26.149]([172.20.26.149]) (4888 bytes) by megami.veritas.com
+	via sendmail with P:esmtp/R:smart_host/T:smtp
+	(sender: <hugh@veritas.com>)
+	id <m1LzqwQ-0000hOC@megami.veritas.com>
+	for <netdev@vger.kernel.org>; Fri, 1 May 2009 04:30:06 -0700 (PDT)
+	(Smail-3.2.0.101 1997-Dec-17 #15 built 2001-Aug-30)
+In-Reply-To: <20090430132544.GB21997@csn.ul.ie>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Grant, Kyle,
+On Thu, 30 Apr 2009, Mel Gorman wrote:
+> On Wed, Apr 29, 2009 at 10:09:48PM +0100, Hugh Dickins wrote:
+> > On an x86_64 with 4GB ram, tcp_init()'s call to alloc_large_system_hash(),
+> > to allocate tcp_hashinfo.ehash, is now triggering an mmotm WARN_ON_ONCE on
+> > order >= MAX_ORDER - it's hoping for order 11.  alloc_large_system_hash()
+> > had better make its own check on the order.
+> > 
+> > Signed-off-by: Hugh Dickins <hugh@veritas.com>
+> 
+> Looks good
+> 
+> Reviewed-by: Mel Gorman <mel@csn.ul.ie>
 
-I just updated my Qube2 to run a 2.6.30-rc2-00476-gd678033 kernel (also seen 
-on a 2.6.29-rc2-00462-gfa04b54) and I get the following message while booting 
-the box now, I have not git bisected the offending commit yet :
+Thanks.
 
-[snip]
-Linux Tulip driver version 1.1.15-NAPI (Feb 27, 2007)
-PCI: Enabling device 0000:00:07.0 (0045 -> 0047)
-tulip0: Old format EEPROM on 'Cobalt Microserver' board.  Using substitute 
-media control info.
-tulip0:  EEPROM default media type Autosense.
-tulip0:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3) block.
-tulip0:  MII transceiver #1 config 1000 status 7809 advertising 01e1.
-eth0: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082000, 00:10:e0:00:7d:1f, 
-IRQ 19.
-PCI: Enabling device 0000:00:0c.0 (0005 -> 0007)
-tulip1: Old format EEPROM on 'Cobalt Microserver' board.  Using substitute 
-media control info.
-tulip1:  EEPROM default media type Autosense.
-tulip1:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3) block.
-tulip1:  MII transceiver #1 config 1000 status 7809 advertising 01e1.
-eth1: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082400, 00:10:e0:00:88:b9, 
-IRQ 20.
-[snip]
-0000:00:07.0: tulip_stop_rxtx() failed (CSR5 0xf0660000 CSR6 0xb20e2202)
-eth0: Setting full-duplex based on MII#1 link partner capability of 45e1.
+> 
+> As I was looking there, it seemed that alloc_large_system_hash() should be
+> using alloc_pages_exact() instead of having its own "give back the spare
+> pages at the end of the buffer" logic. If alloc_pages_exact() was used, then
+> the check for an order >= MAX_ORDER can be pushed down to alloc_pages_exact()
+> where it may catch other unwary callers.
+> 
+> How about adding the following patch on top of yours?
 
-The interface is still fully functional, shall we increase the timeount in 
-tulip_stop_rxtx() to prevent this message from appearing ?
+Well observed, yes indeed.  In fact, it even looks as if, shock horror,
+alloc_pages_exact() was _plagiarized_ from alloc_large_system_hash().
+Blessed be the GPL, I'm sure we can skip the lengthy lawsuits!
 
-Thanks a lot in advance for your answer.
--- 
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+> 
+> ==== CUT HERE ====
+> Use alloc_pages_exact() in alloc_large_system_hash() to avoid duplicated logic
+> 
+> alloc_large_system_hash() has logic for freeing unused pages at the end
+> of an power-of-two-pages-aligned buffer that is a duplicate of what is in
+> alloc_pages_exact(). This patch converts alloc_large_system_hash() to use
+> alloc_pages_exact().
+> 
+> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
+> --- 
+>  mm/page_alloc.c |   27 +++++----------------------
+>  1 file changed, 5 insertions(+), 22 deletions(-)
+> 
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index 1b3da0f..c94b140 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -1942,6 +1942,9 @@ void *alloc_pages_exact(size_t size, gfp_t gfp_mask)
+>  	unsigned int order = get_order(size);
+>  	unsigned long addr;
+>  
+> +	if (order >= MAX_ORDER)
+> +		return NULL;
+> +
+
+I suppose there could be an argument about whether we do or do not
+want to skip the WARN_ON when it's in alloc_pages_exact().
+
+I have no opinion on that; but DaveM's reply on large_system_hash
+does make it clear that we're not interested in the warning there.
+
+>  	addr = __get_free_pages(gfp_mask, order);
+>  	if (addr) {
+>  		unsigned long alloc_end = addr + (PAGE_SIZE << order);
+> @@ -4755,28 +4758,8 @@ void *__init alloc_large_system_hash(const char *tablename,
+>  			table = alloc_bootmem_nopanic(size);
+>  		else if (hashdist)
+>  			table = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
+> -		else {
+> -			unsigned long order = get_order(size);
+> -
+> -			if (order < MAX_ORDER)
+> -				table = (void *)__get_free_pages(GFP_ATOMIC,
+> -								order);
+> -			/*
+> -			 * If bucketsize is not a power-of-two, we may free
+> -			 * some pages at the end of hash table.
+> -			 */
+
+That's actually a helpful comment, it's easy to think we're dealing
+in powers of two here when we may not be.  Maybe retain it with your
+alloc_pages_exact call?
+
+> -			if (table) {
+> -				unsigned long alloc_end = (unsigned long)table +
+> -						(PAGE_SIZE << order);
+> -				unsigned long used = (unsigned long)table +
+> -						PAGE_ALIGN(size);
+> -				split_page(virt_to_page(table), order);
+> -				while (used < alloc_end) {
+> -					free_page(used);
+> -					used += PAGE_SIZE;
+> -				}
+> -			}
+> -		}
+> +		else
+> +			table = alloc_pages_exact(PAGE_ALIGN(size), GFP_ATOMIC);
+
+Do you actually need that PAGE_ALIGN on the size?
+
+>  	} while (!table && size > PAGE_SIZE && --log2qty);
+>  
+>  	if (!table)
+
+Andrew noticed another oddity: that if it goes the hashdist __vmalloc()
+way, it won't be limited by MAX_ORDER.  Makes one wonder whether it
+ought to fall back to __vmalloc() if the alloc_pages_exact() fails.
+I think that's a change we could make _if_ the large_system_hash
+users ever ask for it, but _not_ one we should make surreptitiously.
+
+Hugh
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
