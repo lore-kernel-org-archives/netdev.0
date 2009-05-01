@@ -1,227 +1,352 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: add mark mode
-Date: Fri, 01 May 2009 13:44:53 -0700
-Message-ID: <6658.1241210693@death.nxdomain.ibm.com>
-References: <20090501173916.GA6608@gospo.rdu.redhat.com> <20090501193403.GA5840@hmsreliant.think-freely.org> <501.1241207536@death.nxdomain.ibm.com> <20090501202509.GB6608@gospo.rdu.redhat.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Andy Gospodarek <andy@greyhouse.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/4] bnx2: Add support for CNIC driver.
+Date: Fri, 1 May 2009 13:00:36 -0700
+Message-ID: <1241208039-6813-2-git-send-email-mchan@broadcom.com>
+References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com
+To: davem@davemloft.net, michaelc@cs.wisc.edu,
+	James.Bottomley@HansenPartnership.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:40561 "EHLO e9.ny.us.ibm.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2211 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753039AbZEAUos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2009 16:44:48 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e9.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n41KXskl007692
-	for <netdev@vger.kernel.org>; Fri, 1 May 2009 16:33:54 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n41KimW5151038
-	for <netdev@vger.kernel.org>; Fri, 1 May 2009 16:44:48 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n41KilbQ006072
-	for <netdev@vger.kernel.org>; Fri, 1 May 2009 16:44:48 -0400
-In-reply-to: <20090501202509.GB6608@gospo.rdu.redhat.com>
+	id S1764240AbZEAUwP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 May 2009 16:52:15 -0400
+In-Reply-To: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+Add interface and functions to support a new CNIC driver to drive
+the hardware for iSCSI offload.
 
->On Fri, May 01, 2009 at 12:52:16PM -0700, Jay Vosburgh wrote:
->> Neil Horman <nhorman@tuxdriver.com> wrote:
->> 
->> >On Fri, May 01, 2009 at 01:39:16PM -0400, Andy Gospodarek wrote:
->> >> 
->> >> Quite a few people are happy with the way bonding manages to split
->> >> traffic to different members of a bond.  Many are quite disappointed
->> >> that users or administrators cannot be given more control over the
->> >> traffic distribution and would like something that they can control more
->> >> easily.  I looked at extending some of the existing modes, but the
->> >> cleanest option seemed to be one that created an additional mode to
->> >> handle this case.  I hated to create yet another mode, but the
->> >> simplicity of this mode made it a nice candidate for a new mode.  I have
->> >> decided to call this mode 'mark' (or mode 7).
->> >> 
->> >> The mark mode of bonding relies on the skb->mark field for outgoing
->> >> device selection.  Unmarked frames (ones where the mark is still zero),
->> >> will be sent by the first active enslaved device.  Any marked frames
->> >> will choose the outgoing device based on result of the modulo of the mark
->> >> and the number of enslaved devices.  If that device is inactive
->> >> (link-down), the traffic will default back to the first active enslaved
->> >> device.  I debated how to use the mark to decide the outgoing device,
->> >> but it seemed that modulo of the mark and the number of enslaved devices
->> >> would provide the most flexibility for those who currently mark frames
->> >> for other purposes.
->> >> 
->> >> I considered some other options for choosing destination devices based
->> >> on marks, but the ones I came up would require additional sysfs
->> >> configuration parameters and I would prefer not to add any more to an
->> >> already crowded space.
->> >> 
->> >> I've tested this on a slightly older kernel than the net-next-2.6 tree
->> >> than this patch is against by marking frames using mark and connmark
->> >> iptables options and it seems to work as I expect.
->> >> 
->> >> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->> >> ---
->> >> 
->> >>  Documentation/networking/bonding.txt |   25 ++++++++++++++
->> >>  drivers/net/bonding/bond_main.c      |   59 ++++++++++++++++++++++++++++++++++-
->> >>  include/linux/if_bonding.h           |    1 
->> >>  3 files changed, 84 insertions(+), 1 deletion(-)
->> >> 
->> >> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
->> >> index 0876275..7a0d4c2 100644
->> >> --- a/Documentation/networking/bonding.txt
->> >> +++ b/Documentation/networking/bonding.txt
->> >> @@ -582,6 +582,31 @@ mode
->> >>  		swapped with the new curr_active_slave that was
->> >>  		chosen.
->> >>  
->> >> +	mark or 7
->> >> +
->> >> +		Mark-based policy: skbuffs that arrive to be
->> >> +		transmitted will have the mark field inspected to
->> >> +		determine the destination slave device.  When the
->> >> +		skbuff's mark is zero, the first active device in the
->> >> +		ordered list of enslaved devices will be used.  When
->> >> +		the mark is non-zero the modulo of the mark and the
->> >> +		number of enslaved devices will determine the
->> >> +		interface used for transmission.  If this device is
->> >> +		not active (link-down) then the mark will essentially
->> >> +		be ignored and the first active device in the ordered
->> >> +		list of enslaved devices will be used.
->> >> +
->> >> +		The flexibility offered with this mode allows users
->> >> +		of netfilter to move various types of traffic to
->> >> +		different slaves quite easily.  Information on this
->> >> +		can be found in the manpages for iptables/ebtables
->> >> +		as well as netfilter documentation.
->> >> +
->> >> +		Prerequisites:
->> >> +
->> >> +		1.  Without the ability to mark skbuffs this mode is
->> >> +		not useful.  Netfilter greatly aides skbuff marking.
->> >> +
->> >>  num_grat_arp
->> >>  
->> >>  	Specifies the number of gratuitous ARPs to be issued after a
->> >> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> >> index fd73836..5e1d166 100644
->> >> --- a/drivers/net/bonding/bond_main.c
->> >> +++ b/drivers/net/bonding/bond_main.c
->> >> @@ -123,7 +123,7 @@ module_param(mode, charp, 0);
->> >>  MODULE_PARM_DESC(mode, "Mode of operation : 0 for balance-rr, "
->> >>  		       "1 for active-backup, 2 for balance-xor, "
->> >>  		       "3 for broadcast, 4 for 802.3ad, 5 for balance-tlb, "
->> >> -		       "6 for balance-alb");
->> >> +		       "6 for balance-alb, 7 for mark");
->> >>  module_param(primary, charp, 0);
->> >>  MODULE_PARM_DESC(primary, "Primary network device to use");
->> >>  module_param(lacp_rate, charp, 0);
->> >> @@ -175,6 +175,7 @@ const struct bond_parm_tbl bond_mode_tbl[] = {
->> >>  {	"802.3ad",		BOND_MODE_8023AD},
->> >>  {	"balance-tlb",		BOND_MODE_TLB},
->> >>  {	"balance-alb",		BOND_MODE_ALB},
->> >> +{	"mark",			BOND_MODE_MARK},
->> >>  {	NULL,			-1},
->> >>  };
->> >>  
->> >> @@ -224,6 +225,7 @@ static const char *bond_mode_name(int mode)
->> >>  		[BOND_MODE_8023AD]= "IEEE 802.3ad Dynamic link aggregation",
->> >>  		[BOND_MODE_TLB] = "transmit load balancing",
->> >>  		[BOND_MODE_ALB] = "adaptive load balancing",
->> >> +		[BOND_MODE_MARK] = "mark-based transmit balancing",
->> >>  	};
->> >>  
->> >>  	if (mode < 0 || mode > BOND_MODE_ALB)
->> >> @@ -4464,6 +4466,57 @@ out:
->> >>  	return 0;
->> >>  }
->> >>  
->> >> +static int bond_xmit_mark(struct sk_buff *skb, struct net_device *bond_dev)
->> >> +{
->> >> +	struct bonding *bond = netdev_priv(bond_dev);
->> >> +	struct slave *slave;
->> >> +	int i, slave_no, res = 1;
->> >> +
->> >> +	read_lock(&bond->lock);
->> >> +
->> >> +	if (!BOND_IS_OK(bond)) {
->> >> +		goto out;
->> >> +	}
->> >> +
->> >> +	/* Use the mark as the determining factor for which slave to
->> >> +	 * choose for transmission.  When behaving normally all should
->> >> +	 * work just fine.  When a slave that is destined to be the
->> >> +	 * transmitter of this frame is down, start at the front of the
->> >> +	 * list and find the first available slave. */
->> 
->> 	Why not simply use the N'th up slave instead of reverting to
->> slave 0 for the down slave case?  I'm guessing this has to do with
->> trying to maintain some fixed balancing of traffic even in the face of
->> slave failure.
->> 
->
->That could be a reasonable option as well -- in fact that was my first
->implementation.  I decided to do it this way, so that a user could
->consider the first device as the primary slave for unmarked traffic and
->the slave for marked traffic destined for a slave that was down rather
->than what might seem like a random choice for traffic.
-
-	Ok, understood.
-
->> >> +	slave_no = skb->mark ? skb->mark % bond->slave_cnt : 0;
->> >> +
->> >Would it be worthwhile to add a special case here (say all f's in mark, to
->> >indicate a frames should be sent out all slaves on the bond?  In the case you
->> >have traffic that might need to go to all interface (like maybe igmp)?
->> 
->> 	If I'm not misunderstanding the purpose of the mode, I think
->> it's etherchannel compatible (meaning that the switch has to be
->> configured), so I'm not sure why there would ever be a need to flood
->> packets to all ports.
->> 
->> 	I think this would be generally be better a special hash policy,
->> in which case both the etherchannel (balance-xor) and 802.3ad modes
->> could take advantage of it.  I'd hazard to guess that Andy thought about
->> that, too, so what was the impediment?
->> 
->
->I wasn't designing this to be etherchannel compatible.  Though it could
->work that way, my idea was to use this in an environment where slaves
->may be connected to different switches that are capable of moving all of
->the traffic to it's destination if needed, but if the traffic is split
->in a predictable application specific manner the network can run more
->efficiently.  Think of this more as an active-backup mode where the
->backup links could actually be utilized.
-
-	Hmm.  If the slaves don't connect to the same places, why use
-bonding at all, then?  Or, perhaps, two smaller bonds instead of one big
-one.
-
-	Are you thinking of something like a load balancer back end, or
-am I missing the point entirely?
-
-	And, really, active-backup using the backup links is just a load
-balancing mode.  I'm not sure I see the special distinction there.
-
->When I first started on this I considered just extending the
->active-backup mode's transmit function, but I didn't want to deal with
->the potential loss of duplicate frames in skb_bond_should_drop and I
->also didn't want to deal with the complicated failover scenarios of
->active-backup mode.
->
->It's probably the most like round-robin (in fact it's quite close), but
->I felt that this mode could eventually grow into something more useful
->(who knows how it might be extended) and deserved it's own mode rather
->than dealing with the possibility of having a larger more complicated
->transmit routine in the future when another mode would be just fine.
-
-	I'm still not quite sure how this differs from balance-xor mode
-with a hypothetical "xmit_hash_policy=mark" sort of arrangement, other
-than, perhaps, intended purpose.
-
-	-J
-
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/bnx2.c |  193 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/bnx2.h |   18 +++++
+ 2 files changed, 208 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index d478391..aabc030 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -49,6 +49,10 @@
+ #include <linux/firmware.h>
+ #include <linux/log2.h>
+ 
++#if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
++#define BCM_CNIC 1
++#include "cnic_if.h"
++#endif
+ #include "bnx2.h"
+ #include "bnx2_fw.h"
+ 
+@@ -315,6 +319,158 @@ bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
+ 	spin_unlock_bh(&bp->indirect_lock);
+ }
+ 
++#ifdef BCM_CNIC
++static int
++bnx2_drv_ctl(struct net_device *dev, struct drv_ctl_info *info)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++	struct drv_ctl_io *io = &info->data.io;
++
++	switch (info->cmd) {
++	case DRV_CTL_IO_WR_CMD:
++		bnx2_reg_wr_ind(bp, io->offset, io->data);
++		break;
++	case DRV_CTL_IO_RD_CMD:
++		io->data = bnx2_reg_rd_ind(bp, io->offset);
++		break;
++	case DRV_CTL_CTX_WR_CMD:
++		bnx2_ctx_wr(bp, io->cid_addr, io->offset, io->data);
++		break;
++	default:
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static void bnx2_setup_cnic_irq_info(struct bnx2 *bp)
++{
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
++	int sb_id;
++
++	if (bp->flags & BNX2_FLAG_USING_MSIX) {
++		cp->drv_state |= CNIC_DRV_STATE_USING_MSIX;
++		bnapi->cnic_present = 0;
++		sb_id = bp->irq_nvecs;
++		cp->irq_arr[0].irq_flags |= CNIC_IRQ_FL_MSIX;
++	} else {
++		cp->drv_state &= ~CNIC_DRV_STATE_USING_MSIX;
++		bnapi->cnic_tag = bnapi->last_status_idx;
++		bnapi->cnic_present = 1;
++		sb_id = 0;
++		cp->irq_arr[0].irq_flags &= ~CNIC_IRQ_FL_MSIX;
++	}
++
++	cp->irq_arr[0].vector = bp->irq_tbl[sb_id].vector;
++	cp->irq_arr[0].status_blk = (void *)
++		((unsigned long) bnapi->status_blk.msi +
++		(BNX2_SBLK_MSIX_ALIGN_SIZE * sb_id));
++	cp->irq_arr[0].status_blk_num = sb_id;
++	cp->num_irq = 1;
++}
++
++static int bnx2_register_cnic(struct net_device *dev, struct cnic_ops *ops,
++			      void *data)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++
++	if (ops == NULL)
++		return -EINVAL;
++
++	if (cp->drv_state & CNIC_DRV_STATE_REGD)
++		return -EBUSY;
++
++	bp->cnic_data = data;
++	rcu_assign_pointer(bp->cnic_ops, ops);
++
++	cp->num_irq = 0;
++	cp->drv_state = CNIC_DRV_STATE_REGD;
++
++	bnx2_setup_cnic_irq_info(bp);
++
++	return 0;
++}
++
++static int bnx2_unregister_cnic(struct net_device *dev)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++
++	cp->drv_state = 0;
++	bnapi->cnic_present = 0;
++	rcu_assign_pointer(bp->cnic_ops, NULL);
++	synchronize_rcu();
++	return 0;
++}
++
++struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++
++	cp->drv_owner = THIS_MODULE;
++	cp->chip_id = bp->chip_id;
++	cp->pdev = bp->pdev;
++	cp->io_base = bp->regview;
++	cp->drv_ctl = bnx2_drv_ctl;
++	cp->drv_register_cnic = bnx2_register_cnic;
++	cp->drv_unregister_cnic = bnx2_unregister_cnic;
++
++	return cp;
++}
++EXPORT_SYMBOL(bnx2_cnic_probe);
++
++static void
++bnx2_cnic_stop(struct bnx2 *bp)
++{
++	struct cnic_ops *c_ops;
++	struct cnic_ctl_info info;
++
++	rcu_read_lock();
++	c_ops = rcu_dereference(bp->cnic_ops);
++	if (c_ops) {
++		info.cmd = CNIC_CTL_STOP_CMD;
++		c_ops->cnic_ctl(bp->cnic_data, &info);
++	}
++	rcu_read_unlock();
++}
++
++static void
++bnx2_cnic_start(struct bnx2 *bp)
++{
++	struct cnic_ops *c_ops;
++	struct cnic_ctl_info info;
++
++	rcu_read_lock();
++	c_ops = rcu_dereference(bp->cnic_ops);
++	if (c_ops) {
++		if (!(bp->flags & BNX2_FLAG_USING_MSIX)) {
++			struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
++
++			bnapi->cnic_tag = bnapi->last_status_idx;
++		}
++		info.cmd = CNIC_CTL_START_CMD;
++		c_ops->cnic_ctl(bp->cnic_data, &info);
++	}
++	rcu_read_unlock();
++}
++
++#else
++
++static void
++bnx2_cnic_stop(struct bnx2 *bp)
++{
++}
++
++static void
++bnx2_cnic_start(struct bnx2 *bp)
++{
++}
++
++#endif
++
+ static int
+ bnx2_read_phy(struct bnx2 *bp, u32 reg, u32 *val)
+ {
+@@ -488,6 +644,7 @@ bnx2_napi_enable(struct bnx2 *bp)
+ static void
+ bnx2_netif_stop(struct bnx2 *bp)
+ {
++	bnx2_cnic_stop(bp);
+ 	bnx2_disable_int_sync(bp);
+ 	if (netif_running(bp->dev)) {
+ 		bnx2_napi_disable(bp);
+@@ -504,6 +661,7 @@ bnx2_netif_start(struct bnx2 *bp)
+ 			netif_tx_wake_all_queues(bp->dev);
+ 			bnx2_napi_enable(bp);
+ 			bnx2_enable_int(bp);
++			bnx2_cnic_start(bp);
+ 		}
+ 	}
+ }
+@@ -3162,6 +3320,11 @@ bnx2_has_work(struct bnx2_napi *bnapi)
+ 	if (bnx2_has_fast_work(bnapi))
+ 		return 1;
+ 
++#ifdef BCM_CNIC
++	if (bnapi->cnic_present && (bnapi->cnic_tag != sblk->status_idx))
++		return 1;
++#endif
++
+ 	if ((sblk->status_attn_bits & STATUS_ATTN_EVENTS) !=
+ 	    (sblk->status_attn_bits_ack & STATUS_ATTN_EVENTS))
+ 		return 1;
+@@ -3191,6 +3354,23 @@ bnx2_chk_missed_msi(struct bnx2 *bp)
+ 	bp->idle_chk_status_idx = bnapi->last_status_idx;
+ }
+ 
++#ifdef BCM_CNIC
++static void bnx2_poll_cnic(struct bnx2 *bp, struct bnx2_napi *bnapi)
++{
++	struct cnic_ops *c_ops;
++
++	if (!bnapi->cnic_present)
++		return;
++
++	rcu_read_lock();
++	c_ops = rcu_dereference(bp->cnic_ops);
++	if (c_ops)
++		bnapi->cnic_tag = c_ops->cnic_handler(bp->cnic_data,
++						      bnapi->status_blk.msi);
++	rcu_read_unlock();
++}
++#endif
++
+ static void bnx2_poll_link(struct bnx2 *bp, struct bnx2_napi *bnapi)
+ {
+ 	struct status_block *sblk = bnapi->status_blk.msi;
+@@ -3265,6 +3445,10 @@ static int bnx2_poll(struct napi_struct *napi, int budget)
+ 
+ 		work_done = bnx2_poll_work(bp, bnapi, work_done, budget);
+ 
++#ifdef BCM_CNIC
++		bnx2_poll_cnic(bp, bnapi);
++#endif
++
+ 		/* bnapi->last_status_idx is used below to tell the hw how
+ 		 * much work has been processed, so we must read it before
+ 		 * checking for more work.
+@@ -4630,8 +4814,11 @@ bnx2_init_chip(struct bnx2 *bp)
+ 	val = REG_RD(bp, BNX2_MQ_CONFIG);
+ 	val &= ~BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE;
+ 	val |= BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE_256;
+-	if (CHIP_ID(bp) == CHIP_ID_5709_A0 || CHIP_ID(bp) == CHIP_ID_5709_A1)
+-		val |= BNX2_MQ_CONFIG_HALT_DIS;
++	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
++		val |= BNX2_MQ_CONFIG_BIN_MQ_MODE;
++		if (CHIP_REV(bp) == CHIP_REV_Ax)
++			val |= BNX2_MQ_CONFIG_HALT_DIS;
++	}
+ 
+ 	REG_WR(bp, BNX2_MQ_CONFIG, val);
+ 
+@@ -7469,7 +7656,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	INIT_WORK(&bp->reset_task, bnx2_reset_task);
+ 
+ 	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
+-	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS);
++	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS + 1);
+ 	dev->mem_end = dev->mem_start + mem_len;
+ 	dev->irq = pdev->irq;
+ 
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 5b570e1..a1ff739 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -361,6 +361,9 @@ struct l2_fhdr {
+ #define BNX2_L2CTX_CTX_TYPE_CTX_BD_CHN_TYPE_VALUE	 (1<<28)
+ 
+ #define BNX2_L2CTX_HOST_BDIDX				0x00000004
++#define BNX2_L2CTX_STATUSB_NUM_SHIFT			 16
++#define BNX2_L2CTX_STATUSB_NUM(sb_id)			 \
++	(((sb_id) > 0) ? (((sb_id) + 7) << BNX2_L2CTX_STATUSB_NUM_SHIFT) : 0)
+ #define BNX2_L2CTX_HOST_BSEQ				0x00000008
+ #define BNX2_L2CTX_NX_BSEQ				0x0000000c
+ #define BNX2_L2CTX_NX_BDHADDR_HI			0x00000010
+@@ -5900,6 +5903,7 @@ struct l2_fhdr {
+ #define BNX2_RXP_FTQ_CTL_CUR_DEPTH			 (0x3ffL<<22)
+ 
+ #define BNX2_RXP_SCRATCH				0x000e0000
++#define BNX2_RXP_SCRATCH_RXP_FLOOD			 0x000e0024
+ #define BNX2_RXP_SCRATCH_RSS_TBL_SZ			 0x000e0038
+ #define BNX2_RXP_SCRATCH_RSS_TBL			 0x000e003c
+ #define BNX2_RXP_SCRATCH_RSS_TBL_MAX_ENTRIES		 128
+@@ -6678,6 +6682,11 @@ struct bnx2_napi {
+ 	u32 			last_status_idx;
+ 	u32			int_num;
+ 
++#ifdef BCM_CNIC
++	u32			cnic_tag;
++	int			cnic_present;
++#endif
++
+ 	struct bnx2_rx_ring_info	rx_ring;
+ 	struct bnx2_tx_ring_info	tx_ring;
+ };
+@@ -6727,6 +6736,11 @@ struct bnx2 {
+ 	int		tx_ring_size;
+ 	u32		tx_wake_thresh;
+ 
++#ifdef BCM_CNIC
++	struct cnic_ops		*cnic_ops;
++	void			*cnic_data;
++#endif
++
+ 	/* End of fields used in the performance code paths. */
+ 
+ 	unsigned int		current_interval;
+@@ -6885,6 +6899,10 @@ struct bnx2 {
+ 
+ 	u32			idle_chk_status_idx;
+ 
++#ifdef BCM_CNIC
++	struct cnic_eth_dev	cnic_eth_dev;
++#endif
++
+ 	const struct firmware	*mips_firmware;
+ 	const struct firmware	*rv2p_firmware;
+ };
+-- 
+1.5.6.GIT
+
+
