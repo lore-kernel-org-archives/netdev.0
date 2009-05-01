@@ -1,109 +1,68 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] net: skb_tx_hash() improvements
-Date: Fri, 01 May 2009 11:29:54 +0200
-Message-ID: <49FAC112.6090808@cosmosbay.com>
-References: <96ff3930904300207l4ecfe90byd6cce3f56ce4e113@mail.gmail.com>	 <20090430.022417.07019547.davem@davemloft.net>	 <606676310904300704p5308e3b6le2c469d320cc669@mail.gmail.com>	 <20090430.070811.260649067.davem@davemloft.net> <606676310904301653w28f3226fsc477dc92b6a7cdbc@mail.gmail.com> <49FA932B.4030405@cosmosbay.com> <49FAB2D5.60508@cosmosbay.com> <49FAB831.6020700@cosmosbay.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: tx queue hashing hot-spots and poor performance (multiq, ixgbe)
+Date: Fri, 1 May 2009 12:20:12 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0905011206510.10383@ask.diku.dk>
+References: <606676310904291600u40e44187g4cfc104007b24fce@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Dickinson <andrew@whydna.net>, jelaas@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Dickinson <andrew@whydna.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50867 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbZEAJaC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 05:30:02 -0400
-In-Reply-To: <49FAB831.6020700@cosmosbay.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:44969 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752926AbZEAKUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 May 2009 06:20:18 -0400
+In-Reply-To: <606676310904291600u40e44187g4cfc104007b24fce@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Eric Dumazet a =E9crit :
->> David, here is the followup I promised
->>
->> Thanks
->>
->> [PATCH] net: skb_tx_hash() improvements
->>
->> When skb_rx_queue_recorded() is true, we dont want to use jhash dist=
-ribution
->> as the device driver exactly told us which queue was selected at RX =
-time.
->> jhash makes a statistical shuffle, but this wont work with only 8 di=
-fferent inputs.
->>
->> We also need to implement a true reciprocal division, to not disturb
->> symmetric setups (when number of tx queues matches number of rx queu=
-es)
->> and cpu affinities.
->>
->> This patch introduces a new helper, dev_real_num_tx_queues_set()
->> to set both real_num_tx_queues and its reciprocal value,
->> and makes all drivers use this helper.
->=20
-> Oh well, this was wrong, I took divide result while we want a modulo =
-!
->=20
-> Need to think a litle bit more :)
->=20
 
-So no need of a true reciprocal divide, just a refinement of first patc=
-h.
+Interesting thread Andrew.  I'm also doing some 10G routing performance 
+testing, but using Sun Neptune (niu) and SMC's 10G XFP (sfc) NICs.
 
-(Avoiding the divide if possible)
+I'm using pktgen for testing, but it sounds interesting that you got a 
+Ixia testing equipment, nice.
 
-If incoming device has 4 rx queues, and outgoing device has 8 queues,
-only 4 of tx queues are used, I wonder if we need some further improvem=
-ent
-here to better use all available tx queues ? Probably not in generic co=
-de...
+On Wed, 29 Apr 2009, Andrew Dickinson wrote:
 
-[PATCH] net: skb_tx_hash() improvement
+> I'm trying to evaluate a new system for routing performance for some
+> custom packet modification that we do.  To start, I'm trying to get a
+> high-water mark of routing performance without our custom cruft in the
+> middle.  The hardware setup is a dual-package Nehalem box (X5550,
+> Hyper-Threading disabled) with a dual 10G intel card (pci-id:
+> 8086:10fb).  Because this NIC is freakishly new, I'm running the
+> latest torvalds kernel in order to get the ixgbe driver to identify it
+> (<sigh>).
 
-When skb_rx_queue_recorded() is true, we dont want to use jhash distrib=
-ution
-as the device driver exactly told us which queue was selected at RX tim=
-e.
-jhash makes a statistical shuffle, but this wont work with only 8 diffe=
-rent inputs.
+Is that the Intel 82599 10GbE chip?
+Where did you get/buy that NIC?
 
-Same thing for the 'modulo' operation, that works only if inputs are
-enough random (ie use all available 32 bits)
 
-This patch avoids jhash computation (which cost ~50 instructions), but =
-might
-still need a modulo operation, in case number of tx queues is smaller
-than number of rx queues.
+> Interrupts...
+> I've disabled irqbalance and I'm explicitly pinning interrupts, one
+> per core, as follows:
 
-Reported-by: Andrew Dickinson <andrew@whydna.net>
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 308a7d0..b3acb51 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1737,9 +1737,19 @@ u16 skb_tx_hash(const struct net_device *dev, co=
-nst struct sk_buff *skb)
-=20
- 	if (skb_rx_queue_recorded(skb)) {
- 		hash =3D skb_get_rx_queue(skb);
--	} else if (skb->sk && skb->sk->sk_hash) {
-+		/*
-+		 * Try to avoid an expensive divide, for symmetric setups :
-+		 *   number of tx queues of output device =3D=3D
-+		 *   number of rx queues of incoming device
-+		 */
-+		if (hash >=3D dev->real_num_tx_queues)
-+			hash %=3D dev->real_num_tx_queues;
-+		return hash;
-+	}
-+
-+	if (skb->sk && skb->sk->sk_hash)
- 		hash =3D skb->sk->sk_hash;
--	} else
-+	else
- 		hash =3D skb->protocol;
-=20
- 	hash =3D jhash_1word(hash, skb_tx_hashrnd);
+I'm doing the same...
+I find that keeping the RX and TX queue pinned to the same CPU, is 
+essential, together with patch that control the mapping between RX and TX 
+queues.  But with Eric's patch it looks like I can drop my own patch :-)
 
+If I don't do RX to TX mapping, then Oprofile shows that we use too much 
+time freeing the skb's, naturally due to cache bounces.
+
+
+> -bash-3.2# for x in 57 65; do for i in `seq 0 7`; do echo $i | awk
+> '{printf("%X", (2^$1));}' > /proc/irq/$(($i + $x))/smp_affinity; done;
+> done
+
+Keep up the good work!
+
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
