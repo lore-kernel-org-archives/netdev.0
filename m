@@ -1,53 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] qos: Limit a filter's priority to a 16 bit value
-Date: Fri, 01 May 2009 15:51:55 -0700 (PDT)
-Message-ID: <20090501.155155.58484825.davem@davemloft.net>
-References: <20090501184242.12714.2663.stgit@fritz>
+Subject: Re: [PATCH] virtio_net: Cleanup command queue scatterlist usage
+Date: Fri, 01 May 2009 15:52:59 -0700 (PDT)
+Message-ID: <20090501.155259.185618790.davem@davemloft.net>
+References: <20090427154925.4771.63651.stgit@debian.lart>
+	<20090501.153301.42015656.davem@davemloft.net>
+	<1241217794.9646.588.camel@2710p.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: robert.w.love@intel.com
+Cc: rusty@rustcorp.com.au, sfr@canb.auug.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: alex.williamson@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60652
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60658
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751848AbZEAWwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:52:01 -0400
-In-Reply-To: <20090501184242.12714.2663.stgit@fritz>
+	by vger.kernel.org with ESMTP id S1753638AbZEAWxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:53:05 -0400
+In-Reply-To: <1241217794.9646.588.camel@2710p.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Love <robert.w.love@intel.com>
-Date: Fri, 01 May 2009 11:42:42 -0700
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Fri, 01 May 2009 16:43:14 -0600
 
-> Currently the kernel is storing the priority value for
-> a filter as a 32 bit value. However, the netlink messages
-> between the kernel and userspace are passing only 16 bits
-> for the priority. This means that the kernel will always
-> try to compare the passed down filter's priority using the
-> correct upper 16 bits, but all 0s for the lower 16 bits.
+> On Fri, 2009-05-01 at 15:33 -0700, David Miller wrote:
+>> From: Alex Williamson <alex.williamson@hp.com>
+>> Date: Mon, 27 Apr 2009 09:50:03 -0600
+>> 
+>> > We were avoiding calling sg_init* on scatterlists passed
+>> > into virtnet_send_command to prevent extraneous end markers.
+>> > This caused build warnings for uninitialized variables.
+>> > Cleanup the code to create proper scatterlists.
+>> > 
+>> > Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+>> 
+>> This patch does not apply even to Linus's current tree.
 > 
-> Most comparisons will fail when checking against the filter
-> chain unless the actual filter has a priority with all 0s
-> for the last 16 bits.
-> 
-> The fallout is that users cannot modify or delete most
-> filters that are added.
+> It was against net-next-2.6.git, I'll update it for linux-2.6.git.
+> IIRC, it applied with some fuzz.
 
-Really?
-
-I'm looking at the code and I don't see this failure case.
-Can you describe the problem with specific examples?
-
-All of the code I see either 1) uses u32's to store the
-priorities and just compares them (cls_u32.c) or 2)
-always uses TC_H_MAJ() of the user's provided value
-and uses that to compare with tp->prio values.
-
-Both of which should always just work.
-
-We're just wasting the low 16-bits, but that shouldn't
-cause problems like the one you're describing as long
-as everyone extracts and compares the top bits properly
-which as far as I can tell is the case.
+Thanks.  I want to apply this to net-2.6 to fix those uninitialed
+scatterlist structure issues.
