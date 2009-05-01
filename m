@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: add clock gating feature <resend>
-Date: Fri, 01 May 2009 15:30:55 -0700 (PDT)
-Message-ID: <20090501.153055.114295429.davem@davemloft.net>
-References: <49FADFFE.7020300@nvidia.com>
+Subject: Re: [PATCH] virtio_net: Cleanup command queue scatterlist usage
+Date: Fri, 01 May 2009 15:33:01 -0700 (PDT)
+Message-ID: <20090501.153301.42015656.davem@davemloft.net>
+References: <20090426.233014.216353908.davem@davemloft.net>
+	<20090427154925.4771.63651.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: manfred@colorfullife.com, akpm@osdl.org, netdev@vger.kernel.org
-To: aabdulla@nvidia.com
+Cc: rusty@rustcorp.com.au, sfr@canb.auug.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: alex.williamson@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41917
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757754AbZEAWbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:31:01 -0400
-In-Reply-To: <49FADFFE.7020300@nvidia.com>
+	by vger.kernel.org with ESMTP id S1759063AbZEAWdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:33:07 -0400
+In-Reply-To: <20090427154925.4771.63651.stgit@debian.lart>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Date: Fri, 01 May 2009 07:41:50 -0400
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 27 Apr 2009 09:50:03 -0600
 
-> This patch adds new logic to support a clock gating feature found on
-> the latest set of chipsets. The clock gating is performed on the tx/rx
-> engines when the link is disconnected. Clock gating helps in reducing
-> power consumption.
+> We were avoiding calling sg_init* on scatterlists passed
+> into virtnet_send_command to prevent extraneous end markers.
+> This caused build warnings for uninitialized variables.
+> Cleanup the code to create proper scatterlists.
 > 
-> * modified based on comments from netdev
-> 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 
-Applied to net-next-2.6, thanks.
+This patch does not apply even to Linus's current tree.
