@@ -1,217 +1,103 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH RFC] isdn: rename capi_ctr_reseted() to capi_ctr_down()
-Date: Fri, 1 May 2009 12:44:55 +0200
-Message-ID: <20090501130517.A2F4E11181E@xenon.ts.pxnet.com>
-To: isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([195.227.45.7]:56979 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753232AbZEANF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2009 09:05:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hugh Dickins <hugh@veritas.com>
+Subject: Re: [PATCH mmotm] mm: alloc_large_system_hash check order
+Date: Fri, 1 May 2009 14:40:38 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0905011354560.19012@blonde.anvils>
+References: <Pine.LNX.4.64.0904292151350.30874@blonde.anvils>
+ <20090429142825.6dcf233d.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: mel@csn.ul.ie, andi@firstfloor.org, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mm@kvack.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Received: from [172.20.25.172]([172.20.25.172]) (3563 bytes) by megami.veritas.com
+	via sendmail with P:esmtp/R:smart_host/T:smtp
+	(sender: <hugh@veritas.com>)
+	id <m1Lzsym-0000iGC@megami.veritas.com>
+	for <netdev@vger.kernel.org>; Fri, 1 May 2009 06:40:40 -0700 (PDT)
+	(Smail-3.2.0.101 1997-Dec-17 #15 built 2001-Aug-30)
+In-Reply-To: <20090429142825.6dcf233d.akpm@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The Kernel CAPI exported function capi_ctr_reseted() is named rather
-irritatingly IMHO. I'd like to propose renaming it to something that
-represents better what that function is actually about, as per the
-following patch.
+On Wed, 29 Apr 2009, Andrew Morton wrote:
+> 
+> yes, the code is a bit odd:
+> 
+> :	do {
+> : 		size = bucketsize << log2qty;
+> : 		if (flags & HASH_EARLY)
+> : 			table = alloc_bootmem_nopanic(size);
+> : 		else if (hashdist)
+> : 			table = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
+> : 		else {
+> : 			unsigned long order = get_order(size);
+> : 			table = (void*) __get_free_pages(GFP_ATOMIC, order);
+> : 			/*
+> : 			 * If bucketsize is not a power-of-two, we may free
+> : 			 * some pages at the end of hash table.
+> : 			 */
+> : 			if (table) {
+> : 				unsigned long alloc_end = (unsigned long)table +
+> : 						(PAGE_SIZE << order);
+> : 				unsigned long used = (unsigned long)table +
+> : 						PAGE_ALIGN(size);
+> : 				split_page(virt_to_page(table), order);
+> : 				while (used < alloc_end) {
+> : 					free_page(used);
+> : 					used += PAGE_SIZE;
+> : 				}
+> : 			}
+> : 		}
+> : 	} while (!table && size > PAGE_SIZE && --log2qty);
+> 
+> In the case where it does the __vmalloc(), the order-11 allocation will
+> succeed.  But in the other cases, the allocation attempt will need to
+> be shrunk and we end up with a smaller hash table.  Is that sensible?
 
-Opinions? Objections?
+It is a little odd, but the __vmalloc() route is used by default on
+64-bit with CONFIG_NUMA, and this route otherwise.  (The hashdist
+Doc isn't up-to-date on that, I'll send a patch.)
 
-Thanks,
-Tilman
+> 
+> If we want to regularise all three cases, doing
+> 
+> 	size = min(size, MAX_ORDER);
 
-isdn: rename capi_ctr_reseted() to capi_ctr_down()
+If I take you literally, the resulting hash tables are going to
+be rather small ;) but I know what you mean.
 
-Change the function name to something representing its purpose better.
+> 
+> before starting the loop would be suitable, although the huge
+> __get_free_pages() might still fail.
 
-Impact: cosmetic
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- Documentation/isdn/INTERFACE.CAPI |    4 ++--
- drivers/isdn/capi/kcapi.c         |    8 ++++----
- drivers/isdn/hardware/avm/b1.c    |    2 +-
- drivers/isdn/hardware/avm/b1dma.c |    2 +-
- drivers/isdn/hardware/avm/c4.c    |    4 ++--
- drivers/isdn/hardware/avm/t1isa.c |    2 +-
- drivers/isdn/hysdn/hycapi.c       |    4 ++--
- include/linux/isdn/capilli.h      |    2 +-
- net/bluetooth/cmtp/capi.c         |    2 +-
- 9 files changed, 15 insertions(+), 15 deletions(-)
+Oh, I don't feel a great urge to regularize these cases in such
+a way.  I particularly don't feel like limiting 64-bit NUMA to
+MAX_ORDER-1 size, if netdev have been happy with more until now.
+Could consider a __vmalloc fallback when order is too large,
+but let's not do so unless someone actually needs that.
 
-diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
-index 786d619..4631538 100644
---- a/Documentation/isdn/INTERFACE.CAPI
-+++ b/Documentation/isdn/INTERFACE.CAPI
-@@ -45,7 +45,7 @@ From then on, Kernel CAPI may call the registered callback functions for the
- device.
- 
- If the device becomes unusable for any reason (shutdown, disconnect ...), the
--driver has to call capi_ctr_reseted(). This will prevent further calls to the
-+driver has to call capi_ctr_down(). This will prevent further calls to the
- callback functions by Kernel CAPI.
- 
- 
-@@ -166,7 +166,7 @@ int detach_capi_ctr(struct capi_ctr *ctrlr)
- 	register/unregister a device (controller) with Kernel CAPI
- 
- void capi_ctr_ready(struct capi_ctr *ctrlr)
--void capi_ctr_reseted(struct capi_ctr *ctrlr)
-+void capi_ctr_down(struct capi_ctr *ctrlr)
- 	signal controller ready/not ready
- 
- void capi_ctr_suspend_output(struct capi_ctr *ctrlr)
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index f331703..57d2636 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -377,14 +377,14 @@ void capi_ctr_ready(struct capi_ctr * card)
- EXPORT_SYMBOL(capi_ctr_ready);
- 
- /**
-- * capi_ctr_reseted() - signal CAPI controller reset
-+ * capi_ctr_down() - signal CAPI controller not ready
-  * @card:	controller descriptor structure.
-  *
-  * Called by hardware driver to signal that the controller is down and
-  * unavailable for use.
-  */
- 
--void capi_ctr_reseted(struct capi_ctr * card)
-+void capi_ctr_down(struct capi_ctr * card)
- {
- 	u16 appl;
- 
-@@ -413,7 +413,7 @@ void capi_ctr_reseted(struct capi_ctr * card)
- 	notify_push(KCI_CONTRDOWN, card->cnr, 0, 0);
- }
- 
--EXPORT_SYMBOL(capi_ctr_reseted);
-+EXPORT_SYMBOL(capi_ctr_down);
- 
- /**
-  * capi_ctr_suspend_output() - suspend controller
-@@ -517,7 +517,7 @@ EXPORT_SYMBOL(attach_capi_ctr);
- int detach_capi_ctr(struct capi_ctr *card)
- {
-         if (card->cardstate != CARD_DETECTED)
--		capi_ctr_reseted(card);
-+		capi_ctr_down(card);
- 
- 	ncards--;
- 
-diff --git a/drivers/isdn/hardware/avm/b1.c b/drivers/isdn/hardware/avm/b1.c
-index abf05ec..a7c0083 100644
---- a/drivers/isdn/hardware/avm/b1.c
-+++ b/drivers/isdn/hardware/avm/b1.c
-@@ -330,7 +330,7 @@ void b1_reset_ctr(struct capi_ctr *ctrl)
- 	spin_lock_irqsave(&card->lock, flags);
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- void b1_register_appl(struct capi_ctr *ctrl,
-diff --git a/drivers/isdn/hardware/avm/b1dma.c b/drivers/isdn/hardware/avm/b1dma.c
-index da34b98..0e84aaa 100644
---- a/drivers/isdn/hardware/avm/b1dma.c
-+++ b/drivers/isdn/hardware/avm/b1dma.c
-@@ -759,7 +759,7 @@ void b1dma_reset_ctr(struct capi_ctr *ctrl)
- 	memset(cinfo->version, 0, sizeof(cinfo->version));
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- /* ------------------------------------------------------------- */
-diff --git a/drivers/isdn/hardware/avm/c4.c b/drivers/isdn/hardware/avm/c4.c
-index 9df1d3f..6833301 100644
---- a/drivers/isdn/hardware/avm/c4.c
-+++ b/drivers/isdn/hardware/avm/c4.c
-@@ -681,7 +681,7 @@ static irqreturn_t c4_handle_interrupt(avmcard *card)
- 			spin_lock_irqsave(&card->lock, flags);
- 			capilib_release(&cinfo->ncci_head);
- 			spin_unlock_irqrestore(&card->lock, flags);
--			capi_ctr_reseted(&cinfo->capi_ctrl);
-+			capi_ctr_down(&cinfo->capi_ctrl);
- 		}
- 		card->nlogcontr = 0;
- 		return IRQ_HANDLED;
-@@ -909,7 +909,7 @@ static void c4_reset_ctr(struct capi_ctr *ctrl)
-         for (i=0; i < card->nr_controllers; i++) {
- 		cinfo = &card->ctrlinfo[i];
- 		memset(cinfo->version, 0, sizeof(cinfo->version));
--		capi_ctr_reseted(&cinfo->capi_ctrl);
-+		capi_ctr_down(&cinfo->capi_ctrl);
- 	}
- 	card->nlogcontr = 0;
- }
-diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
-index e772449..1c53fd4 100644
---- a/drivers/isdn/hardware/avm/t1isa.c
-+++ b/drivers/isdn/hardware/avm/t1isa.c
-@@ -339,7 +339,7 @@ static void t1isa_reset_ctr(struct capi_ctr *ctrl)
- 	spin_lock_irqsave(&card->lock, flags);
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- static void t1isa_remove(struct pci_dev *pdev)
-diff --git a/drivers/isdn/hysdn/hycapi.c b/drivers/isdn/hysdn/hycapi.c
-index 53f6ad1..4ffaa14 100644
---- a/drivers/isdn/hysdn/hycapi.c
-+++ b/drivers/isdn/hysdn/hycapi.c
-@@ -67,7 +67,7 @@ hycapi_reset_ctr(struct capi_ctr *ctrl)
- 	printk(KERN_NOTICE "HYCAPI hycapi_reset_ctr\n");
- #endif
- 	capilib_release(&cinfo->ncci_head);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- /******************************
-@@ -347,7 +347,7 @@ int hycapi_capi_stop(hysdn_card *card)
- 	if(cinfo) {
- 		ctrl = &cinfo->capi_ctrl;
- /*		ctrl->suspend_output(ctrl); */
--		capi_ctr_reseted(ctrl);
-+		capi_ctr_down(ctrl);
- 	}
- 	return 0;
- }
-diff --git a/include/linux/isdn/capilli.h b/include/linux/isdn/capilli.h
-index 35e9b0f..7acb87a 100644
---- a/include/linux/isdn/capilli.h
-+++ b/include/linux/isdn/capilli.h
-@@ -79,7 +79,7 @@ int attach_capi_ctr(struct capi_ctr *);
- int detach_capi_ctr(struct capi_ctr *);
- 
- void capi_ctr_ready(struct capi_ctr * card);
--void capi_ctr_reseted(struct capi_ctr * card);
-+void capi_ctr_down(struct capi_ctr * card);
- void capi_ctr_suspend_output(struct capi_ctr * card);
- void capi_ctr_resume_output(struct capi_ctr * card);
- void capi_ctr_handle_message(struct capi_ctr * card, u16 appl, struct sk_buff *skb);
-diff --git a/net/bluetooth/cmtp/capi.c b/net/bluetooth/cmtp/capi.c
-index 78958c0..97f8d68 100644
---- a/net/bluetooth/cmtp/capi.c
-+++ b/net/bluetooth/cmtp/capi.c
-@@ -382,7 +382,7 @@ static void cmtp_reset_ctr(struct capi_ctr *ctrl)
- 
- 	BT_DBG("ctrl %p", ctrl);
- 
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- 
- 	atomic_inc(&session->terminate);
- 	cmtp_schedule(session);
--- 
-1.6.2.1.214.ge986c
+> (But it will then warn, won't it?
+>  And nobody is reporting that).
 
+Well, it was hard to report it while mmotm's WARN_ON_ONCE was itself
+oopsing.  With that fixed, I've reported it on x86_64 with 4GB
+(without CONFIG_NUMA).
+
+> 
+> I was a bit iffy about adding the warning in the first place, let it go
+> through due to its potential to lead us to code which isn't doing what
+> it thinks it's doing, or is being generally peculiar.
+
+DaveM has confirmed that the code is doing what they want it to do.
+So I think mmotm wants this patch (for alloc_large_system_hash to
+keep away from that warning), plus Mel's improvement on top of it.
+
+Hugh
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
