@@ -1,7 +1,7 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/4] bnx2: Add support for CNIC driver.
-Date: Fri, 1 May 2009 13:00:36 -0700
-Message-ID: <1241208039-6813-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 3/4] iscsi class, libiscsi: Add net config.
+Date: Fri, 1 May 2009 13:00:38 -0700
+Message-ID: <1241208039-6813-4-git-send-email-mchan@broadcom.com>
 References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,342 +10,186 @@ Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	open-iscsi@googlegroups.com
 To: davem@davemloft.net, michaelc@cs.wisc.edu,
 	James.Bottomley@HansenPartnership.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2211 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764240AbZEAUwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2009 16:52:15 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add interface and functions to support a new CNIC driver to drive
-the hardware for iSCSI offload.
+Add ISCSI_NETLINK messages to get/set vendor specific information.
+This is to support bnx2i that handles net config of private iSCSI
+IP address in userspace.
 
+Signed-off-by: Anil Veerabhadrappa <anilgv@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Mike Christie <michaelc@cs.wisc.edu>
 Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/bnx2.c |  193 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/bnx2.h |   18 +++++
- 2 files changed, 208 insertions(+), 3 deletions(-)
+ drivers/scsi/scsi_transport_iscsi.c |   59 ++++++++++++++++++++++++++++++++++-
+ include/scsi/iscsi_if.h             |   14 ++++++++
+ include/scsi/scsi_transport_iscsi.h |    6 +++
+ 3 files changed, 78 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index d478391..aabc030 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -49,6 +49,10 @@
- #include <linux/firmware.h>
- #include <linux/log2.h>
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+index 0947954..ef3af96 100644
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -995,6 +995,37 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ }
+ EXPORT_SYMBOL_GPL(iscsi_recv_pdu);
  
-+#if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
-+#define BCM_CNIC 1
-+#include "cnic_if.h"
-+#endif
- #include "bnx2.h"
- #include "bnx2_fw.h"
- 
-@@ -315,6 +319,158 @@ bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
- 	spin_unlock_bh(&bp->indirect_lock);
++extern int iscsi_vendor_priv_mesg(struct Scsi_Host *shost,
++				  struct iscsi_transport *transport,
++				  uint16_t priv_op,
++				  char *data, uint16_t data_size)
++{
++	struct nlmsghdr	*nlh;
++	struct sk_buff *skb;
++	struct iscsi_uevent *ev;
++	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
++
++	skb = alloc_skb(len, GFP_ATOMIC);
++	if (!skb) {
++		printk(KERN_ERR "can not deliver vendor private message:OOM\n");
++		return -ENOMEM;
++	}
++
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
++	ev = NLMSG_DATA(nlh);
++	memset(ev, 0, sizeof(*ev));
++	ev->type = ISCSI_KEVENT_PRIVATE_MESG;
++	ev->transport_handle = iscsi_handle(transport);
++	ev->r.vendor_priv.host_no = shost->host_no;
++	ev->r.vendor_priv.priv_op = priv_op;
++	ev->r.vendor_priv.mesg_size = data_size;
++
++	memcpy((char*)ev + sizeof(*ev), data, data_size);
++
++	return iscsi_broadcast_skb(skb, GFP_KERNEL);
++}
++EXPORT_SYMBOL_GPL(iscsi_vendor_priv_mesg);
++
+ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ {
+ 	struct nlmsghdr	*nlh;
+@@ -1365,6 +1396,28 @@ iscsi_set_host_param(struct iscsi_transport *transport,
  }
  
-+#ifdef BCM_CNIC
-+static int
-+bnx2_drv_ctl(struct net_device *dev, struct drv_ctl_info *info)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct drv_ctl_io *io = &info->data.io;
-+
-+	switch (info->cmd) {
-+	case DRV_CTL_IO_WR_CMD:
-+		bnx2_reg_wr_ind(bp, io->offset, io->data);
-+		break;
-+	case DRV_CTL_IO_RD_CMD:
-+		io->data = bnx2_reg_rd_ind(bp, io->offset);
-+		break;
-+	case DRV_CTL_CTX_WR_CMD:
-+		bnx2_ctx_wr(bp, io->cid_addr, io->offset, io->data);
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static void bnx2_setup_cnic_irq_info(struct bnx2 *bp)
-+{
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-+	int sb_id;
-+
-+	if (bp->flags & BNX2_FLAG_USING_MSIX) {
-+		cp->drv_state |= CNIC_DRV_STATE_USING_MSIX;
-+		bnapi->cnic_present = 0;
-+		sb_id = bp->irq_nvecs;
-+		cp->irq_arr[0].irq_flags |= CNIC_IRQ_FL_MSIX;
-+	} else {
-+		cp->drv_state &= ~CNIC_DRV_STATE_USING_MSIX;
-+		bnapi->cnic_tag = bnapi->last_status_idx;
-+		bnapi->cnic_present = 1;
-+		sb_id = 0;
-+		cp->irq_arr[0].irq_flags &= ~CNIC_IRQ_FL_MSIX;
-+	}
-+
-+	cp->irq_arr[0].vector = bp->irq_tbl[sb_id].vector;
-+	cp->irq_arr[0].status_blk = (void *)
-+		((unsigned long) bnapi->status_blk.msi +
-+		(BNX2_SBLK_MSIX_ALIGN_SIZE * sb_id));
-+	cp->irq_arr[0].status_blk_num = sb_id;
-+	cp->num_irq = 1;
-+}
-+
-+static int bnx2_register_cnic(struct net_device *dev, struct cnic_ops *ops,
-+			      void *data)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+
-+	if (ops == NULL)
-+		return -EINVAL;
-+
-+	if (cp->drv_state & CNIC_DRV_STATE_REGD)
-+		return -EBUSY;
-+
-+	bp->cnic_data = data;
-+	rcu_assign_pointer(bp->cnic_ops, ops);
-+
-+	cp->num_irq = 0;
-+	cp->drv_state = CNIC_DRV_STATE_REGD;
-+
-+	bnx2_setup_cnic_irq_info(bp);
-+
-+	return 0;
-+}
-+
-+static int bnx2_unregister_cnic(struct net_device *dev)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+
-+	cp->drv_state = 0;
-+	bnapi->cnic_present = 0;
-+	rcu_assign_pointer(bp->cnic_ops, NULL);
-+	synchronize_rcu();
-+	return 0;
-+}
-+
-+struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+
-+	cp->drv_owner = THIS_MODULE;
-+	cp->chip_id = bp->chip_id;
-+	cp->pdev = bp->pdev;
-+	cp->io_base = bp->regview;
-+	cp->drv_ctl = bnx2_drv_ctl;
-+	cp->drv_register_cnic = bnx2_register_cnic;
-+	cp->drv_unregister_cnic = bnx2_unregister_cnic;
-+
-+	return cp;
-+}
-+EXPORT_SYMBOL(bnx2_cnic_probe);
-+
-+static void
-+bnx2_cnic_stop(struct bnx2 *bp)
-+{
-+	struct cnic_ops *c_ops;
-+	struct cnic_ctl_info info;
-+
-+	rcu_read_lock();
-+	c_ops = rcu_dereference(bp->cnic_ops);
-+	if (c_ops) {
-+		info.cmd = CNIC_CTL_STOP_CMD;
-+		c_ops->cnic_ctl(bp->cnic_data, &info);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+static void
-+bnx2_cnic_start(struct bnx2 *bp)
-+{
-+	struct cnic_ops *c_ops;
-+	struct cnic_ctl_info info;
-+
-+	rcu_read_lock();
-+	c_ops = rcu_dereference(bp->cnic_ops);
-+	if (c_ops) {
-+		if (!(bp->flags & BNX2_FLAG_USING_MSIX)) {
-+			struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-+
-+			bnapi->cnic_tag = bnapi->last_status_idx;
-+		}
-+		info.cmd = CNIC_CTL_START_CMD;
-+		c_ops->cnic_ctl(bp->cnic_data, &info);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+#else
-+
-+static void
-+bnx2_cnic_stop(struct bnx2 *bp)
-+{
-+}
-+
-+static void
-+bnx2_cnic_start(struct bnx2 *bp)
-+{
-+}
-+
-+#endif
-+
  static int
- bnx2_read_phy(struct bnx2 *bp, u32 reg, u32 *val)
- {
-@@ -488,6 +644,7 @@ bnx2_napi_enable(struct bnx2 *bp)
- static void
- bnx2_netif_stop(struct bnx2 *bp)
- {
-+	bnx2_cnic_stop(bp);
- 	bnx2_disable_int_sync(bp);
- 	if (netif_running(bp->dev)) {
- 		bnx2_napi_disable(bp);
-@@ -504,6 +661,7 @@ bnx2_netif_start(struct bnx2 *bp)
- 			netif_tx_wake_all_queues(bp->dev);
- 			bnx2_napi_enable(bp);
- 			bnx2_enable_int(bp);
-+			bnx2_cnic_start(bp);
- 		}
- 	}
- }
-@@ -3162,6 +3320,11 @@ bnx2_has_work(struct bnx2_napi *bnapi)
- 	if (bnx2_has_fast_work(bnapi))
- 		return 1;
- 
-+#ifdef BCM_CNIC
-+	if (bnapi->cnic_present && (bnapi->cnic_tag != sblk->status_idx))
-+		return 1;
-+#endif
-+
- 	if ((sblk->status_attn_bits & STATUS_ATTN_EVENTS) !=
- 	    (sblk->status_attn_bits_ack & STATUS_ATTN_EVENTS))
- 		return 1;
-@@ -3191,6 +3354,23 @@ bnx2_chk_missed_msi(struct bnx2 *bp)
- 	bp->idle_chk_status_idx = bnapi->last_status_idx;
- }
- 
-+#ifdef BCM_CNIC
-+static void bnx2_poll_cnic(struct bnx2 *bp, struct bnx2_napi *bnapi)
++iscsi_vendor_priv_msg(struct iscsi_transport *transport,
++		      struct iscsi_uevent *ev)
 +{
-+	struct cnic_ops *c_ops;
++	struct Scsi_Host *shost;
++	int err;
 +
-+	if (!bnapi->cnic_present)
-+		return;
-+
-+	rcu_read_lock();
-+	c_ops = rcu_dereference(bp->cnic_ops);
-+	if (c_ops)
-+		bnapi->cnic_tag = c_ops->cnic_handler(bp->cnic_data,
-+						      bnapi->status_blk.msi);
-+	rcu_read_unlock();
-+}
-+#endif
-+
- static void bnx2_poll_link(struct bnx2 *bp, struct bnx2_napi *bnapi)
- {
- 	struct status_block *sblk = bnapi->status_blk.msi;
-@@ -3265,6 +3445,10 @@ static int bnx2_poll(struct napi_struct *napi, int budget)
- 
- 		work_done = bnx2_poll_work(bp, bnapi, work_done, budget);
- 
-+#ifdef BCM_CNIC
-+		bnx2_poll_cnic(bp, bnapi);
-+#endif
-+
- 		/* bnapi->last_status_idx is used below to tell the hw how
- 		 * much work has been processed, so we must read it before
- 		 * checking for more work.
-@@ -4630,8 +4814,11 @@ bnx2_init_chip(struct bnx2 *bp)
- 	val = REG_RD(bp, BNX2_MQ_CONFIG);
- 	val &= ~BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE;
- 	val |= BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE_256;
--	if (CHIP_ID(bp) == CHIP_ID_5709_A0 || CHIP_ID(bp) == CHIP_ID_5709_A1)
--		val |= BNX2_MQ_CONFIG_HALT_DIS;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
-+		val |= BNX2_MQ_CONFIG_BIN_MQ_MODE;
-+		if (CHIP_REV(bp) == CHIP_REV_Ax)
-+			val |= BNX2_MQ_CONFIG_HALT_DIS;
++	shost = scsi_host_lookup(ev->u.vendor_priv.host_no);
++	if (!shost) {
++		printk(KERN_ERR "target discovery could not find host no %u\n",
++		       ev->u.tgt_dscvr.host_no);
++		return -ENODEV;
 +	}
- 
- 	REG_WR(bp, BNX2_MQ_CONFIG, val);
- 
-@@ -7469,7 +7656,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	INIT_WORK(&bp->reset_task, bnx2_reset_task);
- 
- 	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
--	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS);
-+	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS + 1);
- 	dev->mem_end = dev->mem_start + mem_len;
- 	dev->irq = pdev->irq;
- 
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 5b570e1..a1ff739 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -361,6 +361,9 @@ struct l2_fhdr {
- #define BNX2_L2CTX_CTX_TYPE_CTX_BD_CHN_TYPE_VALUE	 (1<<28)
- 
- #define BNX2_L2CTX_HOST_BDIDX				0x00000004
-+#define BNX2_L2CTX_STATUSB_NUM_SHIFT			 16
-+#define BNX2_L2CTX_STATUSB_NUM(sb_id)			 \
-+	(((sb_id) > 0) ? (((sb_id) + 7) << BNX2_L2CTX_STATUSB_NUM_SHIFT) : 0)
- #define BNX2_L2CTX_HOST_BSEQ				0x00000008
- #define BNX2_L2CTX_NX_BSEQ				0x0000000c
- #define BNX2_L2CTX_NX_BDHADDR_HI			0x00000010
-@@ -5900,6 +5903,7 @@ struct l2_fhdr {
- #define BNX2_RXP_FTQ_CTL_CUR_DEPTH			 (0x3ffL<<22)
- 
- #define BNX2_RXP_SCRATCH				0x000e0000
-+#define BNX2_RXP_SCRATCH_RXP_FLOOD			 0x000e0024
- #define BNX2_RXP_SCRATCH_RSS_TBL_SZ			 0x000e0038
- #define BNX2_RXP_SCRATCH_RSS_TBL			 0x000e003c
- #define BNX2_RXP_SCRATCH_RSS_TBL_MAX_ENTRIES		 128
-@@ -6678,6 +6682,11 @@ struct bnx2_napi {
- 	u32 			last_status_idx;
- 	u32			int_num;
- 
-+#ifdef BCM_CNIC
-+	u32			cnic_tag;
-+	int			cnic_present;
-+#endif
 +
- 	struct bnx2_rx_ring_info	rx_ring;
- 	struct bnx2_tx_ring_info	tx_ring;
++	err = transport->nl_priv_recv(shost, ev->u.vendor_priv.priv_op,
++				      ev->u.vendor_priv.status,
++				      (char *)((char*)ev + sizeof(*ev)),
++				      ev->u.vendor_priv.mesg_size);
++	scsi_host_put(shost);
++	return err;
++}
++
++static int
+ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	int err = 0;
+@@ -1383,7 +1436,8 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (!try_module_get(transport->owner))
+ 		return -EINVAL;
+ 
+-	priv->daemon_pid = NETLINK_CREDS(skb)->pid;
++	if (nlh->nlmsg_type != ISCSI_UEVENT_PRIVATE_MESG)
++		priv->daemon_pid = NETLINK_CREDS(skb)->pid;
+ 
+ 	switch (nlh->nlmsg_type) {
+ 	case ISCSI_UEVENT_CREATE_SESSION:
+@@ -1477,6 +1531,9 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	case ISCSI_UEVENT_SET_HOST_PARAM:
+ 		err = iscsi_set_host_param(transport, ev);
+ 		break;
++	case ISCSI_UEVENT_PRIVATE_MESG:
++		err = iscsi_vendor_priv_msg(transport, ev);
++		break;
+ 	default:
+ 		err = -ENOSYS;
+ 		break;
+diff --git a/include/scsi/iscsi_if.h b/include/scsi/iscsi_if.h
+index d0ed522..9e67946 100644
+--- a/include/scsi/iscsi_if.h
++++ b/include/scsi/iscsi_if.h
+@@ -52,6 +52,8 @@ enum iscsi_uevent_e {
+ 	ISCSI_UEVENT_UNBIND_SESSION	= UEVENT_BASE + 17,
+ 	ISCSI_UEVENT_CREATE_BOUND_SESSION	= UEVENT_BASE + 18,
+ 
++	ISCSI_UEVENT_PRIVATE_MESG	= UEVENT_BASE + 20,
++
+ 	/* up events */
+ 	ISCSI_KEVENT_RECV_PDU		= KEVENT_BASE + 1,
+ 	ISCSI_KEVENT_CONN_ERROR		= KEVENT_BASE + 2,
+@@ -59,6 +61,7 @@ enum iscsi_uevent_e {
+ 	ISCSI_KEVENT_DESTROY_SESSION	= KEVENT_BASE + 4,
+ 	ISCSI_KEVENT_UNBIND_SESSION	= KEVENT_BASE + 5,
+ 	ISCSI_KEVENT_CREATE_SESSION	= KEVENT_BASE + 6,
++	ISCSI_KEVENT_PRIVATE_MESG	= KEVENT_BASE + 7,
  };
-@@ -6727,6 +6736,11 @@ struct bnx2 {
- 	int		tx_ring_size;
- 	u32		tx_wake_thresh;
  
-+#ifdef BCM_CNIC
-+	struct cnic_ops		*cnic_ops;
-+	void			*cnic_data;
-+#endif
-+
- 	/* End of fields used in the performance code paths. */
+ enum iscsi_tgt_dscvr {
+@@ -154,6 +157,12 @@ struct iscsi_uevent {
+ 			uint32_t	param; /* enum iscsi_host_param */
+ 			uint32_t	len;
+ 		} set_host_param;
++		struct msg_vendor_priv {
++			uint32_t	host_no;
++			uint16_t	priv_op;
++			uint16_t	mesg_size;
++			uint32_t	status;
++		} vendor_priv;
+ 	} u;
+ 	union {
+ 		/* messages k -> u */
+@@ -187,6 +196,11 @@ struct iscsi_uevent {
+ 		struct msg_transport_connect_ret {
+ 			uint64_t	handle;
+ 		} ep_connect_ret;
++		struct msg_vendor_priv_ret {
++			uint32_t	host_no;
++			uint16_t	priv_op;
++			uint16_t	mesg_size;
++		} vendor_priv;
+ 	} r;
+ } __attribute__ ((aligned (sizeof(uint64_t))));
  
- 	unsigned int		current_interval;
-@@ -6885,6 +6899,10 @@ struct bnx2 {
- 
- 	u32			idle_chk_status_idx;
- 
-+#ifdef BCM_CNIC
-+	struct cnic_eth_dev	cnic_eth_dev;
-+#endif
-+
- 	const struct firmware	*mips_firmware;
- 	const struct firmware	*rv2p_firmware;
+diff --git a/include/scsi/scsi_transport_iscsi.h b/include/scsi/scsi_transport_iscsi.h
+index 457588e..14dab4e 100644
+--- a/include/scsi/scsi_transport_iscsi.h
++++ b/include/scsi/scsi_transport_iscsi.h
+@@ -132,6 +132,8 @@ struct iscsi_transport {
+ 	void (*ep_disconnect) (struct iscsi_endpoint *ep);
+ 	int (*tgt_dscvr) (struct Scsi_Host *shost, enum iscsi_tgt_dscvr type,
+ 			  uint32_t enable, struct sockaddr *dst_addr);
++	int (*nl_priv_recv) (struct Scsi_Host *shost, uint16_t priv_op,
++			     int status, char *data, int data_size);
  };
+ 
+ /*
+@@ -147,6 +149,10 @@ extern void iscsi_conn_error_event(struct iscsi_cls_conn *conn,
+ 				   enum iscsi_err error);
+ extern int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 			  char *data, uint32_t data_size);
++extern int iscsi_vendor_priv_mesg(struct Scsi_Host *shost,
++				  struct iscsi_transport *transport,
++				  uint16_t priv_op,
++				  char *data, uint16_t data_size);
+ 
+ struct iscsi_cls_conn {
+ 	struct list_head conn_list;	/* item in connlist */
 -- 
 1.5.6.GIT
 
