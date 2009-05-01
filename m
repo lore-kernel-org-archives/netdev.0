@@ -1,48 +1,38 @@
-From: "Love, Robert W" <robert.w.love@intel.com>
-Subject: RE: [PATCH] net: Add the FCoE Initialization Protocol ethertype
-Date: Fri, 1 May 2009 15:53:32 -0700
-Message-ID: <273D38FBE7C6FE46A1689FCD014A0B8B495C012C@azsmsx505.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Add the FCoE Initialization Protocol ethertype
+Date: Fri, 01 May 2009 15:56:01 -0700 (PDT)
+Message-ID: <20090501.155601.205697782.davem@davemloft.net>
 References: <20090501185532.14602.21059.stgit@fritz>
- <20090501.150454.224636608.davem@davemloft.net>
+	<20090501.150454.224636608.davem@davemloft.net>
+	<273D38FBE7C6FE46A1689FCD014A0B8B495C012C@azsmsx505.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org
+To: robert.w.love@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:2308 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761909AbZEAWxe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:53:34 -0400
-In-Reply-To: <20090501.150454.224636608.davem@davemloft.net>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59323
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754586AbZEAW4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:56:07 -0400
+In-Reply-To: <273D38FBE7C6FE46A1689FCD014A0B8B495C012C@azsmsx505.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Robert Love <robert.w.love@intel.com>
-> Date: Fri, 01 May 2009 11:55:32 -0700
-> 
->> FIP is the FCoE Initialization Protocol and this patch
->> adds the protocol ethertype to the kernel's list of ethertypes.
->> 
->> Signed-off-by: Joe Eykholt <jeykholt@cisco.com>
->> Signed-off-by: Robert Love <robert.w.love@intel.com>
-> 
-> You can add this value, when you add the protocol implementation
-> into the upstream sources.
+From: "Love, Robert W" <robert.w.love@intel.com>
+Date: Fri, 1 May 2009 15:53:32 -0700
 
-The FIP implementation is upstream, in drivers/scsi/libfcoe.c.
-There is a local define in include/scsi/fc/fc_fip.h for ETH_P_FCOE
-and I'd rather move it to the propper location.
+> The FIP implementation is upstream, in drivers/scsi/libfcoe.c.
+> There is a local define in include/scsi/fc/fc_fip.h for ETH_P_FCOE
+> and I'd rather move it to the propper location.
 
-include/scsi/fc/fc_fip.h:28:#ifndef ETH_P_FIP
-include/scsi/fc/fc_fip.h:29:#define ETH_P_FIP	0x8914 /* FIP Ethertype */
+Then add that local definition removal to your patch so there is
+no mystery about what this is used for.
 
-One thing to note is that I will later push a patch to linux-scsi
-to remove the define in fc_fip.h. It may be preferable to do both
-operations in one patch, but I was worried about cross-subsystem
-conflicts with other patches to either netdev or fcoe code. I can
-refresh this patch to include the fc_fip.h removal and you and James
-can decide who takes the patch if that's a better aproach.
+> I can refresh this patch to include the fc_fip.h removal and you and
+> James can decide who takes the patch if that's a better aproach.
+
+That works much better, and to avoid merge issues you can send it
+via James with my pre-ack:
+
+Acked-by: David S. Miller <davem@davemloft.net>
