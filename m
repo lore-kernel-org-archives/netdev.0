@@ -1,68 +1,57 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: tx queue hashing hot-spots and poor performance (multiq, ixgbe)
-Date: Fri, 1 May 2009 12:20:12 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0905011206510.10383@ask.diku.dk>
-References: <606676310904291600u40e44187g4cfc104007b24fce@mail.gmail.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: tulip_rxtx_stop() on Cobalt Qube2
+Date: Fri, 1 May 2009 12:38:57 +0200
+Message-ID: <200905011238.59345.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Dickinson <andrew@whydna.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, grundler@parisc-linux.org, kyle@mcmartin.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:44969 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752926AbZEAKUS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2009 06:20:18 -0400
-In-Reply-To: <606676310904291600u40e44187g4cfc104007b24fce@mail.gmail.com>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:34464 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402AbZEAKjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 06:39:06 -0400
+Received: by ewy24 with SMTP id 24so2379171ewy.37
+        for <netdev@vger.kernel.org>; Fri, 01 May 2009 03:39:05 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Grant, Kyle,
 
-Interesting thread Andrew.  I'm also doing some 10G routing performance 
-testing, but using Sun Neptune (niu) and SMC's 10G XFP (sfc) NICs.
+I just updated my Qube2 to run a 2.6.30-rc2-00476-gd678033 kernel (also seen 
+on a 2.6.29-rc2-00462-gfa04b54) and I get the following message while booting 
+the box now, I have not git bisected the offending commit yet :
 
-I'm using pktgen for testing, but it sounds interesting that you got a 
-Ixia testing equipment, nice.
+[snip]
+Linux Tulip driver version 1.1.15-NAPI (Feb 27, 2007)
+PCI: Enabling device 0000:00:07.0 (0045 -> 0047)
+tulip0: Old format EEPROM on 'Cobalt Microserver' board.  Using substitute 
+media control info.
+tulip0:  EEPROM default media type Autosense.
+tulip0:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3) block.
+tulip0:  MII transceiver #1 config 1000 status 7809 advertising 01e1.
+eth0: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082000, 00:10:e0:00:7d:1f, 
+IRQ 19.
+PCI: Enabling device 0000:00:0c.0 (0005 -> 0007)
+tulip1: Old format EEPROM on 'Cobalt Microserver' board.  Using substitute 
+media control info.
+tulip1:  EEPROM default media type Autosense.
+tulip1:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3) block.
+tulip1:  MII transceiver #1 config 1000 status 7809 advertising 01e1.
+eth1: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082400, 00:10:e0:00:88:b9, 
+IRQ 20.
+[snip]
+0000:00:07.0: tulip_stop_rxtx() failed (CSR5 0xf0660000 CSR6 0xb20e2202)
+eth0: Setting full-duplex based on MII#1 link partner capability of 45e1.
 
-On Wed, 29 Apr 2009, Andrew Dickinson wrote:
+The interface is still fully functional, shall we increase the timeount in 
+tulip_stop_rxtx() to prevent this message from appearing ?
 
-> I'm trying to evaluate a new system for routing performance for some
-> custom packet modification that we do.  To start, I'm trying to get a
-> high-water mark of routing performance without our custom cruft in the
-> middle.  The hardware setup is a dual-package Nehalem box (X5550,
-> Hyper-Threading disabled) with a dual 10G intel card (pci-id:
-> 8086:10fb).  Because this NIC is freakishly new, I'm running the
-> latest torvalds kernel in order to get the ixgbe driver to identify it
-> (<sigh>).
-
-Is that the Intel 82599 10GbE chip?
-Where did you get/buy that NIC?
-
-
-> Interrupts...
-> I've disabled irqbalance and I'm explicitly pinning interrupts, one
-> per core, as follows:
-
-I'm doing the same...
-I find that keeping the RX and TX queue pinned to the same CPU, is 
-essential, together with patch that control the mapping between RX and TX 
-queues.  But with Eric's patch it looks like I can drop my own patch :-)
-
-If I don't do RX to TX mapping, then Oprofile shows that we use too much 
-time freeing the skb's, naturally due to cache bounces.
-
-
-> -bash-3.2# for x in 57 65; do for i in `seq 0 7`; do echo $i | awk
-> '{printf("%X", (2^$1));}' > /proc/irq/$(($i + $x))/smp_affinity; done;
-> done
-
-Keep up the good work!
-
-Hilsen
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+Thanks a lot in advance for your answer.
+-- 
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
