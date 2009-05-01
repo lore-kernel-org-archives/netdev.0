@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio_net: Cleanup command queue scatterlist usage
-Date: Fri, 01 May 2009 15:33:01 -0700 (PDT)
-Message-ID: <20090501.153301.42015656.davem@davemloft.net>
-References: <20090426.233014.216353908.davem@davemloft.net>
-	<20090427154925.4771.63651.stgit@debian.lart>
+Subject: Re: [PATCH] virtio_net: Fix function name typo
+Date: Fri, 01 May 2009 15:33:15 -0700 (PDT)
+Message-ID: <20090501.153315.115088159.davem@davemloft.net>
+References: <20090427155507.7895.79747.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, sfr@canb.auug.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
 To: alex.williamson@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41922
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41929
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759063AbZEAWdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:33:07 -0400
-In-Reply-To: <20090427154925.4771.63651.stgit@debian.lart>
+	by vger.kernel.org with ESMTP id S1765545AbZEAWdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 18:33:20 -0400
+In-Reply-To: <20090427155507.7895.79747.stgit@debian.lart>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alex Williamson <alex.williamson@hp.com>
-Date: Mon, 27 Apr 2009 09:50:03 -0600
+Date: Mon, 27 Apr 2009 09:55:38 -0600
 
-> We were avoiding calling sg_init* on scatterlists passed
-> into virtnet_send_command to prevent extraneous end markers.
-> This caused build warnings for uninitialized variables.
-> Cleanup the code to create proper scatterlists.
-> 
 > Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 
-This patch does not apply even to Linus's current tree.
+Please resubmit this when you fix up the scatterlist
+patch to apply properly, thanks.
