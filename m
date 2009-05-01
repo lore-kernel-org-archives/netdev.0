@@ -1,61 +1,60 @@
-From: Hugh Dickins <hugh@veritas.com>
-Subject: Re: [PATCH mmotm] mm: alloc_large_system_hash check order
-Date: Fri, 1 May 2009 13:05:50 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0905011303490.11574@blonde.anvils>
-References: <Pine.LNX.4.64.0904292151350.30874@blonde.anvils>
- <20090430132544.GB21997@csn.ul.ie> <Pine.LNX.4.64.0905011202530.8513@blonde.anvils>
- <49FAE12F.4020005@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323584-246501030-1241179429=:11574"
-Cc: Mel Gorman <mel@csn.ul.ie>, Andrew Morton <akpm@linux-foundation.org>,
-        Andi Kleen <andi@firstfloor.org>, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <49FAE12F.4020005@cosmosbay.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Subject: [PATCH] switch sgiseeq to netdev_ops
+Date: Fri,  1 May 2009 12:59:32 +0200 (CEST)
+Message-ID: <20090501105932.7EC47C3C8B@solo.franken.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elvis.franken.de ([193.175.24.41]:44987 "EHLO elvis.franken.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751495AbZEAMoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 May 2009 08:44:55 -0400
+Received: from uucp (helo=solo.franken.de)
+	by elvis.franken.de with local-bsmtp (Exim 3.36 #1)
+	id 1LzqSv-0008QG-00
+	for netdev@vger.kernel.org; Fri, 01 May 2009 12:59:37 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+---
 
---8323584-246501030-1241179429=:11574
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ drivers/net/sgiseeq.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
 
-On Fri, 1 May 2009, Eric Dumazet wrote:
-> Hugh Dickins a =C3=A9crit :
-> > On Thu, 30 Apr 2009, Mel Gorman wrote:
-> >> On Wed, Apr 29, 2009 at 10:09:48PM +0100, Hugh Dickins wrote:
-> >>> On an x86_64 with 4GB ram, tcp_init()'s call to alloc_large_system_ha=
-sh(),
-> >>> to allocate tcp_hashinfo.ehash, is now triggering an mmotm WARN_ON_ON=
-CE on
-> >>> order >=3D MAX_ORDER - it's hoping for order 11.  alloc_large_system_=
-hash()
-> >>> had better make its own check on the order.
->=20
-> Well, I dont know why, since alloc_large_system_hash() already take
-> care of retries, halving size between each tries.
-
-Sorry, I wasn't clear: I just meant that if we keep that
-WARN_ON_ONCE(order >=3D MAX_ORDER) in __alloc_pages_slowpath(),
-then we need alloc_large_system_hash() to avoid the call to
-__get_free_pages() in the order >=3D MAX_ORDER case,
-precisely because we're happy with the way it halves and
-falls back, so don't want a noisy warning; and now that we know
-that it could give that warning, it would be a shame for the
-_ONCE to suppress more interesting warnings later.
-
-I certainly did not mean for alloc_large_system_hash() to fail
-in the order >=3D MAX_ORDER case, nor did the patch do so.
-
-Hugh
---8323584-246501030-1241179429=:11574--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
+index 97d6856..ca1b109 100644
+--- a/drivers/net/sgiseeq.c
++++ b/drivers/net/sgiseeq.c
+@@ -709,6 +709,17 @@ static inline void setup_rx_ring(struct net_device *dev,
+ 	dma_sync_desc_dev(dev, &buf[i]);
+ }
+ 
++static const struct net_device_ops sgiseeq_netdev_ops = {
++	.ndo_open               = sgiseeq_open,
++	.ndo_stop               = sgiseeq_close,
++	.ndo_start_xmit         = sgiseeq_start_xmit,
++	.ndo_tx_timeout         = timeout,
++	.ndo_set_multicast_list = sgiseeq_set_multicast,
++	.ndo_change_mtu         = eth_change_mtu,
++	.ndo_set_mac_address    = sgiseeq_set_mac_address,
++	.ndo_validate_addr      = eth_validate_addr,
++};
++
+ static int __init sgiseeq_probe(struct platform_device *pdev)
+ {
+ 	struct sgiseeq_platform_data *pd = pdev->dev.platform_data;
+@@ -775,13 +786,8 @@ static int __init sgiseeq_probe(struct platform_device *pdev)
+ 			      SEEQ_CTRL_SFLAG | SEEQ_CTRL_ESHORT |
+ 			      SEEQ_CTRL_ENCARR;
+ 
+-	dev->open		= sgiseeq_open;
+-	dev->stop		= sgiseeq_close;
+-	dev->hard_start_xmit	= sgiseeq_start_xmit;
+-	dev->tx_timeout		= timeout;
++	dev->netdev_ops         = &sgiseeq_netdev_ops;
+ 	dev->watchdog_timeo	= (200 * HZ) / 1000;
+-	dev->set_multicast_list	= sgiseeq_set_multicast;
+-	dev->set_mac_address	= sgiseeq_set_mac_address;
+ 	dev->irq		= irq;
+ 
+ 	if (register_netdev(dev)) {
