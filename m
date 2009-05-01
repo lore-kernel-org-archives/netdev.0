@@ -1,63 +1,116 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: tx queue hashing hot-spots and poor performance (multiq, ixgbe)
-Date: Fri, 01 May 2009 18:48:30 +0200
-Message-ID: <49FB27DE.6090002@cosmosbay.com>
-References: <20090430.070811.260649067.davem@davemloft.net>	<606676310904301653w28f3226fsc477dc92b6a7cdbc@mail.gmail.com>	<49FA932B.4030405@cosmosbay.com> <20090501.090815.262436244.davem@davemloft.net>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth: add clock gating feature <resend>
+Date: Fri, 01 May 2009 07:41:50 -0400
+Message-ID: <49FADFFE.7020300@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andrew@whydna.net, jelaas@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------000506000202010302010803"
+To: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:55544 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752399AbZEAQsj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 12:48:39 -0400
-In-Reply-To: <20090501.090815.262436244.davem@davemloft.net>
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:14987 "EHLO
+	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbZEARR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 13:17:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Fri, 01 May 2009 08:14:03 +0200
->=20
->> [PATCH] net: skb_tx_hash() improvements
->>
->> When skb_rx_queue_recorded() is true, we dont want to use jash distr=
-ibution
->> as the device driver exactly told us which queue was selected at RX =
-time.
->> jhash makes a statistical shuffle, but this wont work with 8 static =
-inputs.
->>
->> Later improvements would be to compute reciprocal value of real_num_=
-tx_queues
->> to avoid a divide here. But this computation should be done once,
->> when real_num_tx_queues is set. This needs a separate patch, and a n=
-ew
->> field in struct net_device.
->>
->> Reported-by: Andrew Dickinson <andrew@whydna.net>
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
-> Applied, except that I changed the commit message header line to more
-> reflect that this is in fact a bug fix.
->=20
-> BTW, you don't need the reciprocol when num-tx-queues <=3D num-rx-que=
-ues
-> (you can just use the RX queue recording as the hash, straight) and
-> that's the kind of check what I intended to add to net-2.6 had you no=
-t
-> beaten me to this patch.
->=20
-> Also, thanks for giving me absolutely no credit for this whole thing
-> in your commit message.  I know I do that to you all the time :-/ How
-> can you forget so quickly that I'm the one that even suggested the
-> exact code change for Andrew to test in the first place?
+This is a multi-part message in MIME format.
+--------------000506000202010302010803
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Hoho, your Honor, I am totaly guilty and sorry, sometime I think I am
-David Miller, silly me ! :)
+This patch adds new logic to support a clock gating feature found on the 
+latest set of chipsets. The clock gating is performed on the tx/rx 
+engines when the link is disconnected. Clock gating helps in reducing 
+power consumption.
 
-I am not fighting for credit or whatever, certainly not with you.
+* modified based on comments from netdev
+
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
+
+--------------000506000202010302010803
+Content-Type: text/plain;
+ name="patch-forcedeth-gate-clocks"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-gate-clocks"
+
+--- old/drivers/net/forcedeth.c	2009-04-25 18:33:15.000000000 -0400
++++ new/drivers/net/forcedeth.c	2009-05-01 07:30:57.000000000 -0400
+@@ -343,6 +343,7 @@
+ #define NVREG_POWERSTATE2_POWERUP_MASK		0x0F15
+ #define NVREG_POWERSTATE2_POWERUP_REV_A3	0x0001
+ #define NVREG_POWERSTATE2_PHY_RESET		0x0004
++#define NVREG_POWERSTATE2_GATE_CLOCKS		0x0F00
+ };
+ 
+ /* Big endian: should work, but is untested */
+@@ -1017,6 +1018,23 @@
+ 		return 1;
+ }
+ 
++static void nv_txrx_gate(struct net_device *dev, bool gate)
++{
++	struct fe_priv *np = get_nvpriv(dev);
++	u8 __iomem *base = get_hwbase(dev);
++	u32 powerstate;
++
++	if (!np->mac_in_use &&
++	    (np->driver_data & DEV_HAS_POWER_CNTRL)) {
++		powerstate = readl(base + NvRegPowerState2);
++		if (gate)
++			powerstate |= NVREG_POWERSTATE2_GATE_CLOCKS;
++		else
++			powerstate &= ~NVREG_POWERSTATE2_GATE_CLOCKS;
++		writel(powerstate, base + NvRegPowerState2);
++	}
++}
++
+ static void nv_enable_irq(struct net_device *dev)
+ {
+ 	struct fe_priv *np = get_nvpriv(dev);
+@@ -3394,12 +3412,14 @@
+ 		if (!netif_carrier_ok(dev)) {
+ 			netif_carrier_on(dev);
+ 			printk(KERN_INFO "%s: link up.\n", dev->name);
++			nv_txrx_gate(dev, false);
+ 			nv_start_rx(dev);
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(dev)) {
+ 			netif_carrier_off(dev);
+ 			printk(KERN_INFO "%s: link down.\n", dev->name);
++			nv_txrx_gate(dev, true);
+ 			nv_stop_rx(dev);
+ 		}
+ 	}
+@@ -5327,6 +5347,7 @@
+ 	mii_rw(dev, np->phyaddr, MII_BMCR,
+ 	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
+ 
++	nv_txrx_gate(dev, false);
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5514,12 +5535,14 @@
+ 	nv_drain_rxtx(dev);
+ 
+ 	if (np->wolenabled) {
++		nv_txrx_gate(dev, false);
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
+ 	} else {
+ 		/* power down phy */
+ 		mii_rw(dev, np->phyaddr, MII_BMCR,
+ 		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
++		nv_txrx_gate(dev, true);
+ 	}
+ 
+ 	/* FIXME: power down nic */
+
+--------------000506000202010302010803--
