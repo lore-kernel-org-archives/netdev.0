@@ -1,61 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] qos: Limit a filter's priority to a 16 bit value
-Date: Fri, 01 May 2009 19:18:54 -0700 (PDT)
-Message-ID: <20090501.191854.218400455.davem@davemloft.net>
-References: <273D38FBE7C6FE46A1689FCD014A0B8B495C016A@azsmsx505.amr.corp.intel.com>
-	<1241229126.7162.5.camel@dogo.mojatatu.com>
-	<273D38FBE7C6FE46A1689FCD014A0B8B495C01C0@azsmsx505.amr.corp.intel.com>
+Subject: Re: [PATCH] 3c589_cs: add cis(firmware) of 3Com multifunction
+ pcmcia card
+Date: Fri, 01 May 2009 19:22:58 -0700 (PDT)
+Message-ID: <20090501.192258.229612946.davem@davemloft.net>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090427215050.daeb45fd.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: robert.w.love@intel.com
+Cc: dwmw2@infradead.org, netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43320
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43324
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751792AbZEBCTA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 22:19:00 -0400
-In-Reply-To: <273D38FBE7C6FE46A1689FCD014A0B8B495C01C0@azsmsx505.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1750784AbZEBCXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 22:23:04 -0400
+In-Reply-To: <20090427215050.daeb45fd.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Love, Robert W" <robert.w.love@intel.com>
-Date: Fri, 1 May 2009 19:10:36 -0700
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Mon, 27 Apr 2009 21:50:50 +0900
 
-> jamal wrote:
->> On Fri, 2009-05-01 at 16:30 -0700, Love, Robert W wrote:
->> 
->>> I should be more clear by saying that this should only
->>> fail with filter priorities assigned by the kernel.
->>> I think if the user passes down the priority when
->>> creating the filter it should always be 16bits and it's fine.
->>> 
->>> However, when the kernel is assigning priorities, the
->>> first assigned priority for a filter is 0xC0000000,
->>> the second is "the lowest priority - 1" so 0xBFFFFFFF.
->>> 
->>> It will assign this value in tcf_auto_prio() which will
->>> directly assign the 32bit value to to tp->prio with-
->>> 
->>> tp->prio = nprio ? : tcf_auto_prio(*back);
->> 
->> I think the above should read:
->> tp->prio = nprio ? : TC_H_MAJ(tcf_auto_prio(*back));
->> 
-> I think you might be right, although, I don't see why
-> we use a u32 when we're always storing a u16.
+> 
+> 3c589_cs,3c574_cs,serial_cs:
+> 
+>  (1)add cis(firmware) of 3Com lan&modem mulitifunction pcmcia card.
+>  (2)load correct configuration register for 3Com card
+>  
+>  
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-That's irrelevant.
+Applied to net-next-2.6.
 
-You've essentially found what turned out to be a one-line bug, and
-fixed it by changing and rearranging a lot of things.
+But a few things to be mindful of next time, which I had to
+clean up for you.
 
-So could I just get that one-liner fix patch from somebody?
+> + 	}
+> +    	link->conf.ConfigBase = parse->config.base;
+> +   	link->conf.Present = parse->config.rmask[0];
 
-Thanks :-)
+These three lines started with some spaces, then a tab
+character.  It should just be one tab character.
 
-Meanwhile, on the issue of how this value is stored, perhaps someone
-intended to support "classful" filter priorities, just as we support
-classful qdiscs.  Or perhaps someone had the idea to store the
-protocol in there as well, who knows :-)
+GIT warns about this when applying patches so that such
+spacing errors can be caught before code goes into the
+tree.
