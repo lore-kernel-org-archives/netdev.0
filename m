@@ -1,123 +1,60 @@
-From: Mikko Vinni <mmvinni@yahoo.com>
-Subject: br2684: convert to net_device_ops broke it
-Date: Sat, 2 May 2009 02:04:21 -0700 (PDT)
-Message-ID: <777914.38491.qm@web58405.mail.re3.yahoo.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 2/2] tcp: Fix tcp_prequeue() to get correct rto_min value
+Date: Sat, 2 May 2009 13:20:02 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0905021312070.8517@wrl-59.cs.helsinki.fi>
+References: <20090502075133.GC13165@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Satoru SATOH <satoru.satoh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web58405.mail.re3.yahoo.com ([68.142.236.173]:37011 "HELO
-	web58405.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751895AbZEBJLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 05:11:04 -0400
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:47541 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628AbZEBKUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 06:20:03 -0400
+In-Reply-To: <20090502075133.GC13165@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 2 May 2009, Satoru SATOH wrote:
 
-Hi,
+> This patch depends on the previous patch, makes tcp_prequeue() uses the
+> correct tcp rto_min value returns from tcp_rto_min().
+> 
+> Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+> 
+> ---
+>  include/net/tcp.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 284cc68..a54d139 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -920,7 +920,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+>  			wake_up_interruptible(sk->sk_sleep);
+>  			if (!inet_csk_ack_scheduled(sk))
+>  				inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+> -						          (3 * TCP_RTO_MIN) / 4,
+> +						          (3 * tcp_rto_min(sk)) / 4,
+>  							  TCP_RTO_MAX);
+>  		}
+>  		return 1;
+> 
 
-my ADSL connection works well with kernel 2.6.29, but since commit
-0ba25ff4c669e5395110ba6ab4958a97a9f96922 (br2684: convert to net_device_ops)
-entered the mainline using br2684ctl fails with the following bug:
+I'm not fully sure we really want this... I wonder did you run into some 
+real problem with the TCP_RTO_MIN based version as it's not setting RTO 
+timer but delayed ACK timer...? The change could have nasty effects to 
+interactivity of a flow if somebody is hit by nagle delay and the peer
+has tuned their minimum RTO. Not that I in anyway believe it should be 
+that useful to set that minimum RTO because of frto that is nowadays
+enabled.
 
-kernel: [  321.015643] ATM dev 0: ADSL line: training
-kernel: [  323.011315] ATM dev 0: ADSL line: channel analysis
-kernel: [  327.019647] ATM dev 0: ADSL line: exchange
-kernel: [  328.013485] ATM dev 0: ADSL line: up (8000 kb/s down | 896 kb/s up)
-br2684ctl[5606]: Interface "nas0" could not be created, reason: File exists 
-br2684ctl[5606]: Communicating over ATM 0.0.33, encapsulation: LLC 
-kernel: [  334.414469] br2684_create: register_netdev failed
-kernel: [  334.421276] BUG: unable to handle kernel NULL pointer dereference at (null)
-kernel: [  334.421298] IP: [<c0201544>] strncmp+0x14/0x30
-kernel: [  334.421325] *pde = 00000000 
-kernel: [  334.421336] Oops: 0000 [#1] 
-kernel: [  334.421344] last sysfs file: /sys/module/br2684/initstate
-kernel: [  334.421355] Modules linked in: cxacru usbatm br2684 binfmt_misc ipv6 radeon drm bridge stp llc bnep sco rfcomm l2cap sbs sbshc powernow_k7 lp joydev ppdev pcmcia snd_ali5451 snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_seq_dummy snd_seq_oss snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_device i2c_ali15x3 i2c_ali1535 snd parport_pc parport psmouse i2c_core soundcore snd_page_alloc yenta_socket rsrc_nonstatic pcmcia_core serio_raw container video shpchp pci_hotplug ati_agp agpgart evdev ext4 mbcache jbd2 crc16 usbhid hid natsemi ide_cd_mod cdrom ohci1394 ide_gd_mod ieee1394 ohci_hcd usbcore fuse
-kernel: [  334.421493] 
-kernel: [  334.421505] Pid: 5606, comm: br2684ctl Not tainted (2.6.29-rc2-702-ge0463f5 #17) HP nx9005 (DG832A)       
-kernel: [  334.421518] EIP: 0060:[<c0201544>] EFLAGS: 00210016 CPU: 0
-kernel: [  334.421529] EIP is at strncmp+0x14/0x30
-kernel: [  334.421537] EAX: 00000000 EBX: dcc31b84 ECX: 0000000f EDX: d6658e78
-kernel: [  334.421547] ESI: 00000000 EDI: d6658e78 EBP: d6658e54 ESP: d6658e4c
-kernel: [  334.421556]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
-kernel: [  334.421567] Process br2684ctl (pid: 5606, ti=d6658000 task=ccc48000 task.ti=d6658000)
-kernel: [  334.421575] Stack:
-kernel: [  334.421580]  d6658e78 400261f2 d6658eb8 de7e95dc d677c000 d677c000 00000000 d73acd80
-kernel: [  334.421600]  d6658eb0 00000002 00000002 3073616e b7fe3f00 0804ac80 08048ac0 00000000
-kernel: [  334.421619]  00000000 00000000 00000001 00000000 00000000 00000000 00000000 00000000
-kernel: [  334.421637] Call Trace:
-kernel: [  334.421646]  [<de7e95dc>] ? br2684_ioctl+0x20c/0x410 [br2684]
-kernel: [  334.421675]  [<c030b9f7>] ? vcc_ioctl+0xa7/0x380
-kernel: [  334.421701]  [<c0297af2>] ? sock_ioctl+0x52/0x240
-kernel: [  334.421723]  [<c0297aa0>] ? sock_ioctl+0x0/0x240
-kernel: [  334.421736]  [<c0193260>] ? vfs_ioctl+0x20/0x70
-kernel: [  334.421758]  [<c0193732>] ? do_vfs_ioctl+0x72/0x580
-kernel: [  334.421771]  [<c029a83c>] ? release_sock+0x7c/0x90
-kernel: [  334.421785]  [<c030a044>] ? pvc_setsockopt+0x44/0x60
-kernel: [  334.421798]  [<c029818f>] ? sys_setsockopt+0x5f/0xb0
-kernel: [  334.421812]  [<c0299cc1>] ? sys_socketcall+0x231/0x270
-kernel: [  334.421824]  [<c0193ca3>] ? sys_ioctl+0x63/0x70
-kernel: [  334.421837]  [<c01034c5>] ? sysenter_do_call+0x12/0x25
-kernel: [  334.421853] Code: 31 c0 eb 04 19 c0 0c 01 8b 34 24 8b 7c 24 04 c9 c3 8d b6 00 00 00 00 55 89 e5 83 ec 08 89 34 24 89 7c 24 04 89 c6 89 d7 49 78 08 <ac> ae 75 08 84 c0 75 f5 31 c0 eb 04 19 c0 0c 01 8b 34 24 8b 7c 
-kernel: [  334.421936] EIP: [<c0201544>] strncmp+0x14/0x30 SS:ESP 0068:d6658e4c
-kernel: [  334.421956] ---[ end trace c26391b26aac614a ]---
-/USR/SBIN/CRON[5723]: (root) CMD ([ -x /usr/sbin/update-motd ] && /usr/sbin/update-motd 2>/dev/null)
-kernel: [  557.287581] ACPI: EC: GPE storm detected, transactions will use polling mode
+In any case, I see very little point in putting them into a separate 
+patches due to non-complex nature of the actual change (with complex 
+changes it might help though).
 
 
-I traced the failing strncmp call to be in the br2684_find_dev function. With the following patch
-the messages change a little bit, but the connection still doesn't work. It seems
-that net_dev->name is not initialized, but I have no idea where it should be set.
-
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 334fcd4..6bf59c7 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -133,8 +133,15 @@ static struct net_device *br2684_find_dev(const struct br2684_if_spec *s)
-         break;
-     case BR2684_FIND_BYIFNAME:
-         list_for_each(lh, &br2684_devs) {
-+            int skip = 0;
-             net_dev = list_entry_brdev(lh);
--            if (!strncmp(net_dev->name, s->spec.ifname, IFNAMSIZ))
-+            if(net_dev->name == NULL || s->spec.ifname == NULL) {
-+                skip = 1;
-+                printk(KERN_EMERG 
-+                "br2684_find_dev: net_dev->name: %s, s->spec.ifname: %s\n",
-+                net_dev->name, s->spec.ifname);
-+            }
-+            if (!skip && !strncmp(net_dev->name, s->spec.ifname, IFNAMSIZ))
-                 return net_dev;
-         }
-         break;
-
-And the messages:
-kernel: [  143.369252] ATM dev 0: ADSL line: attempting to activate
-kernel: [  147.589978] br2684_find_dev: net_dev->name: <NULL>, s->spec.ifname: nas0
-kernel: [  147.590030] br2684: tried to attach to non-existant device
-kernel: [  151.369922] ATM dev 0: ADSL line: down
-
-Reverting 0ba25ff4c669e5395110ba6ab4958a97a9f96922 "fixes" the issue also
-in v2.6.30-rc4 (output with some debug messages):
-
-br2684ctl[3559]: Interface "nas0" created sucessfully 
-br2684ctl[3559]: Communicating over ATM 0.0.33, encapsulation: LLC 
-kernel: [  171.240807] br2684_ioctl cmd: 1073897971
-kernel: [  171.240826] nas0 (): not using net_device_ops yet
-kernel: [  171.246543] br2684_ioctl cmd: 1073897970
-kernel: [  171.246553] br2684_regvcc entered
-kernel: [  171.246556] br2684_regvcc going to find_dev
-kernel: [  171.246561] br2684_regvcc before loop
-kernel: [  171.246563] br2684_regvcc returning success
-br2684ctl[3559]: Interface configured
-br2684ctl[3566]: RFC 1483/2684 bridge daemon started 
-
-
-I'll be glad to test any patches.
-
-Mikko
-
-
-      
+-- 
+ i.
