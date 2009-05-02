@@ -1,53 +1,123 @@
-From: senthil kumar <invitation@mydailyflog.com>
-Subject: I just uploaded a photo that I want you to see!
-Date: Sat, 2 May 2009 03:19:06 -0500
-Message-ID: <6dd18963730b2a1c587775dc793f44da@www.mydailyflog.com>
-Reply-To: senthil kumar <psenthilkumar.accet@gmail.com>
+From: Mikko Vinni <mmvinni@yahoo.com>
+Subject: br2684: convert to net_device_ops broke it
+Date: Sat, 2 May 2009 02:04:21 -0700 (PDT)
+Message-ID: <777914.38491.qm@web58405.mail.re3.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.mydailyflog.com ([67.228.245.114]:46432 "EHLO
-	mail3.mydailyflog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751895AbZEBIeC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 04:34:02 -0400
-Received: from localhost (127.0.0.1) by mail3.mydailyflog.com (PowerMTA(TM) v3.5r4) id hvg2nk0k6ms7 for <netdev@vger.kernel.org>; Sat, 2 May 2009 03:19:06 -0500 (envelope-from <invitation@mydailyflog.com>)
+Received: from web58405.mail.re3.yahoo.com ([68.142.236.173]:37011 "HELO
+	web58405.mail.re3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751895AbZEBJLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 05:11:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
 
-I just uploaded a photo on senthil_linkedin's DailyFlog page that I want you to see.
+Hi,
 
-Please come and see: http://www.mydailyflog.com/go/invite_register/senthil_linkedin/36654762
+my ADSL connection works well with kernel 2.6.29, but since commit
+0ba25ff4c669e5395110ba6ab4958a97a9f96922 (br2684: convert to net_device_ops)
+entered the mainline using br2684ctl fails with the following bug:
+
+kernel: [  321.015643] ATM dev 0: ADSL line: training
+kernel: [  323.011315] ATM dev 0: ADSL line: channel analysis
+kernel: [  327.019647] ATM dev 0: ADSL line: exchange
+kernel: [  328.013485] ATM dev 0: ADSL line: up (8000 kb/s down | 896 kb/s up)
+br2684ctl[5606]: Interface "nas0" could not be created, reason: File exists 
+br2684ctl[5606]: Communicating over ATM 0.0.33, encapsulation: LLC 
+kernel: [  334.414469] br2684_create: register_netdev failed
+kernel: [  334.421276] BUG: unable to handle kernel NULL pointer dereference at (null)
+kernel: [  334.421298] IP: [<c0201544>] strncmp+0x14/0x30
+kernel: [  334.421325] *pde = 00000000 
+kernel: [  334.421336] Oops: 0000 [#1] 
+kernel: [  334.421344] last sysfs file: /sys/module/br2684/initstate
+kernel: [  334.421355] Modules linked in: cxacru usbatm br2684 binfmt_misc ipv6 radeon drm bridge stp llc bnep sco rfcomm l2cap sbs sbshc powernow_k7 lp joydev ppdev pcmcia snd_ali5451 snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm snd_seq_dummy snd_seq_oss snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_device i2c_ali15x3 i2c_ali1535 snd parport_pc parport psmouse i2c_core soundcore snd_page_alloc yenta_socket rsrc_nonstatic pcmcia_core serio_raw container video shpchp pci_hotplug ati_agp agpgart evdev ext4 mbcache jbd2 crc16 usbhid hid natsemi ide_cd_mod cdrom ohci1394 ide_gd_mod ieee1394 ohci_hcd usbcore fuse
+kernel: [  334.421493] 
+kernel: [  334.421505] Pid: 5606, comm: br2684ctl Not tainted (2.6.29-rc2-702-ge0463f5 #17) HP nx9005 (DG832A)       
+kernel: [  334.421518] EIP: 0060:[<c0201544>] EFLAGS: 00210016 CPU: 0
+kernel: [  334.421529] EIP is at strncmp+0x14/0x30
+kernel: [  334.421537] EAX: 00000000 EBX: dcc31b84 ECX: 0000000f EDX: d6658e78
+kernel: [  334.421547] ESI: 00000000 EDI: d6658e78 EBP: d6658e54 ESP: d6658e4c
+kernel: [  334.421556]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
+kernel: [  334.421567] Process br2684ctl (pid: 5606, ti=d6658000 task=ccc48000 task.ti=d6658000)
+kernel: [  334.421575] Stack:
+kernel: [  334.421580]  d6658e78 400261f2 d6658eb8 de7e95dc d677c000 d677c000 00000000 d73acd80
+kernel: [  334.421600]  d6658eb0 00000002 00000002 3073616e b7fe3f00 0804ac80 08048ac0 00000000
+kernel: [  334.421619]  00000000 00000000 00000001 00000000 00000000 00000000 00000000 00000000
+kernel: [  334.421637] Call Trace:
+kernel: [  334.421646]  [<de7e95dc>] ? br2684_ioctl+0x20c/0x410 [br2684]
+kernel: [  334.421675]  [<c030b9f7>] ? vcc_ioctl+0xa7/0x380
+kernel: [  334.421701]  [<c0297af2>] ? sock_ioctl+0x52/0x240
+kernel: [  334.421723]  [<c0297aa0>] ? sock_ioctl+0x0/0x240
+kernel: [  334.421736]  [<c0193260>] ? vfs_ioctl+0x20/0x70
+kernel: [  334.421758]  [<c0193732>] ? do_vfs_ioctl+0x72/0x580
+kernel: [  334.421771]  [<c029a83c>] ? release_sock+0x7c/0x90
+kernel: [  334.421785]  [<c030a044>] ? pvc_setsockopt+0x44/0x60
+kernel: [  334.421798]  [<c029818f>] ? sys_setsockopt+0x5f/0xb0
+kernel: [  334.421812]  [<c0299cc1>] ? sys_socketcall+0x231/0x270
+kernel: [  334.421824]  [<c0193ca3>] ? sys_ioctl+0x63/0x70
+kernel: [  334.421837]  [<c01034c5>] ? sysenter_do_call+0x12/0x25
+kernel: [  334.421853] Code: 31 c0 eb 04 19 c0 0c 01 8b 34 24 8b 7c 24 04 c9 c3 8d b6 00 00 00 00 55 89 e5 83 ec 08 89 34 24 89 7c 24 04 89 c6 89 d7 49 78 08 <ac> ae 75 08 84 c0 75 f5 31 c0 eb 04 19 c0 0c 01 8b 34 24 8b 7c 
+kernel: [  334.421936] EIP: [<c0201544>] strncmp+0x14/0x30 SS:ESP 0068:d6658e4c
+kernel: [  334.421956] ---[ end trace c26391b26aac614a ]---
+/USR/SBIN/CRON[5723]: (root) CMD ([ -x /usr/sbin/update-motd ] && /usr/sbin/update-motd 2>/dev/null)
+kernel: [  557.287581] ACPI: EC: GPE storm detected, transactions will use polling mode
 
 
-Thanks!
+I traced the failing strncmp call to be in the br2684_find_dev function. With the following patch
+the messages change a little bit, but the connection still doesn't work. It seems
+that net_dev->name is not initialized, but I have no idea where it should be set.
 
-senthil kumar
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 334fcd4..6bf59c7 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -133,8 +133,15 @@ static struct net_device *br2684_find_dev(const struct br2684_if_spec *s)
+         break;
+     case BR2684_FIND_BYIFNAME:
+         list_for_each(lh, &br2684_devs) {
++            int skip = 0;
+             net_dev = list_entry_brdev(lh);
+-            if (!strncmp(net_dev->name, s->spec.ifname, IFNAMSIZ))
++            if(net_dev->name == NULL || s->spec.ifname == NULL) {
++                skip = 1;
++                printk(KERN_EMERG 
++                "br2684_find_dev: net_dev->name: %s, s->spec.ifname: %s\n",
++                net_dev->name, s->spec.ifname);
++            }
++            if (!skip && !strncmp(net_dev->name, s->spec.ifname, IFNAMSIZ))
+                 return net_dev;
+         }
+         break;
+
+And the messages:
+kernel: [  143.369252] ATM dev 0: ADSL line: attempting to activate
+kernel: [  147.589978] br2684_find_dev: net_dev->name: <NULL>, s->spec.ifname: nas0
+kernel: [  147.590030] br2684: tried to attach to non-existant device
+kernel: [  151.369922] ATM dev 0: ADSL line: down
+
+Reverting 0ba25ff4c669e5395110ba6ab4958a97a9f96922 "fixes" the issue also
+in v2.6.30-rc4 (output with some debug messages):
+
+br2684ctl[3559]: Interface "nas0" created sucessfully 
+br2684ctl[3559]: Communicating over ATM 0.0.33, encapsulation: LLC 
+kernel: [  171.240807] br2684_ioctl cmd: 1073897971
+kernel: [  171.240826] nas0 (): not using net_device_ops yet
+kernel: [  171.246543] br2684_ioctl cmd: 1073897970
+kernel: [  171.246553] br2684_regvcc entered
+kernel: [  171.246556] br2684_regvcc going to find_dev
+kernel: [  171.246561] br2684_regvcc before loop
+kernel: [  171.246563] br2684_regvcc returning success
+br2684ctl[3559]: Interface configured
+br2684ctl[3566]: RFC 1483/2684 bridge daemon started 
 
 
-========================================
-Got a digital camera?
+I'll be glad to test any patches.
 
-MyDailyFlog is a personal photo-blogging space where you can easily post
-your latest and greatest photos, and share them with your friends and family.
-
-Create your own DailyFlog at www.MyDailyFlog.com
+Mikko
 
 
-
-
-
-.......................................................................
-Unsubscribe: to opt out of further invitations from your friends to see their DailyFlogs, please click below:
-
-http://www.mydailyflog.com/go/system/euns=netdev@vger.kernel.org&md5=28bc5beff2bc4cc40575a76f5b953909
-
-Please do not reply directly to this email. Questions? Contact us - 
-http://www.mydailyflog.com/go/contact_us
-
-MyDailyFlog, Refriendz Ltd. PO BOX 1184, Luton, Bedfordshire, LU1 9AT.
-
-
+      
