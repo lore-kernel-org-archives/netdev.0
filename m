@@ -1,43 +1,53 @@
-From: Satoru SATOH <satoru.satoh@gmail.com>
-Subject: [PATCH 2/2] tcp: Fix tcp_prequeue() to get correct rto_min value
-Date: Sat, 2 May 2009 16:51:33 +0900
-Message-ID: <20090502075133.GC13165@localhost.localdomain>
+From: senthil kumar <invitation@mydailyflog.com>
+Subject: I just uploaded a photo that I want you to see!
+Date: Sat, 2 May 2009 03:19:06 -0500
+Message-ID: <6dd18963730b2a1c587775dc793f44da@www.mydailyflog.com>
+Reply-To: senthil kumar <psenthilkumar.accet@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.225]:6823 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752070AbZEBH4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 03:56:36 -0400
-Received: by rv-out-0506.google.com with SMTP id f6so503499rvb.5
-        for <netdev@vger.kernel.org>; Sat, 02 May 2009 00:56:36 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail3.mydailyflog.com ([67.228.245.114]:46432 "EHLO
+	mail3.mydailyflog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbZEBIeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 04:34:02 -0400
+Received: from localhost (127.0.0.1) by mail3.mydailyflog.com (PowerMTA(TM) v3.5r4) id hvg2nk0k6ms7 for <netdev@vger.kernel.org>; Sat, 2 May 2009 03:19:06 -0500 (envelope-from <invitation@mydailyflog.com>)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch depends on the previous patch, makes tcp_prequeue() uses the
-correct tcp rto_min value returns from tcp_rto_min().
+Hello!
 
-Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+I just uploaded a photo on senthil_linkedin's DailyFlog page that I want you to see.
 
----
- include/net/tcp.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Please come and see: http://www.mydailyflog.com/go/invite_register/senthil_linkedin/36654762
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 284cc68..a54d139 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -920,7 +920,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
- 			wake_up_interruptible(sk->sk_sleep);
- 			if (!inet_csk_ack_scheduled(sk))
- 				inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
--						          (3 * TCP_RTO_MIN) / 4,
-+						          (3 * tcp_rto_min(sk)) / 4,
- 							  TCP_RTO_MAX);
- 		}
- 		return 1;
--- 
-1.6.2.2
+
+Thanks!
+
+senthil kumar
+
+
+========================================
+Got a digital camera?
+
+MyDailyFlog is a personal photo-blogging space where you can easily post
+your latest and greatest photos, and share them with your friends and family.
+
+Create your own DailyFlog at www.MyDailyFlog.com
+
+
+
+
+
+.......................................................................
+Unsubscribe: to opt out of further invitations from your friends to see their DailyFlogs, please click below:
+
+http://www.mydailyflog.com/go/system/euns=netdev@vger.kernel.org&md5=28bc5beff2bc4cc40575a76f5b953909
+
+Please do not reply directly to this email. Questions? Contact us - 
+http://www.mydailyflog.com/go/contact_us
+
+MyDailyFlog, Refriendz Ltd. PO BOX 1184, Luton, Bedfordshire, LU1 9AT.
+
 
