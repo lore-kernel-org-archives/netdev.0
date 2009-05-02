@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: Fix tcp_prequeue() to get correct rto_min
- value
-Date: Sat, 02 May 2009 09:56:57 -0700 (PDT)
-Message-ID: <20090502.095657.32839668.davem@davemloft.net>
-References: <20090502075133.GC13165@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Do not register ne2k-pci device until initialized
+Date: Sat, 02 May 2009 13:05:34 -0400
+Message-ID: <49FC7D5E.6050203@garzik.org>
+References: <1241281735.2641.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: satoru.satoh@gmail.com
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	stable@kernel.org
+To: Lubomir Rintel <lkundrak@v3.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58625
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754405AbZEBQ5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 12:57:02 -0400
-In-Reply-To: <20090502075133.GC13165@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:52945 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752927AbZEBRFg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 May 2009 13:05:36 -0400
+In-Reply-To: <1241281735.2641.7.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Satoru SATOH <satoru.satoh@gmail.com>
-Date: Sat, 2 May 2009 16:51:33 +0900
-
-> This patch depends on the previous patch, makes tcp_prequeue() uses the
-> correct tcp rto_min value returns from tcp_rto_min().
+Lubomir Rintel wrote:
+> Doing it in reverse order causes uevent to be sent before
+> we have a MAC address, which confuses udev.
 > 
-> Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 
-These two patches logically belong together, please combine
-them and resubmit.
+Acked-by: Jeff Garzik <jgarzik@redhat.com>
 
-Thanks!
+Good spotting, that fixes a clear startup race
+
+
