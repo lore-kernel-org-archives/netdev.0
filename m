@@ -1,63 +1,56 @@
-From: Michael Arndt <flexray4linux@scriptkiller.de>
-Subject: Re: [PATCH] FlexRay: Allocate numbers for FlexRay communication
-Date: Sat, 2 May 2009 18:32:29 +0200
-Message-ID: <20090502163229.GY13310@m58s01.vlinux.de>
-References: <20090430163825.GX13310@m58s01.vlinux.de> <49F9DFA1.30100@hartkopp.net>
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: [PATCH] Do not register ne2k-pci device until initialized
+Date: Sat, 02 May 2009 18:28:54 +0200
+Message-ID: <1241281735.2641.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Michael Arndt <flexray4linux@scriptkiller.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from scriptkiller.de ([83.151.21.67]:57163 "EHLO m58s01.vlinux.de"
+Received: from norkia.v3.sk ([92.240.234.41]:39108 "EHLO norkia.v3.sk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755800AbZEBQca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 May 2009 12:32:30 -0400
-Content-Disposition: inline
-In-Reply-To: <49F9DFA1.30100@hartkopp.net>
+	id S1754405AbZEBQxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 May 2009 12:53:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 30, 2009 at 07:28:01PM +0200, Oliver Hartkopp wrote:
-> > I do not know why ETH_P_CAN has been chosen to be 0x000C
-> 
-> perhaps because of 'C'AN ?
+Doing it in reverse order causes uevent to be sent before
+we have a MAC address, which confuses udev.
 
-Ok, thanks for the hint. So I should maybe choose 0x000F :)
+Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+---
+ drivers/net/ne2k-pci.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-> - What is the technical background?
-> - Is there any documentation?
+diff --git a/drivers/net/ne2k-pci.c b/drivers/net/ne2k-pci.c
+index eb66f65..7d83896 100644
+--- a/drivers/net/ne2k-pci.c
++++ b/drivers/net/ne2k-pci.c
+@@ -374,18 +374,17 @@ static int __devinit ne2k_pci_init_one (struct pci_dev *pdev,
+ 	dev->ethtool_ops = &ne2k_pci_ethtool_ops;
+ 	NS8390_init(dev, 0);
+ 
++	memcpy(dev->dev_addr, SA_prom, 6);
++	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
++
+ 	i = register_netdev(dev);
+ 	if (i)
+ 		goto err_out_free_netdev;
+ 
+-	for(i = 0; i < 6; i++)
+-		dev->dev_addr[i] = SA_prom[i];
+ 	printk("%s: %s found at %#lx, IRQ %d, %pM.\n",
+ 	       dev->name, pci_clone_list[chip_idx].name, ioaddr, dev->irq,
+ 	       dev->dev_addr);
+ 
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+-
+ 	return 0;
+ 
+ err_out_free_netdev:
 
-My goal is to bring (low-cost) FlexRay communication to Linux. There is
-some documentation of the project which I will hopefully put up soon.
-
-> - Do you need realtime?
-
-Would be nice, but will probably be hard to do. Currently only sending/
-receiving in pre-configured message buffers is possible, so the real
-low level stuff will be handled in hardware (in the FlexRay Communication
-Controller [CC]).
-
-> - What hardware is supported?
-
-See below. But the major goal is to provide a common framework for
-all hardware, similar to the SocketCAN implementation.
-Unfortunately I do not have several thousand Euros to spend for
-commercially available solutions [1, 2]. I also bet their drivers
-(if available at all for Linux; seems that only TZM has one)
-will be incompatible with each other and are closed source.
-
-> I bet there's no Flexray hardware on the market that can be attached on a
-> serial line like there are for low-cost CAN adaptors, right?
-
-Actually, I have a working prototype of such an (limited) adapter lying on
-my desk right now.
-
-Regards,
-
-Michael
-
-
-[1] http://www.vector.com/
-[2] http://www.tzm.de/
+-- 
+"Excuse all the blood" -- Dead
 
