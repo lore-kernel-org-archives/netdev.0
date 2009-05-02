@@ -1,153 +1,103 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 3/5] initdev:kernel: Await console discovery, v5
-Date: Sat, 2 May 2009 11:38:25 +0800
-Message-ID: <20090502113825.11bc7876@linux-lm>
-References: <20090502022756.GA15838@cuplxvomd02.corp.sa.net>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 5/5] initdev:kernel: USB and SCSI block init device
+ notification, v3
+Date: Sat, 2 May 2009 11:55:39 +0800
+Message-ID: <20090502115539.396206bc@linux-lm>
+References: <20090502023000.GA16076@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	linux-usb@vger.kernel.org, greg@kroah.com,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@infradead.org
-To: David VomLehn <dvomlehn@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.168]:26666 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751993AbZEBDii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2009 23:38:38 -0400
-In-Reply-To: <20090502022756.GA15838@cuplxvomd02.corp.sa.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+To: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090502023000.GA16076-CFZJ1or75eBPWxJt6d6B6bQa8qPdvLwY@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 1 May 2009 19:27:56 -0700
-David VomLehn <dvomlehn@cisco.com> wrote:
+On Fri, 1 May 2009 19:30:00 -0700
+David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> wrote:
 
-> The patch has been re-written to use the init device synchronization
-> infrastructure. This ensures that we can detect console
-> initialization when the devices become available, as well as
-> determining that no console is attached at boot time.
+> From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org
+> 
+> Add notification of device discovery for USB and SCSI block devices.
 > 
 > History
-> v5	Change bootdev_* to initdev_*.
-> v4	Use new hotplug synchronization infrastructure. Include
-> Braille console support.
-> v3.2	Use only a single new command line parameter by adding
-> the possible value "forever".  Add message specifying the parameter
-> to modify to increase the delay for console initialization
-> v3.1	Correct the abbreviation for milliseconds in
-> 	Documentation/kernel-parameters.txt to be "ms", not "mS".
-> Thanks to Peter Anvin for this.
-> v3	Increase the default delay to 1 second and add kernel
-> command line parameters to override the default delay. Thanks to
-> David Brownell for his helpful suggestions.
-> v2	Wait for the preferred console rather than any console.
-> Make the delay interval a tunable.
+> v3	Change bootdev_* to initdev_*
+> v2	Correct location of call to bootdev_found
 > v1	Initial version
 > 
-> Signed-off-by: David VomLehn <dvomlehn@cisco.com>
+> Signed-off-by: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org
+> Signed-off-by: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 > ---
->  drivers/accessibility/braille/braille_console.c |    3 ++
->  kernel/printk.c                                 |   29
-> ++++++++++++++++++++++- 2 files changed, 31 insertions(+), 1
-> deletions(-)
+>  drivers/scsi/scsi_scan.c  |    2 ++
+>  drivers/usb/storage/usb.c |    3 +++
+>  2 files changed, 5 insertions(+), 0 deletions(-)
 > 
-> diff --git a/drivers/accessibility/braille/braille_console.c
-> b/drivers/accessibility/braille/braille_console.c index
-> d672cfe..4420ac3 100644 ---
-> a/drivers/accessibility/braille/braille_console.c +++
-> b/drivers/accessibility/braille/braille_console.c @@ -35,6 +35,7 @@
->  #include <linux/keyboard.h>
->  #include <linux/kbd_kern.h>
->  #include <linux/input.h>
-> +#include <linux/initdev.h>
->  
->  MODULE_AUTHOR("samuel.thibault@ens-lyon.org");
->  MODULE_DESCRIPTION("braille device");
-> @@ -378,6 +379,8 @@ int braille_register_console(struct console
-> *console, int index, braille_co = console;
->  	register_keyboard_notifier(&keyboard_notifier_block);
->  	register_vt_notifier(&vt_notifier_block);
-> +
-> +	initdev_register(BOOTDEV_CONSOLE);
+> diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
+> index 6f51ca4..735b061 100644
+> --- a/drivers/scsi/scsi_scan.c
+> +++ b/drivers/scsi/scsi_scan.c
+> @@ -1834,6 +1834,7 @@ static int do_scan_async(void *_data)
+>  	struct async_scan_data *data = _data;
+>  	do_scsi_scan_host(data->shost);
+>  	scsi_finish_async_scan(data);
+> +	initdev_probe_done(BOOTDEV_BLOCK_MASK);
 
-Should it be initdev_registered(BOOTDEV_CONSOLE)?
+Which code are waiting for the block device's probe done?
 
 
 >  	return 0;
 >  }
 >  
-> diff --git a/kernel/printk.c b/kernel/printk.c
-> index 5052b54..e6a9379 100644
-> --- a/kernel/printk.c
-> +++ b/kernel/printk.c
-> @@ -33,6 +33,7 @@
->  #include <linux/bootmem.h>
->  #include <linux/syscalls.h>
->  #include <linux/kexec.h>
-> +#include <linux/device.h>
->  
->  #include <asm/uaccess.h>
->  
-> @@ -1075,8 +1076,10 @@ void console_unblank(void)
->  
->  /*
->   * Return the console tty driver structure and its associated index
-> + * @index:	Pointer to the device index
-> + * Returns NULL if no driver available, otherwise a pointer to the
-> TTY driver. */
-> -struct tty_driver *console_device(int *index)
-> +struct tty_driver *_console_device(int *index)
->  {
->  	struct console *c;
->  	struct tty_driver *driver = NULL;
-> @@ -1094,6 +1097,29 @@ struct tty_driver *console_device(int *index)
->  }
->  
->  /*
-> + * Returns true if all specific consoles are registered, false
-> otherwise
-> + */
-> +static bool have_all_consoles(void)
-> +{
-> +	struct tty_driver *driver;
-> +	int		index;
-> +
-> +	driver = _console_device(&index);
-> +
-> +	return driver != NULL;
-> +}
-> +
-> +struct tty_driver *console_device(int *index)
-> +{
-> +	struct tty_driver *driver;
-> +	initdev_wait(BOOTDEV_CONSOLE, have_all_consoles);
-> +
-> +	driver = _console_device(index);
-> +
-> +	return driver;
-> +}
-> +
-> +/*
->   * Prevent further output on the passed console device so that (for
-> example)
->   * serial drivers can disable console output before suspending a
-> port, and can
->   * re-enable output afterwards.
-> @@ -1230,6 +1256,7 @@ void register_console(struct console *console)
->  		spin_unlock_irqrestore(&logbuf_lock, flags);
+> @@ -1855,6 +1856,7 @@ void scsi_scan_host(struct Scsi_Host *shost)
+>  		return;
 >  	}
->  	release_console_sem();
-> +	initdev_registered(BOOTDEV_CONSOLE);
->  }
->  EXPORT_SYMBOL(register_console);
 >  
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-scsi"
-> in the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	initdev_found(BOOTDEV_BLOCK_MASK);
+>  	p = kthread_run(do_scan_async, data, "scsi_scan_%d",
+> shost->host_no); if (IS_ERR(p))
+>  		do_scan_async(data);
+> diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
+> index 8060b85..ea7abab 100644
+> --- a/drivers/usb/storage/usb.c
+> +++ b/drivers/usb/storage/usb.c
+> @@ -837,6 +837,7 @@ static int usb_stor_scan_thread(void * __us)
+>  		/* Should we unbind if no devices were detected? */
+>  	}
+>  
+> +	initdev_probe_done(BOOTDEV_BLOCK_MASK);
 
+the same question with above.
+
+>  	complete_and_exit(&us->scanning_done, 0);
+>  }
+>  
+> @@ -937,10 +938,12 @@ int usb_stor_probe2(struct us_data *us)
+>  	}
+>  
+>  	/* Start up the thread for delayed SCSI-device scanning */
+> +	initdev_found(BOOTDEV_BLOCK_MASK);
+>  	th = kthread_create(usb_stor_scan_thread, us,
+> "usb-stor-scan"); if (IS_ERR(th)) {
+>  		printk(KERN_WARNING USB_STORAGE 
+>  		       "Unable to start the device-scanning
+> thread\n");
+> +		initdev_probe_done(BOOTDEV_BLOCK_MASK);
+
+the same question with above.
+
+>  		complete(&us->scanning_done);
+>  		quiesce_and_remove_host(us);
+>  		result = PTR_ERR(th);
+> --
 
 
 -- 
 Lei Ming
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
