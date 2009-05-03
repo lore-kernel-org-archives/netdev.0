@@ -1,92 +1,66 @@
-From: Satoru SATOH <satoru.satoh@gmail.com>
-Subject: [PATCH] tcp: Fix tcp_prequeue() to get correct rto_min value
-Date: Sun, 3 May 2009 09:35:47 +0900
-Message-ID: <20090503003547.GA14015@localhost.localdomain>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
+	questions)
+Date: Sun, 3 May 2009 00:26:05 -0400
+Message-ID: <f73f7ab80905022126ud3225enc6409bd39b5b2eb8@mail.gmail.com>
+References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
+	<625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
+	<f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
+	<1240388476.17445.10.camel@pasglop>
+	<f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
+	<1241126291.29501.41.camel@pasglop>
+	<f73f7ab80904301521x16effa0ar2d4756daceada122@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.230]:53614 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751638AbZECAku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2009 20:40:50 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so2349140rvb.1
-        for <netdev@vger.kernel.org>; Sat, 02 May 2009 17:40:50 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <f73f7ab80904301521x16effa0ar2d4756daceada122@mail.gmail.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-tcp_prequeue() refers to the constant value (TCP_RTO_MIN) regardless of
-the actual value might be tuned. The following patches fix this and make
-tcp_prequeue get the actual value returns from tcp_rto_min().
-
-Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
-
----
- include/net/tcp.h    |   14 +++++++++++++-
- net/ipv4/tcp_input.c |   10 ----------
- 2 files changed, 13 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b55b489..a54d139 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -41,6 +41,7 @@
- #include <net/ip.h>
- #include <net/tcp_states.h>
- #include <net/inet_ecn.h>
-+#include <net/dst.h>
- 
- #include <linux/seq_file.h>
- 
-@@ -543,6 +544,17 @@ static inline void tcp_fast_path_check(struct sock *sk)
- 		tcp_fast_path_on(tp);
- }
- 
-+/* Compute the actual rto_min value */
-+static inline u32 tcp_rto_min(struct sock *sk)
-+{
-+	struct dst_entry *dst = __sk_dst_get(sk);
-+	u32 rto_min = TCP_RTO_MIN;
-+
-+	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
-+		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
-+	return rto_min;
-+}
-+
- /* Compute the actual receive window we are currently advertising.
-  * Rcv_nxt can be after the window if our peer push more data
-  * than the offered window.
-@@ -908,7 +920,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
- 			wake_up_interruptible(sk->sk_sleep);
- 			if (!inet_csk_ack_scheduled(sk))
- 				inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
--						          (3 * TCP_RTO_MIN) / 4,
-+						          (3 * tcp_rto_min(sk)) / 4,
- 							  TCP_RTO_MAX);
- 		}
- 		return 1;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c96a6bb..eec3e6f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -597,16 +597,6 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
- 		tcp_grow_window(sk, skb);
- }
- 
--static u32 tcp_rto_min(struct sock *sk)
--{
--	struct dst_entry *dst = __sk_dst_get(sk);
--	u32 rto_min = TCP_RTO_MIN;
--
--	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
--		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
--	return rto_min;
--}
--
- /* Called to compute a smoothed rtt estimate. The data fed to this
-  * routine either comes from timestamps, or from segments that were
-  * known _not_ to have been retransmitted [see Karn/Partridge
--- 
-1.6.2.2
-
+T24gVGh1LCBBcHIgMzAsIDIwMDkgYXQgNjoyMSBQTSwgS3lsZSBNb2ZmZXR0IDxreWxlQG1vZmZl
+dHRob21lLm5ldD4gd3JvdGU6Cj4+PiBJJ20gYWxzbyBjdXJpb3VzIGFib3V0IHRoZSBpbnRlbnQg
+b2YgdGhlICJtZGlvX2luc3RhbmNlIiBwb2ludGVyIChJRToKPj4+IHRoZSAibWRpby1kZXZpY2Ui
+IHByb3BlcnR5KS4gwqBJcyB0aGF0IHVzZWQgd2hlbiBhbGwgdGhlIFBIWSBkZXZpY2VzCj4+PiBh
+cmUgYXR0YWNoZWQgdG8gdGhlIE1ESU8gYnVzIG9mIG9ubHkgb25lIG9mIHRoZSAobXVsdGlwbGUp
+IGVtYWMKPj4+IGRldmljZXM/Cj4+Cj4+IEl0J3MgY29tbW9uIGVzcGVjaWFsbHkgb24gb2xkZXIg
+U29DcyB1c2luZyBFTUFDIHRvIGhhdmUgb25seSBvbmUgb2YKPj4gdGhlIEVNQUMgaW5zdGFuY2Ug
+d2l0aCBhbiBNRElPIGJ1cyBmb3IgY29uZmlndXJpbmcgdGhlIFBIWXMuIFRoaXMgaXMgb25lCj4+
+IG9mIHRoZSByZWFzb25zIHdoeSBJIGhhdmUgdGhlIG11dGV4IGluIHRoZSBsb3cgbGV2ZWwgTURJ
+TyBhY2Nlc3MKPj4gcm91dGluZXMgc2luY2UgMiBFTUFDcyBjYW4gdHJ5IHRvIHRhbGsgdG8gdGhl
+IHNhbWUgTURJTywgYW5kIHRoaXMgaXMgdGhlCj4+IHByb2JsZW0gSSBoYWQgd2l0aCBwaHlsaWIg
+YmFjayB0aGVuIHdoaWNoIHdhcyBkb2luZyBldmVyeXRoaW5nIGluIGF0b21pYwo+PiBjb250ZXh0
+cy4KPgo+IE9rLCBnb29kLCB0aGUgY3VycmVudCBtZGlvYnVzIGNvZGUgc2VlbXMgdG8gbWFrZSBo
+YW5kbGluZyB0aGlzIGEgZ29vZAo+IGRlYWwgZWFzaWVyLgoKT2ssIEkndmUgZHVnIHRocm91Z2gg
+dGhlIGRvY3Mgb24gdGhlIDQ2MEVQeCAodGhlIENQVSBJJ20gdXNpbmcpLCBhbmQKSSdkIGxpa2Ug
+c29tZSBjb25maXJtYXRpb24gb2YgdGhlIGZvbGxvd2luZzoKCiogIFRoZSBFTUFDIGhhcmR3YXJl
+IGl0c2VsZiBpbnRlcm5hbGx5IGhhcyBpdHMgb3duIGRlZGljYXRlZApNRElPL01EQ2xrIGxpbmVz
+LCBkcml2ZW4gYnkgdGhlIFNUQUNSIHJlZ2lzdGVyLgoKKiAgT24gbWFueS9tb3N0IGNwdXMsIHRo
+ZXJlIGlzIG9ubHkgYSBzaW5nbGUgc2V0IG9mIGV4dGVybmFsCk1ESU8vTURDbGsgcGlucywgZHJp
+dmVuIGVpdGhlciBvZmYgdGhlIFpNSUkgYnJpZGdlIG9yIHRoZSBSR01JSQpicmlkZ2UuCgoqICBC
+b3RoIGJyaWRnZS10eXBlcyBoYXZlIHRoZWlyIG93biBpbnRlcm5hbCByZWdpc3RlciBmb3Igc3dp
+dGNoaW5nCnRoZSBleHRlcm5hbCBNRElPL01EQ2xrIHBpbnMgYmV0d2VlbiB0aGUgdHdvIHNldHMg
+b2YgaW50ZXJuYWwKRU1BQzw9PmJyaWRnZSBsaW5rcy4KCiogIFNvbWUgU29DcyBoYXZlIGJvdGgg
+YW4gWk1JSSBhbmQgYW4gUkdNSUkgYnJpZGdlLCBhbmQgdGhlIGV4dGVybmFsCk1ESU8vTURDbGsg
+cGlucyBhcmUgb25seSBjb25uZWN0ZWQgdG8gb25lIG9mIHRoZSB0d28gYnJpZGdlcyAoSG93IGRv
+IEkKa25vdyB3aGljaCBvbmU/ICBBbHRlcm5hdGl2ZWx5LCBkbyBJIGp1c3QgcHJvZ3JhbSBib3Ro
+IGFuZCBob3BlIGZvcgp0aGUgYmVzdD8pLgoKKiAgU29tZSBvbGRlciBTb0NzIHNpbXBseSBleHBv
+cnQgdGhlIE1ESU8vTURDbGsgcGlucyBmcm9tIG9uZSBvZiB0aGVpcgppbnRlcm5hbCBFTUFDIGNo
+aXBzIGFuZCBkb24ndCBib3RoZXIgd2l0aCBydW5uaW5nIGl0IHRocm91Z2ggdGhlCm11bHRpcGxl
+eGluZyBicmlkZ2UuCgpBcmUgdGhlcmUgYW55IFNvQ3Mgd2hpY2ggYWN0dWFsbHkgZXhwb3J0IHRo
+ZSBNRElPL01EQ2xrIHBpbnMgZnJvbQpib3RoL2FsbCBvZiB0aGVpciBFTUFDcz8KCkNoZWVycywK
+S3lsZSBNb2ZmZXR0Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QG96bGFicy5vcmcKaHR0
+cHM6Ly9vemxhYnMub3JnL21haWxtYW4vbGlzdGluZm8vbGludXhwcGMtZGV2
