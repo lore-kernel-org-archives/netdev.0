@@ -1,71 +1,107 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: tulip_rxtx_stop() on Cobalt Qube2
-Date: Sun, 3 May 2009 05:32:09 -0600
-Message-ID: <20090503113209.GC6617@lackof.org>
-References: <200905011238.59345.florian@openwrt.org>
+From: =?utf-8?Q?Rog=C3=A9rio?= Brito <rbrito@ime.usp.br>
+Subject: [PATCH] powerpc: convert mace to netdev_ops
+Date: Sun, 3 May 2009 08:48:20 -0300
+Message-ID: <20090503114820.GA14926@ime.usp.br>
+References: <20090426155708.GA23159@ime.usp.br> <20090426.230648.254087966.davem@davemloft.net> <20090427121633.GA29608@ime.usp.br> <20090427.054258.16622932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, grundler@parisc-linux.org, kyle@mcmartin.ca
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, paulus@samba.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from complete.lackof.org ([198.49.126.79]:38257 "EHLO
-	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752397AbZECLcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 07:32:14 -0400
+Received: from smtp.flash.net.br ([201.46.240.48]:34624 "EHLO
+	smtp.gru.flash.tv.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755886AbZECLtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 07:49:11 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by smtp.gru.flash.tv.br (Postfix) with ESMTP id 4E4BC1E66DE
+	for <netdev@vger.kernel.org>; Sun,  3 May 2009 08:48:55 -0300 (BRT)
+Received: from smtp.gru.flash.tv.br ([127.0.0.1])
+	by localhost (smtp.gru.flash.tv.br [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 2rj-IxzKVQ-S for <netdev@vger.kernel.org>;
+	Sun,  3 May 2009 08:48:41 -0300 (BRT)
+Received: from chagas.nectar.ath.cx (unknown [187.22.248.170])
+	by smtp.gru.flash.tv.br (Postfix) with ESMTPA id 7D6111E6802
+	for <netdev@vger.kernel.org>; Sun,  3 May 2009 08:48:36 -0300 (BRT)
 Content-Disposition: inline
-In-Reply-To: <200905011238.59345.florian@openwrt.org>
+In-Reply-To: <20090427.054258.16622932.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 01, 2009 at 12:38:57PM +0200, Florian Fainelli wrote:
-> Hi Grant, Kyle,
-> 
-> I just updated my Qube2 to run a 2.6.30-rc2-00476-gd678033 kernel (also seen 
-> on a 2.6.29-rc2-00462-gfa04b54) and I get the following message while booting 
-> the box now, I have not git bisected the offending commit yet :
-> 
-> [snip]
-> Linux Tulip driver version 1.1.15-NAPI (Feb 27, 2007)
-> PCI: Enabling device 0000:00:07.0 (0045 -> 0047)
-> tulip0: Old format EEPROM on 'Cobalt Microserver' board.  Using substitute 
-> media control info.
-> tulip0:  EEPROM default media type Autosense.
-> tulip0:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3) block.
-> tulip0:  MII transceiver #1 config 1000 status 7809 advertising 01e1.
-> eth0: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082000, 00:10:e0:00:7d:1f, 
-> IRQ 19.
-> PCI: Enabling device 0000:00:0c.0 (0005 -> 0007)
-> tulip1: Old format EEPROM on 'Cobalt Microserver' board.  Using substitute 
-> media control info.
-> tulip1:  EEPROM default media type Autosense.
-> tulip1:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3) block.
-> tulip1:  MII transceiver #1 config 1000 status 7809 advertising 01e1.
-> eth1: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082400, 00:10:e0:00:88:b9, 
-> IRQ 20.
-> [snip]
-> 0000:00:07.0: tulip_stop_rxtx() failed (CSR5 0xf0660000 CSR6 0xb20e2202)
+Hi, Dave.
 
-I added the additional output. I'll need to grab the manuals and
-look up the bits.
+On Apr 27 2009, David Miller wrote:
+> You can fix the mace_set_timeout() function arguments by having
+> a helper function that simply wraps around it and provides the
+> second expection of argument types.
 
-> eth0: Setting full-duplex based on MII#1 link partner capability of 45e1.
-> 
-> The interface is still fully functional, shall we increase the timeount in 
-> tulip_stop_rxtx() to prevent this message from appearing ?
+I hope that this version is a slightly better fix to convert mace to
+netdev_ops.
 
-I expect the timeout (1.3ms) is long enough to cover "normal" cases.
-If something is taking longer than "normal", I'd like to know.
+This is against this morning's net-2.6 tree.
 
-If increasing it to 1.5 or 2ms makes this go away, I don't
-think I'll object.
 
-hth,
-grant
+Signed-off-by: Rog=C3=A9rio Brito <rbrito@ime.usp.br>
+---
+diff --git a/drivers/net/mace.c b/drivers/net/mace.c
+index feebbd9..03a179d 100644
+--- a/drivers/net/mace.c
++++ b/drivers/net/mace.c
+@@ -89,6 +89,19 @@ static inline void dbdma_reset(volatile struct dbdma=
+_regs __iomem *dma);
+ static inline void mace_clean_rings(struct mace_data *mp);
+ static void __mace_set_address(struct net_device *dev, void *addr);
+=20
++/* Conversion to netdev_ops. */
++static const struct net_device_ops mace_netdev_ops =3D {
++	.ndo_open		=3D mace_open,
++	.ndo_stop		=3D mace_close,
++	.ndo_start_xmit		=3D mace_xmit_start,
++	.ndo_tx_timeout		=3D mace_tx_timeout,
++	.ndo_set_multicast_list	=3D mace_set_multicast,
++	.ndo_set_mac_address	=3D mace_set_address,
++	.ndo_change_mtu		=3D eth_change_mtu,
++	.ndo_set_mac_address	=3D eth_mac_addr,
++	.ndo_validate_addr	=3D eth_validate_addr,
++};
++
+ /*
+  * If we can't get a skbuff when we need it, we use this area for DMA.
+  */
+@@ -207,11 +220,7 @@ static int __devinit mace_probe(struct macio_dev *=
+mdev, const struct of_device_i
+ 		}
+ 	}
+=20
+-	dev->open =3D mace_open;
+-	dev->stop =3D mace_close;
+-	dev->hard_start_xmit =3D mace_xmit_start;
+-	dev->set_multicast_list =3D mace_set_multicast;
+-	dev->set_mac_address =3D mace_set_address;
++	dev->netdev_ops =3D &mace_netdev_ops;
+=20
+ 	/*
+ 	 * Most of what is below could be moved to mace_open()
+@@ -798,6 +807,13 @@ static irqreturn_t mace_interrupt(int irq, void *d=
+ev_id)
+     return IRQ_HANDLED;
+ }
+=20
++/*
++ * In the following, the parameter "data" is treated like a pointer,
++ * which is probably OK for 32 bit arches, but not for 64.
++ *
++ * (Are mace's found on any newer machines??) -- rbrito
++ *
++ */
+ static void mace_tx_timeout(unsigned long data)
+ {
+     struct net_device *dev =3D (struct net_device *) data;
 
-> 
-> Thanks a lot in advance for your answer.
-> -- 
-> Best regards, Florian Fainelli
-> Email : florian@openwrt.org
-> http://openwrt.org
-> -------------------------------
+
+--=20
+Rog=C3=A9rio Brito : rbrito@{mackenzie,ime.usp}.br : GPG key 1024D/7C2C=
+AEB8
+http://www.ime.usp.br/~rbrito : http://meusite.mackenzie.com.br/rbrito
+Projects: algorithms.berlios.de : lame.sf.net : vrms.alioth.debian.org
