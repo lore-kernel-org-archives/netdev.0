@@ -1,66 +1,133 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: Porting the ibm_newemac driver to use phylib (and other PHY/MAC
-	questions)
-Date: Sun, 3 May 2009 00:26:05 -0400
-Message-ID: <f73f7ab80905022126ud3225enc6409bd39b5b2eb8@mail.gmail.com>
-References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
-	<625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
-	<f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
-	<1240388476.17445.10.camel@pasglop>
-	<f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
-	<1241126291.29501.41.camel@pasglop>
-	<f73f7ab80904301521x16effa0ar2d4756daceada122@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [BUG] perf_counter: change cpu frequencies
+Date: Sun, 03 May 2009 08:06:55 +0200
+Message-ID: <49FD347F.6030306@cosmosbay.com>
+References: <49F71B63.8010503@cosmosbay.com> <alpine.DEB.1.10.0904281501300.13862@qirst.com> <49F76174.6060009@cosmosbay.com> <alpine.DEB.1.10.0904281612560.13862@qirst.com> <49F767FD.2040205@cosmosbay.com> <alpine.DEB.1.10.0904281629090.15947@qirst.com> <49F76F6C.80005@cosmosbay.com> <49F77108.7060509@cosmosbay.com> <20090429091130.GA27857@elte.hu> <49F9821C.5010802@cosmosbay.com> <20090430115736.GA24349@elte.hu> <49F9B0F0.40306@cosmosbay.com> <49F9CCD0.2080005@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-	linuxppc-dev@ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <f73f7ab80904301521x16effa0ar2d4756daceada122@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux.com>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, haoki@redhat.com, mchan@broadcom.com,
+	davidel@xmailserver.org, Mike Galbraith <efault@gmx.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752836AbZECGIT@vger.kernel.org>
+In-Reply-To: <49F9CCD0.2080005@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBBcHIgMzAsIDIwMDkgYXQgNjoyMSBQTSwgS3lsZSBNb2ZmZXR0IDxreWxlQG1vZmZl
-dHRob21lLm5ldD4gd3JvdGU6Cj4+PiBJJ20gYWxzbyBjdXJpb3VzIGFib3V0IHRoZSBpbnRlbnQg
-b2YgdGhlICJtZGlvX2luc3RhbmNlIiBwb2ludGVyIChJRToKPj4+IHRoZSAibWRpby1kZXZpY2Ui
-IHByb3BlcnR5KS4gwqBJcyB0aGF0IHVzZWQgd2hlbiBhbGwgdGhlIFBIWSBkZXZpY2VzCj4+PiBh
-cmUgYXR0YWNoZWQgdG8gdGhlIE1ESU8gYnVzIG9mIG9ubHkgb25lIG9mIHRoZSAobXVsdGlwbGUp
-IGVtYWMKPj4+IGRldmljZXM/Cj4+Cj4+IEl0J3MgY29tbW9uIGVzcGVjaWFsbHkgb24gb2xkZXIg
-U29DcyB1c2luZyBFTUFDIHRvIGhhdmUgb25seSBvbmUgb2YKPj4gdGhlIEVNQUMgaW5zdGFuY2Ug
-d2l0aCBhbiBNRElPIGJ1cyBmb3IgY29uZmlndXJpbmcgdGhlIFBIWXMuIFRoaXMgaXMgb25lCj4+
-IG9mIHRoZSByZWFzb25zIHdoeSBJIGhhdmUgdGhlIG11dGV4IGluIHRoZSBsb3cgbGV2ZWwgTURJ
-TyBhY2Nlc3MKPj4gcm91dGluZXMgc2luY2UgMiBFTUFDcyBjYW4gdHJ5IHRvIHRhbGsgdG8gdGhl
-IHNhbWUgTURJTywgYW5kIHRoaXMgaXMgdGhlCj4+IHByb2JsZW0gSSBoYWQgd2l0aCBwaHlsaWIg
-YmFjayB0aGVuIHdoaWNoIHdhcyBkb2luZyBldmVyeXRoaW5nIGluIGF0b21pYwo+PiBjb250ZXh0
-cy4KPgo+IE9rLCBnb29kLCB0aGUgY3VycmVudCBtZGlvYnVzIGNvZGUgc2VlbXMgdG8gbWFrZSBo
-YW5kbGluZyB0aGlzIGEgZ29vZAo+IGRlYWwgZWFzaWVyLgoKT2ssIEkndmUgZHVnIHRocm91Z2gg
-dGhlIGRvY3Mgb24gdGhlIDQ2MEVQeCAodGhlIENQVSBJJ20gdXNpbmcpLCBhbmQKSSdkIGxpa2Ug
-c29tZSBjb25maXJtYXRpb24gb2YgdGhlIGZvbGxvd2luZzoKCiogIFRoZSBFTUFDIGhhcmR3YXJl
-IGl0c2VsZiBpbnRlcm5hbGx5IGhhcyBpdHMgb3duIGRlZGljYXRlZApNRElPL01EQ2xrIGxpbmVz
-LCBkcml2ZW4gYnkgdGhlIFNUQUNSIHJlZ2lzdGVyLgoKKiAgT24gbWFueS9tb3N0IGNwdXMsIHRo
-ZXJlIGlzIG9ubHkgYSBzaW5nbGUgc2V0IG9mIGV4dGVybmFsCk1ESU8vTURDbGsgcGlucywgZHJp
-dmVuIGVpdGhlciBvZmYgdGhlIFpNSUkgYnJpZGdlIG9yIHRoZSBSR01JSQpicmlkZ2UuCgoqICBC
-b3RoIGJyaWRnZS10eXBlcyBoYXZlIHRoZWlyIG93biBpbnRlcm5hbCByZWdpc3RlciBmb3Igc3dp
-dGNoaW5nCnRoZSBleHRlcm5hbCBNRElPL01EQ2xrIHBpbnMgYmV0d2VlbiB0aGUgdHdvIHNldHMg
-b2YgaW50ZXJuYWwKRU1BQzw9PmJyaWRnZSBsaW5rcy4KCiogIFNvbWUgU29DcyBoYXZlIGJvdGgg
-YW4gWk1JSSBhbmQgYW4gUkdNSUkgYnJpZGdlLCBhbmQgdGhlIGV4dGVybmFsCk1ESU8vTURDbGsg
-cGlucyBhcmUgb25seSBjb25uZWN0ZWQgdG8gb25lIG9mIHRoZSB0d28gYnJpZGdlcyAoSG93IGRv
-IEkKa25vdyB3aGljaCBvbmU/ICBBbHRlcm5hdGl2ZWx5LCBkbyBJIGp1c3QgcHJvZ3JhbSBib3Ro
-IGFuZCBob3BlIGZvcgp0aGUgYmVzdD8pLgoKKiAgU29tZSBvbGRlciBTb0NzIHNpbXBseSBleHBv
-cnQgdGhlIE1ESU8vTURDbGsgcGlucyBmcm9tIG9uZSBvZiB0aGVpcgppbnRlcm5hbCBFTUFDIGNo
-aXBzIGFuZCBkb24ndCBib3RoZXIgd2l0aCBydW5uaW5nIGl0IHRocm91Z2ggdGhlCm11bHRpcGxl
-eGluZyBicmlkZ2UuCgpBcmUgdGhlcmUgYW55IFNvQ3Mgd2hpY2ggYWN0dWFsbHkgZXhwb3J0IHRo
-ZSBNRElPL01EQ2xrIHBpbnMgZnJvbQpib3RoL2FsbCBvZiB0aGVpciBFTUFDcz8KCkNoZWVycywK
-S3lsZSBNb2ZmZXR0Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QG96bGFicy5vcmcKaHR0
-cHM6Ly9vemxhYnMub3JnL21haWxtYW4vbGlzdGluZm8vbGludXhwcGMtZGV2
+Eric Dumazet a =E9crit :
+> Eric Dumazet a =E9crit :
+> =20
+>> But if I use plain "perf stat -a sleep 10"
+>> it seems I get wrong values again (16 G cycles/sec) for all next per=
+f sessions
+>>
+>=20
+> Well, I confirm all my cpus switched from 3GHz to 2GHz, after
+>=20
+> "perf stat -a sleep 10"
+>=20
+> (but "perf stat -e instructions -e cycles -a sleep 10" doesnt trigger=
+ this problem)
+>=20
+> Nothing logged, and /proc/cpuinfo stills reports 3 GHz frequencies
+>=20
+> # cat unit.c
+> main() {
+>   int i;
+>   for (i =3D 0 ; i < 10000000; i++)
+>         getppid();
+> }
+> # time ./unit
+>=20
+> real    0m0.818s
+> user    0m0.289s
+> sys     0m0.529s
+> # perf stat -a sleep 10 2>/dev/null
+> # time ./unit
+>=20
+> real    0m1.122s
+> user    0m0.482s
+> sys     0m0.640s
+>=20
+> # tail -n 27 /proc/cpuinfo
+> processor       : 7
+> vendor_id       : GenuineIntel
+> cpu family      : 6
+> model           : 23
+> model name      : Intel(R) Xeon(R) CPU           E5450  @ 3.00GHz
+> stepping        : 6
+> cpu MHz         : 3000.102
+> cache size      : 6144 KB
+> physical id     : 1
+> siblings        : 1
+> core id         : 3
+> cpu cores       : 4
+> apicid          : 7
+> initial apicid  : 7
+> fdiv_bug        : no
+> hlt_bug         : no
+> f00f_bug        : no
+> coma_bug        : no
+> fpu             : yes
+> fpu_exception   : yes
+> cpuid level     : 10
+> wp              : yes
+> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pg=
+e mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe lm=
+ constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx est t=
+m2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi flexpriority
+> bogomips        : 6000.01
+> clflush size    : 64
+> power management:
+>=20
+> # grep CPU_FREQ .config
+> # CONFIG_CPU_FREQ is not set
+>=20
+>=20
+> perf_counter seems promising, but still... needs some bug hunting :)
+>=20
+
+Update :
+
+Mike Galbraith suggested me to try various things, and finally, I disco=
+vered
+this frequency change was probably a BIOS problem on my HP BL460c G1
+
+System Options -> Power regulator for Proliant
+
+[*] HP Dynamic Power Savings Mode
+[ ] HP Static Low Power Mode
+[ ] HP Static High Performance Mode
+[ ] OS Control Mode
+
+
+I switched it to 'OS Control Mode'
+
+Then acpi-cpufreq could load, and no more frequencies changes on a "per=
+f -a sleep 10"=20
+session, using or not cpufreq.
+(Supported cpufreq speeds on these cpus : 1999 & 2999 MHz)
+
+So it was a BIOS issue
+
+# perf stat -a sleep 10
+
+ Performance counter stats for 'sleep':
+
+   80005.418223  task clock ticks     (msecs)
+          80266  context switches     (events)
+              3  CPU migrations       (events)
+            486  pagefaults           (events)
+   240013851624  CPU cycles           (events) << good >>
+   239076501419  instructions         (events)
+         679464  cache references     (events)
+  <not counted>  cache misses
+
+ Wall-clock time elapsed: 10000.468808 msecs
+
+Thank you
