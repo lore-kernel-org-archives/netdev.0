@@ -1,82 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: skb_tx_hash() improvements
-Date: Sun, 03 May 2009 14:44:18 -0700 (PDT)
-Message-ID: <20090503.144418.255531526.davem@davemloft.net>
-References: <49FAB831.6020700@cosmosbay.com>
-	<49FAC112.6090808@cosmosbay.com>
-	<20090501.091747.240476627.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: Porting the ibm_newemac driver to use phylib (and other
+ PHY/MAC questions)
+Date: Mon, 04 May 2009 08:14:54 +1000
+Message-ID: <1241388894.1781.18.camel@pasglop>
+References: <f73f7ab80904171732n41832d0hc62978e57bbcc32e@mail.gmail.com>
+	 <625fc13d0904200529l152b8d75g33c3f940de1b2920@mail.gmail.com>
+	 <f73f7ab80904201710m57472291yf7ff86760977b8e8@mail.gmail.com>
+	 <1240388476.17445.10.camel@pasglop>
+	 <f73f7ab80904300804j1f847b70ha0fe3cda07249110@mail.gmail.com>
+	 <1241126291.29501.41.camel@pasglop>
+	 <f73f7ab80904301521x16effa0ar2d4756daceada122@mail.gmail.com>
+	 <f73f7ab80905022126ud3225enc6409bd39b5b2eb8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: andrew@whydna.net, jelaas@gmail.com, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	linuxppc-dev@ozlabs.org
+To: Kyle Moffett <kyle@moffetthome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59303
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750847AbZECVoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 17:44:23 -0400
-In-Reply-To: <20090501.091747.240476627.davem@davemloft.net>
+Received: from gate.crashing.org ([63.228.1.57]:38707 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752394AbZECWPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 May 2009 18:15:16 -0400
+In-Reply-To: <f73f7ab80905022126ud3225enc6409bd39b5b2eb8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 01 May 2009 09:17:47 -0700 (PDT)
+On Sun, 2009-05-03 at 00:26 -0400, Kyle Moffett wrote:
 
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Fri, 01 May 2009 11:29:54 +0200
+> Ok, I've dug through the docs on the 460EPx (the CPU I'm using), and
+> I'd like some confirmation of the following:
 > 
->> -	} else if (skb->sk && skb->sk->sk_hash) {
->> +		/*
->> +		 * Try to avoid an expensive divide, for symmetric setups :
->> +		 *   number of tx queues of output device ==
->> +		 *   number of rx queues of incoming device
->> +		 */
->> +		if (hash >= dev->real_num_tx_queues)
->> +			hash %= dev->real_num_tx_queues;
->> +		return hash;
->> +	}
-> 
-> Subtraction in a while() loop is almost certainly a lot
-> faster.
+> *  The EMAC hardware itself internally has its own dedicated
+> MDIO/MDClk lines, driven by the STACR register.
 
-To move forward on this, I've commited the following to
-net-next-2.6, thanks!
+Yes, though not all EMACs cells have this wired to anything. For
+example, the 405EP has 2 EMACs but only EMAC0 has MDIO, which is
+used to control both PHYs. Later variants multiplex the MDIOs via
+a programmable switch in the ZMII or RGMII though.
 
-net: Avoid modulus in skb_tx_hash() for forwarding case.
+> *  On many/most cpus, there is only a single set of external
+> MDIO/MDClk pins, driven either off the ZMII bridge or the RGMII
+> bridge.
 
-Based almost entirely upon a patch by Eric Dumazet.
+Yes, though on the very old ones, the ZMII bridge is effectively
+invisible (if it exists at all) and only EMAC0 MDIO pins are wired out.
 
-The common case is to have num-tx-queues <= num_rx_queues
-and even if num_tx_queues is larger it will not be significantly
-larger.
+> *  Both bridge-types have their own internal register for switching
+> the external MDIO/MDClk pins between the two sets of internal
+> EMAC<=>bridge links.
 
-Therefore, a subtraction loop is always going to be faster than
-modulus.
+Yes.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/dev.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+> *  Some SoCs have both an ZMII and an RGMII bridge, and the external
+> MDIO/MDClk pins are only connected to one of the two bridges (How do I
+> know which one?  Alternatively, do I just program both and hope for
+> the best?).
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8144295..3c8073f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1735,8 +1735,12 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- {
- 	u32 hash;
- 
--	if (skb_rx_queue_recorded(skb))
--		return skb_get_rx_queue(skb) % dev->real_num_tx_queues;
-+	if (skb_rx_queue_recorded(skb)) {
-+		hash = skb_get_rx_queue(skb);
-+		while (unlikely (hash >= dev->real_num_tx_queues))
-+			hash -= dev->real_num_tx_queues;
-+		return hash;
-+	}
- 
- 	if (skb->sk && skb->sk->sk_hash)
- 		hash = skb->sk->sk_hash;
--- 
-1.6.2.4
+That's been my approach so far :-)
+
+> *  Some older SoCs simply export the MDIO/MDClk pins from one of their
+> internal EMAC chips and don't bother with running it through the
+> multiplexing bridge.
+
+Yes.
+
+> Are there any SoCs which actually export the MDIO/MDClk pins from
+> both/all of their EMACs?
+
+I don't know of such a beast.
+
+Cheers,
+Ben.
+
+> Cheers,
+> Kyle Moffett
 
