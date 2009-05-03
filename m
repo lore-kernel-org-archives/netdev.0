@@ -1,55 +1,81 @@
-From: Rahul Murmuria <rahul@murmuria.in>
-Subject: Kernel crashes while calling sock->ops->connect()
-Date: Sun, 3 May 2009 19:37:36 -0400
-Message-ID: <9511f83e0905031637p73dbc673yb6eedce743c27269@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Temporary IPv6 address asignment
+Date: Sun, 03 May 2009 16:58:02 -0700
+Message-ID: <m1skjlrb79.fsf@fess.ebiederm.org>
+References: <49FE107A.4020406@poczta.fm>
+	<20090503.144758.222061423.davem@davemloft.net>
+	<49FE18C3.7040702@poczta.fm>
+	<20090503.153428.07349534.davem@davemloft.net>
+	<49FE1E71.6090500@poczta.fm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "J.R. Mauro" <jrm8005@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Lukasz Stelmach <stlman@poczta.fm>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:24030 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754947AbZECXhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 19:37:36 -0400
-Received: by yx-out-2324.google.com with SMTP id 3so2032660yxj.1
-        for <netdev@vger.kernel.org>; Sun, 03 May 2009 16:37:36 -0700 (PDT)
+Received: from out02.mta.xmission.com ([166.70.13.232]:60732 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800AbZECX6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 19:58:10 -0400
+In-Reply-To: <49FE1E71.6090500@poczta.fm> (Lukasz Stelmach's message of "Mon\, 04 May 2009 00\:45\:05 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-I have been writing a /net virtual filesystem for Linux Kernel[1].
+Lukasz Stelmach <stlman@poczta.fm> writes:
 
-Currently, I am just trying to wrap around BSD Socket in kernel-space.
-That involves me using sock_create and sock->ops->connect. This
-commit[2] shows pretty much everything that I am working with.
+I don't know about the rest of your patch the sysctl hunks are wrong.
 
-In the function int socknet_connect(), I am creating a socket and
-connecting to the ip:port provided from a synthetic file. The problem
-is with:
-ret = sock->ops->connect(sock, (struct sockaddr *)&addr, sizeof(addr),
-sock->file->f_flags);
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index e76d3b2..951ba2c 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -570,15 +570,16 @@ enum {
+>  	NET_IPV6_TEMP_PREFERED_LFT=13,
+>  	NET_IPV6_REGEN_MAX_RETRY=14,
+>  	NET_IPV6_MAX_DESYNC_FACTOR=15,
+> -	NET_IPV6_MAX_ADDRESSES=16,
+> -	NET_IPV6_FORCE_MLD_VERSION=17,
+> -	NET_IPV6_ACCEPT_RA_DEFRTR=18,
+> -	NET_IPV6_ACCEPT_RA_PINFO=19,
+> -	NET_IPV6_ACCEPT_RA_RTR_PREF=20,
+> -	NET_IPV6_RTR_PROBE_INTERVAL=21,
+> -	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=22,
+> -	NET_IPV6_PROXY_NDP=23,
+> -	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
+> +	NET_IPV6_DESYNC_FACTOR=16,
+> +	NET_IPV6_MAX_ADDRESSES=17,
+> +	NET_IPV6_FORCE_MLD_VERSION=18,
+> +	NET_IPV6_ACCEPT_RA_DEFRTR=19,
+> +	NET_IPV6_ACCEPT_RA_PINFO=20,
+> +	NET_IPV6_ACCEPT_RA_RTR_PREF=21,
+> +	NET_IPV6_RTR_PROBE_INTERVAL=22,
+> +	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=23,
+> +	NET_IPV6_PROXY_NDP=24,
+> +	NET_IPV6_ACCEPT_SOURCE_ROUTE=26,
+>  	__NET_IPV6_MAX
+>  };
 
-If I comment the above line, all is fine, but as soon as I use this
-function, the kernel crashes in run-time. i.e. in my case, when I say
-echo "connect 92.243.0.230:80" > /net/tcp/0/ctl
+These are numbers used in the kernel sysctl binary ABI.  You just
+changed them breaking the ABI, when you put NET_IPV6_DESYNC_FACTOR in
+the middle.
 
-I have checked ML Archives. Someone suggested checking if the char *ip
-does not end in \n or \r. I have also checked for other
-implementations in the kernel to see if I am setting the values for
-"struct sockaddr_in addr" correctly. I put the sock_create and
-ops->connect in the same function to try and avoid errors with struct
-socket *sock not being passed around correctly. The problems still
-prevail.
-So far, no luck.
+> @@ -4124,6 +4167,14 @@ static struct addrconf_sysctl_table
+>  			.data		=	&ipv6_devconf.max_desync_factor,
+>  			.maxlen		=	sizeof(int),
+>  			.mode		=	0644,
+> +			.proc_handler	=	addrconf_sysctl_desync,
+> +		},
+> +		{
+> +			.ctl_name	=	NET_IPV6_DESYNC_FACTOR,
+> +			.procname	=	"desync_factor",
+> +			.data		=	&ipv6_devconf.desync_factor,
+> +			.maxlen		=	sizeof(int),
+> +			.mode		=	0444,
+>  			.proc_handler	=	proc_dointvec,
+ 		},
 
-Can anyone suggest what other things could go wrong? Or maybe look
-into my code if you would be kind enough!
+The sysctl binary abi is currently frozen and deprecated.  Which means
+you should set .ctl_name = CTL_UNNUMBERED or simply omit ctl_name on
+new sysctl entries.
 
-[1] http://slashnet.wordpress.com/
-[2] http://hg.glendix.org/glendix/rev/31c5adbe25aa
-
-
-Best Regards,
--- 
-Rahul Murmuria
+Eric
