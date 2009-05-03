@@ -1,56 +1,56 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: tulip_rxtx_stop() on Cobalt Qube2
-Date: Sun, 3 May 2009 21:45:43 +0200
-Message-ID: <200905032145.44294.florian@openwrt.org>
-References: <200905011238.59345.florian@openwrt.org> <20090503113209.GC6617@lackof.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] powerpc: convert mace to netdev_ops
+Date: Sun, 03 May 2009 14:15:24 -0700 (PDT)
+Message-ID: <20090503.141524.253766195.davem@davemloft.net>
+References: <20090427121633.GA29608@ime.usp.br>
+	<20090427.054258.16622932.davem@davemloft.net>
+	<20090503114820.GA14926@ime.usp.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kyle@mcmartin.ca
-To: Grant Grundler <grundler@parisc-linux.org>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, paulus@samba.org
+To: rbrito@ime.usp.br
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f224.google.com ([209.85.219.224]:37262 "EHLO
-	mail-ew0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303AbZECTps convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 15:45:48 -0400
-Received: by ewy24 with SMTP id 24so3437968ewy.37
-        for <netdev@vger.kernel.org>; Sun, 03 May 2009 12:45:47 -0700 (PDT)
-In-Reply-To: <20090503113209.GC6617@lackof.org>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49668
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754232AbZECVPa convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 May 2009 17:15:30 -0400
+In-Reply-To: <20090503114820.GA14926@ime.usp.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Grant,
+=46rom: Rog=E9rio Brito <rbrito@ime.usp.br>
+Date: Sun, 3 May 2009 08:48:20 -0300
 
-Le Sunday 03 May 2009 13:32:09 Grant Grundler, vous avez =E9crit=A0:
-> On Fri, May 01, 2009 at 12:38:57PM +0200, Florian Fainelli wrote:
+> I hope that this version is a slightly better fix to convert mace to
+> netdev_ops.
+>=20
+> This is against this morning's net-2.6 tree.
+>=20
+> Signed-off-by: Rog=E9rio Brito <rbrito@ime.usp.br>
 
-> I added the additional output. I'll need to grab the manuals and
-> look up the bits.
+I'll apply this, thanks!  I made one change however.
 
-That would be great, thanks.
+> @@ -798,6 +807,13 @@ static irqreturn_t mace_interrupt(int irq, void =
+*dev_id)
+>      return IRQ_HANDLED;
+>  }
+> =20
+> +/*
+> + * In the following, the parameter "data" is treated like a pointer,
+> + * which is probably OK for 32 bit arches, but not for 64.
+> + *
+> + * (Are mace's found on any newer machines??) -- rbrito
+> + *
+> + */
+>  static void mace_tx_timeout(unsigned long data)
+>  {
+>      struct net_device *dev =3D (struct net_device *) data;
 
->
-> > eth0: Setting full-duplex based on MII#1 link partner capability of=
- 45e1.
-> >
-> > The interface is still fully functional, shall we increase the time=
-ount
-> > in tulip_stop_rxtx() to prevent this message from appearing ?
->
-> I expect the timeout (1.3ms) is long enough to cover "normal" cases.
-> If something is taking longer than "normal", I'd like to know.
->
-> If increasing it to 1.5 or 2ms makes this go away, I don't
-> think I'll object.
+I left this new comment out, as this is a common idiom (passing opaque
+data as an 'unsigned long' argument to a callback) and casting it to a
+pointer.
 
-Neither 1.5 nor 2 ms prevent this message from showing up. I have not c=
-hecked=20
-CoLo but maybe the bootloader has already configured the Ethernet inter=
-faces=20
-and therefore this check fails.
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+It also works perfectly fine on all 32-bit and 64-bit platforms.
