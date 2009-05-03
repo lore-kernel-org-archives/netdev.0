@@ -1,32 +1,24 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Do not register ne2k-pci device until initialized
-Date: Sun, 03 May 2009 18:34:47 +0200
-Message-ID: <m3ab5uno0o.fsf@intrepid.localdomain>
-References: <20090502175811.GA26635@rhlx01.hs-esslingen.de>
+From: Dell Mailing Headquarter <dell@ihug.co.nz>
+Subject: TICKET NO: 1110008342
+Date: Mon, 04 May 2009 05:08:08 +1200
+Message-ID: <3b122db00f1de76ee0c08ae20ed6e6fc@ihug.co.nz>
+Reply-To: uk_dell@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, Lubomir Rintel <lkundrak@v3.sk>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	stable@kernel.org
-To: Andreas Mohr <andi@lisas.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:59795 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751313AbZECQev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 May 2009 12:34:51 -0400
-In-Reply-To: <20090502175811.GA26635@rhlx01.hs-esslingen.de> (Andreas Mohr's message of "Sat\, 2 May 2009 19\:58\:11 +0200")
+Received: from mailfilter4.ihug.co.nz ([203.109.136.4]:29174 "EHLO
+	mailfilter4.ihug.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751824AbZECRIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2009 13:08:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andreas Mohr <andi@lisas.de> writes:
 
-> Dito arm/ixp4xx_eth.c
 
-Right, will have a patch soon (mainline only, IMHO it's not worth it
-to bother "stable" people because of no practical impact of this bug,
-especially on this ARM IXP4xx arch).
+--=20
+Get back to us for a lump sum pay out of =C2=A3750,000 pounds sterlings=
+=2EProvide
+us with your:Name:address:Sex for more details:(uk_dell@btinternet.com)
 
-Thanks.
--- 
-Krzysztof Halasa
