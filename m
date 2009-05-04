@@ -1,50 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying
- toifenslave a second interface to my bond
-Date: Mon, 04 May 2009 16:12:35 -0700 (PDT)
-Message-ID: <20090504.161235.09270647.davem@davemloft.net>
-References: <4086.1241463817@death.nxdomain.ibm.com>
-	<20090504.120651.32573620.davem@davemloft.net>
-	<1241478312.23179.5.camel@deadeye>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 00/13] OF device tree handling of PHY drivers
+Date: Mon, 4 May 2009 18:14:21 -0500
+Message-ID: <20090504231421.GA27541@ld0162-tx32.am.freescale.net>
+References: <20090425224458.32392.31296.stgit@localhost.localdomain> <20090427.025436.68188155.davem@davemloft.net> <fa686aa40904271017x726f92ffsbbc730770298766b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, paul@mad-scientist.net, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Kumar Gala <galak@kernel.crashing.org>, linuxppc-dev@ozlabs.org,
+	afleming@freescale.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41411
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753108AbZEDXMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 19:12:41 -0400
-In-Reply-To: <1241478312.23179.5.camel@deadeye>
+Received: from az33egw02.freescale.net ([192.88.158.103]:54257 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752842AbZEDXOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 19:14:36 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n44NEMBr025799
+	for <netdev@vger.kernel.org>; Mon, 4 May 2009 16:14:33 -0700 (MST)
+Received: from ld0162-tx32.am.freescale.net (ld0162-tx32.am.freescale.net [10.82.19.112])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n44NEM1B012426
+	for <netdev@vger.kernel.org>; Mon, 4 May 2009 18:14:22 -0500 (CDT)
+Content-Disposition: inline
+In-Reply-To: <fa686aa40904271017x726f92ffsbbc730770298766b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 05 May 2009 00:05:12 +0100
-
-> On Mon, 2009-05-04 at 12:06 -0700, David Miller wrote:
->> From: Jay Vosburgh <fubar@us.ibm.com>
->> Date: Mon, 04 May 2009 12:03:37 -0700
->> 
->> > Paul Smith <paul@mad-scientist.net> wrote:
->> > 
->> >>Hi Jay/David/etc.;
->> >>
->> >>This patch is critical for me to properly use mode 6 (balance-alb)
->> >>bonding; I assume it will be needed for others as well.  I haven't
->> >>checked to see if it's still necessary in 2.6.29/2.6.30, but I didn't
->> >>notice it going into the latest 2.6.27.22, released today.
->> >>
->> >>Is this still unofficial?  Is there an official patch on the horizon?
->> > 
->> > 	David, please apply and queue for -stable:
->> 
->> Greg just posted that there will be no further 2.6.27.x -stable
->> releases after the one he just made.
+On Mon, Apr 27, 2009 at 11:17:08AM -0600, Grant Likely wrote:
+> Kumar,
 > 
-> It's 2.6.28.x that he's dropping now
-> <http://article.gmane.org/gmane.linux.kernel/831202>, not .27.x - he'll
-> have to support the latter for years in SLES 11 anyway.
+> David has pulled my phylib changes into his -next tree.  However, some
+> of the driver changes have been compile tested only due to lack of
+> hardware.  Who can I ask to test the changes to the following files?
+> 
+>  arch/powerpc/platforms/82xx/ep8248e.c     |    9 +-
 
-Yes he just corrected me about this in private email.
+Tested OK.
+
+>  drivers/net/fs_enet/fs_enet-main.c        |   69 +--
+>  drivers/net/fs_enet/mii-bitbang.c         |   29 +-
+
+Tested OK on pq2fads.
+
+>  drivers/net/fs_enet/mii-fec.c             |   26 +-
+
+Tested on ep88xc.  No *new* problems. :-P
+
+-Scott
