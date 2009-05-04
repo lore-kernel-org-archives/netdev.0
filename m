@@ -1,39 +1,56 @@
-From: Omar Laazimani <omar.oberthur@gmail.com>
-Subject: Re: [PATCH] : CDC EEM driver patch to be applied to 2.6.30 kernel
-Date: Mon, 4 May 2009 22:58:46 +0200
-Message-ID: <3a98b4410905041358r6b5e2133r1b07fefa0239da08@mail.gmail.com>
-References: <3a98b4410904270912g1838b534j2b53561b8caa1543@mail.gmail.com>
-	 <200905031713.58762.david-b@pacbell.net>
-	 <3a98b4410905040851i20d4192ax8f9ff3953e635979@mail.gmail.com>
-	 <200905041027.45948.david-b@pacbell.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] e1000: fix virtualization bug
+Date: Mon, 04 May 2009 14:19:42 -0700
+Message-ID: <20090504211941.10922.95964.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:10160 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754021AbZEDU6q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 16:58:46 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so1074286eyd.37
-        for <netdev@vger.kernel.org>; Mon, 04 May 2009 13:58:46 -0700 (PDT)
-In-Reply-To: <200905041027.45948.david-b@pacbell.net>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:44737
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756661AbZEDVUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 17:20:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/5/4 David Brownell <david-b@pacbell.net>:
-> On Monday 04 May 2009, Omar Laazimani wrote:
->> Thanks for your quick feedbacks.
->> I have tested your patch with our device and it's working well.
->
-> Hmm, one more issue. =A0The eem_unbind() isn't needed at all,
-> is it?? =A0It seems leftover from the ACM or ECM code, which
-> needed a separate control interface. =A0Nothing even sets up
-> the data used by that routine (other than zero-init).
->
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-You're right. The eem_unbind() isn't needed and I forgot to remove it.
+a recent fix to e1000 (commit 15b2bee2) caused KVM/QEMU/VMware based
+virtualized e1000 interfaces to begin failing when resetting.
 
-> - Dave
->
+This is because the driver in a virtual environment doesn't
+get to run instructions *AT ALL* when an interrupt is asserted.
+The interrupt code runs immediately and this recent bug fix
+allows an interrupt to be possible when the interrupt handler
+will reject it (due to the new code), when being called from
+any path in the driver that holds the E1000_RESETTING flag.
+
+the driver should use the __E1000_DOWN flag instead of the
+__E1000_RESETTING flag to prevent interrupt execution
+while reconfiguring the hardware.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000/e1000_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 6a46cee..b1419e2 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3738,7 +3738,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 rctl, icr = er32(ICR);
+ 
+-	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
++	if (unlikely((!icr) || test_bit(__E1000_DOWN, &adapter->flags)))
+ 		return IRQ_NONE;  /* Not our interrupt */
+ 
+ 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
+
