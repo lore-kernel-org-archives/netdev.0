@@ -1,59 +1,89 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH] Implementation of the sendgroup() system call
-Date: Mon, 04 May 2009 10:30:33 +0300
-Message-ID: <49FE9999.7090103@redhat.com>
-References: <49FE47A1.7070700@uwaterloo.ca> <87eiv5ibnd.fsf@basil.nowhere.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG][AX25] 2.6.28.5 "inconsistent lock state" (2 CPUs / SMP
+	enabled)
+Date: Mon, 4 May 2009 07:31:53 +0000
+Message-ID: <20090504073153.GA5354@ff.dom.local>
+References: <4152EA8442834D52AA9C100377B9ABE2@A050313B>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Elad Lahav <elahav@uwaterloo.ca>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jann Traschewski <jann@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41057 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752600AbZEDHb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 May 2009 03:31:29 -0400
-In-Reply-To: <87eiv5ibnd.fsf@basil.nowhere.org>
+Received: from mail-qy0-f196.google.com ([209.85.221.196]:44660 "EHLO
+	mail-qy0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753174AbZEDHcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 03:32:01 -0400
+Received: by qyk34 with SMTP id 34so5436370qyk.33
+        for <netdev@vger.kernel.org>; Mon, 04 May 2009 00:32:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4152EA8442834D52AA9C100377B9ABE2@A050313B>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> Elad Lahav <elahav@uwaterloo.ca> writes:
->
->   
->> The attached patch contains an implementation of sendgroup(), a system
->> call that allows a UDP packet to be transmitted efficiently to
->> multiple recipients. Use cases for this system call include
->> live-streaming and multi-player online games.
->> The basic idea is that the caller maintains a group - a list of IP
->> addresses and UDP ports - and calls sendgroup() with the group list
->> and a common payload. Optionally, the call allows for per-recipient
->> data to be prepended or appended to the shared block. The data is
->> copied once in the kernel into an allocated page, and the
->> per-recipient socket buffers point to that page. Savings come from
->> avoiding both the multiple calls and the multiple copies of the data
->> required with regular socket operations.
->>     
->
-> My guess it's more the copies than the calls? It sounds like
-> you want sendfile() for UDP. I think that would be a cleaner solution
-> than such a specific hack for your application. It would
-> have the advantage of saving the first copy too and be 
-> truly zero copy on capable NICs.
->   
+On 03-05-2009 10:06, Jann Traschewski wrote:
+> Hi,
+> 
+> the AX.25 code has still some problems with SMP and locking. I turned on
+> lock debugging on my machine with a lot of AX.25 traffic. Although it did
+> take serveral days until I got this:
+> 
+> =================================
+> [ INFO: inconsistent lock state ]
+> 2.6.28.5-dg8ngn #1
+> ---------------------------------
+> inconsistent {softirq-on-R} -> {in-softirq-W} usage.
+> swapper/0 [HC0[0]:SC1[2]:HE1:SE0] takes:
+>  (clock-AF_AX25){-+-?}, at: [<f859ed33>] ax25_destroy_socket+0xb6/0x1c4
+> [ax25]
+> {softirq-on-R} state was registered at:
+>   [<c013a751>] __lock_acquire+0x4e4/0x65e
+>   [<c0124d14>] local_bh_enable+0xa5/0xa9
+>   [<c013a914>] lock_acquire+0x49/0x61
+>   [<c025a221>] sock_def_wakeup+0x11/0x3d
+>   [<c02ca449>] _read_lock+0x19/0x24
+>   [<c025a221>] sock_def_wakeup+0x11/0x3d
+>   [<c025a221>] sock_def_wakeup+0x11/0x3d
+>   [<f859fb9c>] ax25_release+0x17e/0x1ab [ax25]
+>   [<c025847f>] sock_release+0x11/0x59
+>   [<c0258883>] sock_close+0x19/0x1c
+...
 
-An aio udp send could accomplish both multiple packets per call, and 
-zero-copy, without adding new syscalls.  You could send the same packet 
-to multiple recipients, or multiple packets to the same recipicent, or 
-combinations thereof.
+Hi,
 
-> Or perhaps simple send to a local multicast group and let
-> some netfilter module turn that into regular UDP.
->   
+Could you try this patch?
 
-Sounds hacky and rooty.
+Thanks,
+Jarek P.
+---
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+ net/ax25/af_ax25.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index fd9d06f..f2fec78 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -314,8 +314,21 @@ void ax25_destroy_socket(ax25_cb *ax25)
+ 				/* A pending connection */
+ 				ax25_cb *sax25 = ax25_sk(skb->sk);
+ 
+-				/* Queue the unaccepted socket for death */
+-				sock_orphan(skb->sk);
++				/*
++				 * Queue the unaccepted socket for death.
++				 * Btw., it was never grafted, so sock_orphan()
++				 * is unnecessary.
++				 */
++				if (unlikely(skb->sk->sk_socket)) {
++					/*
++					 * This is old code, so let's leave it
++					 * for some time for debugging.
++					 */
++					sock_orphan(skb->sk);
++					WARN_ON_ONCE(1);
++				} else {
++					sock_set_flag(skb->sk, SOCK_DEAD);
++				}
+ 
+ 				/* 9A4GL: hack to release unaccepted sockets */
+ 				skb->sk->sk_state = TCP_LISTEN;
