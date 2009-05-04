@@ -1,42 +1,52 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: tun: add tun_flags, owner, group attributes in sysfs
-Date: Mon, 04 May 2009 15:58:05 +0100
-Message-ID: <1241449085.6126.117.camel@macbook.infradead.org>
-References: <1241433136.6126.70.camel@macbook.infradead.org>
-	 <20090504074753.6d1c5bcd@nehalam>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH 1/5] initdev:kernel: Asynchronously-discovered device
+ synchronization, v5
+Date: Mon, 4 May 2009 11:07:52 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.0905041100500.3092-100000@iolanthe.rowland.org>
+References: <20090504074522.13f1ed77@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mark McLoughlin <markmc@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
+	David VomLehn <dvomlehn@cisco.com>,
+	<linux-kernel@vger.kernel.org>, <akpm@linux-foundation.org>,
+	<linux-usb@vger.kernel.org>, <greg@kroah.com>,
+	<linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Arjan van de Ven <arjan@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38785 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754269AbZEDO6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 10:58:08 -0400
-In-Reply-To: <20090504074753.6d1c5bcd@nehalam>
+Received: from iolanthe.rowland.org ([192.131.102.54]:56047 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754860AbZEDPHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 11:07:52 -0400
+In-Reply-To: <20090504074522.13f1ed77@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-05-04 at 07:47 -0700, Stephen Hemminger wrote:
-> Netlink please not sysfs. 
+On Mon, 4 May 2009, Arjan van de Ven wrote:
 
-That seems like overkill in this case.
+> > > for normal device probing we already have infrastructure though...
+> > > wait_for_device_probe, driver_probe_done and friends...
+> > > (the scsi scanning thread is being converted to the async
+> > > infrastructure btw)
+> > > 
+> > > do we need to invent more ?
+> > 
+> > I suppose the usb-storage scanning thread could also be converted to 
+> > the async infrastructure, although I haven't heard of anybody working 
+> > on it.
+> > 
+> > But the USB hub driver's thread (khubd) cannot be converted.  It is 
+> > central to the discovery of USB-based block devices.  How would you 
+> > handle that?
+> 
+> take a ref in the driver_probe_done() sense, and release it when you
+> know you're done probing....
+> 
+> at that point all existing infrastructure will just work.
 
-> also, any sysfs attributes have to handle unregistration issues.
->       ( sleep 900; read owner ) </sys/class/net/tun0/owner &
->       rmmod tun
+Isn't there still something missing?  The wait_for_device_probe()  
+routine would wait until all attached devices had been probed.  But why
+should prepare_namespace() have to wait that long?  Wouldn't it be
+better to wait only until the root device has been registered?
 
-That gets handled for you automatically...
-
-[root@tylersburg ~]# ( sleep 900 ; read owner; echo $owner ) < /sys/class/net/tun0/owner &
-[1] 4728
-[root@tylersburg ~]# ./ip tuntap del tun0 mode tun
-[root@tylersburg ~]# rmmod tun
-[root@tylersburg ~]# killall sleep
--bash: line 28:  4729 Terminated              sleep 900
-[root@tylersburg ~]# -bash: line 28: read: read error: 0: No such device
-
--- 
-dwmw2
+Alan Stern
 
