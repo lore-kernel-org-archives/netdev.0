@@ -1,37 +1,62 @@
-From: Elad Lahav <elahav@cs.uwaterloo.ca>
-Subject: Re: [PATCH] Implementation of the sendgroup() system call
-Date: Mon, 04 May 2009 09:44:31 -0400
-Message-ID: <20090504094431.174745mb0jhhm3s4@www.nexusmail.uwaterloo.ca>
-References: <49FE47A1.7070700@uwaterloo.ca>
-	<87eiv5ibnd.fsf@basil.nowhere.org>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH 1/5] initdev:kernel: Asynchronously-discovered device
+ synchronization, v5
+Date: Mon, 4 May 2009 10:30:06 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.0905041026560.2961-100000@iolanthe.rowland.org>
+References: <20090503162115.2dff79bd@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Elad Lahav <elahav@uwaterloo.ca>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755966AbZEDNpr@vger.kernel.org>
-In-Reply-To: <87eiv5ibnd.fsf@basil.nowhere.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+	David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	<linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090503162115.2dff79bd-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> My guess it's more the copies than the calls?
-It's a factor of both. This is why we also created the sendgroup()  
-implementation that uses a tight loop of in-kernel calls to sendmsg()  
-as a means for evaluating the cost of mode switches. It is definitely  
-not negligible (exact numbers depend on the size of the group and the  
-size of the payload, of course).
+On Sun, 3 May 2009, Arjan van de Ven wrote:
 
-> It sounds like you want sendfile() for UDP.
-Do you mean by having a per-recipient sendfile() call for the same  
-file? Leaving the cost of the system call aside, this solution does  
-not work well with the kind of real-time data that we've been working  
-with (live streaming, online games). You would have to write the  
-payload to the file as it is being generated and call sendfile() after  
-each such write.
+> > Perhaps with some enterprise systems, it is preferred to have the 
+> > system fail with an explicit error message rather than wait 
+> > indefinitely...
+> 
+> actually, in an enterprise system, you want to reboot.
+> The bootloader might boot a different kernel the next time
+> that is known to work.
+> (for example, the current kernel might have been booted with the "once"
+> grub option)
 
---Elad
+Which makes it imperative that the system knows when all the block
+devices have been probed, so it can stop waiting.
+
+> > How does Arjan's async boot system tell use when all discovery is
+> > complete?  AFAICS, it only tells you when all its async tasks are
+> > finished.  But device discovery and registration sometimes use other
+> > asynchronous techniques which Arjan's code is unaware of.
+> > Examples: the USB khubd thread, the USB mass-storage scanning thread,
+> > and the SCSI async-scanning thread.
+> 
+> for normal device probing we already have infrastructure though...
+> wait_for_device_probe, driver_probe_done and friends...
+> (the scsi scanning thread is being converted to the async
+> infrastructure btw)
+> 
+> do we need to invent more ?
+
+I suppose the usb-storage scanning thread could also be converted to 
+the async infrastructure, although I haven't heard of anybody working 
+on it.
+
+But the USB hub driver's thread (khubd) cannot be converted.  It is 
+central to the discovery of USB-based block devices.  How would you 
+handle that?
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
