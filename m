@@ -1,39 +1,481 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] Receive Packet Steering
-Date: Mon, 04 May 2009 20:22:19 +0200
-Message-ID: <49FF325B.4050802@gmail.com>
-References: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: [patch 2.6.30-rc4] usbnet:  CDC EEM support (v5)
+Date: Mon, 4 May 2009 12:00:10 -0700
+Message-ID: <200905041200.10196.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:35343 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbZEDSWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 14:22:30 -0400
-Received: by bwz22 with SMTP id 22so629333bwz.37
-        for <netdev@vger.kernel.org>; Mon, 04 May 2009 11:22:29 -0700 (PDT)
-In-Reply-To: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Omar Laazimani <omar.oberthur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Network development list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tom Herbert wrote, On 05/04/2009 06:03 AM:
+From: Omar Laazimani <omar.oberthur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-> This is an update of the receive packet steering patch (RPS) based on received
-> comments (thanks for all the comments).  Improvements are:
+This introduces a CDC Ethernet Emulation Model (EEM) host side
+driver to support USB EEM devices.
 
-...
+EEM is different from the Ethernet Control Model (ECM) currently
+supported by the "CDC Ethernet" driver.  One key difference is
+that it doesn't require of USB interface alternate settings to
+manage interface state; some maldesigned hardware can't handle
+that part of USB.  It also avoids a separate USB interface for
+control and status updates.
 
-> +/* Called from hardirq (IPI) context */
-> +static void trigger_softirq(void *data)
-> +{
-> +	struct softnet_data *queue = data;
-> +	__napi_schedule(&queue->backlog);
-> +}
+[ dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org: fix skb leaks, add rx packet
+checks, improve fault handling, EEM conformance updates, cleanup ]
 
+Signed-off-by: Omar Laazimani <omar.oberthur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+---
+ drivers/net/usb/Kconfig   |   14 +
+ drivers/net/usb/Makefile  |    1 
+ drivers/net/usb/cdc_eem.c |  381 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/cdc.h   |    3 
+ 4 files changed, 399 insertions(+)
 
-Isn't full napi_schedule() needed here?
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -180,6 +180,20 @@ config USB_NET_CDCETHER
+ 	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
+ 	  name is used instead.
+ 
++config USB_NET_CDC_EEM
++	tristate "CDC EEM support"
++	depends on USB_USBNET && EXPERIMENTAL
++	help
++	  This option supports devices conforming to the Communication Device
++	  Class (CDC) Ethernet Emulation Model, a specification that's easy to
++	  implement in device firmware.  The CDC EEM specifications are available
++	  from <http://www.usb.org/>.
++
++	  This driver creates an interface named "ethX", where X depends on
++	  what other networking devices you have in use.  However, if the
++	  IEEE 802 "local assignment" bit is set in the address, a "usbX"
++	  name is used instead.
++
+ config USB_NET_DM9601
+ 	tristate "Davicom DM9601 based USB 1.1 10/100 ethernet devices"
+ 	depends on USB_USBNET
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_USB_RTL8150)	+= rtl8150.o
+ obj-$(CONFIG_USB_HSO)		+= hso.o
+ obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
+ obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
++obj-$(CONFIG_USB_NET_CDC_EEM)	+= cdc_eem.o
+ obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
+ obj-$(CONFIG_USB_NET_SMSC95XX)	+= smsc95xx.o
+ obj-$(CONFIG_USB_NET_GL620A)	+= gl620a.o
+--- /dev/null
++++ b/drivers/net/usb/cdc_eem.c
+@@ -0,0 +1,381 @@
++/*
++ * USB CDC EEM network interface driver
++ * Copyright (C) 2009 Oberthur Technologies
++ * by Omar Laazimani, Olivier Condemine
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ctype.h>
++#include <linux/ethtool.h>
++#include <linux/workqueue.h>
++#include <linux/mii.h>
++#include <linux/usb.h>
++#include <linux/crc32.h>
++#include <linux/usb/cdc.h>
++#include <linux/usb/usbnet.h>
++
++
++/*
++ * This driver is an implementation of the CDC "Ethernet Emulation
++ * Model" (EEM) specification, which encapsulates Ethernet frames
++ * for transport over USB using a simpler USB device model than the
++ * previous CDC "Ethernet Control Model" (ECM, or "CDC Ethernet").
++ *
++ * For details, see www.usb.org/developers/devclass_docs/CDC_EEM10.pdf
++ *
++ * This version has been tested with GIGAntIC WuaoW SIM Smart Card on 2.6.24,
++ * 2.6.27 and 2.6.30rc2 kernel.
++ * It has also been validated on Openmoko Om 2008.12 (based on 2.6.24 kernel).
++ * build on 23-April-2009
++ */
++
++#define EEM_HEAD	2		/* 2 byte header */
++
++/*-------------------------------------------------------------------------*/
++
++static void eem_linkcmd_complete(struct urb *urb)
++{
++	dev_kfree_skb(urb->context);
++	usb_free_urb(urb);
++}
++
++static void eem_linkcmd(struct usbnet *dev, struct sk_buff *skb)
++{
++	struct urb		*urb;
++	int			status;
++
++	urb = usb_alloc_urb(0, GFP_ATOMIC);
++	if (!urb)
++		goto fail;
++
++	usb_fill_bulk_urb(urb, dev->udev, dev->out,
++			skb->data, skb->len, eem_linkcmd_complete, skb);
++
++	status = usb_submit_urb(urb, GFP_ATOMIC);
++	if (status) {
++		usb_free_urb(urb);
++fail:
++		dev_kfree_skb(skb);
++		devwarn(dev, "link cmd failure\n");
++		return;
++	}
++}
++
++static int eem_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int status = 0;
++
++	status = usbnet_get_endpoints(dev, intf);
++	if (status < 0) {
++		usb_set_intfdata(intf, NULL);
++		usb_driver_release_interface(driver_of(intf), intf);
++		return status;
++	}
++
++	/* no jumbogram (16K) support for now */
++
++	dev->net->hard_header_len += EEM_HEAD + ETH_FCS_LEN;
++
++	return 0;
++}
++
++/*
++ * EEM permits packing multiple Ethernet frames into USB transfers
++ * (a "bundle"), but for TX we don't try to do that.
++ */
++static struct sk_buff *eem_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
++				       gfp_t flags)
++{
++	struct sk_buff	*skb2 = NULL;
++	u16		len = skb->len;
++	u32		crc = 0;
++	int		padlen = 0;
++
++	/* When ((len + EEM_HEAD + ETH_FCS_LEN) % dev->maxpacket) is
++	 * zero, stick two bytes of zero length EEM packet on the end.
++	 * Else the framework would add invalid single byte padding,
++	 * since it can't know whether ZLPs will be handled right by
++	 * all the relevant hardware and software.
++	 */
++	if (!((len + EEM_HEAD + ETH_FCS_LEN) % dev->maxpacket))
++		padlen += 2;
++
++	if (!skb_cloned(skb)) {
++		int	headroom = skb_headroom(skb);
++		int	tailroom = skb_tailroom(skb);
++
++		if ((tailroom >= ETH_FCS_LEN + padlen)
++				&& (headroom >= EEM_HEAD))
++			goto done;
++
++		if ((headroom + tailroom)
++				> (EEM_HEAD + ETH_FCS_LEN + padlen)) {
++			skb->data = memmove(skb->head +
++					EEM_HEAD,
++					skb->data,
++					skb->len);
++			skb_set_tail_pointer(skb, len);
++			goto done;
++		}
++	}
++
++	skb2 = skb_copy_expand(skb, EEM_HEAD, ETH_FCS_LEN + padlen, flags);
++	if (!skb2)
++		return NULL;
++
++	dev_kfree_skb_any(skb);
++	skb = skb2;
++
++done:
++	/* we don't use the "no Ethernet CRC" option */
++	crc = crc32_le(~0, skb->data, skb->len);
++	crc = ~crc;
++
++	put_unaligned_le32(crc, skb_put(skb, 4));
++
++	/* EEM packet header format:
++	 * b0..13:	length of ethernet frame
++	 * b14:		bmCRC (1 == valid Ethernet CRC)
++	 * b15:		bmType (0 == data)
++	 */
++	len = skb->len;
++	put_unaligned_le16(BIT(14) | len, skb_push(skb, 2));
++
++	/* Bundle a zero length EEM packet if needed */
++	if (padlen)
++		put_unaligned_le16(0, skb_put(skb, 2));
++
++	return skb;
++}
++
++static int eem_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
++{
++	/*
++	 * Our task here is to strip off framing, leaving skb with one
++	 * data frame for the usbnet framework code to process.  But we
++	 * may have received multiple EEM payloads, or command payloads.
++	 * So we must process _everything_ as if it's a header, except
++	 * maybe the last data payload
++	 *
++	 * REVISIT the framework needs updating so that when we consume
++	 * all payloads (the last or only message was a command, or a
++	 * zero length EEM packet) that is not accounted as an rx_error.
++	 */
++	do {
++		struct sk_buff	*skb2 = NULL;
++		u16		header;
++		u16		len = 0;
++
++		/* incomplete EEM header? */
++		if (skb->len < EEM_HEAD)
++			return 0;
++
++		/*
++		 * EEM packet header format:
++		 * b0..14:	EEM type dependant (Data or Command)
++		 * b15:		bmType
++		 */
++		header = get_unaligned_le16(skb->data);
++		skb_pull(skb, EEM_HEAD);
++
++		/*
++		 * The bmType bit helps to denote when EEM
++		 * packet is data or command :
++		 *	bmType = 0	: EEM data payload
++		 *	bmType = 1	: EEM (link) command
++		 */
++		if (header & BIT(15)) {
++			u16	bmEEMCmd;
++
++			/*
++			 * EEM (link) command packet:
++			 * b0..10:	bmEEMCmdParam
++			 * b11..13:	bmEEMCmd
++			 * b14:		bmReserved (must be 0)
++			 * b15:		1 (EEM command)
++			 */
++			if (header & BIT(14)) {
++				devdbg(dev, "reserved command %04x\n", header);
++				continue;
++			}
++
++			bmEEMCmd = (header >> 11) & 0x7;
++			switch (bmEEMCmd) {
++
++			/* Responding to echo requests is mandatory. */
++			case 0:		/* Echo command */
++				len = header & 0x7FF;
++
++				/* bogus command? */
++				if (skb->len < len)
++					return 0;
++
++				skb2 = skb_clone(skb, GFP_ATOMIC);
++				if (unlikely(!skb2))
++					goto next;
++				skb_trim(skb2, len);
++				put_unaligned_le16(BIT(15) | (1 << 11) | len,
++						skb_push(skb2, 2));
++				eem_linkcmd(dev, skb2);
++				break;
++
++			/*
++			 * Host may choose to ignore hints.
++			 *  - suspend: peripheral ready to suspend
++			 *  - response: suggest N millisec polling
++			 *  - response complete: suggest N sec polling
++			 */
++			case 2:		/* Suspend hint */
++			case 3:		/* Response hint */
++			case 4:		/* Response complete hint */
++				continue;
++
++			/*
++			 * Hosts should never receive host-to-peripheral
++			 * or reserved command codes; or responses to an
++			 * echo command we didn't send.
++			 */
++			case 1:		/* Echo response */
++			case 5:		/* Tickle */
++			default:	/* reserved */
++				devwarn(dev, "unexpected link command %d\n",
++						bmEEMCmd);
++				continue;
++			}
++
++		} else {
++			u32	crc, crc2;
++			int	is_last;
++
++			/* zero length EEM packet? */
++			if (header == 0)
++				continue;
++
++			/*
++			 * EEM data packet header :
++			 * b0..13:	length of ethernet frame
++			 * b14:		bmCRC
++			 * b15:		0 (EEM data)
++			 */
++			len = header & 0x3FFF;
++
++			/* bogus EEM payload? */
++			if (skb->len < len)
++				return 0;
++
++			/* bogus ethernet frame? */
++			if (len < (ETH_HLEN + ETH_FCS_LEN))
++				goto next;
++
++			/*
++			 * Treat the last payload differently: framework
++			 * code expects our "fixup" to have stripped off
++			 * headers, so "skb" is a data packet (or error).
++			 * Else if it's not the last payload, keep "skb"
++			 * for further processing.
++			 */
++			is_last = (len == skb->len);
++			if (is_last)
++				skb2 = skb;
++			else {
++				skb2 = skb_clone(skb, GFP_ATOMIC);
++				if (unlikely(!skb2))
++					return 0;
++			}
++
++			crc = get_unaligned_le32(skb2->data
++					+ len - ETH_FCS_LEN);
++			skb_trim(skb2, len - ETH_FCS_LEN);
++
++			/*
++			 * The bmCRC helps to denote when the CRC field in
++			 * the Ethernet frame contains a calculated CRC:
++			 *	bmCRC = 1	: CRC is calculated
++			 *	bmCRC = 0	: CRC = 0xDEADBEEF
++			 */
++			if (header & BIT(14))
++				crc2 = ~crc32_le(~0, skb2->data, len);
++			else
++				crc2 = 0xdeadbeef;
++
++			if (is_last)
++				return crc == crc2;
++
++			if (unlikely(crc != crc2)) {
++				dev->stats.rx_errors++;
++				dev_kfree_skb_any(skb2);
++			} else
++				usbnet_skb_return(dev, skb2);
++		}
++
++next:
++		skb_pull(skb, len);
++	} while (skb->len);
++
++	return 1;
++}
++
++static const struct driver_info eem_info = {
++	.description =	"CDC EEM Device",
++	.flags =	FLAG_ETHER,
++	.bind =		eem_bind,
++	.rx_fixup =	eem_rx_fixup,
++	.tx_fixup =	eem_tx_fixup,
++};
++
++/*-------------------------------------------------------------------------*/
++
++static const struct usb_device_id products[] = {
++{
++	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_EEM,
++			USB_CDC_PROTO_EEM),
++	.driver_info = (unsigned long) &eem_info,
++},
++{
++	/* EMPTY == end of list */
++},
++};
++MODULE_DEVICE_TABLE(usb, products);
++
++static struct usb_driver eem_driver = {
++	.name =		"cdc_eem",
++	.id_table =	products,
++	.probe =	usbnet_probe,
++	.disconnect =	usbnet_disconnect,
++	.suspend =	usbnet_suspend,
++	.resume =	usbnet_resume,
++};
++
++
++static int __init eem_init(void)
++{
++	return usb_register(&eem_driver);
++}
++module_init(eem_init);
++
++static void __exit eem_exit(void)
++{
++	usb_deregister(&eem_driver);
++}
++module_exit(eem_exit);
++
++MODULE_AUTHOR("Omar Laazimani <omar.oberthur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>");
++MODULE_DESCRIPTION("USB CDC EEM");
++MODULE_LICENSE("GPL");
+--- a/include/linux/usb/cdc.h
++++ b/include/linux/usb/cdc.h
+@@ -17,6 +17,7 @@
+ #define USB_CDC_SUBCLASS_DMM			0x09
+ #define USB_CDC_SUBCLASS_MDLM			0x0a
+ #define USB_CDC_SUBCLASS_OBEX			0x0b
++#define USB_CDC_SUBCLASS_EEM			0x0c
+ 
+ #define USB_CDC_PROTO_NONE			0
+ 
+@@ -28,6 +29,8 @@
+ #define USB_CDC_ACM_PROTO_AT_CDMA		6
+ #define USB_CDC_ACM_PROTO_VENDOR		0xff
+ 
++#define USB_CDC_PROTO_EEM			7
++
+ /*-------------------------------------------------------------------------*/
+ 
+ /*
 
-Jarek P.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
