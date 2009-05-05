@@ -1,41 +1,34 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 2.6.30-rc5] ehea: fix invalid pointer access
-Date: Tue, 05 May 2009 13:19:54 +0100
-Message-ID: <26110.1241525994@redhat.com>
-References: <200905051319.05806.hannes.hering@linux.vnet.ibm.com> <200905041802.30527.hannes.hering@linux.vnet.ibm.com> <25628.1241514687@redhat.com>
-Cc: dhowells@redhat.com, David Miller <davem@davemloft.net>,
-	themann@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
-	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
-	ossthema@de.ibm.com, osstklei@de.ibm.com
-To: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:51486 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752089AbZEEMWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 May 2009 08:22:21 -0400
-In-Reply-To: <200905051319.05806.hannes.hering@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter 00/05: netfilter fixes
+Date: Tue, 05 May 2009 14:33:05 +0200
+Message-ID: <4A003201.2010301@trash.net>
+References: <20090424154355.28952.21443.sendpatchset@x2.localnet> <20090425.175758.05225143.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090425.175758.05225143.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Hering <hannes.hering@linux.vnet.ibm.com> wrote:
-
-> this is an ehea driver problem, which is occuring when the receive queue runs
-> empty. The faulting code is more specifically the following line:
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Fri, 24 Apr 2009 17:44:01 +0200 (MEST)
 > 
-> 	pref = (skb_array[x]->data);
+>> Please apply or pull from:
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+> 
+> Pulled, thanks Patrick.
+> 
+> It would be nice to see this fixed:
+> 
+>   CHECK   include/linux/netfilter (57 files)
+> /home/davem/src/GIT/net-2.6/usr/include/linux/netfilter/xt_LED.h:6: found __[us]{8,16,32,64} type without #include <linux/types.h>
 
-In that case, you might want to move the prefetchw() calls in the following:
+Appologies for my silence over the past week, holidays and a swine
+cold kept me away from the computer .)
 
-		pref = skb_array[x];
-	-	prefetchw(pref);
-	-	prefetchw(pref + EHEA_CACHE_LINE);
-	+	if (pref) {
-	+		prefetchw(pref);
-	+		prefetchw(pref + EHEA_CACHE_LINE);
-
-to before the if-statement.  That way the CPU can be attempting the prefetch
-whilst it's chewing over the test and branch.  prefetching shouldn't fault on
-a bad address.
-
-David
+I've queued a fix for this, thanks.
