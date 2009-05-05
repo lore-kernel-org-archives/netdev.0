@@ -1,139 +1,122 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Wrong network usage reported by /proc
-Date: Tue, 05 May 2009 07:22:16 +0200
-Message-ID: <49FFCD08.7050600@cosmosbay.com>
-References: <20090504171408.3e13822c@python3.es.egwn.lan> <49FF2BB2.4030700@cosmosbay.com> <20090504211151.74622f29@python3.es.egwn.lan> <20090505050435.GK570@1wt.eu>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Mon, 04 May 2009 22:46:28 -0700 (PDT)
+Message-ID: <20090504.224628.160654802.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matthias Saou
-	<thias@spam.spam.spam.spam.spam.spam.spam.egg.and.spam.freshrpms.net>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:60683 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994AbZEEFW6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 01:22:58 -0400
-In-Reply-To: <20090505050435.GK570@1wt.eu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44194
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753975AbZEEFqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 01:46:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau a =E9crit :
-> On Mon, May 04, 2009 at 09:11:51PM +0200, Matthias Saou wrote:
->> Eric Dumazet wrote :
->>
->>> Matthias Saou a =E9crit :
->>>> Hi,
->>>>
->>>> I'm posting here as a last resort. I've got lots of heavily used R=
-HEL5
->>>> servers (2.6.18 based) that are reporting all sorts of impossible
->>>> network usage values through /proc, leading to unrealistic snmp/ca=
-cti
->>>> graphs where the outgoing bandwidth used it higher than the physic=
-al
->>>> interface's maximum speed.
->>>>
->>>> For some details and a test script which compares values from /pro=
-c
->>>> with values from tcpdump :
->>>> https://bugzilla.redhat.com/show_bug.cgi?id=3D489541
->>>>
->>>> The values collected using tcpdump always seem realistic and match=
- the
->>>> values seen on the remote network equipments. So my obvious conclu=
-sion
->>>> (but possibly wrong given my limited knowledge) is that something =
-is
->>>> wrong in the kernel, since it's the one exposing the /proc interfa=
-ce.
->>>>
->>>> I've reproduced what seems to be the same problem on recent kernel=
-s,
->>>> including the 2.6.27.21-170.2.56.fc10.x86_64 I'm running right now=
-=2E The
->>>> simple python script available here allows to see it quite easily =
-:
->>>> https://www.redhat.com/archives/rhelv5-list/2009-February/msg00166=
-=2Ehtml
->>>>
->>>>  * I run the script on my Workstation, I have an FTP server enable=
-d
->>>>  * I download a DVD ISO from a remote workstation : The values mat=
-ch
->>>>  * I start ping floods from remote workstations : The values repor=
-ted
->>>>    by /proc are much higher than the ones reported by tcpdump. I u=
-sed
->>>>    "ping -s 500 -f myworkstation" from two remote workstations
->>>>
->>>> If there's anything flawed in my debugging, I'd love to have someo=
-ne
->>>> point it out to me. TIA to anyone willing to have a look.
->>>>
->>>> Matthias
->>>>
->>> I could not reproduce this here... what kind of NIC are you using o=
-n
->>> affected systems ? Some ethernet drivers report stats from card its=
-elf,
->>> and I remember seeing some strange stats on some hardware, but I ca=
-nnot
->>> remember which one it was (we were reading NULL values instead of
->>> real ones, once in a while, maybe it was a firmware issue...)
->> My workstation has a Broadcom BCM5752 (tg3 module). The servers whic=
-h
->> are most affected have Intel 82571EB (e1000e). But the issue is that
->> with /proc, the values are a lot _higher_ than with tcpdump, and the
->> tcpdump values seem to be the correct ones.
->=20
-> the e1000 chip reports stats every 2 seconds. So you have to collect
-> stats every 2 seconds otherwise you get "camel-looking" stats.
->=20
-
-I looked at e1000e driver, and apparently tx_packets & tx_bytes are com=
-puted
-by the TX completion routine, not by the chip.
-
-static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
-{
-=2E..
-
-                        if (cleaned) {
-                                struct sk_buff *skb =3D buffer_info->sk=
-b;
-                                unsigned int segs, bytecount;
-                                segs =3D skb_shinfo(skb)->gso_segs ?: 1=
-;
-                                /* multiply data chunks by size of head=
-ers */
-                                bytecount =3D ((segs - 1) * skb_headlen=
-(skb)) +
-                                            skb->len;
-// maybe bytecount is wrong on some skbs ?
-                                total_tx_packets +=3D segs;
-                                total_tx_bytes +=3D bytecount;
-                        }
-
-=2E..
-    adapter->net_stats.tx_bytes +=3D total_tx_bytes;
-    adapter->net_stats.tx_packets +=3D total_tx_packets;
-=2E..
-}
-
-and driver get_stats() does return this adapter->net_stats structure to=
- caller
-
-static struct net_device_stats *e1000_get_stats(struct net_device *netd=
-ev)=20
-{
-	struct e1000_adapter *adapter =3D netdev_priv(netdev);
-
-	/* only return the current stats */
-	return &adapter->net_stats;
-}
-
-Could be converted to use netdev->stats... Oh well...
-
+DQoxKSB2aXJ0aW9fbmV0IGZpeGVzOg0KDQogICBHYXJiYWdlIGluIG9uLXN0YWNrIHNjYXR0ZXJs
+aXN0IGVudHJpZXMuDQogICBNaXNzaW5nIGluY2x1ZGUgYnJlYWtzIHNvbWUgYnVpbGRzLg0KDQoy
+KSBVbmxvYWRpbmcgbmV0d29yayBkZXZpY2UgZHJpdmVyIGNhbiBoYW5nIGJlY2F1c2UgbmV0Y29u
+c29sZSBkb2Vzbid0DQogICBwcm9wZXJseSBsaXN0ZW4gZm9yIHVucmVnaXN0ZXIgZXZlbnRzLg0K
+DQozKSBza2JfdHhfaGFzaCgpJ3MgaGFzaCBkaXN0cmlidXRpb24gcmVncmVzc2VkIGluIDIuNi4z
+MCBodXJ0aW5nIHBlcmZvcm1hbmNlDQogICBmb3IgZm9yd2FyZGluZyB3b3JrbG9hZHMuDQoNCjQp
+IEVIRUEgb29wcyBmaXhlcy4NCg0KNSkgc3BsaWNlKCkgc2tiLT5zayBvb3BzIGZpeCwgcmVncmVz
+c2lvbiBmcm9tIDIuNi4yOS4NCg0KNikgQUxCIG1vZGUgbG9ja2luZyBpbiBib25kaW5nIGRyaXZl
+ciBpcyBidXN0ZWQuDQoNCjcpIE5ldGZpbHRlcidzIHh0X3NvY2tldCBoYXMgYnJva2VuIEtjb25m
+aWcgZGVwcywgY2F1c2luZyBidWlsZCBidXN0YWdlLg0KDQo4KSBuZTJrLXBjaSByZWdpc3RlcnMg
+ZGV2aWNlcyB0b28gZWFybHksIGJlZm9yZSBpdCBzZXRzIHRoZSBNQUMNCiAgIGFkZHJlc3MgaW4g
+dGhlIG5ldGRldmljZSBzdHJ1Y3R1cmUuDQoNCjkpIE5ldyBDREMgRUVNIFVTQiBuZXR3b3JrIGRy
+aXZlci4NCg0KMTApIE5ldyBzbXNjOTV4eCBkZXZpY2UgSURzIGFuZCB1bmJvbGl4IExFRHMuDQoN
+CjExKSBQYWNrZXQgY2xhc3NpZmllciBmaWx0ZXIgc3RvcmVzIHByaW9yaXRpZXMgd3JvbmdseSBz
+dWNoIHRoYXQgZGVsZXRpb24NCiAgICBvZiBlbnRyaWVzIGJlY29tZXMgaW1wb3NzaWJsZS4NCg0K
+MTIpIFRDUCB1c2VzIHdyb25nIFJUTyAoY29uc3RhbnQgVENQX1JUT19NSU4sIGluc3RlYWQgb2Yg
+d2hhdCB0aGUgc3RhY2sNCiAgICBoYXMgY29tcHV0ZWQgb3ZlciB0aW1lKSBpbiB0Y3BfcHJlcXVl
+dWUoKS4NCg0KMTMpIFNldmVyYWwgd2lyZWxlc3MgKG1vZHByb2JlIGRlYWRsb2NrIGluIG1hYzgw
+MjExLCBhdGg1ayBkZWJ1Z2dpbmcgY29kZQ0KICAgIGJ1ZmZlciBvdmVycnVuKSBhbmQgYmx1ZXRv
+b3RoIChzeXNmcyBzeW5jaHJvbml6YXRpb24gcHJvYmxlbXMgd3J0Lg0KICAgIHdvcmtxdWV1ZXMp
+IGZpeGVzLg0KDQoxNCkgYnIyNjg0IEFUTSBkcml2ZXIgaXMgYnVzdGVkIGR1ZSB0byBlcnJvciBp
+biBuZXRkZXZfb3BzIGNvbnZlcnNpb24uDQoNClBsZWFzZSBwdWxsLCB0aGFua3MgYSBsb3QhDQoN
+ClRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQgYjQzNDhmMzJkYWUzY2I2ZWI0YmMy
+MWM3ZWQ4Zjc2YzBiMTFlOWQ2YToNCiAgTGludXMgVG9ydmFsZHMgKDEpOg0KICAgICAgICBNZXJn
+ZSBicmFuY2ggJ2Zvci1saW51cycgb2YgZ2l0Oi8vb3NzLnNnaS5jb20veGZzL3hmcw0KDQphcmUg
+YXZhaWxhYmxlIGluIHRoZSBnaXQgcmVwb3NpdG9yeSBhdDoNCg0KICBtYXN0ZXIua2VybmVsLm9y
+ZzovcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC0yLjYuZ2l0IG1hc3Rlcg0KDQpB
+bGFuIEplbmtpbnMgKDEpOg0KICAgICAgbWFjODAyMTE6IGZpeCBtb2Rwcm9iZSBkZWFkbG9jayBi
+eSBub3QgY2FsbGluZyB3ZXBfaW5pdCB1bmRlciBydG5sX2xvY2sNCg0KQWxleCBXaWxsaWFtc29u
+ICgyKToNCiAgICAgIHZpcnRpb19uZXQ6IENsZWFudXAgY29tbWFuZCBxdWV1ZSBzY2F0dGVybGlz
+dCB1c2FnZQ0KICAgICAgdmlydGlvX25ldDogRml4IGZ1bmN0aW9uIG5hbWUgdHlwbw0KDQpCb2Ig
+Q29wZWxhbmQgKDEpOg0KICAgICAgYXRoNWs6IGZpeCBidWZmZXIgb3ZlcnJ1biBpbiByYXRlIGRl
+YnVnIGNvZGUNCg0KQnJ1bm8gUHLDqW1vbnQgKDEpOg0KICAgICAgbmV0Y29uc29sZTogdGFrZSBj
+YXJlIG9mIE5FVERFVl9VTlJFR0lTVEVSIGV2ZW50DQoNCkRhdmlkIFMuIE1pbGxlciAoMik6DQog
+ICAgICBNZXJnZSBicmFuY2ggJ21hc3Rlcicgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2xp
+bnZpbGxlL3dpcmVsZXNzLTIuNg0KICAgICAgTWVyZ2UgYnJhbmNoICdtYXN0ZXInIG9mIGdpdDov
+L2dpdC5rZXJuZWwub3JnLy4uLi9ob2x0bWFubi9ibHVldG9vdGgtMi42DQoNCkVyaWMgRHVtYXpl
+dCAoMyk6DQogICAgICBuZXQ6IEZpeCBza2JfdHhfaGFzaCgpIGZvciBmb3J3YXJkaW5nIHdvcmts
+b2Fkcy4NCiAgICAgIG5ldGZpbHRlcjogdXNlIGxpa2VseSgpIGluIHh0X2luZm9fcmRsb2NrX2Jo
+KCkNCiAgICAgIGJvbmRpbmc6IGJvbmRfc2xhdmVfaW5mb19xdWVyeSgpIGZpeA0KDQpHcmFudCBM
+aWtlbHkgKDEpOg0KICAgICAgdmlydGlvOiBhZGQgbWlzc2luZyBpbmNsdWRlIHRvIHZpcnRpb19u
+ZXQuaA0KDQpIYW5uZXMgSGVyaW5nICgxKToNCiAgICAgIGVoZWE6IGZpeCBpbnZhbGlkIHBvaW50
+ZXIgYWNjZXNzDQoNCkphcmVrIFBvcGxhd3NraSAoMSk6DQogICAgICBuZXQ6IEZpeCBvb3BzIHdo
+ZW4gc3BsaWNpbmcgc2ticyBmcm9tIGEgZnJhZ19saXN0Lg0KDQpKYXkgVm9zYnVyZ2ggKDEpOg0K
+ICAgICAgYm9uZGluZzogZml4IGFsYiBtb2RlIGxvY2tpbmcgcmVncmVzc2lvbg0KDQpKZXNzZSBC
+cmFuZGVidXJnICgxKToNCiAgICAgIGUxMDAwOiBmaXggdmlydHVhbGl6YXRpb24gYnVnDQoNCkpp
+cmkgUGlya28gKDEpOg0KICAgICAgYm9uZGluZzogY29ycmVjdCB0aGUgY2xlYW51cCBpbiBib25k
+X2NyZWF0ZSgpDQoNCkpvaGFubmVzIEJlcmcgKDIpOg0KICAgICAgaXdsd2lmaTogbm90aWZ5IG9u
+IHNjYW4gY29tcGxldGlvbiBldmVuIHdoZW4gc2h1dHRpbmcgZG93bg0KICAgICAgbWFjODAyMTE6
+IGRlZmF1bHQgdG8gYXV0b21hdGljIHBvd2VyIGNvbnRyb2wNCg0KSnVzc2kgS2l2aWxpbm5hICgx
+KToNCiAgICAgIHJuZGlzX3dsYW46IGZpeCBpbml0aWFsaXphdGlvbiBvcmRlciBmb3Igd29ya3F1
+ZXVlJndvcmtlcnMNCg0KTGFzemxvIEF0dGlsYSBUb3RoICgxKToNCiAgICAgIHh0X3NvY2tldDog
+Y2hlY2tzIGZvciB0aGUgc3RhdGUgb2YgbmZfY29ubnRyYWNrDQoNCkxlbm5lcnQgQnV5dGVuaGVr
+ICgyKToNCiAgICAgIG12NjQzeHhfZXRoOiBPT00gaGFuZGxpbmcgZml4ZXMNCiAgICAgIG12NjQz
+eHhfZXRoOiA2NGJpdCBtaWIgY291bnRlciByZWFkIGZpeA0KDQpMdWJvbWlyIFJpbnRlbCAoMSk6
+DQogICAgICBuZTJrLXBjaTogRG8gbm90IHJlZ2lzdGVyIGRldmljZSB1bnRpbCBpbml0aWFsaXpl
+ZC4NCg0KTWFyY2VsIEhvbHRtYW5uICgxKToNCiAgICAgIEJsdWV0b290aDogRml4IGlzc3VlIHdp
+dGggc3lzZnMgaGFuZGxpbmcgZm9yIGNvbm5lY3Rpb25zDQoNCk9tYXIgTGFhemltYW5pICgxKToN
+CiAgICAgIHVzYm5ldDogQ0RDIEVFTSBzdXBwb3J0ICh2NSkNCg0KUmFiaW4gVmluY2VudCAoMSk6
+DQogICAgICBTdWJqZWN0OiBbUEFUQ0hdIGJyMjY4NDogcmVzdG9yZSBuZXRfZGV2IGluaXRpYWxp
+emF0aW9uDQoNClJvYmVydCBMb3ZlICgxKToNCiAgICAgIG5ldDogT25seSBzdG9yZSBoaWdoIDE2
+IGJpdHMgb2Yga2VybmVsIGdlbmVyYXRlZCBmaWx0ZXIgcHJpb3JpdGllcw0KDQpTYXRvcnUgU0FU
+T0ggKDEpOg0KICAgICAgdGNwOiBGaXggdGNwX3ByZXF1ZXVlKCkgdG8gZ2V0IGNvcnJlY3QgcnRv
+X21pbiB2YWx1ZQ0KDQpTZXJnZXkgU2Vub3poYXRza3kgKDEpOg0KICAgICAgY3hnYjM6IGZpeGlu
+ZyBnY2MgNC40IGNvbXBpbGVyIHdhcm5pbmc6IHN1Z2dlc3QgcGFyZW50aGVzZXMgYXJvdW5kIG9w
+ZXJhbmQgb2Yg4oCYIeKAmQ0KDQpTdGVwaGVuIFJvdGh3ZWxsICgxKToNCiAgICAgIHdpcmVsZXNz
+OiByZW1vdmUgdW5uZWVkZWQgRVhQT1JUX1NZTUJPTCB0aGUgdGlja2xlcyBhIHBvd2VycGMgY29t
+cGlsZXIgYnVnDQoNClN0ZXZlIEdsZW5kaW5uaW5nICgyKToNCiAgICAgIHNtc2M5NXh4OiBjb25m
+aWd1cmUgTEVEIG91dHB1dHMNCiAgICAgIHNtc2M5NXh4OiBhZGQgc3VwcG9ydCBmb3IgTEFOOTUx
+MiBhbmQgTEFOOTUxNA0KDQogZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX2FsYi5jICAgICAgICAg
+ICAgICB8ICAgMTIgKy0NCiBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jICAgICAgICAg
+ICAgIHwgICAzNiArLS0NCiBkcml2ZXJzL25ldC9jeGdiMy90M19ody5jICAgICAgICAgICAgICAg
+ICAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYyAgICAgICAgICAg
+ICAgfCAgICAyICstDQogZHJpdmVycy9uZXQvZWhlYS9laGVhLmggICAgICAgICAgICAgICAgICAg
+ICB8ICAgIDIgKy0NCiBkcml2ZXJzL25ldC9laGVhL2VoZWFfbWFpbi5jICAgICAgICAgICAgICAg
+IHwgICAzMSArKy0NCiBkcml2ZXJzL25ldC9tdjY0M3h4X2V0aC5jICAgICAgICAgICAgICAgICAg
+IHwgICAyNCArLQ0KIGRyaXZlcnMvbmV0L25lMmstcGNpLmMgICAgICAgICAgICAgICAgICAgICAg
+fCAgICA3ICstDQogZHJpdmVycy9uZXQvbmV0Y29uc29sZS5jICAgICAgICAgICAgICAgICAgICB8
+ICAgMTEgKy0NCiBkcml2ZXJzL25ldC91c2IvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgIHwg
+ICAxNCArDQogZHJpdmVycy9uZXQvdXNiL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICB8ICAg
+IDEgKw0KIGRyaXZlcnMvbmV0L3VzYi9jZGNfZWVtLmMgICAgICAgICAgICAgICAgICAgfCAgMzgx
+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKw0KIGRyaXZlcnMvbmV0L3VzYi9zbXNjOTV4eC5j
+ICAgICAgICAgICAgICAgICAgfCAgIDE1ICsNCiBkcml2ZXJzL25ldC91c2Ivc21zYzk1eHguaCAg
+ICAgICAgICAgICAgICAgIHwgICAgMyArDQogZHJpdmVycy9uZXQvdmlydGlvX25ldC5jICAgICAg
+ICAgICAgICAgICAgICB8ICAgMjQgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGg1ay9kZWJ1
+Zy5jICAgICAgICAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXds
+LXNjYW4uYyAgICAgfCAgICA0ICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wz
+OTQ1LWJhc2UuYyB8ICAgIDEgLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3JuZGlzX3dsYW4uYyAg
+ICAgICAgICAgfCAgIDE0ICstDQogaW5jbHVkZS9saW51eC9uZXRmaWx0ZXIveF90YWJsZXMuaCAg
+ICAgICAgICB8ICAgIDQgKy0NCiBpbmNsdWRlL2xpbnV4L3VzYi9jZGMuaCAgICAgICAgICAgICAg
+ICAgICAgIHwgICAgMyArDQogaW5jbHVkZS9saW51eC92aXJ0aW9fbmV0LmggICAgICAgICAgICAg
+ICAgICB8ICAgIDEgKw0KIGluY2x1ZGUvbmV0L2JsdWV0b290aC9oY2lfY29yZS5oICAgICAgICAg
+ICAgfCAgICAxICsNCiBpbmNsdWRlL25ldC90Y3AuaCAgICAgICAgICAgICAgICAgICAgICAgICAg
+IHwgICAxNCArLQ0KIG5ldC9hdG0vYnIyNjg0LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+fCAgICAxICsNCiBuZXQvYmx1ZXRvb3RoL2hjaV9jb25uLmMgICAgICAgICAgICAgICAgICAgIHwg
+ICAgMiArDQogbmV0L2JsdWV0b290aC9oY2lfc3lzZnMuYyAgICAgICAgICAgICAgICAgICB8ICAg
+NzQgKysrLS0tDQogbmV0L2NvcmUvZGV2LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDkgKy0NCiBuZXQvY29yZS9za2J1ZmYuYyAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+ICAyNyArLQ0KIG5ldC9pcHY0L3RjcF9pbnB1dC5jICAgICAgICAgICAgICAgICAgICAgICAgfCAg
+IDEwIC0NCiBuZXQvbWFjODAyMTEvbWFpbi5jICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAy
+MCArLQ0KIG5ldC9uZXRmaWx0ZXIvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgfCAgICAx
+ICsNCiBuZXQvc2NoZWQvY2xzX2FwaS5jICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiAr
+LQ0KIDMzIGZpbGVzIGNoYW5nZWQsIDU5OCBpbnNlcnRpb25zKCspLCAxNTcgZGVsZXRpb25zKC0p
+DQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L3VzYi9jZGNfZWVtLmMNCg==
