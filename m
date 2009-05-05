@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove driver_data direct access of struct device
- from more drivers
-Date: Mon, 04 May 2009 21:33:30 -0700 (PDT)
-Message-ID: <20090504.213330.265648350.davem@davemloft.net>
-References: <20090504200145.GA22855@kroah.com>
+Subject: Re: [PATCH] net: introduce a list of device addresses
+ dev_addr_list (v5)
+Date: Mon, 04 May 2009 21:37:30 -0700 (PDT)
+Message-ID: <20090504.213730.131875923.davem@davemloft.net>
+References: <20090417115723.GE9556@psychotron.englab.brq.redhat.com>
+	<20090418085848.GC3370@psychotron.englab.brq.redhat.com>
+	<20090504111417.GE3402@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@redhat.com, themann@de.ibm.com,
-	tklein@de.ibm.com, greg@kroah.com
-To: gregkh@suse.de
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, shemminger@linux-foundation.org,
+	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, kaber@trash.net,
+	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55991
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51243
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751247AbZEEEdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 00:33:35 -0400
-In-Reply-To: <20090504200145.GA22855@kroah.com>
+	by vger.kernel.org with ESMTP id S1750965AbZEEEhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 00:37:35 -0400
+In-Reply-To: <20090504111417.GE3402@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Kroah-Hartman <gregkh@suse.de>
-Date: Mon, 4 May 2009 13:01:45 -0700
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Mon, 4 May 2009 13:14:18 +0200
 
-> In the near future, the driver core is going to not allow direct access
-> to the driver_data pointer in struct device.  Instead, the functions
-> dev_get_drvdata() and dev_set_drvdata() should be used.  These functions
-> have been around since the beginning, so are backwards compatible with
-> all older kernel versions.
-> 
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> +static void __hw_addr_del_multiple(struct list_head *to_list,
+> +				   struct list_head *from_list,
+> +				   int addr_len, unsigned char addr_type)
+> +{
+> +	__hw_addr_del_multiple_ii(to_list, from_list, addr_len, addr_type, -1);
+> +}
 
-Applied to net-next-2.6, thanks!
+Unused static function, this will create build warnings.
+
+Or, it should :-)
+
+If you plan to use such a function in subsequent patches, add
+it in those changes not here.
+
+Otherwise I have no fundamental objection to this patch, nice
+work!
