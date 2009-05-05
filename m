@@ -1,80 +1,88 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: 2.6.27.18: bonding: scheduling while atomic
-Date: Tue, 05 May 2009 12:56:21 -0700
-Message-ID: <19313.1241553381@death.nxdomain.ibm.com>
-References: <1241550877.30571.17.camel@psmith-ubeta.netezza.com>
-Cc: Netdev <netdev@vger.kernel.org>
-To: paul@mad-scientist.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:45272 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752923AbZEET4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 May 2009 15:56:16 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n45JqFQQ007253
-	for <netdev@vger.kernel.org>; Tue, 5 May 2009 15:52:15 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n45JuGIN145268
-	for <netdev@vger.kernel.org>; Tue, 5 May 2009 15:56:16 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n45JsMs0031734
-	for <netdev@vger.kernel.org>; Tue, 5 May 2009 15:54:23 -0400
-In-reply-to: <1241550877.30571.17.camel@psmith-ubeta.netezza.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Paul Smith <paul@mad-scientist.net> wrote:
-
->Hi all;  I got a "scheduling while atomic" error while I was enslaving
->my second interface to my bond (balance-alb / mode 6).  I already have
->the previous fix for a locking error installed here.
-[...]
-><4> [<ffffffff8046f32c>] packet_notifier+0x8c/0x1f0
-><4> [<ffffffffa00ad0a8>] bond_alb_init_slave+0x228/0x250 [bonding]
-><4> [<ffffffffa00a766a>] bond_enslave+0x7ca/0x9d0 [bonding]
-><4> [<ffffffff804a1981>] _spin_unlock_irq+0x11/0x40
-><4> [<ffffffff8041896a>] __dev_get_by_name+0x9a/0xc0
-><4> [<ffffffffa00a8af5>] bond_do_ioctl+0x3f5/0x530 [bonding]
-><4> [<ffffffff802580f7>] notifier_call_chain+0x37/0x70
-
-	I believe this is happening when the new slave's MAC address is
-already in use by the bond somewhere.  You can get that if you set up
-and tear down the bond after it's moved things around and you haven't
-reset the slaves to their default (hardware) MAC address (by, e.g.,
-reloading the drivers).  The alb mode doesn't do that, because that MAC
-might still be in use by the bond; if memory serves, you'll see a
-message at slave removal about that.
-
-	Anyway, I'm pretty sure the following will make it go away.  I
-believe this is safe, as RTNL is held throughout, but I haven't checked
-exhaustively.
-
-	This is against 2.6.27.18, and is just for testing.
-
-	-J
+From: Michael Guntsche <mike@it-loops.com>
+Subject: Re: [BUG] 2.6.30-rc4: Kernel BUG under network load with gianfar
+Date: Tue, 5 May 2009 22:29:56 +0200
+Message-ID: <F661DCE3-7DDC-42BE-AE0F-937C3478A33C@it-loops.com>
+References: <50F164E7-D247-4FD6-B41B-BDAA8681166B@it-loops.com> <20090505122735.b87dd129.akpm@linux-foundation.org>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756005AbZEEUaW@vger.kernel.org>
+In-Reply-To: <20090505122735.b87dd129.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 4489e58..d199446 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1520,15 +1520,8 @@ int bond_alb_init_slave(struct bonding *bond, struct slave *slave)
- 		return res;
- 	}
- 
--	/* caller must hold the bond lock for write since the mac addresses
--	 * are compared and may be swapped.
--	 */
--	read_lock(&bond->lock);
--
- 	res = alb_handle_addr_collision_on_attach(bond, slave);
- 
--	read_unlock(&bond->lock);
--
- 	if (res) {
- 		return res;
- 	}
+On May 5, 2009, at 21:27, Andrew Morton wrote:
+
+> skb_over_panic().  There should have been some additional information
+> printed before the "cut here" text.  That might be useful in fixing
+> this regression.
+>
+
+Here is a full dump from the console again including the line before  
+the "cut here" text.
+Wan is the device going to the ADSL-modem.
+
+[  172.251007] skb_over_panic: text:c0187650 len:1514 put:1514  
+head:c79a8800 data:c79a8880 tail:0xc79a8e6a end:0xc79a8e60 dev:wan
+[  172.262613] ------------[ cut here ]------------
+[  172.267250] kernel BUG at net/core/skbuff.c:126!
+[  172.271884] Oops: Exception in kernel mode, sig: 5 [#1]
+[  172.277121] MikroTik RouterBOARD 600 series
+[  172.281312] Modules linked in: nf_nat_rtsp nf_conntrack_rtsp
+[  172.287006] NIP: c01abc68 LR: c01abc68 CTR: c015559c
+[  172.291986] REGS: c782bdd0 TRAP: 0700   Not tainted  (2.6.30-rc4)
+[  172.298094] MSR: 00029032 <EE,ME,CE,IR,DR>  CR: 24002024  XER:  
+20000000
+[  172.304776] TASK = c7820940[3] 'ksoftirqd/0' THREAD: c782a000
+[  172.310361] GPR00: c01abc68 c782be80 c7820940 00000085 0000295e  
+ffffffff c0152b68 00000030
+[  172.318788] GPR08: c03848d4 c0350000 0000295e c0380398 84002022  
+efffdbdf 007d66c0 00000008
+[  172.327215] GPR16: 00000000 00000040 c02f6260 c02f628c c7846380  
+c782a000 c7954800 00000000
+[  172.335641] GPR24: 00000001 0000003f c7951780 c7954e38 c7846000  
+000005ea c79e4480 c79a8880
+[  172.344263] NIP [c01abc68] skb_over_panic+0x48/0x5c
+[  172.349156] LR [c01abc68] skb_over_panic+0x48/0x5c
+[  172.353956] Call Trace:
+[  172.356412] [c782be80] [c01abc68] skb_over_panic+0x48/0x5c  
+(unreliable)
+[  172.363060] [c782be90] [c01ad468] skb_put+0x5c/0x60
+[  172.367969] [c782bea0] [c0187650] gfar_clean_rx_ring+0x204/0x42c
+[  172.374003] [c782bef0] [c0189074] gfar_poll+0x258/0x338
+[  172.379264] [c782bf40] [c01b8b8c] net_rx_action+0x9c/0x190
+[  172.384787] [c782bf70] [c002ddac] __do_softirq+0x84/0x100
+[  172.390218] [c782bfa0] [c0006474] do_softirq+0x58/0x5c
+[  172.395382] [c782bfb0] [c002d934] ksoftirqd+0x60/0x114
+[  172.400549] [c782bfd0] [c003f050] kthread+0x4c/0x88
+[  172.405450] [c782bff0] [c0013b10] kernel_thread+0x4c/0x68
+[  172.410866] Instruction dump:
+[  172.413843] 80a30054 2f800000 80e300a8 810300ac 816300a0 814300a4  
+419e0020 3c60c030
+[  172.421656] 7d695b78 90010008 3863901c 4be7d091 <0fe00000> 48000000  
+3d20c02d 380968b8
+[  172.429651] Kernel panic - not syncing: Fatal exception in interrupt
+[  172.436019] Call Trace:
+[  172.438479] [c782bc20] [c0008274] show_stack+0x4c/0x16c (unreliable)
+[  172.444866] [c782bc60] [c0027d1c] panic+0x90/0x170
+[  172.449689] [c782bcb0] [c00118ac] die+0x19c/0x1d4
+[  172.454417] [c782bcd0] [c0011b80] _exception+0x138/0x15c
+[  172.459754] [c782bdc0] [c00143fc] ret_from_except_full+0x0/0x4c
+[  172.465703] --- Exception: 700 at skb_over_panic+0x48/0x5c
+[  172.465713]     LR = skb_over_panic+0x48/0x5c
+[  172.475570] [c782be90] [c01ad468] skb_put+0x5c/0x60
+[  172.480471] [c782bea0] [c0187650] gfar_clean_rx_ring+0x204/0x42c
+[  172.486505] [c782bef0] [c0189074] gfar_poll+0x258/0x338
+[  172.491757] [c782bf40] [c01b8b8c] net_rx_action+0x9c/0x190
+[  172.497270] [c782bf70] [c002ddac] __do_softirq+0x84/0x100
+[  172.502694] [c782bfa0] [c0006474] do_softirq+0x58/0x5c
+[  172.507858] [c782bfb0] [c002d934] ksoftirqd+0x60/0x114
+[  172.513021] [c782bfd0] [c003f050] kthread+0x4c/0x88
+[  172.517920] [c782bff0] [c0013b10] kernel_thread+0x4c/0x68
 
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Kind regards,
+Michael
