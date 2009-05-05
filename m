@@ -1,31 +1,41 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio_net: Fix function name typo
-Date: Tue, 5 May 2009 12:52:53 +0930
-Message-ID: <200905051252.53993.rusty@rustcorp.com.au>
-References: <20090427155507.7895.79747.stgit@debian.lart>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH] e1000: fix virtualization bug
+Date: Mon, 04 May 2009 21:31:04 -0700 (PDT)
+Message-ID: <20090504.213104.13037490.davem@davemloft.net>
+References: <20090504211941.10922.95964.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alex Williamson <alex.williamson@hp.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	jesse.brandeburg@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:53974 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751430AbZEEEY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 May 2009 00:24:27 -0400
-In-Reply-To: <20090427155507.7895.79747.stgit@debian.lart>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55974
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750891AbZEEEbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 00:31:10 -0400
+In-Reply-To: <20090504211941.10922.95964.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Apr 2009 01:25:38 am Alex Williamson wrote:
-> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 04 May 2009 14:19:42 -0700
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> a recent fix to e1000 (commit 15b2bee2) caused KVM/QEMU/VMware based
+> virtualized e1000 interfaces to begin failing when resetting.
+> 
+> This is because the driver in a virtual environment doesn't
+> get to run instructions *AT ALL* when an interrupt is asserted.
+> The interrupt code runs immediately and this recent bug fix
+> allows an interrupt to be possible when the interrupt handler
+> will reject it (due to the new code), when being called from
+> any path in the driver that holds the E1000_RESETTING flag.
+> 
+> the driver should use the __E1000_DOWN flag instead of the
+> __E1000_RESETTING flag to prevent interrupt execution
+> while reconfiguring the hardware.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-I only noticed this in the linux-next error messages, too.  Says bad
-things about my review, huh?
-
-Cheers,
-Rusty.
+Applied, thanks.
