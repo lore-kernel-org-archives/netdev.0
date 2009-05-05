@@ -1,54 +1,103 @@
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2.6.30-rc5] ehea: fix invalid pointer access
-Date: Tue, 5 May 2009 15:45:05 +0200
-Message-ID: <200905051545.05877.hannes.hering@linux.vnet.ibm.com>
-References: <200905051319.05806.hannes.hering@linux.vnet.ibm.com> <25628.1241514687@redhat.com> <26110.1241525994@redhat.com>
+From: Deepjyoti Kakati <dkakati73@gmail.com>
+Subject: duplicate arp request problem with bonding driver
+Date: Tue, 5 May 2009 19:15:37 +0530
+Message-ID: <9a2da8520905050645s31c62a9bhdd0a5b60ae9ce52c@mail.gmail.com>
+References: <9a2da8520905050632sa9a4935md668387339c748a0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, themann@de.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	raisch@de.ibm.com, ossrosch@linux.vnet.ibm.com,
-	linuxppc-dev@ozlabs.org, ossthema@de.ibm.com, osstklei@de.ibm.com
-To: David Howells <dhowells@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:38836 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751558AbZEENpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 09:45:07 -0400
-In-Reply-To: <26110.1241525994@redhat.com>
-Content-Disposition: inline
+Received: from qw-out-2122.google.com ([74.125.92.27]:23265 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbZEENph convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 09:45:37 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so3662041qwd.37
+        for <netdev@vger.kernel.org>; Tue, 05 May 2009 06:45:37 -0700 (PDT)
+In-Reply-To: <9a2da8520905050632sa9a4935md668387339c748a0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 05 May 2009 14:19:54 David Howells wrote:
-> In that case, you might want to move the prefetchw() calls in the following:
-> 
-> 		pref = skb_array[x];
-> 	-	prefetchw(pref);
-> 	-	prefetchw(pref + EHEA_CACHE_LINE);
-> 	+	if (pref) {
-> 	+		prefetchw(pref);
-> 	+		prefetchw(pref + EHEA_CACHE_LINE);
-> 
-> to before the if-statement.  That way the CPU can be attempting the prefetch
-> whilst it's chewing over the test and branch.  prefetching shouldn't fault on
-> a bad address.
-> 
-> David
-Hi David,
+ I am having the following issue with a fedora10 (2.6.27) type installa=
+tion.
 
-you are right so far, but actually the prefetch calls on POWER also contain
-an if statement to check if the address is valid (i. e. non-zero). We never
-have the case that the pref != NULL and pref->data == NULL. And the situation
-of pref==NULL is very rare. This means there is no benefit moving our if
-statement down from performance perspective if we assume that our if does not
-take longer then the if in the prefetch command. We can add an
-if(likely(pref) if you like. In fact doing the if statement as we do it now
-we actually save the prefetch if statements in case we hit the situation of
-pref==NULL.
+setup: my bonding and vlan topology
+ ----------------------------------------------------
 
-Regards
+qemu(eth0)-----tap0-----bridge0----bond3.vlan----bond3
+                                                                   |---=
+--bond2
+                                                                   |
+    + ---{eth3, eth4}
+                                                                   |
+             in
+                                                                   |
+    balance-rr mode}
+  =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0|
+                                                                   |
 
-Hannes
+bond1--+{eth1, eth2}
+
+in balance-rr mode}
+
+bond3 enslaves the bond2 & bond1 in primary-backup bonding mode. I am
+using miimon on all of bond1,2,3 interfaces
+
+eth1,eth2 connect to switch1 via a etherchannel
+eth3, eth4 connect to switch2 via a etherchannel
+all these four ports allow the same vlans.
+
+now I desired to put my qemu virtual machine eth0 into a particular vla=
+n so
+created the bond3.vlan and hooked it into the bridge.
+
+problem:
+------------
+from the qemu I ping a IP address of a router beyond the two switches.
+
+the ARP request goes out of bond1 which is the active_slave
+
+due to same vlans, the ARP request =A0floods back into my box via the {=
+eth3,eth4}
+from the other switch.
+
+my version of kernel is supposed to have the bonding driver fix which
+discards broadcasts/multicasts except a few cases for the inactive slav=
+e of a
+primary-backup pair.(the skb_bond work)
+
+but a tcpdump on the bridge0 or bond3.vlan indicates this 2nd arp
+request pkt is also being seen - apparently bond3 isnt dropping them.
+
+consequences
+---------------------
+as the qemu sends out its arp requests to resolve my ping, the bridge0
+sees these with src_mac=3D(qemu eth0 macaddr) and thinks it is somewher=
+e
+in the bond3.vlan side. "brctl showmacs bridge0" clearly shows my
+qemu MAC addr as now mapped to that port, instead of the tap0 port.
+
+so when arp response comes back from my ping target the bridge0
+does not forward it on the tap0 port - all my pings timeout and fail.
+
+when the arp's stop, that entry is aged out and it again points back to=
+ tap0
+port but meantime all my pings have failed.
+
+when I shut down the (eth3,eth4) portchannel things work fine because t=
+his
+misleading flooded arp request is not seen.
+
+any clue why this might be happening? I am using the "sysfs" method of
+configuring bonds per the bonding driver Howto document and my
+bonding_masters file has bond1 bond2 bond3.
+
+when I tried primary-backup with the slaves as pure eth interfaces it
+seemed to work fine in a similar condition.
+
+is there anything special if bond interfaces are enslaved below other
+bond interfaces?
+
+thanks
+Deepjyoti Kakati
