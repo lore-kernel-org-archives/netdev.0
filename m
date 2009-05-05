@@ -1,45 +1,32 @@
-From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/5] initdev:kernel: Asynchronously-discovered device
-	synchronization, v5
-Date: Mon, 4 May 2009 17:55:39 -0700
-Message-ID: <20090505005539.GG29124@cuplxvomd02.corp.sa.net>
-References: <1241272876.3639.27.camel@mulgrave.int.hansenpartnership.com> <Pine.LNX.4.44L0.0905021335150.26241-100000@netrider.rowland.org>
+From: Paul Smith <paul@mad-scientist.us>
+Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying
+	toifenslave a second interface to my bond
+Date: Mon, 04 May 2009 20:59:40 -0400
+Message-ID: <1241485181.6499.678.camel@homebase.localnet>
+References: <1239657348.8944.529.camel@psmith-ubeta.netezza.com>
+	 <1241397581.6499.658.camel@homebase.localnet>
+	 <4086.1241463817@death.nxdomain.ibm.com>
+	 <20090504.120651.32573620.davem@davemloft.net>
+	 <1241476694.8305.234.camel@psmith-ubeta.netezza.com>
+Reply-To: paul@mad-scientist.us
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.0905021335150.26241-100000-pYrvlCTfrz9XsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.lnh.mail.rcn.net ([207.172.157.102]:7664 "EHLO
+	smtp02.lnh.mail.rcn.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754227AbZEEBKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 21:10:08 -0400
+In-Reply-To: <1241476694.8305.234.camel@psmith-ubeta.netezza.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 02, 2009 at 01:55:45PM -0400, Alan Stern wrote:
-> On Sat, 2 May 2009, James Bottomley wrote:
-...
-> > What I'm getting at is that I don't see the benefit of this in the light
-> > of Arjan's async boot system, which can also tell us when all discovery
-> > is complete ... what added benefit am I missing here?
-> 
-> How does Arjan's async boot system tell use when all discovery is
-> complete?  AFAICS, it only tells you when all its async tasks are
-> finished.  But device discovery and registration sometimes use other
-> asynchronous techniques which Arjan's code is unaware of.  Examples:  
-> the USB khubd thread, the USB mass-storage scanning thread, and the
-> SCSI async-scanning thread.
+Whew!  I was a bit worried there :-)
 
-The patchset does use Arjan's asynchronous function calls in one place.  If
-there are other places it can be used to get equivalent functionality, I'll
-be happy to do so.
+Can we re-queue this for 2.6.27-stable then?  I've got the patch already
+building in my tree but it'd be nice to get it there by default going
+forward.
 
-> Alan Stern
-
-David VomLehn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers!
