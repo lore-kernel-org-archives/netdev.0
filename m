@@ -1,62 +1,57 @@
-From: Daniel Mack <daniel@caiaq.de>
-Subject: Re: [PATCH] net: smsc911x: add power management functions
-Date: Tue, 5 May 2009 10:40:46 +0200
-Message-ID: <20090505084046.GB22117@buzzloop.caiaq.de>
-References: <1241457122-28161-1-git-send-email-daniel@caiaq.de> <OF7B58C3C5.29BA38D0-ON802575AD.002E7A8A-802575AD.002F637B@smsc.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/3] tun: fix aio
+Date: Tue, 5 May 2009 11:40:05 +0300
+Message-ID: <20090505084005.GA14527@redhat.com>
+References: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com> <200904271048.38401.rusty@rustcorp.com.au> <20090427093455.GA29082@redhat.com> <200905051248.14014.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Ian.Saturley@smsc.com
-To: Steve.Glendinning@smsc.com
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from buzzloop.caiaq.de ([212.112.241.133]:43720 "EHLO
-	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754308AbZEEIkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 04:40:52 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:37407 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753208AbZEEIlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2009 04:41:10 -0400
 Content-Disposition: inline
-In-Reply-To: <OF7B58C3C5.29BA38D0-ON802575AD.002E7A8A-802575AD.002F637B@smsc.com>
+In-Reply-To: <200905051248.14014.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 05, 2009 at 09:37:42AM +0100, Steve.Glendinning@smsc.com wrote:
-> > This adds a power management implementation for smsc911x.c which assumes
-> > the chips remains powered during suspend. The device is put in its D1
-> > power saving mode.
+On Tue, May 05, 2009 at 12:48:13PM +0930, Rusty Russell wrote:
+> On Mon, 27 Apr 2009 07:04:55 pm Michael S. Tsirkin wrote:
+> > On Mon, Apr 27, 2009 at 10:48:37AM +0930, Rusty Russell wrote:
+> > > > Sure. Here it is: much smaller, but slightly slower.
+> > > 
+> > > Which could probably be fixed by using an on-stack version for a iovec
+> > > of less than a certain size...
+> > 
+> > I agree that for large message sizes the malloc would probably be
+> > dwarfed by the cost of memory copy. However a large iovec might pass a
+> > small message, might it not?
 > 
-> [....]
+> Sorry, I didn't make myself clear.  Something like:
 > 
-> > +static int smsc911x_resume(struct platform_device *pdev)
-> > +{
-> > +   struct net_device *dev = platform_get_drvdata(pdev);
-> > +   struct smsc911x_data *pdata = netdev_priv(dev);
-> > +   unsigned int to = 100;
-> > +
-> > +   /* Note 3.11 from the datasheet:
-> > +    *    "When the LAN9220 is in a power saving state, a write of any
-> > +    *     data to the BYTE_TEST register will wake-up the device."
-> > +    */
-> > +   smsc911x_reg_write(pdata, BYTE_TEST, 0);
-> > +
-> > +   /* poll the READY bit in PMT_CTRL. Any other access to the device is
-> > +    * forbidden while this bit isn't set. Try for 100ms and return -EIO
-> > +    * if it failed. */
-> > +   while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && 
-> to--)
-> > +      udelay(1000);
-> > +
-> > +   return (to == 0) ? -EIO : 0;
-> > +}
+> 	struct iovec smalliov[512 / sizeof(struct iovec)];
 > 
-> to-- should be --to, otherwise it'll end up as -1 when the loop times out
-> (and the error code return below won't work).  Roel Kluin recently fixed
-> many instances of this.
+> 	if (count < ARRAY_SIZE(smalliov)) {
+> 		iv = smalliov;
+> 	} else {
+> 		iv = kmalloc(...)
+> 	}
+> 
+> 	...
+> 
+> 	if (iv != smalliov)
+> 		kfree(iv);
+> 
+> Cheers,
+> Rusty.
 
-Yep, that's been pointed out by Enrik Berkhan already. David Miller
-offered to fix that on the fly when commiting.
+What I was trying to say is that this special-cases iovecs with count >
+64. But I think that such iovecs might be used to still pass around
+relatively small messages (theoretically as small as 64 bytes) and then
+the overhead of the kmalloc/kfree is noticeable.
 
-> Other than that, the power saving logic looks fine.
-
-Thanks for your review :)
-
-Daniel
-
+-- 
+MST
