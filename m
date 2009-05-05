@@ -1,89 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] igb: Record hardware RX overruns in
-	net_stats
-Date: Tue, 5 May 2009 14:32:04 -0700
-Message-ID: <9929d2390905051432h795d183bh40fbe1beb35a4de9@mail.gmail.com>
-References: <1241435206.8115.104.camel@localhost.localdomain>
-	<9929d2390905051147y71f34e4bu9f63edc1e5a253a2@mail.gmail.com>
-	<20090505.115819.84151021.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] igb: Record hardware RX overruns in net_stats
+Date: Tue, 05 May 2009 14:35:29 -0700 (PDT)
+Message-ID: <20090505.143529.148721206.davem@davemloft.net>
+References: <20090505.115819.84151021.davem@davemloft.net>
 	<Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
+	<9929d2390905051432h795d183bh40fbe1beb35a4de9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: hawk@comx.dk, e1000-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>, peter.p.waskiewicz.jr@intel.com,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, David Miller <davem@davemloft.net>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hawk@diku.dk, hawk@comx.dk, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34397
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752996AbZEEVfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 17:35:34 -0400
+In-Reply-To: <9929d2390905051432h795d183bh40fbe1beb35a4de9@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBNYXkgNSwgMjAwOSBhdCAyOjI0IFBNLCBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyIDxo
-YXdrQGRpa3UuZGs+IHdyb3RlOgo+IE9uIFR1ZSwgNSBNYXkgMjAwOSwgRGF2aWQgTWlsbGVyIHdy
-b3RlOgo+Cj4+IEZyb206IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29t
-Pgo+PiBEYXRlOiBUdWUsIDUgTWF5IDIwMDkgMTE6NDc6MDkgLTA3MDAKPj4KPj4+IE5BSy4gwqBS
-TkJDIGlzIG5vdCBhIGNvdW50ZXIgZm9yIGJ1ZmZlciBvdmVycnVucywgYW5kIHNvIHNob3VsZCBu
-b3QgYmUKPj4+IGNvdW50ZWQgYXMgc3VjaC4KPj4KPj4gSSdkIHNheSB0ZWNobmljYWxseSBpdCBp
-cywgaXQgaW5kaWNhdGVzIHRoYXQgbW9yZSBwYWNrZXRzIGFycml2ZWQgdGhhbgo+PiB0aGUgYXZh
-aWxhYmxlIHJlY2VpdmUgYnVmZmVycyBjb3VsZCBoYW5kbGUuCj4KPiBJIGFncmVlIHdpdGggRGF2
-ZU0uIFRlY2huaWNhbGx5IGl0IF9pc18gYSBidWZmZXIgb3ZlcmZsb3csIGJ1dCBpbiB0aGUgaG9z
-dAo+IG1lbW9yeSBub3QgdGhlIE5JQy4gSSdtIHNvcnQgb2YgcHVzaGluZyB0aGUgc3lzdGVtIGlu
-dG8gYSBzaXR1YXRpb24gd2hlcmUgaXQKPiBjYW5ub3QgZW1wdHkgdGhlIHJlY2VpdmUgYnVmZmVy
-cyBmYXN0IGVub3VnaC4KPgo+IEkgY2FuIGZhaXJseSBlYXNpbHkgcHJvdm9rZSB0aGlzIHNpdHVh
-dGlvbiBieSBhZGRpbmcgdG9vIG1hbnkgaXB0YWJsZXMKPiBydWxlcywgd2hpY2ggKGludGVudGlv
-bmFsbHkpIGNhdXNlIGhpZ2ggQ1BVIGxvYWQgYW5kIGNhdXNlcyBrc29mdGlycWQgdG8gcnVuCj4g
-KEknbSBPcHJvZmlsaW5nIG5ldGZpbHRlciBtb2R1bGVzKS4KPgo+Cj4+IElmIGFueXRoaW5nLCB0
-aGlzIGlzIHRoZSBjbG9zZXN0IHRoaXMgZGV2aWNlIGhhcyBmb3IgdGhpcyBraW5kIG9mCj4+IHNp
-dHVhdGlvbiwgYW5kIGl0J3MgdXNlZnVsIGZvciBkaWFnbm9zaW5nIHByb2JsZW1zLgo+Cj4gSXRz
-IHJlYWxseSB1c2VmdWwgZm9yIGRpYWdub3NpbmcgcHJvYmxlbXMsIGFuZCBJJ20gYmV0dGluZyB0
-aGF0IHRoaXMgaXMgYQo+IHJlYWwtbGlmZSBzaXR1YXRpb24gd2hpY2ggcGVvcGxlIGlzIGdvaW5n
-IHRvIGV4cGVyaWVuY2UuIFdlIG1pZ2h0IGFzIHdlbGwKPiBoZWxwIG91ciBzZWxmIHRvIG1vcmUg
-ZWFzaWx5IGlkZW50aWZ5IHRoaXMgaXNzdWUgd2hlbiBwZW9wbGUgcmVwb3J0IGRyb3AKPiBwcm9i
-bGVtcy4KPgo+IE5vdGljZSB0aGF0IEknbSBzZWVpbmc6Cj4KPiDCoHJ4X25vX2J1ZmZlcl9jb3Vu
-dDogMTM2OTU1Cj4gwqByeF9taXNzZWRfZXJyb3JzOiAwCj4KPiBUaHVzLCB0aGUgcnhfbWlzc2Vk
-X2Vycm9ycyBpcyB6ZXJvLCB3aGljaCBhY2NvcmRpbmcgdG8gdGhlIGRhdGFzaGVldCBpcyB0aGUK
-PiAicmVhbCIgZmlmbyBkcm9wICh0aGUgTVBDIHJlZ2lzdGVyLCBNaXNzZWQgUGFja2V0cyBDb3Vu
-dCkgYW5kIFBDSSBiYW5kd2lkdGgKPiBwcm9ibGVtIGluZGljYXRpb25zLgo+Cj4gSWYgd2UgcmVh
-bGx5IHNob3VsZCBuaXRwaWNrLCB0aGVuOgo+Cj4gwqBhZGFwdGVyLT5uZXRfc3RhdHMucnhfbWlz
-c2VkX2Vycm9ycyA9IGFkYXB0ZXItPnN0YXRzLm1wYwo+Cj4gU2hvdWxkIHRoZW4gaGF2ZSBiZWVu
-IHN0b3JlZCBpbiB0aGUgcnhfZmlmb19lcnJvcnMuIMKgTm90aWNlIHRoYXQKPiByeF9taXNzZWRf
-ZXJyb3JzIGlzIHByZXNlbnRlZCB0byB1c2Vyc3BhY2UgYXMgZHJvcHMgKHNlZQo+IG5ldC9jb3Jl
-L2Rldi5jOjI2MjQpLgo+Cj4gSSB0aGluayB0aGF0IGJvdGggTVBDIGFuZCBSTkJDIHNob3VsZCBi
-ZSBzdG9yZWQgaW4gcnhfZmlmb19lcnJvcnMgKGFuZCBvZgo+IGNhdXNlIHN0aWxsIGtlZXBpbmcg
-dGhlbSBzZXBlcmF0ZSB0byBldGh0b29sIC1TKS4KPgo+IEknbGwgcG9zdCB0d28gcGF0Y2hlcyB3
-aXRoIHRoZXNlIGNoYW5nZXMgdG9tb3Jyb3csIGZvciB5b3UgZXZhbHVhdGlvbi4KPgo+IFBsZWFz
-ZSByZWNvbnNpZGVyIHlvdSBOQUsuCj4KPiBHcmVldGluZ3MsCj4gwqBKZXNwZXIgQnJvdWVyCj4K
-PiAtLQoKdGhlIG1hbnVhbFsxXSBmb3IgdGhlIGhhcmR3YXJlIHNheXM6ClJOQkM6ClRoaXMgcmVn
-aXN0ZXIgY291bnRzIHRoZSBudW1iZXIgb2YgdGltZXMgdGhhdCBmcmFtZXMgd2VyZSByZWNlaXZl
-ZAp3aGVuIHRoZXJlIHdlcmUgbm8gYXZhaWxhYmxlIGJ1ZmZlcnMgaW4gaG9zdCBtZW1vcnkgdG8g
-c3RvcmUgdGhvc2UKZnJhbWVzIChyZWNlaXZlIGRlc2NyaXB0b3IgaGVhZCBhbmQgdGFpbCBwb2lu
-dGVycyB3ZXJlIGVxdWFsKS4gVGhlCnBhY2tldCBpcyBzdGlsbCByZWNlaXZlZCBpZiB0aGVyZSBp
-cyBzcGFjZSBpbiB0aGUgRklGTy4gVGhpcyByZWdpc3Rlcgpvbmx5IGluY3JlbWVudHMgaWYgcmVj
-ZWl2ZXMgYXJlIGVuYWJsZWQuIFRoaXMgcmVnaXN0ZXIgZG9lcyBub3QKaW5jcmVtZW50IHdoZW4g
-ZmxvdyBjb250cm9sIHBhY2tldHMgYXJlIHJlY2VpdmVkLgoKVGhlIGNyaXRpY2FsIGJpdCAiVGhl
-IHBhY2tldCBpcyBzdGlsbCByZWNlaXZlZCBpZiB0aGVyZSBpcyBzcGFjZSBpbgp0aGUgRklGTyIg
-KEFORCBhIGhvc3QgbWVtb3J5IGJ1ZmZlciBiZWNvbWVzIGF2YWlsYWJsZSkgU28gdGhlIHJlYXNv
-bgp3ZSBkb24ndCB3YW50IHRvIHB1dCBpdCBpbiB0aGUgbmV0X3N0YXRzIHN0YXRzIGZvciBkcm9w
-cyBpcyB0aGF0IHRoZQpwYWNrZXQKKndhc24ndCogbmVjZXNzYXJpbHkgZHJvcHBlZC4KClRoZSBy
-eF9taXNzZWQgZXJyb3JzIGlzIGZvciBwYWNrZXRzIHRoYXQgd2VyZSBkZWZpbml0ZWx5IGRyb3Bw
-ZWQsIGFuZAppcyBhbHJlYWR5IHN0b3JlZCBpbiB0aGUgbmV0X3N0YXRzIHN0cnVjdHVyZS4KCgoK
-LS0gCkNoZWVycywKSmVmZgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClRoZSBORVcgS09EQUsgaTcw
-MCBTZXJpZXMgU2Nhbm5lcnMgZGVsaXZlciB1bmRlciBBTlkgY2lyY3Vtc3RhbmNlcyEgWW91cgpw
-cm9kdWN0aW9uIHNjYW5uaW5nIGVudmlyb25tZW50IG1heSBub3QgYmUgYSBwZXJmZWN0IHdvcmxk
-IC0gYnV0IHRoYW5rcyB0bwpLb2RhaywgdGhlcmUncyBhIHBlcmZlY3Qgc2Nhbm5lciB0byBnZXQg
-dGhlIGpvYiBkb25lISBXaXRoIHRoZSBORVcgS09EQUsgaTcwMApTZXJpZXMgU2Nhbm5lciB5b3Un
-bGwgZ2V0IGZ1bGwgc3BlZWQgYXQgMzAwIGRwaSBldmVuIHdpdGggYWxsIGltYWdlIApwcm9jZXNz
-aW5nIGZlYXR1cmVzIGVuYWJsZWQuIGh0dHA6Ly9wLnNmLm5ldC9zZnUva29kYWstY29tCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1h
-aWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0
-cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwK
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 5 May 2009 14:32:04 -0700
+
+> the manual[1] for the hardware says:
+> RNBC:
+> This register counts the number of times that frames were received
+> when there were no available buffers in host memory to store those
+> frames (receive descriptor head and tail pointers were equal). The
+> packet is still received if there is space in the FIFO. This register
+> only increments if receives are enabled. This register does not
+> increment when flow control packets are received.
+> 
+> The critical bit "The packet is still received if there is space in
+> the FIFO" (AND a host memory buffer becomes available) So the reason
+> we don't want to put it in the net_stats stats for drops is that the
+> packet
+> *wasn't* necessarily dropped.
+> 
+> The rx_missed errors is for packets that were definitely dropped, and
+> is already stored in the net_stats structure.
+
+While not an "rx_missed" because we do eventually take the
+packet, conceptually it is a "fifo overflow" in the sense
+that we exceeded available receive resources at the time that
+the packet arrived.
