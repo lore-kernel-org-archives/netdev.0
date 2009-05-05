@@ -1,32 +1,57 @@
-From: Paul Smith <paul@mad-scientist.us>
-Subject: Re: 2.6.27.18: bnx2/tg3: BUG: "scheduling while atomic" trying
-	toifenslave a second interface to my bond
-Date: Mon, 04 May 2009 20:59:40 -0400
-Message-ID: <1241485181.6499.678.camel@homebase.localnet>
-References: <1239657348.8944.529.camel@psmith-ubeta.netezza.com>
-	 <1241397581.6499.658.camel@homebase.localnet>
-	 <4086.1241463817@death.nxdomain.ibm.com>
-	 <20090504.120651.32573620.davem@davemloft.net>
-	 <1241476694.8305.234.camel@psmith-ubeta.netezza.com>
-Reply-To: paul@mad-scientist.us
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 00/13] OF device tree handling of PHY drivers
+Date: Mon, 4 May 2009 19:55:04 -0600
+Message-ID: <fa686aa40905041855s22203b12ua9bce36a992fbe68@mail.gmail.com>
+References: <20090425224458.32392.31296.stgit@localhost.localdomain>
+	<20090427.025436.68188155.davem@davemloft.net>
+	<fa686aa40904271017x726f92ffsbbc730770298766b@mail.gmail.com>
+	<20090504231421.GA27541@ld0162-tx32.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.lnh.mail.rcn.net ([207.172.157.102]:7664 "EHLO
-	smtp02.lnh.mail.rcn.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754227AbZEEBKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 21:10:08 -0400
-In-Reply-To: <1241476694.8305.234.camel@psmith-ubeta.netezza.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, afleming@freescale.com,
+	David Miller <davem@davemloft.net>
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090504231421.GA27541@ld0162-tx32.am.freescale.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Whew!  I was a bit worried there :-)
+On Mon, May 4, 2009 at 5:14 PM, Scott Wood <scottwood@freescale.com> wrote:
+> On Mon, Apr 27, 2009 at 11:17:08AM -0600, Grant Likely wrote:
+>> Kumar,
+>>
+>> David has pulled my phylib changes into his -next tree. =A0However, some
+>> of the driver changes have been compile tested only due to lack of
+>> hardware. =A0Who can I ask to test the changes to the following files?
+>>
+>> =A0arch/powerpc/platforms/82xx/ep8248e.c =A0 =A0 | =A0 =A09 +-
+>
+> Tested OK.
+>
+>> =A0drivers/net/fs_enet/fs_enet-main.c =A0 =A0 =A0 =A0| =A0 69 +--
+>> =A0drivers/net/fs_enet/mii-bitbang.c =A0 =A0 =A0 =A0 | =A0 29 +-
+>
+> Tested OK on pq2fads.
+>
+>> =A0drivers/net/fs_enet/mii-fec.c =A0 =A0 =A0 =A0 =A0 =A0 | =A0 26 +-
+>
+> Tested on ep88xc. =A0No *new* problems. :-P
 
-Can we re-queue this for 2.6.27-stable then?  I've got the patch already
-building in my tree but it'd be nice to get it there by default going
-forward.
+Awesome!  Thanks Scott.
 
-Cheers!
+g.
+
+
+-- =
+
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
