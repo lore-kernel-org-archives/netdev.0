@@ -1,66 +1,53 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: tun: add tun_flags, owner, group attributes in sysfs
-Date: Tue, 05 May 2009 23:18:33 +0100
-Message-ID: <1241561913.20057.40.camel@macbook.infradead.org>
-References: <1241433136.6126.70.camel@macbook.infradead.org>
-	 <49FEC52E.6070501@msgid.tls.msk.ru>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: [PATCH] igb: Record hardware RX overruns in net_stats
+Date: Tue, 5 May 2009 15:38:06 -0700
+Message-ID: <273D38FBE7C6FE46A1689FCD014A0B8B49655903@azsmsx505.amr.corp.intel.com>
+References: <1241435206.8115.104.camel@localhost.localdomain>
+ <9929d2390905051147y71f34e4bu9f63edc1e5a253a2@mail.gmail.com>
+ <20090505.115819.84151021.davem@davemloft.net>
+ <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mark McLoughlin <markmc@redhat.com>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hawk@comx.dk" <hawk@comx.dk>, netdev <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: Jesper Dangaard Brouer <hawk@diku.dk>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33121 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753469AbZEEWSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 18:18:35 -0400
-In-Reply-To: <49FEC52E.6070501@msgid.tls.msk.ru>
+Received: from mga02.intel.com ([134.134.136.20]:43955 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805AbZEEWiI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 18:38:08 -0400
+In-Reply-To: <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-05-04 at 14:36 +0400, Michael Tokarev wrote:
-> David Woodhouse wrote:
-> > This patch adds three attribute files in /sys/class/net/$dev/ for tun
-> > devices; allowing userspace to obtain the information which TUNGETIFF
-> > offers, and more, but without having to attach to the device in question
-> > (which may not be possible if it's in use).
-> > 
-> []
-> > +static DEVICE_ATTR(tun_flags, 0444, tun_show_flags, NULL);
-> > +static DEVICE_ATTR(owner, 0444, tun_show_owner, NULL);
-> > +static DEVICE_ATTR(group, 0444, tun_show_group, NULL);
-> 
-> Is there any reason why those files are not writable?
-> 
-> I understand flags one, sorta (but it is still useful to
-> be able to change some flags, like persistent, while it's
-> running), but for owner/group - it's just an integer that's
-> used to check permissions for ioctl, and can be set in sysfs
-> just fine.  I think anyway.
+>Its really useful for diagnosing problems, and I'm betting 
+>that this is a 
+>real-life situation which people is going to experience. We 
+>might as well 
+>help our self to more easily identify this issue when people 
+>report drop problems.
+The problem is that the RNBC aren't dropped packets as the numbers you have show.  While we can agree that the MPC are the actual dropped packets and could eaily be be used in the fifo overflow count since the packets were really dropped.
 
-I did think about it, but didn't see the point. There's little benefit
-in being able to write owner/group through sysfs, and it's non-trivial
-to get the permissions right.
+>I think that both MPC and RNBC should be stored in 
+>rx_fifo_errors (and of 
+>cause still keeping them seperate to ethtool -S).
+This would count RNBC packets as packets that the stack did not process, which it did.  The MPC packets were not processed by the stack and should be counted as dropped.  As you point out, both counts are available via ethtool -S.
 
-You can currently change owner/group if you can attach to the device...
-and you can attach to the device if you're _already_ the appropriate
-uid/gid, or if you have CAP_NET_ADMIN. 
+>I'll post two patches with these changes tomorrow, for you evaluation.
+Thanks, we look forward to see them.
 
-We can't make opens for write fail, as far as I'm aware -- the best we
-could do is to reproduce the permissions check in the sysfs set
-function, and return -EPERM to the _write_, which doesn't really fill me
-with joy.
+Cheers,
+John
+-----------------------------------------------------------
+"...that your people will judge you on what you can build, not what you destroy.", B. Obama, 2009 
 
-Being able to mark a device as non-persistent through sysfs while it's
-open would be cute, I suppose -- but not cute enough that it's worth
-having to deal with the case of marking it non-persistent that way while
-it's _not_ open, which means it needs to disappear as soon as you write
-the flags variable...
-
-On the whole, it seemed better just to have them read-only. That's all
-we really need, after all.
-
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+ 
 
