@@ -1,50 +1,30 @@
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2.6.30-rc5] ehea: fix invalid pointer access
-Date: Tue, 5 May 2009 13:19:05 +0200
-Message-ID: <200905051319.05806.hannes.hering@linux.vnet.ibm.com>
-References: <200905041802.30527.hannes.hering@linux.vnet.ibm.com> <25628.1241514687@redhat.com>
+From: Siemens News Center <feetfirst@winch.twcbc.com>
+Subject: Lucky..............Winner
+Date: Tue, 5 May 2009 6:27:15 -0500
+Message-ID: <7h9gbp$d24rla@rrcs-agw-01b.hrndva.rr.com>
+Reply-To: s.agent@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, themann@de.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	raisch@de.ibm.com, ossrosch@linux.vnet.ibm.com,
-	linuxppc-dev@ozlabs.org, ossthema@de.ibm.com, osstklei@de.ibm.com
-To: David Howells <dhowells@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:47955 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754403AbZEELTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 07:19:11 -0400
-In-Reply-To: <25628.1241514687@redhat.com>
-Content-Disposition: inline
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:57311 "EHLO
+	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbZEEL1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 07:27:15 -0400
+Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
+          by hrndva-comm-mta02.mail.rr.com with ESMTP
+          id <20090505112715.UYRW10911.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          for <netdev@vger.kernel.org>; Tue, 5 May 2009 11:27:15 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 05 May 2009 11:11:27 David Howells wrote:
-> Hannes Hering <hannes.hering@linux.vnet.ibm.com> wrote:
-> 
-> >  	pref = skb_array[x];
-> > -	prefetchw(pref);
-> > -	prefetchw(pref + EHEA_CACHE_LINE);
-> > +	if (pref) {
-> > +		prefetchw(pref);
-> > +		prefetchw(pref + EHEA_CACHE_LINE);
-> 
-> Ummm...  Is prefetch() or prefetchw() faulting?
-> 
-> David
-Hi David,
+Your email ID has been awarded =A3750.000.00  GBP in our Siemens Electr=
+onics program,Reply this office via:=20
 
-this is an ehea driver problem, which is occuring when the receive queue runs
-empty. The faulting code is more specifically the following line:
+Name:....................
+Country:.................
+Sex:.....................
+Age: ....................
+Address:.................
 
-	pref = (skb_array[x]->data);
-
-Here the access to the struct element data would cause an exception.We could
-have made the if block a little smaller.
-
-Regards
-
-Hannes
