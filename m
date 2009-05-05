@@ -1,25 +1,37 @@
-From: Joan <feetfirst@winch.twcbc.com>
-Subject: Winner
-Date: Mon, 4 May 2009 19:10:29 -0500
-Message-ID: <7h9gbp$d20tqu@rrcs-agw-01b.hrndva.rr.com>
-Reply-To: jerry.smith222@btinternet.com
+From: David VomLehn <dvomlehn@cisco.com>
+Subject: Re: [PATCH 3/5] initdev:kernel: Await console discovery, v5
+Date: Mon, 4 May 2009 17:17:56 -0700
+Message-ID: <20090505001756.GB29124@cuplxvomd02.corp.sa.net>
+References: <20090502022756.GA15838@cuplxvomd02.corp.sa.net> <20090502113825.11bc7876@linux-lm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lotto.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:59500 "EHLO
-	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491AbZEEAKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2009 20:10:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	linux-usb@vger.kernel.org, greg@kroah.com,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@infradead.org
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090502113825.11bc7876@linux-lm>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your email ID has been awarded =A3950.000.00  GBP in our LG Electronics=
- program,Reply this office via:=20
+On Fri, May 01, 2009 at 11:38:25PM -0400, Ming Lei wrote:
+> On Fri, 1 May 2009 19:27:56 -0700
+> David VomLehn <dvomlehn@cisco.com> wrote:
+...
+> > diff --git a/drivers/accessibility/braille/braille_console.c
+> > b/drivers/accessibility/braille/braille_console.c index
+> > d672cfe..4420ac3 100644 ---
+> > +
+> > +	initdev_register(BOOTDEV_CONSOLE);
+> 
+> Should it be initdev_registered(BOOTDEV_CONSOLE)?
 
-Name:....................
-Country:.................
-Sex:.....................
-Age: .....................
-Address:...................
+Yes.
+
+> Lei Ming
+
+Thanks!
+
+David VomLehn
