@@ -1,59 +1,54 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: 6rd iproute2 support
-Date: Tue, 05 May 2009 22:16:10 +0900 (JST)
-Message-ID: <20090505.221610.64122023.yoshfuji@linux-ipv6.org>
-References: <20090505105050.GA2598@lnxos.staff.proxad.net>
+From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2.6.30-rc5] ehea: fix invalid pointer access
+Date: Tue, 5 May 2009 15:45:05 +0200
+Message-ID: <200905051545.05877.hannes.hering@linux.vnet.ibm.com>
+References: <200905051319.05806.hannes.hering@linux.vnet.ibm.com> <25628.1241514687@redhat.com> <26110.1241525994@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: acassen@freebox.fr
+Cc: David Miller <davem@davemloft.net>, themann@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	raisch@de.ibm.com, ossrosch@linux.vnet.ibm.com,
+	linuxppc-dev@ozlabs.org, ossthema@de.ibm.com, osstklei@de.ibm.com
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:1540 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753345AbZEENQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 09:16:29 -0400
-In-Reply-To: <20090505105050.GA2598@lnxos.staff.proxad.net>
+Received: from mtagate2.uk.ibm.com ([194.196.100.162]:38836 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751558AbZEENpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 09:45:07 -0400
+In-Reply-To: <26110.1241525994@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-In article <20090505105050.GA2598@lnxos.staff.proxad.net> (at Tue, 5 May 2009 12:50:50 +0200), Alexandre Cassen <acassen@freebox.fr> says:
-
-> IPv6 rapid deployment (6rd) builds upon mechanisms of 6to4 (RFC3056)
-> to enable a service provider to rapidly deploy IPv6 unicast service
-> to IPv4 sites to which it provides customer premise equipment.  Like
-> 6to4, it utilizes stateless IPv6 in IPv4 encapsulation in order to
-> transit IPv4-only network infrastructure.  Unlike 6to4, a 6rd service
-> provider uses an IPv6 prefix of its own in place of the fixed 6to4
-> prefix. more info at http://tools.ietf.org/html/draft-despres-6rd-03.
+On Tuesday 05 May 2009 14:19:54 David Howells wrote:
+> In that case, you might want to move the prefetchw() calls in the following:
 > 
-> Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
-> ---
->  include/linux/if_tunnel.h |    5 +++++
->  ip/iptunnel.c             |   16 +++++++++++++++-
->  2 files changed, 20 insertions(+), 1 deletions(-)
+> 		pref = skb_array[x];
+> 	-	prefetchw(pref);
+> 	-	prefetchw(pref + EHEA_CACHE_LINE);
+> 	+	if (pref) {
+> 	+		prefetchw(pref);
+> 	+		prefetchw(pref + EHEA_CACHE_LINE);
 > 
-> diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-> index 2918c6f..00092e0 100644
-> --- a/include/linux/if_tunnel.h
-> +++ b/include/linux/if_tunnel.h
-> @@ -30,6 +30,11 @@ struct ip_tunnel_parm
->  	__be16			o_flags;
->  	__be32			i_key;
->  	__be32			o_key;
-> +
-> +	/* 6rd matching params */
-> +	struct in6_addr		ip6rd_zone;
-> +	__u8			ip6rd_prefix;
-> +
->  	struct iphdr		iph;
->  };
->  
+> to before the if-statement.  That way the CPU can be attempting the prefetch
+> whilst it's chewing over the test and branch.  prefetching shouldn't fault on
+> a bad address.
+> 
+> David
+Hi David,
 
-Sorry, you cannot change this struct this way because you break
-existing applications.
+you are right so far, but actually the prefetch calls on POWER also contain
+an if statement to check if the address is valid (i. e. non-zero). We never
+have the case that the pref != NULL and pref->data == NULL. And the situation
+of pref==NULL is very rare. This means there is no benefit moving our if
+statement down from performance perspective if we assume that our if does not
+take longer then the if in the prefetch command. We can add an
+if(likely(pref) if you like. In fact doing the if statement as we do it now
+we actually save the prefetch if statements in case we hit the situation of
+pref==NULL.
 
---yoshfuji
+Regards
+
+Hannes
