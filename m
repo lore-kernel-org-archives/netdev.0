@@ -1,53 +1,46 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: [PATCH] igb: Record hardware RX overruns in net_stats
-Date: Tue, 5 May 2009 15:38:06 -0700
-Message-ID: <273D38FBE7C6FE46A1689FCD014A0B8B49655903@azsmsx505.amr.corp.intel.com>
-References: <1241435206.8115.104.camel@localhost.localdomain>
- <9929d2390905051147y71f34e4bu9f63edc1e5a253a2@mail.gmail.com>
- <20090505.115819.84151021.davem@davemloft.net>
- <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
+From: Vladimir Ivashchenko <hazard@francoudi.com>
+Subject: Re: bond + tc regression ?
+Date: Wed, 6 May 2009 02:50:08 +0300
+Message-ID: <20090505235008.GA17690@francoudi.com>
+References: <1241538358.27647.9.camel@hazard2.francoudi.com> <4A0069F3.5030607@cosmosbay.com> <20090505174135.GA29716@francoudi.com> <4A008A72.6030607@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"hawk@comx.dk" <hawk@comx.dk>, netdev <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: Jesper Dangaard Brouer <hawk@diku.dk>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43955 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751805AbZEEWiI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 18:38:08 -0400
-In-Reply-To: <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
-Content-Language: en-US
+Received: from cerber.thunderworx.net ([217.27.32.18]:3566 "EHLO
+	cerber.thunderworx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726AbZEEXuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 19:50:11 -0400
+Content-Disposition: inline
+In-Reply-To: <4A008A72.6030607@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Its really useful for diagnosing problems, and I'm betting 
->that this is a 
->real-life situation which people is going to experience. We 
->might as well 
->help our self to more easily identify this issue when people 
->report drop problems.
-The problem is that the RNBC aren't dropped packets as the numbers you have show.  While we can agree that the MPC are the actual dropped packets and could eaily be be used in the fifo overflow count since the packets were really dropped.
+On Tue, May 05, 2009 at 08:50:26PM +0200, Eric Dumazet wrote:
 
->I think that both MPC and RNBC should be stored in 
->rx_fifo_errors (and of 
->cause still keeping them seperate to ethtool -S).
-This would count RNBC packets as packets that the stack did not process, which it did.  The MPC packets were not processed by the stack and should be counted as dropped.  As you point out, both counts are available via ethtool -S.
+> > I have tried with IRQs bound to one CPU per NIC. Same result.
+> 
+> Did you check "grep eth /proc/interrupts" that your affinities setup 
+> were indeed taken into account ?
+> 
+> You should use same CPU for eth0 and eth2 (bond0),
+> 
+> and another CPU for eth1 and eth3 (bond1)
 
->I'll post two patches with these changes tomorrow, for you evaluation.
-Thanks, we look forward to see them.
+Ok, the best result is when assign all IRQs to the same CPU. Zero drops.
 
-Cheers,
-John
------------------------------------------------------------
-"...that your people will judge you on what you can build, not what you destroy.", B. Obama, 2009 
+When I bind slaves of bond interfaces to the same CPU, I start to get 
+some drops, but much less than before. I didn't play with combinations.
 
- 
+My problem is, after applying your accounting patch below, one of my 
+HTB servers reports only 30-40% CPU idle on one of the cores. That won't 
+take me for very long, load balancing across cores is needed.
 
+Is there any way at least to balance individual NICs on per core basis?
+
+-- 
+Best Regards
+Vladimir Ivashchenko
+Chief Technology Officer
+PrimeTel, Cyprus - www.prime-tel.com
