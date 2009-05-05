@@ -1,57 +1,50 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 5/5] initdev:kernel: USB and SCSI block init device
-	notification, v3
-Date: Tue, 5 May 2009 12:05:19 +0800
-Message-ID: <d82e647a0905042105g7639fc84g736668c371c40053@mail.gmail.com>
-References: <20090502023000.GA16076@cuplxvomd02.corp.sa.net>
-	 <20090502115539.396206bc@linux-lm>
-	 <20090505001950.GC29124@cuplxvomd02.corp.sa.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/3] tun: fix aio
+Date: Tue, 5 May 2009 12:48:13 +0930
+Message-ID: <200905051248.14014.rusty@rustcorp.com.au>
+References: <20090420112527.GA6692@dhcp-1-124.tlv.redhat.com> <200904271048.38401.rusty@rustcorp.com.au> <20090427093455.GA29082@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090505001950.GC29124-CFZJ1or75eBPWxJt6d6B6bQa8qPdvLwY@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:53967 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751157AbZEEEY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2009 00:24:27 -0400
+In-Reply-To: <20090427093455.GA29082@redhat.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/5/5 David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>:
-> On Fri, May 01, 2009 at 11:55:39PM -0400, Ming Lei wrote:
->> On Fri, 1 May 2009 19:30:00 -0700
->> David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> wrote:
->>
->> > From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org
->> > diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
->> > index 6f51ca4..735b061 100644
->> > --- a/drivers/scsi/scsi_scan.c
->> > +++ b/drivers/scsi/scsi_scan.c
-> ...
->> > @@ -1834,6 +1834,7 @@ static int do_scan_async(void *_data)
->> > =A0 =A0 struct async_scan_data *data =3D _data;
->> > =A0 =A0 do_scsi_scan_host(data->shost);
->> > =A0 =A0 scsi_finish_async_scan(data);
->> > + =A0 initdev_probe_done(BOOTDEV_BLOCK_MASK);
->>
->> Which code are waiting for the block device's probe done?
->
-> None yet. That remains to be done.
->
+On Mon, 27 Apr 2009 07:04:55 pm Michael S. Tsirkin wrote:
+> On Mon, Apr 27, 2009 at 10:48:37AM +0930, Rusty Russell wrote:
+> > > Sure. Here it is: much smaller, but slightly slower.
+> > 
+> > Which could probably be fixed by using an on-stack version for a iovec
+> > of less than a certain size...
+> 
+> I agree that for large message sizes the malloc would probably be
+> dwarfed by the cost of memory copy. However a large iovec might pass a
+> small message, might it not?
 
-Would you mind submitting  the code path of waitting for probe done to =
-allow a
-intact review?  Without the waitting code, it is a a little difficult
-to undersand or verify
-your patch, IMHO.
+Sorry, I didn't make myself clear.  Something like:
 
-Thanks
+	struct iovec smalliov[512 / sizeof(struct iovec)];
 
---=20
-Lei Ming
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	if (count < ARRAY_SIZE(smalliov)) {
+		iv = smalliov;
+	} else {
+		iv = kmalloc(...)
+	}
+
+	...
+
+	if (iv != smalliov)
+		kfree(iv);
+
+Cheers,
+Rusty.
