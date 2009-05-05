@@ -1,53 +1,56 @@
-From: senthil kumar <invitation@mydailyflog.com>
-Subject: I just uploaded a photo that I want you to see!
-Date: Tue, 5 May 2009 02:43:00 -0500
-Message-ID: <dcaf2a81be67379cd14d53406a05e88c@www.mydailyflog.com>
-Reply-To: senthil kumar <psenthilkumar.accet@gmail.com>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] net: smsc911x: add power management functions
+Date: Tue, 5 May 2009 09:37:42 +0100
+Message-ID: <OF7B58C3C5.29BA38D0-ON802575AD.002E7A8A-802575AD.002F637B@smsc.com>
+References: <1241457122-28161-1-git-send-email-daniel@caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Ian.Saturley@smsc.com
+To: Daniel Mack <daniel@caiaq.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.mydailyflog.com ([67.228.245.114]:43271 "EHLO
-	mail3.mydailyflog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139AbZEEIT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 04:19:27 -0400
-Received: from localhost (127.0.0.1) by mail3.mydailyflog.com (PowerMTA(TM) v3.5r4) id hvvr900k6msr for <netdev@vger.kernel.org>; Tue, 5 May 2009 02:43:00 -0500 (envelope-from <invitation@mydailyflog.com>)
+Received: from mail.smsc.com ([170.129.50.11]:4340 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754587AbZEEIh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2009 04:37:58 -0400
+In-Reply-To: <1241457122-28161-1-git-send-email-daniel@caiaq.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Daniel Mack <daniel@caiaq.de> wrote on 04/05/2009 18:12:02:
 
-I just uploaded a photo on senthil_linkedin's DailyFlog page that I want you to see.
+> This adds a power management implementation for smsc911x.c which assumes
+> the chips remains powered during suspend. The device is put in its D1
+> power saving mode.
 
-Please come and see: http://www.mydailyflog.com/go/invite_register/senthil_linkedin/36654762
+[....]
 
+> +static int smsc911x_resume(struct platform_device *pdev)
+> +{
+> +   struct net_device *dev = platform_get_drvdata(pdev);
+> +   struct smsc911x_data *pdata = netdev_priv(dev);
+> +   unsigned int to = 100;
+> +
+> +   /* Note 3.11 from the datasheet:
+> +    *    "When the LAN9220 is in a power saving state, a write of any
+> +    *     data to the BYTE_TEST register will wake-up the device."
+> +    */
+> +   smsc911x_reg_write(pdata, BYTE_TEST, 0);
+> +
+> +   /* poll the READY bit in PMT_CTRL. Any other access to the device is
+> +    * forbidden while this bit isn't set. Try for 100ms and return -EIO
+> +    * if it failed. */
+> +   while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && 
+to--)
+> +      udelay(1000);
+> +
+> +   return (to == 0) ? -EIO : 0;
+> +}
 
-Thanks!
+to-- should be --to, otherwise it'll end up as -1 when the loop times out
+(and the error code return below won't work).  Roel Kluin recently fixed
+many instances of this.
 
-senthil kumar
+Other than that, the power saving logic looks fine.
 
-
-========================================
-Got a digital camera?
-
-MyDailyFlog is a personal photo-blogging space where you can easily post
-your latest and greatest photos, and share them with your friends and family.
-
-Create your own DailyFlog at www.MyDailyFlog.com
-
-
-
-
-
-.......................................................................
-Unsubscribe: to opt out of further invitations from your friends to see their DailyFlogs, please click below:
-
-http://www.mydailyflog.com/go/system/euns=netdev@vger.kernel.org&md5=28bc5beff2bc4cc40575a76f5b953909
-
-Please do not reply directly to this email. Questions? Contact us - 
-http://www.mydailyflog.com/go/contact_us
-
-MyDailyFlog, Refriendz Ltd. PO BOX 1184, Luton, Bedfordshire, LU1 9AT.
-
-
+Steve
