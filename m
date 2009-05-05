@@ -1,28 +1,41 @@
-From: Siemens <feetfirst@winch.twcbc.com>
-Subject: Congratulation
-Date: Tue, 5 May 2009 6:29:02 -0500
-Message-ID: <7h9gbp$d24sbj@rrcs-agw-01b.hrndva.rr.com>
-Reply-To: siemen123456789@rocketmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lotto.co.uk>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 2.6.30-rc5] ehea: fix invalid pointer access
+Date: Tue, 05 May 2009 13:19:54 +0100
+Message-ID: <26110.1241525994@redhat.com>
+References: <200905051319.05806.hannes.hering@linux.vnet.ibm.com> <200905041802.30527.hannes.hering@linux.vnet.ibm.com> <25628.1241514687@redhat.com>
+Cc: dhowells@redhat.com, David Miller <davem@davemloft.net>,
+	themann@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, raisch@de.ibm.com,
+	ossrosch@linux.vnet.ibm.com, linuxppc-dev@ozlabs.org,
+	ossthema@de.ibm.com, osstklei@de.ibm.com
+To: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:38103 "EHLO
-	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752089AbZEEL3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2009 07:29:02 -0400
-Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
-          by hrndva-comm-mta01.mail.rr.com with ESMTP
-          id <20090505112902.UWIR17304.hrndva-comm-mta01.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
-          for <netdev@vger.kernel.org>; Tue, 5 May 2009 11:29:02 +0000
+Received: from mx2.redhat.com ([66.187.237.31]:51486 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752089AbZEEMWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2009 08:22:21 -0400
+In-Reply-To: <200905051319.05806.hannes.hering@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your email ID was awarded =A3750,000,00 GBP in the SIEMENS AWARD. Reply=
- us about your full info:sgroup33@gmail.com
+Hannes Hering <hannes.hering@linux.vnet.ibm.com> wrote:
 
-Name:...........................
-Country:........................
-Sex:............................
-Age/Tell Number:................
+> this is an ehea driver problem, which is occuring when the receive queue runs
+> empty. The faulting code is more specifically the following line:
+> 
+> 	pref = (skb_array[x]->data);
+
+In that case, you might want to move the prefetchw() calls in the following:
+
+		pref = skb_array[x];
+	-	prefetchw(pref);
+	-	prefetchw(pref + EHEA_CACHE_LINE);
+	+	if (pref) {
+	+		prefetchw(pref);
+	+		prefetchw(pref + EHEA_CACHE_LINE);
+
+to before the if-statement.  That way the CPU can be attempting the prefetch
+whilst it's chewing over the test and branch.  prefetching shouldn't fault on
+a bad address.
+
+David
