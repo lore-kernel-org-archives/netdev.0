@@ -1,137 +1,90 @@
-From: Radek Podgorny <radek@podgorny.cz>
-Subject: via velocity trivial patch
-Date: Wed, 06 May 2009 23:07:02 +0200
-Message-ID: <4A01FBF6.1090001@podgorny.cz>
-References: <49F1A05A.8070802@podgorny.cz>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] igb: Record hardware RX overruns in
+	net_stats
+Date: Wed, 6 May 2009 14:24:54 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0905061418090.23772@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090505.115819.84151021.davem@davemloft.net>
+	<Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
+	<9929d2390905051432h795d183bh40fbe1beb35a4de9@mail.gmail.com>
+	<20090505.143529.148721206.davem@davemloft.net>
+	<1241595993.5172.4.camel@localhost.localdomain>
+	<Pine.WNT.4.64.0905060048570.22956@ppwaskie-MOBL2.amr.corp.intel.com>
+	<1241615351.5172.60.camel@localhost.localdomain>
+	<1241643595.2234.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070903050309070100070205"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 180.129.broadband3.iol.cz ([85.70.129.180]:42383 "EHLO
-	home.podgorny.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbZEFVNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 17:13:45 -0400
-Received: from [10.25.3.4] (simir.podoli.pjih.czf [10.25.3.4])
-	by home.podgorny.cz (Postfix) with ESMTP id 311009A8A3
-	for <netdev@vger.kernel.org>; Wed,  6 May 2009 23:07:04 +0200 (CEST)
-In-Reply-To: <49F1A05A.8070802@podgorny.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------070903050309070100070205
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: "hawk@diku.dk" <hawk@diku.dk>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Kirsher,
+	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Jesper Dangaard Brouer <jdb@comx.dk>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1241643595.2234.9.camel@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Wed, 6 May 2009, Jesper Dangaard Brouer wrote:
 
-Hello everyone!
-
-I've sent the following mail to Francois Romieu <romieu@fr.zoreil.com>
-but did not get any reply. So I'm sending directly here. It's a trivial
-patch for via-velocity driver.
-
-Sincerely
-Radek Podgorny
-
-
-Radek Podgorny wrote:
-> Hello,
+> On Wed, 2009-05-06 at 15:09 +0200, Jesper Dangaard Brouer wrote:
+> > > In the SRRCTL registers, there is a DROP_EN bit, bit 31.  If this 
+> > > bit is set to 1b for the queue in question, then the packet will be 
+> > > dropped when there are no buffers in the packet buffer.  This does
+> > not 
+> > > mean the FIFO is full or has been overrun, it just means there's no
+> > more
+> > > descriptors available in the Rx ring for that queue.  In this case,
+> > RNBC 
+> > > is incremented, MPC is not.
+> > 
+> > My experience is that if DROP_EN bit is *set*. Then I cannot find the
+> > drop count anywhere... not in RNBC and not in MPC ... and I can still
+> > see the drops with my netfilter module mp2t.
+> > 
+> > ethtool -S eth21 | egrep 'rx_no_buffer_count|rx_miss'
+> >      rx_no_buffer_count: 0
+> >      rx_missed_errors: 0
+> > 
+> > I'm guessing that the drop counters are now in the per queue RQDPC
+> > register (Receive Queue Drop Packet Count), but reading that is not
+> > implemented in the driver. 
 > 
-> attached is my trivial patch for the via-velocity driver. The actual
-> change has been suggested years ago by Jeff Garzik
-> (http://lkml.indiana.edu/hypermail/linux/kernel/0406.0/0500.html).
+> Just did a quick implemenation in the driver, see draft patch below (not
+> ready for inclusion yet!).
 > 
-> The problem:
+> An my guess was correct, the drops count is stored per queue in RQDPC.
+> The only really anoying thing is that this counter is only 12 bit, thus
+> overruns can occur quickly.  (This reminds me of my drop count
+> implemenation for Sun niu driver.  This counter has less bits that the 
+> Sun counter, but at least it automatically clears on reads)
 > 
-> When multiple velocity cards share the same interrupt (I have a 4x combo
-> card on a very old motherboard without APIC or anything) the interrupt
-> routine gets called for all of them (which is correct) but the chip that
-> is not in question tries to react (which is wrong). The patch should
-> explain the case better.
-> 
-> It has been tested on my old (and until now broken) system and on a
-> modern one (APIC, no shared interrupts) and works flawlessly.
-> 
-> Sincerely
-> Radek Podgorny
-> 
-> diff -ru linux-2.6.29.1-orig/drivers/net/via-velocity.c
-> linux-2.6.29.1/drivers/net/via-velocity.c
-> --- linux-2.6.29.1-orig/drivers/net/via-velocity.c	2009-04-02
-> 22:55:27.000000000 +0200
-> +++ linux-2.6.29.1/drivers/net/via-velocity.c	2009-04-24
-> 13:09:45.945318255 +0200
-> @@ -2226,8 +2226,8 @@
->  	spin_lock(&vptr->lock);
->  	isr_status = mac_read_isr(vptr->mac_regs);
-> 
-> -	/* Not us ? */
-> -	if (isr_status == 0) {
-> +	/* Not us or garbage ? */
-> +	if (isr_status == 0 || isr_status == 0xffffffff) {
->  		spin_unlock(&vptr->lock);
->  		return IRQ_NONE;
->  	}
-> @@ -2236,10 +2236,11 @@
-> 
->  	/*
->  	 *	Keep processing the ISR until we have completed
-> -	 *	processing and the isr_status becomes zero
-> +	 *	processing and the isr_status becomes zero or
-> +	 *	we read out some garbage
->  	 */
-> 
-> -	while (isr_status != 0) {
-> +	while (isr_status != 0 && isr_status != 0xffffffff) {
->  		mac_write_isr(vptr->mac_regs, isr_status);
->  		if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
->  			velocity_error(vptr, isr_status);
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+> I'll post some more clean patches tomorrow...
 
-iEYEARECAAYFAkoB+/UACgkQ7mej6pjlbYTriwCgvMZ7md0ilITiVqWQphzoyCHq
-Ko4AoMqxNS2dSt6QyE29N6DK9eCInbMp
-=/ZrZ
------END PGP SIGNATURE-----
+Ok, so 82576 is much more like 82599 with the queue counters, but 
+different enough to be annoying.  Yes, I'm seeing this in the data manual 
+for 82576.  Honestly, we have too many damn counters for packet 
+accounting.  I'm very happy you're getting what you wanted now.  Your 
+patch looks reasonable to me; please let us know if you have any other 
+questions about the part that we might be able to help with.
 
---------------070903050309070100070205
-Content-Type: text/plain;
- name="via-velocity.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="via-velocity.patch"
+Cheers,
+-PJ Waskiewicz
 
-diff -ru linux-2.6.29.1-orig/drivers/net/via-velocity.c linux-2.6.29.1/drivers/net/via-velocity.c
---- linux-2.6.29.1-orig/drivers/net/via-velocity.c	2009-04-02 22:55:27.000000000 +0200
-+++ linux-2.6.29.1/drivers/net/via-velocity.c	2009-04-24 13:09:45.945318255 +0200
-@@ -2226,8 +2226,8 @@
- 	spin_lock(&vptr->lock);
- 	isr_status = mac_read_isr(vptr->mac_regs);
- 
--	/* Not us ? */
--	if (isr_status == 0) {
-+	/* Not us or garbage ? */
-+	if (isr_status == 0 || isr_status == 0xffffffff) {
- 		spin_unlock(&vptr->lock);
- 		return IRQ_NONE;
- 	}
-@@ -2236,10 +2236,11 @@
- 
- 	/*
- 	 *	Keep processing the ISR until we have completed
--	 *	processing and the isr_status becomes zero
-+	 *	processing and the isr_status becomes zero or
-+	 *	we read out some garbage
- 	 */
- 
--	while (isr_status != 0) {
-+	while (isr_status != 0 && isr_status != 0xffffffff) {
- 		mac_write_isr(vptr->mac_regs, isr_status);
- 		if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
- 			velocity_error(vptr, isr_status);
-
---------------070903050309070100070205--
+------------------------------------------------------------------------------
+The NEW KODAK i700 Series Scanners deliver under ANY circumstances! Your
+production scanning environment may not be a perfect world - but thanks to
+Kodak, there's a perfect scanner to get the job done! With the NEW KODAK i700
+Series Scanner you'll get full speed at 300 dpi even with all image 
+processing features enabled. http://p.sf.net/sfu/kodak-com
