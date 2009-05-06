@@ -1,172 +1,65 @@
-From: "Matthias Andree" <matthias.andree@gmx.de>
-Subject: Strange Application bug, race in MSG_PEEK complaints (was:
- Bug#513695: fetchmail: race in MSG_PEEK)
-Date: Wed, 06 May 2009 18:15:35 +0200
-Message-ID: <op.utinf9el1e62zd@balu>
-References: <200902262310.12791.elendil@planet.nl>
- <200903091749.50818.elendil@planet.nl>
- <op.uqjiqsol1e62zd@merlin.emma.line.org>
- <200903141900.14498.elendil@planet.nl>
+From: Wolfgang Denk <wd@denx.de>
+Subject: Re: [PATCH 03/12] fs_enet: Add FEC TX Alignment workaround for
+	MPC5121.
+Date: Thu, 07 May 2009 00:12:50 +0200
+Message-ID: <20090506221250.C977183420E8@gemini.denx.de>
+References: <1241640919-4650-1-git-send-email-wd@denx.de>
+	<1241640919-4650-4-git-send-email-wd@denx.de>
+	<fa686aa40905061337w6aa82f5aj787618ba108e528f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; delsp=yes; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Frans Pop" <elendil@planet.nl>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:46348 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1762213AbZEFWIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 May 2009 18:08:41 -0400
-In-Reply-To: <200903141900.14498.elendil@planet.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Piotr Ziecik <kosmo@semihalf.com>, Detlev Zundel <dzu@denx.de>,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	John Rigby <jrigby@freescale.com>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-reply-to: <fa686aa40905061337w6aa82f5aj787618ba108e528f@mail.gmail.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-(Please Cc: Frans and myself on replies, we're not subscribed to netdev@.)
+Dear Grant Likely,
 
-(DaveM, this was Cc:d to you earlier today under a different subject. The  
-failing wget is new though.)
+In message <fa686aa40905061337w6aa82f5aj787618ba108e528f@mail.gmail.com> you wrote:
+>
+> > The FEC on 5121 has problems with misaligned tx buffers.
+> > The RM says any alignment is ok but empirical results
+> > show that packet buffers ending in 0x1E will sometimes
+> > hang the FEC. Other bad alignment does not hang but will
+> > cause silent TX failures resulting in about a 1% packet
+> > loss as tested by ping -f from a remote host.
+> >
+> > This patch is a work around that copies every tx packet
+> > to an aligned skb before sending.
+>
+> OUCH!
 
-Dear Kernel Hackers,
+Yes :-(
 
-I am getting rather frequent "TCP(...): Application bug, race in  
-MSG_PEEK." complaints for fetchmail these days.
-The strange part is that fetchmail is a single-threaded application that  
-does not deal with URG data.
-I cannot see what fetchmail would race against in this situation.
+> > +#else
+> > +#define tx_skb_align_workaround(dev, skb) (skb)
+> > +#endif
+>
+> Another use of #ifdef blocks.  What is the multiplatform impact?
 
-Frans Pop has found interesting patterns probably related to segment or  
-packet/payload sizes (1460 bytes!) - see his message quoted below.
+Hm... Can you recommend a better way to solve the problem? Suggestions
+are welcome.
 
-His most recent findings are:
-: As further info, I've also got very infrequent MSGPEEK errors on my
-: laptop, which runs nothing strange (... KDE ...)
-: Interesting may be that both systems are dual core, running x86_64.
-:
-: Here are the errors from my laptop (also with my extra debug info):
-: Mar 14 09:23:18 aragorn kernel: TCP(kio_imap4:5646): Application bug,  
-race in MSG_PEEK: 0, 23.
-: Apr  8 12:21:28 aragorn kernel: TCP(kio_imap4:24173): Application bug,  
-race in MSG_PEEK: 38dd5ab8, 8.
-: May  3 23:45:29 aragorn kernel: TCP(wget:4137): Application bug, race in  
-MSG_PEEK: 77093ab8, 3e.
-: Note the last one. A simple wget?!
+Best regards,
 
-Application use: Fetchmail does use MSG_PEEK in several places to look  
-ahead. The same process that peeks will later read the data. It can happen  
-that we peek at 1 byte, then more bytes, or that we peek at 512 bytes and  
-read only smaller amounts (say, 30 - 70) of them before we peek again.
-
-As to the application source code: Look for instance for fm_peek in the  
-function SockRead() in  
-<http://mknod.org/svn/fetchmail/branches/BRANCH_6-3/socket.c> and its  
-callers.
-
-Can we be sure that
-
-(a) the kernel correctly handles peek_seq and tp->copied_seq and their  
-comparison (see Frans's message below - is the != in the if statement  
-actually the right thing or should this be a > or <?), and
-
-(b) that the message is printed only if there is a real app bug (that I  
-fail to see), and
-
-(c) that the kernel handles package boundaries, wraparounds, and buffers  
-correctly?
-
-Might the reception of further data in the socket's receive buffer trigger  
-the message? As in: between peek and read, or between read and peek,  
-further data arrives, and triggers the message?
-
-Might the kernel's TCP code be confused about absolute vs. relative  
-sequence/position indexes/pointers/counters inside the TCP code?
-
-Thanks a lot in advance. (Frans's earlier message included below.)
-
-Best regards
-Matthias
-
-
-------- Weitergeleitete Nachricht -------
-Von: "Frans Pop" <elendil@planet.nl>
-An: "Matthias Andree" <matthias.andree@gmx.de>
-Kopie:
-Betreff: Re: Bug#513695: fetchmail: race in MSG_PEEK - trace data
-Datum: Sat, 14 Mar 2009 19:00:13 +0100
-
-On Monday 09 March 2009, Matthias Andree wrote:
-> Unfortunately, the strace seems to be incomplete - likely strace macros
-> wrong: I see lots of recvfrom with replies, but not the send or write
-> that actually shows the other half of the conversation. Could I have
-> coordinated full strace logging and kernel messages?
-
-See attachment. The syslog is complete for the period the tcpdump was
-running, but the tcpdump itself is filtered for only the relevant
-conversation. Again account name and password removed from the traces.
-
-It took a bit longer because I wanted to get some history from a kernel
-patch I added. I've now automated the creation of the traces, so if you
-want more data, even from the kernel, please ask.
-
-I've applied the following patch to net/ipv4/tcp.c for the kernel running
-on my server (2.6.29-rc8):
-@@ -1499,8 +1499,9 @@ do_prequeue:
-     		}
-     		if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
-     			if (net_ratelimit())
--				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
--				       current->comm, task_pid_nr(current));
-+				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK: %x,
-%x.\n",
-+				       current->comm, task_pid_nr(current)),
-+				       peek_seq, tp->copied_seq;
-     			peek_seq = tp->copied_seq;
-     		}
-     		continue;
-
-So, the values you see at the end of the warning are peek_seq and
-tp->copied_seq. This gives messages like:
-kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 156233,
-16a.
-kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 71259ac8,
-5b4.
-kernel: TCP(fetchmail:31216): Application bug, race in MSG_PEEK: 833fe5,
-c0.
-
-The distribution for tp->copied_seq is interesting:
-          1 24
-          1 c0
-          1 132
-          1 16a
-          3 248
-          1 2a7
-          1 400
-        166 5b4
-
-So, 0x5b4 (1460) seems to be special (is it a maximum size maybe?); if
-I grep the kernel for that I get:
-net/ipv4/tcp_input.c:           if (tp->mss_cache > 1460)
-net/ipv4/tcp_output.c:          if (mss > 1460 * 3)
-net/ipv4/tcp_output.c:          else if (mss > 1460)
-And:
-net/ipv[46]/syncookies.c:
-static __u16 const msstab[] = {
-            64 - 1,
-            256 - 1,
-            512 - 1,
-            536 - 1,
-            1024 - 1,
-            1440 - 1,
-            1460 - 1,
-            4312 - 1,
-            (__u16)-1
-};
-
-Not sure if all that means anything, but I thought I'd mention it.
-
-Good hunting,
-Frans
-
-
+Wolfgang Denk
 
 -- 
-Matthias Andree
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+You don't have to worry about me. I might have been born yesterday...
+but I stayed up all night.
