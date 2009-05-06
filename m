@@ -1,53 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/5] ixgbe: Return PCI_ERS_RESULT_DISCONNECT when
-	bus is disabled
-Date: Wed, 06 May 2009 13:44:26 -0700
-Message-ID: <20090506204425.18071.23427.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/5] ixgbe: remove ixgbe_napi_add/del_all
+	references
+Date: Wed, 06 May 2009 13:44:07 -0700
+Message-ID: <20090506204406.18071.32536.stgit@localhost.localdomain>
 References: <20090506204317.18071.96421.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Breno Leitao <leitao@linux.vnet.ibm.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:42267
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932278AbZEFUon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 16:44:43 -0400
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:54512
+	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932175AbZEFUoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 16:44:25 -0400
 In-Reply-To: <20090506204317.18071.96421.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-According to the "PCI Error Recovery" document, if after a recovery,
-the bus is disabled, the error_detected function should return
-PCI_ERS_RESULT_DISCONNECT. Actually ixgbe error_detected function is
-always returning PCI_ERS_RESULT_NEED_RESET, even if the bus is in failure.
-This patch just check if the bus is disabled and then returns
-PCI_ERS_RESULT_DISCONNET.
+There were still some references to napi_add/del_all left after the dynamic
+vector allocation patch.  This patch removes those references since the
+ixgbe_napi_add/del_all calls are no longer needed as the napi struct is
+added when the vector is created, and deleted when the vector is freed.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 2c70fa0..dd56adb 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5145,6 +5145,9 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 61cb415..d743d0e 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -370,8 +370,6 @@ extern void ixgbe_free_tx_resources(struct ixgbe_adapter *, struct ixgbe_ring *)
+ extern void ixgbe_update_stats(struct ixgbe_adapter *adapter);
+ extern int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter);
+ extern void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter);
+-void ixgbe_napi_add_all(struct ixgbe_adapter *adapter);
+-void ixgbe_napi_del_all(struct ixgbe_adapter *adapter);
+ extern void ixgbe_write_eitr(struct ixgbe_adapter *, int, u32);
  
- 	netif_device_detach(netdev);
- 
-+	if (state == pci_channel_io_perm_failure)
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
- 	if (netif_running(netdev))
- 		ixgbe_down(adapter);
- 	pci_disable_device(pdev);
+ #endif /* _IXGBE_H_ */
 
