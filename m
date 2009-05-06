@@ -1,55 +1,39 @@
-From: Vladimir Ivashchenko <hazard@francoudi.com>
-Subject: Re: bond + tc regression ?
-Date: Wed, 6 May 2009 16:11:17 +0300
-Message-ID: <20090506131117.GA10105@francoudi.com>
-References: <20090505174135.GA29716@francoudi.com> <20090506061010.GA4571@ff.dom.local> <20090506103616.GA25750@francoudi.com> <20090506104808.GA6115@ff.dom.local>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: [PATCH] net: update skb_recycle_check() for hardware
+ timestamping changes
+Date: Wed, 06 May 2009 15:11:39 +0200
+Message-ID: <1241615499.26936.25.camel@pohly-MOBL>
+References: <20090506111311.GD24429@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.thunderworx.net ([217.27.32.18]:2398 "EHLO
-	cerber.thunderworx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756557AbZEFNLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 09:11:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20090506104808.GA6115@ff.dom.local>
+Received: from mga01.intel.com ([192.55.52.88]:4425 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756529AbZEFNLm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2009 09:11:42 -0400
+In-Reply-To: <20090506111311.GD24429@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 06, 2009 at 10:48:08AM +0000, Jarek Poplawski wrote:
+On Wed, 2009-05-06 at 14:13 +0300, Lennert Buytenhek wrote:
+> Commit ac45f602ee3d1b6f326f68bc0c2591ceebf05ba4 ("net: infrastructure
+> for hardware time stamping") added two skb initialization actions to
+> __alloc_skb(), which need to be added to skb_recycle_check() as well.
 
-> > > >> ifconfig -a
-> > > > 
-> > > > bond0     Link encap:Ethernet  HWaddr 00:1B:24:BD:E9:CC
-> > > >           inet addr:xxx.xxx.135.44  Bcast:xxx.xxx.135.47  Mask:255.255.255.248
-> > > >           inet6 addr: fe80::21b:24ff:febd:e9cc/64 Scope:Link
-> > > >           UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
-> > > >           RX packets:436076190 errors:0 dropped:391250 overruns:0 frame:0
-> > > >           TX packets:2620156321 errors:0 dropped:0 overruns:0 carrier:0
-> > > >           collisions:0 txqueuelen:0
-> > > >           RX bytes:4210046233 (3.9 GiB)  TX bytes:2520272242 (2.3 GiB)
-> > > 
-> > > Could you try e.g.: ifconfig bond0 txqueuelen 1000
-> > > before tc qdisc add?
-> > 
-> > The drops on ifconfig are not increasing - these numbers are there from some tests made
-> > before.
-> > 
-> 
-> I'm not sure what do you mean? IMHO you don't use qdiscs properly,
-> so any TX problems end with drops. (Older kernel versions could mask
-> this problem with requeuing.)
+Good catch, thanks. For what it's worth:
 
-Apologies, my bad, I misread what you wrote.
-
-txqueuelen 1000 fixes the qdisc drops. I didn't notice that bond interfaces have it set to 0 by default.
-
-As suggested by Eric earlier, the drops also disappear if I bind each NIC to a single CPU. That was the 
-default on older kernels and perhaps that's why the issue came up only on 2.6.28.
+Signed-off-by: Patrick Ohly <patrick.ohly@intel.com>
 
 -- 
-Best Regards
-Vladimir Ivashchenko
-Chief Technology Officer
-PrimeTel, Cyprus - www.prime-tel.com
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
+
+
