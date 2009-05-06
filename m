@@ -1,9 +1,9 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH 1/3] bnx2x: free workqueue when driver fail to
- register
-Date: Wed, 6 May 2009 15:04:28 +0300
-Message-ID: <1241611468.30581.9.camel@lb-tlvb-eliezer>
-References: <20090506112201.28609620@dhcp-lab-109.englab.brq.redhat.com>
+Subject: Re: [PATCH 3/3] bnx2x: do not return negative number of
+ received packages
+Date: Wed, 6 May 2009 15:04:34 +0300
+Message-ID: <1241611474.30581.11.camel@lb-tlvb-eliezer>
+References: <20090506112212.6a4600db@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -12,11 +12,11 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 To: "Stanislaw Gruszka" <sgruszka@redhat.com>,
 	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2357 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1942 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753655AbZEFMHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 May 2009 08:07:50 -0400
-In-Reply-To: <20090506112201.28609620@dhcp-lab-109.englab.brq.redhat.com>
+	id S1753778AbZEFMHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2009 08:07:51 -0400
+In-Reply-To: <20090506112212.6a4600db@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
