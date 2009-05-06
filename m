@@ -1,201 +1,186 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [RFC] slip: Clean up create and destroy
-Date: Thu, 07 May 2009 00:02:51 +0100
-Message-ID: <20090506230204.24979.21110.stgit@t61.ukuu.org.uk>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: [RFC] iproute2/tc caching proposal
+Date: Thu, 7 May 2009 01:03:37 +0300
+Message-ID: <200905070103.37956.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_5kgAKmoTWHtYM0Z"
+To: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:49231 "EHLO
-	t61.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762550AbZEFWDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:03:30 -0400
-Received: from t61.ukuu.org.uk (t61.ukuu.org.uk [127.0.0.1])
-	by t61.ukuu.org.uk (8.14.3/8.14.3) with ESMTP id n46N2pGp025009
-	for <netdev@vger.kernel.org>; Thu, 7 May 2009 00:02:51 +0100
+Received: from hosting.visp.net.lb ([194.146.153.11]:43692 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762600AbZEFWDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:03:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Comments on the approach welcomed - not ready to do anything with yet but want
-to see if folks think this is a good approach to sorting the slip mess out
+--Boundary-00=_5kgAKmoTWHtYM0Z
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
+Since already someone did caching in iproute2, my changes is very trivial, but 
+giving huge improvement in batch performance (30k rules 10minutes vs 30 
+seconds).
 
-From: Alan Cox <alan@linux.intel.com>
+ll_init_map is called in many places in tc, but since tc not changing 
+anything, that can change this map, i think it is enough to call it only at 
+the beginning, after rtnl_open().
 
-The network layer now has a destructor we can hook to clean up the slip
-devices array. That needs us to initiate unregister events in the right
-places which with the current tty layer we can do, and with network
-refcounting is safe to do.
+Only one exclusion - tc monitor, because it is running long time, and things 
+can change over this time, so we call ll_init_map on each received rtnetlink 
+event.
 
-Not-Signed-off-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
----
+Also please check "[RFC] [IPROUTE2] Filter class output by classid", if it is 
+ok. Many people told it is useful patch.
 
- drivers/net/slip.c |   96 ++++++++++++----------------------------------------
- 1 files changed, 23 insertions(+), 73 deletions(-)
+--Boundary-00=_5kgAKmoTWHtYM0Z
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="tc_caching.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="tc_caching.diff"
 
-
-diff --git a/drivers/net/slip.c b/drivers/net/slip.c
-index 5c61d5f..527c2ce 100644
---- a/drivers/net/slip.c
-+++ b/drivers/net/slip.c
-@@ -616,6 +616,14 @@ static void sl_uninit(struct net_device *dev)
- 	sl_free_bufs(sl);
- }
+index 67dd49c..38569ca 100644
+--- a/iproute2/tc/f_route.c
++++ b/iproute2-test1/tc/f_route.c
+@@ -83,7 +83,6 @@ static int route_parse_opt(struct filter_util *qu, char *handle, int argc, char
+ 		} else if (matches(*argv, "fromif") == 0) {
+ 			__u32 id;
+ 			NEXT_ARG();
+-			ll_init_map(&rth);
+ 			if ((id=ll_name_to_index(*argv)) <= 0) {
+ 				fprintf(stderr, "Illegal \"fromif\"\n");
+ 				return -1;
+index 226df4d..d7a9897 100644
+--- a/iproute2/tc/m_mirred.c
++++ b/iproute2-test1/tc/m_mirred.c
+@@ -146,8 +146,6 @@ parse_egress(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, str
  
-+/* Hook the destructor so we can free slip devices at the right point in time */
-+static void sl_free_netdev(struct net_device *dev)
-+{
-+	int i = dev->base_addr;
-+	free_netdev(dev);
-+	slip_devs[i] = NULL;
-+}
-+
- static const struct net_device_ops sl_netdev_ops = {
- 	.ndo_init		= sl_init,
- 	.ndo_uninit	  	= sl_uninit,
-@@ -634,7 +642,7 @@ static const struct net_device_ops sl_netdev_ops = {
- static void sl_setup(struct net_device *dev)
- {
- 	dev->netdev_ops		= &sl_netdev_ops;
--	dev->destructor		= free_netdev;
-+	dev->destructor		= sl_free_netdev;
- 
- 	dev->hard_header_len	= 0;
- 	dev->addr_len		= 0;
-@@ -712,8 +720,6 @@ static void sl_sync(void)
- static struct slip *sl_alloc(dev_t line)
- {
- 	int i;
--	int sel = -1;
--	int score = -1;
- 	struct net_device *dev = NULL;
- 	struct slip       *sl;
- 
-@@ -724,55 +730,7 @@ static struct slip *sl_alloc(dev_t line)
- 		dev = slip_devs[i];
- 		if (dev == NULL)
- 			break;
+ 	if (d[0])  {
+ 		int idx;
+-		ll_init_map(&rth);
 -
--		sl = netdev_priv(dev);
--		if (sl->leased) {
--			if (sl->line != line)
--				continue;
--			if (sl->tty)
--				return NULL;
--
--			/* Clear ESCAPE & ERROR flags */
--			sl->flags &= (1 << SLF_INUSE);
--			return sl;
--		}
--
--		if (sl->tty)
--			continue;
--
--		if (current->pid == sl->pid) {
--			if (sl->line == line && score < 3) {
--				sel = i;
--				score = 3;
--				continue;
--			}
--			if (score < 2) {
--				sel = i;
--				score = 2;
--			}
--			continue;
--		}
--		if (sl->line == line && score < 1) {
--			sel = i;
--			score = 1;
--			continue;
--		}
--		if (score < 0) {
--			sel = i;
--			score = 0;
--		}
--	}
--
--	if (sel >= 0) {
--		i = sel;
--		dev = slip_devs[i];
--		if (score > 1) {
--			sl = netdev_priv(dev);
--			sl->flags &= (1 << SLF_INUSE);
--			return sl;
--		}
+ 		if ((idx = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
+ 			return -1;
+index 8e362d2..0f26ab7 100644
+--- a/iproute2/tc/tc.c
++++ b/iproute2-test1/tc/tc.c
+@@ -235,6 +235,9 @@ static int batch(const char *name)
+ 		return -1;
  	}
--
- 	/* Sorry, too many, all slots in use */
- 	if (i >= slip_maxdev)
- 		return NULL;
-@@ -909,30 +867,13 @@ err_exit:
- }
  
- /*
--
--  FIXME: 1,2 are fixed 3 was never true anyway.
--
--   Let me to blame a bit.
--   1. TTY module calls this funstion on soft interrupt.
--   2. TTY module calls this function WITH MASKED INTERRUPTS!
--   3. TTY module does not notify us about line discipline
--      shutdown,
--
--   Seems, now it is clean. The solution is to consider netdevice and
--   line discipline sides as two independent threads.
--
--   By-product (not desired): sl? does not feel hangups and remains open.
--   It is supposed, that user level program (dip, diald, slattach...)
--   will catch SIGHUP and make the rest of work.
--
--   I see no way to make more with current tty code. --ANK
-- */
--
--/*
-  * Close down a SLIP channel.
-  * This means flushing out any pending queues, and then returning. This
-  * call is serialized against other ldisc functions.
-+ *
-+ * We also use this method fo a hangup event
-  */
++	ll_init_map(&rth);
 +
- static void slip_close(struct tty_struct *tty)
- {
- 	struct slip *sl = tty->disc_data;
-@@ -951,10 +892,16 @@ static void slip_close(struct tty_struct *tty)
- 	del_timer_sync(&sl->keepalive_timer);
- 	del_timer_sync(&sl->outfill_timer);
- #endif
++
+ 	cmdlineno = 0;
+ 	while (getcmdline(&line, &len, stdin) != -1) {
+ 		char *largv[100];
+@@ -299,6 +302,7 @@ int main(int argc, char **argv)
+ 		argc--;	argv++;
+ 	}
+ 
++
+ 	if (do_batching)
+ 		return batch(batchfile);
+ 
+@@ -313,6 +317,8 @@ int main(int argc, char **argv)
+ 		exit(1);
+ 	}
+ 
++	ll_init_map(&rth);
++
+ 	ret = do_cmd(argc-1, argv+1);
+ 	rtnl_close(&rth);
+ 
+index 774497a..917f65c 100644
+--- a/iproute2/tc/tc_class.c
++++ b/iproute2-test1/tc/tc_class.c
+@@ -130,8 +130,6 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
+ 	}
+ 
+ 	if (d[0])  {
+-		ll_init_map(&rth);
 -
--	/* Count references from TTY module */
-+	/* Flush network side */
-+	unregister_netdev(sl->dev);
-+	/* This will complete via sl_free_netdev */
- }
+ 		if ((req.t.tcm_ifindex = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
+ 			return 1;
+@@ -273,8 +271,6 @@ int tc_class_list(int argc, char **argv)
+ 		argc--; argv++;
+ 	}
  
-+static int slip_hangup(struct tty_struct *tty)
-+{
-+	slip_close(tty);
-+	return 0;
-+}
-  /************************************************************************
-   *			STANDARD SLIP ENCAPSULATION		  	 *
-   ************************************************************************/
-@@ -1311,6 +1258,7 @@ static struct tty_ldisc_ops sl_ldisc = {
- 	.name 		= "slip",
- 	.open 		= slip_open,
- 	.close	 	= slip_close,
-+	.hangup	 	= slip_hangup,
- 	.ioctl		= slip_ioctl,
- 	.receive_buf	= slip_receive_buf,
- 	.write_wakeup	= slip_write_wakeup,
-@@ -1384,6 +1332,8 @@ static void __exit slip_exit(void)
- 		}
- 	} while (busy && time_before(jiffies, timeout));
+- 	ll_init_map(&rth);
+-
+ 	if (d[0]) {
+ 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
+index 919c57c..91a1333 100644
+--- a/iproute2/tc/tc_filter.c
++++ b/iproute2-test1/tc/tc_filter.c
+@@ -159,8 +159,6 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
  
-+	/* FIXME: hangup is async so we should wait when doing this second
-+	   phase */
  
- 	for (i = 0; i < slip_maxdev; i++) {
- 		dev = slip_devs[i];
+ 	if (d[0])  {
+- 		ll_init_map(&rth);
+-
+ 		if ((req.t.tcm_ifindex = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
+ 			return 1;
+@@ -326,8 +324,6 @@ int tc_filter_list(int argc, char **argv)
+ 
+ 	t.tcm_info = TC_H_MAKE(prio<<16, protocol);
+ 
+- 	ll_init_map(&rth);
+-
+ 	if (d[0]) {
+ 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
+index bf58744..b2e6ec3 100644
+--- a/iproute2/tc/tc_monitor.c
++++ b/iproute2-test1/tc/tc_monitor.c
+@@ -39,6 +39,8 @@ int accept_tcmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ {
+ 	FILE *fp = (FILE*)arg;
+ 
++	ll_init_map(&rth);
++
+ 	if (n->nlmsg_type == RTM_NEWTFILTER || n->nlmsg_type == RTM_DELTFILTER) {
+ 		print_filter(who, n, arg);
+ 		return 0;
+@@ -98,7 +100,7 @@ int do_tcmonitor(int argc, char **argv)
+ 	if (rtnl_open(&rth, groups) < 0)
+ 		exit(1);
+ 
+-	ll_init_map(&rth);
++	
+ 
+ 	if (rtnl_listen(&rth, accept_tcmsg, (void*)stdout) < 0) {
+ 		rtnl_close(&rth);
+index c7f2988..c86e52c 100644
+--- a/iproute2/tc/tc_qdisc.c
++++ b/iproute2-test1/tc/tc_qdisc.c
+@@ -177,8 +177,6 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
+ 	if (d[0])  {
+ 		int idx;
+ 
+- 		ll_init_map(&rth);
+-
+ 		if ((idx = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
+ 			return 1;
+@@ -308,8 +306,6 @@ int tc_qdisc_list(int argc, char **argv)
+ 		argc--; argv++;
+ 	}
+ 
+- 	ll_init_map(&rth);
+-
+ 	if (d[0]) {
+ 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
 
+--Boundary-00=_5kgAKmoTWHtYM0Z--
