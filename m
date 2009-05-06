@@ -1,21 +1,21 @@
 From: Siemens <hcunningham@rrohio.com>
 Subject: Siemens Winner!!
-Date: Wed, 6 May 2009 12:20:41 -0500
-Message-ID: <7h9gbp$d2qi1k@rrcs-agw-01b.hrndva.rr.com>
+Date: Wed, 6 May 2009 12:20:40 -0500
+Message-ID: <7h9gbp$d2qi12@rrcs-agw-01b.hrndva.rr.com>
 Reply-To: siward333@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: <info@lotto.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:34808 "EHLO
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:34789 "EHLO
 	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752288AbZEFRUl (ORCPT
+	with ESMTP id S1751486AbZEFRUl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 13:20:41 -0400
 Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
           by hrndva-comm-mta02.mail.rr.com with ESMTP
-          id <20090506172041.DIGS14500.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
-          for <netdev@vger.kernel.org>; Wed, 6 May 2009 17:20:41 +0000
+          id <20090506172040.DIGA14500.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          for <netdev@vger.kernel.org>; Wed, 6 May 2009 17:20:40 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
