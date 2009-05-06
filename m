@@ -1,85 +1,96 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH] bnx2: Fix panic in bnx2_poll_work().
-Date: Wed, 6 May 2009 10:23:56 -0700
-Message-ID: <1241630636-21999-1-git-send-email-mchan@broadcom.com>
+From: Vladimir Ivashchenko <hazard@francoudi.com>
+Subject: Re: bond + tc regression ?
+Date: Wed, 06 May 2009 21:45:18 +0300
+Message-ID: <1241635518.13702.37.camel@hazard2.francoudi.com>
+References: <1241538358.27647.9.camel@hazard2.francoudi.com>
+	 <4A0069F3.5030607@cosmosbay.com> <20090505174135.GA29716@francoudi.com>
+	 <4A008A72.6030607@cosmosbay.com> <20090505235008.GA17690@francoudi.com>
+	 <4A0105A8.3060707@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pmjdebruijn@pcode.nl,
-	hnoefer@pironet-ndh.com, "Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4333 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751692AbZEFSPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 May 2009 14:15:25 -0400
+Received: from cerber.thunderworx.net ([217.27.32.18]:2414 "EHLO
+	cerber.thunderworx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759646AbZEFSpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 14:45:20 -0400
+In-Reply-To: <4A0105A8.3060707@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add barrier() to bnx2_get_hw_{tx|rx}_cons() to fix this issue:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=12698
+On Wed, 2009-05-06 at 05:36 +0200, Eric Dumazet wrote:
 
-This issue was reported by multiple i386 users.  Without barrier(),
-the compiled code looks like the following where %eax contains the
-address of the tx_cons or rx_cons in the DMA status block.  The
-status block contents can change between the cmpb and the movzwl
-instruction.  The driver would crash if the value was not 0xff during
-the cmpb instruction, but changed to 0xff during the movzwl
-instruction.
+> Ah, I forgot about one patch that could help your setup too (if using more than one
+> cpu on NIC irqs of course), queued for 2.6.31
 
-6828:	80 38 ff             	cmpb   $0xff,(%eax)
-682b:	0f b7 10             	movzwl (%eax),%edx
+I have tried the patch. Didn't make a noticeable difference. Under 850
+mbps HTB+sfq load, 2.6.29.1, four NICs / two bond ifaces, IRQ balancing,
+the dual-core server has only 25% idle on each CPU.
 
-With the added barrier(), the compiled code now looks correct:
+What's interesting, the same 850mbps load, identical machine, but with
+only two NICs and no bond, HTB+esfq, kernel 2.6.21.2 => 60% CPU idle.
+2.5x overhead.
 
-683d:	0f b7 10             	movzwl (%eax),%edx
-6840:	0f b6 c2             	movzbl %dl,%eax
-6843:	3d ff 00 00 00       	cmp    $0xff,%eax
-
-Thanks to Pascal de Bruijn <pmjdebruijn@pcode.nl> for reporting the
-problem and Holger Noefer <hnoefer@pironet-ndh.com> for patiently
-testing test patches for us.
-
-Also updated version to 2.0.1.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index d478391..b0cb29d 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -54,8 +54,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"2.0.0"
--#define DRV_MODULE_RELDATE	"April 2, 2009"
-+#define DRV_MODULE_VERSION	"2.0.1"
-+#define DRV_MODULE_RELDATE	"May 6, 2009"
- #define FW_MIPS_FILE_06		"bnx2/bnx2-mips-06-4.6.16.fw"
- #define FW_RV2P_FILE_06		"bnx2/bnx2-rv2p-06-4.6.16.fw"
- #define FW_MIPS_FILE_09		"bnx2/bnx2-mips-09-4.6.17.fw"
-@@ -2600,6 +2600,7 @@ bnx2_get_hw_tx_cons(struct bnx2_napi *bnapi)
- 	/* Tell compiler that status block fields can change. */
- 	barrier();
- 	cons = *bnapi->hw_tx_cons_ptr;
-+	barrier();
- 	if (unlikely((cons & MAX_TX_DESC_CNT) == MAX_TX_DESC_CNT))
- 		cons++;
- 	return cons;
-@@ -2879,6 +2880,7 @@ bnx2_get_hw_rx_cons(struct bnx2_napi *bnapi)
- 	/* Tell compiler that status block fields can change. */
- 	barrier();
- 	cons = *bnapi->hw_rx_cons_ptr;
-+	barrier();
- 	if (unlikely((cons & MAX_RX_DESC_CNT) == MAX_RX_DESC_CNT))
- 		cons++;
- 	return cons;
+> (commit 6a321cb370ad3db4ba6e405e638b3a42c41089b0)
+> 
+> You could post oprofile results to help us finding other hot spots.
+> 
+> 
+> [PATCH] net: netif_tx_queue_stopped too expensive
+> 
+> netif_tx_queue_stopped(txq) is most of the time false.
+> 
+> Yet its cost is very expensive on SMP.
+> 
+> static inline int netif_tx_queue_stopped(const struct netdev_queue *dev_queue)
+> {
+> 	return test_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> }
+> 
+> I saw this on oprofile hunting and bnx2 driver bnx2_tx_int().
+> 
+> We probably should split "struct netdev_queue" in two parts, one
+> being read mostly.
+> 
+> __netif_tx_lock() touches _xmit_lock & xmit_lock_owner, these
+> deserve a separate cache line.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> 
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 2e7783f..1caaebb 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -447,12 +447,18 @@ enum netdev_queue_state_t
+>  };
+>  
+>  struct netdev_queue {
+> +/*
+> + * read mostly part
+> + */
+>  	struct net_device	*dev;
+>  	struct Qdisc		*qdisc;
+>  	unsigned long		state;
+> -	spinlock_t		_xmit_lock;
+> -	int			xmit_lock_owner;
+>  	struct Qdisc		*qdisc_sleeping;
+> +/*
+> + * write mostly part
+> + */
+> +	spinlock_t		_xmit_lock ____cacheline_aligned_in_smp;
+> +	int			xmit_lock_owner;
+>  } ____cacheline_aligned_in_smp;
+>  
+> 
 -- 
-1.5.6.GIT
+Best Regards,
+Vladimir Ivashchenko
+Chief Technology Officer
+PrimeTel PLC, Cyprus - www.prime-tel.com
+Tel: +357 25 100100 Fax: +357 2210 2211
 
 
