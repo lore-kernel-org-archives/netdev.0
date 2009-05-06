@@ -1,94 +1,76 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [PATCH] igb: Record hardware RX overruns in
-	net_stats
-Date: Wed, 06 May 2009 10:12:42 +0200
-Message-ID: <1241597562.5172.25.camel@localhost.localdomain>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: [PATCH v2] igb: Record host memory receive overflow in net_stats
+Date: Wed, 06 May 2009 10:56:38 +0200
+Message-ID: <1241600198.5172.36.camel@localhost.localdomain>
 References: <1241435206.8115.104.camel@localhost.localdomain>
-	<9929d2390905051147y71f34e4bu9f63edc1e5a253a2@mail.gmail.com>
-	<20090505.115819.84151021.davem@davemloft.net>
-	<Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
-	<273D38FBE7C6FE46A1689FCD014A0B8B49655903@azsmsx505.amr.corp.intel.com>
+	 <9929d2390905051147y71f34e4bu9f63edc1e5a253a2@mail.gmail.com>
+	 <20090505.115819.84151021.davem@davemloft.net>
+	 <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
+	 <273D38FBE7C6FE46A1689FCD014A0B8B49655903@azsmsx505.amr.corp.intel.com>
+	 <1241597562.5172.25.camel@localhost.localdomain>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>, "Waskiewicz Jr,
-	Peter P" <peter.p.waskiewicz.jr@intel.com>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
-To: "Ronciak, John" <john.ronciak@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <273D38FBE7C6FE46A1689FCD014A0B8B49655903@azsmsx505.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-On Tue, 2009-05-05 at 15:38 -0700, Ronciak, John wrote:
-> >Its really useful for diagnosing problems, and I'm betting 
-> >that this is a real-life situation which people is going to experience. We 
-> >might as well help our self to more easily identify this issue when people 
-> >report drop problems.
->
-> The problem is that the RNBC aren't dropped packets as the numbers you
-> have show.  
-
-Just to make it clear, I am experiencing dropped packets.  The reason I
-positivly know this, is that I'm writing a MPEG2-TS drop detection
-netfilter module.  Which were the only reason I discovered the packet
-drops and the "hidden" RNBC counter via ethtool.
-
-I have read the datasheeet, and with Jeffrey's detailed explaination, I
-do know that this number might be higher than the actually drops I'm
-experiencing.
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: "Ronciak, John" <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:53498 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbZEFI4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 04:56:39 -0400
+In-Reply-To: <1241597562.5172.25.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> While we can agree that the MPC are the actual dropped packets and
-> could eaily be be used in the fifo overflow count since the packets
-> were really dropped.
+The RNBC (Receive No Buffers Count) register for the 82576, indicate
+that frames were received when there were no available buffers in host
+memory to store those frames (receive descriptor head and tail
+pointers were equal).  The packet is still received by the NIC if
+there is space in the FIFO
 
-Well, then I think we should keep MPC as drops, and use the fifo_errors
-as an fifo overflow indication containing RNBC count.
+I have shown that this situation can arise when the kernel is too
+busy else where.
 
+As the the RNBC value is not necessary a packet drop, I choose to
+store the RNBC value in net_stats.rx_fifo_errors.
 
-> > I think that both MPC and RNBC should be stored in rx_fifo_errors
-> > (and of cause still keeping them seperate to ethtool -S).
->
-> This would count RNBC packets as packets that the stack did not
-> process, which it did.  The MPC packets were not processed by the
-> stack and should be counted as dropped.  As you point out, both counts
-> are available via ethtool -S.
-> 
-> >I'll post two patches with these changes tomorrow, for you evaluation.
->
-> Thanks, we look forward to see them.
+Saving the stats in dev->net_stats makes it visible via
+/proc/net/dev as "fifo", and thus viewable to ifconfig
+as "overruns" and 'netstat -i' as "RX-OVR".
 
-I'll keep it to one patch (with an extra comment reflecting this
-disscussion), as you have convinced me that the MPC should stay as
-"rx_missed", as this is presented to userspace as a positive drop.
+The Receive No Buffers Count (RNBC) can already be queried by
+ethtool -S as "rx_no_buffer_count".
 
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+---
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+ drivers/net/igb/igb_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
 
-------------------------------------------------------------------------------
-The NEW KODAK i700 Series Scanners deliver under ANY circumstances! Your
-production scanning environment may not be a perfect world - but thanks to
-Kodak, there's a perfect scanner to get the job done! With the NEW KODAK i700
-Series Scanner you'll get full speed at 300 dpi even with all image 
-processing features enabled. http://p.sf.net/sfu/kodak-com
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 183235d..3ee00a5 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3597,6 +3597,10 @@ void igb_update_stats(struct igb_adapter *adapter)
+ 	adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
+ 	adapter->net_stats.rx_missed_errors = adapter->stats.mpc;
+ 
++	/* Note RNBC (Receive No Buffers Count) is an overflow
++	 * indication, thus not necessary a dropped packet. */
++	adapter->net_stats.rx_fifo_errors = adapter->stats.rnbc;
++
+ 	/* Tx Errors */
+ 	adapter->net_stats.tx_errors = adapter->stats.ecol +
+ 				       adapter->stats.latecol;
+
