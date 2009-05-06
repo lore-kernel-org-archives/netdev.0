@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch next 4/4] netxen: disable rss for GbE ports
-Date: Wed, 06 May 2009 15:37:14 -0700 (PDT)
-Message-ID: <20090506.153714.122287244.davem@davemloft.net>
-References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com>
-	<1241586309-12112-5-git-send-email-dhananjay@netxen.com>
+Subject: Re: [PATCH 0/5] mv643xx_eth updates for 2.6.31
+Date: Wed, 06 May 2009 15:37:39 -0700 (PDT)
+Message-ID: <20090506.153739.57706251.davem@davemloft.net>
+References: <20090506130047.GE24429@mail.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dhananjay@netxen.com
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49887
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49890
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753858AbZEFWhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:37:18 -0400
-In-Reply-To: <1241586309-12112-5-git-send-email-dhananjay@netxen.com>
+	by vger.kernel.org with ESMTP id S1757614AbZEFWhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:37:43 -0400
+In-Reply-To: <20090506130047.GE24429@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Date: Tue,  5 May 2009 22:05:09 -0700
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Wed, 6 May 2009 15:00:47 +0200
 
-> There's no advantage of receive side scaling on GbE ports, so
-> restrict rss support to 10GbE ports.
+> In this series: some more minor cleanups, and adding support for yet
+> another variation of the mv643xx_eth hardware block, one which uses
+> the upper queue interrupt bits for other purposes.
 > 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> The last patch in the series depends on the mv643xx_eth oom fix I
+> sent earlier, but as you pulled net-2.6 into net-next-2.6 just after
+> applying that patch this should apply against net-next-2.6 OK.
 
-This is your opinion.  And even if it is more than opinion,
-you give zero technical arguments in your commit message so
-we can see why this should be done.
-
-Tell that opinion to the person with 10 netxen cards in their
-machine running at full tilt.
-
-Tell that opinion to the person with extremely complicated and
-cpu intensive netfilter and routing rules in use.
-
-I'm not applying this patch.
+All applied, thanks!
