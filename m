@@ -1,54 +1,48 @@
-From: Grant Likely <grant.likely@secretlab.ca>
+From: Wolfgang Denk <wd@denx.de>
 Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
-Date: Wed, 6 May 2009 16:39:25 -0600
-Message-ID: <fa686aa40905061539t4fa463aehe56fdb64d053135d@mail.gmail.com>
-References: <1241640919-4650-1-git-send-email-wd@denx.de> <1241640919-4650-3-git-send-email-wd@denx.de>
-	<4A01F602.2010601@freescale.com> <20090506220954.5D3AF83420E8@gemini.denx.de>
+Date: Thu, 07 May 2009 00:41:34 +0200
+Message-ID: <20090506224134.83F1583420E8@gemini.denx.de>
+References: <1241640919-4650-1-git-send-email-wd@denx.de> <1241640919-4650-3-git-send-email-wd@denx.de> <fa686aa40905061333q29c263c8p24856c048e30f4d0@mail.gmail.com> <20090506220119.7322783420E8@gemini.denx.de> <fa686aa40905061529u11b231afle3b5bb10a2334ad0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Scott Wood <scottwood@freescale.com>,
-	John Rigby <jrigby@gmail.com>, linuxppc-dev@ozlabs.org,
-	Piotr Ziecik <kosmo@semihalf.com>, Detlev Zundel <dzu@denx.de>,
-	netdev@vger.kernel.org
-To: Wolfgang Denk <wd@denx.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linuxppc-dev@ozlabs.org, John Rigby <jrigby@freescale.com>,
+	Piotr Ziecik <kosmo@semihalf.com>, netdev@vger.kernel.org,
+	John Rigby <jcrigby@gmail.com>, Detlev Zundel <dzu@denx.de>
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:58491 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754611AbZEFWjq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:39:46 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so236038ywb.1
-        for <netdev@vger.kernel.org>; Wed, 06 May 2009 15:39:46 -0700 (PDT)
-In-Reply-To: <20090506220954.5D3AF83420E8@gemini.denx.de>
+Received: from mail-out.m-online.net ([212.18.0.10]:35751 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753164AbZEFWlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:41:36 -0400
+In-reply-to: <fa686aa40905061529u11b231afle3b5bb10a2334ad0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 6, 2009 at 4:09 PM, Wolfgang Denk <wd@denx.de> wrote:
-> Dear Scott,
->
-> in message <4A01F602.2010601@freescale.com> you wrote:
->>
->> All of the above is duplicative (with even the same names) of stuff =
-in
->> asm/cpm.h. =A0Beyond just the duplication, what happens if both CPM2=
- and
->
-> OK, I can try to reuse the definitions from that file.
->
->> 512x are enabled in the same kernel?
->
-> Hm... both architectures look sufficiently different to me that I
-> don't see sense in trying such a thing. Do you think that needs to be
-> supported?
+Dear Grant,
 
-Yes!  :-)  It's not hard to do and it keeps the driver cleaner
-(IMNSHO).  I don't think it is quite possible at the moment due to
-cache coherency issues, but with Becky's recently merged dma ops
-changes it should be fixable.
+In message <fa686aa40905061529u11b231afle3b5bb10a2334ad0@mail.gmail.com> you wrote:
+>
+> > Agreed that it's ugly, but duplicatio9ng the code would have been even
+> > worse. I don't think that it has multiplatform - at least not as long
+> > as you don't ask for one image that runs on 83xx and on 512x.
+> 
+> Actually, I *am* asking for one image that runs on 83xx, 52xx and
+> 521x.  I already can and do build and test a single image which boots
+> on all my 52xx boards, on my 8349 board, and on my G4 Mac.
 
-Cheers,
-g.
+He. I was afraid you'd say that ;-)
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+In this case I need a helping hand as I can't figure out how to make
+this work. Any suggestions?
+
+Best regards,
+
+Wolfgang Denk
+
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+"Here's a fish hangs in the net like a poor man's right in  the  law.
+'Twill hardly come out."     - Shakespeare, Pericles, Act II, Scene 1
