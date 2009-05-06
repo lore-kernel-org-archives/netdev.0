@@ -1,43 +1,55 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] net: update skb_recycle_check() for hardware timestamping changes
-Date: Wed, 6 May 2009 13:13:11 +0200
-Message-ID: <20090506111311.GD24429@mail.wantstofly.org>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH 2/3] bnx2x: assure we release PHY lock only when is
+ taken
+Date: Wed, 6 May 2009 15:04:32 +0300
+Message-ID: <1241611472.30581.10.camel@lb-tlvb-eliezer>
+References: <20090506112207.4d3ae9c4@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: patrick.ohly@intel.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Stanislaw Gruszka" <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:53515 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509AbZEFLGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 07:06:30 -0400
-Content-Disposition: inline
+Received: from mms3.broadcom.com ([216.31.210.19]:2358 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752580AbZEFMHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2009 08:07:50 -0400
+In-Reply-To: <20090506112207.4d3ae9c4@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit ac45f602ee3d1b6f326f68bc0c2591ceebf05ba4 ("net: infrastructure
-for hardware time stamping") added two skb initialization actions to
-__alloc_skb(), which need to be added to skb_recycle_check() as well.
+On Wed, 2009-05-06 at 02:22 -0700, Stanislaw Gruszka wrote:
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> ---
+>  drivers/net/bnx2x_main.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index ff2d9f6..5bd42db 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -2585,10 +2585,11 @@ static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
+>  	REG_WR(bp, hc_addr, asserted);
+>  
+>  	/* now set back the mask */
+> -	if (asserted & ATTN_NIG_FOR_FUNC) {
+> -		REG_WR(bp, nig_int_mask_addr, nig_mask);
+> -		bnx2x_release_phy_lock(bp);
+> -	}
+> +	if (asserted & ATTN_HARD_WIRED_MASK)
+> +		if (asserted & ATTN_NIG_FOR_FUNC) {
+Here are the constants values:
+#define ATTN_HARD_WIRED_MASK		0xff00
+#define ATTN_NIG_FOR_FUNC		(1L << 8)
+So as you can see, there is no need for the extra "if".
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-Cc: Patrick Ohly <patrick.ohly@intel.com>
----
- net/core/skbuff.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Thanks for the patch - but we should not apply it.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f091a5a..d152394 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -502,7 +502,9 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	shinfo->gso_segs = 0;
- 	shinfo->gso_type = 0;
- 	shinfo->ip6_frag_id = 0;
-+	shinfo->tx_flags.flags = 0;
- 	shinfo->frag_list = NULL;
-+	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
- 
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	skb->data = skb->head + NET_SKB_PAD;
--- 
-1.5.6.4
+> +			REG_WR(bp, nig_int_mask_addr, nig_mask);
+> +			bnx2x_release_phy_lock(bp);
+> +		}
+>  }
+>  
+>  static inline void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
+
+
