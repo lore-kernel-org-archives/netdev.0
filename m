@@ -1,65 +1,77 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [PATCH] igb: Record hardware RX overruns in net_stats
-Date: Wed, 06 May 2009 09:46:33 +0200
-Message-ID: <1241595993.5172.4.camel@localhost.localdomain>
-References: <20090505.115819.84151021.davem@davemloft.net>
-	 <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
-	 <9929d2390905051432h795d183bh40fbe1beb35a4de9@mail.gmail.com>
-	 <20090505.143529.148721206.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: bond + tc regression ?
+Date: Wed, 6 May 2009 10:03:35 +0200
+Message-ID: <20090506080335.GA8098@elte.hu>
+References: <1241538358.27647.9.camel@hazard2.francoudi.com> <4A0069F3.5030607@cosmosbay.com> <20090505174135.GA29716@francoudi.com> <4A008A72.6030607@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, hawk@diku.dk, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vladimir Ivashchenko <hazard@francoudi.com>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:60300 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753626AbZEFHqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 03:46:34 -0400
-In-Reply-To: <20090505.143529.148721206.davem@davemloft.net>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:33142 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756695AbZEFIDk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2009 04:03:40 -0400
+Content-Disposition: inline
+In-Reply-To: <4A008A72.6030607@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-05-05 at 14:35 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Tue, 5 May 2009 14:32:04 -0700
-> 
-> > the manual[1] for the hardware says:
-> > RNBC:
-> > This register counts the number of times that frames were received
-> > when there were no available buffers in host memory to store those
-> > frames (receive descriptor head and tail pointers were equal). The
-> > packet is still received if there is space in the FIFO. This register
-> > only increments if receives are enabled. This register does not
-> > increment when flow control packets are received.
-> > 
-> > The critical bit "The packet is still received if there is space in
-> > the FIFO" (AND a host memory buffer becomes available) So the reason
-> > we don't want to put it in the net_stats stats for drops is that the
-> > packet
-> > *wasn't* necessarily dropped.
-> > 
-> > The rx_missed errors is for packets that were definitely dropped, and
-> > is already stored in the net_stats structure.
-> 
-> While not an "rx_missed" because we do eventually take the
-> packet, conceptually it is a "fifo overflow" in the sense
-> that we exceeded available receive resources at the time that
-> the packet arrived.
 
-Yes, with this argumentation, the MPC should then be kept as "rx_missed"
-packets.  And the RNBC stored as "rx_fifo_errors" as its an overflow
-indication, not a number of packets dropped.
+* Eric Dumazet <dada1@cosmosbay.com> wrote:
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+> Vladimir Ivashchenko a =E9crit :
+> >>> On both kernels, the system is running with at least 70% idle CPU=
+=2E
+> >>> The network interrupts are distributed accross the cores.
+> >> You should not distribute interrupts, but bound a NIC to one CPU
+> >=20
+> > Kernels 2.6.28 and 2.6.29 do this by default, so I thought its corr=
+ect.
+> > The defaults are wrong?
+>=20
+> Yes they are, at least for forwarding setups.
+>=20
+> >=20
+> > I have tried with IRQs bound to one CPU per NIC. Same result.
+>=20
+> Did you check "grep eth /proc/interrupts" that your affinities setup=20
+> were indeed taken into account ?
+>=20
+> You should use same CPU for eth0 and eth2 (bond0),
+>=20
+> and another CPU for eth1 and eth3 (bond1)
+>=20
+> check how your cpus are setup=20
+>=20
+> egrep 'physical id|core id|processor' /proc/cpuinfo
+>=20
+> Because you might play and find best combo
+>=20
+>=20
+> If you use 2.6.29, apply following patch to get better system account=
+ing,
+> to check if your cpu are saturated or not by hard/soft irqs
+>=20
+> --- linux-2.6.29/kernel/sched.c.orig    2009-05-05 20:46:49.000000000=
+ +0200
+> +++ linux-2.6.29/kernel/sched.c 2009-05-05 20:47:19.000000000 +0200
+> @@ -4290,7 +4290,7 @@
+>=20
+>         if (user_tick)
+>                 account_user_time(p, one_jiffy, one_jiffy_scaled);
+> -       else if (p !=3D rq->idle)
+> +       else if ((p !=3D rq->idle) || (irq_count() !=3D HARDIRQ_OFFSE=
+T))
+>                 account_system_time(p, HARDIRQ_OFFSET, one_jiffy,
+>                                     one_jiffy_scaled);
+>         else
 
+Note, your scheduler fix is upstream now in Linus's tree, as:
+
+  f5f293a: sched: account system time properly
+
+"git cherry-pick f5f293a" will apply it to a .29 basis.
+
+	Ingo
