@@ -1,54 +1,43 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: bond + tc regression ?
-Date: Wed, 6 May 2009 13:49:29 +0300
-Message-ID: <200905061349.29805.denys@visp.net.lb>
-References: <1241538358.27647.9.camel@hazard2.francoudi.com> <20090506102845.GA24920@francoudi.com> <4A016955.6030901@cosmosbay.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] net: update skb_recycle_check() for hardware timestamping changes
+Date: Wed, 6 May 2009 13:13:11 +0200
+Message-ID: <20090506111311.GD24429@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Vladimir Ivashchenko <hazard@francoudi.com>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: patrick.ohly@intel.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:52907 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755955AbZEFKth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 06:49:37 -0400
-In-Reply-To: <4A016955.6030901@cosmosbay.com>
+Received: from xi.wantstofly.org ([80.101.37.227]:53515 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbZEFLGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 07:06:30 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 06 May 2009 13:41:25 Eric Dumazet wrote:
-> You must do for example (to bind on CPU 0)
->
-> echo 1 >/proc/irq/default_smp_affinity
->
-> ifconfig eth1 down
-> # IRQ of eth1 handled by CPU0 only
-> echo 1 >/proc/irq/34/smp_affinity
-> ifconfig eth1 up
->
-> ifconfig eth0 down
-> # IRQ of eth0 handled by CPU0 only
-> echo 1 >/proc/irq/36/smp_affinity
-> ifconfig eth0 up
-I think better to use some method over ethtool, that will cause reset.
-WHen you do down - you will loose default route, beware of that
->
->
-> One thing to consider too is the BIOS option you might have, labeled
-> "Adjacent Sector Prefetch"
->
-> This basically tells your cpu to use 128 bytes cache lines, instead of 64
->
-> In your forwarding worload, I believe this extra prefetch can slowdown your
-> machine.
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Commit ac45f602ee3d1b6f326f68bc0c2591ceebf05ba4 ("net: infrastructure
+for hardware time stamping") added two skb initialization actions to
+__alloc_skb(), which need to be added to skb_recycle_check() as well.
 
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Patrick Ohly <patrick.ohly@intel.com>
+---
+ net/core/skbuff.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f091a5a..d152394 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -502,7 +502,9 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+ 	shinfo->gso_segs = 0;
+ 	shinfo->gso_type = 0;
+ 	shinfo->ip6_frag_id = 0;
++	shinfo->tx_flags.flags = 0;
+ 	shinfo->frag_list = NULL;
++	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
+ 
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
+ 	skb->data = skb->head + NET_SKB_PAD;
+-- 
+1.5.6.4
