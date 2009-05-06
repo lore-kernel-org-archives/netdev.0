@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch next 4/4] netxen: disable rss for GbE ports
-Date: Wed, 06 May 2009 16:31:42 -0700 (PDT)
-Message-ID: <20090506.163142.112368323.davem@davemloft.net>
-References: <1241586309-12112-5-git-send-email-dhananjay@netxen.com>
-	<20090506.153714.122287244.davem@davemloft.net>
-	<4A0217F6.7060005@netxen.com>
+Subject: Re: [RFC] slip: Clean up create and destroy
+Date: Wed, 06 May 2009 16:41:28 -0700 (PDT)
+Message-ID: <20090506.164128.169552937.davem@davemloft.net>
+References: <20090506230204.24979.21110.stgit@t61.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dhananjay@netxen.com
+To: alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47141
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58134
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751431AbZEFXbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 19:31:47 -0400
-In-Reply-To: <4A0217F6.7060005@netxen.com>
+	by vger.kernel.org with ESMTP id S1751692AbZEFXld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 19:41:33 -0400
+In-Reply-To: <20090506230204.24979.21110.stgit@t61.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Date: Wed, 6 May 2009 16:06:30 -0700
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Thu, 07 May 2009 00:02:51 +0100
 
-> The reason for RSS was to distribute the ingress traffic
-> to different CPUs. At 10Gbps, without RSS, one CPU was
-> saturating, acting as bottleneck. I can do 1Gbps with
-> only one CPU only 50% saturated, this to on a low end
-> server.
-> 
-> The fallout is more msix vectors being consumed for RSS,
-> when they don't really bring any performance gain.
-> 
-> Since NetXen has single driver, unlike others, it needs
-> to be dealt based on NIC board type.
+> Comments on the approach welcomed - not ready to do anything with yet but want
+> to see if folks think this is a good approach to sorting the slip mess out
 
-Thanks for ignoring my email.
+Looks great to me.
 
-I'll say it again, maybe you'll listen this time.
-
-If a user has very cpu intensive netfilter or routing
-rules installed, the RSS flow seperation to different
-CPUs can help even at 1GB speeds.
-
-Therefore, your change will introduce performance regressions.
+Tons better than the rickety mess of code that manages that
+array of devices.
