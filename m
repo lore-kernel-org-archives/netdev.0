@@ -1,31 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] mv643xx_eth updates for 2.6.31
-Date: Wed, 06 May 2009 15:37:39 -0700 (PDT)
-Message-ID: <20090506.153739.57706251.davem@davemloft.net>
-References: <20090506130047.GE24429@mail.wantstofly.org>
+Subject: Re: [net-next-2.6 PATCH 1/3] igbvf: cleanup flags and allow for rx
+ checksum to be disabled
+Date: Wed, 06 May 2009 15:38:12 -0700 (PDT)
+Message-ID: <20090506.153812.195151283.davem@davemloft.net>
+References: <20090506202450.17149.18959.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49890
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49894
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757614AbZEFWhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:37:43 -0400
-In-Reply-To: <20090506130047.GE24429@mail.wantstofly.org>
+	by vger.kernel.org with ESMTP id S1760798AbZEFWiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:38:17 -0400
+In-Reply-To: <20090506202450.17149.18959.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Wed, 6 May 2009 15:00:47 +0200
 
-> In this series: some more minor cleanups, and adding support for yet
-> another variation of the mv643xx_eth hardware block, one which uses
-> the upper queue interrupt bits for other purposes.
-> 
-> The last patch in the series depends on the mv643xx_eth oom fix I
-> sent earlier, but as you pulled net-2.6 into net-next-2.6 just after
-> applying that patch this should apply against net-next-2.6 OK.
-
-All applied, thanks!
+All 3 patches applied, thanks.
