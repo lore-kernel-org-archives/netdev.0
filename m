@@ -1,53 +1,65 @@
-From: senthil kumar <invitation@mydailyflog.com>
-Subject: I just uploaded a photo that I want you to see!
-Date: Wed, 6 May 2009 02:43:59 -0500
-Message-ID: <f2a473fc88f6a3443b0cc469ea851f68@www.mydailyflog.com>
-Reply-To: senthil kumar <psenthilkumar.accet@gmail.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: [PATCH] igb: Record hardware RX overruns in net_stats
+Date: Wed, 06 May 2009 09:46:33 +0200
+Message-ID: <1241595993.5172.4.camel@localhost.localdomain>
+References: <20090505.115819.84151021.davem@davemloft.net>
+	 <Pine.LNX.4.64.0905052249110.1294@ask.diku.dk>
+	 <9929d2390905051432h795d183bh40fbe1beb35a4de9@mail.gmail.com>
+	 <20090505.143529.148721206.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, hawk@diku.dk, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.mydailyflog.com ([67.228.245.114]:41300 "EHLO
-	mail3.mydailyflog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753111AbZEFHoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 03:44:03 -0400
-Received: from localhost (127.0.0.1) by mail3.mydailyflog.com (PowerMTA(TM) v3.5r4) id h04vs80k6ms6 for <netdev@vger.kernel.org>; Wed, 6 May 2009 02:43:59 -0500 (envelope-from <invitation@mydailyflog.com>)
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:60300 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753626AbZEFHqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 03:46:34 -0400
+In-Reply-To: <20090505.143529.148721206.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Tue, 2009-05-05 at 14:35 -0700, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue, 5 May 2009 14:32:04 -0700
+> 
+> > the manual[1] for the hardware says:
+> > RNBC:
+> > This register counts the number of times that frames were received
+> > when there were no available buffers in host memory to store those
+> > frames (receive descriptor head and tail pointers were equal). The
+> > packet is still received if there is space in the FIFO. This register
+> > only increments if receives are enabled. This register does not
+> > increment when flow control packets are received.
+> > 
+> > The critical bit "The packet is still received if there is space in
+> > the FIFO" (AND a host memory buffer becomes available) So the reason
+> > we don't want to put it in the net_stats stats for drops is that the
+> > packet
+> > *wasn't* necessarily dropped.
+> > 
+> > The rx_missed errors is for packets that were definitely dropped, and
+> > is already stored in the net_stats structure.
+> 
+> While not an "rx_missed" because we do eventually take the
+> packet, conceptually it is a "fifo overflow" in the sense
+> that we exceeded available receive resources at the time that
+> the packet arrived.
 
-I just uploaded a photo on senthil_linkedin's DailyFlog page that I want you to see.
+Yes, with this argumentation, the MPC should then be kept as "rx_missed"
+packets.  And the RNBC stored as "rx_fifo_errors" as its an overflow
+indication, not a number of packets dropped.
 
-Please come and see: http://www.mydailyflog.com/go/invite_register/senthil_linkedin/36654762
-
-
-Thanks!
-
-senthil kumar
-
-
-========================================
-Got a digital camera?
-
-MyDailyFlog is a personal photo-blogging space where you can easily post
-your latest and greatest photos, and share them with your friends and family.
-
-Create your own DailyFlog at www.MyDailyFlog.com
-
-
-
-
-
-.......................................................................
-Unsubscribe: to opt out of further invitations from your friends to see their DailyFlogs, please click below:
-
-http://www.mydailyflog.com/go/system/euns=netdev@vger.kernel.org&md5=28bc5beff2bc4cc40575a76f5b953909
-
-Please do not reply directly to this email. Questions? Contact us - 
-http://www.mydailyflog.com/go/contact_us
-
-MyDailyFlog, Refriendz Ltd. PO BOX 1184, Luton, Bedfordshire, LU1 9AT.
-
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
