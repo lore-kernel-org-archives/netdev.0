@@ -1,63 +1,76 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [pull 2.6.30 1/2] wimax: fix oops if netlink fails to add attribute
-Date: Wed,  6 May 2009 14:47:22 -0700
-Message-ID: <d1a2627a29667fe7c4a9d06e1579a2d65bd39bba.1241646234.git.inaky@linux.intel.com>
+Subject: [pull 2.6.30 2/2] wimax: oops: wimax_dev_add() is the only one that can initialize the state
+Date: Wed,  6 May 2009 14:47:23 -0700
+Message-ID: <94c7f2d49521b0bb3ab91cbeb3518ac34355d47f.1241646234.git.inaky@linux.intel.com>
 References: <cover.1241646234.git.inaky@linux.intel.com>
+ <d1a2627a29667fe7c4a9d06e1579a2d65bd39bba.1241646234.git.inaky@linux.intel.com>
 Cc: netdev@vger.kernel.org
 To: wimax@linuxwimax.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <cover.1241646234.git.inaky@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.89]:24427 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756378AbZEFVrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 17:47:45 -0400
+In-Reply-To: <d1a2627a29667fe7c4a9d06e1579a2d65bd39bba.1241646234.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1241646234.git.inaky@linux.intel.com>
 References: <cover.1241646234.git.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When sending a message to user space using wimax_msg(), if nla_put()
-fails, correctly interpret the return code from wimax_msg_alloc() as
-an err ptr and return the error code instead of crashing (as it is
-assuming than non-NULL means the pointer is ok).
+When a new wimax_dev is created, it's state has to be __WIMAX_ST_NULL
+until wimax_dev_add() is succesfully called. This allows calls into
+the stack that happen before said time to be rejected.
+
+Until now, the state was being set (by mistake) to UNINITIALIZED,
+which was allowing calls such as wimax_report_rfkill_hw() to go
+through even when a call to wimax_dev_add() had failed; that was
+causing an oops when touching uninitialized data.
+
+This situation is normal when the device starts reporting state before
+the whole initialization has been completed. It just has to be dealt
+with.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- net/wimax/op-msg.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
+ net/wimax/stack.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/net/wimax/op-msg.c b/net/wimax/op-msg.c
-index 5d149c1..9ad4d89 100644
---- a/net/wimax/op-msg.c
-+++ b/net/wimax/op-msg.c
-@@ -149,7 +149,8 @@ struct sk_buff *wimax_msg_alloc(struct wimax_dev *wimax_dev,
- 	}
- 	result = nla_put(skb, WIMAX_GNL_MSG_DATA, size, msg);
- 	if (result < 0) {
--		dev_err(dev, "no memory to add payload in attribute\n");
-+		dev_err(dev, "no memory to add payload (msg %p size %zu) in "
-+			"attribute: %d\n", msg, size, result);
- 		goto error_nla_put;
- 	}
- 	genlmsg_end(skb, genl_msg);
-@@ -299,10 +300,10 @@ int wimax_msg(struct wimax_dev *wimax_dev, const char *pipe_name,
- 	struct sk_buff *skb;
- 
- 	skb = wimax_msg_alloc(wimax_dev, pipe_name, buf, size, gfp_flags);
--	if (skb == NULL)
--		goto error_msg_new;
--	result = wimax_msg_send(wimax_dev, skb);
--error_msg_new:
-+	if (IS_ERR(skb))
-+		result = PTR_ERR(skb);
-+	else
-+		result = wimax_msg_send(wimax_dev, skb);
- 	return result;
+diff --git a/net/wimax/stack.c b/net/wimax/stack.c
+index a0ee76b..933e142 100644
+--- a/net/wimax/stack.c
++++ b/net/wimax/stack.c
+@@ -338,8 +338,21 @@ out:
+  */
+ void wimax_state_change(struct wimax_dev *wimax_dev, enum wimax_st new_state)
+ {
++	/*
++	 * A driver cannot take the wimax_dev out of the
++	 * __WIMAX_ST_NULL state unless by calling wimax_dev_add(). If
++	 * the wimax_dev's state is still NULL, we ignore any request
++	 * to change its state because it means it hasn't been yet
++	 * registered.
++	 *
++	 * There is no need to complain about it, as routines that
++	 * call this might be shared from different code paths that
++	 * are called before or after wimax_dev_add() has done its
++	 * job.
++	 */
+ 	mutex_lock(&wimax_dev->mutex);
+-	__wimax_state_change(wimax_dev, new_state);
++	if (wimax_dev->state > __WIMAX_ST_NULL)
++		__wimax_state_change(wimax_dev, new_state);
+ 	mutex_unlock(&wimax_dev->mutex);
+ 	return;
  }
- EXPORT_SYMBOL_GPL(wimax_msg);
+@@ -376,7 +389,7 @@ EXPORT_SYMBOL_GPL(wimax_state_get);
+ void wimax_dev_init(struct wimax_dev *wimax_dev)
+ {
+ 	INIT_LIST_HEAD(&wimax_dev->id_table_node);
+-	__wimax_state_set(wimax_dev, WIMAX_ST_UNINITIALIZED);
++	__wimax_state_set(wimax_dev, __WIMAX_ST_NULL);
+ 	mutex_init(&wimax_dev->mutex);
+ 	mutex_init(&wimax_dev->mutex_reset);
+ }
 -- 
 1.6.2.3
+
