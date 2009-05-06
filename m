@@ -1,57 +1,41 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: bond + tc regression ?
-Date: Thu, 7 May 2009 00:46:27 +0300
-Message-ID: <200905070046.27551.denys@visp.net.lb>
-References: <1241538358.27647.9.camel@hazard2.francoudi.com> <200905062230.04594.denys@visp.net.lb> <20090506204759.GA16681@francoudi.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [pull 2.6.30 0/2] WiMAX fixes for 2.6.30
+Date: Wed,  6 May 2009 14:47:21 -0700
+Message-ID: <cover.1241646234.git.inaky@linux.intel.com>
 Cc: netdev@vger.kernel.org
-To: Vladimir Ivashchenko <hazard@francoudi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:42765 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756446AbZEFVqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 17:46:33 -0400
-In-Reply-To: <20090506204759.GA16681@francoudi.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: wimax@linuxwimax.org
+Return-path: <wimax-bounces@linuxwimax.org>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 06 May 2009 23:47:59 Vladimir Ivashchenko wrote:
-> On Wed, May 06, 2009 at 10:30:04PM +0300, Denys Fedoryschenko wrote:
-> > > What's interesting, the same 850mbps load, identical machine, but with
-> > > only two NICs and no bond, HTB+esfq, kernel 2.6.21.2 => 60% CPU idle.
-> > > 2.5x overhead.
-> >
-> > Probably oprofile can sched some light on this.
-> > On my own experience IRQ balancing hurt performance a lot, because of
-> > cache misses.
->
-> This is a dual-core machine, isn't cache shared between the cores?
->
-> Without IRQ balancing, one of the cores goes around 10% idle and HTB
-> doesn't do its job properly. Actually, in my experience HTB stops working
-> properly after idle goes below 35%.
-It seems they should. No idea, more experienced guys should know more.
+These fix a couple of oopsen found in the WiMAX stack. They are
+available as a pull and patches are included for revieweing
+convenience.
 
-Can you show me please
-cat /proc/net/psched
-If it is highres working, try to add in HTB script, first line
+Thank you,
 
-HZ=1000
-to set environment variable. Because if clock resolution high, burst 
-calculation going crazy on high speeds.
-Maybe it will help.
+--
 
-Also without irq balance, did you try to assign interface to cpu by 
-smp_affinity? (/proc/irq/NN/smp_affinity)
+The following changes since commit 356d6c2d55b71303a17910ea2cce3eba8e44bd29:
+  David S. Miller (1):
+        Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
 
-And still i think best thing is oprofile. It can show "hot" places in code, 
-who is spending cpu cycles.
+are available in the git repository at:
 
->
-> I'll try gathering some stats using oprofile.
+  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.30.y
 
+Inaky Perez-Gonzalez (2):
+      wimax: fix oops if netlink fails to add attribute
+      wimax: oops: wimax_dev_add() is the only one that can initialize the state
 
+ net/wimax/op-msg.c |   11 ++++++-----
+ net/wimax/stack.c  |   17 +++++++++++++++--
+ 2 files changed, 21 insertions(+), 7 deletions(-)
