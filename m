@@ -1,55 +1,201 @@
-From: Wolfgang Denk <wd@denx.de>
-Subject: Re: [PATCH 01/12] fs_enet: Use defines to set driver tunables.
-Date: Thu, 07 May 2009 00:02:25 +0200
-Message-ID: <20090506220225.A013583420E8@gemini.denx.de>
-References: <1241640919-4650-1-git-send-email-wd@denx.de>
-	<1241640919-4650-2-git-send-email-wd@denx.de>
-	<fa686aa40905061335q3a3c4cc7r33d77df655100531@mail.gmail.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [RFC] slip: Clean up create and destroy
+Date: Thu, 07 May 2009 00:02:51 +0100
+Message-ID: <20090506230204.24979.21110.stgit@t61.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Piotr Ziecik <kosmo@semihalf.com>,
-	Detlev Zundel <dzu@denx.de>, netdev@vger.kernel.org
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-reply-to: <fa686aa40905061335q3a3c4cc7r33d77df655100531@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:49231 "EHLO
+	t61.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1762550AbZEFWDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 18:03:30 -0400
+Received: from t61.ukuu.org.uk (t61.ukuu.org.uk [127.0.0.1])
+	by t61.ukuu.org.uk (8.14.3/8.14.3) with ESMTP id n46N2pGp025009
+	for <netdev@vger.kernel.org>; Thu, 7 May 2009 00:02:51 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Grant,
+Comments on the approach welcomed - not ready to do anything with yet but want
+to see if folks think this is a good approach to sorting the slip mess out
 
-In message <fa686aa40905061335q3a3c4cc7r33d77df655100531@mail.gmail.com> you wrote:
-> On Wed, May 6, 2009 at 2:15 PM, Wolfgang Denk <wd@denx.de> wrote:
-> > From: Piotr Ziecik <kosmo@semihalf.com>
-> >
-> > Signed-off-by: Piotr Ziecik <kosmo@semihalf.com>
-> > Signed-off-by: Wolfgang Denk <wd@denx.de>
-> > Cc: <netdev@vger.kernel.org>
-> > Cc: Grant Likely <grant.likely@secretlab.ca>
-> > Cc: John Rigby <jcrigby@gmail.com>
-> 
-> Not seeing much benefit to this patch, and the (non-existant) patch
-> description doesn't really help me here either.
 
-Please see next patch which then uses the ability to change the
-defaults.
+From: Alan Cox <alan@linux.intel.com>
 
-Best regards,
+The network layer now has a destructor we can hook to clean up the slip
+devices array. That needs us to initiate unregister events in the right
+places which with the current tty layer we can do, and with network
+refcounting is safe to do.
 
-Wolfgang Denk
+Not-Signed-off-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
+---
 
--- 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
-Program maintenance is an entropy-increasing process,  and  even  its
-most skilfull execution only delays the subsidence of the system into
-unfixable obsolescence.       - Fred Brooks, "The Mythical Man Month"
+ drivers/net/slip.c |   96 ++++++++++++----------------------------------------
+ 1 files changed, 23 insertions(+), 73 deletions(-)
+
+
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+index 5c61d5f..527c2ce 100644
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -616,6 +616,14 @@ static void sl_uninit(struct net_device *dev)
+ 	sl_free_bufs(sl);
+ }
+ 
++/* Hook the destructor so we can free slip devices at the right point in time */
++static void sl_free_netdev(struct net_device *dev)
++{
++	int i = dev->base_addr;
++	free_netdev(dev);
++	slip_devs[i] = NULL;
++}
++
+ static const struct net_device_ops sl_netdev_ops = {
+ 	.ndo_init		= sl_init,
+ 	.ndo_uninit	  	= sl_uninit,
+@@ -634,7 +642,7 @@ static const struct net_device_ops sl_netdev_ops = {
+ static void sl_setup(struct net_device *dev)
+ {
+ 	dev->netdev_ops		= &sl_netdev_ops;
+-	dev->destructor		= free_netdev;
++	dev->destructor		= sl_free_netdev;
+ 
+ 	dev->hard_header_len	= 0;
+ 	dev->addr_len		= 0;
+@@ -712,8 +720,6 @@ static void sl_sync(void)
+ static struct slip *sl_alloc(dev_t line)
+ {
+ 	int i;
+-	int sel = -1;
+-	int score = -1;
+ 	struct net_device *dev = NULL;
+ 	struct slip       *sl;
+ 
+@@ -724,55 +730,7 @@ static struct slip *sl_alloc(dev_t line)
+ 		dev = slip_devs[i];
+ 		if (dev == NULL)
+ 			break;
+-
+-		sl = netdev_priv(dev);
+-		if (sl->leased) {
+-			if (sl->line != line)
+-				continue;
+-			if (sl->tty)
+-				return NULL;
+-
+-			/* Clear ESCAPE & ERROR flags */
+-			sl->flags &= (1 << SLF_INUSE);
+-			return sl;
+-		}
+-
+-		if (sl->tty)
+-			continue;
+-
+-		if (current->pid == sl->pid) {
+-			if (sl->line == line && score < 3) {
+-				sel = i;
+-				score = 3;
+-				continue;
+-			}
+-			if (score < 2) {
+-				sel = i;
+-				score = 2;
+-			}
+-			continue;
+-		}
+-		if (sl->line == line && score < 1) {
+-			sel = i;
+-			score = 1;
+-			continue;
+-		}
+-		if (score < 0) {
+-			sel = i;
+-			score = 0;
+-		}
+-	}
+-
+-	if (sel >= 0) {
+-		i = sel;
+-		dev = slip_devs[i];
+-		if (score > 1) {
+-			sl = netdev_priv(dev);
+-			sl->flags &= (1 << SLF_INUSE);
+-			return sl;
+-		}
+ 	}
+-
+ 	/* Sorry, too many, all slots in use */
+ 	if (i >= slip_maxdev)
+ 		return NULL;
+@@ -909,30 +867,13 @@ err_exit:
+ }
+ 
+ /*
+-
+-  FIXME: 1,2 are fixed 3 was never true anyway.
+-
+-   Let me to blame a bit.
+-   1. TTY module calls this funstion on soft interrupt.
+-   2. TTY module calls this function WITH MASKED INTERRUPTS!
+-   3. TTY module does not notify us about line discipline
+-      shutdown,
+-
+-   Seems, now it is clean. The solution is to consider netdevice and
+-   line discipline sides as two independent threads.
+-
+-   By-product (not desired): sl? does not feel hangups and remains open.
+-   It is supposed, that user level program (dip, diald, slattach...)
+-   will catch SIGHUP and make the rest of work.
+-
+-   I see no way to make more with current tty code. --ANK
+- */
+-
+-/*
+  * Close down a SLIP channel.
+  * This means flushing out any pending queues, and then returning. This
+  * call is serialized against other ldisc functions.
++ *
++ * We also use this method fo a hangup event
+  */
++
+ static void slip_close(struct tty_struct *tty)
+ {
+ 	struct slip *sl = tty->disc_data;
+@@ -951,10 +892,16 @@ static void slip_close(struct tty_struct *tty)
+ 	del_timer_sync(&sl->keepalive_timer);
+ 	del_timer_sync(&sl->outfill_timer);
+ #endif
+-
+-	/* Count references from TTY module */
++	/* Flush network side */
++	unregister_netdev(sl->dev);
++	/* This will complete via sl_free_netdev */
+ }
+ 
++static int slip_hangup(struct tty_struct *tty)
++{
++	slip_close(tty);
++	return 0;
++}
+  /************************************************************************
+   *			STANDARD SLIP ENCAPSULATION		  	 *
+   ************************************************************************/
+@@ -1311,6 +1258,7 @@ static struct tty_ldisc_ops sl_ldisc = {
+ 	.name 		= "slip",
+ 	.open 		= slip_open,
+ 	.close	 	= slip_close,
++	.hangup	 	= slip_hangup,
+ 	.ioctl		= slip_ioctl,
+ 	.receive_buf	= slip_receive_buf,
+ 	.write_wakeup	= slip_write_wakeup,
+@@ -1384,6 +1332,8 @@ static void __exit slip_exit(void)
+ 		}
+ 	} while (busy && time_before(jiffies, timeout));
+ 
++	/* FIXME: hangup is async so we should wait when doing this second
++	   phase */
+ 
+ 	for (i = 0; i < slip_maxdev; i++) {
+ 		dev = slip_devs[i];
+
