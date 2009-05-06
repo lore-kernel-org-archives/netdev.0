@@ -1,45 +1,84 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Wed, 6 May 2009 09:38:05 +0000
-Message-ID: <20090506093805.GA6071@ff.dom.local>
-References: <1241559489.5921.13.camel@bender> <20090506070710.GB4571@ff.dom.local>
+From: Vladimir Ivashchenko <hazard@francoudi.com>
+Subject: Re: bond + tc regression ?
+Date: Wed, 6 May 2009 13:28:45 +0300
+Message-ID: <20090506102845.GA24920@francoudi.com>
+References: <1241538358.27647.9.camel@hazard2.francoudi.com> <4A0069F3.5030607@cosmosbay.com> <20090505174135.GA29716@francoudi.com> <4A008A72.6030607@cosmosbay.com> <20090505235008.GA17690@francoudi.com> <4A0105A8.3060707@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Christoph Lameter <cl@linux.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>
-To: Johann Baudy <johann.baudy@gnu-log.net>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.171]:50423 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757858AbZEFJiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 05:38:14 -0400
-Received: by wf-out-1314.google.com with SMTP id 26so4376723wfd.4
-        for <netdev@vger.kernel.org>; Wed, 06 May 2009 02:38:15 -0700 (PDT)
+Received: from cerber.thunderworx.net ([217.27.32.18]:4518 "EHLO
+	cerber.thunderworx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889AbZEFK2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 06:28:47 -0400
 Content-Disposition: inline
-In-Reply-To: <20090506070710.GB4571@ff.dom.local>
+In-Reply-To: <4A0105A8.3060707@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 06, 2009 at 07:07:10AM +0000, Jarek Poplawski wrote:
-> On 05-05-2009 23:38, Johann Baudy wrote:
-> > From: Johann Baudy <johann.baudy@gnu-log.net>
+On Wed, May 06, 2009 at 05:36:08AM +0200, Eric Dumazet wrote:
+
+> > Is there any way at least to balance individual NICs on per core basis?
 > > 
-> > New packet socket feature that makes packet socket more efficient for transmission.
-> > - It reduces number of system call through a PACKET_TX_RING mechanism, based on PACKET_RX_RING (Circular buffer allocated in kernel space which is mmapped from user space).
-> > - It minimizes CPU copy using fragmented SKB (almost zero copy).
-> > 
-> > Signed-off-by: Johann Baudy <johann.baudy@gnu-log.net>
-> > 
-> > --
-> > Update:
 > 
-> FYI, this patch is malformed by your mta.
+> Problem of this setup is you have four NICS, but two logical devices (bond0
+> & bond1) and a central HTB thing. This essentialy makes flows go through the same
+> locks (some rwlocks guarding bonding driver, and others guarding HTB structures).
+> 
+> Also when a cpu receives a frame on ethX, it has to forward it on ethY, and
+> another lock guards access to TX queue of ethY device. If another cpus receives
+> a frame on ethZ and want to forward it to ethY device, this other cpu will
+> need same locks and everything slowdown.
+> 
+> I am pretty sure you could get good results choosing two cpus sharing same L2
+> cache. L2 on your cpu is 6MB. Another point would be to carefuly choose size
+> of RX rings on ethX devices. You could try to *reduce* them so that number
+> of inflight skb is small enough that everything fits in this 6MB cache.
+> 
+> Problem is not really CPU power, but RAM bandwidth. Having two cores instead of one
+> attached to one central memory bank wont increase ram bandwidth, but reduce it.
 
-After some discussion on private I admit I might be wrong about it
-(since I didn't get this message directly from netdev@), then sorry
-for disturbing.
+Thanks for the detailed explanation.
 
-Jarek P.
+On the particular server I reported, I worked around the problem by getting rid of classes 
+and switching to ingress policers.
+
+However, I have one central box doing HTB, small amount of classes, but 850 mbps of
+traffic. The CPU is dual-core 5160 @ 3 Ghz. With 2.6.29 + bond I'm experiencing strange problems 
+with HTB, under high load borrowing doesn't seem to work properly. This box has two 
+BNX2 and two E1000 NICs, and for some reason I cannot force BNX2 to sit on a single IRQ -
+even though I put only one CPU into smp_affinity, it keeps balancing on both. So I cannot
+figure out if its related to IRQ balancing or not.
+
+[root@tshape3 tshaper]# cat /proc/irq/63/smp_affinity
+01
+[root@tshape3 tshaper]# cat /proc/interrupts | grep eth0
+ 63:   44610754   95469129   PCI-MSI-edge      eth0
+[root@tshape3 tshaper]# cat /proc/interrupts | grep eth0
+ 63:   44614125   95472512   PCI-MSI-edge      eth0
+
+lspci -v:
+
+03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+        Subsystem: Hewlett-Packard Company NC373i Integrated Multifunction Gigabit Server Adapter
+        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 63
+        Memory at f8000000 (64-bit, non-prefetchable) [size=32M]
+        [virtual] Expansion ROM at 88200000 [disabled] [size=2K]
+        Capabilities: [40] PCI-X non-bridge device
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data <?>
+        Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable+
+        Kernel driver in use: bnx2
+        Kernel modules: bnx2
+
+
+Any ideas on how to force it on a single CPU ?
+
+Thanks for the new patch, I will try it and let you know.
+
+-- 
+Best Regards
+Vladimir Ivashchenko
+Chief Technology Officer
+PrimeTel, Cyprus - www.prime-tel.com
