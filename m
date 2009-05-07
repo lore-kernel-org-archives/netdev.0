@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc911x: fix calculation of res_size for ioremap
-Date: Thu, 07 May 2009 15:00:18 -0700 (PDT)
-Message-ID: <20090507.150018.39533415.davem@davemloft.net>
-References: <1241613956-7940-1-git-send-email-mludwig@ultratronik.de>
-	<OF9818CA9E.B06011AE-ON802575AF.00354281-802575AF.00358C0A@smsc.com>
+Subject: Re: via velocity trivial patch
+Date: Thu, 07 May 2009 15:02:13 -0700 (PDT)
+Message-ID: <20090507.150213.192379856.davem@davemloft.net>
+References: <49F1A05A.8070802@podgorny.cz>
+	<4A01FBF6.1090001@podgorny.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mludwig@ultratronik.de, netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+Cc: netdev@vger.kernel.org
+To: radek@podgorny.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53507
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53510
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752188AbZEGWAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 18:00:22 -0400
-In-Reply-To: <OF9818CA9E.B06011AE-ON802575AF.00354281-802575AF.00358C0A@smsc.com>
+	by vger.kernel.org with ESMTP id S1754502AbZEGWCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 18:02:18 -0400
+In-Reply-To: <4A01FBF6.1090001@podgorny.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve.Glendinning@smsc.com
-Date: Thu, 7 May 2009 10:45:05 +0100
+From: Radek Podgorny <radek@podgorny.cz>
+Date: Wed, 06 May 2009 23:07:02 +0200
 
-> Matthias Ludwig <mludwig@ultratronik.de> wrote on 06/05/2009 13:45:56:
-> 
->> fix size of remaped iomem, which is 1 byte to small
->> (e.g. mappes only 0xff bytes instead of 0x100)
-> 
-> *shrug* - I guess we should fix this for correctness but the highest
-> register offset in the device is 0xb4 so this shouldn't cause any
-> actual problems.
-> 
->> Signed-off-by: Matthias Ludwig <mludwig@ultratronik.de>
-> 
-> Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
+> I've sent the following mail to Francois Romieu <romieu@fr.zoreil.com>
+> but did not get any reply. So I'm sending directly here. It's a trivial
+> patch for via-velocity driver.
 
-Applied to net-next-2.6
+"some garbage"...
+
+Why would the interrupt status register give us all 1's
+if it is properly initialized?  I should report a zero,
+rather than "some garbage".
+
+You also failed to provide a proper sign-off as described
+in Documentation/SubmittingPatches
