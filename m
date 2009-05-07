@@ -1,93 +1,72 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 4/4] bnx2i: Add bnx2i iSCSI driver.
-Date: Thu, 7 May 2009 10:03:44 -0700
-Message-ID: <1241715824.9177.8.camel@HP1>
-References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
- <1241208039-6813-5-git-send-email-mchan@broadcom.com>
- <4A01BF6A.90707@cs.wisc.edu>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: Strange Application bug, race in MSG_PEEK complaints (was: Bug#513695: fetchmail: race in MSG_PEEK)
+Date: Thu, 7 May 2009 19:16:56 +0200
+Message-ID: <200905071916.57903.elendil@planet.nl>
+References: <200902262310.12791.elendil@planet.nl> <20090506230240.GA10373@merlin.emma.line.org> <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"Karen Xie" <kxie@chelsio.com>,
-	"Jayamohan Kalickal" <jayamohank@serverengines.com>
-To: "Mike Christie" <michaelc@cs.wisc.edu>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matthias Andree <matthias.andree@gmx.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?utf-8?q?J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2349 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752223AbZEGRJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2009 13:09:50 -0400
-In-Reply-To: <4A01BF6A.90707@cs.wisc.edu>
+Received: from cpsmtpm-eml103.kpnxchange.com ([195.121.3.7]:58282 "EHLO
+	CPSMTPM-EML103.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753399AbZEGRQ7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 13:16:59 -0400
+In-Reply-To: <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thursday 07 May 2009, Ilpo J=C3=A4rvinen wrote:
+> On Thu, 7 May 2009, Matthias Andree wrote:
+> > I've applied the following patch to net/ipv4/tcp.c for the kernel
+> > running on my server (2.6.29-rc8):
+> > @@ -1499,8 +1499,9 @@ do_prequeue:
+> >    		}
+> >    		if ((flags & MSG_PEEK) && peek_seq !=3D tp->copied_seq) {
+> >    			if (net_ratelimit())
+> > -				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PE=
+EK.\n",
+> > -				       current->comm, task_pid_nr(current));
+> > +				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PE=
+EK: %x, %x.\n",
+> > +				       current->comm, task_pid_nr(current)),
+> > +				       peek_seq, tp->copied_seq;
+>
+> I cannot resist myself from noting that this certainly wasn't the pat=
+ch
+> one got those printks below... It might happily compile though :-).
 
-On Wed, 2009-05-06 at 09:48 -0700, Mike Christie wrote:
-> > +
-> > +/**
-> > + * bnx2i_nl_mesg_recv -
-> > + * @buf:	pointer to buffer containing vendor specific message
-> > + * @buf:	buffer length
-> > + *
-> > + */
-> > +static int bnx2i_nl_mesg_recv(struct Scsi_Host *shost, uint16_t priv_op,
-> > +			      int status, char *buf, int buflen)
-> > +{
-> > +	struct bnx2i_hba *hba = iscsi_host_priv(shost);
-> > +
-> > +	switch (priv_op) {
-> > +	case NX2_UIO_UEVENT_NEIGH_LOOKUP:
-> > +	default:
-> > +		/* handle by cnic driver */
-> > +		hba->cnic->nl_priv_msg_recv(hba->cnic, priv_op, buf, buflen);
-> > +		break;
-> > +	}
-> > +
-> > +	return buflen;
-> > +}
-> 
-> I think I was wrong with one of the comments I gave you.
-> 
-> It seems like we have two iscsi net config models.
-> 
-> 1. qla4xxx and Server Engines type of setup where the driver just tells 
-> the card to use some ip or do dhcp and some other net settings and it 
-> does all the net magic. The iscsi driver does not have to worry about 
-> anything like the dhcp process or arp. It only passes down the setup values.
-> 
-> 2. cxgb3i and bnx2i type of model where kernel or userspace code is 
-> needed to execute many net operations.
-> - Right now, cxgb3i sort of cheated :) and only supports static IPs. It 
-> currently uses the iscsi set param interface to do this.
-> 
-> - bnx2i wants to add more complicated features and is going to do them 
-> in userspace. It us using the private messages that were added in the 
-> previous patch.
-> 
-> 
-> I think cxgb3i is one day going to want to support the same features 
-> bnx2i does. If that is right, then should we just make the NX2_UIO 
-> events common iscsi events, and hook cxb3i in? It would not use the 
-> iscsi set param interface at all and would work just like bnx2i. Is that 
-> possible? What about future drivers? Are done making iscsi cards and 
-> drivers. If so, thank goodness :)  If not then maybe we want to consider 
-> some future driver using the #2 module and possibly using this.
-> 
-> If cxgb3i is really only going to support static ip setup and we think 
-> that bnx2i is going to be unique on how it sets up the network then I 
-> NX2_UIO private events are fine. Or is this a case of we are thinking 
-> that iscsi hardware people are creating crazy interfaces so there is no 
-> why to predict what they are going to do so there is no point in trying 
-> to design for them.
+Can you please elaborate why you think that? It may be horribly broken
+(I've never claimed to be a C coder, and probably never will), but it
+also really is the patch that generates the printks...
 
-If there is any possibility that cxgb3i will use something similar to
-bnx2i, I think we can change the message to a standard one and make the
-message structure somewhat more generic.  We'll probably still need a
-private area in the message for hardware or vendor specific information.
+> >    			peek_seq =3D tp->copied_seq;
+> >    		}
+> >    		continue;
+> >
+> > So, the values you see at the end of the warning are peek_seq and
+> > tp->copied_seq. This gives messages like:
+> > kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 156=
+233, 16a.
+> > kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 712=
+59ac8, 5b4.
+> > kernel: TCP(fetchmail:31216): Application bug, race in MSG_PEEK: 83=
+3fe5, c0.
 
+[...]
 
+> What would you think about the following, untested patch... I suppose
+> it is enough to capture the racy situations except with that crazy ur=
+g
+> hole, grr (I suppose that will need just another variable to do the
+> offset of one).
+
+I'll give your patch a try and report back.
+
+Thanks,
+=46JP
