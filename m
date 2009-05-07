@@ -1,99 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/5] ixgbe: fix failing to log fan failures
-Date: Thu, 07 May 2009 13:39:54 -0700
-Message-ID: <20090507203954.19886.71138.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 5/5] ixgbe: Typecase '1' for 64 bit shift
+Date: Thu, 07 May 2009 13:40:15 -0700
+Message-ID: <20090507204015.19886.92292.stgit@localhost.localdomain>
 References: <20090507203854.19886.54737.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:53170
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762821AbZEGUkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 16:40:14 -0400
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:49260 "EHLO
+	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761256AbZEGUkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 16:40:33 -0400
 In-Reply-To: <20090507203854.19886.54737.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Nelson, Shannon <shannon.nelson@intel.com>
 
-We weren't logging the 82598AT fan failure if it occurred before (ixgbe_open)
-as we hadn't sent up to catch the interrupt that event caused.
+Make sure we don't get any sign-extend issues when we shift a 1
+into bit 31.
 
-This patch checks for this failure in:
-ixgbe_probe - So we can log the failure asap. We check right after we
-set up the adapter->flags, which is when we know that we have a fan.
-ixgbe_up_complete - To catch failures that may have happened between probe
-and when we set up the interrupt that would normally detect the fan failure.
-
-To enable all of this we need to initialize the adapter flag with
-IXGBE_FLAG_FAN_FAIL_CAPABLE when the NIC contained a fan.
-
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   28 ++++++++++++++++++++++++++--
- 1 files changed, 26 insertions(+), 2 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 01d8b6b..4a316e9 100644
+index 4a316e9..efb175b 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2458,6 +2458,17 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 	ixgbe_irq_enable(adapter);
+@@ -1307,7 +1307,7 @@ static inline void map_vector_to_rxq(struct ixgbe_adapter *a, int v_idx,
  
- 	/*
-+	 * If this adapter has a fan, check to see if we had a failure
-+	 * before we enabled the interrupt.
-+	 */
-+	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE) {
-+		u32 esdp = IXGBE_READ_REG(hw, IXGBE_ESDP);
-+		if (esdp & IXGBE_ESDP_SDP1)
-+			DPRINTK(DRV, CRIT,
-+				"Fan has stopped, replace the adapter\n");
-+	}
-+
-+	/*
- 	 * For hot-pluggable SFP+ devices, a new SFP+ module may have
- 	 * arrived before interrupts were enabled.  We need to kick off
- 	 * the SFP+ module setup first, then try to bring up link.
-@@ -3382,9 +3393,11 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->ring_feature[RING_F_RSS].indices = rss;
- 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
- 	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
--	if (hw->mac.type == ixgbe_mac_82598EB)
-+	if (hw->mac.type == ixgbe_mac_82598EB) {
-+		if (hw->device_id == IXGBE_DEV_ID_82598AT)
-+			adapter->flags |= IXGBE_FLAG_FAN_FAIL_CAPABLE;
- 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82598;
--	else if (hw->mac.type == ixgbe_mac_82599EB) {
-+	} else if (hw->mac.type == ixgbe_mac_82599EB) {
- 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82599;
- 		adapter->flags |= IXGBE_FLAG_RSC_CAPABLE;
- 		adapter->flags |= IXGBE_FLAG_RSC_ENABLED;
-@@ -4915,6 +4928,17 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
+ 	set_bit(r_idx, q_vector->rxr_idx);
+ 	q_vector->rxr_count++;
+-	a->rx_ring[r_idx].v_idx = 1 << v_idx;
++	a->rx_ring[r_idx].v_idx = (u64)1 << v_idx;
+ }
  
-+	/*
-+	 * If there is a fan on this device and it has failed log the
-+	 * failure.
-+	 */
-+	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE) {
-+		u32 esdp = IXGBE_READ_REG(hw, IXGBE_ESDP);
-+		if (esdp & IXGBE_ESDP_SDP1)
-+			DPRINTK(PROBE, CRIT,
-+				"Fan has stopped, replace the adapter\n");
-+	}
-+
- 	/* reset_hw fills in the perm_addr as well */
- 	err = hw->mac.ops.reset_hw(hw);
- 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+ static inline void map_vector_to_txq(struct ixgbe_adapter *a, int v_idx,
+@@ -1317,7 +1317,7 @@ static inline void map_vector_to_txq(struct ixgbe_adapter *a, int v_idx,
+ 
+ 	set_bit(t_idx, q_vector->txr_idx);
+ 	q_vector->txr_count++;
+-	a->tx_ring[t_idx].v_idx = 1 << v_idx;
++	a->tx_ring[t_idx].v_idx = (u64)1 << v_idx;
+ }
+ 
+ /**
+@@ -4057,7 +4057,7 @@ static void ixgbe_watchdog(unsigned long data)
+ 		int i;
+ 
+ 		for (i = 0; i < adapter->num_msix_vectors - NON_Q_VECTORS; i++)
+-			eics |= (1 << i);
++			eics |= ((u64)1 << i);
+ 
+ 		/* Cause software interrupt to ensure rx rings are cleaned */
+ 		switch (hw->mac.type) {
 
