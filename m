@@ -1,47 +1,70 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-2.6] ipv4: remove an unused macro (FIB_RES_RESET).
-Date: Thu, 7 May 2009 10:37:53 +0300
-Message-ID: <eb3ff54b0905070037n30a632b0jf51d177e5520eb57@mail.gmail.com>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: [PATCH]ipv6:use ipv6_addr_type instead of __ipv6_addr_type
+Date: Thu, 07 May 2009 15:47:38 +0800
+Message-ID: <4A02921A.1090200@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174c3c5c01303204694d975f
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:60192 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbZEGHhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 03:37:54 -0400
-Received: by ewy24 with SMTP id 24so827832ewy.37
-        for <netdev@vger.kernel.org>; Thu, 07 May 2009 00:37:53 -0700 (PDT)
+Received: from cn.fujitsu.com ([222.73.24.84]:55952 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753897AbZEGHqe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 03:46:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174c3c5c01303204694d975f
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Although the function of these two functions are the same,we should use the
+encapsulation function of __ipv6_addr_type
 
-Hi,
-This patch removes an unused macro (FIB_RES_RESET) from
-include/net/ip_fib.h.
+Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
 
-Regards,
-Rami Rosen
+---
+ net/ipv6/addrconf.c |    4 ++--
+ net/ipv6/datagram.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a8218bc..01b7a83 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1126,7 +1126,7 @@ int ipv6_dev_get_saddr(struct net *net, struct net_device *dst_dev,
+ 	struct net_device *dev;
+ 	int dst_type;
+ 
+-	dst_type = __ipv6_addr_type(daddr);
++	dst_type = ipv6_addr_type(daddr);
+ 	dst.addr = daddr;
+ 	dst.ifindex = dst_dev ? dst_dev->ifindex : 0;
+ 	dst.scope = __ipv6_addr_src_scope(dst_type);
+@@ -1181,7 +1181,7 @@ int ipv6_dev_get_saddr(struct net *net, struct net_device *dst_dev,
+ 			    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
+ 				continue;
+ 
+-			score->addr_type = __ipv6_addr_type(&score->ifa->addr);
++			score->addr_type = ipv6_addr_type(&score->ifa->addr);
+ 
+ 			if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
+ 				     score->addr_type & IPV6_ADDR_MULTICAST)) {
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index e2bdc6d..7ea5c77 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -537,7 +537,7 @@ int datagram_send_ctl(struct net *net,
+ 				fl->oif = src_info->ipi6_ifindex;
+ 			}
+ 
+-			addr_type = __ipv6_addr_type(&src_info->ipi6_addr);
++			addr_type = ipv6_addr_type(&src_info->ipi6_addr);
+ 
+ 			if (fl->oif) {
+ 				dev = dev_get_by_index(net, fl->oif);
+-- 
+1.6.0.3
 
---0015174c3c5c01303204694d975f
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuf5akva0
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2lwX2ZpYi5oIGIvaW5jbHVkZS9uZXQvaXBfZmliLmgK
-aW5kZXggOGIxMjY2Ny4uOTg4ZGQwZSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvaXBfZmliLmgK
-KysrIGIvaW5jbHVkZS9uZXQvaXBfZmliLmgKQEAgLTEyNCwxNCArMTI0LDEyIEBAIHN0cnVjdCBm
-aWJfcmVzdWx0X25sIHsKICNpZmRlZiBDT05GSUdfSVBfUk9VVEVfTVVMVElQQVRICiAKICNkZWZp
-bmUgRklCX1JFU19OSChyZXMpCQkoKHJlcykuZmktPmZpYl9uaFsocmVzKS5uaF9zZWxdKQotI2Rl
-ZmluZSBGSUJfUkVTX1JFU0VUKHJlcykJKChyZXMpLm5oX3NlbCA9IDApCiAKICNkZWZpbmUgRklC
-X1RBQkxFX0hBU0hTWiAyCiAKICNlbHNlIC8qIENPTkZJR19JUF9ST1VURV9NVUxUSVBBVEggKi8K
-IAogI2RlZmluZSBGSUJfUkVTX05IKHJlcykJCSgocmVzKS5maS0+ZmliX25oWzBdKQotI2RlZmlu
-ZSBGSUJfUkVTX1JFU0VUKHJlcykKIAogI2RlZmluZSBGSUJfVEFCTEVfSEFTSFNaIDI1NgogCg==
---0015174c3c5c01303204694d975f--
+-- 
+Regards
+Yang Hongyang
