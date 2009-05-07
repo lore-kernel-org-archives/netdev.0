@@ -1,25 +1,31 @@
-From: "gonzalez08732560976" <gonzalez08732560976@yahoo.com.cn>
-Subject: =?big5?B?vsey36fWs3SwT77Qqmulda1uMTYwMKS4ISE=?=
-Date: Thu, 07 May 2009 09:38:06 -0000
-Message-ID: <gtua5u+hce9@eGroups.com>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] smsc911x: fix calculation of res_size for ioremap
+Date: Thu, 7 May 2009 10:45:05 +0100
+Message-ID: <OF9818CA9E.B06011AE-ON802575AF.00354281-802575AF.00358C0A@smsc.com>
+References: <1241613956-7940-1-git-send-email-mludwig@ultratronik.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="BIG5"
-Content-Transfer-Encoding: base64
-To: privacy-officer@adobe.com, shishan1930@yahoo.com.tw,
-	netdev@vger.kernel.org, yyyoomaaa@yahoo.com.tw,
-	cihfarg@msa.hinet.net, yellowegg36@gmail.com,
-	miffygrass@hotmail.com, g77-doha@mof
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Matthias Ludwig <mludwig@ultratronik.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n40b.bullet.mail.sp1.yahoo.com ([66.163.168.154]:44935 "HELO
-	n40b.bullet.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752443AbZEGJoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 05:44:19 -0400
+Received: from mail.smsc.com ([170.129.50.11]:3892 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752961AbZEGJpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 05:45:21 -0400
+In-Reply-To: <1241613956-7940-1-git-send-email-mludwig@ultratronik.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vsey37BPvtCqa691qrqtbqi6u/K2UbbcPyCye6ZisXqms6fzpa2lwaTGqrq/777cISEKptOlQqtL
-qXm1tLnvprOmbrNmISEgq0/D0rDqpd+kar7Hqrqudrjqv8um27/9u3MKq0/D0rDiq+GqQbDIvsnF
-qiCldb3mMTYwMKS4ISEgp7ml/rVMq0+vZKq6sdC+xwq41LLTuc+k5buhqfq90Kv2prkgIGh0dHA6
-Ly95YWhvby56ei50Yy9tZW1vcnk=
+Matthias Ludwig <mludwig@ultratronik.de> wrote on 06/05/2009 13:45:56:
 
+> fix size of remaped iomem, which is 1 byte to small
+> (e.g. mappes only 0xff bytes instead of 0x100)
+
+*shrug* - I guess we should fix this for correctness but the highest
+register offset in the device is 0xb4 so this shouldn't cause any
+actual problems.
+
+> Signed-off-by: Matthias Ludwig <mludwig@ultratronik.de>
+
+Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
 
