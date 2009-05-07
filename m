@@ -1,29 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make inet_twsk_put similar to sock_put
-Date: Wed, 06 May 2009 16:51:06 -0700 (PDT)
-Message-ID: <20090506.165106.152184195.davem@davemloft.net>
-References: <20090506044819.GL2675@ghostprotocols.net>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [patch next 4/4] netxen: disable rss for GbE ports
+Date: Wed, 6 May 2009 17:08:06 -0700
+Message-ID: <4A022666.4060906@netxen.com>
+References: <1241586309-12112-5-git-send-email-dhananjay@netxen.com>	<20090506.153714.122287244.davem@davemloft.net>	<4A0217F6.7060005@netxen.com> <20090506.163142.112368323.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: acme@redhat.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60188
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753332AbZEFXvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 19:51:11 -0400
-In-Reply-To: <20090506044819.GL2675@ghostprotocols.net>
+Received: from nxgate.netxen.com ([38.99.60.130]:14400 "EHLO nxexch.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753353AbZEGAIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2009 20:08:07 -0400
+In-Reply-To: <20090506.163142.112368323.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Wed, 6 May 2009 01:48:19 -0300
 
-> By separating the freeing code from the refcounting decrementing.
-> Probably reducing icache pressure when we still have reference counts to
-> go.
+David Miller wrote:
+> Thanks for ignoring my email.
 > 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> I'll say it again, maybe you'll listen this time.
+> 
+> If a user has very cpu intensive netfilter or routing
+> rules installed, the RSS flow seperation to different
+> CPUs can help even at 1GB speeds.
+> 
+> Therefore, your change will introduce performance regressions.
 
-Applied to net-next-2.6, thanks!
+I got your point, but there's another reason I have put
+forward. With four (not even 10) 4-port netxen NICs
+installed, they will consume 64 or more msi-x vectors.
+When all this for only 1Gbps per port, restricted by
+physical media speed.
+
+This is only per port accounting, when it has to be
+per pci function. The virtual NICs have more than one
+pci function per physical port (=> 32 vectors per card).
+
+There are other ways to balance the load, like moving
+tx ring clean up to separate (one) msi-x vector.
+
+I do see a reason for conserving msix vectors, unless
+they are bringing performance gain.
+
+Middle ground can be using 2 vectors per pci func, instead
+of 4 (which has been tested to benefit 10Gbps NICs).
+
+Call it my opinion, but may be it's necessary if system has
+limited msi vectors.
+
+-Dhananjay
