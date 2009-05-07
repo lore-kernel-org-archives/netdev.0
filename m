@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: via velocity trivial patch
-Date: Thu, 07 May 2009 15:02:13 -0700 (PDT)
-Message-ID: <20090507.150213.192379856.davem@davemloft.net>
-References: <49F1A05A.8070802@podgorny.cz>
-	<4A01FBF6.1090001@podgorny.cz>
+Subject: Re: [PATCH net-next] net: bridge: use device address list instead
+ of dev_addr (repost)
+Date: Thu, 07 May 2009 15:03:07 -0700 (PDT)
+Message-ID: <20090507.150307.195857213.davem@davemloft.net>
+References: <20090415082118.GC21342@psychotron.englab.brq.redhat.com>
+	<20090506144624.GI28637@psychotron.englab.brq.redhat.com>
+	<20090506122645.456d9af4@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: radek@podgorny.cz
+Cc: jpirko@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com,
+	bridge@lists.linux-foundation.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, kaber@trash.net,
+	mschmidt@redhat.com, dada1@cosmosbay.com, ivecera@redhat.com
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53510
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53514
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754502AbZEGWCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 18:02:18 -0400
-In-Reply-To: <4A01FBF6.1090001@podgorny.cz>
+	by vger.kernel.org with ESMTP id S1753753AbZEGWDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 18:03:12 -0400
+In-Reply-To: <20090506122645.456d9af4@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Radek Podgorny <radek@podgorny.cz>
-Date: Wed, 06 May 2009 23:07:02 +0200
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 6 May 2009 12:26:45 -0700
 
-> I've sent the following mail to Francois Romieu <romieu@fr.zoreil.com>
-> but did not get any reply. So I'm sending directly here. It's a trivial
-> patch for via-velocity driver.
+> Won't this all break spanning tree which expects 1:1 relationship
+> between address and port.
 
-"some garbage"...
-
-Why would the interrupt status register give us all 1's
-if it is properly initialized?  I should report a zero,
-rather than "some garbage".
-
-You also failed to provide a proper sign-off as described
-in Documentation/SubmittingPatches
+Indeed, this could be a fundamental issue with this change.
