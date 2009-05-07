@@ -1,52 +1,83 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] iproute2/tc caching proposal
-Date: Thu, 07 May 2009 20:44:52 +0200
-Message-ID: <4A032C24.7060709@gmail.com>
-References: <200905070103.37956.denys@visp.net.lb>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Strange Application bug, race in MSG_PEEK complaints (was:
+ Bug#513695: fetchmail: race in MSG_PEEK)
+Date: Thu, 7 May 2009 21:48:16 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0905072139001.15149@wrl-59.cs.helsinki.fi>
+References: <200902262310.12791.elendil@planet.nl> <20090506230240.GA10373@merlin.emma.line.org>
+ <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
+ <200905071916.57903.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-39249334-1241722096=:15149"
+Cc: Matthias Andree <matthias.andree@gmx.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Frans Pop <elendil@planet.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:49855 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752299AbZEGSp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 14:45:56 -0400
-Received: by mail-fx0-f158.google.com with SMTP id 2so971717fxm.37
-        for <netdev@vger.kernel.org>; Thu, 07 May 2009 11:45:57 -0700 (PDT)
-In-Reply-To: <200905070103.37956.denys@visp.net.lb>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56877 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751444AbZEGSsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 14:48:16 -0400
+In-Reply-To: <200905071916.57903.elendil@planet.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryschenko wrote, On 05/07/2009 12:03 AM:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Since already someone did caching in iproute2, my changes is very trivial, but 
-> giving huge improvement in batch performance (30k rules 10minutes vs 30 
-> seconds).
+---696208474-39249334-1241722096=:15149
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Thu, 7 May 2009, Frans Pop wrote:
+
+> On Thursday 07 May 2009, Ilpo Järvinen wrote:
+> > On Thu, 7 May 2009, Matthias Andree wrote:
+> > > I've applied the following patch to net/ipv4/tcp.c for the kernel
+> > > running on my server (2.6.29-rc8):
+> > > @@ -1499,8 +1499,9 @@ do_prequeue:
+> > >    		}
+> > >    		if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
+> > >    			if (net_ratelimit())
+> > > -				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
+> > > -				       current->comm, task_pid_nr(current));
+> > > +				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK: %x, %x.\n",
+> > > +				       current->comm, task_pid_nr(current)),
+> > > +				       peek_seq, tp->copied_seq;
+> >
+> > I cannot resist myself from noting that this certainly wasn't the patch
+> > one got those printks below... It might happily compile though :-).
 > 
-> ll_init_map is called in many places in tc, but since tc not changing 
-> anything, that can change this map, i think it is enough to call it only at 
-> the beginning, after rtnl_open().
+> Can you please elaborate why you think that? It may be horribly broken
+> (I've never claimed to be a C coder, and probably never will), but it
+> also really is the patch that generates the printks...
+
+...This was mainly meant to be a joke... :-)
+
+The parenthesis won't match how a printk with string and 4 args should 
+be called, so with this version you have in the mail peek_seq and 
+tp->copied_seq are not put into stack or you were just super lucky.
+
+> > >    			peek_seq = tp->copied_seq;
+> > >    		}
+> > >    		continue;
+> > >
+> > > So, the values you see at the end of the warning are peek_seq and
+> > > tp->copied_seq. This gives messages like:
+> > > kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 156233, 16a.
+> > > kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 71259ac8, 5b4.
+> > > kernel: TCP(fetchmail:31216): Application bug, race in MSG_PEEK: 833fe5, c0.
 > 
-> Only one exclusion - tc monitor, because it is running long time, and things 
-> can change over this time, so we call ll_init_map on each received rtnetlink 
-> event.
-
-
-Do you mean 30 sec. is to short for a change? I don't know these things enough;
-your idea looks very nice, but I wonder if you tested how it behaves if e.g.
-after 15k rules some dev goes away which is used in the next 15k?
-
+> [...]
 > 
-> Also please check "[RFC] [IPROUTE2] Filter class output by classid", if it is 
-> ok. Many people told it is useful patch.
+> > What would you think about the following, untested patch... I suppose
+> > it is enough to capture the racy situations except with that crazy urg
+> > hole, grr (I suppose that will need just another variable to do the
+> > offset of one).
 > 
+> I'll give your patch a try and report back.
 
+Thanks. If it works I can add that urg hole madness handling too there.
 
-I agree it's useful and quite natural option.
-
-Thanks,
-Jarek P.
+-- 
+ i.
+---696208474-39249334-1241722096=:15149--
