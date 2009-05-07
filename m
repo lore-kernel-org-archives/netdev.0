@@ -1,83 +1,80 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Strange Application bug, race in MSG_PEEK complaints (was:
- Bug#513695: fetchmail: race in MSG_PEEK)
-Date: Thu, 7 May 2009 21:48:16 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0905072139001.15149@wrl-59.cs.helsinki.fi>
-References: <200902262310.12791.elendil@planet.nl> <20090506230240.GA10373@merlin.emma.line.org>
- <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
- <200905071916.57903.elendil@planet.nl>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: RE: [PATCH 1/2] igb: Implement reading of reg RQDPC (Receive Queue
+ Drop Packet Count)
+Date: Thu, 7 May 2009 21:19:35 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0905072105480.13735@ask.diku.dk>
+References: <1241703346.18487.22.camel@localhost.localdomain>
+ <1241703431.18487.25.camel@localhost.localdomain>
+ <EA929A9653AAE14F841771FB1DE5A1365F7744D662@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-39249334-1241722096=:15149"
-Cc: Matthias Andree <matthias.andree@gmx.de>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Frans Pop <elendil@planet.nl>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56877 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444AbZEGSsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 14:48:16 -0400
-In-Reply-To: <200905071916.57903.elendil@planet.nl>
+Received: from mgw2.diku.dk ([130.225.96.92]:59249 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753316AbZEGTTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 15:19:47 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F7744D662@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696208474-39249334-1241722096=:15149
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+On Thu, 7 May 2009, Williams, Mitch A wrote:
 
-On Thu, 7 May 2009, Frans Pop wrote:
+>> Implement reading the per queue drop stats register
+>> RQDPC (Receive Queue Drop Packet Count).  It counts the number of
+>> packets dropped by a queue due to lack of descriptors available.
+>>
+>> Notice RQDPC (Receive Queue Drop Packet Count) stats only gets
+>> incremented, if the DROP_EN bit it set (in the SRRCTL register
+>> for that queue). If DROP_EN bit is NOT set, then the some what
+>> equivalent count is stored in RNBC (not per queue basis).
+>>
+>> The RQDPC register is only 12 bit, thus the precision might
+>> suffer due to overrun in-between the watchdog polling interval.
+>
+> NAK.  82575 doesn't have RQDPC registers.  You need to check
+> which part you're running on before you read those registers.
 
-> On Thursday 07 May 2009, Ilpo Järvinen wrote:
-> > On Thu, 7 May 2009, Matthias Andree wrote:
-> > > I've applied the following patch to net/ipv4/tcp.c for the kernel
-> > > running on my server (2.6.29-rc8):
-> > > @@ -1499,8 +1499,9 @@ do_prequeue:
-> > >    		}
-> > >    		if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
-> > >    			if (net_ratelimit())
-> > > -				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
-> > > -				       current->comm, task_pid_nr(current));
-> > > +				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK: %x, %x.\n",
-> > > +				       current->comm, task_pid_nr(current)),
-> > > +				       peek_seq, tp->copied_seq;
-> >
-> > I cannot resist myself from noting that this certainly wasn't the patch
-> > one got those printks below... It might happily compile though :-).
-> 
-> Can you please elaborate why you think that? It may be horribly broken
-> (I've never claimed to be a C coder, and probably never will), but it
-> also really is the patch that generates the printks...
+Strange, I though the RQDPC register were compatible with the 82575 
+registers, as the 82576 datasheet states:
 
-...This was mainly meant to be a joke... :-)
+Quote 82576 DS:
+   Note: In order to keep compatibility with the 82575, for queues 0-3,
+   these registers are aliased to addresses 0x2830, 0x2930, 0x2A30 & 0x2B30
+   respectively.
 
-The parenthesis won't match how a printk with string and 4 args should 
-be called, so with this version you have in the mail peek_seq and 
-tp->copied_seq are not put into stack or you were just super lucky.
+And I do take care of reading the aliased adresses in the RQDPC define 
+statement for queues 0-3.
 
-> > >    			peek_seq = tp->copied_seq;
-> > >    		}
-> > >    		continue;
-> > >
-> > > So, the values you see at the end of the warning are peek_seq and
-> > > tp->copied_seq. This gives messages like:
-> > > kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 156233, 16a.
-> > > kernel: TCP(fetchmail:9311): Application bug, race in MSG_PEEK: 71259ac8, 5b4.
-> > > kernel: TCP(fetchmail:31216): Application bug, race in MSG_PEEK: 833fe5, c0.
-> 
-> [...]
-> 
-> > What would you think about the following, untested patch... I suppose
-> > it is enough to capture the racy situations except with that crazy urg
-> > hole, grr (I suppose that will need just another variable to do the
-> > offset of one).
-> 
-> I'll give your patch a try and report back.
+Well, I unfortunatly done have a 82575 based NIC anymore (as my prototype 
+NIC from Hotlava Systems Inc. just died).  And I don't have the 82575 
+datasheet, it does not seem to be available!?
 
-Thanks. If it works I can add that urg hole madness handling too there.
+Any chance I could get the 82575 register datasheet?
 
--- 
- i.
----696208474-39249334-1241722096=:15149--
+
+> Other than that, this looks OK to me.
+
+That sounds good :-)
+
+ps. It will be monday or tuesday before I have time to repost the 
+patchset.
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
