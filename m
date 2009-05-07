@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: MTU blackhole discovery for IPv6 ?
-Date: Thu, 07 May 2009 14:48:05 -0700 (PDT)
-Message-ID: <20090507.144805.138068252.davem@davemloft.net>
-References: <20090507211926.GA28662@regulus.madore.org>
+Subject: Re: [PATCH net-2.6] ipv4: remove an unused macro (FIB_RES_RESET).
+Date: Thu, 07 May 2009 14:53:59 -0700 (PDT)
+Message-ID: <20090507.145359.109823121.davem@davemloft.net>
+References: <eb3ff54b0905070037n30a632b0jf51d177e5520eb57@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: david+ml@madore.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50643
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34435
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751119AbZEGVsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 17:48:10 -0400
-In-Reply-To: <20090507211926.GA28662@regulus.madore.org>
+	by vger.kernel.org with ESMTP id S1751444AbZEGVyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 17:54:03 -0400
+In-Reply-To: <eb3ff54b0905070037n30a632b0jf51d177e5520eb57@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Madore <david+ml@madore.org>
-Date: Thu, 7 May 2009 23:19:26 +0200
+From: Rami Rosen <ramirose@gmail.com>
+Date: Thu, 7 May 2009 10:37:53 +0300
 
-> There's a sysctl called net.ipv4.tcp_mtu_probing: has there been any
-> work done on the analogous key for IPv6?
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Just because the sysctl only appears under ipv4/ doesn't mean
-that it only controls ipv4 operations.
+This macro was already removed in the net-next-2.6 tree.
 
-This applies to all of the TCP controls especially.
+In fact, it was done by you! :-)
+
+commit accc5b4f902b0ba83b2c6c48f2d9e7c204cef4a8
+Author: Rami Rosen <ramirose@gmail.com>
+Date:   Sun May 3 08:58:48 2009 +0000
+
+    ipv4: remove unused macro (FIB_RES_RESET) from ip_fib.h.
+    
+    Signed-off-by: Rami Rosen <ramirose@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
 
