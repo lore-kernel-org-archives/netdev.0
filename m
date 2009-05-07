@@ -1,35 +1,33 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH] remove DMA_nBIT_MASK macro
-Date: Fri, 8 May 2009 08:35:21 +0900
-Message-ID: <20090508083610Z.fujita.tomonori@lab.ntt.co.jp>
-References: <20090506223452.65e545d8.akpm@linux-foundation.org>
-	<4A029BE1.4090309@cn.fujitsu.com>
-	<4A029FD1.1050007@gmail.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [patch next 4/4] netxen: disable rss for GbE ports
+Date: Thu, 7 May 2009 16:44:16 -0700
+Message-ID: <4A037250.9040408@netxen.com>
+References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com> <1241586309-12112-5-git-send-email-dhananjay@netxen.com> <20090506.153714.122287244.davem@davemloft.net> <4A0217F6.7060005@netxen.com> <Pine.LNX.4.64.0905070811150.3058@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yanghy@cn.fujitsu.com, akpm@linux-foundation.org,
-	fujita.tomonori@lab.ntt.co.jp, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
-To: jirislaby@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759889AbZEGXhp@vger.kernel.org>
-In-Reply-To: <4A029FD1.1050007@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nxgate.netxen.com ([38.99.60.130]:52386 "EHLO nxexch.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751284AbZEGXoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 19:44:16 -0400
+In-Reply-To: <Pine.LNX.4.64.0905070811150.3058@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 07 May 2009 10:46:09 +0200
-Jiri Slaby <jirislaby@gmail.com> wrote:
 
-> On 05/07/2009 10:29 AM, Yang Hongyang wrote:
-> > Shall we use something like below to warn people?
-> > #define DMA_64BIT_MASK	DMA_BIT_MASK(64);(__deprecated warnings:use DMA_BIT_MASK(64) instead) ?
+
+Jesper Dangaard Brouer wrote:
+> 1Gbit/s throughput tests with MTU size frames is a bad measurement target.
+> Packets Per Sec is the key factor.
 > 
-> Something like an irq flags deprecation in the past:
-> http://lwn.net/Articles/229673/
-> ?
-> 
-> I don't know how many in-initializer (struct x x = { DMA_64BIT_MASK } )
-> users are out there though.
 
-Unfortunately, there are lots. Converting these macros to functions
-would breaks drivers too.
+Yes, I will run some small packet tests before deciding on the number of
+rx queues. I am going to revisit the msix vector utilization a bit later,
+that's when I will address this.
+
+Thanks,
+Dhananjay
