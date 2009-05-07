@@ -1,126 +1,168 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: IPv4 FWMARK virtual services
-Date: Thu, 7 May 2009 11:02:29 +1000
-Message-ID: <20090507010229.GD10063@verge.net.au>
+From: Jon Smirl <jonsmirl@gmail.com>
+Subject: Help interpreting MII negotiation
+Date: Wed, 6 May 2009 22:03:39 -0400
+Message-ID: <9e4733910905061903x693ca36av38ff4cc9aef4ce38@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Fabien =?iso-8859-1?Q?Duch=EAne?=
-	<fabien.duchene@student.uclouvain.be>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Julius Volz <julius.volz@gmail.com>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f125.google.com ([209.85.221.125]:64388 "EHLO
+	mail-qy0-f125.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745AbZEGCDk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2009 22:03:40 -0400
+Received: by qyk31 with SMTP id 31so867559qyk.33
+        for <netdev@vger.kernel.org>; Wed, 06 May 2009 19:03:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes the use of fwmarks to denote IPv4 virtual services
-which was unfortunately broken as a result of the integration
-of IPv6 support into IPVS, which was included in 2.6.28.
+I don't understand why speed selection is getting set at 10Mbps in this example.
+It looks to me like the devices auto negotiated 100Mbps.
 
-The problem arises because fwmarks are stored in the 4th octet
-of a union nf_inet_addr .all, however in the case of IPv4 only
-the first octet, corresponding to .ip, is assigned and compared.
-
-In other words, using .all =3D { 0, 0, 0, htonl(svc->fwmark) always
-results in a value of 0 (32bits) being stored for IPv4. This means
-that one fwmark can be used, as it ends up being mapped to 0, but thing=
-s
-break down when multiple fwmarks are used, as they all end up being map=
-ped
-to 0.
-
-As fwmarks are 32bits a reasonable fix seems to be to just store the fw=
-mark
-in .ip, and comparing and storing .ip when fwmarks are used.
-
-This patch makes the assumption that in calls to ip_vs_ct_in_get()
-and ip_vs_sched_persist() if the proto parameter is IPPROTO_IP then
-we are dealing with an fwmark. I believe this is valid as ip_vs_in()
-does fairly strict filtering on the protocol and IPPROTO_IP should
-not be used in these calls unless explicitly passed when making
-these calls for fwmarks in ip_vs_sched_persist().
-
-Tested-by: Fabien Duch=EAne <fabien.duchene@student.uclouvain.be>
-Cc: Joseph Mack NA3T <jmack@wm7d.net>
-Cc: Julius Volz <julius.volz@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
---=20
-
-This problem should probably be fixed in stable too.
-Either using this patch, or a simpler though arguably less correct one =
-that
-uses:
-
-	.all =3D { htonl(svc->fwmark), 0, 0, 0 }
-
-That change doesn't require updating ip_vs_ct_in_get() or ip_vs_conn_ne=
-w(),
-nor any assumptions about the value of proto. Fabien Duch=EAne has test=
-ed
-this simpler change and found it to work.
-
-Index: net-next-2.6/net/netfilter/ipvs/ip_vs_conn.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- net-next-2.6.orig/net/netfilter/ipvs/ip_vs_conn.c	2009-04-28 20:37:=
-48.000000000 +1000
-+++ net-next-2.6/net/netfilter/ipvs/ip_vs_conn.c	2009-04-28 20:37:51.00=
-0000000 +1000
-@@ -260,7 +260,10 @@ struct ip_vs_conn *ip_vs_ct_in_get
- 	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (cp->af =3D=3D af &&
- 		    ip_vs_addr_equal(af, s_addr, &cp->caddr) &&
--		    ip_vs_addr_equal(af, d_addr, &cp->vaddr) &&
-+		    /* protocol should only be IPPROTO_IP if
-+		     * d_addr is a fwmark */
-+		    ip_vs_addr_equal(protocol =3D=3D IPPROTO_IP ? AF_UNSPEC : af,
-+		                     d_addr, &cp->vaddr) &&
- 		    s_port =3D=3D cp->cport && d_port =3D=3D cp->vport &&
- 		    cp->flags & IP_VS_CONN_F_TEMPLATE &&
- 		    protocol =3D=3D cp->protocol) {
-@@ -698,7 +701,9 @@ ip_vs_conn_new(int af, int proto, const=20
- 	cp->cport	   =3D cport;
- 	ip_vs_addr_copy(af, &cp->vaddr, vaddr);
- 	cp->vport	   =3D vport;
--	ip_vs_addr_copy(af, &cp->daddr, daddr);
-+	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
-+	ip_vs_addr_copy(proto =3D=3D IPPROTO_IP ? AF_UNSPEC : af,
-+			&cp->daddr, daddr);
- 	cp->dport          =3D dport;
- 	cp->flags	   =3D flags;
- 	spin_lock_init(&cp->lock);
-Index: net-next-2.6/net/netfilter/ipvs/ip_vs_core.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- net-next-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2009-04-28 20:37:=
-48.000000000 +1000
-+++ net-next-2.6/net/netfilter/ipvs/ip_vs_core.c	2009-04-28 20:37:51.00=
-0000000 +1000
-@@ -278,7 +278,7 @@ ip_vs_sched_persist(struct ip_vs_service
- 		 */
- 		if (svc->fwmark) {
- 			union nf_inet_addr fwmark =3D {
--				.all =3D { 0, 0, 0, htonl(svc->fwmark) }
-+				.ip =3D htonl(svc->fwmark)
- 			};
-=20
- 			ct =3D ip_vs_ct_in_get(svc->af, IPPROTO_IP, &snet, 0,
-@@ -306,7 +306,7 @@ ip_vs_sched_persist(struct ip_vs_service
- 			 */
- 			if (svc->fwmark) {
- 				union nf_inet_addr fwmark =3D {
--					.all =3D { 0, 0, 0, htonl(svc->fwmark) }
-+					.ip =3D htonl(svc->fwmark)
- 				};
-=20
- 				ct =3D ip_vs_conn_new(svc->af, IPPROTO_IP,
+uboot> mii dump 0 0
+0.     (1000)                 -- PHY control register --
+ (8000:0000) 0.15    =     0    reset
+ (4000:0000) 0.14    =     0    loopback
+ (2040:0000) 0. 6,13 =   b00    speed selection = 10 Mbps
+ (1000:1000) 0.12    =     1    A/N enable
+ (0800:0000) 0.11    =     0    power-down
+ (0400:0000) 0.10    =     0    isolate
+ (0200:0000) 0. 9    =     0    restart A/N
+ (0100:0000) 0. 8    =     0    duplex = half
+ (0080:0000) 0. 7    =     0    collision test enable
+ (003f:0000) 0. 5- 0 =     0    (reserved)
 
 
+uboot> mii dump 0 1
+1.     (786d)                 -- PHY status register --
+ (8000:0000) 1.15    =     0    100BASE-T4 able
+ (4000:4000) 1.14    =     1    100BASE-X  full duplex able
+ (2000:2000) 1.13    =     1    100BASE-X  half duplex able
+ (1000:1000) 1.12    =     1    10 Mbps    full duplex able
+ (0800:0800) 1.11    =     1    10 Mbps    half duplex able
+ (0400:0000) 1.10    =     0    100BASE-T2 full duplex able
+ (0200:0000) 1. 9    =     0    100BASE-T2 half duplex able
+ (0100:0000) 1. 8    =     0    extended status
+ (0080:0000) 1. 7    =     0    (reserved)
+ (0040:0040) 1. 6    =     1    MF preamble suppression
+ (0020:0020) 1. 5    =     1    A/N complete
+ (0010:0000) 1. 4    =     0    remote fault
+ (0008:0008) 1. 3    =     1    A/N able
+ (0004:0004) 1. 2    =     1    link status
+ (0002:0000) 1. 1    =     0    jabber detect
+ (0001:0001) 1. 0    =     1    extended capabilities
+
+
+uboot> mii dump 0 2
+2.     (0022)                 -- PHY ID 1 register --
+ (ffff:0022) 2.15- 0 =    34    OUI portion
+
+
+uboot> mii dump 0 3
+3.     (161a)                 -- PHY ID 2 register --
+ (fc00:1400) 3.15-10 =     5    OUI portion
+ (03f0:0210) 3. 9- 4 =    33    manufacturer part number
+ (000f:000a) 3. 3- 0 =    10    manufacturer rev. number
+
+
+uboot> mii dump 0 4
+4.     (01e1)                 -- Autonegotiation advertisement register --
+ (8000:0000) 4.15    =     0    next page able
+ (4000:0000) 4.14    =     0    reserved
+ (2000:0000) 4.13    =     0    remote fault
+ (1000:0000) 4.12    =     0    reserved
+ (0800:0000) 4.11    =     0    asymmetric pause
+ (0400:0000) 4.10    =     0    pause enable
+ (0200:0000) 4. 9    =     0    100BASE-T4 able
+ (0100:0100) 4. 8    =     1    100BASE-TX full duplex able
+ (0080:0080) 4. 7    =     1    100BASE-TX able
+ (0040:0040) 4. 6    =     1    10BASE-T   full duplex able
+ (0020:0020) 4. 5    =     1    10BASE-T   able
+ (001f:0001) 4. 4- 0 =     1    selector = IEEE 802.3
+
+
+uboot> mii dump 0 5
+5.     (c5e1)                 -- Autonegotiation partner abilities register --
+ (8000:8000) 5.15    =     1    next page able
+ (4000:4000) 5.14    =     1    acknowledge
+ (2000:0000) 5.13    =     0    remote fault
+ (1000:0000) 5.12    =     0    (reserved)
+ (0800:0000) 5.11    =     0    asymmetric pause able
+ (0400:0400) 5.10    =     1    pause able
+ (0200:0000) 5. 9    =     0    100BASE-T4 able
+ (0100:0100) 5. 8    =     1    100BASE-X full duplex able
+ (0080:0080) 5. 7    =     1    100BASE-TX able
+ (0040:0040) 5. 6    =     1    10BASE-T full duplex able
+ (0020:0020) 5. 5    =     1    10BASE-T able
+ (001f:0001) 5. 4- 0 =     1    selector = IEEE 802.3
+
+Another example. This PHY device does not support autonegotiation and is
+fixed at 100Mbs. Why is speed selection 10 Mbps in this case?
+
+digiboot> mii dump 2 0
+0.     (0000)                 -- PHY control register --
+  (8000:0000) 0.15    =     0    reset
+  (4000:0000) 0.14    =     0    loopback
+  (2040:0000) 0. 6,13 =   b00    speed selection = 10 Mbps
+  (1000:0000) 0.12    =     0    A/N enable
+  (0800:0000) 0.11    =     0    power-down
+  (0400:0000) 0.10    =     0    isolate
+  (0200:0000) 0. 9    =     0    restart A/N
+  (0100:0000) 0. 8    =     0    duplex = half
+  (0080:0000) 0. 7    =     0    collision test enable
+  (003f:0000) 0. 5- 0 =     0    (reserved)
+
+
+digiboot> mii dump 2 1
+1.     (2005)                 -- PHY status register --
+  (8000:0000) 1.15    =     0    100BASE-T4 able
+  (4000:0000) 1.14    =     0    100BASE-X  full duplex able
+  (2000:2000) 1.13    =     1    100BASE-X  half duplex able
+  (1000:0000) 1.12    =     0    10 Mbps    full duplex able
+  (0800:0000) 1.11    =     0    10 Mbps    half duplex able
+  (0400:0000) 1.10    =     0    100BASE-T2 full duplex able
+  (0200:0000) 1. 9    =     0    100BASE-T2 half duplex able
+  (0100:0000) 1. 8    =     0    extended status
+  (0080:0000) 1. 7    =     0    (reserved)
+  (0040:0000) 1. 6    =     0    MF preamble suppression
+  (0020:0000) 1. 5    =     0    A/N complete
+  (0010:0000) 1. 4    =     0    remote fault
+  (0008:0000) 1. 3    =     0    A/N able
+  (0004:0004) 1. 2    =     1    link status
+  (0002:0000) 1. 1    =     0    jabber detect
+  (0001:0001) 1. 0    =     1    extended capabilities
+
+
+digiboot> mii dump 2 2
+2.     (0012)                 -- PHY ID 1 register --
+  (ffff:0012) 2.15- 0 =    18    OUI portion
+
+
+digiboot> mii dump 2 3
+3.     (1c01)                 -- PHY ID 2 register --
+  (fc00:1c00) 3.15-10 =     7    OUI portion
+  (03f0:0000) 3. 9- 4 =     0    manufacturer part number
+  (000f:0001) 3. 3- 0 =     1    manufacturer rev. number
+
+
+digiboot> mii dump 2 4
+4.     (0000)                 -- Autonegotiation advertisement register --
+  (8000:0000) 4.15    =     0    next page able
+  (4000:0000) 4.14    =     0    reserved
+  (2000:0000) 4.13    =     0    remote fault
+  (1000:0000) 4.12    =     0    reserved
+  (0800:0000) 4.11    =     0    asymmetric pause
+  (0400:0000) 4.10    =     0    pause enable
+  (0200:0000) 4. 9    =     0    100BASE-T4 able
+  (0100:0000) 4. 8    =     0    100BASE-TX full duplex able
+  (0080:0000) 4. 7    =     0    100BASE-TX able
+  (0040:0000) 4. 6    =     0    10BASE-T   full duplex able
+  (0020:0000) 4. 5    =     0    10BASE-T   able
+  (001f:0000) 4. 4- 0 =     0    selector = ???
+
+
+
+
+-- 
+Jon Smirl
+jonsmirl@gmail.com
