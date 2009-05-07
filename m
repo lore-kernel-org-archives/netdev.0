@@ -1,32 +1,25 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH] remove DMA_nBIT_MASK macro
-Date: Thu, 07 May 2009 11:03:29 +0200
-Message-ID: <4A02A3E1.90706@gmail.com>
-References: <20090507141114M.fujita.tomonori@lab.ntt.co.jp> <20090506223452.65e545d8.akpm@linux-foundation.org> <4A029BE1.4090309@cn.fujitsu.com> <4A029FD1.1050007@gmail.com> <4A02A2D8.4090209@cn.fujitsu.com>
+From: "gonzalez08732560976" <gonzalez08732560976@yahoo.com.cn>
+Subject: =?big5?B?vsey36fWs3SwT77Qqmulda1uMTYwMKS4ISE=?=
+Date: Thu, 07 May 2009 09:38:06 -0000
+Message-ID: <gtua5u+hce9@eGroups.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Yang Hongyang <yanghy@cn.fujitsu.com>
+Content-Type: text/plain; charset="BIG5"
+Content-Transfer-Encoding: base64
+To: privacy-officer@adobe.com, shishan1930@yahoo.com.tw,
+	netdev@vger.kernel.org, yyyoomaaa@yahoo.com.tw,
+	cihfarg@msa.hinet.net, yellowegg36@gmail.com,
+	miffygrass@hotmail.com, g77-doha@mof
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:56721 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752298AbZEGJDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 05:03:34 -0400
-In-Reply-To: <4A02A2D8.4090209@cn.fujitsu.com>
+Received: from n40b.bullet.mail.sp1.yahoo.com ([66.163.168.154]:44935 "HELO
+	n40b.bullet.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752443AbZEGJoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 05:44:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/07/2009 10:59 AM, Yang Hongyang wrote:
-> Jiri Slaby wrote:
->> Something like an irq flags deprecation in the past:
->> http://lwn.net/Articles/229673/
->> ?
-> 
-> good catch,but this need to be modified (add one line is enough)to cause their use to
-> cause __deprecated warnings.
+vsey37BPvtCqa691qrqtbqi6u/K2UbbcPyCye6ZisXqms6fzpa2lwaTGqrq/777cISEKptOlQqtL
+qXm1tLnvprOmbrNmISEgq0/D0rDqpd+kar7Hqrqudrjqv8um27/9u3MKq0/D0rDiq+GqQbDIvsnF
+qiCldb3mMTYwMKS4ISEgp7ml/rVMq0+vZKq6sdC+xwq41LLTuc+k5buhqfq90Kv2prkgIGh0dHA6
+Ly95YWhvby56ei50Yy9tZW1vcnk=
 
-I'm lost, that inline does it, right?
+
