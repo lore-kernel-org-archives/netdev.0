@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]ipv6:use ipv6_addr_type instead of __ipv6_addr_type
-Date: Thu, 07 May 2009 14:59:31 -0700 (PDT)
-Message-ID: <20090507.145931.179746218.davem@davemloft.net>
-References: <4A02921A.1090200@cn.fujitsu.com>
+Subject: Re: [PATCH] smsc911x: fix calculation of res_size for ioremap
+Date: Thu, 07 May 2009 15:00:18 -0700 (PDT)
+Message-ID: <20090507.150018.39533415.davem@davemloft.net>
+References: <1241613956-7940-1-git-send-email-mludwig@ultratronik.de>
+	<OF9818CA9E.B06011AE-ON802575AF.00354281-802575AF.00358C0A@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: yanghy@cn.fujitsu.com
+Cc: mludwig@ultratronik.de, netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53507
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753316AbZEGV7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 17:59:36 -0400
-In-Reply-To: <4A02921A.1090200@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1752188AbZEGWAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 18:00:22 -0400
+In-Reply-To: <OF9818CA9E.B06011AE-ON802575AF.00354281-802575AF.00358C0A@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Date: Thu, 07 May 2009 15:47:38 +0800
+From: Steve.Glendinning@smsc.com
+Date: Thu, 7 May 2009 10:45:05 +0100
 
-> Although the function of these two functions are the same,we should use the
-> encapsulation function of __ipv6_addr_type
+> Matthias Ludwig <mludwig@ultratronik.de> wrote on 06/05/2009 13:45:56:
 > 
-> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+>> fix size of remaped iomem, which is 1 byte to small
+>> (e.g. mappes only 0xff bytes instead of 0x100)
+> 
+> *shrug* - I guess we should fix this for correctness but the highest
+> register offset in the device is 0xb4 so this shouldn't cause any
+> actual problems.
+> 
+>> Signed-off-by: Matthias Ludwig <mludwig@ultratronik.de>
+> 
+> Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Are you sure?  ipv6_addr_type() masks out the upper 16-bits
-of __ipv6_addr_type()'s return value, which is the scope.
-
-I'm not convinced that is what we want to do here.
+Applied to net-next-2.6
