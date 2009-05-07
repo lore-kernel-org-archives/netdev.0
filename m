@@ -1,87 +1,95 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH 4/4] bnx2i: Add bnx2i iSCSI driver.
-Date: Thu, 07 May 2009 16:01:30 -0500
-Message-ID: <4A034C2A.50107@cs.wisc.edu>
-References: <1241208039-6813-1-git-send-email-mchan@broadcom.com> <1241208039-6813-5-git-send-email-mchan@broadcom.com> <4A01BF6A.90707@cs.wisc.edu> <1241715824.9177.8.camel@HP1>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] e1000/e1000e/igb/ixgb: don't txhang after link
+	down
+Date: Thu, 07 May 2009 14:07:35 -0700
+Message-ID: <20090507210734.20173.63453.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Karen Xie <kxie@chelsio.com>,
-	Jayamohan Kalickal <jayamohank@serverengines.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1241715824.9177.8.camel@HP1>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:44090 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751837AbZEGVHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 17:07:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> On Wed, 2009-05-06 at 09:48 -0700, Mike Christie wrote:
->>> +
->>> +/**
->>> + * bnx2i_nl_mesg_recv -
->>> + * @buf:	pointer to buffer containing vendor specific message
->>> + * @buf:	buffer length
->>> + *
->>> + */
->>> +static int bnx2i_nl_mesg_recv(struct Scsi_Host *shost, uint16_t priv_op,
->>> +			      int status, char *buf, int buflen)
->>> +{
->>> +	struct bnx2i_hba *hba = iscsi_host_priv(shost);
->>> +
->>> +	switch (priv_op) {
->>> +	case NX2_UIO_UEVENT_NEIGH_LOOKUP:
->>> +	default:
->>> +		/* handle by cnic driver */
->>> +		hba->cnic->nl_priv_msg_recv(hba->cnic, priv_op, buf, buflen);
->>> +		break;
->>> +	}
->>> +
->>> +	return buflen;
->>> +}
->> I think I was wrong with one of the comments I gave you.
->>
->> It seems like we have two iscsi net config models.
->>
->> 1. qla4xxx and Server Engines type of setup where the driver just tells 
->> the card to use some ip or do dhcp and some other net settings and it 
->> does all the net magic. The iscsi driver does not have to worry about 
->> anything like the dhcp process or arp. It only passes down the setup values.
->>
->> 2. cxgb3i and bnx2i type of model where kernel or userspace code is 
->> needed to execute many net operations.
->> - Right now, cxgb3i sort of cheated :) and only supports static IPs. It 
->> currently uses the iscsi set param interface to do this.
->>
->> - bnx2i wants to add more complicated features and is going to do them 
->> in userspace. It us using the private messages that were added in the 
->> previous patch.
->>
->>
->> I think cxgb3i is one day going to want to support the same features 
->> bnx2i does. If that is right, then should we just make the NX2_UIO 
->> events common iscsi events, and hook cxb3i in? It would not use the 
->> iscsi set param interface at all and would work just like bnx2i. Is that 
->> possible? What about future drivers? Are done making iscsi cards and 
->> drivers. If so, thank goodness :)  If not then maybe we want to consider 
->> some future driver using the #2 module and possibly using this.
->>
->> If cxgb3i is really only going to support static ip setup and we think 
->> that bnx2i is going to be unique on how it sets up the network then I 
->> NX2_UIO private events are fine. Or is this a case of we are thinking 
->> that iscsi hardware people are creating crazy interfaces so there is no 
->> why to predict what they are going to do so there is no point in trying 
->> to design for them.
-> 
-> If there is any possibility that cxgb3i will use something similar to
-> bnx2i, I think we can change the message to a standard one and make the
-> message structure somewhat more generic.  We'll probably still need a
-> private area in the message for hardware or vendor specific information.
-> 
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Ok sounds good to me.
+after the recent changes to wired drivers to use only
+netif_carrier_off the driver can have outstanding tx work to
+complete that will never complete once link is down.  Since the
+intel hardware will hold this tx work forever, the driver
+notices a tx timeout condition internally and might try
+to instigate printk and reset of the part with a
+netif_stop_queue, which doesn't work because link is down.
+
+Don't bother arming to tx hang detection when link is down.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000/e1000_main.c |    2 ++
+ drivers/net/e1000e/netdev.c    |    2 ++
+ drivers/net/igb/igb_main.c     |    2 ++
+ drivers/net/ixgb/ixgb_main.c   |    2 ++
+ 4 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 71d4fe1..b455dca 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2646,6 +2646,8 @@ static void e1000_watchdog(unsigned long data)
+ 			 * (Do the reset outside of interrupt context). */
+ 			adapter->tx_timeout_count++;
+ 			schedule_work(&adapter->reset_task);
++			/* return immediately since reset is imminent */
++			return;
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index da6b37e..ccaaee0 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3651,6 +3651,8 @@ link_up:
+ 			 */
+ 			adapter->tx_timeout_count++;
+ 			schedule_work(&adapter->reset_task);
++			/* return immediately since reset is imminent */
++			return;
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 8de8629..8784c05 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2711,6 +2711,8 @@ link_up:
+ 			 * (Do the reset outside of interrupt context). */
+ 			adapter->tx_timeout_count++;
+ 			schedule_work(&adapter->reset_task);
++			/* return immediately since reset is imminent */
++			return;
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index cb9ecc4..04cb81a 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -1140,6 +1140,8 @@ ixgb_watchdog(unsigned long data)
+ 			 * to get done, so reset controller to flush Tx.
+ 			 * (Do the reset outside of interrupt context). */
+ 			schedule_work(&adapter->tx_timeout_task);
++			/* return immediately since reset is imminent */
++			return;
+ 		}
+ 	}
+ 
+
