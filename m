@@ -1,56 +1,61 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: interprocess communication with netlinks
-Date: Thu, 07 May 2009 18:00:46 +0200
-Message-ID: <4A0305AE.4000203@free.fr>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [PATCH 1/2] igb: Implement reading of reg RQDPC (Receive Queue
+	Drop Packet Count)
+Date: Thu, 7 May 2009 10:06:45 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F7744D662@rrsmsx501.amr.corp.intel.com>
+References: <1241703346.18487.22.camel@localhost.localdomain>
+ <1241703431.18487.25.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: Jesper Dangaard Brouer <hawk@comx.dk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:43510 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760392AbZEGQAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 12:00:48 -0400
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate4.uk.ibm.com (8.14.3/8.13.8) with ESMTP id n47G0ljp219192
-	for <netdev@vger.kernel.org>; Thu, 7 May 2009 16:00:47 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n47G0lHc3297332
-	for <netdev@vger.kernel.org>; Thu, 7 May 2009 17:00:47 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n47G0kKx028584
-	for <netdev@vger.kernel.org>; Thu, 7 May 2009 17:00:47 +0100
-Received: from smtp.lab.toulouse-stg.fr.ibm.com (smtp.lab.toulouse-stg.fr.ibm.com [9.101.4.108])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id n47G0kEH028579
-	for <netdev@vger.kernel.org>; Thu, 7 May 2009 17:00:46 +0100
-Received: from mai-009101017029.toulouse-stg.fr.ibm.com (dhcp0.lab.toulouse-stg.fr.ibm.com [9.101.4.200])
-	by smtp.lab.toulouse-stg.fr.ibm.com (Postfix) with ESMTP id 691CA2A8051
-	for <netdev@vger.kernel.org>; Thu,  7 May 2009 18:00:46 +0200 (CEST)
+Received: from mga01.intel.com ([192.55.52.88]:55150 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751171AbZEGQGs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 12:06:48 -0400
+In-Reply-To: <1241703431.18487.25.camel@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi netdev gurus !
+ 
 
-I am trying to make several processes to communicate via the netlink 
-protocol.
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org 
+>[mailto:netdev-owner@vger.kernel.org] On Behalf Of Jesper 
+>Dangaard Brouer
+>Sent: Thursday, May 07, 2009 6:37 AM
+>To: Kirsher, Jeffrey T
+>Cc: David S. Miller; netdev@vger.kernel.org; 
+>e1000-devel@lists.sourceforge.net; Ronciak, John; Waskiewicz 
+>Jr, Peter P
+>Subject: [PATCH 1/2] igb: Implement reading of reg RQDPC 
+>(Receive Queue Drop Packet Count)
+>
+>
+>Implement reading the per queue drop stats register
+>RQDPC (Receive Queue Drop Packet Count).  It counts the number of
+>packets dropped by a queue due to lack of descriptors available.
+>
+>Notice RQDPC (Receive Queue Drop Packet Count) stats only gets
+>incremented, if the DROP_EN bit it set (in the SRRCTL register
+>for that queue). If DROP_EN bit is NOT set, then the some what
+>equivalent count is stored in RNBC (not per queue basis).
+>
+>The RQDPC register is only 12 bit, thus the precision might
+>suffer due to overrun in-between the watchdog polling interval.
 
-I saw a discussion around the AF_IPN (inter process communication) 
-protocol and it seems the same can be done with the AF_NETLINK protocol 
-with minor modifications in the kernel. Were these modifications done ?
+NAK.  82575 doesn't have RQDPC registers.  You need to check
+which part you're running on before you read those registers.
 
-I am trying to use multicast between several processes, for notification.
+Other than that, this looks OK to me.
 
-What protocol should I use to create the socket ?
-
-    fd = socket(PF_NETLINK, SOCK_RAW,  ???);
-
-I was not able to find any suitable pointer to explain how to do that, 
-so I blindly tried several combinations but I am afraid to interact with 
-the other netlink protocols when using a multicast group, especially 
-when there are other applications like avahi-daemon or "ip monitor all".
-
-Does anyone have a pointer to a documentation (not the redhat one, pls), 
-or some clues ?
-
-Thanks in advance.
-  -- Daniel
+-Mitch
