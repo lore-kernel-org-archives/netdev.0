@@ -1,69 +1,46 @@
 From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: [PATCH]ipv6:use ipv6_addr_type instead of __ipv6_addr_type
-Date: Thu, 07 May 2009 15:47:38 +0800
-Message-ID: <4A02921A.1090200@cn.fujitsu.com>
+Subject: Re: [PATCH] remove DMA_nBIT_MASK macro
+Date: Thu, 07 May 2009 16:29:21 +0800
+Message-ID: <4A029BE1.4090309@cn.fujitsu.com>
+References: <20090507141114M.fujita.tomonori@lab.ntt.co.jp> <20090506223452.65e545d8.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55952 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:57093 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753897AbZEGHqe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2009 03:46:34 -0400
+	id S1756106AbZEGI2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 04:28:25 -0400
+In-Reply-To: <20090506223452.65e545d8.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although the function of these two functions are the same,we should use the
-encapsulation function of __ipv6_addr_type
+Andrew Morton wrote:
+> On Thu, 7 May 2009 14:14:16 +0900 FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+> 
+>> We replaced all DMA_nBIT_MASK macros with DMA_BIT_MASK(n) but why do
+>> we still keep DMA_nBIT_MASK macros in include/linux/dma-mapping.h?
+>>
+>> As long as these macros exist, people use them. The current git has
+>> two users and linux-next have other users.
+>>
+>> Is it better to remove DMA_nBIT_MASK macros completely now?
+> 
+> Yes, the plan is to remove them.
+> 
+> Doing so will break lots and lots of out-of-tree drivers, causing
+> people some grief.  Is there any way in which we can cause their use to
+> cause __deprecated warnings for a couple of months, to give people a
+> chance to migrate?
+> 
+> 
 
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
-
----
- net/ipv6/addrconf.c |    4 ++--
- net/ipv6/datagram.c |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a8218bc..01b7a83 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1126,7 +1126,7 @@ int ipv6_dev_get_saddr(struct net *net, struct net_device *dst_dev,
- 	struct net_device *dev;
- 	int dst_type;
- 
--	dst_type = __ipv6_addr_type(daddr);
-+	dst_type = ipv6_addr_type(daddr);
- 	dst.addr = daddr;
- 	dst.ifindex = dst_dev ? dst_dev->ifindex : 0;
- 	dst.scope = __ipv6_addr_src_scope(dst_type);
-@@ -1181,7 +1181,7 @@ int ipv6_dev_get_saddr(struct net *net, struct net_device *dst_dev,
- 			    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
- 				continue;
- 
--			score->addr_type = __ipv6_addr_type(&score->ifa->addr);
-+			score->addr_type = ipv6_addr_type(&score->ifa->addr);
- 
- 			if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
- 				     score->addr_type & IPV6_ADDR_MULTICAST)) {
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index e2bdc6d..7ea5c77 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -537,7 +537,7 @@ int datagram_send_ctl(struct net *net,
- 				fl->oif = src_info->ipi6_ifindex;
- 			}
- 
--			addr_type = __ipv6_addr_type(&src_info->ipi6_addr);
-+			addr_type = ipv6_addr_type(&src_info->ipi6_addr);
- 
- 			if (fl->oif) {
- 				dev = dev_get_by_index(net, fl->oif);
--- 
-1.6.0.3
-
+Shall we use something like below to warn people?
+#define DMA_64BIT_MASK	DMA_BIT_MASK(64);(__deprecated warnings:use DMA_BIT_MASK(64) instead) ?
 
 -- 
 Regards
