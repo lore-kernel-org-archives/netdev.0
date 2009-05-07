@@ -1,65 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 5/5] ixgbe: Typecase '1' for 64 bit shift
-Date: Thu, 07 May 2009 13:40:15 -0700
-Message-ID: <20090507204015.19886.92292.stgit@localhost.localdomain>
-References: <20090507203854.19886.54737.stgit@localhost.localdomain>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: Strange Application bug, race in MSG_PEEK complaints (was: Bug#513695: fetchmail: race in MSG_PEEK)
+Date: Thu, 7 May 2009 22:43:18 +0200
+Message-ID: <200905072243.19546.elendil@planet.nl>
+References: <200902262310.12791.elendil@planet.nl> <200905071916.57903.elendil@planet.nl> <Pine.LNX.4.64.0905072139001.15149@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matthias Andree <matthias.andree@gmx.de>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?utf-8?q?J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:49260 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761256AbZEGUkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 16:40:33 -0400
-In-Reply-To: <20090507203854.19886.54737.stgit@localhost.localdomain>
+Received: from Cpsmtpm-eml106.kpnxchange.com ([195.121.3.10]:51878 "EHLO
+	CPSMTPM-EML106.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751060AbZEGU6d convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2009 16:58:33 -0400
+In-Reply-To: <Pine.LNX.4.64.0905072139001.15149@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nelson, Shannon <shannon.nelson@intel.com>
+On Thursday 07 May 2009, Ilpo J=C3=A4rvinen wrote:
+> > Can you please elaborate why you think that? It may be horribly
+> > broken (I've never claimed to be a C coder, and probably never will=
+),
+> > but it also really is the patch that generates the printks...
+>
+> ...This was mainly meant to be a joke... :-)
+>
+> The parenthesis won't match how a printk with string and 4 args shoul=
+d
+> be called, so with this version you have in the mail peek_seq and
+> tp->copied_seq are not put into stack or you were just super lucky.
 
-Make sure we don't get any sign-extend issues when we shift a 1
-into bit 31.
-
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbe/ixgbe_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 4a316e9..efb175b 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1307,7 +1307,7 @@ static inline void map_vector_to_rxq(struct ixgbe_adapter *a, int v_idx,
- 
- 	set_bit(r_idx, q_vector->rxr_idx);
- 	q_vector->rxr_count++;
--	a->rx_ring[r_idx].v_idx = 1 << v_idx;
-+	a->rx_ring[r_idx].v_idx = (u64)1 << v_idx;
- }
- 
- static inline void map_vector_to_txq(struct ixgbe_adapter *a, int v_idx,
-@@ -1317,7 +1317,7 @@ static inline void map_vector_to_txq(struct ixgbe_adapter *a, int v_idx,
- 
- 	set_bit(t_idx, q_vector->txr_idx);
- 	q_vector->txr_count++;
--	a->tx_ring[t_idx].v_idx = 1 << v_idx;
-+	a->tx_ring[t_idx].v_idx = (u64)1 << v_idx;
- }
- 
- /**
-@@ -4057,7 +4057,7 @@ static void ixgbe_watchdog(unsigned long data)
- 		int i;
- 
- 		for (i = 0; i < adapter->num_msix_vectors - NON_Q_VECTORS; i++)
--			eics |= (1 << i);
-+			eics |= ((u64)1 << i);
- 
- 		/* Cause software interrupt to ensure rx rings are cleaned */
- 		switch (hw->mac.type) {
-
+Ah, yes. You're absolutely right. Duh.
+gcc does warn about it, but I must have missed that.
