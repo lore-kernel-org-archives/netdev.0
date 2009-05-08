@@ -1,52 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]ipv6:use ipv6_addr_type instead of __ipv6_addr_type
-Date: Fri, 08 May 2009 00:48:35 -0700 (PDT)
-Message-ID: <20090508.004835.216058418.davem@davemloft.net>
-References: <20090507.145931.179746218.davem@davemloft.net>
-	<4A038853.4020205@cn.fujitsu.com>
-	<20090508.004420.22402966.davem@davemloft.net>
+Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
+Date: Fri, 08 May 2009 00:52:51 -0700 (PDT)
+Message-ID: <20090508.005251.14244652.davem@davemloft.net>
+References: <20090506224134.83F1583420E8@gemini.denx.de>
+	<fa686aa40905070709r7478837fnefb094d46f03ae0e@mail.gmail.com>
+	<4b73d43f0905071902y3b51d36ct2a04c560b5acdfb9@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: yanghy@cn.fujitsu.com
+Cc: linuxppc-dev@ozlabs.org, wd@denx.de, netdev@vger.kernel.org,
+	kosmo@semihalf.com, dzu@denx.de
+To: jcrigby@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52076
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47194
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755302AbZEHHsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 03:48:39 -0400
-In-Reply-To: <20090508.004420.22402966.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1756172AbZEHHwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 03:52:55 -0400
+In-Reply-To: <4b73d43f0905071902y3b51d36ct2a04c560b5acdfb9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 08 May 2009 00:44:20 -0700 (PDT)
+From: John Rigby <jcrigby@gmail.com>
+Date: Thu, 7 May 2009 20:02:53 -0600
 
-> From: Yang Hongyang <yanghy@cn.fujitsu.com>
-> Date: Fri, 08 May 2009 09:18:11 +0800
-> 
->> David Miller wrote:
->>> From: Yang Hongyang <yanghy@cn.fujitsu.com>
->>> Date: Thu, 07 May 2009 15:47:38 +0800
->>> 
->>>> Although the function of these two functions are the same,we should use the
->>>> encapsulation function of __ipv6_addr_type
->>>>
->>>> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
->>> 
->>> Are you sure?  ipv6_addr_type() masks out the upper 16-bits
->>> of __ipv6_addr_type()'s return value, which is the scope.
->>> 
->>> I'm not convinced that is what we want to do here.
->> 
->> My advice here is that the function which has __ maybe shouldn't be directly used.
+> Also don't forget that the register map is the same on 512x, mx and
+> coldfire platforms but not on the other ppc platforms so if you want
+> to one binary to rule them all you will need to have an offest table
+> or some such.
 
-I also want to address this statement on it's own, it's simply
-not true.
+I would suggest using ->read_reg() ->write_reg() methods for abstracting
+this.  That's how we handle all of the different way ESP scsi chips
+have their registers wired up.
 
-"__" means "think carefully before using this function", or "this
-function requires a special environment for proper usage"
-
-It DOES NOT mean "do not use directly."  It's never meant this.
-
-So ever basis for your patch is fundamentally flawed.
+I/O register reads take hundreds, if not thousands of CPU cycles so,
+relatively speaking, the indirection costs absolutely nothing.
