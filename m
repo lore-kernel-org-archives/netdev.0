@@ -1,161 +1,230 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PowerPC] Next May 8 boot failure: OOPS during ibmveth module
- init
-Date: Fri, 08 May 2009 12:57:22 -0700 (PDT)
-Message-ID: <20090508.125722.54378771.davem@davemloft.net>
-References: <20090508180251.f53f204e.sfr@canb.auug.org.au>
-	<4A042B20.4090903@in.ibm.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: ports beeing reused too fast
+Date: Fri, 8 May 2009 23:11:09 +0300
+Message-ID: <200905082311.09414.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	sfr@canb.auug.org.au, netdev@vger.kernel.org, jpirko@redhat.com
-To: sachinp@in.ibm.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_dHJBKIr9YeBkm6H"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42205
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754799AbZEHT50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 15:57:26 -0400
-In-Reply-To: <4A042B20.4090903@in.ibm.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:23279 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754092AbZEHUMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 16:12:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sachin Sant <sachinp@in.ibm.com>
-Date: Fri, 08 May 2009 18:22:48 +0530
+--Boundary-00=_dHJBKIr9YeBkm6H
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> Todays Next failed to boot on a Power6 JS22 blade with following oops.
 
-Jiri, I suspect this might be your address list changes.
+Hi,
 
-Although that's just a guess.  But please take a look.
+We've been running into an issue where a firewall would drop packets when an 
+moderate (~360) connection rate was going through it. It looks like the 
+firewall is dropping the SYNs that reuse ports "too fast". 
 
-> Unable to handle kernel paging request for data at address
-> 0x654af306c04b990
-> Faulting instruction address: 0xc00000000003a740
-> Oops: Kernel access of bad area, sig: 11 [#1]
-> SMP NR_CPUS=1024 NUMA pSeries
-> Modules linked in: ibmveth(+) sg sd_mod crc_t10dif ibmvscsic
-> scsi_transport_srp scsi_tgt scsi_mod
-> NIP: c00000000003a740 LR: c000000000361e20 CTR: 0000000000000000
-> REGS: c000000042af6e80 TRAP: 0300 Not tainted
-> (2.6.30-rc4-next-20090508)
-> MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 28222286  XER: 20000001
-> DAR: 0654af306c04b990, DSISR: 0000000040000000
-> TASK = c0000000428084d0[590] 'modprobe' THREAD: c000000042af4000 CPU:
-> 0
-> GPR00: c000000000361e10 c000000042af7100 c000000000eb8190
-> c00000004427cc80
-> GPR04: 0654af306c04b990 0000000000000006 0000000000000000
-> 0000000000000002
-> GPR08: c00000004427cc00 0000000000000088 0000000000000280
-> 000000000000007c
-> GPR12: 0000000084222284 c000000000f92400 0000000000000000
-> 0000000000000000
-> GPR16: 0000000000000000 0000000000000000 d000000000ed4346
-> d000000000ed3aa0
-> GPR20: d000000000ed6358 c00000004427cc00 00000000ffffffff
-> 0000000000000000
-> GPR24: 0000000000000000 c0000000402d0000 0000000000000010
-> c00000004194b400
-> GPR28: 0000000000000006 0654af306c04b990 c000000000e44f18
-> 0000000000000000
-> NIP [c00000000003a740] .memcpy+0x240/0x278
-> LR [c000000000361e20] .__nla_put+0x30/0x4c
-> Call Trace:
-> [c000000042af7100] [c000000000361e10] .__nla_put+0x20/0x4c
-> (unreliable)
-> [c000000042af7190] [c000000000361e88] .nla_put+0x4c/0x60
-> [c000000042af7200] [c00000000053993c] .rtnl_fill_ifinfo+0x308/0x614
-> [c000000042af7300] [c00000000053a118] .rtmsg_ifinfo+0x104/0x198
-> [c000000042af73b0] [c00000000053a244] .rtnetlink_event+0x98/0xb0
-> [c000000042af7430] [c0000000005c8330] .notifier_call_chain+0x68/0xdc
-> [c000000042af74d0] [c000000000530488] .register_netdevice+0x390/0x418
-> [c000000042af75a0] [c000000000530568] .register_netdev+0x58/0x80
-> [c000000042af7630] [d000000000ed2da4] .ibmveth_probe+0x2c8/0x3a4
-> [ibmveth]
-> [c000000042af7730] [c000000000023208] .vio_bus_probe+0x2f0/0x358
-> [c000000042af77f0] [c000000000462be0] .driver_probe_device+0xd4/0x1bc
-> [c000000042af7890] [c000000000462d5c] .__driver_attach+0x94/0xd8
-> [c000000042af7920] [c000000000462164] .bus_for_each_dev+0x80/0xe8
-> [c000000042af79d0] [c0000000004629b0] .driver_attach+0x28/0x40
-> [c000000042af7a50] [c000000000461808] .bus_add_driver+0xdc/0x27c
-> [c000000042af7af0] [c0000000004631d0] .driver_register+0xf0/0x1b0
-> [c000000042af7b90] [c000000000025178] .vio_register_driver+0x44/0x60
-> [c000000042af7c20] [d000000000ed2ed4] .ibmveth_module_init+0x54/0xa60
-> [ibmveth]
-> [c000000042af7ca0] [c0000000000092c0] .do_one_initcall+0x80/0x19c
-> [c000000042af7d90] [c0000000000bf884] .SyS_init_module+0xe0/0x248
-> [c000000042af7e30] [c000000000008534] syscall_exit+0x0/0x40
-> Instruction dump:
-> 7cb01120 7c862214 7c661a14 4bfffe04 409c001c 80040000 81240004
-> 38840008
-> 90030000 91230004 38630008 409d0014 <80040000> 38840004 90030000
-> 38630004
-> ---[ end trace 695e9dc0c5a9da2f ]---
-> 
-> udevd-event[587]: '/sbin/modprobe' abnormal exit
-> 
-> Unable to handle kernel paging request for data at address
-> 0x654af306c04b990
-> Faulting instruction address: 0xc000000000543ce0
-> Oops: Kernel access of bad area, sig: 11 [#2]
-> SMP NR_CPUS=1024 NUMA pSeries
-> Modules linked in: ibmveth(+) sg sd_mod crc_t10dif ibmvscsic
-> scsi_transport_srp scsi_tgt scsi_mod
-> NIP: c000000000543ce0 LR: c000000000543dcc CTR: c00000000053dd98
-> REGS: c0000000408b3740 TRAP: 0300 Tainted: G D
-> (2.6.30-rc4-next-20090508)
-> MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 24042428  XER: 00000001
-> DAR: 0654af306c04b990, DSISR: 0000000040000000
-> TASK = c00000004053d880[752] 'udevd' THREAD: c0000000408b0000 CPU: 3
-> GPR00: c000000000543dcc c0000000408b39c0 c000000000eb8190
-> c0000000448e0000
-> GPR04: 0000000000010000 c000000000796dec 0000000000000006
-> 0000000000000000
-> GPR08: c00000004265cf34 c000000000ea7250 c00000004265cf34
-> 0000000000000000
-> GPR12: 0000000044042488 c000000000f92a00 0000000000000001
-> 0000000000000001
-> GPR16: 00000000100372dc 00000000100374e0 00000000100376f8
-> 0000000000000000
-> GPR20: 0000000010036ec8 0000000000000000 00000fffdb3a6618
-> 0000000000000200
-> GPR24: 0000000000000006 0000000000000005 c0000000448f0000
-> c0000000448e0000
-> GPR28: 0654af306c04b990 0000000000000000 c000000000e45318
-> c0000000448e0000
-> NIP [c000000000543ce0] ._format_mac_addr+0x54/0xd4
-> LR [c000000000543dcc] .sysfs_format_mac+0x30/0x6c
-> Call Trace:
-> [c0000000408b39c0] [c00000000010c9a4]
-> .__alloc_pages_internal+0x1b8/0x590 (unreliable)
-> [c0000000408b3a70] [c000000000543dcc] .sysfs_format_mac+0x30/0x6c
-> [c0000000408b3b00] [c00000000053dde8] .show_address+0x50/0x88
-> [c0000000408b3b90] [c00000000045ead4] .dev_attr_show+0x4c/0x94
-> [c0000000408b3c20] [c0000000001bce48] .sysfs_read_file+0x10c/0x1d0
-> [c0000000408b3ce0] [c00000000014c9a0] .vfs_read+0xd0/0x1bc
-> [c0000000408b3d80] [c00000000014cb94] .SyS_read+0x58/0xa0
-> [c0000000408b3e30] [c000000000008534] syscall_exit+0x0/0x40
-> Instruction dump:
-> f8010010 ebc2cc58 f821ff51 7c7b1b78 7cd83378 7cbc2b78 7f432214
-> 7c7f1b78
-> 3ba00000 3b26ffff 48000044 e8be8000 <88dc0000> 3b9c0001 4be0ff89
-> 60000000
-> ---[ end trace 695e9dc0c5a9da30 ]---
-> 
-> attempt to access beyond end of device
-> 
-> Next May 7 with same config boots fine.
-> 
-> Thanks
-> -Sachin
-> 
-> -- 
-> 
-> ---------------------------------
-> Sachin Sant
-> IBM Linux Technology Center
-> India Systems and Technology Labs
-> Bangalore, India
-> ---------------------------------
-> 
+We have no issues with Linux 2.6.7, so I guess the behavior changed because of 
+this this commit:
+
+commit 6df716340da3a6fdd33d73d7ed4c6f7590ca1c42
+Author: Stephen Hemminger <shemminger@osdl.org>
+Date:   Thu Nov 3 16:33:23 2005 -0800
+
+    [TCP/DCCP]: Randomize port selection
+
+
+Now, I did some tests to confirm my suspicion. Basically, I am simulating a 
+connection rate test (I've attached the .c to this email) by opening up 
+connections and closing them - one at a time, and noting down the ports used, 
+then looking for duplicate ports and printing the distance between the 
+connection no.
+
+Here is one of the runs, which make 1000 iterations:
+
+listening (port 1242)
+ port reused: 38203: distance 578 (624,46)
+ port reused: 55693: distance 85 (147,62)
+ port reused: 38269: distance 803 (872,69)
+ port reused: 46239: distance 249 (344,95)
+ port reused: 40981: distance 215 (319,104)
+ port reused: 46246: distance 524 (641,117)
+ port reused: 43990: distance 378 (498,120)
+ port reused: 53766: distance 52 (232,180)
+ port reused: 44199: distance 194 (383,189)
+ port reused: 59464: distance 173 (384,211)
+ port reused: 44417: distance 264 (492,228)
+ port reused: 56989: distance 229 (553,324)
+ port reused: 60117: distance 69 (394,325)
+ port reused: 44549: distance 179 (566,387)
+ port reused: 39213: distance 300 (801,501)
+ port reused: 60166: distance 152 (671,519)
+ port reused: 44178: distance 108 (712,604)
+ port reused: 46516: distance 6 (792,786)
+ port reused: 55754: distance 95 (969,874)
+19 ports were being reused
+
+Running the same test on 2.6.7 yields a "0 ports were being reused" on all 
+tests that I've ran (10 or so).
+
+Isn't it desirable to have the behavior from 2.6.7? 
+
+I've looked over the  code and it looks right, so maybe net_random() is not 
+random enough? Or maybe there are side effects because of the % port_range?
+
+Thanks,
+tavi
+
+
+--Boundary-00=_dHJBKIr9YeBkm6H
+Content-Type: text/x-csrc;
+  charset="UTF-8";
+  name="port-reuse.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="port-reuse.c"
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <netinet/ip.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#define N 1000
+int ports[N], listen_port = 1234;
+
+/* find duplicate ports and show distance between them */
+int analyze(void)
+{
+	int i, j, n = 0;
+
+	for(i = 0; i < N; i++) {
+		for(j = i + 1; j < N; j++) {
+			if (ports[i] != ports[j])
+				continue;
+			printf(" port reused: %d: distance %d (%d,%d)\n", ports[i], j-i, j, i);
+			n++;
+		}
+	}
+
+	printf("%d ports were being reused\n", n);
+
+	return 0;
+}
+
+int client(void)
+{
+	int sock, i = 0;
+	size_t tmp;
+	struct sockaddr_in addr_bind = {
+		.sin_family = AF_INET,
+		.sin_addr.s_addr = INADDR_ANY,
+		.sin_port = 0,
+	}, addr_connect = {
+		.sin_family = AF_INET,
+		.sin_addr.s_addr = htonl(0x7f000001),
+		.sin_port = htons(listen_port),
+	}, addr_sockname;
+
+	sleep(1);
+
+ loop:
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (!sock) {
+		perror("client: failed to create socket");
+		return -1;
+	}
+
+	if (bind(sock, (struct sockaddr*)&addr_bind, sizeof(addr_bind)) < 0) {
+		perror("client: failed to bind");
+		return -1;
+	}
+
+	tmp = sizeof(addr_sockname);
+	if (getsockname(sock, (struct sockaddr*)&addr_sockname, &tmp) < 0) {
+		perror("client: getsockname failed");
+		return -1;
+	}
+
+	ports[i] = ntohs(addr_sockname.sin_port);
+
+	if (connect(sock, (struct sockaddr*)&addr_connect, sizeof(addr_connect)) < 0) {
+		perror("client: failed to connect");
+		return -1;
+	}
+	
+
+	if (read(sock, &tmp, sizeof(tmp)) != 0) {
+		perror("read failed");
+		return -1;
+	}
+
+	close(sock);
+
+	if (++i < N)
+		goto loop;
+
+
+	return analyze();
+}
+
+
+int server(void)
+{
+	int sock = socket(AF_INET, SOCK_STREAM, 0), sock2;
+	struct sockaddr_in addr = {
+		.sin_family = AF_INET,
+		.sin_addr.s_addr = INADDR_ANY,
+	};
+
+ again:
+	addr.sin_port = htons(listen_port);
+
+	if (!sock) {
+		perror("server: failed to create socket");
+		return -1;
+	}
+
+	if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+		perror("server: failed to bind");
+		listen_port++;
+		goto again;
+	}
+
+	if (listen(sock, 128) < 0) {
+		perror("server: failed to listen");
+		return -1;
+	}
+
+	printf("listening (port %d)\n", listen_port);
+
+	switch (fork()) {
+	case -1:
+		return -1;
+	case 0:
+		return client();
+	}
+
+ loop:
+	sock2 = accept(sock, NULL, NULL);
+	if (sock2 < 0) {
+		perror("server: accept failed\n");
+		return -1;
+	}
+
+	close(sock2);
+	goto loop;
+}
+
+
+int main()
+{
+
+	return server();
+
+}
+
+--Boundary-00=_dHJBKIr9YeBkm6H--
