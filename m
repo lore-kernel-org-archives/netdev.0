@@ -1,33 +1,40 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: Re: [patch next 4/4] netxen: disable rss for GbE ports
-Date: Thu, 7 May 2009 16:44:16 -0700
-Message-ID: <4A037250.9040408@netxen.com>
-References: <1241586309-12112-1-git-send-email-dhananjay@netxen.com> <1241586309-12112-5-git-send-email-dhananjay@netxen.com> <20090506.153714.122287244.davem@davemloft.net> <4A0217F6.7060005@netxen.com> <Pine.LNX.4.64.0905070811150.3058@ask.diku.dk>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next-2.6] Network Drop Monitor: Fix
+	skb_kill_datagram
+Date: Thu, 7 May 2009 20:42:00 -0400
+Message-ID: <20090508004200.GA15970@localhost.localdomain>
+References: <1241731554.6567.25.camel@Maple> <20090507.145649.169552244.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: john.dykstra1@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:52386 "EHLO nxexch.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751284AbZEGXoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2009 19:44:16 -0400
-In-Reply-To: <Pine.LNX.4.64.0905070811150.3058@ask.diku.dk>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42461 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764613AbZEHAmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2009 20:42:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20090507.145649.169552244.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Jesper Dangaard Brouer wrote:
-> 1Gbit/s throughput tests with MTU size frames is a bad measurement target.
-> Packets Per Sec is the key factor.
+On Thu, May 07, 2009 at 02:56:49PM -0700, David Miller wrote:
+> From: John Dykstra <john.dykstra1@gmail.com>
+> Date: Thu, 07 May 2009 21:25:54 +0000
+> 
+> > Commit ead2ceb0ec9f85cff19c43b5cdb2f8a054484431 ("Network Drop Monitor:
+> > Adding kfree_skb_clean for non-drops and modifying end-of-line points
+> > for skbs") established new conventions for identifying dropped packets.
+> > 
+> > Align skb_kill_datagram() with these conventions so that packets that
+> > get dropped just before the copy to userspace are properly tracked.
+> > 
+> > Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+> 
+> Neil, ACK?
 > 
 
-Yes, I will run some small packet tests before deciding on the number of
-rx queues. I am going to revisit the msix vector utilization a bit later,
-that's when I will address this.
+Yes, I think it looks good, thank you Jonh, Dave!
 
-Thanks,
-Dhananjay
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
