@@ -1,59 +1,64 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCH]ipv6:use ipv6_addr_type instead of __ipv6_addr_type
-Date: Fri, 08 May 2009 16:18:11 +0800
-Message-ID: <4A03EAC3.1010601@cn.fujitsu.com>
-References: <20090507.145931.179746218.davem@davemloft.net>	<4A038853.4020205@cn.fujitsu.com>	<20090508.004420.22402966.davem@davemloft.net> <20090508.004835.216058418.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Linux wireless mini-summit -- Berlin, June 2009
+Date: Fri, 08 May 2009 11:18:58 +0200
+Message-ID: <1241774338.1567.36.camel@johannes.local>
+References: <20090403182724.GA7364@tuxdriver.com>
+	 (sfid-20090403_203108_005030_BC3865B6)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-67ZG61t67jFlcYuSuV4h"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61984 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754183AbZEHIRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 May 2009 04:17:05 -0400
-In-Reply-To: <20090508.004835.216058418.davem@davemloft.net>
+Received: from xc.sipsolutions.net ([83.246.72.84]:46908 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752567AbZEHJTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 05:19:00 -0400
+In-Reply-To: <20090403182724.GA7364@tuxdriver.com> (sfid-20090403_203108_005030_BC3865B6)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 08 May 2009 00:44:20 -0700 (PDT)
-> 
->> From: Yang Hongyang <yanghy@cn.fujitsu.com>
->> Date: Fri, 08 May 2009 09:18:11 +0800
->>
->>> David Miller wrote:
->>>> From: Yang Hongyang <yanghy@cn.fujitsu.com>
->>>> Date: Thu, 07 May 2009 15:47:38 +0800
->>>>
->>>>> Although the function of these two functions are the same,we should use the
->>>>> encapsulation function of __ipv6_addr_type
->>>>>
->>>>> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
->>>> Are you sure?  ipv6_addr_type() masks out the upper 16-bits
->>>> of __ipv6_addr_type()'s return value, which is the scope.
->>>>
->>>> I'm not convinced that is what we want to do here.
->>> My advice here is that the function which has __ maybe shouldn't be directly used.
-> 
-> I also want to address this statement on it's own, it's simply
-> not true.
-> 
-> "__" means "think carefully before using this function", or "this
-> function requires a special environment for proper usage"
-> 
-> It DOES NOT mean "do not use directly."  It's never meant this.
 
-I was wrong,thank you for your patience to explain this.
-
-> 
-> So ever basis for your patch is fundamentally flawed.
-> 
-> 
+--=-67ZG61t67jFlcYuSuV4h
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
 
--- 
-Regards
-Yang Hongyang
+> So, here I open the floor for discussion of agenda items for our
+> wireless meeting/hackfest.  What do we think is important to discuss
+> face-to-face this year?  What isn't getting done?  What is getting
+> done wrong?  What do we need that we didn't realize last year?
+
+I've tried to capture the discussion from here on the wiki:
+
+http://wireless.kernel.org/en/developers/Summits/Berlin-2009
+
+Feel free to edit and add suggestions, or put yourself into "confirmed
+attendees" (do we want that? it seemed we should say who will be there)
+or put yourself into the section with confirmed talks :)
+
+johannes
+
+--=-67ZG61t67jFlcYuSuV4h
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKA/j2AAoJEODzc/N7+QmagUkP/2b0hyHZWANxiRAIT2MX1YjL
+2ENvrUXkJLpZfKXZKdgCtADDSMuCw5SSeho+4KEhGOfJaoI6ukJpjtW2mm3vV1WE
+SkXv3V2qzn8MrRSJFpk4U7PesjrqrXYz1blLmdlyNjPXYJiaO7ONQS/9UrNw125o
+kMJCTtInmVENxRqnb55Jy/YzlbXr8bte2uxczrrHSMIGUgTFttXjvZPgWy5LXcMk
+kLR33q9oimW9b+xErghGULa72PT1ITGOXKw9nqC/y4KSavP9bROZIpv+lstWCHtD
+dG/bEE5TwBOlydu9k0zcqY7NZk4fbLQ6nWqzFoQhkqqkw8NgQQI1EuSqHdmF+hku
+RNHnhb7Em3fJq/ZVBaE1nsAKaKwLT/V4pAXxRDePx7UmMAIe63OIsdSRJYzjvLC+
+8gVaiRHr6n3vlO0JoaQpD6swo4npCpPNrXHPiHA5KWG9HiKhnicwC88bPMUpj6nB
+ABnKt/bSOMWdKVqCo7D/ZLZ3UecrujlK3NdLISAMhuaxfjs/0IYNnRx+zDF59DEO
+DaL3K6Xh/ubcQLGzCM7eg7WYnQPBbymU/Zeu/GyU+Ae/qudwGAqpr8uocvchCgdT
+H7Thmif2il8z1PukCwqSAWCFOMvtkLzj3i+ty9/f+71BtaVG6ubv0IC7cZoWppFu
+vgBBne7+L9s5Vozd7zmB
+=93Eg
+-----END PGP SIGNATURE-----
+
+--=-67ZG61t67jFlcYuSuV4h--
+
