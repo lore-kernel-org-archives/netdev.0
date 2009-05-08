@@ -1,146 +1,60 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: reduce number of reference taken on sk_refcnt
-Date: Fri, 08 May 2009 17:12:39 +0200
-Message-ID: <4A044BE7.3070308@cosmosbay.com>
-References: <m31vqzwzae.fsf@intrepid.localdomain>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] net/fs_enet/mii-fec: Use PHY_POLL instead of hard coded
+	'-1'
+Date: Fri, 8 May 2009 09:55:31 -0600
+Message-ID: <fa686aa40905080855g1b24b9f4s7a78ccb75b5be8b1@mail.gmail.com>
+References: <1241791201-23960-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: Vitaly Bordug <vbordug@ru.mvista.com>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Wolfram Sang <w.sang@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:40237 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761459AbZEHPMt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 11:12:49 -0400
-In-Reply-To: <m31vqzwzae.fsf@intrepid.localdomain>
+Received: from yx-out-2324.google.com ([74.125.44.30]:1771 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752603AbZEHPzu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 11:55:50 -0400
+Received: by yx-out-2324.google.com with SMTP id 3so879600yxj.1
+        for <netdev@vger.kernel.org>; Fri, 08 May 2009 08:55:51 -0700 (PDT)
+In-Reply-To: <1241791201-23960-1-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa a =E9crit :
-> Hi,
->=20
-> Could NAPI or something similar be used for TX in addition to RX?
-> Perhaps some driver already does that?
->=20
-> I'm specifically thinking of IXP4xx Ethernet (and possibly WAN), thos=
-e
-> are 266-667 MHz ARM XScale CPUs and the interrupts handling just
-> transmitted sk_buffs are a pain. Could I delay those interrupts
-> somehow?
+On Fri, May 8, 2009 at 8:00 AM, Wolfram Sang <w.sang@pengutronix.de> wr=
+ote:
+> Initialize the irq-table with PHY_POLL. '-1' means the same now, but =
+is
+> hardly maintainable.
+>
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+> Cc: Vitaly Bordug <vbordug@ru.mvista.com>
+> Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Cc: netdev@vger.kernel.org
+> Cc: linuxppc-dev@ozlabs.org
+> ---
+> =A0drivers/net/fs_enet/mii-fec.c | =A0 =A02 +-
+> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-=
+fec.c
+> index 28077cc..9eb5480 100644
+> --- a/drivers/net/fs_enet/mii-fec.c
+> +++ b/drivers/net/fs_enet/mii-fec.c
+> @@ -166,7 +166,7 @@ static int __devinit fs_enet_mdio_probe(struct of=
+_device *ofdev,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out_unmap_regs;
+>
+> =A0 =A0 =A0 =A0for (i =3D 0; i < PHY_MAX_ADDR; i++)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_bus->irq[i] =3D -1;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_bus->irq[i] =3D PHY_POLL;
 
-This is a pain yes, I agree. But some improvements can be done.
-(even on drivers already using NAPI, especially if same interrupt
-is used both for RX and RX queues)
+This code no longer exists in net-next.
 
-=46or example, we can avoid the dst_release() cache miss if this
-is done in start_xmit(), and not later in TX completion while freeing s=
-kb.
-I tried various patches in the past but unfortunatly it seems
-only safe way to do this is in the driver xmit itself, not in core
-network stack. This would need many patches, one for each driver.
+g.
 
-Then, if your workload is UDP packets, a recent patch
-avoided an expensive wakeup at TX completion time
-(check commit bf368e4e70cd4e0f880923c44e95a4273d725ab4
-
-http://git2.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff;h=3Dbf368e4e70cd4e0f880923c44e95a4273d725ab4
-
-Unfortunatly this patch is only for 2.6.30, since it is based
-on a new infrastructure from Davide Libenzi)
-
-Then, additional work should be done to reduce cache lines
-misses in sock_wfree()
-
-This function currently touches many different cache lines
-(one for sk_wmem_alloc, one for testing sk_flags, one
- to decrement sk_refcnt). And on UDP, extra cachelines because
-we call sock_def_write_space(). Yes this sucks.
-
-We could avoid touching sk_refcnt in several cases. We
-need a reference count only for the whole packets attached to a socket,
-granted we use atomic_add_return() and such functions to detect 0
-transitions. That way, if a tcp stream always has some packets in fligh=
-t,
-TX completion would not have to decrement sk_refcnt.
-
-=46ollowing patch (based on net-next-2.6) to illustrate my point :
-
-[PATCH] net: reduce number of reference taken on sk_refcnt
-
-Current sk_wmem_alloc schema uses a sk_refcnt taken for each packet
-in flight. This hurts some workloads at TX completion time, because
-sock_wfree() has three cache lines to touch at least.
-(one for sk_wmem_alloc, one for testing sk_flags, one
- to decrement sk_refcnt)
-
-We could use only one reference count, taken only when sk_wmem_alloc
-is changed from or to ZERO value (ie one reference count for any number
-of in-flight packets)
-
-Not all atomic_add() must be changed to atomic_add_return(), if we
-know current sk_wmem_alloc is already not null.
-
-This patch reduces by one number of cache lines dirtied in sock_wfree()
-and number of atomic operation in some workloads.=20
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --cc include/net/tcp.h
-index ac37228,87d210b..0000000
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4bb1ff9..d57e88b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1213,14 +1213,17 @@ static inline int skb_copy_to_page(struct sock =
-*sk, char __user *from,
-  *
-  * 	Inlined as it's very short and called for pretty much every
-  *	packet ever received.
-+ *	We take a reference on sock only if this is the first packet
-+ *	accounted for. (one reference count for any number of in flight pac=
-kets)
-  */
-=20
- static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *s=
-k)
- {
--	sock_hold(sk);
- 	skb->sk =3D sk;
- 	skb->destructor =3D sock_wfree;
--	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-+	if (atomic_add_return(skb->truesize, &sk->sk_wmem_alloc) =3D=3D
-+	    skb->truesize)
-+		sock_hold(sk);
- }
-=20
- static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *s=
-k)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 7dbf3ff..bf10084 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1170,12 +1170,17 @@ void __init sk_init(void)
- void sock_wfree(struct sk_buff *skb)
- {
- 	struct sock *sk =3D skb->sk;
-+	int res;
-=20
- 	/* In case it might be waiting for more memory. */
--	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
-+	res =3D atomic_sub_return(skb->truesize, &sk->sk_wmem_alloc);
- 	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
- 		sk->sk_write_space(sk);
--	sock_put(sk);
-+	/*
-+	 * No more packets in flight, we must release sock refcnt
-+	 */
-+	if (res =3D=3D 0)
-+		sock_put(sk);
- }
-=20
- /*
-
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
