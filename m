@@ -1,73 +1,69 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH] net/fs_enet/mii-fec: Use PHY_POLL instead of hard
-	coded '-1'
-Date: Fri, 8 May 2009 18:06:34 +0200
-Message-ID: <20090508160634.GD3100@pengutronix.de>
-References: <1241791201-23960-1-git-send-email-w.sang@pengutronix.de>
-	<fa686aa40905080855g1b24b9f4s7a78ccb75b5be8b1@mail.gmail.com>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: decnet: Use data ready call back, rather than hand coding it
+Date: Fri, 08 May 2009 17:30:25 +0100
+Message-ID: <1241800225.29604.282.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1147334543=="
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Vitaly Bordug <vbordug@ru.mvista.com>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <fa686aa40905080855g1b24b9f4s7a78ccb75b5be8b1@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
-
-
---===============1147334543==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="/unnNtmY43mpUSKx"
-Content-Disposition: inline
-
-
---/unnNtmY43mpUSKx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-> This code no longer exists in net-next.
-
-EPIC FAIL! :/ I checked the powerpc-tree, but not linux-next. I'm sorry
-for the noise, will improve!
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---/unnNtmY43mpUSKx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkoEWIoACgkQD27XaX1/VRspBgCfbMD1StQGNshQOnFiVSWMR6WM
-FJwAoLBfSHWXn/d9HqV6daoEkKBO2zUk
-=AxQe
------END PGP SIGNATURE-----
-
---/unnNtmY43mpUSKx--
-
---===============1147334543==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org
+To: ccaulfie@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:46201 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753974AbZEHQaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 May 2009 12:30:55 -0400
+Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
+	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n48GUv3C022649
+	for <netdev@vger.kernel.org>; Fri, 8 May 2009 12:30:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
---===============1147334543==--
+
+Chrissie, can you test this? I don't have a suitable set up at the
+moment. This should be correct though since its taken directly from
+sock_queue_rcv_skb from whence the original code was also take in times
+past. I did compile test it though.
+
+Signed-off-by: Steven Whitehouse <swhiteho@redhat.com>
+
+
+diff --git a/net/decnet/dn_nsp_in.c b/net/decnet/dn_nsp_in.c
+index 5d8a2a5..932408d 100644
+--- a/net/decnet/dn_nsp_in.c
++++ b/net/decnet/dn_nsp_in.c
+@@ -578,6 +578,7 @@ out:
+ static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig, struct sk_buff_head *queue)
+ {
+ 	int err;
++	int skb_len;
+ 
+ 	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
+ 	   number of warnings when compiling with -W --ANK
+@@ -592,22 +593,12 @@ static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig
+ 	if (err)
+ 		goto out;
+ 
++	skb_len = skb->len;
+ 	skb_set_owner_r(skb, sk);
+ 	skb_queue_tail(queue, skb);
+ 
+-	/* This code only runs from BH or BH protected context.
+-	 * Therefore the plain read_lock is ok here. -DaveM
+-	 */
+-	read_lock(&sk->sk_callback_lock);
+-	if (!sock_flag(sk, SOCK_DEAD)) {
+-		struct socket *sock = sk->sk_socket;
+-		wake_up_interruptible(sk->sk_sleep);
+-		if (sock && sock->fasync_list &&
+-		    !test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
+-			__kill_fasync(sock->fasync_list, sig,
+-				    (sig == SIGURG) ? POLL_PRI : POLL_IN);
+-	}
+-	read_unlock(&sk->sk_callback_lock);
++	if (!sock_flag(sk, SOCK_DEAD))
++		sk->sk_data_ready(sk, skb_len);
+ out:
+ 	return err;
+ }
+
+
