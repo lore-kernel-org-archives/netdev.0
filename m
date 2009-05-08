@@ -1,51 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net: introduce a list of device addresses dev_addr_list
- (v6)
-Date: Fri, 8 May 2009 16:29:49 -0700
-Message-ID: <20090508162949.4e76abd6@nehalam>
-References: <20090508153842.65ce3bed@s6510>
-	<20090508.160008.127530143.davem@davemloft.net>
-	<20090508161204.134668b9@nehalam>
-	<20090508.162555.193731410.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next] net: check retval of dev_addr_init()
+Date: Sat, 9 May 2009 01:30:17 +0200
+Message-ID: <20090508233016.GC4881@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-	kaber@trash.net, mschmidt@redhat.com, dada1@cosmosbay.com,
-	ivecera@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45057 "EHLO mail.vyatta.com"
+Received: from mx2.redhat.com ([66.187.237.31]:58898 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754468AbZEHX3z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 May 2009 19:29:55 -0400
-In-Reply-To: <20090508.162555.193731410.davem@davemloft.net>
+	id S1764413AbZEHXaW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 May 2009 19:30:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 08 May 2009 16:25:55 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Add missed checking of dev_addr_init return value in alloc_netdev_mq.
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Fri, 8 May 2009 16:12:04 -0700
-> 
-> > But the other infrastructure may have same issues (netfilter, etc).
-> > Just seems like it would be either to have multiple network devices
-> > so that upper layers could disambiguate easier.
-> 
-> That's quite a heavyweight solution to what is purely
-> an addressing issue, don't you think?
-> 
-> We can just revert all of that netdev_ops stuff if you
-> think per-netdev cost doesn't matter :-)
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-I am just concerned that is a fundamental change (like MQ) was and
-it will take a couple of releases to shake out all the inter-relationships.
-When an architectural change is made, would like to see more analysis done.
-Netdev-ops was more of a refactoring than a change to what protocols
-and qdisc/filters/... see.
+ net/core/dev.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
 
--- 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 637ea71..14dd725 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5007,13 +5007,16 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 	if (!tx) {
+ 		printk(KERN_ERR "alloc_netdev: Unable to allocate "
+ 		       "tx qdiscs.\n");
+-		kfree(p);
+-		return NULL;
++		goto free_p;
+ 	}
+ 
+ 	dev = (struct net_device *)
+ 		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+ 	dev->padded = (char *)dev - (char *)p;
++
++	if (dev_addr_init(dev))
++		goto free_tx;
++
+ 	dev_net_set(dev, &init_net);
+ 
+ 	dev->_tx = tx;
+@@ -5022,13 +5025,19 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 
+ 	dev->gso_max_size = GSO_MAX_SIZE;
+ 
+-	dev_addr_init(dev);
+ 	netdev_init_queues(dev);
+ 
+ 	INIT_LIST_HEAD(&dev->napi_list);
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
++
++free_tx:
++	kfree(tx);
++
++free_p:
++	kfree(p);
++	return NULL;
+ }
+ EXPORT_SYMBOL(alloc_netdev_mq);
+ 
