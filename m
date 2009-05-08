@@ -1,62 +1,58 @@
-From: Dan McDonald <danmcd@sun.com>
-Subject: [danmcd@sun.com: [Ipsec-tools-devel] SHA-2 and RFC 4868]
-Date: Fri, 8 May 2009 14:08:11 -0400
-Message-ID: <20090508180811.GA15999@kebe.East.Sun.COM>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: via velocity trivial patch
+Date: Fri, 8 May 2009 21:29:48 +0200
+Message-ID: <20090508192948.GA19016@electric-eye.fr.zoreil.com>
+References: <49F1A05A.8070802@podgorny.cz> <4A01FBF6.1090001@podgorny.cz> <20090507.150213.192379856.davem@davemloft.net> <4A04184E.5040507@podgorny.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan McDonald <danmcd@sun.com>
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Radek Podgorny <radek@podgorny.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-ea-mail-2.Sun.COM ([192.18.43.25]:63547 "EHLO
-	sca-ea-mail-2.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753599AbZEHS1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 14:27:38 -0400
-Received: from dm-east-02.east.sun.com ([129.148.13.5])
-	by sca-ea-mail-2.sun.com (8.13.7+Sun/8.12.9) with ESMTP id n48IFhXi014331
-	for <netdev@vger.kernel.org>; Fri, 8 May 2009 18:15:43 GMT
-Received: from kebe.East.Sun.COM (kebe.East.Sun.COM [129.148.174.48])
-	by dm-east-02.east.sun.com (8.13.8+Sun/8.13.8/ENSMAIL,v2.2) with ESMTP id n48IFhk7050511
-	for <netdev@vger.kernel.org>; Fri, 8 May 2009 14:15:43 -0400 (EDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40095 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755133AbZEHT3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2009 15:29:05 -0400
 Content-Disposition: inline
+In-Reply-To: <4A04184E.5040507@podgorny.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pardon the top-post.  Paul Moore suggested this mailing list as the best
-place to ask the following.
+Radek Podgorny <radek@podgorny.cz> :
+[...]
+> Anyway, I've verified this is really happening on my hardware when
+> multiple via velocity devices share the same interrupt. The one the
+> interrupt is for reads the correct ISR value, the others sometimes read
+> 0 and sometimes 0xffffffff. I'm not educated enough to tell why.
 
-Thanks,
-Dan McD.
+Your quad port network card includes its own pci bus, right ?
+If so can you send a 'lspci -vt' of the host ?
 
------ Forwarded message from Dan McDonald <danmcd@sun.com> -----
+> Reasons to include the fix:
+> 1) Someone smarter than me suggested it (Jeff Garzik).
+> 2) Fixed my problem.
+> 3) Does not introduce a new problem.
 
-Date: Thu, 07 May 2009 15:57:39 -0400
-From: Dan McDonald <danmcd@sun.com>
-To: ipsec-tools-devel@lists.sourceforge.net
-Subject: [Ipsec-tools-devel] SHA-2 and RFC 4868
-User-Agent: Mutt/1.5.19 (2009-01-05)
+3. probably stands: there is no reason for the driver to see a
+0xffffffff interupt status register (hardware fault or unplug apart).
 
-Not sure if this is the most appropriate list for the topic, but I'm sure
-enough actual AH/ESP implementors hang out here.
+Well, almost:
 
-I've noticed at least one other platform doesn't do SHA-2 per RFC 4868
-(half-sized hash truncation), and instead truncates the SHA-2 hashes to
-96-bits like MD5 and SHA1.
+$ grep mac.*isr drivers/net/via-velocity.h
+#define mac_read_isr(regs)              readl(&((regs)->ISR))
+#define mac_write_isr(regs, x)          writel((x),&((regs)->ISR))
+#define mac_clear_isr(regs)             writel(0xffffffffL,&((regs)->ISR))
 
-Is this just me, or is there an unfixed kernel problem in other platforms'
-AH/ESP code?
+I can figure that there is a window through which the 2nd, 3rd and 4th
+devices can read a 0xffffffff when they are brought up but it should
+not be noticeable after this stage (and it may happen on the 1st device
+as well if it shares its interrupt with some other device).
 
-Thanks,
-Dan
+Does it match your experience ?
 
-------------------------------------------------------------------------------
-The NEW KODAK i700 Series Scanners deliver under ANY circumstances! Your
-production scanning environment may not be a perfect world - but thanks to
-Kodak, there's a perfect scanner to get the job done! With the NEW KODAK i700
-Series Scanner you'll get full speed at 300 dpi even with all image 
-processing features enabled. http://p.sf.net/sfu/kodak-com
-_______________________________________________
-Ipsec-tools-devel mailing list
-Ipsec-tools-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel
+> So I'm attaching the patch again. Now with the proper sign-off.
 
------ End forwarded message -----
+davem's life is probably simpler if you do not include anything
+after the patch.
+
+-- 
+Ueimor
