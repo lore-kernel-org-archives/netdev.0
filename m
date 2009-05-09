@@ -1,47 +1,43 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Sat, 9 May 2009 09:24:51 -0700 (PDT)
-Message-ID: <alpine.LFD.2.01.0905090923370.3586@localhost.localdomain>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
-	<200904202208.23899.laurent.pinchart@skynet.be>
-	<d82e647a0904201847n403424efnb5a0c40a4cac365d@mail.gmail.com>
-	<200904220121.12002.laurent.pinchart@skynet.be>
-	<20090509112819.759594d5@linux-lm>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
-        Linux SCSI List <linux-scsi@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Natalie Protasevich <protasnb@gmail.com>, mchehab@infradead.org,
-        Linux ACPI <linux-acpi@vger.kernel.org>, video4linux-list@redhat.com,
-        Laurent Pinchart <laurent.pinchart@skynet.be>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        Linux PM List <linux-pm@lists.linux-foundation.org>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <20090509112819.759594d5@linux-lm>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Richard Genoud <richard.genoud@gmail.com>
+Subject: [PATCH] Remove duplicate slow protocol define in bond_3ad.h
+Date: Sat,  9 May 2009 18:59:16 +0200
+Message-ID: <1241888356-7575-1-git-send-email-richard.genoud@gmail.com>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Richard Genoud <richard.genoud@gmail.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:42103 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbZEIQ7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 12:59:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+ETH_P_SLOW is already defined in include/linux/if_ether.h.
+There's no need to define BOND_ETH_P_LACPDU in drivers/net/bonding/bond_3ad.h
 
+Signed-off-by: Richard Genoud <richard.genoud@gmail.com>
+---
+ drivers/net/bonding/bond_3ad.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-On Sat, 9 May 2009, Ming Lei wrote:
-> 
-> Rc5 has been released today, why isn't this patch accepted by upstream
-> now?  It is really a bug fix.
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index a306230..2c46a15 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -26,10 +26,10 @@
+ #include <asm/byteorder.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/if_ether.h>
+ 
+ // General definitions
+-#define BOND_ETH_P_LACPDU       0x8809
+-#define PKT_TYPE_LACPDU         cpu_to_be16(BOND_ETH_P_LACPDU)
++#define PKT_TYPE_LACPDU         cpu_to_be16(ETH_P_SLOW)
+ #define AD_TIMER_INTERVAL       100 /*msec*/
+ 
+ #define MULTICAST_LACPDU_ADDR    {0x01, 0x80, 0xC2, 0x00, 0x00, 0x02}
+-- 
+1.6.0.4
 
-I can take it directly, but was hoping to get it through the regular DVB 
-tree. Haven't had a DVB update request yet (or maybe it got lost?)
-
-		Linus
