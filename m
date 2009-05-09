@@ -1,132 +1,50 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH] Staging: rtl8187se: convert to net_device_ops
-Date: Sun, 10 May 2009 03:06:54 +0400
-Message-ID: <1241910414-7389-1-git-send-email-a.beregalov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alexander Beregalov <a.beregalov@gmail.com>
-To: gregkh@suse.de, davem@davemloft.net
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH 1/1] DMA: mark DMA_nBITS_MASK as deprecated
+Date: Sun, 10 May 2009 08:55:17 +0900
+Message-ID: <20090510085618D.fujita.tomonori@lab.ntt.co.jp>
+References: <20090507111846.GI28398@elte.hu>
+	<1241769638-27301-1-git-send-email-jirislaby@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, yanghy@cn.fujitsu.com, akpm@linux-foundation.org,
+	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jirislaby@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:42282 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbZEIXHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 19:07:44 -0400
+Received: from sh.osrg.net ([192.16.179.4]:51213 "EHLO sh.osrg.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753308AbZEIX4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 May 2009 19:56:47 -0400
+In-Reply-To: <1241769638-27301-1-git-send-email-jirislaby@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
- drivers/staging/rtl8187se/Kconfig                  |    2 +-
- .../staging/rtl8187se/ieee80211/ieee80211_module.c |    1 -
- drivers/staging/rtl8187se/r8180_core.c             |   25 ++++++++++++--------
- drivers/staging/rtl8187se/r8180_pm.c               |    6 +++-
- 4 files changed, 20 insertions(+), 14 deletions(-)
+On Fri,  8 May 2009 10:00:38 +0200
+Jiri Slaby <jirislaby@gmail.com> wrote:
 
-diff --git a/drivers/staging/rtl8187se/Kconfig b/drivers/staging/rtl8187se/Kconfig
-index f636296..236e427 100644
---- a/drivers/staging/rtl8187se/Kconfig
-+++ b/drivers/staging/rtl8187se/Kconfig
-@@ -1,6 +1,6 @@
- config RTL8187SE
- 	tristate "RealTek RTL8187SE Wireless LAN NIC driver"
- 	depends on PCI
--	depends on WIRELESS_EXT && COMPAT_NET_DEV_OPS
-+	depends on WIRELESS_EXT
- 	default N
- 	---help---
-diff --git a/drivers/staging/rtl8187se/ieee80211/ieee80211_module.c b/drivers/staging/rtl8187se/ieee80211/ieee80211_module.c
-index 0c9fef0..c2b61e6 100644
---- a/drivers/staging/rtl8187se/ieee80211/ieee80211_module.c
-+++ b/drivers/staging/rtl8187se/ieee80211/ieee80211_module.c
-@@ -114,7 +114,6 @@ struct net_device *alloc_ieee80211(int sizeof_priv)
- 		goto failed;
- 	}
- 	ieee = netdev_priv(dev);
--	dev->hard_start_xmit = ieee80211_xmit;
- 
- 	ieee->dev = dev;
- 
-diff --git a/drivers/staging/rtl8187se/r8180_core.c b/drivers/staging/rtl8187se/r8180_core.c
-index e10413c..7e2feca 100644
---- a/drivers/staging/rtl8187se/r8180_core.c
-+++ b/drivers/staging/rtl8187se/r8180_core.c
-@@ -198,7 +198,8 @@ static void __devexit rtl8180_pci_remove(struct pci_dev *pdev);
- static void rtl8180_shutdown (struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
--	dev->stop(dev);
-+	if (dev->netdev_ops->ndo_stop)
-+		dev->netdev_ops->ndo_stop(dev);
- 	pci_disable_device(pdev);
- }
- 
-@@ -4551,8 +4552,6 @@ short rtl8180_init(struct net_device *dev)
- 		//DMESG("Reported EEPROM chip is a 93c46 (1Kbit)");
- 	}
- 
--	dev->get_stats = rtl8180_stats;
--
- 	dev->dev_addr[0]=eprom_read(dev,MAC_ADR) & 0xff;
- 	dev->dev_addr[1]=(eprom_read(dev,MAC_ADR) & 0xff00)>>8;
- 	dev->dev_addr[2]=eprom_read(dev,MAC_ADR+1) & 0xff;
-@@ -5832,6 +5831,18 @@ int rtl8180_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-      -----------------------------PCI STUFF---------------------------
- *****************************************************************************/
- 
-+static const struct net_device_ops rtl8180_netdev_ops = {
-+	.ndo_open		= rtl8180_open,
-+	.ndo_stop		= rtl8180_close,
-+	.ndo_get_stats		= rtl8180_stats,
-+	.ndo_tx_timeout		= rtl8180_restart,
-+	.ndo_do_ioctl		= rtl8180_ioctl,
-+	.ndo_set_multicast_list	= r8180_set_multicast,
-+	.ndo_set_mac_address	= r8180_set_mac_adr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_start_xmit		= ieee80211_xmit,
-+};
- 
- static int __devinit rtl8180_pci_probe(struct pci_dev *pdev,
- 				       const struct pci_device_id *id)
-@@ -5936,14 +5947,8 @@ static int __devinit rtl8180_pci_probe(struct pci_dev *pdev,
- 	dev->irq = pdev->irq;
- 	priv->irq = 0;
- 
--	dev->open = rtl8180_open;
--	dev->stop = rtl8180_close;
--	//dev->hard_start_xmit = ieee80211_xmit;
--	dev->tx_timeout = rtl8180_restart;
-+	dev->netdev_ops = &rtl8180_netdev_ops;
- 	dev->wireless_handlers = &r8180_wx_handlers_def;
--	dev->do_ioctl = rtl8180_ioctl;
--	dev->set_multicast_list = r8180_set_multicast;
--	dev->set_mac_address = r8180_set_mac_adr;
- 
- #if WIRELESS_EXT >= 12
- #if WIRELESS_EXT < 17
-diff --git a/drivers/staging/rtl8187se/r8180_pm.c b/drivers/staging/rtl8187se/r8180_pm.c
-index 3851b93..2b3d642 100644
---- a/drivers/staging/rtl8187se/r8180_pm.c
-+++ b/drivers/staging/rtl8187se/r8180_pm.c
-@@ -30,7 +30,8 @@ int rtl8180_suspend (struct pci_dev *pdev, pm_message_t state)
- 	if (!netif_running(dev))
- 		goto out_pci_suspend;
- 
--	dev->stop(dev);
-+	if (dev->netdev_ops->ndo_stop)
-+		dev->netdev_ops->ndo_stop(dev);
- 
- 	netif_device_detach(dev);
- 
-@@ -71,7 +72,8 @@ int rtl8180_resume (struct pci_dev *pdev)
- 	if(!netif_running(dev))
- 		goto out;
- 
--	dev->open(dev);
-+	if (dev->netdev_ops->ndo_open)
-+		dev->netdev_ops->ndo_open(dev);
- 	netif_device_attach(dev);
- out:
- 	return 0;
--- 
-1.6.3
+> Ingo Molnar <mingo@elte.hu> wrote:
+> > Can you see a way to emit build warnings? If yes then that might be 
+> > a better solution instead of breaking in-the-pipeline code.
+> 
+> What about this:
+> --
+> 
+> Mark them deprecated so that 3rd party vendors get notified about that
+> before their modules break by removing those macros later.
+> 
+> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> ---
+>  include/linux/dma-mapping.h |   26 ++++++++++++++------------
+>  1 files changed, 14 insertions(+), 12 deletions(-)
 
+Ah, nice magic!
+
+Well, "warning: 'DMA_DEPRECATED' is deprecated" warning message is a
+bit obscure but the developers should notice that they do something
+wrong.
+
+Acked-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+
+
+Thanks a lot,
