@@ -1,58 +1,45 @@
-From: Mauro Carvalho Chehab <mchehab@infradead.org>
-Subject: Re: 2.6.30-rc2-git2: Reported regressions from 2.6.29
-Date: Sat, 9 May 2009 18:37:12 -0300
-Message-ID: <20090509183712.54ac4c79@pedra.chehab.org>
-References: <EJaiQ4Wfaz.A.3YG.4v85JB@chimera>
-	<200904202208.23899.laurent.pinchart@skynet.be>
-	<d82e647a0904201847n403424efnb5a0c40a4cac365d@mail.gmail.com>
-	<200904220121.12002.laurent.pinchart@skynet.be>
-	<20090509112819.759594d5@linux-lm>
-	<alpine.LFD.2.01.0905090923370.3586@localhost.localdomain>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: tun: add tun_flags, owner, group attributes in sysfs
+Date: Sat, 09 May 2009 23:27:53 +0100
+Message-ID: <1241908073.24436.27.camel@macbook.infradead.org>
+References: <1241433136.6126.70.camel@macbook.infradead.org>
+	 <20090509.132733.213857911.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <tom.leiming@gmail.com>,
-	Laurent Pinchart <laurent.pinchart@skynet.be>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	video4linux-list@redhat.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.01.0905090923370.3586@localhost.localdomain>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, markmc@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:59150 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753149AbZEIW14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 18:27:56 -0400
+In-Reply-To: <20090509.132733.213857911.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Sat, 9 May 2009 09:24:51 -0700 (PDT)
-Linus Torvalds <torvalds@linux-foundation.org> escreveu:
-
+On Sat, 2009-05-09 at 13:27 -0700, David Miller wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Mon, 04 May 2009 11:32:16 +0100
 > 
+> > I don't have to explicitly remove the files, do I? They go away
+> > naturally when the device is unregistered?
 > 
-> On Sat, 9 May 2009, Ming Lei wrote:
-> > 
-> > Rc5 has been released today, why isn't this patch accepted by upstream
-> > now?  It is really a bug fix.
+> I'm not so sure about this.  I can't see anything in the
+> drivers/base/core.c code that automatically deletes anything
+> other than device groups and attributes.
 
+Hm, I really do think the attributes go away automatically when the
+parent device does.
 
-> 
-> I can take it directly, but was hoping to get it through the regular DVB 
-> tree. Haven't had a DVB update request yet (or maybe it got lost?)
-> 
-> 		Linus
+If not, gianfar_sysfs.c and niu.c want fixing too -- and we should
+probably have a WARN_ON() in the sysfs code when it happens, if
+possible.
 
-The patch were added on my linux-next tree. I'll move it to the tree I handle
-bug fixes and I'll ask Linus to pull from it together with a few other fixes I
-have there, later today or tomorrow.
+I'll experiment (since I'm getting lost when I try to work it out by
+inspection).
 
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
-
-
-Cheers,
-Mauro
