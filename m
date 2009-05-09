@@ -1,45 +1,76 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: tun: add tun_flags, owner, group attributes in sysfs
-Date: Sat, 09 May 2009 23:27:53 +0100
-Message-ID: <1241908073.24436.27.camel@macbook.infradead.org>
-References: <1241433136.6126.70.camel@macbook.infradead.org>
-	 <20090509.132733.213857911.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: ports beeing reused too fast
+Date: Sat, 9 May 2009 15:45:15 -0700
+Message-ID: <20090509154515.28251a48@nehalam>
+References: <200905082311.09414.opurdila@ixiacom.com>
+	<4A052991.5040009@cosmosbay.com>
+	<200905091611.20321.opurdila@ixiacom.com>
+	<4A059E75.7060008@cosmosbay.com>
+	<20090509153135.04874f72.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, markmc@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59150 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753149AbZEIW14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 18:27:56 -0400
-In-Reply-To: <20090509.132733.213857911.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:41840 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752626AbZEIWpU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 18:45:20 -0400
+In-Reply-To: <20090509153135.04874f72.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-05-09 at 13:27 -0700, David Miller wrote:
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Mon, 04 May 2009 11:32:16 +0100
-> 
-> > I don't have to explicitly remove the files, do I? They go away
-> > naturally when the device is unregistered?
-> 
-> I'm not so sure about this.  I can't see anything in the
-> drivers/base/core.c code that automatically deletes anything
-> other than device groups and attributes.
+On Sat, 9 May 2009 15:31:35 -0400
+Bill Fink <billfink@mindspring.com> wrote:
 
-Hm, I really do think the attributes go away automatically when the
-parent device does.
+> On Sat, 09 May 2009, Eric Dumazet wrote:
+>=20
+> > Octavian Purdila a =C3=A9crit :
+> > > On Saturday 09 May 2009 09:58:25 Eric Dumazet wrote:
+> > >=20
+> > >>> I've looked over the  code and it looks right, so maybe net_ran=
+dom() is
+> > >>> not random enough? Or maybe there are side effects because of t=
+he %
+> > >>> port_range?
+> > >> Random is random :)
+> > >> Probability a port can be reused pretty fast is not nul.
+> > >>
+> > >=20
+> > > Thinking again about it... you are right :)
+> > >=20
+> > >> So yes, behavior you discovered is expected, when we switched po=
+rt
+> > >> selection from a sequential one (not very secure btw) to a rando=
+m one.
+> > >>
+> > >> Any strong reason why a firewall would drop a SYN because ports =
+were used
+> > >> in a previous session ?
+> > >=20
+> > > We don't know why the firewall (Cisco FWSM) is dropping the packe=
+ts, may be a=20
+> > > bug, limitation or miss-configuration. We are trying to track thi=
+s down with=20
+> > > the firewall vendor.
+> >=20
+> > Normally, the client machine should not reuse a port during the TIM=
+E_WAIT duration
+> > (TCP_TIMEWAIT_LEN being 60 seconds on linux). Port selection being =
+random or sequential,
+> > it should avoid all ports recently used.
+> >=20
+> > Maybe this firewall has a longer TIME_WAIT enforcement (something l=
+ike 2 minutes)
+>=20
+> But he had 19 ports being reused after only 1000 connect()s, which
+> with his stated ~360 (I'm assuming per second) connection rate,
+> would only take about 3 seconds.
+>=20
+> 						-Bill
 
-If not, gianfar_sysfs.c and niu.c want fixing too -- and we should
-probably have a WARN_ON() in the sysfs code when it happens, if
-possible.
+This the same thing as the Birthday paradox
 
-I'll experiment (since I'm getting lost when I try to work it out by
-inspection).
-
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
-
+--=20
