@@ -1,51 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL REQUEST] net-fixes: IXP4xx
-Date: Sat, 09 May 2009 13:21:03 -0700 (PDT)
-Message-ID: <20090509.132103.121299319.davem@davemloft.net>
-References: <m33abeupx3.fsf@intrepid.localdomain>
+Subject: Re: tun: add tun_flags, owner, group attributes in sysfs
+Date: Sat, 09 May 2009 13:27:33 -0700 (PDT)
+Message-ID: <20090509.132733.213857911.davem@davemloft.net>
+References: <1241433136.6126.70.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, markmc@redhat.com
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59846
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34910
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754822AbZEIUVH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 May 2009 16:21:07 -0400
-In-Reply-To: <m33abeupx3.fsf@intrepid.localdomain>
+	by vger.kernel.org with ESMTP id S1753052AbZEIU1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 16:27:37 -0400
+In-Reply-To: <1241433136.6126.70.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Sat, 09 May 2009 19:50:00 +0200
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Mon, 04 May 2009 11:32:16 +0100
 
-> The following changes since commit be8be9eccbf2d908a7e56b3f7a71105cd8=
-8da06b:
->   Simon Horman (1):
->         ipvs: Fix IPv4 FWMARK virtual services
->=20
-> are available in the git repository at:
->=20
->   git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git n=
-et-fixes
->=20
-> Krzysztof Ha=B3asa (2):
->       IXP4xx: use "ENODEV" instead of "ENOSYS" in module initializati=
-on.
->          (now modutils don't complain about missing module support, s=
-ame
->          as c101 and n2 changes months ago).
->=20
->       IXP4xx: complete Ethernet netdev setup before calling
->          register_netdev() (recently spotted by Lubomir Rintel and
->          Andreas Mohr).
->=20
->  arch/arm/mach-ixp4xx/ixp4xx_npe.c |    2 +-
->  drivers/net/arm/ixp4xx_eth.c      |   31 ++++++++++++++++-----------=
-----
->  drivers/net/wan/ixp4xx_hss.c      |    4 ++--
->  3 files changed, 19 insertions(+), 18 deletions(-)
+> I don't have to explicitly remove the files, do I? They go away
+> naturally when the device is unregistered?
 
-Pulled, thanks!
+I'm not so sure about this.  I can't see anything in the
+drivers/base/core.c code that automatically deletes anything
+other than device groups and attributes.
