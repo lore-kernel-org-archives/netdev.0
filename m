@@ -1,54 +1,72 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: ports beeing reused too fast
-Date: Sat, 9 May 2009 16:11:19 +0300
-Message-ID: <200905091611.20321.opurdila@ixiacom.com>
-References: <200905082311.09414.opurdila@ixiacom.com> <4A052991.5040009@cosmosbay.com>
+Date: Sat, 09 May 2009 17:17:09 +0200
+Message-ID: <4A059E75.7060008@cosmosbay.com>
+References: <200905082311.09414.opurdila@ixiacom.com> <4A052991.5040009@cosmosbay.com> <200905091611.20321.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27038 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751553AbZEINMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 09:12:30 -0400
-In-Reply-To: <4A052991.5040009@cosmosbay.com>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52638 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321AbZEIPRT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 11:17:19 -0400
+In-Reply-To: <200905091611.20321.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 09 May 2009 09:58:25 Eric Dumazet wrote:
+Octavian Purdila a =E9crit :
+> On Saturday 09 May 2009 09:58:25 Eric Dumazet wrote:
+>=20
+>>> I've looked over the  code and it looks right, so maybe net_random(=
+) is
+>>> not random enough? Or maybe there are side effects because of the %
+>>> port_range?
+>> Random is random :)
+>> Probability a port can be reused pretty fast is not nul.
+>>
+>=20
+> Thinking again about it... you are right :)
+>=20
+>> So yes, behavior you discovered is expected, when we switched port
+>> selection from a sequential one (not very secure btw) to a random on=
+e.
+>>
+>> Any strong reason why a firewall would drop a SYN because ports were=
+ used
+>> in a previous session ?
+>=20
+> We don't know why the firewall (Cisco FWSM) is dropping the packets, =
+may be a=20
+> bug, limitation or miss-configuration. We are trying to track this do=
+wn with=20
+> the firewall vendor.
 
-> > I've looked over the  code and it looks right, so maybe net_random() is
-> > not random enough? Or maybe there are side effects because of the %
-> > port_range?
->
-> Random is random :)
-> Probability a port can be reused pretty fast is not nul.
->
+Normally, the client machine should not reuse a port during the TIME_WA=
+IT duration
+(TCP_TIMEWAIT_LEN being 60 seconds on linux). Port selection being rand=
+om or sequential,
+it should avoid all ports recently used.
 
-Thinking again about it... you are right :)
+Maybe this firewall has a longer TIME_WAIT enforcement (something like =
+2 minutes)
 
-> So yes, behavior you discovered is expected, when we switched port
-> selection from a sequential one (not very secure btw) to a random one.
->
-> Any strong reason why a firewall would drop a SYN because ports were used
-> in a previous session ?
+>=20
+>> Previous mode can be restored by application itself, using a bind() =
+before
+>> connect(), if this application knows it has a very high rate of conn=
+ections
+>> from a particular host to a particular host. (source ports range bei=
+ng
+>> small anyway, so your firewall could complain again)
+>=20
+> Do you mean bind() with port !=3D 0 ? Because I am already using bind=
+() before=20
+> connect().
+>=20
 
-We don't know why the firewall (Cisco FWSM) is dropping the packets, may be a 
-bug, limitation or miss-configuration. We are trying to track this down with 
-the firewall vendor.
+Yes, but its obviously complex to handle at application side...
 
-> Previous mode can be restored by application itself, using a bind() before
-> connect(), if this application knows it has a very high rate of connections
-> from a particular host to a particular host. (source ports range being
-> small anyway, so your firewall could complain again)
-
-Do you mean bind() with port != 0 ? Because I am already using bind() before 
-connect().
-
-Thanks,
-tavi
 
