@@ -1,32 +1,54 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: NAPI and TX
-Date: Sat, 09 May 2009 14:27:40 +0200
-Message-ID: <m3hbzuv4ub.fsf@intrepid.localdomain>
-References: <m31vqzwzae.fsf@intrepid.localdomain>
-	<20090508.144412.201441401.davem@davemloft.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: ports beeing reused too fast
+Date: Sat, 9 May 2009 16:11:19 +0300
+Message-ID: <200905091611.20321.opurdila@ixiacom.com>
+References: <200905082311.09414.opurdila@ixiacom.com> <4A052991.5040009@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:32815 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936AbZEIM1m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 May 2009 08:27:42 -0400
-In-Reply-To: <20090508.144412.201441401.davem@davemloft.net> (David Miller's message of "Fri\, 08 May 2009 14\:44\:12 -0700 \(PDT\)")
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27038 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751553AbZEINMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2009 09:12:30 -0400
+In-Reply-To: <4A052991.5040009@cosmosbay.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Saturday 09 May 2009 09:58:25 Eric Dumazet wrote:
 
-> Many multiqueue drivers do exactly this.  NIU is but one example.
+> > I've looked over the  code and it looks right, so maybe net_random() is
+> > not random enough? Or maybe there are side effects because of the %
+> > port_range?
 >
-> Every discrete event from the chip which can generate discrete
-> interrupts, uses a unique NAPI context.
+> Random is random :)
+> Probability a port can be reused pretty fast is not nul.
 >
-> If a single interrupt is used to indicate RX and TX, using seperate
-> NAPI contexts is not advisable.  It's just going to add overhead.
 
-Great. Ben, David, Eric, thanks. I will try to use this.
--- 
-Krzysztof Halasa
+Thinking again about it... you are right :)
+
+> So yes, behavior you discovered is expected, when we switched port
+> selection from a sequential one (not very secure btw) to a random one.
+>
+> Any strong reason why a firewall would drop a SYN because ports were used
+> in a previous session ?
+
+We don't know why the firewall (Cisco FWSM) is dropping the packets, may be a 
+bug, limitation or miss-configuration. We are trying to track this down with 
+the firewall vendor.
+
+> Previous mode can be restored by application itself, using a bind() before
+> connect(), if this application knows it has a very high rate of connections
+> from a particular host to a particular host. (source ports range being
+> small anyway, so your firewall could complain again)
+
+Do you mean bind() with port != 0 ? Because I am already using bind() before 
+connect().
+
+Thanks,
+tavi
+
