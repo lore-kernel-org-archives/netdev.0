@@ -1,84 +1,184 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [patch next 4/4] netxen: trivial register access cleanup
-Date: Sat,  9 May 2009 01:02:30 -0700
-Message-ID: <1241856150-4488-4-git-send-email-dhananjay@netxen.com>
+Subject: [patch next 2/4] netxen: fix irq tear down and msix leak.
+Date: Sat,  9 May 2009 01:02:28 -0700
+Message-ID: <1241856150-4488-2-git-send-email-dhananjay@netxen.com>
 References: <1241856150-4488-1-git-send-email-dhananjay@netxen.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:48116 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:48112 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751431AbZEIICb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751521AbZEIICb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 9 May 2009 04:02:31 -0400
 In-Reply-To: <1241856150-4488-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove unnecessary length parameter since it's always 4 bytes.
+o Fix the order of irq and hardware context teardown.
+  Also synchronize the interrupt in dev close() before
+  releasing tx buffers.
+
+o Fix possible msi-x vector leak if available vectors are
+  less than requested.
+
+o Request multiple msix vectors only if hardware supports
+  multiple rx queues.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_hw.c |   13 +++++--------
- 1 files changed, 5 insertions(+), 8 deletions(-)
+ drivers/net/netxen/netxen_nic_main.c |   74 +++++++++++++++++++--------------
+ 1 files changed, 43 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 86c9e78..42ffb82 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -914,17 +914,15 @@ netxen_nic_pci_change_crbwindow_128M(struct netxen_adapter *adapter, u32 wndw)
-  * In: 'off' is offset from base in 128M pci map
-  */
- static int
--netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter,
--		ulong *off, int len)
-+netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter, ulong *off)
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index edb4bcd..c61c1d1 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -175,12 +175,6 @@ netxen_napi_add(struct netxen_adapter *adapter, struct net_device *netdev)
+ 	struct nx_host_sds_ring *sds_ring;
+ 	struct netxen_recv_context *recv_ctx = &adapter->recv_ctx;
+ 
+-	if ((adapter->flags & NETXEN_NIC_MSIX_ENABLED) &&
+-			adapter->rss_supported)
+-		adapter->max_sds_rings = (num_online_cpus() >= 4) ? 4 : 2;
+-	else
+-		adapter->max_sds_rings = 1;
+-
+ 	if (netxen_alloc_sds_rings(recv_ctx, adapter->max_sds_rings))
+ 		return 1;
+ 
+@@ -216,8 +210,9 @@ netxen_napi_disable(struct netxen_adapter *adapter)
+ 
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+-		netxen_nic_disable_int(sds_ring);
+ 		napi_disable(&sds_ring->napi);
++		netxen_nic_disable_int(sds_ring);
++		synchronize_irq(sds_ring->irq);
+ 	}
+ }
+ 
+@@ -407,11 +402,11 @@ static void netxen_set_msix_bit(struct pci_dev *pdev, int enable)
+ 	}
+ }
+ 
+-static void netxen_init_msix_entries(struct netxen_adapter *adapter)
++static void netxen_init_msix_entries(struct netxen_adapter *adapter, int count)
  {
--	unsigned long end = *off + len;
- 	crb_128M_2M_sub_block_map_t *m;
+ 	int i;
  
+-	for (i = 0; i < MSIX_ENTRIES_PER_ADAPTER; i++)
++	for (i = 0; i < count; i++)
+ 		adapter->msix_entries[i].entry = i;
+ }
  
- 	if (*off >= NETXEN_CRB_MAX)
- 		return -1;
+@@ -496,6 +491,15 @@ netxen_setup_intr(struct netxen_adapter *adapter)
+ {
+ 	struct netxen_legacy_intr_set *legacy_intrp;
+ 	struct pci_dev *pdev = adapter->pdev;
++	int err, num_msix;
++
++	if (adapter->rss_supported) {
++		num_msix = (num_online_cpus() >= MSIX_ENTRIES_PER_ADAPTER) ?
++			MSIX_ENTRIES_PER_ADAPTER : 2;
++	} else
++		num_msix = 1;
++
++	adapter->max_sds_rings = 1;
  
--	if (*off >= NETXEN_PCI_CAMQM && (end <= NETXEN_PCI_CAMQM_2M_END)) {
-+	if (*off >= NETXEN_PCI_CAMQM && (*off < NETXEN_PCI_CAMQM_2M_END)) {
- 		*off = (*off - NETXEN_PCI_CAMQM) + NETXEN_PCI_CAMQM_2M_BASE +
- 			(ulong)adapter->ahw.pci_base0;
- 		return 0;
-@@ -934,14 +932,13 @@ netxen_nic_pci_get_crb_addr_2M(struct netxen_adapter *adapter,
- 		return -1;
+ 	adapter->flags &= ~(NETXEN_NIC_MSI_ENABLED | NETXEN_NIC_MSIX_ENABLED);
  
- 	*off -= NETXEN_PCI_CRBSPACE;
--	end = *off + len;
+@@ -512,26 +516,35 @@ netxen_setup_intr(struct netxen_adapter *adapter)
  
- 	/*
- 	 * Try direct map
- 	 */
- 	m = &crb_128M_2M_map[CRB_BLK(*off)].sub_block[CRB_SUBBLK(*off)];
+ 	if (adapter->msix_supported) {
  
--	if (m->valid && (m->start_128M <= *off) && (m->end_128M >= end)) {
-+	if (m->valid && (m->start_128M <= *off) && (m->end_128M > *off)) {
- 		*off = *off + m->start_2M - m->start_128M +
- 			(ulong)adapter->ahw.pci_base0;
- 		return 0;
-@@ -1036,7 +1033,7 @@ netxen_nic_hw_write_wx_2M(struct netxen_adapter *adapter, ulong off, u32 data)
- 	unsigned long flags = 0;
- 	int rv;
+-		netxen_init_msix_entries(adapter);
+-		if (pci_enable_msix(pdev, adapter->msix_entries,
+-					MSIX_ENTRIES_PER_ADAPTER))
+-			goto request_msi;
++		netxen_init_msix_entries(adapter, num_msix);
++		err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
++		if (err == 0) {
++			adapter->flags |= NETXEN_NIC_MSIX_ENABLED;
++			netxen_set_msix_bit(pdev, 1);
  
--	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off, 4);
-+	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
+-		adapter->flags |= NETXEN_NIC_MSIX_ENABLED;
+-		netxen_set_msix_bit(pdev, 1);
+-		dev_info(&pdev->dev, "using msi-x interrupts\n");
++			if (adapter->rss_supported)
++				adapter->max_sds_rings = num_msix;
  
- 	if (rv == -1) {
- 		printk(KERN_ERR "%s: invalid offset: 0x%016lx\n",
-@@ -1066,7 +1063,7 @@ netxen_nic_hw_read_wx_2M(struct netxen_adapter *adapter, ulong off)
- 	int rv;
- 	u32 data;
+-	} else {
+-request_msi:
+-		if (use_msi && !pci_enable_msi(pdev)) {
+-			adapter->flags |= NETXEN_NIC_MSI_ENABLED;
+-			adapter->msi_tgt_status =
+-				msi_tgt_status[adapter->ahw.pci_func];
+-			dev_info(&pdev->dev, "using msi interrupts\n");
+-		} else
+-			dev_info(&pdev->dev, "using legacy interrupts\n");
+-		adapter->msix_entries[0].vector = pdev->irq;
++			dev_info(&pdev->dev, "using msi-x interrupts\n");
++			return;
++		}
++
++		if (err > 0)
++			pci_disable_msix(pdev);
++
++		/* fall through for msi */
+ 	}
++
++	if (use_msi && !pci_enable_msi(pdev)) {
++		adapter->flags |= NETXEN_NIC_MSI_ENABLED;
++		adapter->msi_tgt_status =
++			msi_tgt_status[adapter->ahw.pci_func];
++		dev_info(&pdev->dev, "using msi interrupts\n");
++		return;
++	}
++
++	dev_info(&pdev->dev, "using legacy interrupts\n");
++	adapter->msix_entries[0].vector = pdev->irq;
+ }
  
--	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off, 4);
-+	rv = netxen_nic_pci_get_crb_addr_2M(adapter, &off);
+ static void
+@@ -767,7 +780,7 @@ netxen_nic_request_irq(struct netxen_adapter *adapter)
  
- 	if (rv == -1) {
- 		printk(KERN_ERR "%s: invalid offset: 0x%016lx\n",
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+-		sprintf(sds_ring->name, "%16s[%d]", netdev->name, ring);
++		sprintf(sds_ring->name, "%s[%d]", netdev->name, ring);
+ 		err = request_irq(sds_ring->irq, handler,
+ 				  flags, sds_ring->name, sds_ring);
+ 		if (err)
+@@ -830,8 +843,6 @@ netxen_nic_down(struct netxen_adapter *adapter, struct net_device *netdev)
+ {
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+-	smp_mb();
+-	netxen_napi_disable(adapter);
+ 
+ 	if (adapter->stop_port)
+ 		adapter->stop_port(adapter);
+@@ -839,6 +850,8 @@ netxen_nic_down(struct netxen_adapter *adapter, struct net_device *netdev)
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+ 		netxen_p3_free_mac_list(adapter);
+ 
++	netxen_napi_disable(adapter);
++
+ 	netxen_release_tx_buffers(adapter);
+ 
+ 	FLUSH_SCHEDULED_WORK();
+@@ -917,10 +930,9 @@ err_out_free_sw:
+ static void
+ netxen_nic_detach(struct netxen_adapter *adapter)
+ {
+-	netxen_nic_free_irq(adapter);
+-
+ 	netxen_release_rx_buffers(adapter);
+ 	netxen_free_hw_resources(adapter);
++	netxen_nic_free_irq(adapter);
+ 	netxen_free_sw_resources(adapter);
+ 
+ 	adapter->is_up = 0;
 -- 
 1.6.0.2
 
