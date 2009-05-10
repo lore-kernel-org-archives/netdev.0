@@ -1,50 +1,35 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 1/1] DMA: mark DMA_nBITS_MASK as deprecated
-Date: Sun, 10 May 2009 08:55:17 +0900
-Message-ID: <20090510085618D.fujita.tomonori@lab.ntt.co.jp>
-References: <20090507111846.GI28398@elte.hu>
-	<1241769638-27301-1-git-send-email-jirislaby@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tun: add tun_flags, owner, group attributes in sysfs
+Date: Sat, 09 May 2009 22:54:57 -0700 (PDT)
+Message-ID: <20090509.225457.237499573.davem@davemloft.net>
+References: <1241433136.6126.70.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, yanghy@cn.fujitsu.com, akpm@linux-foundation.org,
-	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jirislaby@gmail.com
+Cc: netdev@vger.kernel.org, markmc@redhat.com
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:51213 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753308AbZEIX4r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 May 2009 19:56:47 -0400
-In-Reply-To: <1241769638-27301-1-git-send-email-jirislaby@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42754
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477AbZEJFzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2009 01:55:03 -0400
+In-Reply-To: <1241433136.6126.70.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  8 May 2009 10:00:38 +0200
-Jiri Slaby <jirislaby@gmail.com> wrote:
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Mon, 04 May 2009 11:32:16 +0100
 
-> Ingo Molnar <mingo@elte.hu> wrote:
-> > Can you see a way to emit build warnings? If yes then that might be 
-> > a better solution instead of breaking in-the-pipeline code.
+> This patch adds three attribute files in /sys/class/net/$dev/ for tun
+> devices; allowing userspace to obtain the information which TUNGETIFF
+> offers, and more, but without having to attach to the device in question
+> (which may not be possible if it's in use).
 > 
-> What about this:
-> --
+> It also fixes a bug which has been present in the TUNGETIFF ioctl since
+> its inception, where it would never set IFF_TUN or IFF_TAP according to
+> the device type. (Look carefully at the code which I remove from
+> tun_get_iff() and how the new tun_flags() helper is subtly different).
 > 
-> Mark them deprecated so that 3rd party vendors get notified about that
-> before their modules break by removing those macros later.
-> 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-> ---
->  include/linux/dma-mapping.h |   26 ++++++++++++++------------
->  1 files changed, 14 insertions(+), 12 deletions(-)
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-Ah, nice magic!
-
-Well, "warning: 'DMA_DEPRECATED' is deprecated" warning message is a
-bit obscure but the developers should notice that they do something
-wrong.
-
-Acked-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-
-
-Thanks a lot,
+Applied to net-next-2.6, thanks!
