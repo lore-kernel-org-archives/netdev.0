@@ -1,54 +1,49 @@
-From: Sachin Sant <sachinp@in.ibm.com>
-Subject: Re: [PowerPC] Next May 8 boot failure: OOPS during ibmveth moduleinit
-Date: Mon, 11 May 2009 22:37:09 +0530
-Message-ID: <4A085B3D.5000806@in.ibm.com>
-References: <20090508180251.f53f204e.sfr@canb.auug.org.au>  <4A042B20.4090903@in.ibm.com> <20090508.125722.54378771.davem@davemloft.net> <20090508223332.GA4881@psychotron.englab.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-next@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20090508223332.GA4881@psychotron.englab.brq.redhat.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: [PATCH 1/3] virtio: teach virtio_has_feature() about transport features
+Date: Mon, 11 May 2009 18:11:44 +0100
+Message-ID: <1242061906-16226-1-git-send-email-markmc@redhat.com>
+References: <1242061838.25337.8.camel@blaa>
+Cc: netdev@vger.kernel.org, Dor Laor <dor@redhat.com>,
+	Avi Kivity <avi@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	Mark McLoughlin <markmc@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail28.svc.cra.dublin.eircom.net ([159.134.118.224]:33745 "HELO
+	mail28.svc.cra.dublin.eircom.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751885AbZEKRMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 13:12:00 -0400
+In-Reply-To: <1242061838.25337.8.camel@blaa>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko wrote:
-> Fri, May 08, 2009 at 09:57:22PM CEST, davem@davemloft.net wrote:
->   
->> From: Sachin Sant <sachinp@in.ibm.com>
->> Date: Fri, 08 May 2009 18:22:48 +0530
->>
->>     
->>> Todays Next failed to boot on a Power6 JS22 blade with following oops.
->>>       
->> Jiri, I suspect this might be your address list changes.
->>
->> Although that's just a guess.  But please take a look.
->>     
->
-> Hmm, only thing I see might cause the problem would be if calling __hw_addr_add
-> in dev_addr_init fails, then dev->dev_addr would contain zeroes (which looks
-> this is not the case). But in this case the oops would appear earlier (in
-> ibmveth_probe dev_addr memcpy).
->
-> Will do the patch which checks the result to behave correctly in case of oom
-> but this imho this wouldn't help. Strange, I will dig into this more tomorrow.
->   
-I can recreate this problem with today's Next release as well. Let me 
-know if you want me to try
-out any thing to debug this problem.
+Drivers don't add transport features to their table, so we
+shouldn't check these with virtio_check_driver_offered_feature().
 
-Thanks
--Sachin
+We could perhaps add an ->offered_feature() virtio_config_op,
+but that perhaps that would be overkill for a consitency check
+like this.
 
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
+---
+ include/linux/virtio_config.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+index bf8ec28..e4ba694 100644
+--- a/include/linux/virtio_config.h
++++ b/include/linux/virtio_config.h
+@@ -99,7 +99,9 @@ static inline bool virtio_has_feature(const struct virtio_device *vdev,
+ 	if (__builtin_constant_p(fbit))
+ 		BUILD_BUG_ON(fbit >= 32);
+ 
+-	virtio_check_driver_offered_feature(vdev, fbit);
++	if (fbit < VIRTIO_TRANSPORT_F_START)
++		virtio_check_driver_offered_feature(vdev, fbit);
++
+ 	return test_bit(fbit, vdev->features);
+ }
+ 
 -- 
+1.6.0.6
 
----------------------------------
-Sachin Sant
-IBM Linux Technology Center
-India Systems and Technology Labs
-Bangalore, India
----------------------------------
