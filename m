@@ -1,77 +1,60 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH] xfrm: SAD entries do not expire after suspend-resume
-Date: Mon, 11 May 2009 14:31:08 -0700
-Message-ID: <1242077468.7214.127.camel@localhost.localdomain>
-References: <20090511142101.639cb5d6@penta.localdomain>
-	 <1242066617.6656.1311.camel@laptop>
-	 <ea182b20905111307w2cdbe18dw9f9fde474216c219@mail.gmail.com>
-	 <1242073557.8257.116.camel@laptop>
-	 <20090511165024.5da4e3f2@penta.localdomain>
-	 <1242076361.8257.168.camel@laptop>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
+Date: Mon, 11 May 2009 17:29:52 -0400
+Message-ID: <1242077392.3716.15.camel@lap75545.ornl.gov>
+References: <200903041828.49972.m.bueker@berlin.de>
+ <1242001754.4093.12.camel@obelisk.thedillows.org>
+ <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Yury Polyanskiy <ypolyans@Princeton.EDU>, netdev@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-	mingo@elte.hu, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: Michael Riepe <michael.riepe@googlemail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:36586 "EHLO e6.ny.us.ibm.com"
+Received: from emroute3.ornl.gov ([160.91.4.110]:60193 "EHLO emroute3.ornl.gov"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754692AbZEKVbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2009 17:31:21 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n4BLXZMB014549
-	for <netdev@vger.kernel.org>; Mon, 11 May 2009 17:33:35 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n4BLVMqx187498
-	for <netdev@vger.kernel.org>; Mon, 11 May 2009 17:31:22 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n4BLVKT6006714
-	for <netdev@vger.kernel.org>; Mon, 11 May 2009 17:31:21 -0400
-In-Reply-To: <1242076361.8257.168.camel@laptop>
+	id S1754359AbZEKWAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2009 18:00:14 -0400
+In-reply-to: <200905112310.08534.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-05-11 at 23:12 +0200, Peter Zijlstra wrote:
-> On Mon, 2009-05-11 at 16:50 -0400, Yury Polyanskiy wrote:
-> > On Mon, 11 May 2009 22:25:57 +0200
-> > Peter Zijlstra <peterz@infradead.org> wrote:
-> > 
-> > > > >>   Due to (2) I am copying the authors of the hrtimer's patch.
-> > > > >> Unless there is an alternative (to hrtimer_start) way of
-> > > > >> requesting a CLOCK_REALTIME softirq callback the only solution I
-> > > > >> could think of is to hook into
-> > > > >> PM_POST_HIBERNATION+PM_POST_SUSPEND and force all of the timers
-> > > > >> on xfrm_state_all list to go off after resume.
-> > > > >
-> > > > > Given that the whole problem is suspend related, this last option
-> > > > > sounds like the best thing.
-> > > > >
-> > > > 
-> > > > Can somebody from the Networking Team please confirm that the other
-> > > > sources of time leaps can indeed be neglected? (such as ntp
-> > > > corrections e.g.)
+On Mon, 2009-05-11 at 23:10 +0200, Michael Buesch wrote:
+> On Monday 11 May 2009 22:48:44 Michael Buesch wrote:
+> > On Monday 11 May 2009 02:29:14 David Dillow wrote:
+> > > > Kernel: 2.6.29.2 (x86_64)
+> > > > Board: Intel D945GCLF2
+> > > > BIOS version: LF94510J.86A.0099.2008.0731.0303
 > > > 
-> > > ntp time adjustments are very fine grained and should not distort
-> > > time. Setting the system clock otoh might screw you over though.
+> > > I'm not sure this is tied to the chip. 
 > > 
-> > Isn't ntp sometimes used for initial clock setting? (i.e. host boots
-> > with sysclock set to 1971 and then ntp makes it to the correct 2009).
+> > Yeah maybe other chips are affected as well.
+> > I just want to note that my failing chip/board is an Intel D945GCLF2 board
+> > with onboard G-LAN, too.
+> > 
+> > The device XID is: XID 3c4000c0
+> > (see kernel log)
+> > 
+> > Somebody else (I think it was Rui Santos) already reported a failing chip with that XID, too.
+> > 
 > 
-> ntp (as in the userspace software bits) would use something like
-> sys_settimeofday() to move the clock, after that they use sys_adjtimex()
-> to keep in sync.
+> Here's a patch which blacklists MSI support by XID.
+> It's currently only compile-tested, because I can't reboot the machine right now.
 
-ntp will use settimeofday() to set the clock in the following
-conditions:
-1) If the step-tickers option is used, it will set the clock at bootup.
-2) If the time offset becomes greater then the slew boundary (0.128s)
+I was saying that I don't think the timeouts are necessarily the NIC
+chipset -- or the bridge chip for that matter --  having issues with
+MSI. There were some substantial IRQ handling changes in 2.6.28 and my
+bisection of the problem seem to lead into that code. I'll try this
+later tonight hopefully, but can you try to run 2.6.27 with the current
+r8169 driver and see if it is solid for you? That way it is using the
+same driver code, but avoids the IRQ changes.
 
-Otherwise it will slew the clock by making a freq adjustments via
-adjtimex().
+Of course, my XID is 281000c0, so it looks like I have a different NIC
+chip as well, so we may be chasing different problems. Still, it'd be
+nice to rule out the IRQ changes before adding a blacklist.
 
-thanks
--john
-
+Dave
