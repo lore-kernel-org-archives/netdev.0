@@ -1,130 +1,108 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [Announce] Intel and Nokia announce open source telephony
- project (oFono)
-Date: Mon, 11 May 2009 18:38:53 -0400
-Message-ID: <1242081534.24094.13.camel@localhost.localdomain>
-References: <1242066878.22268.8.camel@little.research.nokia.com>
-	 <1242075055.18723.49.camel@localhost.localdomain>
-	 <1242075934.2812.3.camel@localhost.localdomain>
+From: Yury Polyanskiy <ypolyans@Princeton.EDU>
+Subject: [IPSEC] xfrm_state locking problem in xfrm_input.c
+Date: Mon, 11 May 2009 18:47:39 -0400
+Message-ID: <20090511184739.6e497f29@penta.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Aki Niemi <aki.niemi@nokia.com>, netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/FUMSZhZtftNepJWcmdPo9Ok"; protocol="application/pgp-signature"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58061 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759905AbZEKWiB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2009 18:38:01 -0400
-In-Reply-To: <1242075934.2812.3.camel@localhost.localdomain>
+Received: from postoffice05.Princeton.EDU ([128.112.133.189]:61536 "EHLO
+	Princeton.EDU" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757392AbZEKWts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 18:49:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-05-11 at 14:05 -0700, Marcel Holtmann wrote:
-> Hi Dan,
-> 
-> > > Intel and Nokia are pleased to jointly announce the oFono project
-> > > (http://ofono.org), an open source project for developing an open source
-> > > telephony solution.
-> > > 
-> > > oFono.org is a place to bring developers together around designing an
-> > > infrastructure for building mobile telephony (GSM/UMTS) applications.
-> > > oFono.org is licensed under GPLv2, and it includes a high-level D-Bus
-> > > API for use by telephony applications of any license.  oFono.org also
-> > > includes a low-level plug-in API for integrating with Open Source as
-> > > well as third party telephony stacks, cellular modems and storage
-> > > back-ends.  The plug-in API functionality is modeled on public
-> > > standards, in particular 3GPP TS 27.007 "AT command set for User
-> > > Equipment (UE)."
-> > > 
-> > > Source code is available on http://ofono.org/downloads and a high-level
-> > > architecture diagram is available on http://ofono.org/documentation.  To
-> > > join the mailing list, go to http://lists.ofono.org/listinfo/ofono.
-> > > 
-> > > Nokia and Intel will jointly maintain the oFono project.  We'd like to
-> > > invite all developers to join the oFono.org effort and community.
-> > 
-> > So a few questions...
-> > 
-> > - Where's the IS-707/IS-856 support?  Yes, many operators will be
-> > transitioning to LTE by 2015, but there are 450 million CDMA subscribers
-> > right now [1], and that number is expected to grow.  Having two modem
-> > control stacks simply isn't an option.  Not having designed support for
-> > CDMA into the service seems pretty short-sighted.  I know Nokia itself
-> > doesn't care about CDMA any more, but still...
-> 
-> we did talk about CDMA voice support and so far nobody of us had good
-> enough experience with how it works on the voice level. Let me assure
-> you that we wanna definitely allow support for it.
+--Sig_/FUMSZhZtftNepJWcmdPo9Ok
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I meant data, not voice...  What I'd like to know (and I couldn't find
-out from looking for the introspection data, or missing API
-specification) is whether you've made provisions for CDMA devices in the
-D-Bus API.
+xfrm_input() code uses spin_lock() where it must be using
+spin_lock_bh() instead. The corresponding code in xfrm_output.c
+correctly uses spin_lock_bh().=20
 
-> > - GPS support?  In reality, there can only be one service arbitrating
-> > access to modem serial ports, since not all serial-based modems provide
-> > more than two ports, and one of those must be used for PPP, and the
-> > other for signal strength, etc.  Logically, the service controlling
-> > these ports for cellular should also be handling GPS requests on these
-> > devices.
-> 
-> I talked with our designers and engineers about it and we do see the
-> need to handle this properly for modem devices where the control part is
-> the same for the modem. We need to figure out on how to integrate this
-> properly with Gypsy. Advantage of oFono is that it has a generic plugin
-> infrastructure.
+Note that if the locally generated packet is sent to a local ip,
+dev_queue_xmit() calls loopback_xmit() and the xfrm_input() will be
+called with softirqs enabled.
 
-I'd expect services like ModemManager or ofono to implement a standard
-GPS D-Bus interface that consumers of GPS information could query as
-long as they are pointed at the right bus name.  GPS queries are
-specific to the modem in question.
+This might lead to a deadlock since x->lock is acquired in
+xfrm_timer_handler().
 
-> > - Is there some reason we cannot coalesce around *one* userland cellular
-> > service?  There's Wader/VMC (python+dbus) and ModemManager (C+dbus) and
-> > gsmd (C+dbus) already; it seems that for the sake of users, it would be
-> > great to concentrate that effort in *one* place so that we don't have to
-> > keep quirking every single modem in 4 different places.  TBH, I don't
-> > care which one it is, as long as (a) it has a sane D-Bus interface, (b)
-> > it supports CDMA, (c) it uses DeviceKit, and (d) it's GPLv2.
-> 
-> I think that the basic modem detection/quirking has to be done with your
-> modem id tool from udev-extras.
+Signed-off-by: Yury Polyanskiy <polyanskiy@gmail.com>
+---
+ net/xfrm/xfrm_input.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-I think you misunderstand the scope of modem quirking.  Please read
-something like:
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index b4a1317..4494918 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -161,7 +161,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32=
+ spi, int encap_type)
+=20
+ 		skb->sp->xvec[skb->sp->len++] =3D x;
+=20
+-		spin_lock(&x->lock);
++		spin_lock_bh(&x->lock);
+ 		if (unlikely(x->km.state !=3D XFRM_STATE_VALID)) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEINVALID);
+ 			goto drop_unlock;
+@@ -182,7 +182,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32=
+ spi, int encap_type)
+ 			goto drop_unlock;
+ 		}
+=20
+-		spin_unlock(&x->lock);
++		spin_unlock_bh(&x->lock);
+=20
+ 		XFRM_SKB_CB(skb)->seq.input =3D seq;
+=20
+@@ -192,7 +192,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32=
+ spi, int encap_type)
+ 			return 0;
+=20
+ resume:
+-		spin_lock(&x->lock);
++		spin_lock_bh(&x->lock);
+ 		if (nexthdr <=3D 0) {
+ 			if (nexthdr =3D=3D -EBADMSG) {
+ 				xfrm_audit_state_icvfail(x, skb,
+@@ -212,7 +212,7 @@ resume:
+ 		x->curlft.bytes +=3D skb->len;
+ 		x->curlft.packets++;
+=20
+-		spin_unlock(&x->lock);
++		spin_unlock_bh(&x->lock);
+=20
+ 		XFRM_MODE_SKB_CB(skb)->protocol =3D nexthdr;
+=20
+@@ -260,7 +260,7 @@ resume:
+ 	}
+=20
+ drop_unlock:
+-	spin_unlock(&x->lock);
++	spin_unlock_bh(&x->lock);
+ drop:
+ 	kfree_skb(skb);
+ 	return 0;
+--=20
+1.6.2.4
 
-http://blogs.gnome.org/dcbw/2009/03/20/thats-when-i-reach-for-my-revolver/
 
-There are like 5 different ways to specify 2G/3G preference; and while
-having a plugin system is nice and solves it for a *single* modem
-manager, the question I was asking was why we cannot all work on a
-single modem manager service and do all this hardware support in one
-place.
 
-The situation we have now is like Linux vs. Solaris vs NetBSD vs
-FreeBSD.  All can drive the same hardware, but you have to write support
-for the same hardware in each different OS, though copy & paste helps
-between the BSDs at least.
 
-Why have to duplicate hardware support in 4 different places?  Why can
-we not coalesce around one stack?  Why write a different stack when
-there are existing ones that already work, where the voice support could
-have been added?
+--Sig_/FUMSZhZtftNepJWcmdPo9Ok
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-Dan
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-> Please keep in mind that oFono is also for voice call features and hence
-> has to integrate native with BlueZ and PulseAudio. We wanna create a
-> full features open source telephony stack.
-> 
-> Regards
-> 
-> Marcel
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+iEYEARECAAYFAkoIqwsACgkQemuRe3zuqOQNPQCglPViWhG3djm0NJz/4iLTjFOx
+d0EAmwWXobXuzkHZOBnhR7ug64TodT8f
+=Cq0A
+-----END PGP SIGNATURE-----
 
+--Sig_/FUMSZhZtftNepJWcmdPo9Ok--
