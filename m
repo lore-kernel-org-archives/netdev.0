@@ -1,93 +1,80 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 11 May 2009 17:57:13 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0905111656450.10088@wrl-59.cs.helsinki.fi>
-References: <200902262310.12791.elendil@planet.nl> <200905111450.06749.elendil@planet.nl>
- <Pine.LNX.4.64.0905111556300.10088@wrl-59.cs.helsinki.fi>
- <200905111554.50118.elendil@planet.nl>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] ipv4: remove an unused parameter from configure
+	method of fib_rules_ops.
+Date: Mon, 11 May 2009 18:52:49 +0300
+Message-ID: <eb3ff54b0905110852t5b6a1045w14579ff0a0f3237c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-619232803-1242051619=:10088"
-Cc: Matthias Andree <matthias.andree@gmx.de>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Frans Pop <elendil@planet.nl>
+Content-Type: multipart/mixed; boundary=0015174c3f0c617b8f0469a4f855
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38544 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753209AbZEKO5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 10:57:14 -0400
-In-Reply-To: <200905111554.50118.elendil@planet.nl>
-Content-ID: <Pine.LNX.4.64.0905111725200.10088@wrl-59.cs.helsinki.fi>
+Received: from ey-out-2122.google.com ([74.125.78.25]:53878 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250AbZEKPwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 11:52:49 -0400
+Received: by ey-out-2122.google.com with SMTP id 9so909952eyd.37
+        for <netdev@vger.kernel.org>; Mon, 11 May 2009 08:52:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+--0015174c3f0c617b8f0469a4f855
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
----696208474-619232803-1242051619=:10088
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0905111725201.10088@wrl-59.cs.helsinki.fi>
-
-On Mon, 11 May 2009, Frans Pop wrote:
-
-> On Monday 11 May 2009, Ilpo Järvinen wrote:
-> > On Mon, 11 May 2009, Frans Pop wrote:
-> > > On Monday 11 May 2009, Ilpo Järvinen wrote:
-> > > > I took my time to fix the urg_hole madness too. The patch below.
-> > >
-> > > Hmm. I wonder if it wouldn't be better to keep the two issues
-> > > separate. The initial patch is a clear regression fix (4 people have
-> > > reported it against fetchmail for Debian). The URG part is IMO a
-> > > separate issue which I at least have never seen in practice.
-> > > And my Tested-by doesn't cover the additional change either.
-> >
-> > Disagreed. It's true that your testing very likely doesn't cover such a
-> > corner case. The URG thing is legacy which shouldn't exist anymore but
-> > it might still be that some people are crazy enough to use URG not
-> > inline (and at the same time are doing MSG_PEEK too). However, that URG
-> > part is not a _separate_ issue, you might not just have a test case but
-> > it happens due to the very same reason and was broken by the very same
-> > commit.
-> 
-> OK. I understood that there's always been a corner case with URG that 
-> could cause incorrect messages [1] and I thought the additional change 
-> was to fix that, but if this is related to the same regression then of 
-> course it's fine by me.
-> 
-> [1] http://linux.derkeiler.com/Mailing-Lists/Kernel/2003-09/6009.html
-
-Ah, so there's some urg race for real... ...I didn't know about that
-which is no wonder since I've very little interest on knowing all
-corner cases of urg madness really :-).
-
-I guess it is not exactly the same though I have problem in understanding 
-what Dave is exactly meaning there but it could well be that there isn't 
-a sane case where the urg hole thing matters for real. Well, Dave probably 
-knows whether the v2 is necessary or not, I've no clue who is the one 
-advancing the copied_seq (if it's not the gem in tcp_check_urg doing the 
-conditional copied_seq++, but that condition is beyond my current level of 
-concentration really).
-
-> > This issue has nothing to do with fetchmail or so alone (regardless of
-> > how many bugs have been filed against it), it's generic TCP (in kernel)
-> > issue, whether it's triggered is just about right test pattern which
-> > here happens with fetchmail but it is by no means limited to it.
-> 
-> I never claimed that. In fact, I was the one who also saw the issue with 
-> other applications (wget, IMAP)...
-> 
-> > I don't care too much if distro people have some local policies
-> > regarding fixes and that here shouldn't be a bother to them anyway
-> > since there's the more limited fix available in the archives too if
-> > they specifically want that.
-> 
-> Where did that come from? Not from anything I said...
-
-Hmm... Referring to some distro bug reports to strengthen the separate 
-problems argument caused the impression, I'm sorry about that :-).
+Hi,
+This patch removes an unused parameter from the configure method of
+fib_rules_ops.
 
 
--- 
- i.
----696208474-619232803-1242051619=:10088--
+Regards,
+Rami Rosen
+
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--0015174c3f0c617b8f0469a4f855
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fulcnzmz0
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
+bGVzLmgKaW5kZXggYzJiYjVjYS4uYjliNjMzOSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
+X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTQ4LDcgKzQ4LDYgQEAg
+c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJIHN0cnVjdCBmbG93aSAqLCBpbnQpOwogCWludAkJ
+CSgqY29uZmlndXJlKShzdHJ1Y3QgZmliX3J1bGUgKiwKIAkJCQkJICAgICBzdHJ1Y3Qgc2tfYnVm
+ZiAqLAotCQkJCQkgICAgIHN0cnVjdCBubG1zZ2hkciAqLAogCQkJCQkgICAgIHN0cnVjdCBmaWJf
+cnVsZV9oZHIgKiwKIAkJCQkJICAgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmNvbXBh
+cmUpKHN0cnVjdCBmaWJfcnVsZSAqLApkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZmliX3J1bGVzLmMg
+Yi9uZXQvY29yZS9maWJfcnVsZXMuYwppbmRleCA5ODY5MWUxLi4xN2Q5ZjQ5IDEwMDY0NAotLS0g
+YS9uZXQvY29yZS9maWJfcnVsZXMuYworKysgYi9uZXQvY29yZS9maWJfcnVsZXMuYwpAQCAtMjk5
+LDcgKzI5OSw3IEBAIHN0YXRpYyBpbnQgZmliX25sX25ld3J1bGUoc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0IG5sbXNnaGRyKiBubGgsIHZvaWQgKmFyZykKIAl9IGVsc2UgaWYgKHJ1bGUtPmFj
+dGlvbiA9PSBGUl9BQ1RfR09UTykKIAkJZ290byBlcnJvdXRfZnJlZTsKIAotCWVyciA9IG9wcy0+
+Y29uZmlndXJlKHJ1bGUsIHNrYiwgbmxoLCBmcmgsIHRiKTsKKwllcnIgPSBvcHMtPmNvbmZpZ3Vy
+ZShydWxlLCBza2IsIGZyaCwgdGIpOwogCWlmIChlcnIgPCAwKQogCQlnb3RvIGVycm91dF9mcmVl
+OwogCmRpZmYgLS1naXQgYS9uZXQvZGVjbmV0L2RuX3J1bGVzLmMgYi9uZXQvZGVjbmV0L2RuX3J1
+bGVzLmMKaW5kZXggMTRmYmNhNS4uYTI2OTBiMSAxMDA2NDQKLS0tIGEvbmV0L2RlY25ldC9kbl9y
+dWxlcy5jCisrKyBiL25ldC9kZWNuZXQvZG5fcnVsZXMuYwpAQCAtMTE1LDcgKzExNSw3IEBAIHN0
+YXRpYyBpbnQgZG5fZmliX3J1bGVfbWF0Y2goc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3Qg
+Zmxvd2kgKmZsLCBpbnQgZmxhZ3MpCiB9CiAKIHN0YXRpYyBpbnQgZG5fZmliX3J1bGVfY29uZmln
+dXJlKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCQkgc3Ry
+dWN0IG5sbXNnaGRyICpubGgsIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCwKKwkJCQkgc3RydWN0
+IGZpYl9ydWxlX2hkciAqZnJoLAogCQkJCSBzdHJ1Y3QgbmxhdHRyICoqdGIpCiB7CiAJaW50IGVy
+ciA9IC1FSU5WQUw7CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9maWJfcnVsZXMuYyBiL25ldC9pcHY0
+L2ZpYl9ydWxlcy5jCmluZGV4IDYwODBkNzEuLjM4OTA0YmUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0
+L2ZpYl9ydWxlcy5jCisrKyBiL25ldC9pcHY0L2ZpYl9ydWxlcy5jCkBAIC0xMzQsNyArMTM0LDcg
+QEAgc3RhdGljIGNvbnN0IHN0cnVjdCBubGFfcG9saWN5IGZpYjRfcnVsZV9wb2xpY3lbRlJBX01B
+WCsxXSA9IHsKIH07CiAKIHN0YXRpYyBpbnQgZmliNF9ydWxlX2NvbmZpZ3VyZShzdHJ1Y3QgZmli
+X3J1bGUgKnJ1bGUsIHN0cnVjdCBza19idWZmICpza2IsCi0JCQkgICAgICAgc3RydWN0IG5sbXNn
+aGRyICpubGgsIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCwKKwkJCSAgICAgICBzdHJ1Y3QgZmli
+X3J1bGVfaGRyICpmcmgsCiAJCQkgICAgICAgc3RydWN0IG5sYXR0ciAqKnRiKQogewogCXN0cnVj
+dCBuZXQgKm5ldCA9IHNvY2tfbmV0KHNrYi0+c2spOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvZmli
+Nl9ydWxlcy5jIGIvbmV0L2lwdjYvZmliNl9ydWxlcy5jCmluZGV4IGY1ZGUzZjkuLmUxYTM2ZGIg
+MTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2ZpYjZfcnVsZXMuYworKysgYi9uZXQvaXB2Ni9maWI2X3J1
+bGVzLmMKQEAgLTE1MSw3ICsxNTEsNyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IG5sYV9wb2xpY3kg
+ZmliNl9ydWxlX3BvbGljeVtGUkFfTUFYKzFdID0gewogfTsKIAogc3RhdGljIGludCBmaWI2X3J1
+bGVfY29uZmlndXJlKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
+LQkJCSAgICAgICBzdHJ1Y3Qgbmxtc2doZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJo
+LAorCQkJICAgICAgIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCwKIAkJCSAgICAgICBzdHJ1Y3Qg
+bmxhdHRyICoqdGIpCiB7CiAJaW50IGVyciA9IC1FSU5WQUw7Cg==
+--0015174c3f0c617b8f0469a4f855--
