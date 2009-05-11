@@ -1,80 +1,40 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] ipv4: remove an unused parameter from configure
-	method of fib_rules_ops.
-Date: Mon, 11 May 2009 18:52:49 +0300
-Message-ID: <eb3ff54b0905110852t5b6a1045w14579ff0a0f3237c@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Putting for discussion "__qdisc_run" bug - strange application-dependant
+ error
+Date: Mon, 11 May 2009 18:34:39 +0200
+Message-ID: <4A08539F.8080904@gmail.com>
+References: <657221.87331.qm@web28608.mail.ukl.yahoo.com> <4A06834A.1040307@gmail.com> <315332.14155.qm@web28609.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174c3f0c617b8f0469a4f855
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Panadero Pizza <panadero_pizza@yahoo.es>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:53878 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752250AbZEKPwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 11:52:49 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so909952eyd.37
-        for <netdev@vger.kernel.org>; Mon, 11 May 2009 08:52:49 -0700 (PDT)
+Received: from mail-bw0-f174.google.com ([209.85.218.174]:58101 "EHLO
+	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753460AbZEKQfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 12:35:09 -0400
+Received: by bwz22 with SMTP id 22so2762031bwz.37
+        for <netdev@vger.kernel.org>; Mon, 11 May 2009 09:35:09 -0700 (PDT)
+In-Reply-To: <315332.14155.qm@web28609.mail.ukl.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174c3f0c617b8f0469a4f855
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Panadero Pizza wrote, On 05/11/2009 01:33 PM:
 
-Hi,
-This patch removes an unused parameter from the configure method of
-fib_rules_ops.
+> 
+> De: Jarek Poplawski
+> 
+>> Since you're suggesting the specific patch has broken this for you, could
+> 
+>> you simply write if 2.6.24.4 (or 2.6.24.7 with "NET: Add preemption point
+>> in qdisc_run" patch reverted) also solves your problem?
+> 
+> I'm now testing the 2.6.24.7 kernel with CONFIG_PREEMPT_NONE.
+> (If I knew how to easily revert the patch for the __qdisc_run function,
+> I would like to test it, too) ... 
 
+You can try 2.6.24.4 which doesn't have this patch. But I doubt this
+patch really matters here.
 
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---0015174c3f0c617b8f0469a4f855
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fulcnzmz0
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
-bGVzLmgKaW5kZXggYzJiYjVjYS4uYjliNjMzOSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
-X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTQ4LDcgKzQ4LDYgQEAg
-c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJIHN0cnVjdCBmbG93aSAqLCBpbnQpOwogCWludAkJ
-CSgqY29uZmlndXJlKShzdHJ1Y3QgZmliX3J1bGUgKiwKIAkJCQkJICAgICBzdHJ1Y3Qgc2tfYnVm
-ZiAqLAotCQkJCQkgICAgIHN0cnVjdCBubG1zZ2hkciAqLAogCQkJCQkgICAgIHN0cnVjdCBmaWJf
-cnVsZV9oZHIgKiwKIAkJCQkJICAgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmNvbXBh
-cmUpKHN0cnVjdCBmaWJfcnVsZSAqLApkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZmliX3J1bGVzLmMg
-Yi9uZXQvY29yZS9maWJfcnVsZXMuYwppbmRleCA5ODY5MWUxLi4xN2Q5ZjQ5IDEwMDY0NAotLS0g
-YS9uZXQvY29yZS9maWJfcnVsZXMuYworKysgYi9uZXQvY29yZS9maWJfcnVsZXMuYwpAQCAtMjk5
-LDcgKzI5OSw3IEBAIHN0YXRpYyBpbnQgZmliX25sX25ld3J1bGUoc3RydWN0IHNrX2J1ZmYgKnNr
-Yiwgc3RydWN0IG5sbXNnaGRyKiBubGgsIHZvaWQgKmFyZykKIAl9IGVsc2UgaWYgKHJ1bGUtPmFj
-dGlvbiA9PSBGUl9BQ1RfR09UTykKIAkJZ290byBlcnJvdXRfZnJlZTsKIAotCWVyciA9IG9wcy0+
-Y29uZmlndXJlKHJ1bGUsIHNrYiwgbmxoLCBmcmgsIHRiKTsKKwllcnIgPSBvcHMtPmNvbmZpZ3Vy
-ZShydWxlLCBza2IsIGZyaCwgdGIpOwogCWlmIChlcnIgPCAwKQogCQlnb3RvIGVycm91dF9mcmVl
-OwogCmRpZmYgLS1naXQgYS9uZXQvZGVjbmV0L2RuX3J1bGVzLmMgYi9uZXQvZGVjbmV0L2RuX3J1
-bGVzLmMKaW5kZXggMTRmYmNhNS4uYTI2OTBiMSAxMDA2NDQKLS0tIGEvbmV0L2RlY25ldC9kbl9y
-dWxlcy5jCisrKyBiL25ldC9kZWNuZXQvZG5fcnVsZXMuYwpAQCAtMTE1LDcgKzExNSw3IEBAIHN0
-YXRpYyBpbnQgZG5fZmliX3J1bGVfbWF0Y2goc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3Qg
-Zmxvd2kgKmZsLCBpbnQgZmxhZ3MpCiB9CiAKIHN0YXRpYyBpbnQgZG5fZmliX3J1bGVfY29uZmln
-dXJlKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCQkgc3Ry
-dWN0IG5sbXNnaGRyICpubGgsIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCwKKwkJCQkgc3RydWN0
-IGZpYl9ydWxlX2hkciAqZnJoLAogCQkJCSBzdHJ1Y3QgbmxhdHRyICoqdGIpCiB7CiAJaW50IGVy
-ciA9IC1FSU5WQUw7CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9maWJfcnVsZXMuYyBiL25ldC9pcHY0
-L2ZpYl9ydWxlcy5jCmluZGV4IDYwODBkNzEuLjM4OTA0YmUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0
-L2ZpYl9ydWxlcy5jCisrKyBiL25ldC9pcHY0L2ZpYl9ydWxlcy5jCkBAIC0xMzQsNyArMTM0LDcg
-QEAgc3RhdGljIGNvbnN0IHN0cnVjdCBubGFfcG9saWN5IGZpYjRfcnVsZV9wb2xpY3lbRlJBX01B
-WCsxXSA9IHsKIH07CiAKIHN0YXRpYyBpbnQgZmliNF9ydWxlX2NvbmZpZ3VyZShzdHJ1Y3QgZmli
-X3J1bGUgKnJ1bGUsIHN0cnVjdCBza19idWZmICpza2IsCi0JCQkgICAgICAgc3RydWN0IG5sbXNn
-aGRyICpubGgsIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCwKKwkJCSAgICAgICBzdHJ1Y3QgZmli
-X3J1bGVfaGRyICpmcmgsCiAJCQkgICAgICAgc3RydWN0IG5sYXR0ciAqKnRiKQogewogCXN0cnVj
-dCBuZXQgKm5ldCA9IHNvY2tfbmV0KHNrYi0+c2spOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvZmli
-Nl9ydWxlcy5jIGIvbmV0L2lwdjYvZmliNl9ydWxlcy5jCmluZGV4IGY1ZGUzZjkuLmUxYTM2ZGIg
-MTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2ZpYjZfcnVsZXMuYworKysgYi9uZXQvaXB2Ni9maWI2X3J1
-bGVzLmMKQEAgLTE1MSw3ICsxNTEsNyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IG5sYV9wb2xpY3kg
-ZmliNl9ydWxlX3BvbGljeVtGUkFfTUFYKzFdID0gewogfTsKIAogc3RhdGljIGludCBmaWI2X3J1
-bGVfY29uZmlndXJlKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
-LQkJCSAgICAgICBzdHJ1Y3Qgbmxtc2doZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJo
-LAorCQkJICAgICAgIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCwKIAkJCSAgICAgICBzdHJ1Y3Qg
-bmxhdHRyICoqdGIpCiB7CiAJaW50IGVyciA9IC1FSU5WQUw7Cg==
---0015174c3f0c617b8f0469a4f855--
+Jarek P.
