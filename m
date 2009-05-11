@@ -1,40 +1,117 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Putting for discussion "__qdisc_run" bug - strange application-dependant
- error
-Date: Mon, 11 May 2009 18:34:39 +0200
-Message-ID: <4A08539F.8080904@gmail.com>
-References: <657221.87331.qm@web28608.mail.ukl.yahoo.com> <4A06834A.1040307@gmail.com> <315332.14155.qm@web28609.mail.ukl.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: svc: failed to register lockdv1 RPC service (errno 97).
+Date: Mon, 11 May 2009 12:39:18 -0400
+Message-ID: <62189277-05F4-4AC7-97EC-AFDE39F781E3@oracle.com>
+References: <200905110248.48695.elendil@planet.nl> <8054CA42-CAFC-4DFC-A3A9-107AF29284EE@oracle.com> <200905111639.43636.elendil@planet.nl>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Panadero Pizza <panadero_pizza@yahoo.es>
+Cc: Netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Linux NFS mailing list <linux-nfs@vger.kernel.org>
+To: Frans Pop <elendil@planet.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:58101 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753460AbZEKQfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 12:35:09 -0400
-Received: by bwz22 with SMTP id 22so2762031bwz.37
-        for <netdev@vger.kernel.org>; Mon, 11 May 2009 09:35:09 -0700 (PDT)
-In-Reply-To: <315332.14155.qm@web28609.mail.ukl.yahoo.com>
+Received: from acsinet11.oracle.com ([141.146.126.233]:25243 "EHLO
+	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139AbZEKQjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 12:39:25 -0400
+In-Reply-To: <200905111639.43636.elendil@planet.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Panadero Pizza wrote, On 05/11/2009 01:33 PM:
+On May 11, 2009, at 10:39 AM, Frans Pop wrote:
+> On Monday 11 May 2009, you wrote:
+>> On May 10, 2009, at 8:48 PM, Frans Pop wrote:
+>>> After switching from 2.6.29.2 to 2.6.30-rc5 I get this new message
+>>> during boot of my home server:
+>>>  svc: failed to register lockdv1 RPC service (errno 97).
+>>
+>> Is this the only instance of this message, or do you see it several
+>> times?
+>
+> It's the only one.
+>
+>>> This looks to be the result of the following commit:
+>>> commit 363f724cdd3d2ae554e261be995abdeb15f7bdd9
+>>> Author: Chuck Lever <chuck.lever@oracle.com>
+>>>   SUNRPC: rpcb_register() should handle errors silently
+>>>   Move error reporting for RPC registration to rpcb_register's
+>>> caller.
+>>>
+>>> Question is: do I really want to know this? I assume the "failure"
+>>> happened with previous kernels too, but silently.
+>>
+>> The point of that commit was to report errors _less_ frequently.
+>
+> :-)
+>
+>> The server-side RPC code is attempting to be more automatic about
+>> which address families are supported by kernel NFS services.  This
+>> message tells us that some particular case is not handled yet.  I
+>> suspect you weren't seeing this error in the past at all.
+>
+> Correct. Neither this exact error, nor anything remotely similar.
 
-> 
-> De: Jarek Poplawski
-> 
->> Since you're suggesting the specific patch has broken this for you, could
-> 
->> you simply write if 2.6.24.4 (or 2.6.24.7 with "NET: Add preemption point
->> in qdisc_run" patch reverted) also solves your problem?
-> 
-> I'm now testing the 2.6.24.7 kernel with CONFIG_PREEMPT_NONE.
-> (If I knew how to easily revert the patch for the __qdisc_run function,
-> I would like to test it, too) ... 
+No, I meant that whether or not you saw an error message, the  
+underlying condition probably was not occurring before 2.6.30.
 
-You can try 2.6.24.4 which doesn't have this patch. But I doubt this
-patch really matters here.
+>> Can you report more about your server configuration?  What
+>> distribution is this?
+>
+> Debian stable (Lenny).
+> nfs-common and nfs-kernel-server (1.1.2)
+>
+> I'm using nfs4. rpc.statd is not running; rpc.mountd and rpc.idmapd  
+> are.
 
-Jarek P.
+The NFS client and server appear to start lockd listeners for NFSv4.   
+They probably don't need to.  But that's a separate issue.
+
+>> Does user space have portmapper or rpcbind?
+>
+> portmap (6.0)
+>
+>> Are you blacklisting ipv6.ko?
+>
+> No, the server has IPv6 enabled.
+> I'm using NFS mainly from my laptop though, which does not have an  
+> IPv6
+> address for my home network.
+>
+>> What's the output of "rpcinfo" on your server after it has started  
+>> NFSD?
+>
+> I guess you mean the -p option?
+>
+> $ rpcinfo -p
+>   program vers proto   port
+>    100000    2   tcp    111  portmapper
+>    100000    2   udp    111  portmapper
+>    100003    2   udp   2049  nfs
+>    100003    3   udp   2049  nfs
+>    100003    4   udp   2049  nfs
+>    100021    1   udp  47955  nlockmgr
+>    100021    3   udp  47955  nlockmgr
+>    100021    4   udp  47955  nlockmgr
+>    100021    1   tcp  41860  nlockmgr
+>    100021    3   tcp  41860  nlockmgr
+>    100021    4   tcp  41860  nlockmgr
+>    100003    2   tcp   2049  nfs
+>    100003    3   tcp   2049  nfs
+>    100003    4   tcp   2049  nfs
+>    100005    1   udp  40032  mountd
+>    100005    1   tcp  40623  mountd
+>    100005    2   udp  40032  mountd
+>    100005    2   tcp  40623  mountd
+>    100005    3   udp  40032  mountd
+>    100005    3   tcp  40623  mountd
+>    391002    2   tcp    792  sgi_fam
+
+In this case, it looks like the message can be treated as a notice.  I  
+think in general we could safely make that a dprintk, but I'd like to  
+wait a bit more to see if we catch any bad behavior.
+
+--
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
