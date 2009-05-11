@@ -1,92 +1,90 @@
-From: Yury Polyanskiy <ypolyans@Princeton.EDU>
-Subject: Re: [PATCH] xfrm: SAD entries do not expire after suspend-resume
-Date: Mon, 11 May 2009 16:50:24 -0400
-Message-ID: <20090511165024.5da4e3f2@penta.localdomain>
-References: <20090511142101.639cb5d6@penta.localdomain>
-	<1242066617.6656.1311.camel@laptop>
-	<ea182b20905111307w2cdbe18dw9f9fde474216c219@mail.gmail.com>
-	<1242073557.8257.116.camel@laptop>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [Announce] Intel and Nokia announce open source telephony
+ project (oFono)
+Date: Mon, 11 May 2009 14:05:34 -0700
+Message-ID: <1242075934.2812.3.camel@localhost.localdomain>
+References: <1242066878.22268.8.camel@little.research.nokia.com>
+	 <1242075055.18723.49.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/IyhsDX9ZSFZG4+LLTNEqE=Y"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	yoshfuji@linux-ipv6.org, mingo@elte.hu,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	john stultz <johnstul@us.ibm.com>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Aki Niemi <aki.niemi@nokia.com>, netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postoffice05.Princeton.EDU ([128.112.133.189]:35886 "EHLO
-	Princeton.EDU" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751636AbZEKVAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 17:00:44 -0400
-In-Reply-To: <1242073557.8257.116.camel@laptop>
+Received: from senator.holtmann.net ([87.106.208.187]:57548 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752745AbZEKVGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 17:06:03 -0400
+In-Reply-To: <1242075055.18723.49.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/IyhsDX9ZSFZG4+LLTNEqE=Y
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hi Dan,
 
-On Mon, 11 May 2009 22:25:57 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
+> > Intel and Nokia are pleased to jointly announce the oFono project
+> > (http://ofono.org), an open source project for developing an open source
+> > telephony solution.
+> > 
+> > oFono.org is a place to bring developers together around designing an
+> > infrastructure for building mobile telephony (GSM/UMTS) applications.
+> > oFono.org is licensed under GPLv2, and it includes a high-level D-Bus
+> > API for use by telephony applications of any license.  oFono.org also
+> > includes a low-level plug-in API for integrating with Open Source as
+> > well as third party telephony stacks, cellular modems and storage
+> > back-ends.  The plug-in API functionality is modeled on public
+> > standards, in particular 3GPP TS 27.007 "AT command set for User
+> > Equipment (UE)."
+> > 
+> > Source code is available on http://ofono.org/downloads and a high-level
+> > architecture diagram is available on http://ofono.org/documentation.  To
+> > join the mailing list, go to http://lists.ofono.org/listinfo/ofono.
+> > 
+> > Nokia and Intel will jointly maintain the oFono project.  We'd like to
+> > invite all developers to join the oFono.org effort and community.
+> 
+> So a few questions...
+> 
+> - Where's the IS-707/IS-856 support?  Yes, many operators will be
+> transitioning to LTE by 2015, but there are 450 million CDMA subscribers
+> right now [1], and that number is expected to grow.  Having two modem
+> control stacks simply isn't an option.  Not having designed support for
+> CDMA into the service seems pretty short-sighted.  I know Nokia itself
+> doesn't care about CDMA any more, but still...
 
-> > >>   Due to (2) I am copying the authors of the hrtimer's patch.
-> > >> Unless there is an alternative (to hrtimer_start) way of
-> > >> requesting a CLOCK_REALTIME softirq callback the only solution I
-> > >> could think of is to hook into
-> > >> PM_POST_HIBERNATION+PM_POST_SUSPEND and force all of the timers
-> > >> on xfrm_state_all list to go off after resume.
-> > >
-> > > Given that the whole problem is suspend related, this last option
-> > > sounds like the best thing.
-> > >
-> >=20
-> > Can somebody from the Networking Team please confirm that the other
-> > sources of time leaps can indeed be neglected? (such as ntp
-> > corrections e.g.)
->=20
-> ntp time adjustments are very fine grained and should not distort
-> time. Setting the system clock otoh might screw you over though.
+we did talk about CDMA voice support and so far nobody of us had good
+enough experience with how it works on the voice level. Let me assure
+you that we wanna definitely allow support for it.
 
-Isn't ntp sometimes used for initial clock setting? (i.e. host boots
-with sysclock set to 1971 and then ntp makes it to the correct 2009).
+> - GPS support?  In reality, there can only be one service arbitrating
+> access to modem serial ports, since not all serial-based modems provide
+> more than two ports, and one of those must be used for PPP, and the
+> other for signal strength, etc.  Logically, the service controlling
+> these ports for cellular should also be handling GPS requests on these
+> devices.
 
-Another reason for not doing it pm_notify()-wise is to reduce the
-amount of resume code running in the system: why run a user-specific
-O(N) post-suspend code if there is already an O(1) one in the
-hres_timers_resume()?
+I talked with our designers and engineers about it and we do see the
+need to handle this properly for modem devices where the control part is
+the same for the modem. We need to figure out on how to integrate this
+properly with Gypsy. Advantage of oFono is that it has a generic plugin
+infrastructure.
 
->=20
-> What I'm not quite getting is though, if we have a real-time timer 8h
-> in the future, and we suspend for 10h, the timer should fire the
-> moment we resume and readjust the clock, finding this -2h expired
-> timer.
->=20
-> Since they're realtime timers and we don't know what they're used for,
-> we cannot handle this time lapse in the generic code, hence its users
-> are stuck with dealing with this.
->=20
+> - Is there some reason we cannot coalesce around *one* userland cellular
+> service?  There's Wader/VMC (python+dbus) and ModemManager (C+dbus) and
+> gsmd (C+dbus) already; it seems that for the sake of users, it would be
+> great to concentrate that effort in *one* place so that we don't have to
+> keep quirking every single modem in 4 different places.  TBH, I don't
+> care which one it is, as long as (a) it has a sane D-Bus interface, (b)
+> it supports CDMA, (c) it uses DeviceKit, and (d) it's GPLv2.
 
+I think that the basic modem detection/quirking has to be done with your
+modem id tool from udev-extras.
 
-The problem is that the current code simply arms a usual timer_list
-timer, which remains stopped during suspend. So how do you set up a
-CLOCK_REALTIME timer w/o using hrtimer_start()?
+Please keep in mind that oFono is also for voice call features and hence
+has to integrate native with BlueZ and PulseAudio. We wanna create a
+full features open source telephony stack.
 
-Thanks in advance,
-Yury.
+Regards
+
+Marcel
 
 
---Sig_/IyhsDX9ZSFZG4+LLTNEqE=Y
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkoIj5AACgkQemuRe3zuqORzTgCfVBzce5olghdbk7xcJaaYaHfo
-AtgAnAwTpQ9UxS1XotU2qOHzZsYUfv2J
-=8a4m
------END PGP SIGNATURE-----
-
---Sig_/IyhsDX9ZSFZG4+LLTNEqE=Y--
