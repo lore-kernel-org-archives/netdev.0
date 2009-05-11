@@ -1,50 +1,88 @@
-From: "Hong H. Pham" <hong.pham@windriver.com>
-Subject: [PATCH 1/1] NIU: fix spurious interrupts
-Date: Mon, 11 May 2009 15:00:53 -0400
-Message-ID: <1242068453-5124-2-git-send-email-hong.pham@windriver.com>
-References: <1242068453-5124-1-git-send-email-hong.pham@windriver.com>
-Cc: "Hong H. Pham" <hong.pham@windriver.com>
-To: netdev@vger.kernel.org
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: interprocess communication with netlinks
+Date: Mon, 11 May 2009 12:36:43 -0700
+Message-ID: <4A087E4B.4000602@oracle.com>
+References: <4A0305AE.4000203@free.fr> <765b42e40905072305w39301b38ied44a83a581ad29d@mail.gmail.com> <4A03FD50.7000207@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Tianjin Zhang <ztianjin@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39064 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754441AbZEKTAz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2009 15:00:55 -0400
-Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
-	by mail.wrs.com (8.13.6/8.13.6) with ESMTP id n4BJ0t5G011654
-	for <netdev@vger.kernel.org>; Mon, 11 May 2009 12:00:55 -0700 (PDT)
-In-Reply-To: <1242068453-5124-1-git-send-email-hong.pham@windriver.com>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:58545 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757360AbZEKTet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 15:34:49 -0400
+In-Reply-To: <4A03FD50.7000207@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's possible for an interrupt to be triggered while NAPI is in progress
-(at least on a SPARC64 SUN4V system).  Unconditionally call
-__niu_fastpath_interrupt() in niu_schedule_napi() to mask out the logical
-device being serviced to avoid further spurious interrupts from being
-generated.
+Daniel Lezcano wrote:
+> Tianjin Zhang wrote:
+>> i think the following  material can help you.
+>>
+>> 1. http://lwn.net/Articles/262385/  introduce the IPN,
+>>
+>> 2. http://www.linuxjournal.com/article/7356   introduce how to use
+>> netlink
+>> socket and why
+>>   
+> Thank you but I already saw these documents. I am used to play with the
+> netlink for kernel <-> user communication, I am wondering if it is
+> possible to have the applications to communicate, I mean user <-> user.
+> 
+> I saw a comment in the mailing list archive
+> http://kerneltrap.org/mailarchive/linux-kernel/2007/12/7/493793/thread
+> 
+> "... with minor adjustments we have the facilities to
+> meet your needs.  There is no need for yet-another-protocol to do what
+> you're trying to do, we already have too much duplicated
+> functionality."
+> 
+> 
+> Were these "minor adjustements" done ?
+> 
+> Thanks
+>  -- Daniel
+> 
+>> On Fri, May 8, 2009 at 12:00 AM, Daniel Lezcano
+>> <daniel.lezcano@free.fr>wrote:
+>>
+>>  
+>>> Hi netdev gurus !
+>>>
+>>> I am trying to make several processes to communicate via the netlink
+>>> protocol.
+>>>
+>>> I saw a discussion around the AF_IPN (inter process communication)
+>>> protocol
+>>> and it seems the same can be done with the AF_NETLINK protocol with
+>>> minor
+>>> modifications in the kernel. Were these modifications done ?
+>>>
+>>> I am trying to use multicast between several processes, for
+>>> notification.
+>>>
+>>> What protocol should I use to create the socket ?
+>>>
+>>>   fd = socket(PF_NETLINK, SOCK_RAW,  ???);
+>>>
+>>> I was not able to find any suitable pointer to explain how to do
+>>> that, so I
+>>> blindly tried several combinations but I am afraid to interact with the
+>>> other netlink protocols when using a multicast group, especially when
+>>> there
+>>> are other applications like avahi-daemon or "ip monitor all".
+>>>
+>>> Does anyone have a pointer to a documentation (not the redhat one,
+>>> pls), or
+>>> some clues ?
 
-Signed-off-by: Hong H. Pham <hong.pham@windriver.com>
----
- drivers/net/niu.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+There's also a paper/doc here:
+  http://people.redhat.com/nhorman/papers/netlink.pdf
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 2b17453..80d4fb6 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -4221,11 +4221,11 @@ static void niu_schedule_napi(struct niu *np, struct niu_ldg *lp,
- 	if (likely(napi_schedule_prep(&lp->napi))) {
- 		lp->v0 = v0;
- 		lp->v1 = v1;
- 		lp->v2 = v2;
--		__niu_fastpath_interrupt(np, lp->ldg_num, v0);
- 		__napi_schedule(&lp->napi);
- 	}
-+	__niu_fastpath_interrupt(np, lp->ldg_num, v0);
- }
- 
- static irqreturn_t niu_interrupt(int irq, void *dev_id)
- {
 -- 
-1.6.0.3
-
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
