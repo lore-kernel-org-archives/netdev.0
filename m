@@ -1,104 +1,71 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: svc: failed to register lockdv1 RPC service (errno 97).
-Date: Mon, 11 May 2009 16:39:42 +0200
-Message-ID: <200905111639.43636.elendil@planet.nl>
-References: <200905110248.48695.elendil@planet.nl> <8054CA42-CAFC-4DFC-A3A9-107AF29284EE@oracle.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH v3 00/17] virtual-bus
+Date: Mon, 11 May 2009 10:41:54 -0400
+Message-ID: <4A083932.50605@novell.com>
+References: <20090421183341.12548.33393.stgit@dev.haskins.net> <20090511113731.GA6205@nik-comp.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Linux NFS mailing list <linux-nfs@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Cpsmtpm-eml107.kpnxchange.com ([195.121.3.11]:54807 "EHLO
-	CPSMTPM-EML107.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755644AbZEKOjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 10:39:44 -0400
-In-Reply-To: <8054CA42-CAFC-4DFC-A3A9-107AF29284EE@oracle.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigD2EBDE3F49001BFCDC924DD4"
+Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org, agraf@suse.de,
+	pmullaney@novell.com, pmorreale@novell.com, alext@novell.com,
+	anthony@codemonkey.ws, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, avi@redhat.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, gregkh@suse.de, chrisw@sous-sol.org,
+	shemminger@vyatta.com, alex.williamson@hp.com,
+	nikola.ciprich@linuxbox.cz
+To: Nikola Ciprich <extmaillist@linuxbox.cz>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090511113731.GA6205@nik-comp.linuxbox.cz>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 11 May 2009, you wrote:
-> On May 10, 2009, at 8:48 PM, Frans Pop wrote:
-> > After switching from 2.6.29.2 to 2.6.30-rc5 I get this new message
-> > during boot of my home server:
-> >   svc: failed to register lockdv1 RPC service (errno 97).
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigD2EBDE3F49001BFCDC924DD4
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Nikola Ciprich wrote:
+> Hi Gregory,
 >
-> Is this the only instance of this message, or do you see it several
-> times?
-
-It's the only one.
-
-> > This looks to be the result of the following commit:
-> > commit 363f724cdd3d2ae554e261be995abdeb15f7bdd9
-> > Author: Chuck Lever <chuck.lever@oracle.com>
-> >    SUNRPC: rpcb_register() should handle errors silently
-> >    Move error reporting for RPC registration to rpcb_register's
-> > caller.
-> >
-> > Question is: do I really want to know this? I assume the "failure"
-> > happened with previous kernels too, but silently.
+> I'd like to try Your vbus patches, but compiling 2.6.30-rc2 (or 2.6.30-=
+rc5) fails
+> with following error:
+> drivers/vbus/proxy/kvm-guest-vbus: struct pci_device_id is 32 bytes.  T=
+he last of 1 is:
+> 0xda 0x11 0x00 0x00 0x00 0x20 0x00 0x00 0xff 0xff 0xff 0xff 0xff 0xff 0=
+xff 0xff 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00=
+ 0x00 0x00 0x00
+> FATAL: drivers/vbus/proxy/kvm-guest-vbus: struct pci_device_id is not t=
+erminated with a NULL entry!
 >
-> The point of that commit was to report errors _less_ frequently.
+> Do You have any idea on what might be wrong?
+> thanks a lot in advance...
+>  =20
+Hi Nik,
+  I haven't seen that error with vbus itself, but oddly enough I just
+encountered something similar when I was working on a different series
+(nullio).   The fix there was trivial, and I suspect it will be here as
+well.  What I am more confused on is why this suddenly started
+happening....  I will get back to you with a fix.
 
-:-)
+Regards,
+-Greg
 
-> The server-side RPC code is attempting to be more automatic about
-> which address families are supported by kernel NFS services.  This
-> message tells us that some particular case is not handled yet.  I
-> suspect you weren't seeing this error in the past at all.
 
-Correct. Neither this exact error, nor anything remotely similar.
 
-> Can you report more about your server configuration?  What
-> distribution is this?
+--------------enigD2EBDE3F49001BFCDC924DD4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Debian stable (Lenny).
-nfs-common and nfs-kernel-server (1.1.2)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-I'm using nfs4. rpc.statd is not running; rpc.mountd and rpc.idmapd are.
+iEYEARECAAYFAkoIOTIACgkQlOSOBdgZUxnhxACgjL/ON3Z9VbdZbI2IRwH+QNrV
+zm4AmQHazMQ86K/fIMWS1rUKo7jwNuRq
+=7vrT
+-----END PGP SIGNATURE-----
 
-> Does user space have portmapper or rpcbind? 
-
-portmap (6.0)
-
-> Are you blacklisting ipv6.ko?
-
-No, the server has IPv6 enabled.
-I'm using NFS mainly from my laptop though, which does not have an IPv6 
-address for my home network.
-
-> What's the output of "rpcinfo" on your server after it has started NFSD?
-
-I guess you mean the -p option?
-
-$ rpcinfo -p
-   program vers proto   port
-    100000    2   tcp    111  portmapper
-    100000    2   udp    111  portmapper
-    100003    2   udp   2049  nfs
-    100003    3   udp   2049  nfs
-    100003    4   udp   2049  nfs
-    100021    1   udp  47955  nlockmgr
-    100021    3   udp  47955  nlockmgr
-    100021    4   udp  47955  nlockmgr
-    100021    1   tcp  41860  nlockmgr
-    100021    3   tcp  41860  nlockmgr
-    100021    4   tcp  41860  nlockmgr
-    100003    2   tcp   2049  nfs
-    100003    3   tcp   2049  nfs
-    100003    4   tcp   2049  nfs
-    100005    1   udp  40032  mountd
-    100005    1   tcp  40623  mountd
-    100005    2   udp  40032  mountd
-    100005    2   tcp  40623  mountd
-    100005    3   udp  40032  mountd
-    100005    3   tcp  40623  mountd
-    391002    2   tcp    792  sgi_fam
-
-Cheers,
-FJP
+--------------enigD2EBDE3F49001BFCDC924DD4--
