@@ -1,76 +1,27 @@
-From: Chrissie Caulfield <ccaulfie@redhat.com>
-Subject: Re: decnet: Use data ready call back, rather than hand coding it
-Date: Mon, 11 May 2009 09:33:54 +0100
-Message-ID: <4A07E2F2.6050807@redhat.com>
-References: <1241800225.29604.282.camel@localhost.localdomain>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: [PATCH 1/1] dma-mapping: mark DMA_nBITS_MASK as deprecated fix
+Date: Mon, 11 May 2009 11:21:32 +0200
+Message-ID: <4A07EE1C.2010705@gmail.com>
+References: <20090510085618D.fujita.tomonori@lab.ntt.co.jp>	<1241939066-10178-1-git-send-email-jirislaby@gmail.com> <20090511113659U.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steven Whitehouse <swhiteho@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58830 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754378AbZEKIdz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2009 04:33:55 -0400
-Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
-	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n4B8XuU0016142
-	for <netdev@vger.kernel.org>; Mon, 11 May 2009 04:33:56 -0400
-In-Reply-To: <1241800225.29604.282.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo@elte.hu, yanghy@cn.fujitsu.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757362AbZEKJVn@vger.kernel.org>
+In-Reply-To: <20090511113659U.fujita.tomonori@lab.ntt.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Steven Whitehouse wrote:
-> Chrissie, can you test this? I don't have a suitable set up at the
-> moment. This should be correct though since its taken directly from
-> sock_queue_rcv_skb from whence the original code was also take in times
-> past. I did compile test it though.
-> 
-> Signed-off-by: Steven Whitehouse <swhiteho@redhat.com>
-> 
-> 
-> diff --git a/net/decnet/dn_nsp_in.c b/net/decnet/dn_nsp_in.c
-> index 5d8a2a5..932408d 100644
-> --- a/net/decnet/dn_nsp_in.c
-> +++ b/net/decnet/dn_nsp_in.c
-> @@ -578,6 +578,7 @@ out:
->  static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig, struct sk_buff_head *queue)
->  {
->  	int err;
-> +	int skb_len;
->  
->  	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
->  	   number of warnings when compiling with -W --ANK
-> @@ -592,22 +593,12 @@ static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig
->  	if (err)
->  		goto out;
->  
-> +	skb_len = skb->len;
->  	skb_set_owner_r(skb, sk);
->  	skb_queue_tail(queue, skb);
->  
-> -	/* This code only runs from BH or BH protected context.
-> -	 * Therefore the plain read_lock is ok here. -DaveM
-> -	 */
-> -	read_lock(&sk->sk_callback_lock);
-> -	if (!sock_flag(sk, SOCK_DEAD)) {
-> -		struct socket *sock = sk->sk_socket;
-> -		wake_up_interruptible(sk->sk_sleep);
-> -		if (sock && sock->fasync_list &&
-> -		    !test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
-> -			__kill_fasync(sock->fasync_list, sig,
-> -				    (sig == SIGURG) ? POLL_PRI : POLL_IN);
-> -	}
-> -	read_unlock(&sk->sk_callback_lock);
-> +	if (!sock_flag(sk, SOCK_DEAD))
-> +		sk->sk_data_ready(sk, skb_len);
->  out:
->  	return err;
->  }
+On 05/11/2009 04:36 AM, FUJITA Tomonori wrote:
+> But I think that you need to resend a version of this patch against
+> tip. We need this patch in linux-next to warn some new users of these
+> deprecated macros.
 
+It depends on Ingo if he doesn't mind to pick it up :).
 
-ACK
-
-The patch works fine for me.
-
-Chrissie
+Anyway I though we want to merge this upstream for 1-2 releases and then
+wave and tell it goodbye to propagate not only to linux-next users. I
+would resend the patch with an entry in features removal schedule in
+that case. But it's up to you...
