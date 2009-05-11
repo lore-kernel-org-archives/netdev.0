@@ -1,117 +1,54 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: svc: failed to register lockdv1 RPC service (errno 97).
-Date: Mon, 11 May 2009 12:39:18 -0400
-Message-ID: <62189277-05F4-4AC7-97EC-AFDE39F781E3@oracle.com>
-References: <200905110248.48695.elendil@planet.nl> <8054CA42-CAFC-4DFC-A3A9-107AF29284EE@oracle.com> <200905111639.43636.elendil@planet.nl>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Sachin Sant <sachinp@in.ibm.com>
+Subject: Re: [PowerPC] Next May 8 boot failure: OOPS during ibmveth moduleinit
+Date: Mon, 11 May 2009 22:37:09 +0530
+Message-ID: <4A085B3D.5000806@in.ibm.com>
+References: <20090508180251.f53f204e.sfr@canb.auug.org.au>  <4A042B20.4090903@in.ibm.com> <20090508.125722.54378771.davem@davemloft.net> <20090508223332.GA4881@psychotron.englab.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Linux NFS mailing list <linux-nfs@vger.kernel.org>
-To: Frans Pop <elendil@planet.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:25243 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752139AbZEKQjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 12:39:25 -0400
-In-Reply-To: <200905111639.43636.elendil@planet.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-next@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090508223332.GA4881@psychotron.englab.brq.redhat.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On May 11, 2009, at 10:39 AM, Frans Pop wrote:
-> On Monday 11 May 2009, you wrote:
->> On May 10, 2009, at 8:48 PM, Frans Pop wrote:
->>> After switching from 2.6.29.2 to 2.6.30-rc5 I get this new message
->>> during boot of my home server:
->>>  svc: failed to register lockdv1 RPC service (errno 97).
+Jiri Pirko wrote:
+> Fri, May 08, 2009 at 09:57:22PM CEST, davem@davemloft.net wrote:
+>   
+>> From: Sachin Sant <sachinp@in.ibm.com>
+>> Date: Fri, 08 May 2009 18:22:48 +0530
 >>
->> Is this the only instance of this message, or do you see it several
->> times?
->
-> It's the only one.
->
->>> This looks to be the result of the following commit:
->>> commit 363f724cdd3d2ae554e261be995abdeb15f7bdd9
->>> Author: Chuck Lever <chuck.lever@oracle.com>
->>>   SUNRPC: rpcb_register() should handle errors silently
->>>   Move error reporting for RPC registration to rpcb_register's
->>> caller.
->>>
->>> Question is: do I really want to know this? I assume the "failure"
->>> happened with previous kernels too, but silently.
+>>     
+>>> Todays Next failed to boot on a Power6 JS22 blade with following oops.
+>>>       
+>> Jiri, I suspect this might be your address list changes.
 >>
->> The point of that commit was to report errors _less_ frequently.
+>> Although that's just a guess.  But please take a look.
+>>     
 >
-> :-)
+> Hmm, only thing I see might cause the problem would be if calling __hw_addr_add
+> in dev_addr_init fails, then dev->dev_addr would contain zeroes (which looks
+> this is not the case). But in this case the oops would appear earlier (in
+> ibmveth_probe dev_addr memcpy).
 >
->> The server-side RPC code is attempting to be more automatic about
->> which address families are supported by kernel NFS services.  This
->> message tells us that some particular case is not handled yet.  I
->> suspect you weren't seeing this error in the past at all.
->
-> Correct. Neither this exact error, nor anything remotely similar.
+> Will do the patch which checks the result to behave correctly in case of oom
+> but this imho this wouldn't help. Strange, I will dig into this more tomorrow.
+>   
+I can recreate this problem with today's Next release as well. Let me 
+know if you want me to try
+out any thing to debug this problem.
 
-No, I meant that whether or not you saw an error message, the  
-underlying condition probably was not occurring before 2.6.30.
+Thanks
+-Sachin
 
->> Can you report more about your server configuration?  What
->> distribution is this?
->
-> Debian stable (Lenny).
-> nfs-common and nfs-kernel-server (1.1.2)
->
-> I'm using nfs4. rpc.statd is not running; rpc.mountd and rpc.idmapd  
-> are.
+-- 
 
-The NFS client and server appear to start lockd listeners for NFSv4.   
-They probably don't need to.  But that's a separate issue.
-
->> Does user space have portmapper or rpcbind?
->
-> portmap (6.0)
->
->> Are you blacklisting ipv6.ko?
->
-> No, the server has IPv6 enabled.
-> I'm using NFS mainly from my laptop though, which does not have an  
-> IPv6
-> address for my home network.
->
->> What's the output of "rpcinfo" on your server after it has started  
->> NFSD?
->
-> I guess you mean the -p option?
->
-> $ rpcinfo -p
->   program vers proto   port
->    100000    2   tcp    111  portmapper
->    100000    2   udp    111  portmapper
->    100003    2   udp   2049  nfs
->    100003    3   udp   2049  nfs
->    100003    4   udp   2049  nfs
->    100021    1   udp  47955  nlockmgr
->    100021    3   udp  47955  nlockmgr
->    100021    4   udp  47955  nlockmgr
->    100021    1   tcp  41860  nlockmgr
->    100021    3   tcp  41860  nlockmgr
->    100021    4   tcp  41860  nlockmgr
->    100003    2   tcp   2049  nfs
->    100003    3   tcp   2049  nfs
->    100003    4   tcp   2049  nfs
->    100005    1   udp  40032  mountd
->    100005    1   tcp  40623  mountd
->    100005    2   udp  40032  mountd
->    100005    2   tcp  40623  mountd
->    100005    3   udp  40032  mountd
->    100005    3   tcp  40623  mountd
->    391002    2   tcp    792  sgi_fam
-
-In this case, it looks like the message can be treated as a notice.  I  
-think in general we could safely make that a dprintk, but I'd like to  
-wait a bit more to see if we catch any bad behavior.
-
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+---------------------------------
+Sachin Sant
+IBM Linux Technology Center
+India Systems and Technology Labs
+Bangalore, India
+---------------------------------
