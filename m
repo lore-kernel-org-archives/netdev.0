@@ -1,22 +1,33 @@
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Subject: [RFC 5/5] net: bridge - handle via_phys_dev feature on a bridge level
-Date: Mon, 11 May 2009 15:46:44 +0400
-Message-ID: <20090511125351.432336750@openvz.org>
-References: <20090511114639.440944109@openvz.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, xemul@openvz.org,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC 5/5] net: bridge - handle via_phys_dev feature on a
+	bridge level
+Date: Mon, 11 May 2009 17:01:15 +0400
+Message-ID: <20090511130115.GG4624@lenovo>
+References: <20090511114639.440944109@openvz.org> <20090511125351.432336750@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.229]:29916 "EHLO
+Received: from rv-out-0506.google.com ([209.85.198.228]:21572 "EHLO
 	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757760AbZEKMyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 08:54:01 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so2140702rvb.1
-        for <netdev@vger.kernel.org>; Mon, 11 May 2009 05:54:02 -0700 (PDT)
-Content-Disposition: inline; filename=net-br-via-func
+	with ESMTP id S1753572AbZEKNHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 09:07:03 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so2144719rvb.1
+        for <netdev@vger.kernel.org>; Mon, 11 May 2009 06:07:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090511125351.432336750@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+quilt didn't get refreshed copy. here is an updated
+one. sorry for inconvenience.
+
+	-- Cyrill
+---
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [RFC 5/5] net: bridge - handle via_phys_dev feature on a bridge level
 
 The idea is to use existing routing table instead of
 generating new one if the bridge is to be created.
@@ -112,12 +123,12 @@ Index: linux-2.6.git/net/bridge/br_device.c
 +	}
 +
 +	br->dev->stats.tx_packets++;
-+	br->dev->stats.tx_bytes += skb->len;
++	br->dev->stats.tx_bytes += skb2->len;
 +
 +	skb_reset_mac_header(skb2);
 +	skb_pull(skb2, ETH_HLEN);
 +
-+	skb->br_seen = 1;
++	skb2->br_seen = 1;
 +
 +	if (is_multicast_ether_addr(dest))
 +		br_flood_deliver(br, skb2);
@@ -187,4 +198,3 @@ Index: linux-2.6.git/net/bridge/br_private.h
  
  /* br_fdb.c */
  extern int br_fdb_init(void);
-
