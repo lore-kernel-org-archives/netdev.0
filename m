@@ -1,99 +1,79 @@
-From: Radek Podgorny <radek@podgorny.cz>
-Subject: Re: via velocity trivial patch
-Date: Sun, 10 May 2009 23:06:31 +0200
-Message-ID: <4A0741D7.1050509@podgorny.cz>
-References: <49F1A05A.8070802@podgorny.cz> <4A01FBF6.1090001@podgorny.cz> <20090507.150213.192379856.davem@davemloft.net> <4A04184E.5040507@podgorny.cz> <20090508192948.GA19016@electric-eye.fr.zoreil.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
+Date: Sun, 10 May 2009 20:29:14 -0400
+Message-ID: <1242001754.4093.12.camel@obelisk.thedillows.org>
+References: <200903041828.49972.m.bueker@berlin.de>
+	 <20090322211159.GA23042@electric-eye.fr.zoreil.com>
+	 <49CA1822.6050902@grupopie.com> <200904041950.04324.mb@bu3sch.de>
+	 <4A06D8D2.4010505@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Michael Buesch <mb@bu3sch.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Riepe <michael.riepe@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 180.129.broadband3.iol.cz ([85.70.129.180]:33285 "EHLO
-	home.podgorny.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbZEJVGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2009 17:06:35 -0400
-Received: from [10.25.3.4] (simir.podoli.pjih.czf [10.25.3.4])
-	by home.podgorny.cz (Postfix) with ESMTP id 910B786560
-	for <netdev@vger.kernel.org>; Sun, 10 May 2009 23:06:32 +0200 (CEST)
-In-Reply-To: <20090508192948.GA19016@electric-eye.fr.zoreil.com>
+Received: from smtp.knology.net ([24.214.63.101]:45029 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752198AbZEKA3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 May 2009 20:29:18 -0400
+In-Reply-To: <4A06D8D2.4010505@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+cc'ing netdev, where networking discussions have a much higher
+probability of getting a developer's attention.
 
-Hi Francois,
+On Sun, 2009-05-10 at 15:38 +0200, Michael Riepe wrote:
+> Michael Buesch wrote:
+> 
+> > I'm currently testing 2.6.29.1 without any additional patches but
+> > with the pci=nomsi boot option.
+> > 
+> > I didn't notice any hickups, yet. I'm running a stresstest on a GBit link for quite
+> > some time now. Earlier tests with older kernels and MSI burped earlier.
+> > 
+> > I will do more testing. If it turns out this is stable I will test the same kernel
+> > with Message Signaled Interrupts to see if that causes some breakage.
+> 
+> I've had this problem up to and including 2.6.29.2. Currently, I'm
+> trying 2.6.29.2 with pci=nomsi, and it's stable so far. With MSI
+> enabled, a single high-speed TCP transfer will stop after a few seconds,
+> but without MSI, I can run four simultaneous transfers to two different
+> hosts without a single hickup.
+> 
+> It seems to me that this particular chip really doesn't like MSI.
+> 
+> Kernel: 2.6.29.2 (x86_64)
+> Board: Intel D945GCLF2
+> BIOS version: LF94510J.86A.0099.2008.0731.0303
 
-Francois Romieu wrote:
-> Radek Podgorny <radek@podgorny.cz> :
-> [...]
->> Anyway, I've verified this is really happening on my hardware when
->> multiple via velocity devices share the same interrupt. The one the
->> interrupt is for reads the correct ISR value, the others sometimes read
->> 0 and sometimes 0xffffffff. I'm not educated enough to tell why.
-> 
-> Your quad port network card includes its own pci bus, right ?
-> If so can you send a 'lspci -vt' of the host ?
+I'm not sure this is tied to the chip. I've got a similar problem on my
+X58 based system; my device is detected as an RTL8168d/8111d by the
+r8169 driver, and will go out to lunch under high TX loads under any
+kernel after 2.6.28. It seems to be perfectly solid in 2.6.27, but is
+detected as a generic RTL8169, as the MAC is unknown to that version of
+the driver.
 
-I don't know much about the card except for it's this model
-http://www.roc-noc.com/product.php?productid=55. The output of lspci follows:
+It uses MSI in both cases, so the chip seems happy with MSI in at least
+some instances.
 
-radek@europa ~ % sudo lspci -vt 
-- -[0000:00]-+-00.0  Intel Corporation 82815 815 Chipset Host Bridge and Memory Controller Hub
-           +-01.0-[0000:01]----00.0  NVidia / SGS Thomson (Joint Venture) Riva128
-           +-1e.0-[0000:02-03]--+-00.0-[0000:03]--+-08.0  VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter
-           |                    |                 +-09.0  VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter
-           |                    |                 +-0a.0  VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter
-           |                    |                 \-0b.0  VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter
-           |                    \-04.0  Intersil Corporation Prism 2.5 Wavelan chipset
-           +-1f.0  Intel Corporation 82801BA ISA Bridge (LPC)
-           +-1f.1  Intel Corporation 82801BA IDE U100 Controller
-           +-1f.2  Intel Corporation 82801BA/BAM USB Controller #1
-           +-1f.3  Intel Corporation 82801BA/BAM SMBus Controller
-           +-1f.4  Intel Corporation 82801BA/BAM USB Controller #1
-           \-1f.5  Intel Corporation 82801BA/BAM AC'97 Audio Controller
+I've spent a good part of the weekend bisecting between 2.6.27 and
+2.6.28, and it does seem to be working its way into the genirq changes.
+It is too early to sure, as I've had a number of kernels that locked up
+during boot, so the bisect is a mess, and may not be pointing me in the
+right direction. For example, it is currently pointing me at 5fef06...
+"Merge branch 'linus' into genirq", which I need to figure out how to
+verify.
 
->> Reasons to include the fix:
->> 1) Someone smarter than me suggested it (Jeff Garzik).
->> 2) Fixed my problem.
->> 3) Does not introduce a new problem.
-> 
-> 3. probably stands: there is no reason for the driver to see a
-> 0xffffffff interupt status register (hardware fault or unplug apart).
-> 
-> Well, almost:
-> 
-> $ grep mac.*isr drivers/net/via-velocity.h
-> #define mac_read_isr(regs)              readl(&((regs)->ISR))
-> #define mac_write_isr(regs, x)          writel((x),&((regs)->ISR))
-> #define mac_clear_isr(regs)             writel(0xffffffffL,&((regs)->ISR))
-> 
-> I can figure that there is a window through which the 2nd, 3rd and 4th
-> devices can read a 0xffffffff when they are brought up but it should
-> not be noticeable after this stage (and it may happen on the 1st device
-> as well if it shares its interrupt with some other device).
-> 
-> Does it match your experience ?
+If the problem is related to changes in the IRQ handling, it could be
+that the driver is doing something incorrect WRT interrupts, but I don't
+really expect that to be the case.
 
-Well I haven't done any extensive data gathering (how often the 0xffffffff situation
-happens and so on) because I've found a way way to fix (workaround?) it and
-unfortunately it's a production machine. But, if you have any suggestions on
-what I shall do to help you debug it, please let me know. I can do some tests for
-short periods of time during a day.
-> 
->> So I'm attaching the patch again. Now with the proper sign-off.
-> 
-> davem's life is probably simpler if you do not include anything
-> after the patch.
-> 
-Thanks for the info. I don't mean to complicate things.
+I'll continue to look at getting a more clean bisection to point us at
+the root cause, perhaps keeping the version of the driver constant to
+eliminate one variable.
 
-Radek Podgorny
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkoHQdYACgkQ7mej6pjlbYQOYgCgoe19dnfkh74del3hXODGPEM1
-RqYAn05j7ysqpJykjxyGdHsMB3x6FkV7
-=bUxK
------END PGP SIGNATURE-----
