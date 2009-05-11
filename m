@@ -1,119 +1,76 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 11 May 2009 09:32:34 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
-References: <200902262310.12791.elendil@planet.nl> <20090506230240.GA10373@merlin.emma.line.org>
- <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
- <200905092014.35642.elendil@planet.nl>
+From: Chrissie Caulfield <ccaulfie@redhat.com>
+Subject: Re: decnet: Use data ready call back, rather than hand coding it
+Date: Mon, 11 May 2009 09:33:54 +0100
+Message-ID: <4A07E2F2.6050807@redhat.com>
+References: <1241800225.29604.282.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1596760030-1242023554=:10047"
-Cc: Matthias Andree <matthias.andree@gmx.de>,
-	Netdev <netdev@vger.kernel.org>
-To: Frans Pop <elendil@planet.nl>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Steven Whitehouse <swhiteho@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41377 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753501AbZEKGcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 02:32:35 -0400
-In-Reply-To: <200905092014.35642.elendil@planet.nl>
+Received: from mx2.redhat.com ([66.187.237.31]:58830 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754378AbZEKIdz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2009 04:33:55 -0400
+Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
+	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n4B8XuU0016142
+	for <netdev@vger.kernel.org>; Mon, 11 May 2009 04:33:56 -0400
+In-Reply-To: <1241800225.29604.282.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1596760030-1242023554=:10047
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Sat, 9 May 2009, Frans Pop wrote:
-
-> On Thursday 07 May 2009, Ilpo Järvinen wrote:
-> > [RFC PATCH] tcp: fix MSG_PEEK race check
-> >
-> > Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
-> > blocking behavior) lets the loop run longer than this check
-> > did previously expect, so we need to be more careful with
-> > this check and consider the work we have been doing.
-> >
-> > I'm a bit unsure if this improved check can still fail as
-> >         if (!sock_flag(sk, SOCK_URGINLINE)) {
-> >                 ++*seq;
-> >                 ...
-> > does not increment copied.
-> >
-> > Compile tested.
-> >
-> > Signed-off-by: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
+Steven Whitehouse wrote:
+> Chrissie, can you test this? I don't have a suitable set up at the
+> moment. This should be correct though since its taken directly from
+> sock_queue_rcv_skb from whence the original code was also take in times
+> past. I did compile test it though.
 > 
-> I've been running with the patch for 2 days now and have not seen any more 
-> MSG_PEEK errors, so as far as I'm concerned the patch does fix the issue 
-> (needed the time in order to be confident of that).
->
-> So:
-> Tested-by: Frans Pop <elendil@planet.nl>
+> Signed-off-by: Steven Whitehouse <swhiteho@redhat.com>
+> 
+> 
+> diff --git a/net/decnet/dn_nsp_in.c b/net/decnet/dn_nsp_in.c
+> index 5d8a2a5..932408d 100644
+> --- a/net/decnet/dn_nsp_in.c
+> +++ b/net/decnet/dn_nsp_in.c
+> @@ -578,6 +578,7 @@ out:
+>  static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig, struct sk_buff_head *queue)
+>  {
+>  	int err;
+> +	int skb_len;
+>  
+>  	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
+>  	   number of warnings when compiling with -W --ANK
+> @@ -592,22 +593,12 @@ static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig
+>  	if (err)
+>  		goto out;
+>  
+> +	skb_len = skb->len;
+>  	skb_set_owner_r(skb, sk);
+>  	skb_queue_tail(queue, skb);
+>  
+> -	/* This code only runs from BH or BH protected context.
+> -	 * Therefore the plain read_lock is ok here. -DaveM
+> -	 */
+> -	read_lock(&sk->sk_callback_lock);
+> -	if (!sock_flag(sk, SOCK_DEAD)) {
+> -		struct socket *sock = sk->sk_socket;
+> -		wake_up_interruptible(sk->sk_sleep);
+> -		if (sock && sock->fasync_list &&
+> -		    !test_bit(SOCK_ASYNC_WAITDATA, &sock->flags))
+> -			__kill_fasync(sock->fasync_list, sig,
+> -				    (sig == SIGURG) ? POLL_PRI : POLL_IN);
+> -	}
+> -	read_unlock(&sk->sk_callback_lock);
+> +	if (!sock_flag(sk, SOCK_DEAD))
+> +		sk->sk_data_ready(sk, skb_len);
+>  out:
+>  	return err;
+>  }
 
-Added.
 
-> Suggest to also add a CC for stable.
+ACK
 
-DaveM will take care of stable submissions by himself.
+The patch works fine for me.
 
-
-I took my time to fix the urg_hole madness too. The patch below.
-
---
-[PATCH v2] tcp: fix MSG_PEEK race check
-
-Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
-blocking behavior) lets the loop run longer than the race check
-did previously expect, so we need to be more careful with this
-check and consider the work we have been doing.
-
-I tried my best to deal with urg hole madness too which happens
-here:
-	if (!sock_flag(sk, SOCK_URGINLINE)) {
-		++*seq;
-		...
-by using additional offset by one but I certainly have very
-little interest in testing that part.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-Tested-by: Frans Pop <elendil@planet.nl>
----
- net/ipv4/tcp.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1d7f49c..7a0f0b2 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1321,6 +1321,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct task_struct *user_recv = NULL;
- 	int copied_early = 0;
- 	struct sk_buff *skb;
-+	u32 urg_hole = 0;
- 
- 	lock_sock(sk);
- 
-@@ -1532,7 +1533,8 @@ do_prequeue:
- 				}
- 			}
- 		}
--		if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
-+		if ((flags & MSG_PEEK) &&
-+		    (peek_seq - copied - urg_hole != tp->copied_seq)) {
- 			if (net_ratelimit())
- 				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
- 				       current->comm, task_pid_nr(current));
-@@ -1553,6 +1555,7 @@ do_prequeue:
- 				if (!urg_offset) {
- 					if (!sock_flag(sk, SOCK_URGINLINE)) {
- 						++*seq;
-+						urg_hole++;
- 						offset++;
- 						used--;
- 						if (!used)
--- 
-tg: (4d5b78c..) fix/msgpeek-race-chk (depends on: origin/master)
----696208474-1596760030-1242023554=:10047--
+Chrissie
