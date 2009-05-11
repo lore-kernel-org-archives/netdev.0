@@ -1,71 +1,46 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [RFC PATCH v3 00/17] virtual-bus
-Date: Mon, 11 May 2009 10:41:54 -0400
-Message-ID: <4A083932.50605@novell.com>
-References: <20090421183341.12548.33393.stgit@dev.haskins.net> <20090511113731.GA6205@nik-comp.linuxbox.cz>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: [PATCH/RFC 0/2] HFSC & Stab documentation
+Date: Mon, 11 May 2009 16:32:09 +0200
+Message-ID: <4A0836E9.6080506@ziu.info>
+References: <cover.1235685021.git.soltys@ziu.info> <200904302304.36693.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigD2EBDE3F49001BFCDC924DD4"
-Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org, agraf@suse.de,
-	pmullaney@novell.com, pmorreale@novell.com, alext@novell.com,
-	anthony@codemonkey.ws, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, avi@redhat.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, gregkh@suse.de, chrisw@sous-sol.org,
-	shemminger@vyatta.com, alex.williamson@hp.com,
-	nikola.ciprich@linuxbox.cz
-To: Nikola Ciprich <extmaillist@linuxbox.cz>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090511113731.GA6205@nik-comp.linuxbox.cz>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from drutsystem.com ([80.72.38.138]:4730 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752255AbZEKOxs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2009 10:53:48 -0400
+In-Reply-To: <200904302304.36693.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigD2EBDE3F49001BFCDC924DD4
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Denys Fedoryschenko wrote:
+> Is there any chances that this patches will go to mainstream?
+> 
+> On Friday 27 February 2009 01:01:30 Michal Soltys wrote:
+>> These patches add documentation for HFSC scheduler
+>> and size tables. See patch covers for detailed info.
+>>
+>> Michal Soltys (2):
+>>   HFSC (7) & (8) documentation + assorted changes
+>>   Stab documentation + assorted changes
+>>
 
-Nikola Ciprich wrote:
-> Hi Gregory,
->
-> I'd like to try Your vbus patches, but compiling 2.6.30-rc2 (or 2.6.30-=
-rc5) fails
-> with following error:
-> drivers/vbus/proxy/kvm-guest-vbus: struct pci_device_id is 32 bytes.  T=
-he last of 1 is:
-> 0xda 0x11 0x00 0x00 0x00 0x20 0x00 0x00 0xff 0xff 0xff 0xff 0xff 0xff 0=
-xff 0xff 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00=
- 0x00 0x00 0x00
-> FATAL: drivers/vbus/proxy/kvm-guest-vbus: struct pci_device_id is not t=
-erminated with a NULL entry!
->
-> Do You have any idea on what might be wrong?
-> thanks a lot in advance...
->  =20
-Hi Nik,
-  I haven't seen that error with vbus itself, but oddly enough I just
-encountered something similar when I was working on a different series
-(nullio).   The fix there was trivial, and I suspect it will be here as
-well.  What I am more confused on is why this suddenly started
-happening....  I will get back to you with a fix.
+I'll adjust/expand this a bit, and repost as v2.
 
-Regards,
--Greg
+Particulary:
 
+- move hfsc's section about timers to a separate man page, so it can be 
+referenced by other man pages (tbf, htb, ...) where it's important, in 
+future
 
+- expand stab into both stab/rtab; I'll refrain from changing the 
+calculation as well, as it's minor and irrelevant
 
---------------enigD2EBDE3F49001BFCDC924DD4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Still, if for some reason that documentation with cli help related 
+changes is not acceptable for any formal and/or content-related reasons, 
+it would be good to know that beforehand.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkoIOTIACgkQlOSOBdgZUxnhxACgjL/ON3Z9VbdZbI2IRwH+QNrV
-zm4AmQHazMQ86K/fIMWS1rUKo7jwNuRq
-=7vrT
------END PGP SIGNATURE-----
-
---------------enigD2EBDE3F49001BFCDC924DD4--
