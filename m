@@ -1,51 +1,63 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 1/1] dma-mapping: mark DMA_nBITS_MASK as deprecated fix
-Date: Mon, 11 May 2009 11:36:07 +0900
-Message-ID: <20090511113659U.fujita.tomonori@lab.ntt.co.jp>
-References: <20090510085618D.fujita.tomonori@lab.ntt.co.jp>
-	<1241939066-10178-1-git-send-email-jirislaby@gmail.com>
+From: "chaithrika" <chaithrika@ti.com>
+Subject: RE: [PATCH net-next-2.6] TI DaVinci EMAC driver
+Date: Mon, 11 May 2009 09:52:00 +0530
+Message-ID: <026301c9d1f0$07aa5750$16ff05f0$@com>
+References: <1241789662-23721-1-git-send-email-chaithrika@ti.com> <20090509.131638.112506027.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, yanghy@cn.fujitsu.com, akpm@linux-foundation.org,
-	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jirislaby@gmail.com
+Cc: <netdev@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>, <nsekhar@ti.com>,
+	<anantgole@ti.com>, <khilman@deeprootsystems.com>
+To: "'David Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:34016 "EHLO sh.osrg.net"
+Received: from bear.ext.ti.com ([192.94.94.41]:51736 "EHLO bear.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757533AbZEKChD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 May 2009 22:37:03 -0400
-In-Reply-To: <1241939066-10178-1-git-send-email-jirislaby@gmail.com>
+	id S1751125AbZEKEW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2009 00:22:26 -0400
+In-Reply-To: <20090509.131638.112506027.davem@davemloft.net>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 10 May 2009 09:04:26 +0200
-Jiri Slaby <jirislaby@gmail.com> wrote:
 
-> Andrew, please fold into
-> dma-mapping: mark DMA_nBITS_MASK as deprecated
-> --
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Sunday, May 10, 2009 1:47 AM
+> To: chaithrika@ti.com
+> Cc: netdev@vger.kernel.org; davinci-linux-open-
+> source@linux.davincidsp.com; nsekhar@ti.com; anantgole@ti.com;
+> khilman@deeprootsystems.com
+> Subject: Re: [PATCH net-next-2.6] TI DaVinci EMAC driver
 > 
-> As Fujita correctly demurs, use more meaningful typedef name, so that we
-> now see:
-> warning: DMA_nnBIT_MASK is deprecated
-> instead of
-> warning: DMA_DEPRECATED is deprecated
+> From: Chaithrika U S <chaithrika@ti.com>
+> Date: Fri,  8 May 2009 09:34:22 -0400
 > 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-> Cc: Yang Hongyang <yanghy@cn.fujitsu.com>
-> Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Cc: Ingo Molnar <mingo@elte.hu>
-> ---
->  include/linux/dma-mapping.h |   26 +++++++++++++-------------
->  1 files changed, 13 insertions(+), 13 deletions(-)
+> > diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> > index dcd5f15..34f1253 100644
+> > --- a/drivers/net/Makefile
+> > +++ b/drivers/net/Makefile
+> > @@ -2,6 +2,9 @@
+> >  # Makefile for the Linux network (ethercard) device drivers.
+> >  #
+> >
+> > +davinci_emac_driver-objs := davinci_emac.o
+> > +obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac_driver.o
+> > +
+> >  obj-$(CONFIG_E1000) += e1000/
+> >  obj-$(CONFIG_E1000E) += e1000e/
+> >  obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
+> 
+> If there is only one source file, this complicated construct
+> is overkill.  Simply do something like:
+> 
+> obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
 
-Acked-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+OK. Will change the makefile entry.
+
+Regards,
+Chaithrika
 
 
-But I think that you need to resend a version of this patch against
-tip. We need this patch in linux-next to warn some new users of these
-deprecated macros.
-
-Thanks,
