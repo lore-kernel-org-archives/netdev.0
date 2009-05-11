@@ -1,200 +1,80 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC 5/5] net: bridge - handle via_phys_dev feature on a
-	bridge level
-Date: Mon, 11 May 2009 17:01:15 +0400
-Message-ID: <20090511130115.GG4624@lenovo>
-References: <20090511114639.440944109@openvz.org> <20090511125351.432336750@openvz.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
+Date: Mon, 11 May 2009 16:32:22 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0905111556300.10088@wrl-59.cs.helsinki.fi>
+References: <200902262310.12791.elendil@planet.nl> <200905092014.35642.elendil@planet.nl>
+ <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
+ <200905111450.06749.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, xemul@openvz.org
+Content-Type: MULTIPART/MIXED; boundary="-696208474-543283065-1242047599=:10088"
+Cc: Matthias Andree <matthias.andree@gmx.de>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Frans Pop <elendil@planet.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.228]:21572 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753572AbZEKNHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 09:07:03 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so2144719rvb.1
-        for <netdev@vger.kernel.org>; Mon, 11 May 2009 06:07:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090511125351.432336750@openvz.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60299 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013AbZEKNcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 09:32:23 -0400
+In-Reply-To: <200905111450.06749.elendil@planet.nl>
+Content-ID: <Pine.LNX.4.64.0905111615110.10088@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-quilt didn't get refreshed copy. here is an updated
-one. sorry for inconvenience.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-	-- Cyrill
----
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC 5/5] net: bridge - handle via_phys_dev feature on a bridge level
+---696208474-543283065-1242047599=:10088
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0905111615111.10088@wrl-59.cs.helsinki.fi>
 
-The idea is to use existing routing table instead of
-generating new one if the bridge is to be created.
+On Mon, 11 May 2009, Frans Pop wrote:
 
-This allow to login on remote machine then create bridge
-there and continue working on this machine without
-session interrupted (though delay while bridge is learning
-still present).
+> On Monday 11 May 2009, Ilpo Järvinen wrote:
+> > I took my time to fix the urg_hole madness too. The patch below.
+> 
+> Hmm. I wonder if it wouldn't be better to keep the two issues separate. 
+> The initial patch is a clear regression fix (4 people have reported it 
+> against fetchmail for Debian). The URG part is IMO a separate issue which 
+> I at least have never seen in practice.
+> And my Tested-by doesn't cover the additional change either.
 
-To achive this we introduce via_phys_dev feature which
-force to work some real NIC as bridge.
+Disagreed. It's true that your testing very likely doesn't cover such a 
+corner case. The URG thing is legacy which shouldn't exist anymore but it 
+might still be that some people are crazy enough to use URG not inline 
+(and at the same time are doing MSG_PEEK too). However, that URG part is
+not a _separate_ issue, you might not just have a test case but it happens 
+due to the very same reason and was broken by the very same commit.
 
-How to use it:
- - Create a new bridge set via_phys_dev in sysfs entry for the bridge
- - Add a bridge port. This port will behave like it's a bridge
-   itself, i.e. a packet recieved from network will be handled the same
-   way if it was received by bridge device. Any write on this
-   device from OS behaves like it is being written to bridge device
-   itself too.
+This issue has nothing to do with fetchmail or so alone (regardless of how 
+many bugs have been filed against it), it's generic TCP (in kernel) issue, 
+whether it's triggered is just about right test pattern which here happens 
+with fetchmail but it is by no means limited to it.
 
-Typical session looks like
+I don't care too much if distro people have some local policies regarding 
+fixes and that here shouldn't be a bother to them anyway since there's the 
+more limited fix available in the archives too if they specifically want 
+that.
 
-| ssh@10.10.0.160$ brctl addbr br0
-| ssh@10.10.0.160$ ifconfig br0 up
-| ssh@10.10.0.160$ echo 1 > /sys/class/net/bridge/br0/via_phys_dev
-| ssh@10.10.0.160$ brctl addif br0 eth0
-| (...waiting a bit...)
-| ssh@10.10.0.160$
+> That said, I have added the URG change (as an incremental patch) in my 
+> local git repo and will give it a go when I next build a kernel (may take 
+> a week). I don't expect to be able to confirm it fixes the URG race, but 
+> I can at least check that it doesn't cause any false messages with my 
+> (spectacularly unspectacular) network traffic.
 
-Which implies that eth0 is already up and running.
+There's no URG race you're implying! There's peek_seq != tp->copied_seq 
+race check which can currently trigger spuriously because of more looping 
+that what used to be done. Thus each adjustment of peek_seq (through *seq) 
+in the loop must be countered by opposite adjustment for the purpose of 
+the check. This urg_hole just covers the other of the two cases there are
+to adjust *seq (the other is countered by the -copied part).
 
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
----
- net/bridge/br.c         |    2 ++
- net/bridge/br_device.c  |   37 +++++++++++++++++++++++++++++++++++++
- net/bridge/br_forward.c |    1 +
- net/bridge/br_input.c   |   14 +++++++++++++-
- net/bridge/br_private.h |    1 +
- 5 files changed, 54 insertions(+), 1 deletion(-)
+If you don't have URG holes, the v2 change yields to: -0 which equals to 
+no-op. No testing is going to undo that :-). ...And that can be seen
+already from the patch context.
 
-Index: linux-2.6.git/net/bridge/br.c
-=====================================================================
---- linux-2.6.git.orig/net/bridge/br.c
-+++ linux-2.6.git/net/bridge/br.c
-@@ -64,6 +64,7 @@ static int __init br_init(void)
- 
- 	brioctl_set(br_ioctl_deviceless_stub);
- 	br_handle_frame_hook = br_handle_frame;
-+	br_hard_xmit_hook = br_hard_xmit;
- 
- 	br_fdb_get_hook = br_fdb_get;
- 	br_fdb_put_hook = br_fdb_put;
-@@ -99,6 +100,7 @@ static void __exit br_deinit(void)
- 	br_fdb_put_hook = NULL;
- 
- 	br_handle_frame_hook = NULL;
-+	br_hard_xmit_hook = NULL;
- 	br_fdb_fini();
- }
- 
-Index: linux-2.6.git/net/bridge/br_device.c
-=====================================================================
---- linux-2.6.git.orig/net/bridge/br_device.c
-+++ linux-2.6.git/net/bridge/br_device.c
-@@ -32,6 +32,8 @@ int br_dev_xmit(struct sk_buff *skb, str
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
- 
-+	skb->br_seen = 1;
-+
- 	if (is_multicast_ether_addr(dest))
- 		br_flood_deliver(br, skb);
- 	else if ((dst = __br_fdb_get(br, dest)) != NULL)
-@@ -42,6 +44,41 @@ int br_dev_xmit(struct sk_buff *skb, str
- 	return 0;
- }
- 
-+int br_hard_xmit(struct sk_buff *skb, struct net_bridge_port *port)
-+{
-+	struct net_bridge *br = port->br;
-+	const unsigned char *dest = skb->data;
-+	struct net_bridge_fdb_entry *dst;
-+	struct sk_buff *skb2;
-+
-+	/* forward via master device only */
-+	if (!br->via_phys_dev || br->master_dev != port->dev)
-+		return 0;
-+
-+	skb2 = skb_clone(skb, GFP_ATOMIC);
-+	if (!skb2) {
-+		br->dev->stats.tx_dropped++;
-+		return 0;
-+	}
-+
-+	br->dev->stats.tx_packets++;
-+	br->dev->stats.tx_bytes += skb2->len;
-+
-+	skb_reset_mac_header(skb2);
-+	skb_pull(skb2, ETH_HLEN);
-+
-+	skb2->br_seen = 1;
-+
-+	if (is_multicast_ether_addr(dest))
-+		br_flood_deliver(br, skb2);
-+	else if ((dst = __br_fdb_get(br, dest)) != NULL)
-+		br_deliver(dst->dst, skb2);
-+	else
-+		br_flood_deliver(br, skb2);
-+
-+	return 0;
-+}
-+
- static int br_dev_open(struct net_device *dev)
- {
- 	struct net_bridge *br = netdev_priv(dev);
-Index: linux-2.6.git/net/bridge/br_forward.c
-=====================================================================
---- linux-2.6.git.orig/net/bridge/br_forward.c
-+++ linux-2.6.git/net/bridge/br_forward.c
-@@ -148,5 +148,6 @@ void br_flood_deliver(struct net_bridge 
- /* called under bridge lock */
- void br_flood_forward(struct net_bridge *br, struct sk_buff *skb)
- {
-+	skb->br_seen = 1;
- 	br_flood(br, skb, __br_forward);
- }
-Index: linux-2.6.git/net/bridge/br_input.c
-=====================================================================
---- linux-2.6.git.orig/net/bridge/br_input.c
-+++ linux-2.6.git/net/bridge/br_input.c
-@@ -28,7 +28,15 @@ static void br_pass_frame_up(struct net_
- 	brdev->stats.rx_bytes += skb->len;
- 
- 	indev = skb->dev;
--	skb->dev = brdev;
-+
-+	if (br->via_phys_dev) {
-+		skb->br_seen = 1;
-+		if (likely(br->master_dev))
-+			skb->dev = br->master_dev;
-+		else
-+			skb->dev = brdev;
-+	} else
-+		skb->dev = brdev;
- 
- 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, indev, NULL,
- 		netif_receive_skb);
-@@ -151,6 +159,10 @@ struct sk_buff *br_handle_frame(struct n
- 		}
- 		/* fall through */
- 	case BR_STATE_LEARNING:
-+		/* if we saw this skb earlier just pass it up */
-+		if (skb->br_seen)
-+			return skb;
-+
- 		if (!compare_ether_addr(p->br->dev->dev_addr, dest))
- 			skb->pkt_type = PACKET_HOST;
- 
-Index: linux-2.6.git/net/bridge/br_private.h
-=====================================================================
---- linux-2.6.git.orig/net/bridge/br_private.h
-+++ linux-2.6.git/net/bridge/br_private.h
-@@ -144,6 +144,7 @@ static inline int br_is_root_bridge(cons
- /* br_device.c */
- extern void br_dev_setup(struct net_device *dev);
- extern int br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
-+extern int br_hard_xmit(struct sk_buff *skb, struct net_bridge_port *port);
- 
- /* br_fdb.c */
- extern int br_fdb_init(void);
+
+-- 
+ i.
+---696208474-543283065-1242047599=:10088--
