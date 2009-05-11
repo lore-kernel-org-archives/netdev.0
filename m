@@ -1,80 +1,74 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 11 May 2009 16:32:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0905111556300.10088@wrl-59.cs.helsinki.fi>
-References: <200902262310.12791.elendil@planet.nl> <200905092014.35642.elendil@planet.nl>
- <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
- <200905111450.06749.elendil@planet.nl>
+From: "Luc Goria" <Luc.Goria@adept-telecom.fr>
+Subject: [PATCH 2.6.27.2] datagram handling routines : mapping/unmapping paged data in soft IRQ
+Date: Mon, 11 May 2009 15:32:21 +0200
+Message-ID: <54466B0E862D654998371DCA86B6FE2F4B6D47@adept-srv2.adept.local>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-543283065-1242047599=:10088"
-Cc: Matthias Andree <matthias.andree@gmx.de>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Frans Pop <elendil@planet.nl>
+Content-Type: multipart/mixed;
+	boundary="----_=_NextPart_001_01C9D23C.E9828EF6"
+Cc: <linux-kernel@vger.kernel.org>, <alan@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60299 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbZEKNcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 09:32:23 -0400
-In-Reply-To: <200905111450.06749.elendil@planet.nl>
-Content-ID: <Pine.LNX.4.64.0905111615110.10088@wrl-59.cs.helsinki.fi>
+Received: from green.ailair.fr ([91.121.209.168]:3776 "EHLO green.ailair.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752007AbZEKNo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2009 09:44:29 -0400
+content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This is a multi-part message in MIME format.
 
----696208474-543283065-1242047599=:10088
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0905111615111.10088@wrl-59.cs.helsinki.fi>
-
-On Mon, 11 May 2009, Frans Pop wrote:
-
-> On Monday 11 May 2009, Ilpo Järvinen wrote:
-> > I took my time to fix the urg_hole madness too. The patch below.
-> 
-> Hmm. I wonder if it wouldn't be better to keep the two issues separate. 
-> The initial patch is a clear regression fix (4 people have reported it 
-> against fetchmail for Debian). The URG part is IMO a separate issue which 
-> I at least have never seen in practice.
-> And my Tested-by doesn't cover the additional change either.
-
-Disagreed. It's true that your testing very likely doesn't cover such a 
-corner case. The URG thing is legacy which shouldn't exist anymore but it 
-might still be that some people are crazy enough to use URG not inline 
-(and at the same time are doing MSG_PEEK too). However, that URG part is
-not a _separate_ issue, you might not just have a test case but it happens 
-due to the very same reason and was broken by the very same commit.
-
-This issue has nothing to do with fetchmail or so alone (regardless of how 
-many bugs have been filed against it), it's generic TCP (in kernel) issue, 
-whether it's triggered is just about right test pattern which here happens 
-with fetchmail but it is by no means limited to it.
-
-I don't care too much if distro people have some local policies regarding 
-fixes and that here shouldn't be a bother to them anyway since there's the 
-more limited fix available in the archives too if they specifically want 
-that.
-
-> That said, I have added the URG change (as an incremental patch) in my 
-> local git repo and will give it a go when I next build a kernel (may take 
-> a week). I don't expect to be able to confirm it fixes the URG race, but 
-> I can at least check that it doesn't cause any false messages with my 
-> (spectacularly unspectacular) network traffic.
-
-There's no URG race you're implying! There's peek_seq != tp->copied_seq 
-race check which can currently trigger spuriously because of more looping 
-that what used to be done. Thus each adjustment of peek_seq (through *seq) 
-in the loop must be countered by opposite adjustment for the purpose of 
-the check. This urg_hole just covers the other of the two cases there are
-to adjust *seq (the other is countered by the -copied part).
-
-If you don't have URG holes, the v2 change yields to: -0 which equals to 
-no-op. No testing is going to undo that :-). ...And that can be seen
-already from the patch context.
+------_=_NextPart_001_01C9D23C.E9828EF6
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
 
--- 
- i.
----696208474-543283065-1242047599=:10088--
+Kernel crashes when a network module tries to copy a datagram to iovec =
+in soft IRQ with paged data.
+The problem is that kunmap function can't be called in IRQ.
+All calls to kmap/kunmap fonctions are replaced by calls to =
+kmap_skb_frag/kunmap_skb_frag when paged data are involved.
+
+ <<datagram.c.patch>>=20
+Signed-off-by: Luc GORIA <luc.goria@adept-telecom.fr>
+
+------_=_NextPart_001_01C9D23C.E9828EF6
+Content-Type: application/octet-stream;
+	name="datagram.c.patch"
+Content-Transfer-Encoding: base64
+Content-Description: datagram.c.patch
+Content-Disposition: attachment;
+	filename="datagram.c.patch"
+
+LS0tIGxpbnV4LTIuNi4yNy4yL25ldC9jb3JlL2RhdGFncmFtLmMJMjAwOS0wNS0wNiAxNzo0Mzow
+OC4wMDAwMDAwMDAgKzAyMDAKKysrIG15LWxpbnV4LTIuNi4yNy4yL25ldC9jb3JlL2RhdGFncmFt
+LmMJMjAwOS0wNS0wNiAxNzo1Mjo0NC4wMDAwMDAwMDAgKzAyMDAKQEAgLTU2LDYgKzU2LDggQEAK
+ICNpbmNsdWRlIDxuZXQvc29jay5oPgogI2luY2x1ZGUgPG5ldC90Y3Bfc3RhdGVzLmg+CiAKKyNp
+bmNsdWRlICJrbWFwX3NrYi5oIgorCiAvKgogICoJSXMgYSBzb2NrZXQgJ2Nvbm5lY3Rpb24gb3Jp
+ZW50ZWQnID8KICAqLwpAQCAtMjkyLDE0ICsyOTQsMTMgQEAKIAkJCWludCBlcnI7CiAJCQl1OCAg
+KnZhZGRyOwogCQkJc2tiX2ZyYWdfdCAqZnJhZyA9ICZza2Jfc2hpbmZvKHNrYiktPmZyYWdzW2ld
+OwotCQkJc3RydWN0IHBhZ2UgKnBhZ2UgPSBmcmFnLT5wYWdlOwogCiAJCQlpZiAoY29weSA+IGxl
+bikKIAkJCQljb3B5ID0gbGVuOwotCQkJdmFkZHIgPSBrbWFwKHBhZ2UpOworCQkJdmFkZHIgPSBr
+bWFwX3NrYl9mcmFnKGZyYWcpOwogCQkJZXJyID0gbWVtY3B5X3RvaW92ZWModG8sIHZhZGRyICsg
+ZnJhZy0+cGFnZV9vZmZzZXQgKwogCQkJCQkgICAgIG9mZnNldCAtIHN0YXJ0LCBjb3B5KTsKLQkJ
+CWt1bm1hcChwYWdlKTsKKwkJCWt1bm1hcF9za2JfZnJhZyh2YWRkcik7CiAJCQlpZiAoZXJyKQog
+CQkJCWdvdG8gZmF1bHQ7CiAJCQlpZiAoIShsZW4gLT0gY29weSkpCkBAIC0zNzcsMTQgKzM3OCwx
+MyBAQAogCQkJaW50IGVycjsKIAkJCXU4ICAqdmFkZHI7CiAJCQlza2JfZnJhZ190ICpmcmFnID0g
+JnNrYl9zaGluZm8oc2tiKS0+ZnJhZ3NbaV07Ci0JCQlzdHJ1Y3QgcGFnZSAqcGFnZSA9IGZyYWct
+PnBhZ2U7CiAKIAkJCWlmIChjb3B5ID4gbGVuKQogCQkJCWNvcHkgPSBsZW47Ci0JCQl2YWRkciA9
+IGttYXAocGFnZSk7CisJCQl2YWRkciA9IGttYXBfc2tiX2ZyYWcoZnJhZyk7CiAJCQllcnIgPSBt
+ZW1jcHlfZnJvbWlvdmVjKHZhZGRyICsgZnJhZy0+cGFnZV9vZmZzZXQgKwogCQkJCQkgICAgICAg
+b2Zmc2V0IC0gc3RhcnQsIGZyb20sIGNvcHkpOwotCQkJa3VubWFwKHBhZ2UpOworCQkJa3VubWFw
+X3NrYl9mcmFnKHZhZGRyKTsKIAkJCWlmIChlcnIpCiAJCQkJZ290byBmYXVsdDsKIApAQCAtNDYx
+LDE2ICs0NjEsMTUgQEAKIAkJCWludCBlcnIgPSAwOwogCQkJdTggICp2YWRkcjsKIAkJCXNrYl9m
+cmFnX3QgKmZyYWcgPSAmc2tiX3NoaW5mbyhza2IpLT5mcmFnc1tpXTsKLQkJCXN0cnVjdCBwYWdl
+ICpwYWdlID0gZnJhZy0+cGFnZTsKIAogCQkJaWYgKGNvcHkgPiBsZW4pCiAJCQkJY29weSA9IGxl
+bjsKLQkJCXZhZGRyID0ga21hcChwYWdlKTsKKwkJCXZhZGRyID0ga21hcF9za2JfZnJhZyhmcmFn
+KTsKIAkJCWNzdW0yID0gY3N1bV9hbmRfY29weV90b191c2VyKHZhZGRyICsKIAkJCQkJCQlmcmFn
+LT5wYWdlX29mZnNldCArCiAJCQkJCQkJb2Zmc2V0IC0gc3RhcnQsCiAJCQkJCQkgICAgICB0bywg
+Y29weSwgMCwgJmVycik7Ci0JCQlrdW5tYXAocGFnZSk7CisJCQlrdW5tYXBfc2tiX2ZyYWcodmFk
+ZHIpOwogCQkJaWYgKGVycikKIAkJCQlnb3RvIGZhdWx0OwogCQkJKmNzdW1wID0gY3N1bV9ibG9j
+a19hZGQoKmNzdW1wLCBjc3VtMiwgcG9zKTsK
+
+------_=_NextPart_001_01C9D23C.E9828EF6--
