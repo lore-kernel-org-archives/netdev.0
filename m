@@ -1,185 +1,87 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: release dst entry in dev_hard_start_xmit()
-Date: Tue, 12 May 2009 10:12:09 +0200
-Message-ID: <4A092F59.7020900@cosmosbay.com>
-References: <49C380A6.4000904@cosmosbay.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: question about softirqs
+Date: Tue, 12 May 2009 10:12:37 +0200
+Message-ID: <20090512081237.GA16403@elte.hu>
+References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com> <20090508.234815.127227651.davem@davemloft.net> <4A086DB2.8040703@nortel.com> <20090511.162436.193717082.davem@davemloft.net> <4A08C62F.1050105@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
+	paulus@samba.org, netdev@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45479 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753484AbZELIMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 04:12:18 -0400
-In-Reply-To: <49C380A6.4000904@cosmosbay.com>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:50084 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754102AbZELINC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2009 04:13:02 -0400
+Content-Disposition: inline
+In-Reply-To: <4A08C62F.1050105@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One point of contention in high network loads is the dst_release() performed
-when a transmited skb is freed. This is because NIC tx completion calls
-dev_kree_skb() long after original call to dev_queue_xmit(skb).
 
-CPU cache is cold and the atomic op in dst_release() stalls. On SMP, this is
-quite visible if one CPU is 100% handling softirqs for a network device,
-since dst_clone() is done by other cpus, involving cache line ping pongs.
+* Chris Friesen <cfriesen@nortel.com> wrote:
 
-It seems right place to release dst is in dev_hard_start_xmit(), for most
-devices but ones that are virtual, and some exceptions.
+> This started out as a thread on the ppc list, but on the 
+> suggestion of DaveM and Paul Mackerras I'm expanding the receiver 
+> list a bit.
+> 
+> Currently, if a softirq is raised in process context the 
+> TIF_RESCHED_PENDING flag gets set and on return to userspace we 
+> run the scheduler, expecting it to switch to ksoftirqd to handle 
+> the softirqd processing.
+> 
+> I think I see a possible problem with this. Suppose I have a 
+> SCHED_FIFO task spinning on recvmsg() with MSG_DONTWAIT set. Under 
+> the scenario above, schedule() would re-run the spinning task 
+> rather than ksoftirqd, thus preventing any incoming packets from 
+> being sent up the stack until we get a real hardware 
+> interrupt--which could be a whole jiffy if interrupt mitigation is 
+> enabled in the net device.
 
-David Miller suggested to define a new device flag, set in alloc_netdev_mq()
-(so that most devices set it at init time), and carefuly unset in devices
-which dont want a NULL skb->dst in their ndo_start_xmit().
+TIF_RESCHED_PENDING will not be set if a SCHED_FIFO task wakes up a 
+SCHED_OTHER ksoftirqd task. But starvation of ksoftirqd processing 
+will occur.
 
-List of devices that must clear this flag is :
+> DaveM pointed out that if we're doing transmits we're likely to 
+> hit local_bh_enable(), which would process the softirq work.  
+> However, I think we may still have a problem in the above rx-only 
+> scenario--or is it too contrived to matter?
 
-- loopback device, because it calls netif_rx() and quoting Patrick :
-    "ip_route_input() doesn't accept loopback addresses, so loopback packets
-     already need to have a dst_entry attached."
-- appletalk/ipddp.c : needs skb->dst in its xmit function
+This could occur, and the problem is really that task priorities do 
+not extend across softirq work processing.
 
-- And all devices that call again dev_queue_xmit() from their xmit function
-(as some classifiers need skb->dst) : bonding, macvlan, eql, ifb, hdlc_fr
+This could occur in ordinary SCHED_OTHER tasks as well, if the 
+softirq is bounced to ksoftirqd - which it only should be if there's 
+serious softirq overload - or, as you describe it above, if the 
+softirq is raised in process context:
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
----
- drivers/net/appletalk/ipddp.c   |    1 +
- drivers/net/bonding/bond_main.c |    1 +
- drivers/net/eql.c               |    1 +
- drivers/net/ifb.c               |    1 +
- drivers/net/loopback.c          |    1 +
- drivers/net/macvlan.c           |    1 +
- drivers/net/wan/hdlc_fr.c       |    1 +
- include/linux/if.h              |    3 +++
- net/core/dev.c                  |    9 +++++++++
- 9 files changed, 19 insertions(+)
+        if (!in_interrupt())
+                wakeup_softirqd();
 
-diff --git a/drivers/net/appletalk/ipddp.c b/drivers/net/appletalk/ipddp.c
-index da64ba8..0268561 100644
---- a/drivers/net/appletalk/ipddp.c
-+++ b/drivers/net/appletalk/ipddp.c
-@@ -71,6 +71,7 @@ static struct net_device * __init ipddp_init(void)
- 	if (!dev)
- 		return ERR_PTR(-ENOMEM);
- 
-+	dev->priv_flags &= IFF_XMIT_DST_RELEASE;
- 	strcpy(dev->name, "ipddp%d");
- 
- 	if (version_printed++ == 0)
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 815191d..a29f421 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -5148,6 +5148,7 @@ int bond_create(char *name, struct bond_params *params)
- 		goto out_rtnl;
- 	}
- 
-+	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
- 	if (!name) {
- 		res = dev_alloc_name(bond_dev, "bond%d");
- 		if (res < 0)
-diff --git a/drivers/net/eql.c b/drivers/net/eql.c
-index 5210bb1..19b7dd9 100644
---- a/drivers/net/eql.c
-+++ b/drivers/net/eql.c
-@@ -194,6 +194,7 @@ static void __init eql_setup(struct net_device *dev)
- 
- 	dev->type       	= ARPHRD_SLIP;
- 	dev->tx_queue_len 	= 5;		/* Hands them off fast */
-+	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
- }
- 
- static int eql_open(struct net_device *dev)
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 60a2630..96713ef 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -156,6 +156,7 @@ static void ifb_setup(struct net_device *dev)
- 
- 	dev->flags |= IFF_NOARP;
- 	dev->flags &= ~IFF_MULTICAST;
-+	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
- 	random_ether_addr(dev->dev_addr);
- }
- 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 6f71157..da472c6 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -170,6 +170,7 @@ static void loopback_setup(struct net_device *dev)
- 	dev->tx_queue_len	= 0;
- 	dev->type		= ARPHRD_LOOPBACK;	/* 0x0001*/
- 	dev->flags		= IFF_LOOPBACK;
-+	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
- 	dev->features 		= NETIF_F_SG | NETIF_F_FRAGLIST
- 		| NETIF_F_TSO
- 		| NETIF_F_NO_CSUM
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 329cd50..d5334b4 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -414,6 +414,7 @@ static void macvlan_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
- 
-+	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
- 	dev->netdev_ops		= &macvlan_netdev_ops;
- 	dev->destructor		= free_netdev;
- 	dev->header_ops		= &macvlan_hard_header_ops,
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index 8005301..bfa0161 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -1054,6 +1054,7 @@ static void pvc_setup(struct net_device *dev)
- 	dev->flags = IFF_POINTOPOINT;
- 	dev->hard_header_len = 10;
- 	dev->addr_len = 2;
-+	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
- }
- 
- static const struct net_device_ops pvc_ops = {
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 1108f3e..b9a6229 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -67,6 +67,9 @@
- #define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
- #define IFF_MASTER_ARPMON 0x100		/* bonding master, ARP mon in use */
- #define IFF_WAN_HDLC	0x200		/* WAN HDLC device		*/
-+#define IFF_XMIT_DST_RELEASE 0x400	/* dev_hard_start_xmit() is allowed to
-+					 * release skb->dst
-+					 */
- 
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 14dd725..b9aef53 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1688,6 +1688,14 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 				goto gso;
- 		}
- 
-+		/*
-+		 * If device doesnt need skb->dst, release it right now while
-+		 * its hot in this cpu cache
-+		 */
-+		if ((dev->priv_flags & IFF_XMIT_DST_RELEASE) && skb->dst) {
-+			dst_release(skb->dst);
-+			skb->dst = NULL;
-+		}
- 		rc = ops->ndo_start_xmit(skb, dev);
- 		/*
- 		 * TODO: if skb_orphan() was called by
-@@ -5028,6 +5036,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	netdev_init_queues(dev);
- 
- 	INIT_LIST_HEAD(&dev->napi_list);
-+	dev->priv_flags = IFF_XMIT_DST_RELEASE;
- 	setup(dev);
- 	strcpy(dev->name, name);
- 	return dev;
+that's not really clean. We look into eliminating process context 
+use of raise_softirq_irqsoff(). Such code sequence:
 
+	local_irq_save(flags);
+	...
+	raise_softirq_irqsoff(nr);
+	...
+	local_irq_restore(flags);
+
+should be converted to something like:
+
+	local_irq_save(flags);
+	...
+	raise_softirq_irqsoff(nr);
+	...
+	local_irq_restore(flags);
+	recheck_softirqs();
+
+If someone does not do proper local_bh_disable()/enable() sequences 
+for micro-optimization reasons, then push the check to after the 
+critcal section - and dont cause extra reschedules by waking up 
+ksoftirqd. raise_softirq_irqsoff() will also be faster.
+
+	Ingo
