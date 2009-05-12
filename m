@@ -1,41 +1,37 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: ports beeing reused too fast
-Date: Tue, 12 May 2009 18:52:25 +0300
-Message-ID: <200905121852.26099.opurdila@ixiacom.com>
-References: <200905082311.09414.opurdila@ixiacom.com> <200905121532.57477.opurdila@ixiacom.com> <20090512081119.598b22c5@nehalam>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Tue, 12 May 2009 18:11:50 +0200
+Message-ID: <87octymhbt.fsf@basil.nowhere.org>
+References: <1242076914.12380.2.camel@bender>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bill Fink <billfink@mindspring.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Cosmin Ratiu <cratiu@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Christoph Lameter <cl@linux.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Johann Baudy <johann.baudy@gnu-log.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13483 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754740AbZELPxg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 11:53:36 -0400
-In-Reply-To: <20090512081119.598b22c5@nehalam>
-Content-Disposition: inline
+Received: from one.firstfloor.org ([213.235.205.2]:52160 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151AbZELQLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 12:11:54 -0400
+In-Reply-To: <1242076914.12380.2.camel@bender> (Johann Baudy's message of "Mon, 11 May 2009 23:21:54 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Johann Baudy <johann.baudy@gnu-log.net> writes:
 
-> I raised the issue to the original author of the proposed RFC and added
-> the issue to the ongoing review of the draft.
+> From: Johann Baudy <johann.baudy@gnu-log.net>
 >
-> There is a suggested workaround using a bitmap but it seems like it would
-> be expensive to implement:
->       
-> http://ietfreport.isoc.org/all-ids/draft-ananth-tsvwg-timewait-00.txt
+> New packet socket feature that makes packet socket more efficient for transmission.
+> - It reduces number of system call through a PACKET_TX_RING mechanism, based on PACKET_RX_RING (Circular buffer allocated in kernel space which is mmapped from user space).
+> - It minimizes CPU copy using fragmented SKB (almost zero copy).
 
-OK, I now understand how TW could be an issue here - I didn't realize that we 
-could have sockets in TW on the server side.
+When you add new interfaces like this you should add them to the packet (7)
+manpage too.
 
-Since the workaround seems expensive, would it be acceptable to add a new 
-sysctl option to disable port randomization?
+-Andi
 
-Thanks,
-tavi
-
+-- 
+ak@linux.intel.com -- Speaking for myself only.
