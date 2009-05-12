@@ -1,46 +1,46 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
-Date: Tue, 12 May 2009 13:10:40 +0200
-Message-ID: <m3eiuufufj.fsf@intrepid.localdomain>
-References: <200903041828.49972.m.bueker@berlin.de>
-	<4A06D8D2.4010505@googlemail.com>
-	<1242001754.4093.12.camel@obelisk.thedillows.org>
-	<200905112248.44868.mb@bu3sch.de>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: question about softirqs
+Date: Tue, 12 May 2009 08:20:51 -0400 (EDT)
+Message-ID: <alpine.DEB.2.00.0905120818290.13234@gandalf.stny.rr.com>
+References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com>  <20090508.234815.127227651.davem@davemloft.net>  <4A086DB2.8040703@nortel.com>  <20090511.162436.193717082.davem@davemloft.net>  <4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu>
+ <1242119578.11251.321.camel@twins>  <20090512092348.GA29796@elte.hu> <1242120761.11251.324.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Dillow <dave@thedillows.org>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael =?iso-8859-2?Q?B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>, Chris Friesen <cfriesen@nortel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
+	paulus@samba.org, netdev@vger.kernel.org
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:34301 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755149AbZELLKl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2009 07:10:41 -0400
-In-Reply-To: <200905112248.44868.mb@bu3sch.de> (Michael Buesch's message of "Mon\, 11 May 2009 22\:48\:44 +0200")
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.123]:33454 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbZELMUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 08:20:53 -0400
+In-Reply-To: <1242120761.11251.324.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Buesch <mb@bu3sch.de> writes:
 
-> Yeah maybe other chips are affected as well.
-> I just want to note that my failing chip/board is an Intel D945GCLF2 board
-> with onboard G-LAN, too.
->
-> The device XID is: XID 3c4000c0
 
-I have an on-board RTL8111C (at least the docs say so) with this same
-XID and it's working correctly.
+On Tue, 12 May 2009, Peter Zijlstra wrote:
 
-$ uname -rm
-2.6.29.1 x86_64
+> On Tue, 2009-05-12 at 11:23 +0200, Ingo Molnar wrote:
+> > 
+> > Yeah, that would be "nice". A single IRQ thread plus the process 
+> > context(s) doing networking might perform well.
+> > 
+> > Multiple IRQ threads (softirq and hardirq threads mixed) i'm not so 
+> > sure about - it's extra context-switching cost.
+> 
+> Sure, that was implied by the getting rid of softirqs ;-), on -rt we
+> currently suffer this hardirq/softirq thread ping-pong, it sucks.
 
-$ grep eth0 /proc/interrupts
- 30:      49224      49283   PCI-MSI-edge      eth0
+I'm going to be playing around with bypassing the net-rx/tx with my 
+network drivers. I'm going to add threaded irqs for my network cards and 
+have the driver threads do the work to get through the tcp/ip stack.
 
-The board is MSI (nomen omen) P45 neo2.
--- 
-Krzysztof Halasa
+I'll still keep the softirqs for other cards, but I want to see how fast 
+it speeds things up if I have the driver thread do it.
+
+-- Steve
+
