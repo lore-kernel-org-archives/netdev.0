@@ -1,149 +1,63 @@
 From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 5/6] rio: warn_unused_result warnings fix
-Date: Tue, 12 May 2009 16:36:02 +0800
-Message-ID: <1242117363-14949-5-git-send-email-leoli@freescale.com>
+Subject: [PATCH 2/6] powerpc/fsl_rio: use LAW address from device tree
+Date: Tue, 12 May 2009 16:35:59 +0800
+Message-ID: <1242117363-14949-2-git-send-email-leoli@freescale.com>
 References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
- <1242117363-14949-2-git-send-email-leoli@freescale.com>
- <1242117363-14949-3-git-send-email-leoli@freescale.com>
- <1242117363-14949-4-git-send-email-leoli@freescale.com>
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
 	netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
 To: akpm@linux-foundation.org, galak@kernel.crashing.org,
 	davem@davemloft.net, mporter@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:55517 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:55499 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758734AbZELIlm (ORCPT
+	with ESMTP id S1757332AbZELIlm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 04:41:42 -0400
-In-Reply-To: <1242117363-14949-4-git-send-email-leoli@freescale.com>
+In-Reply-To: <1242117363-14949-1-git-send-email-leoli@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding failure path for the following two cases.
-
-warning: ignoring return value of 'device_add', declared with attribute warn_unused_result
-warning: ignoring return value of 'sysfs_create_bin_file', declared with attribute warn_unused_result
+Instead of fixed address in old code.
 
 Signed-off-by: Li Yang <leoli@freescale.com>
 ---
- drivers/rapidio/rio-scan.c  |   44 ++++++++++++++++++++++++++----------------
- drivers/rapidio/rio-sysfs.c |    6 +++-
- 2 files changed, 31 insertions(+), 19 deletions(-)
+ arch/powerpc/sysdev/fsl_rio.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/rapidio/rio-scan.c b/drivers/rapidio/rio-scan.c
-index 74d0bfa..0838fb2 100644
---- a/drivers/rapidio/rio-scan.c
-+++ b/drivers/rapidio/rio-scan.c
-@@ -263,15 +263,21 @@ static void rio_route_set_ops(struct rio_dev *rdev)
-  * device to the RIO device list.  Creates the generic sysfs nodes
-  * for an RIO device.
-  */
--static void __devinit rio_add_device(struct rio_dev *rdev)
-+static int __devinit rio_add_device(struct rio_dev *rdev)
- {
--	device_add(&rdev->dev);
-+	int err;
-+
-+	err = device_add(&rdev->dev);
-+	if (err)
-+		return err;
+diff --git a/arch/powerpc/sysdev/fsl_rio.c b/arch/powerpc/sysdev/fsl_rio.c
+index abdb124..fa0720f 100644
+--- a/arch/powerpc/sysdev/fsl_rio.c
++++ b/arch/powerpc/sysdev/fsl_rio.c
+@@ -1077,8 +1077,9 @@ int fsl_rio_setup(struct of_device *dev)
  
- 	spin_lock(&rio_global_list_lock);
- 	list_add_tail(&rdev->global_list, &rio_devices);
- 	spin_unlock(&rio_global_list_lock);
+ 	INIT_LIST_HEAD(&port->dbells);
+ 	port->iores.start = law_start;
+-	port->iores.end = law_start + law_size;
++	port->iores.end = law_start + law_size - 1;
+ 	port->iores.flags = IORESOURCE_MEM;
++	port->iores.name = "rio_io_win";
  
- 	rio_create_sysfs_dev_files(rdev);
-+
-+	return 0;
- }
+ 	priv->bellirq = irq_of_parse_and_map(dev->node, 2);
+ 	priv->txirq = irq_of_parse_and_map(dev->node, 3);
+@@ -1156,14 +1157,15 @@ int fsl_rio_setup(struct of_device *dev)
+ 		out_be32((priv->regs_win + RIO_ISR_AACR), RIO_ISR_AACR_AA);
  
- /**
-@@ -294,13 +300,14 @@ static struct rio_dev *rio_setup_device(struct rio_net *net,
- 					struct rio_mport *port, u16 destid,
- 					u8 hopcount, int do_enum)
- {
-+	int ret = 0;
- 	struct rio_dev *rdev;
--	struct rio_switch *rswitch;
-+	struct rio_switch *rswitch = NULL;
- 	int result, rdid;
+ 	/* Configure maintenance transaction window */
+-	out_be32(&priv->maint_atmu_regs->rowbar, 0x000c0000);
+-	out_be32(&priv->maint_atmu_regs->rowar, 0x80077015);
++	out_be32(&priv->maint_atmu_regs->rowbar, law_start >> 12);
++	out_be32(&priv->maint_atmu_regs->rowar, 0x80077015);	/* 4M */
  
- 	rdev = kzalloc(sizeof(struct rio_dev), GFP_KERNEL);
- 	if (!rdev)
--		goto out;
-+		return NULL;
+ 	priv->maint_win = ioremap(law_start, RIO_MAINT_WIN_SIZE);
  
- 	rdev->net = net;
- 	rio_mport_read_config_32(port, destid, hopcount, RIO_DEV_ID_CAR,
-@@ -343,23 +350,16 @@ static struct rio_dev *rio_setup_device(struct rio_net *net,
- 		rio_mport_read_config_32(port, destid, hopcount,
- 					 RIO_SWP_INFO_CAR, &rdev->swpinfo);
- 		rswitch = kmalloc(sizeof(struct rio_switch), GFP_KERNEL);
--		if (!rswitch) {
--			kfree(rdev);
--			rdev = NULL;
--			goto out;
--		}
-+		if (!rswitch)
-+			goto cleanup;
- 		rswitch->switchid = next_switchid;
- 		rswitch->hopcount = hopcount;
- 		rswitch->destid = destid;
- 		rswitch->route_table = kzalloc(sizeof(u8)*
- 					RIO_MAX_ROUTE_ENTRIES(port->sys_size),
- 					GFP_KERNEL);
--		if (!rswitch->route_table) {
--			kfree(rdev);
--			rdev = NULL;
--			kfree(rswitch);
--			goto out;
--		}
-+		if (!rswitch->route_table)
-+			goto cleanup;
- 		/* Initialize switch route table */
- 		for (rdid = 0; rdid < RIO_MAX_ROUTE_ENTRIES(port->sys_size);
- 				rdid++)
-@@ -390,10 +390,20 @@ static struct rio_dev *rio_setup_device(struct rio_net *net,
- 		rio_init_dbell_res(&rdev->riores[RIO_DOORBELL_RESOURCE],
- 				   0, 0xffff);
+ 	/* Configure outbound doorbell window */
+-	out_be32(&priv->dbell_atmu_regs->rowbar, 0x000c0400);
+-	out_be32(&priv->dbell_atmu_regs->rowar, 0x8004200b);
++	out_be32(&priv->dbell_atmu_regs->rowbar,
++			(law_start + RIO_MAINT_WIN_SIZE) >> 12);
++	out_be32(&priv->dbell_atmu_regs->rowar, 0x8004200b);	/* 4k */
+ 	fsl_rio_doorbell_init(port);
  
--	rio_add_device(rdev);
-+	ret = rio_add_device(rdev);
-+	if (ret)
-+		goto cleanup;
- 
--      out:
- 	return rdev;
-+
-+cleanup:
-+	if (rswitch) {
-+		if (rswitch->route_table)
-+			kfree(rswitch->route_table);
-+		kfree(rswitch);
-+	}
-+	kfree(rdev);
-+	return NULL;
- }
- 
- /**
-diff --git a/drivers/rapidio/rio-sysfs.c b/drivers/rapidio/rio-sysfs.c
-index 97a147f..ba742e8 100644
---- a/drivers/rapidio/rio-sysfs.c
-+++ b/drivers/rapidio/rio-sysfs.c
-@@ -214,9 +214,11 @@ static struct bin_attribute rio_config_attr = {
-  */
- int rio_create_sysfs_dev_files(struct rio_dev *rdev)
- {
--	sysfs_create_bin_file(&rdev->dev.kobj, &rio_config_attr);
-+	int err = 0;
- 
--	return 0;
-+	err = sysfs_create_bin_file(&rdev->dev.kobj, &rio_config_attr);
-+
-+	return err;
- }
- 
- /**
+ 	return 0;
 -- 
 1.5.4
 
