@@ -1,57 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [STABLE 2.6.28.y PATCH] e1000: fix virtualization bug
-Date: Tue, 12 May 2009 10:47:29 -0700
-Message-ID: <20090512174728.20525.60800.stgit@localhost.localdomain>
+From: Johann Baudy <johann.baudy@gnu-log.net>
+Subject: Re: [PATCH] TX_RING and packet mmap
+Date: Tue, 12 May 2009 20:00:15 +0200
+Message-ID: <7e0dd21a0905121100l658867dds309dc1c4205d5058@mail.gmail.com>
+References: <1242076914.12380.2.camel@bender>
+	 <87octymhbt.fsf@basil.nowhere.org>
+	 <7e0dd21a0905121058m1f894de6q9805e5392aef3aea@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, netdev@vger.kernel.org
-To: chrisw@sous-sol.org, greg@kroah.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Christoph Lameter <cl@linux.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:39208
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751710AbZELRrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 13:47:45 -0400
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:51108 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751955AbZELSAQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 14:00:16 -0400
+Received: by bwz22 with SMTP id 22so130731bwz.37
+        for <netdev@vger.kernel.org>; Tue, 12 May 2009 11:00:16 -0700 (PDT)
+In-Reply-To: <7e0dd21a0905121058m1f894de6q9805e5392aef3aea@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Hi Andi,
 
-[STABLE] backport upstream commit e151a60ad1faffb6241cf7eb6846353df1f33a32
+> When you add new interfaces like this you should add them to the pack=
+et (7)
+> manpage too.
 
-a recent fix to e1000 (commit 15b2bee2) caused KVM/QEMU/VMware based
-virtualized e1000 interfaces to begin failing when resetting.
+Currently, There is nothing in the manpage of packet(7) about RX_RING.
+However I can start to write a summary=A0 that describes processes,
+headers and statuses of both feature (RX_RING and TX_RING).
+I think "Socket Options" section of packet(7) is appropriate.
 
-This is because the driver in a virtual environment doesn't
-get to run instructions *AT ALL* when an interrupt is asserted.
-The interrupt code runs immediately and this recent bug fix
-allows an interrupt to be possible when the interrupt handler
-will reject it (due to the new code), when being called from
-any path in the driver that holds the E1000_RESETTING flag.
-
-the driver should use the __E1000_DOWN flag instead of the
-__E1000_RESETTING flag to prevent interrupt execution
-while reconfiguring the hardware.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: "David S. Miller" <davem@davemloft.net>
----
-
- drivers/net/e1000/e1000_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index b727fef..44f0843 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3732,7 +3732,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl, icr = er32(ICR);
- 
--	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
-+	if (unlikely((!icr) || test_bit(__E1000_DOWN, &adapter->flags)))
- 		return IRQ_NONE;  /* Not our interrupt */
- 
- 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
-
+Johann
