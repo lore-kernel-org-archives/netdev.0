@@ -1,40 +1,77 @@
-From: Michael Riepe <michael.riepe@googlemail.com>
-Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
-Date: Tue, 12 May 2009 22:29:50 +0200
-Message-ID: <4A09DC3E.2080807@googlemail.com>
-References: <200903041828.49972.m.bueker@berlin.de> <1242001754.4093.12.camel@obelisk.thedillows.org> <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de> <1242077392.3716.15.camel@lap75545.ornl.gov>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: release dst entry in dev_hard_start_xmit()
+Date: Tue, 12 May 2009 22:52:27 +0200
+Message-ID: <4A09E18B.3020402@cosmosbay.com>
+References: <49C380A6.4000904@cosmosbay.com> <4A092F59.7020900@cosmosbay.com> <4A093178.9020105@cosmosbay.com> <20090512192748.GA2757@ami.dom.local> <4A09D1B4.7070509@cosmosbay.com> <20090512200515.GB2757@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:57715 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191AbZELU3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 16:29:53 -0400
-In-Reply-To: <1242077392.3716.15.camel@lap75545.ornl.gov>
+Received: from gw2.cosmosbay.com ([86.64.20.130]:52034 "EHLO gw2.cosmosbay.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753880AbZELUwh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 16:52:37 -0400
+In-Reply-To: <20090512200515.GB2757@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Jarek Poplawski a =E9crit :
+> On Tue, May 12, 2009 at 09:44:52PM +0200, Eric Dumazet wrote:
+>> Jarek Poplawski a =E9crit :
+>>> On Tue, May 12, 2009 at 10:21:12AM +0200, Eric Dumazet wrote:
+>>>> Eric Dumazet a =E9crit :
+>>> ...
+>>>>> List of devices that must clear this flag is :
+>>>>>
+>>>>> - loopback device, because it calls netif_rx() and quoting Patric=
+k :
+>>>>>     "ip_route_input() doesn't accept loopback addresses, so loopb=
+ack packets
+>>>>>      already need to have a dst_entry attached."
+>>>>> - appletalk/ipddp.c : needs skb->dst in its xmit function
+>>>>>
+>>>>> - And all devices that call again dev_queue_xmit() from their xmi=
+t function
+>>>>> (as some classifiers need skb->dst) : bonding, macvlan, eql, ifb,=
+ hdlc_fr
+>>> Why not vlan (and/or maybe others in net/ using dev_queue_xmit)?
+>>>
+>> Yes I spoted vlan earlier this afternoon.
+>>
+>> For other net/*, I didnt not find candidates yet.
+>=20
+> Hmm..., if vlan, then why not pppoe (and/or maybe others in drivers/n=
+et/
+> using dev_queue_xmit)?
+>=20
 
-David Dillow wrote:
+As I said, I didnt found other relevant uses, but I am probably wrong :=
+)
 
-> I was saying that I don't think the timeouts are necessarily the NIC
-> chipset -- or the bridge chip for that matter --  having issues with
-> MSI. There were some substantial IRQ handling changes in 2.6.28 and my
-> bisection of the problem seem to lead into that code. I'll try this
-> later tonight hopefully, but can you try to run 2.6.27 with the current
-> r8169 driver and see if it is solid for you? That way it is using the
-> same driver code, but avoids the IRQ changes.
+About ppoe for example, two calls to dev_queue_xmit() are not relevant.
 
-Unfortunately, 2.6.27 won't build with r8169.c copied from 2.6.29.
+One is from=20
 
--- 
-Michael "Tired" Riepe <michael.riepe@googlemail.com>
-X-Tired: Each morning I get up I die a little
+static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock,
+          struct msghdr *m, size_t total_len)
+
+This is a normal direct call, not a call from its ndo_start_xmit()
+
+Second one is from
+
+static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
+
+Same observation, there is no impact for this one as well.
+
+
+
+So we have to care on device drivers that have a ndo_start_xmit() call =
+that could
+re-enter dev_queue_xmit(). Not care about drivers that call dev_queue_x=
+mit() from
+other paths.
+
