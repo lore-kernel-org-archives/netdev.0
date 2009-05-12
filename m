@@ -1,98 +1,395 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH v2 0/7] can: CAN network device driver interface and drivers
-Date: Tue, 12 May 2009 11:27:57 +0200
-Message-ID: <20090512092757.048938233@denx.de>
-Cc: linux-kernel@vger.kernel.org
+Subject: [PATCH v2 6/7] [PATCH 6/8] can: SJA1000 driver for EMS PCI cards
+Date: Tue, 12 May 2009 11:28:03 +0200
+Message-ID: <20090512092758.056333830@denx.de>
+References: <20090512092757.048938233@denx.de>
+Cc: linux-kernel@vger.kernel.org,
+	Sebastian Haas <haas@ems-wuensche.com>,
+	Markus Plessing <plessing@ems-wuensche.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:47810 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:57265 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755115AbZELJ16 (ORCPT
+	with ESMTP id S1756401AbZELJ16 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 05:27:58 -0400
+Content-Disposition: inline; filename=06-sja1000-ems-pci-driver.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+The patch adds support for the one or two channel CPC-PCI and CPC-PCIe
+cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
 
-here comes v2 of the patch series posted some time ago. See
+Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
+Signed-off-by: Markus Plessing <plessing@ems-wuensche.com>
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/Kconfig           |    7 
+ drivers/net/can/sja1000/Makefile  |    1 
+ drivers/net/can/sja1000/ems_pci.c |  328 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 336 insertions(+)
+ create mode 100644 drivers/net/can/sja1000/ems_pci.c
 
-  http://marc.info/?l=linux-netdev&m=123507025810612&w=4.
-
-Changes since v1:
-
-- The SysFS interface has been replaced by the Netlink interface as
-  suggested by Patrick. For further information have a look to
-  chapter 6.5 of "Documentation/networking/can.txt" and the header
-  file "include/linux/can/netdev.h". The patch for the "ip" program of
-  the iproute2 utility suite will be provided separately.
-
-- The restart function is now properly protected by "dev->tx_lock"
-  using the "netif_tx_[lock|unlock]" functions.
-
-- For the  restart, the device driver must now handle CAN_MODE_STOP as
-  well, apart from CAN_MODE_START to avoid race conditions.
-
-- The "irq_lock" member of "struct can_priv" has been removed. The CAN
-  controller driver may should provide its own synchronization if
-  necessary.
-
-- The restart function is now protected by "dev->tx_lock" using the
-  "netif_tx_lock/unlock" functions.
-
-- Cleanup timer usage for the restart function.
-
-- The unused do_set/get_ctrlmode member of "struct can_priv" have been
-  removed.
-
-- "const" has been added to "struct net_device" for some functions not
-  allowed to touch that structure.
-
-- The library functions "can_set_bittiming" and "can_close_cleanup" have
-  been renamed to the more general names "open_candev" and
-  "close_candev", respectively.
-
-- Use "del_timer_sync" instead of "del_timer" for the  re-start timer.
-
-- The macro "ND2D()" has been replaced by "dev->dev.parent" as it does
-  not make the code more readable.
-
-- Fix improper BTR setting for triple-sampling for the SJA1000 as
-  pointed out by Oliver.
-
-- Dont use __u8 but __u32 as before for some members of "struct
-  can_bittiming[_const]" to avoid alignment trouble.
-
-- Definitions shared with user-space applications have been moved to
-  "include/linux/can/netlink.h".
-
-- Various other minor correction suggested on the netdev ML.
-
-- The MSCAN driver for the MPC5200 has been removed. It needs to be
-  presented on the Linuxppc-dev and Devicetree-discuss ML as well,
-  which will be done by a sub-sequent patch.
-
-- Add more source code documentation, especially for the structures
-  and functions related to bit-timing.
-
-The PF_CAN protocol family for the Controller Area Network is available
-in the kernel since version 2.6.25 but drivers for real CAN devices are
-still missing. This patch series adds a generic CAN network device
-driver interface and, as a start, a few drivers. It is the result of the
-on-going discussion and development of the Socket-CAN project hosted at
-the BerliOS web-server (http://developer.berlios.de/projects/socketcan).
-The patch series consists of the following patches:
-
- 1/8) can: Documentation for the CAN device driver interface
- 2/8) can: Update MAINTAINERS and CREDITS file
- 3/8) can: CAN Network device driver and Netlink interface
- 4/8) can: Driver for the SJA1000 CAN controller
- 5/8) can: SJA1000 generic platform bus driver
- 6/8) can: SJA1000 driver for EMS PCI cards
- 7/8) can: SJA1000 driver for Kvaser PCI cards
-
-Please consider these patches for inclusion.
-
-Thanks,
-
-Wolfgang.
+Index: net-next-2.6/drivers/net/can/Kconfig
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/Kconfig	2009-05-12 10:47:26.411720627 +0200
++++ net-next-2.6/drivers/net/can/Kconfig	2009-05-12 10:47:27.116970063 +0200
+@@ -51,6 +51,13 @@
+ 	  boards from Phytec (http://www.phytec.de) like the PCM027,
+ 	  PCM038.
+ 
++config CAN_EMS_PCI
++	tristate "EMS CPC-PCI and CPC-PCIe Card"
++	depends on PCI && CAN_SJA1000
++	---help---
++	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
++	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
++
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: net-next-2.6/drivers/net/can/sja1000/Makefile
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/sja1000/Makefile	2009-05-12 10:47:26.412720490 +0200
++++ net-next-2.6/drivers/net/can/sja1000/Makefile	2009-05-12 10:47:27.116970063 +0200
+@@ -4,5 +4,6 @@
+ 
+ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+ obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
++obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+ 
+ ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+Index: net-next-2.6/drivers/net/can/sja1000/ems_pci.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-next-2.6/drivers/net/can/sja1000/ems_pci.c	2009-05-12 10:47:27.120968957 +0200
+@@ -0,0 +1,328 @@
++/*
++ * Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
++ * Copyright (C) 2008 Markus Plessing <plessing@ems-wuensche.com>
++ * Copyright (C) 2008 Sebastian Haas <haas@ems-wuensche.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/can.h>
++#include <linux/can/dev.h>
++#include <linux/io.h>
++
++#include "sja1000.h"
++
++#define DRV_NAME  "ems_pci"
++
++MODULE_AUTHOR("Sebastian Haas <haas@ems-wuenche.com>");
++MODULE_DESCRIPTION("Socket-CAN driver for EMS CPC-PCI/PCIe CAN cards");
++MODULE_SUPPORTED_DEVICE("EMS CPC-PCI/PCIe CAN card");
++MODULE_LICENSE("GPL v2");
++
++#define EMS_PCI_MAX_CHAN 2
++
++struct ems_pci_card {
++	int channels;
++
++	struct pci_dev *pci_dev;
++	struct net_device *net_dev[EMS_PCI_MAX_CHAN];
++
++	void __iomem *conf_addr;
++	void __iomem *base_addr;
++};
++
++#define EMS_PCI_CAN_CLOCK (16000000 / 2)
++
++/*
++ * Register definitions and descriptions are from LinCAN 0.3.3.
++ *
++ * PSB4610 PITA-2 bridge control registers
++ */
++#define PITA2_ICR           0x00	/* Interrupt Control Register */
++#define PITA2_ICR_INT0      0x00000002	/* [RC] INT0 Active/Clear */
++#define PITA2_ICR_INT0_EN   0x00020000	/* [RW] Enable INT0 */
++
++#define PITA2_MISC          0x1c	/* Miscellaneous Register */
++#define PITA2_MISC_CONFIG   0x04000000	/* Multiplexed parallel interface */
++
++/*
++ * The board configuration is probably following:
++ * RX1 is connected to ground.
++ * TX1 is not connected.
++ * CLKO is not connected.
++ * Setting the OCR register to 0xDA is a good idea.
++ * This means  normal output mode , push-pull and the correct polarity.
++ */
++#define EMS_PCI_OCR         (OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
++
++/*
++ * In the CDR register, you should set CBP to 1.
++ * You will probably also want to set the clock divider value to 7
++ * (meaning direct oscillator output) because the second SJA1000 chip
++ * is driven by the first one CLKOUT output.
++ */
++#define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
++#define EMS_PCI_MEM_SIZE        4096  /* Size of the remapped io-memory */
++#define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
++#define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
++
++#define EMS_PCI_PORT_BYTES  0x4     /* Each register occupies 4 bytes */
++
++#define EMS_PCI_VENDOR_ID   0x110a  /* PCI device and vendor ID */
++#define EMS_PCI_DEVICE_ID   0x2104
++
++static struct pci_device_id ems_pci_tbl[] = {
++	{EMS_PCI_VENDOR_ID, EMS_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
++	{0,}
++};
++MODULE_DEVICE_TABLE(pci, ems_pci_tbl);
++
++/*
++ * Helper to read internal registers from card logic (not CAN)
++ */
++static u8 ems_pci_readb(struct ems_pci_card *card, unsigned int port)
++{
++	return readb((void __iomem *)card->base_addr
++			+ (port * EMS_PCI_PORT_BYTES));
++}
++
++static u8 ems_pci_read_reg(const struct net_device *dev, int port)
++{
++	return readb((void __iomem *)dev->base_addr
++			+ (port * EMS_PCI_PORT_BYTES));
++}
++
++static void ems_pci_write_reg(const struct net_device *dev, int port, u8 val)
++{
++	writeb(val, (void __iomem *)dev->base_addr
++		+ (port * EMS_PCI_PORT_BYTES));
++}
++
++static void ems_pci_post_irq(const struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct ems_pci_card *card = (struct ems_pci_card *)priv->priv;
++
++	/* reset int flag of pita */
++	writel(PITA2_ICR_INT0_EN | PITA2_ICR_INT0, card->conf_addr
++		+ PITA2_ICR);
++}
++
++/*
++ * Check if a CAN controller is present at the specified location
++ * by trying to set 'em into the PeliCAN mode
++ */
++static inline int ems_pci_check_chan(struct net_device *dev)
++{
++	unsigned char res;
++
++	/* Make sure SJA1000 is in reset mode */
++	ems_pci_write_reg(dev, REG_MOD, 1);
++
++	ems_pci_write_reg(dev, REG_CDR, CDR_PELICAN);
++
++	/* read reset-values */
++	res = ems_pci_read_reg(dev, REG_CDR);
++
++	if (res == CDR_PELICAN)
++		return 1;
++
++	return 0;
++}
++
++static void ems_pci_del_card(struct pci_dev *pdev)
++{
++	struct ems_pci_card *card = pci_get_drvdata(pdev);
++	struct net_device *dev;
++	int i = 0;
++
++	for (i = 0; i < card->channels; i++) {
++		dev = card->net_dev[i];
++
++		if (!dev)
++			continue;
++
++		dev_info(&pdev->dev, "Removing %s.\n", dev->name);
++		unregister_sja1000dev(dev);
++		free_sja1000dev(dev);
++	}
++
++	if (card->base_addr != NULL)
++		pci_iounmap(card->pci_dev, card->base_addr);
++
++	if (card->conf_addr != NULL)
++		pci_iounmap(card->pci_dev, card->conf_addr);
++
++	kfree(card);
++
++	pci_disable_device(pdev);
++	pci_set_drvdata(pdev, NULL);
++}
++
++static void ems_pci_card_reset(struct ems_pci_card *card)
++{
++	/* Request board reset */
++	writeb(0, card->base_addr);
++}
++
++/*
++ * Probe PCI device for EMS CAN signature and register each available
++ * CAN channel to SJA1000 Socket-CAN subsystem.
++ */
++static int __devinit ems_pci_add_card(struct pci_dev *pdev,
++					const struct pci_device_id *ent)
++{
++	struct sja1000_priv *priv;
++	struct net_device *dev;
++	struct ems_pci_card *card;
++	int err, i;
++
++	/* Enabling PCI device */
++	if (pci_enable_device(pdev) < 0) {
++		dev_err(&pdev->dev, "Enabling PCI device failed\n");
++		return -ENODEV;
++	}
++
++	/* Allocating card structures to hold addresses, ... */
++	card = kzalloc(sizeof(struct ems_pci_card), GFP_KERNEL);
++	if (card == NULL) {
++		dev_err(&pdev->dev, "Unable to allocate memory\n");
++		pci_disable_device(pdev);
++		return -ENOMEM;
++	}
++
++	pci_set_drvdata(pdev, card);
++
++	card->pci_dev = pdev;
++
++	card->channels = 0;
++
++	/* Remap PITA configuration space, and controller memory area */
++	card->conf_addr = pci_iomap(pdev, 0, EMS_PCI_MEM_SIZE);
++	if (card->conf_addr == NULL) {
++		err = -ENOMEM;
++
++		goto failure_cleanup;
++	}
++
++	card->base_addr = pci_iomap(pdev, 1, EMS_PCI_MEM_SIZE);
++	if (card->base_addr == NULL) {
++		err = -ENOMEM;
++
++		goto failure_cleanup;
++	}
++
++	/* Configure PITA-2 parallel interface (enable MUX) */
++	writel(PITA2_MISC_CONFIG, card->conf_addr + PITA2_MISC);
++
++	/* Check for unique EMS CAN signature */
++	if (ems_pci_readb(card, 0) != 0x55 ||
++	    ems_pci_readb(card, 1) != 0xAA ||
++	    ems_pci_readb(card, 2) != 0x01 ||
++	    ems_pci_readb(card, 3) != 0xCB ||
++	    ems_pci_readb(card, 4) != 0x11) {
++		dev_err(&pdev->dev, "Not EMS Dr. Thomas Wuensche interface\n");
++
++		err = -ENODEV;
++		goto failure_cleanup;
++	}
++
++	ems_pci_card_reset(card);
++
++	/* Detect available channels */
++	for (i = 0; i < EMS_PCI_MAX_CHAN; i++) {
++		dev = alloc_sja1000dev(0);
++		if (dev == NULL) {
++			err = -ENOMEM;
++			goto failure_cleanup;
++		}
++
++		card->net_dev[i] = dev;
++		priv = netdev_priv(dev);
++		priv->priv = card;
++
++		dev->irq = pdev->irq;
++		dev->base_addr = (unsigned long)(card->base_addr
++						+ EMS_PCI_CAN_BASE_OFFSET
++						+ (i * EMS_PCI_CAN_CTRL_SIZE));
++
++		/* Check if channel is present */
++		if (ems_pci_check_chan(dev)) {
++			priv->read_reg  = ems_pci_read_reg;
++			priv->write_reg = ems_pci_write_reg;
++			priv->post_irq  = ems_pci_post_irq;
++			priv->can.clock.freq = EMS_PCI_CAN_CLOCK;
++			priv->ocr = EMS_PCI_OCR;
++			priv->cdr = EMS_PCI_CDR;
++
++			SET_NETDEV_DEV(dev, &pdev->dev);
++
++			/* Enable interrupts from card */
++			writel(PITA2_ICR_INT0_EN, card->conf_addr + PITA2_ICR);
++
++			/* Register SJA1000 device */
++			err = register_sja1000dev(dev);
++			if (err) {
++				dev_err(&pdev->dev, "Registering device failed "
++							"(err=%d)\n", err);
++				free_sja1000dev(dev);
++				goto failure_cleanup;
++			}
++
++			card->channels++;
++
++			dev_info(&pdev->dev, "Channel #%d at %#lX, irq %d\n",
++						i + 1, dev->base_addr,
++						dev->irq);
++		} else {
++			free_sja1000dev(dev);
++		}
++	}
++
++	return 0;
++
++failure_cleanup:
++	dev_err(&pdev->dev, "Error: %d. Cleaning Up.\n", err);
++
++	ems_pci_del_card(pdev);
++
++	return err;
++}
++
++static struct pci_driver ems_pci_driver = {
++	.name = DRV_NAME,
++	.id_table = ems_pci_tbl,
++	.probe = ems_pci_add_card,
++	.remove = ems_pci_del_card,
++};
++
++static int __init ems_pci_init(void)
++{
++	return pci_register_driver(&ems_pci_driver);
++}
++
++static void __exit ems_pci_exit(void)
++{
++	pci_unregister_driver(&ems_pci_driver);
++}
++
++module_init(ems_pci_init);
++module_exit(ems_pci_exit);
++
 
