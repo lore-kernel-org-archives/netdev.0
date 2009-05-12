@@ -1,135 +1,98 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: question about softirqs
-Date: Tue, 12 May 2009 11:23:48 +0200
-Message-ID: <20090512092348.GA29796@elte.hu>
-References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com>
-	<20090508.234815.127227651.davem@davemloft.net>
-	<4A086DB2.8040703@nortel.com>
-	<20090511.162436.193717082.davem@davemloft.net>
-	<4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu>
-	<1242119578.11251.321.camel@twins>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>, paulus@samba.org,
-	Thomas Gleixner <tglx@linutronix.de>, David Miller <davem@davemloft.net>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <1242119578.11251.321.camel@twins>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH v2 0/7] can: CAN network device driver interface and drivers
+Date: Tue, 12 May 2009 11:27:57 +0200
+Message-ID: <20090512092757.048938233@denx.de>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:47810 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755115AbZELJ16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 05:27:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-* Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+here comes v2 of the patch series posted some time ago. See
 
-> On Tue, 2009-05-12 at 10:12 +0200, Ingo Molnar wrote:
-> > * Chris Friesen <cfriesen@nortel.com> wrote:
-> > 
-> > > This started out as a thread on the ppc list, but on the 
-> > > suggestion of DaveM and Paul Mackerras I'm expanding the receiver 
-> > > list a bit.
-> > > 
-> > > Currently, if a softirq is raised in process context the 
-> > > TIF_RESCHED_PENDING flag gets set and on return to userspace we 
-> > > run the scheduler, expecting it to switch to ksoftirqd to handle 
-> > > the softirqd processing.
-> > > 
-> > > I think I see a possible problem with this. Suppose I have a 
-> > > SCHED_FIFO task spinning on recvmsg() with MSG_DONTWAIT set. Under 
-> > > the scenario above, schedule() would re-run the spinning task 
-> > > rather than ksoftirqd, thus preventing any incoming packets from 
-> > > being sent up the stack until we get a real hardware 
-> > > interrupt--which could be a whole jiffy if interrupt mitigation is 
-> > > enabled in the net device.
-> > 
-> > TIF_RESCHED_PENDING will not be set if a SCHED_FIFO task wakes up a 
-> > SCHED_OTHER ksoftirqd task. But starvation of ksoftirqd processing 
-> > will occur.
-> > 
-> > > DaveM pointed out that if we're doing transmits we're likely to 
-> > > hit local_bh_enable(), which would process the softirq work.  
-> > > However, I think we may still have a problem in the above rx-only 
-> > > scenario--or is it too contrived to matter?
-> > 
-> > This could occur, and the problem is really that task priorities do 
-> > not extend across softirq work processing.
-> > 
-> > This could occur in ordinary SCHED_OTHER tasks as well, if the 
-> > softirq is bounced to ksoftirqd - which it only should be if there's 
-> > serious softirq overload - or, as you describe it above, if the 
-> > softirq is raised in process context:
-> > 
-> >         if (!in_interrupt())
-> >                 wakeup_softirqd();
-> > 
-> > that's not really clean. We look into eliminating process context 
-> > use of raise_softirq_irqsoff(). Such code sequence:
-> > 
-> > 	local_irq_save(flags);
-> > 	...
-> > 	raise_softirq_irqsoff(nr);
-> > 	...
-> > 	local_irq_restore(flags);
-> > 
-> > should be converted to something like:
-> > 
-> > 	local_irq_save(flags);
-> > 	...
-> > 	raise_softirq_irqsoff(nr);
-> > 	...
-> > 	local_irq_restore(flags);
-> > 	recheck_softirqs();
-> > 
-> > If someone does not do proper local_bh_disable()/enable() sequences 
-> > for micro-optimization reasons, then push the check to after the 
-> > critcal section - and dont cause extra reschedules by waking up 
-> > ksoftirqd. raise_softirq_irqsoff() will also be faster.
-> 
-> 
-> Wouldn't the even better solution be to get rid of softirqs 
-> all-together?
-> 
-> I see the recent work by Thomas to get threaded interrupts 
-> upstream as a good first step towards that goal, once the RX 
-> processing is moved to a thread (or multiple threads) one can 
-> priorize them in the regular sys_sched_setscheduler() way and its 
-> obvious that a FIFO task above the priority of the network tasks 
-> will have network starvation issues.
+  http://marc.info/?l=linux-netdev&m=123507025810612&w=4.
 
-Yeah, that would be "nice". A single IRQ thread plus the process 
-context(s) doing networking might perform well.
+Changes since v1:
 
-Multiple IRQ threads (softirq and hardirq threads mixed) i'm not so 
-sure about - it's extra context-switching cost.
+- The SysFS interface has been replaced by the Netlink interface as
+  suggested by Patrick. For further information have a look to
+  chapter 6.5 of "Documentation/networking/can.txt" and the header
+  file "include/linux/can/netdev.h". The patch for the "ip" program of
+  the iproute2 utility suite will be provided separately.
 
-Btw, i noticed that using scheduling for work (packet, etc.) flow 
-distribution standardizes and evens out the behavior of workloads. 
-Softirq scheduling is really quite random currently. We have a 
-random processing loop-limit in the core code and various batching 
-and work-limit controls at individual usage sites. We sometimes 
-piggyback to ksoftirqd. It's far easier to keep performance in check 
-when things are more predictable.
+- The restart function is now properly protected by "dev->tx_lock"
+  using the "netif_tx_[lock|unlock]" functions.
 
-But this is not an easy endevour, and performance regressions have 
-to be expected and addressed if they occur. There can be random 
-packet queuing details in networking drivers that just happen to 
-work fine now, and might work worse with a kernel thread in place. 
-So there has to be broad buy-in for the concept, and a concerted 
-effort to eliminate softirq processing and most of hardirq 
-processing by pushing those two elements into a single hardirq 
-thread (and the rest into process context).
+- For the  restart, the device driver must now handle CAN_MODE_STOP as
+  well, apart from CAN_MODE_START to avoid race conditions.
 
-Not for the faint hearted. Nor is it recommended to be done without 
-a good layer of asbestos.
+- The "irq_lock" member of "struct can_priv" has been removed. The CAN
+  controller driver may should provide its own synchronization if
+  necessary.
 
-	Ingo
+- The restart function is now protected by "dev->tx_lock" using the
+  "netif_tx_lock/unlock" functions.
+
+- Cleanup timer usage for the restart function.
+
+- The unused do_set/get_ctrlmode member of "struct can_priv" have been
+  removed.
+
+- "const" has been added to "struct net_device" for some functions not
+  allowed to touch that structure.
+
+- The library functions "can_set_bittiming" and "can_close_cleanup" have
+  been renamed to the more general names "open_candev" and
+  "close_candev", respectively.
+
+- Use "del_timer_sync" instead of "del_timer" for the  re-start timer.
+
+- The macro "ND2D()" has been replaced by "dev->dev.parent" as it does
+  not make the code more readable.
+
+- Fix improper BTR setting for triple-sampling for the SJA1000 as
+  pointed out by Oliver.
+
+- Dont use __u8 but __u32 as before for some members of "struct
+  can_bittiming[_const]" to avoid alignment trouble.
+
+- Definitions shared with user-space applications have been moved to
+  "include/linux/can/netlink.h".
+
+- Various other minor correction suggested on the netdev ML.
+
+- The MSCAN driver for the MPC5200 has been removed. It needs to be
+  presented on the Linuxppc-dev and Devicetree-discuss ML as well,
+  which will be done by a sub-sequent patch.
+
+- Add more source code documentation, especially for the structures
+  and functions related to bit-timing.
+
+The PF_CAN protocol family for the Controller Area Network is available
+in the kernel since version 2.6.25 but drivers for real CAN devices are
+still missing. This patch series adds a generic CAN network device
+driver interface and, as a start, a few drivers. It is the result of the
+on-going discussion and development of the Socket-CAN project hosted at
+the BerliOS web-server (http://developer.berlios.de/projects/socketcan).
+The patch series consists of the following patches:
+
+ 1/8) can: Documentation for the CAN device driver interface
+ 2/8) can: Update MAINTAINERS and CREDITS file
+ 3/8) can: CAN Network device driver and Netlink interface
+ 4/8) can: Driver for the SJA1000 CAN controller
+ 5/8) can: SJA1000 generic platform bus driver
+ 6/8) can: SJA1000 driver for EMS PCI cards
+ 7/8) can: SJA1000 driver for Kvaser PCI cards
+
+Please consider these patches for inclusion.
+
+Thanks,
+
+Wolfgang.
+
