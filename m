@@ -1,306 +1,479 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH v2 1/7] [PATCH 1/8] can: Documentation for the CAN device driver interface
-Date: Tue, 12 May 2009 11:27:58 +0200
-Message-ID: <20090512092757.243124409@denx.de>
+Subject: [PATCH v2 7/7] [PATCH 7/8] can: SJA1000 driver for Kvaser PCI cards
+Date: Tue, 12 May 2009 11:28:04 +0200
+Message-ID: <20090512092758.213114373@denx.de>
 References: <20090512092757.048938233@denx.de>
-Cc: linux-kernel@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Cc: linux-kernel@vger.kernel.org, Per Dalen <per.dalen@cnw.se>,
+	Wolfgang Grandegger <wg@grandegger.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758091AbZELJ3B@vger.kernel.org>
-Content-Disposition: inline; filename=01-driver-documentation.patch
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:43647 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754471AbZELJ16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 05:27:58 -0400
+Content-Disposition: inline; filename=07-sja1000-kvaser-pci-driver.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch documents the CAN netowrk device drivers interface, removes
-obsolete documentation and adds some useful links to CAN resources.
+The patch adds support for the PCI cards: PCIcan and PCIcanx
+(1, 2 or 4 channel) from Kvaser (http://www.kvaser.com).
 
+Signed-off-by: Per Dalen <per.dalen@cnw.se>
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 ---
- Documentation/networking/can.txt |  239 ++++++++++++++++++++++++++++++++-------
- 1 file changed, 199 insertions(+), 40 deletions(-)
+ drivers/net/can/Kconfig              |    7 
+ drivers/net/can/sja1000/Makefile     |    1 
+ drivers/net/can/sja1000/kvaser_pci.c |  415 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 423 insertions(+)
+ create mode 100644 drivers/net/can/sja1000/kvaser_pci.c
 
-Index: net-next-2.6/Documentation/networking/can.txt
+Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
---- net-next-2.6.orig/Documentation/networking/can.txt	2009-05-12 10:47:10.546720893 +0200
-+++ net-next-2.6/Documentation/networking/can.txt	2009-05-12 10:47:23.470719178 +0200
-@@ -36,10 +36,15 @@
-     6.2 local loopback of sent frames
-     6.3 CAN controller hardware filters
-     6.4 The virtual CAN driver (vcan)
--    6.5 currently supported CAN hardware
--    6.6 todo
-+    6.5 The CAN network device driver interface
-+      6.5.1 Netlink interface to set/get devices properties
-+      6.5.2 Setting the CAN bit-timing
-+      6.5.3 Starting and stopping the CAN network device
-+    6.6 supported CAN hardware
+--- net-next-2.6.orig/drivers/net/can/Kconfig	2009-05-12 10:47:27.116970063 +0200
++++ net-next-2.6/drivers/net/can/Kconfig	2009-05-12 10:47:27.844971068 +0200
+@@ -58,6 +58,13 @@
+ 	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
+ 	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
  
--  7 Credits
-+  7 Socket CAN resources
++config CAN_KVASER_PCI
++	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
++	depends on PCI && CAN_SJA1000
++	---help---
++	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
++	  4 channel) from Kvaser (http://www.kvaser.com).
 +
-+  8 Credits
+ config CAN_DEBUG_DEVICES
+ 	bool "CAN devices debugging messages"
+ 	depends on CAN
+Index: net-next-2.6/drivers/net/can/sja1000/Makefile
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/sja1000/Makefile	2009-05-12 10:47:27.116970063 +0200
++++ net-next-2.6/drivers/net/can/sja1000/Makefile	2009-05-12 10:47:27.845970931 +0200
+@@ -5,5 +5,6 @@
+ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+ obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
+ obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
++obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
  
- ============================================================================
- 
-@@ -234,6 +239,8 @@
-   the user application using the common CAN filter mechanisms. Inside
-   this filter definition the (interested) type of errors may be
-   selected. The reception of error frames is disabled by default.
-+  The format of the CAN error frame is briefly decribed in the Linux
-+  header file "include/linux/can/error.h".
- 
- 4. How to use Socket CAN
- ------------------------
-@@ -605,61 +612,213 @@
-   removal of vcan network devices can be managed with the ip(8) tool:
- 
-   - Create a virtual CAN network interface:
--       ip link add type vcan
-+       $ ip link add type vcan
- 
-   - Create a virtual CAN network interface with a specific name 'vcan42':
--       ip link add dev vcan42 type vcan
-+       $ ip link add dev vcan42 type vcan
- 
-   - Remove a (virtual CAN) network interface 'vcan42':
--       ip link del vcan42
--
--  The tool 'vcan' from the SocketCAN SVN repository on BerliOS is obsolete.
--
--  Virtual CAN network device creation in older Kernels:
--  In Linux Kernel versions < 2.6.24 the vcan driver creates 4 vcan
--  netdevices at module load time by default. This value can be changed
--  with the module parameter 'numdev'. E.g. 'modprobe vcan numdev=8'
--
--  6.5 currently supported CAN hardware
--
--  On the project website http://developer.berlios.de/projects/socketcan
--  there are different drivers available:
--
--    vcan:    Virtual CAN interface driver (if no real hardware is available)
--    sja1000: Philips SJA1000 CAN controller (recommended)
--    i82527:  Intel i82527 CAN controller
--    mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
--    ccan:    CCAN controller core (e.g. inside SOC h7202)
--    slcan:   For a bunch of CAN adaptors that are attached via a
--             serial line ASCII protocol (for serial / USB adaptors)
-+       $ ip link del vcan42
- 
--  Additionally the different CAN adaptors (ISA/PCI/PCMCIA/USB/Parport)
--  from PEAK Systemtechnik support the CAN netdevice driver model
--  since Linux driver v6.0: http://www.peak-system.com/linux/index.htm
-+  6.5 The CAN network device driver interface
- 
--  Please check the Mailing Lists on the berlios OSS project website.
-+  The CAN network device driver interface provides a generic interface
-+  to setup, configure and monitor CAN network devices. The user can then
-+  configure the CAN device, like setting the bit-timing parameters, via
-+  the netlink interface using the program "ip" from the "IPROUTE2"
-+  utility suite. The following chapter describes briefly how to use it.
-+  Furthermore, the interface uses a common data structure and exports a
-+  set of common functions, which all real CAN network device drivers
-+  should use. Please have a look to the SJA1000 or MSCAN driver to
-+  understand how to use them. The name of the module is can-dev.ko.
+ ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+Index: net-next-2.6/drivers/net/can/sja1000/kvaser_pci.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-next-2.6/drivers/net/can/sja1000/kvaser_pci.c	2009-05-12 10:47:27.849970943 +0200
+@@ -0,0 +1,415 @@
++/*
++ * Copyright (C) 2008 Per Dalen <per.dalen@cnw.se>
++ *
++ * Parts of this software are based on (derived) the following:
++ *
++ * - Kvaser linux driver, version 4.72 BETA
++ *   Copyright (C) 2002-2007 KVASER AB
++ *
++ * - Lincan driver, version 0.3.3, OCERA project
++ *   Copyright (C) 2004 Pavel Pisa
++ *   Copyright (C) 2001 Arnaud Westenberg
++ *
++ * - Socketcan SJA1000 drivers
++ *   Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
++ *   Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ *   Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
++ *   38106 Braunschweig, GERMANY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
 +
-+  6.5.1 Netlink interface to set/get devices properties
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/can.h>
++#include <linux/can/dev.h>
++#include <linux/io.h>
 +
-+  The CAN device must be configured via netlink interface. The supported
-+  netlink message types are defined and briefly described in
-+  "include/linux/can/netlink.h". CAN link support for the program "ip"
-+  of the IPROUTE2 utility suite is avaiable and it can be used as shown
-+  below:
++#include "sja1000.h"
 +
-+  - Setting CAN device properties:
++#define DRV_NAME  "kvaser_pci"
 +
-+    $ ip link set can0 type can help
-+    Usage: ip link set DEVICE type can
-+    	[ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
-+    	[ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1
-+     	  phase-seg2 PHASE-SEG2 [ sjw SJW ] ]
++MODULE_AUTHOR("Per Dalen <per.dalen@cnw.se>");
++MODULE_DESCRIPTION("Socket-CAN driver for KVASER PCAN PCI cards");
++MODULE_SUPPORTED_DEVICE("KVASER PCAN PCI CAN card");
++MODULE_LICENSE("GPL v2");
 +
-+    	[ loopback { on | off } ]
-+    	[ listen-only { on | off } ]
-+    	[ triple-sampling { on | off } ]
++#define MAX_NO_OF_CHANNELS        4 /* max no of channels on
++				       a single card */
 +
-+    	[ restart-ms TIME-MS ]
-+    	[ restart ]
++struct kvaser_pci {
++	int channel;
++	struct pci_dev *pci_dev;
++	struct net_device *slave_dev[MAX_NO_OF_CHANNELS-1];
++	void __iomem *conf_addr;
++	void __iomem *res_addr;
++	int no_channels;
++	u8 xilinx_ver;
++};
 +
-+    	Where: BITRATE       := { 1..1000000 }
-+    	       SAMPLE-POINT  := { 0.000..0.999 }
-+    	       TQ            := { NUMBER }
-+    	       PROP-SEG      := { 1..8 }
-+    	       PHASE-SEG1    := { 1..8 }
-+    	       PHASE-SEG2    := { 1..8 }
-+    	       SJW           := { 1..4 }
-+    	       RESTART-MS    := { 0 | NUMBER }
++#define KVASER_PCI_CAN_CLOCK      (16000000 / 2)
 +
-+  - Display CAN device details and statistics:
++/*
++ * The board configuration is probably following:
++ * RX1 is connected to ground.
++ * TX1 is not connected.
++ * CLKO is not connected.
++ * Setting the OCR register to 0xDA is a good idea.
++ * This means  normal output mode , push-pull and the correct polarity.
++ */
++#define KVASER_PCI_OCR            (OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
 +
-+    $ ip -details -statistics link show can0
-+    2: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UP qlen 10
-+      link/can
-+      can <TRIPLE-SAMPLING> state ERROR-ACTIVE restart-ms 100
-+      bitrate 125000 sample_point 0.875
-+      tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
-+      sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
-+      clock 8000000
-+      re-started bus-errors arbit-lost error-warn error-pass bus-off
-+      41         17457      0          41         42         41
-+      RX: bytes  packets  errors  dropped overrun mcast
-+      140859     17608    17457   0       0       0
-+      TX: bytes  packets  errors  dropped carrier collsns
-+      861        112      0       41      0       0
++/*
++ * In the CDR register, you should set CBP to 1.
++ * You will probably also want to set the clock divider value to 0
++ * (meaning divide-by-2), the Pelican bit, and the clock-off bit
++ * (you will have no need for CLKOUT anyway).
++ */
++#define KVASER_PCI_CDR            (CDR_CBP | CDR_CLKOUT_MASK)
 +
-+  More info to the above output:
++/*
++ * These register values are valid for revision 14 of the Xilinx logic.
++ */
++#define XILINX_VERINT             7   /* Lower nibble simulate interrupts,
++					 high nibble version number. */
 +
-+    "<TRIPLE-SAMPLING>"
-+	Shows the list of selected CAN controller modes: LOOPBACK,
-+	LISTEN-ONLY, or TRIPLE-SAMPLING.
++#define XILINX_PRESUMED_VERSION   14
 +
-+    "state ERROR-ACTIVE"
-+	The current state of the CAN controller: "ERROR-ACTIVE",
-+	"ERROR-WARNING", "ERROR-PASSIVE", "BUS-OFF" or "STOPPED"
++/*
++ * Important S5920 registers
++ */
++#define S5920_INTCSR              0x38
++#define S5920_PTCR                0x60
++#define INTCSR_ADDON_INTENABLE_M  0x2000
 +
-+    "restart-ms 100"
-+	Automatic restart delay time. If set to a non-zero value, a
-+	restart of the CAN controller will be triggered automatically
-+	in case of a bus-off condition after the specified delay time
-+	in milliseconds. By default it's off.
 +
-+    "bitrate 125000 sample_point 0.875"
-+	Shows the real bit-rate in bits/sec and the sample-point in the
-+	range 0.000..0.999. If the calculation of bit-timing parameters
-+	is enabled in the kernel (CONFIG_CAN_CALC_BITTIMING=y), the
-+	bit-timing can be defined by setting the "bitrate" argument.
-+	Optionally the "sample-point" can be specified. By default it's
-+	0.000 assuming CIA-recommended sample-points.
++#define KVASER_PCI_PORT_BYTES     0x20
 +
-+    "tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1"
-+	Shows the time quanta in ns, propagation segment, phase buffer
-+	segment 1 and 2 and the synchronisation jump width in units of
-+	tq. They allow to define the CAN bit-timing in a hardware
-+	independent format as proposed by the Bosch CAN 2.0 spec (see
-+	chapter 8 of http://www.semiconductors.bosch.de/pdf/can2spec.pdf).
++#define PCI_CONFIG_PORT_SIZE      0x80      /* size of the config io-memory */
++#define PCI_PORT_SIZE             0x80      /* size of a channel io-memory */
++#define PCI_PORT_XILINX_SIZE      0x08      /* size of a xilinx io-memory */
 +
-+    "sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
-+     clock 8000000"
-+	Shows the bit-timing constants of the CAN controller, here the
-+	"sja1000". The minimum and maximum values of the time segment 1
-+	and 2, the synchronisation jump width in units of tq, the
-+	bitrate pre-scaler and the CAN system clock frequency in Hz.
-+	These constants could be used for user-defined (non-standard)
-+	bit-timing calculation algorithms in user-space.
++#define KVASER_PCI_VENDOR_ID1     0x10e8    /* the PCI device and vendor IDs */
++#define KVASER_PCI_DEVICE_ID1     0x8406
 +
-+    "re-started bus-errors arbit-lost error-warn error-pass bus-off"
-+	Shows the number of restarts, bus and arbitration lost errors,
-+	and the state changes to the error-warning, error-passive and
-+	bus-off state. RX overrun errors are listed in the "overrun"
-+	field of the standard network statistics.
++#define KVASER_PCI_VENDOR_ID2     0x1a07    /* the PCI device and vendor IDs */
++#define KVASER_PCI_DEVICE_ID2     0x0008
 +
-+  6.5.2 Setting the CAN bit-timing
++static struct pci_device_id kvaser_pci_tbl[] = {
++	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
++	{KVASER_PCI_VENDOR_ID2, KVASER_PCI_DEVICE_ID2, PCI_ANY_ID, PCI_ANY_ID,},
++	{ 0,}
++};
 +
-+  The CAN bit-timing parameters can always be defined in a hardware
-+  independent format as proposed in the Bosch CAN 2.0 specification
-+  specifying the arguments "tq", "prop_seg", "phase_seg1", "phase_seg2"
-+  and "sjw":
++MODULE_DEVICE_TABLE(pci, kvaser_pci_tbl);
 +
-+    $ ip link set canX type can tq 125 prop-seg 6 \
-+				phase-seg1 7 phase-seg2 2 sjw 1
++static u8 kvaser_pci_read_reg(const struct net_device *dev, int port)
++{
++	return ioread8((void __iomem *)(dev->base_addr + port));
++}
 +
-+  If the kernel option CONFIG_CAN_CALC_BITTIMING is enabled, CIA
-+  recommended CAN bit-timing parameters will be calculated if the bit-
-+  rate is specified with the argument "bitrate":
++static void kvaser_pci_write_reg(const struct net_device *dev, int port, u8 val)
++{
++	iowrite8(val, (void __iomem *)(dev->base_addr + port));
++}
 +
-+    $ ip link set canX type can bitrate 125000
++static void kvaser_pci_disable_irq(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct kvaser_pci *board = priv->priv;
++	u32 tmp;
 +
-+  Note that this works fine for the most common CAN controllers with
-+  standard bit-rates but may *fail* for exotic bit-rates or CAN system
-+  clock frequencies. Disabling CONFIG_CAN_CALC_BITTIMING saves some
-+  space and allows user-space tools to solely determine and set the
-+  bit-timing parameters. The CAN controller specific bit-timing
-+  constants can be used for that purpose. They are listed by the
-+  following command:
++	/* Disable interrupts from card */
++	tmp = ioread32(board->conf_addr + S5920_INTCSR);
++	tmp &= ~INTCSR_ADDON_INTENABLE_M;
++	iowrite32(tmp, board->conf_addr + S5920_INTCSR);
++}
 +
-+    $ ip -details link show can0
-+    ...
-+      sja1000: clock 8000000 tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
++static void kvaser_pci_enable_irq(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct kvaser_pci *board = priv->priv;
++	u32 tmp;
 +
-+  6.5.3 Starting and stopping the CAN network device
++	/* Enable interrupts from card */
++	tmp = ioread32(board->conf_addr + S5920_INTCSR);
++	tmp |= INTCSR_ADDON_INTENABLE_M;
++	iowrite32(tmp, board->conf_addr + S5920_INTCSR);
++}
 +
-+  A CAN network device is started or stopped as usual with the command
-+  "ifconfig canX up/down" or "ip link set canX up/down". Be aware that
-+  you *must* define proper bit-timing parameters for real CAN devices
-+  before you can start it to avoid error-prone default settings:
++static int number_of_sja1000_chip(void __iomem *base_addr)
++{
++	u8 status;
++	int i;
 +
-+    $ ip link set canX up type can bitrate 125000
++	for (i = 0; i < MAX_NO_OF_CHANNELS; i++) {
++		/* reset chip */
++		iowrite8(MOD_RM, base_addr +
++			 (i * KVASER_PCI_PORT_BYTES) + REG_MOD);
++		status = ioread8(base_addr +
++				 (i * KVASER_PCI_PORT_BYTES) + REG_MOD);
++		udelay(10);
++		/* check reset bit */
++		if (!(status & MOD_RM))
++			break;
++	}
 +
-+  A device may enter the "bus-off" state if too much errors occurred on
-+  the CAN bus. Then no more messages are received or sent. An automatic
-+  bus-off recovery can be enabled by setting the "restart-ms" to a
-+  non-zero value, e.g.:
++	return i;
++}
 +
-+    $ ip link set canX type can restart-ms 100
++static void kvaser_pci_del_chan(struct net_device *dev)
++{
++	struct sja1000_priv *priv;
++	struct kvaser_pci *board;
++	int i;
 +
-+  Alternatively, the application may realize the "bus-off" condition
-+  by monitoring CAN error frames and do a restart when appropriate with
-+  the command:
++	if (!dev)
++		return;
++	priv = netdev_priv(dev);
++	if (!priv)
++		return;
++	board = priv->priv;
++	if (!board)
++		return;
 +
-+    $ ip link set canX type can restart
++	dev_info(&board->pci_dev->dev, "Removing device %s\n",
++		 dev->name);
 +
-+  Note that a restart will also create a CAN error frame (see also
-+  chapter 3.4).
++	for (i = 0; i < board->no_channels - 1; i++) {
++		if (board->slave_dev[i]) {
++			dev_info(&board->pci_dev->dev, "Removing device %s\n",
++				 board->slave_dev[i]->name);
++			unregister_sja1000dev(board->slave_dev[i]);
++			free_sja1000dev(board->slave_dev[i]);
++		}
++	}
++	unregister_sja1000dev(dev);
 +
-+  6.6 Supported CAN hardware
++	/* Disable PCI interrupts */
++	kvaser_pci_disable_irq(dev);
 +
-+  Please check the "Kconfig" file in "drivers/net/can" to get an actual
-+  list of the support CAN hardware. On the Socket CAN project website
-+  (see chapter 7) there might be further drivers available, also for
-+  older kernel versions.
++	pci_iounmap(board->pci_dev, (void __iomem *)dev->base_addr);
++	pci_iounmap(board->pci_dev, board->conf_addr);
++	pci_iounmap(board->pci_dev, board->res_addr);
 +
-+7. Socket CAN resources
-+-----------------------
++	free_sja1000dev(dev);
++}
 +
-+  You can find further resources for Socket CAN like user space tools,
-+  support for old kernel versions, more drivers, mailing lists, etc.
-+  at the BerliOS OSS project website for Socket CAN:
- 
--  6.6 todo
-+    http://developer.berlios.de/projects/socketcan
- 
--  The configuration interface for CAN network drivers is still an open
--  issue that has not been finalized in the socketcan project. Also the
--  idea of having a library module (candev.ko) that holds functions
--  that are needed by all CAN netdevices is not ready to ship.
--  Your contribution is welcome.
-+  If you have questions, bug fixes, etc., don't hesitate to post them to
-+  the Socketcan-Users mailing list. But please search the archives first.
- 
--7. Credits
-+8. Credits
- ----------
- 
--  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm)
-+  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm, SJA1000 driver)
-   Urs Thuermann (PF_CAN core, kernel integration, socket interfaces, raw, vcan)
-   Jan Kizka (RT-SocketCAN core, Socket-API reconciliation)
--  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews)
-+  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews,
-+                       CAN device driver interface, MSCAN driver)
-   Robert Schwebel (design reviews, PTXdist integration)
-   Marc Kleine-Budde (design reviews, Kernel 2.6 cleanups, drivers)
-   Benedikt Spranger (reviews)
-   Thomas Gleixner (LKML reviews, coding style, posting hints)
--  Andrey Volkov (kernel subtree structure, ioctls, mscan driver)
-+  Andrey Volkov (kernel subtree structure, ioctls, MSCAN driver)
-   Matthias Brukner (first SJA1000 CAN netdevice implementation Q2/2003)
-   Klaus Hitschler (PEAK driver integration)
-   Uwe Koppe (CAN netdevices with PF_PACKET approach)
-   Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
-+  Pavel Pisa (Bit-timing calculation)
-+  Sascha Hauer (SJA1000 platform driver)
-+  Sebastian Haas (SJA1000 EMS PCI driver)
-+  Markus Plessing (SJA1000 EMS PCI driver)
-+  Per Dalen (SJA1000 Kvaser PCI driver)
-+  Sam Ravnborg (reviews, coding style, kbuild help)
++static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
++			       struct net_device **master_dev,
++			       void __iomem *conf_addr,
++			       void __iomem *res_addr,
++			       unsigned long base_addr)
++{
++	struct net_device *dev;
++	struct sja1000_priv *priv;
++	struct kvaser_pci *board;
++	int err, init_step;
++
++	dev = alloc_sja1000dev(sizeof(struct kvaser_pci));
++	if (dev == NULL)
++		return -ENOMEM;
++
++	priv = netdev_priv(dev);
++	board = priv->priv;
++
++	board->pci_dev = pdev;
++	board->channel = channel;
++
++	/*S5920*/
++	board->conf_addr = conf_addr;
++
++	/*XILINX board wide address*/
++	board->res_addr = res_addr;
++
++	if (channel == 0) {
++		board->xilinx_ver =
++			ioread8(board->res_addr + XILINX_VERINT) >> 4;
++		init_step = 2;
++
++		/* Assert PTADR# - we're in passive mode so the other bits are
++		   not important */
++		iowrite32(0x80808080UL, board->conf_addr + S5920_PTCR);
++
++		/* Disable interrupts from card */
++		kvaser_pci_disable_irq(dev);
++		/* Enable interrupts from card */
++		kvaser_pci_enable_irq(dev);
++	} else {
++		struct sja1000_priv *master_priv = netdev_priv(*master_dev);
++		struct kvaser_pci *master_board = master_priv->priv;
++		master_board->slave_dev[channel - 1] = dev;
++		master_board->no_channels = channel + 1;
++		board->xilinx_ver = master_board->xilinx_ver;
++	}
++
++	dev->base_addr = base_addr + channel * KVASER_PCI_PORT_BYTES;
++
++	priv->read_reg = kvaser_pci_read_reg;
++	priv->write_reg = kvaser_pci_write_reg;
++
++	priv->can.clock.freq = KVASER_PCI_CAN_CLOCK;
++
++	priv->ocr = KVASER_PCI_OCR;
++	priv->cdr = KVASER_PCI_CDR;
++
++	/* Register and setup interrupt handling */
++	dev->irq = pdev->irq;
++	init_step = 4;
++
++	dev_info(&pdev->dev, "base_addr=%#lx conf_addr=%p irq=%d\n",
++		 dev->base_addr, board->conf_addr, dev->irq);
++
++	SET_NETDEV_DEV(dev, &pdev->dev);
++
++	/* Register SJA1000 device */
++	err = register_sja1000dev(dev);
++	if (err) {
++		dev_err(&pdev->dev, "Registering device failed (err=%d)\n",
++			err);
++		goto failure;
++	}
++
++	if (channel == 0)
++		*master_dev = dev;
++
++	return 0;
++
++failure:
++	kvaser_pci_del_chan(dev);
++	return err;
++}
++
++static int __devinit kvaser_pci_init_one(struct pci_dev *pdev,
++					 const struct pci_device_id *ent)
++{
++	int err;
++	struct net_device *master_dev = NULL;
++	struct sja1000_priv *priv;
++	struct kvaser_pci *board;
++	int no_channels;
++	void __iomem *base_addr = NULL;
++	void __iomem *conf_addr = NULL;
++	void __iomem *res_addr = NULL;
++	int i;
++
++	dev_info(&pdev->dev, "initializing device %04x:%04x\n",
++		 pdev->vendor, pdev->device);
++
++	err = pci_enable_device(pdev);
++	if (err)
++		goto failure;
++
++	err = pci_request_regions(pdev, DRV_NAME);
++	if (err)
++		goto failure_release_pci;
++
++	/*S5920*/
++	conf_addr = pci_iomap(pdev, 0, PCI_CONFIG_PORT_SIZE);
++	if (conf_addr == NULL) {
++		err = -ENODEV;
++		goto failure_iounmap;
++	}
++
++	/*XILINX board wide address*/
++	res_addr = pci_iomap(pdev, 2, PCI_PORT_XILINX_SIZE);
++	if (res_addr == NULL) {
++		err = -ENOMEM;
++		goto failure_iounmap;
++	}
++
++	base_addr = pci_iomap(pdev, 1, PCI_PORT_SIZE);
++	if (base_addr == NULL) {
++		err = -ENOMEM;
++		goto failure_iounmap;
++	}
++
++	no_channels = number_of_sja1000_chip(base_addr);
++	if (no_channels == 0) {
++		err = -ENOMEM;
++		goto failure_iounmap;
++	}
++
++	for (i = 0; i < no_channels; i++) {
++		err = kvaser_pci_add_chan(pdev, i, &master_dev,
++					  conf_addr, res_addr,
++					  (unsigned long)base_addr);
++		if (err)
++			goto failure_cleanup;
++	}
++
++	priv = netdev_priv(master_dev);
++	board = priv->priv;
++
++	dev_info(&pdev->dev, "xilinx version=%d number of channels=%d\n",
++		 board->xilinx_ver, board->no_channels);
++
++	pci_set_drvdata(pdev, master_dev);
++	return 0;
++
++failure_cleanup:
++	kvaser_pci_del_chan(master_dev);
++
++failure_iounmap:
++	if (conf_addr == NULL)
++		pci_iounmap(pdev, conf_addr);
++	if (res_addr == NULL)
++		pci_iounmap(pdev, res_addr);
++	if (base_addr == NULL)
++		pci_iounmap(pdev, base_addr);
++
++	pci_release_regions(pdev);
++
++failure_release_pci:
++	pci_disable_device(pdev);
++
++failure:
++	return err;
++
++}
++
++static void __devexit kvaser_pci_remove_one(struct pci_dev *pdev)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++
++	kvaser_pci_del_chan(dev);
++
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
++	pci_set_drvdata(pdev, NULL);
++}
++
++static struct pci_driver kvaser_pci_driver = {
++	.name = DRV_NAME,
++	.id_table = kvaser_pci_tbl,
++	.probe = kvaser_pci_init_one,
++	.remove = __devexit_p(kvaser_pci_remove_one),
++};
++
++static int __init kvaser_pci_init(void)
++{
++	return pci_register_driver(&kvaser_pci_driver);
++}
++
++static void __exit kvaser_pci_exit(void)
++{
++	pci_unregister_driver(&kvaser_pci_driver);
++}
++
++module_init(kvaser_pci_init);
++module_exit(kvaser_pci_exit);
+
