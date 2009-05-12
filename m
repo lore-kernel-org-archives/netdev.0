@@ -1,42 +1,47 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/2] sunrpc: align cache_clean work's timer
-Date: Tue, 12 May 2009 13:47:34 -0700
-Message-ID: <200905122106.n4CL6ovd009895@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, anton@samba.org,
-	neilb@suse.de, trond.myklebust@fys.uio.no
+Subject: [patch 1/2] cls_cgroup: remove unneeded cgroup_lock
+Date: Tue, 12 May 2009 13:47:33 -0700
+Message-ID: <200905122106.n4CL6ndX009858@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	lizf@cn.fujitsu.com, lizf@cn.fujitsuc.com, menage@google.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41543 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51201 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753057AbZELVKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 17:10:50 -0400
+	by vger.kernel.org with ESMTP id S1753004AbZELVK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 17:10:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anton Blanchard <anton@samba.org>
+From: Li Zefan <lizf@cn.fujitsu.com>
 
-Align cache_clean work.
+We can remove this lock here, since we are in cgroup write handler and
+thus the cgrp is guaranteed to be valid, and no lock is needed when
+writing a u32 variable.
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Cc: Neil Brown <neilb@suse.de>
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Li Zefan <lizf@cn.fujitsuc.com>
+Acked-by: Paul Menage <menage@google.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/sunrpc/cache.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sched/cls_cgroup.c |    6 ------
+ 1 file changed, 6 deletions(-)
 
-diff -puN net/sunrpc/cache.c~sunrpc-align-cache_clean-works-timer net/sunrpc/cache.c
---- a/net/sunrpc/cache.c~sunrpc-align-cache_clean-works-timer
-+++ a/net/sunrpc/cache.c
-@@ -488,7 +488,7 @@ static void do_cache_clean(struct work_s
- {
- 	int delay = 5;
- 	if (cache_clean() == -1)
--		delay = 30*HZ;
-+		delay = round_jiffies_relative(30*HZ);
+diff -puN net/sched/cls_cgroup.c~cls_cgroup-remove-unneeded-cgroup_lock net/sched/cls_cgroup.c
+--- a/net/sched/cls_cgroup.c~cls_cgroup-remove-unneeded-cgroup_lock
++++ a/net/sched/cls_cgroup.c
+@@ -62,13 +62,7 @@ static u64 read_classid(struct cgroup *c
  
- 	if (list_empty(&cache_list))
- 		delay = 0;
+ static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
+ {
+-	if (!cgroup_lock_live_group(cgrp))
+-		return -ENODEV;
+-
+ 	cgrp_cls_state(cgrp)->classid = (u32) value;
+-
+-	cgroup_unlock();
+-
+ 	return 0;
+ }
+ 
 _
