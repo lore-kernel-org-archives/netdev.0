@@ -1,27 +1,43 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 0/6] rapidio: adding memory mapping IO support and misc fixes
-Date: Tue, 12 May 2009 16:40:52 +0800
-Message-ID: <2a27d3730905120140m21ca81d7t8206e657b02ffbfb@mail.gmail.com>
+From: =?ISO-8859-1?Q?Adrian-Ken_R=FCegsegger?= <rueegsegger@swiss-it.ch>
+Subject: Re: [danmcd@sun.com: [Ipsec-tools-devel] SHA-2 and RFC 4868]
+Date: Tue, 12 May 2009 10:16:27 +0200
+Message-ID: <4A09305B.5040304@swiss-it.ch>
+References: <20090508180811.GA15999@kebe.East.Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev Development <linuxppc-dev@ozlabs.org>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: akpm@linux-foundation.org, Kumar Gala <galak@kernel.crashing.org>,
-	David Miller <davem@davemloft.net>, mporter@kernel.crashing.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Dan McDonald <danmcd@sun.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailx.swiss-it.ch ([81.6.4.203]:58838 "EHLO mailx.swiss-it.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758147AbZELIlk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2009 04:41:40 -0400
+In-Reply-To: <20090508180811.GA15999@kebe.East.Sun.COM>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a re-post of patch series which adds MMIO support to Linux
-RapidIO and fixes a few nits.
+> ----- Forwarded message from Dan McDonald <danmcd@sun.com> -----
+> 
+> Date: Thu, 07 May 2009 15:57:39 -0400
+> From: Dan McDonald <danmcd@sun.com>
+> To: ipsec-tools-devel@lists.sourceforge.net
+> Subject: [Ipsec-tools-devel] SHA-2 and RFC 4868
+> User-Agent: Mutt/1.5.19 (2009-01-05)
+> 
+> Not sure if this is the most appropriate list for the topic, but I'm sure
+> enough actual AH/ESP implementors hang out here.
+> 
+> I've noticed at least one other platform doesn't do SHA-2 per RFC 4868
+> (half-sized hash truncation), and instead truncates the SHA-2 hashes to
+> 96-bits like MD5 and SHA1.
+> 
+> Is this just me, or is there an unfixed kernel problem in other platforms'
+> AH/ESP code?
 
-- Leo
+This issues was discussed (but not resolved) a bit less than a year ago:
+
+http://lkml.org/lkml/2008/6/5/141
+
+Regards,
+Adrian
