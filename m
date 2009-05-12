@@ -1,8 +1,8 @@
 From: Dan Williams <dcbw@redhat.com>
 Subject: Re: [Announce] Intel and Nokia announce open source telephony
  project (oFono)
-Date: Mon, 11 May 2009 21:07:47 -0400
-Message-ID: <1242090468.9787.4.camel@localhost.localdomain>
+Date: Mon, 11 May 2009 21:10:09 -0400
+Message-ID: <1242090609.9787.7.camel@localhost.localdomain>
 References: <1242066878.22268.8.camel@little.research.nokia.com>
 	 <1242075055.18723.49.camel@localhost.localdomain>
 	 <1242075934.2812.3.camel@localhost.localdomain>
@@ -14,10 +14,10 @@ Content-Transfer-Encoding: 7bit
 Cc: Aki Niemi <aki.niemi@nokia.com>, netdev@vger.kernel.org
 To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53700 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:53718 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754085AbZELBGz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2009 21:06:55 -0400
+	id S1753030AbZELBJN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2009 21:09:13 -0400
 In-Reply-To: <1242084176.2812.16.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -70,22 +70,7 @@ On Mon, 2009-05-11 at 16:22 -0700, Marcel Holtmann wrote:
 > We want CDMA support for voice and data, but as I said, most of us are
 > not using that technology on a regular basis. We haven't forgotten about
 > it though :)
-
-So even though I had Sprint when I started 3G support in NM, I went out
-and got a T-Mobile plan.  I now spend $55 a month to ensure that GSM
-*and* CDMA both work with NetworkManager and ModemManager.  If you're
-serious about actually supporting the technology that's out there, I'd
-recommend putting your money where your mouth is and picking up a data
-plan with Sprint or Verizon and just figuring it out.  It's not that
-hard.
-
-But it still comes back to the question of:  why was an existing tool
-not sufficient, or why could an existing service not be updated with
-voice support?  In the end it's your decision, but splitting effort
-makes the baby jeebus cry.
-
-Dan
-
+> 
 > > > > - GPS support?  In reality, there can only be one service arbitrating
 > > > > access to modem serial ports, since not all serial-based modems provide
 > > > > more than two ports, and one of those must be used for PPP, and the
@@ -107,10 +92,24 @@ Dan
 > It is not that simple. Let me ensure you that I am aware of this mess
 > with mixing GPS and modem hardware and their control endpoints. For us
 > the Gypsy has the better interfaces in conjunction with GeoClue.
-> 
+
+Not really convinced.  Quite a few modems don't just expose NMEA ports,
+quite a few allow you to get GPS data through AT commands.  It makes a
+ton of sense to consolidate the phone-specific command handling in *one*
+place, in the same daemon that is handling the port arbitration for the
+modem.  Leaving discreet GPS units to Gypsy is fine; but IMHO having the
+modem daemon handle GPS provided by modems is the right path here.
+
 > On a side note here. We also wanna support proper cell tower
 > triangulation for location based services.
-> 
+
+Right, GPS is only part of the story, you'll also want to collect the
+unsolicited messages for cell tower notifications and expose that.
+That's not really workable in Gypsy either, since this is often specific
+to the phone itself.
+
+Dan
+
 > > > > - Is there some reason we cannot coalesce around *one* userland cellular
 > > > > service?  There's Wader/VMC (python+dbus) and ModemManager (C+dbus) and
 > > > > gsmd (C+dbus) already; it seems that for the sake of users, it would be
