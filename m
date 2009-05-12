@@ -1,17 +1,17 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [STABLE 2.6.29.y PATCH] e1000: fix virtualization bug
-Date: Tue, 12 May 2009 10:45:44 -0700
-Message-ID: <20090512174544.20466.52936.stgit@localhost.localdomain>
+Subject: [STABLE 2.6.28.y PATCH] e1000: fix virtualization bug
+Date: Tue, 12 May 2009 10:47:29 -0700
+Message-ID: <20090512174728.20525.60800.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: stable@kernel.org, netdev@vger.kernel.org
 To: chrisw@sous-sol.org, greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:42306
-	"EHLO QMTA12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752168AbZELRp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 13:45:58 -0400
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:39208
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751710AbZELRrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 13:47:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -42,10 +42,10 @@ Signed-off-by: "David S. Miller" <davem@davemloft.net>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 6bd63cc..d436e27 100644
+index b727fef..44f0843 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -3712,7 +3712,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+@@ -3732,7 +3732,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
  	struct e1000_hw *hw = &adapter->hw;
  	u32 rctl, icr = er32(ICR);
  
