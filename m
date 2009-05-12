@@ -1,71 +1,44 @@
-From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-Subject: Re: [PATCH] TX_RING and packet mmap
-Date: Tue, 12 May 2009 20:15:20 +0200
-Message-ID: <20090512181520.GL19296@one.firstfloor.org>
-References: <1242076914.12380.2.camel@bender> <87octymhbt.fsf@basil.nowhere.org> <7e0dd21a0905121058m1f894de6q9805e5392aef3aea@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net: release dst entry in dev_hard_start_xmit()
+Date: Tue, 12 May 2009 21:27:48 +0200
+Message-ID: <20090512192748.GA2757@ami.dom.local>
+References: <49C380A6.4000904@cosmosbay.com> <4A092F59.7020900@cosmosbay.com> <4A093178.9020105@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johann Baudy <johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:62861 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbZELT2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 15:28:11 -0400
+Received: by fxm2 with SMTP id 2so184583fxm.37
+        for <netdev@vger.kernel.org>; Tue, 12 May 2009 12:28:12 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <7e0dd21a0905121058m1f894de6q9805e5392aef3aea-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A093178.9020105@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[full quote for linux-man, Michael]
+On Tue, May 12, 2009 at 10:21:12AM +0200, Eric Dumazet wrote:
+> Eric Dumazet a =E9crit :
+=2E..
+> > List of devices that must clear this flag is :
+> >=20
+> > - loopback device, because it calls netif_rx() and quoting Patrick =
+:
+> >     "ip_route_input() doesn't accept loopback addresses, so loopbac=
+k packets
+> >      already need to have a dst_entry attached."
+> > - appletalk/ipddp.c : needs skb->dst in its xmit function
+> >=20
+> > - And all devices that call again dev_queue_xmit() from their xmit =
+function
+> > (as some classifiers need skb->dst) : bonding, macvlan, eql, ifb, h=
+dlc_fr
 
-On Tue, May 12, 2009 at 07:58:06PM +0200, Johann Baudy wrote:
-> Hi Andi,
-> 
-> Currently, There is nothing in the manpage of packet(7) about RX_RING.
+Why not vlan (and/or maybe others in net/ using dev_queue_xmit)?
 
-Yes mmap was never documented. But if you could do that that would
-be great.
-
-> However I can start to write a summary  that describes processes, headers
-> and statuses of both feature (RX_RING and TX_RING).
-> I think "Socket Options" section of packet(7) is appropriate.
-
-Sounds good. Please send the result to linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-
--Andi
-
-> 
-> Johann
-> 
-> 
-> On Tue, May 12, 2009 at 6:11 PM, Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org> wrote:
-> 
-> > Johann Baudy <johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org> writes:
-> >
-> > > From: Johann Baudy <johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org>
-> > >
-> > > New packet socket feature that makes packet socket more efficient for
-> > transmission.
-> > > - It reduces number of system call through a PACKET_TX_RING mechanism,
-> > based on PACKET_RX_RING (Circular buffer allocated in kernel space which is
-> > mmapped from user space).
-> > > - It minimizes CPU copy using fragmented SKB (almost zero copy).
-> >
-> > When you add new interfaces like this you should add them to the packet (7)
-> > manpage too.
-> >
-> > -Andi
-> >
-> > --
-> > ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
-> >
-
--- 
-ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarek P.
