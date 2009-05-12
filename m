@@ -1,64 +1,41 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: question about softirqs
-Date: Tue, 12 May 2009 09:18:19 -0600
-Message-ID: <4A09933B.8010606@nortel.com>
-References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com> <20090508.234815.127227651.davem@davemloft.net> <4A086DB2.8040703@nortel.com> <20090511.162436.193717082.davem@davemloft.net> <4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: ports beeing reused too fast
+Date: Tue, 12 May 2009 18:52:25 +0300
+Message-ID: <200905121852.26099.opurdila@ixiacom.com>
+References: <200905082311.09414.opurdila@ixiacom.com> <200905121532.57477.opurdila@ixiacom.com> <20090512081119.598b22c5@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	paulus@samba.org, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org, Bill Fink <billfink@mindspring.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Cosmin Ratiu <cratiu@ixiacom.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04e.nortel.com ([47.129.242.56]:33421 "EHLO
-	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753278AbZELPSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 11:18:35 -0400
-In-Reply-To: <20090512081237.GA16403@elte.hu>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13483 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754740AbZELPxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 11:53:36 -0400
+In-Reply-To: <20090512081119.598b22c5@nehalam>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Chris Friesen <cfriesen@nortel.com> wrote:
 
->>I think I see a possible problem with this. Suppose I have a 
->>SCHED_FIFO task spinning on recvmsg() with MSG_DONTWAIT set. Under 
->>the scenario above, schedule() would re-run the spinning task 
->>rather than ksoftirqd, thus preventing any incoming packets from 
->>being sent up the stack until we get a real hardware 
->>interrupt--which could be a whole jiffy if interrupt mitigation is 
->>enabled in the net device.
+> I raised the issue to the original author of the proposed RFC and added
+> the issue to the ongoing review of the draft.
+>
+> There is a suggested workaround using a bitmap but it seems like it would
+> be expensive to implement:
+>       
+> http://ietfreport.isoc.org/all-ids/draft-ananth-tsvwg-timewait-00.txt
 
->>DaveM pointed out that if we're doing transmits we're likely to 
->>hit local_bh_enable(), which would process the softirq work.  
->>However, I think we may still have a problem in the above rx-only 
->>scenario--or is it too contrived to matter?
+OK, I now understand how TW could be an issue here - I didn't realize that we 
+could have sockets in TW on the server side.
 
-> This could occur, and the problem is really that task priorities do 
-> not extend across softirq work processing.
-> 
-> This could occur in ordinary SCHED_OTHER tasks as well, if the 
-> softirq is bounced to ksoftirqd - which it only should be if there's 
-> serious softirq overload - or, as you describe it above, if the 
-> softirq is raised in process context:
+Since the workaround seems expensive, would it be acceptable to add a new 
+sysctl option to disable port randomization?
 
-One of the reasons I brought up this issue is that there is a lot of
-documentation out there that says "softirqs will be processed on return
-from a syscall".  The fact that it actually depends on the scheduler
-parameters of the task issuing the syscall isn't ever mentioned.
+Thanks,
+tavi
 
-In fact, "Documentation/DocBook/kernel-hacking.tmpl" in the kernel
-source still has the following:
-
-    Whenever a system call is about to return to userspace, or a
-    hardware interrupt handler exits, any 'software interrupts'
-    which are marked pending (usually by hardware interrupts) are
-    run (<filename>kernel/softirq.c</filename>).
-
-If anyone is looking at changing this code, it might be good to ensure
-that at least the kernel docs are updated.
-
-Chris
