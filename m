@@ -1,63 +1,61 @@
 From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 2/6] powerpc/fsl_rio: use LAW address from device tree
-Date: Tue, 12 May 2009 16:35:59 +0800
-Message-ID: <1242117363-14949-2-git-send-email-leoli@freescale.com>
+Subject: [PATCH 6/6] rio: fix section mismatch
+Date: Tue, 12 May 2009 16:36:03 +0800
+Message-ID: <1242117363-14949-6-git-send-email-leoli@freescale.com>
 References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
+ <1242117363-14949-2-git-send-email-leoli@freescale.com>
+ <1242117363-14949-3-git-send-email-leoli@freescale.com>
+ <1242117363-14949-4-git-send-email-leoli@freescale.com>
+ <1242117363-14949-5-git-send-email-leoli@freescale.com>
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
 	netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
 To: akpm@linux-foundation.org, galak@kernel.crashing.org,
 	davem@davemloft.net, mporter@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:55499 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:55522 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757332AbZELIlm (ORCPT
+	with ESMTP id S1758596AbZELIlm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 04:41:42 -0400
-In-Reply-To: <1242117363-14949-1-git-send-email-leoli@freescale.com>
+In-Reply-To: <1242117363-14949-5-git-send-email-leoli@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of fixed address in old code.
-
 Signed-off-by: Li Yang <leoli@freescale.com>
 ---
- arch/powerpc/sysdev/fsl_rio.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/rapidio/rio-scan.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/arch/powerpc/sysdev/fsl_rio.c b/arch/powerpc/sysdev/fsl_rio.c
-index abdb124..fa0720f 100644
---- a/arch/powerpc/sysdev/fsl_rio.c
-+++ b/arch/powerpc/sysdev/fsl_rio.c
-@@ -1077,8 +1077,9 @@ int fsl_rio_setup(struct of_device *dev)
- 
- 	INIT_LIST_HEAD(&port->dbells);
- 	port->iores.start = law_start;
--	port->iores.end = law_start + law_size;
-+	port->iores.end = law_start + law_size - 1;
- 	port->iores.flags = IORESOURCE_MEM;
-+	port->iores.name = "rio_io_win";
- 
- 	priv->bellirq = irq_of_parse_and_map(dev->node, 2);
- 	priv->txirq = irq_of_parse_and_map(dev->node, 3);
-@@ -1156,14 +1157,15 @@ int fsl_rio_setup(struct of_device *dev)
- 		out_be32((priv->regs_win + RIO_ISR_AACR), RIO_ISR_AACR_AA);
- 
- 	/* Configure maintenance transaction window */
--	out_be32(&priv->maint_atmu_regs->rowbar, 0x000c0000);
--	out_be32(&priv->maint_atmu_regs->rowar, 0x80077015);
-+	out_be32(&priv->maint_atmu_regs->rowbar, law_start >> 12);
-+	out_be32(&priv->maint_atmu_regs->rowar, 0x80077015);	/* 4M */
- 
- 	priv->maint_win = ioremap(law_start, RIO_MAINT_WIN_SIZE);
- 
- 	/* Configure outbound doorbell window */
--	out_be32(&priv->dbell_atmu_regs->rowbar, 0x000c0400);
--	out_be32(&priv->dbell_atmu_regs->rowar, 0x8004200b);
-+	out_be32(&priv->dbell_atmu_regs->rowbar,
-+			(law_start + RIO_MAINT_WIN_SIZE) >> 12);
-+	out_be32(&priv->dbell_atmu_regs->rowar, 0x8004200b);	/* 4k */
- 	fsl_rio_doorbell_init(port);
- 
- 	return 0;
+diff --git a/drivers/rapidio/rio-scan.c b/drivers/rapidio/rio-scan.c
+index 0838fb2..e29be3c 100644
+--- a/drivers/rapidio/rio-scan.c
++++ b/drivers/rapidio/rio-scan.c
+@@ -296,7 +296,7 @@ static int __devinit rio_add_device(struct rio_dev *rdev)
+  * to a RIO device on success or NULL on failure.
+  *
+  */
+-static struct rio_dev *rio_setup_device(struct rio_net *net,
++static struct rio_dev __devinit *rio_setup_device(struct rio_net *net,
+ 					struct rio_mport *port, u16 destid,
+ 					u8 hopcount, int do_enum)
+ {
+@@ -569,7 +569,7 @@ static void rio_net_add_mport(struct rio_net *net, struct rio_mport *port)
+  * Recursively enumerates a RIO network.  Transactions are sent via the
+  * master port passed in @port.
+  */
+-static int rio_enum_peer(struct rio_net *net, struct rio_mport *port,
++static int __devinit rio_enum_peer(struct rio_net *net, struct rio_mport *port,
+ 			 u8 hopcount)
+ {
+ 	int port_num;
+@@ -728,7 +728,7 @@ static int rio_enum_complete(struct rio_mport *port)
+  * Recursively discovers a RIO network.  Transactions are sent via the
+  * master port passed in @port.
+  */
+-static int
++static int __devinit
+ rio_disc_peer(struct rio_net *net, struct rio_mport *port, u16 destid,
+ 	      u8 hopcount)
+ {
 -- 
 1.5.4
 
