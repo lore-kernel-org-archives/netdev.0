@@ -1,66 +1,50 @@
-From: Yury Polyanskiy <ypolyans@Princeton.EDU>
-Subject: Re: [IPSEC] xfrm_state locking problem in xfrm_input.c
-Date: Tue, 12 May 2009 09:32:04 -0400
-Message-ID: <20090512093204.4c30478d@penta.localdomain>
-References: <20090511184739.6e497f29@penta.localdomain>
-	<20090512034813.GA25841@gondor.apana.org.au>
-	<20090512000516.32589e1f@penta.localdomain>
-	<20090511.220723.266123145.davem@davemloft.net>
+From: Dan McDonald <danmcd@sun.com>
+Subject: Re: [danmcd@sun.com: [Ipsec-tools-devel] SHA-2 and RFC 4868]
+Date: Tue, 12 May 2009 10:07:25 -0400
+Message-ID: <20090512140725.GA17920@kebe.East.Sun.COM>
+References: <20090508180811.GA15999@kebe.East.Sun.COM> <4A09305B.5040304@swiss-it.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/zfBdw.7eCO7yVQ4ABzASscW"; protocol="application/pgp-signature"
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Adrian-Ken R?egsegger <rueegsegger@swiss-it.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postoffice03.Princeton.EDU ([128.112.131.174]:57093 "EHLO
-	Princeton.EDU" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751002AbZELNcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 09:32:15 -0400
-In-Reply-To: <20090511.220723.266123145.davem@davemloft.net>
+Received: from sca-ea-mail-3.Sun.COM ([192.18.43.21]:41994 "EHLO
+	sca-ea-mail-3.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751665AbZELOWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 10:22:31 -0400
+Received: from dm-east-01.east.sun.com ([129.148.9.192])
+	by sca-ea-mail-3.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n4CEMV2Z020915
+	for <netdev@vger.kernel.org>; Tue, 12 May 2009 14:22:31 GMT
+Received: from kebe.East.Sun.COM (kebe.East.Sun.COM [129.148.174.48])
+	by dm-east-01.east.sun.com (8.13.8+Sun/8.13.8/ENSMAIL,v2.2) with ESMTP id n4CEMUUS012387
+	for <netdev@vger.kernel.org>; Tue, 12 May 2009 10:22:30 -0400 (EDT)
+Content-Disposition: inline
+In-Reply-To: <4A09305B.5040304@swiss-it.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/zfBdw.7eCO7yVQ4ABzASscW
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Tue, May 12, 2009 at 10:16:27AM +0200, Adrian-Ken R?egsegger wrote:
 
-On Mon, 11 May 2009 22:07:23 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+<mucho snippage deleted!>
 
-> >> > Note that if the locally generated packet is sent to a local ip,
-> >> > dev_queue_xmit() calls loopback_xmit() and the xfrm_input() will
-> >> > be called with softirqs enabled.
-> >>=20
-> >> dev_queue_xmit always disables BH before calling the device xmit
-> >> function.  So how can this happen?
-> >>=20
-> >=20
-> > Oops, you right. Thanks for the explanation!
->=20
-> So you didn't actually hit a bug that led you to write that
-> patch?
->=20
-> Please state this explicitly next time, and tell us that you are
-> "fixing" something based purely upon code inspection rather than
-> hitting a bug yourself.
->=20
+> > Is this just me, or is there an unfixed kernel problem in other platforms'
+> > AH/ESP code?
+> 
+> This issues was discussed (but not resolved) a bit less than a year ago:
+> 
+> http://lkml.org/lkml/2008/6/5/141
 
-Well, I hit some bug (occasional hard lockup of the box on ipsec'ed
-data transfers), and this seemed as an excellent fit, because I
-frequently test it on local->local trafic. Anyways, sorry for bothering.
+Thanks for the thread pointer.  I would like it if you guys updated to RFC
+4868, but I'm obviously in no position to have any influence.  If you wanna
+test it, though, OpenSolaris has 4868 support, and if you need help for
+interoperability testing, just ask.
 
-YP
+BTW, it *is* possible to have user-space supply such parameters.  Have a look
+at the ipsecalgs(1M) man page for an example:
 
---Sig_/zfBdw.7eCO7yVQ4ABzASscW
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+http://docs.sun.com/app/docs/doc/816-5166/ipsecalgs-1m?l=en&a=view&q=ipsecalgs
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+In fact, we've done backward compatibility tests with MacOS X by adjusting
+the truncation size with ipsecalgs(1M).  ISTR it worked with SHA-256.
 
-iEYEARECAAYFAkoJelQACgkQemuRe3zuqOQI1QCfYaBF+KJzPgvTpT4ntO1+tGFm
-lzQAn2aYXhsacxqB+Fijwav2HVIXh2Yc
-=Jp3I
------END PGP SIGNATURE-----
-
---Sig_/zfBdw.7eCO7yVQ4ABzASscW--
+Dan
