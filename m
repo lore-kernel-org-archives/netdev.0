@@ -1,41 +1,66 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: ports beeing reused too fast
-Date: Tue, 12 May 2009 15:32:57 +0300
-Message-ID: <200905121532.57477.opurdila@ixiacom.com>
-References: <200905082311.09414.opurdila@ixiacom.com> <20090509153135.04874f72.billfink@mindspring.com> <20090509154515.28251a48@nehalam>
+From: Yury Polyanskiy <ypolyans@Princeton.EDU>
+Subject: Re: [IPSEC] xfrm_state locking problem in xfrm_input.c
+Date: Tue, 12 May 2009 09:32:04 -0400
+Message-ID: <20090512093204.4c30478d@penta.localdomain>
+References: <20090511184739.6e497f29@penta.localdomain>
+	<20090512034813.GA25841@gondor.apana.org.au>
+	<20090512000516.32589e1f@penta.localdomain>
+	<20090511.220723.266123145.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Bill Fink <billfink@mindspring.com>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/zfBdw.7eCO7yVQ4ABzASscW"; protocol="application/pgp-signature"
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:16805 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756085AbZELMeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 08:34:09 -0400
-In-Reply-To: <20090509154515.28251a48@nehalam>
-Content-Disposition: inline
+Received: from postoffice03.Princeton.EDU ([128.112.131.174]:57093 "EHLO
+	Princeton.EDU" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751002AbZELNcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 09:32:15 -0400
+In-Reply-To: <20090511.220723.266123145.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--Sig_/zfBdw.7eCO7yVQ4ABzASscW
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> > > >> Any strong reason why a firewall would drop a SYN because ports were
-> > > >> used in a previous session ?
-> > > >
-> > > > We don't know why the firewall (Cisco FWSM) is dropping the packets,
-> > > > may be a bug, limitation or miss-configuration. We are trying to
-> > > > track this down with the firewall vendor.
-> > >
+On Mon, 11 May 2009 22:07:23 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Interestingly, we are seeing the same behavior with another high-end firewall 
-(Juniper SRX). 
+> >> > Note that if the locally generated packet is sent to a local ip,
+> >> > dev_queue_xmit() calls loopback_xmit() and the xfrm_input() will
+> >> > be called with softirqs enabled.
+> >>=20
+> >> dev_queue_xmit always disables BH before calling the device xmit
+> >> function.  So how can this happen?
+> >>=20
+> >=20
+> > Oops, you right. Thanks for the explanation!
+>=20
+> So you didn't actually hit a bug that led you to write that
+> patch?
+>=20
+> Please state this explicitly next time, and tell us that you are
+> "fixing" something based purely upon code inspection rather than
+> hitting a bug yourself.
+>=20
 
-As mentioned previously, this can not be caused by the TW state, because the 
-connections are getting closed on the server side.
+Well, I hit some bug (occasional hard lockup of the box on ipsec'ed
+data transfers), and this seemed as an excellent fit, because I
+frequently test it on local->local trafic. Anyways, sorry for bothering.
 
-Thanks,
-tavi
+YP
 
+--Sig_/zfBdw.7eCO7yVQ4ABzASscW
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkoJelQACgkQemuRe3zuqOQI1QCfYaBF+KJzPgvTpT4ntO1+tGFm
+lzQAn2aYXhsacxqB+Fijwav2HVIXh2Yc
+=Jp3I
+-----END PGP SIGNATURE-----
+
+--Sig_/zfBdw.7eCO7yVQ4ABzASscW--
