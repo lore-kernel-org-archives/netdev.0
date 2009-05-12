@@ -1,50 +1,38 @@
-From: Dan McDonald <danmcd@sun.com>
-Subject: Re: [danmcd@sun.com: [Ipsec-tools-devel] SHA-2 and RFC 4868]
-Date: Tue, 12 May 2009 10:07:25 -0400
-Message-ID: <20090512140725.GA17920@kebe.East.Sun.COM>
-References: <20090508180811.GA15999@kebe.East.Sun.COM> <4A09305B.5040304@swiss-it.ch>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/3] virtio: indirect ring entries (VIRTIO_RING_F_INDIRECT_DESC)
+Date: Tue, 12 May 2009 23:53:53 +0930
+Message-ID: <200905122353.54424.rusty@rustcorp.com.au>
+References: <1229620222-22216-1-git-send-email-markmc@redhat.com> <200905041149.00724.rusty@rustcorp.com.au> <1242061838.25337.8.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Adrian-Ken R?egsegger <rueegsegger@swiss-it.ch>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dlaor@redhat.com, netdev@vger.kernel.org,
+	Dor Laor <dor@redhat.com>, Avi Kivity <avi@redhat.com>,
+	virtualization@lists.linux-foundation.org
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-ea-mail-3.Sun.COM ([192.18.43.21]:41994 "EHLO
-	sca-ea-mail-3.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665AbZELOWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 10:22:31 -0400
-Received: from dm-east-01.east.sun.com ([129.148.9.192])
-	by sca-ea-mail-3.sun.com (8.13.6+Sun/8.12.9) with ESMTP id n4CEMV2Z020915
-	for <netdev@vger.kernel.org>; Tue, 12 May 2009 14:22:31 GMT
-Received: from kebe.East.Sun.COM (kebe.East.Sun.COM [129.148.174.48])
-	by dm-east-01.east.sun.com (8.13.8+Sun/8.13.8/ENSMAIL,v2.2) with ESMTP id n4CEMUUS012387
-	for <netdev@vger.kernel.org>; Tue, 12 May 2009 10:22:30 -0400 (EDT)
+Received: from ozlabs.org ([203.10.76.45]:52526 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751710AbZELOYH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2009 10:24:07 -0400
+In-Reply-To: <1242061838.25337.8.camel@blaa>
 Content-Disposition: inline
-In-Reply-To: <4A09305B.5040304@swiss-it.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2009 at 10:16:27AM +0200, Adrian-Ken R?egsegger wrote:
+On Tue, 12 May 2009 02:40:38 am Mark McLoughlin wrote:
+> > Blocked from doing the simpler thing, we've decided to go with a layer
+> > of indirection.  But the patch is simple and clean, so there's nothing
+> > fundamental to object to.
+>
+> Still have one FIXME in the patch worth looking at - at what point
+> should we use an indirect entry rather than consuming N entries?
 
-<mucho snippage deleted!>
+OK, I've applied these as is.  I'm doing some virtio net benchmarking (under 
+lguest); I'll see if I can get a reasonable figure.  I don't think there's an 
+obvious right answer; it depends how many more packets are coming as well as 
+how many descriptors each will use.
 
-> > Is this just me, or is there an unfixed kernel problem in other platforms'
-> > AH/ESP code?
-> 
-> This issues was discussed (but not resolved) a bit less than a year ago:
-> 
-> http://lkml.org/lkml/2008/6/5/141
-
-Thanks for the thread pointer.  I would like it if you guys updated to RFC
-4868, but I'm obviously in no position to have any influence.  If you wanna
-test it, though, OpenSolaris has 4868 support, and if you need help for
-interoperability testing, just ask.
-
-BTW, it *is* possible to have user-space supply such parameters.  Have a look
-at the ipsecalgs(1M) man page for an example:
-
-http://docs.sun.com/app/docs/doc/816-5166/ipsecalgs-1m?l=en&a=view&q=ipsecalgs
-
-In fact, we've done backward compatibility tests with MacOS X by adjusting
-the truncation size with ipsecalgs(1M).  ISTR it worked with SHA-256.
-
-Dan
+Thanks,
+Rusty.
