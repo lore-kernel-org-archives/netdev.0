@@ -1,94 +1,111 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [Bridge] [RFC 0/5] bridge - introduce via_phys_dev feature
-Date: Tue, 12 May 2009 21:21:36 +0400
-Message-ID: <20090512172136.GC12820@lenovo>
-References: <20090511114639.440944109@openvz.org> <de7adc5e0905112230r60254113t6b31d8114d141be@mail.gmail.com> <aa79d98a0905112319k6bc19ebk60a6458165b8c0a1@mail.gmail.com> <de7adc5e0905120002o7f19a1eepe0397d698c08ce97@mail.gmail.com> <20090512162432.GA12820@lenovo> <de7adc5e0905121007t74ba52e2j9a98b998540e7df9@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v2] Receive Packet Steering
+Date: Tue, 12 May 2009 10:28:33 -0700
+Message-ID: <65634d660905121028s18034ee3w6da360a450d3b117@mail.gmail.com>
+References: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
+	 <49FE7D63.6050102@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, xemul@openvz.org
-To: Daniel Robbins <drobbins@funtoo.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:23819 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755299AbZELRVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 13:21:38 -0400
-Received: by fk-out-0910.google.com with SMTP id 18so53517fkq.5
-        for <netdev@vger.kernel.org>; Tue, 12 May 2009 10:21:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <de7adc5e0905121007t74ba52e2j9a98b998540e7df9@mail.gmail.com>
+Received: from smtp-out.google.com ([216.239.45.13]:62405 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753277AbZELR2f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 13:28:35 -0400
+Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
+	by smtp-out.google.com with ESMTP id n4CHSZuK008823
+	for <netdev@vger.kernel.org>; Tue, 12 May 2009 10:28:35 -0700
+Received: from rv-out-0708.google.com (rvfc5.prod.google.com [10.140.180.5])
+	by wpaz37.hot.corp.google.com with ESMTP id n4CHSQkx029749
+	for <netdev@vger.kernel.org>; Tue, 12 May 2009 10:28:33 -0700
+Received: by rv-out-0708.google.com with SMTP id c5so71641rvf.22
+        for <netdev@vger.kernel.org>; Tue, 12 May 2009 10:28:33 -0700 (PDT)
+In-Reply-To: <49FE7D63.6050102@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Daniel Robbins - Tue, May 12, 2009 at 11:07:14AM -0600]
-| On Tue, May 12, 2009 at 10:24 AM, Cyrill Gorcunov <gorcunov@gmail.com=
-> wrote:
-| > So, Daniel, i think the right question is -- do I ever need to
-| > configure/setup bridge remotely? I suppose yes, it happens.
-| > (at least I had a machine with lack of input device except a few
-| > =A0NICs :-)
-|=20
-| Aha, yes it would be useful in that case :)
-|=20
-| So is the idea that you use via_phys_dev *temporarily* when
-| configuring the bridge, then you get it set up the way you want, and
-| then maybe you reboot the machine, and this time leave via_phys_dev
-| off? Or are there certain cases you can envision where you might want
-| this enabled permanently?
+On Sun, May 3, 2009 at 10:30 PM, Eric Dumazet <dada1@cosmosbay.com> wro=
+te:
+>
+> Tom Herbert a =E9crit :
+> > This is an update of the receive packet steering patch (RPS) based =
+on received
+> > comments (thanks for all the comments).  Improvements are:
+> >
+> > 1) Removed config option for the feature.
+> > 2) Made scheduling of backlog NAPI devices between CPUs lockless an=
+d much
+> > simpler.
+> > 3) Added new softirq to do defer sending IPIs for coalescing.
+> > 4) Imported hash from simple_rx_hash.  Eliminates modulo operation =
+to convert
+> > hash to index.
+> > 5) If no cpu is found for packet steering, then netif_receive_skb p=
+rocesses
+> > packet inline as before without queueing.  In paritcular if RPS is =
+not
+> > configured on a device the receive path is unchanged from current f=
+or
+> > NAPI devices (one additional conditional).
+> >
+> > Tom
+>
+> Seems cool, but I found two errors this morning before my cofee ;)
+>
+> Is it a working patch or an RFC ?
+>
+Patch mostly works.  It's based on code from an earlier kernel that
+we've been running for more than year.
 
-You could turn this feature on while configuring bridge, then as only
-you have done all you need you just turn it off and bridge back to its
-regular behaviour (and remote connection lost of course). So no need
-for reboot. At moment sysfs entry is added and ioctls as well (though
-bridge utils need some change to support new ioctls).
+> Its also not clear from ChangeLog how this is working, and even
+> after reading your patch, its not yet very clear. Please provide
+> more documentation, on every submission.
+>
+Okay.
 
-Permanently... it could be usefull if you initially planned to have rem=
-ote
-access to bridge-master machine. Ie instead to set up IP for bridge
-device you remain with master device IP (say eth0).
+> What about latencies ? I really do think that if cpu handling
+> device is lightly loaded, it should handle packet itself, without
+> giving it to another cpu, incurring many cache lines bounces.
+>
 
-|=20
-| > This feature already was in OpenVZ 2.6.24 kernel. I'm more intirest=
-ing in
-| > usefulness of this feature for the mainline. (in short -- we use it=
- for bridging
-| > VEs with eth0 as a master device so all works without needing to
-| > reconfigure routing table). Moreover, since bridge already support
-| > namespacing the feature could be usefull for lxc as well (though
-| > didn't check to be fair).
-|=20
-| But not in the OpenVZ 2.6.27-briullov kernel yet, at least the one I'=
-m
-| running :)
+While it's true that this scheme adds overhead for processing a single
+packet at a time, we've found that by setting the per device CPU mask
+to CPUs sharing the same L2/L3 cache we can reduce that overhead
+substantially to the point that even for a small number of active
+connections (around ten in out setup) the benefits of parallelizing
+the path overcome the extra overhead resulting in lower average
+latency.  So this would increase latency for doing a single ping, but
+even for a moderate loaded server we see latency improvements.
 
-it's just a quiestion of time :)
+> > +static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
+> > +{
+> > +     struct softnet_data *queue;
+> > +     unsigned long flags;
+> > +
+> > +     queue =3D &per_cpu(softnet_data, cpu);
+> > +     spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
+>
+> I wonder... isnt it going to really hurt with cache line ping pongs ?
+>
 
-|=20
-| > That is why it's RFC so people could decide should it be included
-| > into mainline or not. Worth it so or not.
-|=20
-| If it is accepted into mainline, be sure to send Stephen some
-| documentation on this feature so he can add it to the net:bridge docs=
-=2E
-| When features like this aren't documented, no one knows how to use
-| them. I just ran into this issue with the 2.6.27+ "sticky" bridge MAC
-| feature. I'd also be willing to help keeping the bridge docs
-| up-to-date. Please let me know if you or Stephen want me to do this.
-| Bridging is really important for OpenVZ and other
-| container/paravirtualization technologies so keeping docs up-to-date
-| is becoming more important. It can be useful to have a
-| non-kernel-developer like me document the functionality.
+I suppose it is possible, although we haven't see this pop up in
+profiling.  Coalescing packets before doing the IPI might be
+alleviating that.
 
-Of course, though with my english better to not touch docs :)
 
-But again -- this series requires _strong_ review and testing
-(since I'm not a netdevel expert)
+> > +             /* Schedule NAPI for backlog device */
+> > +             if (napi_schedule_prep(&queue->backlog)) {
+> > +                     if (cpu !=3D smp_processor_id()) {
+> > +                             cpu_set(cpu,
+> > +                                 get_cpu_var(rps_remote_softirq_cp=
+us));
+>
+> get_cpu_var() increases preempt_count (preempt_disable), where is the=
+ opposite decrease ?
+>
 
-|=20
-| Best Regards,
-|=20
-| Daniel
-|=20
-	-- Cyrill
+Right, should be __get_cpu_var.
+
+Tom
