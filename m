@@ -1,34 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.27.2] datagram handling routines :
- mapping/unmapping paged data in soft IRQ
-Date: Mon, 11 May 2009 16:36:52 -0700 (PDT)
-Message-ID: <20090511.163652.156749735.davem@davemloft.net>
-References: <54466B0E862D654998371DCA86B6FE2F4B6D47@adept-srv2.adept.local>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: question about softirqs
+Date: Mon, 11 May 2009 18:43:27 -0600
+Message-ID: <4A08C62F.1050105@nortel.com>
+References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com>	<20090508.234815.127227651.davem@davemloft.net>	<4A086DB2.8040703@nortel.com>
+	<20090511.162436.193717082.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alan@redhat.com
-To: Luc.Goria@adept-telecom.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58013
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755942AbZEKXg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2009 19:36:56 -0400
-In-Reply-To: <54466B0E862D654998371DCA86B6FE2F4B6D47@adept-srv2.adept.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, Ingo Molnar <mingo@elte.hu>, paulus@samba.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090511.162436.193717082.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: "Luc Goria" <Luc.Goria@adept-telecom.fr>
-Date: Mon, 11 May 2009 15:32:21 +0200
 
-> 
-> Kernel crashes when a network module tries to copy a datagram to iovec in soft IRQ with paged data.
-> The problem is that kunmap function can't be called in IRQ.
-> All calls to kmap/kunmap fonctions are replaced by calls to kmap_skb_frag/kunmap_skb_frag when paged data are involved.
-> 
->  <<datagram.c.patch>> 
-> Signed-off-by: Luc GORIA <luc.goria@adept-telecom.fr>
+This started out as a thread on the ppc list, but on the suggestion of
+DaveM and Paul Mackerras I'm expanding the receiver list a bit.
 
-What network module does this?  You're not supposed to.
+Currently, if a softirq is raised in process context the
+TIF_RESCHED_PENDING flag gets set and on return to userspace we run the
+scheduler, expecting it to switch to ksoftirqd to handle the softirqd
+processing.
 
+I think I see a possible problem with this. Suppose I have a SCHED_FIFO
+task spinning on recvmsg() with MSG_DONTWAIT set. Under the scenario
+above, schedule() would re-run the spinning task rather than ksoftirqd,
+thus preventing any incoming packets from being sent up the stack until
+we get a real hardware interrupt--which could be a whole jiffy if
+interrupt mitigation is enabled in the net device.
+
+DaveM pointed out that if we're doing transmits we're likely to hit
+local_bh_enable(), which would process the softirq work.  However, I
+think we may still have a problem in the above rx-only scenario--or is
+it too contrived to matter?
+
+Thanks,
+
+Chris
