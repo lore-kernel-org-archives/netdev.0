@@ -1,52 +1,46 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: question about softirqs
-Date: Wed, 13 May 2009 17:54:03 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.0905131751150.3561@localhost.localdomain>
-References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com> <20090508.234815.127227651.davem@davemloft.net> <4A086DB2.8040703@nortel.com> <20090511.162436.193717082.davem@davemloft.net> <4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu>
- <4A09933B.8010606@nortel.com> <874ovpmmdq.fsf@basil.nowhere.org> <4A0AC9EC.6070908@nortel.com> <20090513141532.GT19296@one.firstfloor.org> <alpine.LFD.2.00.0905131612180.3561@localhost.localdomain> <87my9hkrmw.fsf@basil.nowhere.org>
- <4A0AE19D.9040509@nortel.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
+ Netlink interface
+Date: Wed, 13 May 2009 08:57:34 -0700
+Message-ID: <20090513085734.387dddbe.akpm@linux-foundation.org>
+References: <20090512092757.048938233@denx.de>
+	<20090512092757.574693100@denx.de>
+	<20090512233052.ecd600f1.akpm@linux-foundation.org>
+	<20090512235323.e3de5e5d.akpm@linux-foundation.org>
+	<4A0AB0EC.5010902@grandegger.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	paulus@samba.org, netdev@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:39855 "EHLO www.tglx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757877AbZEMPyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2009 11:54:47 -0400
-In-Reply-To: <4A0AE19D.9040509@nortel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43013 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754879AbZEMQAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 12:00:05 -0400
+In-Reply-To: <4A0AB0EC.5010902@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 May 2009, Chris Friesen wrote:
-> Andi Kleen wrote:
-> > Thomas Gleixner <tglx@linutronix.de> writes:
-> 
-> >>Err, no. Chris is completely correct:
-> >>
-> >>        if (!in_interrupt())
-> >>		wakeup_softirqd();
+On Wed, 13 May 2009 13:37:16 +0200 Wolfgang Grandegger <wg@grandegger.com> wrote:
+
+> > Also, I wonder if it's safe to take netif_tx_lock() from a timer
+> > handler when other parts of the code might be taking it from process
+> > context (I didn't check).
 > > 
-> > Yes you have to wake it up just in case, but it doesn't normally
-> > process the data because a normal softirq comes in faster. It's
-> > just a safety policy. 
+> > lockdep should be able to detect this, and I trust this code has been
+> > fully runtime tested with lockdep enabled?
 > 
-> What about the scenario I raised earlier, where we have incoming network
-> packets, no hardware interrupts coming in other than the timer tick, and
-> a high-priority userspace app is spinning on recvmsg() with MSG_DONTWAIT
-> set?
-> 
-> As far as I can tell, in this scenario softirqs may not get processed on
-> return from a syscall (contradicting the documentation).  In the worst
-> case, they may not get processed until the next timer tick.
+> Well, CONFIG_PROVE_LOCKING would be cool, but I'm unable to enabled it
+> for my MPC5200 test system. Only 64bit PowerPC's seem to support
+> TRACE_IRQFLAGS_SUPPORT. I'm going to test the code on a PC as well.
 
-Right because your high prio tasks prevents that ksoftirqd runs,
-because it can not preempt the high priority task.
+I discussed this off-list with Peter Zijlstra and Johannes Berg. 
+Apparently lockdep _will_ detect this deadlockable situation - Johannes
+recently added the capability because he had the same situation in
+wireless code somewhere.
 
-Thanks,
+But of course it does require that the timer handler has executed at
+least once.  Many handlers in the kernel never fire in normal operation.
 
-	tglx
