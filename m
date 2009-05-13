@@ -1,38 +1,84 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next] net: remove needless (now buggy) & from
-	dev->dev_addr (part2)
-Date: Wed, 13 May 2009 10:40:12 +0200
-Message-ID: <20090513084011.GC3517@psychotron.englab.brq.redhat.com>
-References: <20090512093714.GD3399@psychotron.englab.brq.redhat.com> <4A0A2059.8040607@cn.fujitsu.com>
+From: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
+ Netlink interface
+Date: Wed, 13 May 2009 12:02:41 +0200
+Message-ID: <4A0A9AC1.2090603@volkswagen.de>
+References: <20090512092757.048938233@denx.de><20090512092757.574693100@denx.de> <20090512233052.ecd600f1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sfr@canb.auug.org.au, sachinp@in.ibm.com,
-	Wei Yongjun <yjwei@cn.fujitsu.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:44840 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750860AbZEMIkY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2009 04:40:24 -0400
-Content-Disposition: inline
-In-Reply-To: <4A0A2059.8040607@cn.fujitsu.com>
+Received: from mxout1.volkswagen.de ([194.114.62.41]:15041 "EHLO
+	mxout1.volkswagen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755242AbZEMKDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 06:03:49 -0400
+In-Reply-To: <20090512233052.ecd600f1.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Missed part of "&" removal.
+Andrew Morton wrote:
+> On Tue, 12 May 2009 11:28:00 +0200 Wolfgang Grandegger <wg@grandegger.com> wrote:
+>
+>   
+>> +int can_restart_now(struct net_device *dev)
+>> +{
+>> +	struct can_priv *priv = netdev_priv(dev);
+>> +	struct net_device_stats *stats = &dev->stats;
+>> +	struct sk_buff *skb;
+>> +	struct can_frame *cf;
+>> +	int err;
+>> +
+>> +	/* Synchronize with dev->hard_start_xmit() */
+>> +	netif_tx_lock(dev);
+>> +
+>> +	/* Ensure that no more messages can go out */
+>> +	if (netif_carrier_ok(dev))
+>> +		netif_carrier_off(dev);
+>> +
+>> +	/* Ensure that no more messages can come in */
+>> +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	/*  Now it's save to clean up */
+>> +	del_timer_sync(&priv->restart_timer);
+>>     
+>
+> This is deadlockable.
+>
+> It calls del_timer_sync() while holding netif_tx_lock().  But the timer
+> handler (can_restart_now()) also takes netif_tx_lock().  So if the
+> timer handler is presently running, it's sitting there spinning in
+> netif_tx_lock().  And del_timer_sync() is sitting there waiting for the
+> timer handler to complete.
+>
+>
+>   
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Hi Wolfgang,
 
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index febae70..9208cf5 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -935,7 +935,7 @@ static int llc_ui_getname(struct socket *sock, struct sockaddr *uaddr,
- 
- 		if (llc->dev) {
- 			sllc.sllc_arphrd = llc->dev->type;
--			memcpy(&sllc.sllc_mac, &llc->dev->dev_addr,
-+			memcpy(&sllc.sllc_mac, llc->dev->dev_addr,
- 			       IFHWADDRLEN);
- 		}
- 	}
+would it be an appropriate solution, just to invoke
+
+netif_stop_queue() in can_bus_off()
+
+and invoke
+
+netif_wake_queue() in can_restart_now()
+
+???
+
+In a BUSOFF condition we're not able to send CAN frames anyway, so  we 
+can disable the device queue and the we won't  need any netif_tx_lock() 
+right?
+
+AFAIK this was the original implementation before some of the latest 
+improvement with the netif_carrier stuff.
+
+What do you think?
+
+Best regards,
+Oliver
+
