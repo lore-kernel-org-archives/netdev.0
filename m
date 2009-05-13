@@ -1,271 +1,171 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 7/8] gigaset: remove UNDOCREQ config option
-Date: Thu, 14 May 2009 00:44:18 +0200 (CEST)
-Message-ID: <20090514-patch-07.tilman@imap.cc>
-References: <20090514-patch-00.tilman@imap.cc>
-Cc: Hansjoerg Lipp <hjlipp@web.de>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/8] ixgbe: Add FCoE feature register defines to
+	82599
+Date: Wed, 13 May 2009 16:09:39 -0700
+Message-ID: <20090513230924.11416.68752.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	Yi Zou <yi.zou@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:38985 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760355AbZEMWog (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2009 18:44:36 -0400
-In-Reply-To: <20090514-patch-00.tilman@imap.cc>
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:51608
+	"EHLO QMTA14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752580AbZEMXJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 19:09:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drop the kernel config option GIGASET_UNDOCREQ, permanently
-activating the code it controlled, as there have been no reports
-of problems caused by its activation but many problems caused by
-it being disabled.
-Also fix a few bad comments while we're at it.
+From: Yi Zou <yi.zou@intel.com>
 
-Impact: cleanup
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+This adds FCoE related register defines to 82599.
+
+Signed-off-by: Yi Zou <yi.zou@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- Documentation/isdn/README.gigaset  |   33 +++----------------
- drivers/isdn/gigaset/Kconfig       |    7 ----
- drivers/isdn/gigaset/usb-gigaset.c |   62 +++++++++++++----------------------
- 3 files changed, 28 insertions(+), 74 deletions(-)
 
-diff --git a/Documentation/isdn/README.gigaset b/Documentation/isdn/README.gigaset
-index f6e9eaa..f996310 100644
---- a/Documentation/isdn/README.gigaset
-+++ b/Documentation/isdn/README.gigaset
-@@ -149,10 +149,8 @@ GigaSet 307x Device Driver
-      configuration files and chat scripts in the gigaset-VERSION/ppp directory
-      in the driver packages from http://sourceforge.net/projects/gigaset307x/.
-      Please note that the USB drivers are not able to change the state of the
--     control lines (the M105 driver can be configured to use some undocumented
--     control requests, if you really need the control lines, though). This means
--     you must use "Stupid Mode" if you are using wvdial or you should use the
--     nocrtscts option of pppd.
-+     control lines. This means you must use "Stupid Mode" if you are using
-+     wvdial or you should use the nocrtscts option of pppd.
-      You must also assure that the ppp_async module is loaded with the parameter
-      flag_time=0. You can do this e.g. by adding a line like
+ drivers/net/ixgbe/ixgbe_type.h |   84 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 84 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 9fd79a0..c2d9ed5 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -478,6 +478,63 @@
+ #define IXGBE_RTTDTECC_NO_BCN   0x00000100
+ #define IXGBE_RTTBCNRC    0x04984
  
-@@ -190,20 +188,7 @@ GigaSet 307x Device Driver
-      You can also use /sys/class/tty/ttyGxy/cidmode for changing the CID mode
-      setting (ttyGxy is ttyGU0 or ttyGB0).
++/* FCoE registers */
++#define IXGBE_FCPTRL    0x02410 /* FC User Desc. PTR Low */
++#define IXGBE_FCPTRH    0x02414 /* FC USer Desc. PTR High */
++#define IXGBE_FCBUFF    0x02418 /* FC Buffer Control */
++#define IXGBE_FCDMARW   0x02420 /* FC Receive DMA RW */
++#define IXGBE_FCINVST0  0x03FC0 /* FC Invalid DMA Context Status Reg 0 */
++#define IXGBE_FCINVST(_i)       (IXGBE_FCINVST0 + ((_i) * 4))
++#define IXGBE_FCBUFF_VALID      (1 << 0)   /* DMA Context Valid */
++#define IXGBE_FCBUFF_BUFFSIZE   (3 << 3)   /* User Buffer Size */
++#define IXGBE_FCBUFF_WRCONTX    (1 << 7)   /* 0: Initiator, 1: Target */
++#define IXGBE_FCBUFF_BUFFCNT    0x0000ff00 /* Number of User Buffers */
++#define IXGBE_FCBUFF_OFFSET     0xffff0000 /* User Buffer Offset */
++#define IXGBE_FCBUFF_BUFFSIZE_SHIFT  3
++#define IXGBE_FCBUFF_BUFFCNT_SHIFT   8
++#define IXGBE_FCBUFF_OFFSET_SHIFT    16
++#define IXGBE_FCDMARW_WE        (1 << 14)   /* Write enable */
++#define IXGBE_FCDMARW_RE        (1 << 15)   /* Read enable */
++#define IXGBE_FCDMARW_FCOESEL   0x000001ff  /* FC X_ID: 11 bits */
++#define IXGBE_FCDMARW_LASTSIZE  0xffff0000  /* Last User Buffer Size */
++#define IXGBE_FCDMARW_LASTSIZE_SHIFT 16
++
++/* FCoE SOF/EOF */
++#define IXGBE_TEOFF     0x04A94 /* Tx FC EOF */
++#define IXGBE_TSOFF     0x04A98 /* Tx FC SOF */
++#define IXGBE_REOFF     0x05158 /* Rx FC EOF */
++#define IXGBE_RSOFF     0x051F8 /* Rx FC SOF */
++/* FCoE Filter Context Registers */
++#define IXGBE_FCFLT     0x05108 /* FC FLT Context */
++#define IXGBE_FCFLTRW   0x05110 /* FC Filter RW Control */
++#define IXGBE_FCPARAM   0x051d8 /* FC Offset Parameter */
++#define IXGBE_FCFLT_VALID       (1 << 0)   /* Filter Context Valid */
++#define IXGBE_FCFLT_FIRST       (1 << 1)   /* Filter First */
++#define IXGBE_FCFLT_SEQID       0x00ff0000 /* Sequence ID */
++#define IXGBE_FCFLT_SEQCNT      0xff000000 /* Sequence Count */
++#define IXGBE_FCFLTRW_RVALDT    (1 << 13)  /* Fast Re-Validation */
++#define IXGBE_FCFLTRW_WE        (1 << 14)  /* Write Enable */
++#define IXGBE_FCFLTRW_RE        (1 << 15)  /* Read Enable */
++/* FCoE Receive Control */
++#define IXGBE_FCRXCTRL  0x05100 /* FC Receive Control */
++#define IXGBE_FCRXCTRL_FCOELLI  (1 << 0)   /* Low latency interrupt */
++#define IXGBE_FCRXCTRL_SAVBAD   (1 << 1)   /* Save Bad Frames */
++#define IXGBE_FCRXCTRL_FRSTRDH  (1 << 2)   /* EN 1st Read Header */
++#define IXGBE_FCRXCTRL_LASTSEQH (1 << 3)   /* EN Last Header in Seq */
++#define IXGBE_FCRXCTRL_ALLH     (1 << 4)   /* EN All Headers */
++#define IXGBE_FCRXCTRL_FRSTSEQH (1 << 5)   /* EN 1st Seq. Header */
++#define IXGBE_FCRXCTRL_ICRC     (1 << 6)   /* Ignore Bad FC CRC */
++#define IXGBE_FCRXCTRL_FCCRCBO  (1 << 7)   /* FC CRC Byte Ordering */
++#define IXGBE_FCRXCTRL_FCOEVER  0x00000f00 /* FCoE Version: 4 bits */
++#define IXGBE_FCRXCTRL_FCOEVER_SHIFT 8
++/* FCoE Redirection */
++#define IXGBE_FCRECTL   0x0ED00 /* FC Redirection Control */
++#define IXGBE_FCRETA0   0x0ED10 /* FC Redirection Table 0 */
++#define IXGBE_FCRETA(_i)        (IXGBE_FCRETA0 + ((_i) * 4)) /* FCoE Redir */
++#define IXGBE_FCRECTL_ENA       0x1        /* FCoE Redir Table Enable */
++#define IXGBE_FCRETA_SIZE       8          /* Max entries in FCRETA */
++#define IXGBE_FCRETA_ENTRY_MASK 0x0000007f /* 7 bits for the queue index */
++
+ /* Stats registers */
+ #define IXGBE_CRCERRS   0x04000
+ #define IXGBE_ILLERRC   0x04004
+@@ -549,6 +606,13 @@
+ #define IXGBE_QPRDC(_i) (0x01430 + ((_i) * 0x40)) /* 16 of these */
+ #define IXGBE_QBTC_L(_i) (0x08700 + ((_i) * 0x8)) /* 16 of these */
+ #define IXGBE_QBTC_H(_i) (0x08704 + ((_i) * 0x8)) /* 16 of these */
++#define IXGBE_FCCRC     0x05118 /* Count of Good Eth CRC w/ Bad FC CRC */
++#define IXGBE_FCOERPDC  0x0241C /* FCoE Rx Packets Dropped Count */
++#define IXGBE_FCLAST    0x02424 /* FCoE Last Error Count */
++#define IXGBE_FCOEPRC   0x02428 /* Number of FCoE Packets Received */
++#define IXGBE_FCOEDWRC  0x0242C /* Number of FCoE DWords Received */
++#define IXGBE_FCOEPTC   0x08784 /* Number of FCoE Packets Transmitted */
++#define IXGBE_FCOEDWTC  0x08788 /* Number of FCoE DWords Transmitted */
  
--2.6. M105 Undocumented USB Requests
--     ------------------------------
--     The Gigaset M105 USB data box understands a couple of useful, but
--     undocumented USB commands. These requests are not used in normal
--     operation (for wireless access to the base), but are needed for access
--     to the M105's own configuration mode (registration to the base, baudrate
--     and line format settings, device status queries) via the gigacontr
--     utility. Their use is controlled by the kernel configuration option
--     "Support for undocumented USB requests" (CONFIG_GIGASET_UNDOCREQ). If you
--     encounter error code -ENOTTY when trying to use some features of the
--     M105, try setting that option to "y" via 'make {x,menu}config' and
--     recompiling the driver.
--
--2.7. Unregistered Wireless Devices (M101/M105)
-+2.6. Unregistered Wireless Devices (M101/M105)
-      -----------------------------------------
-      The main purpose of the ser_gigaset and usb_gigaset drivers is to allow
-      the M101 and M105 wireless devices to be used as ISDN devices for ISDN
-@@ -215,8 +200,7 @@ GigaSet 307x Device Driver
-      driver. In that situation, a restricted set of functions is available
-      which includes, in particular, those necessary for registering the device
-      to a base or for switching it between Fixed Part and Portable Part
--     modes. For the M105, these commands require the "Support for undocumented
--     USB requests" configuration option (see section 2.6.) to be enabled.
-+     modes.
+ /* Management */
+ #define IXGBE_MAVTV(_i) (0x05010 + ((_i) * 4)) /* 8 of these (0-7) */
+@@ -1153,6 +1217,7 @@
  
- 3.   Troubleshooting
-      ---------------
-@@ -247,19 +231,12 @@ GigaSet 307x Device Driver
-         Select Unimodem mode for all DECT data adapters. (see section 2.4.)
- 
-      Problem:
--        You want to configure your USB DECT data adapter (M105) but gigacontr
--        reports an error: "/dev/ttyGU0: Inappropriate ioctl for device".
--     Solution:
--        Recompile the usb_gigaset driver with the kernel configuration option
--        CONFIG_GIGASET_UNDOCREQ set to 'y'. (see section 2.6.)
--
--     Problem:
- 	Messages like this:
- 	    usb_gigaset 3-2:1.0: Could not initialize the device.
- 	appear in your syslog.
-      Solution:
- 	Check whether your M10x wireless device is correctly registered to the
--	Gigaset base. (see section 2.7.)
-+	Gigaset base. (see section 2.6.)
- 
- 3.2. Telling the driver to provide more information
-      ----------------------------------------------
-diff --git a/drivers/isdn/gigaset/Kconfig b/drivers/isdn/gigaset/Kconfig
-index 9ca889a..65ca305 100644
---- a/drivers/isdn/gigaset/Kconfig
-+++ b/drivers/isdn/gigaset/Kconfig
-@@ -42,11 +42,4 @@ config GIGASET_DEBUG
- 	  This enables debugging code in the Gigaset drivers.
- 	  If in doubt, say yes.
- 
--config GIGASET_UNDOCREQ
--	bool "Support for undocumented USB requests"
--	help
--	  This enables support for USB requests we only know from
--	  reverse engineering (currently M105 only). If you need
--	  features like configuration mode of M105, say yes.
--
- endif # ISDN_DRV_GIGASET
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index d783851..4deb1ab 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -153,8 +153,6 @@ static inline unsigned tiocm_to_gigaset(unsigned state)
- 	return ((state & TIOCM_DTR) ? 1 : 0) | ((state & TIOCM_RTS) ? 2 : 0);
- }
- 
--#ifdef CONFIG_GIGASET_UNDOCREQ
--/* WARNING: EXPERIMENTAL! */
- static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
- 				  unsigned new_state)
- {
-@@ -176,6 +174,11 @@ static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
- 	return 0;
- }
- 
-+/*
-+ * Set M105 configuration value
-+ * using undocumented device commands reverse engineered from USB traces
-+ * of the Siemens Windows driver
-+ */
- static int set_value(struct cardstate *cs, u8 req, u16 val)
- {
- 	struct usb_device *udev = cs->hw.usb->udev;
-@@ -205,8 +208,10 @@ static int set_value(struct cardstate *cs, u8 req, u16 val)
- 	return r < 0 ? r : (r2 < 0 ? r2 : 0);
- }
- 
--/* WARNING: HIGHLY EXPERIMENTAL! */
--// don't use this in an interrupt/BH
-+/*
-+ * set the baud rate on the internal serial adapter
-+ * using the undocumented parameter setting command
-+ */
- static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
- {
- 	u16 val;
-@@ -237,8 +242,10 @@ static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
- 	return set_value(cs, 1, val);
- }
- 
--/* WARNING: HIGHLY EXPERIMENTAL! */
--// don't use this in an interrupt/BH
-+/*
-+ * set the line format on the internal serial adapter
-+ * using the undocumented parameter setting command
-+ */
- static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
- {
- 	u16 val = 0;
-@@ -274,24 +281,6 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
- 	return set_value(cs, 3, val);
- }
- 
--#else
--static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state,
--				  unsigned new_state)
--{
--	return -ENOTTY;
--}
--
--static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
--{
--	return -ENOTTY;
--}
--
--static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
--{
--	return -ENOTTY;
--}
--#endif
--
- 
-  /*================================================================================================================*/
- static int gigaset_init_bchannel(struct bc_state *bcs)
-@@ -362,10 +351,8 @@ static void gigaset_modem_fill(unsigned long data)
- 	} while (again);
- }
- 
--/**
-- *	gigaset_read_int_callback
-- *
-- *	It is called if the data was received from the device.
-+/*
-+ * Interrupt Input URB completion routine
+ /* ETYPE Queue Filter/Select Bit Masks */
+ #define IXGBE_MAX_ETQF_FILTERS  8
++#define IXGBE_ETQF_FCOE         0x08000000 /* bit 27 */
+ #define IXGBE_ETQF_BCN          0x10000000 /* bit 28 */
+ #define IXGBE_ETQF_1588         0x40000000 /* bit 30 */
+ #define IXGBE_ETQF_FILTER_EN    0x80000000 /* bit 31 */
+@@ -1175,6 +1240,7 @@
   */
- static void gigaset_read_int_callback(struct urb *urb)
- {
-@@ -567,18 +554,19 @@ static int gigaset_chars_in_buffer(struct cardstate *cs)
- 	return cs->cmdbytes;
- }
+ #define IXGBE_ETQF_FILTER_EAPOL          0
+ #define IXGBE_ETQF_FILTER_BCN            1
++#define IXGBE_ETQF_FILTER_FCOE           2
+ #define IXGBE_ETQF_FILTER_1588           3
+ /* VLAN Control Bit Masks */
+ #define IXGBE_VLNCTRL_VET       0x0000FFFF  /* bits 0-15 */
+@@ -1579,6 +1645,8 @@
+ #define IXGBE_RXD_ERR_IPE       0x80    /* IP Checksum Error */
+ #define IXGBE_RXDADV_ERR_MASK           0xfff00000 /* RDESC.ERRORS mask */
+ #define IXGBE_RXDADV_ERR_SHIFT          20         /* RDESC.ERRORS shift */
++#define IXGBE_RXDADV_ERR_FCEOFE         0x80000000 /* FCoEFe/IPE */
++#define IXGBE_RXDADV_ERR_FCERR          0x00700000 /* FCERR/FDIRERR */
+ #define IXGBE_RXDADV_ERR_HBO    0x00800000 /*Header Buffer Overflow */
+ #define IXGBE_RXDADV_ERR_CE     0x01000000 /* CRC Error */
+ #define IXGBE_RXDADV_ERR_LE     0x02000000 /* Length Error */
+@@ -1598,6 +1666,12 @@
+ #define IXGBE_RXDADV_STAT_FLM           IXGBE_RXD_STAT_FLM /* FDir Match */
+ #define IXGBE_RXDADV_STAT_VP            IXGBE_RXD_STAT_VP  /* IEEE VLAN Pkt */
+ #define IXGBE_RXDADV_STAT_MASK          0x000fffff /* Stat/NEXTP: bit 0-19 */
++#define IXGBE_RXDADV_STAT_FCEOFS        0x00000040 /* FCoE EOF/SOF Stat */
++#define IXGBE_RXDADV_STAT_FCSTAT        0x00000030 /* FCoE Pkt Stat */
++#define IXGBE_RXDADV_STAT_FCSTAT_NOMTCH 0x00000000 /* 00: No Ctxt Match */
++#define IXGBE_RXDADV_STAT_FCSTAT_NODDP  0x00000010 /* 01: Ctxt w/o DDP */
++#define IXGBE_RXDADV_STAT_FCSTAT_FCPRSP 0x00000020 /* 10: Recv. FCP_RSP */
++#define IXGBE_RXDADV_STAT_FCSTAT_DDP    0x00000030 /* 11: Ctxt w/ DDP */
  
-+/*
-+ * set the break characters on the internal serial adapter
-+ * using undocumented device commands reverse engineered from USB traces
-+ * of the Siemens Windows driver
-+ */
- static int gigaset_brkchars(struct cardstate *cs, const unsigned char buf[6])
- {
--#ifdef CONFIG_GIGASET_UNDOCREQ
- 	struct usb_device *udev = cs->hw.usb->udev;
+ /* PSRTYPE bit definitions */
+ #define IXGBE_PSRTYPE_TCPHDR    0x00000010
+@@ -1831,6 +1905,16 @@ struct ixgbe_adv_tx_context_desc {
+ #define IXGBE_ADVTXD_POPTS_IPSEC      0x00000400 /* IPSec offload request */
+ #define IXGBE_ADVTXD_TUCMD_IPSEC_TYPE_ESP 0x00002000 /* IPSec Type ESP */
+ #define IXGBE_ADVTXD_TUCMD_IPSEC_ENCRYPT_EN 0x00004000/* ESP Encrypt Enable */
++#define IXGBE_ADVTXT_TUCMD_FCOE      0x00008000       /* FCoE Frame Type */
++#define IXGBE_ADVTXD_FCOEF_EOF_MASK  (0x3 << 10)      /* FC EOF index */
++#define IXGBE_ADVTXD_FCOEF_SOF       ((1 << 2) << 10) /* FC SOF index */
++#define IXGBE_ADVTXD_FCOEF_PARINC    ((1 << 3) << 10) /* Rel_Off in F_CTL */
++#define IXGBE_ADVTXD_FCOEF_ORIE      ((1 << 4) << 10) /* Orientation: End */
++#define IXGBE_ADVTXD_FCOEF_ORIS      ((1 << 5) << 10) /* Orientation: Start */
++#define IXGBE_ADVTXD_FCOEF_EOF_N     (0x0 << 10)      /* 00: EOFn */
++#define IXGBE_ADVTXD_FCOEF_EOF_T     (0x1 << 10)      /* 01: EOFt */
++#define IXGBE_ADVTXD_FCOEF_EOF_NI    (0x2 << 10)      /* 10: EOFni */
++#define IXGBE_ADVTXD_FCOEF_EOF_A     (0x3 << 10)      /* 11: EOFa */
+ #define IXGBE_ADVTXD_L4LEN_SHIFT     8  /* Adv ctxt L4LEN shift */
+ #define IXGBE_ADVTXD_MSS_SHIFT       16  /* Adv ctxt MSS shift */
  
- 	gigaset_dbg_buffer(DEBUG_USBREQ, "brkchars", 6, buf);
- 	memcpy(cs->hw.usb->bchars, buf, 6);
- 	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x19, 0x41,
- 			       0, 0, &buf, 6, 2000);
--#else
--	return -ENOTTY;
--#endif
- }
- 
- static int gigaset_freebcshw(struct bc_state *bcs)
-@@ -625,7 +613,6 @@ static int gigaset_initcshw(struct cardstate *cs)
- 	ucs->bchars[5] = 0x13;
- 	ucs->bulk_out_buffer = NULL;
- 	ucs->bulk_out_urb = NULL;
--	//ucs->urb_cmd_out = NULL;
- 	ucs->read_urb = NULL;
- 	tasklet_init(&cs->write_tasklet,
- 		     &gigaset_modem_fill, (unsigned long) cs);
-@@ -742,7 +729,7 @@ static int gigaset_probe(struct usb_interface *interface,
- 	cs->dev = &interface->dev;
- 
- 	/* save address of controller structure */
--	usb_set_intfdata(interface, cs); // dev_set_drvdata(&interface->dev, cs);
-+	usb_set_intfdata(interface, cs);
- 
- 	endpoint = &hostif->endpoint[0].desc;
- 
-@@ -921,8 +908,7 @@ static const struct gigaset_ops ops = {
- 	gigaset_m10x_input,
- };
- 
--/**
-- *	usb_gigaset_init
-+/*
-  * This function is called while kernel-module is loaded
-  */
- static int __init usb_gigaset_init(void)
-@@ -952,9 +938,7 @@ error:
- 	return -1;
- }
- 
--
--/**
-- *	usb_gigaset_exit
-+/*
-  * This function is called while unloading the kernel-module
-  */
- static void __exit usb_gigaset_exit(void)
--- 
-1.6.2.1.214.ge986c
 
