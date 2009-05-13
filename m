@@ -1,336 +1,433 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 5/8] ixgbe: Implement FCoE Tx side offload
-	features in base driver of 82599
-Date: Wed, 13 May 2009 16:11:06 -0700
-Message-ID: <20090513231105.11416.58577.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 6/8] ixgbe: Add infrastructure code for FCoE
+	large receive offload to 82599
+Date: Wed, 13 May 2009 16:11:29 -0700
+Message-ID: <20090513231129.11416.23975.stgit@localhost.localdomain>
 References: <20090513230924.11416.68752.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	Yi Zou <yi.zou@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Chris Leech <christopher.leech@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:49905
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761463AbZEMXLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 19:11:51 -0400
 In-Reply-To: <20090513230924.11416.68752.stgit@localhost.localdomain>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Yi Zou <yi.zou@intel.com>
 
-This patch implements the FCoE Tx side offload features in ixgbe_main.c
-to 82599 using the Tx offload infrastructure code added in the previous
-patch. This is achieved by the calling the FCoE Sequence Offload (FSO)
-function ixgbe_fso() on the transmit path of ixgbe.
-
-This patch also includes an EEPROM check to make sure the NIC we're loading
-on is an offload-enabled SKU.
+This adds infrastructure code for FCoE Rx side offload feature to
+82599, which provides large receive offload for FCoE by Direct
+Data Placement (DDP). The ixgbe_fcoe_ddp_get() and ixgbe_fcoe_ddp_put()
+pair corresponds to the netdev support to FCoE by the function pointers
+provided in net_device_ops as ndo_fcoe_ddp_setup and ndo_fcoe_ddp_done.
+The implementation of these in ixgbe is shown in the next patch.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Chris Leech <christopher.leech@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/Makefile      |    2 +
- drivers/net/ixgbe/ixgbe.h       |   13 +++++
- drivers/net/ixgbe/ixgbe_82599.c |    1 
- drivers/net/ixgbe/ixgbe_main.c  |  104 ++++++++++++++++++++++++++++++++-------
- drivers/net/ixgbe/ixgbe_type.h  |    1 
- 5 files changed, 101 insertions(+), 20 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    3 
+ drivers/net/ixgbe/ixgbe_fcoe.c |  340 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_fcoe.h |    2 
+ 3 files changed, 344 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ixgbe/Makefile
-index b3f8208..21b41f4 100644
---- a/drivers/net/ixgbe/Makefile
-+++ b/drivers/net/ixgbe/Makefile
-@@ -37,3 +37,5 @@ ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
- 
- ixgbe-$(CONFIG_IXGBE_DCB) +=  ixgbe_dcb.o ixgbe_dcb_82598.o \
-                               ixgbe_dcb_82599.o ixgbe_dcb_nl.o
-+
-+ixgbe-$(CONFIG_FCOE:m=y) += ixgbe_fcoe.o
 diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index d743d0e..06859f6 100644
+index 06859f6..5581fa3 100644
 --- a/drivers/net/ixgbe/ixgbe.h
 +++ b/drivers/net/ixgbe/ixgbe.h
-@@ -36,6 +36,10 @@
- #include "ixgbe_type.h"
- #include "ixgbe_common.h"
- #include "ixgbe_dcb.h"
-+#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#define IXGBE_FCOE
-+#include "ixgbe_fcoe.h"
-+#endif /* CONFIG_FCOE or CONFIG_FCOE_MODULE */
- #ifdef CONFIG_IXGBE_DCA
- #include <linux/dca.h>
- #endif
-@@ -84,6 +88,8 @@
- #define IXGBE_TX_FLAGS_VLAN		(u32)(1 << 1)
- #define IXGBE_TX_FLAGS_TSO		(u32)(1 << 2)
- #define IXGBE_TX_FLAGS_IPV4		(u32)(1 << 3)
-+#define IXGBE_TX_FLAGS_FCOE		(u32)(1 << 4)
-+#define IXGBE_TX_FLAGS_FSO		(u32)(1 << 5)
- #define IXGBE_TX_FLAGS_VLAN_MASK	0xffff0000
- #define IXGBE_TX_FLAGS_VLAN_PRIO_MASK   0x0000e000
- #define IXGBE_TX_FLAGS_VLAN_SHIFT	16
-@@ -298,6 +304,7 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG_IN_SFP_MOD_TASK              (u32)(1 << 25)
- #define IXGBE_FLAG_RSC_CAPABLE                  (u32)(1 << 26)
- #define IXGBE_FLAG_RSC_ENABLED                  (u32)(1 << 27)
-+#define IXGBE_FLAG_FCOE_ENABLED                 (u32)(1 << 29)
- 
- /* default to trying for four seconds */
- #define IXGBE_TRY_LINK_TIMEOUT (4 * HZ)
-@@ -371,5 +378,11 @@ extern void ixgbe_update_stats(struct ixgbe_adapter *adapter);
- extern int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter);
- extern void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter);
- extern void ixgbe_write_eitr(struct ixgbe_adapter *, int, u32);
+@@ -336,6 +336,9 @@ struct ixgbe_adapter {
+ 	struct timer_list sfp_timer;
+ 	struct work_struct multispeed_fiber_task;
+ 	struct work_struct sfp_config_module_task;
 +#ifdef IXGBE_FCOE
-+extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
-+extern int ixgbe_fso(struct ixgbe_adapter *adapter,
-+                     struct ixgbe_ring *tx_ring, struct sk_buff *skb,
-+                     u32 tx_flags, u8 *hdr_len);
++	struct ixgbe_fcoe fcoe;
 +#endif /* IXGBE_FCOE */
+ 	u64 rsc_count;
+ 	u32 wol;
+ 	u16 eeprom_version;
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
+index e20facd..a11c620 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -36,6 +36,311 @@
+ #include <scsi/libfcoe.h>
  
- #endif /* _IXGBE_H_ */
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 6038ed1..23be4db 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -1294,7 +1294,6 @@ s32 ixgbe_get_device_caps_82599(struct ixgbe_hw *hw, u16 *device_caps)
- 	return 0;
- }
- 
--
- static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.init_hw                = &ixgbe_init_hw_generic,
- 	.reset_hw               = &ixgbe_reset_hw_82599,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index efb175b..ee80f6f 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -39,6 +39,7 @@
- #include <net/ip6_checksum.h>
- #include <linux/ethtool.h>
- #include <linux/if_vlan.h>
-+#include <scsi/fc/fc_fcoe.h>
- 
- #include "ixgbe.h"
- #include "ixgbe_common.h"
-@@ -1810,6 +1811,11 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	/* Decide whether to use packet split mode or not */
- 	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
- 
-+#ifdef IXGBE_FCOE
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
-+		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
-+#endif /* IXGBE_FCOE */
+ /**
++ * ixgbe_rx_is_fcoe - check the rx desc for incoming pkt type
++ * @rx_desc: advanced rx descriptor
++ *
++ * Returns : true if it is FCoE pkt
++ */
++static inline bool ixgbe_rx_is_fcoe(union ixgbe_adv_rx_desc *rx_desc)
++{
++	u16 p;
 +
- 	/* Set the RX buffer length according to the mode */
- 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
- 		rx_buf_len = IXGBE_RX_HDR_SIZE;
-@@ -2241,6 +2247,11 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 	netif_set_gso_max_size(netdev, 65536);
- #endif
- 
-+#ifdef IXGBE_FCOE
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
-+		ixgbe_configure_fcoe(adapter);
++	p = le16_to_cpu(rx_desc->wb.lower.lo_dword.hs_rss.pkt_info);
++	if (p & IXGBE_RXDADV_PKTTYPE_ETQF) {
++		p &= IXGBE_RXDADV_PKTTYPE_ETQF_MASK;
++		p >>= IXGBE_RXDADV_PKTTYPE_ETQF_SHIFT;
++		return p == IXGBE_ETQF_FILTER_FCOE;
++	}
++	return false;
++}
 +
-+#endif /* IXGBE_FCOE */
- 	ixgbe_configure_tx(adapter);
- 	ixgbe_configure_rx(adapter);
- 	for (i = 0; i < adapter->num_rx_queues; i++)
-@@ -3401,6 +3412,9 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82599;
- 		adapter->flags |= IXGBE_FLAG_RSC_CAPABLE;
- 		adapter->flags |= IXGBE_FLAG_RSC_ENABLED;
-+#ifdef IXGBE_FCOE
-+		adapter->flags |= IXGBE_FLAG_FCOE_ENABLED;
-+#endif /* IXGBE_FCOE */
- 	}
- 
- #ifdef CONFIG_IXGBE_DCB
-@@ -4416,10 +4430,12 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
- 
- static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
-                         struct ixgbe_ring *tx_ring,
--                        struct sk_buff *skb, unsigned int first)
-+                        struct sk_buff *skb, u32 tx_flags,
-+                        unsigned int first)
- {
- 	struct ixgbe_tx_buffer *tx_buffer_info;
--	unsigned int len = skb_headlen(skb);
++/**
++ * ixgbe_fcoe_clear_ddp - clear the given ddp context
++ * @ddp - ptr to the ixgbe_fcoe_ddp
++ *
++ * Returns : none
++ *
++ */
++static inline void ixgbe_fcoe_clear_ddp(struct ixgbe_fcoe_ddp *ddp)
++{
++	ddp->len = 0;
++	ddp->err = 0;
++	ddp->udl = NULL;
++	ddp->udp = 0UL;
++	ddp->sgl = NULL;
++	ddp->sgc = 0;
++}
++
++/**
++ * ixgbe_fcoe_ddp_put - free the ddp context for a given xid
++ * @netdev: the corresponding net_device
++ * @xid: the xid that corresponding ddp will be freed
++ *
++ * This is the implementation of net_device_ops.ndo_fcoe_ddp_done
++ * and it is expected to be called by ULD, i.e., FCP layer of libfc
++ * to release the corresponding ddp context when the I/O is done.
++ *
++ * Returns : data length already ddp-ed in bytes
++ */
++int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
++{
++	int len = 0;
++	struct ixgbe_fcoe *fcoe;
++	struct ixgbe_adapter *adapter;
++	struct ixgbe_fcoe_ddp *ddp;
++
++	if (!netdev)
++		goto out_ddp_put;
++
++	if (xid >= IXGBE_FCOE_DDP_MAX)
++		goto out_ddp_put;
++
++	adapter = netdev_priv(netdev);
++	fcoe = &adapter->fcoe;
++	ddp = &fcoe->ddp[xid];
++	if (!ddp->udl)
++		goto out_ddp_put;
++
++	len = ddp->len;
++	/* if there an error, force to invalidate ddp context */
++	if (ddp->err) {
++		spin_lock_bh(&fcoe->lock);
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCFLT, 0);
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCFLTRW,
++				(xid | IXGBE_FCFLTRW_WE));
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCBUFF, 0);
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCDMARW,
++				(xid | IXGBE_FCDMARW_WE));
++		spin_unlock_bh(&fcoe->lock);
++	}
++	if (ddp->sgl)
++		pci_unmap_sg(adapter->pdev, ddp->sgl, ddp->sgc,
++			     DMA_FROM_DEVICE);
++	pci_pool_free(fcoe->pool, ddp->udl, ddp->udp);
++	ixgbe_fcoe_clear_ddp(ddp);
++
++out_ddp_put:
++	return len;
++}
++
++/**
++ * ixgbe_fcoe_ddp_get - called to set up ddp context
++ * @netdev: the corresponding net_device
++ * @xid: the exchange id requesting ddp
++ * @sgl: the scatter-gather list for this request
++ * @sgc: the number of scatter-gather items
++ *
++ * This is the implementation of net_device_ops.ndo_fcoe_ddp_setup
++ * and is expected to be called from ULD, e.g., FCP layer of libfc
++ * to set up ddp for the corresponding xid of the given sglist for
++ * the corresponding I/O.
++ *
++ * Returns : 1 for success and 0 for no ddp
++ */
++int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
++		       struct scatterlist *sgl, unsigned int sgc)
++{
++	struct ixgbe_adapter *adapter;
++	struct ixgbe_hw *hw;
++	struct ixgbe_fcoe *fcoe;
++	struct ixgbe_fcoe_ddp *ddp;
++	struct scatterlist *sg;
++	unsigned int i, j, dmacount;
 +	unsigned int len;
-+	unsigned int total = skb->len;
- 	unsigned int offset = 0, size, count = 0, i;
- 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
- 	unsigned int f;
-@@ -4434,6 +4450,11 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 
- 	map = skb_shinfo(skb)->dma_maps;
- 
-+	if (tx_flags & IXGBE_TX_FLAGS_FCOE)
-+		/* excluding fcoe_crc_eof for FCoE */
-+		total -= sizeof(struct fcoe_crc_eof);
++	static const unsigned int bufflen = 4096;
++	unsigned int firstoff = 0;
++	unsigned int lastsize;
++	unsigned int thisoff = 0;
++	unsigned int thislen = 0;
++	u32 fcbuff, fcdmarw, fcfltrw;
++	dma_addr_t addr;
 +
-+	len = min(skb_headlen(skb), total);
- 	while (len) {
- 		tx_buffer_info = &tx_ring->tx_buffer_info[i];
- 		size = min(len, (uint)IXGBE_MAX_DATA_PER_TXD);
-@@ -4444,6 +4465,7 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 		tx_buffer_info->next_to_watch = i;
- 
- 		len -= size;
-+		total -= size;
- 		offset += size;
- 		count++;
- 
-@@ -4458,7 +4480,7 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 		struct skb_frag_struct *frag;
- 
- 		frag = &skb_shinfo(skb)->frags[f];
--		len = frag->size;
-+		len = min((unsigned int)frag->size, total);
- 		offset = 0;
- 
- 		while (len) {
-@@ -4475,9 +4497,12 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
- 			tx_buffer_info->next_to_watch = i;
- 
- 			len -= size;
-+			total -= size;
- 			offset += size;
- 			count++;
- 		}
-+		if (total == 0)
-+			break;
- 	}
- 
- 	tx_ring->tx_buffer_info[i].skb = skb;
-@@ -4519,6 +4544,13 @@ static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
- 		olinfo_status |= IXGBE_TXD_POPTS_TXSM <<
- 		                 IXGBE_ADVTXD_POPTS_SHIFT;
- 
-+	if (tx_flags & IXGBE_TX_FLAGS_FCOE) {
-+		olinfo_status |= IXGBE_ADVTXD_CC;
-+		olinfo_status |= (1 << IXGBE_ADVTXD_IDX_SHIFT);
-+		if (tx_flags & IXGBE_TX_FLAGS_FSO)
-+			cmd_type_len |= IXGBE_ADVTXD_DCMD_TSE;
++	if (!netdev || !sgl)
++		return 0;
++
++	adapter = netdev_priv(netdev);
++	if (xid >= IXGBE_FCOE_DDP_MAX) {
++		DPRINTK(DRV, WARNING, "xid=0x%x out-of-range\n", xid);
++		return 0;
 +	}
 +
- 	olinfo_status |= ((paylen - hdr_len) << IXGBE_ADVTXD_PAYLEN_SHIFT);
- 
- 	i = tx_ring->next_to_use;
-@@ -4615,10 +4647,16 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
- 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
- 	}
--	/* three things can cause us to need a context descriptor */
-+
-+	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
-+	    (skb->protocol == htons(ETH_P_FCOE)))
-+		tx_flags |= IXGBE_TX_FLAGS_FCOE;
-+
-+	/* four things can cause us to need a context descriptor */
- 	if (skb_is_gso(skb) ||
- 	    (skb->ip_summed == CHECKSUM_PARTIAL) ||
--	    (tx_flags & IXGBE_TX_FLAGS_VLAN))
-+	    (tx_flags & IXGBE_TX_FLAGS_VLAN) ||
-+	    (tx_flags & IXGBE_TX_FLAGS_FCOE))
- 		count++;
- 
- 	count += TXD_USE_COUNT(skb_headlen(skb));
-@@ -4630,23 +4668,35 @@ static int ixgbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	if (skb->protocol == htons(ETH_P_IP))
--		tx_flags |= IXGBE_TX_FLAGS_IPV4;
- 	first = tx_ring->next_to_use;
--	tso = ixgbe_tso(adapter, tx_ring, skb, tx_flags, &hdr_len);
--	if (tso < 0) {
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
--	}
--
--	if (tso)
--		tx_flags |= IXGBE_TX_FLAGS_TSO;
--	else if (ixgbe_tx_csum(adapter, tx_ring, skb, tx_flags) &&
--	         (skb->ip_summed == CHECKSUM_PARTIAL))
--		tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+	if (tx_flags & IXGBE_TX_FLAGS_FCOE) {
-+#ifdef IXGBE_FCOE
-+		/* setup tx offload for FCoE */
-+		tso = ixgbe_fso(adapter, tx_ring, skb, tx_flags, &hdr_len);
-+		if (tso < 0) {
-+			dev_kfree_skb_any(skb);
-+			return NETDEV_TX_OK;
-+		}
-+		if (tso)
-+			tx_flags |= IXGBE_TX_FLAGS_FSO;
-+#endif /* IXGBE_FCOE */
-+	} else {
-+		if (skb->protocol == htons(ETH_P_IP))
-+			tx_flags |= IXGBE_TX_FLAGS_IPV4;
-+		tso = ixgbe_tso(adapter, tx_ring, skb, tx_flags, &hdr_len);
-+		if (tso < 0) {
-+			dev_kfree_skb_any(skb);
-+			return NETDEV_TX_OK;
-+		}
- 
--	count = ixgbe_tx_map(adapter, tx_ring, skb, first);
-+		if (tso)
-+			tx_flags |= IXGBE_TX_FLAGS_TSO;
-+		else if (ixgbe_tx_csum(adapter, tx_ring, skb, tx_flags) &&
-+			 (skb->ip_summed == CHECKSUM_PARTIAL))
-+			tx_flags |= IXGBE_TX_FLAGS_CSUM;
++	fcoe = &adapter->fcoe;
++	if (!fcoe->pool) {
++		DPRINTK(DRV, WARNING, "xid=0x%x no ddp pool for fcoe\n", xid);
++		return 0;
 +	}
- 
-+	count = ixgbe_tx_map(adapter, tx_ring, skb, tx_flags, first);
- 	if (count) {
- 		ixgbe_tx_queue(adapter, tx_ring, tx_flags, count, skb->len,
- 		               hdr_len);
-@@ -4794,6 +4844,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
- 	static int cards_found;
- 	int i, err, pci_using_dac;
-+#ifdef IXGBE_FCOE
-+	u16 device_caps;
-+#endif
- 	u32 part_num, eec;
- 
- 	err = pci_enable_device_mem(pdev);
-@@ -4976,6 +5029,19 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	netdev->dcbnl_ops = &dcbnl_ops;
- #endif
- 
-+#ifdef IXGBE_FCOE
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
-+		if (hw->mac.ops.get_device_caps) {
-+			hw->mac.ops.get_device_caps(hw, &device_caps);
-+			if (!(device_caps & IXGBE_DEVICE_CAPS_FCOE_OFFLOADS)) {
-+				netdev->features |= NETIF_F_FCOE_CRC;
-+				netdev->features |= NETIF_F_FSO;
-+			} else {
-+				adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
++
++	ddp = &fcoe->ddp[xid];
++	if (ddp->sgl) {
++		DPRINTK(DRV, ERR, "xid 0x%x w/ non-null sgl=%p nents=%d\n",
++			xid, ddp->sgl, ddp->sgc);
++		return 0;
++	}
++	ixgbe_fcoe_clear_ddp(ddp);
++
++	/* setup dma from scsi command sgl */
++	dmacount = pci_map_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
++	if (dmacount == 0) {
++		DPRINTK(DRV, ERR, "xid 0x%x DMA map error\n", xid);
++		return 0;
++	}
++
++	/* alloc the udl from our ddp pool */
++	ddp->udl = pci_pool_alloc(fcoe->pool, GFP_KERNEL, &ddp->udp);
++	if (!ddp->udl) {
++		DPRINTK(DRV, ERR, "failed allocated ddp context\n");
++		goto out_noddp_unmap;
++	}
++	ddp->sgl = sgl;
++	ddp->sgc = sgc;
++
++	j = 0;
++	for_each_sg(sgl, sg, dmacount, i) {
++		addr = sg_dma_address(sg);
++		len = sg_dma_len(sg);
++		while (len) {
++			/* get the offset of length of current buffer */
++			thisoff = addr & ((dma_addr_t)bufflen - 1);
++			thislen = min((bufflen - thisoff), len);
++			/*
++			 * all but the 1st buffer (j == 0)
++			 * must be aligned on bufflen
++			 */
++			if ((j != 0) && (thisoff))
++				goto out_noddp_free;
++			/*
++			 * all but the last buffer
++			 * ((i == (dmacount - 1)) && (thislen == len))
++			 * must end at bufflen
++			 */
++			if (((i != (dmacount - 1)) || (thislen != len))
++			    && ((thislen + thisoff) != bufflen))
++				goto out_noddp_free;
++
++			ddp->udl[j] = (u64)(addr - thisoff);
++			/* only the first buffer may have none-zero offset */
++			if (j == 0)
++				firstoff = thisoff;
++			len -= thislen;
++			addr += thislen;
++			j++;
++			/* max number of buffers allowed in one DDP context */
++			if (j > IXGBE_BUFFCNT_MAX) {
++				DPRINTK(DRV, ERR, "xid=%x:%d,%d,%d:addr=%llx "
++					"not enough descriptors\n",
++					xid, i, j, dmacount, (u64)addr);
++				goto out_noddp_free;
 +			}
 +		}
 +	}
-+#endif /* IXGBE_FCOE */
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
++	/* only the last buffer may have non-full bufflen */
++	lastsize = thisoff + thislen;
++
++	fcbuff = (IXGBE_FCBUFF_4KB << IXGBE_FCBUFF_BUFFSIZE_SHIFT);
++	fcbuff |= (j << IXGBE_FCBUFF_BUFFCNT_SHIFT);
++	fcbuff |= (firstoff << IXGBE_FCBUFF_OFFSET_SHIFT);
++	fcbuff |= (IXGBE_FCBUFF_VALID);
++
++	fcdmarw = xid;
++	fcdmarw |= IXGBE_FCDMARW_WE;
++	fcdmarw |= (lastsize << IXGBE_FCDMARW_LASTSIZE_SHIFT);
++
++	fcfltrw = xid;
++	fcfltrw |= IXGBE_FCFLTRW_WE;
++
++	/* program DMA context */
++	hw = &adapter->hw;
++	spin_lock_bh(&fcoe->lock);
++	IXGBE_WRITE_REG(hw, IXGBE_FCPTRL, ddp->udp & DMA_32BIT_MASK);
++	IXGBE_WRITE_REG(hw, IXGBE_FCPTRH, (u64)ddp->udp >> 32);
++	IXGBE_WRITE_REG(hw, IXGBE_FCBUFF, fcbuff);
++	IXGBE_WRITE_REG(hw, IXGBE_FCDMARW, fcdmarw);
++	/* program filter context */
++	IXGBE_WRITE_REG(hw, IXGBE_FCPARAM, 0);
++	IXGBE_WRITE_REG(hw, IXGBE_FCFLT, IXGBE_FCFLT_VALID);
++	IXGBE_WRITE_REG(hw, IXGBE_FCFLTRW, fcfltrw);
++	spin_unlock_bh(&fcoe->lock);
++
++	return 1;
++
++out_noddp_free:
++	pci_pool_free(fcoe->pool, ddp->udl, ddp->udp);
++	ixgbe_fcoe_clear_ddp(ddp);
++
++out_noddp_unmap:
++	pci_unmap_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
++	return 0;
++}
++
++/**
++ * ixgbe_fcoe_ddp - check ddp status and mark it done
++ * @adapter: ixgbe adapter
++ * @rx_desc: advanced rx descriptor
++ * @skb: the skb holding the received data
++ *
++ * This checks ddp status.
++ *
++ * Returns : 0 for success and skb will not be delivered to ULD
++ */
++int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
++		   union ixgbe_adv_rx_desc *rx_desc,
++		   struct sk_buff *skb)
++{
++	u16 xid;
++	u32 sterr, fceofe, fcerr, fcstat;
++	int rc = -EINVAL;
++	struct ixgbe_fcoe *fcoe;
++	struct ixgbe_fcoe_ddp *ddp;
++	struct fc_frame_header *fh;
++
++	if (!ixgbe_rx_is_fcoe(rx_desc))
++		goto ddp_out;
++
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	sterr = le32_to_cpu(rx_desc->wb.upper.status_error);
++	fcerr = (sterr & IXGBE_RXDADV_ERR_FCERR);
++	fceofe = (sterr & IXGBE_RXDADV_ERR_FCEOFE);
++	if (fcerr == IXGBE_FCERR_BADCRC)
++		skb->ip_summed = CHECKSUM_NONE;
++
++	skb_reset_network_header(skb);
++	skb_set_transport_header(skb, skb_network_offset(skb) +
++				 sizeof(struct fcoe_hdr));
++	fh = (struct fc_frame_header *)skb_transport_header(skb);
++	xid =  be16_to_cpu(fh->fh_ox_id);
++	if (xid >= IXGBE_FCOE_DDP_MAX)
++		goto ddp_out;
++
++	fcoe = &adapter->fcoe;
++	ddp = &fcoe->ddp[xid];
++	if (!ddp->udl)
++		goto ddp_out;
++
++	ddp->err = (fcerr | fceofe);
++	if (ddp->err)
++		goto ddp_out;
++
++	fcstat = (sterr & IXGBE_RXDADV_STAT_FCSTAT);
++	if (fcstat) {
++		/* update length of DDPed data */
++		ddp->len = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
++		/* unmap the sg list when FCP_RSP is received */
++		if (fcstat == IXGBE_RXDADV_STAT_FCSTAT_FCPRSP) {
++			pci_unmap_sg(adapter->pdev, ddp->sgl,
++				     ddp->sgc, DMA_FROM_DEVICE);
++			ddp->sgl = NULL;
++			ddp->sgc = 0;
++		}
++		/* return 0 to bypass going to ULD for DDPed data */
++		if (fcstat == IXGBE_RXDADV_STAT_FCSTAT_DDP)
++			rc = 0;
++	}
++
++ddp_out:
++	return rc;
++}
++
++/**
+  * ixgbe_fso - ixgbe FCoE Sequence Offload (FSO)
+  * @adapter: ixgbe adapter
+  * @tx_ring: tx desc ring
+@@ -178,7 +483,20 @@ int ixgbe_fso(struct ixgbe_adapter *adapter,
+ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
++	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
++
++	/* create the pool for ddp if not created yet */
++	if (!fcoe->pool) {
++		/* allocate ddp pool */
++		fcoe->pool = pci_pool_create("ixgbe_fcoe_ddp",
++					     adapter->pdev, IXGBE_FCPTR_MAX,
++					     IXGBE_FCPTR_ALIGN, PAGE_SIZE);
++		if (!fcoe->pool)
++			DPRINTK(DRV, ERR,
++				"failed to allocated FCoE DDP pool\n");
  
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index c2d9ed5..b3de723 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1483,6 +1483,7 @@
- #endif
++		spin_lock_init(&fcoe->lock);
++	}
+ 	/* L2 filter for FCoE: default to queue 0 */
+ 	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FCOE),
+ 			(ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN));
+@@ -190,3 +508,25 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 			IXGBE_FCRXCTRL_FCCRCBO |
+ 			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
+ }
++
++/**
++ * ixgbe_cleanup_fcoe - release all fcoe ddp context resources
++ * @adapter : ixgbe adapter
++ *
++ * Cleans up outstanding ddp context resources
++ *
++ * Returns : none
++ */
++void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter)
++{
++	int i;
++	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
++
++	/* release ddp resource */
++	if (fcoe->pool) {
++		for (i = 0; i < IXGBE_FCOE_DDP_MAX; i++)
++			ixgbe_fcoe_ddp_put(adapter->netdev, i);
++		pci_pool_destroy(fcoe->pool);
++		fcoe->pool = NULL;
++	}
++}
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/ixgbe_fcoe.h
+index d054c1d..b7f9b63 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.h
++++ b/drivers/net/ixgbe/ixgbe_fcoe.h
+@@ -54,7 +54,7 @@ struct ixgbe_fcoe_ddp {
+ 	unsigned int sgc;
+ 	struct scatterlist *sgl;
+ 	dma_addr_t udp;
+-	unsigned long *udl;
++	u64 *udl;
+ };
  
- #define IXGBE_DEVICE_CAPS_ALLOW_ANY_SFP  0x1
-+#define IXGBE_DEVICE_CAPS_FCOE_OFFLOADS  0x2
- 
- /* PCI Bus Info */
- #define IXGBE_PCI_LINK_STATUS     0xB2
+ struct ixgbe_fcoe {
 
