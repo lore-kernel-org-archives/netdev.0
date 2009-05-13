@@ -1,39 +1,47 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
-Date: Wed, 13 May 2009 21:34:12 +0200
-Message-ID: <m33ab894qz.fsf@intrepid.localdomain>
-References: <200903041828.49972.m.bueker@berlin.de>
-	<4A06D8D2.4010505@googlemail.com>
-	<1242001754.4093.12.camel@obelisk.thedillows.org>
-	<200905112248.44868.mb@bu3sch.de>
-	<m3eiuufufj.fsf@intrepid.localdomain>
-	<4A09EE13.3020102@googlemail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [resend] drivers/net: remove network drivers' last few
+ uses of IRQF_SAMPLE_RANDOM
+Date: Wed, 13 May 2009 15:39:11 -0400
+Message-ID: <4A0B21DF.9050702@garzik.org>
+References: <alpine.DEB.2.00.0905130118140.15823@ubuntu-desktop> <20090513060850.GZ31071@waste.org> <a24804730905130017t545b7645x71ab7a1c8ab4af78@mail.gmail.com> <20090513142535.GB31071@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, David Dillow <dave@thedillows.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael =?iso-8859-2?Q?B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michael Riepe <michael.riepe@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752979AbZEMTeb@vger.kernel.org>
-In-Reply-To: <4A09EE13.3020102@googlemail.com> (Michael Riepe's message of "Tue\, 12 May 2009 23\:45\:55 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chris Peterson <cpeterso@cpeterso.com>,
+	linux-kernel@vger.kernel.org, NetDev <netdev@vger.kernel.org>
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:57321 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755452AbZEMTjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 15:39:16 -0400
+In-Reply-To: <20090513142535.GB31071@waste.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Riepe <michael.riepe@googlemail.com> writes:
+Matt Mackall wrote:
+> On Wed, May 13, 2009 at 12:17:29AM -0700, Chris Peterson wrote:
+>>> The future model will continue to sample network
+>>> devices on theory that they -might- be less than 100% observable and
+>>> that can only increase our total (unmeasurable) amount of entropy.
+>> That sounds reasonable to me. So should all net drivers now specify
+>> IRQF_SAMPLE_RANDOM?
+>>
+>> Or even simpler: could request_irq() assume IRQF_SAMPLE_RANDOM for any
+>> interrupt that is not (say) IRQF_IRQPOLL or IRQF_PERCPU?
+> 
+> Maybe. We don't want IRQ latency to suffer. So before we turn on
+> sampling of -all- sources, we need to make sampling lighter weight and
+> we need a way to say 'we have enough' so that we're not consuming CPU
+> when our pools are 'full'. We could turn it on now and rely on the
+> current trickle logic, but it's nice to have the water main off when
+> doing significant plumbing.
 
-> How do lspci and dmesg report the chip? For mine, lspci says it's a
-> "RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 02)" while
-> the kernel reports "RTL8168c/8111c at 0xffffc200000f6000,
-> 00:1c:c0:b6:1a:4a, XID 3c4000c0".
+So, until such time, let's be consistent in net driver land and not 
+IRQF_SAMPLE_RANDOM.
 
-Sure, that's the same chip I think.
+	Jeff
 
-> This reminds me of the early ATA/USB bridges from Genesys Logic... many
-> revisions, and each one broken in a different way. :-(
 
-This seems like the same revision. I'm not very convinced it's the RTL
-chip which is buggy.
--- 
-Krzysztof Halasa
+
+
