@@ -1,61 +1,122 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PowerPC] Next May 8 boot failure: OOPS during ibmveth
- moduleinit
-Date: Wed, 13 May 2009 16:39:01 +1000
-Message-ID: <20090513163901.42f1110d.sfr@canb.auug.org.au>
-References: <20090508180251.f53f204e.sfr@canb.auug.org.au>
-	<4A042B20.4090903@in.ibm.com>
-	<20090508.125722.54378771.davem@davemloft.net>
-	<20090508223332.GA4881@psychotron.englab.brq.redhat.com>
-	<4A085B3D.5000806@in.ibm.com>
-	<20090512170458.39c4ffb7.sfr@canb.auug.org.au>
-	<20090512174451.eeed4126.sfr@canb.auug.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] bnx2: bnx2_tx_int() optimizations
+Date: Wed, 13 May 2009 08:48:02 +0200
+Message-ID: <4A0A6D22.5060007@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__13_May_2009_16_39_01_+1000_WqeK12O6tU83QWoA"
-Cc: Sachin Sant <sachinp@in.ibm.com>, Jiri Pirko <jpirko@redhat.com>,
-	linux-next@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20090512174451.eeed4126.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw2.cosmosbay.com ([86.64.20.130]:59581 "EHLO gw2.cosmosbay.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751165AbZEMGsL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 02:48:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__13_May_2009_16_39_01_+1000_WqeK12O6tU83QWoA
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+When using bnx2 in a high transmit load, bnx2_tx_int() cost is pretty high.
 
-Hi Dave,
+There are two reasons.
 
-On Tue, 12 May 2009 17:44:51 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 12 May 2009 17:24:02 +1000
-> Subject: [PATCH] net/ibmveth: fix panic in probe
->=20
-> netdev->dev_addr changed from being an array to being a pointer, so we
-> should not take its address for memcpy().
+One is an expensive call to bnx2_get_hw_tx_cons(bnapi) for each freed skb
 
-I have applied this to linux-next until you decide what to do with it.
+One is cpu stalls when accessing skb_is_gso(skb) / skb_shinfo(skb)->nr_frags
+because of two cache line misses.
+(One to get skb->end/head to compute skb_shinfo(skb),
+ one to get is_gso/nr_frags)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
 
---Signature=_Wed__13_May_2009_16_39_01_+1000_WqeK12O6tU83QWoA
-Content-Type: application/pgp-signature
+This patch :
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+1) avoids calling bnx2_get_hw_tx_cons(bnapi) too many times.
 
-iEYEARECAAYFAkoKawUACgkQjjKRsyhoI8yb5QCeIn6gd4nvVJ1my7iV/BGP0GnZ
-Jf8An3ps24EgleVouCX40HH5hW83QllC
-=tQMf
------END PGP SIGNATURE-----
+2) makes bnx2_start_xmit() cache is_gso & nr_frags into sw_tx_bd descriptor.
+   This uses a litle bit more ram (256 longs per device on x86), but helps a lot.
 
---Signature=_Wed__13_May_2009_16_39_01_+1000_WqeK12O6tU83QWoA--
+3) uses a prefetch(&skb->end) to speedup dev_kfree_skb(), bringing
+  cache line that will be needed in skb_release_data()
+
+
+result is 5 % bandwidth increase in benchmarks, involving UDP or TCP receive
+ & transmits, when a cpu is dedicated to ksoftirqd for bnx2.
+
+bnx2_tx_int going from 3.33 % cpu to 0.5 % cpu in oprofile
+
+Note : skb_dma_unmap() still very expensive but this is for another patch, 
+not related to bnx2 (2.9 % of cpu, while it does nothing on x86_32)
+
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+ drivers/net/bnx2.c |   18 +++++++++++-------
+ drivers/net/bnx2.h |    2 ++
+ 2 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index b0cb29d..c37acc1 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -2630,14 +2630,15 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ 		tx_buf = &txr->tx_buf_ring[sw_ring_cons];
+ 		skb = tx_buf->skb;
+ 
++		/* prefetch skb_end_pointer() to speedup skb_shinfo(skb) */
++		prefetch(&skb->end);
++
+ 		/* partial BD completions possible with TSO packets */
+-		if (skb_is_gso(skb)) {
++		if (tx_buf->is_gso) {
+ 			u16 last_idx, last_ring_idx;
+ 
+-			last_idx = sw_cons +
+-				skb_shinfo(skb)->nr_frags + 1;
+-			last_ring_idx = sw_ring_cons +
+-				skb_shinfo(skb)->nr_frags + 1;
++			last_idx = sw_cons + tx_buf->nr_frags + 1;
++			last_ring_idx = sw_ring_cons + tx_buf->nr_frags + 1;
+ 			if (unlikely(last_ring_idx >= MAX_TX_DESC_CNT)) {
+ 				last_idx++;
+ 			}
+@@ -2649,7 +2650,7 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ 		skb_dma_unmap(&bp->pdev->dev, skb, DMA_TO_DEVICE);
+ 
+ 		tx_buf->skb = NULL;
+-		last = skb_shinfo(skb)->nr_frags;
++		last = tx_buf->nr_frags;
+ 
+ 		for (i = 0; i < last; i++) {
+ 			sw_cons = NEXT_TX_BD(sw_cons);
+@@ -2662,7 +2663,8 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ 		if (tx_pkt == budget)
+ 			break;
+ 
+-		hw_cons = bnx2_get_hw_tx_cons(bnapi);
++		if (hw_cons == sw_cons)
++			hw_cons = bnx2_get_hw_tx_cons(bnapi);
+ 	}
+ 
+ 	txr->hw_tx_cons = hw_cons;
+@@ -6179,6 +6181,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	txbd->tx_bd_vlan_tag_flags = vlan_tag_flags | TX_BD_FLAGS_START;
+ 
+ 	last_frag = skb_shinfo(skb)->nr_frags;
++	tx_buf->nr_frags = last_frag;
++	tx_buf->is_gso = skb_is_gso(skb);
+ 
+ 	for (i = 0; i < last_frag; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 5b570e1..026ed1c 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6552,6 +6552,8 @@ struct sw_pg {
+ 
+ struct sw_tx_bd {
+ 	struct sk_buff		*skb;
++	unsigned short		is_gso;
++	unsigned short		nr_frags;
+ };
+ 
+ #define SW_RXBD_RING_SIZE (sizeof(struct sw_bd) * RX_DESC_CNT)
