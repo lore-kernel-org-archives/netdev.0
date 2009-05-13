@@ -1,101 +1,112 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
- Netlink interface
-Date: Wed, 13 May 2009 14:23:47 +0200
-Message-ID: <4A0ABBD3.2030605@grandegger.com>
-References: <20090512092757.048938233@denx.de><20090512092757.574693100@denx.de> <20090512233052.ecd600f1.akpm@linux-foundation.org> <4A0A9AC1.2090603@volkswagen.de> <4A0AB17B.3080308@grandegger.com> <4A0AB824.40702@volkswagen.de>
+From: Radek Podgorny <radek@podgorny.cz>
+Subject: Re: via velocity trivial patch
+Date: Wed, 13 May 2009 15:03:51 +0200
+Message-ID: <4A0AC537.70605@podgorny.cz>
+References: <49F1A05A.8070802@podgorny.cz> <4A01FBF6.1090001@podgorny.cz> <20090507.150213.192379856.davem@davemloft.net> <4A04184E.5040507@podgorny.cz> <20090508192948.GA19016@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:60984 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753256AbZEMMXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 08:23:50 -0400
-In-Reply-To: <4A0AB824.40702@volkswagen.de>
+Received: from 180.129.broadband3.iol.cz ([85.70.129.180]:46388 "EHLO
+	home.podgorny.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755787AbZEMNEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 09:04:30 -0400
+Received: from [10.25.3.4] (simir.podoli.pjih.czf [10.25.3.4])
+	by home.podgorny.cz (Postfix) with ESMTP id E5F7184B34
+	for <netdev@vger.kernel.org>; Wed, 13 May 2009 15:04:28 +0200 (CEST)
+In-Reply-To: <20090508192948.GA19016@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Hartkopp wrote:
-> Wolfgang Grandegger wrote:
->> Oliver Hartkopp wrote:
->>  
->>> Andrew Morton wrote:
->>>    
->>>> On Tue, 12 May 2009 11:28:00 +0200 Wolfgang Grandegger
->>>> <wg@grandegger.com> wrote:
->>>>
->>>>  
->>>>      
->>>>> +int can_restart_now(struct net_device *dev)
->>>>> +{
->>>>> +    struct can_priv *priv = netdev_priv(dev);
->>>>> +    struct net_device_stats *stats = &dev->stats;
->>>>> +    struct sk_buff *skb;
->>>>> +    struct can_frame *cf;
->>>>> +    int err;
->>>>> +
->>>>> +    /* Synchronize with dev->hard_start_xmit() */
->>>>> +    netif_tx_lock(dev);
->>>>> +
->>>>> +    /* Ensure that no more messages can go out */
->>>>> +    if (netif_carrier_ok(dev))
->>>>> +        netif_carrier_off(dev);
->>>>> +
->>>>> +    /* Ensure that no more messages can come in */
->>>>> +    err = priv->do_set_mode(dev, CAN_MODE_STOP);
->>>>> +    if (err)
->>>>> +        return err;
->>>>> +
->>>>> +    /*  Now it's save to clean up */
->>>>> +    del_timer_sync(&priv->restart_timer);
->>>>>             
->>>> This is deadlockable.
->>>>
->>>> It calls del_timer_sync() while holding netif_tx_lock().  But the timer
->>>> handler (can_restart_now()) also takes netif_tx_lock().  So if the
->>>> timer handler is presently running, it's sitting there spinning in
->>>> netif_tx_lock().  And del_timer_sync() is sitting there waiting for the
->>>> timer handler to complete.
->>>>
->>>>
->>>>         
->>> Hi Wolfgang,
->>>
->>> would it be an appropriate solution, just to invoke
->>>
->>> netif_stop_queue() in can_bus_off()
->>>
->>> and invoke
->>>
->>> netif_wake_queue() in can_restart_now()
->>>
->>> ???
->>>
->>> In a BUSOFF condition we're not able to send CAN frames anyway, so  we
->>> can disable the device queue and the we won't  need any netif_tx_lock()
->>> right?
->>>
->>> AFAIK this was the original implementation before some of the latest
->>> improvement with the netif_carrier stuff.
->>>
->>> What do you think?
->>>     
->>
->> The problem is the "manual" restart triggered via the netlink interface,
->> which can occur in the middle of ndo_start_xmit().
->>
->>   
-> 
-> Ah, i see.
-> 
-> What if the manual restart via netlink would also stop the queue and
-> start the timer?
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-It will not help if the restart is triggered in the middle of
-ndo_start_xmit().
+Hello,
 
-Wolfgang.
+so I've tried to study the source a bit more and don't really get some things.
+Why is there a mac_write_isr() in the IRQ handling routine? Isn't ISR supposed
+to be read-only? Even if not, why does it write the exact same value as it has
+read just moments ago?
+
+    ...
+    isr_status = mac_read_isr(vptr->mac_regs);
+
+    /* Not us ? */
+    if (isr_status == 0) {
+        spin_unlock(&vptr->lock);
+        return IRQ_NONE;
+    }
+
+    mac_disable_int(vptr->mac_regs);
+
+    /*
+     *  Keep processing the ISR until we have completed
+     *  processing and the isr_status becomes zero
+     */
+
+    while (isr_status != 0) {
+        mac_write_isr(vptr->mac_regs, isr_status);
+        ...
+        isr_status = mac_read_isr(vptr->mac_regs);
+    ...
+
+Maybe the value is mangled on write. But even if it was, it should not affect
+other devices, just the one in question, right?
+
+The other way for ISR to show 0xffffffff is in device init but I experience
+repetitive all-ones. :-( Will have to test it again to be really sure, though.
+
+Do you have any links to datasheets or something so I can try to look up the specs?
+Or, do you have any ideas what I should do next to debug (or help you debug)
+the issue?
+
+Thanks in advance
+Radek Podgorny
+
+
+Francois Romieu wrote:
+> Radek Podgorny <radek@podgorny.cz> :
+> [...]
+>> Anyway, I've verified this is really happening on my hardware when
+>> multiple via velocity devices share the same interrupt. The one the
+>> interrupt is for reads the correct ISR value, the others sometimes read
+>> 0 and sometimes 0xffffffff. I'm not educated enough to tell why.
+> 
+> Your quad port network card includes its own pci bus, right ?
+> If so can you send a 'lspci -vt' of the host ?
+> 
+>> Reasons to include the fix:
+>> 1) Someone smarter than me suggested it (Jeff Garzik).
+>> 2) Fixed my problem.
+>> 3) Does not introduce a new problem.
+> 
+> 3. probably stands: there is no reason for the driver to see a
+> 0xffffffff interupt status register (hardware fault or unplug apart).
+> 
+> Well, almost:
+> 
+> $ grep mac.*isr drivers/net/via-velocity.h
+> #define mac_read_isr(regs)              readl(&((regs)->ISR))
+> #define mac_write_isr(regs, x)          writel((x),&((regs)->ISR))
+> #define mac_clear_isr(regs)             writel(0xffffffffL,&((regs)->ISR))
+> 
+> I can figure that there is a window through which the 2nd, 3rd and 4th
+> devices can read a 0xffffffff when they are brought up but it should
+> not be noticeable after this stage (and it may happen on the 1st device
+> as well if it shares its interrupt with some other device).
+> 
+> Does it match your experience ?
+>> So I'm attaching the patch again. Now with the proper sign-off.
+> 
+> davem's life is probably simpler if you do not include anything
+> after the patch.
+> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.11 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkoKxTcACgkQ7mej6pjlbYTLtgCaAvmxl3/FLK4mmrznEiq7+XYD
+TzAAnA+EewHvGOdKvwIIMZtisH+AQbsr
+=3g6c
+-----END PGP SIGNATURE-----
