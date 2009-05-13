@@ -1,56 +1,54 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
- Netlink interface
-Date: Tue, 12 May 2009 23:30:52 -0700
-Message-ID: <20090512233052.ecd600f1.akpm@linux-foundation.org>
-References: <20090512092757.048938233@denx.de>
-	<20090512092757.574693100@denx.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next] net: remove needless (now buggy) & from
+ dev->dev_addr
+Date: Wed, 13 May 2009 16:37:18 +1000
+Message-ID: <20090513163718.b8eae43c.sfr@canb.auug.org.au>
+References: <20090512093714.GD3399@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__13_May_2009_16_37_18_+1000_SUJ.7b0sgy8qshQM"
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sachinp@in.ibm.com,
+	yjwei@cn.fujitsu.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54448 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751436AbZEMGdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 02:33:15 -0400
-In-Reply-To: <20090512092757.574693100@denx.de>
+Received: from chilli.pcug.org.au ([203.10.76.44]:42312 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757532AbZEMGh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 02:37:27 -0400
+In-Reply-To: <20090512093714.GD3399@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 May 2009 11:28:00 +0200 Wolfgang Grandegger <wg@grandegger.com> wrote:
+--Signature=_Wed__13_May_2009_16_37_18_+1000_SUJ.7b0sgy8qshQM
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> +int can_restart_now(struct net_device *dev)
-> +{
-> +	struct can_priv *priv = netdev_priv(dev);
-> +	struct net_device_stats *stats = &dev->stats;
-> +	struct sk_buff *skb;
-> +	struct can_frame *cf;
-> +	int err;
-> +
-> +	/* Synchronize with dev->hard_start_xmit() */
-> +	netif_tx_lock(dev);
-> +
-> +	/* Ensure that no more messages can go out */
-> +	if (netif_carrier_ok(dev))
-> +		netif_carrier_off(dev);
-> +
-> +	/* Ensure that no more messages can come in */
-> +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
-> +	if (err)
-> +		return err;
-> +
-> +	/*  Now it's save to clean up */
-> +	del_timer_sync(&priv->restart_timer);
+Hi Jiri,
 
-This is deadlockable.
+On Tue, 12 May 2009 11:37:15 +0200 Jiri Pirko <jpirko@redhat.com> wrote:
+>
+> Patch fixes issues with dev->dev_addr changing from array to pointer.
+> Hopefully there are no others.
 
-It calls del_timer_sync() while holding netif_tx_lock().  But the timer
-handler (can_restart_now()) also takes netif_tx_lock().  So if the
-timer handler is presently running, it's sitting there spinning in
-netif_tx_lock().  And del_timer_sync() is sitting there waiting for the
-timer handler to complete.
+Since Dave is away, I have applied this to linux-next until Dave decides
+what to do with it.
 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Wed__13_May_2009_16_37_18_+1000_SUJ.7b0sgy8qshQM
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkoKap4ACgkQjjKRsyhoI8xRowCdFwAL4KVYOSGwk2zk15vUOK/O
+JwsAoJMU4KEXvzJVIkSLOFH9xdQeFd4e
+=yBwV
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__13_May_2009_16_37_18_+1000_SUJ.7b0sgy8qshQM--
