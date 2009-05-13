@@ -1,89 +1,72 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 5/8] gigaset: remove obsolete references to m10x state table
-Date: Thu, 14 May 2009 00:44:17 +0200 (CEST)
-Message-ID: <20090514-patch-05.tilman@imap.cc>
+Subject: [PATCH 6/8] gigaset: remove unused structure member rcvbytes
+Date: Thu, 14 May 2009 00:44:18 +0200 (CEST)
+Message-ID: <20090514-patch-06.tilman@imap.cc>
 References: <20090514-patch-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:38979 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([195.227.45.7]:38977 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757919AbZEMWoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756746AbZEMWoe (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 May 2009 18:44:34 -0400
 In-Reply-To: <20090514-patch-00.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The separation of state tables for base and M10x has long been
-removed. Clean up remaining traces of it.
+The B channel data structure member rcvbytes was never set to
+anything else but zero, so drop it.
 
 Impact: cleanup
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/common.c   |   10 ++--------
- drivers/isdn/gigaset/ev-layer.c |    4 ++--
- drivers/isdn/gigaset/gigaset.h  |    4 ++--
- 3 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/isdn/gigaset/asyncdata.c |    5 ++---
+ drivers/isdn/gigaset/common.c    |    2 --
+ drivers/isdn/gigaset/gigaset.h   |    1 -
+ 3 files changed, 2 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
+index 2a4ce96..234cc5d 100644
+--- a/drivers/isdn/gigaset/asyncdata.c
++++ b/drivers/isdn/gigaset/asyncdata.c
+@@ -174,9 +174,8 @@ byte_stuff:
+ 
+ 				if (unlikely(fcs != PPP_GOODFCS)) {
+ 					dev_err(cs->dev,
+-					    "Packet checksum at %lu failed, "
+-					    "packet is corrupted (%u bytes)!\n",
+-					    bcs->rcvbytes, skb->len);
++				"Checksum failed, %u bytes corrupted!\n",
++						skb->len);
+ 					compskb = NULL;
+ 					gigaset_rcv_error(compskb, cs, bcs);
+ 					error = 1;
 diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-index 0048ce9..79c9b0f 100644
+index 79c9b0f..e4141bf 100644
 --- a/drivers/isdn/gigaset/common.c
 +++ b/drivers/isdn/gigaset/common.c
-@@ -672,14 +672,8 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
- 	cs->tty = NULL;
- 	cs->tty_dev = NULL;
- 	cs->cidmode = cidmode != 0;
+@@ -565,8 +565,6 @@ static struct bc_state *gigaset_initbcs(struct bc_state *bcs,
+ 	gig_dbg(DEBUG_INIT, "setting up bcs[%d]->at_state", channel);
+ 	gigaset_at_init(&bcs->at_state, bcs, cs, -1);
+ 
+-	bcs->rcvbytes = 0;
 -
--	//if(onechannel) { //FIXME
--		cs->tabnocid = gigaset_tab_nocid_m10x;
--		cs->tabcid = gigaset_tab_cid_m10x;
--	//} else {
--	//	cs->tabnocid = gigaset_tab_nocid;
--	//	cs->tabcid = gigaset_tab_cid;
--	//}
-+	cs->tabnocid = gigaset_tab_nocid;
-+	cs->tabcid = gigaset_tab_cid;
- 
- 	init_waitqueue_head(&cs->waitqueue);
- 	cs->waiting = 0;
-diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
-index e582a48..ec51696 100644
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -160,7 +160,7 @@
- 
- 
- // 100: init, 200: dle0, 250:dle1, 300: get cid (dial), 350: "hup" (no cid), 400: hup, 500: reset, 600: dial, 700: ring
--struct reply_t gigaset_tab_nocid_m10x[]= /* with dle mode */
-+struct reply_t gigaset_tab_nocid[] =
- {
- 	/* resp_code, min_ConState, max_ConState, parameter, new_ConState, timeout, action, command */
- 
-@@ -280,7 +280,7 @@ struct reply_t gigaset_tab_nocid_m10x[]= /* with dle mode */
- };
- 
- // 600: start dialing, 650: dial in progress, 800: connection is up, 700: ring, 400: hup, 750: accepted icall
--struct reply_t gigaset_tab_cid_m10x[] = /* for M10x */
-+struct reply_t gigaset_tab_cid[] =
- {
- 	/* resp_code, min_ConState, max_ConState, parameter, new_ConState, timeout, action, command */
- 
+ #ifdef CONFIG_GIGASET_DEBUG
+ 	bcs->emptycount = 0;
+ #endif
 diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
-index 747178f..d5f0110 100644
+index d5f0110..a2f6125 100644
 --- a/drivers/isdn/gigaset/gigaset.h
 +++ b/drivers/isdn/gigaset/gigaset.h
-@@ -282,8 +282,8 @@ struct reply_t {
- 	char	*command;	/* NULL==none */
- };
+@@ -384,7 +384,6 @@ struct bc_state {
+ 	int trans_up;			/* Counter of packages (upstream) */
  
--extern struct reply_t gigaset_tab_cid_m10x[];
--extern struct reply_t gigaset_tab_nocid_m10x[];
-+extern struct reply_t gigaset_tab_cid[];
-+extern struct reply_t gigaset_tab_nocid[];
+ 	struct at_state_t at_state;
+-	unsigned long rcvbytes;
  
- struct inbuf_t {
- 	unsigned char		*rcvbuf;	/* usb-gigaset receive buffer */
+ 	__u16 fcs;
+ 	struct sk_buff *skb;
 -- 
 1.6.2.1.214.ge986c
 
