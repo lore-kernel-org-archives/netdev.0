@@ -1,10 +1,10 @@
 From: Jonathan Corbet <corbet@lwn.net>
-Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
- Netlink interface
-Date: Wed, 13 May 2009 15:31:12 -0600
-Message-ID: <20090513153112.0822809b@bike.lwn.net>
+Subject: Re: [PATCH v2 4/7] [PATCH 4/8] can: Driver for the SJA1000 CAN
+ controller
+Date: Wed, 13 May 2009 15:52:05 -0600
+Message-ID: <20090513155205.4bf06c25@bike.lwn.net>
 References: <20090512092757.048938233@denx.de>
-	<20090512092757.574693100@denx.de>
+	<20090512092757.756749047@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
@@ -13,93 +13,226 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vena.lwn.net ([206.168.112.25]:33019 "EHLO vena.lwn.net"
+Received: from vena.lwn.net ([206.168.112.25]:60598 "EHLO vena.lwn.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761188AbZEMVbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2009 17:31:16 -0400
-In-Reply-To: <20090512092757.574693100@denx.de>
+	id S1752280AbZEMVwG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 17:52:06 -0400
+In-Reply-To: <20090512092757.756749047@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Quick review ...]
+[Quick drive-by review continues...]
 
-> +/*
-> + * CAN device restart for bus-off recovery
-> + */
-> +int can_restart_now(struct net_device *dev)
+> +
+> +static int sja1000_probe_chip(struct net_device *dev)
 > +{
-> +	struct can_priv *priv = netdev_priv(dev);
+> +	struct sja1000_priv *priv = netdev_priv(dev);
+
+Looking down toward the bottom, I see:
+
+> +struct sja1000_priv {
+> +	struct can_priv can;
+
+So you're still using the "put the higher-level structure at the top so we
+can treat it like either kind of pointer" trick.  I'd still recommend
+against that.  Far better to do something like:
+
+	struct can_priv *canpriv = netdev_priv(dev);
+	struct sja_1000_priv *priv = container_of(canpriv, struct sja_1000_priv, can);
+
+Of course, you can put that dance into a helper function.
+
+> +	if (dev->base_addr && (priv->read_reg(dev, 0) == 0xFF)) {
+> +		printk(KERN_INFO "%s: probing @0x%lX failed\n",
+> +		       DRV_NAME, dev->base_addr);
+> +		return 0;
+> +	}
+> +	return 1;
+> +}
+
+So zero is an error return?  That's contrary to usual practice.
+
+> +static int set_reset_mode(struct net_device *dev)
+> +{
+> +	struct sja1000_priv *priv = netdev_priv(dev);
+> +	unsigned char status = priv->read_reg(dev, REG_MOD);
+> +	int i;
+> +
+> +	/* disable interrupts */
+> +	priv->write_reg(dev, REG_IER, IRQ_OFF);
+> +
+> +	for (i = 0; i < 100; i++) {
+> +		/* check reset bit */
+> +		if (status & MOD_RM) {
+> +			priv->can.state = CAN_STATE_STOPPED;
+> +			return 0;
+> +		}
+> +
+> +		priv->write_reg(dev, REG_MOD, MOD_RM);	/* reset chip */
+> +		status = priv->read_reg(dev, REG_MOD);
+> +		udelay(10);
+
+Wouldn't you want to read the new state *after* the delay?
+
+> +	}
+> +
+> +	dev_err(dev->dev.parent, "setting SJA1000 into reset mode failed!\n");
+> +	return 1;
+> +
+> +}
+> +
+> +static int set_normal_mode(struct net_device *dev)
+> +{
+> +	struct sja1000_priv *priv = netdev_priv(dev);
+> +	unsigned char status = priv->read_reg(dev, REG_MOD);
+> +	int i;
+> +
+> +	for (i = 0; i < 100; i++) {
+> +		/* check reset bit */
+> +		if ((status & MOD_RM) == 0) {
+> +			priv->can.state = CAN_STATE_ERROR_ACTIVE;
+> +			/* enable all interrupts */
+> +			priv->write_reg(dev, REG_IER, IRQ_ALL);
+> +
+> +			return 0;
+> +		}
+> +
+> +		/* set chip to normal mode */
+> +		priv->write_reg(dev, REG_MOD, 0x00);
+> +		status = priv->read_reg(dev, REG_MOD);
+> +		udelay(10);
+
+Here too?
+
+> +	}
+> +
+> +	dev_err(dev->dev.parent, "setting SJA1000 into normal mode failed!\n");
+> +	return 1;
+> +
+> +}
+> +
+
+[...]
+
+> +irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+> +{
+> +	struct net_device *dev = (struct net_device *)dev_id;
+> +	struct sja1000_priv *priv = netdev_priv(dev);
 > +	struct net_device_stats *stats = &dev->stats;
-> +	struct sk_buff *skb;
-> +	struct can_frame *cf;
+> +	uint8_t isrc, status;
+> +	int n = 0;
+> +
+> +	/* Shared interrupts and IRQ off? */
+> +	if (priv->read_reg(dev, REG_IER) == IRQ_OFF)
+> +		return IRQ_NONE;
+> +
+> +	if (priv->pre_irq)
+> +		priv->pre_irq(dev);
+> +
+> +	while ((isrc = priv->read_reg(dev, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
+> +		n++;
+> +		status = priv->read_reg(dev, REG_SR);
+> +
+> +		if (isrc & IRQ_WUI)
+> +			dev_warn(dev->dev.parent, "wakeup interrupt\n");
+
+How many of these might you get?  Should this be rate limited?
+
+> +		if (isrc & IRQ_TI) {
+> +			/* transmission complete interrupt */
+> +			stats->tx_packets++;
+> +			can_get_echo_skb(dev, 0);
+> +			netif_wake_queue(dev);
+> +		}
+> +		if (isrc & IRQ_RI) {
+> +			/* receive interrupt */
+> +			while (status & SR_RBS) {
+> +				sja1000_rx(dev);
+> +				status = priv->read_reg(dev, REG_SR);
+> +			}
+> +		}
+> +		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
+> +			/* error interrupt */
+> +			if (sja1000_err(dev, isrc, status))
+> +				break;
+> +		}
+> +	}
+> +
+> +	if (priv->post_irq)
+> +		priv->post_irq(dev);
+> +
+> +	if (n >= SJA1000_MAX_IRQ)
+> +		dev_dbg(dev->dev.parent, "%d messages handled in ISR", n);
+> +
+> +	return (n) ? IRQ_HANDLED : IRQ_NONE;
+> +}
+> +EXPORT_SYMBOL_GPL(sja1000_interrupt);
+> +
+> +static int sja1000_open(struct net_device *dev)
+> +{
+> +	struct sja1000_priv *priv = netdev_priv(dev);
 > +	int err;
 > +
-> +	/* Synchronize with dev->hard_start_xmit() */
-> +	netif_tx_lock(dev);
+> +	/* set chip into reset mode */
+> +	set_reset_mode(dev);
 > +
-> +	/* Ensure that no more messages can go out */
-> +	if (netif_carrier_ok(dev))
-> +		netif_carrier_off(dev);
-> +
-> +	/* Ensure that no more messages can come in */
-> +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
+> +	/* common open */
+> +	err = open_candev(dev);
 > +	if (err)
 > +		return err;
+> +
+> +	/* register interrupt handler, if not done by the device driver */
+> +	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
+> +		err = request_irq(dev->irq, &sja1000_interrupt, IRQF_SHARED,
+> +				  dev->name, (void *)dev);
+> +		if (err)
+> +			return -EAGAIN;
 
-This leaves _xmit_lock held and carrier off.  Is that really what you want
-to do?
+If you return here you fail, but you've not undone open_candev().  Looking
+there, it seems no harm will be done - until somebody changes open_candev()
+someday. 
 
+> +	}
 > +
-> +	/*  Now it's save to clean up */
-> +	del_timer_sync(&priv->restart_timer);
-> +	can_flush_echo_skb(dev);
+> +	/* init and start chi */
+> +	sja1000_start(dev);
+> +	priv->open_time = jiffies;
 > +
-> +	dev_dbg(dev->dev.parent, "restarted\n");
-> +	priv->can_stats.restarts++;
-> +
-> +	/* send restart message upstream */
-> +	skb = dev_alloc_skb(sizeof(struct can_frame));
-> +	if (skb == NULL)
-> +		return -ENOMEM;
-
-...here too...
-
-> +	skb->dev = dev;
-> +	skb->protocol = htons(ETH_P_CAN);
-> +	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
-> +	memset(cf, 0, sizeof(struct can_frame));
-> +	cf->can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
-> +	cf->can_dlc = CAN_ERR_DLC;
-> +
-> +	netif_rx(skb);
-> +
-> +	dev->last_rx = jiffies;
-> +	stats->rx_packets++;
-> +	stats->rx_bytes += cf->can_dlc;
-> +
-> +	/* Now restart the device */
-> +	err = priv->do_set_mode(dev, CAN_MODE_START);
-> +	if (err)
-> +		return err;
-
-...and here too.  Do you maybe want to get rid of the middle-of-function
-returns and switch to the "goto out" convention?
-
-> +	netif_carrier_on(dev);
-> +
-> +	netif_tx_unlock(dev);
+> +	netif_start_queue(dev);
 > +
 > +	return 0;
 > +}
 > +
-> +static void can_restart_after(unsigned long data)
-> +{
-> +	struct net_device *dev = (struct net_device *)data;
-> +
-> +	can_restart_now(dev);
-> +}
 
-can_restart_after what?  I find myself confused by this function and
-wondering why it exists.
+[...]
+
+> +/*
+> + * SJA1000 private data structure
+> + */
+> +struct sja1000_priv {
+> +	struct can_priv can;
+> +	long open_time;
+> +	struct sk_buff *echo_skb;
+> +
+> +	u8 (*read_reg) (const struct net_device *dev, int reg);
+> +	void (*write_reg) (const struct net_device *dev, int reg, u8 val);
+> +	void (*pre_irq) (const struct net_device *dev);
+> +	void (*post_irq) (const struct net_device *dev);
+
+What are the locking rules for functions like ->read_reg() now?  Entirely
+up to the lower level?  Would be good to document that near the structure
+definition. 
+
+> +
+> +	void *priv;		/* for board-specific data */
+> +	struct net_device *dev;
+> +
+> +	u8 ocr;
+> +	u8 cdr;
+> +	u32 flags;
+
+The meaning of these fields is not exactly clear.
+
+> +};
 
 jon
