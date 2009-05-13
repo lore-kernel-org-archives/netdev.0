@@ -1,71 +1,34 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Subject: Re: [PATCH v2 5/7] [PATCH 5/8] can: SJA1000 generic platform bus
- driver
-Date: Wed, 13 May 2009 16:02:35 -0600
-Message-ID: <20090513160235.5d2d281c@bike.lwn.net>
-References: <20090512092757.048938233@denx.de>
-	<20090512092757.894204198@denx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 2/6] powerpc/fsl_rio: use LAW address from device tree
+Date: Wed, 13 May 2009 17:08:04 -0500
+Message-ID: <CE237554-D711-40AB-8446-6F3398667ED7@kernel.crashing.org>
+References: <1242117363-14949-1-git-send-email-leoli@freescale.com> <1242117363-14949-2-git-send-email-leoli@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vena.lwn.net ([206.168.112.25]:39908 "EHLO vena.lwn.net"
+Received: from gate.crashing.org ([63.228.1.57]:40368 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761543AbZEMWCg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2009 18:02:36 -0400
-In-Reply-To: <20090512092757.894204198@denx.de>
+	id S1759409AbZEMWK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 18:10:27 -0400
+In-Reply-To: <1242117363-14949-2-git-send-email-leoli@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 May 2009 11:28:02 +0200
-Wolfgang Grandegger <wg@grandegger.com> wrote:
 
-> This driver adds support for the SJA1000 chips connected to the
-> "platform bus", which can be found on various embedded systems.
+On May 12, 2009, at 3:35 AM, Li Yang wrote:
 
-[...]
+> Instead of fixed address in old code.
+>
+> Signed-off-by: Li Yang <leoli@freescale.com>
+> ---
+> arch/powerpc/sysdev/fsl_rio.c |   12 +++++++-----
+> 1 files changed, 7 insertions(+), 5 deletions(-)
 
-> +
-> +static u8 sp_read_reg(const struct net_device *dev, int reg)
-> +{
-> +	return ioread8((void __iomem *)(dev->base_addr + reg));
-> +}
-> +
-> +static void sp_write_reg(const struct net_device *dev, int reg, u8 val)
-> +{
-> +	iowrite8(val, (void __iomem *)(dev->base_addr + reg));
-> +}
+applied to next
 
-So there's no locking around accesses to the hardware at all.  How do you
-protect against concurrent access?
-
-[...]
-
-> +static int sp_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *dev = dev_get_drvdata(&pdev->dev);
-> +	struct resource *res;
-> +
-> +	unregister_sja1000dev(dev);
-> +	dev_set_drvdata(&pdev->dev, NULL);
-> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	release_mem_region(res->start, res->end - res->start + 1);
-> +
-> +	if (dev->base_addr)
-> +		iounmap((void __iomem *)dev->base_addr);
-
-Seems like you should unmap it before releasing it back to the kernel.
-Nobody else is ever going to jump in and try to map it, but still...
-
-> +	free_sja1000dev(dev);
-> +
-> +	return 0;
-> +}
-
-jon
+- k
