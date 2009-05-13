@@ -1,43 +1,57 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: [PATCH] mv643xx_eth: Remove a stale PPC_MULTIPLATFORM
-Date: Wed, 13 May 2009 11:04:58 -0500
-Message-ID: <1242230698-15684-1-git-send-email-Emilian.Medve@Freescale.com>
-Cc: netdev@vger.kernel.org, Emil Medve <Emilian.Medve@Freescale.com>
-To: buytenh@marvell.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:57344 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756717AbZEMQFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 12:05:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: question about softirqs
+Date: Wed, 13 May 2009 10:10:37 -0600
+Message-ID: <4A0AF0FD.9050501@nortel.com>
+References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com>
+	<20090508.234815.127227651.davem@davemloft.net>
+	<4A086DB2.8040703@nortel.com>
+	<20090511.162436.193717082.davem@davemloft.net>
+	<4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu>
+	<4A09933B.8010606@nortel.com> <874ovpmmdq.fsf@basil.nowhere.org>
+	<4A0AC9EC.6070908@nortel.com>
+	<20090513141532.GT19296@one.firstfloor.org>
+	<alpine.LFD.2.00.0905131612180.3561@localhost.localdomain>
+	<87my9hkrmw.fsf@basil.nowhere.org> <4A0AE19D.9040509@nortel.com>
+	<alpine.LFD.2.00.0905131751150.3561@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, netdev@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>, linuxppc-dev@ozlabs.org,
+	Andi Kleen <andi@firstfloor.org>, paulus@samba.org,
+	Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <alpine.LFD.2.00.0905131751150.3561@localhost.localdomain>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-PPC_MULTIPLATFORM was killed in commit 28794d3 but this stale occurrence was
-hiding the mv643xx_eth driver in some cases (e.g. Pegasos II)
+Thomas Gleixner wrote:
+> On Wed, 13 May 2009, Chris Friesen wrote:
 
-Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
----
- drivers/net/Kconfig |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+>> As far as I can tell, in this scenario softirqs may not get processed on
+>> return from a syscall (contradicting the documentation).  In the worst
+>> case, they may not get processed until the next timer tick.
+> 
+> Right because your high prio tasks prevents that ksoftirqd runs,
+> because it can not preempt the high priority task.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 214a92d..c3eb471 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1,4 +1,3 @@
--
- #
- # Network device configuration
- #
-@@ -2351,7 +2350,7 @@ config UGETH_TX_ON_DEMAND
- 
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32) || PLAT_ORION
-+	depends on MV64360 || MV64X60 || PPC32 || PLAT_ORION
- 	select INET_LRO
- 	select PHYLIB
- 	help
--- 
-1.6.3
+Exactly.
 
+I'm suggesting that this point (the idea that softirqs may or may not
+get processed on return from syscall depending on relative task
+priority) should probably be documented somewhere, because the current
+documentation (in the kernel and on the web) doesn't mention it at all.
+
+Maybe I should just submit a patch to
+Documentation/DocBook/kernel-hacking.tmpl.
+
+Chris
