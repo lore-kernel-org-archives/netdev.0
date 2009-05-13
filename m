@@ -1,112 +1,55 @@
-From: Radek Podgorny <radek@podgorny.cz>
-Subject: Re: via velocity trivial patch
-Date: Wed, 13 May 2009 15:03:51 +0200
-Message-ID: <4A0AC537.70605@podgorny.cz>
-References: <49F1A05A.8070802@podgorny.cz> <4A01FBF6.1090001@podgorny.cz> <20090507.150213.192379856.davem@davemloft.net> <4A04184E.5040507@podgorny.cz> <20090508192948.GA19016@electric-eye.fr.zoreil.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: question about softirqs
+Date: Wed, 13 May 2009 07:23:56 -0600
+Message-ID: <4A0AC9EC.6070908@nortel.com>
+References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com>	<20090508.234815.127227651.davem@davemloft.net>	<4A086DB2.8040703@nortel.com>	<20090511.162436.193717082.davem@davemloft.net>	<4A08C62F.1050105@nortel.com>
+	<20090512081237.GA16403@elte.hu>	<4A09933B.8010606@nortel.com>
+	<874ovpmmdq.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 180.129.broadband3.iol.cz ([85.70.129.180]:46388 "EHLO
-	home.podgorny.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755787AbZEMNEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 09:04:30 -0400
-Received: from [10.25.3.4] (simir.podoli.pjih.czf [10.25.3.4])
-	by home.podgorny.cz (Postfix) with ESMTP id E5F7184B34
-	for <netdev@vger.kernel.org>; Wed, 13 May 2009 15:04:28 +0200 (CEST)
-In-Reply-To: <20090508192948.GA19016@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, netdev@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>,
+	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
+	paulus@samba.org, Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <874ovpmmdq.fsf@basil.nowhere.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Hello,
-
-so I've tried to study the source a bit more and don't really get some things.
-Why is there a mac_write_isr() in the IRQ handling routine? Isn't ISR supposed
-to be read-only? Even if not, why does it write the exact same value as it has
-read just moments ago?
-
-    ...
-    isr_status = mac_read_isr(vptr->mac_regs);
-
-    /* Not us ? */
-    if (isr_status == 0) {
-        spin_unlock(&vptr->lock);
-        return IRQ_NONE;
-    }
-
-    mac_disable_int(vptr->mac_regs);
-
-    /*
-     *  Keep processing the ISR until we have completed
-     *  processing and the isr_status becomes zero
-     */
-
-    while (isr_status != 0) {
-        mac_write_isr(vptr->mac_regs, isr_status);
-        ...
-        isr_status = mac_read_isr(vptr->mac_regs);
-    ...
-
-Maybe the value is mangled on write. But even if it was, it should not affect
-other devices, just the one in question, right?
-
-The other way for ISR to show 0xffffffff is in device init but I experience
-repetitive all-ones. :-( Will have to test it again to be really sure, though.
-
-Do you have any links to datasheets or something so I can try to look up the specs?
-Or, do you have any ideas what I should do next to debug (or help you debug)
-the issue?
-
-Thanks in advance
-Radek Podgorny
-
-
-Francois Romieu wrote:
-> Radek Podgorny <radek@podgorny.cz> :
-> [...]
->> Anyway, I've verified this is really happening on my hardware when
->> multiple via velocity devices share the same interrupt. The one the
->> interrupt is for reads the correct ISR value, the others sometimes read
->> 0 and sometimes 0xffffffff. I'm not educated enough to tell why.
+Andi Kleen wrote:
+> "Chris Friesen" <cfriesen@nortel.com> writes:
 > 
-> Your quad port network card includes its own pci bus, right ?
-> If so can you send a 'lspci -vt' of the host ?
-> 
->> Reasons to include the fix:
->> 1) Someone smarter than me suggested it (Jeff Garzik).
->> 2) Fixed my problem.
->> 3) Does not introduce a new problem.
-> 
-> 3. probably stands: there is no reason for the driver to see a
-> 0xffffffff interupt status register (hardware fault or unplug apart).
-> 
-> Well, almost:
-> 
-> $ grep mac.*isr drivers/net/via-velocity.h
-> #define mac_read_isr(regs)              readl(&((regs)->ISR))
-> #define mac_write_isr(regs, x)          writel((x),&((regs)->ISR))
-> #define mac_clear_isr(regs)             writel(0xffffffffL,&((regs)->ISR))
-> 
-> I can figure that there is a window through which the 2nd, 3rd and 4th
-> devices can read a 0xffffffff when they are brought up but it should
-> not be noticeable after this stage (and it may happen on the 1st device
-> as well if it shares its interrupt with some other device).
-> 
-> Does it match your experience ?
->> So I'm attaching the patch again. Now with the proper sign-off.
-> 
-> davem's life is probably simpler if you do not include anything
-> after the patch.
-> 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+>>One of the reasons I brought up this issue is that there is a lot of
+>>documentation out there that says "softirqs will be processed on return
+>>from a syscall".  The fact that it actually depends on the scheduler
+>>parameters of the task issuing the syscall isn't ever mentioned.
 
-iEYEARECAAYFAkoKxTcACgkQ7mej6pjlbYTLtgCaAvmxl3/FLK4mmrznEiq7+XYD
-TzAAnA+EewHvGOdKvwIIMZtisH+AQbsr
-=3g6c
------END PGP SIGNATURE-----
+> It's not mentioned because it is not currently.
+
+Paul Mackerras explained the current behaviour earlier in the thread
+(when it was still on the ppc list).  His explanation agrees with my
+exporation of the code.
+
+"If a soft irq is raised in process context, raise_softirq() in
+kernel/softirq.c calls wakeup_softirqd() to make sure that ksoftirqd
+runs soon to process the soft irq.  So what would happen is that we
+would see the TIF_RESCHED_PENDING flag on the current task in the
+syscall exit path and call schedule() which would switch to ksoftirqd
+to process the soft irq (if it hasn't already been processed by that
+stage)."
+
+If the current task is of higher priority, ksoftirqd doesn't get a
+chance to run and we don't process softirqs on return from a syscall.
+
+Chris
