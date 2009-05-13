@@ -1,32 +1,66 @@
-From: Coca Cola Notification Of Winning <giseles@ns.sympatico.ca>
-Subject: Winner
-Date: Wed, 13 May 2009 2:53:45 -0400
-Message-ID: <20090513065345.TVIS1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: cokeprize1@btinternet.com
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
+ Netlink interface
+Date: Tue, 12 May 2009 23:53:23 -0700
+Message-ID: <20090512235323.e3de5e5d.akpm@linux-foundation.org>
+References: <20090512092757.048938233@denx.de>
+	<20090512092757.574693100@denx.de>
+	<20090512233052.ecd600f1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: <info@winner.org>
+To: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts12.bellnexxia.net ([206.47.199.141]:32822 "EHLO
-	simmts12-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752246AbZEMGxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 02:53:45 -0400
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts12-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090513065345.TVIS1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Wed, 13 May 2009 02:53:45 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51627 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750860AbZEMGzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 02:55:45 -0400
+In-Reply-To: <20090512233052.ecd600f1.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your email won 1,000,000.00GBP in our PROMO.Provide:Names,Age,
-Occupation,Tel,Country.
+On Tue, 12 May 2009 23:30:52 -0700 Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Regards
-Anthony Campbell
-Tel:+44-704-578-2447
-cokeprize1@btinternet.com
+> On Tue, 12 May 2009 11:28:00 +0200 Wolfgang Grandegger <wg@grandegger.com> wrote:
+> 
+> > +int can_restart_now(struct net_device *dev)
+> > +{
+> > +	struct can_priv *priv = netdev_priv(dev);
+> > +	struct net_device_stats *stats = &dev->stats;
+> > +	struct sk_buff *skb;
+> > +	struct can_frame *cf;
+> > +	int err;
+> > +
+> > +	/* Synchronize with dev->hard_start_xmit() */
+> > +	netif_tx_lock(dev);
+> > +
+> > +	/* Ensure that no more messages can go out */
+> > +	if (netif_carrier_ok(dev))
+> > +		netif_carrier_off(dev);
+> > +
+> > +	/* Ensure that no more messages can come in */
+> > +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
+> > +	if (err)
+> > +		return err;
+> > +
+> > +	/*  Now it's save to clean up */
+> > +	del_timer_sync(&priv->restart_timer);
+> 
+> This is deadlockable.
+> 
+> It calls del_timer_sync() while holding netif_tx_lock().  But the timer
+> handler (can_restart_now()) also takes netif_tx_lock().  So if the
+> timer handler is presently running, it's sitting there spinning in
+> netif_tx_lock().  And del_timer_sync() is sitting there waiting for the
+> timer handler to complete.
 
+Also, I wonder if it's safe to take netif_tx_lock() from a timer
+handler when other parts of the code might be taking it from process
+context (I didn't check).
 
+lockdep should be able to detect this, and I trust this code has been
+fully runtime tested with lockdep enabled?
 
+<boggles at the size of the inlined netif_tx_lock()>
