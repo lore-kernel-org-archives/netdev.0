@@ -1,48 +1,56 @@
-From: Michael Riepe <michael.riepe@googlemail.com>
-Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
-Date: Wed, 13 May 2009 08:27:46 +0200
-Message-ID: <4A0A6862.3020809@googlemail.com>
-References: <200903041828.49972.m.bueker@berlin.de> <4A06D8D2.4010505@googlemail.com> <1242001754.4093.12.camel@obelisk.thedillows.org> <200905112248.44868.mb@bu3sch.de> <m3eiuufufj.fsf@intrepid.localdomain> <4A09EE13.3020102@googlemail.com> <20090513061138.GA11106@electric-eye.fr.zoreil.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
+ Netlink interface
+Date: Tue, 12 May 2009 23:30:52 -0700
+Message-ID: <20090512233052.ecd600f1.akpm@linux-foundation.org>
+References: <20090512092757.048938233@denx.de>
+	<20090512092757.574693100@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, Michael Buesch <mb@bu3sch.de>,
-	David Dillow <dave@thedillows.org>,
-	Rui Santos <rsantos@grupopie.com>,
-	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:37603 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752232AbZEMG1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 02:27:48 -0400
-In-Reply-To: <20090513061138.GA11106@electric-eye.fr.zoreil.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54448 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751436AbZEMGdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 02:33:15 -0400
+In-Reply-To: <20090512092757.574693100@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Tue, 12 May 2009 11:28:00 +0200 Wolfgang Grandegger <wg@grandegger.com> wrote:
 
-Francois Romieu wrote:
-> Michael Riepe <michael.riepe@googlemail.com> :
-> [...]
-> 
->>How do lspci and dmesg report the chip? For mine, lspci says it's a
->>"RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 02)" while
->>the kernel reports "RTL8168c/8111c at 0xffffc200000f6000,
->>00:1c:c0:b6:1a:4a, XID 3c4000c0".
-> 
-> 
-> The XID is more specific than the first kernel report. lspci is less
-> accurate.
+> +int can_restart_now(struct net_device *dev)
+> +{
+> +	struct can_priv *priv = netdev_priv(dev);
+> +	struct net_device_stats *stats = &dev->stats;
+> +	struct sk_buff *skb;
+> +	struct can_frame *cf;
+> +	int err;
+> +
+> +	/* Synchronize with dev->hard_start_xmit() */
+> +	netif_tx_lock(dev);
+> +
+> +	/* Ensure that no more messages can go out */
+> +	if (netif_carrier_ok(dev))
+> +		netif_carrier_off(dev);
+> +
+> +	/* Ensure that no more messages can come in */
+> +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
+> +	if (err)
+> +		return err;
+> +
+> +	/*  Now it's save to clean up */
+> +	del_timer_sync(&priv->restart_timer);
 
-Then the question is: Are there two different revisions with the same
-XID, or is it always the same chip that sometimes works and sometimes
-doesn't?
+This is deadlockable.
 
-I can't remember anybody reporting that the Intel D945GCLF2 works for
-them, so it might also be an interoperability issue.
+It calls del_timer_sync() while holding netif_tx_lock().  But the timer
+handler (can_restart_now()) also takes netif_tx_lock().  So if the
+timer handler is presently running, it's sitting there spinning in
+netif_tx_lock().  And del_timer_sync() is sitting there waiting for the
+timer handler to complete.
 
--- 
-Michael "Tired" Riepe <michael.riepe@googlemail.com>
-X-Tired: Each morning I get up I die a little
+
