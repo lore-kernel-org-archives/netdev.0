@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: question about softirqs
-Date: Tue, 12 May 2009 21:45:40 -0700 (PDT)
-Message-ID: <20090512.214540.147824481.davem@davemloft.net>
-References: <20090512092348.GA29796@elte.hu> <1242120761.11251.324.camel@twins>
-	<alpine.DEB.2.00.0905120818290.13234@gandalf.stny.rr.com>
+Subject: Re: [PATCH 2.6.27.2] datagram handling routines :
+ mapping/unmapping paged data in soft IRQ
+Date: Tue, 12 May 2009 22:09:31 -0700 (PDT)
+Message-ID: <20090512.220931.138424766.davem@davemloft.net>
+References: <54466B0E862D654998371DCA86B6FE2F4B6DC1@adept-srv2.adept.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.p.zijlstra@chello.nl, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	paulus@samba.org, mingo@elte.hu, tglx@linutronix.de
-To: rostedt@goodmis.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <alpine.DEB.2.00.0905120818290.13234@gandalf.stny.rr.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Luc.Goria@adept-telecom.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50795
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750843AbZEMFJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 01:09:35 -0400
+In-Reply-To: <54466B0E862D654998371DCA86B6FE2F4B6DC1@adept-srv2.adept.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 12 May 2009 08:20:51 -0400 (EDT)
+From: "Luc Goria" <Luc.Goria@adept-telecom.fr>
+Date: Tue, 12 May 2009 10:48:37 +0200
 
-> I'm going to be playing around with bypassing the net-rx/tx with my 
-> network drivers. I'm going to add threaded irqs for my network cards and 
-> have the driver threads do the work to get through the tcp/ip stack.
-> 
-> I'll still keep the softirqs for other cards, but I want to see how fast 
-> it speeds things up if I have the driver thread do it.
+> My company, based in France, develops, manufactures and markets VoIP
+> communication platforms.
 
-I think your latency is going to be dreadful.
+These interfaces are not designed to be used this way.
+
+And we are also not tied to how your external proprietary
+module does things.  And if your code was upstream, we would
+fix it to use these interfaces properly.
+
+Therefore I have no reason to look at your patch.
+
+Sorry.
