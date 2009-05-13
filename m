@@ -1,47 +1,43 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/8] ixgbe: Add FCoE feature header to 82599
-Date: Wed, 13 May 2009 16:10:01 -0700
-Message-ID: <20090513231001.11416.93927.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/8] ixgbe: Add FCoE feature code to 82599
+Date: Wed, 13 May 2009 16:10:21 -0700
+Message-ID: <20090513231021.11416.9456.stgit@localhost.localdomain>
 References: <20090513230924.11416.68752.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	Yi Zou <yi.zou@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:38622 "EHLO
-	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760772AbZEMXKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 19:10:19 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20090513230924.11416.68752.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Yi Zou <yi.zou@intel.com>
 
-This adds the FCoE feature header ixgbe_fcoe.h to 82599. This header includes
-the defines and structures required by the ixgbe driver to support various
-offload features in 82599 for Fiber Channel over Ethernet (FCoE).  These offloads
-features include Fiber Channel CRC calculation, FCoE SOF/EOF auto insertion,
-FCoE Sequence Offload (FSO) for large send, and Direct Data Placement (DDP)
-for large receive.
+This adds the FCoE feature code ixgbe_fcoe.c to 82599. For a start, this patch
+only adds ixgbe_configure_fcoe() to configure related register for FCoE to 82599.
+In patches that follow, I will be adding more functions to ixgbe_fcoe.c to add
+support of FCoE offload features to 82599.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_fcoe.h |   66 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 66 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/ixgbe/ixgbe_fcoe.h
+ drivers/net/ixgbe/ixgbe_fcoe.c |   60 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 60 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ixgbe/ixgbe_fcoe.c
 
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/ixgbe_fcoe.h
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
 new file mode 100644
-index 0000000..d054c1d
+index 0000000..f8c4d35
 --- /dev/null
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.h
-@@ -0,0 +1,66 @@
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -0,0 +1,60 @@
 +/*******************************************************************************
 +
 +  Intel 10 Gigabit PCI Express Linux driver
@@ -69,43 +65,37 @@ index 0000000..d054c1d
 +
 +*******************************************************************************/
 +
-+#ifndef _IXGBE_FCOE_H
-+#define _IXGBE_FCOE_H
 +
++#include "ixgbe.h"
++#include <linux/if_ether.h>
++#include <scsi/scsi_cmnd.h>
++#include <scsi/scsi_device.h>
++#include <scsi/fc/fc_fs.h>
 +#include <scsi/fc/fc_fcoe.h>
++#include <scsi/libfc.h>
++#include <scsi/libfcoe.h>
 +
-+/* shift bits within STAT fo FCSTAT */
-+#define IXGBE_RXDADV_FCSTAT_SHIFT	4
++/**
++ * ixgbe_configure_fcoe - configures registers for fcoe at start
++ * @adapter: ptr to ixgbe adapter
++ *
++ * This sets up FCoE related registers
++ *
++ * Returns : none
++ */
++void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
 +
-+/* ddp user buffer */
-+#define IXGBE_BUFFCNT_MAX	256	/* 8 bits bufcnt */
-+#define IXGBE_FCPTR_ALIGN	16
-+#define IXGBE_FCPTR_MAX	(IXGBE_BUFFCNT_MAX * sizeof(dma_addr_t))
-+#define IXGBE_FCBUFF_4KB	0x0
-+#define IXGBE_FCBUFF_8KB	0x1
-+#define IXGBE_FCBUFF_16KB	0x2
-+#define IXGBE_FCBUFF_64KB	0x3
-+#define IXGBE_FCBUFF_MAX	65536	/* 64KB max */
-+#define IXGBE_FCBUFF_MIN	4096	/* 4KB min */
-+#define IXGBE_FCOE_DDP_MAX	512	/* 9 bits xid */
-+
-+/* fcerr */
-+#define IXGBE_FCERR_BADCRC       0x00100000
-+
-+struct ixgbe_fcoe_ddp {
-+	int len;
-+	u32 err;
-+	unsigned int sgc;
-+	struct scatterlist *sgl;
-+	dma_addr_t udp;
-+	unsigned long *udl;
-+};
-+
-+struct ixgbe_fcoe {
-+	spinlock_t lock;
-+	struct pci_pool *pool;
-+	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
-+};
-+
-+#endif /* _IXGBE_FCOE_H */
++	/* L2 filter for FCoE: default to queue 0 */
++	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FCOE),
++			(ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN));
++	IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, 0);
++	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE),
++			IXGBE_ETQS_QUEUE_EN);
++	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL,
++			IXGBE_FCRXCTRL_FCOELLI |
++			IXGBE_FCRXCTRL_FCCRCBO |
++			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
++}
 
