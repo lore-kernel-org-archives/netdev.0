@@ -1,66 +1,29 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [patch] net/ps3: Update maintainer
-Date: Wed, 13 May 2009 09:12:46 +0900
-Message-ID: <200905130012.n4D0CSWP014563@imail.sm.sony.co.jp>
-References: <49F77C32.8020207@am.sony.com> <4A09F8C2.5040708@am.sony.com>
+From: Online News <giseles@ns.sympatico.ca>
+Subject: =?iso-8859-1?B?ozEsMDAwLDAwMC4wMA==?= GBP {+447035947598}
+Date: Tue, 12 May 2009 20:40:14 -0400
+Message-ID: <20090513004019.OFMC1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: mrlouis@8u8.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Geoff Levand <geoffrey.levand@am.sony.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@winners.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms13-1.sony.co.jp ([211.125.136.229]:49134 "EHLO
-	ms13.sony.co.jp" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755991AbZEMASg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2009 20:18:36 -0400
-In-Reply-To: <4A09F8C2.5040708@am.sony.com>
+Received: from simmts8-qfe0.srvr.bell.ca ([206.47.199.166]:50033 "EHLO
+	simmts8-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752395AbZEMAkS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2009 20:40:18 -0400
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts8-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090513004019.OFMC1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Tue, 12 May 2009 20:40:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+You were selected for the sum of  =A31,000,000.00 GBP . Verify this mai=
+l immediately by sending in  your information. This will include your n=
+ame,=20
 
-On Tue, 12 May 2009 15:31:30 -0700
-Geoff Levand <geoffrey.levand@am.sony.com> wrote:
-
-> Subject: net/ps3: Update maintainer
-> 
-> From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-> 
-> Update the MAINTAINERS entry for PS3 NETWORK SUPPORT.
-> 
-> CC: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-> Signed-off-by: Geoff Levand <geoffrey.levand@am.sony.com>
-
-Acked-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-
-> ---
-> 
-> Hi Jeff,
-> 
-> This is another resend of my patch from March 30th.
-> 
-> I would like to get this in for 2.6.30 so bug reports,
-> etc. will get routed to the right person.
-> 
-> Please apply. Thanks.
-> 
->  MAINTAINERS |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -4421,8 +4421,8 @@ S:	Maintained
->  F:	drivers/ata/sata_promise.*
->  
->  PS3 NETWORK SUPPORT
-> -P:	Masakazu Mokuno
-> -M:	mokuno@sm.sony.co.jp
-> +P:	Geoff Levand
-> +M:	geoffrey.levand@am.sony.com
->  L:	netdev@vger.kernel.org
->  L:	cbe-oss-dev@ozlabs.org
->  S:	Supported
-
--- 
-Masakazu Mokuno
+address, age, phone number etc to  mrlouis@8u8.hk
 
