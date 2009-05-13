@@ -1,41 +1,38 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: question about softirqs
-Date: Wed, 13 May 2009 09:55:11 +0400
-Message-ID: <20090513055511.GA8529@ioremap.net>
-References: <18948.63755.279732.294842@cargo.ozlabs.ibm.com> <20090508.234815.127227651.davem@davemloft.net> <4A086DB2.8040703@nortel.com> <20090511.162436.193717082.davem@davemloft.net> <4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu> <1242119578.11251.321.camel@twins>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
+Date: Wed, 13 May 2009 08:11:38 +0200
+Message-ID: <20090513061138.GA11106@electric-eye.fr.zoreil.com>
+References: <200903041828.49972.m.bueker@berlin.de> <4A06D8D2.4010505@googlemail.com> <1242001754.4093.12.camel@obelisk.thedillows.org> <200905112248.44868.mb@bu3sch.de> <m3eiuufufj.fsf@intrepid.localdomain> <4A09EE13.3020102@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Chris Friesen <cfriesen@nortel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	paulus@samba.org, netdev@vger.kernel.org
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>, Michael Buesch <mb@bu3sch.de>,
+	David Dillow <dave@thedillows.org>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael =?unknown-8bit?B?QsO8a2Vy?= <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Riepe <michael.riepe@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cs-studio.ru ([195.178.208.66]:50998 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751165AbZEMFzT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2009 01:55:19 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48711 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751594AbZEMGLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 02:11:45 -0400
 Content-Disposition: inline
-In-Reply-To: <1242119578.11251.321.camel@twins>
+In-Reply-To: <4A09EE13.3020102@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+Michael Riepe <michael.riepe@googlemail.com> :
+[...]
+> How do lspci and dmesg report the chip? For mine, lspci says it's a
+> "RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 02)" while
+> the kernel reports "RTL8168c/8111c at 0xffffc200000f6000,
+> 00:1c:c0:b6:1a:4a, XID 3c4000c0".
 
-On Tue, May 12, 2009 at 11:12:58AM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> Wouldn't the even better solution be to get rid of softirqs
-> all-together?
+The XID is more specific than the first kernel report. lspci is less
+accurate.
 
-And move tasklets into some thread context?
-
-Only if we are ready to fix 7 times rescheduling regressions compared to
-kernel threads (work queue actually). At least that's how tasklet
-behaved compared to work queue 1.5 years ago in the simplest
-and quite naive test where tasklet/work rescheduled iself number of
-times:
-
-http://marc.info/?l=linux-crypto-vger&m=119462472517405&w=2
+> This reminds me of the early ATA/USB bridges from Genesys Logic... many
+> revisions, and each one broken in a different way. :-(
 
 -- 
-	Evgeniy Polyakov
+Ueimor
