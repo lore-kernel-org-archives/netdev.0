@@ -1,35 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.27.2] datagram handling routines :
- mapping/unmapping paged data in soft IRQ
-Date: Tue, 12 May 2009 22:09:31 -0700 (PDT)
-Message-ID: <20090512.220931.138424766.davem@davemloft.net>
-References: <54466B0E862D654998371DCA86B6FE2F4B6DC1@adept-srv2.adept.local>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: question about softirqs
+Date: Wed, 13 May 2009 15:15:34 +1000
+Message-ID: <18954.22390.754419.803434@cargo.ozlabs.ibm.com>
+References: <20090512081237.GA16403@elte.hu>
+	<1242119578.11251.321.camel@twins>
+	<20090512092348.GA29796@elte.hu>
+	<20090512.214427.193728136.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Luc.Goria@adept-telecom.fr
+Cc: mingo@elte.hu, a.p.zijlstra@chello.nl, cfriesen@nortel.com,
+	tglx@linutronix.de, rostedt@goodmis.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50795
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750843AbZEMFJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 01:09:35 -0400
-In-Reply-To: <54466B0E862D654998371DCA86B6FE2F4B6DC1@adept-srv2.adept.local>
+Received: from bilbo.ozlabs.org ([203.10.76.25]:59030 "EHLO bilbo.ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750843AbZEMFPj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 01:15:39 -0400
+In-Reply-To: <20090512.214427.193728136.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Luc Goria" <Luc.Goria@adept-telecom.fr>
-Date: Tue, 12 May 2009 10:48:37 +0200
+David Miller writes:
 
-> My company, based in France, develops, manufactures and markets VoIP
-> communication platforms.
+> I fully expected us to be, at this point, talking about putting the
+> pending softirq check back into the trap return path :-/
 
-These interfaces are not designed to be used this way.
+Would that actually do any good, in the case where the system has
+decided that ksoftirqd is handling soft irqs at the moment?
 
-And we are also not tied to how your external proprietary
-module does things.  And if your code was upstream, we would
-fix it to use these interfaces properly.
-
-Therefore I have no reason to look at your patch.
-
-Sorry.
+Paul.
