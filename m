@@ -1,61 +1,105 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [PATCH 1/2] igb: Implement reading of reg RQDPC (Receive Queue
-	Drop Packet Count)
-Date: Wed, 13 May 2009 15:07:56 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F7A1DF466@rrsmsx501.amr.corp.intel.com>
-References: <1241703346.18487.22.camel@localhost.localdomain>
-	 <1241703431.18487.25.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365F7744D662@rrsmsx501.amr.corp.intel.com>
- <1242035422.18487.78.camel@localhost.localdomain>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
+ Netlink interface
+Date: Wed, 13 May 2009 15:31:12 -0600
+Message-ID: <20090513153112.0822809b@bike.lwn.net>
+References: <20090512092757.048938233@denx.de>
+	<20090512092757.574693100@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20068 "EHLO mga11.intel.com"
+Received: from vena.lwn.net ([206.168.112.25]:33019 "EHLO vena.lwn.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753234AbZEMVH5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 17:07:57 -0400
-In-Reply-To: <1242035422.18487.78.camel@localhost.localdomain>
-Content-Language: en-US
+	id S1761188AbZEMVbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 17:31:16 -0400
+In-Reply-To: <20090512092757.574693100@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+[Quick review ...]
 
->-----Original Message-----
->From: Jesper Dangaard Brouer [mailto:hawk@comx.dk] 
->Sent: Monday, May 11, 2009 2:50 AM
->
->I have now tested it on a 82575 chip NIC. (I just got my 82575 NIC
->working again (This 12 port monster from Hotlava Systems, just needed
->more power on PCIe 100Watt)).
->
->I don't see the reason for doing special checks for the 82575. Reading
->the RQDPC registers on 82575 always returns 0.  I don't see any harm in
->that!?  (it also returns zero in overload situations)
->
->What do you want to redraw your NAK?
->
+> +/*
+> + * CAN device restart for bus-off recovery
+> + */
+> +int can_restart_now(struct net_device *dev)
+> +{
+> +	struct can_priv *priv = netdev_priv(dev);
+> +	struct net_device_stats *stats = &dev->stats;
+> +	struct sk_buff *skb;
+> +	struct can_frame *cf;
+> +	int err;
+> +
+> +	/* Synchronize with dev->hard_start_xmit() */
+> +	netif_tx_lock(dev);
+> +
+> +	/* Ensure that no more messages can go out */
+> +	if (netif_carrier_ok(dev))
+> +		netif_carrier_off(dev);
+> +
+> +	/* Ensure that no more messages can come in */
+> +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
+> +	if (err)
+> +		return err;
 
-Jesper, I still stand by my NAK.  It's never ever a good idea to read
-non-existent hardware registers.  You don't know what effect those
-reads will have on the hardware.  These addresses may be aliased to other
-registers without being documented.  Hardware designers do this all the
-time to save a few gates in the address decode logic, and these aliases
-may or may not be documented.  If this is the case, reading these
-registers will have unintended consequences.  You might be clearing some
-other statistic, or worse.
+This leaves _xmit_lock held and carrier off.  Is that really what you want
+to do?
 
-Since we just don't know, it's better to be safe than sorry.  Wrap
-those register reads so they only happen on 82576, and I'll happily
-ack your patch.
+> +
+> +	/*  Now it's save to clean up */
+> +	del_timer_sync(&priv->restart_timer);
+> +	can_flush_echo_skb(dev);
+> +
+> +	dev_dbg(dev->dev.parent, "restarted\n");
+> +	priv->can_stats.restarts++;
+> +
+> +	/* send restart message upstream */
+> +	skb = dev_alloc_skb(sizeof(struct can_frame));
+> +	if (skb == NULL)
+> +		return -ENOMEM;
 
--Mitch
+...here too...
+
+> +	skb->dev = dev;
+> +	skb->protocol = htons(ETH_P_CAN);
+> +	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+> +	memset(cf, 0, sizeof(struct can_frame));
+> +	cf->can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
+> +	cf->can_dlc = CAN_ERR_DLC;
+> +
+> +	netif_rx(skb);
+> +
+> +	dev->last_rx = jiffies;
+> +	stats->rx_packets++;
+> +	stats->rx_bytes += cf->can_dlc;
+> +
+> +	/* Now restart the device */
+> +	err = priv->do_set_mode(dev, CAN_MODE_START);
+> +	if (err)
+> +		return err;
+
+...and here too.  Do you maybe want to get rid of the middle-of-function
+returns and switch to the "goto out" convention?
+
+> +	netif_carrier_on(dev);
+> +
+> +	netif_tx_unlock(dev);
+> +
+> +	return 0;
+> +}
+> +
+> +static void can_restart_after(unsigned long data)
+> +{
+> +	struct net_device *dev = (struct net_device *)data;
+> +
+> +	can_restart_now(dev);
+> +}
+
+can_restart_after what?  I find myself confused by this function and
+wondering why it exists.
+
+jon
