@@ -1,56 +1,60 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: question about softirqs
-Date: Wed, 13 May 2009 19:01:22 +0200
-Message-ID: <20090513170122.GZ19296@one.firstfloor.org>
-References: <20090511.162436.193717082.davem@davemloft.net>
-	<4A08C62F.1050105@nortel.com> <20090512081237.GA16403@elte.hu>
-	<4A09933B.8010606@nortel.com> <874ovpmmdq.fsf@basil.nowhere.org>
-	<4A0AC9EC.6070908@nortel.com>
-	<20090513141532.GT19296@one.firstfloor.org>
-	<alpine.LFD.2.00.0905131612180.3561@localhost.localdomain>
-	<87my9hkrmw.fsf@basil.nowhere.org> <4A0AE19D.9040509@nortel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: loosing connections on bridge topology changes
+Date: Wed, 13 May 2009 10:44:49 -0700
+Message-ID: <20090513104449.49b1df6a@nehalam>
+References: <4A0AE3A5.20100@hiramoto.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>,
-	Steven Rostedt <rostedt@goodmis.org>, linuxppc-dev@ozlabs.org,
-	Andi Kleen <andi@firstfloor.org>, paulus@samba.org,
-	Thomas Gleixner <tglx@linutronix.de>, David Miller <davem@davemloft.net>
-To: Chris Friesen <cfriesen@nortel.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <4A0AE19D.9040509@nortel.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Karl Hiramoto <karl@hiramoto.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43944 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755090AbZEMRoy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 13:44:54 -0400
+In-Reply-To: <4A0AE3A5.20100@hiramoto.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 13, 2009 at 09:05:01AM -0600, Chris Friesen wrote:
-> Andi Kleen wrote:
-> > Thomas Gleixner <tglx@linutronix.de> writes:
+On Wed, 13 May 2009 17:13:41 +0200
+Karl Hiramoto <karl@hiramoto.org> wrote:
+
 > 
-> >>Err, no. Chris is completely correct:
-> >>
-> >>        if (!in_interrupt())
-> >>		wakeup_softirqd();
-> > 
-> > Yes you have to wake it up just in case, but it doesn't normally
-> > process the data because a normal softirq comes in faster. It's
-> > just a safety policy. 
+> Hi,
 > 
-> What about the scenario I raised earlier, where we have incoming network
-> packets,
+> I have a user space application, that puts eth0 into bridge br0.  At 
+> this moment all connections seem frozen. Telnet, HTTP, and NFS.
+> 
+> For development i have nfs root fs.
+> 
+> There is a ioctl() that does the equivalent of "brctl addif br0 eth0"
+> 
+> That cuts all the connections for a few seconds.
+> 
+> nfs: server 192.168.10.51 not responding, still trying
+> br0: topology change detected, propagating           
+> br0: port 1(eth0) entering forwarding state          
+> nfs: server 192.168.10.51 not responding, still trying
+> nfs: server 192.168.10.51 OK                         
+> nfs: server 192.168.10.51 OK  
+> 
+> 
+> Then everything is OK..
+> 
+> Is there anyway i can fix this, so my applicaion goes ahead at full speed?
+> 
+> 
+> using libnl i tried flushing the ARP cache on all devices, but it didn't 
+> seem to help.
+> 
+> 
+> Thanks
+> --
+> 
+> Karl.
 
-network packets are normally processed by the network packet interrupt's
-softirq or alternatively in the NAPI poll loop.
+turn off forwarding delay (unless you are using STP).
+ brctl setfd br0 0
 
--Andi
 -- 
-ak@linux.intel.com -- Speaking for myself only.
