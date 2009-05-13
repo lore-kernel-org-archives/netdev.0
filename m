@@ -1,95 +1,152 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 8/8] ixgbe: Add FCoE related statistics to 82599
-Date: Wed, 13 May 2009 16:12:16 -0700
-Message-ID: <20090513231216.11416.9332.stgit@localhost.localdomain>
-References: <20090513230924.11416.68752.stgit@localhost.localdomain>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone
+ over NFS
+Date: Wed, 13 May 2009 19:45:38 -0400
+Message-ID: <1242258338.5407.244.camel@heimdal.trondhjem.org>
+References: <x49hc0f79k9.fsf@segfault.boston.devel.redhat.com>
+	 <20090508120119.8c93cfd7.akpm@linux-foundation.org>
+	 <20090511081415.GL4694@kernel.dk>
+	 <x49skjb21b7.fsf@segfault.boston.devel.redhat.com>
+	 <20090511165826.GG4694@kernel.dk>
+	 <x494ovp4r51.fsf@segfault.boston.devel.redhat.com>
+	 <20090512204433.7eb69075.akpm@linux-foundation.org>
+	 <x49y6t1rqw0.fsf@segfault.boston.devel.redhat.com>
+	 <x49k54ku7i2.fsf@segfault.boston.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	Yi Zou <yi.zou@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Olga Kornievskaia <aglo@citi.umich.edu>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Jim Rees <rees@umich.edu>, linux-nfs@vger.kernel.org
+To: Jeff Moyer <jmoyer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:47356
-	"EHLO QMTA03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761463AbZEMXMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 19:12:37 -0400
-In-Reply-To: <20090513230924.11416.68752.stgit@localhost.localdomain>
+Received: from mail-out1.uio.no ([129.240.10.57]:33347 "EHLO mail-out1.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761210AbZEMXpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2009 19:45:46 -0400
+In-Reply-To: <x49k54ku7i2.fsf@segfault.boston.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yi Zou <yi.zou@intel.com>
+On Wed, 2009-05-13 at 15:29 -0400, Jeff Moyer wrote:
+> Hi, netdev folks.  The summary here is:
+> 
+> A patch added in the 2.6.30 development cycle caused a performance
+> regression in my NFS iozone testing.  The patch in question is the
+> following:
+> 
+> commit 47a14ef1af48c696b214ac168f056ddc79793d0e
+> Author: Olga Kornievskaia <aglo@citi.umich.edu>
+> Date:   Tue Oct 21 14:13:47 2008 -0400
+> 
+>     svcrpc: take advantage of tcp autotuning
+>  
+> which is also quoted below.  Using 8 nfsd threads, a single client doing
+> 2GB of streaming read I/O goes from 107590 KB/s under 2.6.29 to 65558
+> KB/s under 2.6.30-rc4.  I also see more run to run variation under
+> 2.6.30-rc4 using the deadline I/O scheduler on the server.  That
+> variation disappears (as does the performance regression) when reverting
+> the above commit.
 
-This adds FCoE related statistics to 82599, including number Rx-ed and Tx-ed
-FCoE packets, number of Rx-ed and Tx-ed FCoE packets in dwords, number of bad
-Fiber Channel CRCs detected in FCoE packets, and number of FCoE packets dropped
-on the Rx side.
+It looks to me as if we've got a bug in the svc_tcp_has_wspace() helper
+function. I can see no reason why we should stop processing new incoming
+RPC requests just because the send buffer happens to be 2/3 full. If we
+see that we have space for another reply, then we should just go for it.
+OTOH, we do want to ensure that the SOCK_NOSPACE flag remains set, so
+that the TCP layer knows that we're congested, and that we'd like it to
+increase the send window size, please.
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Could you therefore please see if the following (untested) patch helps?
+
+Cheers
+  Trond
+---------------------------------------------------------------------
+>From 1545cbda1b1cda2500cb9db3c760a05fc4f6ed4d Mon Sep 17 00:00:00 2001
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Date: Wed, 13 May 2009 19:44:58 -0400
+Subject: [PATCH] SUNRPC: Fix the TCP server's send buffer accounting
+
+Currently, the sunrpc server is refusing to allow us to process new RPC
+calls if the TCP send buffer is 2/3 full, even if we do actually have
+enough free space to guarantee that we can send another request.
+The following patch fixes svc_tcp_has_wspace() so that we only stop
+processing requests if we know that the socket buffer cannot possibly fit
+another reply.
+
+It also fixes the tcp write_space() callback so that we only clear the
+SOCK_NOSPACE flag when the TCP send buffer is less than 2/3 full.
+This should ensure that the send window will grow as per the standard TCP
+socket code.
+
+Signed-off-by: Trond Myklebust <Trond.Myklebust@netapp.com>
 ---
+ net/sunrpc/svcsock.c |   32 ++++++++++++++++----------------
+ 1 files changed, 16 insertions(+), 16 deletions(-)
 
- drivers/net/ixgbe/ixgbe_ethtool.c |    8 ++++++++
- drivers/net/ixgbe/ixgbe_main.c    |    8 ++++++++
- drivers/net/ixgbe/ixgbe_type.h    |    6 ++++++
- 3 files changed, 22 insertions(+), 0 deletions(-)
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index af31988..8962355 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -386,6 +386,15 @@ static void svc_write_space(struct sock *sk)
+ 	}
+ }
+ 
++static void svc_tcp_write_space(struct sock *sk)
++{
++	struct socket *sock = sk->sk_socket;
++
++	if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk) && sock)
++		clear_bit(SOCK_NOSPACE, &sock->flags);
++	svc_write_space(sk);
++}
++
+ /*
+  * Copy the UDP datagram's destination address to the rqstp structure.
+  * The 'destination' address in this case is the address to which the
+@@ -964,23 +973,14 @@ static int svc_tcp_has_wspace(struct svc_xprt *xprt)
+ 	struct svc_sock *svsk =	container_of(xprt, struct svc_sock, sk_xprt);
+ 	struct svc_serv	*serv = svsk->sk_xprt.xpt_server;
+ 	int required;
+-	int wspace;
+-
+-	/*
+-	 * Set the SOCK_NOSPACE flag before checking the available
+-	 * sock space.
+-	 */
+-	set_bit(SOCK_NOSPACE, &svsk->sk_sock->flags);
+-	required = atomic_read(&svsk->sk_xprt.xpt_reserved) + serv->sv_max_mesg;
+-	wspace = sk_stream_wspace(svsk->sk_sk);
+-
+-	if (wspace < sk_stream_min_wspace(svsk->sk_sk))
+-		return 0;
+-	if (required * 2 > wspace)
+-		return 0;
+ 
+-	clear_bit(SOCK_NOSPACE, &svsk->sk_sock->flags);
++	required = (atomic_read(&xprt->xpt_reserved) + serv->sv_max_mesg) * 2;
++	if (sk_stream_wspace(svsk->sk_sk) < required)
++		goto out_nospace;
+ 	return 1;
++out_nospace:
++	set_bit(SOCK_NOSPACE, &svsk->sk_sock->flags);
++	return 0;
+ }
+ 
+ static struct svc_xprt *svc_tcp_create(struct svc_serv *serv,
+@@ -1036,7 +1036,7 @@ static void svc_tcp_init(struct svc_sock *svsk, struct svc_serv *serv)
+ 		dprintk("setting up TCP socket for reading\n");
+ 		sk->sk_state_change = svc_tcp_state_change;
+ 		sk->sk_data_ready = svc_tcp_data_ready;
+-		sk->sk_write_space = svc_write_space;
++		sk->sk_write_space = svc_tcp_write_space;
+ 
+ 		svsk->sk_reclen = 0;
+ 		svsk->sk_tcplen = 0;
+-- 
+1.6.0.4
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index c0167d6..39fb98f 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -91,6 +91,14 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
- 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
- 	{"rx_no_dma_resources", IXGBE_STAT(hw_rx_no_dma_resources)},
-+#ifdef IXGBE_FCOE
-+	{"fcoe_bad_fccrc", IXGBE_STAT(stats.fccrc)},
-+	{"rx_fcoe_dropped", IXGBE_STAT(stats.fcoerpdc)},
-+	{"rx_fcoe_packets", IXGBE_STAT(stats.fcoeprc)},
-+	{"rx_fcoe_dwords", IXGBE_STAT(stats.fcoedwrc)},
-+	{"tx_fcoe_packets", IXGBE_STAT(stats.fcoeptc)},
-+	{"tx_fcoe_dwords", IXGBE_STAT(stats.fcoedwtc)},
-+#endif /* IXGBE_FCOE */
- };
- 
- #define IXGBE_QUEUE_STATS_LEN \
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index e7c44a3..d69a052 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4002,6 +4002,14 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 		IXGBE_READ_REG(hw, IXGBE_TORH); /* to clear */
- 		adapter->stats.lxonrxc += IXGBE_READ_REG(hw, IXGBE_LXONRXCNT);
- 		adapter->stats.lxoffrxc += IXGBE_READ_REG(hw, IXGBE_LXOFFRXCNT);
-+#ifdef IXGBE_FCOE
-+		adapter->stats.fccrc += IXGBE_READ_REG(hw, IXGBE_FCCRC);
-+		adapter->stats.fcoerpdc += IXGBE_READ_REG(hw, IXGBE_FCOERPDC);
-+		adapter->stats.fcoeprc += IXGBE_READ_REG(hw, IXGBE_FCOEPRC);
-+		adapter->stats.fcoeptc += IXGBE_READ_REG(hw, IXGBE_FCOEPTC);
-+		adapter->stats.fcoedwrc += IXGBE_READ_REG(hw, IXGBE_FCOEDWRC);
-+		adapter->stats.fcoedwtc += IXGBE_READ_REG(hw, IXGBE_FCOEDWTC);
-+#endif /* IXGBE_FCOE */
- 	} else {
- 		adapter->stats.lxonrxc += IXGBE_READ_REG(hw, IXGBE_LXONRXC);
- 		adapter->stats.lxoffrxc += IXGBE_READ_REG(hw, IXGBE_LXOFFRXC);
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index b3de723..38f835d 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2157,6 +2157,12 @@ struct ixgbe_hw_stats {
- 	u64 fdirfstat_fremove;
- 	u64 fdirmatch;
- 	u64 fdirmiss;
-+	u64 fccrc;
-+	u64 fcoerpdc;
-+	u64 fcoeprc;
-+	u64 fcoeptc;
-+	u64 fcoedwrc;
-+	u64 fcoedwtc;
- };
- 
- /* forward declaration */
+
 
