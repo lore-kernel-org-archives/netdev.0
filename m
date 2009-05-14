@@ -1,110 +1,122 @@
-From: Jeff Moyer <jmoyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone over NFS
-Date: Thu, 14 May 2009 11:00:28 -0400
-Message-ID: <x49ws8j686r.fsf@segfault.boston.devel.redhat.com>
-References: <x49hc0f79k9.fsf@segfault.boston.devel.redhat.com>
-	<20090508120119.8c93cfd7.akpm@linux-foundation.org>
-	<20090511081415.GL4694@kernel.dk>
-	<x49skjb21b7.fsf@segfault.boston.devel.redhat.com>
-	<20090511165826.GG4694@kernel.dk>
-	<x494ovp4r51.fsf@segfault.boston.devel.redhat.com>
-	<20090512204433.7eb69075.akpm@linux-foundation.org>
-	<x49y6t1rqw0.fsf@segfault.boston.devel.redhat.com>
-	<x49k54ku7i2.fsf@segfault.boston.devel.redhat.com>
-	<1242258338.5407.244.camel@heimdal.trondhjem.org>
-	<x49octv7qr8.fsf@segfault.boston.devel.redhat.com>
-	<1242311620.6560.14.camel@heimdal.trondhjem.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Yukon2 88E8056 card problem with switch?
+Date: Thu, 14 May 2009 08:06:15 -0700
+Message-ID: <20090514080615.6419b121@nehalam>
+References: <4A0BC769.9010507@aei.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Olga Kornievskaia <aglo-vtMw8L3fJ9vSiEDVxGk4TQ@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1242311620.6560.14.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org> (Trond
-	Myklebust's message of "Thu, 14 May 2009 10:33:40 -0400")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45440 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751220AbZENPHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 11:07:03 -0400
+In-Reply-To: <4A0BC769.9010507@aei.mpg.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org> writes:
+On Thu, 14 May 2009 09:25:29 +0200
+Carsten Aulbert <carsten.aulbert@aei.mpg.de> wrote:
 
-> On Thu, 2009-05-14 at 09:34 -0400, Jeff Moyer wrote:
->> Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org> writes:
->> 
->> > On Wed, 2009-05-13 at 15:29 -0400, Jeff Moyer wrote:
->> >> Hi, netdev folks.  The summary here is:
->> >> 
->> >> A patch added in the 2.6.30 development cycle caused a performance
->> >> regression in my NFS iozone testing.  The patch in question is the
->> >> following:
->> >> 
->> >> commit 47a14ef1af48c696b214ac168f056ddc79793d0e
->> >> Author: Olga Kornievskaia <aglo-vtMw8L3fJ9vSiEDVxGk4TQ@public.gmane.org>
->> >> Date:   Tue Oct 21 14:13:47 2008 -0400
->> >> 
->> >>     svcrpc: take advantage of tcp autotuning
->> >>  
->> >> which is also quoted below.  Using 8 nfsd threads, a single client doing
->> >> 2GB of streaming read I/O goes from 107590 KB/s under 2.6.29 to 65558
->> >> KB/s under 2.6.30-rc4.  I also see more run to run variation under
->> >> 2.6.30-rc4 using the deadline I/O scheduler on the server.  That
->> >> variation disappears (as does the performance regression) when reverting
->> >> the above commit.
->> >
->> > It looks to me as if we've got a bug in the svc_tcp_has_wspace() helper
->> > function. I can see no reason why we should stop processing new incoming
->> > RPC requests just because the send buffer happens to be 2/3 full. If we
->> > see that we have space for another reply, then we should just go for it.
->> > OTOH, we do want to ensure that the SOCK_NOSPACE flag remains set, so
->> > that the TCP layer knows that we're congested, and that we'd like it to
->> > increase the send window size, please.
->> >
->> > Could you therefore please see if the following (untested) patch helps?
->> 
->> I'm seeing slightly better results with the patch:
->> 
->> 71548
->> 75987
->> 71557
->> 87432
->> 83538
->> 
->> But that's still not up to the speeds we saw under 2.6.29.  The packet
->> capture for one run can be found here:
->>   http://people.redhat.com/jmoyer/trond.pcap.bz2
->> 
->> Cheers,
->> Jeff
->
-> Yes. Something is very wrong there...
->
-> See for instance frame 1195, where the client finishes sending a whole
-> series of READ requests, and we go into a flurry of ACKs passing
-> backwards and forwards, but no data. It looks as if the NFS server isn't
-> processing anything, probably because the window size falls afoul of the
-> svc_tcp_has_wspace()...
->
-> Does something like this help?
+> Hi,
+> 
+> sorry to ask you directly, but I'm running out of options how to solve
+> this issue:
+> 
+> We install our machines fully automatically via Debian's FAI mechanisms
+> and hit a problem right at the end of the installation which can also be
+> triggered after a standard system install.
+> 
+> With kernel 2.6.27.21 (vanilla) and logging into the box via ssh and
+> calling dmesg, the net watchdog starts barking:
+> 
+> May 12 09:04:28 gpu01 kernel: [ 3000.040007] ------------[ cut here
+> ]------------
+> May 12 09:04:28 gpu01 kernel: [ 3000.040011] WARNING: at
+> net/sched/sch_generic.c:219 dev_watchdog+0x121/0x1b8()
+> May 12 09:04:28 gpu01 kernel: [ 3000.040013] NETDEV WATCHDOG: eth0
+> (sky2): transmit timed out
+> May 12 09:04:28 gpu01 kernel: [ 3000.040015] Modules linked in:
+> ipmi_devintf ipmi_watchdog ipmi_poweroff ipmi_msghandler i2c_i801
+> i2c_core sky2
+> May 12 09:04:28 gpu01 kernel: [ 3000.040025] Pid: 0, comm: swapper Not
+> tainted 2.6.27.21-atlas-generic-noinitrd #1
+> May 12 09:04:28 gpu01 kernel: [ 3000.040027]
+> May 12 09:04:28 gpu01 kernel: [ 3000.040028] Call Trace:
+> May 12 09:04:28 gpu01 kernel: [ 3000.040030]  <IRQ>
+> [<ffffffff80237378>] warn_slowpath+0xb4/0xdc
+> May 12 09:04:28 gpu01 kernel: [ 3000.040037]  [<ffffffff804d2d00>]
+> sk_filter+0x10/0x80
+> May 12 09:04:28 gpu01 kernel: [ 3000.040040]  [<ffffffff804e7b1a>]
+> ip_route_input+0x63e/0xedf
+> May 12 09:04:28 gpu01 kernel: [ 3000.040044]  [<ffffffff803bf7b9>]
+> __next_cpu+0x19/0x26
+> May 12 09:04:28 gpu01 kernel: [ 3000.040048]  [<ffffffff802302e7>]
+> find_busiest_group+0x315/0x7c3
+> May 12 09:04:28 gpu01 kernel: [ 3000.040051]  [<ffffffff80232203>]
+> try_to_wake_up+0x165/0x177
+> May 12 09:04:28 gpu01 kernel: [ 3000.040054]  [<ffffffff8022f0ce>]
+> enqueue_task_fair+0xd8/0x130
+> May 12 09:04:28 gpu01 kernel: [ 3000.040057]  [<ffffffff804df6ed>]
+> dev_watchdog+0x121/0x1b8
+> May 12 09:04:28 gpu01 kernel: [ 3000.040060]  [<ffffffff80232203>]
+> try_to_wake_up+0x165/0x177
+> May 12 09:04:28 gpu01 kernel: [ 3000.040062]  [<ffffffff804df5cc>]
+> dev_watchdog+0x0/0x1b8
+> May 12 09:04:28 gpu01 kernel: [ 3000.040065]  [<ffffffff8023fa06>]
+> run_timer_softirq+0x16e/0x1ee
+> May 12 09:04:28 gpu01 kernel: [ 3000.040069]  [<ffffffff8024c075>]
+> ktime_get_ts+0x21/0x49
+> May 12 09:04:28 gpu01 kernel: [ 3000.040072]  [<ffffffff8023bfad>]
+> __do_softirq+0x6a/0xda
+> May 12 09:04:28 gpu01 kernel: [ 3000.040075]  [<ffffffff8021163c>]
+> call_softirq+0x1c/0x28
+> May 12 09:04:28 gpu01 kernel: [ 3000.040078]  [<ffffffff802130fb>]
+> do_softirq+0x3c/0x81
+> May 12 09:04:28 gpu01 kernel: [ 3000.040082]  [<ffffffff80220326>]
+> smp_apic_timer_interrupt+0x8e/0xa7
+> May 12 09:04:28 gpu01 kernel: [ 3000.040085]  [<ffffffff80210e43>]
+> apic_timer_interrupt+0x83/0x90
+> May 12 09:04:28 gpu01 kernel: [ 3000.040086]  <EOI>
+> [<ffffffff802170e2>] mwait_idle+0x3c/0x46
+> May 12 09:04:28 gpu01 kernel: [ 3000.040092]  [<ffffffff8020ee32>]
+> cpu_idle+0x91/0xd1
+> May 12 09:04:28 gpu01 kernel: [ 3000.040094]
+> May 12 09:04:28 gpu01 kernel: [ 3000.040096] ---[ end trace
+> da19323bcd799bc5 ]---
+> May 12 09:04:28 gpu01 kernel: [ 3000.040098] sky2 eth0: tx timeout
+> May 12 09:04:28 gpu01 kernel: [ 3000.048993] sky2 eth0: transmit ring
+> 348 .. 308 report=348 done=348
+> May 12 09:04:28 gpu01 kernel: [ 3000.049017] sky2 eth0: disabling interface
+> May 12 09:04:28 gpu01 kernel: [ 3000.053439] sky2 eth0: enabling interface
+> May 12 09:04:31 gpu01 kernel: [ 3003.153938] sky2 eth0: Link is up at
+> 1000 Mbps, full duplex, flow control rx
 
-Sorry for the previous, stupid question.  I applied the patch in
-addition the last one and here are the results:
+You are only seeing partial flow control. My recommendation would be to
+turn off flow control with:
+   ethtool -A eth0 autoneg off rx off tx off
 
-70327
-71561
-68760
-69199
-65324
 
-A packet capture for this run is available here:
-  http://people.redhat.com/jmoyer/trond2.pcap.bz2
 
-Any more ideas?  ;)
+> Most of the time the device seem to heal itself after a couple of
+> minutes, but not always. I suspect this is related to switching since I
+> don't see this behavior when running a direct link cable between this
+> machine and another one.
+> 
+> On a related note: It seems that autosensing does not work reliably
+> also, since our switches do report no pause frames on both tx as well as
+> rx because that could potentially cause havoc in our large switching
+> network.
 
--Jeff
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It works with other switches, so check cable and try another switch.
+
+
+> If've tried to make this problem go away via ethtool -A eth0, however so
+> far without luck. I've yet to play around with the sky2 module
+> parameters, any idea which parameter - if any - could help?
+
+No parameters (by design) in driver.
+
+-- 
