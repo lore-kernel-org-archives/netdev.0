@@ -1,79 +1,78 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 10/51] e1000: fix virtualization bug
-Date: Thu, 14 May 2009 15:32:45 -0700
-Message-ID: <20090514223521.833331091@mini.kroah.org>
-References: <20090514223235.348540705@mini.kroah.org>
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	Rodrigo Rubira Branco <rbranco@la.checkpoint.com>,
-	Jake Edge <jake@lwn.net>, Eugene Teo <eteo@redhat.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	chrisw@sous-sol.org, greg@kroah.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:51523 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755993AbZENWmC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2009 18:42:02 -0400
-Content-Disposition: inline; filename=e1000-fix-virtualization-bug.patch
-In-Reply-To: <20090514223755.GA27019@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/2] igb: drop stats due to OS cannot keep
+	up
+Date: Thu, 14 May 2009 15:43:15 -0700
+Message-ID: <9929d2390905141543g6f5adc32ndf65870bd49d83ea@mail.gmail.com>
+References: <1241703346.18487.22.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>, "Waskiewicz Jr,
+	Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: Jesper Dangaard Brouer <hawk@comx.dk>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1241703346.18487.22.camel@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
+On Thu, May 7, 2009 at 6:35 AM, Jesper Dangaard Brouer <hawk@comx.dk> wrote:
+>
+> The following patchset address "drop" stats counters in the igb
+> driver (chips 82576 and 82575).  The drop stats addressed here
+> are due to the OS cannot keep up.
+>
+> I have only tested it for the 82576 chip, as my (12 port) 82575
+> chip based NIC from Hotlava Systems recently died in my testlab :-(((
+>
+> [First patch]
+> Implements reading of the per queue drop stats.
+> These stats only gets incremented if the DROP_EN bit it set (in
+> the SRRCTL register for that queue, or QDE reg is set).
+>
+> [Second patch]
+> Address the case where the DROP_EN it NOT set.  In
+> this case a global register records the equivalent drop type. And
+> aggregation of these two types of drops into the device net_stats.
+>
+> I strongly believe that these drops counters should be made
+> available to sysadm's through the normal device stats.  These
+> stats are essential when diagnosing server performance issues, as
+> these stats are due to the OS cannot keep up. I strongly believe
+> that it should be stored in the net_stats rx_fifo_errors counter,
+> to indicate performance issues.
+>
+> --
+> Med venlig hilsen / Best regards
+>  Jesper Brouer
+>  ComX Networks A/S
+>  Linux Network developer
+>  Cand. Scient Datalog / MSc.
+>  Author of http://adsl-optimizer.dk
+>  LinkedIn: http://www.linkedin.com/in/brouer
+>
 
-2.6.29-stable review patch.  If anyone has any objections, please let us know.
+Jesper - I have pulled in your patches, and made the necessary
+modifications based on Mitch's comments.  Right now, they are in
+testing and I should be pushing them to Dave in the next couple of
+days.
 
-------------------
+-- 
+Cheers,
+Jeff
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-
-[STABLE] backport upstream commit e151a60ad1faffb6241cf7eb6846353df1f33a32
-
-a recent fix to e1000 (commit 15b2bee2) caused KVM/QEMU/VMware based
-virtualized e1000 interfaces to begin failing when resetting.
-
-This is because the driver in a virtual environment doesn't
-get to run instructions *AT ALL* when an interrupt is asserted.
-The interrupt code runs immediately and this recent bug fix
-allows an interrupt to be possible when the interrupt handler
-will reject it (due to the new code), when being called from
-any path in the driver that holds the E1000_RESETTING flag.
-
-the driver should use the __E1000_DOWN flag instead of the
-__E1000_RESETTING flag to prevent interrupt execution
-while reconfiguring the hardware.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/net/e1000/e1000_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3712,7 +3712,7 @@ static irqreturn_t e1000_intr(int irq, v
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl, icr = er32(ICR);
- 
--	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
-+	if (unlikely((!icr) || test_bit(__E1000_DOWN, &adapter->flags)))
- 		return IRQ_NONE;  /* Not our interrupt */
- 
- 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
-
-
+------------------------------------------------------------------------------
+Crystal Reports - New Free Runtime and 30 Day Trial
+Check out the new simplified licensing option that enables 
+unlimited royalty-free distribution of the report engine 
+for externally facing server and web deployment. 
+http://p.sf.net/sfu/businessobjects
