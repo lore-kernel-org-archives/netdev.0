@@ -1,79 +1,92 @@
-From: Jeff Moyer <jmoyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone over NFS
-Date: Thu, 14 May 2009 09:34:03 -0400
-Message-ID: <x49octv7qr8.fsf@segfault.boston.devel.redhat.com>
-References: <x49hc0f79k9.fsf@segfault.boston.devel.redhat.com>
-	<20090508120119.8c93cfd7.akpm@linux-foundation.org>
-	<20090511081415.GL4694@kernel.dk>
-	<x49skjb21b7.fsf@segfault.boston.devel.redhat.com>
-	<20090511165826.GG4694@kernel.dk>
-	<x494ovp4r51.fsf@segfault.boston.devel.redhat.com>
-	<20090512204433.7eb69075.akpm@linux-foundation.org>
-	<x49y6t1rqw0.fsf@segfault.boston.devel.redhat.com>
-	<x49k54ku7i2.fsf@segfault.boston.devel.redhat.com>
-	<1242258338.5407.244.camel@heimdal.trondhjem.org>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
+Date: Thu, 14 May 2009 08:00:33 -0600
+Message-ID: <fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
+References: <1241640919-4650-1-git-send-email-wd@denx.de> <20090506220954.5D3AF83420E8@gemini.denx.de>
+	<fa686aa40905061539t4fa463aehe56fdb64d053135d@mail.gmail.com>
+	<200905141438.23348.kosmo@semihalf.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Olga Kornievskaia <aglo-vtMw8L3fJ9vSiEDVxGk4TQ@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1242258338.5407.244.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org> (Trond
-	Myklebust's message of "Wed, 13 May 2009 19:45:38 -0400")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wolfgang Denk <wd@denx.de>, Scott Wood <scottwood@freescale.com>,
+	John Rigby <jrigby@gmail.com>, linuxppc-dev@ozlabs.org,
+	Detlev Zundel <dzu@denx.de>, netdev@vger.kernel.org,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Becky Bruce <Becky.Bruce@freescale.com>
+To: =?ISO-8859-2?Q?Piotr_Zi=EAcik?= <kosmo@semihalf.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.29]:57606 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753606AbZENOAw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 10:00:52 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so723529ywb.1
+        for <netdev@vger.kernel.org>; Thu, 14 May 2009 07:00:53 -0700 (PDT)
+In-Reply-To: <200905141438.23348.kosmo@semihalf.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org> writes:
-
-> On Wed, 2009-05-13 at 15:29 -0400, Jeff Moyer wrote:
->> Hi, netdev folks.  The summary here is:
->> 
->> A patch added in the 2.6.30 development cycle caused a performance
->> regression in my NFS iozone testing.  The patch in question is the
->> following:
->> 
->> commit 47a14ef1af48c696b214ac168f056ddc79793d0e
->> Author: Olga Kornievskaia <aglo-vtMw8L3fJ9vSiEDVxGk4TQ@public.gmane.org>
->> Date:   Tue Oct 21 14:13:47 2008 -0400
->> 
->>     svcrpc: take advantage of tcp autotuning
->>  
->> which is also quoted below.  Using 8 nfsd threads, a single client doing
->> 2GB of streaming read I/O goes from 107590 KB/s under 2.6.29 to 65558
->> KB/s under 2.6.30-rc4.  I also see more run to run variation under
->> 2.6.30-rc4 using the deadline I/O scheduler on the server.  That
->> variation disappears (as does the performance regression) when reverting
->> the above commit.
+2009/5/14 Piotr Zi=EAcik <kosmo@semihalf.com>:
+> Thursday 07 May 2009 00:39:25 Grant Likely napisa=B3(a):
+>> >> 512x are enabled in the same kernel?
+>> >
+>> > Hm... both architectures look sufficiently different to me that I
+>> > don't see sense in trying such a thing. Do you think that needs to=
+ be
+>> > supported?
+>>
+>> Yes! =A0:-) =A0It's not hard to do and it keeps the driver cleaner
+>> (IMNSHO). =A0I don't think it is quite possible at the moment due to
+>> cache coherency issues, but with Becky's recently merged dma ops
+>> changes it should be fixable.
 >
-> It looks to me as if we've got a bug in the svc_tcp_has_wspace() helper
-> function. I can see no reason why we should stop processing new incoming
-> RPC requests just because the send buffer happens to be 2/3 full. If we
-> see that we have space for another reply, then we should just go for it.
-> OTOH, we do want to ensure that the SOCK_NOSPACE flag remains set, so
-> that the TCP layer knows that we're congested, and that we'd like it to
-> increase the send window size, please.
+> Could you elaborate on the cache coherency issues in MPC5121
+> FEC context? Especially how these issues are related to the driver
+> binary compatibility.
 >
-> Could you therefore please see if the following (untested) patch helps?
+> MPC5121 support was added to drivers/net/fs_enet. MPC52xx uses
+> drivers/net/fec_mpc52xx.c. Do you think that creating one universal
+> driver from these two is now possible? You said that it should be eas=
+y,
+> however you also said that cache coherency issues makes this imposibl=
+e.
 
-I'm seeing slightly better results with the patch:
+Not impossible.  Hard.
 
-71548
-75987
-71557
-87432
-83538
+The mpc5200 is a cache coherent part.  Bestcomm memory accesses are
+noticed (snooped) by the cache, and it will flush out cache lines
+appropriately to maintain coherency.
 
-But that's still not up to the speeds we saw under 2.6.29.  The packet
-capture for one run can be found here:
-  http://people.redhat.com/jmoyer/trond.pcap.bz2
+The mpc5121 bus design is non-coherent.  The e300 core is essentially
+the same as on the 5200, and the core can do snooping, but the
+multiport memory controller on the 5121 doesn't support bus snooping
+so the cache is not automatically maintained in a consistent state.
+On this part Linux needs to manually flush the relevant cache lines
+before initiating DMA transfers, and invalidiate them afterwards.
+
+All of this doesn't actually affect the driver code at all.  It's all
+handled by the kernel and the DMA apis.  What it does affect is
+multiplatform kernels.  The DMA behaviour is set at compile time, not
+run time, depending on the setting of CONFIG_NON_COHERENT_CACHE (see
+arch/powerpc/platforms/Kconfig.cputype).  A kernel which has it on
+won't run properly on a platform which has it off, and visa-versa.
+
+So, while the MPC5200 and MPC5121 (and MPC83xx) all have the same
+core, it isn't currently possible to build a single kernel which will
+boot on both the MPC5200 and the MPC5121.  The solution (i think) is
+to kill CONFIG_NON_COHERENT_CACHE and have the platform setup code set
+the appropriate dmaops at platform init time.
 
 Cheers,
-Jeff
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+g.
+
+>
+> --
+> Best Regards.
+> Piotr Ziecik
+>
+
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
