@@ -1,36 +1,111 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Thu, 14 May 2009 21:04:36 +0300
-Message-ID: <15ddcffd0905141104u585ddd59q632c53d30c5f8b18@mail.gmail.com>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>
-	 <200905142128.58111.rusty@rustcorp.com.au>
-	 <4A0C2500.7090709@Voltaire.com>
+From: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone
+ over NFS
+Date: Thu, 14 May 2009 14:26:09 -0400
+Message-ID: <1242325569.6560.27.camel@heimdal.trondhjem.org>
+References: <x49hc0f79k9.fsf@segfault.boston.devel.redhat.com>
+	 <20090508120119.8c93cfd7.akpm@linux-foundation.org>
+	 <20090511081415.GL4694@kernel.dk>
+	 <x49skjb21b7.fsf@segfault.boston.devel.redhat.com>
+	 <20090511165826.GG4694@kernel.dk>
+	 <x494ovp4r51.fsf@segfault.boston.devel.redhat.com>
+	 <20090512204433.7eb69075.akpm@linux-foundation.org>
+	 <x49y6t1rqw0.fsf@segfault.boston.devel.redhat.com>
+	 <x49k54ku7i2.fsf@segfault.boston.devel.redhat.com>
+	 <1242258338.5407.244.camel@heimdal.trondhjem.org>
+	 <20090514175500.GB5675@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
-	netdev@vger.kernel.org, Gregory Haskins <ghaskins@novell.com>,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:59936 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbZENSEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 14:04:37 -0400
-Received: by bwz22 with SMTP id 22so1455045bwz.37
-        for <netdev@vger.kernel.org>; Thu, 14 May 2009 11:04:37 -0700 (PDT)
-In-Reply-To: <4A0C2500.7090709@Voltaire.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Moyer <jmoyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Olga Kornievskaia <aglo-vtMw8L3fJ9vSiEDVxGk4TQ@public.gmane.org>,
+	Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090514175500.GB5675-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 14, 2009 at 5:04 PM, Or Gerlitz <ogerlitz@voltaire.com> wrote:
+On Thu, 2009-05-14 at 13:55 -0400, J. Bruce Fields wrote:
+> On Wed, May 13, 2009 at 07:45:38PM -0400, Trond Myklebust wrote:
+> > On Wed, 2009-05-13 at 15:29 -0400, Jeff Moyer wrote:
+> > > Hi, netdev folks.  The summary here is:
+> > > 
+> > > A patch added in the 2.6.30 development cycle caused a performance
+> > > regression in my NFS iozone testing.  The patch in question is the
+> > > following:
+> > > 
+> > > commit 47a14ef1af48c696b214ac168f056ddc79793d0e
+> > > Author: Olga Kornievskaia <aglo-vtMw8L3fJ9vSiEDVxGk4TQ@public.gmane.org>
+> > > Date:   Tue Oct 21 14:13:47 2008 -0400
+> > > 
+> > >     svcrpc: take advantage of tcp autotuning
+> > >  
+> > > which is also quoted below.  Using 8 nfsd threads, a single client doing
+> > > 2GB of streaming read I/O goes from 107590 KB/s under 2.6.29 to 65558
+> > > KB/s under 2.6.30-rc4.  I also see more run to run variation under
+> > > 2.6.30-rc4 using the deadline I/O scheduler on the server.  That
+> > > variation disappears (as does the performance regression) when reverting
+> > > the above commit.
+> > 
+> > It looks to me as if we've got a bug in the svc_tcp_has_wspace() helper
+> > function. I can see no reason why we should stop processing new incoming
+> > RPC requests just because the send buffer happens to be 2/3 full. If we
+> 
+> I agree, the calculation doesn't look right.  But where do you get the
+> 2/3 number from?
 
-> In my case, both the guest and the host run 2.6.29.1 and I use ethX (igb based) --
-> bridge -- tapY <--> qemu configuration
+That's the sk_stream_wspace() vs. sk_stream_min_wspace() comparison.
 
-oops, this failure happens when I used IP forwarding scheme between
-tap0 to IB NIC which BTW didn't support offloads the way it was
-configured. I don't see how it matters for the crash, but I will
-retest with a bridge based config early next week and let you know.
+> ...
+> > @@ -964,23 +973,14 @@ static int svc_tcp_has_wspace(struct svc_xprt *xprt)
+> >  	struct svc_sock *svsk =	container_of(xprt, struct svc_sock, sk_xprt);
+> >  	struct svc_serv	*serv = svsk->sk_xprt.xpt_server;
+> >  	int required;
+> > -	int wspace;
+> > -
+> > -	/*
+> > -	 * Set the SOCK_NOSPACE flag before checking the available
+> > -	 * sock space.
+> > -	 */
+> > -	set_bit(SOCK_NOSPACE, &svsk->sk_sock->flags);
+> > -	required = atomic_read(&svsk->sk_xprt.xpt_reserved) + serv->sv_max_mesg;
+> > -	wspace = sk_stream_wspace(svsk->sk_sk);
+> > -
+> > -	if (wspace < sk_stream_min_wspace(svsk->sk_sk))
+> > -		return 0;
+> > -	if (required * 2 > wspace)
+> > -		return 0;
+> >  
+> > -	clear_bit(SOCK_NOSPACE, &svsk->sk_sock->flags);
+> > +	required = (atomic_read(&xprt->xpt_reserved) + serv->sv_max_mesg) * 2;
+> > +	if (sk_stream_wspace(svsk->sk_sk) < required)
+> 
+> This calculation looks the same before and after--you've just moved the
+> "*2" into the calcualtion of "required".  Am I missing something?  Maybe
+> you meant to write:
+> 
+> 	required = atomic_read(&xprt->xpt_reserved) + serv->sv_max_mesg * 2;
+> 
+> without the parentheses?
 
-Or.
+I wasn't trying to change that part of the calculation. I'm just
+splitting out the stuff which has to do with TCP congestion (i.e. the
+window size), and stuff which has to do with remaining socket buffer
+space. I do, however, agree that we should probably drop that *2.
+
+However there is (as usual) 'interesting behaviour' when it comes to
+deferred requests. Their buffer space is already accounted for in the
+'xpt_reserved' calculation, but they cannot get re-scheduled unless
+svc_tcp_has_wspace() thinks it has enough free socket space for yet
+another reply. Can you spell 'deadlock', children?
+
+Trond
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
