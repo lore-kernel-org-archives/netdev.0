@@ -1,48 +1,115 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: Kernel panic in inet_twdr_do_twkill_work
-Date: Thu, 14 May 2009 09:53:50 +0200
-Message-ID: <4A0BCE0E.3000206@free.fr>
-References: <m17i0ktr4p.fsf@fess.ebiederm.org>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH v2 3/7] [PATCH 3/8] can: CAN Network device driver and
+ Netlink interface
+Date: Thu, 14 May 2009 09:55:52 +0200
+Message-ID: <4A0BCE88.6020801@grandegger.com>
+References: <20090512092757.048938233@denx.de>	<20090512092757.574693100@denx.de> <20090513153112.0822809b@bike.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Jonathan Corbet <corbet@lwn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.de.ibm.com ([195.212.29.156]:45765 "EHLO
-	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758622AbZENHx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 03:53:57 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate7.de.ibm.com (8.14.3/8.13.8) with ESMTP id n4E7rvul107742
-	for <netdev@vger.kernel.org>; Thu, 14 May 2009 07:53:57 GMT
-Received: from d12av03.megacenter.de.ibm.com (d12av03.megacenter.de.ibm.com [9.149.165.213])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n4E7rvPK3887356
-	for <netdev@vger.kernel.org>; Thu, 14 May 2009 09:53:57 +0200
-Received: from d12av03.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av03.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n4E7rubS014702
-	for <netdev@vger.kernel.org>; Thu, 14 May 2009 09:53:57 +0200
-In-Reply-To: <m17i0ktr4p.fsf@fess.ebiederm.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:46556 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760083AbZENHzy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 03:55:54 -0400
+In-Reply-To: <20090513153112.0822809b@bike.lwn.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> So far I have only seen this twice.  But the backtrace looks
-> almost identical to the one in commit d315492b1a6ba29da0fa2860759505ae1b2db857
->
-> The kernels I saw this on were patched version of 2.6.28 with some
-> network namespace backports.  commit
-> d315492b1a6ba29da0fa2860759505ae1b2db857 was definitely present.
->
-> Daniel any ideas?
->   
-Hi Eric,
+Jonathan Corbet wrote:
+> [Quick review ...]
+> 
+>> +/*
+>> + * CAN device restart for bus-off recovery
+>> + */
+>> +int can_restart_now(struct net_device *dev)
+>> +{
+>> +	struct can_priv *priv = netdev_priv(dev);
+>> +	struct net_device_stats *stats = &dev->stats;
+>> +	struct sk_buff *skb;
+>> +	struct can_frame *cf;
+>> +	int err;
+>> +
+>> +	/* Synchronize with dev->hard_start_xmit() */
+>> +	netif_tx_lock(dev);
+>> +
+>> +	/* Ensure that no more messages can go out */
+>> +	if (netif_carrier_ok(dev))
+>> +		netif_carrier_off(dev);
+>> +
+>> +	/* Ensure that no more messages can come in */
+>> +	err = priv->do_set_mode(dev, CAN_MODE_STOP);
+>> +	if (err)
+>> +		return err;
+> 
+> This leaves _xmit_lock held and carrier off.  Is that really what you want
+> to do?
+> 
+>> +
+>> +	/*  Now it's save to clean up */
+>> +	del_timer_sync(&priv->restart_timer);
+>> +	can_flush_echo_skb(dev);
+>> +
+>> +	dev_dbg(dev->dev.parent, "restarted\n");
+>> +	priv->can_stats.restarts++;
+>> +
+>> +	/* send restart message upstream */
+>> +	skb = dev_alloc_skb(sizeof(struct can_frame));
+>> +	if (skb == NULL)
+>> +		return -ENOMEM;
+> 
+> ...here too...
+> 
+>> +	skb->dev = dev;
+>> +	skb->protocol = htons(ETH_P_CAN);
+>> +	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+>> +	memset(cf, 0, sizeof(struct can_frame));
+>> +	cf->can_id = CAN_ERR_FLAG | CAN_ERR_RESTARTED;
+>> +	cf->can_dlc = CAN_ERR_DLC;
+>> +
+>> +	netif_rx(skb);
+>> +
+>> +	dev->last_rx = jiffies;
+>> +	stats->rx_packets++;
+>> +	stats->rx_bytes += cf->can_dlc;
+>> +
+>> +	/* Now restart the device */
+>> +	err = priv->do_set_mode(dev, CAN_MODE_START);
+>> +	if (err)
+>> +		return err;
+> 
+> ...and here too.  Do you maybe want to get rid of the middle-of-function
+> returns and switch to the "goto out" convention?
 
-I found this one. May be it could be related to your problem:
+Right, needs to be fixed.
 
-commit 2bad35b7c9588eb5e65c03bcae54e7eb6b1a6504
+>> +	netif_carrier_on(dev);
+>> +
+>> +	netif_tx_unlock(dev);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static void can_restart_after(unsigned long data)
+>> +{
+>> +	struct net_device *dev = (struct net_device *)data;
+>> +
+>> +	can_restart_now(dev);
+>> +}
+> 
+> can_restart_after what?  I find myself confused by this function and
+> wondering why it exists.
 
-Let me know :)
+It's just a wrapper to make the compile happy. It's the timer callback
+function used here:
 
+          priv->restart_timer.function = can_restart_after;
 
+in contrast to can_restart_now(), which can be called via netlink
+interface as well. Would the name "can_restart_callback" be more
+appropriate?
 
+Wolfgang.
