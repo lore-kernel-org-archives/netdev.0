@@ -1,33 +1,75 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: user space virtio-net exits with "truncating packet" error
-Date: Thu, 14 May 2009 13:07:42 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>
+From: Frans Pop <elendil@planet.nl>
+Subject: [2.6.30] e1000e: pci_enable_pcie_error_reporting
+	failed 0xfffffffb
+Date: Thu, 14 May 2009 13:12:35 +0200
+Message-ID: <200905141312.35945.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:23252 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752580AbZENKHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2009 06:07:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_jy/CKFvWxGFJHj8"
+Cc: e1000-devel@lists.sourceforge.net, linux-pm@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi,
+--Boundary-00=_jy/CKFvWxGFJHj8
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-When running with jumbo frames (i.e set tap0 and guest nic mtu to 9k)
-and using 8k sized packets with iperf, the qemu process exits with
-"virtio-net truncating packet" which I see in the code of qemu/hw/virtio-net.c
-:: virtio_net_receive(). This happens only when the VM is receiving, if I
-send 8K packets from the VM things go fine.
+With 2.6.30-rc[45] I'm always seeing this error while resuming from STR on 
+my HP 2510p notebook:
 
-I use virtio based NIC in the VM and Linux 2.6.29.1 in both the VM and the host.
-Qemu is the one provided by kvm release 84 - whose sources don't point me
-to a specific git tree nor a maintainer, so I hope you can help me...
+  e1000e 0000:00:19.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
+! e1000e 0000:00:19.0: pci_enable_pcie_error_reporting failed 0xfffffffb
+  e1000e 0000:00:19.0: setting latency timer to 64
+  e1000e 0000:00:19.0: wake-up capability disabled by ACPI
+  e1000e 0000:00:19.0: PME# disabled
+  e1000e 0000:00:19.0: wake-up capability disabled by ACPI
+  e1000e 0000:00:19.0: PME# disabled
+  e1000e 0000:00:19.0: irq 26 for MSI/MSI-X
 
-thanks,
+The error only shows up during resume, not during normal boot.
 
-Or.
+With 2.6.29 the error is not present. Is this something that should be 
+looked into? Networking still comes up normally.
 
+Attached a full diff for a suspend/resume cycle with .29.3 and .30-rc5.
+
+Cheers,
+FJP
+
+
+--Boundary-00=_jy/CKFvWxGFJHj8
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+The NEW KODAK i700 Series Scanners deliver under ANY circumstances! Your
+production scanning environment may not be a perfect world - but thanks to
+Kodak, there's a perfect scanner to get the job done! With the NEW KODAK i700
+Series Scanner you'll get full speed at 300 dpi even with all image 
+processing features enabled. http://p.sf.net/sfu/kodak-com
+--Boundary-00=_jy/CKFvWxGFJHj8
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+
+--Boundary-00=_jy/CKFvWxGFJHj8--
