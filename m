@@ -1,25 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] IPv4/IPv6 unregistration deadlock fixes
-Date: Wed, 13 May 2009 20:40:35 -0700 (PDT)
-Message-ID: <20090513.204035.220215847.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 1/7] syscall: Implement a convinience function restart_syscall
+Date: Wed, 13 May 2009 23:44:23 -0700
+Message-ID: <m1eiusp4jc.fsf@fess.ebiederm.org>
 References: <m13ab8s8cr.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	shemminger@vyatta.com, greearb@candelatech.com, kaber@trash.net
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59259
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754365AbZENDki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2009 23:40:38 -0400
-In-Reply-To: <m13ab8s8cr.fsf@fess.ebiederm.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:47040 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754036AbZENGo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 02:44:29 -0400
+In-Reply-To: <m13ab8s8cr.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Wed\, 13 May 2009 19\:53\:40 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I did not receive a copy of patch 1/7 of this series, where is it?
+Currently when we have a signal pending we have the functionality
+to restart that the current system call.  There are other cases
+such as nasty lock ordering issues where it makes sense to have
+a simple fix that uses try lock and restarts the system call.
+Buying time to figure out how to rework the locking strategy.
 
-It didn't show up in patchwork either, which means it didn't make
-it to the mailing lists either.
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+---
+ include/linux/sched.h |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index b4c38bc..d853f6b 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2178,6 +2178,12 @@ static inline int test_tsk_need_resched(struct task_struct *tsk)
+ 	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
+ }
+ 
++static inline int restart_syscall(void)
++{
++	set_tsk_thread_flag(current, TIF_SIGPENDING);
++	return -ERESTARTNOINTR;
++}
++
+ static inline int signal_pending(struct task_struct *p)
+ {
+ 	return unlikely(test_tsk_thread_flag(p,TIF_SIGPENDING));
+-- 
+1.6.0.6
+
