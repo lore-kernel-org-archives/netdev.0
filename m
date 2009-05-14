@@ -1,30 +1,42 @@
-From: =?ISO-8859-1?Q?=A92009?= GOOGLE PROMO
-	<anniversarypromo009@gmail.com>
-Subject: Google Anniversary lotto Draw!!!
-Date: Thu, 14 May 2009 20:46:43 +0000
-Message-ID: <web-291195081@admin.mwci.net>
+From: Robert Olsson <robert@robur.slu.se>
+Subject: Re: [oops] with FIB_TRIE
+Date: Thu, 14 May 2009 23:55:12 +0200
+Message-ID: <18956.37696.186135.21348@robur.slu.se>
+References: <1242041043.4619.56.camel@ierdnac>
+	<18953.37530.49022.415@robur.slu.se>
+	<1242302098.3219.13.camel@ierdnac>
+	<20090514130035.3cf14d19@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrei.popa@i-neo.ro, Robert Olsson <Robert.Olsson@data.slu.se>,
+	NetDEV list <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from admin.mwci.net ([162.42.148.120]:53685 "EHLO admin.mwci.net"
+Received: from robur.slu.se ([130.238.98.12]:34050 "EHLO robur.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752831AbZENVqh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2009 17:46:37 -0400
+	id S1754905AbZENVzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2009 17:55:12 -0400
+In-Reply-To: <20090514130035.3cf14d19@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have been picked as one of our lucky winners of=20
-=A3850,000 British Pounds in the on-going Google promotion=20
-2009.
 
-=46or more info about this promo and how to get your prize,=20
-send your Ticket=20
-number:00869575733664,CGPN:7-22-71-00-66-12,Serial=20
-numbers:BTD/8070447706/06,Lucky=20
-numbers:12-12-23-35-40-41(12) and location via email to=20
-our processing Agent- Mr. Grahams Benfield.
-Contact E-mail(s): grahamsbenfield@gmail.com ,=20
-grahams1.benfield@live.com.Wishing you good luck !!
+Stephen Hemminger writes:
+
+ > > I recompiled the kernel with FIB_TRIE and no preemption and it doesn't
+ > > oops anymore.
+
+ Thanks, for testing Andrei. I've had routing tables continusly going up
+ and down for 24 hours (with no preemption) without any problem.
+
+ > Maybe the rcu_read_lock needs to be rcu_read_lock_bh?
+
+ Maybe,
+ Need to recap this... at least for myself insert, delete and flush is 
+ serialised wrt RTNL I guess this is still OK. We oops in lookup but 
+ we should have preempt_disable as we're in a RCU read section. Also we 
+ know quagga is constantly running delete...
+
+ Cheers
+					--ro
