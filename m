@@ -1,53 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ports beeing reused too fast
-Date: Thu, 14 May 2009 13:29:44 -0700
-Message-ID: <20090514132944.561a1691@nehalam>
-References: <200905082311.09414.opurdila@ixiacom.com>
-	<200905121532.57477.opurdila@ixiacom.com>
-	<20090512081119.598b22c5@nehalam>
-	<200905121852.26099.opurdila@ixiacom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/2] r8169: remove useless struct member
+Date: Thu, 14 May 2009 23:45:04 +0200
+Message-ID: <20090514214504.GA6374@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bill Fink <billfink@mindspring.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Cosmin Ratiu <cratiu@ixiacom.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vincent Steenhoute <vsteenhoute@novell.com>,
+	Jean Delvare <jdelvare@suse.de>,
+	Martin Michlmayr <tbm@cyrius.com>,
+	Xose Vazquez Perez <xose.vazquez@gmail.com>,
+	Ivan Vecera <ivecera@redhat.com>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:32890 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754377AbZENU3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2009 16:29:48 -0400
-In-Reply-To: <200905121852.26099.opurdila@ixiacom.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47039 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751388AbZENVoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 17:44:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 May 2009 18:52:25 +0300
-Octavian Purdila <opurdila@ixiacom.com> wrote:
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-> 
-> > I raised the issue to the original author of the proposed RFC and added
-> > the issue to the ongoing review of the draft.
-> >
-> > There is a suggested workaround using a bitmap but it seems like it would
-> > be expensive to implement:
-> >       
-> > http://ietfreport.isoc.org/all-ids/draft-ananth-tsvwg-timewait-00.txt
-> 
-> OK, I now understand how TW could be an issue here - I didn't realize that we 
-> could have sockets in TW on the server side.
-> 
-> Since the workaround seems expensive, would it be acceptable to add a new 
-> sysctl option to disable port randomization?
-> 
-> Thanks,
-> tavi
-> 
-
-Patches welcome.  Also, it matters whether application does bind() first
-or port is assigned as part of the accept. In the later case the starting
-point is a hash of the 5 tuple and changes only every 5 minutes.  Linux
-also reuses ports in time wait, so it will reuse sockets more aggressively
-than other hosts; this existed before port randomization.
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 0b6e8c8..f86bf31 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -479,7 +479,6 @@ struct rtl8169_private {
+ 	u16 intr_event;
+ 	u16 napi_event;
+ 	u16 intr_mask;
+-	int phy_auto_nego_reg;
+ 	int phy_1000_ctrl_reg;
+ #ifdef CONFIG_R8169_VLAN
+ 	struct vlan_group *vlgrp;
+@@ -908,7 +907,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		mdio_write(ioaddr, 0x0e, 0x0000);
+ 	}
+ 
+-	tp->phy_auto_nego_reg = auto_nego;
+ 	tp->phy_1000_ctrl_reg = giga_ctrl;
+ 
+ 	mdio_write(ioaddr, MII_ADVERTISE, auto_nego);
 -- 
+1.6.0.6
+
