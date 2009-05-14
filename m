@@ -1,44 +1,34 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: Or Gerlitz <ogerlitz@Voltaire.com>
 Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Thu, 14 May 2009 21:28:57 +0930
-Message-ID: <200905142128.58111.rusty@rustcorp.com.au>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>
+Date: Thu, 14 May 2009 15:25:35 +0300
+Message-ID: <4A0C0DBF.3010201@Voltaire.com>
+References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com> <1242300155.17366.20.camel@blaa>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Avi Kivity <avi@redhat.com>,
+	netdev@vger.kernel.org, Gregory Haskins <ghaskins@novell.com>,
+	qemu-devel <qemu-devel@nongnu.org>,
 	Anthony Liguori <anthony@codemonkey.ws>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:55215 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755086AbZENL7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2009 07:59:16 -0400
-In-Reply-To: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>
-Content-Disposition: inline
+Received: from fwil.voltaire.com ([193.47.165.2]:40518 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756637AbZENMZm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2009 08:25:42 -0400
+In-Reply-To: <1242300155.17366.20.camel@blaa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 May 2009 07:37:42 pm Or Gerlitz wrote:
-> Hi,
->
-> When running with jumbo frames (i.e set tap0 and guest nic mtu to 9k)
-> and using 8k sized packets with iperf, the qemu process exits with
-> "virtio-net truncating packet" which I see in the code of
-> qemu/hw/virtio-net.c
->
-> :: virtio_net_receive(). This happens only when the VM is receiving, if I
->
-> send 8K packets from the VM things go fine.
->
-> I use virtio based NIC in the VM and Linux 2.6.29.1 in both the VM and the
-> host. Qemu is the one provided by kvm release 84 - whose sources don't
-> point me to a specific git tree nor a maintainer, so I hope you can help
-> me...
+Mark McLoughlin wrote:
+> That sounds like a bug in qemu's mergeable receive buffers
+> implementation - the host is running out of buffers for the packet, even
+> though it supposedly has already checked that there is enough buffers
+> available on the ring.
+> 
+> Hmm, I think I see the bug - does the patch below work? Please try
+> several mtu values around the 9k mark to be sure
 
-Maintainer Cc'd.  The answer is that virtio_net by default only supports 1500 
-MTU; I've not tried larger MTUs.
+No, it doesn't help, same crash.
 
-Rusty.
+Or.
