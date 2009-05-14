@@ -1,7 +1,7 @@
 From: Jeff Moyer <jmoyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone over NFS
-Date: Thu, 14 May 2009 10:38:41 -0400
-Message-ID: <x49ab5f7nri.fsf@segfault.boston.devel.redhat.com>
+Date: Thu, 14 May 2009 11:00:28 -0400
+Message-ID: <x49ws8j686r.fsf@segfault.boston.devel.redhat.com>
 References: <x49hc0f79k9.fsf@segfault.boston.devel.redhat.com>
 	<20090508120119.8c93cfd7.akpm@linux-foundation.org>
 	<20090511081415.GL4694@kernel.dk>
@@ -89,10 +89,21 @@ Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org> writes
 >
 > Does something like this help?
 
-Is this in addition to the previous patch or instead of it?
+Sorry for the previous, stupid question.  I applied the patch in
+addition the last one and here are the results:
 
-Cheers,
-Jeff
+70327
+71561
+68760
+69199
+65324
+
+A packet capture for this run is available here:
+  http://people.redhat.com/jmoyer/trond2.pcap.bz2
+
+Any more ideas?  ;)
+
+-Jeff
 --
 To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
