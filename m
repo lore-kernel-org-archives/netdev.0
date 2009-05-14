@@ -1,41 +1,22 @@
-From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-Subject: Re: Yukon2 88E8056 card problem with switch?
-Date: Thu, 14 May 2009 17:41:41 +0200
-Message-ID: <4A0C3BB5.4080108@aei.mpg.de>
-References: <4A0BC769.9010507@aei.mpg.de> <20090514080615.6419b121@nehalam>
+From: The Camelot Group <chesleykinsmen@bellnet.ca>
+Subject: =?iso-8859-1?B?KiqjMSwyMzAsMzEw?= GBP JACKPOT WIN**
+Date: Thu, 14 May 2009 12:13:57 -0400
+Message-ID: <20090514161358.SFOI1658.simmts5-srv.bellnexxia.net__47035.1787088022$1242317653$gmane$org@simip9-ac.srvr.bell.ca>
+Reply-To: cg_paycenter2009@8u8.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@winner.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from welcomes-you.com ([85.214.50.128]:51335 "EHLO
-	smtp.welcomes-you.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbZENQDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 12:03:17 -0400
-In-Reply-To: <20090514080615.6419b121@nehalam>
+Received: from simmts5-qfe0.srvr.bell.ca ([206.47.199.163]:43073 "EHLO
+	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831AbZENQN5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2009 12:13:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi (thanks for the quick reply)
+You were selected for the sum of  =A31,230,310 GBP. Verify this mail im=
+mediately by sending in your information. This will include your name, =
+address, age, phone number etc to : cg_paycenter2009@8u8.hk
 
-Stephen Hemminger schrieb:
-> 
-> You are only seeing partial flow control. My recommendation would be to
-> turn off flow control with:
->    ethtool -A eth0 autoneg off rx off tx off
-
-I've tried that, but that did *not* change the overall behavior -
-although I omitted autosense off so far. I'll redo the test.
-
-> 
-> It works with other switches, so check cable and try another switch.
-> 
-
-I'll check that again, however we are pretty limited to this brand since
-we need to have these because of the big uplink capabilities. If I
-cannot reproduce this with another switch, I'll start bugging them :)
-
-Cheers
-
-Carsten
