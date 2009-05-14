@@ -1,68 +1,78 @@
-From: Michael Riepe <michael.riepe@googlemail.com>
-Subject: Re: 2.6.27.19 + 28.7: network timeouts for r8169 and 8139too
-Date: Thu, 14 May 2009 21:42:59 +0200
-Message-ID: <4A0C7443.1010000@googlemail.com>
-References: <200903041828.49972.m.bueker@berlin.de> <1242001754.4093.12.camel@obelisk.thedillows.org> <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de> <1242077392.3716.15.camel@lap75545.ornl.gov> <4A09DC3E.2080807@googlemail.com> <1242268709.4979.7.camel@obelisk.thedillows.org> <4A0C6504.8000704@googlemail.com> <1242328457.32579.12.camel@lap75545.ornl.gov>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [oops] with FIB_TRIE
+Date: Thu, 14 May 2009 13:00:35 -0700
+Message-ID: <20090514130035.3cf14d19@nehalam>
+References: <1242041043.4619.56.camel@ierdnac>
+	<18953.37530.49022.415@robur.slu.se>
+	<1242302098.3219.13.camel@ierdnac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
+Cc: Robert Olsson <robert@robur.slu.se>,
+	NetDEV list <netdev@vger.kernel.org>
+To: andrei.popa@i-neo.ro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:62666 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751225AbZENTnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 15:43:02 -0400
-In-Reply-To: <1242328457.32579.12.camel@lap75545.ornl.gov>
+Received: from mail.vyatta.com ([76.74.103.46]:59227 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754613AbZENUAj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2009 16:00:39 -0400
+In-Reply-To: <1242302098.3219.13.camel@ierdnac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 14 May 2009 14:54:58 +0300
+Andrei Popa <andrei.popa@i-neo.ro> wrote:
 
+> 
+> Hello,
+> 
+> I recompiled the kernel with FIB_TRIE and no preemption and it doesn't
+> oops anymore.
+> 
+> On Tue, 2009-05-12 at 17:15 +0200, Robert Olsson wrote:
+> > Andrei Popa writes:
+> > 
+> >  > I've used an vanilla 2.6.28.7 kernel without any additional patches with
+> >  > the following .config and when I do in quagga a "clear ip bgp * soft"
+> >  > when I have three full BGP sessions the kernel it oopses.
+> >  > 
+> >  > With FIB lookup algorithm FIB_TRIE it oopeses. With FIB_HASH it doesn't.
+> >  > 
+> >  > Pictures with the oops:
+> >  > http://89.33.136.9/oops/
+> > 
+> >  > The config file:
+> >  > CONFIG_PREEMPT=y
+> > 
+> >  Hello,
+> > 
+> >  Getting somewhat worried as we use this for infrastructure since many years. 
+> >  I've set up test and is trying to reproduce it. 
+> >  
+> >  I'm running forwarding ~9.4 Gigabit/s @ 1.2 pkts sec and fib_lookups 40-200.000
+> >  lookups per sec. Routing table has 280.000 entries this is loaded/unloaded 
+> >  via ip route with -batch to give load for insert/delete.
+> > 
+> >  A script is continuesly adding/removing the routing table under this load. 
+> >  The time to install the full table is ~10 sec and same time to remove
+> >  (without netfilter ~5 sec) And this during this constant traffic load.
+> > 
+> >  The scripts and routing tables:
+> >  ftp://robur.slu.se/pub/Linux/net-development/trie-test/
+> > 
+> >  Drivers are niu, ixgbe Netfilter modules loaded but no filters. Kernel 
+> >  2.6.29-r2. 
+> > 
+> >  No problems seen for 3 hours but I'll let this run overnight
+> > 
+> >  One difference to your config I see is PREEMPT. We use use 
+> >  CONFIG_PREEMPT_NONE=y with the router/servers.
+> > 
+> > 
+> >  Cheers
+> > 					--ro
+> > 
 
-David Dillow wrote:
-> On Thu, 2009-05-14 at 20:37 +0200, Michael Riepe wrote:
-> 
->>David Dillow wrote:
->>
->>>On Tue, 2009-05-12 at 22:29 +0200, Michael Riepe wrote:
->>>The patched driver runs on 2.6.27 and survives my 5 minutes 'dd
->>>if=/dev/zero bs=1024k | nc target 9000' test which usually dies in less
->>>than 90 seconds on 2.6.28+.
->>
->>Not on my system:
-> 
-> 
->>This happened less than half a minute after the transfer had started.
->>And it's going to happen earlier if I increase the load. With four
->>connections to two other hosts, the transmission usually pauses after
->>less than ten seconds. Sometimes it lasts for only two or three seconds.
-> 
-> 
-> Bummer, but a good data point; thanks for testing.
-> 
-> I added some code to print the irq status when it hangs, and it shows
-> 0x0085, which is RxOK | TxOK | TxDescUnavail, which makes me think we've
-> lost an MSI-edge interrupt somehow. You being able to reproduce it on
-> 2.6.27 where I cannot leads me to think that the bisection down into the
-> genirq tree just changed the timing and made it easier to hit after it
-> was merged.
-
-Maybe. With a single connection, 2.6.27 with the 2.6.29 driver seemed to
-be a little more stable (i.e. the transfers lasted a little longer under
-low and medium loads) than 2.6.29, but that's nothing I could actually
-quantify.
-
-> So, I suppose a good review of the IRQ handling of r8169.c is in order,
-> though my SATA disks (AHCI w/ MSI irqs) also seem to have similar issues
-> with delays, though that is entirely unqualified and unmeasured.
-
-Hey, MSI isn't bad in general. The e1000e driver on my Lenovo T60 uses
-it as well, and it's as reliable as a rock.
+Maybe the rcu_read_lock needs to be rcu_read_lock_bh?
 
 -- 
-Michael "Tired" Riepe <michael.riepe@googlemail.com>
-X-Tired: Each morning I get up I die a little
