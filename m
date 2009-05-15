@@ -1,195 +1,47 @@
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: [PATCH 5/5] sit: stateless autoconf for isatap
-Date: Fri, 15 May 2009 14:52:51 +0200
-Message-ID: <1242391971-32583-5-git-send-email-contact@saschahlusiak.de>
-References: <1242391971-32583-1-git-send-email-contact@saschahlusiak.de>
- <1242391971-32583-2-git-send-email-contact@saschahlusiak.de>
- <1242391971-32583-3-git-send-email-contact@saschahlusiak.de>
- <1242391971-32583-4-git-send-email-contact@saschahlusiak.de>
-Cc: Sascha Hlusiak <contact@saschahlusiak.de>
-To: netdev@vger.kernel.org
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH v2 5/7] [PATCH 5/8] can: SJA1000 generic platform bus
+ driver
+Date: Fri, 15 May 2009 15:12:25 +0200
+Message-ID: <4A0D6A39.2000104@grandegger.com>
+References: <20090512092757.048938233@denx.de> <20090512092757.894204198@denx.de> <20090514064633.GT29278@pengutronix.de> <4A0D374A.8080006@grandegger.com> <20090515120711.GE26519@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:57299 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756168AbZEOMwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 08:52:17 -0400
-In-Reply-To: <1242391971-32583-4-git-send-email-contact@saschahlusiak.de>
+Received: from mail-out.m-online.net ([212.18.0.9]:42800 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754531AbZEONM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 09:12:29 -0400
+In-Reply-To: <20090515120711.GE26519@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From each potential router in the PRL, a router solicitation will
-be sent periodically. The rs_delay can be speficied when adding the
-PRL entry and defaults to 15 minutes.
+Sascha Hauer wrote:
+> On Fri, May 15, 2009 at 11:35:06AM +0200, Wolfgang Grandegger wrote:
+>> Hi Sascha,
+>>
+>> Sascha Hauer wrote:
+>>> Hi Wolfgang,
+[...}
+>>>> +	irq = res_irq->start;
+>>>> +	if (res_irq->flags & IRQF_TRIGGER_MASK)
+>>>> +		set_irq_type(irq, res_irq->flags & IRQF_TRIGGER_MASK);
+>>> You shouldn't use set_irq_type on not yet requested irqs but instead
+>>> pass the flags to the real driver and pass them in request_irq.
+>> Why? I would require an extra member in the struct sja1000_priv.
+> 
+> You change a resource you do not own. What if request_irq returns with
+> -EBUSY? You already screwed up any other potential user.
 
-The RS is sent from every link local adress that's assigned to the
-tunnel interface. It's directed to the (guessed) linklocal address
-of the router and is sent through the tunnel.
+OK, I added irq_flags to struct sja1000_priv, which  will then be used
+by the request_irq(). The driver must to set it appropriately, including
+IRQF_SHARED. This also fixes the problem, that drivers used IRQF_SHARED
+without reason.
 
-Better: send to ff02::2 encapsuled in unicast directed to router-v4.
----
- include/linux/if_tunnel.h |    2 +-
- include/net/ipip.h        |    7 +++++
- net/ipv6/ndisc.c          |    1 +
- net/ipv6/sit.c            |   58 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 67 insertions(+), 1 deletions(-)
+Thanks,
 
-diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-index 5a9aae4..5eb9b0f 100644
---- a/include/linux/if_tunnel.h
-+++ b/include/linux/if_tunnel.h
-@@ -44,7 +44,7 @@ struct ip_tunnel_prl {
- 	__u16			flags;
- 	__u16			__reserved;
- 	__u32			datalen;
--	__u32			__reserved2;
-+	__u32			rs_delay;
- 	/* data follows */
- };
- 
-diff --git a/include/net/ipip.h b/include/net/ipip.h
-index fdf9bd7..5d3036f 100644
---- a/include/net/ipip.h
-+++ b/include/net/ipip.h
-@@ -28,11 +28,18 @@ struct ip_tunnel
- 	unsigned int			prl_count;	/* # of entries in PRL */
- };
- 
-+/* ISATAP: default interval between RS in secondy */
-+#define IPTUNNEL_RS_DEFAULT_DELAY	(900)
-+
- struct ip_tunnel_prl_entry
- {
- 	struct ip_tunnel_prl_entry	*next;
- 	__be32				addr;
- 	u16				flags;
-+	unsigned long			rs_delay;
-+	struct timer_list		rs_timer;
-+	struct ip_tunnel		*tunnel;
-+	spinlock_t			lock;
- };
- 
- #define IPTUNNEL_XMIT() do {						\
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 9f061d1..f787ac4 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -658,6 +658,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
- 		     &icmp6h, NULL,
- 		     send_sllao ? ND_OPT_SOURCE_LL_ADDR : 0);
- }
-+EXPORT_SYMBOL(ndisc_send_rs);
- 
- 
- static void ndisc_error_report(struct neighbour *neigh, struct sk_buff *skb)
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 9cc9511..788054d 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -15,6 +15,7 @@
-  * Roger Venning <r.venning@telstra.com>:	6to4 support
-  * Nate Thompson <nate@thebog.net>:		6to4 support
-  * Fred Templin <fred.l.templin@boeing.com>:	isatap support
-+ * Sascha Hlusiak <mail@saschahlusiak.de>:	stateless autoconf for isatap
-  */
- 
- #include <linux/module.h>
-@@ -220,6 +221,44 @@ failed:
- 	return NULL;
- }
- 
-+static void ipip6_tunnel_rs_timer(unsigned long data)
-+{
-+	struct ip_tunnel_prl_entry *p = (struct ip_tunnel_prl_entry *)data;
-+	struct inet6_dev *ifp;
-+	struct inet6_ifaddr *addr;
-+
-+	spin_lock(&p->lock);
-+	ifp = __in6_dev_get(p->tunnel->dev);
-+
-+	spin_lock(ifp->lock);
-+	for (addr = ifp->addr_list; addr; addr = addr->if_next) {
-+		struct in6_addr rtr;
-+
-+		if (!(ipv6_addr_type(&addr->addr) & IPV6_ADDR_LINKLOCAL))
-+			continue;
-+
-+		/* Send RS to guessed linklocal address of router
-+		 *
-+		 * Better: send to ff02::2 encapsuled in unicast directly
-+		 * to router-v4 instead of guessing the v6 address.
-+		 *
-+		 * Cisco/Windows seem to not set the u/l bit correctly,
-+		 * so we won't guess right.
-+		 */
-+		ipv6_addr_set(&rtr,  htonl(0xFE800000), 0, 0, 0);
-+		if (!__ipv6_isatap_ifid(rtr.s6_addr + 8,
-+					p->addr)) {
-+			ndisc_send_rs(p->tunnel->dev, &addr->addr, &rtr);
-+		}
-+	}
-+	spin_unlock(ifp->lock);
-+
-+	mod_timer(&p->rs_timer, jiffies + HZ * p->rs_delay);
-+	spin_unlock(&p->lock);
-+
-+	return;
-+}
-+
- static struct ip_tunnel_prl_entry *
- __ipip6_tunnel_locate_prl(struct ip_tunnel *t, __be32 addr)
- {
-@@ -278,6 +317,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
- 			continue;
- 		kp[c].addr = prl->addr;
- 		kp[c].flags = prl->flags;
-+		kp[c].rs_delay = prl->rs_delay;
- 		c++;
- 		if (kprl.addr != htonl(INADDR_ANY))
- 			break;
-@@ -327,11 +367,23 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a, int chg)
- 	}
- 
- 	p->next = t->prl;
-+	p->tunnel = t;
- 	t->prl = p;
- 	t->prl_count++;
-+
-+	spin_lock_init(&p->lock);
-+	setup_timer(&p->rs_timer, ipip6_tunnel_rs_timer, (unsigned long) p);
- update:
- 	p->addr = a->addr;
- 	p->flags = a->flags;
-+	p->rs_delay = a->rs_delay;
-+	if (p->rs_delay == 0)
-+		p->rs_delay = IPTUNNEL_RS_DEFAULT_DELAY;
-+	spin_lock(&p->lock);
-+	del_timer(&p->rs_timer);
-+	if (p->flags & PRL_DEFAULT)
-+		mod_timer(&p->rs_timer, jiffies + 1);
-+	spin_unlock(&p->lock);
- out:
- 	write_unlock(&ipip6_lock);
- 	return err;
-@@ -350,6 +402,9 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
- 			if ((*p)->addr == a->addr) {
- 				x = *p;
- 				*p = x->next;
-+				spin_lock(&x->lock);
-+				del_timer(&x->rs_timer);
-+				spin_unlock(&x->lock);
- 				kfree(x);
- 				t->prl_count--;
- 				goto out;
-@@ -360,6 +415,9 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
- 		while (t->prl) {
- 			x = t->prl;
- 			t->prl = t->prl->next;
-+			spin_lock(&x->lock);
-+			del_timer(&x->rs_timer);
-+			spin_unlock(&x->lock);
- 			kfree(x);
- 			t->prl_count--;
- 		}
--- 
-1.6.3
-
+Wolfgang.
