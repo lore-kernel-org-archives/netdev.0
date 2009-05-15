@@ -1,155 +1,62 @@
-From: Gabriel Paubert <paubert@iram.es>
-Subject: [PATCH] mv643xx_eth: fix PPC DMA breakage
-Date: Fri, 15 May 2009 20:39:24 +0200
-Message-ID: <20090515183924.GA29279@iram.es>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bonding: fix link down handling in 802.3ad mode
+Date: Fri, 15 May 2009 11:44:32 -0700
+Message-ID: <20090515114432.4025a2d6@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tbm@cyrius.com, LinuxPPC <linuxppc-dev@ozlabs.org>, pacman@kosh.dhis.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: bonding-devel@lists.sf.net, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36658 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753122AbZEOSoh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2009 14:44:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After 2.6.29, PPC no more admits passing NULL to the dev parameter of
-the DMA API. The result is a BUG followed by solid lock-up when the 
-mv643xx_eth driver brings an interface up. The following patch makes 
-the driver work on my Pegasos again; it is mostly a search and replace 
-of NULL by mp->dev->dev.parent in dma allocation/freeing/mapping/unmapping
-functions.
+One of the purposes of bonding is to allow for redundant links, and failover 
+correctly if the cable is pulled. If all the members of a bonded device have
+no carrier present, the bonded device itself needs to report no carrier present
+to user space so management tools (like routing daemons) can respond.
 
-Signed-off-by: Gabriel Paubert <paubert@iram.es>
+Bonding in 802.3ad mode does not work correctly for this because it incorrectly 
+chooses a link that is down as a possible aggregator.
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index a400d71..6bb5af3 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -569,7 +569,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
- 		if (rxq->rx_curr_desc == rxq->rx_ring_size)
- 			rxq->rx_curr_desc = 0;
- 
--		dma_unmap_single(NULL, rx_desc->buf_ptr,
-+		dma_unmap_single(mp->dev->dev.parent, rx_desc->buf_ptr,
- 				 rx_desc->buf_size, DMA_FROM_DEVICE);
- 		rxq->rx_desc_count--;
- 		rx++;
-@@ -678,8 +678,9 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
- 
- 		rx_desc = rxq->rx_desc_area + rx;
- 
--		rx_desc->buf_ptr = dma_map_single(NULL, skb->data,
--					mp->skb_size, DMA_FROM_DEVICE);
-+		rx_desc->buf_ptr = dma_map_single(mp->dev->dev.parent,
-+						  skb->data, mp->skb_size,
-+						  DMA_FROM_DEVICE);
- 		rx_desc->buf_size = mp->skb_size;
- 		rxq->rx_skb[rx] = skb;
- 		wmb();
-@@ -718,6 +719,7 @@ static inline unsigned int has_tiny_unaligned_frags(struct sk_buff *skb)
- 
- static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
- {
-+	struct mv643xx_eth_private *mp = txq_to_mp(txq);
- 	int nr_frags = skb_shinfo(skb)->nr_frags;
- 	int frag;
- 
-@@ -746,10 +748,10 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
- 
- 		desc->l4i_chk = 0;
- 		desc->byte_cnt = this_frag->size;
--		desc->buf_ptr = dma_map_page(NULL, this_frag->page,
--						this_frag->page_offset,
--						this_frag->size,
--						DMA_TO_DEVICE);
-+		desc->buf_ptr = dma_map_page(mp->dev->dev.parent,
-+					     this_frag->page,
-+					     this_frag->page_offset,
-+					     this_frag->size, DMA_TO_DEVICE);
- 	}
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---	       
+This patch is a bug fix and should go into 2.6.30
+
+--- a/drivers/net/bonding/bond_3ad.c	2009-05-14 15:38:15.090363836 -0700
++++ b/drivers/net/bonding/bond_3ad.c	2009-05-15 11:41:44.313559146 -0700
+@@ -1465,6 +1465,12 @@ static struct aggregator *ad_agg_selecti
+ 	return best;
  }
  
-@@ -826,7 +828,8 @@ no_csum:
++static int agg_device_up(const struct aggregator *agg)
++{
++	return (netif_running(agg->slave->dev) &&
++		netif_carrier_ok(agg->slave->dev));
++}
++
+ /**
+  * ad_agg_selection_logic - select an aggregation group for a team
+  * @aggregator: the aggregator we're looking at
+@@ -1496,14 +1502,13 @@ static void ad_agg_selection_logic(struc
+ 	struct port *port;
  
- 	desc->l4i_chk = l4i_chk;
- 	desc->byte_cnt = length;
--	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
-+	desc->buf_ptr = dma_map_single(mp->dev->dev.parent, skb->data,
-+				       length, DMA_TO_DEVICE);
+ 	origin = agg;
+-
+ 	active = __get_active_agg(agg);
+-	best = active;
++	best = (active && agg_device_up(active)) ? active : NULL;
  
- 	__skb_queue_tail(&txq->tx_skb, skb);
+ 	do {
+ 		agg->is_active = 0;
  
-@@ -956,10 +959,10 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
- 		}
+-		if (agg->num_of_ports)
++		if (agg->num_of_ports && agg_device_up(agg))
+ 			best = ad_agg_selection_test(best, agg);
  
- 		if (cmd_sts & TX_FIRST_DESC) {
--			dma_unmap_single(NULL, desc->buf_ptr,
-+			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
- 					 desc->byte_cnt, DMA_TO_DEVICE);
- 		} else {
--			dma_unmap_page(NULL, desc->buf_ptr,
-+			dma_unmap_page(mp->dev->dev.parent, desc->buf_ptr,
- 				       desc->byte_cnt, DMA_TO_DEVICE);
- 		}
- 
-@@ -1894,9 +1897,9 @@ static int rxq_init(struct mv643xx_eth_private *mp, int index)
- 						mp->rx_desc_sram_size);
- 		rxq->rx_desc_dma = mp->rx_desc_sram_addr;
- 	} else {
--		rxq->rx_desc_area = dma_alloc_coherent(NULL, size,
--							&rxq->rx_desc_dma,
--							GFP_KERNEL);
-+		rxq->rx_desc_area = dma_alloc_coherent(mp->dev->dev.parent,
-+						       size, &rxq->rx_desc_dma,
-+						       GFP_KERNEL);
- 	}
- 
- 	if (rxq->rx_desc_area == NULL) {
-@@ -1947,7 +1950,7 @@ out_free:
- 	if (index == 0 && size <= mp->rx_desc_sram_size)
- 		iounmap(rxq->rx_desc_area);
- 	else
--		dma_free_coherent(NULL, size,
-+		dma_free_coherent(mp->dev->dev.parent, size,
- 				  rxq->rx_desc_area,
- 				  rxq->rx_desc_dma);
- 
-@@ -1979,7 +1982,7 @@ static void rxq_deinit(struct rx_queue *rxq)
- 	    rxq->rx_desc_area_size <= mp->rx_desc_sram_size)
- 		iounmap(rxq->rx_desc_area);
- 	else
--		dma_free_coherent(NULL, rxq->rx_desc_area_size,
-+		dma_free_coherent(mp->dev->dev.parent, rxq->rx_desc_area_size,
- 				  rxq->rx_desc_area, rxq->rx_desc_dma);
- 
- 	kfree(rxq->rx_skb);
-@@ -2007,9 +2010,9 @@ static int txq_init(struct mv643xx_eth_private *mp, int index)
- 						mp->tx_desc_sram_size);
- 		txq->tx_desc_dma = mp->tx_desc_sram_addr;
- 	} else {
--		txq->tx_desc_area = dma_alloc_coherent(NULL, size,
--							&txq->tx_desc_dma,
--							GFP_KERNEL);
-+		txq->tx_desc_area = dma_alloc_coherent(mp->dev->dev.parent,
-+						       size, &txq->tx_desc_dma,
-+						       GFP_KERNEL);
- 	}
- 
- 	if (txq->tx_desc_area == NULL) {
-@@ -2053,7 +2056,7 @@ static void txq_deinit(struct tx_queue *txq)
- 	    txq->tx_desc_area_size <= mp->tx_desc_sram_size)
- 		iounmap(txq->tx_desc_area);
- 	else
--		dma_free_coherent(NULL, txq->tx_desc_area_size,
-+		dma_free_coherent(mp->dev->dev.parent, txq->tx_desc_area_size,
- 				  txq->tx_desc_area, txq->tx_desc_dma);
- }
+ 	} while ((agg = __get_next_agg(agg)));
