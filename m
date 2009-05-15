@@ -1,78 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 0/2] igb: drop stats due to OS cannot keep
-	up
-Date: Thu, 14 May 2009 15:43:15 -0700
-Message-ID: <9929d2390905141543g6f5adc32ndf65870bd49d83ea@mail.gmail.com>
-References: <1241703346.18487.22.camel@localhost.localdomain>
+From: Deepjyoti Kakati <dkakati73@gmail.com>
+Subject: removing a bonding_master (ver 3.3.0 driver) results in leftover
+	kernel process?
+Date: Fri, 15 May 2009 07:08:04 +0530
+Message-ID: <9a2da8520905141838x3081f96l190e230823d79098@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, "Waskiewicz Jr,
-	Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1241703346.18487.22.camel@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.27]:11736 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752532AbZEOBiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2009 21:38:03 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so1314011qwd.37
+        for <netdev@vger.kernel.org>; Thu, 14 May 2009 18:38:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 7, 2009 at 6:35 AM, Jesper Dangaard Brouer <hawk@comx.dk> wrote:
->
-> The following patchset address "drop" stats counters in the igb
-> driver (chips 82576 and 82575).  The drop stats addressed here
-> are due to the OS cannot keep up.
->
-> I have only tested it for the 82576 chip, as my (12 port) 82575
-> chip based NIC from Hotlava Systems recently died in my testlab :-(((
->
-> [First patch]
-> Implements reading of the per queue drop stats.
-> These stats only gets incremented if the DROP_EN bit it set (in
-> the SRRCTL register for that queue, or QDE reg is set).
->
-> [Second patch]
-> Address the case where the DROP_EN it NOT set.  In
-> this case a global register records the equivalent drop type. And
-> aggregation of these two types of drops into the device net_stats.
->
-> I strongly believe that these drops counters should be made
-> available to sysadm's through the normal device stats.  These
-> stats are essential when diagnosing server performance issues, as
-> these stats are due to the OS cannot keep up. I strongly believe
-> that it should be stored in the net_stats rx_fifo_errors counter,
-> to indicate performance issues.
->
-> --
-> Med venlig hilsen / Best regards
->  Jesper Brouer
->  ComX Networks A/S
->  Linux Network developer
->  Cand. Scient Datalog / MSc.
->  Author of http://adsl-optimizer.dk
->  LinkedIn: http://www.linkedin.com/in/brouer
->
+using bonding driver ver 3.3.0 (on fedora 10)
 
-Jesper - I have pulled in your patches, and made the necessary
-modifications based on Mitch's comments.  Right now, they are in
-testing and I should be pushing them to Dave in the next couple of
-days.
+I am using the sysfs  to add a couple of interfaces as bonding_masters
+and repeatedly removing and adding  during test cycles as in:
 
--- 
-Cheers,
-Jeff
+echo +bond_data > /sys/class/net/bonding_masters
+..add slave eth ports..
+...do work...
+......
+echo -bond_data > /sys/class/net/bonding_masters
 
-------------------------------------------------------------------------------
-Crystal Reports - New Free Runtime and 30 Day Trial
-Check out the new simplified licensing option that enables 
-unlimited royalty-free distribution of the report engine 
-for externally facing server and web deployment. 
-http://p.sf.net/sfu/businessobjects
+every time I add it, seems to start a kernel process named after that
+bond interface
+but when removing, that proc is not killed.
+
+it builds up after a period of testing and even kill -9/kill -15 isnt
+killing them
+
+Am I doing something wrong ? Can I prevent the buildup of these unwanted
+processes that are presumably consuming resources ?
+
+
+
+root      4958     2  0 May13 ?        S<     0:00 [bond_appmgmt]
+root      4972     2  0 May13 ?        S<     0:00 [bond_data]
+root      5603     2  0 May13 ?        S<     0:00 [bond_appmgmt]
+root      5617     2  0 May13 ?        S<     0:00 [bond_data]
+root      6370     2  0 May13 ?        S<     0:00 [bond_appmgmt]
+root      6384     2  0 May13 ?        S<     0:00 [bond_data]
+root      7098     2  0 May13 ?        S<     0:00 [bond_appmgmt]
+root      7112     2  0 May13 ?        S<     0:00 [bond_data]
+root      8136     2  0 May13 ?        S<     0:00 [bond_appmgmt]
+root      8150     2  0 May13 ?        S<     0:00 [bond_data]
+root      8722     2  0 May13 ?        S<     0:00 [bond_appmgmt]
+root      8739     2  0 May13 ?        S<     0:00 [bond_data]
+
+
+thanks
