@@ -1,330 +1,67 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: add mark mode
-Date: Fri, 15 May 2009 16:38:59 -0400
-Message-ID: <20090515203858.GD6608@gospo.rdu.redhat.com>
-References: <20090501173916.GA6608@gospo.rdu.redhat.com> <20090501193403.GA5840@hmsreliant.think-freely.org> <501.1241207536@death.nxdomain.ibm.com> <20090501202509.GB6608@gospo.rdu.redhat.com> <6658.1241210693@death.nxdomain.ibm.com> <20090501210612.GC6608@gospo.rdu.redhat.com> <16881.1241214702@death.nxdomain.ibm.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH v2 4/7] [PATCH 4/8] can: Driver for the SJA1000 CAN controller
+Date: Fri, 15 May 2009 23:24:17 +0200
+Message-ID: <4A0DDD81.4040406@grandegger.com>
+References: <20090512092757.048938233@denx.de>	<20090512092757.756749047@denx.de>	<20090513155205.4bf06c25@bike.lwn.net>	<4A0BDE79.4060606@grandegger.com> <20090515143927.7ba06f10@bike.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Jonathan Corbet <corbet@lwn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:49123 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244AbZEOUjU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2009 16:39:20 -0400
-Content-Disposition: inline
-In-Reply-To: <16881.1241214702@death.nxdomain.ibm.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:60331 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416AbZEOVYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 17:24:20 -0400
+In-Reply-To: <20090515143927.7ba06f10@bike.lwn.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 01, 2009 at 02:51:42PM -0700, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
+Jonathan Corbet wrote:
+> On Thu, 14 May 2009 11:03:53 +0200
+> Wolfgang Grandegger <wg@grandegger.com> wrote:
 > 
-> >On Fri, May 01, 2009 at 01:44:53PM -0700, Jay Vosburgh wrote:
-> >> Andy Gospodarek <andy@greyhouse.net> wrote:
-> >> 
-> >> >On Fri, May 01, 2009 at 12:52:16PM -0700, Jay Vosburgh wrote:
-> >> >> Neil Horman <nhorman@tuxdriver.com> wrote:
-> >> >> 
-> >> >> >On Fri, May 01, 2009 at 01:39:16PM -0400, Andy Gospodarek wrote:
-> >> >> >> 
-> >> >> >> Quite a few people are happy with the way bonding manages to split
-> >> >> >> traffic to different members of a bond.  Many are quite disappointed
-> >> >> >> that users or administrators cannot be given more control over the
-> >> >> >> traffic distribution and would like something that they can control more
-> >> >> >> easily.  I looked at extending some of the existing modes, but the
-> >> >> >> cleanest option seemed to be one that created an additional mode to
-> >> >> >> handle this case.  I hated to create yet another mode, but the
-> >> >> >> simplicity of this mode made it a nice candidate for a new mode.  I have
-> >> >> >> decided to call this mode 'mark' (or mode 7).
-> >> >> >> 
-> >> >> >> The mark mode of bonding relies on the skb->mark field for outgoing
-> >> >> >> device selection.  Unmarked frames (ones where the mark is still zero),
-> >> >> >> will be sent by the first active enslaved device.  Any marked frames
-> >> >> >> will choose the outgoing device based on result of the modulo of the mark
-> >> >> >> and the number of enslaved devices.  If that device is inactive
-> >> >> >> (link-down), the traffic will default back to the first active enslaved
-> >> >> >> device.  I debated how to use the mark to decide the outgoing device,
-> >> >> >> but it seemed that modulo of the mark and the number of enslaved devices
-> >> >> >> would provide the most flexibility for those who currently mark frames
-> >> >> >> for other purposes.
-> >> >> >> 
-> >> >> >> I considered some other options for choosing destination devices based
-> >> >> >> on marks, but the ones I came up would require additional sysfs
-> >> >> >> configuration parameters and I would prefer not to add any more to an
-> >> >> >> already crowded space.
-> >> >> >> 
-> >> >> >> I've tested this on a slightly older kernel than the net-next-2.6 tree
-> >> >> >> than this patch is against by marking frames using mark and connmark
-> >> >> >> iptables options and it seems to work as I expect.
-> >> >> >> 
-> >> >> >> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> >> >> >> ---
-> >> >> >> 
-> >> >> >>  Documentation/networking/bonding.txt |   25 ++++++++++++++
-> >> >> >>  drivers/net/bonding/bond_main.c      |   59 ++++++++++++++++++++++++++++++++++-
-> >> >> >>  include/linux/if_bonding.h           |    1 
-> >> >> >>  3 files changed, 84 insertions(+), 1 deletion(-)
-> >> >> >> 
-> >> >> >> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-> >> >> >> index 0876275..7a0d4c2 100644
-> >> >> >> --- a/Documentation/networking/bonding.txt
-> >> >> >> +++ b/Documentation/networking/bonding.txt
-> >> >> >> @@ -582,6 +582,31 @@ mode
-> >> >> >>  		swapped with the new curr_active_slave that was
-> >> >> >>  		chosen.
-> >> >> >>  
-> >> >> >> +	mark or 7
-> >> >> >> +
-> >> >> >> +		Mark-based policy: skbuffs that arrive to be
-> >> >> >> +		transmitted will have the mark field inspected to
-> >> >> >> +		determine the destination slave device.  When the
-> >> >> >> +		skbuff's mark is zero, the first active device in the
-> >> >> >> +		ordered list of enslaved devices will be used.  When
-> >> >> >> +		the mark is non-zero the modulo of the mark and the
-> >> >> >> +		number of enslaved devices will determine the
-> >> >> >> +		interface used for transmission.  If this device is
-> >> >> >> +		not active (link-down) then the mark will essentially
-> >> >> >> +		be ignored and the first active device in the ordered
-> >> >> >> +		list of enslaved devices will be used.
-> >> >> >> +
-> >> >> >> +		The flexibility offered with this mode allows users
-> >> >> >> +		of netfilter to move various types of traffic to
-> >> >> >> +		different slaves quite easily.  Information on this
-> >> >> >> +		can be found in the manpages for iptables/ebtables
-> >> >> >> +		as well as netfilter documentation.
-> >> >> >> +
-> >> >> >> +		Prerequisites:
-> >> >> >> +
-> >> >> >> +		1.  Without the ability to mark skbuffs this mode is
-> >> >> >> +		not useful.  Netfilter greatly aides skbuff marking.
-> >> >> >> +
-> >> >> >>  num_grat_arp
-> >> >> >>  
-> >> >> >>  	Specifies the number of gratuitous ARPs to be issued after a
-> >> >> >> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> >> >> >> index fd73836..5e1d166 100644
-> >> >> >> --- a/drivers/net/bonding/bond_main.c
-> >> >> >> +++ b/drivers/net/bonding/bond_main.c
-> >> >> >> @@ -123,7 +123,7 @@ module_param(mode, charp, 0);
-> >> >> >>  MODULE_PARM_DESC(mode, "Mode of operation : 0 for balance-rr, "
-> >> >> >>  		       "1 for active-backup, 2 for balance-xor, "
-> >> >> >>  		       "3 for broadcast, 4 for 802.3ad, 5 for balance-tlb, "
-> >> >> >> -		       "6 for balance-alb");
-> >> >> >> +		       "6 for balance-alb, 7 for mark");
-> >> >> >>  module_param(primary, charp, 0);
-> >> >> >>  MODULE_PARM_DESC(primary, "Primary network device to use");
-> >> >> >>  module_param(lacp_rate, charp, 0);
-> >> >> >> @@ -175,6 +175,7 @@ const struct bond_parm_tbl bond_mode_tbl[] = {
-> >> >> >>  {	"802.3ad",		BOND_MODE_8023AD},
-> >> >> >>  {	"balance-tlb",		BOND_MODE_TLB},
-> >> >> >>  {	"balance-alb",		BOND_MODE_ALB},
-> >> >> >> +{	"mark",			BOND_MODE_MARK},
-> >> >> >>  {	NULL,			-1},
-> >> >> >>  };
-> >> >> >>  
-> >> >> >> @@ -224,6 +225,7 @@ static const char *bond_mode_name(int mode)
-> >> >> >>  		[BOND_MODE_8023AD]= "IEEE 802.3ad Dynamic link aggregation",
-> >> >> >>  		[BOND_MODE_TLB] = "transmit load balancing",
-> >> >> >>  		[BOND_MODE_ALB] = "adaptive load balancing",
-> >> >> >> +		[BOND_MODE_MARK] = "mark-based transmit balancing",
-> >> >> >>  	};
-> >> >> >>  
-> >> >> >>  	if (mode < 0 || mode > BOND_MODE_ALB)
-> >> >> >> @@ -4464,6 +4466,57 @@ out:
-> >> >> >>  	return 0;
-> >> >> >>  }
-> >> >> >>  
-> >> >> >> +static int bond_xmit_mark(struct sk_buff *skb, struct net_device *bond_dev)
-> >> >> >> +{
-> >> >> >> +	struct bonding *bond = netdev_priv(bond_dev);
-> >> >> >> +	struct slave *slave;
-> >> >> >> +	int i, slave_no, res = 1;
-> >> >> >> +
-> >> >> >> +	read_lock(&bond->lock);
-> >> >> >> +
-> >> >> >> +	if (!BOND_IS_OK(bond)) {
-> >> >> >> +		goto out;
-> >> >> >> +	}
-> >> >> >> +
-> >> >> >> +	/* Use the mark as the determining factor for which slave to
-> >> >> >> +	 * choose for transmission.  When behaving normally all should
-> >> >> >> +	 * work just fine.  When a slave that is destined to be the
-> >> >> >> +	 * transmitter of this frame is down, start at the front of the
-> >> >> >> +	 * list and find the first available slave. */
-> >> >> 
-> >> >> 	Why not simply use the N'th up slave instead of reverting to
-> >> >> slave 0 for the down slave case?  I'm guessing this has to do with
-> >> >> trying to maintain some fixed balancing of traffic even in the face of
-> >> >> slave failure.
-> >> >> 
-> >> >
-> >> >That could be a reasonable option as well -- in fact that was my first
-> >> >implementation.  I decided to do it this way, so that a user could
-> >> >consider the first device as the primary slave for unmarked traffic and
-> >> >the slave for marked traffic destined for a slave that was down rather
-> >> >than what might seem like a random choice for traffic.
-> >> 
-> >> 	Ok, understood.
-> >> 
-> >> >> >> +	slave_no = skb->mark ? skb->mark % bond->slave_cnt : 0;
-> >> >> >> +
-> >> >> >Would it be worthwhile to add a special case here (say all f's in mark, to
-> >> >> >indicate a frames should be sent out all slaves on the bond?  In the case you
-> >> >> >have traffic that might need to go to all interface (like maybe igmp)?
-> >> >> 
-> >> >> 	If I'm not misunderstanding the purpose of the mode, I think
-> >> >> it's etherchannel compatible (meaning that the switch has to be
-> >> >> configured), so I'm not sure why there would ever be a need to flood
-> >> >> packets to all ports.
-> >> >> 
-> >> >> 	I think this would be generally be better a special hash policy,
-> >> >> in which case both the etherchannel (balance-xor) and 802.3ad modes
-> >> >> could take advantage of it.  I'd hazard to guess that Andy thought about
-> >> >> that, too, so what was the impediment?
-> >> >> 
-> >> >
-> >> >I wasn't designing this to be etherchannel compatible.  Though it could
-> >> >work that way, my idea was to use this in an environment where slaves
-> >> >may be connected to different switches that are capable of moving all of
-> >> >the traffic to it's destination if needed, but if the traffic is split
-> >> >in a predictable application specific manner the network can run more
-> >> >efficiently.  Think of this more as an active-backup mode where the
-> >> >backup links could actually be utilized.
-> >> 
-> >> 	Hmm.  If the slaves don't connect to the same places, why use
-> >> bonding at all, then?  Or, perhaps, two smaller bonds instead of one big
-> >> one.
-> >> 
-> >> 	Are you thinking of something like a load balancer back end, or
-> >> am I missing the point entirely?
-> >> 
-> >> 	And, really, active-backup using the backup links is just a load
-> >> balancing mode.  I'm not sure I see the special distinction there.
-> >> 
-> >
-> >OK, let's forget I mentioned active-backup. :)
+>>> So you're still using the "put the higher-level structure at the top so we
+>>> can treat it like either kind of pointer" trick.  I'd still recommend
+>>> against that.  Far better to do something like:
+>>>
+>>> 	struct can_priv *canpriv = netdev_priv(dev);
+>>> 	struct sja_1000_priv *priv = container_of(canpriv, struct sja_1000_priv, can);
+>>>
+>>> Of course, you can put that dance into a helper function.  
+>> There is no way to initialize the value returned by netdev_priv() as it
+>> does not point to a member of struct net_device. I already commented here:
+>>
+>>   http://marc.info/?l=linux-netdev&m=124120212106891&w=2
+>>
+>> Have I missed something?
 > 
-> 	Fair enough!
+> I'm confused.  It points to the struct can_priv that you registered at
+> the beginning.  Since that structure is contained within struct
+> sja1000_priv, you can use container_of(), as described above, to get
+> it.
 > 
-> >The best way to think about this is a user-configured load-balancing
-> >mode.  It can work with switches that are unaware of the existence of
-> >the bond.  This marking mode transmit could also be used for xor and
-> >802.3ad if there was a desire, but my original intent (and continued
-> >desire) was to create where the user controlled the load balancing and
-> >the option of using single or multiple switches could exist.  I've
-> >certainly seen network topolgies where this would be useful.  I can take
-> >some time and draw one of those up if you like (I'm just pressed for
-> >time right now).
+> I would probably just write something like:
 > 
-> 	I'm pretty sure there would be interest for a mark policy in
-> 802.3ad.
+> static inline struct sja1000_priv *to_sja1000_priv(struct net_device *dev)
+> {
+> 	return container_of(netdev_priv(dev), struct sja1000_priv, can);
+> }
 > 
-> >> >When I first started on this I considered just extending the
-> >> >active-backup mode's transmit function, but I didn't want to deal with
-> >> >the potential loss of duplicate frames in skb_bond_should_drop and I
-> >> >also didn't want to deal with the complicated failover scenarios of
-> >> >active-backup mode.
-> >> >
-> >> >It's probably the most like round-robin (in fact it's quite close), but
-> >> >I felt that this mode could eventually grow into something more useful
-> >> >(who knows how it might be extended) and deserved it's own mode rather
-> >> >than dealing with the possibility of having a larger more complicated
-> >> >transmit routine in the future when another mode would be just fine.
-> >> 
-> >> 	I'm still not quite sure how this differs from balance-xor mode
-> >> with a hypothetical "xmit_hash_policy=mark" sort of arrangement, other
-> >> than, perhaps, intended purpose.
-> >> 
-> >
-> >XOR is designed to work with switches that are aware of the bond, right?
-> >This does not have the same requirement and I wanted to make sure it
-> >could work with switches that were unaware (or possibly separate
-> >switches).
-> 
-> 	Well, theoretically, yes, but all "etherchannel compatible"
-> means is that all of the slaves are set to the same MAC address, and
-> we're prepared to accept traffic for the bond from any of the slaves.
-> Your new mode does both of those, and etherchannel compatible doesn't
-> mean "won't work without etherchannel."  There's no voodoo for
-> etherchannel beyond this (it's really not very sophisticated).
-> 
-> 	The 802.3ad protocol, on the other hand, does have what you're
-> worred about: handshaking and various chit chat between the bond and the
-> switch.
-> 
-> 	The xor mode would work fine, for example, in a configuration
-> with two switches connecting to discrete networks, and arranged for the
-> hash (or mark, hint hint) to put the traffic for each network on the
-> proper slave.  If the networks converge somewhere down the line, there
-> may be loop issues, but that's not really a new thing.  If the networks
-> don't converge, then each of the switches just sees it own little
-> etherchannel compatible world (of however many slaves are plugged into
-> that switch).
-> 
+> So have *I* missed something?
 
-Jay,
+Furthermore, the higher layer needs to known the location of the member
+"struct sja1000_priv can", e.g. by defining:
 
-Sorry for the delayed response.  Here are my thoughts.
+  dev->priv = &dev_specific_priv->can;
 
-My initial impression was that XOR was a bit more complex, but the
-reality is the code is not. There's really just not much to it.
-I would see no reason why the mark-based mode (mode 7) could be added
-and the code that does slave selection could be shared, so that a
-mark-based hashing algorithm could be used for XOR and 802.3ad.  It
-could also be that the new mode is abandoned all-together and just the
-hashing algorithm is used (as you have suggested in previous emails).
+But "struct net_device" does not have a "priv" member. netdev_priv(dev)
+always points to the beginning of the private data area. See:
 
-The only real problem I see with not creating a new mode is what happens
-when new options to control mark-based behavior are added with the
-intent of not using them in an 802.3ad scenario.  Initially these are
-the ones I've planned (and I'm sure they could grow from here):
+   http://lxr.linux.no/linux+v2.6.29/include/linux/netdevice.h#L953
 
-	mark_default - Modify the patch I've sent already to send all
-	traffic marked for an interface that is down to the specified
-	interface (rather than the 'next' in the list -- which would be
-	the new default behavior).  This would take a single device
-	argument.  (This could also just be an overload of the 'primary'
-	directive if desired.)
+Wolfgang.
 
-	mark_order - This would be a list of interfaces to use as the
-	order for the marks used.  You can bet that users will find
-	mark mode/hashing useful, but would rather use interfaces in the
-	order they specify like eth2, eth0, eth1 instead of the
-	enslavement order (which would normally be eth0, eth1, eth2).
-	This parameter would take multiple arguments like
-	/sys/class/net/bondX/bonding/slaves currently does.
 
-So the decision that is left is whether we want bonding arguments like
-this:
-
-mode=balance-xor xmit_hash_policy=mark
-
-or
-
-mode=mark
-
-initially with the chance to grow into something like this:
-
-mode=balance-xor xmit_hash_policy=mark mark_default=eth0 mark_order="eth0, eth1, eth2"
-
-rather than
-
-mode=mark mark_default=eth0 mark_order="eth0, eth1, eth2"
-
-To me the shorter one seems better than leaves more room for expansion
-of features specific to the marking mode, but I can also understand
-the potential lack of interest in another bonding mode since it's just
-more code to maintain when something breaks or when changing the way
-transmission is done.
-
-Of course I won't deny that I think it would be fun to be 'the guy that
-created that new mode of bonding,' but I'm not sure that would really
-impress anyone anyway. :-)
-
-Let me know what you think,
-
--andy
 
