@@ -1,41 +1,195 @@
 From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: [PATCH 4/5] addrconf: refuse isatap eui64 for INADDR_ANY
-Date: Fri, 15 May 2009 14:52:50 +0200
-Message-ID: <1242391971-32583-4-git-send-email-contact@saschahlusiak.de>
+Subject: [PATCH 5/5] sit: stateless autoconf for isatap
+Date: Fri, 15 May 2009 14:52:51 +0200
+Message-ID: <1242391971-32583-5-git-send-email-contact@saschahlusiak.de>
 References: <1242391971-32583-1-git-send-email-contact@saschahlusiak.de>
  <1242391971-32583-2-git-send-email-contact@saschahlusiak.de>
  <1242391971-32583-3-git-send-email-contact@saschahlusiak.de>
+ <1242391971-32583-4-git-send-email-contact@saschahlusiak.de>
 Cc: Sascha Hlusiak <contact@saschahlusiak.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.177]:62231 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.188]:57299 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755515AbZEOMwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 08:52:14 -0400
-In-Reply-To: <1242391971-32583-3-git-send-email-contact@saschahlusiak.de>
+	with ESMTP id S1756168AbZEOMwR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 08:52:17 -0400
+In-Reply-To: <1242391971-32583-4-git-send-email-contact@saschahlusiak.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A tunnel with no local ipv4 endpoint would otherwise use the
-ISATAP linklocal address fe80::5efe:0:0, which is invalid. Rather not
-add a linklocal address at all.
----
- net/ipv6/addrconf.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+>From each potential router in the PRL, a router solicitation will
+be sent periodically. The rs_delay can be speficied when adding the
+PRL entry and defaults to 15 minutes.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a8218bc..550fb79 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1520,6 +1520,8 @@ static int addrconf_ifid_infiniband(u8 *eui, struct net_device *dev)
+The RS is sent from every link local adress that's assigned to the
+tunnel interface. It's directed to the (guessed) linklocal address
+of the router and is sent through the tunnel.
+
+Better: send to ff02::2 encapsuled in unicast directed to router-v4.
+---
+ include/linux/if_tunnel.h |    2 +-
+ include/net/ipip.h        |    7 +++++
+ net/ipv6/ndisc.c          |    1 +
+ net/ipv6/sit.c            |   58 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 67 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+index 5a9aae4..5eb9b0f 100644
+--- a/include/linux/if_tunnel.h
++++ b/include/linux/if_tunnel.h
+@@ -44,7 +44,7 @@ struct ip_tunnel_prl {
+ 	__u16			flags;
+ 	__u16			__reserved;
+ 	__u32			datalen;
+-	__u32			__reserved2;
++	__u32			rs_delay;
+ 	/* data follows */
+ };
  
- int __ipv6_isatap_ifid(u8 *eui, __be32 addr)
+diff --git a/include/net/ipip.h b/include/net/ipip.h
+index fdf9bd7..5d3036f 100644
+--- a/include/net/ipip.h
++++ b/include/net/ipip.h
+@@ -28,11 +28,18 @@ struct ip_tunnel
+ 	unsigned int			prl_count;	/* # of entries in PRL */
+ };
+ 
++/* ISATAP: default interval between RS in secondy */
++#define IPTUNNEL_RS_DEFAULT_DELAY	(900)
++
+ struct ip_tunnel_prl_entry
  {
-+	if (addr == 0)
-+		return -1;
- 	eui[0] = (ipv4_is_zeronet(addr) || ipv4_is_private_10(addr) ||
- 		  ipv4_is_loopback(addr) || ipv4_is_linklocal_169(addr) ||
- 		  ipv4_is_private_172(addr) || ipv4_is_test_192(addr) ||
+ 	struct ip_tunnel_prl_entry	*next;
+ 	__be32				addr;
+ 	u16				flags;
++	unsigned long			rs_delay;
++	struct timer_list		rs_timer;
++	struct ip_tunnel		*tunnel;
++	spinlock_t			lock;
+ };
+ 
+ #define IPTUNNEL_XMIT() do {						\
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 9f061d1..f787ac4 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -658,6 +658,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
+ 		     &icmp6h, NULL,
+ 		     send_sllao ? ND_OPT_SOURCE_LL_ADDR : 0);
+ }
++EXPORT_SYMBOL(ndisc_send_rs);
+ 
+ 
+ static void ndisc_error_report(struct neighbour *neigh, struct sk_buff *skb)
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 9cc9511..788054d 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -15,6 +15,7 @@
+  * Roger Venning <r.venning@telstra.com>:	6to4 support
+  * Nate Thompson <nate@thebog.net>:		6to4 support
+  * Fred Templin <fred.l.templin@boeing.com>:	isatap support
++ * Sascha Hlusiak <mail@saschahlusiak.de>:	stateless autoconf for isatap
+  */
+ 
+ #include <linux/module.h>
+@@ -220,6 +221,44 @@ failed:
+ 	return NULL;
+ }
+ 
++static void ipip6_tunnel_rs_timer(unsigned long data)
++{
++	struct ip_tunnel_prl_entry *p = (struct ip_tunnel_prl_entry *)data;
++	struct inet6_dev *ifp;
++	struct inet6_ifaddr *addr;
++
++	spin_lock(&p->lock);
++	ifp = __in6_dev_get(p->tunnel->dev);
++
++	spin_lock(ifp->lock);
++	for (addr = ifp->addr_list; addr; addr = addr->if_next) {
++		struct in6_addr rtr;
++
++		if (!(ipv6_addr_type(&addr->addr) & IPV6_ADDR_LINKLOCAL))
++			continue;
++
++		/* Send RS to guessed linklocal address of router
++		 *
++		 * Better: send to ff02::2 encapsuled in unicast directly
++		 * to router-v4 instead of guessing the v6 address.
++		 *
++		 * Cisco/Windows seem to not set the u/l bit correctly,
++		 * so we won't guess right.
++		 */
++		ipv6_addr_set(&rtr,  htonl(0xFE800000), 0, 0, 0);
++		if (!__ipv6_isatap_ifid(rtr.s6_addr + 8,
++					p->addr)) {
++			ndisc_send_rs(p->tunnel->dev, &addr->addr, &rtr);
++		}
++	}
++	spin_unlock(ifp->lock);
++
++	mod_timer(&p->rs_timer, jiffies + HZ * p->rs_delay);
++	spin_unlock(&p->lock);
++
++	return;
++}
++
+ static struct ip_tunnel_prl_entry *
+ __ipip6_tunnel_locate_prl(struct ip_tunnel *t, __be32 addr)
+ {
+@@ -278,6 +317,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+ 			continue;
+ 		kp[c].addr = prl->addr;
+ 		kp[c].flags = prl->flags;
++		kp[c].rs_delay = prl->rs_delay;
+ 		c++;
+ 		if (kprl.addr != htonl(INADDR_ANY))
+ 			break;
+@@ -327,11 +367,23 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a, int chg)
+ 	}
+ 
+ 	p->next = t->prl;
++	p->tunnel = t;
+ 	t->prl = p;
+ 	t->prl_count++;
++
++	spin_lock_init(&p->lock);
++	setup_timer(&p->rs_timer, ipip6_tunnel_rs_timer, (unsigned long) p);
+ update:
+ 	p->addr = a->addr;
+ 	p->flags = a->flags;
++	p->rs_delay = a->rs_delay;
++	if (p->rs_delay == 0)
++		p->rs_delay = IPTUNNEL_RS_DEFAULT_DELAY;
++	spin_lock(&p->lock);
++	del_timer(&p->rs_timer);
++	if (p->flags & PRL_DEFAULT)
++		mod_timer(&p->rs_timer, jiffies + 1);
++	spin_unlock(&p->lock);
+ out:
+ 	write_unlock(&ipip6_lock);
+ 	return err;
+@@ -350,6 +402,9 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
+ 			if ((*p)->addr == a->addr) {
+ 				x = *p;
+ 				*p = x->next;
++				spin_lock(&x->lock);
++				del_timer(&x->rs_timer);
++				spin_unlock(&x->lock);
+ 				kfree(x);
+ 				t->prl_count--;
+ 				goto out;
+@@ -360,6 +415,9 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
+ 		while (t->prl) {
+ 			x = t->prl;
+ 			t->prl = t->prl->next;
++			spin_lock(&x->lock);
++			del_timer(&x->rs_timer);
++			spin_unlock(&x->lock);
+ 			kfree(x);
+ 			t->prl_count--;
+ 		}
 -- 
 1.6.3
 
