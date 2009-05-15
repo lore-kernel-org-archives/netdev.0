@@ -1,44 +1,39 @@
 From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: [PATCH 1/5] sit: Fail to create tunnel, if it already exists,
-Date: Fri, 15 May 2009 14:52:47 +0200
-Message-ID: <1242391971-32583-1-git-send-email-contact@saschahlusiak.de>
+Subject: [PATCH 3/5] sit: ipip6_tunnel_del_prl: return err
+Date: Fri, 15 May 2009 14:52:49 +0200
+Message-ID: <1242391971-32583-3-git-send-email-contact@saschahlusiak.de>
+References: <1242391971-32583-1-git-send-email-contact@saschahlusiak.de>
+ <1242391971-32583-2-git-send-email-contact@saschahlusiak.de>
 Cc: Sascha Hlusiak <contact@saschahlusiak.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:55138 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.177]:61730 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753332AbZEOMwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 08:52:08 -0400
+	with ESMTP id S1753608AbZEOMwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 08:52:12 -0400
+In-Reply-To: <1242391971-32583-2-git-send-email-contact@saschahlusiak.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When locating the tunnel, do not continue if it is found. Otherwise
-a different tunnel with similar configuration would be returned and
-parts could be overwritten.
+Typo. When deleting a PRL entry, return status to userspace
+instead of success.
 ---
- net/ipv6/sit.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ net/ipv6/sit.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 664ab82..bd63a7e 100644
+index dc73d6a..9cc9511 100644
 --- a/net/ipv6/sit.c
 +++ b/net/ipv6/sit.c
-@@ -165,8 +165,13 @@ static struct ip_tunnel * ipip6_tunnel_locate(struct net *net,
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
- 
- 	for (tp = __ipip6_bucket(sitn, parms); (t = *tp) != NULL; tp = &t->next) {
--		if (local == t->parms.iph.saddr && remote == t->parms.iph.daddr)
--			return t;
-+		if (local == t->parms.iph.saddr &&
-+		    remote == t->parms.iph.daddr) {
-+			if (create)
-+				return NULL;
-+			else
-+				return t;
-+		}
+@@ -366,7 +366,7 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
  	}
- 	if (!create)
- 		goto failed;
+ out:
+ 	write_unlock(&ipip6_lock);
+-	return 0;
++	return err;
+ }
+ 
+ static int
 -- 
 1.6.3
 
