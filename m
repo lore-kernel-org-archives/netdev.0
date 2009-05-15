@@ -1,74 +1,59 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: removing a bonding_master (ver 3.3.0 driver) results in leftover kernel process?
-Date: Fri, 15 May 2009 09:19:10 -0700
-Message-ID: <883.1242404350@death.nxdomain.ibm.com>
-References: <9a2da8520905141838x3081f96l190e230823d79098@mail.gmail.com>
-Cc: netdev@vger.kernel.org
-To: Deepjyoti Kakati <dkakati73@gmail.com>
+From: Chase Douglas <chasedouglas.lists@gmail.com>
+Subject: neigh_params_release() usage in net/ipv6/addrconf.c
+Date: Fri, 15 May 2009 12:33:39 -0400
+Message-ID: <8A0B031A-1483-49FD-A4AD-CA4EA87E9359@gmail.com>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:43259 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572AbZEOQTK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2009 12:19:10 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n4FGErHQ001657
-	for <netdev@vger.kernel.org>; Fri, 15 May 2009 12:14:54 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n4FGJ9Io253374
-	for <netdev@vger.kernel.org>; Fri, 15 May 2009 12:19:09 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n4FGH63p014703
-	for <netdev@vger.kernel.org>; Fri, 15 May 2009 12:17:09 -0400
-In-reply-to: <9a2da8520905141838x3081f96l190e230823d79098@mail.gmail.com>
+Received: from mail-gx0-f166.google.com ([209.85.217.166]:47454 "EHLO
+	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763462AbZEOQdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 12:33:41 -0400
+Received: by gxk10 with SMTP id 10so3849865gxk.13
+        for <netdev@vger.kernel.org>; Fri, 15 May 2009 09:33:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Deepjyoti Kakati <dkakati73@gmail.com> wrote:
+I'm debugging an issue I'm seeing when I use vlan with IPv6 support.  
+After bringing up the device, I'm unable to bring it down and  
+unregister it. I put some debug statements around dev_hold() and  
+dev_put() to see what was going on:
 
->using bonding driver ver 3.3.0 (on fedora 10)
->
->I am using the sysfs  to add a couple of interfaces as bonding_masters
->and repeatedly removing and adding  during test cycles as in:
->
->echo +bond_data > /sys/class/net/bonding_masters
->..add slave eth ports..
->...do work...
->......
->echo -bond_data > /sys/class/net/bonding_masters
->
->every time I add it, seems to start a kernel process named after that
->bond interface
->but when removing, that proc is not killed.
->
->it builds up after a period of testing and even kill -9/kill -15 isnt
->killing them
->
->Am I doing something wrong ? Can I prevent the buildup of these unwanted
->processes that are presumably consuming resources ?
+dev_hold() called on lo.2, new refcnt: 1 (net/core/dev.c:4162)
+dev_hold() called on lo.2, new refcnt: 2 (net/core/neighbour.c:1357)
+dev_hold() called on lo.2, new refcnt: 3 (net/ipv4/devinet.c:178)
+dev_hold() called on lo.2, new refcnt: 4 (net/core/neighbour.c:1357)
+dev_hold() called on lo.2, new refcnt: 5 (net/8021q/vlan.c:266)
+dev_hold() called on lo.2, new refcnt: 6 (net/core/link_watch.c:219)
+dev_put()  called on lo.2, new refcnt: 5 (net/core/link_watch.c:191)
+dev_hold() called on lo.2, new refcnt: 6 (net/core/dev.c:684)
+dev_put()  called on lo.2, new refcnt: 5 (net/ipv4/fib_semantics.c:149)
+dev_hold() called on lo.2, new refcnt: 6 (net/core/dev.c:684)
+dev_hold() called on lo.2, new refcnt: 7 (net/ipv4/fib_frontend.c:173)
+dev_put()  called on lo.2, new refcnt: 6 (net/ipv4/route.c:2453)
+dev_put()  called on lo.2, new refcnt: 5 (net/ipv4/fib_semantics.c:149)
+dev_put()  called on lo.2, new refcnt: 4 (net/core/neighbour.c:1393)
+dev_put()  called on lo.2, new refcnt: 3 (net/ipv4/devinet.c:151)
+dev_put()  called on lo.2, new refcnt: 2 (net/core/dev.c:4010)
+dev_put()  called on lo.2, new refcnt: 1 (net/8021q/vlan.c:182)
+unregister_netdevice: waiting for lo.2 to become free. Usage count = 2
 
-	Upgrade your kernel, this problem was fixed by the following:
+The fourth dev_hold() is in neigh_parms_alloc(), called by  
+ipv6_add_dev(). The only place I see neigh_parms_release() called in  
+addrconf.c is if ipv6_add_dev() fails later on, or when taking the  
+device down in addrconf_ifdown(). Unfortunately, when I bring the vlan  
+dev down I never see addrconf_ifdown() called with the how parameter  
+set to 1, which is the only instance where neigh_parms_release() would  
+be called.
 
-commit a434e43f3d844192bc23bd7b408bac979c40efe7
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Thu Oct 30 17:41:15 2008 -0700
+Why is neigh_parms_release() called in addrconf_ifdown() instead of  
+in6_dev_finish_destroy(), which looks to me to be the complement of  
+ipv6_add_dev()? If neigh_parms_release() really should be called in  
+addrconf_ifdown(), does anyone know why it's not being called properly  
+in this instance?
 
-    bonding: Clean up resource leaks
-    
-    This patch reworks the resource free logic performed at the time
-    a bonding device is released.  This (a) closes two resource leaks, one
-    for workqueues and one for multicast lists, and (b) improves commonality
-    of code between the "destroy one" and "destroy all" paths by performing
-    final free activity via destructor instead of explicitly (and differently)
-    in each path.
-    
-    "Sean E. Millichamp" <sean@bruenor.org> reported the workqueue
-    leak, and included a different patch.
-    
-    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+PS: I am running my tests using a slightly modified SLES 11 kernel. I  
+haven't been able to find anything in the git trees that would  
+indicate to me that the problem has been fixed upstream.
