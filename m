@@ -1,79 +1,86 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: KVM 10/Gb Ethernet PCIe passthrough with Linux/iSCSI and large
-	block sizes
-Date: Thu, 14 May 2009 21:29:21 -0700
-Message-ID: <1242361761.21442.276.camel@haakon2.linux-iscsi.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: user space virtio-net exits with "truncating packet" error
+Date: Fri, 15 May 2009 14:48:49 +0930
+Message-ID: <200905151448.49851.rusty@rustcorp.com.au>
+References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com> <200905142128.58111.rusty@rustcorp.com.au> <4A0C2500.7090709@Voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"H. Peter Anvin" <hpa@zytor.com>, Hannes Reinecke <hare@suse.de>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Christoph Hellwig <hch@lst.de>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Sheng Yang <sheng@linux.intel.com>,
-	Leonid Grossman <leonid.grossman@neterion.com>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
-	Rastapur Santosh <santosh.rastapur@neterion.com>
-To: kvm-devel <kvm@vger.kernel.org>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	Linux-netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	Gregory Haskins <ghaskins@novell.com>,
+	Anthony Liguori <anthony@codemonkey.ws>
+To: Or Gerlitz <ogerlitz@voltaire.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:52598 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751219AbZEOFTI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2009 01:19:08 -0400
+In-Reply-To: <4A0C2500.7090709@Voltaire.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greetings all,
+On Thu, 14 May 2009 11:34:48 pm Or Gerlitz wrote:
+> Rusty Russell wrote:
+> > The answer is that virtio_net by default only supports 1500
+> > MTU; I've not tried larger MTUs.
+>
+> Rusty,
+>
+> I hoped to get some performance boost from using checksum and large-send
+> offloads as an alternative to jumbo frames. Looking in the virtio-net
+> kernel driver, I see that the probe function checks if virtio_has_feature
+> VIRTIO_NET_F_CSUM ... VIRTIO_NET_F_HOST_TSO ... and if yes sets the
+> relevant bits in the NIC features mask. Looking in the virtio qemu code, I
+> also see some offload related code.
 
-The first test results for Linux/iSCSI Initiators and targets for large
-block sizes using 10 Gb/sec Ethernet + PCIe device-passthrough into
-Linux/KVM guests have been posted at:
+Yes, which is why MTU is a bit misleading.
 
-http://linux-iscsi.org/index.php/KVM-LIO-Target
+This patch may help diagnostics tho.
 
-So far, the results have been quite impressive using the Neterion X3100
-series hardware with recent KVM-85 stable code (with Marcelo's patches,
-see the above link) on v2.6.29.2 KVM guests, and using v2.6.30-rc3 KVM
-Hosts.
+Cheers,
+Rusty.
 
-Using iSCSI RFC defined MC/S to scale a *single* KVM accessable
-Linux/iSCSI Logical Unit to 10 Gb/sec line-rate speeds has been
-successful using Core-iSCSI WRITE/READ (bi-directional) traffic using
-Linux-Test-Project disktest pthreaded benchmark with O_DIRECT enabled.
-Using Core-iSCSI MC/S w/ iSCSI READ (uni-directional) the average is
-about 6-7 Gb/sec, and with MC/S iSCSI WRITE (uni-directional) the
-average is about 5 Gb/sec to the RAMDISK_DR and FILEIO storage objects
-for these same streaming tests.  Please see the link for more
-information on the tests and hardware/software setup.
+virtio: expose features in sysfs
 
-The tests have been run with both upstream Open-iSCSI and Core-iSCSI
-Initiators against Target_Core_Mod/LIO-Target v3.0 in KVM guests.  It is
-important to note that these tests have been run with tcp_sendpage()
-disabled (tcp_sendpage() is enabled by default in LIO-Target and
-Open-iSCSI) in 10 Gb/sec KVM guests, which have been disable into order
-to get up running with the 10 Gb/sec hardware.  1 Gb/sec e1000e ports
-are stable with sendpage() in LIO-Target KVM guests, and these will be
-enabled in 10 Gb/sec hardware in subsequent tests.  Also note that
-Open-iSCSI WRITEs using tcp_sendpage() have been ommited for this first
-run of tests.
+Each device negotiates feature bits; expose these in sysfs to help
+diagnostics and debugging.
 
-It is also important to note that both iSCSI MC/S and dm-multipath are
-methods to allow a single Linux/SCSI Logical Unit to scale across
-multiple TCP connections using the iSCSI Protocol.  Both of these
-methods (iSCSI RFC fabric level multiplexing and OS-level SCSI
-Multipath) allow for means for scaling across multiple X3110 Vpaths
-(MSI-X TX/RX pairs), and MC/S is a method that has a low amount of
-overhead.
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/virtio/virtio.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-Some of the future setups for KVM + 10 Gb/sec will be using dm-multipath
-block devices, 10 Gb/sec Ethernet PCIe multi-function mode into KVM
-guest, as well as PCIe SR-IOV on recent IOMMU capable hardware
-platforms.
-
-Many thanks to the Neterion folks and Sheng Yang for answering my
-questions!
-
---nab
-
+diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+--- a/drivers/virtio/virtio.c
++++ b/drivers/virtio/virtio.c
+@@ -31,11 +31,27 @@ static ssize_t modalias_show(struct devi
+ 	return sprintf(buf, "virtio:d%08Xv%08X\n",
+ 		       dev->id.device, dev->id.vendor);
+ }
++static ssize_t features_show(struct device *_d,
++			     struct device_attribute *attr, char *buf)
++{
++	struct virtio_device *dev = container_of(_d, struct virtio_device, dev);
++	unsigned int i;
++	ssize_t len = 0;
++
++	/* We actually represent this as a bitstring, as it could be
++	 * arbitrary length in future. */
++	for (i = 0; i < ARRAY_SIZE(dev->features)*BITS_PER_LONG; i++)
++		len += sprintf(buf+len, "%c",
++			       test_bit(i, dev->features) ? '1' : '0');
++	len += sprintf(buf+len, "\n");
++	return len;
++}
+ static struct device_attribute virtio_dev_attrs[] = {
+ 	__ATTR_RO(device),
+ 	__ATTR_RO(vendor),
+ 	__ATTR_RO(status),
+ 	__ATTR_RO(modalias),
++	__ATTR_RO(features),
+ 	__ATTR_NULL
+ };
+ 
 
