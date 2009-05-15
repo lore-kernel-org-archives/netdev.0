@@ -1,88 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] dropmon: add ability to detect when hardware
-	dropsrxpackets
-Date: Fri, 15 May 2009 07:01:41 -0400
-Message-ID: <20090515110141.GB7745@hmsreliant.think-freely.org>
-References: <20090514172954.GA3867@hmsreliant.think-freely.org> <20090515054947.GA4497@ff.dom.local>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Re: Yukon2 88E8056 card problem with switch?
+Date: Fri, 15 May 2009 13:08:45 +0200
+Message-ID: <4A0D4D3D.8030902@aei.mpg.de>
+References: <4A0BC769.9010507@aei.mpg.de> <20090514080615.6419b121@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42774 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219AbZEOLB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 07:01:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20090515054947.GA4497@ff.dom.local>
+Received: from welcomes-you.com ([85.214.50.128]:38494 "EHLO
+	smtp.welcomes-you.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752757AbZEOLIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 07:08:50 -0400
+In-Reply-To: <20090514080615.6419b121@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 15, 2009 at 05:49:47AM +0000, Jarek Poplawski wrote:
-> On 14-05-2009 19:29, Neil Horman wrote:
-> > On Thu, May 14, 2009 at 02:44:08PM +0200, Jiri Pirko wrote:
-> >>> +
-> >>> +		/*
-> >>> +		 * Clean the device list
-> >>> +		 */
-> >>> +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-> >> 		^^^^^^^^^^^^^^^^^^^^^^^
-> >> This is meaningless here. Use list_for_each_entry_rcu only under rcu_read_lock.
-> >> Also it would be good to use list_for_each_entry_safe here since you're
-> >> modifying the list.
-> >>
-> > 
-> > The definition of list_for_each_entry_rcu specifically says its safe against
-> > list-mutation primitives, so its fine.  Although you are correct, in that its
-> > safety is dependent on the protection of rcu_read_lock(), so I'll add that in.
-> > Thanks for the catch!  New patch attached
-> > 
-> > Change notes:
-> > 1) Add rcu_read_lock/unlock protection around TRACE_OFF event
-> > 
-> > Neil
-> ...
-> >  static int set_all_monitor_traces(int state)
-> >  {
-> >  	int rc = 0;
-> > +	struct dm_hw_stat_delta *new_stat = NULL;
-> > +
-> > +	spin_lock(&trace_state_lock);
-> >  
-> >  	switch (state) {
-> >  	case TRACE_ON:
-> >  		rc |= register_trace_kfree_skb(trace_kfree_skb_hit);
-> > +		rc |= register_trace_napi_poll(trace_napi_poll_hit);
-> >  		break;
-> >  	case TRACE_OFF:
-> >  		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit);
-> > +		rc |= unregister_trace_napi_poll(trace_napi_poll_hit);
-> >  
-> >  		tracepoint_synchronize_unregister();
-> > +
-> > +		/*
-> > +		 * Clean the device list
-> > +		 */
-> > +		rcu_read_lock();
-> > +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-> > +			if (new_stat->dev == NULL) {
-> > +				list_del_rcu(&new_stat->list);
-> > +				call_rcu(&new_stat->rcu, free_dm_hw_stat);
-> > +			}
-> > +		}
-> > +		rcu_read_unlock();
-> 
-> IMHO it looks worse now. rcu_read_lock() suggests it's a read side,
-> and spin_lock(&trace_state_lock) protects something else.
-> 
-the read lock is required (according to the comments for the list loop
-primitive) to protect against the embedded mutation primitive, so its required.
-I understand that its a bit counterintuitive, but intuition takes a backseat to
-functionality. :)
-Neil
+Hi again
 
-> Jarek P.
+Stephen Hemminger schrieb:
 > 
+> You are only seeing partial flow control. My recommendation would be to
+> turn off flow control with:
+>    ethtool -A eth0 autoneg off rx off tx off
+> 
+Tried that, did not help.
+
+> 
+> It works with other switches, so check cable and try another switch.
+> 
+
+I think I've overlooked something. Is it possible that said chip (or the
+driver) has problems with Jumbo frames? Our usual setup for more than a
+year now is that we run everything with MTU 9000 and thus I have not
+looked into this before. I just did a full install with MTU 1500 and it
+just worked.
+
+Is there a known issue with Jumbo frames?
+
+The same set-up (switch, cable, etc, works with an e1000 and Jumbo frames).
+
+Cheers
+
+CArsten
+
