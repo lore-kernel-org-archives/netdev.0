@@ -1,86 +1,82 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Fri, 15 May 2009 14:48:49 +0930
-Message-ID: <200905151448.49851.rusty@rustcorp.com.au>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com> <200905142128.58111.rusty@rustcorp.com.au> <4A0C2500.7090709@Voltaire.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] dropmon: add ability to detect when hardware
+	dropsrxpackets
+Date: Fri, 15 May 2009 05:49:47 +0000
+Message-ID: <20090515054947.GA4497@ff.dom.local>
+References: <20090514172954.GA3867@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:52598 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751219AbZEOFTI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2009 01:19:08 -0400
-In-Reply-To: <4A0C2500.7090709@Voltaire.com>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:52033 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753907AbZEOFtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 01:49:51 -0400
+Received: by fxm2 with SMTP id 2so1711299fxm.37
+        for <netdev@vger.kernel.org>; Thu, 14 May 2009 22:49:51 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20090514172954.GA3867@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 May 2009 11:34:48 pm Or Gerlitz wrote:
-> Rusty Russell wrote:
-> > The answer is that virtio_net by default only supports 1500
-> > MTU; I've not tried larger MTUs.
->
-> Rusty,
->
-> I hoped to get some performance boost from using checksum and large-send
-> offloads as an alternative to jumbo frames. Looking in the virtio-net
-> kernel driver, I see that the probe function checks if virtio_has_feature
-> VIRTIO_NET_F_CSUM ... VIRTIO_NET_F_HOST_TSO ... and if yes sets the
-> relevant bits in the NIC features mask. Looking in the virtio qemu code, I
-> also see some offload related code.
+On 14-05-2009 19:29, Neil Horman wrote:
+> On Thu, May 14, 2009 at 02:44:08PM +0200, Jiri Pirko wrote:
+>>> +
+>>> +		/*
+>>> +		 * Clean the device list
+>>> +		 */
+>>> +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
+>> 		^^^^^^^^^^^^^^^^^^^^^^^
+>> This is meaningless here. Use list_for_each_entry_rcu only under rcu_read_lock.
+>> Also it would be good to use list_for_each_entry_safe here since you're
+>> modifying the list.
+>>
+> 
+> The definition of list_for_each_entry_rcu specifically says its safe against
+> list-mutation primitives, so its fine.  Although you are correct, in that its
+> safety is dependent on the protection of rcu_read_lock(), so I'll add that in.
+> Thanks for the catch!  New patch attached
+> 
+> Change notes:
+> 1) Add rcu_read_lock/unlock protection around TRACE_OFF event
+> 
+> Neil
+...
+>  static int set_all_monitor_traces(int state)
+>  {
+>  	int rc = 0;
+> +	struct dm_hw_stat_delta *new_stat = NULL;
+> +
+> +	spin_lock(&trace_state_lock);
+>  
+>  	switch (state) {
+>  	case TRACE_ON:
+>  		rc |= register_trace_kfree_skb(trace_kfree_skb_hit);
+> +		rc |= register_trace_napi_poll(trace_napi_poll_hit);
+>  		break;
+>  	case TRACE_OFF:
+>  		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit);
+> +		rc |= unregister_trace_napi_poll(trace_napi_poll_hit);
+>  
+>  		tracepoint_synchronize_unregister();
+> +
+> +		/*
+> +		 * Clean the device list
+> +		 */
+> +		rcu_read_lock();
+> +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
+> +			if (new_stat->dev == NULL) {
+> +				list_del_rcu(&new_stat->list);
+> +				call_rcu(&new_stat->rcu, free_dm_hw_stat);
+> +			}
+> +		}
+> +		rcu_read_unlock();
 
-Yes, which is why MTU is a bit misleading.
+IMHO it looks worse now. rcu_read_lock() suggests it's a read side,
+and spin_lock(&trace_state_lock) protects something else.
 
-This patch may help diagnostics tho.
-
-Cheers,
-Rusty.
-
-virtio: expose features in sysfs
-
-Each device negotiates feature bits; expose these in sysfs to help
-diagnostics and debugging.
-
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/virtio/virtio.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
-
-diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
---- a/drivers/virtio/virtio.c
-+++ b/drivers/virtio/virtio.c
-@@ -31,11 +31,27 @@ static ssize_t modalias_show(struct devi
- 	return sprintf(buf, "virtio:d%08Xv%08X\n",
- 		       dev->id.device, dev->id.vendor);
- }
-+static ssize_t features_show(struct device *_d,
-+			     struct device_attribute *attr, char *buf)
-+{
-+	struct virtio_device *dev = container_of(_d, struct virtio_device, dev);
-+	unsigned int i;
-+	ssize_t len = 0;
-+
-+	/* We actually represent this as a bitstring, as it could be
-+	 * arbitrary length in future. */
-+	for (i = 0; i < ARRAY_SIZE(dev->features)*BITS_PER_LONG; i++)
-+		len += sprintf(buf+len, "%c",
-+			       test_bit(i, dev->features) ? '1' : '0');
-+	len += sprintf(buf+len, "\n");
-+	return len;
-+}
- static struct device_attribute virtio_dev_attrs[] = {
- 	__ATTR_RO(device),
- 	__ATTR_RO(vendor),
- 	__ATTR_RO(status),
- 	__ATTR_RO(modalias),
-+	__ATTR_RO(features),
- 	__ATTR_NULL
- };
- 
-
+Jarek P.
