@@ -1,58 +1,34 @@
-From: Wang Tinggong <wangtinggong@gmail.com>
-Subject: [PATCH] Doc: fixed descriptions on /proc/sys/net/core/* and
-	/proc/sys/net/unix/*
-Date: Fri, 15 May 2009 16:49:36 +0800
-Message-ID: <20090515084936.GA11099@rosicky>
+From: "Alexander V. Lukyanov" <lav@netis.ru>
+Subject: Re: 2.6.29.1: unregister_netdevice problem
+Date: Fri, 15 May 2009 12:54:14 +0400
+Message-ID: <20090515085414.GA27744@night.netis.ru>
+References: <20090428125755.GA5242@night.netis.ru> <49F76BF6.4040709@gmail.com> <20090429054510.GA8267@night.netis.ru> <20090429090809.GA2995@ami.dom.local> <20090508062640.GA4555@night.netis.ru> <20090508104628.GA6287@ff.dom.local> <20090510073559.GA8929@night.netis.ru> <20090510124641.GA2978@ami.dom.local> <20090515071946.GA15669@night.netis.ru> <20090515080649.GA5469@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: trivial@kernel.org, netdev@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f123.google.com ([209.85.216.123]:36445 "EHLO
-	mail-px0-f123.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756664AbZEOItb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 04:49:31 -0400
-Received: by pxi29 with SMTP id 29so942468pxi.33
-        for <netdev@vger.kernel.org>; Fri, 15 May 2009 01:49:32 -0700 (PDT)
+Received: from night.yars.free.net ([193.233.48.54]:44483 "EHLO
+	night.yars.free.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754445AbZEOIyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 04:54:15 -0400
 Content-Disposition: inline
+In-Reply-To: <20090515080649.GA5469@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, May 15, 2009 at 08:06:49AM +0000, Jarek Poplawski wrote:
+> On Fri, May 15, 2009 at 11:19:46AM +0400, Alexander V. Lukyanov wrote:
+> ...
+> > Looks like 2.6.28.10 does not have this refcnt problem. Also, after I have
+> > reversed net/ipv4/route.c changes from 2.6.29, the problem does not occur either.
+> 
+> Very nice work! It should be a piece of cake now - there were not much
+> changes. I'll look at it, as usual ;-), but, of course if it's
+> possible, it would be great to try "in the meantime" with reverted the
+> biggest of them append below.
 
-Signed-off-by: Wang Tinggong <wangtinggong@gmail.com>
----
- Documentation/networking/ip-sysctl.txt |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
+I suspect the problem occurs when cand==rthi.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ec5de02..b121c5d 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1266,13 +1266,22 @@ sctp_rmem - vector of 3 INTEGERs: min, default, max
- sctp_wmem  - vector of 3 INTEGERs: min, default, max
- 	See tcp_wmem for a description.
- 
--UNDOCUMENTED:
- 
- /proc/sys/net/core/*
--	dev_weight FIXME
-+dev_weight - INTEGER
-+	The maximum number of packets that kernel can handle on a NAPI
-+	interrupt, it's a Per-CPU variable.
-+
-+	Default: 64
- 
- /proc/sys/net/unix/*
--	max_dgram_qlen FIXME
-+max_dgram_qlen - INTEGER
-+	The maximum length of dgram socket receive queue
-+
-+	Default: 10
-+
-+
-+UNDOCUMENTED:
- 
- /proc/sys/net/irda/*
- 	fast_poll_increase FIXME
 -- 
-1.6.0
+   Alexander.
