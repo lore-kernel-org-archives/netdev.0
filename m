@@ -1,29 +1,26 @@
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: Re: [PATCH 1/5] sit: Fail to create tunnel, if it already exists,
-Date: Fri, 15 May 2009 16:15:14 +0200
-Message-ID: <200905151615.15170.contact@saschahlusiak.de>
-References: <1242391971-32583-1-git-send-email-contact@saschahlusiak.de> <20090515133007.GK25620@psychotron.englab.brq.redhat.com>
+From: il <il.erikander@yahoo.ie>
+Subject: (no subject)
+Date: Sat, 16 May 2009 02:29:20 +1200
+Message-ID: <ccfb118c25651a13fbcc7d45a49ce411@ihug.co.nz>
+Reply-To: barrkellymoore@9.cn
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:56218 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbZEOOOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 10:14:09 -0400
-In-Reply-To: <20090515133007.GK25620@psychotron.englab.brq.redhat.com>
-Content-Disposition: inline
+Received: from mailfilter11.ihug.co.nz ([203.109.136.11]:47585 "EHLO
+	mailfilter11.ihug.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152AbZEOOag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 10:30:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag 15 Mai 2009 15:30:08 schrieb Jiri Pirko:
-> Fri, May 15, 2009 at 02:52:47PM CEST, contact@saschahlusiak.de wrote:
-> >When locating the tunnel, do not continue if it is found. Otherwise
-> >a different tunnel with similar configuration would be returned and
-> >parts could be overwritten.
->
-> You are missing Signed-off-by line in the whole patchset.
 
-Thanks. Resent patchset with Signed-off-by lines and fixed the other warnings.
+-- 
+Hello,
+801,613 Euro is now yours. Congrats... You have won.
+
+Send your information to Monte Fred +44-704-574-9850 on
+barrkellymoore@9.cn to help you process your claims.
+Provide your name, address, age, phone number, occupation.
+
