@@ -1,84 +1,155 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] dropmon: add ability to detect when hardware
- dropsrxpackets
-Date: Fri, 15 May 2009 11:23:45 -0700
-Message-ID: <20090515112345.66b8230e@nehalam>
-References: <20090512163044.GD5019@hmsreliant.think-freely.org>
-	<20090513182354.GH6752@linux.vnet.ibm.com>
-	<20090514004548.GA14428@localhost.localdomain>
-	<20090514010359.GL6752@linux.vnet.ibm.com>
-	<20090514123300.GA7166@hmsreliant.think-freely.org>
-	<20090514124407.GP3517@psychotron.englab.brq.redhat.com>
-	<20090514172954.GA3867@hmsreliant.think-freely.org>
-	<20090515065102.GB25620@psychotron.englab.brq.redhat.com>
-	<20090515105909.GA7745@hmsreliant.think-freely.org>
-	<20090515112736.GG25620@psychotron.englab.brq.redhat.com>
-	<20090515160702.GE7745@hmsreliant.think-freely.org>
-	<4A0DB06D.7000805@cosmosbay.com>
+From: Gabriel Paubert <paubert@iram.es>
+Subject: [PATCH] mv643xx_eth: fix PPC DMA breakage
+Date: Fri, 15 May 2009 20:39:24 +0200
+Message-ID: <20090515183924.GA29279@iram.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35594 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034AbZEOSXu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 14:23:50 -0400
-In-Reply-To: <4A0DB06D.7000805@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tbm@cyrius.com, LinuxPPC <linuxppc-dev@ozlabs.org>, pacman@kosh.dhis.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 15 May 2009 20:11:57 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+After 2.6.29, PPC no more admits passing NULL to the dev parameter of
+the DMA API. The result is a BUG followed by solid lock-up when the 
+mv643xx_eth driver brings an interface up. The following patch makes 
+the driver work on my Pegasos again; it is mostly a search and replace 
+of NULL by mp->dev->dev.parent in dma allocation/freeing/mapping/unmapping
+functions.
 
-> Neil Horman a =C3=A9crit :
-> > +static int dropmon_net_event(struct notifier_block *ev_block,
-> > +			unsigned long event, void *ptr)
-> > +{
-> > +	struct net_device *dev =3D ptr;
-> > +	struct dm_hw_stat_delta *new_stat =3D NULL;
-> > +	int found =3D 0;
-> > +
-> > +	switch (event) {
-> > +	case NETDEV_REGISTER:
-> > +		new_stat =3D kzalloc(sizeof(struct dm_hw_stat_delta), GFP_KERNEL=
-);
-> > +
-> > +		if (!new_stat)
-> > +			goto out;
-> > +
-> > +		new_stat->dev =3D dev;
-> > +		INIT_RCU_HEAD(&new_stat->rcu);
-> > +		spin_lock(&trace_state_lock);
-> > +		list_add_rcu(&new_stat->list, &hw_stats_list);
-> > +		spin_unlock(&trace_state_lock);
-> > +		break;
-> > +	case NETDEV_UNREGISTER:
-> > +		rcu_read_lock();
-> > +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-> > +			if (new_stat->dev =3D=3D dev)
-> > +				new_stat->dev =3D NULL;
-> > +				found =3D 1;
-> > +				break;
-> > +		}
-> > +		rcu_read_unlock();
->=20
-> This is racy, unless caller already owns a lock.
->=20
-> If caller aleady owns a lock, you dont need :
->=20
-> rcu_read_lock()
-> list_for_each_entry_rcu()
-> rcu_read_unlock();
+Signed-off-by: Gabriel Paubert <paubert@iram.es>
 
-RTNL mutex is always held on notification call backs.
-Actually why is trace_state_lock needed at all? Why not
-just use the RTNL mutex?
-
-
-
---=20
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index a400d71..6bb5af3 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -569,7 +569,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+ 		if (rxq->rx_curr_desc == rxq->rx_ring_size)
+ 			rxq->rx_curr_desc = 0;
+ 
+-		dma_unmap_single(NULL, rx_desc->buf_ptr,
++		dma_unmap_single(mp->dev->dev.parent, rx_desc->buf_ptr,
+ 				 rx_desc->buf_size, DMA_FROM_DEVICE);
+ 		rxq->rx_desc_count--;
+ 		rx++;
+@@ -678,8 +678,9 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
+ 
+ 		rx_desc = rxq->rx_desc_area + rx;
+ 
+-		rx_desc->buf_ptr = dma_map_single(NULL, skb->data,
+-					mp->skb_size, DMA_FROM_DEVICE);
++		rx_desc->buf_ptr = dma_map_single(mp->dev->dev.parent,
++						  skb->data, mp->skb_size,
++						  DMA_FROM_DEVICE);
+ 		rx_desc->buf_size = mp->skb_size;
+ 		rxq->rx_skb[rx] = skb;
+ 		wmb();
+@@ -718,6 +719,7 @@ static inline unsigned int has_tiny_unaligned_frags(struct sk_buff *skb)
+ 
+ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
+ {
++	struct mv643xx_eth_private *mp = txq_to_mp(txq);
+ 	int nr_frags = skb_shinfo(skb)->nr_frags;
+ 	int frag;
+ 
+@@ -746,10 +748,10 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
+ 
+ 		desc->l4i_chk = 0;
+ 		desc->byte_cnt = this_frag->size;
+-		desc->buf_ptr = dma_map_page(NULL, this_frag->page,
+-						this_frag->page_offset,
+-						this_frag->size,
+-						DMA_TO_DEVICE);
++		desc->buf_ptr = dma_map_page(mp->dev->dev.parent,
++					     this_frag->page,
++					     this_frag->page_offset,
++					     this_frag->size, DMA_TO_DEVICE);
+ 	}
+ }
+ 
+@@ -826,7 +828,8 @@ no_csum:
+ 
+ 	desc->l4i_chk = l4i_chk;
+ 	desc->byte_cnt = length;
+-	desc->buf_ptr = dma_map_single(NULL, skb->data, length, DMA_TO_DEVICE);
++	desc->buf_ptr = dma_map_single(mp->dev->dev.parent, skb->data,
++				       length, DMA_TO_DEVICE);
+ 
+ 	__skb_queue_tail(&txq->tx_skb, skb);
+ 
+@@ -956,10 +959,10 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ 		}
+ 
+ 		if (cmd_sts & TX_FIRST_DESC) {
+-			dma_unmap_single(NULL, desc->buf_ptr,
++			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
+ 					 desc->byte_cnt, DMA_TO_DEVICE);
+ 		} else {
+-			dma_unmap_page(NULL, desc->buf_ptr,
++			dma_unmap_page(mp->dev->dev.parent, desc->buf_ptr,
+ 				       desc->byte_cnt, DMA_TO_DEVICE);
+ 		}
+ 
+@@ -1894,9 +1897,9 @@ static int rxq_init(struct mv643xx_eth_private *mp, int index)
+ 						mp->rx_desc_sram_size);
+ 		rxq->rx_desc_dma = mp->rx_desc_sram_addr;
+ 	} else {
+-		rxq->rx_desc_area = dma_alloc_coherent(NULL, size,
+-							&rxq->rx_desc_dma,
+-							GFP_KERNEL);
++		rxq->rx_desc_area = dma_alloc_coherent(mp->dev->dev.parent,
++						       size, &rxq->rx_desc_dma,
++						       GFP_KERNEL);
+ 	}
+ 
+ 	if (rxq->rx_desc_area == NULL) {
+@@ -1947,7 +1950,7 @@ out_free:
+ 	if (index == 0 && size <= mp->rx_desc_sram_size)
+ 		iounmap(rxq->rx_desc_area);
+ 	else
+-		dma_free_coherent(NULL, size,
++		dma_free_coherent(mp->dev->dev.parent, size,
+ 				  rxq->rx_desc_area,
+ 				  rxq->rx_desc_dma);
+ 
+@@ -1979,7 +1982,7 @@ static void rxq_deinit(struct rx_queue *rxq)
+ 	    rxq->rx_desc_area_size <= mp->rx_desc_sram_size)
+ 		iounmap(rxq->rx_desc_area);
+ 	else
+-		dma_free_coherent(NULL, rxq->rx_desc_area_size,
++		dma_free_coherent(mp->dev->dev.parent, rxq->rx_desc_area_size,
+ 				  rxq->rx_desc_area, rxq->rx_desc_dma);
+ 
+ 	kfree(rxq->rx_skb);
+@@ -2007,9 +2010,9 @@ static int txq_init(struct mv643xx_eth_private *mp, int index)
+ 						mp->tx_desc_sram_size);
+ 		txq->tx_desc_dma = mp->tx_desc_sram_addr;
+ 	} else {
+-		txq->tx_desc_area = dma_alloc_coherent(NULL, size,
+-							&txq->tx_desc_dma,
+-							GFP_KERNEL);
++		txq->tx_desc_area = dma_alloc_coherent(mp->dev->dev.parent,
++						       size, &txq->tx_desc_dma,
++						       GFP_KERNEL);
+ 	}
+ 
+ 	if (txq->tx_desc_area == NULL) {
+@@ -2053,7 +2056,7 @@ static void txq_deinit(struct tx_queue *txq)
+ 	    txq->tx_desc_area_size <= mp->tx_desc_sram_size)
+ 		iounmap(txq->tx_desc_area);
+ 	else
+-		dma_free_coherent(NULL, txq->tx_desc_area_size,
++		dma_free_coherent(mp->dev->dev.parent, txq->tx_desc_area_size,
+ 				  txq->tx_desc_area, txq->tx_desc_dma);
+ }
