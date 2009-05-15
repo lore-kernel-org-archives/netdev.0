@@ -1,54 +1,46 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] bridge: relay bridge multicast pkgs if !STP
-Date: Fri, 15 May 2009 09:10:13 -0700
-Message-ID: <20090515091013.44b624d7@nehalam>
+Subject: [PATCH 2/2] bridge: fix initial packet flood if !STP
+Date: Fri, 15 May 2009 09:11:58 -0700
+Message-ID: <20090515091158.55090cd0@nehalam>
+References: <20090515091013.44b624d7@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, bridge@linux-foundation.org,
-	netdev@vger.kernel.org
+Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56785 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:56791 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754046AbZEOQMH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2009 12:12:07 -0400
+	id S1755395AbZEOQMI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2009 12:12:08 -0400
+In-Reply-To: <20090515091013.44b624d7@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the bridge catches all STP packets; even if STP is turned
-off.  This prevents other systems (which do have STP turned on)
-from being able to detect loops in the network.
+If bridge is configured with no STP and forwarding delay of 0 (which
+is typical for virtualization) then when link starts it will flood all
+packets for the first 20 seconds. 
 
-With this patch, if STP is off, then any packet sent to the STP
-multicast group address is forwarded to all ports.
+This bug was introduced by a combination of earlier changes:
+  * forwarding database uses hold time of zero to indicate 
+    user wants to always flood packets
+  * optimzation of the case of forwarding delay of 0 avoids the initial
+    timer tick
 
-Based on earlier patch by Joakim Tjernlund with changes
-to go through forwarding (not local chain), and optimization
-that only last octet needs to be checked.
+The fix is to just skip all the topology change detection code if
+kernel STP is not being used.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
-Please put in for 2.6.30 because it is a bug fix.
-
---- a/net/bridge/br_input.c	2009-05-14 14:50:29.288882708 -0700
-+++ b/net/bridge/br_input.c	2009-05-15 09:01:31.799417662 -0700
-@@ -134,6 +134,10 @@ struct sk_buff *br_handle_frame(struct n
- 		if (skb->protocol == htons(ETH_P_PAUSE))
- 			goto drop;
+--- a/net/bridge/br_stp.c	2009-05-14 13:34:49.965908836 -0700
++++ b/net/bridge/br_stp.c	2009-05-14 14:15:11.370903917 -0700
+@@ -297,6 +297,9 @@ void br_topology_change_detection(struct
+ {
+ 	int isroot = br_is_root_bridge(br);
  
-+		/* If STP is turned off, then forward */
-+		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
-+			goto forward;
++	if (br->stp_enabled != BR_KERNEL_STP)
++		return;
 +
- 		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
- 			    NULL, br_handle_local_finish))
- 			return NULL;	/* frame consumed by filter */
-@@ -141,6 +145,7 @@ struct sk_buff *br_handle_frame(struct n
- 			return skb;	/* continue processing */
- 	}
+ 	pr_info("%s: topology change detected, %s\n", br->dev->name,
+ 		isroot ? "propagating" : "sending tcn bpdu");
  
-+forward:
- 	switch (p->state) {
- 	case BR_STATE_FORWARDING:
- 		rhook = rcu_dereference(br_should_route_hook);
