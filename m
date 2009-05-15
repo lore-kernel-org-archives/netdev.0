@@ -1,56 +1,93 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 08/11] drivers/net: Convert #ifdef DEBUG printk(KERN_DEBUG to pr_debug(
-Date: Fri, 15 May 2009 10:59:42 -0700
-Message-ID: <d208c4b401aed61c0ba6a24e92467bb321c1f7ae.1242407227.git.joe@perches.com>
-References: <cover.1242407227.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Lennert Buytenhek <buytenh@marvell.com>
-To: linux-kernel@vger.kernel.org
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] dropmon: add ability to detect when hardware	dropsrxpackets
+Date: Fri, 15 May 2009 20:11:57 +0200
+Message-ID: <4A0DB06D.7000805@cosmosbay.com>
+References: <20090512163044.GD5019@hmsreliant.think-freely.org> <20090513182354.GH6752@linux.vnet.ibm.com> <20090514004548.GA14428@localhost.localdomain> <20090514010359.GL6752@linux.vnet.ibm.com> <20090514123300.GA7166@hmsreliant.think-freely.org> <20090514124407.GP3517@psychotron.englab.brq.redhat.com> <20090514172954.GA3867@hmsreliant.think-freely.org> <20090515065102.GB25620@psychotron.englab.brq.redhat.com> <20090515105909.GA7745@hmsreliant.think-freely.org> <20090515112736.GG25620@psychotron.englab.brq.redhat.com> <20090515160702.GE7745@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2056 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755438AbZEOSAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 14:00:03 -0400
-In-Reply-To: <cover.1242407227.git.joe@perches.com>
-In-Reply-To: <cover.1242407227.git.joe@perches.com>
-References: <cover.1242407227.git.joe@perches.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39425 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757151AbZEOSMY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2009 14:12:24 -0400
+In-Reply-To: <20090515160702.GE7745@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+Neil Horman a =E9crit :
+> +static int dropmon_net_event(struct notifier_block *ev_block,
+> +			unsigned long event, void *ptr)
+> +{
+> +	struct net_device *dev =3D ptr;
+> +	struct dm_hw_stat_delta *new_stat =3D NULL;
+> +	int found =3D 0;
+> +
+> +	switch (event) {
+> +	case NETDEV_REGISTER:
+> +		new_stat =3D kzalloc(sizeof(struct dm_hw_stat_delta), GFP_KERNEL);
+> +
+> +		if (!new_stat)
+> +			goto out;
+> +
+> +		new_stat->dev =3D dev;
+> +		INIT_RCU_HEAD(&new_stat->rcu);
+> +		spin_lock(&trace_state_lock);
+> +		list_add_rcu(&new_stat->list, &hw_stats_list);
+> +		spin_unlock(&trace_state_lock);
+> +		break;
+> +	case NETDEV_UNREGISTER:
+> +		rcu_read_lock();
+> +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
+> +			if (new_stat->dev =3D=3D dev)
+> +				new_stat->dev =3D NULL;
+> +				found =3D 1;
+> +				break;
+> +		}
+> +		rcu_read_unlock();
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/tc35815.c |   13 +++++--------
- 1 files changed, 5 insertions(+), 8 deletions(-)
+This is racy, unless caller already owns a lock.
 
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index 0ce2db6..d737f6b 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -688,14 +688,11 @@ static void tc_handle_link_change(struct net_device *dev)
- 
- 	if (status_change && netif_msg_link(lp)) {
- 		phy_print_status(phydev);
--#ifdef DEBUG
--		printk(KERN_DEBUG
--		       "%s: MII BMCR %04x BMSR %04x LPA %04x\n",
--		       dev->name,
--		       phy_read(phydev, MII_BMCR),
--		       phy_read(phydev, MII_BMSR),
--		       phy_read(phydev, MII_LPA));
--#endif
-+		pr_debug("%s: MII BMCR %04x BMSR %04x LPA %04x\n",
-+			 dev->name,
-+			 phy_read(phydev, MII_BMCR),
-+			 phy_read(phydev, MII_BMSR),
-+			 phy_read(phydev, MII_LPA));
- 	}
- }
- 
--- 
-1.6.3.1.9.g95405b.dirty
+If caller aleady owns a lock, you dont need :
+
+rcu_read_lock()
+list_for_each_entry_rcu()
+rcu_read_unlock();
+
+> +
+> +		spin_lock(&trace_state_lock);
+> +		if (found && (trace_state =3D=3D TRACE_OFF)) {
+> +			list_del_rcu(&new_stat->list);
+> +			call_rcu(&new_stat->rcu, free_dm_hw_stat);
+> +		}
+> +		spin_unlock(&trace_state_lock);
+> +		break;
+
+
+
+
+Its not clear that you use trace_state_lock as the lock guarding all th=
+is.
+
+If this is the case I suggest a plain and straight forward :
+
+case NETDEV_UNREGISTER:
+	spin_lock(&trace_state_lock);
+	if (trace_state =3D=3D TRACE_OFF) {
+		list_for_each_entry(new_stat, &hw_stats_list, list) {
+			if (new_stat->dev =3D=3D dev) {
+				new_stat->dev =3D NULL;
+				list_del_rcu(&new_stat->list);
+				call_rcu(&new_stat->rcu, free_dm_hw_stat);
+				break;
+			}
+		}
+	}
+	spin_unlock(&trace_state_lock);
+	break;
+
 
