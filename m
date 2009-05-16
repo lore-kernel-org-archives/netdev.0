@@ -1,37 +1,34 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: sk_buff handling in packet handler
-Date: Sun, 17 May 2009 00:19:49 +0400
-Message-ID: <20090516201949.GA3408@ioremap.net>
-References: <4A0EEA60.6090702@accedian.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2009-05-12
+Date: Sat, 16 May 2009 13:33:33 -0700 (PDT)
+Message-ID: <20090516.133333.92480462.davem@davemloft.net>
+References: <20090512145423.GA3773@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Claude Robitaille <clauder@accedian.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.ru ([195.178.208.66]:50591 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751388AbZEPUUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 May 2009 16:20:01 -0400
-Content-Disposition: inline
-In-Reply-To: <4A0EEA60.6090702@accedian.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45305
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751278AbZEPUdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 16:33:35 -0400
+In-Reply-To: <20090512145423.GA3773@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 16, 2009 at 12:31:28PM -0400, Claude Robitaille (clauder@accedian.com) wrote:
-> I suspect that the handler needs to do something with the sk_buff but I 
-> am not sure what. I printed the content of the sk_buff and found that 
-> the skb_buff is not cloned (looking on the web I had found that the 
-> sk_buff should have been cloned) and that he number of users is 1.
-> 
-> Should I simply do a dev_kfree_skb? What are the rules governing the use 
-> of the sk_buff in a packet handler? Should I clone the sk_buff?
-> 
-> Also, a related question, the packet handler is expected to return an 
-> int. What should be returned?
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 12 May 2009 10:54:24 -0400
 
-Use packet socket code as the best documentation, in particular
-packet_rcv, but 0 is ok, although in theory it should match NET_RX_*
-constants.
+> Another round of fixes intended for 2.6.30.  In particular, "mac80211:
+> avoid NULL ptr deref when finding max_rates in PID and minstrel" fixes a
+> bug that is a by-product of a fix that has already gone to Linus...oops!
+> As for the others, the iwlwifi patch adds PCI IDs and corrects antenna
+> configurations for a couple of devices, the rtl8187 corrects a problem
+> some people were hitting relating to using non-DMA buffers for USB
+> messages, the airo fix corrects an possible buffer overflow, and the
+> ath5k fix documents the oops it is correcting.
 
--- 
-	Evgeniy Polyakov
+Pulled, Thanks John.  I'll try to get this to Linus over the
+weekend.
