@@ -1,62 +1,37 @@
-From: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Subject: Re: [PATCH 2/2] r8169: allow true forced mode setting
-Date: Sat, 16 May 2009 21:57:10 +0200
-Message-ID: <4A0F1A96.8070208@gmail.com>
-References: <20090514214605.GB6374@electric-eye.fr.zoreil.com> <200905161450.38281.jdelvare@suse.de>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: sk_buff handling in packet handler
+Date: Sun, 17 May 2009 00:19:49 +0400
+Message-ID: <20090516201949.GA3408@ioremap.net>
+References: <4A0EEA60.6090702@accedian.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vincent Steenhoute <vsteenhoute@novell.com>,
-	Martin Michlmayr <tbm@cyrius.com>,
-	Ivan Vecera <ivecera@redhat.com>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jean Delvare <jdelvare@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Claude Robitaille <clauder@accedian.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:65027 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752860AbZEPT5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 15:57:13 -0400
-Received: by ewy24 with SMTP id 24so3223910ewy.37
-        for <netdev@vger.kernel.org>; Sat, 16 May 2009 12:57:13 -0700 (PDT)
-In-Reply-To: <200905161450.38281.jdelvare@suse.de>
+Received: from tservice.ru ([195.178.208.66]:50591 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751388AbZEPUUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 May 2009 16:20:01 -0400
+Content-Disposition: inline
+In-Reply-To: <4A0EEA60.6090702@accedian.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-zOn 05/16/2009 02:50 PM, Jean Delvare wrote:
+On Sat, May 16, 2009 at 12:31:28PM -0400, Claude Robitaille (clauder@accedian.com) wrote:
+> I suspect that the handler needs to do something with the sk_buff but I 
+> am not sure what. I printed the content of the sk_buff and found that 
+> the skb_buff is not cloned (looking on the web I had found that the 
+> sk_buff should have been cloned) and that he number of users is 1.
+> 
+> Should I simply do a dev_kfree_skb? What are the rules governing the use 
+> of the sk_buff in a packet handler? Should I clone the sk_buff?
+> 
+> Also, a related question, the packet handler is expected to return an 
+> int. What should be returned?
 
-> If I read the code correctly, Realtek's driver (v6.010.00) only
-> applies the quirk for RTL8169S and RTL8110S chips (what I have) and
-> not the original RTL8169. Your code applies the quirk to all 3
-> chips. Is this on purpose? Or am I missing something?
-
-For reference, there it's the latest source code of Realtek drivers 
-r8101/r8168/r8169 :
-
-ftp://WebUser:DAx7h9V@202.65.194.212/cn/nic/r8101-1.012.00.tar.bz2
-ftp://WebUser:DAx7h9V@202.65.194.212/cn/nic/r8168-8.012.00.tar.bz2
-ftp://WebUser:DAx7h9V@202.65.194.212/cn/nic/r8169-6.010.00.tar.bz2
-
->> (...)
->> +	if (tp->mac_version <= RTL_GIGA_MAC_VER_03) {
->> +		if ((speed == SPEED_100) && (autoneg != AUTONEG_ENABLE)) {
->> +			mdio_write(ioaddr, 0x17, 0x2138);
->> +			mdio_write(ioaddr, 0x0e, 0x0260);
->> +		} else {
->> +			mdio_write(ioaddr, 0x17, 0x2108);
->> +			mdio_write(ioaddr, 0x0e, 0x0000);
->> +		}
->> +	}
->> +
->>  	return 0;
->>  }
-
--thanks-
-
-regards,
+Use packet socket code as the best documentation, in particular
+packet_rcv, but 0 is ok, although in theory it should match NET_RX_*
+constants.
 
 -- 
-Polycommander, Erkowit, Urquiola, Andros Patria, Cason, Aegean Sea, Prestige, ...
+	Evgeniy Polyakov
