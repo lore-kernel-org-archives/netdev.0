@@ -1,68 +1,45 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v2 4/7] [PATCH 4/8] can: Driver for the SJA1000 CAN controller
-Date: Sat, 16 May 2009 08:57:03 +0200
-Message-ID: <4A0E63BF.9080503@grandegger.com>
-References: <20090512092757.048938233@denx.de>	<20090512092757.756749047@denx.de>	<20090513155205.4bf06c25@bike.lwn.net>	<4A0BDE79.4060606@grandegger.com> <20090515143927.7ba06f10@bike.lwn.net> <4A0DDD81.4040406@grandegger.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.29.1: unregister_netdevice problem
+Date: Sat, 16 May 2009 09:06:29 +0200
+Message-ID: <4A0E65F5.1040906@gmail.com>
+References: <49F76BF6.4040709@gmail.com> <20090429054510.GA8267@night.netis.ru> <20090429090809.GA2995@ami.dom.local> <20090508062640.GA4555@night.netis.ru> <20090508104628.GA6287@ff.dom.local> <20090510073559.GA8929@night.netis.ru> <20090510124641.GA2978@ami.dom.local> <20090515071946.GA15669@night.netis.ru> <20090515080649.GA5469@ff.dom.local> <20090515085414.GA27744@night.netis.ru> <20090515101209.GA6367@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Jonathan Corbet <corbet@lwn.net>
+Cc: "Alexander V. Lukyanov" <lav@netis.ru>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:49616 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752475AbZEPG5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 02:57:14 -0400
-In-Reply-To: <4A0DDD81.4040406@grandegger.com>
+Received: from mail-bw0-f174.google.com ([209.85.218.174]:61470 "EHLO
+	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752475AbZEPHHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 03:07:50 -0400
+In-Reply-To: <20090515101209.GA6367@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Jonathan Corbet wrote:
->> On Thu, 14 May 2009 11:03:53 +0200
->> Wolfgang Grandegger <wg@grandegger.com> wrote:
->>
->>>> So you're still using the "put the higher-level structure at the top so we
->>>> can treat it like either kind of pointer" trick.  I'd still recommend
->>>> against that.  Far better to do something like:
->>>>
->>>> 	struct can_priv *canpriv = netdev_priv(dev);
->>>> 	struct sja_1000_priv *priv = container_of(canpriv, struct sja_1000_priv, can);
->>>>
->>>> Of course, you can put that dance into a helper function.  
->>> There is no way to initialize the value returned by netdev_priv() as it
->>> does not point to a member of struct net_device. I already commented here:
->>>
->>>   http://marc.info/?l=linux-netdev&m=124120212106891&w=2
->>>
->>> Have I missed something?
->> I'm confused.  It points to the struct can_priv that you registered at
->> the beginning.  Since that structure is contained within struct
->> sja1000_priv, you can use container_of(), as described above, to get
->> it.
->>
->> I would probably just write something like:
->>
->> static inline struct sja1000_priv *to_sja1000_priv(struct net_device *dev)
->> {
->> 	return container_of(netdev_priv(dev), struct sja1000_priv, can);
->> }
->>
->> So have *I* missed something?
-> 
-> Furthermore, the higher layer needs to known the location of the member
-> "struct sja1000_priv can", e.g. by defining:
-> 
->   dev->priv = &dev_specific_priv->can;
-> 
-> But "struct net_device" does not have a "priv" member. netdev_priv(dev)
-> always points to the beginning of the private data area. See:
-> 
->    http://lxr.linux.no/linux+v2.6.29/include/linux/netdevice.h#L953
+Jarek Poplawski wrote, On 05/15/2009 12:12 PM:
 
-I could use container_of() as you suggested, of course, if the "struct
-can_priv" remains the first member of  "struct sja1000_priv". Would that
-already be an improvement?
+> On Fri, May 15, 2009 at 12:54:14PM +0400, Alexander V. Lukyanov wrote:
+>> On Fri, May 15, 2009 at 08:06:49AM +0000, Jarek Poplawski wrote:
+>>> On Fri, May 15, 2009 at 11:19:46AM +0400, Alexander V. Lukyanov wrote:
+>>> ...
+>>>> Looks like 2.6.28.10 does not have this refcnt problem. Also, after I have
+>>>> reversed net/ipv4/route.c changes from 2.6.29, the problem does not occur either.
+>>> Very nice work! It should be a piece of cake now - there were not much
+>>> changes. I'll look at it, as usual ;-), but, of course if it's
+>>> possible, it would be great to try "in the meantime" with reverted the
+>>> biggest of them append below.
+>> I suspect the problem occurs when cand==rthi.
+> 
+> Looks like good catch! (But there could be more than this.) Then, of
+> course it would be interesting to try first some fix (like nulling
+> rthi after rt_free(cand), I guess).
 
-Wolfgang.
+
+On the other hand, since this looks like quite obvious bug (even if it
+doesn't fix your problem), feel free to send here a patch fixing it any
+way you like without waiting for the final test results (Cc-ing authors
+of the offending patch, I hope).
+
+Jarek P.
