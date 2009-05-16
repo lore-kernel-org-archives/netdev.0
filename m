@@ -1,472 +1,902 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH v3 7/7] The patch adds support for the PCI cards: PCIcan and PCIcanx (1, 2 or 4 channel) from Kvaser (http://www.kvaser.com).
-Date: Sat, 16 May 2009 11:39:33 +0200
-Message-ID: <20090516093927.583612326@denx.de>
+Subject: [PATCH v3 4/7] [PATCH 4/8] can: Driver for the SJA1000 CAN controller
+Date: Sat, 16 May 2009 11:39:30 +0200
+Message-ID: <20090516093927.124677902@denx.de>
 References: <20090516093926.429574900@denx.de>
-Cc: linux-kernel@vger.kernel.org, Per Dalen <per.dalen@cnw.se>,
-	Wolfgang Grandegger <wg@grandegger.com>
+Cc: linux-kernel@vger.kernel.org,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:50500 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.9]:54739 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756820AbZEPJjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 05:39:37 -0400
-Content-Disposition: inline; filename=07-sja1000-kvaser-pci-driver.patch
+	with ESMTP id S1755293AbZEPJj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 05:39:29 -0400
+Content-Disposition: inline; filename=04-sja1000-driver.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Per Dalen <per.dalen@cnw.se>
+This patch adds the generic Socket-CAN driver for the Philips SJA1000
+full CAN controller.
+
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 ---
- drivers/net/can/Kconfig              |    7 
- drivers/net/can/sja1000/Makefile     |    1 
- drivers/net/can/sja1000/kvaser_pci.c |  411 +++++++++++++++++++++++++++++++++++
- 3 files changed, 419 insertions(+)
- create mode 100644 drivers/net/can/sja1000/kvaser_pci.c
+ drivers/net/can/Kconfig           |    6 
+ drivers/net/can/Makefile          |    2 
+ drivers/net/can/sja1000/Makefile  |    7 
+ drivers/net/can/sja1000/sja1000.c |  637 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/can/sja1000/sja1000.h |  180 ++++++++++
+ 5 files changed, 832 insertions(+)
+ create mode 100644 drivers/net/can/sja1000/Makefile
+ create mode 100644 drivers/net/can/sja1000/sja1000.c
+ create mode 100644 drivers/net/can/sja1000/sja1000.h
 
 Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
---- net-next-2.6.orig/drivers/net/can/Kconfig	2009-05-16 11:17:21.511091164 +0200
-+++ net-next-2.6/drivers/net/can/Kconfig	2009-05-16 11:17:21.537720630 +0200
-@@ -58,6 +58,13 @@
- 	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
- 	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+--- net-next-2.6.orig/drivers/net/can/Kconfig	2009-05-16 11:17:21.017720522 +0200
++++ net-next-2.6/drivers/net/can/Kconfig	2009-05-16 11:17:44.289720954 +0200
+@@ -35,6 +35,12 @@
+ 	  arguments "tq", "prop_seg", "phase_seg1", "phase_seg2" and "sjw".
+ 	  If unsure, say Y.
  
-+config CAN_KVASER_PCI
-+	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
-+	depends on PCI && CAN_SJA1000
++config CAN_SJA1000
++	depends on CAN_DEV
++	tristate "Philips SJA1000"
 +	---help---
-+	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
-+	  4 channel) from Kvaser (http://www.kvaser.com).
++	  Driver for the SJA1000 CAN controllers from Philips or NXP
 +
  config CAN_DEBUG_DEVICES
  	bool "CAN devices debugging messages"
  	depends on CAN
+Index: net-next-2.6/drivers/net/can/Makefile
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/Makefile	2009-05-16 11:17:21.018720663 +0200
++++ net-next-2.6/drivers/net/can/Makefile	2009-05-16 11:17:21.089718697 +0200
+@@ -7,4 +7,6 @@
+ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
+ can-dev-y			:= dev.o
+ 
++obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
++
+ ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
 Index: net-next-2.6/drivers/net/can/sja1000/Makefile
 ===================================================================
---- net-next-2.6.orig/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:21.511720862 +0200
-+++ net-next-2.6/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:21.538720492 +0200
-@@ -5,5 +5,6 @@
- obj-$(CONFIG_CAN_SJA1000) += sja1000.o
- obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
- obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
-+obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
- 
- ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-Index: net-next-2.6/drivers/net/can/sja1000/kvaser_pci.c
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-next-2.6/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:44.289720954 +0200
+@@ -0,0 +1,7 @@
++#
++#  Makefile for the SJA1000 CAN controller drivers.
++#
++
++obj-$(CONFIG_CAN_SJA1000) += sja1000.o
++
++ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+Index: net-next-2.6/drivers/net/can/sja1000/sja1000.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-next-2.6/drivers/net/can/sja1000/kvaser_pci.c	2009-05-16 11:17:21.542720779 +0200
-@@ -0,0 +1,411 @@
++++ net-next-2.6/drivers/net/can/sja1000/sja1000.c	2009-05-16 11:17:21.095720384 +0200
+@@ -0,0 +1,637 @@
 +/*
-+ * Copyright (C) 2008 Per Dalen <per.dalen@cnw.se>
++ * sja1000.c -  Philips SJA1000 network device driver
 + *
-+ * Parts of this software are based on (derived) the following:
++ * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
++ * 38106 Braunschweig, GERMANY
 + *
-+ * - Kvaser linux driver, version 4.72 BETA
-+ *   Copyright (C) 2002-2007 KVASER AB
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
 + *
-+ * - Lincan driver, version 0.3.3, OCERA project
-+ *   Copyright (C) 2004 Pavel Pisa
-+ *   Copyright (C) 2001 Arnaud Westenberg
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of Volkswagen nor the names of its contributors
++ *    may be used to endorse or promote products derived from this software
++ *    without specific prior written permission.
 + *
-+ * - Socketcan SJA1000 drivers
-+ *   Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
-+ *   Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ *   Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
-+ *   38106 Braunschweig, GERMANY
++ * Alternatively, provided that this notice is retained in full, this
++ * software may be distributed under the terms of the GNU General
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
++ * The provided data structures and external interfaces from this code
++ * are not restricted to be used by modules with a GPL compatible license.
 + *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
 + *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
 + */
 +
-+#include <linux/kernel.h>
 +#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/types.h>
++#include <linux/fcntl.h>
 +#include <linux/interrupt.h>
++#include <linux/ptrace.h>
++#include <linux/string.h>
++#include <linux/errno.h>
 +#include <linux/netdevice.h>
++#include <linux/if_arp.h>
++#include <linux/if_ether.h>
++#include <linux/skbuff.h>
 +#include <linux/delay.h>
-+#include <linux/pci.h>
++
 +#include <linux/can.h>
 +#include <linux/can/dev.h>
-+#include <linux/io.h>
++#include <linux/can/error.h>
++#include <linux/can/dev.h>
 +
 +#include "sja1000.h"
 +
-+#define DRV_NAME  "kvaser_pci"
++#define DRV_NAME "sja1000"
 +
-+MODULE_AUTHOR("Per Dalen <per.dalen@cnw.se>");
-+MODULE_DESCRIPTION("Socket-CAN driver for KVASER PCAN PCI cards");
-+MODULE_SUPPORTED_DEVICE("KVASER PCAN PCI CAN card");
-+MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_DESCRIPTION(DRV_NAME "CAN netdevice driver");
 +
-+#define MAX_NO_OF_CHANNELS        4 /* max no of channels on a single card */
-+
-+struct kvaser_pci {
-+	int channel;
-+	struct pci_dev *pci_dev;
-+	struct net_device *slave_dev[MAX_NO_OF_CHANNELS-1];
-+	void __iomem *conf_addr;
-+	void __iomem *res_addr;
-+	int no_channels;
-+	u8 xilinx_ver;
++static struct can_bittiming_const sja1000_bittiming_const = {
++	.name = DRV_NAME,
++	.tseg1_min = 1,
++	.tseg1_max = 16,
++	.tseg2_min = 1,
++	.tseg2_max = 8,
++	.sjw_max = 4,
++	.brp_min = 1,
++	.brp_max = 64,
++	.brp_inc = 1,
 +};
 +
-+#define KVASER_PCI_CAN_CLOCK      (16000000 / 2)
-+
-+/*
-+ * The board configuration is probably following:
-+ * RX1 is connected to ground.
-+ * TX1 is not connected.
-+ * CLKO is not connected.
-+ * Setting the OCR register to 0xDA is a good idea.
-+ * This means  normal output mode , push-pull and the correct polarity.
-+ */
-+#define KVASER_PCI_OCR            (OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
-+
-+/*
-+ * In the CDR register, you should set CBP to 1.
-+ * You will probably also want to set the clock divider value to 0
-+ * (meaning divide-by-2), the Pelican bit, and the clock-off bit
-+ * (you will have no need for CLKOUT anyway).
-+ */
-+#define KVASER_PCI_CDR            (CDR_CBP | CDR_CLKOUT_MASK)
-+
-+/*
-+ * These register values are valid for revision 14 of the Xilinx logic.
-+ */
-+#define XILINX_VERINT             7   /* Lower nibble simulate interrupts,
-+					 high nibble version number. */
-+
-+#define XILINX_PRESUMED_VERSION   14
-+
-+/*
-+ * Important S5920 registers
-+ */
-+#define S5920_INTCSR              0x38
-+#define S5920_PTCR                0x60
-+#define INTCSR_ADDON_INTENABLE_M  0x2000
-+
-+
-+#define KVASER_PCI_PORT_BYTES     0x20
-+
-+#define PCI_CONFIG_PORT_SIZE      0x80      /* size of the config io-memory */
-+#define PCI_PORT_SIZE             0x80      /* size of a channel io-memory */
-+#define PCI_PORT_XILINX_SIZE      0x08      /* size of a xilinx io-memory */
-+
-+#define KVASER_PCI_VENDOR_ID1     0x10e8    /* the PCI device and vendor IDs */
-+#define KVASER_PCI_DEVICE_ID1     0x8406
-+
-+#define KVASER_PCI_VENDOR_ID2     0x1a07    /* the PCI device and vendor IDs */
-+#define KVASER_PCI_DEVICE_ID2     0x0008
-+
-+static struct pci_device_id kvaser_pci_tbl[] = {
-+	{KVASER_PCI_VENDOR_ID1, KVASER_PCI_DEVICE_ID1, PCI_ANY_ID, PCI_ANY_ID,},
-+	{KVASER_PCI_VENDOR_ID2, KVASER_PCI_DEVICE_ID2, PCI_ANY_ID, PCI_ANY_ID,},
-+	{ 0,}
-+};
-+
-+MODULE_DEVICE_TABLE(pci, kvaser_pci_tbl);
-+
-+static u8 kvaser_pci_read_reg(const struct net_device *dev, int port)
-+{
-+	return ioread8((void __iomem *)(dev->base_addr + port));
-+}
-+
-+static void kvaser_pci_write_reg(const struct net_device *dev, int port, u8 val)
-+{
-+	iowrite8(val, (void __iomem *)(dev->base_addr + port));
-+}
-+
-+static void kvaser_pci_disable_irq(struct net_device *dev)
++static int sja1000_probe_chip(struct net_device *dev)
 +{
 +	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct kvaser_pci *board = priv->priv;
-+	u32 intcsr;
 +
-+	/* Disable interrupts from card */
-+	intcsr = ioread32(board->conf_addr + S5920_INTCSR);
-+	intcsr &= ~INTCSR_ADDON_INTENABLE_M;
-+	iowrite32(intcsr, board->conf_addr + S5920_INTCSR);
++	if (dev->base_addr && (priv->read_reg(dev, 0) == 0xFF)) {
++		printk(KERN_INFO "%s: probing @0x%lX failed\n",
++		       DRV_NAME, dev->base_addr);
++		return 0;
++	}
++	return -1;
 +}
 +
-+static void kvaser_pci_enable_irq(struct net_device *dev)
++static void set_reset_mode(struct net_device *dev)
 +{
 +	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct kvaser_pci *board = priv->priv;
-+	u32 tmp_en_io;
-+
-+	/* Enable interrupts from card */
-+	tmp_en_io = ioread32(board->conf_addr + S5920_INTCSR);
-+	tmp_en_io |= INTCSR_ADDON_INTENABLE_M;
-+	iowrite32(tmp_en_io, board->conf_addr + S5920_INTCSR);
-+}
-+
-+static int number_of_sja1000_chip(void __iomem *base_addr)
-+{
-+	u8 status;
++	unsigned char status = priv->read_reg(dev, REG_MOD);
 +	int i;
 +
-+	for (i = 0; i < MAX_NO_OF_CHANNELS; i++) {
-+		/* reset chip */
-+		iowrite8(MOD_RM, base_addr +
-+			 (i * KVASER_PCI_PORT_BYTES) + REG_MOD);
-+		status = ioread8(base_addr +
-+				 (i * KVASER_PCI_PORT_BYTES) + REG_MOD);
++	/* disable interrupts */
++	priv->write_reg(dev, REG_IER, IRQ_OFF);
++
++	for (i = 0; i < 100; i++) {
 +		/* check reset bit */
-+		if (!(status & MOD_RM))
-+			break;
++		if (status & MOD_RM) {
++			priv->can.state = CAN_STATE_STOPPED;
++			return;
++		}
++
++		priv->write_reg(dev, REG_MOD, MOD_RM);	/* reset chip */
++		udelay(10);
++		status = priv->read_reg(dev, REG_MOD);
 +	}
 +
-+	return i;
++	dev_err(dev->dev.parent, "setting SJA1000 into reset mode failed!\n");
 +}
 +
-+static void kvaser_pci_del_chan(struct net_device *dev)
++static void set_normal_mode(struct net_device *dev)
 +{
-+	struct sja1000_priv *priv;
-+	struct kvaser_pci *board;
++	struct sja1000_priv *priv = netdev_priv(dev);
++	unsigned char status = priv->read_reg(dev, REG_MOD);
 +	int i;
 +
-+	if (!dev)
++	for (i = 0; i < 100; i++) {
++		/* check reset bit */
++		if ((status & MOD_RM) == 0) {
++			priv->can.state = CAN_STATE_ERROR_ACTIVE;
++			/* enable all interrupts */
++			priv->write_reg(dev, REG_IER, IRQ_ALL);
++			return;
++		}
++
++		/* set chip to normal mode */
++		priv->write_reg(dev, REG_MOD, 0x00);
++		udelay(10);
++		status = priv->read_reg(dev, REG_MOD);
++	}
++
++	dev_err(dev->dev.parent, "setting SJA1000 into normal mode failed!\n");
++}
++
++static void sja1000_start(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++
++	/* leave reset mode */
++	if (priv->can.state != CAN_STATE_STOPPED)
++		set_reset_mode(dev);
++
++	/* Clear error counters and error code capture */
++	priv->write_reg(dev, REG_TXERR, 0x0);
++	priv->write_reg(dev, REG_RXERR, 0x0);
++	priv->read_reg(dev, REG_ECC);
++
++	/* leave reset mode */
++	set_normal_mode(dev);
++}
++
++static int sja1000_set_mode(struct net_device *dev, enum can_mode mode)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++
++	if (!priv->open_time)
++		return -EINVAL;
++
++	switch (mode) {
++	case CAN_MODE_START:
++		sja1000_start(dev);
++		if (netif_queue_stopped(dev))
++			netif_wake_queue(dev);
++		break;
++
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
++static int sja1000_set_bittiming(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct can_bittiming *bt = &priv->can.bittiming;
++	u8 btr0, btr1;
++
++	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
++	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
++		(((bt->phase_seg2 - 1) & 0x7) << 4);
++	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
++		btr1 |= 0x80;
++
++	dev_info(dev->dev.parent,
++		 "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
++
++	priv->write_reg(dev, REG_BTR0, btr0);
++	priv->write_reg(dev, REG_BTR1, btr1);
++
++	return 0;
++}
++
++/*
++ * initialize SJA1000 chip:
++ *   - reset chip
++ *   - set output mode
++ *   - set baudrate
++ *   - enable interrupts
++ *   - start operating mode
++ */
++static void chipset_init(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++
++	/* set clock divider and output control register */
++	priv->write_reg(dev, REG_CDR, priv->cdr | CDR_PELICAN);
++
++	/* set acceptance filter (accept all) */
++	priv->write_reg(dev, REG_ACCC0, 0x00);
++	priv->write_reg(dev, REG_ACCC1, 0x00);
++	priv->write_reg(dev, REG_ACCC2, 0x00);
++	priv->write_reg(dev, REG_ACCC3, 0x00);
++
++	priv->write_reg(dev, REG_ACCM0, 0xFF);
++	priv->write_reg(dev, REG_ACCM1, 0xFF);
++	priv->write_reg(dev, REG_ACCM2, 0xFF);
++	priv->write_reg(dev, REG_ACCM3, 0xFF);
++
++	priv->write_reg(dev, REG_OCR, priv->ocr | OCR_MODE_NORMAL);
++}
++
++/*
++ * transmit a CAN message
++ * message layout in the sk_buff should be like this:
++ * xx xx xx xx	 ff	 ll   00 11 22 33 44 55 66 77
++ * [  can-id ] [flags] [len] [can data (up to 8 bytes]
++ */
++static int sja1000_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct net_device_stats *stats = &dev->stats;
++	struct can_frame *cf = (struct can_frame *)skb->data;
++	uint8_t fi;
++	uint8_t dlc;
++	canid_t id;
++	uint8_t dreg;
++	int i;
++
++	netif_stop_queue(dev);
++
++	fi = dlc = cf->can_dlc;
++	id = cf->can_id;
++
++	if (id & CAN_RTR_FLAG)
++		fi |= FI_RTR;
++
++	if (id & CAN_EFF_FLAG) {
++		fi |= FI_FF;
++		dreg = EFF_BUF;
++		priv->write_reg(dev, REG_FI, fi);
++		priv->write_reg(dev, REG_ID1, (id & 0x1fe00000) >> (5 + 16));
++		priv->write_reg(dev, REG_ID2, (id & 0x001fe000) >> (5 + 8));
++		priv->write_reg(dev, REG_ID3, (id & 0x00001fe0) >> 5);
++		priv->write_reg(dev, REG_ID4, (id & 0x0000001f) << 3);
++	} else {
++		dreg = SFF_BUF;
++		priv->write_reg(dev, REG_FI, fi);
++		priv->write_reg(dev, REG_ID1, (id & 0x000007f8) >> 3);
++		priv->write_reg(dev, REG_ID2, (id & 0x00000007) << 5);
++	}
++
++	for (i = 0; i < dlc; i++)
++		priv->write_reg(dev, dreg++, cf->data[i]);
++
++	stats->tx_bytes += dlc;
++	dev->trans_start = jiffies;
++
++	can_put_echo_skb(skb, dev, 0);
++
++	priv->write_reg(dev, REG_CMR, CMD_TR);
++
++	return 0;
++}
++
++static void sja1000_rx(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct net_device_stats *stats = &dev->stats;
++	struct can_frame *cf;
++	struct sk_buff *skb;
++	uint8_t fi;
++	uint8_t dreg;
++	canid_t id;
++	uint8_t dlc;
++	int i;
++
++	skb = dev_alloc_skb(sizeof(struct can_frame));
++	if (skb == NULL)
 +		return;
-+	priv = netdev_priv(dev);
-+	board = priv->priv;
-+	if (!board)
-+		return;
++	skb->dev = dev;
++	skb->protocol = htons(ETH_P_CAN);
 +
-+	dev_info(&board->pci_dev->dev, "Removing device %s\n",
-+		 dev->name);
++	fi = priv->read_reg(dev, REG_FI);
++	dlc = fi & 0x0F;
 +
-+	/* Disable PCI interrupts */
-+	kvaser_pci_disable_irq(dev);
++	if (fi & FI_FF) {
++		/* extended frame format (EFF) */
++		dreg = EFF_BUF;
++		id = (priv->read_reg(dev, REG_ID1) << (5 + 16))
++		    | (priv->read_reg(dev, REG_ID2) << (5 + 8))
++		    | (priv->read_reg(dev, REG_ID3) << 5)
++		    | (priv->read_reg(dev, REG_ID4) >> 3);
++		id |= CAN_EFF_FLAG;
++	} else {
++		/* standard frame format (SFF) */
++		dreg = SFF_BUF;
++		id = (priv->read_reg(dev, REG_ID1) << 3)
++		    | (priv->read_reg(dev, REG_ID2) >> 5);
++	}
 +
-+	for (i = 0; i < board->no_channels - 1; i++) {
-+		if (board->slave_dev[i]) {
-+			dev_info(&board->pci_dev->dev, "Removing device %s\n",
-+				 board->slave_dev[i]->name);
-+			unregister_sja1000dev(board->slave_dev[i]);
-+			free_sja1000dev(board->slave_dev[i]);
++	if (fi & FI_RTR)
++		id |= CAN_RTR_FLAG;
++
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	memset(cf, 0, sizeof(struct can_frame));
++	cf->can_id = id;
++	cf->can_dlc = dlc;
++	for (i = 0; i < dlc; i++)
++		cf->data[i] = priv->read_reg(dev, dreg++);
++
++	while (i < 8)
++		cf->data[i++] = 0;
++
++	/* release receive buffer */
++	priv->write_reg(dev, REG_CMR, CMD_RRB);
++
++	netif_rx(skb);
++
++	dev->last_rx = jiffies;
++	stats->rx_packets++;
++	stats->rx_bytes += dlc;
++}
++
++static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct net_device_stats *stats = &dev->stats;
++	struct can_frame *cf;
++	struct sk_buff *skb;
++	enum can_state state = priv->can.state;
++	uint8_t ecc, alc;
++
++	skb = dev_alloc_skb(sizeof(struct can_frame));
++	if (skb == NULL)
++		return -ENOMEM;
++	skb->dev = dev;
++	skb->protocol = htons(ETH_P_CAN);
++	cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
++	memset(cf, 0, sizeof(struct can_frame));
++	cf->can_id = CAN_ERR_FLAG;
++	cf->can_dlc = CAN_ERR_DLC;
++
++	if (isrc & IRQ_DOI) {
++		/* data overrun interrupt */
++		dev_dbg(dev->dev.parent, "data overrun interrupt\n");
++		cf->can_id |= CAN_ERR_CRTL;
++		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
++		stats->rx_over_errors++;
++		stats->rx_errors++;
++		priv->write_reg(dev, REG_CMR, CMD_CDO);	/* clear bit */
++	}
++
++	if (isrc & IRQ_EI) {
++		/* error warning interrupt */
++		dev_dbg(dev->dev.parent, "error warning interrupt\n");
++
++		if (status & SR_BS) {
++			state = CAN_STATE_BUS_OFF;
++			cf->can_id |= CAN_ERR_BUSOFF;
++			can_bus_off(dev);
++		} else if (status & SR_ES) {
++			state = CAN_STATE_ERROR_WARNING;
++		} else
++			state = CAN_STATE_ERROR_ACTIVE;
++	}
++	if (isrc & IRQ_BEI) {
++		/* bus error interrupt */
++		priv->can.can_stats.bus_error++;
++		stats->rx_errors++;
++
++		ecc = priv->read_reg(dev, REG_ECC);
++
++		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
++
++		switch (ecc & ECC_MASK) {
++		case ECC_BIT:
++			cf->data[2] |= CAN_ERR_PROT_BIT;
++			break;
++		case ECC_FORM:
++			cf->data[2] |= CAN_ERR_PROT_FORM;
++			break;
++		case ECC_STUFF:
++			cf->data[2] |= CAN_ERR_PROT_STUFF;
++			break;
++		default:
++			cf->data[2] |= CAN_ERR_PROT_UNSPEC;
++			cf->data[3] = ecc & ECC_SEG;
++			break;
++		}
++		/* Error occured during transmission? */
++		if ((ecc & ECC_DIR) == 0)
++			cf->data[2] |= CAN_ERR_PROT_TX;
++	}
++	if (isrc & IRQ_EPI) {
++		/* error passive interrupt */
++		dev_dbg(dev->dev.parent, "error passive interrupt\n");
++		if (status & SR_ES)
++			state = CAN_STATE_ERROR_PASSIVE;
++		else
++			state = CAN_STATE_ERROR_ACTIVE;
++	}
++	if (isrc & IRQ_ALI) {
++		/* arbitration lost interrupt */
++		dev_dbg(dev->dev.parent, "arbitration lost interrupt\n");
++		alc = priv->read_reg(dev, REG_ALC);
++		priv->can.can_stats.arbitration_lost++;
++		stats->rx_errors++;
++		cf->can_id |= CAN_ERR_LOSTARB;
++		cf->data[0] = alc & 0x1f;
++	}
++
++	if (state != priv->can.state && (state == CAN_STATE_ERROR_WARNING ||
++					 state == CAN_STATE_ERROR_PASSIVE)) {
++		uint8_t rxerr = priv->read_reg(dev, REG_RXERR);
++		uint8_t txerr = priv->read_reg(dev, REG_TXERR);
++		cf->can_id |= CAN_ERR_CRTL;
++		if (state == CAN_STATE_ERROR_WARNING) {
++			priv->can.can_stats.error_warning++;
++			cf->data[1] = (txerr > rxerr) ?
++				CAN_ERR_CRTL_TX_WARNING :
++				CAN_ERR_CRTL_RX_WARNING;
++		} else {
++			priv->can.can_stats.error_passive++;
++			cf->data[1] = (txerr > rxerr) ?
++				CAN_ERR_CRTL_TX_PASSIVE :
++				CAN_ERR_CRTL_RX_PASSIVE;
 +		}
 +	}
-+	unregister_sja1000dev(dev);
 +
-+	pci_iounmap(board->pci_dev, (void __iomem *)dev->base_addr);
-+	pci_iounmap(board->pci_dev, board->conf_addr);
-+	pci_iounmap(board->pci_dev, board->res_addr);
++	priv->can.state = state;
 +
-+	free_sja1000dev(dev);
++	netif_rx(skb);
++
++	dev->last_rx = jiffies;
++	stats->rx_packets++;
++	stats->rx_bytes += cf->can_dlc;
++
++	return 0;
 +}
 +
-+static int kvaser_pci_add_chan(struct pci_dev *pdev, int channel,
-+			       struct net_device **master_dev,
-+			       void __iomem *conf_addr,
-+			       void __iomem *res_addr,
-+			       unsigned long base_addr)
++irqreturn_t sja1000_interrupt(int irq, void *dev_id)
++{
++	struct net_device *dev = (struct net_device *)dev_id;
++	struct sja1000_priv *priv = netdev_priv(dev);
++	struct net_device_stats *stats = &dev->stats;
++	uint8_t isrc, status;
++	int n = 0;
++
++	/* Shared interrupts and IRQ off? */
++	if (priv->read_reg(dev, REG_IER) == IRQ_OFF)
++		return IRQ_NONE;
++
++	if (priv->pre_irq)
++		priv->pre_irq(dev);
++
++	while ((isrc = priv->read_reg(dev, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
++		n++;
++		status = priv->read_reg(dev, REG_SR);
++
++		if (isrc & IRQ_WUI)
++			dev_warn(dev->dev.parent, "wakeup interrupt\n");
++
++		if (isrc & IRQ_TI) {
++			/* transmission complete interrupt */
++			stats->tx_packets++;
++			can_get_echo_skb(dev, 0);
++			netif_wake_queue(dev);
++		}
++		if (isrc & IRQ_RI) {
++			/* receive interrupt */
++			while (status & SR_RBS) {
++				sja1000_rx(dev);
++				status = priv->read_reg(dev, REG_SR);
++			}
++		}
++		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
++			/* error interrupt */
++			if (sja1000_err(dev, isrc, status))
++				break;
++		}
++	}
++
++	if (priv->post_irq)
++		priv->post_irq(dev);
++
++	if (n >= SJA1000_MAX_IRQ)
++		dev_dbg(dev->dev.parent, "%d messages handled in ISR", n);
++
++	return (n) ? IRQ_HANDLED : IRQ_NONE;
++}
++EXPORT_SYMBOL_GPL(sja1000_interrupt);
++
++static int sja1000_open(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++	int err;
++
++	/* set chip into reset mode */
++	set_reset_mode(dev);
++
++	/* common open */
++	err = open_candev(dev);
++	if (err)
++		return err;
++
++	/* register interrupt handler, if not done by the device driver */
++	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
++		err = request_irq(dev->irq, &sja1000_interrupt, priv->irq_flags,
++				  dev->name, (void *)dev);
++		if (err) {
++			return -EAGAIN;
++			close_candev(dev);
++		}
++	}
++
++	/* init and start chi */
++	sja1000_start(dev);
++	priv->open_time = jiffies;
++
++	netif_start_queue(dev);
++
++	return 0;
++}
++
++static int sja1000_close(struct net_device *dev)
++{
++	struct sja1000_priv *priv = netdev_priv(dev);
++
++	netif_stop_queue(dev);
++	set_reset_mode(dev);
++
++	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER))
++		free_irq(dev->irq, (void *)dev);
++
++	close_candev(dev);
++
++	priv->open_time = 0;
++
++	return 0;
++}
++
++struct net_device *alloc_sja1000dev(int sizeof_priv)
 +{
 +	struct net_device *dev;
 +	struct sja1000_priv *priv;
-+	struct kvaser_pci *board;
-+	int err, init_step;
 +
-+	dev = alloc_sja1000dev(sizeof(struct kvaser_pci));
-+	if (dev == NULL)
-+		return -ENOMEM;
++	dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv);
++	if (!dev)
++		return NULL;
 +
 +	priv = netdev_priv(dev);
-+	board = priv->priv;
 +
-+	board->pci_dev = pdev;
-+	board->channel = channel;
++	priv->dev = dev;
++	priv->can.bittiming_const = &sja1000_bittiming_const;
++	priv->can.do_set_bittiming = sja1000_set_bittiming;
++	priv->can.do_set_mode = sja1000_set_mode;
 +
-+	/* S5920 */
-+	board->conf_addr = conf_addr;
++	if (sizeof_priv)
++		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
 +
-+	/* XILINX board wide address */
-+	board->res_addr = res_addr;
-+
-+	if (channel == 0) {
-+		board->xilinx_ver =
-+			ioread8(board->res_addr + XILINX_VERINT) >> 4;
-+		init_step = 2;
-+
-+		/* Assert PTADR# - we're in passive mode so the other bits are
-+		   not important */
-+		iowrite32(0x80808080UL, board->conf_addr + S5920_PTCR);
-+
-+		/* Enable interrupts from card */
-+		kvaser_pci_enable_irq(dev);
-+	} else {
-+		struct sja1000_priv *master_priv = netdev_priv(*master_dev);
-+		struct kvaser_pci *master_board = master_priv->priv;
-+		master_board->slave_dev[channel - 1] = dev;
-+		master_board->no_channels = channel + 1;
-+		board->xilinx_ver = master_board->xilinx_ver;
-+	}
-+
-+	dev->base_addr = base_addr + channel * KVASER_PCI_PORT_BYTES;
-+
-+	priv->read_reg = kvaser_pci_read_reg;
-+	priv->write_reg = kvaser_pci_write_reg;
-+
-+	priv->can.clock.freq = KVASER_PCI_CAN_CLOCK;
-+
-+	priv->ocr = KVASER_PCI_OCR;
-+	priv->cdr = KVASER_PCI_CDR;
-+
-+	priv->irq_flags = IRQF_SHARED;
-+	dev->irq = pdev->irq;
-+
-+	init_step = 4;
-+
-+	dev_info(&pdev->dev, "base_addr=%#lx conf_addr=%p irq=%d\n",
-+		 dev->base_addr, board->conf_addr, dev->irq);
-+
-+	SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+	/* Register SJA1000 device */
-+	err = register_sja1000dev(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Registering device failed (err=%d)\n",
-+			err);
-+		goto failure;
-+	}
-+
-+	if (channel == 0)
-+		*master_dev = dev;
-+
-+	return 0;
-+
-+failure:
-+	kvaser_pci_del_chan(dev);
-+	return err;
++	return dev;
 +}
++EXPORT_SYMBOL_GPL(alloc_sja1000dev);
 +
-+static int __devinit kvaser_pci_init_one(struct pci_dev *pdev,
-+					 const struct pci_device_id *ent)
++void free_sja1000dev(struct net_device *dev)
 +{
-+	int err;
-+	struct net_device *master_dev = NULL;
-+	struct sja1000_priv *priv;
-+	struct kvaser_pci *board;
-+	int no_channels;
-+	void __iomem *base_addr = NULL;
-+	void __iomem *conf_addr = NULL;
-+	void __iomem *res_addr = NULL;
-+	int i;
-+
-+	dev_info(&pdev->dev, "initializing device %04x:%04x\n",
-+		 pdev->vendor, pdev->device);
-+
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		goto failure;
-+
-+	err = pci_request_regions(pdev, DRV_NAME);
-+	if (err)
-+		goto failure_release_pci;
-+
-+	/* S5920 */
-+	conf_addr = pci_iomap(pdev, 0, PCI_CONFIG_PORT_SIZE);
-+	if (conf_addr == NULL) {
-+		err = -ENODEV;
-+		goto failure_release_regions;
-+	}
-+
-+	/* XILINX board wide address */
-+	res_addr = pci_iomap(pdev, 2, PCI_PORT_XILINX_SIZE);
-+	if (res_addr == NULL) {
-+		err = -ENOMEM;
-+		goto failure_iounmap;
-+	}
-+
-+	base_addr = pci_iomap(pdev, 1, PCI_PORT_SIZE);
-+	if (base_addr == NULL) {
-+		err = -ENOMEM;
-+		goto failure_iounmap;
-+	}
-+
-+	no_channels = number_of_sja1000_chip(base_addr);
-+	if (no_channels == 0) {
-+		err = -ENOMEM;
-+		goto failure_iounmap;
-+	}
-+
-+	for (i = 0; i < no_channels; i++) {
-+		err = kvaser_pci_add_chan(pdev, i, &master_dev,
-+					  conf_addr, res_addr,
-+					  (unsigned long)base_addr);
-+		if (err)
-+			goto failure_cleanup;
-+	}
-+
-+	priv = netdev_priv(master_dev);
-+	board = priv->priv;
-+
-+	dev_info(&pdev->dev, "xilinx version=%d number of channels=%d\n",
-+		 board->xilinx_ver, board->no_channels);
-+
-+	pci_set_drvdata(pdev, master_dev);
-+	return 0;
-+
-+failure_cleanup:
-+	kvaser_pci_del_chan(master_dev);
-+
-+failure_iounmap:
-+	if (conf_addr != NULL)
-+		pci_iounmap(pdev, conf_addr);
-+	if (res_addr != NULL)
-+		pci_iounmap(pdev, res_addr);
-+	if (base_addr != NULL)
-+		pci_iounmap(pdev, base_addr);
-+
-+failure_release_regions:
-+	pci_release_regions(pdev);
-+
-+failure_release_pci:
-+	pci_disable_device(pdev);
-+
-+failure:
-+	return err;
-+
++	free_candev(dev);
 +}
++EXPORT_SYMBOL_GPL(free_sja1000dev);
 +
-+static void __devexit kvaser_pci_remove_one(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	kvaser_pci_del_chan(dev);
-+
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+	pci_set_drvdata(pdev, NULL);
-+}
-+
-+static struct pci_driver kvaser_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = kvaser_pci_tbl,
-+	.probe = kvaser_pci_init_one,
-+	.remove = __devexit_p(kvaser_pci_remove_one),
++static const struct net_device_ops sja1000_netdev_ops = {
++       .ndo_open               = sja1000_open,
++       .ndo_stop               = sja1000_close,
++       .ndo_start_xmit         = sja1000_start_xmit,
 +};
 +
-+static int __init kvaser_pci_init(void)
++int register_sja1000dev(struct net_device *dev)
 +{
-+	return pci_register_driver(&kvaser_pci_driver);
++	if (!sja1000_probe_chip(dev))
++		return -ENODEV;
++
++	dev->flags |= IFF_ECHO;	/* we support local echo */
++	dev->netdev_ops = &sja1000_netdev_ops;
++
++	set_reset_mode(dev);
++	chipset_init(dev);
++
++	return register_candev(dev);
++}
++EXPORT_SYMBOL_GPL(register_sja1000dev);
++
++void unregister_sja1000dev(struct net_device *dev)
++{
++	set_reset_mode(dev);
++	unregister_candev(dev);
++}
++EXPORT_SYMBOL_GPL(unregister_sja1000dev);
++
++static __init int sja1000_init(void)
++{
++	printk(KERN_INFO "%s CAN netdevice driver\n", DRV_NAME);
++
++	return 0;
 +}
 +
-+static void __exit kvaser_pci_exit(void)
++module_init(sja1000_init);
++
++static __exit void sja1000_exit(void)
 +{
-+	pci_unregister_driver(&kvaser_pci_driver);
++	printk(KERN_INFO "%s: driver removed\n", DRV_NAME);
 +}
 +
-+module_init(kvaser_pci_init);
-+module_exit(kvaser_pci_exit);
++module_exit(sja1000_exit);
+Index: net-next-2.6/drivers/net/can/sja1000/sja1000.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-next-2.6/drivers/net/can/sja1000/sja1000.h	2009-05-16 11:17:21.099868178 +0200
+@@ -0,0 +1,180 @@
++/*
++ * sja1000.h -  Philips SJA1000 network device driver
++ *
++ * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
++ * 38106 Braunschweig, GERMANY
++ *
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of Volkswagen nor the names of its contributors
++ *    may be used to endorse or promote products derived from this software
++ *    without specific prior written permission.
++ *
++ * Alternatively, provided that this notice is retained in full, this
++ * software may be distributed under the terms of the GNU General
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
++ *
++ * The provided data structures and external interfaces from this code
++ * are not restricted to be used by modules with a GPL compatible license.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#ifndef SJA1000_DEV_H
++#define SJA1000_DEV_H
++
++#include <linux/can/dev.h>
++#include <linux/can/platform/sja1000.h>
++
++#define SJA1000_MAX_IRQ 20	/* max. number of interrupts handled in ISR */
++
++/* SJA1000 registers - manual section 6.4 (Pelican Mode) */
++#define REG_MOD		0x00
++#define REG_CMR		0x01
++#define REG_SR		0x02
++#define REG_IR		0x03
++#define REG_IER		0x04
++#define REG_ALC		0x0B
++#define REG_ECC		0x0C
++#define REG_EWL		0x0D
++#define REG_RXERR	0x0E
++#define REG_TXERR	0x0F
++#define REG_ACCC0	0x10
++#define REG_ACCC1	0x11
++#define REG_ACCC2	0x12
++#define REG_ACCC3	0x13
++#define REG_ACCM0	0x14
++#define REG_ACCM1	0x15
++#define REG_ACCM2	0x16
++#define REG_ACCM3	0x17
++#define REG_RMC		0x1D
++#define REG_RBSA	0x1E
++
++/* Common registers - manual section 6.5 */
++#define REG_BTR0	0x06
++#define REG_BTR1	0x07
++#define REG_OCR		0x08
++#define REG_CDR		0x1F
++
++#define REG_FI		0x10
++#define SFF_BUF		0x13
++#define EFF_BUF		0x15
++
++#define FI_FF		0x80
++#define FI_RTR		0x40
++
++#define REG_ID1		0x11
++#define REG_ID2		0x12
++#define REG_ID3		0x13
++#define REG_ID4		0x14
++
++#define CAN_RAM		0x20
++
++/* mode register */
++#define MOD_RM		0x01
++#define MOD_LOM		0x02
++#define MOD_STM		0x04
++#define MOD_AFM		0x08
++#define MOD_SM		0x10
++
++/* commands */
++#define CMD_SRR		0x10
++#define CMD_CDO		0x08
++#define CMD_RRB		0x04
++#define CMD_AT		0x02
++#define CMD_TR		0x01
++
++/* interrupt sources */
++#define IRQ_BEI		0x80
++#define IRQ_ALI		0x40
++#define IRQ_EPI		0x20
++#define IRQ_WUI		0x10
++#define IRQ_DOI		0x08
++#define IRQ_EI		0x04
++#define IRQ_TI		0x02
++#define IRQ_RI		0x01
++#define IRQ_ALL		0xFF
++#define IRQ_OFF		0x00
++
++/* status register content */
++#define SR_BS		0x80
++#define SR_ES		0x40
++#define SR_TS		0x20
++#define SR_RS		0x10
++#define SR_TCS		0x08
++#define SR_TBS		0x04
++#define SR_DOS		0x02
++#define SR_RBS		0x01
++
++#define SR_CRIT (SR_BS|SR_ES)
++
++/* ECC register */
++#define ECC_SEG		0x1F
++#define ECC_DIR		0x20
++#define ECC_ERR		6
++#define ECC_BIT		0x00
++#define ECC_FORM	0x40
++#define ECC_STUFF	0x80
++#define ECC_MASK	0xc0
++
++/*
++ * Flags for sja1000priv.flags
++ */
++#define SJA1000_CUSTOM_IRQ_HANDLER 0x1
++
++/*
++ * SJA1000 private data structure
++ */
++struct sja1000_priv {
++	struct can_priv can;	/* must be the first member */
++	int open_time;
++	struct sk_buff *echo_skb;
++
++	/* the lower-layer is responsible for appropriate locking */
++	u8 (*read_reg) (const struct net_device *dev, int reg);
++	void (*write_reg) (const struct net_device *dev, int reg, u8 val);
++	void (*pre_irq) (const struct net_device *dev);
++	void (*post_irq) (const struct net_device *dev);
++
++	void *priv;		/* for board-specific data */
++	struct net_device *dev;
++
++	unsigned long irq_flags; /* for request_irq() */
++
++	u16 flags;		/* custom mode flags */
++	u8 ocr;			/* output control register */
++	u8 cdr;			/* clock divider register */
++};
++
++struct net_device *alloc_sja1000dev(int sizeof_priv);
++void free_sja1000dev(struct net_device *dev);
++int register_sja1000dev(struct net_device *dev);
++void unregister_sja1000dev(struct net_device *dev);
++
++irqreturn_t sja1000_interrupt(int irq, void *dev_id);
++
++#endif /* SJA1000_DEV_H */
 
