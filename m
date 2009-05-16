@@ -1,96 +1,83 @@
-From: Chase Douglas <chasedouglas.lists@gmail.com>
-Subject: Re: neigh_params_release() usage in net/ipv6/addrconf.c
-Date: Sat, 16 May 2009 18:57:22 -0400
-Message-ID: <1A56FDAE-2ECF-4D1C-BAC4-D59594BFB62A@gmail.com>
-References: <8A0B031A-1483-49FD-A4AD-CA4EA87E9359@gmail.com> <4A0F3B0F.2070209@gmail.com>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [BUG 2.6.30-rc1] panic when loading oprofile
+Date: Sat, 16 May 2009 16:20:17 -0700
+Message-ID: <20090516162017.2525511c.akpm@linux-foundation.org>
+References: <alpine.WNT.2.00.0905131327430.7052__41366.1100705669$1242253861$gmane$org@jbrandeb-desk1.amr.corp.intel.com>
+	<87fxf6pmh5.fsf@basil.nowhere.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:21776 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753605AbZEPW5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 18:57:25 -0400
-Received: by qw-out-2122.google.com with SMTP id 5so2050419qwd.37
-        for <netdev@vger.kernel.org>; Sat, 16 May 2009 15:57:26 -0700 (PDT)
-In-Reply-To: <4A0F3B0F.2070209@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	oprofile-list@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <oprofile-list-bounces@lists.sourceforge.net>
+In-Reply-To: <87fxf6pmh5.fsf@basil.nowhere.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/oprofile-list>,
+	<mailto:oprofile-list-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=oprofile-list>
+List-Post: <mailto:oprofile-list@lists.sourceforge.net>
+List-Help: <mailto:oprofile-list-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/oprofile-list>,
+	<mailto:oprofile-list-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: oprofile-list-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On May 16, 2009, at 6:15 PM, Jarek Poplawski wrote:
-> Chase Douglas wrote, On 05/15/2009 06:33 PM:
->
->> I'm debugging an issue I'm seeing when I use vlan with IPv6 support.
->> After bringing up the device, I'm unable to bring it down and
->> unregister it. I put some debug statements around dev_hold() and
->> dev_put() to see what was going on:
->>
->> dev_hold() called on lo.2, new refcnt: 1 (net/core/dev.c:4162)
->> dev_hold() called on lo.2, new refcnt: 2 (net/core/neighbour.c:1357)
->> dev_hold() called on lo.2, new refcnt: 3 (net/ipv4/devinet.c:178)
->> dev_hold() called on lo.2, new refcnt: 4 (net/core/neighbour.c:1357)
->> dev_hold() called on lo.2, new refcnt: 5 (net/8021q/vlan.c:266)
->> dev_hold() called on lo.2, new refcnt: 6 (net/core/link_watch.c:219)
->> dev_put()  called on lo.2, new refcnt: 5 (net/core/link_watch.c:191)
->> dev_hold() called on lo.2, new refcnt: 6 (net/core/dev.c:684)
->> dev_put()  called on lo.2, new refcnt: 5 (net/ipv4/fib_semantics.c: 
->> 149)
->> dev_hold() called on lo.2, new refcnt: 6 (net/core/dev.c:684)
->> dev_hold() called on lo.2, new refcnt: 7 (net/ipv4/fib_frontend.c: 
->> 173)
->> dev_put()  called on lo.2, new refcnt: 6 (net/ipv4/route.c:2453)
->> dev_put()  called on lo.2, new refcnt: 5 (net/ipv4/fib_semantics.c: 
->> 149)
->> dev_put()  called on lo.2, new refcnt: 4 (net/core/neighbour.c:1393)
->> dev_put()  called on lo.2, new refcnt: 3 (net/ipv4/devinet.c:151)
->> dev_put()  called on lo.2, new refcnt: 2 (net/core/dev.c:4010)
->> dev_put()  called on lo.2, new refcnt: 1 (net/8021q/vlan.c:182)
->> unregister_netdevice: waiting for lo.2 to become free. Usage count  
->> = 2
->>
->> The fourth dev_hold() is in neigh_parms_alloc(), called by
->> ipv6_add_dev(). The only place I see neigh_parms_release() called in
->> addrconf.c is if ipv6_add_dev() fails later on, or when taking the
->> device down in addrconf_ifdown(). Unfortunately, when I bring the  
->> vlan
->> dev down I never see addrconf_ifdown() called with the how parameter
->> set to 1, which is the only instance where neigh_parms_release()  
->> would
->> be called.
->
-> You write about ipv6, but the log is ipv4 only or I miss something.
+On Fri, 15 May 2009 14:41:26 +0200 Andi Kleen <andi@firstfloor.org> wrote:
 
-It doesn't look like there's any ipv6, but I also did a dump_stack()  
-each time, and that's how I figured out that ipv6_add_dev() was  
-calling neigh_parms_alloc().
+> "Brandeburg, Jesse" <jesse.brandeburg@intel.com> writes:
+> 
+> Hi Jesse,
+> 
+> > when starting a profile run on the latest net-next kernel, I'm currently 
+> > trying to reproduce on 2.6.30-rc5 stock.
+> 
+> Were you able to reproduce it?
+> 
+> >
+> > config available upon request, arch=x86_64, recent (F10 or newer) oprofile 
+> > userspace.
+> 
+> it looks like two bugs: oprofile didn't catch a NMI that belongs to 
+> it (most likely) and the NMI watchdog referenced a NULL pointer
+> while processing an NMI.
+> 
+> Did you have the nmi watchdog enabled on the command line?
+> 
+> >
+> > BUG: unable to handle kernel NULL pointer dereference at (null)
+> > IP: [<ffffffff8066080a>] nmi_watchdog_tick+0xa1/0x1d6
+> 
+> I don't get the same code as you. But the oopsing instruction in your
+> oops is
+> 
+>   2b:*  44 0f a3 28             bt     %r13d,(%rax)     <-- trapping instruction
+> 
+> with rax == 0 and I suspect it's one of the new cpu mask checks
+> I would try reverting
+> 
+> fcc5c4a2feea3886dc058498b28508b2731720d5
+> 2f537a9f8e82f55c241b002c8cfbf34303b45ada
+> fcef8576d8a64fc603e719c97d423f9f6d4e0e8b
+> 
+> and see which one causes it. That would only fix the NMI watchdog bug
+> of course.
+> 
+> The oprofile not catching a event problem would be still open then.
+> I think the checks for overflowed counters are not 100% perfect
+> so that could happen. I have some patches in the works to use the new
+> global status register on arch perfmon 2, with that the overflow
+> check is somewhat more reliable. But that's more work.
+> 
 
-> Anyway, it seems you do this vlan on the loopback. If so, there is:
->
->         if ((dev->flags & IFF_LOOPBACK) && how == 1)
->                 how = 0;
->
-> at least before 2.6.29 kernels, and vlans copy most of the flags.
-> Otherwise, how == 1 should work OK.
+Ping?
 
-I did see that as well. I didn't think that was a fix because I put a  
-printk in there to determine if I was hitting it. Unfortunately, I  
-forgot to copy the new module over before I retested, so I didn't see  
-the message at first. That block was the culprit though.
+This is in Rafael's regression list but I suspect that it's a
+linux-next-only thing?
 
-I grabbed the git commit that included the change to remove the block.  
-So far my patched kernel seems to be working correctly with the patch.
 
->
->> PS: I am running my tests using a slightly modified SLES 11 kernel. I
->
-> Generally, it's better to give the kernel number, because everybody
-> uses Debian here. ...Not! ;-)
-
-The reason I'm hesitant to do that can be seen in the case of SLES 10  
-SP 2. Even though it's 2.6.16, it has so many fixes and backports and  
-SuSE changes that it ends up very different from a stock 2.6.16  
-kernel. Either way, the SLES 11 kernel is based on 2.6.27.
-
-Thanks for your help!
+------------------------------------------------------------------------------
+Crystal Reports - New Free Runtime and 30 Day Trial
+Check out the new simplified licensing option that enables 
+unlimited royalty-free distribution of the report engine 
+for externally facing server and web deployment. 
+http://p.sf.net/sfu/businessobjects
