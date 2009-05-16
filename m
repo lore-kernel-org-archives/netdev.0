@@ -1,73 +1,79 @@
 From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH v3 6/7] [PATCH 6/8] can: SJA1000 driver for EMS PCI cards
-Date: Sat, 16 May 2009 11:39:32 +0200
-Message-ID: <20090516093927.435261468@denx.de>
+Subject: [PATCH v3 5/7] [PATCH 5/8] can: SJA1000 generic platform bus driver
+Date: Sat, 16 May 2009 11:39:31 +0200
+Message-ID: <20090516093927.284876803@denx.de>
 References: <20090516093926.429574900@denx.de>
 Cc: linux-kernel@vger.kernel.org,
-	Sebastian Haas <haas@ems-wuensche.com>,
-	Markus Plessing <plessing@ems-wuensche.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:50500 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:43351 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755290AbZEPJj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 05:39:29 -0400
-Content-Disposition: inline; filename=06-sja1000-ems-pci-driver.patch
+	with ESMTP id S1755012AbZEPJj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 05:39:27 -0400
+Content-Disposition: inline; filename=05-sja1000-platform-driver.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds support for the one or two channel CPC-PCI and CPC-PCIe
-cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
+This driver adds support for the SJA1000 chips connected to the
+"platform bus", which can be found on various embedded systems.
 
-Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
-Signed-off-by: Markus Plessing <plessing@ems-wuensche.com>
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
 Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 ---
- drivers/net/can/Kconfig           |    7 
- drivers/net/can/sja1000/Makefile  |    1 
- drivers/net/can/sja1000/ems_pci.c |  329 ++++++++++++++++++++++++++++++++++++++
- 3 files changed, 337 insertions(+)
- create mode 100644 drivers/net/can/sja1000/ems_pci.c
+ drivers/net/can/Kconfig                    |   10 +
+ drivers/net/can/sja1000/Makefile           |    1 
+ drivers/net/can/sja1000/sja1000_platform.c |  164 +++++++++++++++++++++++++++++
+ include/linux/can/platform/sja1000.h       |   32 +++++
+ 4 files changed, 207 insertions(+)
+ create mode 100644 drivers/net/can/sja1000/sja1000_platform.c
+ create mode 100644 include/linux/can/platform/sja1000.h
 
 Index: net-next-2.6/drivers/net/can/Kconfig
 ===================================================================
---- net-next-2.6.orig/drivers/net/can/Kconfig	2009-05-16 11:17:21.117970739 +0200
-+++ net-next-2.6/drivers/net/can/Kconfig	2009-05-16 11:17:42.738719670 +0200
-@@ -51,6 +51,13 @@
- 	  boards from Phytec (http://www.phytec.de) like the PCM027,
- 	  PCM038.
+--- net-next-2.6.orig/drivers/net/can/Kconfig	2009-05-16 11:17:21.089139006 +0200
++++ net-next-2.6/drivers/net/can/Kconfig	2009-05-16 11:17:43.574721470 +0200
+@@ -41,6 +41,16 @@
+ 	---help---
+ 	  Driver for the SJA1000 CAN controllers from Philips or NXP
  
-+config CAN_EMS_PCI
-+	tristate "EMS CPC-PCI and CPC-PCIe Card"
-+	depends on PCI && CAN_SJA1000
++config CAN_SJA1000_PLATFORM
++	depends on CAN_SJA1000
++	tristate "Generic Platform Bus based SJA1000 driver"
 +	---help---
-+	  This driver is for the one or two channel CPC-PCI and CPC-PCIe
-+	  cards from EMS Dr. Thomas Wuensche (http://www.ems-wuensche.de).
++	  This driver adds support for the SJA1000 chips connected to
++	  the "platform bus" (Linux abstraction for directly to the
++	  processor attached devices).  Which can be found on various
++	  boards from Phytec (http://www.phytec.de) like the PCM027,
++	  PCM038.
 +
  config CAN_DEBUG_DEVICES
  	bool "CAN devices debugging messages"
  	depends on CAN
 Index: net-next-2.6/drivers/net/can/sja1000/Makefile
 ===================================================================
---- net-next-2.6.orig/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:21.298718659 +0200
-+++ net-next-2.6/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:42.738719670 +0200
-@@ -4,5 +4,6 @@
+--- net-next-2.6.orig/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:21.092720519 +0200
++++ net-next-2.6/drivers/net/can/sja1000/Makefile	2009-05-16 11:17:43.574721470 +0200
+@@ -3,5 +3,6 @@
+ #
  
  obj-$(CONFIG_CAN_SJA1000) += sja1000.o
- obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
-+obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
++obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
  
  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-Index: net-next-2.6/drivers/net/can/sja1000/ems_pci.c
+Index: net-next-2.6/drivers/net/can/sja1000/sja1000_platform.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-next-2.6/drivers/net/can/sja1000/ems_pci.c	2009-05-16 11:17:21.519720597 +0200
-@@ -0,0 +1,329 @@
++++ net-next-2.6/drivers/net/can/sja1000/sja1000_platform.c	2009-05-16 11:17:21.298718659 +0200
+@@ -0,0 +1,164 @@
 +/*
++ * Copyright (C) 2005 Sascha Hauer, Pengutronix
 + * Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
-+ * Copyright (C) 2008 Markus Plessing <plessing@ems-wuensche.com>
-+ * Copyright (C) 2008 Sebastian Haas <haas@ems-wuensche.com>
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the version 2 of the GNU General Public License
@@ -79,8 +85,8 @@ Index: net-next-2.6/drivers/net/can/sja1000/ems_pci.c
 + * GNU General Public License for more details.
 + *
 + * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + */
 +
 +#include <linux/kernel.h>
@@ -89,308 +95,181 @@ Index: net-next-2.6/drivers/net/can/sja1000/ems_pci.c
 +#include <linux/netdevice.h>
 +#include <linux/delay.h>
 +#include <linux/pci.h>
++#include <linux/platform_device.h>
++#include <linux/irq.h>
 +#include <linux/can.h>
 +#include <linux/can/dev.h>
++#include <linux/can/platform/sja1000.h>
 +#include <linux/io.h>
 +
 +#include "sja1000.h"
 +
-+#define DRV_NAME  "ems_pci"
++#define DRV_NAME "sja1000_platform"
 +
-+MODULE_AUTHOR("Sebastian Haas <haas@ems-wuenche.com>");
-+MODULE_DESCRIPTION("Socket-CAN driver for EMS CPC-PCI/PCIe CAN cards");
-+MODULE_SUPPORTED_DEVICE("EMS CPC-PCI/PCIe CAN card");
++MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
++MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
 +MODULE_LICENSE("GPL v2");
 +
-+#define EMS_PCI_MAX_CHAN 2
-+
-+struct ems_pci_card {
-+	int channels;
-+
-+	struct pci_dev *pci_dev;
-+	struct net_device *net_dev[EMS_PCI_MAX_CHAN];
-+
-+	void __iomem *conf_addr;
-+	void __iomem *base_addr;
-+};
-+
-+#define EMS_PCI_CAN_CLOCK (16000000 / 2)
-+
-+/*
-+ * Register definitions and descriptions are from LinCAN 0.3.3.
-+ *
-+ * PSB4610 PITA-2 bridge control registers
-+ */
-+#define PITA2_ICR           0x00	/* Interrupt Control Register */
-+#define PITA2_ICR_INT0      0x00000002	/* [RC] INT0 Active/Clear */
-+#define PITA2_ICR_INT0_EN   0x00020000	/* [RW] Enable INT0 */
-+
-+#define PITA2_MISC          0x1c	/* Miscellaneous Register */
-+#define PITA2_MISC_CONFIG   0x04000000	/* Multiplexed parallel interface */
-+
-+/*
-+ * The board configuration is probably following:
-+ * RX1 is connected to ground.
-+ * TX1 is not connected.
-+ * CLKO is not connected.
-+ * Setting the OCR register to 0xDA is a good idea.
-+ * This means  normal output mode , push-pull and the correct polarity.
-+ */
-+#define EMS_PCI_OCR         (OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
-+
-+/*
-+ * In the CDR register, you should set CBP to 1.
-+ * You will probably also want to set the clock divider value to 7
-+ * (meaning direct oscillator output) because the second SJA1000 chip
-+ * is driven by the first one CLKOUT output.
-+ */
-+#define EMS_PCI_CDR             (CDR_CBP | CDR_CLKOUT_MASK)
-+#define EMS_PCI_MEM_SIZE        4096  /* Size of the remapped io-memory */
-+#define EMS_PCI_CAN_BASE_OFFSET 0x400 /* offset where the controllers starts */
-+#define EMS_PCI_CAN_CTRL_SIZE   0x200 /* memory size for each controller */
-+
-+#define EMS_PCI_PORT_BYTES  0x4     /* Each register occupies 4 bytes */
-+
-+#define EMS_PCI_VENDOR_ID   0x110a  /* PCI device and vendor ID */
-+#define EMS_PCI_DEVICE_ID   0x2104
-+
-+static struct pci_device_id ems_pci_tbl[] = {
-+	{EMS_PCI_VENDOR_ID, EMS_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-+	{0,}
-+};
-+MODULE_DEVICE_TABLE(pci, ems_pci_tbl);
-+
-+/*
-+ * Helper to read internal registers from card logic (not CAN)
-+ */
-+static u8 ems_pci_readb(struct ems_pci_card *card, unsigned int port)
++static u8 sp_read_reg(const struct net_device *dev, int reg)
 +{
-+	return readb((void __iomem *)card->base_addr
-+			+ (port * EMS_PCI_PORT_BYTES));
++	return ioread8((void __iomem *)(dev->base_addr + reg));
 +}
 +
-+static u8 ems_pci_read_reg(const struct net_device *dev, int port)
++static void sp_write_reg(const struct net_device *dev, int reg, u8 val)
 +{
-+	return readb((void __iomem *)dev->base_addr
-+			+ (port * EMS_PCI_PORT_BYTES));
++	iowrite8(val, (void __iomem *)(dev->base_addr + reg));
 +}
 +
-+static void ems_pci_write_reg(const struct net_device *dev, int port, u8 val)
++static int sp_probe(struct platform_device *pdev)
 +{
-+	writeb(val, (void __iomem *)dev->base_addr
-+		+ (port * EMS_PCI_PORT_BYTES));
-+}
-+
-+static void ems_pci_post_irq(const struct net_device *dev)
-+{
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct ems_pci_card *card = (struct ems_pci_card *)priv->priv;
-+
-+	/* reset int flag of pita */
-+	writel(PITA2_ICR_INT0_EN | PITA2_ICR_INT0, card->conf_addr
-+		+ PITA2_ICR);
-+}
-+
-+/*
-+ * Check if a CAN controller is present at the specified location
-+ * by trying to set 'em into the PeliCAN mode
-+ */
-+static inline int ems_pci_check_chan(struct net_device *dev)
-+{
-+	unsigned char res;
-+
-+	/* Make sure SJA1000 is in reset mode */
-+	ems_pci_write_reg(dev, REG_MOD, 1);
-+
-+	ems_pci_write_reg(dev, REG_CDR, CDR_PELICAN);
-+
-+	/* read reset-values */
-+	res = ems_pci_read_reg(dev, REG_CDR);
-+
-+	if (res == CDR_PELICAN)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static void ems_pci_del_card(struct pci_dev *pdev)
-+{
-+	struct ems_pci_card *card = pci_get_drvdata(pdev);
++	int err;
++	void __iomem *addr;
 +	struct net_device *dev;
-+	int i = 0;
-+
-+	for (i = 0; i < card->channels; i++) {
-+		dev = card->net_dev[i];
-+
-+		if (!dev)
-+			continue;
-+
-+		dev_info(&pdev->dev, "Removing %s.\n", dev->name);
-+		unregister_sja1000dev(dev);
-+		free_sja1000dev(dev);
-+	}
-+
-+	if (card->base_addr != NULL)
-+		pci_iounmap(card->pci_dev, card->base_addr);
-+
-+	if (card->conf_addr != NULL)
-+		pci_iounmap(card->pci_dev, card->conf_addr);
-+
-+	kfree(card);
-+
-+	pci_disable_device(pdev);
-+	pci_set_drvdata(pdev, NULL);
-+}
-+
-+static void ems_pci_card_reset(struct ems_pci_card *card)
-+{
-+	/* Request board reset */
-+	writeb(0, card->base_addr);
-+}
-+
-+/*
-+ * Probe PCI device for EMS CAN signature and register each available
-+ * CAN channel to SJA1000 Socket-CAN subsystem.
-+ */
-+static int __devinit ems_pci_add_card(struct pci_dev *pdev,
-+					const struct pci_device_id *ent)
-+{
 +	struct sja1000_priv *priv;
-+	struct net_device *dev;
-+	struct ems_pci_card *card;
-+	int err, i;
++	struct resource *res_mem, *res_irq;
++	struct sja1000_platform_data *pdata;
 +
-+	/* Enabling PCI device */
-+	if (pci_enable_device(pdev) < 0) {
-+		dev_err(&pdev->dev, "Enabling PCI device failed\n");
-+		return -ENODEV;
-+	}
-+
-+	/* Allocating card structures to hold addresses, ... */
-+	card = kzalloc(sizeof(struct ems_pci_card), GFP_KERNEL);
-+	if (card == NULL) {
-+		dev_err(&pdev->dev, "Unable to allocate memory\n");
-+		pci_disable_device(pdev);
-+		return -ENOMEM;
-+	}
-+
-+	pci_set_drvdata(pdev, card);
-+
-+	card->pci_dev = pdev;
-+
-+	card->channels = 0;
-+
-+	/* Remap PITA configuration space, and controller memory area */
-+	card->conf_addr = pci_iomap(pdev, 0, EMS_PCI_MEM_SIZE);
-+	if (card->conf_addr == NULL) {
-+		err = -ENOMEM;
-+
-+		goto failure_cleanup;
-+	}
-+
-+	card->base_addr = pci_iomap(pdev, 1, EMS_PCI_MEM_SIZE);
-+	if (card->base_addr == NULL) {
-+		err = -ENOMEM;
-+
-+		goto failure_cleanup;
-+	}
-+
-+	/* Configure PITA-2 parallel interface (enable MUX) */
-+	writel(PITA2_MISC_CONFIG, card->conf_addr + PITA2_MISC);
-+
-+	/* Check for unique EMS CAN signature */
-+	if (ems_pci_readb(card, 0) != 0x55 ||
-+	    ems_pci_readb(card, 1) != 0xAA ||
-+	    ems_pci_readb(card, 2) != 0x01 ||
-+	    ems_pci_readb(card, 3) != 0xCB ||
-+	    ems_pci_readb(card, 4) != 0x11) {
-+		dev_err(&pdev->dev, "Not EMS Dr. Thomas Wuensche interface\n");
-+
++	pdata = pdev->dev.platform_data;
++	if (!pdata) {
++		dev_err(&pdev->dev, "No platform data provided!\n");
 +		err = -ENODEV;
-+		goto failure_cleanup;
++		goto exit;
 +	}
 +
-+	ems_pci_card_reset(card);
-+
-+	/* Detect available channels */
-+	for (i = 0; i < EMS_PCI_MAX_CHAN; i++) {
-+		dev = alloc_sja1000dev(0);
-+		if (dev == NULL) {
-+			err = -ENOMEM;
-+			goto failure_cleanup;
-+		}
-+
-+		card->net_dev[i] = dev;
-+		priv = netdev_priv(dev);
-+		priv->priv = card;
-+		priv->irq_flags = IRQF_SHARED;
-+
-+		dev->irq = pdev->irq;
-+		dev->base_addr = (unsigned long)(card->base_addr
-+						+ EMS_PCI_CAN_BASE_OFFSET
-+						+ (i * EMS_PCI_CAN_CTRL_SIZE));
-+
-+		/* Check if channel is present */
-+		if (ems_pci_check_chan(dev)) {
-+			priv->read_reg  = ems_pci_read_reg;
-+			priv->write_reg = ems_pci_write_reg;
-+			priv->post_irq  = ems_pci_post_irq;
-+			priv->can.clock.freq = EMS_PCI_CAN_CLOCK;
-+			priv->ocr = EMS_PCI_OCR;
-+			priv->cdr = EMS_PCI_CDR;
-+
-+			SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+			/* Enable interrupts from card */
-+			writel(PITA2_ICR_INT0_EN, card->conf_addr + PITA2_ICR);
-+
-+			/* Register SJA1000 device */
-+			err = register_sja1000dev(dev);
-+			if (err) {
-+				dev_err(&pdev->dev, "Registering device failed "
-+							"(err=%d)\n", err);
-+				free_sja1000dev(dev);
-+				goto failure_cleanup;
-+			}
-+
-+			card->channels++;
-+
-+			dev_info(&pdev->dev, "Channel #%d at %#lX, irq %d\n",
-+						i + 1, dev->base_addr,
-+						dev->irq);
-+		} else {
-+			free_sja1000dev(dev);
-+		}
++	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	res_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!res_mem || !res_irq) {
++		err = -ENODEV;
++		goto exit;
 +	}
 +
++	if (!request_mem_region(res_mem->start, resource_size(res_mem),
++				DRV_NAME)) {
++		err = -EBUSY;
++		goto exit;
++	}
++
++	addr = ioremap_nocache(res_mem->start, resource_size(res_mem));
++	if (!addr) {
++		err = -ENOMEM;
++		goto exit_release;
++	}
++
++	dev = alloc_sja1000dev(0);
++	if (!dev) {
++		err = -ENOMEM;
++		goto exit_iounmap;
++	}
++	priv = netdev_priv(dev);
++
++	dev->base_addr = (unsigned long)addr;
++	dev->irq = res_irq->start;
++	priv->irq_flags = res_irq->flags & IRQF_TRIGGER_MASK;
++	priv->read_reg = sp_read_reg;
++	priv->write_reg = sp_write_reg;
++	priv->can.clock.freq = pdata->clock;
++	priv->ocr = pdata->ocr;
++	priv->cdr = pdata->cdr;
++
++	dev_set_drvdata(&pdev->dev, dev);
++	SET_NETDEV_DEV(dev, &pdev->dev);
++
++	err = register_sja1000dev(dev);
++	if (err) {
++		dev_err(&pdev->dev, "registering %s failed (err=%d)\n",
++			DRV_NAME, err);
++		goto exit_free;
++	}
++
++	dev_info(&pdev->dev, "%s device registered (base_addr=%#lx, irq=%d)\n",
++		 DRV_NAME, dev->base_addr, dev->irq);
 +	return 0;
 +
-+failure_cleanup:
-+	dev_err(&pdev->dev, "Error: %d. Cleaning Up.\n", err);
-+
-+	ems_pci_del_card(pdev);
-+
++ exit_free:
++	free_sja1000dev(dev);
++ exit_iounmap:
++	iounmap(addr);
++ exit_release:
++	release_mem_region(res_mem->start, resource_size(res_mem));
++ exit:
 +	return err;
 +}
 +
-+static struct pci_driver ems_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = ems_pci_tbl,
-+	.probe = ems_pci_add_card,
-+	.remove = ems_pci_del_card,
++static int sp_remove(struct platform_device *pdev)
++{
++	struct net_device *dev = dev_get_drvdata(&pdev->dev);
++	struct resource *res;
++
++	unregister_sja1000dev(dev);
++	dev_set_drvdata(&pdev->dev, NULL);
++
++	if (dev->base_addr)
++		iounmap((void __iomem *)dev->base_addr);
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	release_mem_region(res->start, resource_size(res));
++
++	free_sja1000dev(dev);
++
++	return 0;
++}
++
++static struct platform_driver sp_driver = {
++	.probe = sp_probe,
++	.remove = sp_remove,
++	.driver = {
++		.name = DRV_NAME,
++		.owner = THIS_MODULE,
++	},
 +};
 +
-+static int __init ems_pci_init(void)
++static int __init sp_init(void)
 +{
-+	return pci_register_driver(&ems_pci_driver);
++	return platform_driver_register(&sp_driver);
 +}
 +
-+static void __exit ems_pci_exit(void)
++static void __exit sp_exit(void)
 +{
-+	pci_unregister_driver(&ems_pci_driver);
++	platform_driver_unregister(&sp_driver);
 +}
 +
-+module_init(ems_pci_init);
-+module_exit(ems_pci_exit);
++module_init(sp_init);
++module_exit(sp_exit);
+Index: net-next-2.6/include/linux/can/platform/sja1000.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-next-2.6/include/linux/can/platform/sja1000.h	2009-05-16 11:17:21.304718670 +0200
+@@ -0,0 +1,32 @@
++#ifndef _CAN_PLATFORM_SJA1000_H_
++#define _CAN_PLATFORM_SJA1000_H_
 +
++/* clock divider register */
++#define CDR_CLKOUT_MASK 0x07
++#define CDR_CLK_OFF	0x08 /* Clock off (CLKOUT pin) */
++#define CDR_RXINPEN	0x20 /* TX1 output is RX irq output */
++#define CDR_CBP		0x40 /* CAN input comparator bypass */
++#define CDR_PELICAN	0x80 /* PeliCAN mode */
++
++/* output control register */
++#define OCR_MODE_BIPHASE  0x00
++#define OCR_MODE_TEST     0x01
++#define OCR_MODE_NORMAL   0x02
++#define OCR_MODE_CLOCK    0x03
++#define OCR_TX0_INVERT    0x04
++#define OCR_TX0_PULLDOWN  0x08
++#define OCR_TX0_PULLUP    0x10
++#define OCR_TX0_PUSHPULL  0x18
++#define OCR_TX1_INVERT    0x20
++#define OCR_TX1_PULLDOWN  0x40
++#define OCR_TX1_PULLUP    0x80
++#define OCR_TX1_PUSHPULL  0xc0
++
++struct sja1000_platform_data {
++	u32 clock;	/* CAN bus oscillator frequency in Hz */
++
++	u8 ocr;		/* output control register */
++	u8 cdr;		/* clock divider register */
++};
++
++#endif	/* !_CAN_PLATFORM_SJA1000_H_ */
 
