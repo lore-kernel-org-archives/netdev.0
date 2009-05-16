@@ -1,108 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] dropmon: add ability to detect when hardware
-	dropsrxpackets
-Date: Sat, 16 May 2009 08:40:29 -0400
-Message-ID: <20090516124029.GA21086@localhost.localdomain>
-References: <20090514004548.GA14428@localhost.localdomain> <20090514010359.GL6752@linux.vnet.ibm.com> <20090514123300.GA7166@hmsreliant.think-freely.org> <20090514124407.GP3517@psychotron.englab.brq.redhat.com> <20090514172954.GA3867@hmsreliant.think-freely.org> <20090515065102.GB25620@psychotron.englab.brq.redhat.com> <20090515105909.GA7745@hmsreliant.think-freely.org> <20090515112736.GG25620@psychotron.englab.brq.redhat.com> <20090515160702.GE7745@hmsreliant.think-freely.org> <4A0DB06D.7000805@cosmosbay.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH 2/2] r8169: allow true forced mode setting
+Date: Sat, 16 May 2009 14:50:38 +0200
+Message-ID: <200905161450.38281.jdelvare@suse.de>
+References: <20090514214605.GB6374@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Vincent Steenhoute <vsteenhoute@novell.com>,
+	Martin Michlmayr <tbm@cyrius.com>,
+	Xose Vazquez Perez <xose.vazquez@gmail.com>,
+	Ivan Vecera <ivecera@redhat.com>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45886 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754056AbZEPMkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 08:40:45 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:60612 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755178AbZEPMuk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 08:50:40 -0400
+In-Reply-To: <20090514214605.GB6374@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <4A0DB06D.7000805@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 15, 2009 at 08:11:57PM +0200, Eric Dumazet wrote:
-> Neil Horman a =E9crit :
-> > +static int dropmon_net_event(struct notifier_block *ev_block,
-> > +			unsigned long event, void *ptr)
-> > +{
-> > +	struct net_device *dev =3D ptr;
-> > +	struct dm_hw_stat_delta *new_stat =3D NULL;
-> > +	int found =3D 0;
-> > +
-> > +	switch (event) {
-> > +	case NETDEV_REGISTER:
-> > +		new_stat =3D kzalloc(sizeof(struct dm_hw_stat_delta), GFP_KERNEL=
-);
-> > +
-> > +		if (!new_stat)
-> > +			goto out;
-> > +
-> > +		new_stat->dev =3D dev;
-> > +		INIT_RCU_HEAD(&new_stat->rcu);
-> > +		spin_lock(&trace_state_lock);
-> > +		list_add_rcu(&new_stat->list, &hw_stats_list);
-> > +		spin_unlock(&trace_state_lock);
-> > +		break;
-> > +	case NETDEV_UNREGISTER:
-> > +		rcu_read_lock();
-> > +		list_for_each_entry_rcu(new_stat, &hw_stats_list, list) {
-> > +			if (new_stat->dev =3D=3D dev)
-> > +				new_stat->dev =3D NULL;
-> > +				found =3D 1;
-> > +				break;
-> > +		}
-> > +		rcu_read_unlock();
->=20
-> This is racy, unless caller already owns a lock.
->=20
-> If caller aleady owns a lock, you dont need :
->=20
-> rcu_read_lock()
-> list_for_each_entry_rcu()
-> rcu_read_unlock();
->=20
-> > +
-> > +		spin_lock(&trace_state_lock);
-> > +		if (found && (trace_state =3D=3D TRACE_OFF)) {
-> > +			list_del_rcu(&new_stat->list);
-> > +			call_rcu(&new_stat->rcu, free_dm_hw_stat);
-> > +		}
-> > +		spin_unlock(&trace_state_lock);
-> > +		break;
->=20
->=20
->=20
->=20
-> Its not clear that you use trace_state_lock as the lock guarding all =
-this.
->=20
-> If this is the case I suggest a plain and straight forward :
->=20
-> case NETDEV_UNREGISTER:
-> 	spin_lock(&trace_state_lock);
-> 	if (trace_state =3D=3D TRACE_OFF) {
-> 		list_for_each_entry(new_stat, &hw_stats_list, list) {
-> 			if (new_stat->dev =3D=3D dev) {
-> 				new_stat->dev =3D NULL;
-> 				list_del_rcu(&new_stat->list);
-> 				call_rcu(&new_stat->rcu, free_dm_hw_stat);
-> 				break;
-> 			}
-> 		}
-> 	}
-> 	spin_unlock(&trace_state_lock);
-> 	break;
->=20
->=20
->=20
-I was thinking about this last night, and I agree, that I think your so=
-lution
-would be better here (my solution might be racy with regards to a trace=
- state
-change resulting in leaked memory.  I'll post a new patch monday.  Sorr=
-y for the
-trouble.
+Hi Fran=E7ois,
 
-Neil
+Le jeudi 14 mai 2009, Francois Romieu a =E9crit=A0:
+> Due to mostly historic reasons, including a lack of reliability
+> of the link handling (especially with the older 8169), the
+> current r8169 driver emulates forced mode setting by limiting
+> the advertised modes.
+>=20
+> With this change the driver allows real 10/100 forced mode
+> settings on the 8169 and 8101/8102.
+>=20
+> Original idea by Vincent Steenhoute. The RTL_GIGA_MAC_VER_03
+> tweak was extracted from Realtek's v6.009.00 driver.
 
+If I read the code correctly, Realtek's driver (v6.010.00) only
+applies the quirk for RTL8169S and RTL8110S chips (what I have) and
+not the original RTL8169. Your code applies the quirk to all 3
+chips. Is this on purpose? Or am I missing something?
+
+> (...)
+> +	if (tp->mac_version <=3D RTL_GIGA_MAC_VER_03) {
+> +		if ((speed =3D=3D SPEED_100) && (autoneg !=3D AUTONEG_ENABLE)) {
+> +			mdio_write(ioaddr, 0x17, 0x2138);
+> +			mdio_write(ioaddr, 0x0e, 0x0260);
+> +		} else {
+> +			mdio_write(ioaddr, 0x17, 0x2108);
+> +			mdio_write(ioaddr, 0x0e, 0x0000);
+> +		}
+> +	}
+> +
+>  	return 0;
+>  }
+
+Thanks,
+--=20
+Jean Delvare
+Suse L3
