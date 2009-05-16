@@ -1,75 +1,62 @@
-From: Claude Robitaille <clauder@accedian.com>
-Subject: sk_buff handling in packet handler
-Date: Sat, 16 May 2009 12:31:28 -0400
-Message-ID: <4A0EEA60.6090702@accedian.com>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: [PATCH 2/2] r8169: allow true forced mode setting
+Date: Sat, 16 May 2009 21:57:10 +0200
+Message-ID: <4A0F1A96.8070208@gmail.com>
+References: <20090514214605.GB6374@electric-eye.fr.zoreil.com> <200905161450.38281.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070600060900000103080402"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vincent Steenhoute <vsteenhoute@novell.com>,
+	Martin Michlmayr <tbm@cyrius.com>,
+	Ivan Vecera <ivecera@redhat.com>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:17637 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752464AbZEPQbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 12:31:40 -0400
-Received: by qw-out-2122.google.com with SMTP id 5so1967932qwd.37
-        for <netdev@vger.kernel.org>; Sat, 16 May 2009 09:31:41 -0700 (PDT)
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:65027 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752860AbZEPT5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 15:57:13 -0400
+Received: by ewy24 with SMTP id 24so3223910ewy.37
+        for <netdev@vger.kernel.org>; Sat, 16 May 2009 12:57:13 -0700 (PDT)
+In-Reply-To: <200905161450.38281.jdelvare@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070600060900000103080402
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+zOn 05/16/2009 02:50 PM, Jean Delvare wrote:
 
-Hi all,
+> If I read the code correctly, Realtek's driver (v6.010.00) only
+> applies the quirk for RTL8169S and RTL8110S chips (what I have) and
+> not the original RTL8169. Your code applies the quirk to all 3
+> chips. Is this on purpose? Or am I missing something?
 
-My question is a development question so I hope this is the correct list 
-to post it. If not just tell me and I will find another list...
+For reference, there it's the latest source code of Realtek drivers 
+r8101/r8168/r8169 :
 
-I am developing a packet handler that I register via dev_add_pack. All 
-is fine except that after a while the kernel crashes. I suspect my 
-handler not doing something correct...
+ftp://WebUser:DAx7h9V@202.65.194.212/cn/nic/r8101-1.012.00.tar.bz2
+ftp://WebUser:DAx7h9V@202.65.194.212/cn/nic/r8168-8.012.00.tar.bz2
+ftp://WebUser:DAx7h9V@202.65.194.212/cn/nic/r8169-6.010.00.tar.bz2
 
-The handler is registered with the ETH_P_ALL list, listening on a 
-specific interface.
+>> (...)
+>> +	if (tp->mac_version <= RTL_GIGA_MAC_VER_03) {
+>> +		if ((speed == SPEED_100) && (autoneg != AUTONEG_ENABLE)) {
+>> +			mdio_write(ioaddr, 0x17, 0x2138);
+>> +			mdio_write(ioaddr, 0x0e, 0x0260);
+>> +		} else {
+>> +			mdio_write(ioaddr, 0x17, 0x2108);
+>> +			mdio_write(ioaddr, 0x0e, 0x0000);
+>> +		}
+>> +	}
+>> +
+>>  	return 0;
+>>  }
 
-After many attempt at reducing the scope of what my handler is doing I 
-now simply do a return in my handler. When I send lots of frames to 
-interface that I am listening to after a while I start getting kernel 
-messages about low memory and eventually even get exception dumps.
+-thanks-
 
-I suspect that the handler needs to do something with the sk_buff but I 
-am not sure what. I printed the content of the sk_buff and found that 
-the skb_buff is not cloned (looking on the web I had found that the 
-sk_buff should have been cloned) and that he number of users is 1.
+regards,
 
-Should I simply do a dev_kfree_skb? What are the rules governing the use 
-of the sk_buff in a packet handler? Should I clone the sk_buff?
-
-Also, a related question, the packet handler is expected to return an 
-int. What should be returned?
-
-Thanks
-
-Claude
- 
-
---------------070600060900000103080402
-Content-Type: text/x-vcard; charset=utf-8;
- name="clauder.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="clauder.vcf"
-
-begin:vcard
-fn:Claude Robitaille
-n:Robitaille;Claude
-email;internet:clauder@accedian.com
-tel;work:514-764-0119
-tel;cell:514-796-7225
-x-mozilla-html:TRUE
-version:2.1
-end:vcard
-
-
---------------070600060900000103080402--
+-- 
+Polycommander, Erkowit, Urquiola, Andros Patria, Cason, Aegean Sea, Prestige, ...
