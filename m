@@ -1,70 +1,34 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: neigh_params_release() usage in net/ipv6/addrconf.c
-Date: Sun, 17 May 2009 00:15:43 +0200
-Message-ID: <4A0F3B0F.2070209@gmail.com>
-References: <8A0B031A-1483-49FD-A4AD-CA4EA87E9359@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Pull request: bluetooth-2.6 2009-05-11
+Date: Sat, 16 May 2009 15:32:10 -0700
+Message-ID: <1242513130.3446.37.camel@localhost.localdomain>
+References: <1242097614.2970.12.camel@localhost.localdomain>
+	 <20090516.134644.243616817.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Chase Douglas <chasedouglas.lists@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:41419 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755568AbZEPWSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 18:18:06 -0400
-Received: by fxm2 with SMTP id 2so2580998fxm.37
-        for <netdev@vger.kernel.org>; Sat, 16 May 2009 15:18:06 -0700 (PDT)
-In-Reply-To: <8A0B031A-1483-49FD-A4AD-CA4EA87E9359@gmail.com>
+Received: from senator.holtmann.net ([87.106.208.187]:41488 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753664AbZEPWcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2009 18:32:19 -0400
+In-Reply-To: <20090516.134644.243616817.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chase Douglas wrote, On 05/15/2009 06:33 PM:
+Hi Dave,
 
-> I'm debugging an issue I'm seeing when I use vlan with IPv6 support.  
-> After bringing up the device, I'm unable to bring it down and  
-> unregister it. I put some debug statements around dev_hold() and  
-> dev_put() to see what was going on:
+> > unfortunately I do have three more patches for the 2.6.30 release.
 > 
-> dev_hold() called on lo.2, new refcnt: 1 (net/core/dev.c:4162)
-> dev_hold() called on lo.2, new refcnt: 2 (net/core/neighbour.c:1357)
-> dev_hold() called on lo.2, new refcnt: 3 (net/ipv4/devinet.c:178)
-> dev_hold() called on lo.2, new refcnt: 4 (net/core/neighbour.c:1357)
-> dev_hold() called on lo.2, new refcnt: 5 (net/8021q/vlan.c:266)
-> dev_hold() called on lo.2, new refcnt: 6 (net/core/link_watch.c:219)
-> dev_put()  called on lo.2, new refcnt: 5 (net/core/link_watch.c:191)
-> dev_hold() called on lo.2, new refcnt: 6 (net/core/dev.c:684)
-> dev_put()  called on lo.2, new refcnt: 5 (net/ipv4/fib_semantics.c:149)
-> dev_hold() called on lo.2, new refcnt: 6 (net/core/dev.c:684)
-> dev_hold() called on lo.2, new refcnt: 7 (net/ipv4/fib_frontend.c:173)
-> dev_put()  called on lo.2, new refcnt: 6 (net/ipv4/route.c:2453)
-> dev_put()  called on lo.2, new refcnt: 5 (net/ipv4/fib_semantics.c:149)
-> dev_put()  called on lo.2, new refcnt: 4 (net/core/neighbour.c:1393)
-> dev_put()  called on lo.2, new refcnt: 3 (net/ipv4/devinet.c:151)
-> dev_put()  called on lo.2, new refcnt: 2 (net/core/dev.c:4010)
-> dev_put()  called on lo.2, new refcnt: 1 (net/8021q/vlan.c:182)
-> unregister_netdevice: waiting for lo.2 to become free. Usage count = 2
-> 
-> The fourth dev_hold() is in neigh_parms_alloc(), called by  
-> ipv6_add_dev(). The only place I see neigh_parms_release() called in  
-> addrconf.c is if ipv6_add_dev() fails later on, or when taking the  
-> device down in addrconf_ifdown(). Unfortunately, when I bring the vlan  
-> dev down I never see addrconf_ifdown() called with the how parameter  
-> set to 1, which is the only instance where neigh_parms_release() would  
-> be called.
+> Pulled, thanks.
 
-You write about ipv6, but the log is ipv4 only or I miss something.
-Anyway, it seems you do this vlan on the loopback. If so, there is:
+just a heads up that Linus pulled these and the wireless changes into
+the -rc6 release already. How was your cruise ;)
 
-         if ((dev->flags & IFF_LOOPBACK) && how == 1)
-                 how = 0;
+Regards
 
-at least before 2.6.29 kernels, and vlans copy most of the flags.
-Otherwise, how == 1 should work OK.
+Marcel
 
-> PS: I am running my tests using a slightly modified SLES 11 kernel. I  
 
-Generally, it's better to give the kernel number, because everybody
-uses Debian here. ...Not! ;-)
-
-Jarek P.
