@@ -1,52 +1,53 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH] Neterion: *FIFO1_DMA_ERR set twice, should 2nd be *FIFO2_DMA_ERR?
-Date: Sun, 17 May 2009 03:52:59 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7705444A38@nekter>
-References: <4A0DCE67.70106@gmail.com>
+From: Maciej Rutecki <maciej.rutecki@gmail.com>
+Subject: Re: 2.6.30-rc6: Reported regressions 2.6.28 -> 2.6.29
+Date: Sun, 17 May 2009 09:56:34 +0200
+Message-ID: <8db1092f0905170056x56867507i7b8c32ff102e2d77@mail.gmail.com>
+References: <yO1BmxN79sN.A.xAG.8_zDKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Roel Kluin" <roel.kluin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:39424 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779AbZEQHw7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 03:52:59 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4A0DCE67.70106@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <yO1BmxN79sN.A.xAG.8_zDKB@chimera>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> FIFO1_DMA_ERR is set twice, the second should be FIFO2_DMA_ERR.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> Correct? Please review.
-> 
-> diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/vxge/vxge-
-> traffic.c
-> index 7be0ae1..c2eeac4 100644
-> --- a/drivers/net/vxge/vxge-traffic.c
-> +++ b/drivers/net/vxge/vxge-traffic.c
-> @@ -115,7 +115,7 @@ enum vxge_hw_status
-vxge_hw_vpath_intr_enable(struct
-> __vxge_hw_vpath_handle *vp)
->  		VXGE_HW_KDFCCTL_ERRORS_REG_KDFCCTL_FIFO1_POISON|
->  		VXGE_HW_KDFCCTL_ERRORS_REG_KDFCCTL_FIFO2_POISON|
->  		VXGE_HW_KDFCCTL_ERRORS_REG_KDFCCTL_FIFO1_DMA_ERR|
-> -		VXGE_HW_KDFCCTL_ERRORS_REG_KDFCCTL_FIFO1_DMA_ERR), 0,
-32),
-> +		VXGE_HW_KDFCCTL_ERRORS_REG_KDFCCTL_FIFO2_DMA_ERR), 0,
-32),
->  		&vp_reg->kdfcctl_errors_mask);
-> 
->  	__vxge_hw_pio_mem_write32_upper(0,
-&vp_reg->vpath_ppif_int_mask);
-[Ram] Good catch!
-Acked-by: Ram Vepa <ram.vepa@neterion.com>
+2009/5/16 Rafael J. Wysocki <rjw@sisk.pl>:
 
-Thanks,
-Ram
+
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D12499
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : Problem with using bluetooth ad=
+aper connected to usb port
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Maciej Rutecki <maciej.rutecki@gmail=
+=2Ecom>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-01-13 18:34 (124=
+ days old)
+> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
+=3D123187185426236&w=3D4
+> Handled-By =C2=A0 =C2=A0 =C2=A0: Marcel Holtmann <marcel@holtmann.org=
+>
+
+2.6.30-rc6 works fine. Please remove it.
+
+
+Regards
+--=20
+Maciej Rutecki
+http://www.maciek.unixy.pl
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
