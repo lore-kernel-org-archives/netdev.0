@@ -1,53 +1,35 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: 2.6.30-rc6: Reported regressions 2.6.28 -> 2.6.29
-Date: Sun, 17 May 2009 09:56:34 +0200
-Message-ID: <8db1092f0905170056x56867507i7b8c32ff102e2d77@mail.gmail.com>
-References: <yO1BmxN79sN.A.xAG.8_zDKB@chimera>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [BUG 2.6.30-rc1] panic when loading oprofile
+Date: Sun, 17 May 2009 10:38:36 +0200
+Message-ID: <20090517083836.GL16682@one.firstfloor.org>
+References: <alpine.WNT.2.00.0905131327430.7052__41366.1100705669$1242253861$gmane$org@jbrandeb-desk1.amr.corp.intel.com> <87fxf6pmh5.fsf@basil.nowhere.org> <20090516162017.2525511c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <yO1BmxN79sN.A.xAG.8_zDKB@chimera>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, oprofile-list@lists.sourceforge.net,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:55563 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872AbZEQIc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 04:32:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20090516162017.2525511c.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/5/16 Rafael J. Wysocki <rjw@sisk.pl>:
+> Ping?
 
+We'll probably need to wait for Monday for Jesse trying that.
 
-> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
-cgi?id=3D12499
-> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : Problem with using bluetooth ad=
-aper connected to usb port
-> Submitter =C2=A0 =C2=A0 =C2=A0 : Maciej Rutecki <maciej.rutecki@gmail=
-=2Ecom>
-> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-01-13 18:34 (124=
- days old)
-> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
-=3D123187185426236&w=3D4
-> Handled-By =C2=A0 =C2=A0 =C2=A0: Marcel Holtmann <marcel@holtmann.org=
->
+> 
+> This is in Rafael's regression list but I suspect that it's a
+> linux-next-only thing?
 
-2.6.30-rc6 works fine. Please remove it.
+No, it was reproduced on rc5.
 
-
-Regards
---=20
-Maciej Rutecki
-http://www.maciek.unixy.pl
---
-To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
