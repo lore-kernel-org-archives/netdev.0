@@ -1,41 +1,116 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
-Date: Mon, 18 May 2009 00:02:23 +0400
-Message-ID: <20090517200223.GA31029@ioremap.net>
-References: <20090517191141.GA25915@linux.vnet.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB accuracy for high speed
+Date: Sun, 17 May 2009 22:15:28 +0200
+Message-ID: <20090517201528.GA8552@ami.dom.local>
+References: <298f5c050905150745p13dc226eia1ff50ffa8c4b300@mail.gmail.com> <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, mingo@elte.hu,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com,
-	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz
+To: Antonio Almeida <vexwek@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f174.google.com ([209.85.218.174]:52090 "EHLO
+	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752998AbZEQUR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 16:17:58 -0400
+Received: by bwz22 with SMTP id 22so2872166bwz.37
+        for <netdev@vger.kernel.org>; Sun, 17 May 2009 13:17:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090517191141.GA25915@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On Fri, May 15, 2009 at 03:49:31PM +0100, Antonio Almeida wrote:
+> Hi!
+> I've been using HTB in a Linux bridge and recently I noticed that, fo=
+r
+> high speed, the configured rate/ceil is not respected as for lower
+> speeds.
+> I'm using a packet generator/analyser to inject over 950Mpbs, and see
+> what returns back to it, in the other side of my bridge. Generated
+> packets have 800bytes. I noticed that, for several tc HTB rate/ceil
+> configurations the amount of traffic received by the analyser stays
+> the same. See this values:
+>=20
+> HTB conf=A0=A0=A0=A0=A0 Analyser reception
+> 476000Kbit=A0=A0=A0 544.260.329
+> 500000Kbit=A0=A0=A0 545.880.017
+> 510000Kbit=A0=A0=A0 544.489.469
+> 512000Kbit=A0=A0=A0 546.890.972
+> -------------------------
+> 513000Kbit=A0=A0=A0 596.061.383
+> 520000Kbit=A0=A0=A0 596.791.866
+> 550000Kbit=A0=A0=A0 596.543.271
+> 554000Kbit=A0=A0=A0 596.193.545
+> -------------------------
+> 555000Kbit=A0=A0=A0 654.773.221
+> 570000Kbit=A0=A0=A0 654.996.381
+> 590000Kbit=A0=A0=A0 655.363.253
+> 605000Kbit=A0=A0=A0 654.112.017
+> -------------------------
+> 606000Kbit=A0=A0=A0 728.262.237
+> 665000Kbit=A0=A0=A0 727.014.365
+> -------------------------
+>=20
+> There are these steps and it looks like doesn't matter if I configure
+> HTB to 555Mbit or to 605Mbit - the result is the same: 654Mbit. This
+> is 18% more traffic than the configured value. I also realise that fo=
+r
+> smaller packets it gets worse, reaching 30% more traffic than what I
+> configured. For packets of 1514bytes the accuracy is quiet good.
+> I'm using kernel 2.6.25
+>=20
+> My 'tc -s -d class ls dev eth1' output:
+>=20
+> class htb 1:10 parent 1:2 rate 1000Mbit ceil 1000Mbit burst 126375b/8
+> mpu 0b overhead 0b cburst 126375b/8 mpu 0b overhead 0b level 5
+> =A0Sent 51888579644 bytes 62067679 pkt (dropped 0, overlimits 0 reque=
+ues 0)
+> =A0rate 653124Kbit 97656pps backlog 0b 0p requeues 0
+> =A0lended: 0 borrowed: 0 giants: 0
+> =A0tokens: 113 ctokens: 113
+>=20
+> class htb 1:1 root rate 1000Mbit ceil 1000Mbit burst 126375b/8 mpu 0b
+> overhead 0b cburst 126375b/8 mpu 0b overhead 0b level 7
+> =A0Sent 51888579644 bytes 62067679 pkt (dropped 0, overlimits 0 reque=
+ues 0)
+> =A0rate 653123Kbit 97656pps backlog 0b 0p requeues 0
+> =A0lended: 0 borrowed: 0 giants: 0
+> =A0tokens: 113 ctokens: 113
+>=20
+> class htb 1:2 parent 1:1 rate 1000Mbit ceil 1000Mbit burst 126375b/8
+> mpu 0b overhead 0b cburst 126375b/8 mpu 0b overhead 0b level 6
+> =A0Sent 51888579644 bytes 62067679 pkt (dropped 0, overlimits 0 reque=
+ues 0)
+> =A0rate 653124Kbit 97656pps backlog 0b 0p requeues 0
+> =A0lended: 0 borrowed: 0 giants: 0
+> =A0tokens: 113 ctokens: 113
+>=20
+> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+> 555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+> 70901b/8 mpu 0b overhead 0b level 0
+> =A0Sent 51888579644 bytes 62067679 pkt (dropped 27801917, overlimits =
+0 requeues 0)
+> =A0rate 653124Kbit 97656pps backlog 0b 0p requeues 0
+> =A0lended: 62067679 borrowed: 0 giants: 0
+> =A0tokens: -798 ctokens: -798
+>=20
+> As you can see, class htb 1:108 rate's is 653124Kbit! Much bigger tha=
+t
+> it's ceil.
+>=20
 
-On Sun, May 17, 2009 at 12:11:41PM -0700, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> Fifth cut of "big hammer" expedited RCU grace periods.  This uses per-CPU
-> kthreads that are scheduled in parallel by a call to smp_call_function()
-> by yet another kthread.  The synchronize_sched(), synchronize_rcu(),
-> and synchronize_bh() primitives wake this kthread up and then wait for
-> it to force the grace period.
+Here is some additional explanation. It looks like these rates above
+500Mbit hit the design limits of packet scheduling. Currently used
+internal resolution PSCHED_TICKS_PER_SEC is 1,000,000. 550Mbit rate
+with 800byte packets means 550M/8/800 =3D 85938 packets/s, so on averag=
+e
+1000000/85938 =3D 11.6 ticks per packet. Accounting only 11 ticks means
+we leave 0.6*85938 =3D 51563 ticks per second, letting for additional
+sending of 51563/11 =3D 4687 packets/s or 4687*800*8 =3D 30Mbit. Of cou=
+rse
+it could be worse (0.9 tick/packet lost) depending on packet sizes vs.
+rates, and the effect rises for higher rates.
 
-I'm curious, but doesn't the fact that registered 'barrier' callback is
-invoked mean grace period completion? I.e. why to bother with
-rescheduling, waiting for thread to complete and so on, when we only
-care in the fact that 'barrier' callback is invoked, and thus all
-previous ones are completed?
-Or it is done just for the simplicity, since all rescheduling machinery
-already manages the rcu bits correctly, so you do not want to put it
-directly into 'barrier' callback?
-
--- 
-	Evgeniy Polyakov
+Jarek P.
