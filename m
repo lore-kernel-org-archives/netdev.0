@@ -1,95 +1,44 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Subject: Re: 2.6.30-rc6: Reported regressions from 2.6.29
-Date: Sun, 17 May 2009 09:59:30 -0400
-Message-ID: <4A101842.7000501@suse.com>
-References: <_AjETDMbIoL.A.DcH.RYzDKB@chimera> <20090517073327.GC1583@elte.hu> <200905171234.23436.rjw@sisk.pl> <4A100977.1070506@s5r6.in-berlin.de>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/3] virtio: indirect ring entries (VIRTIO_RING_F_INDIRECT_DESC)
+Date: Sun, 17 May 2009 23:46:12 +0930
+Message-ID: <200905172346.14498.rusty@rustcorp.com.au>
+References: <1229620222-22216-1-git-send-email-markmc@redhat.com> <200905171134.31285.rusty@rustcorp.com.au> <4A0FAE35.3040608@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@elte.hu>,
-	Martin Bammer <mrb74@gmx.at>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Cc: Mark McLoughlin <markmc@redhat.com>, dlaor@redhat.com,
+	netdev@vger.kernel.org, Dor Laor <dor@redhat.com>,
+	virtualization@lists.linux-foundation.org
+To: Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52140 "EHLO mx2.suse.de"
+Received: from ozlabs.org ([203.10.76.45]:44871 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753772AbZEQOAb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 May 2009 10:00:31 -0400
-In-Reply-To: <4A100977.1070506@s5r6.in-berlin.de>
+	id S1752189AbZEQOQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 May 2009 10:16:16 -0400
+In-Reply-To: <4A0FAE35.3040608@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Sun, 17 May 2009 03:57:01 pm Avi Kivity wrote:
+> Rusty Russell wrote:
+> > +static void adjust_threshold(struct vring_virtqueue *vq,
+> > +			     unsigned int out, unsigned int in)
+> > +{
+> > +	/* There are really two species of virtqueue, and it matters here.
+> > +	 * If there are no output parts, it's a "normally full" receive queue,
+> > +	 * otherwise it's a "normally empty" send queue. */
+>
+> This comment is true for networking, but not for block. ++overkill with
+> a ->adjust_threshold op.
 
-Stefan Richter wrote:
-> Rafael J. Wysocki wrote:
->> On Sunday 17 May 2009, Ingo Molnar wrote:
->>> * Rafael J. Wysocki <rjw@sisk.pl> wrote:
->>>> Bug-Entry    : http://bugzilla.kernel.org/show_bug.cgi?id=13321
->>>> Subject        : kernel crash with NULL pointer when boot
->>>> Submitter    : Martin Bammer <mrb74@gmx.at>
->>>> Date        : 2009-05-16 12:37 (1 days old)
->>>> References    : http://lkml.org/lkml/2009/5/16/100
->>> that crash is in reiserfs_for_each_xattr(), during sys_unlink()'s
->>> xattr teardown.
->>>
->>> There's been a good deal of reiserfs changes in this cycle - some
->>> touch the xattr code as well. Some of them fairly late in the cycle,
-> 
-> (Also, the bug is reportedly a post -rc5 regression.)
-> 
->>> in the last two weeks:
->>>
->>>  earth4:~/tip> gll v2.6.29..linus --since=two-weeks-ago fs/reiserfs/
->>>  2a32ceb: Fix races around the access to ->s_options
->>>  677c9b2: reiserfs: remove privroot hiding in lookup
->>>  b82bb72: reiserfs: dont associate security.* with xattr files
->>>  ab17c4f: reiserfs: fixup xattr_root caching
->>>  edcc37a: Always lookup priv_root on reiserfs mount and keep it
->>>  5a6059c: reiserfs: Expand i_mutex to enclose lookup_one_len
->>>
->>> Martin, you could try a blind revert of say ... ab17c4f, which looks
->>> the most suspect and which is also a rather large commit.
->>>
->>> Or/and you could try a bisect - perhaps accelerated via:
->>>
->>>    git bisect start fs/reiserfs/
->>
->> I think there's a fix already for this in the works, but it hasn't
->> been merged
->> yet.  It looks like Jeff has just posted some reiserfs fixes. :-)
-> 
-> I'd say Martin should try Jeff's pending patches before a revert or
-> before starting a bisection.  Either apply them from
-> http://lkml.org/lkml/2009/5/17/6, or pull from
->  git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs-2.6.git for-next
-> or wait for them to appear in Linus' tree...
-> 
-> I for one didn't test the post v2.6.30-rc5 changes to reiserfs, but I
-> did try them _together_ with the four pending patches on a system with
-> reiserfs root filesystem and extended attributes disabled in the config.
-> Everything is fine here after almost a week uptime.
+No, it's true for block.  It has output parts, so we should reduce threshold 
+when it's full.  Network recvq is an example which should reduce threshold 
+when it's empty.
 
-Yes, this bug is known and is fixed with "[patch 2/4] [PATCH] reiserfs:
-deal with NULL xattr root w/ xattrs disabled"
+->adjust_threshold is better as an arg to vring_new_virtqueue, but it's still 
+not clear what the answer would be.
 
-- -Jeff
+Rusty.
 
-- --
-Jeff Mahoney
-SUSE Labs
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkoQGEIACgkQLPWxlyuTD7K8kwCfUEq36jJvY+FzzuvWbAyOYX+r
-BPwAniRe6a7Cj8n5+vC2Zmwfp1hRRUb1
-=fh19
------END PGP SIGNATURE-----
