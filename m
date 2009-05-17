@@ -1,34 +1,73 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: neigh_params_release() usage in net/ipv6/addrconf.c
-Date: Sun, 17 May 2009 13:15:16 +0200
-Message-ID: <20090517111515.GB3377@ami.dom.local>
-References: <8A0B031A-1483-49FD-A4AD-CA4EA87E9359@gmail.com> <4A0F3B0F.2070209@gmail.com> <1A56FDAE-2ECF-4D1C-BAC4-D59594BFB62A@gmail.com> <20090517110951.GA3377@ami.dom.local>
+From: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
+Subject: Re: 2.6.30-rc6: Reported regressions from 2.6.29
+Date: Sun, 17 May 2009 14:56:23 +0200
+Message-ID: <4A100977.1070506@s5r6.in-berlin.de>
+References: <_AjETDMbIoL.A.DcH.RYzDKB@chimera> <20090517073327.GC1583@elte.hu> <200905171234.23436.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Chase Douglas <chasedouglas.lists@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:58369 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbZEQLRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 07:17:01 -0400
-Received: by bwz22 with SMTP id 22so2712269bwz.37
-        for <netdev@vger.kernel.org>; Sun, 17 May 2009 04:17:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090517110951.GA3377@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, Martin Bammer <mrb74-RbZlAiThDcE@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jeff Mahoney <jeffm-IBi9RG/b67k@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200905171234.23436.rjw-KKrjLPT3xs0@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 17, 2009 at 01:09:52PM +0200, Jarek Poplawski wrote:
-> On Sat, May 16, 2009 at 06:57:22PM -0400, Chase Douglas wrote:
-...
-> > way, the SLES 11 kernel is based on 2.6.27.
+Rafael J. Wysocki wrote:
+> On Sunday 17 May 2009, Ingo Molnar wrote:
+>> * Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+>>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13321
+>>> Subject		: kernel crash with NULL pointer when boot
+>>> Submitter	: Martin Bammer <mrb74-RbZlAiThDcE@public.gmane.org>
+>>> Date		: 2009-05-16 12:37 (1 days old)
+>>> References	: http://lkml.org/lkml/2009/5/16/100
+>> that crash is in reiserfs_for_each_xattr(), during sys_unlink()'s 
+>> xattr teardown.
+>>
+>> There's been a good deal of reiserfs changes in this cycle - some 
+>> touch the xattr code as well. Some of them fairly late in the cycle,
+
+(Also, the bug is reportedly a post -rc5 regression.)
+
+>> in the last two weeks:
+>>
+>>  earth4:~/tip> gll v2.6.29..linus --since=two-weeks-ago fs/reiserfs/
+>>  2a32ceb: Fix races around the access to ->s_options
+>>  677c9b2: reiserfs: remove privroot hiding in lookup
+>>  b82bb72: reiserfs: dont associate security.* with xattr files
+>>  ab17c4f: reiserfs: fixup xattr_root caching
+>>  edcc37a: Always lookup priv_root on reiserfs mount and keep it
+>>  5a6059c: reiserfs: Expand i_mutex to enclose lookup_one_len
+>>
+>> Martin, you could try a blind revert of say ... ab17c4f, which looks 
+>> the most suspect and which is also a rather large commit.
+>>
+>> Or/and you could try a bisect - perhaps accelerated via:
+>>
+>>    git bisect start fs/reiserfs/
 > 
-> So, you mean SLES 11.1 according to this:
-> http://distrowatch.com/table.php?distribution=suse
+> I think there's a fix already for this in the works, but it hasn't been merged
+> yet.  It looks like Jeff has just posted some reiserfs fixes. :-)
 
-OOPS! So, I should've looked rather here:
-http://distrowatch.com/table.php?distribution=novell
+I'd say Martin should try Jeff's pending patches before a revert or 
+before starting a bisection.  Either apply them from 
+http://lkml.org/lkml/2009/5/17/6, or pull from
+  git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs-2.6.git for-next
+or wait for them to appear in Linus' tree...
 
-Sorry,
-Jarek P.
+I for one didn't test the post v2.6.30-rc5 changes to reiserfs, but I 
+did try them _together_ with the four pending patches on a system with 
+reiserfs root filesystem and extended attributes disabled in the config. 
+Everything is fine here after almost a week uptime.
+-- 
+Stefan Richter
+-=====-=-=== -=-= -==-=
+http://arcgraph.de/sr/
