@@ -1,48 +1,90 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH 2/3] virtio: indirect ring entries (VIRTIO_RING_F_INDIRECT_DESC)
-Date: Sun, 17 May 2009 18:05:39 +0300
-Message-ID: <4A1027C3.3080109@redhat.com>
-References: <1229620222-22216-1-git-send-email-markmc@redhat.com> <200905171134.31285.rusty@rustcorp.com.au> <4A0FAE35.3040608@redhat.com> <200905172346.14498.rusty@rustcorp.com.au>
+From: Claude Robitaille <clauder@accedian.com>
+Subject: Re: sk_buff handling in packet handler
+Date: Sun, 17 May 2009 13:23:49 -0400
+Message-ID: <4A104825.4000201@accedian.com>
+References: <20090517102548.0a55d5bd.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>, dlaor@redhat.com,
-	netdev@vger.kernel.org, Dor Laor <dor@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: multipart/mixed;
+ boundary="------------060308030307010800070505"
+Cc: netdev@vger.kernel.org
+To: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:38237 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750829AbZEQPFt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 May 2009 11:05:49 -0400
-In-Reply-To: <200905172346.14498.rusty@rustcorp.com.au>
+Received: from qw-out-2122.google.com ([74.125.92.25]:24273 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752037AbZEQRYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 13:24:09 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so2236237qwd.37
+        for <netdev@vger.kernel.org>; Sun, 17 May 2009 10:24:08 -0700 (PDT)
+In-Reply-To: <20090517102548.0a55d5bd.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell wrote:
-> On Sun, 17 May 2009 03:57:01 pm Avi Kivity wrote:
->   
->> Rusty Russell wrote:
->>     
->>> +static void adjust_threshold(struct vring_virtqueue *vq,
->>> +			     unsigned int out, unsigned int in)
->>> +{
->>> +	/* There are really two species of virtqueue, and it matters here.
->>> +	 * If there are no output parts, it's a "normally full" receive queue,
->>> +	 * otherwise it's a "normally empty" send queue. */
->>>       
->> This comment is true for networking, but not for block. ++overkill with
->> a ->adjust_threshold op.
->>     
->
-> No, it's true for block.  It has output parts, so we should reduce threshold 
-> when it's full.  Network recvq is an example which should reduce threshold 
-> when it's empty.
->   
+This is a multi-part message in MIME format.
+--------------060308030307010800070505
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-You mean the header that contains the sector number?  It's a little 
-incidental, but I guess it works.
+Thanks Mark.
+
+very interesting
+
+this helped me but just to get to next problem....
+
+what I am trying to do is to receive frame using a packet handler, 
+manipulate it and send a portion of it over a UDP channel. I am using 
+sock_sendmsg. Things sort of work but I get some warnings while in 
+net_tx_action (via the sendmsg I am guessing) about doing scheduling 
+while in atomic and sometime the kernel simply completely crashes. All 
+this probably means that using kernel socket functions cannot be used 
+from any context.... Any suggestion on how to properly do this? 
+Ultimately, I'd like to avoid copying the data so if I could simply send 
+an skb to some UDP TX handler would be ideal but if not, what is the 
+best approach?
+
+Thanks
+
+Claude
+
+Mark Smith wrote:
+> Hi Claude,
+>
+> You could have a look at my Ethernet Configuration Testing Protocol
+> (ECTP) implementation. I followed what other protocols did regarding
+> packet/skb handling, and also tried to make it very clear what was
+> required, as I struggled a bit with similar issues that you are. The
+> routine to start with is ectp_rcv().
+>
+> http://lwn.net/Articles/330797/
+>
+> Regards,
+> Mark.
+>
+>   
 
 -- 
-error compiling committee.c: too many arguments to function
+Claude Robitaille
+CTO
+Accedian Networks
+514-764-0119
+clauder@accedian.com
 
+
+--------------060308030307010800070505
+Content-Type: text/x-vcard; charset=utf-8;
+ name="clauder.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="clauder.vcf"
+
+begin:vcard
+fn:Claude Robitaille
+n:Robitaille;Claude
+email;internet:clauder@accedian.com
+tel;work:514-764-0119
+tel;cell:514-796-7225
+x-mozilla-html:TRUE
+version:2.1
+end:vcard
+
+
+--------------060308030307010800070505--
