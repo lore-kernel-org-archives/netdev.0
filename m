@@ -1,75 +1,64 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
-Date: Sun, 17 May 2009 15:08:35 -0700
-Message-ID: <20090517220835.GF6973@linux.vnet.ibm.com>
-References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090517200223.GA31029@ioremap.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
+Date: Sun, 17 May 2009 15:31:27 -0700 (PDT)
+Message-ID: <20090517.153127.22116458.davem@davemloft.net>
+References: <Pine.LNX.4.64.0905111556300.10088@wrl-59.cs.helsinki.fi>
+	<200905111554.50118.elendil@planet.nl>
+	<Pine.LNX.4.64.0905111656450.10088@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, mingo@elte.hu,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com,
-	jeff.chua.linux@gmail.com, paulus@samba.org, laijs@cn.fujitsu.com,
-	jengelh@medozas.de, r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090517200223.GA31029@ioremap.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: elendil@planet.nl, matthias.andree@gmx.de, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58483
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752445AbZEQWb3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 May 2009 18:31:29 -0400
+In-Reply-To: <Pine.LNX.4.64.0905111656450.10088@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2009 at 12:02:23AM +0400, Evgeniy Polyakov wrote:
-> Hi.
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 11 May 2009 17:57:13 +0300 (EEST)
 
-Hello, Evgeniy!
+> On Mon, 11 May 2009, Frans Pop wrote:
+>=20
+>> On Monday 11 May 2009, Ilpo J=E4rvinen wrote:
+>> OK. I understood that there's always been a corner case with URG tha=
+t=20
+>> could cause incorrect messages [1] and I thought the additional chan=
+ge=20
+>> was to fix that, but if this is related to the same regression then =
+of=20
+>> course it's fine by me.
+>>=20
+>> [1] http://linux.derkeiler.com/Mailing-Lists/Kernel/2003-09/6009.htm=
+l
+>=20
+> Ah, so there's some urg race for real... ...I didn't know about that
+> which is no wonder since I've very little interest on knowing all
+> corner cases of urg madness really :-).
+>=20
+> I guess it is not exactly the same though I have problem in understan=
+ding=20
+> what Dave is exactly meaning there but it could well be that there is=
+n't=20
+> a sane case where the urg hole thing matters for real. Well, Dave pro=
+bably=20
+> knows whether the v2 is necessary or not, I've no clue who is the one=
+=20
+> advancing the copied_seq (if it's not the gem in tcp_check_urg doing =
+the=20
+> conditional copied_seq++, but that condition is beyond my current lev=
+el of=20
+> concentration really).
 
-> On Sun, May 17, 2009 at 12:11:41PM -0700, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > Fifth cut of "big hammer" expedited RCU grace periods.  This uses per-CPU
-> > kthreads that are scheduled in parallel by a call to smp_call_function()
-> > by yet another kthread.  The synchronize_sched(), synchronize_rcu(),
-> > and synchronize_bh() primitives wake this kthread up and then wait for
-> > it to force the grace period.
-> 
-> I'm curious, but doesn't the fact that registered 'barrier' callback is
-> invoked mean grace period completion? I.e. why to bother with
-> rescheduling, waiting for thread to complete and so on, when we only
-> care in the fact that 'barrier' callback is invoked, and thus all
-> previous ones are completed?
-> Or it is done just for the simplicity, since all rescheduling machinery
-> already manages the rcu bits correctly, so you do not want to put it
-> directly into 'barrier' callback?
+The issue being discussed there is exactly the case where a thread
+is triggering the copied_seq advance in tcp_check_urg() and using
+MSG_PEEK at the same time.
 
-It is a short-term expedient course of action.  Longer term, I will drop
-rcuclassic in favor of rcutree, and then merge rcupreempt into rcutree.
-I will then add machinery to rcutree to handle expedited grace periods
-(somewhat) more naturally.  Trying to expedite three very different RCU
-implementations seems a bit silly, hence the current off-on-the-side
-approach.
-
-But even then I will avoid relying on a "barrier" callback, or, indeed,
-any sort of callback, because we don't want expedited grace periods to
-have to wait on invocation of earlier RCU callbacks.  There will thus
-not be a call_rcu_expedited(), at least not unless someone comes up with
-a -really- compelling reason why.
-
-But the exercise of going through several possible implementations was
-quite useful, as I learned a number of things that will improve the
-eventual rcutree implementation.  Like the fact that expedited grace
-periods don't want to be waiting on invocation of prior callbacks.  ;-)
-
-And rcutiny is, as always, as special case.  Here is the implementation
-of synchronize_rcu_expedited() in rcutiny:
-
-	void synchronize_rcu_expedited(void)
-	{
-	}
-
-Or even:
-
-	#define synchronize_rcu_expedited synchronize_rcu
-
-;-)
-
-							Thanx, Paul
+I'm looking more closely into this patch right now, but I might ask
+you to split the two fixes up if I can't convince myself %100 of the
+URG part.  We've already broken URG enough lately :-)
