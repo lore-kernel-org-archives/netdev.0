@@ -1,408 +1,162 @@
-From: Antonio Almeida <vexwek@gmail.com>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Mon, 18 May 2009 19:23:14 +0100
-Message-ID: <298f5c050905181123o55c35e74n24cd4ee2c07d8fca@mail.gmail.com>
-References: <20090517201528.GA8552@ami.dom.local>
-	 <20090518065629.GA6006@ff.dom.local>
-	 <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
-	 <20090518175352.GB2755@ami.dom.local>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-next-2.6 2009-05-18
+Date: Mon, 18 May 2009 14:29:43 -0400
+Message-ID: <20090518182943.GH2814@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016363b9888334fcb046a33e367
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:62133 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396AbZERSXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 14:23:15 -0400
-Received: by bwz22 with SMTP id 22so3373418bwz.37
-        for <netdev@vger.kernel.org>; Mon, 18 May 2009 11:23:14 -0700 (PDT)
-In-Reply-To: <20090518175352.GB2755@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---0016363b9888334fcb046a33e367
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Dave,
 
-Here's my .config
+Here is another dump of updates for 2.6.31...mostly the usual suspects,
+some fixes for bugs in earlier patches (but not in 2.6.30), etc.
+FWIW, most of this group is mac80211 and nl80211 infrastructure.
 
-  Antonio Almeida
+Please let me know if there are problems!
 
+Thanks,
 
-On Mon, May 18, 2009 at 6:53 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> On Mon, May 18, 2009 at 05:54:18PM +0100, Antonio Almeida wrote:
->> I'm not sure if I'm able to test this patch. What do you mean with
->> "smallest sizes"? Are you talking about packet's size? What kind of
->> sizes?
->> When I feed my bridge with 950Mbits/s of packets with 800 bytes that
->> is close to 150.000pps and CPUs start to get busy. For packets 100
->> bytes long, 150.000pps would be close to 125Mbits/s and CPUs start to
->> get busy already, so I'm not able to get close to 500Mbits/s. For
->> rates near 125bits/s the bad accuracy is not so expressive. For
->> packets of 100 bytes increasing analyser sent traffic, at some point
->> is not HTB shaping but the CPU that can't process so many packets. I
->> might misunderstood your point.
->>
->> I applied this tc_core.c patch and for packets of 800 bytes it had no
->> effect in HTB accuracy with rates over 500Mbit.
->> Anyway I also test it with packets of 100 bytes, generating 200Mbits,
->> and the result is the same as without this patch:
->
-> You're right: if there were only 800 byte packets this patch shouldn't
-> matter. It should matter e.g. if these 800 byte were mixed with 100
-> byte packets, rate 550Mbit, and HZ 1000. Btw. if could you send your
-> .config (gzipped)? I guess, I've to look for some other reason yet.
->
-> Thanks,
-> Jarek P.
->
->>
->> With the patch:
->> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
->> 100000Kbit ceil 100000Kbit burst 14087b/8 mpu 0b overhead 0b cburst
->> 14087b/8 mpu 0b overhead 0b level 0
->> =A0Sent 2187884640 bytes 22790465 pkt (dropped 8624566, overlimits 0 req=
-ueues 0)
->> =A0rate 124946Kbit 162691pps backlog 0b 0p requeues 0
->> =A0lended: 22790465 borrowed: 0 giants: 0
->> =A0tokens: 180 ctokens: 180
->>
->>
->> Without the patch:
->> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
->> 100000Kbit ceil 100000Kbit burst 14087b/8 mpu 0b overhead 0b cburst
->> 14087b/8 mpu 0b overhead 0b level 0
->> =A0Sent 1260235680 bytes 13127455 pkt (dropped 4531299, overlimits 0 req=
-ueues 0)
->> =A0rate 124575Kbit 162207pps backlog 0b 0p requeues 0
->> =A0lended: 13127455 borrowed: 0 giants: 0
->> =A0tokens: 123 ctokens: 123
->>
->>
->> Thanks
->> =A0 Antonio Almeida
->>
->>
->> On Mon, May 18, 2009 at 7:56 AM, Jarek Poplawski <jarkao2@gmail.com> wro=
-te:
->> > Return non-zero tc_calc_xmittime() for rate tables
->> >
->> > While looking at the problem of HTB accuracy for high speed (~500Mbit
->> > rates) I've found that rate tables have cells filled with zeros for
->> > the smallest sizes. It means such packets aren't accounted at all.
->> > Apart from the correctness of such configs, let's make it safe with
->> > rather overaccounting than living it unlimited.
->> >
->> > Reported-by: Antonio Almeida <vexwek@gmail.com>
->> > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->> > ---
->> >
->> > =A0tc/tc_core.c | =A0 =A04 +++-
->> > =A01 files changed, 3 insertions(+), 1 deletions(-)
->> >
->> > diff --git a/tc/tc_core.c b/tc/tc_core.c
->> > index 9a0ff39..14f25bc 100644
->> > --- a/tc/tc_core.c
->> > +++ b/tc/tc_core.c
->> > @@ -58,7 +58,9 @@ unsigned tc_core_ktime2time(unsigned ktime)
->> >
->> > =A0unsigned tc_calc_xmittime(unsigned rate, unsigned size)
->> > =A0{
->> > - =A0 =A0 =A0 return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)siz=
-e/rate));
->> > + =A0 =A0 =A0 unsigned t;
->> > + =A0 =A0 =A0 t =3D tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size=
-/rate));
->> > + =A0 =A0 =A0 return t ? : 1;
->> > =A0}
->> >
->> > =A0unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
->> >
->
+John
 
---0016363b9888334fcb046a33e367
-Content-Type: application/x-tar; name="config.tar"
-Content-Disposition: attachment; filename="config.tar"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuvi3r2l0
+---
 
-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
---0016363b9888334fcb046a33e367--
+Individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
+
+---
+
+The following changes since commit ed9b58bc443a1210b5be1ded6421b17e015bf985:
+  Richard Genoud (1):
+        Remove duplicate slow protocol define in bond_3ad.h
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
+
+Abhijeet Kolekar (1):
+      iwl3945: read rev id in nic config
+
+Geert Uytterhoeven (1):
+      wireless: WL12XX should depend on GENERIC_HARDIRQS
+
+Ivo van Doorn (1):
+      rt2x00: Fix chipset detection for rt73usb
+
+Johannes Berg (23):
+      mac80211: fix scan channel race
+      mac80211: set default QoS values according to spec
+      cfg80211: fix wext iw_freq parsing
+      iwlwifi: make iwl_set_rate static
+      mac80211: improve scan timing
+      mac80211: move HT operation mode BSS info
+      mac80211: properly track HT operation_mode
+      mac80211: remove ieee80211_ht_bss_info
+      iwlwifi: do proper hw restart
+      iwlwifi: fix PS disable status race
+      iwlwifi: clean up PS code
+      cfg80211: constify key mac address in ops
+      cfg80211: put wext data into substructure
+      cfg80211: disallow interfering with stations on non-AP
+      wext: fix get_wireless_stats locking
+      cfg80211: implement wext key handling
+      nl80211: improve station flags handling
+      wext: remove seq_start/stop sparse annotations
+      mac80211: respond to beacon loss report only once
+      mac80211: split out and decrease probe wait time
+      mac80211: don't connect to IBSS network with different privacy
+      mac80211: IBSS supported rate fixes
+      mac80211: make noack test available
+
+Jouni Malinen (7):
+      nl80211 : Add support for configuring MFP
+      mac80211: Drop unencrypted frames based on key setup
+      mac80211: MFP - Drop unprotected Action frames prior key setup
+      mac80211: Robust Action frame categories for MFP
+      nl80211: Validate MFP flag type when parsing STA flags
+      nl80211: Add IEEE 802.1X PAE control for station mode
+      nl80211: Add RSC configuration for new keys
+
+Mohamed Abbas (1):
+      iwlagn: improve rate scale table search
+
+Reinette Chatre (1):
+      iwlwifi: more descriptive unsupported hardware message
+
+Vasanthakumar Thiagarajan (2):
+      ath9k: Remove bogus break after return
+      ath9k: Cleanup ineffective return values
+
+Wey-Yi Guy (4):
+      iwlwifi: use #define instead of hard coded value
+      iwlagn: show current rate scale data in debugfs
+      iwlwifi: show qos AC parameters
+      iwlwifi: default WMM AC parameters
+
+ drivers/net/wireless/ath/ath9k/eeprom.c     |   51 ++----
+ drivers/net/wireless/ath/ath9k/eeprom.h     |    2 +-
+ drivers/net/wireless/ath/ath9k/hw.c         |   59 ++----
+ drivers/net/wireless/ath/ath9k/hw.h         |    2 +-
+ drivers/net/wireless/ath/ath9k/phy.c        |    7 +-
+ drivers/net/wireless/ath/ath9k/phy.h        |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.c     |   12 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.c   |   89 ++++++++-
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.h   |    2 +
+ drivers/net/wireless/iwlwifi/iwl-agn.c      |   89 ++++-----
+ drivers/net/wireless/iwlwifi/iwl-calib.c    |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-core.c     |   62 +++----
+ drivers/net/wireless/iwlwifi/iwl-core.h     |    2 -
+ drivers/net/wireless/iwlwifi/iwl-dev.h      |    2 -
+ drivers/net/wireless/iwlwifi/iwl-eeprom.c   |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-power.c    |  233 +++-------------------
+ drivers/net/wireless/iwlwifi/iwl-power.h    |   39 +---
+ drivers/net/wireless/iwlwifi/iwl-scan.c     |   14 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |   56 ++----
+ drivers/net/wireless/mac80211_hwsim.c       |    2 +-
+ drivers/net/wireless/mwl8k.c                |    2 +-
+ drivers/net/wireless/rt2x00/rt73usb.c       |    2 +-
+ drivers/net/wireless/wl12xx/Kconfig         |    2 +-
+ include/linux/ieee80211.h                   |    8 +-
+ include/linux/nl80211.h                     |   51 +++++-
+ include/net/cfg80211.h                      |   57 +++---
+ include/net/mac80211.h                      |   28 +---
+ net/mac80211/cfg.c                          |   50 ++++--
+ net/mac80211/debugfs.c                      |   38 ++++
+ net/mac80211/ibss.c                         |   77 +++++---
+ net/mac80211/ieee80211_i.h                  |    9 +-
+ net/mac80211/iface.c                        |    3 +-
+ net/mac80211/key.c                          |   21 ++-
+ net/mac80211/key.h                          |    3 +-
+ net/mac80211/main.c                         |   14 +-
+ net/mac80211/mlme.c                         |   41 +++-
+ net/mac80211/rx.c                           |   58 ++++--
+ net/mac80211/scan.c                         |   32 +++-
+ net/mac80211/tx.c                           |    5 +-
+ net/mac80211/util.c                         |   60 +++++--
+ net/mac80211/wext.c                         |  282 +--------------------------
+ net/mac80211/wme.c                          |    2 +-
+ net/wireless/core.c                         |   10 +-
+ net/wireless/core.h                         |    6 +-
+ net/wireless/ibss.c                         |   60 +++---
+ net/wireless/nl80211.c                      |  128 ++++++++-----
+ net/wireless/util.c                         |   45 +++++
+ net/wireless/wext-compat.c                  |  286 ++++++++++++++++++++++++++-
+ net/wireless/wext.c                         |   20 ++-
+ 49 files changed, 1116 insertions(+), 1013 deletions(-)
+
+Omnibus patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2009-05-18.patch.bz2
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
