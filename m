@@ -1,28 +1,28 @@
 From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] ipv4: cleanup - remove two unused parameters
-	from fib_semantic_match().
-Date: Mon, 18 May 2009 14:19:12 +0300
-Message-ID: <eb3ff54b0905180419i4d1625c4mbcb9fcf8433f3ebb@mail.gmail.com>
+Subject: [PATCH net-next-2.6] ipv4: cleanup: remove unnecessary include.
+Date: Mon, 18 May 2009 14:47:52 +0300
+Message-ID: <eb3ff54b0905180447y7f3d1f0aof0203be26dd3bcdb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174bdea0bb94cd046a2df6da
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=0015174c0edc440d7b046a2e5d0b
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:59671 "EHLO
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:42306 "EHLO
 	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751727AbZERLTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 07:19:12 -0400
-Received: by ewy24 with SMTP id 24so3966493ewy.37
-        for <netdev@vger.kernel.org>; Mon, 18 May 2009 04:19:12 -0700 (PDT)
+	with ESMTP id S1754801AbZERLrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 07:47:52 -0400
+Received: by ewy24 with SMTP id 24so3983343ewy.37
+        for <netdev@vger.kernel.org>; Mon, 18 May 2009 04:47:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174bdea0bb94cd046a2df6da
+--0015174c0edc440d7b046a2e5d0b
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
 Hi,
-This patch removes two unused parameters from fib_semantic_match()
-(net/ipv4/fib_semantics.c).
+
+There is no need for net/icmp.h header in net/ipv4/fib_frontend.c.
+This patch removes the #include net/icmp.h from it.
 
 
 Regards,
@@ -31,45 +31,16 @@ Rami Rosen
 
 Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
---0015174bdea0bb94cd046a2df6da
+--0015174c0edc440d7b046a2e5d0b
 Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
 Content-Disposition: attachment; filename="patch.txt"
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuv2s2jo0
+X-Attachment-Id: f_fuv42zmn0
 
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ZpYl9oYXNoLmMgYi9uZXQvaXB2NC9maWJfaGFzaC5jCmlu
-ZGV4IGRlZDhjNDQuLmVjZDM5NDUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2ZpYl9oYXNoLmMKKysr
-IGIvbmV0L2lwdjQvZmliX2hhc2guYwpAQCAtMjYzLDcgKzI2Myw2IEBAIGZuX2hhc2hfbG9va3Vw
-KHN0cnVjdCBmaWJfdGFibGUgKnRiLCBjb25zdCBzdHJ1Y3QgZmxvd2kgKmZscCwgc3RydWN0IGZp
-Yl9yZXN1bHQKIAogCQkJZXJyID0gZmliX3NlbWFudGljX21hdGNoKCZmLT5mbl9hbGlhcywKIAkJ
-CQkJCSBmbHAsIHJlcywKLQkJCQkJCSBmLT5mbl9rZXksIGZ6LT5mel9tYXNrLAogCQkJCQkJIGZ6
-LT5mel9vcmRlcik7CiAJCQlpZiAoZXJyIDw9IDApCiAJCQkJZ290byBvdXQ7CmRpZmYgLS1naXQg
-YS9uZXQvaXB2NC9maWJfbG9va3VwLmggYi9uZXQvaXB2NC9maWJfbG9va3VwLmgKaW5kZXggMmMx
-NjIzZC4uNjM3YjEzMyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZmliX2xvb2t1cC5oCisrKyBiL25l
-dC9pcHY0L2ZpYl9sb29rdXAuaApAQCAtMjIsOCArMjIsNyBAQCBzdHJ1Y3QgZmliX2FsaWFzIHsK
-IC8qIEV4cG9ydGVkIGJ5IGZpYl9zZW1hbnRpY3MuYyAqLwogZXh0ZXJuIGludCBmaWJfc2VtYW50
-aWNfbWF0Y2goc3RydWN0IGxpc3RfaGVhZCAqaGVhZCwKIAkJCSAgICAgIGNvbnN0IHN0cnVjdCBm
-bG93aSAqZmxwLAotCQkJICAgICAgc3RydWN0IGZpYl9yZXN1bHQgKnJlcywgX19iZTMyIHpvbmUs
-IF9fYmUzMiBtYXNrLAotCQkJCWludCBwcmVmaXhsZW4pOworCQkJICAgICAgc3RydWN0IGZpYl9y
-ZXN1bHQgKnJlcywgaW50IHByZWZpeGxlbik7CiBleHRlcm4gdm9pZCBmaWJfcmVsZWFzZV9pbmZv
-KHN0cnVjdCBmaWJfaW5mbyAqKTsKIGV4dGVybiBzdHJ1Y3QgZmliX2luZm8gKmZpYl9jcmVhdGVf
-aW5mbyhzdHJ1Y3QgZmliX2NvbmZpZyAqY2ZnKTsKIGV4dGVybiBpbnQgZmliX25oX21hdGNoKHN0
-cnVjdCBmaWJfY29uZmlnICpjZmcsIHN0cnVjdCBmaWJfaW5mbyAqZmkpOwpkaWZmIC0tZ2l0IGEv
-bmV0L2lwdjQvZmliX3NlbWFudGljcy5jIGIvbmV0L2lwdjQvZmliX3NlbWFudGljcy5jCmluZGV4
-IGY4MzFkZjUuLjliMDk2ZDYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYwor
-KysgYi9uZXQvaXB2NC9maWJfc2VtYW50aWNzLmMKQEAgLTg2Niw4ICs4NjYsNyBAQCBmYWlsdXJl
-OgogCiAvKiBOb3RlISBmaWJfc2VtYW50aWNfbWF0Y2ggaW50ZW50aW9uYWxseSB1c2VzICBSQ1Ug
-bGlzdCBmdW5jdGlvbnMuICovCiBpbnQgZmliX3NlbWFudGljX21hdGNoKHN0cnVjdCBsaXN0X2hl
-YWQgKmhlYWQsIGNvbnN0IHN0cnVjdCBmbG93aSAqZmxwLAotCQkgICAgICAgc3RydWN0IGZpYl9y
-ZXN1bHQgKnJlcywgX19iZTMyIHpvbmUsIF9fYmUzMiBtYXNrLAotCQkJaW50IHByZWZpeGxlbikK
-KwkJICAgICAgIHN0cnVjdCBmaWJfcmVzdWx0ICpyZXMsIGludCBwcmVmaXhsZW4pCiB7CiAJc3Ry
-dWN0IGZpYl9hbGlhcyAqZmE7CiAJaW50IG5oX3NlbCA9IDA7CmRpZmYgLS1naXQgYS9uZXQvaXB2
-NC9maWJfdHJpZS5jIGIvbmV0L2lwdjQvZmliX3RyaWUuYwppbmRleCBlYzBhZTQ5Li45MDcwZDEx
-IDEwMDY0NAotLS0gYS9uZXQvaXB2NC9maWJfdHJpZS5jCisrKyBiL25ldC9pcHY0L2ZpYl90cmll
-LmMKQEAgLTEzNDcsOCArMTM0Nyw3IEBAIHN0YXRpYyBpbnQgY2hlY2tfbGVhZihzdHJ1Y3QgdHJp
-ZSAqdCwgc3RydWN0IGxlYWYgKmwsCiAJCWlmIChsLT5rZXkgIT0gKGtleSAmIG50b2hsKG1hc2sp
-KSkKIAkJCWNvbnRpbnVlOwogCi0JCWVyciA9IGZpYl9zZW1hbnRpY19tYXRjaCgmbGktPmZhbGgs
-IGZscCwgcmVzLAotCQkJCQkgaHRvbmwobC0+a2V5KSwgbWFzaywgcGxlbik7CisJCWVyciA9IGZp
-Yl9zZW1hbnRpY19tYXRjaCgmbGktPmZhbGgsIGZscCwgcmVzLCBwbGVuKTsKIAogI2lmZGVmIENP
-TkZJR19JUF9GSUJfVFJJRV9TVEFUUwogCQlpZiAoZXJyIDw9IDApCg==
---0015174bdea0bb94cd046a2df6da--
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ZpYl9mcm9udGVuZC5jIGIvbmV0L2lwdjQvZmliX2Zyb250
+ZW5kLmMKaW5kZXggY2FmY2M0OS4uZTJmOTUwNSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZmliX2Zy
+b250ZW5kLmMKKysrIGIvbmV0L2lwdjQvZmliX2Zyb250ZW5kLmMKQEAgLTQwLDcgKzQwLDYgQEAK
+ICNpbmNsdWRlIDxuZXQvcm91dGUuaD4KICNpbmNsdWRlIDxuZXQvdGNwLmg+CiAjaW5jbHVkZSA8
+bmV0L3NvY2suaD4KLSNpbmNsdWRlIDxuZXQvaWNtcC5oPgogI2luY2x1ZGUgPG5ldC9hcnAuaD4K
+ICNpbmNsdWRlIDxuZXQvaXBfZmliLmg+CiAjaW5jbHVkZSA8bmV0L3J0bmV0bGluay5oPgo=
+--0015174c0edc440d7b046a2e5d0b--
