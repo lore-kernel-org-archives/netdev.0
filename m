@@ -1,8 +1,9 @@
-From: Oleg Nesterov <oleg@redhat.com>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: 2.6.30-rc6: Reported regressions from 2.6.29
-Date: Mon, 18 May 2009 16:57:25 +0200
-Message-ID: <20090518145725.GB18607@redhat.com>
+Date: Mon, 18 May 2009 17:11:02 +0200
+Message-ID: <20090518151102.GA6241@elte.hu>
 References: <_AjETDMbIoL.A.DcH.RYzDKB@chimera> <20090517073327.GC1583@elte.hu>
+	<20090518145725.GB18607@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,10 +21,10 @@ Cc: Adrian Bunk <bunk@kernel.org>, DRI <dri-devel@lists.sourceforge.net>,
         Kernel Testers List <kernel-testers@vger.kernel.org>,
         Jeff Garzik <jgarzik@pobox.com>,
         Linux PM List <linux-pm@lists.linux-foundation.org>
-To: Ingo Molnar <mingo@elte.hu>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <linux-pm-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20090517073327.GC1583@elte.hu>
+In-Reply-To: <20090518145725.GB18607@redhat.com>
 List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
 	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
@@ -35,23 +36,29 @@ Sender: linux-pm-bounces@lists.linux-foundation.org
 Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 05/17, Ingo Molnar wrote:
->
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13107
-> > Subject		: LTP 20080131 causes defunct processes w/2.6.30-rc1
-> > Submitter	: Kumar Gala <galak@kernel.crashing.org>
-> > Date		: 2009-04-09 15:43 (38 days old)
-> > First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=b3bfa0cba867f23365b81658b47efd906830879b
-> > References	: http://marc.info/?l=linux-kernel&m=123929187208953&w=4
-> > 		  http://lkml.org/lkml/2009/4/10/193
-> > Handled-By	: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
->
-> Oleg says in that thread that it's as-designed, and followup
-> questions were not replied to (yet).
 
-Yes, I think this is false alarm. Perhaps I missed something, and
-I am waiting for more info from Kumar, but it looks like ltp was
-already changed to skip the "{ PTRACE_ATTACH, 1, EPERM }" test
-on kernels after 2.6.25
+* Oleg Nesterov <oleg@redhat.com> wrote:
 
-Oleg.
+> On 05/17, Ingo Molnar wrote:
+> >
+> > > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13107
+> > > Subject		: LTP 20080131 causes defunct processes w/2.6.30-rc1
+> > > Submitter	: Kumar Gala <galak@kernel.crashing.org>
+> > > Date		: 2009-04-09 15:43 (38 days old)
+> > > First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=b3bfa0cba867f23365b81658b47efd906830879b
+> > > References	: http://marc.info/?l=linux-kernel&m=123929187208953&w=4
+> > > 		  http://lkml.org/lkml/2009/4/10/193
+> > > Handled-By	: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+> >
+> > Oleg says in that thread that it's as-designed, and followup
+> > questions were not replied to (yet).
+> 
+> Yes, I think this is false alarm. Perhaps I missed something, and 
+> I am waiting for more info from Kumar, but it looks like ltp was 
+> already changed to skip the "{ PTRACE_ATTACH, 1, EPERM }" test on 
+> kernels after 2.6.25
+
+Btw., why did the patch (and the revert) make any difference to the 
+test? Timing differences look improbable.
+
+	Ingo
