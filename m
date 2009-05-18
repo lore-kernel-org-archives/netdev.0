@@ -1,65 +1,71 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [RFC] virtio: orphan skbs if we're relying on timer to free them
-Date: Mon, 18 May 2009 22:18:47 +0930
-Message-ID: <200905182218.47975.rusty@rustcorp.com.au>
+From: <Shyam_Iyer@Dell.com>
+Subject: RE: [PATCH] net: fix skb_seq_read returning wrong offset/length for page frag data
+Date: Mon, 18 May 2009 18:32:29 +0530
+Message-ID: <46A00B48CC54E4468EF6911F877AC4CA02294B56@blrx3m10.blr.amer.dell.com>
+References: <65FDECA153DE9A40B78CA281949AC88902A9FBF1@ausx3mps309.aus.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <michaelc@cs.wisc.edu>, <davem@davemloft.net>
+To: <Thomas_Chenault@Dell.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:42998 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750946AbZERMsv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2009 08:48:51 -0400
-Content-Disposition: inline
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:29919 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753916AbZERNLv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 09:11:51 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <65FDECA153DE9A40B78CA281949AC88902A9FBF1@ausx3mps309.aus.amer.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We check for finished xmit skbs on every xmit, or on a timer (unless
-the host promises to force an interrupt when the xmit ring is empty).
-This can penalize userspace tasks which fill their sockbuf.  Not much
-difference with TSO, but measurable with large numbers of packets.
+> -----Original Message-----
+> From: Chenault, Thomas
+> Sent: Thursday, May 14, 2009 7:03 AM
+> To: 'netdev@vger.kernel.org'
+> Cc: Iyer, Shyam; 'michaelc@cs.wisc.edu'
+> Subject: [PATCH] net: fix skb_seq_read returning wrong offset/length
+> for page frag data
+> 
+> When called with a consumed value that is less than skb_headlen(skb)
+> bytes into a page frag, skb_seq_read() incorrectly returns an
+> offset/length relative to skb->data. Ensure that data which should
+come
+> from a page frag does.
+> 
+> Signed-off-by: Thomas Chenault <thomas_chenault@dell.com>
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index d152394..e505b53 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2288,7 +2288,7 @@ unsigned int skb_seq_read(unsigned int consumed,
+> const u8 **data,
+>  next_skb:
+>  	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+> 
+> -	if (abs_offset < block_limit) {
+> +	if (abs_offset < block_limit && !st->frag_data) {
+>  		*data = st->cur_skb->data + (abs_offset - st-
+> >stepped_offset);
+>  		return block_limit - abs_offset;
+>  	}
 
-There are a finite number of packets which can be in the transmission
-queue.  We could fire the timer more than every 100ms, but that would
-just hurt performance for a corner case.  This seems neatest.
+Tested-by: Shyam Iyer <shyam_iyer@dell.com>
 
-With interrupt when Tx ring empty:
-				Seconds	TxPkts	TxIRQs
- 1G TCP Guest->Host:		3.76	32833	32758
- 1M normal pings:		111	1000008	997463
- 1M 1k pings (-l 120):		55	1000007	488920
+We have seen this scenario affect iSCSI transactions(mainly login) with
+BCM57710 10G Ethernet(bnx2x driver) card.
 
-Without interrupt, without orphaning:
- 1G TCP Guest->Host:		3.64	32806	1
- 1M normal pings:		106	1000008	1
- 1M 1k pings (-l 120):		68	1000005	1
+The iSCSI login errs because the iSCSI PDU header is wrongly read with a
+wrong ITT value. This error in reading the PDU is seen with this card
+because of the way the bnx2x driver pushes data to the frags with LRO
+enabled (through skb->frags[n]).
 
-With orphaning:
- 1G TCP Guest->Host:		3.86	32821	1
- 1M normal pings:		102	1000007	1
- 1M 1k pings (-l 120):		43	1000005	1
+Intel 10G(ixgbe driver) + LRO combination does not expose the issue and
+the patch doesn't cause a regression either. I am not sure if this patch
+will break other driver+card configurations.  
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |    5 +++++
- 1 file changed, 5 insertions(+)
+Dave - Does this patch needs more review or you want to queue it up to
+your tree? I believe it is a critical bug fix.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -522,6 +522,11 @@ static int start_xmit(struct sk_buff *sk
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 
-+	/* We queue a limited number; don't let that delay writers if
-+	 * we are slow in getting tx interrupt. */
-+	if (!vi->free_in_tasklet)
-+		skb_orphan(skb);
-+
- again:
- 	/* Free up any pending old buffers before queueing new ones. */
- 	free_old_xmit_skbs(vi);
-
+-Shyam Iyer
