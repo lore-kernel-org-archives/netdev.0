@@ -1,86 +1,48 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: 2.6.30-rc6: Reported regressions from 2.6.29
-Date: Mon, 18 May 2009 17:45:50 +0200
-Message-ID: <20090518154550.GB22133@redhat.com>
-References: <_AjETDMbIoL.A.DcH.RYzDKB@chimera> <20090517073327.GC1583@elte.hu> <20090518145725.GB18607@redhat.com> <20090518151102.GA6241@elte.hu> <alpine.LFD.2.01.0905180819130.3301@localhost.localdomain>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
+Date: Mon, 18 May 2009 09:02:54 -0700
+Message-ID: <20090518160254.GD6768@linux.vnet.ibm.com>
+References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu> <20090518151421.GB6768@linux.vnet.ibm.com> <20090518154241.GA27047@elte.hu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jonathan Corbet <corbet@lwn.net>, Martin Bammer <mrb74@gmx.at>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.01.0905180819130.3301@localhost.localdomain>
-Sender: linux-acpi-owner@vger.kernel.org
+In-Reply-To: <20090518154241.GA27047@elte.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/18, Linus Torvalds wrote:
->
-> On Mon, 18 May 2009, Ingo Molnar wrote:
-> >
-> > Btw., why did the patch (and the revert) make any difference to the
-> > test? Timing differences look improbable.
->
-> It's the change from
->
-> 	!signal_group_exit(signal)
->
-> to
->
-> 	!sig_kernel_only(signr)
->
-> and quite frankly, I still don't see the point.
+On Mon, May 18, 2009 at 05:42:41PM +0200, Ingo Molnar wrote:
+> 
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> > > i might be missing something fundamental here, but why not just 
+> > > have per CPU helper threads, all on the same waitqueue, and wake 
+> > > them up via a single wake_up() call? That would remove the SMP 
+> > > cross call (wakeups do immediate cross-calls already).
+> > 
+> > My concern with this is that the cache misses accessing all the 
+> > processes on this single waitqueue would be serialized, slowing 
+> > things down. In contrast, the bitmask that smp_call_function() 
+> > traverses delivers on the order of a thousand CPUs' worth of bits 
+> > per cache miss.  I will give it a try, though.
+> 
+> At least if you go via the migration threads, you can queue up 
+> requests to them locally. But there's going to be cachemisses 
+> _anyway_, since you have to access them all from a single CPU, and 
+> then they have to fetch details about what to do, and then have to 
+> notify the originator about completion.
 
-Previously,
+Ah, so you are suggesting that I use smp_call_function() to run code on
+each CPU that wakes up that CPU's migration thread?  I will take a look
+at this.
 
-	!signal_group_exit(signal)
-
-meant: we do not know what should we do, let's ignore this signal.
-Unless the multithreaded init does exec, in this case we should
-respect SIGKILL.
-
-With the recent changes, sig_kernel_only() means: we already checked
-we should handle SIGKILL/SIGSTOP when this signal was queued.
-
-> The comment seems to be wrong too:
->
->     If SIGSTOP/SIGKILL originate from a descendant of container-init they are
->     never queued (i.e dropped in sig_ignored() in an earler patch).
->
->     If SIGSTOP/SIGKILL originate from parent namespace, the signal is queued
->     and container-init processes the signal.
->
-> since the bug was that the SIGSTOP (from within the same container) was
-> _not_ ignored like the comment says.
-
-Yes, the changelog could be better because it ignores ptrace issues. But
-this was discussed,
-
->From http://marc.info/?t=123222433100001
-
-	Yes we should handle SIGSTOP fine if it sent from the parent namespace.
-
-	Also. Currently it is possible to ptrace the global init, but even
-	ptracer can't stop it (but ptrace_stop() works). With these patches
-	ptracer can stop init.
-
-	I forgot to mention this behaviour change, imho this side-effect
-	is good.
-
-So, at least this change is not "by accident".
-
-Oleg.
-
+							Thanx, Paul
