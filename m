@@ -1,33 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 3/3] ixgbe: Increase the driver version
- number
-Date: Mon, 18 May 2009 15:10:11 -0700 (PDT)
-Message-ID: <20090518.151011.222228280.davem@davemloft.net>
-References: <20090518065745.14864.86660.stgit@localhost.localdomain>
-	<20090518065820.14864.58252.stgit@localhost.localdomain>
+From: matthieu castet <castet.matthieu@free.fr>
+Subject: [PATCH] bc47xx : export ssb_watchdog_timer_set
+Date: Tue, 19 May 2009 00:10:07 +0200
+Message-ID: <4A11DCBF.9000700@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------050308030502080801050508"
+To: linux-mips@linux-mips.org, Michael Buesch <mb@bu3sch.de>,
+	netdev@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------050308030502080801050508
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35855
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753159AbZERWKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 18:10:13 -0400
-In-Reply-To: <20090518065820.14864.58252.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 17 May 2009 23:58:21 -0700
+Hi,
 
-> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> 
-> Marching along, let's bump the version number to indicate things actually
-> have happened to the driver.
-> 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+this patch export ssb_watchdog_timer_set to allow to use it in a Linux 
+watchdog driver.
 
-Applied.
+
+Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
+
+
+--------------050308030502080801050508
+Content-Type: text/x-diff;
+ name="export_ssb_watchdog.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="export_ssb_watchdog.patch"
+
+diff --git a/drivers/ssb/embedded.c b/drivers/ssb/embedded.c
+index 7dc3a6b..a0e0d24 100644
+--- a/drivers/ssb/embedded.c
++++ b/drivers/ssb/embedded.c
+@@ -29,6 +29,7 @@ int ssb_watchdog_timer_set(struct ssb_bus *bus, u32 ticks)
+ 	}
+ 	return -ENODEV;
+ }
++EXPORT_SYMBOL(ssb_watchdog_timer_set);
+ 
+ u32 ssb_gpio_in(struct ssb_bus *bus, u32 mask)
+ {
+
+--------------050308030502080801050508--
