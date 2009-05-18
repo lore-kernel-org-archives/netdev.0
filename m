@@ -1,47 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] ixgbe: Increase the driver version number
-Date: Sun, 17 May 2009 23:58:21 -0700
-Message-ID: <20090518065820.14864.58252.stgit@localhost.localdomain>
-References: <20090518065745.14864.86660.stgit@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH iproute2 v2] Re: HTB accuracy for high speed
+Date: Mon, 18 May 2009 07:01:34 +0000
+Message-ID: <20090518070134.GB6006@ff.dom.local>
+References: <20090517201528.GA8552@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Antonio Almeida <vexwek@gmail.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:57386
-	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755796AbZERG6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 02:58:35 -0400
-In-Reply-To: <20090518065745.14864.86660.stgit@localhost.localdomain>
+Received: from fg-out-1718.google.com ([72.14.220.152]:28093 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755616AbZERHBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 03:01:39 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so549004fga.17
+        for <netdev@vger.kernel.org>; Mon, 18 May 2009 00:01:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090517201528.GA8552@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+-----------> (One misspelling fixed.)
+Return non-zero tc_calc_xmittime() for rate tables
 
-Marching along, let's bump the version number to indicate things actually
-have happened to the driver.
+While looking at the problem of HTB accuracy for high speed (~500Mbit
+rates) I've found that rate tables have cells filled with zeros for
+the smallest sizes. It means such packets aren't accounted at all.
+Apart from the correctness of such configs, let's make it safe with
+rather overaccounting than leaving it unlimited.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Reported-by: Antonio Almeida <vexwek@gmail.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ tc/tc_core.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index f9f8831..d342619 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -48,7 +48,7 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-                               "Intel(R) 10 Gigabit PCI Express Network Driver";
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index 9a0ff39..14f25bc 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -58,7 +58,9 @@ unsigned tc_core_ktime2time(unsigned ktime)
  
--#define DRV_VERSION "2.0.16-k2"
-+#define DRV_VERSION "2.0.24-k2"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static char ixgbe_copyright[] = "Copyright (c) 1999-2009 Intel Corporation.";
+ unsigned tc_calc_xmittime(unsigned rate, unsigned size)
+ {
+-	return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
++	unsigned t;
++	t = tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
++	return t ? : 1;
+ }
  
-
+ unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
