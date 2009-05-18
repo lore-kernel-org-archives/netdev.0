@@ -1,46 +1,137 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] ipv4: cleanup: remove unnecessary include.
-Date: Mon, 18 May 2009 14:47:52 +0300
-Message-ID: <eb3ff54b0905180447y7f3d1f0aof0203be26dd3bcdb@mail.gmail.com>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: HTB accuracy for high speed
+Date: Mon, 18 May 2009 13:05:32 +0100
+Message-ID: <298f5c050905180505i2e8d7357ia64f67739c386adf@mail.gmail.com>
+References: <298f5c050905150745p13dc226eia1ff50ffa8c4b300@mail.gmail.com>
+	 <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com>
+	 <20090516083158.GA3013@ami.dom.local>
+	 <298f5c050905180339k77006e21ka0955958489c41c7@mail.gmail.com>
+	 <20090518111411.GB11162@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174c0edc440d7b046a2e5d0b
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:42306 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754801AbZERLrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 07:47:52 -0400
-Received: by ewy24 with SMTP id 24so3983343ewy.37
-        for <netdev@vger.kernel.org>; Mon, 18 May 2009 04:47:52 -0700 (PDT)
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:56080 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751260AbZERMFe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 08:05:34 -0400
+Received: by fxm2 with SMTP id 2so3189191fxm.37
+        for <netdev@vger.kernel.org>; Mon, 18 May 2009 05:05:32 -0700 (PDT)
+In-Reply-To: <20090518111411.GB11162@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174c0edc440d7b046a2e5d0b
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+The analyser traffic is tcp. Setting tso off the accuracy stays the sam=
+e
 
-Hi,
+# ethtool -K eth0 tso off
+# ethtool -K eth1 tso off
 
-There is no need for net/icmp.h header in net/ipv4/fib_frontend.c.
-This patch removes the #include net/icmp.h from it.
+# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+# ethtool -k eth1
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
 
 
-Regards,
-Rami Rosen
+# tc -s -d class ls dev eth1 | head -24
+class htb 1:10 parent 1:2 rate 900000Kbit ceil 900000Kbit burst
+113962b/8 mpu 0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level
+5
+ Sent 164938012460 bytes 206824215 pkt (dropped 0, overlimits 0 requeue=
+s 0)
+ rate 652715Kbit 97655pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 402 ctokens: 402
+
+class htb 1:1 root rate 900000Kbit ceil 900000Kbit burst 113962b/8 mpu
+0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level 7
+ Sent 164938012460 bytes 206824215 pkt (dropped 0, overlimits 0 requeue=
+s 0)
+ rate 652715Kbit 97655pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 402 ctokens: 402
+
+class htb 1:2 parent 1:1 rate 900000Kbit ceil 900000Kbit burst
+113962b/8 mpu 0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level
+6
+ Sent 164938012460 bytes 206824215 pkt (dropped 0, overlimits 0 requeue=
+s 0)
+ rate 652715Kbit 97655pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 402 ctokens: 402
+
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+70901b/8 mpu 0b overhead 0b level 0
+ Sent 164938040048 bytes 206824248 pkt (dropped 25827911, overlimits 0
+requeues 0)
+ rate 652715Kbit 97655pps backlog 0b 33p requeues 0
+ lended: 206824215 borrowed: 0 giants: 0
+ tokens: -6 ctokens: -6
 
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+I'm applying the patches now. I'll get back to you.
 
---0015174c0edc440d7b046a2e5d0b
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuv42zmn0
+  Antonio Almeida
 
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ZpYl9mcm9udGVuZC5jIGIvbmV0L2lwdjQvZmliX2Zyb250
-ZW5kLmMKaW5kZXggY2FmY2M0OS4uZTJmOTUwNSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZmliX2Zy
-b250ZW5kLmMKKysrIGIvbmV0L2lwdjQvZmliX2Zyb250ZW5kLmMKQEAgLTQwLDcgKzQwLDYgQEAK
-ICNpbmNsdWRlIDxuZXQvcm91dGUuaD4KICNpbmNsdWRlIDxuZXQvdGNwLmg+CiAjaW5jbHVkZSA8
-bmV0L3NvY2suaD4KLSNpbmNsdWRlIDxuZXQvaWNtcC5oPgogI2luY2x1ZGUgPG5ldC9hcnAuaD4K
-ICNpbmNsdWRlIDxuZXQvaXBfZmliLmg+CiAjaW5jbHVkZSA8bmV0L3J0bmV0bGluay5oPgo=
---0015174c0edc440d7b046a2e5d0b--
+
+
+On Mon, May 18, 2009 at 12:14 PM, Jarek Poplawski <jarkao2@gmail.com> w=
+rote:
+> On Mon, May 18, 2009 at 11:39:02AM +0100, Antonio Almeida wrote:
+>> Hi!
+>>
+>> Here the information you asked:
+>
+> Very nice, but there are some questions:
+> - if this analyser uses tcp we definitely need tso off as well during
+> =A0these tests,
+> - it would be nice to use two patches I've sent to exclude known (now=
+)
+> =A0reasons.
+>
+> With the above I expect accuracy should be better, but definitely not
+> like hfsc (plus no higher than 1000Mbit rate reported after stopping
+> effect).
+>
+> Thanks,
+> Jarek P.
+>
+>>
+>> # ethtool -k eth0
+>> Offload parameters for eth0:
+>> rx-checksumming: on
+>> tx-checksumming: on
+>> scatter-gather: on
+>> tcp segmentation offload: on
+>> udp fragmentation offload: off
+>> generic segmentation offload: off
+>>
+>> # ethtool -k eth1
+>> Offload parameters for eth1:
+>> rx-checksumming: on
+>> tx-checksumming: on
+>> scatter-gather: on
+>> tcp segmentation offload: on
+>> udp fragmentation offload: off
+>> generic segmentation offload: off
+>>
+>> The bridge is between eth0 and eth1
+> ...
+>
