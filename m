@@ -1,57 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] Fixing up TCP/UDP checksum for UDP encap. ESP4
- packets in transport mode
-Date: Sun, 17 May 2009 15:51:22 -0700 (PDT)
-Message-ID: <20090517.155122.63991120.davem@davemloft.net>
-References: <1240502696.18438.0.camel@leto.intern.saout.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next] net: remove needless (now buggy) & from
+ dev->dev_addr (part2)
+Date: Mon, 18 May 2009 10:32:51 +1000
+Message-ID: <20090518103251.86bd3f41.sfr@canb.auug.org.au>
+References: <4A0A2059.8040607@cn.fujitsu.com>
+	<20090513084011.GC3517@psychotron.englab.brq.redhat.com>
+	<20090514103611.d8dc2bc6.sfr@canb.auug.org.au>
+	<20090517.140004.153017718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: christophe@saout.de
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__18_May_2009_10_32_51_+1000_6hI_XDNZHLgJdi3_"
+Cc: jpirko@redhat.com, netdev@vger.kernel.org, sachinp@in.ibm.com,
+	yjwei@cn.fujitsu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34850
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754683AbZEQWvY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 18:51:24 -0400
-In-Reply-To: <1240502696.18438.0.camel@leto.intern.saout.de>
+Received: from chilli.pcug.org.au ([203.10.76.44]:33380 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753657AbZERAdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 May 2009 20:33:17 -0400
+In-Reply-To: <20090517.140004.153017718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christophe Saout <christophe@saout.de>
-Date: Thu, 23 Apr 2009 18:04:56 +0200
+--Signature=_Mon__18_May_2009_10_32_51_+1000_6hI_XDNZHLgJdi3_
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> I was happily running an transport-mode IPSEC connection where I was
-> running NAT at one endpoint.  This means that decrypted packets can be
-> forwarded to another machine, as opposed to being delivered to a local
-> application.
-> 
-> Later I was forced to encapsulate the IPSEC traffic into UDP because I
-> had no choice but pass through a NAT device.  Then, unfortunately,
-> things started to break.  The machine that would receive the answer to a
-> TCP/SYN packet from the gateway box (that decrypts the packed and then
-> forwards it) discarded the packets because of a wrong TCP checksum.
-> 
-> I checked the kernel code - esp4.c is just setting CHECKSUM_UNNECESSARY
-> on these packets, so that they are accepted by local applications.
-> However, when the packages leaves the machine via a NIC, the packet
-> still carries the broken checksum.  I checked the RFC on the issue and
-> one of the suggestions is to recompute the checksum for carried TCP/UDP
-> packets.
-> 
-> I have a working (but possibly inelegant version), which I am proposing.
-> I know there are obvious things that can be improved, but I'm just
-> posting it here for discussion.  Also, I'm not sure my skb handling is
-> fully correct.
+Hi Dave,
 
-Thanks for reporting this.  It seems we've choosen the simplest
-of the 3 implementation options given in section 3.1.2 or
-RFC 3948.
+On Sun, 17 May 2009 14:00:04 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> I've put these fixes into net-next-2.6 and pushed them out to
+> kernel.org, so you shouldn't need to carry them in your
+> fixes tree any longer.
 
-It definitely breaks that case you are using, and the only way
-to fix it up is to recompute the checksum.
+Yep, thanks.
 
-I'll think about this some more and figure out how exactly we
-should fix this.
+Though if you had put them into net-current and sent them to Linus (as
+preemptive fixes) there would have been no bisection hole in Linus'
+tree.  Just a minor point.
 
-Thanks again.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__18_May_2009_10_32_51_+1000_6hI_XDNZHLgJdi3_
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkoQrLMACgkQjjKRsyhoI8wYcACfVLrjMCcjMCx6Fu2ORt51rjVt
+tOIAn1G3eKdXnhsdBln0zAXX4+AqunKU
+=WPNb
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__18_May_2009_10_32_51_+1000_6hI_XDNZHLgJdi3_--
