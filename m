@@ -1,93 +1,101 @@
 From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH 1/2] net: add tx_packets/tx_bytes/tx_dropped counters in struct
- netdev_queue
-Date: Mon, 18 May 2009 12:34:33 +0200
-Message-ID: <4A1139B9.6040505@cosmosbay.com>
+Subject: [PATCH 2/2] vlan: use struct netdev_queue counters instead of dev->stats
+Date: Mon, 18 May 2009 12:35:38 +0200
+Message-ID: <4A1139FA.2030703@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:51286 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:51297 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930AbZERKee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 06:34:34 -0400
+	with ESMTP id S1753838AbZERKfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 06:35:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-offsetof(struct net_device, features)=0x44
-offsetof(struct net_device, stats.tx_packets)=0x54
-offsetof(struct net_device, stats.tx_bytes)=0x5c
-offsetof(struct net_device, stats.tx_dropped)=0x6c
+We can update netdev_queue tx_bytes/tx_packets/tx_dropped counters instead
+of dev->stats ones, to reduce number of cache lines dirtied in xmit path.
 
-Network drivers that touch dev->stats.tx_packets/stats.tx_bytes in their
-tx path can slow down SMP operations, since they dirty a cache line
-that should stay shared (dev->features is needed in rx and tx paths)
-
-We could move away stats field in net_device but it wont help that much.
-(Two cache lines dirtied in tx path, we can do one only)
-
-Better solution is to add tx_packets/tx_bytes/tx_dropped in struct
-netdev_queue because this structure is already touched in tx path and
-counters updates will then be free (no increase in size)
+This fixes a performance problem on SMP when many different cpus take
+vlan tx path.
 
 Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 ---
- include/linux/netdevice.h |    3 +++
- net/core/dev.c            |   23 ++++++++++++++++++++---
- 2 files changed, 23 insertions(+), 3 deletions(-)
+ net/8021q/vlan_dev.c |   14 +++++++-------
+ net/8021q/vlanproc.c |    3 ++-
+ 2 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cd547d0..4623e9f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -474,6 +474,9 @@ struct netdev_queue {
- 	 * please use this field instead of dev->trans_start
- 	 */
- 	unsigned long		trans_start;
-+	unsigned long		tx_bytes;
-+	unsigned long		tx_packets;
-+	unsigned long		tx_dropped;
- } ____cacheline_aligned_in_smp;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 25ba41e..8faacee 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -290,7 +290,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
  
+ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *stats = &dev->stats;
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
+ 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 14dd725..a43b510 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4943,13 +4943,30 @@ void netdev_run_todo(void)
-  *	the internal statistics structure is used.
-  */
- const struct net_device_stats *dev_get_stats(struct net_device *dev)
-- {
-+{
- 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	/* Handle non-VLAN frames if they are sent to us, for example by DHCP.
+@@ -309,7 +309,7 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 		skb = __vlan_put_tag(skb, vlan_tci);
+ 		if (!skb) {
+-			stats->tx_dropped++;
++			txq->tx_dropped++;
+ 			return NETDEV_TX_OK;
+ 		}
  
- 	if (ops->ndo_get_stats)
- 		return ops->ndo_get_stats(dev);
--	else
--		return &dev->stats;
-+	else {
-+		unsigned long tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
-+		struct net_device_stats *stats = &dev->stats;
-+		unsigned int i;
-+		struct netdev_queue *txq;
-+
-+		for (i = 0; i < dev->num_tx_queues; i++) {
-+			txq = netdev_get_tx_queue(dev, i);
-+			tx_bytes   += txq->tx_bytes;
-+			tx_packets += txq->tx_packets;
-+			tx_dropped += txq->tx_dropped;
-+		}
-+		if (tx_bytes || tx_packets || tx_dropped) {
-+			stats->tx_bytes   = tx_bytes;
-+			stats->tx_packets = tx_packets;
-+			stats->tx_dropped = tx_dropped;
-+		}
-+		return stats;
-+	}
- }
- EXPORT_SYMBOL(dev_get_stats);
+@@ -317,8 +317,8 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			vlan_dev_info(dev)->cnt_inc_headroom_on_tx++;
+ 	}
  
+-	stats->tx_packets++;
+-	stats->tx_bytes += skb->len;
++	txq->tx_packets++;
++	txq->tx_bytes += skb->len;
  
+ 	skb->dev = vlan_dev_info(dev)->real_dev;
+ 	dev_queue_xmit(skb);
+@@ -328,15 +328,15 @@ static int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ static int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev)
+ {
+-	struct net_device_stats *stats = &dev->stats;
++	struct netdev_queue *txq = netdev_get_tx_queue(dev, 0);
+ 	u16 vlan_tci;
+ 
+ 	vlan_tci = vlan_dev_info(dev)->vlan_id;
+ 	vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 	skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
+ 
+-	stats->tx_packets++;
+-	stats->tx_bytes += skb->len;
++	txq->tx_packets++;
++	txq->tx_bytes += skb->len;
+ 
+ 	skb->dev = vlan_dev_info(dev)->real_dev;
+ 	dev_queue_xmit(skb);
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 3628e0a..b55a091 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -279,13 +279,14 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
+ {
+ 	struct net_device *vlandev = (struct net_device *) seq->private;
+ 	const struct vlan_dev_info *dev_info = vlan_dev_info(vlandev);
+-	struct net_device_stats *stats = &vlandev->stats;
++	const struct net_device_stats *stats;
+ 	static const char fmt[] = "%30s %12lu\n";
+ 	int i;
+ 
+ 	if (!is_vlan_dev(vlandev))
+ 		return 0;
+ 
++	stats = dev_get_stats(vlandev);
+ 	seq_printf(seq,
+ 		   "%s  VID: %d	 REORDER_HDR: %i  dev->priv_flags: %hx\n",
+ 		   vlandev->name, dev_info->vlan_id,
