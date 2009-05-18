@@ -1,124 +1,83 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 18 May 2009 10:24:23 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
- <200905092014.35642.elendil@planet.nl> <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
- <20090517.154137.104422195.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
+Date: Mon, 18 May 2009 09:56:30 +0200
+Message-ID: <20090518075630.GA10687@elte.hu>
+References: <20090517191141.GA25915@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1086652719-1242631463=:3381"
-Cc: elendil@planet.nl, matthias.andree@gmx.de,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56910 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755786AbZERHYW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 03:24:22 -0400
-In-Reply-To: <20090517.154137.104422195.davem@davemloft.net>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:47677 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756462AbZERH5L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2009 03:57:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20090517191141.GA25915@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696208474-1086652719-1242631463=:3381
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 
-On Sun, 17 May 2009, David Miller wrote:
+> +void sched_expedited_wake(void *unused)
+> +{
+> +	mutex_lock(&__get_cpu_var(sched_expedited_done_mutex));
+> +	if (__get_cpu_var(sched_expedited_done_qs) ==
+> +	    SCHED_EXPEDITED_QS_DONE_QS) {
+> +		__get_cpu_var(sched_expedited_done_qs) =
+> +			SCHED_EXPEDITED_QS_NEED_QS;
+> +		wake_up(&__get_cpu_var(sched_expedited_qs_wq));
+> +	}
+> +	mutex_unlock(&__get_cpu_var(sched_expedited_done_mutex));
+> +}
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 11 May 2009 09:32:34 +0300 (EEST)
-> 
-> > [PATCH v2] tcp: fix MSG_PEEK race check
-> > 
-> > Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
-> > blocking behavior) lets the loop run longer than the race check
-> > did previously expect, so we need to be more careful with this
-> > check and consider the work we have been doing.
-> > 
-> > I tried my best to deal with urg hole madness too which happens
-> > here:
-> > 	if (!sock_flag(sk, SOCK_URGINLINE)) {
-> > 		++*seq;
-> > 		...
-> > by using additional offset by one but I certainly have very
-> > little interest in testing that part.
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> > Tested-by: Frans Pop <elendil@planet.nl>
-> 
-> Ok, now that I've looked at this, the urg_hole part of this change has
-> to be removed.
+( hm, IPI handlers are supposed to be atomic. )
 
-Thanks for taking a look... :-) The first patch btw was with RFC and 
-without urg bits btw but you put that into some discarded like(?) state in 
-patchwork... :-/
+> +/*
+> + * Kernel thread that processes synchronize_sched_expedited() requests.
+> + * This is implemented as a separate kernel thread to avoid the need
+> + * to mess with other tasks' cpumasks.
+> + */
+> +static int krcu_sched_expedited(void *arg)
+> +{
+> +	int cpu;
+> +	int mycpu;
+> +	int nwait;
+> +
+> +	do {
+> +		wait_event_interruptible(need_sched_expedited_wq,
+> +					 need_sched_expedited);
+> +		smp_mb(); /* In case we didn't sleep. */
+> +		if (!need_sched_expedited)
+> +			continue;
+> +		need_sched_expedited = 0;
+> +		get_online_cpus();
+> +		preempt_disable();
+> +		mycpu = smp_processor_id();
+> +		smp_call_function(sched_expedited_wake, NULL, 1);
+> +		preempt_enable();
 
-> That case being accounted for with urg_hole is exactly what the
-> debugging message is trying to catch, where we are doing MSG_PEEK and
-> tcp_check_urg() advances ->copied_seq on us during one of those
-> "release_sock();/lock_sock();" sequences (which thus invoke TCP input
-> processing).
+i might be missing something fundamental here, but why not just have 
+per CPU helper threads, all on the same waitqueue, and wake them up 
+via a single wake_up() call? That would remove the SMP cross call 
+(wakeups do immediate cross-calls already).
 
-Sorry, I'm not sure you thought this fully through here. What my patch 
-with urg_hole does is that it keeps peek_seq non-advancing using the 
-offsets. Now without the urg offsetting, the peek_seq side of the race 
-check advances, which means that we didn't catch the race when it happened 
-for real as copied_seq advanced too?!?
+Even more - we already have a per-CPU, high RT priority helper 
+thread that could be reused: the per CPU migration threads. Couldnt 
+we queue these requests to them? RCU is arguably closely related to 
+scheduling so there's no layering violation IMO.
 
->From another perspective when the race didn't happen but potential for it 
-existed, the current check should catch that since peek_seq advanced and 
-copied_seq stayed where it was. But that certainly doesn't match to your 
-description above.
+There's already a struct migration_req machinery that performs 
+something quite similar. (do work on behalf of another task, on a 
+specific CPU, and then signal completion)
 
-I wonder why all this fuzz about this particular race as we will do our 
-best anyway to skip the hole on MSG_PEEK side (if I read the code right)? 
-Either we never see the hole in MSG_PEEK side, or we're happily past it 
-already, does it make any difference anymore in the latter case? <insert 
-some "not that I fully understand all of that multipage function" 
-disclaimer here though, I may think too simple scenarios here>. Not that 
-I'm too interested in "improving" urg or so anywa, I'm just curious... :-)
+Also, per CPU workqueues have similar features as well.
 
-> Could you please respin this patch with the URG bits removed?
-
-Below.
-
--- 
- i.
-
---
-[PATCH] tcp: fix MSG_PEEK race check
-
-Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
-blocking behavior) lets the loop run longer than the race check
-did previously expect, so we need to be more careful with this
-check and consider the work we have been doing.
-
-URG hole things postponed to another patch (if needed at all)
-as per requested.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-Tested-by: Frans Pop <elendil@planet.nl>
-
----
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1d7f49c..ccbd69b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1532,7 +1532,7 @@ do_prequeue:
- 				}
- 			}
- 		}
--		if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
-+		if ((flags & MSG_PEEK) && (peek_seq - copied != tp->copied_seq)) {
- 			if (net_ratelimit())
- 				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
- 				       current->comm, task_pid_nr(current));
--- 
-tg: (4d5b78c..) fix/msgpeek-race-chk (depends on: origin/master)
----696208474-1086652719-1242631463=:3381--
+	Ingo
