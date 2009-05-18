@@ -1,49 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: sk_buff handling in packet handler
-Date: Sun, 17 May 2009 22:38:47 -0700
-Message-ID: <20090517223847.168d9ebd@nehalam>
-References: <20090517102548.0a55d5bd.ipng@69706e6720323030352d30312d31340a.nosense.org>
-	<4A104825.4000201@accedian.com>
+From: Koteswar - Pandu <koti.kelam@gmail.com>
+Subject: proxy arp using "pub" flag
+Date: Mon, 18 May 2009 12:11:22 +0530
+Message-ID: <e4855a0905172341j1a1a5f7dw698d5eec56ae0056@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>,
-	netdev@vger.kernel.org
-To: Claude Robitaille <clauder@accedian.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59787 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750756AbZERFiw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2009 01:38:52 -0400
-In-Reply-To: <4A104825.4000201@accedian.com>
+Received: from rv-out-0506.google.com ([209.85.198.237]:49128 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbZERGlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 02:41:21 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so1550052rvb.1
+        for <netdev@vger.kernel.org>; Sun, 17 May 2009 23:41:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 17 May 2009 13:23:49 -0400
-Claude Robitaille <clauder@accedian.com> wrote:
+Hi
+I am using linux-2.6.24 kernel. And I am trying to test proxy arp in
+my linux box. My linux box is having 3 interfaces with ip addresses
+192.168.100.254(eth0), 192.168.10.254(eth1), 192.168.20.254(eth3).
+I added arp proxy entry on eth0 as
 
-> Thanks Mark.
-> 
-> very interesting
-> 
-> this helped me but just to get to next problem....
-> 
-> what I am trying to do is to receive frame using a packet handler, 
-> manipulate it and send a portion of it over a UDP channel. I am using 
-> sock_sendmsg. Things sort of work but I get some warnings while in 
-> net_tx_action (via the sendmsg I am guessing) about doing scheduling 
-> while in atomic and sometime the kernel simply completely crashes. All 
-> this probably means that using kernel socket functions cannot be used 
-> from any context.... Any suggestion on how to properly do this? 
-> Ultimately, I'd like to avoid copying the data so if I could simply send 
-> an skb to some UDP TX handler would be ideal but if not, what is the 
-> best approach?
-> 
+#arp -Ds 192.168.10.1 eth0 -i eth0 pub
 
-Write a netfilter module, it is easier to do what you are trying to
-do with iptables rules.
+so if i arping 192.168.10.1, eth0 will respond with it's MAC address.
+But if I add an ip address which is in the same subnet of the same
+interface then arping fails.
 
-> 
+#arp -Ds 192.168.100.10 eth0 -i eth0 pub
 
+then if I do arping 192.168.100.10, eth0 is NOT responding with its MAC.
 
--- 
+But this is my requirement that interface should respond with arp
+reply to any IP configured with "pub" flag. In kernel code
+/linux-2.6.24/net/ipv4/arp.c I added following code at line 814 in
+arp_process() unction.
+
+if(arp->ar_op == htons(ARPOP_REQUEST))
+    {
+        n = pneigh_lookup(&arp_tbl, &tip, dev, 0);
+        if(n){
+            printk(KERN_DEBUG "n->flags::%x\n",n->flags);
+            n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
+            printk(KERN_ERR "Neighbour\n");
+            if (n)
+                neigh_release(n);
+            printk(KERN_DEBUG "Neighbour release\n");
+            arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr,sha);
+            printk(KERN_DEBUG "Arp sent\n");
+            goto out;
+        }
+    }
+So that it will check whether it ARP request and any entry is there in
+the arp neibour table which maintains only published entries. Then
+only send the ARP reply.
+By this I can avoid checking route table for route entry for proxy arp
+ip and checking input and output interfaces are same or not because
+these are preventing sending arp reply for IPs which are in the subnet
+of same interface and IPs which are not in the subnet of any
+interface.
+Is this correct way?? Does it effect any other functionality of networking??
+
+Regards
+Koteswar
