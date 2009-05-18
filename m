@@ -1,94 +1,68 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
-Date: Mon, 18 May 2009 08:14:21 -0700
-Message-ID: <20090518151421.GB6768@linux.vnet.ibm.com>
-References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Matthias Andree" <matthias.andree@gmx.de>
+Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
+Date: Mon, 18 May 2009 17:34:29 +0200
+Message-ID: <op.ut4tjrlu1e62zd@balu.cs.uni-paderborn.de>
+References: <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
+ <200905092014.35642.elendil@planet.nl>
+ <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
+ <20090517.154137.104422195.davem@davemloft.net>
+ <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090518075630.GA10687@elte.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15;
+	format=flowed	delsp=yes
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: elendil@planet.nl, Netdev <netdev@vger.kernel.org>
+To: =?iso-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.gmx.net ([213.165.64.20]:46198 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751140AbZERPeb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2009 11:34:31 -0400
+In-Reply-To: <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2009 at 09:56:30AM +0200, Ingo Molnar wrote:
-> 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> > +void sched_expedited_wake(void *unused)
-> > +{
-> > +	mutex_lock(&__get_cpu_var(sched_expedited_done_mutex));
-> > +	if (__get_cpu_var(sched_expedited_done_qs) ==
-> > +	    SCHED_EXPEDITED_QS_DONE_QS) {
-> > +		__get_cpu_var(sched_expedited_done_qs) =
-> > +			SCHED_EXPEDITED_QS_NEED_QS;
-> > +		wake_up(&__get_cpu_var(sched_expedited_qs_wq));
-> > +	}
-> > +	mutex_unlock(&__get_cpu_var(sched_expedited_done_mutex));
-> > +}
-> 
-> ( hm, IPI handlers are supposed to be atomic. )
+Am 18.05.2009, 09:24 Uhr, schrieb Ilpo J=E4rvinen =20
+<ilpo.jarvinen@helsinki.fi>:
 
-<red face>
+> On Sun, 17 May 2009, David Miller wrote:
+>
+>> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+>> Date: Mon, 11 May 2009 09:32:34 +0300 (EEST)
+>>
+>> > [PATCH v2] tcp: fix MSG_PEEK race check
+>> >
+>> > Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
+>> > blocking behavior) lets the loop run longer than the race check
+>> > did previously expect, so we need to be more careful with this
+>> > check and consider the work we have been doing.
+>> >
+>> > I tried my best to deal with urg hole madness too which happens
+>> > here:
+>> > 	if (!sock_flag(sk, SOCK_URGINLINE)) {
+>> > 		++*seq;
+>> > 		...
+>> > by using additional offset by one but I certainly have very
+>> > little interest in testing that part.
+>> >
+>> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>> > Tested-by: Frans Pop <elendil@planet.nl>
+>>
+>> Ok, now that I've looked at this, the urg_hole part of this change h=
+as
+>> to be removed.
+>
+> Thanks for taking a look... :-) The first patch btw was with RFC and
+> without urg bits btw but you put that into some discarded like(?) sta=
+te =20
+> in patchwork... :-/
 
-> > +/*
-> > + * Kernel thread that processes synchronize_sched_expedited() requests.
-> > + * This is implemented as a separate kernel thread to avoid the need
-> > + * to mess with other tasks' cpumasks.
-> > + */
-> > +static int krcu_sched_expedited(void *arg)
-> > +{
-> > +	int cpu;
-> > +	int mycpu;
-> > +	int nwait;
-> > +
-> > +	do {
-> > +		wait_event_interruptible(need_sched_expedited_wq,
-> > +					 need_sched_expedited);
-> > +		smp_mb(); /* In case we didn't sleep. */
-> > +		if (!need_sched_expedited)
-> > +			continue;
-> > +		need_sched_expedited = 0;
-> > +		get_online_cpus();
-> > +		preempt_disable();
-> > +		mycpu = smp_processor_id();
-> > +		smp_call_function(sched_expedited_wake, NULL, 1);
-> > +		preempt_enable();
-> 
-> i might be missing something fundamental here, but why not just have 
-> per CPU helper threads, all on the same waitqueue, and wake them up 
-> via a single wake_up() call? That would remove the SMP cross call 
-> (wakeups do immediate cross-calls already).
+WRT the earlier patch, we have one more success report from one of the =
+=20
+users who reported the problem, namely Ian Zimmermann:
 
-My concern with this is that the cache misses accessing all the processes
-on this single waitqueue would be serialized, slowing things down.
-In contrast, the bitmask that smp_call_function() traverses delivers on
-the order of a thousand CPUs' worth of bits per cache miss.  I will give
-it a try, though.
+<http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=3D513695#155>
 
-> Even more - we already have a per-CPU, high RT priority helper 
-> thread that could be reused: the per CPU migration threads. Couldnt 
-> we queue these requests to them? RCU is arguably closely related to 
-> scheduling so there's no layering violation IMO.
-> 
-> There's already a struct migration_req machinery that performs 
-> something quite similar. (do work on behalf of another task, on a 
-> specific CPU, and then signal completion)
-> 
-> Also, per CPU workqueues have similar features as well.
-
-Good points!!!
-
-I will post a working patch using my current approach, then try out some
-of these approaches.
-
-							Thanx, Paul
+--=20
+Matthias Andree
