@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2.6.30] WiMAX pull request
-Date: Sun, 17 May 2009 21:14:54 -0700 (PDT)
-Message-ID: <20090517.211454.57013574.davem@davemloft.net>
-References: <cover.1242405228.git.inaky@linux.intel.com>
+Subject: Re: [PATCH] bonding: fix link down handling in 802.3ad mode
+Date: Sun, 17 May 2009 21:16:05 -0700 (PDT)
+Message-ID: <20090517.211605.119521245.davem@davemloft.net>
+References: <20090515114432.4025a2d6@nehalam>
+	<12527.1242416155@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
-To: inaky@linux.intel.com
+Cc: shemminger@vyatta.com, bonding-devel@lists.sf.net,
+	netdev@vger.kernel.org
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36504
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36508
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755776AbZEREO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 00:14:56 -0400
-In-Reply-To: <cover.1242405228.git.inaky@linux.intel.com>
+	by vger.kernel.org with ESMTP id S1751127AbZEREQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 00:16:07 -0400
+In-Reply-To: <12527.1242416155@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Date: Fri, 15 May 2009 12:07:32 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Fri, 15 May 2009 12:35:55 -0700
 
-> This patch fixes a device crash due to a bad optimization. It won't
-> crash the system, but just render the WiMAX device unusable on bad
-> radio link conditions. 
+> Stephen Hemminger <shemminger@vyatta.com> wrote:
 > 
-> The following changes since commit e1cc1c578055d20d36e084e324001fb5e0355a71:
->   David S. Miller (1):
->         Merge branch 'net-fixes' of git://git.kernel.org/.../chris/linux-2.6
+>>One of the purposes of bonding is to allow for redundant links, and failover 
+>>correctly if the cable is pulled. If all the members of a bonded device have
+>>no carrier present, the bonded device itself needs to report no carrier present
+>>to user space so management tools (like routing daemons) can respond.
+>>
+>>Bonding in 802.3ad mode does not work correctly for this because it incorrectly 
+>>chooses a link that is down as a possible aggregator.
+>>
+>>Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> are available in the git repository at:
+> 	Looks good.  I tested this after putting some printks in the agg
+> selection logic, and I don't see any undesirable side effects.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.30.y
-> 
-> Patches follow for reviewing convenience.
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Pulled, thanks!
+Applied, thanks everyone.
