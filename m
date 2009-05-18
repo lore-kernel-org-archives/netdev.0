@@ -1,61 +1,33 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/3] drivers/net: use dev_get_drvdata
-Date: Mon, 18 May 2009 09:38:16 +0800
-Message-ID: <1242610696.24825.462.camel@debian>
-References: <Pine.LNX.4.64.0905171128140.20440@pc-004.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: remove needless (now buggy) & from
+ dev->dev_addr (part2)
+Date: Sun, 17 May 2009 20:25:53 -0700 (PDT)
+Message-ID: <20090517.202553.234627593.davem@davemloft.net>
+References: <20090514103611.d8dc2bc6.sfr@canb.auug.org.au>
+	<20090517.140004.153017718.davem@davemloft.net>
+	<20090518103251.86bd3f41.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Chatre, Reinette" <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
-	<ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.0905171128140.20440-h8frIrHk2441Y/6SN6b7/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jpirko@redhat.com, netdev@vger.kernel.org, sachinp@in.ibm.com,
+	yjwei@cn.fujitsu.com
+To: sfr@canb.auug.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57989
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751771AbZERDZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 23:25:56 -0400
+In-Reply-To: <20090518103251.86bd3f41.sfr@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-05-17 at 17:28 +0800, Julia Lawall wrote:
-> 
-> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-> 
-> Eliminate direct accesses to the driver_data field.
-> cf 82ab13b26f15f49be45f15ccc96bfa0b81dfd015
-> 
-> The semantic patch that makes this change is as follows:
-> (http://www.emn.fr/x-info/coccinelle/)
-> 
-> // <smpl>
-> @@
-> struct device *dev;
-> expression E;
-> type T;
-> @@
-> 
-> - dev->driver_data = (T)E
-> + dev_set_drvdata(dev, E)
-> 
-> @@
-> struct device *dev;
-> type T;
-> @@
-> 
-> - (T)dev->driver_data
-> + dev_get_drvdata(dev)
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 18 May 2009 10:32:51 +1000
 
-Acked-by: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Though if you had put them into net-current and sent them to Linus (as
+> preemptive fixes) there would have been no bisection hole in Linus'
+> tree.  Just a minor point.
 
-Thanks,
--yi
+Indeed, in retrospect that might have been a better approach.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I will keep that in mind for similar future situations, thanks.
