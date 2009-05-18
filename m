@@ -1,66 +1,68 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Mon, 18 May 2009 21:05:41 +0200
-Message-ID: <20090518190541.GA3047@ami.dom.local>
-References: <20090517201528.GA8552@ami.dom.local> <20090518065629.GA6006@ff.dom.local> <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com> <20090518175352.GB2755@ami.dom.local> <298f5c050905181123o55c35e74n24cd4ee2c07d8fca@mail.gmail.com> <20090518183221.GC2755@ami.dom.local> <298f5c050905181156w2254fcb4p889d67e26fad6e6@mail.gmail.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: ipt_MASQUERADE weirdness (consuming CPU cycles while not used)
+Date: Mon, 18 May 2009 22:19:30 +0300
+Message-ID: <200905182219.30216.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Antonio Almeida <vexwek@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:64023 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423AbZERTHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 15:07:45 -0400
-Received: by bwz22 with SMTP id 22so3396781bwz.37
-        for <netdev@vger.kernel.org>; Mon, 18 May 2009 12:07:45 -0700 (PDT)
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <298f5c050905181156w2254fcb4p889d67e26fad6e6@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 18, 2009 at 07:56:12PM +0100, Antonio Almeida wrote:
-> Precise measurements:
-> 
-> 800 bytes:
-> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
-> 555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
-> 70901b/8 mpu 0b overhead 0b level 0
->  Sent 46793626324 bytes 57771194 pkt (dropped 29920019, overlimits 0 requeues 0)
->  rate 621714Kbit 97631pps backlog 0b 126p requeues 0
->  lended: 57771068 borrowed: 0 giants: 0
->  tokens: -8 ctokens: -8
-> 
-> 
-> 850 bytes:
-> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
-> 555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
-> 70901b/8 mpu 0b overhead 0b level 0
->  Sent 63422144616 bytes 77714246 pkt (dropped 41012275, overlimits 0 requeues 0)
->  rate 600699Kbit 88756pps backlog 0b 127p requeues 0
->  lended: 77714119 borrowed: 0 giants: 0
->  tokens: -11 ctokens: -11
-> 
-> 
-> 900 bytes:
-> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
-> 555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
-> 70901b/8 mpu 0b overhead 0b level 0
->  Sent 76868403562 bytes 92835297 pkt (dropped 48565133, overlimits 0 requeues 0)
->  rate 636195Kbit 88755pps backlog 0b 126p requeues 0
->  lended: 92835171 borrowed: 0 giants: 0
->  tokens: -7 ctokens: -7
-> 
-> 
-> If you need more values you're free to ask.
+I have loaded pppoe (1700 users). I test one rule for short time with -j 
+MASQUERADE, then removed it and reset conntrack (conntrack -F). But still i 
+can see it is consuming CPU even when it is not used in any rule. Even i 
+reboot server and just load rules that dont have MASQUERADE, and just load 
+module - it will start consuming CPU immediately.
 
-Since you're so kind... :-) There is a line in net/sched/sch_htb.c:
+Here is details:
 
-#define HTB_HYSTERESIS 1        /* whether to use mode hysteresis for speedup */
+Chain PREROUTING (policy ACCEPT 8232K packets, 473M bytes)
+ pkts bytes target     prot opt in     out     source               
+destination
+ 299K   32M ACCEPT     all  --  *      *       0.0.0.0/0            
+192.168.0.0/16
+ 161K   14M ACCEPT     all  --  *      *       0.0.0.0/0            
+194.146.152.0/22
+ 8396  811K ACCEPT     all  --  *      *       0.0.0.0/0            10.0.0.0/8
+ 445K  126M ACCEPT     all  --  *      *       0.0.0.0/0            
+172.16.0.0/16
+ 268K   17M ACCEPT     all  --  *      *       0.0.0.0/0            2.0.0.0/8
+ 914K   47M DNAT       tcp  --  *      *       0.0.0.0/0            0.0.0.0/0           
+tcp dpt:80 to:192.168.254.2-192.168.254.7:8080
+40206 2579K DNAT       udp  --  *      *       0.0.0.0/0           !1.2.3.4             
+udp dpt:53 to:1.2.3.4:53
 
-Could you change 1 to 0, and repeat these tests above after recompiling?
+Chain POSTROUTING (policy ACCEPT 534K packets, 159M bytes)
+ pkts bytes target     prot opt in     out     source               
+destination
+68011 7381K ACCEPT     all  --  *      *       0.0.0.0/0            
+194.146.XXX.XXX/22
+ 268K   18M ACCEPT     all  --  *      *       0.0.0.0/0            2.2.2.0/24
+1845K  119M SNAT       all  --  *      eth0    172.16.0.0/16        0.0.0.0/0           
+to:194.146.XXX.XXX
 
-More thanks,
-Jarek P.
+Chain OUTPUT (policy ACCEPT 97383 packets, 37M bytes)
+ pkts bytes target     prot opt in     out     source               
+destination
+
+
+defaulthost ~ # lsmod|grep MASQ
+ipt_MASQUERADE          2348  0
+
+Oprofile:
+
+samples  %        image name               app name                 symbol 
+name
+163475    9.5182  libc-2.9.so              
+libc-2.9.so              /lib/libc-2.9.so
+65095     3.7901  vmlinux                  vmlinux                  
+memory_open
+64811     3.7735  ipt_MASQUERADE           ipt_MASQUERADE           device_cmp
+57111     3.3252  e1000                    e1000                    e1000_intr
+55725     3.2445  e1000                    e1000                    
+e1000_clean
+
