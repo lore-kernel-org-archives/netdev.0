@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] bridge: fix initial packet flood if !STP
-Date: Sun, 17 May 2009 21:13:48 -0700 (PDT)
-Message-ID: <20090517.211348.115670295.davem@davemloft.net>
-References: <20090515091013.44b624d7@nehalam>
-	<20090515091158.55090cd0@nehalam>
+Subject: Re: [patch 2.6.30] WiMAX pull request
+Date: Sun, 17 May 2009 21:14:54 -0700 (PDT)
+Message-ID: <20090517.211454.57013574.davem@davemloft.net>
+References: <cover.1242405228.git.inaky@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
+To: inaky@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36498
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36504
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750950AbZERENu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 00:13:50 -0400
-In-Reply-To: <20090515091158.55090cd0@nehalam>
+	by vger.kernel.org with ESMTP id S1755776AbZEREO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 00:14:56 -0400
+In-Reply-To: <cover.1242405228.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 15 May 2009 09:11:58 -0700
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Date: Fri, 15 May 2009 12:07:32 -0700
 
-> If bridge is configured with no STP and forwarding delay of 0 (which
-> is typical for virtualization) then when link starts it will flood all
-> packets for the first 20 seconds. 
+> This patch fixes a device crash due to a bad optimization. It won't
+> crash the system, but just render the WiMAX device unusable on bad
+> radio link conditions. 
 > 
-> This bug was introduced by a combination of earlier changes:
->   * forwarding database uses hold time of zero to indicate 
->     user wants to always flood packets
->   * optimzation of the case of forwarding delay of 0 avoids the initial
->     timer tick
+> The following changes since commit e1cc1c578055d20d36e084e324001fb5e0355a71:
+>   David S. Miller (1):
+>         Merge branch 'net-fixes' of git://git.kernel.org/.../chris/linux-2.6
 > 
-> The fix is to just skip all the topology change detection code if
-> kernel STP is not being used.
+> are available in the git repository at:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.30.y
+> 
+> Patches follow for reviewing convenience.
 
-Also applied, thanks Stephen.
-
-To avoid confusion, I did apply these to net-2.6 since they
-are fixes.
-
-Thanks!
+Pulled, thanks!
