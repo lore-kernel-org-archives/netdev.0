@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: remove needless (now buggy) & from
- dev->dev_addr (part2)
-Date: Sun, 17 May 2009 20:25:53 -0700 (PDT)
-Message-ID: <20090517.202553.234627593.davem@davemloft.net>
-References: <20090514103611.d8dc2bc6.sfr@canb.auug.org.au>
-	<20090517.140004.153017718.davem@davemloft.net>
-	<20090518103251.86bd3f41.sfr@canb.auug.org.au>
+Subject: Re: [PATCH] netpoll: don't dereference NULL dev from np
+Date: Sun, 17 May 2009 20:38:17 -0700 (PDT)
+Message-ID: <20090517.203817.250076003.davem@davemloft.net>
+References: <4A07FFB3.70308@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org, sachinp@in.ibm.com,
-	yjwei@cn.fujitsu.com
-To: sfr@canb.auug.org.au
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57989
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55136
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751771AbZERDZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 23:25:56 -0400
-In-Reply-To: <20090518103251.86bd3f41.sfr@canb.auug.org.au>
+	by vger.kernel.org with ESMTP id S1752334AbZERDiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 23:38:19 -0400
+In-Reply-To: <4A07FFB3.70308@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 18 May 2009 10:32:51 +1000
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Mon, 11 May 2009 14:36:35 +0400
 
-> Though if you had put them into net-current and sent them to Linus (as
-> preemptive fixes) there would have been no bisection hole in Linus'
-> tree.  Just a minor point.
+> It looks like the dev in netpoll_poll can be NULL - at lease it's 
+> checked at the function beginning. Thus the dev->netde_ops dereference 
+> looks dangerous.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Indeed, in retrospect that might have been a better approach.
+Good catch, probably added by the netdev_ops changes.
 
-I will keep that in mind for similar future situations, thanks.
+Applied, thanks!
