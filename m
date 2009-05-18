@@ -1,124 +1,101 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: HTB accuracy for high speed
-Date: Mon, 18 May 2009 18:40:56 +0200
-Message-ID: <4A118F98.60101@cosmosbay.com>
-References: <298f5c050905150745p13dc226eia1ff50ffa8c4b300@mail.gmail.com> <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com> <20090516141430.GB3013@ami.dom.local>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Mon, 18 May 2009 17:54:18 +0100
+Message-ID: <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
+References: <20090517201528.GA8552@ami.dom.local>
+	 <20090518065629.GA6006@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Antonio Almeida <vexwek@gmail.com>, netdev@vger.kernel.org,
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
 	kaber@trash.net, davem@davemloft.net, devik@cdi.cz
 To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46901 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752164AbZERQlI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 12:41:08 -0400
-In-Reply-To: <20090516141430.GB3013@ami.dom.local>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:58160 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751258AbZERQyS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 12:54:18 -0400
+Received: by fxm2 with SMTP id 2so3361221fxm.37
+        for <netdev@vger.kernel.org>; Mon, 18 May 2009 09:54:18 -0700 (PDT)
+In-Reply-To: <20090518065629.GA6006@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
-> On Fri, May 15, 2009 at 03:49:31PM +0100, Antonio Almeida wrote:
-> ...
->> I also note that, for HTB rate configurations over 500Mbit/s on leaf
->> class, when I stop the traffic, in the output of "tc -s -d class ls
->> dev eth1" command, I see that leaf's rate (in bits/s) is growing
->> instead of decreasing (as expected since I've stopped the traffic).
->> Rate in pps is ok and decreases until 0pps. Rate in bits/s increases
->> above 1000Mbit and stays there for a few minutes. After two or three
->> minutes it becomes 0bit. The same happens for it's ancestors (also f=
-or
->> root class).Here's tc output of my leaf class for this situation:
->>
->> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
->> 555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
->> 70901b/8 mpu 0b overhead 0b level 0
->>  Sent 120267768144 bytes 242475339 pkt (dropped 62272599, overlimits=
- 0
->> requeues 0)
->>  rate 1074Mbit 0pps backlog 0b 0p requeues 0
->>  lended: 242475339 borrowed: 0 giants: 0
->>  tokens: 8 ctokens: 8
->=20
-> This looks like a regular bug. I guess it's an overflow in
-> gen_estimator(), but I'm not sure there is nothing more. Could you
-> try the patch below? (An offset warning when patching 2.6.25 is OK)
->=20
-> Thanks,
-> Jarek P.
+I'm not sure if I'm able to test this patch. What do you mean with
+"smallest sizes"? Are you talking about packet's size? What kind of
+sizes?
+When I feed my bridge with 950Mbits/s of packets with 800 bytes that
+is close to 150.000pps and CPUs start to get busy. For packets 100
+bytes long, 150.000pps would be close to 125Mbits/s and CPUs start to
+get busy already, so I'm not able to get close to 500Mbits/s. For
+rates near 125bits/s the bad accuracy is not so expressive. For
+packets of 100 bytes increasing analyser sent traffic, at some point
+is not HTB shaping but the CPU that can't process so many packets. I
+might misunderstood your point.
+
+I applied this tc_core.c patch and for packets of 800 bytes it had no
+effect in HTB accuracy with rates over 500Mbit.
+Anyway I also test it with packets of 100 bytes, generating 200Mbits,
+and the result is the same as without this patch:
+
+With the patch:
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+100000Kbit ceil 100000Kbit burst 14087b/8 mpu 0b overhead 0b cburst
+14087b/8 mpu 0b overhead 0b level 0
+ Sent 2187884640 bytes 22790465 pkt (dropped 8624566, overlimits 0 requ=
+eues 0)
+ rate 124946Kbit 162691pps backlog 0b 0p requeues 0
+ lended: 22790465 borrowed: 0 giants: 0
+ tokens: 180 ctokens: 180
+
+
+Without the patch:
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+100000Kbit ceil 100000Kbit burst 14087b/8 mpu 0b overhead 0b cburst
+14087b/8 mpu 0b overhead 0b level 0
+ Sent 1260235680 bytes 13127455 pkt (dropped 4531299, overlimits 0 requ=
+eues 0)
+ rate 124575Kbit 162207pps backlog 0b 0p requeues 0
+ lended: 13127455 borrowed: 0 giants: 0
+ tokens: 123 ctokens: 123
+
+
+Thanks
+  Antonio Almeida
+
+
+On Mon, May 18, 2009 at 7:56 AM, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+> Return non-zero tc_calc_xmittime() for rate tables
+>
+> While looking at the problem of HTB accuracy for high speed (~500Mbit
+> rates) I've found that rate tables have cells filled with zeros for
+> the smallest sizes. It means such packets aren't accounted at all.
+> Apart from the correctness of such configs, let's make it safe with
+> rather overaccounting than living it unlimited.
+>
+> Reported-by: Antonio Almeida <vexwek@gmail.com>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 > ---
->=20
->  net/core/gen_estimator.c |    6 +++++-
->  1 files changed, 5 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-> index 9cc9f95..87f0ced 100644
-> --- a/net/core/gen_estimator.c
-> +++ b/net/core/gen_estimator.c
-> @@ -127,7 +127,11 @@ static void est_timer(unsigned long arg)
->  		npackets =3D e->bstats->packets;
->  		rate =3D (nbytes - e->last_bytes)<<(7 - idx);
->  		e->last_bytes =3D nbytes;
-> -		e->avbps +=3D ((long)rate - (long)e->avbps) >> e->ewma_log;
-> +		if (rate > e->avbps)
-> +			e->avbps +=3D (rate - e->avbps) >> e->ewma_log;
-> +		else
-> +			e->avbps -=3D (e->avbps - rate) >> e->ewma_log;
-> +
->  		e->rate_est->bps =3D (e->avbps+0xF)>>5;
-> =20
->  		rate =3D (npackets - e->last_packets)<<(12 - idx);
-
-With a typical estimator "1sec 8sec", ewma_log value is 3
-
-At gigabit speeds, we are very close to overflow yes, since
-we only have 27 bits available, so 134217728 bytes per second
-or 1073741824 bits per second.
-
-So formula :
-e->avbps +=3D ((long)rate - (long)e->avbps) >> e->ewma_log;
-is going to overflow.
-
-One way to avoid the overflow would be to use a smaller estimator, like=
- "500ms 4sec"=20
-
-Or use a 64bits rate & avbps, this is needed fo 10Gb speeds I suppose..=
-=2E
-
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 9cc9f95..150e2f5 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -86,9 +86,9 @@ struct gen_estimator
- 	spinlock_t		*stats_lock;
- 	int			ewma_log;
- 	u64			last_bytes;
-+	u64			avbps;
- 	u32			last_packets;
- 	u32			avpps;
--	u32			avbps;
- 	struct rcu_head		e_rcu;
- 	struct rb_node		node;
- };
-@@ -115,6 +115,7 @@ static void est_timer(unsigned long arg)
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(e, &elist[idx].list, list) {
- 		u64 nbytes;
-+		u64 brate;
- 		u32 npackets;
- 		u32 rate;
-=20
-@@ -125,9 +126,9 @@ static void est_timer(unsigned long arg)
-=20
- 		nbytes =3D e->bstats->bytes;
- 		npackets =3D e->bstats->packets;
--		rate =3D (nbytes - e->last_bytes)<<(7 - idx);
-+		brate =3D (nbytes - e->last_bytes)<<(7 - idx);
- 		e->last_bytes =3D nbytes;
--		e->avbps +=3D ((long)rate - (long)e->avbps) >> e->ewma_log;
-+		e->avbps +=3D ((s64)(brate - e->avbps)) >> e->ewma_log;
- 		e->rate_est->bps =3D (e->avbps+0xF)>>5;
-=20
- 		rate =3D (npackets - e->last_packets)<<(12 - idx);
-
+>
+> =A0tc/tc_core.c | =A0 =A04 +++-
+> =A01 files changed, 3 insertions(+), 1 deletions(-)
+>
+> diff --git a/tc/tc_core.c b/tc/tc_core.c
+> index 9a0ff39..14f25bc 100644
+> --- a/tc/tc_core.c
+> +++ b/tc/tc_core.c
+> @@ -58,7 +58,9 @@ unsigned tc_core_ktime2time(unsigned ktime)
+>
+> =A0unsigned tc_calc_xmittime(unsigned rate, unsigned size)
+> =A0{
+> - =A0 =A0 =A0 return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)si=
+ze/rate));
+> + =A0 =A0 =A0 unsigned t;
+> + =A0 =A0 =A0 t =3D tc_core_time2tick(TIME_UNITS_PER_SEC*((double)siz=
+e/rate));
+> + =A0 =A0 =A0 return t ? : 1;
+> =A0}
+>
+> =A0unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
+>
