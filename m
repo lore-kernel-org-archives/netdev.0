@@ -1,40 +1,41 @@
-From: Gabriel Paubert <paubert@iram.es>
-Subject: [PATCH v2] Allow selecting mv643xx_eth on Pegasos again
-Date: Tue, 19 May 2009 01:21:13 +0200
-Message-ID: <20090518232113.GA18469@iram.es>
-References: <20090518173756.GA11805@iram.es> <598D5675D34BE349929AF5EDE9B03E2702C2D323@az33exm24.fsl.freescale.net> <20090518184752.GA12972@iram.es> <598D5675D34BE349929AF5EDE9B03E2702C2D3A5@az33exm24.fsl.freescale.net> <20090518221847.GA17348@iram.es> <598D5675D34BE349929AF5EDE9B03E2702C2D459@az33exm24.fsl.freescale.net>
+From: Vladimir Ivashchenko <hazard@francoudi.com>
+Subject: Re: HTB accuracy for high speed
+Date: Tue, 19 May 2009 02:27:47 +0300
+Message-ID: <1242689267.11814.1.camel@hazard2.francoudi.com>
+References: <298f5c050905150745p13dc226eia1ff50ffa8c4b300@mail.gmail.com>
+	 <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com>
+	 <20090516141430.GB3013@ami.dom.local>
+	 <298f5c050905180736m303f0c79ha30d3f791222fa1b@mail.gmail.com>
+	 <1242688479.9558.60.camel@hazard2.francoudi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, tbm@cyrius.com,
-	LinuxPPC <linuxppc-dev@ozlabs.org>, pacman@kosh.dhis.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Medve Emilian-EMMEDVE1 <Emilian.Medve@freescale.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz, Antonio Almeida <vexwek@gmail.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gra-lx1.iram.es ([150.214.224.41]:51651 "EHLO gra-lx1.iram.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951AbZERXV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2009 19:21:28 -0400
-Content-Disposition: inline
-In-Reply-To: <598D5675D34BE349929AF5EDE9B03E2702C2D459@az33exm24.fsl.freescale.net>
+Received: from cerber.thunderworx.net ([217.27.32.18]:3833 "EHLO
+	cerber.thunderworx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbZERX16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 19:27:58 -0400
+In-Reply-To: <1242688479.9558.60.camel@hazard2.francoudi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since PPC_MUTIPLATFORM was removed, it was impossible to select the
-driver for mv643xx_eth on the Pegasos. Fix it and take the opportunity
-to remove the stale MV64360 config option.
 
-Signed-off-by: Gabriel Paubert <paubert@iram.es>
+> With bond + HFSC + sfq, I'm able to reach the speed. It doesn't seem to
+> overspill with 580 mbps load. Jarek, would your patches help with HSFC
+> overspill ? I will check tomorrow under 750 mbps load. 
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 214a92d..aff4f8c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2351,7 +2351,7 @@ config UGETH_TX_ON_DEMAND
- 
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32) || PLAT_ORION
-+	depends on MV64X60 || PPC32 || PLAT_ORION
- 	select INET_LRO
- 	select PHYLIB
- 	help
+Please disregard my comment about HFSC. It still overspills heavily.
+
+On a 400 mbps limit, I'm getting 520 mbps actual throughput.
+
+-- 
+Best Regards,
+Vladimir Ivashchenko
+Chief Technology Officer
+PrimeTel PLC, Cyprus - www.prime-tel.com
+Tel: +357 25 100100 Fax: +357 2210 2211
+
+
