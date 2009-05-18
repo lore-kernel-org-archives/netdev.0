@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: [IGB 2.6.29.3 bug] Re: WARNING at dev_disable_lro when enabling
- ip_forward
-Date: Mon, 18 May 2009 15:35:31 -0700 (PDT)
-Message-ID: <20090518.153531.126023429.davem@davemloft.net>
-References: <20090519010147.772f0bff@vingilot.sergknet>
+Subject: Re: [PATCH 1/1] be2net: add two new pci device ids to pci device
+ table
+Date: Mon, 18 May 2009 15:38:13 -0700 (PDT)
+Message-ID: <20090518.153813.187765090.davem@davemloft.net>
+References: <20090518100807.GA22855@serverengines.com>
+	<20090518.114302.134669848.davem@davemloft.net>
+	<20090518223344.GA25192@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: sergk@sergk.org.ua
+Cc: netdev@vger.kernel.org
+To: ajitk@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49274
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49279
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753583AbZERWfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 18:35:33 -0400
-In-Reply-To: <20090519010147.772f0bff@vingilot.sergknet>
+	by vger.kernel.org with ESMTP id S1754367AbZERWiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 18:38:15 -0400
+In-Reply-To: <20090518223344.GA25192@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergey Kononenko <sergk@sergk.org.ua>
-Date: Tue, 19 May 2009 01:01:47 +0300
+From: Ajit Khaparde <ajitk@serverengines.com>
+Date: Tue, 19 May 2009 04:03:46 +0530
 
-> I have system with two Intel 82575EB 1Gb/s NICs and two Intel 82598EB
-> 10Gb/s NICs (motherboard Supermicro X7DWU). I'm using kernel 2.6.29.3
-> with compiled in drivers for both types of NICs with LRO enabled:
-> CONFIG_INET_LRO=y
-> CONFIG_IGB=y
-> CONFIG_IGB_LRO=y
-> CONFIG_IGB_DCA=y
-> CONFIG_IXGBE=y
-> CONFIG_IXGBE_DCA=y
-> 
-> After boot process is completed according to ethtool LRO is disabled on igb
-> and enabled on ixgbe. After I'm trying to turn on forwarding by
-> sysctl -w net.ipv4.ip_forward=1 I get following in dmesg:
+> David, thanks for the reply. There is a slight sense of urgency to see this 
+> patch in the upstream kernel. Hence I am sending this patch which I have
+> spun again - against the net-2.6 tree. Please accept. I hope it applies this
+> time.
 
-The problem is that the IGB driver in 2.6.29.3 is buggy, it supports
-LRO but does not hook up a ->set_flags ethtool_ops function.  That's
-why this warning triggers.
+I'll apply this to net-2.6 sure, but I wasn't saying this
+patch didn't apply correctly.
 
-It should be pretty easy to fix, since there is a generic
-implementation provided in net/core/ethtool.c, and IXGB properly
-hooks up this method as well.
+I was talking about the patch that moved the NAPI stuff out the TX
+work stuff in this driver.  That's the patch that wouldn't apply
+correctly.
+
+This one:
+
+	http://patchwork.ozlabs.org/patch/27312/
