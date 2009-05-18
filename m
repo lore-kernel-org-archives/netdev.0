@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] bridge: relay bridge multicast pkgs if !STP
-Date: Sun, 17 May 2009 21:13:26 -0700 (PDT)
-Message-ID: <20090517.211326.88138889.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] bridge: fix initial packet flood if !STP
+Date: Sun, 17 May 2009 21:13:48 -0700 (PDT)
+Message-ID: <20090517.211348.115670295.davem@davemloft.net>
 References: <20090515091013.44b624d7@nehalam>
+	<20090515091158.55090cd0@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55180
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36498
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750775AbZEREN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 00:13:28 -0400
-In-Reply-To: <20090515091013.44b624d7@nehalam>
+	by vger.kernel.org with ESMTP id S1750950AbZERENu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 00:13:50 -0400
+In-Reply-To: <20090515091158.55090cd0@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 15 May 2009 09:10:13 -0700
+Date: Fri, 15 May 2009 09:11:58 -0700
 
-> Currently the bridge catches all STP packets; even if STP is turned
-> off.  This prevents other systems (which do have STP turned on)
-> from being able to detect loops in the network.
+> If bridge is configured with no STP and forwarding delay of 0 (which
+> is typical for virtualization) then when link starts it will flood all
+> packets for the first 20 seconds. 
 > 
-> With this patch, if STP is off, then any packet sent to the STP
-> multicast group address is forwarded to all ports.
+> This bug was introduced by a combination of earlier changes:
+>   * forwarding database uses hold time of zero to indicate 
+>     user wants to always flood packets
+>   * optimzation of the case of forwarding delay of 0 avoids the initial
+>     timer tick
 > 
-> Based on earlier patch by Joakim Tjernlund with changes
-> to go through forwarding (not local chain), and optimization
-> that only last octet needs to be checked.
+> The fix is to just skip all the topology change detection code if
+> kernel STP is not being used.
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied.
+Also applied, thanks Stephen.
+
+To avoid confusion, I did apply these to net-2.6 since they
+are fixes.
+
+Thanks!
