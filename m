@@ -1,68 +1,66 @@
-From: "Matthias Andree" <matthias.andree@gmx.de>
-Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 18 May 2009 17:34:29 +0200
-Message-ID: <op.ut4tjrlu1e62zd@balu.cs.uni-paderborn.de>
-References: <Pine.LNX.4.64.0905070931590.12068@wrl-59.cs.helsinki.fi>
- <200905092014.35642.elendil@planet.nl>
- <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
- <20090517.154137.104422195.davem@davemloft.net>
- <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.30-rc6: Reported regressions from 2.6.29
+Date: Mon, 18 May 2009 08:32:18 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0905180819130.3301@localhost.localdomain>
+References: <_AjETDMbIoL.A.DcH.RYzDKB@chimera> <20090517073327.GC1583@elte.hu>
+	<20090518145725.GB18607@redhat.com> <20090518151102.GA6241@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15;
-	format=flowed	delsp=yes
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: elendil@planet.nl, Netdev <netdev@vger.kernel.org>
-To: =?iso-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:46198 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751140AbZERPeb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2009 11:34:31 -0400
-In-Reply-To: <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@kernel.org>, DRI <dri-devel@lists.sourceforge.net>,
+        Linux SCSI List <linux-scsi@vger.kernel.org>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        Kumar Gala <galak@kernel.crashing.org>,
+        Natalie Protasevich <protasnb@gmail.com>, Martin Bammer <mrb74@gmx.at>,
+        Linux ACPI <linux-acpi@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Oleg Nesterov <oleg@redhat.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kernel Testers List <kernel-testers@vger.kernel.org>,
+        Jeff Garzik <jgarzik@pobox.com>,
+        Linux PM List <linux-pm@lists.linux-foundation.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <20090518151102.GA6241@elte.hu>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Am 18.05.2009, 09:24 Uhr, schrieb Ilpo J=E4rvinen =20
-<ilpo.jarvinen@helsinki.fi>:
 
-> On Sun, 17 May 2009, David Miller wrote:
->
->> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
->> Date: Mon, 11 May 2009 09:32:34 +0300 (EEST)
->>
->> > [PATCH v2] tcp: fix MSG_PEEK race check
->> >
->> > Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
->> > blocking behavior) lets the loop run longer than the race check
->> > did previously expect, so we need to be more careful with this
->> > check and consider the work we have been doing.
->> >
->> > I tried my best to deal with urg hole madness too which happens
->> > here:
->> > 	if (!sock_flag(sk, SOCK_URGINLINE)) {
->> > 		++*seq;
->> > 		...
->> > by using additional offset by one but I certainly have very
->> > little interest in testing that part.
->> >
->> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
->> > Tested-by: Frans Pop <elendil@planet.nl>
->>
->> Ok, now that I've looked at this, the urg_hole part of this change h=
-as
->> to be removed.
->
-> Thanks for taking a look... :-) The first patch btw was with RFC and
-> without urg bits btw but you put that into some discarded like(?) sta=
-te =20
-> in patchwork... :-/
 
-WRT the earlier patch, we have one more success report from one of the =
-=20
-users who reported the problem, namely Ian Zimmermann:
+On Mon, 18 May 2009, Ingo Molnar wrote:
+> 
+> Btw., why did the patch (and the revert) make any difference to the 
+> test? Timing differences look improbable.
 
-<http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=3D513695#155>
+It's the change from
 
---=20
-Matthias Andree
+	!signal_group_exit(signal)
+
+to
+
+	!sig_kernel_only(signr)
+
+and quite frankly, I still don't see the point.
+
+The comment seems to be wrong too:
+
+    If SIGSTOP/SIGKILL originate from a descendant of container-init they are
+    never queued (i.e dropped in sig_ignored() in an earler patch).
+    
+    If SIGSTOP/SIGKILL originate from parent namespace, the signal is queued
+    and container-init processes the signal.
+
+since the bug was that the SIGSTOP (from within the same container) was 
+_not_ ignored like the comment says.
+
+			Linus
