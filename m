@@ -1,67 +1,75 @@
-From: Gabriel Paubert <paubert@iram.es>
-Subject: Re: [PATCH] Allow selecting mv643xx_eth on Pegasos again
-Date: Mon, 18 May 2009 20:47:52 +0200
-Message-ID: <20090518184752.GA12972@iram.es>
-References: <20090518173756.GA11805@iram.es> <598D5675D34BE349929AF5EDE9B03E2702C2D323@az33exm24.fsl.freescale.net>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Mon, 18 May 2009 19:56:12 +0100
+Message-ID: <298f5c050905181156w2254fcb4p889d67e26fad6e6@mail.gmail.com>
+References: <20090517201528.GA8552@ami.dom.local>
+	 <20090518065629.GA6006@ff.dom.local>
+	 <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
+	 <20090518175352.GB2755@ami.dom.local>
+	 <298f5c050905181123o55c35e74n24cd4ee2c07d8fca@mail.gmail.com>
+	 <20090518183221.GC2755@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, tbm@cyrius.com,
-	LinuxPPC <linuxppc-dev@ozlabs.org>, pacman@kosh.dhis.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Medve Emilian-EMMEDVE1 <Emilian.Medve@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gra-lx1.iram.es ([150.214.224.41]:40589 "EHLO gra-lx1.iram.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751605AbZERSsF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2009 14:48:05 -0400
-Content-Disposition: inline
-In-Reply-To: <598D5675D34BE349929AF5EDE9B03E2702C2D323@az33exm24.fsl.freescale.net>
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:53900 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396AbZERS4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 14:56:12 -0400
+Received: by fxm2 with SMTP id 2so3426221fxm.37
+        for <netdev@vger.kernel.org>; Mon, 18 May 2009 11:56:12 -0700 (PDT)
+In-Reply-To: <20090518183221.GC2755@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2009 at 10:48:58AM -0700, Medve Emilian-EMMEDVE1 wrote:
-> > -----Original Message-----
-> > From: linuxppc-dev-bounces+emilian.medve=freescale.com@ozlabs.org
-> [mailto:linuxppc-dev-
-> > bounces+emilian.medve=freescale.com@ozlabs.org] On Behalf Of Gabriel
-> Paubert
-> > Sent: Monday, May 18, 2009 12:38 PM
-> > To: Lennert Buytenhek
-> > Cc: tbm@cyrius.com; LinuxPPC; pacman@kosh.dhis.org;
-> netdev@vger.kernel.org; David Miller
-> > Subject: [PATCH] Allow selecting mv643xx_eth on Pegasos again
-> > 
-> > Since PPC_MUTIPLATFORM was removed, it was impossible to select the
-> > driver for mv643xx_eth on the Pegasos. Fix by allowing to select
-> > the driver on CHRP platforms; Pegasos is a CHRP platform and the
-> driver
-> > will not work without arch/powerpc/platforms/chrp/pegasos_eth.
-> > 
-> > Signed-off-by: Gabriel Paubert <paubert@iram.es>
-> > 
-> > diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> > index 214a92d..6fc0ff4 100644
-> > --- a/drivers/net/Kconfig
-> > +++ b/drivers/net/Kconfig
-> > @@ -2351,7 +2351,7 @@ config UGETH_TX_ON_DEMAND
-> > 
-> >  config MV643XX_ETH
-> >  	tristate "Marvell Discovery (643XX) and Orion ethernet support"
-> > -	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32) ||
-> PLAT_ORION
-> > +	depends on MV64X60 || PPC_CHRP || PLAT_ORION
-> >  	select INET_LRO
-> >  	select PHYLIB
-> >  	help
-> 
-> This got fixed here:
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commi
-> tdiff;h=952ee9df26c487f2d73b2dced58ec904f19ea0f8
+Precise measurements:
 
-Ok, I was not aware of it, but the fact is that MV64360 no more exists
-and the only non MV64X60 platform that may need it is the Pegasos (to my
-knowledge) and it relies on some platform specific code enabled
-by PPC_CHRP.
+800 bytes:
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+70901b/8 mpu 0b overhead 0b level 0
+ Sent 46793626324 bytes 57771194 pkt (dropped 29920019, overlimits 0 requeues 0)
+ rate 621714Kbit 97631pps backlog 0b 126p requeues 0
+ lended: 57771068 borrowed: 0 giants: 0
+ tokens: -8 ctokens: -8
 
-	Regards,
-	Gabriel
+
+850 bytes:
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+70901b/8 mpu 0b overhead 0b level 0
+ Sent 63422144616 bytes 77714246 pkt (dropped 41012275, overlimits 0 requeues 0)
+ rate 600699Kbit 88756pps backlog 0b 127p requeues 0
+ lended: 77714119 borrowed: 0 giants: 0
+ tokens: -11 ctokens: -11
+
+
+900 bytes:
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+70901b/8 mpu 0b overhead 0b level 0
+ Sent 76868403562 bytes 92835297 pkt (dropped 48565133, overlimits 0 requeues 0)
+ rate 636195Kbit 88755pps backlog 0b 126p requeues 0
+ lended: 92835171 borrowed: 0 giants: 0
+ tokens: -7 ctokens: -7
+
+
+If you need more values you're free to ask.
+
+  Antonio Almeida
+
+
+On Mon, May 18, 2009 at 7:32 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> On Mon, May 18, 2009 at 07:23:14PM +0100, Antonio Almeida wrote:
+>> Here's my .config
+>
+> Hmm... And if it's not a big problem I'd also ask you to try this test
+> with 555000Kbit rate for 850 and 900 byte packets. (It can wait.)
+>
+> Thanks again,
+> Jarek P.
+>
