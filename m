@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: tcp_prequeue() can use keyed wakeups
-Date: Sun, 17 May 2009 20:45:16 -0700 (PDT)
-Message-ID: <20090517.204516.101149899.davem@davemloft.net>
-References: <1242178490.11389.20.camel@merlyn>
-	<4A0A3E5A.6040702@cosmosbay.com>
-	<1242227107.7145.13.camel@Maple>
+Subject: Re: [PATCH] bnx2: bnx2_tx_int() optimizations
+Date: Sun, 17 May 2009 20:48:10 -0700 (PDT)
+Message-ID: <20090517.204810.15778716.davem@davemloft.net>
+References: <4A0A6D22.5060007@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: john.dykstra1@gmail.com
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56716
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56722
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753621AbZERDpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 23:45:19 -0400
-In-Reply-To: <1242227107.7145.13.camel@Maple>
+	by vger.kernel.org with ESMTP id S1754456AbZERDsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2009 23:48:13 -0400
+In-Reply-To: <4A0A6D22.5060007@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Wed, 13 May 2009 10:05:07 -0500
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 13 May 2009 08:48:02 +0200
 
-> On Wed, 2009-05-13 at 05:28 +0200, Eric Dumazet wrote:
+> When using bnx2 in a high transmit load, bnx2_tx_int() cost is pretty high.
+ ...
+> This patch :
 > 
->> To see a benefit of this patch, we would need two threads, one blocked
->> in a recv(),
->> one blocked in a send() on same socket (or a poll/epoll user with same
->> bi-directional trafic)
+> 1) avoids calling bnx2_get_hw_tx_cons(bnapi) too many times.
 > 
-> Agreed.
+> 2) makes bnx2_start_xmit() cache is_gso & nr_frags into sw_tx_bd descriptor.
+>    This uses a litle bit more ram (256 longs per device on x86), but helps a lot.
+> 
+> 3) uses a prefetch(&skb->end) to speedup dev_kfree_skb(), bringing
+>   cache line that will be needed in skb_release_data()
+> 
+> 
+> result is 5 % bandwidth increase in benchmarks, involving UDP or TCP receive
+>  & transmits, when a cpu is dedicated to ksoftirqd for bnx2.
+> 
+> bnx2_tx_int going from 3.33 % cpu to 0.5 % cpu in oprofile
+> 
+> Note : skb_dma_unmap() still very expensive but this is for another patch, 
+> not related to bnx2 (2.9 % of cpu, while it does nothing on x86_32)
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-I've applied this to net-next-2.6, thanks.
+Looks great, I've applied this, thanks Eric!
