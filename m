@@ -1,81 +1,225 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 18 May 2009 15:04:33 -0700 (PDT)
-Message-ID: <20090518.150433.92463181.davem@davemloft.net>
-References: <Pine.LNX.4.64.0905110926520.10047@wrl-59.cs.helsinki.fi>
-	<20090517.154137.104422195.davem@davemloft.net>
-	<Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
+From: matthieu castet <castet.matthieu@free.fr>
+Subject: [PATCH] bc47xx : fix ssb irq setup
+Date: Tue, 19 May 2009 00:06:12 +0200
+Message-ID: <4A11DBD4.7070706@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: elendil@planet.nl, matthias.andree@gmx.de, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: multipart/mixed;
+ boundary="------------070905000205050605070600"
+Cc: Daniel Mueller <daniel@danm.de>
+To: linux-mips@linux-mips.org, Michael Buesch <mb@bu3sch.de>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46804
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752393AbZERWEg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2009 18:04:36 -0400
-In-Reply-To: <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:39224 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753733AbZERWGV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2009 18:06:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 18 May 2009 10:24:23 +0300 (EEST)
+This is a multi-part message in MIME format.
+--------------070905000205050605070600
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Sorry, I'm not sure you thought this fully through here. What my patc=
-h=20
-> with urg_hole does is that it keeps peek_seq non-advancing using the=20
-> offsets. Now without the urg offsetting, the peek_seq side of the rac=
-e=20
-> check advances, which means that we didn't catch the race when it hap=
-pened=20
-> for real as copied_seq advanced too?!?
+Hi,
 
-I see now what the situation is, thanks for explaining.
+the current ssb irq setup (in ssb_mipscore_init) have some problem :
+it configure some device on some irq without checking that the irq is 
+not taken by an other device.
 
-You're account for the "*seq" advance for URG that happens in
-tcp_recvmsg() rather than the one that happens in tcp_check_urg().
+For example in my case PCI host is on irq 0 and IPSEC on irq 3.
+The current code :
+- store in dev->irq that IPSEC irq is 3+2
+- do a set_irq 0->3 on PCI host
 
-> From another perspective when the race didn't happen but potential fo=
-r it=20
-> existed, the current check should catch that since peek_seq advanced =
-and=20
-> copied_seq stayed where it was. But that certainly doesn't match to y=
-our=20
-> description above.
+But now IPSEC irq is not routed anymore to the mips code and dev->irq is 
+wrong. This cause problem described in [1].
 
-Right.
+This patch try to solve the problem by making set_irq configure the 
+device we want to take the irq on the shared irq0.
+The previous example become :
+- store in dev->irq that IPSEC irq is 3+2
+- do a set_irq 0->3 on PCI host :
+   - irq 3 is already taken by IPSEC. do a set_irq 3->0 on IPSEC
 
-> I wonder why all this fuzz about this particular race as we will do o=
-ur=20
-> best anyway to skip the hole on MSG_PEEK side (if I read the code rig=
-ht)?=20
-> Either we never see the hole in MSG_PEEK side, or we're happily past =
-it=20
-> already, does it make any difference anymore in the latter case? <ins=
-ert=20
-> some "not that I fully understand all of that multipage function"=20
-> disclaimer here though, I may think too simple scenarios here>. Not t=
-hat=20
-> I'm too interested in "improving" urg or so anywa, I'm just curious..=
-=2E :-)
 
-A long long time ago we had an assertion here checking whether
-->copied_seq moved without our knowledge.  Alexey and I found this
-could trigger and investigation of that is what helped us
-find the tcp_check_urg()+MSG_PEEK case.  That's when we added this
-test and log message.
+I also added some code to print the irq configuration before and after 
+irq setup to allow easier debugging. And I add extra checking in 
+ssb_mips_irq to report device without irq or device with not routed irq.
 
-When the MSG_PEEK test existing in the !copied if() branch of
-tcp_recvmsg(), so many of these code paths we are dealing with in this
-fix could simply not be reached when MSG_PEEK.  That ++*seq could
-never happen, because if "copied" was non-zero and MSG_PEEK was true
-we would leave the loop and return from tcp_recvmsg() immediately.
 
-Now, we have to accomodate those adjustments.
+[1] http://www.danm.de/files/src/bcm5365p/REPORTED_DEVICES
 
-Since I now understand your urg_hole code I'm going to apply your v2
-patch which takes care of the URG stuff.  I also buy the argument that
-perhaps we should get rid of the log message, but look at how it
-helped us find this kernel regression :-)
+Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
+
+--------------070905000205050605070600
+Content-Type: text/x-diff;
+ name="bcm47xx_fix_irq_setup.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="bcm47xx_fix_irq_setup.diff"
+
+diff --git a/drivers/ssb/driver_mipscore.c b/drivers/ssb/driver_mipscore.c
+index 3fd3e3b..6acf43f 100644
+--- a/drivers/ssb/driver_mipscore.c
++++ b/drivers/ssb/driver_mipscore.c
+@@ -49,29 +49,54 @@ static const u32 ipsflag_irq_shift[] = {
+ 
+ static inline u32 ssb_irqflag(struct ssb_device *dev)
+ {
+-	return ssb_read32(dev, SSB_TPSFLAG) & SSB_TPSFLAG_BPFLAG;
++	u32 tpsflag = ssb_read32(dev, SSB_TPSFLAG);
++	if (tpsflag)
++		return ssb_read32(dev, SSB_TPSFLAG) & SSB_TPSFLAG_BPFLAG;
++	else
++		/* not irq supported */
++		return 0x3f;
++}
++
++static struct ssb_device *find_device(struct ssb_device *rdev, int irqflag)
++{
++	struct ssb_bus *bus = rdev->bus;
++	int i;
++	for (i = 0; i < bus->nr_devices; i++) {
++		struct ssb_device *dev;
++		dev = &(bus->devices[i]);
++		if (ssb_irqflag(dev) == irqflag)
++			return dev;
++	}
++	return NULL;
+ }
+ 
+ /* Get the MIPS IRQ assignment for a specified device.
+  * If unassigned, 0 is returned.
++ * If disabled, 5 is returned.
++ * If not supported, 6 is returned.
+  */
+ unsigned int ssb_mips_irq(struct ssb_device *dev)
+ {
+ 	struct ssb_bus *bus = dev->bus;
++	struct ssb_device *mdev = bus->mipscore.dev;
+ 	u32 irqflag;
+ 	u32 ipsflag;
+ 	u32 tmp;
+ 	unsigned int irq;
+ 
+ 	irqflag = ssb_irqflag(dev);
++	if (irqflag == 0x3f)
++		return 6;
+ 	ipsflag = ssb_read32(bus->mipscore.dev, SSB_IPSFLAG);
+ 	for (irq = 1; irq <= 4; irq++) {
+ 		tmp = ((ipsflag & ipsflag_irq_mask[irq]) >> ipsflag_irq_shift[irq]);
+ 		if (tmp == irqflag)
+ 			break;
+ 	}
+-	if (irq	== 5)
+-		irq = 0;
++	if (irq	== 5) {
++		if ((1 << irqflag) & ssb_read32(mdev, SSB_INTVEC))
++			irq = 0;
++	}
+ 
+ 	return irq;
+ }
+@@ -97,25 +122,56 @@ static void set_irq(struct ssb_device *dev, unsigned int irq)
+ 	struct ssb_device *mdev = bus->mipscore.dev;
+ 	u32 irqflag = ssb_irqflag(dev);
+ 
++	BUG_ON(oldirq == 6);
++
+ 	dev->irq = irq + 2;
+ 
+-	ssb_dprintk(KERN_INFO PFX
+-		    "set_irq: core 0x%04x, irq %d => %d\n",
+-		    dev->id.coreid, oldirq, irq);
+ 	/* clear the old irq */
+ 	if (oldirq == 0)
+ 		ssb_write32(mdev, SSB_INTVEC, (~(1 << irqflag) & ssb_read32(mdev, SSB_INTVEC)));
+-	else
++	else if (oldirq != 5)
+ 		clear_irq(bus, oldirq);
+ 
+ 	/* assign the new one */
+ 	if (irq == 0) {
+ 		ssb_write32(mdev, SSB_INTVEC, ((1 << irqflag) | ssb_read32(mdev, SSB_INTVEC)));
+ 	} else {
++		u32 ipsflag = ssb_read32(mdev, SSB_IPSFLAG);
++		if ((ipsflag & ipsflag_irq_mask[irq]) != ipsflag_irq_mask[irq]) {
++			u32 oldipsflag = (ipsflag & ipsflag_irq_mask[irq]) >> ipsflag_irq_shift[irq];
++			struct ssb_device *olddev = find_device(dev, oldipsflag);
++			if (olddev)
++				set_irq(olddev, 0);
++		}
+ 		irqflag <<= ipsflag_irq_shift[irq];
+-		irqflag |= (ssb_read32(mdev, SSB_IPSFLAG) & ~ipsflag_irq_mask[irq]);
++		irqflag |= (ipsflag & ~ipsflag_irq_mask[irq]);
+ 		ssb_write32(mdev, SSB_IPSFLAG, irqflag);
+ 	}
++	ssb_dprintk(KERN_INFO PFX
++		    "set_irq: core 0x%04x, irq %d => %d\n",
++		    dev->id.coreid, oldirq+2, irq+2);
++}
++
++static void print_irq(struct ssb_device *dev, unsigned int irq)
++{
++	int i;
++	static const char *irq_name[] = {"2(S)", "3", "4", "5", "6", "D", "I"};
++	ssb_dprintk(KERN_INFO PFX
++		"core 0x%04x, irq :", dev->id.coreid);
++	for (i = 0; i <= 6; i++) {
++		ssb_dprintk(" %s%s", irq_name[i], i==irq?"*":" ");
++	}
++	ssb_dprintk("\n");
++}
++
++static void dump_irq(struct ssb_bus *bus)
++{
++	int i;
++	for (i = 0; i < bus->nr_devices; i++) {
++		struct ssb_device *dev;
++		dev = &(bus->devices[i]);
++		print_irq(dev, ssb_mips_irq(dev));
++	}
+ }
+ 
+ static void ssb_mips_serial_init(struct ssb_mipscore *mcore)
+@@ -195,18 +251,26 @@ void ssb_mipscore_init(struct ssb_mipscore *mcore)
+ 	else if (bus->chipco.dev)
+ 		ssb_chipco_timing_init(&bus->chipco, ns);
+ 
++	dump_irq(bus);
+ 	/* Assign IRQs to all cores on the bus, start with irq line 2, because serial usually takes 1 */
+ 	for (irq = 2, i = 0; i < bus->nr_devices; i++) {
++		int mips_irq;
+ 		dev = &(bus->devices[i]);
+-		dev->irq = ssb_mips_irq(dev) + 2;
++		mips_irq = ssb_mips_irq(dev);
++		if (mips_irq > 4)
++			dev->irq = 0;
++		else
++			dev->irq = mips_irq + 2;
++		if (dev->irq > 5)
++			continue;
+ 		switch (dev->id.coreid) {
+ 		case SSB_DEV_USB11_HOST:
+ 			/* shouldn't need a separate irq line for non-4710, most of them have a proper
+ 			 * external usb controller on the pci */
+ 			if ((bus->chip_id == 0x4710) && (irq <= 4)) {
+ 				set_irq(dev, irq++);
+-				break;
+ 			}
++			break;
+ 			/* fallthrough */
+ 		case SSB_DEV_PCI:
+ 		case SSB_DEV_ETHERNET:
+@@ -220,6 +284,8 @@ void ssb_mipscore_init(struct ssb_mipscore *mcore)
+ 			}
+ 		}
+ 	}
++	ssb_dprintk(KERN_INFO PFX "after irq reconfiguration\n");
++	dump_irq(bus);
+ 
+ 	ssb_mips_serial_init(mcore);
+ 	ssb_mips_flash_detect(mcore);
+
+--------------070905000205050605070600--
