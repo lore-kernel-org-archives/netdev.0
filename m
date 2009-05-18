@@ -1,37 +1,21 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
-Date: Mon, 18 May 2009 18:41:28 -0400
-Message-ID: <20090518224128.GA11912@tuxdriver.com>
-References: <4A11DCBF.9000700@free.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5] sit: Fail to create tunnel, if it already exists
+Date: Mon, 18 May 2009 15:48:06 -0700 (PDT)
+Message-ID: <20090518.154806.174728278.davem@davemloft.net>
+References: <1242396760-30568-1-git-send-email-contact@saschahlusiak.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, Michael Buesch <mb@bu3sch.de>,
-	netdev@vger.kernel.org
-To: matthieu castet <castet.matthieu@free.fr>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: contact@saschahlusiak.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52012 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754280AbZERWpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 18:45:15 -0400
-Content-Disposition: inline
-In-Reply-To: <4A11DCBF.9000700@free.fr>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32803
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752690AbZERWsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 18:48:08 -0400
+In-Reply-To: <1242396760-30568-1-git-send-email-contact@saschahlusiak.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 12:10:07AM +0200, matthieu castet wrote:
-> Hi,
->
-> this patch export ssb_watchdog_timer_set to allow to use it in a Linux  
-> watchdog driver.
->
->
-> Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
 
-What is the merge path for ssb nowadays?  I used to take these patches
-(and I'm still happy to do so), but maybe Ralf is (or should be)
-taking them now?
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+All 5 patches applied to net-next-2.6, thanks.
