@@ -1,66 +1,52 @@
-From: Koteswar - Pandu <koti.kelam@gmail.com>
-Subject: proxy arp using "pub" flag
-Date: Mon, 18 May 2009 12:11:22 +0530
-Message-ID: <e4855a0905172341j1a1a5f7dw698d5eec56ae0056@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Mon, 18 May 2009 06:56:29 +0000
+Message-ID: <20090518065629.GA6006@ff.dom.local>
+References: <20090517201528.GA8552@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Antonio Almeida <vexwek@gmail.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.237]:49128 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbZERGlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 02:41:21 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so1550052rvb.1
-        for <netdev@vger.kernel.org>; Sun, 17 May 2009 23:41:22 -0700 (PDT)
+Received: from yw-out-2324.google.com ([74.125.46.29]:58409 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754044AbZERG4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 02:56:39 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so1871078ywb.1
+        for <netdev@vger.kernel.org>; Sun, 17 May 2009 23:56:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090517201528.GA8552@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-I am using linux-2.6.24 kernel. And I am trying to test proxy arp in
-my linux box. My linux box is having 3 interfaces with ip addresses
-192.168.100.254(eth0), 192.168.10.254(eth1), 192.168.20.254(eth3).
-I added arp proxy entry on eth0 as
+Return non-zero tc_calc_xmittime() for rate tables
 
-#arp -Ds 192.168.10.1 eth0 -i eth0 pub
+While looking at the problem of HTB accuracy for high speed (~500Mbit
+rates) I've found that rate tables have cells filled with zeros for
+the smallest sizes. It means such packets aren't accounted at all.
+Apart from the correctness of such configs, let's make it safe with
+rather overaccounting than living it unlimited.
 
-so if i arping 192.168.10.1, eth0 will respond with it's MAC address.
-But if I add an ip address which is in the same subnet of the same
-interface then arping fails.
+Reported-by: Antonio Almeida <vexwek@gmail.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-#arp -Ds 192.168.100.10 eth0 -i eth0 pub
+ tc/tc_core.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-then if I do arping 192.168.100.10, eth0 is NOT responding with its MAC.
-
-But this is my requirement that interface should respond with arp
-reply to any IP configured with "pub" flag. In kernel code
-/linux-2.6.24/net/ipv4/arp.c I added following code at line 814 in
-arp_process() unction.
-
-if(arp->ar_op == htons(ARPOP_REQUEST))
-    {
-        n = pneigh_lookup(&arp_tbl, &tip, dev, 0);
-        if(n){
-            printk(KERN_DEBUG "n->flags::%x\n",n->flags);
-            n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
-            printk(KERN_ERR "Neighbour\n");
-            if (n)
-                neigh_release(n);
-            printk(KERN_DEBUG "Neighbour release\n");
-            arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr,sha);
-            printk(KERN_DEBUG "Arp sent\n");
-            goto out;
-        }
-    }
-So that it will check whether it ARP request and any entry is there in
-the arp neibour table which maintains only published entries. Then
-only send the ARP reply.
-By this I can avoid checking route table for route entry for proxy arp
-ip and checking input and output interfaces are same or not because
-these are preventing sending arp reply for IPs which are in the subnet
-of same interface and IPs which are not in the subnet of any
-interface.
-Is this correct way?? Does it effect any other functionality of networking??
-
-Regards
-Koteswar
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index 9a0ff39..14f25bc 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -58,7 +58,9 @@ unsigned tc_core_ktime2time(unsigned ktime)
+ 
+ unsigned tc_calc_xmittime(unsigned rate, unsigned size)
+ {
+-	return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
++	unsigned t;
++	t = tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
++	return t ? : 1;
+ }
+ 
+ unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
