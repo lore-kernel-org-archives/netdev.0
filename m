@@ -1,55 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB accuracy for high speed
-Date: Tue, 19 May 2009 11:03:11 +0000
-Message-ID: <20090519110311.GA5521@ff.dom.local>
-References: <298f5c050905150745p13dc226eia1ff50ffa8c4b300@mail.gmail.com> <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com> <20090516141430.GB3013@ami.dom.local> <298f5c050905180736m303f0c79ha30d3f791222fa1b@mail.gmail.com> <1242688479.9558.60.camel@hazard2.francoudi.com> <1242689267.11814.1.camel@hazard2.francoudi.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Tue, 19 May 2009 14:04:50 +0300
+Message-ID: <200905191404.50464.denys@visp.net.lb>
+References: <20090517201528.GA8552@ami.dom.local> <20090518190541.GA3047@ami.dom.local> <298f5c050905190355r1594b51ex7a7f3d452cc9c059@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	devik@cdi.cz, Antonio Almeida <vexwek@gmail.com>
-To: Vladimir Ivashchenko <hazard@francoudi.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz, Eric Dumazet <dada1@cosmosbay.com>
+To: Antonio Almeida <vexwek@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:11966 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbZESLDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 07:03:19 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so1225504wah.21
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 04:03:20 -0700 (PDT)
+Received: from hosting.visp.net.lb ([194.146.153.11]:41587 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbZESLFD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 07:05:03 -0400
+In-Reply-To: <298f5c050905190355r1594b51ex7a7f3d452cc9c059@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <1242689267.11814.1.camel@hazard2.francoudi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 02:27:47AM +0300, Vladimir Ivashchenko wrote:
-> 
-> > With bond + HFSC + sfq, I'm able to reach the speed. It doesn't seem to
-> > overspill with 580 mbps load. Jarek, would your patches help with HSFC
-> > overspill ? I will check tomorrow under 750 mbps load. 
+On Tuesday 19 May 2009 13:55:43 Antonio Almeida wrote:
+> Doesn't seem to make any diference seting HTB_HYSTERESIS to 0. Here're
+> the values using #define HTB_HYSTERESIS 0
+>
+> 800 bytes:
+> class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+> 555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+> 70901b/8 mpu 0b overhead 0b level 0
+>  Sent 9773257752 bytes 12277962 pkt (dropped 6292541, overlimits 0 requeues
+> 0) rate 621796Kbit 97644pps backlog 0b 127p requeues 0
+>  lended: 12277835 borrowed: 0 giants: 0
+>  tokens: -7 ctokens: -7
+6292541 dropped from 12277962 pkt, means 51% dropped. Maybe something fishy 
+here?
 
-The gen_estimator patch should fix only the effect of rising rate
-after flow stop, and maybe similar overflows while reporting rates
-around 1Gbit. It would show on tc stats of HFSC or HTB, but doesn't
-affect actual scheduling rates.
+Can you try instead of SFQ - BFIFO? For 100ms buffer, 550Mbit/s it will be 
+~6875000 bytes bfifo.
 
-The iproute2 tc_core patch can matter for HTB scheduling rates if
-there are a lot of small packets (e.g. 100 byte for rate 500Mbit)
-possibly mixed with bigger ones. It doesn't matter for HFSC or
-rates <100Mbit.
+It is by the way too short, IMHO, for this bandwidth, 127 packets is not 
+enough. 127 packets with 800 bytes can buffer 1 second for 812Kbit/s only, 
+and for 550Mbit/s it will buffer data for ~2ms only.
 
-> Please disregard my comment about HFSC. It still overspills heavily.
-> 
-> On a 400 mbps limit, I'm getting 520 mbps actual throughput.
 
-I guess you should send some logs. Your previous report seem to show
-the sum of sc rates of of children could be too high. You seem to
-expect the parent's sc and ul should limit this, but actually children
-rates decide and parent's rates are mainly for lending/borrowing (at
-least in HTB). So, it would be nice to try with one leaf class first,
-(similarly to Antonio) how high rates are respected.
-
-High drop should be OK if the flow is much faster than scheduling/
-hardware send rate. It could be a bit higher than in older kernels
-because of limited requeuing, but this could be corrected with
-longer queue lenghts (sfq has a very short queue: max 127).
-
-Jarek P.
