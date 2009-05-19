@@ -1,52 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: reduce number of reference taken on sk_refcnt
-Date: Mon, 18 May 2009 21:58:23 -0700 (PDT)
-Message-ID: <20090518.215823.98238538.davem@davemloft.net>
-References: <4A067D9E.7050706@cosmosbay.com>
-	<4A0685A0.8020002@cosmosbay.com>
-	<4A06B064.9080801@cosmosbay.com>
+Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
+Date: Mon, 18 May 2009 22:09:11 -0700 (PDT)
+Message-ID: <20090518.220911.102225532.davem@davemloft.net>
+References: <1242068453-5124-1-git-send-email-hong.pham@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org, satoru.satoh@gmail.com
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org, matheos.worku@sun.com
+To: hong.pham@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54469
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42289
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752060AbZESE6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 00:58:25 -0400
-In-Reply-To: <4A06B064.9080801@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1752792AbZESFJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 01:09:13 -0400
+In-Reply-To: <1242068453-5124-1-git-send-email-hong.pham@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sun, 10 May 2009 12:45:56 +0200
+From: "Hong H. Pham" <hong.pham@windriver.com>
+Date: Mon, 11 May 2009 15:00:52 -0400
 
-> Patch follows for RFC only (not Signed-of...), and based on net-next-2.6 
+> I've tracked down a hang on a SPARC64 system (a Netra T5220 with 64 strands)
+> whenever the NIU is handling lots of receive traffic.  The hang is
+> reproducible by running iperf with multiple TCP streams (eg. iperf -P16 ...),
+> with the SPARC box being the listener.
+> 
+> I've found that it's possible for an RX DMA interrupt to be triggered
+> while NAPI is in progress.  When this happens, spurious interrupts will
+> keep being regenerated which will cause the CPU to hang.  It's too busy
+> servicing the spurious interrupts, and the NIU NAPI handler (or anything
+> else on that CPU) never gets a chance to run.
+> 
+> In niu_schedule_napi(), if the logical device interrupt is unconditionally
+> masked out by calling __niu_fastpath_interrupt(), the hang goes away.
 
-Thanks for the analysis.
+Thanks for tracking down this problem, but I want to understand
+why this even happens.  As far as I can tell it shouldn't.
 
-> @@ -922,10 +922,13 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
->  	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
->  		wake_up_interruptible_poll(sk->sk_sleep,
->  					   POLLIN | POLLRDNORM | POLLRDBAND);
-> -		if (!inet_csk_ack_scheduled(sk))
-> +		if (!inet_csk_ack_scheduled(sk)) {
-> +			unsigned int delay = (3 * tcp_rto_min(sk)) / 4;
-> +
-> +			delay = min(inet_csk(sk)->icsk_ack.ato, delay);
->  			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
-> -						  (3 * tcp_rto_min(sk)) / 4,
-> -						  TCP_RTO_MAX);
-> +						  delay, TCP_RTO_MAX);
-> +		}
->  	}
->  	return 1;
+When we are done polling, the order of events is:
 
-I think this code is trying to aggressively stretch the ACK when
-prequeueing.  In order to make sure there is enough time to get
-the process on the CPU and send a response, and thus piggyback
-the ACK.
+1) unmask LDG interrupt(s)
+2) napi_complete()
+3) rearm LDG interrupt(s)
 
-If that turns out not to really matter, or matter less than your
-problem, then we can make your change and I'm all for it.
+The interrupts should not be sent again until that rearm operation,
+which is after NAPI is completed.  So the condition you are hitting
+does not seem possible.
+
+Matheos, can the chip violate this?  If an RX event is reported
+in an LDG, it is masked, and then unmaked the interrupt should
+not appear until the LDG is also rearmed right?
