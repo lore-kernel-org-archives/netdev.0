@@ -1,86 +1,82 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] cleanup: remove unused parameter from fill
-	method in fib_rules_ops.
-Date: Tue, 19 May 2009 15:54:26 +0300
-Message-ID: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: HTB accuracy for high speed
+Date: Tue, 19 May 2009 14:08:50 +0100
+Message-ID: <298f5c050905190608q442d0c81l19b1aa4e579a259@mail.gmail.com>
+References: <298f5c050905150745p13dc226eia1ff50ffa8c4b300@mail.gmail.com>
+	 <298f5c050905150749s3597328dr8dd15adbd7a37532@mail.gmail.com>
+	 <20090515111227.7fc758cd@nehalam>
+	 <298f5c050905180301s1c4ffdb2p61a155668eb39bd2@mail.gmail.com>
+	 <20090518091314.06bf60d2@nehalam> <20090518150234.0f57b263@nehalam>
+	 <298f5c050905190448g2cb0d26ft405a0b85a2f93d6a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174beb3a2f9630046a436951
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jarkao2@gmail.com, kaber@trash.net,
+	davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f224.google.com ([209.85.219.224]:40743 "EHLO
-	mail-ew0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223AbZESMy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 08:54:26 -0400
-Received: by ewy24 with SMTP id 24so4826523ewy.37
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 05:54:26 -0700 (PDT)
+Received: from yx-out-2324.google.com ([74.125.44.28]:56048 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753990AbZESNIt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 09:08:49 -0400
+Received: by yx-out-2324.google.com with SMTP id 3so2385215yxj.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2009 06:08:50 -0700 (PDT)
+In-Reply-To: <298f5c050905190448g2cb0d26ft405a0b85a2f93d6a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174beb3a2f9630046a436951
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Do I have that TSC problem?
 
-Hi,
-
-The netlink message header (struct nlmsghdr) is an unused parameter in
-fill method of fib_rules_ops struct.
-This patch removes this parameter from this method and fixes the places
-where this method is called.
-
-(include/net/fib_rules.h)
-
-
-
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---0015174beb3a2f9630046a436951
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuwlqlhf0
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
-bGVzLmgKaW5kZXggYjliNjMzOS4uY2E0YjJlOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
-X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTU0LDcgKzU0LDYgQEAg
-c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJICAgc3RydWN0IGZpYl9ydWxlX2hkciAqLAogCQkJ
-CQkgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmZpbGwpKHN0cnVjdCBmaWJfcnVsZSAq
-LCBzdHJ1Y3Qgc2tfYnVmZiAqLAotCQkJCQlzdHJ1Y3Qgbmxtc2doZHIgKiwKIAkJCQkJc3RydWN0
-IGZpYl9ydWxlX2hkciAqKTsKIAl1MzIJCQkoKmRlZmF1bHRfcHJlZikoc3RydWN0IGZpYl9ydWxl
-c19vcHMgKm9wcyk7CiAJc2l6ZV90CQkJKCpubG1zZ19wYXlsb2FkKShzdHJ1Y3QgZmliX3J1bGUg
-Kik7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWJfcnVsZXMuYyBiL25ldC9jb3JlL2ZpYl9ydWxl
-cy5jCmluZGV4IDE3ZDlmNDkuLmJkMzA5MzggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpYl9ydWxl
-cy5jCisrKyBiL25ldC9jb3JlL2ZpYl9ydWxlcy5jCkBAIC01MDAsNyArNTAwLDcgQEAgc3RhdGlj
-IGludCBmaWJfbmxfZmlsbF9ydWxlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBmaWJfcnVs
-ZSAqcnVsZSwKIAlpZiAocnVsZS0+dGFyZ2V0KQogCQlOTEFfUFVUX1UzMihza2IsIEZSQV9HT1RP
-LCBydWxlLT50YXJnZXQpOwogCi0JaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIG5saCwgZnJoKSA8
-IDApCisJaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIGZyaCkgPCAwKQogCQlnb3RvIG5sYV9wdXRf
-ZmFpbHVyZTsKIAogCXJldHVybiBubG1zZ19lbmQoc2tiLCBubGgpOwpkaWZmIC0tZ2l0IGEvbmV0
-L2RlY25ldC9kbl9ydWxlcy5jIGIvbmV0L2RlY25ldC9kbl9ydWxlcy5jCmluZGV4IGEyNjkwYjEu
-LmJkYTc5ZTQgMTAwNjQ0Ci0tLSBhL25ldC9kZWNuZXQvZG5fcnVsZXMuYworKysgYi9uZXQvZGVj
-bmV0L2RuX3J1bGVzLmMKQEAgLTE5Miw3ICsxOTIsNyBAQCB1bnNpZ25lZCBkbmV0X2FkZHJfdHlw
-ZShfX2xlMTYgYWRkcikKIH0KIAogc3RhdGljIGludCBkbl9maWJfcnVsZV9maWxsKHN0cnVjdCBm
-aWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgICBzdHJ1Y3Qgbmxtc2do
-ZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgIAkJCQkJCQkJICBzdHJ1
-Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJc3RydWN0IGRuX2ZpYl9ydWxlICpyID0gKHN0cnVj
-dCBkbl9maWJfcnVsZSAqKXJ1bGU7CiAKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ZpYl9ydWxlcy5j
-IGIvbmV0L2lwdjQvZmliX3J1bGVzLmMKaW5kZXggMzg5MDRiZS4uYjg5YmFmMyAxMDA2NDQKLS0t
-IGEvbmV0L2lwdjQvZmliX3J1bGVzLmMKKysrIGIvbmV0L2lwdjQvZmliX3J1bGVzLmMKQEAgLTIw
-OSw3ICsyMDksNyBAQCBzdGF0aWMgaW50IGZpYjRfcnVsZV9jb21wYXJlKHN0cnVjdCBmaWJfcnVs
-ZSAqcnVsZSwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoLAogfQogCiBzdGF0aWMgaW50IGZpYjRf
-cnVsZV9maWxsKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJ
-CSAgc3RydWN0IG5sbXNnaGRyICpubGgsIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCkKKwkJCSAg
-CQkJCQkJCQkJc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQogewogCXN0cnVjdCBmaWI0X3J1bGUg
-KnJ1bGU0ID0gKHN0cnVjdCBmaWI0X3J1bGUgKikgcnVsZTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lw
-djYvZmliNl9ydWxlcy5jIGIvbmV0L2lwdjYvZmliNl9ydWxlcy5jCmluZGV4IGUxYTM2ZGIuLmU0
-MTlmZmQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2ZpYjZfcnVsZXMuYworKysgYi9uZXQvaXB2Ni9m
-aWI2X3J1bGVzLmMKQEAgLTIxMSw3ICsyMTEsNyBAQCBzdGF0aWMgaW50IGZpYjZfcnVsZV9jb21w
-YXJlKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoLAogfQog
-CiBzdGF0aWMgaW50IGZpYjZfcnVsZV9maWxsKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0
-IHNrX2J1ZmYgKnNrYiwKLQkJCSAgc3RydWN0IG5sbXNnaGRyICpubGgsIHN0cnVjdCBmaWJfcnVs
-ZV9oZHIgKmZyaCkKKwkJCSAgCQkJCQkJCQkJc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQogewog
-CXN0cnVjdCBmaWI2X3J1bGUgKnJ1bGU2ID0gKHN0cnVjdCBmaWI2X3J1bGUgKikgcnVsZTsKIAo=
---0015174beb3a2f9630046a436951--
+On Tue, May 19, 2009 at 12:48 PM, Antonio Almeida <vexwek@gmail.com> wr=
+ote:
+>> Are you using one of the AMD dual core machines? =A0That processor h=
+as the bad
+>> design flaw that the TSC counter is not synced between core's so the=
+ kernel can't
+>> use it. You might even be better off running a non SMP kernel on tha=
+t box.
+>
+> My machine has two dual cores AMD Opteron processor 280. Do I have
+> that TSC problem.
+>
+>
+> # dmesg | grep AMD
+> OEM ID: AMD =A0 =A0 =A0Product ID: HAMMER =A0 =A0 =A0 APIC at: 0xFEE0=
+0000
+> CPU0: AMD Dual Core AMD Opteron(tm) Processor 280 stepping 02
+> CPU1: AMD Dual Core AMD Opteron(tm) Processor 280 stepping 02
+> CPU2: AMD Dual Core AMD Opteron(tm) Processor 280 stepping 02
+> CPU3: AMD Dual Core AMD Opteron(tm) Processor 280 stepping 02
+>
+>
+> processor =A0 =A0 =A0 : 0
+> vendor_id =A0 =A0 =A0 : AuthenticAMD
+> cpu family =A0 =A0 =A0: 15
+> model =A0 =A0 =A0 =A0 =A0 : 33
+> model name =A0 =A0 =A0: Dual Core AMD Opteron(tm) Processor 280
+> stepping =A0 =A0 =A0 =A0: 2
+> cpu MHz =A0 =A0 =A0 =A0 : 2394.039
+> cache size =A0 =A0 =A0: 1024 KB
+> physical id =A0 =A0 : 0
+> siblings =A0 =A0 =A0 =A0: 2
+> core id =A0 =A0 =A0 =A0 : 0
+> cpu cores =A0 =A0 =A0 : 2
+> fdiv_bug =A0 =A0 =A0 =A0: no
+> hlt_bug =A0 =A0 =A0 =A0 : no
+> f00f_bug =A0 =A0 =A0 =A0: no
+> coma_bug =A0 =A0 =A0 =A0: no
+> fpu =A0 =A0 =A0 =A0 =A0 =A0 : yes
+> fpu_exception =A0 : yes
+> cpuid level =A0 =A0 : 1
+> wp =A0 =A0 =A0 =A0 =A0 =A0 =A0: yes
+> flags =A0 =A0 =A0 =A0 =A0 : fpu vme de pse tsc msr pae mce cx8 apic s=
+ep mtrr pge
+> mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext
+> fxsr_opt lm 3dnowext 3dnow pni lahf_lm cmp_legacy ts fid vid ttp
+> bogomips =A0 =A0 =A0 =A0: 4790.36
+> clflush size =A0 =A0: 64
+>
+>
+> =A0Antonio Almeida
+>
